@@ -88,7 +88,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed *pb.J
 	return myRT.Result, myRT.Err
 }
 
-// Mdl returns the associated model
-func (ik *CombinedIK) Mdl() *Model {
+// Model returns the associated model
+func (ik *CombinedIK) Model() *Model {
 	return ik.model
 }

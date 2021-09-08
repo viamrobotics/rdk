@@ -217,12 +217,12 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 			},
 		}
 		if c.Pose != nil {
-			cc.Frame.Translate = config.Translation{
+			cc.Frame.Translation = config.Translation{
 				X: c.Pose.X,
 				Y: c.Pose.Y,
 				Z: c.Pose.Z,
 			}
-			cc.Frame.Orient = config.Orientation{
+			cc.Frame.Orientation = config.Orientation{
 				X:  c.Pose.OX,
 				Y:  c.Pose.OY,
 				Z:  c.Pose.OZ,

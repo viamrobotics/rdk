@@ -238,8 +238,8 @@ func (ik *NloptIK) SetSeed(seed int64) {
 	ik.randSeed = rand.New(rand.NewSource(seed))
 }
 
-// Mdl returns the associated model
-func (ik *NloptIK) Mdl() *Model {
+// Model returns the associated model
+func (ik *NloptIK) Model() *Model {
 	return ik.model
 }
 

@@ -85,13 +85,13 @@ func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigRes
 		if c.Frame != nil {
 			cc.Parent = c.Frame.Parent
 			cc.Pose = &pb.ArmPosition{
-				X:     c.Frame.Translate.X,
-				Y:     c.Frame.Translate.Y,
-				Z:     c.Frame.Translate.Z,
-				OX:    c.Frame.Orient.X,
-				OY:    c.Frame.Orient.Y,
-				OZ:    c.Frame.Orient.Z,
-				Theta: c.Frame.Orient.TH,
+				X:     c.Frame.Translation.X,
+				Y:     c.Frame.Translation.Y,
+				Z:     c.Frame.Translation.Z,
+				OX:    c.Frame.Orientation.X,
+				OY:    c.Frame.Orientation.Y,
+				OZ:    c.Frame.Orientation.Z,
+				Theta: c.Frame.Orientation.TH,
 			}
 		}
 		resp.Components = append(resp.Components, cc)
