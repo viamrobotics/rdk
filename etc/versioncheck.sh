@@ -112,11 +112,12 @@ do
 		then
 			VERSION="dev"
 		fi
-	if verminmax $VERSION ${BINARY[1]} ${BINARY[2]}
-	then
-		echo "OK: ${BINARY[0]} $VERSION"
-	else
-		echo "Fail: ${BINARY[0]} version ($VERSION) is outside expected range: ${BINARY[1]} - ${BINARY[2]}"
+
+		if verminmax $VERSION ${BINARY[1]} ${BINARY[2]}
+		then
+			echo "OK: ${BINARY[0]} $VERSION"
+		else
+			echo "Fail: ${BINARY[0]} version ($VERSION) is outside expected range: ${BINARY[1]} - ${BINARY[2]}"
 			ALL_GOOD=0
 		fi
 	else
@@ -132,11 +133,12 @@ do
 	if pkg-config ${LIBRARY[0]} > /dev/null
 	then
 		VERSION=`pkg-config --modversion ${LIBRARY[0]} 2>&1 | grep -Eo '[0-9]*\.[0-9\.]*'`
-	if verminmax $VERSION ${LIBRARY[1]} ${LIBRARY[2]}
-	then
-		echo "OK: ${LIBRARY[0]} library $VERSION"
-	else
-		echo "Fail: ${LIBRARY[0]} library version ($VERSION) is outside expected range: ${LIBRARY[1]} - ${LIBRARY[2]}"
+
+		if verminmax $VERSION ${LIBRARY[1]} ${LIBRARY[2]}
+		then
+			echo "OK: ${LIBRARY[0]} library $VERSION"
+		else
+			echo "Fail: ${LIBRARY[0]} library version ($VERSION) is outside expected range: ${LIBRARY[1]} - ${LIBRARY[2]}"
 			ALL_GOOD=0
 		fi
 	else
