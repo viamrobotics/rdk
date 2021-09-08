@@ -29,7 +29,7 @@ func TestStaticFrame(t *testing.T) {
 	test.That(t, max, test.ShouldResemble, []float64{})
 }
 
-func TestPrimaticFrame(t *testing.T) {
+func TestPrismaticFrame(t *testing.T) {
 	// define a prismatic transform
 	min, max := []float64{0, -30, 0}, []float64{0, 30, 0}
 	frame := &prismaticFrame{"test", []bool{false, true, false}, min, max} // can only move on y axis
