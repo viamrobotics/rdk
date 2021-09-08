@@ -60,7 +60,7 @@ func TestSimpleFrameTranslation(t *testing.T) {
 	test.That(t, transformPoint1, test.ShouldResemble, pointFrame)
 
 	// transform point from frame to world
-	transformPoint2, err := fs.TransformPoint(blankPos, pointFrame, fs.GetFrame("frame"), fs.GetFrame("world"))
+	transformPoint2, err := fs.TransformPoint(blankPos, pointFrame, fs.GetFrame("frame"), fs.GetFrame(World))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint2, test.ShouldResemble, pointWorld)
 }
@@ -87,7 +87,7 @@ func TestSimpleFrameTranslationWithRotation(t *testing.T) {
 	test.That(t, transformPoint1.Z, test.ShouldAlmostEqual, pointFrame.Z)
 
 	// transform point from frame to world
-	transformPoint2, err := fs.TransformPoint(blankPos, pointFrame, fs.GetFrame("frame"), fs.GetFrame("world"))
+	transformPoint2, err := fs.TransformPoint(blankPos, pointFrame, fs.GetFrame("frame"), fs.GetFrame(World))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint2, test.ShouldResemble, pointWorld)
 }

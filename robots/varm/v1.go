@@ -228,7 +228,7 @@ func (a *ArmV1) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(a.ik.Mdl(), joints)
+	return kinematics.ComputePosition(a.ik.Model(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.

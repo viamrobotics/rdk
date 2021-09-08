@@ -94,7 +94,7 @@ func (e *eva) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(e.ik.Mdl(), joints)
+	return kinematics.ComputePosition(e.ik.Model(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.

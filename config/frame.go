@@ -18,7 +18,7 @@ type Orientation struct {
 
 // FrameConfig the pose and parent of the frame that will be created.
 type FrameConfig struct {
-	Parent    string      `json:"parent"`
+	Parent      string      `json:"parent"`
 	Translation Translation `json:"translation"`
 	Orientation Orientation `json:"orientation"`
 }
