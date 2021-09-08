@@ -38,9 +38,7 @@ type simpleFrameSystem struct {
 // NewEmptySimpleFrameSystem creates a graph of Frames that have
 func NewEmptySimpleFrameSystem(name string) FrameSystem {
 	worldFrame := NewStaticFrame("world", nil)
-	frames := map[string]Frame{}
-	parents := map[Frame]Frame{}
-	return &simpleFrameSystem{name, worldFrame, frames, parents}
+	return &simpleFrameSystem{name, worldFrame, map[string]Frame{}, map[Frame]Frame{}}
 }
 
 // World returns the base world frame
@@ -99,11 +97,11 @@ func (sfs *simpleFrameSystem) checkName(name string, parent Frame) error {
 	}
 	// check to see if parent is in system
 	if !sfs.frameExists(parent.Name()) {
-		return fmt.Errorf("parent frame with name %s not in FrameSystem", parent.Name())
+		return fmt.Errorf("parent frame with name %q not in frame system", parent.Name())
 	}
 	// check if frame with that name is already in system
 	if sfs.frameExists(name) {
-		return fmt.Errorf("frame with name %s already in FrameSystem", name)
+		return fmt.Errorf("frame with name %q already in frame system", name)
 	}
 	return nil
 }

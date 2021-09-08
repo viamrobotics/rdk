@@ -55,7 +55,7 @@ type staticFrame struct {
 	transform spatial.Pose
 }
 
-// NewStaticFrame creates a frame given a Pose relative to its parent. The Pose is fixed for all time.
+// NewStaticFrame creates a frame given a pose relative to its parent. The pose is fixed for all time.
 // Pose is allowed to be nil.
 func NewStaticFrame(name string, pose spatial.Pose) Frame {
 	if pose == nil {
@@ -76,7 +76,7 @@ func (sf *staticFrame) Name() string {
 	return sf.name
 }
 
-// Transform application takes you FROM current frame TO Parent frame. Rotation+Translation expressed in the form of a dual quaternion.
+// Transform returns the pose associated with this static frame.
 func (sf *staticFrame) Transform(inp []Input) (spatial.Pose, error) {
 	if len(inp) != 0 {
 		return nil, fmt.Errorf("given input length %q does not match frame dof 0", len(inp))
@@ -111,7 +111,7 @@ func (pf *prismaticFrame) Name() string {
 	return pf.name
 }
 
-// Transform application takes you FROM current frame TO Parent frame. Rotation+Translation expressed in the form of a dual quaternion.
+// Transform returns a pose translated by the amount specified in the inputs.
 func (pf *prismaticFrame) Transform(input []Input) (spatial.Pose, error) {
 	var err error
 	if len(input) != pf.dofInt() {
