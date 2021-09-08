@@ -251,9 +251,9 @@ func SensorLookup(sensorType sensor.Type, model string) *SensorRegistration {
 	return nil
 }
 
-// ComponentFrameFunction returns the FrameCreate function and a true bool if a frame is registered for the given component.
+// FrameLookup returns the FrameCreate function and a true bool if a frame is registered for the given component.
 // Otherwise it returns nil and false.
-func ComponentFrameFunction(comp *config.Component) (CreateFrame, bool) {
+func FrameLookup(comp *config.Component) (CreateFrame, bool) {
 	switch comp.Type {
 	case config.ComponentTypeProvider:
 		registration := ProviderLookup(comp.Model)
