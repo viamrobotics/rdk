@@ -2738,7 +2738,7 @@
       "engines": {
         "javascript": {
           "libquickjs.wasm": {
-            "hash": "947f1df6e07aa3e14184ade34ce9c11d",
+            "hash": "e7225ce7c9137a576b27247f0f1b1036",
             "size": 5613311
           }
         }

@@ -8,6 +8,7 @@ import (
 
 // A Value represents some scalar/array/map type.
 type Value interface {
+	Type() ValueType
 	String() (string, error)
 	MustString() string
 	Stringer() string
@@ -36,6 +37,10 @@ func (vt ValueType) String() string {
 type primitiveValue struct {
 	valType ValueType
 	val     interface{}
+}
+
+func (pv *primitiveValue) Type() ValueType {
+	return pv.valType
 }
 
 func (pv *primitiveValue) MustString() string {
