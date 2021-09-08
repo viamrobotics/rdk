@@ -15,7 +15,8 @@ if which go; then
   echo "golang installed"
 else
   ENV_OK=0
-  PREFIX="/usr/local/go" && \
+  PREFIX="/usr/local/go"
+  sudo mkdir -p $PREFIX
   VERSION="1.17" && \
     curl -sSL \
       "https://golang.org/dl/go${VERSION}.${PLATFORM}-${ARCH}.tar.gz" | \
