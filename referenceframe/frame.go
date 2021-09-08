@@ -150,8 +150,8 @@ func (pf *prismaticFrame) SetLimits(min, max []float64) {
 type revoluteFrame struct {
 	name    string
 	rotAxis spatial.R4AA
-	max     float64
 	min     float64
+	max     float64
 }
 
 // NewRevoluteFrame creates a new revoluteFrame struct.
@@ -177,6 +177,12 @@ func (rf *revoluteFrame) Transform(input []Input) spatial.Pose {
 	rfQuat := spatial.NewDualQuaternion()
 	rotation := rf.rotAxis
 	rotation.Theta = input[0].Value
+	// respect the limits
+	if rotation.Theta > rf.max {
+		rotation.Theta = rf.max
+	} else if rotation.Theta < rf.min {
+		rotation.Theta = rf.min
+	}
 	rfQuat.Real = rotation.ToQuat()
 	return rfQuat
 }
