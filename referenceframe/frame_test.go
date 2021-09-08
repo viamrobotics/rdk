@@ -36,7 +36,6 @@ func TestPrismaticFrame(t *testing.T) {
 	frame := &prismaticFrame{"test", []bool{false, true, false}, min, max} // can only move on y axis
 	// expected output
 	expPose := spatial.NewPoseFromPoint(r3.Vector{0, 20, 0})
-	limitPose := spatial.NewPoseFromPoint(r3.Vector{0, 30, 0}) // pose set by limits
 	// get expected transform back
 	input := FloatsToInputs([]float64{20})
 	pose := frame.Transform(input)
@@ -56,10 +55,9 @@ func TestPrismaticFrame(t *testing.T) {
 	// change the form of the limits and see if it still works
 	newMin, newMax := []float64{-30}, []float64{30}
 	frame.SetLimits(newMin, newMax)
-	input = FloatsToInputs([]float64{50})
-	pose = frame.Transform(input)
-	test.That(t, pose, test.ShouldResemble, limitPose)
-	test.That(t, pose, test.ShouldNotResemble, expPose)
+	reMin, reMax = frame.Limits()
+	test.That(t, reMin, test.ShouldResemble, newMin)
+	test.That(t, reMax, test.ShouldResemble, newMax)
 }
 
 func TestRevoluteFrame(t *testing.T) {
@@ -67,8 +65,7 @@ func TestRevoluteFrame(t *testing.T) {
 	axis := spatial.R4AA{RX: 1, RY: 0, RZ: 0}                        // axis of rotation is x axis
 	frame := &revoluteFrame{"test", axis, -math.Pi / 2, math.Pi / 2} // limits between -90 and 90 degrees
 	// expected output
-	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{1, 0, 0}, math.Pi/4)   // 45 degrees
-	limitPose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{1, 0, 0}, math.Pi/2) // pose set by limits
+	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{1, 0, 0}, math.Pi/4) // 45 degrees
 	// get expected transform back
 	input := JointPosToInputs(&pb.JointPositions{Degrees: []float64{45}})
 	pose := frame.Transform(input)
