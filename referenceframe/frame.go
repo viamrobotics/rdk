@@ -5,6 +5,8 @@
 package referenceframe
 
 import (
+	"fmt"
+
 	"go.viam.com/core/arm"
 	pb "go.viam.com/core/proto/api/v1"
 	spatial "go.viam.com/core/spatialmath"
@@ -38,7 +40,7 @@ func JointPosToInputs(jp *pb.JointPositions) []Input {
 // Transform takes FROM current frame TO parent's frame!
 type Frame interface {
 	Name() string
-	Transform([]Input) spatial.Pose
+	Transform([]Input) (spatial.Pose, error)
 	Dof() int
 	Limits() ([]float64, []float64) // min and max limits on inputs. Should these be enforced or just informed? How?
 }
@@ -71,11 +73,11 @@ func (sf *staticFrame) Name() string {
 }
 
 // Transform application takes you FROM current frame TO Parent frame. Rotation+Translation expressed in the form of a dual quaternion.
-func (sf *staticFrame) Transform(inp []Input) spatial.Pose {
+func (sf *staticFrame) Transform(inp []Input) (spatial.Pose, error) {
 	if len(inp) != sf.Dof() {
-		return nil
+		return nil, fmt.Errorf("given input length %q does not match frame dof %q", len(inp), sf.Dof())
 	}
-	return sf.transform
+	return sf.transform, nil
 }
 
 // Dof are the degrees of freedom of the transform. In the staticFrame, it is always 0.
@@ -108,9 +110,9 @@ func (pf *prismaticFrame) Name() string {
 }
 
 // Transform application takes you FROM current frame TO Parent frame. Rotation+Translation expressed in the form of a dual quaternion.
-func (pf *prismaticFrame) Transform(input []Input) spatial.Pose {
+func (pf *prismaticFrame) Transform(input []Input) (spatial.Pose, error) {
 	if len(input) != pf.Dof() {
-		return nil
+		return nil, fmt.Errorf("given input length %q does not match frame dof %q", len(input), pf.Dof())
 	}
 	q := spatial.NewDualQuaternion()
 	translation := make([]float64, 3)
@@ -122,7 +124,7 @@ func (pf *prismaticFrame) Transform(input []Input) spatial.Pose {
 		}
 	}
 	q.SetTranslation(translation[0], translation[1], translation[2])
-	return q
+	return q, nil
 }
 
 // Dof are the degrees of freedom of the transform.
@@ -139,12 +141,6 @@ func (pf *prismaticFrame) Dof() int {
 // Limits returns the lower/upper input limits of the frame.
 func (pf *prismaticFrame) Limits() ([]float64, []float64) {
 	return pf.min, pf.max
-}
-
-// SetLimits sets the lower/upper input limits of the frame.
-func (pf *prismaticFrame) SetLimits(min, max []float64) {
-	pf.min = min
-	pf.max = max
 }
 
 type revoluteFrame struct {
@@ -170,15 +166,15 @@ func NewRevoluteFrame(name string, axis spatial.R4AA, min, max float64) Frame {
 
 // Transform returns the quaternion representing this joint's rotation in space.
 // Important math: this is the specific location where a joint radian is converted to a quaternion.
-func (rf *revoluteFrame) Transform(input []Input) spatial.Pose {
+func (rf *revoluteFrame) Transform(input []Input) (spatial.Pose, error) {
 	if len(input) != rf.Dof() {
-		return nil
+		return nil, fmt.Errorf("given input length %q does not match frame dof %q", len(input), rf.Dof())
 	}
 	rfQuat := spatial.NewDualQuaternion()
 	rotation := rf.rotAxis
 	rotation.Theta = input[0].Value
 	rfQuat.Real = rotation.ToQuat()
-	return rfQuat
+	return rfQuat, nil
 }
 
 // Dof returns the number of degrees of freedom that a joint has. This would be 1 for a standard revolute joint.

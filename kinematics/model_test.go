@@ -46,11 +46,15 @@ func TestJoint(t *testing.T) {
 
 	joints := m.Joints()
 	test.That(t, len(joints), test.ShouldEqual, 6)
-	firstJquat := spatialmath.NewDualQuaternionFromPose(joints[0].Transform([]referenceframe.Input{{0}})).Number
+	pose, err := joints[0].Transform([]referenceframe.Input{{0}})
+	test.That(t, err, test.ShouldBeNil)
+	firstJquat := spatialmath.NewDualQuaternionFromPose(pose).Number
 	firstJquatExpect := dualquat.Number{quat.Number{1, 0, 0, 0}, quat.Number{0, 0, 0, 0}}
 	test.That(t, firstJquat, test.ShouldResemble, firstJquatExpect)
 
-	firstJangle := spatialmath.NewDualQuaternionFromPose(joints[0].Transform([]referenceframe.Input{{1.5708}})).Number
+	pose, err = joints[0].Transform([]referenceframe.Input{{1.5708}})
+	test.That(t, err, test.ShouldBeNil)
+	firstJangle := spatialmath.NewDualQuaternionFromPose(pose).Number
 	firstJangleExpect := dualquat.Number{quat.Number{0.7071054825112365, 0, 0, 0.7071080798594737}, quat.Number{0, 0, 0, 0}}
 	test.That(t, firstJangle, test.ShouldResemble, firstJangleExpect)
 }

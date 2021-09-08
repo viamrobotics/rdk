@@ -10,7 +10,6 @@ import (
 	"go.viam.com/core/utils"
 
 	"github.com/go-errors/errors"
-	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/num/quat"
 )
@@ -28,41 +27,12 @@ func ComputePosition(model *Model, joints *pb.JointPositions) (*pb.ArmPosition, 
 		radAngles[i] = utils.DegToRad(angle)
 	}
 
-	return spatialmath.NewDualQuaternionFromPose(model.JointRadToQuat(radAngles)).ToArmPos(), nil
-}
-
-// ZeroInlineRotation will look for joint angles that are approximately complementary (e.g. 0.5 and -0.5) and check if they
-// are inline by seeing if moving both closer to zero changes the 6d position. If they appear to be inline it will set
-// both to zero if they are not. This should avoid needless twists of inline joints.
-func ZeroInlineRotation(m *Model, angles []float64) []float64 {
-	epsilon := 0.0001
-
-	newAngles := make([]float64, len(angles))
-	copy(newAngles, angles)
-
-	for i, angle1 := range angles {
-		for j := i + 1; j < len(angles); j++ {
-			angle2 := angles[j]
-			if mgl64.FloatEqualThreshold(angle1*-1, angle2, epsilon) {
-				tempAngles := make([]float64, len(angles))
-				copy(tempAngles, angles)
-				tempAngles[i] = 0
-				tempAngles[j] = 0
-
-				// These angles are complementary
-				pos1 := m.JointRadToQuat(angles)
-				pos2 := m.JointRadToQuat(tempAngles)
-				distance := SquaredNorm(spatialmath.PoseDelta(pos1, pos2))
-
-				// Check we did not move the end effector too much
-				if distance < epsilon*epsilon {
-					newAngles[i] = 0
-					newAngles[j] = 0
-				}
-			}
-		}
+	pose, err := model.JointRadToQuat(radAngles)
+	if err != nil {
+		return nil, err
 	}
-	return newAngles
+
+	return spatialmath.NewDualQuaternionFromPose(pose).ToArmPos(), nil
 }
 
 // deriv will compute D(q), the derivative of q = e^w with respect to w

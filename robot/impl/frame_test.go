@@ -33,26 +33,57 @@ func TestFrameSystemFromConfig(t *testing.T) {
 
 	// see if all frames are present and if their frames are correct
 	test.That(t, fs.GetFrame("world"), test.ShouldNotBeNil)
+
 	test.That(t, fs.GetFrame("pieceArm"), test.ShouldNotBeNil)
-	pointAlmostEqual(t, fs.GetFrame("pieceArm").Transform(emptyIn).Point(), r3.Vector{500, 0, 300})
+	pose, err := fs.GetFrame("pieceArm").Transform(emptyIn)
+	test.That(t, err, test.ShouldBeNil)
+	pointAlmostEqual(t, pose.Point(), r3.Vector{500, 0, 300})
+
 	test.That(t, fs.GetFrame("pieceArm_offset"), test.ShouldNotBeNil)
-	pointAlmostEqual(t, fs.GetFrame("pieceArm_offset").Transform(emptyIn).Point(), r3.Vector{500, 500, 1000})
+	pose, err = fs.GetFrame("pieceArm_offset").Transform(emptyIn)
+	test.That(t, err, test.ShouldBeNil)
+	pointAlmostEqual(t, pose.Point(), r3.Vector{500, 500, 1000})
+
 	test.That(t, fs.GetFrame("pieceGripper"), test.ShouldNotBeNil)
-	pointAlmostEqual(t, fs.GetFrame("pieceGripper").Transform(emptyIn).Point(), r3.Vector{0, 0, 200})
+	pose, err = fs.GetFrame("pieceGripper").Transform(emptyIn)
+	test.That(t, err, test.ShouldBeNil)
+	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 200})
+
 	test.That(t, fs.GetFrame("pieceGripper_offset"), test.ShouldNotBeNil)
-	pointAlmostEqual(t, fs.GetFrame("pieceGripper_offset").Transform(emptyIn).Point(), r3.Vector{0, 0, 0})
+	pose, err = fs.GetFrame("pieceGripper_offset").Transform(emptyIn)
+	test.That(t, err, test.ShouldBeNil)
+	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
+
 	test.That(t, fs.GetFrame("compass2"), test.ShouldNotBeNil)
-	pointAlmostEqual(t, fs.GetFrame("compass2").Transform(emptyIn).Point(), r3.Vector{0, 0, 0})
+	pose, err = fs.GetFrame("compass2").Transform(emptyIn)
+	test.That(t, err, test.ShouldBeNil)
+	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
+
 	test.That(t, fs.GetFrame("compass2_offset"), test.ShouldNotBeNil)
-	pointAlmostEqual(t, fs.GetFrame("compass2_offset").Transform(emptyIn).Point(), r3.Vector{0, 0, 0})
+	pose, err = fs.GetFrame("compass2_offset").Transform(emptyIn)
+	test.That(t, err, test.ShouldBeNil)
+	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
+
 	test.That(t, fs.GetFrame("cameraOver"), test.ShouldNotBeNil)
-	pointAlmostEqual(t, fs.GetFrame("cameraOver").Transform(emptyIn).Point(), r3.Vector{0, 0, 0})
+	pose, err = fs.GetFrame("cameraOver").Transform(emptyIn)
+	test.That(t, err, test.ShouldBeNil)
+	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
+
 	test.That(t, fs.GetFrame("cameraOver_offset"), test.ShouldNotBeNil)
-	pointAlmostEqual(t, fs.GetFrame("cameraOver_offset").Transform(emptyIn).Point(), r3.Vector{2000, 500, 1300})
+	pose, err = fs.GetFrame("cameraOver_offset").Transform(emptyIn)
+	test.That(t, err, test.ShouldBeNil)
+	pointAlmostEqual(t, pose.Point(), r3.Vector{2000, 500, 1300})
+
 	test.That(t, fs.GetFrame("lidar1"), test.ShouldNotBeNil)
-	pointAlmostEqual(t, fs.GetFrame("lidar1").Transform(emptyIn).Point(), r3.Vector{50, 0, 0})
+	pose, err = fs.GetFrame("lidar1").Transform(emptyIn)
+	test.That(t, err, test.ShouldBeNil)
+	pointAlmostEqual(t, pose.Point(), r3.Vector{50, 0, 0})
+
 	test.That(t, fs.GetFrame("lidar1_offset"), test.ShouldNotBeNil)
-	pointAlmostEqual(t, fs.GetFrame("lidar1_offset").Transform(emptyIn).Point(), r3.Vector{0, 0, 200})
+	pose, err = fs.GetFrame("lidar1_offset").Transform(emptyIn)
+	test.That(t, err, test.ShouldBeNil)
+	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 200})
+
 	test.That(t, fs.GetFrame("compass1"), test.ShouldBeNil) // compass1 is not registered
 
 	// There is a point at (1500, 500, 1300) in the world frame. See if it transforms correctly in each frame.

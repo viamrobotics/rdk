@@ -18,12 +18,13 @@ func TestStaticFrame(t *testing.T) {
 	frame := &staticFrame{"test", expPose}
 	// get expected transform back
 	emptyInput := FloatsToInputs([]float64{})
-	pose := frame.Transform(emptyInput)
+	pose, err := frame.Transform(emptyInput)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
-	// if you feed in non-empty input, should get nil back
+	// if you feed in non-empty input, should get err back
 	nonEmptyInput := FloatsToInputs([]float64{0, 0, 0})
-	pose = frame.Transform(nonEmptyInput)
-	test.That(t, pose, test.ShouldBeNil)
+	_, err = frame.Transform(nonEmptyInput)
+	test.That(t, err, test.ShouldNotBeNil)
 	// check that there are no limits on the static frame
 	min, max := frame.Limits()
 	test.That(t, min, test.ShouldResemble, []float64{})
@@ -38,26 +39,21 @@ func TestPrismaticFrame(t *testing.T) {
 	expPose := spatial.NewPoseFromPoint(r3.Vector{0, 20, 0})
 	// get expected transform back
 	input := FloatsToInputs([]float64{20})
-	pose := frame.Transform(input)
+	pose, err := frame.Transform(input)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
-	// if you feed in too many inputs, should get nil back
+	// if you feed in too many inputs, should get an error back
 	input = FloatsToInputs([]float64{0, 20, 0})
-	pose = frame.Transform(input)
-	test.That(t, pose, test.ShouldBeNil)
-	// if you feed in empty input, should get nil back
+	_, err = frame.Transform(input)
+	test.That(t, err, test.ShouldNotBeNil)
+	// if you feed in empty input, should get an error
 	input = FloatsToInputs([]float64{})
-	pose = frame.Transform(input)
-	test.That(t, pose, test.ShouldBeNil)
+	_, err = frame.Transform(input)
+	test.That(t, err, test.ShouldNotBeNil)
 	// gets the correct limits back
 	reMin, reMax := frame.Limits()
 	test.That(t, reMin, test.ShouldResemble, min)
 	test.That(t, reMax, test.ShouldResemble, max)
-	// change the form of the limits and see if it still works
-	newMin, newMax := []float64{-30}, []float64{30}
-	frame.SetLimits(newMin, newMax)
-	reMin, reMax = frame.Limits()
-	test.That(t, reMin, test.ShouldResemble, newMin)
-	test.That(t, reMax, test.ShouldResemble, newMax)
 }
 
 func TestRevoluteFrame(t *testing.T) {
@@ -68,16 +64,17 @@ func TestRevoluteFrame(t *testing.T) {
 	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{1, 0, 0}, math.Pi/4) // 45 degrees
 	// get expected transform back
 	input := JointPosToInputs(&pb.JointPositions{Degrees: []float64{45}})
-	pose := frame.Transform(input)
+	pose, err := frame.Transform(input)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
-	// if you feed in too many inputs, should get nil back
+	// if you feed in too many inputs, should get error back
 	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{45, 55}})
-	pose = frame.Transform(input)
-	test.That(t, pose, test.ShouldBeNil)
-	// if you feed in empty input, should get nil back
+	_, err = frame.Transform(input)
+	test.That(t, err, test.ShouldNotBeNil)
+	// if you feed in empty input, should get errr back
 	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{}})
-	pose = frame.Transform(input)
-	test.That(t, pose, test.ShouldBeNil)
+	_, err = frame.Transform(input)
+	test.That(t, err, test.ShouldNotBeNil)
 	// gets the correct limits back
 	min, max := frame.Limits()
 	test.That(t, min, test.ShouldResemble, []float64{-math.Pi / 2})
