@@ -122,8 +122,8 @@ func (pf *prismaticFrame) Transform(input []Input) (spatial.Pose, error) {
 	tIdx := 0
 	for i, v := range pf.axes {
 		if v {
-			if input[tIdx].Value < pf.limits[i].Min || input[tIdx].Value > pf.limits[i].Max {
-				err = fmt.Errorf("%f input out of bounds %f", input[tIdx].Value, pf.limits[i])
+			if input[tIdx].Value < pf.limits[tIdx].Min || input[tIdx].Value > pf.limits[tIdx].Max {
+				err = fmt.Errorf("%.5f input out of bounds %.5f", input[tIdx].Value, pf.limits[tIdx])
 			}
 			translation[i] = input[tIdx].Value
 			tIdx++
@@ -176,7 +176,7 @@ func (rf *revoluteFrame) Transform(input []Input) (spatial.Pose, error) {
 		return nil, fmt.Errorf("given input length %d does not match frame dof 1", len(input))
 	}
 	if input[0].Value < rf.limit.Min || input[0].Value > rf.limit.Max {
-		err = fmt.Errorf("%f input out of rev frame bounds %f", input[0].Value, rf.limit)
+		err = fmt.Errorf("%.5f input out of rev frame bounds %.5f", input[0].Value, rf.limit)
 	}
 	rfQuat := spatial.NewDualQuaternion()
 	rotation := rf.rotAxis

@@ -8,7 +8,9 @@ import (
 
 	pb "go.viam.com/core/proto/api/v1"
 	spatial "go.viam.com/core/spatialmath"
+	"go.viam.com/core/utils"
 
+	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
 )
 
@@ -32,8 +34,13 @@ func TestStaticFrame(t *testing.T) {
 
 func TestPrismaticFrame(t *testing.T) {
 	// define a prismatic transform
-	limits := []Limit{{0, 0}, {-30, 30}, {0, 0}}
-	frame := &prismaticFrame{"test", []bool{false, true, false}, limits} // can only move on y axis
+	limits := []Limit{{-30, 30}}
+	frame, err := NewPrismaticFrame("test", []bool{false, true, false}, limits) // can only move on y axis
+	test.That(t, err, test.ShouldBeNil)
+	// this should return an error
+	badLimits := []Limit{{0, 0}, {-30, 30}, {0, 0}}
+	_, err = NewPrismaticFrame("test", []bool{false, true, false}, badLimits) // can only move on y axis
+	test.That(t, err, test.ShouldBeError, errors.New("given number of limits 3 does not match number of axes 1"))
 	// expected output
 	expPose := spatial.NewPoseFromPoint(r3.Vector{0, 20, 0})
 	// get expected transform back
@@ -49,6 +56,11 @@ func TestPrismaticFrame(t *testing.T) {
 	input = FloatsToInputs([]float64{})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
+	// if you try to move beyond set limits, should get an error
+	overLimit := 50.0
+	input = FloatsToInputs([]float64{overLimit})
+	_, err = frame.Transform(input)
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of bounds %.5f", overLimit, frame.Dof()[0]))
 	// gets the correct limits back
 	frameLimits := frame.Dof()
 	test.That(t, frameLimits, test.ShouldResemble, limits)
@@ -73,6 +85,11 @@ func TestRevoluteFrame(t *testing.T) {
 	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{}})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
+	// if you try to move beyond set limits, should get an error
+	overLimit := 100.0 // degrees
+	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{overLimit}})
+	_, err = frame.Transform(input)
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of rev frame bounds %.5f", utils.DegToRad(overLimit), frame.Dof()[0]))
 	// gets the correct limits back
 	limit := frame.Dof()
 	test.That(t, limit, test.ShouldResemble, []Limit{{-math.Pi / 2, math.Pi / 2}})
