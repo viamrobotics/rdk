@@ -58,8 +58,9 @@ func NewModel() *Model {
 
 // GenerateRandomJointPositions generates a list of radian joint positions that are random but valid for each joint.
 func (m *Model) GenerateRandomJointPositions(randSeed *rand.Rand) []float64 {
-	var jointPos []float64
 	limits := m.Dof()
+	jointPos := make([]float64, 0, len(limits))
+
 	for i := 0; i < len(limits); i++ {
 		jRange := math.Abs(limits[i].Max - limits[i].Min)
 		// Note that rand is unseeded and so will produce the same sequence of floats every time
@@ -72,7 +73,7 @@ func (m *Model) GenerateRandomJointPositions(randSeed *rand.Rand) []float64 {
 
 // Joints returns an array of all settable frames in the model, from the base outwards.
 func (m *Model) Joints() []referenceframe.Frame {
-	var joints []referenceframe.Frame
+	joints := make([]referenceframe.Frame, 0, len(m.OrdTransforms)-1)
 	// OrdTransforms is ordered from end effector -> base, so we reverse the list to get joints from the base outwards.
 	for i := len(m.OrdTransforms) - 1; i >= 0; i-- {
 		transform := m.OrdTransforms[i]
