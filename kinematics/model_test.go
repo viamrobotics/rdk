@@ -10,8 +10,8 @@ import (
 	"go.viam.com/core/utils"
 
 	"go.viam.com/test"
-	"gonum.org/v1/gonum/num/dualquat"
-	"gonum.org/v1/gonum/num/quat"
+	//~ "gonum.org/v1/gonum/num/dualquat"
+	//~ "gonum.org/v1/gonum/num/quat"
 )
 
 func TestModelLoading(t *testing.T) {
@@ -45,13 +45,16 @@ func TestJoint(t *testing.T) {
 	test.That(t, len(joints), test.ShouldEqual, 6)
 	pose, err := joints[0].Transform([]referenceframe.Input{{0}})
 	test.That(t, err, test.ShouldBeNil)
-	firstJquat := spatialmath.NewDualQuaternionFromPose(pose).Number
-	firstJquatExpect := dualquat.Number{quat.Number{1, 0, 0, 0}, quat.Number{0, 0, 0, 0}}
-	test.That(t, firstJquat, test.ShouldResemble, firstJquatExpect)
+	firstJov := pose.Orientation()
+	firstJovExpect := &spatialmath.OrientationVec{Theta: 0, OX: 0, OY: 0, OZ: 1}
+	test.That(t, firstJov, test.ShouldResemble, firstJovExpect)
 
 	pose, err = joints[0].Transform([]referenceframe.Input{{1.5708}})
 	test.That(t, err, test.ShouldBeNil)
-	firstJangle := spatialmath.NewDualQuaternionFromPose(pose).Number
-	firstJangleExpect := dualquat.Number{quat.Number{0.7071054825112365, 0, 0, 0.7071080798594737}, quat.Number{0, 0, 0, 0}}
-	test.That(t, firstJangle, test.ShouldResemble, firstJangleExpect)
+	firstJov = pose.Orientation()
+	firstJovExpect = &spatialmath.OrientationVec{Theta: 1.5708, OX: 0, OY: 0, OZ: 1}
+	test.That(t, firstJov.Theta, test.ShouldAlmostEqual, firstJovExpect.Theta)
+	test.That(t, firstJov.OX, test.ShouldAlmostEqual, firstJovExpect.OX)
+	test.That(t, firstJov.OY, test.ShouldAlmostEqual, firstJovExpect.OY)
+	test.That(t, firstJov.OZ, test.ShouldAlmostEqual, firstJovExpect.OZ)
 }

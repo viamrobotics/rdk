@@ -7,6 +7,8 @@ import (
 	"go.viam.com/test"
 
 	"github.com/golang/geo/r3"
+	"gonum.org/v1/gonum/num/dualquat"
+	"gonum.org/v1/gonum/num/quat"
 )
 
 func TestBasicPoseConstruction(t *testing.T) {
@@ -47,4 +49,29 @@ func ptCompare(t *testing.T, p1, p2 r3.Vector) {
 	test.That(t, p1.X, test.ShouldAlmostEqual, p2.X)
 	test.That(t, p1.Y, test.ShouldAlmostEqual, p2.Y)
 	test.That(t, p1.Z, test.ShouldAlmostEqual, p2.Z)
+}
+
+func TestDualQuatTransform(t *testing.T) {
+	// Start with point [3, 4, 5] - Rotate by 180 degrees around x-axis and then displace by [4,2,6]
+	pt := NewPoseFromPoint(r3.Vector{3., 4., 5.}) // starting point
+	tr := &dualQuaternion{dualquat.Number{Real: quat.Number{Real: 0, Imag: 1}}}
+	tr.SetTranslation(4., 2., 6.)
+
+	trAA := NewPoseFromAxisAngle(r3.Vector{4., 2., 6.}, r3.Vector{1, 0, 0}, math.Pi) // same transformation from axis angle
+	// ensure transformation is the same between both definitions
+	test.That(t, tr.Real.Real, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Real.Real)
+	test.That(t, tr.Real.Imag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Real.Imag)
+	test.That(t, tr.Real.Jmag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Real.Jmag)
+	test.That(t, tr.Real.Kmag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Real.Kmag)
+	test.That(t, tr.Dual.Real, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Dual.Real)
+	test.That(t, tr.Dual.Imag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Dual.Imag)
+	test.That(t, tr.Dual.Jmag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Dual.Jmag)
+	test.That(t, tr.Dual.Kmag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Dual.Kmag)
+
+	expectedPose := NewPoseFromPoint(r3.Vector{7., -2., 1.})
+	expectedPoint := expectedPose.Point()
+	transformedPoint := Compose(tr, pt).Point()
+	test.That(t, transformedPoint.X, test.ShouldAlmostEqual, expectedPoint.X)
+	test.That(t, transformedPoint.Y, test.ShouldAlmostEqual, expectedPoint.Y)
+	test.That(t, transformedPoint.Z, test.ShouldAlmostEqual, expectedPoint.Z)
 }

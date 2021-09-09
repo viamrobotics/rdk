@@ -117,7 +117,6 @@ func (pf *prismaticFrame) Transform(input []Input) (spatial.Pose, error) {
 	if len(input) != pf.dofInt() {
 		return nil, fmt.Errorf("given input length %d does not match frame dof %d", len(input), pf.dofInt())
 	}
-	q := spatial.NewDualQuaternion()
 	translation := make([]float64, 3)
 	tIdx := 0
 	for i, v := range pf.axes {
@@ -129,7 +128,7 @@ func (pf *prismaticFrame) Transform(input []Input) (spatial.Pose, error) {
 			tIdx++
 		}
 	}
-	q.SetTranslation(translation[0], translation[1], translation[2])
+	q := spatial.NewPoseFromPoint(r3.Vector{translation[0], translation[1], translation[2]})
 	return q, err
 }
 
@@ -178,11 +177,11 @@ func (rf *revoluteFrame) Transform(input []Input) (spatial.Pose, error) {
 	if input[0].Value < rf.limit.Min || input[0].Value > rf.limit.Max {
 		err = fmt.Errorf("%.5f input out of rev frame bounds %.5f", input[0].Value, rf.limit)
 	}
-	rfQuat := spatial.NewDualQuaternion()
-	rotation := rf.rotAxis
-	rotation.Theta = input[0].Value
-	rfQuat.Real = rotation.ToQuat()
-	return rfQuat, err
+	// Create a copy of the r4aa for thread safety
+
+	pose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{rf.rotAxis.RX, rf.rotAxis.RY, rf.rotAxis.RZ}, input[0].Value)
+
+	return pose, err
 }
 
 // Dof returns the number of degrees of freedom that a joint has. This would be 1 for a standard revolute joint.

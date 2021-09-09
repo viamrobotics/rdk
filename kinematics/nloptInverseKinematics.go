@@ -130,7 +130,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger, id int) *NloptIK {
 // addGoal adds a nlopt IK goal
 func (ik *NloptIK) addGoal(newGoal *pb.ArmPosition, effectorID int) {
 
-	goalQuat := spatial.NewDualQuaternionFromArmPos(newGoal)
+	goalQuat := spatial.NewPoseFromArmPos(newGoal)
 	ik.goals = append(ik.goals, goal{goalQuat, effectorID})
 }
 

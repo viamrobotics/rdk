@@ -9,36 +9,9 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 
 	"github.com/golang/geo/r3"
-	"gonum.org/v1/gonum/num/dualquat"
-	"gonum.org/v1/gonum/num/quat"
 )
 
 var blankPos map[string][]Input
-
-func TestDualQuatTransform(t *testing.T) {
-	// Start with point [3, 4, 5] - Rotate by 180 degrees around x-axis and then displace by [4,2,6]
-	pt := spatial.NewPoseFromPoint(r3.Vector{3., 4., 5.}) // starting point
-	tr := &spatial.DualQuaternion{dualquat.Number{Real: quat.Number{Real: 0, Imag: 1}}}
-	tr.SetTranslation(4., 2., 6.)
-
-	trAA := spatial.NewPoseFromAxisAngle(r3.Vector{4., 2., 6.}, r3.Vector{1, 0, 0}, math.Pi) // same transformation from axis angle
-	// ensure transformation is the same between both definitions
-	test.That(t, tr.Real.Real, test.ShouldAlmostEqual, spatial.NewDualQuaternionFromPose(trAA).Real.Real)
-	test.That(t, tr.Real.Imag, test.ShouldAlmostEqual, spatial.NewDualQuaternionFromPose(trAA).Real.Imag)
-	test.That(t, tr.Real.Jmag, test.ShouldAlmostEqual, spatial.NewDualQuaternionFromPose(trAA).Real.Jmag)
-	test.That(t, tr.Real.Kmag, test.ShouldAlmostEqual, spatial.NewDualQuaternionFromPose(trAA).Real.Kmag)
-	test.That(t, tr.Dual.Real, test.ShouldAlmostEqual, spatial.NewDualQuaternionFromPose(trAA).Dual.Real)
-	test.That(t, tr.Dual.Imag, test.ShouldAlmostEqual, spatial.NewDualQuaternionFromPose(trAA).Dual.Imag)
-	test.That(t, tr.Dual.Jmag, test.ShouldAlmostEqual, spatial.NewDualQuaternionFromPose(trAA).Dual.Jmag)
-	test.That(t, tr.Dual.Kmag, test.ShouldAlmostEqual, spatial.NewDualQuaternionFromPose(trAA).Dual.Kmag)
-
-	expectedPose := spatial.NewPoseFromPoint(r3.Vector{7., -2., 1.})
-	expectedPoint := expectedPose.Point()
-	transformedPoint := spatial.Compose(tr, pt).Point()
-	test.That(t, transformedPoint.X, test.ShouldAlmostEqual, expectedPoint.X)
-	test.That(t, transformedPoint.Y, test.ShouldAlmostEqual, expectedPoint.Y)
-	test.That(t, transformedPoint.Z, test.ShouldAlmostEqual, expectedPoint.Z)
-}
 
 // A simple Frame translation from the world frame to a frame right above it at (0, 3, 0)
 // And then back to the world frame

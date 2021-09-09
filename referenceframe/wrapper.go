@@ -7,16 +7,15 @@ import (
 // A FrameWrapper will wrap a single Frame, allowing a static offset to be set
 type FrameWrapper struct {
 	Frame
-	offset *spatial.DualQuaternion
+	offset spatial.Pose
 }
 
 // WrapFrame will take a frame and wrap it to have the given parent. Offset is not part of this constructor and must be
 // set separately with SetOffset(). The reason for this is to ensure that if no offset is specified, the identity
-// dual quaternion is used ((1,0,0,0),(0,0,0,0)) rather than someone passing in a spatialmath.DualQuaternion{}
-func WrapFrame(frame, parent Frame) *FrameWrapper {
+func WrapFrame(frame Frame, offset spatial.Pose) *FrameWrapper {
 	return &FrameWrapper{
 		Frame:  frame,
-		offset: spatial.NewDualQuaternion(),
+		offset: offset,
 	}
 }
 
@@ -27,11 +26,6 @@ func (f *FrameWrapper) Transform(input []Input) (spatial.Pose, error) {
 		return nil, err
 	}
 	return spatial.Compose(f.offset, wrappedPose), err
-}
-
-// SetOffset sets the offset of the wrapped frame
-func (f *FrameWrapper) SetOffset(offset *spatial.DualQuaternion) {
-	f.offset = offset
 }
 
 // A FrameInverter will wrap a single Frame, inverting the transform
