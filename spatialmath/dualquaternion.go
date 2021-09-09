@@ -17,7 +17,8 @@ const degToRad = math.Pi / 180
 
 // If two angles differ by less than this amount, we consider them the same for the purpose of doing
 // math around the poles of orientation.
-const angleEpsilon = 0.01 // radians
+// This needs to be very small in order to account for the small steps taken by IK. Otherwise singularities happen.
+const angleEpsilon = 0.0001
 
 // DualQuaternion defines functions to perform rigid DualQuaternionformations in 3D.
 type DualQuaternion struct {
@@ -134,29 +135,9 @@ func (q *DualQuaternion) Rotate() {
 	q.Quat.Dual = quat.Mul(q.Quat.Dual, q.Quat.Real)
 }
 
-// ToDelta returns the difference between two DualQuaternion'.
+// ToDelta returns the difference between two DualQuaternions.
 // We use quaternion/angle axis for this because distances are well-defined.
 func (q *DualQuaternion) ToDelta(other *DualQuaternion) []float64 {
-	ret := make([]float64, 7)
-
-	quatBetween := quat.Mul(other.Quat.Real, quat.Conj(q.Quat.Real))
-
-	otherTrans := dualquat.Mul(other.Quat, dualquat.Conj(other.Quat))
-	mTrans := dualquat.Mul(q.Quat, dualquat.Conj(q.Quat))
-	aa := QuatToR4AA(quatBetween)
-	ret[0] = otherTrans.Dual.Imag - mTrans.Dual.Imag
-	ret[1] = otherTrans.Dual.Jmag - mTrans.Dual.Jmag
-	ret[2] = otherTrans.Dual.Kmag - mTrans.Dual.Kmag
-	ret[3] = aa.Theta
-	ret[4] = aa.RX
-	ret[5] = aa.RY
-	ret[6] = aa.RZ
-	return ret
-}
-
-// ToDeltaR3 returns the difference between two DualQuaternion' using R3 angle axis.
-// We use quaternion/angle axis for this because distances are well-defined.
-func (q *DualQuaternion) ToDeltaR3(other *DualQuaternion) []float64 {
 	ret := make([]float64, 6)
 
 	quatBetween := quat.Mul(other.Quat.Real, quat.Conj(q.Quat.Real))
@@ -164,6 +145,10 @@ func (q *DualQuaternion) ToDeltaR3(other *DualQuaternion) []float64 {
 	otherTrans := dualquat.Mul(other.Quat, dualquat.Conj(other.Quat))
 	mTrans := dualquat.Mul(q.Quat, dualquat.Conj(q.Quat))
 	aa := QuatToR3AA(quatBetween)
+	zero := R3AA{1, 0, 0}
+	if aa == zero {
+		aa.RX = 0
+	}
 	ret[0] = otherTrans.Dual.Imag - mTrans.Dual.Imag
 	ret[1] = otherTrans.Dual.Jmag - mTrans.Dual.Jmag
 	ret[2] = otherTrans.Dual.Kmag - mTrans.Dual.Kmag
@@ -252,15 +237,7 @@ func QuatToOV(q quat.Number) *OrientationVec {
 
 	// The contents of ov.newX.Kmag are not in radians but we can use angleEpsilon anyway to check how close we are to
 	// the pole because it's a convenient small number
-	if 1-math.Abs(newZ.Kmag) < angleEpsilon {
-		// Special case for when we point directly along the Z axis
-		// Get the vector normal to the local-x, global-z, origin plane
-		ov.Theta = -math.Atan2(newX.Jmag, -newX.Imag)
-		if newZ.Kmag < 0 {
-			ov.Theta = -math.Atan2(newX.Jmag, newX.Imag)
-		}
-
-	} else {
+	if 1-math.Abs(newZ.Kmag) > angleEpsilon {
 		v1 := mgl64.Vec3{newZ.Imag, newZ.Jmag, newZ.Kmag}
 		v2 := mgl64.Vec3{newX.Imag, newX.Jmag, newX.Kmag}
 
@@ -299,6 +276,14 @@ func QuatToOV(q quat.Number) *OrientationVec {
 		} else {
 			ov.Theta = 0
 		}
+	} else {
+		// Special case for when we point directly along the Z axis
+		// Get the vector normal to the local-x, global-z, origin plane
+		ov.Theta = -math.Atan2(newX.Jmag, -newX.Imag)
+		if newZ.Kmag < 0 {
+			ov.Theta = -math.Atan2(newX.Jmag, newX.Imag)
+		}
+		//~ fmt.Println(ov)
 	}
 
 	return ov
@@ -325,7 +310,7 @@ func MatToEuler(mat mgl64.Mat4) []float64 {
 	return angles
 }
 
-// Norm returns the norm of the quaternion, i.e. the sqrt of the squares of the imaginary parts.
+// Norm returns the norm of the quaternion, i.e. the sqrt of the sum of the squares of the imaginary parts.
 func Norm(q quat.Number) float64 {
 	return math.Sqrt(q.Imag*q.Imag + q.Jmag*q.Jmag + q.Kmag*q.Kmag)
 }

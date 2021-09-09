@@ -17,6 +17,7 @@ import (
 
 // NloptIK TODO
 type NloptIK struct {
+	id            int
 	model         *Model
 	lowerBound    []float64
 	upperBound    []float64
@@ -31,8 +32,8 @@ type NloptIK struct {
 }
 
 // CreateNloptIKSolver TODO
-func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
-	ik := &NloptIK{logger: logger}
+func CreateNloptIKSolver(mdl *Model, logger golog.Logger, id int) *NloptIK {
+	ik := &NloptIK{id: id, logger: logger}
 	ik.randSeed = rand.New(rand.NewSource(1))
 	ik.model = mdl
 	// How close we want to get to the goal
@@ -62,7 +63,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 
 		// TODO(pl): Might need to check if any of x is +/- Inf
 		eePos := JointRadToQuat(ik.model, x)
-		dx := make([]float64, ik.model.OperationalDof()*7)
+		dx := make([]float64, ik.model.OperationalDof()*6)
 
 		// Update dx with the delta to the desired position
 		for _, nextGoal := range ik.getGoals() {
@@ -77,14 +78,12 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 		dist := WeightedSquaredNorm(dx, ik.model.SolveWeights)
 
 		if len(gradient) > 0 {
-			maxGrad := 0.0
-
 			for i := range gradient {
 				// Deep copy of our current joint positions
 				xBak := append([]float64{}, x...)
 				xBak[i] += ik.jump
 				eePos := JointRadToQuat(ik.model, xBak)
-				dx2 := make([]float64, ik.model.OperationalDof()*7)
+				dx2 := make([]float64, ik.model.OperationalDof()*6)
 				for _, nextGoal := range ik.getGoals() {
 					dxDelta := eePos.ToDelta(nextGoal.GoalTransform)
 					dxIdx := nextGoal.EffectorID * len(dxDelta)
@@ -94,16 +93,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 				}
 				dist2 := WeightedSquaredNorm(dx2, ik.model.SolveWeights)
 
-				gradient[i] = (dist2 - dist) / (20000 * ik.jump)
-				if math.Abs(gradient[i]) > maxGrad {
-					maxGrad = math.Abs(gradient[i])
-				}
-			}
-			// Scale gradient so that largest value is not > 2pi
-			if maxGrad > 2*math.Pi {
-				for i, v := range gradient {
-					gradient[i] = v / (maxGrad / (2 * math.Pi))
-				}
+				gradient[i] = (dist2 - dist) / (2 * ik.jump)
 			}
 		}
 		return dist
@@ -145,15 +135,31 @@ func (ik *NloptIK) getGoals() []goal {
 	return ik.goals
 }
 
-// Solve attempts to solve for all goals
+// Solve runs the actual solver and returns a list of all
 func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngles *pb.JointPositions) (*pb.JointPositions, error) {
 	var err error
 
 	// Allow ~160 degrees of swing at most
 	allowableSwing := 2.8
+	tries := 1
+	ik.iterations = 0
+	startingRadians := ik.model.GenerateRandomJointPositions(ik.randSeed)
 
-	if len(seedAngles.Degrees) > len(ik.lowerBound) {
-		return &pb.JointPositions{}, errors.New("passed in too many joint positions")
+	// Solver with ID 1 seeds off current angles
+	if ik.id == 1 {
+		if len(seedAngles.Degrees) > len(ik.lowerBound) {
+			return nil, errors.New("passed in too many joint positions")
+		}
+		startingRadians = arm.JointPositionsToRadians(seedAngles)
+
+		// Set initial restrictions on joints for more intuitive movement
+		err = ik.updateBounds(startingRadians, tries)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Solvers whose ID is not 1 should skip ahead directly to trying random seeds
+		tries = 30
 	}
 	ik.addGoal(newGoal, 0)
 	defer ik.clearGoals()
@@ -161,24 +167,17 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 	select {
 	case <-ctx.Done():
 		ik.logger.Info("solver halted before solving start; possibly solving twice in a row?")
-		return &pb.JointPositions{}, err
+		return nil, err
 	default:
 	}
-	ik.iterations = 0
-	startingRadians := arm.JointPositionsToRadians(seedAngles)
 
-	// Set initial restrictions on joints for more intuitive movement
-	tries := 1
-	err = ik.updateBounds(startingRadians, tries)
-	if err != nil {
-		return &pb.JointPositions{}, err
-	}
+	var solutions []*pb.JointPositions
 
 	for ik.iterations < ik.maxIterations {
 		retrySeed := false
 		select {
 		case <-ctx.Done():
-			return &pb.JointPositions{}, err
+			return nil, err
 		default:
 		}
 		ik.iterations++
@@ -202,14 +201,20 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 				startingRadians = newAngles
 			} else {
 				angles = ZeroInlineRotation(ik.model, angles)
-				return arm.JointPositionsFromRadians(angles), err
+				solution := arm.JointPositionsFromRadians(angles)
+				// Return immediately if we have a "natural" solution, i.e. one where the halfway point is on the way
+				// to the end point
+				if calcSwingPct(seedAngles, solution, ik.model) < 0.5 {
+					return solution, err
+				}
+				solutions = append(solutions, solution)
 			}
 		}
 		tries++
 		if tries < 30 {
 			err = ik.updateBounds(arm.JointPositionsToRadians(seedAngles), tries)
 			if err != nil {
-				return &pb.JointPositions{}, err
+				return nil, err
 			}
 		} else if !retrySeed {
 			err = multierr.Combine(
@@ -217,12 +222,15 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 				ik.opt.SetUpperBounds(ik.upperBound),
 			)
 			if err != nil {
-				return &pb.JointPositions{}, err
+				return nil, err
 			}
 			startingRadians = ik.model.GenerateRandomJointPositions(ik.randSeed)
 		}
 	}
-	return &pb.JointPositions{}, multierr.Combine(errors.New("kinematics could not solve for position"), err)
+	if len(solutions) > 0 {
+		return bestSolution(seedAngles, solutions, ik.model), nil
+	}
+	return nil, multierr.Combine(errors.New("kinematics could not solve for position"), err)
 }
 
 // SetSeed sets the random seed of this solver
@@ -279,4 +287,15 @@ func checkExcessiveSwing(orig, solution []float64, allowableSwing float64) (bool
 	}
 
 	return swing, newSolution
+}
+
+// interpolateJoints will return a set of joint positions that are the specified percent between the two given sets of
+// positions. For example, setting by to 0.5 will return the joint positions halfway between the inputs, and 0.25 would
+// return one quarter of the way from "from" to "to"
+func interpolateJoints(from, to *pb.JointPositions, by float64) *pb.JointPositions {
+	var newDegrees []float64
+	for i, j1 := range from.Degrees {
+		newDegrees = append(newDegrees, j1+((to.Degrees[i]-j1)*by))
+	}
+	return &pb.JointPositions{Degrees: newDegrees}
 }
