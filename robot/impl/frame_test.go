@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/core/config"
 	"go.viam.com/core/referenceframe"
 	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/test"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
@@ -130,7 +131,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.FrameSystem(context.Background())
-	test.That(t, err, test.ShouldBeError, errors.Errorf("the system is not fully connected, expected 11 frames but frame system has 9"))
+	test.That(t, err, test.ShouldBeError, errors.New("the system is not fully connected, expected 11 frames but frame system has 9"))
 
 	cfg, err = config.Read("data/fake_wrongconfig2.json") // no world node
 	test.That(t, err, test.ShouldBeNil)
@@ -144,7 +145,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	r, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.FrameSystem(context.Background())
-	test.That(t, err, test.ShouldBeError, errors.Errorf("cannot have more than one frame with name world"))
+	test.That(t, err, test.ShouldBeError, errors.New("cannot have more than one frame with name world"))
 }
 
 func pointAlmostEqual(t *testing.T, from, to r3.Vector) {
