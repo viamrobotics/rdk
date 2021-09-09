@@ -257,37 +257,37 @@ func FrameLookup(comp *config.Component) (CreateFrame, bool) {
 	switch comp.Type {
 	case config.ComponentTypeProvider:
 		registration := ProviderLookup(comp.Model)
-		if registration.Frame == nil {
+		if registration == nil || registration.Frame == nil {
 			return nil, false
 		}
 		return registration.Frame, true
 	case config.ComponentTypeBase:
 		registration := BaseLookup(comp.Model)
-		if registration.Frame == nil {
+		if registration == nil || registration.Frame == nil {
 			return nil, false
 		}
 		return registration.Frame, true
 	case config.ComponentTypeArm:
 		registration := ArmLookup(comp.Model)
-		if registration.Frame == nil {
+		if registration == nil || registration.Frame == nil {
 			return nil, false
 		}
 		return registration.Frame, true
 	case config.ComponentTypeGripper:
 		registration := GripperLookup(comp.Model)
-		if registration.Frame == nil {
+		if registration == nil || registration.Frame == nil {
 			return nil, false
 		}
 		return registration.Frame, true
 	case config.ComponentTypeCamera:
 		registration := CameraLookup(comp.Model)
-		if registration.Frame == nil {
+		if registration == nil || registration.Frame == nil {
 			return nil, false
 		}
 		return registration.Frame, true
 	case config.ComponentTypeLidar:
 		registration := LidarLookup(comp.Model)
-		if registration.Frame == nil {
+		if registration == nil || registration.Frame == nil {
 			return nil, false
 		}
 		return registration.Frame, true
@@ -296,7 +296,7 @@ func FrameLookup(comp *config.Component) (CreateFrame, bool) {
 			return nil, false
 		}
 		registration := SensorLookup(sensor.Type(comp.SubType), comp.Model)
-		if registration.Frame == nil {
+		if registration == nil || registration.Frame == nil {
 			return nil, false
 		}
 		return registration.Frame, true

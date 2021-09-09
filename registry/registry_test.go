@@ -59,6 +59,7 @@ func TestRegistry(t *testing.T) {
 	test.That(t, func() { RegisterLidar("x", LidarRegistration{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterSensor(sensor.Type("x"), "y", SensorRegistration{}) }, test.ShouldPanic)
 
+	// test register
 	RegisterProvider("x", ProviderRegistration{Constructor: pf})
 	RegisterCamera("x", CameraRegistration{cf, ff})
 	RegisterBase("x", BaseRegistration{Constructor: bf, Frame: ff})
@@ -67,25 +68,102 @@ func TestRegistry(t *testing.T) {
 	RegisterLidar("x", LidarRegistration{Constructor: lf})
 	RegisterSensor(sensor.Type("x"), "y", SensorRegistration{Constructor: sf, Frame: ff})
 
+	// test look up
 	test.That(t, ProviderLookup("x"), test.ShouldNotBeNil)
+	test.That(t, ProviderLookup("z"), test.ShouldBeNil)
 	test.That(t, ProviderLookup("x").Constructor, test.ShouldNotBeNil)
 	test.That(t, ProviderLookup("x").Frame, test.ShouldBeNil)
+	comp := &config.Component{Type: config.ComponentTypeProvider, Model: "x"}
+	frameFunc, ok := FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldEqual, false)
+	// look up a component that doesn't exist
+	comp = &config.Component{Type: config.ComponentTypeProvider, Model: "z"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldEqual, false)
+
 	test.That(t, CameraLookup("x"), test.ShouldNotBeNil)
+	test.That(t, CameraLookup("z"), test.ShouldBeNil)
 	test.That(t, CameraLookup("x").Constructor, test.ShouldNotBeNil)
 	test.That(t, CameraLookup("x").Frame, test.ShouldNotBeNil)
+	comp = &config.Component{Type: config.ComponentTypeCamera, Model: "x"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldEqual, ff)
+	test.That(t, ok, test.ShouldEqual, true)
+	// look up a component that doesn't exist
+	comp = &config.Component{Type: config.ComponentTypeCamera, Model: "z"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldEqual, false)
+
 	test.That(t, ArmLookup("x"), test.ShouldNotBeNil)
+	test.That(t, ArmLookup("z"), test.ShouldBeNil)
 	test.That(t, ArmLookup("x").Constructor, test.ShouldNotBeNil)
 	test.That(t, ArmLookup("x").Frame, test.ShouldNotBeNil)
+	comp = &config.Component{Type: config.ComponentTypeArm, Model: "x"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldEqual, ff)
+	test.That(t, ok, test.ShouldEqual, true)
+	// look up a component that doesn't exist
+	comp = &config.Component{Type: config.ComponentTypeArm, Model: "z"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldEqual, false)
+
 	test.That(t, BaseLookup("x"), test.ShouldNotBeNil)
+	test.That(t, BaseLookup("z"), test.ShouldBeNil)
 	test.That(t, BaseLookup("x").Constructor, test.ShouldNotBeNil)
 	test.That(t, BaseLookup("x").Frame, test.ShouldNotBeNil)
+	comp = &config.Component{Type: config.ComponentTypeBase, Model: "x"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldEqual, ff)
+	test.That(t, ok, test.ShouldEqual, true)
+	// look up a component that doesn't exist
+	comp = &config.Component{Type: config.ComponentTypeBase, Model: "z"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldEqual, false)
+
 	test.That(t, GripperLookup("x"), test.ShouldNotBeNil)
+	test.That(t, GripperLookup("z"), test.ShouldBeNil)
 	test.That(t, GripperLookup("x").Constructor, test.ShouldNotBeNil)
 	test.That(t, GripperLookup("x").Frame, test.ShouldNotBeNil)
+	comp = &config.Component{Type: config.ComponentTypeGripper, Model: "x"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldEqual, ff)
+	test.That(t, ok, test.ShouldEqual, true)
+	// look up a component that doesn't exist
+	comp = &config.Component{Type: config.ComponentTypeGripper, Model: "z"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldEqual, false)
+
 	test.That(t, LidarLookup("x"), test.ShouldNotBeNil)
+	test.That(t, LidarLookup("z"), test.ShouldBeNil)
 	test.That(t, LidarLookup("x").Constructor, test.ShouldNotBeNil)
 	test.That(t, LidarLookup("x").Frame, test.ShouldBeNil)
+	comp = &config.Component{Type: config.ComponentTypeLidar, Model: "x"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldEqual, false)
+	// look up a component that doesn't exist
+	comp = &config.Component{Type: config.ComponentTypeLidar, Model: "z"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldEqual, false)
+
 	test.That(t, SensorLookup(sensor.Type("x"), "y"), test.ShouldNotBeNil)
+	test.That(t, SensorLookup(sensor.Type("x"), "z"), test.ShouldBeNil)
 	test.That(t, SensorLookup(sensor.Type("x"), "y").Constructor, test.ShouldNotBeNil)
 	test.That(t, SensorLookup(sensor.Type("x"), "y").Frame, test.ShouldNotBeNil)
+	comp = &config.Component{Type: config.ComponentTypeSensor, Model: "y", SubType: "x"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldEqual, ff)
+	test.That(t, ok, test.ShouldEqual, true)
+	// look up a component that doesn't exist
+	comp = &config.Component{Type: config.ComponentTypeSensor, Model: "z", SubType: "x"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldEqual, false)
 }
