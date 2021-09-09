@@ -10,8 +10,7 @@ type FrameWrapper struct {
 	offset spatial.Pose
 }
 
-// WrapFrame will take a frame and wrap it to have the given parent. Offset is not part of this constructor and must be
-// set separately with SetOffset(). The reason for this is to ensure that if no offset is specified, the identity
+// WrapFrame will take a frame and wrap it to have the given additional offset.
 func WrapFrame(frame Frame, offset spatial.Pose) *FrameWrapper {
 	return &FrameWrapper{
 		Frame:  frame,
