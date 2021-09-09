@@ -72,7 +72,7 @@ func Compose(a, b Pose) Pose {
 // PoseDelta returns the difference between two DualQuaternion.
 // We use quaternion/angle axis for this because distances are well-defined.
 func PoseDelta(a, b Pose) []float64 {
-	ret := make([]float64, 7)
+	ret := make([]float64, 6)
 
 	aQ := a.Orientation().ToQuat()
 	bQ := b.Orientation().ToQuat()
@@ -81,13 +81,16 @@ func PoseDelta(a, b Pose) []float64 {
 
 	otherTrans := b.Point()
 	mTrans := a.Point()
-	aa := QuatToR4AA(quatBetween)
+	aa := QuatToR3AA(quatBetween)
+	zero := R3AA{1, 0, 0}
+	if aa == zero {
+		aa.RX = 0
+	}
 	ret[0] = otherTrans.X - mTrans.X
 	ret[1] = otherTrans.Y - mTrans.Y
 	ret[2] = otherTrans.Z - mTrans.Z
-	ret[3] = aa.Theta
-	ret[4] = aa.RX
-	ret[5] = aa.RY
-	ret[6] = aa.RZ
+	ret[3] = aa.RX
+	ret[4] = aa.RY
+	ret[5] = aa.RZ
 	return ret
 }

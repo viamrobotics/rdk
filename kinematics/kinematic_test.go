@@ -140,14 +140,13 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 
 	positions := frame.StartPositions(fs)
 
-	// This will need to be updated once the gripper is removed from the xarm kinematics json file
 	// World point of xArm at 0 position
-	pointWorld1 := r3.Vector{207, 0, -88}
+	pointWorld1 := r3.Vector{207, 0, 112}
 	// World point of xArm at (90,-90,90,-90,90,-90) joint positions
-	pointWorld2 := r3.Vector{297, -207, -98}
+	pointWorld2 := r3.Vector{97, -207, -98}
 
 	// Note that because the arm is pointing in a different direction, this point is not a direct inverse of pointWorld2
-	pointXarm := r3.Vector{207, 98, -297}
+	pointXarm := r3.Vector{207, 98, -97}
 
 	transformPoint1, err := fs.TransformFrame(positions, fs.GetFrame("xArm6"), fs.GetFrame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
@@ -206,8 +205,8 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	// Camera translates by 30, gripper is pointed at -Y
 	pointUR5eCam := r3.Vector{-717.2, -162.9, 262.8}
 
-	pointXarm := r3.Vector{157., -50, -288}
-	pointXarmFromCam := r3.Vector{874.2, -112.9, -550.8}
+	pointXarm := r3.Vector{157., -50, -88}
+	pointXarmFromCam := r3.Vector{874.2, -112.9, -350.8}
 
 	// Check the UR5e and camera default positions
 	transformPoint1, err := fs.TransformFrame(positions, fs.GetFrame("UR5e"), fs.GetFrame(frame.World))
@@ -236,7 +235,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 
 	// A point that is 813.6, -50, 200 from the camera
 	// This puts the point in the Z plane of the xArm6
-	targetPoint := r3.Vector{550.8, -50, 200}
+	targetPoint := r3.Vector{350.8, -50, 200}
 	// Target point in world
 	worldPointLoc, err := fs.TransformPoint(positions, targetPoint, fs.GetFrame("urCamera"), fs.GetFrame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
@@ -257,4 +256,56 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	test.That(t, pointCamToXarm.X, test.ShouldAlmostEqual, 0)
 	test.That(t, pointCamToXarm.Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pointCamToXarm.Z, test.ShouldAlmostEqual, 0)
+}
+
+func TestFixOvIncrement(t *testing.T) {
+	pos1 := &pb.ArmPosition{
+		X:     -66,
+		Y:     -133,
+		Z:     372,
+		Theta: 15,
+		OX:    0,
+		OY:    1,
+		OZ:    0,
+	}
+	pos2 := &pb.ArmPosition{
+		X:     -66,
+		Y:     -133,
+		Z:     372,
+		Theta: 15,
+		OX:    0,
+		OY:    1,
+		OZ:    0,
+	}
+	// Increment, but we're not pointing at Z axis, so should do nothing
+	pos2.OX = -0.1
+	outpos := fixOvIncrement(pos2, pos1)
+	test.That(t, outpos, test.ShouldResemble, pos2)
+
+	// point at positive Z axis, decrement OX, should subtract 180
+	pos1.OZ = 1
+	pos2.OZ = 1
+	pos1.OY = 0
+	pos2.OY = 0
+	outpos = fixOvIncrement(pos2, pos1)
+	test.That(t, outpos.Theta, test.ShouldEqual, -165)
+
+	// Spatial translation is incremented, should do nothing
+	pos2.X -= 0.1
+	outpos = fixOvIncrement(pos2, pos1)
+	test.That(t, outpos, test.ShouldResemble, pos2)
+
+	// Point at -Z, increment OY
+	pos2.X += 0.1
+	pos2.OX += 0.1
+	pos1.OZ = -1
+	pos2.OZ = -1
+	pos2.OY = 0.1
+	outpos = fixOvIncrement(pos2, pos1)
+	test.That(t, outpos.Theta, test.ShouldEqual, 105)
+
+	// OX and OY are both incremented, should do nothing
+	pos2.OX += 0.1
+	outpos = fixOvIncrement(pos2, pos1)
+	test.That(t, outpos, test.ShouldResemble, pos2)
 }

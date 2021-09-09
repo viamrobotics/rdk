@@ -18,7 +18,8 @@ const degToRad = math.Pi / 180
 
 // If two angles differ by less than this amount, we consider them the same for the purpose of doing
 // math around the poles of orientation.
-const angleEpsilon = 0.01 // radians
+// This needs to be very small in order to account for the small steps taken by IK. Otherwise singularities happen.
+const angleEpsilon = 0.0001
 
 // DualQuaternion defines functions to perform rigid DualQuaternionformations in 3D.
 // If you find yourself importing gonum.org/v1/gonum/num/dualquat in some other package, you should probably be
@@ -141,6 +142,11 @@ func (q *DualQuaternion) Invert() Pose {
 	return &DualQuaternion{dualquat.ConjQuat(q.Number)}
 }
 
+// SetZ sets the z translation.
+func (q *DualQuaternion) SetZ(z float64) {
+	q.Dual.Kmag = z
+}
+
 // Transformation multiplies the dual quat contained in this DualQuaternion by another dual quat.
 func (q *DualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	// Ensure we are multiplying by a unit dual quaternion
@@ -220,15 +226,7 @@ func QuatToOV(q quat.Number) *OrientationVec {
 
 	// The contents of ov.newX.Kmag are not in radians but we can use angleEpsilon anyway to check how close we are to
 	// the pole because it's a convenient small number
-	if 1-math.Abs(newZ.Kmag) < angleEpsilon {
-		// Special case for when we point directly along the Z axis
-		// Get the vector normal to the local-x, global-z, origin plane
-		ov.Theta = -math.Atan2(newX.Jmag, -newX.Imag)
-		if newZ.Kmag < 0 {
-			ov.Theta = -math.Atan2(newX.Jmag, newX.Imag)
-		}
-
-	} else {
+	if 1-math.Abs(newZ.Kmag) > angleEpsilon {
 		v1 := mgl64.Vec3{newZ.Imag, newZ.Jmag, newZ.Kmag}
 		v2 := mgl64.Vec3{newX.Imag, newX.Jmag, newX.Kmag}
 
@@ -267,6 +265,14 @@ func QuatToOV(q quat.Number) *OrientationVec {
 		} else {
 			ov.Theta = 0
 		}
+	} else {
+		// Special case for when we point directly along the Z axis
+		// Get the vector normal to the local-x, global-z, origin plane
+		ov.Theta = -math.Atan2(newX.Jmag, -newX.Imag)
+		if newZ.Kmag < 0 {
+			ov.Theta = -math.Atan2(newX.Jmag, newX.Imag)
+		}
+		//~ fmt.Println(ov)
 	}
 
 	return ov
@@ -293,7 +299,7 @@ func MatToEuler(mat mgl64.Mat4) []float64 {
 	return angles
 }
 
-// Norm returns the norm of the quaternion, i.e. the sqrt of the squares of the imaginary parts.
+// Norm returns the norm of the quaternion, i.e. the sqrt of the sum of the squares of the imaginary parts.
 func Norm(q quat.Number) float64 {
 	return math.Sqrt(q.Imag*q.Imag + q.Jmag*q.Jmag + q.Kmag*q.Kmag)
 }

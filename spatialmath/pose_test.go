@@ -40,7 +40,7 @@ func TestBasicPoseConstruction(t *testing.T) {
 	p2 = NewPoseFromOrientationVector(r3.Vector{2, 2, 4}, ov)
 	delta := PoseDelta(p1, p2)
 
-	test.That(t, delta, test.ShouldResemble, []float64{1, 0, 1, 0, 1, 0, 0})
+	test.That(t, delta, test.ShouldResemble, []float64{1, 0, 1, 0, 0, 0})
 }
 
 func ptCompare(t *testing.T, p1, p2 r3.Vector) {

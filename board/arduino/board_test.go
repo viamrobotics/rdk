@@ -2,6 +2,7 @@ package arduino
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,118 @@ import (
 	"go.viam.com/core/board"
 	pb "go.viam.com/core/proto/api/v1"
 )
+
+func TestArduinoPWM(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	for i, tc := range []struct {
+		conf board.Config
+		err  string
+	}{
+		{
+			board.Config{
+				Motors: []board.MotorConfig{
+					{
+						Name: "m1",
+						Pins: map[string]string{
+							"pwm": "5",
+							"a":   "6",
+							"b":   "7",
+							"en":  "8",
+						},
+						Encoder:          "3",
+						EncoderB:         "2",
+						TicksPerRotation: 2000,
+						PWMFreq:          2000,
+					},
+				},
+			},
+			"",
+		},
+		{
+			board.Config{
+				Motors: []board.MotorConfig{
+					{
+						Name: "m1",
+						Pins: map[string]string{
+							"a":  "6",
+							"b":  "7",
+							"en": "8",
+						},
+						Encoder:          "3",
+						EncoderB:         "2",
+						TicksPerRotation: 2000,
+						PWMFreq:          2000,
+					},
+				},
+			},
+			"",
+		},
+		{
+			board.Config{
+				Motors: []board.MotorConfig{
+					{
+						Name: "m1",
+						Pins: map[string]string{
+							"pwm": "5",
+							"dir": "10",
+						},
+						Encoder:          "3",
+						EncoderB:         "2",
+						TicksPerRotation: 2000,
+						PWMFreq:          2000,
+					},
+				},
+			},
+			"",
+		},
+		{
+			board.Config{
+				Motors: []board.MotorConfig{
+					{
+						Name: "m1",
+						Pins: map[string]string{
+							"pwm": "35",
+							"a":   "6",
+							"b":   "7",
+							"en":  "8",
+						},
+						Encoder:          "3",
+						EncoderB:         "2",
+						TicksPerRotation: 2000,
+						PWMFreq:          2000,
+					},
+				},
+			},
+			"couldn't set pwm freq for pin",
+		},
+	} {
+		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
+			b, err := newArduino(ctx, tc.conf, logger)
+			if err != nil && strings.HasPrefix(err.Error(), "found ") {
+
+				t.Skip()
+				return
+			}
+			if tc.err == "" {
+				test.That(t, err, test.ShouldBeNil)
+			} else {
+				test.That(t, err.Error(),
+					test.ShouldContainSubstring, tc.err)
+				return
+			}
+			test.That(t, b, test.ShouldNotBeNil)
+			err = b.PWMSetFreq(ctx, "7", 2000)
+			test.That(t, err, test.ShouldBeNil)
+			err = b.PWMSetFreq(ctx, "45", 2000)
+			test.That(t, err, test.ShouldNotBeNil)
+			err = b.PWMSetFreq(ctx, "-5", 2000)
+			test.That(t, err, test.ShouldNotBeNil)
+			defer b.Close()
+		})
+	}
+}
 
 // Test the A/B/PWM style IO
 func TestArduinoMotorABPWM(t *testing.T) {
