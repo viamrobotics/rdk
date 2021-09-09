@@ -65,6 +65,7 @@ func calcSwingPct(from, to *pb.JointPositions, model *Model) float64 {
 	}
 	halfPos, err := model.JointRadToQuat(arm.JointPositionsToRadians(interpolateJoints(from, to, 0.5)))
 	if err != nil {
+		// This should never happen as one of the above statements should have returned first
 		return math.Inf(1)
 	}
 
