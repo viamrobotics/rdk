@@ -52,11 +52,21 @@ func WeightedSquaredNorm(vec []float64, config SolverDistanceWeights) float64 {
 
 // calcSwingPct will calculate the distance from the start position to the halfway point, and also the start position to
 // the end position, and return the ratio of the two. If the result >1.0, then the halfway point is further from the
-// start position than the end position is, and thus solution searching should continue
+// start position than the end position is, and thus solution searching should continue.
+// Positions passed in should be valid, as should their halfway points, so any error will return an infinite distance
 func calcSwingPct(from, to *pb.JointPositions, model *Model) float64 {
-	startPos, _ := model.JointRadToQuat(arm.JointPositionsToRadians(from))
-	endPos, _ := model.JointRadToQuat(arm.JointPositionsToRadians(to))
-	halfPos, _ := model.JointRadToQuat(arm.JointPositionsToRadians(interpolateJoints(from, to, 0.5)))
+	startPos, err := model.JointRadToQuat(arm.JointPositionsToRadians(from))
+	if err != nil {
+		return math.Inf(1)
+	}
+	endPos, err := model.JointRadToQuat(arm.JointPositionsToRadians(to))
+	if err != nil {
+		return math.Inf(1)
+	}
+	halfPos, err := model.JointRadToQuat(arm.JointPositionsToRadians(interpolateJoints(from, to, 0.5)))
+	if err != nil {
+		return math.Inf(1)
+	}
 
 	endDist := WeightedSquaredNorm(spatial.PoseDelta(startPos, endPos), model.SolveWeights)
 	halfDist := WeightedSquaredNorm(spatial.PoseDelta(startPos, halfPos), model.SolveWeights)
