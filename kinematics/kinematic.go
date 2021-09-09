@@ -32,7 +32,7 @@ func ComputePosition(model *Model, joints *pb.JointPositions) (*pb.ArmPosition, 
 		return nil, err
 	}
 
-	return spatialmath.NewDualQuaternionFromPose(pose).ToArmPos(), nil
+	return spatialmath.PoseToArmPos(pose), nil
 }
 
 // deriv will compute D(q), the derivative of q = e^w with respect to w

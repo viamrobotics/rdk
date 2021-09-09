@@ -21,39 +21,39 @@ const degToRad = math.Pi / 180
 // This needs to be very small in order to account for the small steps taken by IK. Otherwise singularities happen.
 const angleEpsilon = 0.0001
 
-// DualQuaternion defines functions to perform rigid DualQuaternionformations in 3D.
+// dualQuaternion defines functions to perform rigid dualQuaternionformations in 3D.
 // If you find yourself importing gonum.org/v1/gonum/num/dualquat in some other package, you should probably be
 // using these instead
-type DualQuaternion struct {
+type dualQuaternion struct {
 	dualquat.Number
 }
 
-// NewDualQuaternion returns a pointer to a new DualQuaternion object whose Quaternion is an identity Quaternion.
+// newdualQuaternion returns a pointer to a new dualQuaternion object whose Quaternion is an identity Quaternion.
 // Since the real part of a qual quaternion should be a unit quaternion, not all zeroes, this should be used
-// instead of &DualQuaternion{}.
-func NewDualQuaternion() *DualQuaternion {
-	return &DualQuaternion{dualquat.Number{
+// instead of &dualQuaternion{}.
+func newdualQuaternion() *dualQuaternion {
+	return &dualQuaternion{dualquat.Number{
 		Real: quat.Number{Real: 1},
 		Dual: quat.Number{},
 	}}
 }
 
-// NewDualQuaternionFromRotation returns a pointer to a new DualQuaternion object whose rotation quaternion is set from a provided
+// newdualQuaternionFromRotation returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided
 // orientation vector.
-func NewDualQuaternionFromRotation(ov *OrientationVec) *DualQuaternion {
+func newdualQuaternionFromRotation(ov *OrientationVec) *dualQuaternion {
 	// Handle the zero case
 	if ov.OX == 0 && ov.OY == 0 && ov.OZ == 0 {
 		ov.OZ = 1
 	}
 	ov.Normalize()
-	return &DualQuaternion{dualquat.Number{
+	return &dualQuaternion{dualquat.Number{
 		Real: ov.ToQuat(),
 		Dual: quat.Number{},
 	}}
 }
 
-// NewDualQuaternionFromDH returns a pointer to a new DualQuaternion object created from a DH parameter
-func NewDualQuaternionFromDH(a, d, alpha float64) *DualQuaternion {
+// newdualQuaternionFromDH returns a pointer to a new dualQuaternion object created from a DH parameter
+func newdualQuaternionFromDH(a, d, alpha float64) *dualQuaternion {
 	m := mgl64.Ident4()
 
 	m.Set(1, 1, math.Cos(alpha))
@@ -64,34 +64,34 @@ func NewDualQuaternionFromDH(a, d, alpha float64) *DualQuaternion {
 	m.Set(2, 2, math.Cos(alpha))
 
 	qRot := mgl64.Mat4ToQuat(m)
-	q := NewDualQuaternion()
+	q := newdualQuaternion()
 	q.Real = quat.Number{qRot.W, qRot.X(), qRot.Y(), qRot.Z()}
 	q.SetTranslation(a, 0, d)
 	return q
 }
 
-// NewDualQuaternionFromArmPos returns a pointer to a new DualQuaternion object whose rotation quaternion is set from a provided
+// newdualQuaternionFromArmPos returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided
 // arm position.
-func NewDualQuaternionFromArmPos(pos *pb.ArmPosition) *DualQuaternion {
-	q := NewDualQuaternionFromRotation(&OrientationVec{pos.Theta * degToRad, pos.OX, pos.OY, pos.OZ})
+func newdualQuaternionFromArmPos(pos *pb.ArmPosition) *dualQuaternion {
+	q := newdualQuaternionFromRotation(&OrientationVec{pos.Theta * degToRad, pos.OX, pos.OY, pos.OZ})
 	q.SetTranslation(pos.X, pos.Y, pos.Z)
 	return q
 }
 
-// NewDualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so, otherwise creates a
+// newdualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so, otherwise creates a
 // new one.
-func NewDualQuaternionFromPose(p Pose) *DualQuaternion {
-	if q, ok := p.(*DualQuaternion); ok {
+func newdualQuaternionFromPose(p Pose) *dualQuaternion {
+	if q, ok := p.(*dualQuaternion); ok {
 		return q.Clone()
 	}
-	q := NewDualQuaternionFromRotation(p.Orientation())
+	q := newdualQuaternionFromRotation(p.Orientation())
 	pt := p.Point()
 	q.SetTranslation(pt.X, pt.Y, pt.Z)
 	return q
 }
 
-// ToArmPos converts a DualQuaternion to an arm position
-func (q *DualQuaternion) ToArmPos() *pb.ArmPosition {
+// ToArmPos converts a dualQuaternion to an arm position
+func (q *dualQuaternion) ToArmPos() *pb.ArmPosition {
 	final := &pb.ArmPosition{}
 	cartQuat := dualquat.Mul(q.Number, dualquat.Conj(q.Number))
 	final.X = cartQuat.Dual.Imag
@@ -105,50 +105,50 @@ func (q *DualQuaternion) ToArmPos() *pb.ArmPosition {
 	return final
 }
 
-// Clone returns a DualQuaternion object identical to this one.
-func (q *DualQuaternion) Clone() *DualQuaternion {
+// Clone returns a dualQuaternion object identical to this one.
+func (q *dualQuaternion) Clone() *dualQuaternion {
 	// No need for deep copies here, a dualquat.Number is primitives all the way down
-	return &DualQuaternion{q.Number}
+	return &dualQuaternion{q.Number}
 }
 
 // Point multiplies the dual quaternion by its own conjugate to give a dq where the real is the identity quat,
 // and the dual is representative of real world millimeters. We then return the XYZ point on its own.
 // We intentionally do not return the resulting dual quaternion, because we do not want to mix dq's representing
 // transformations and ones representing pure points.
-func (q *DualQuaternion) Point() r3.Vector {
+func (q *dualQuaternion) Point() r3.Vector {
 	tQuat := dualquat.Mul(q.Number, dualquat.Conj(q.Number)).Dual
 	return r3.Vector{tQuat.Imag, tQuat.Jmag, tQuat.Kmag}
 }
 
 // Orientation returns the rotation quaternion as an Orientation Vector.
-func (q *DualQuaternion) Orientation() *OrientationVec {
+func (q *dualQuaternion) Orientation() *OrientationVec {
 	return QuatToOV(q.Real)
 }
 
 // SetTranslation correctly sets the translation quaternion against the rotation.
-func (q *DualQuaternion) SetTranslation(x, y, z float64) {
+func (q *dualQuaternion) SetTranslation(x, y, z float64) {
 	q.Dual = quat.Number{0, x / 2, y / 2, z / 2}
 	q.rotate()
 }
 
 // rotate multiplies the dual part of the quaternion by the real part give the correct rotation.
-func (q *DualQuaternion) rotate() {
+func (q *dualQuaternion) rotate() {
 	q.Dual = quat.Mul(q.Dual, q.Real)
 }
 
-// Invert returns a DualQuaternion representing the opposite transformation. So if the input q would transform a -> b,
+// Invert returns a dualQuaternion representing the opposite transformation. So if the input q would transform a -> b,
 // then Invert(p) will transform b -> a
-func (q *DualQuaternion) Invert() Pose {
-	return &DualQuaternion{dualquat.ConjQuat(q.Number)}
+func (q *dualQuaternion) Invert() Pose {
+	return &dualQuaternion{dualquat.ConjQuat(q.Number)}
 }
 
 // SetZ sets the z translation.
-func (q *DualQuaternion) SetZ(z float64) {
+func (q *dualQuaternion) SetZ(z float64) {
 	q.Dual.Kmag = z
 }
 
-// Transformation multiplies the dual quat contained in this DualQuaternion by another dual quat.
-func (q *DualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
+// Transformation multiplies the dual quat contained in this dualQuaternion by another dual quat.
+func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	// Ensure we are multiplying by a unit dual quaternion
 	if vecLen := quat.Abs(by.Real); vecLen != 1 {
 		by.Real = quat.Scale(1/vecLen, by.Real)
@@ -328,9 +328,9 @@ func AlmostEqual(a, b quat.Number, tol float64) bool {
 
 // OffsetBy takes two offsets and computes the final position.
 func OffsetBy(a, b *pb.ArmPosition) *pb.ArmPosition {
-	q1 := NewDualQuaternionFromArmPos(a)
-	q2 := NewDualQuaternionFromArmPos(b)
-	q3 := &DualQuaternion{q1.Transformation(q2.Number)}
+	q1 := newdualQuaternionFromArmPos(a)
+	q2 := newdualQuaternionFromArmPos(b)
+	q3 := &dualQuaternion{q1.Transformation(q2.Number)}
 
 	return q3.ToArmPos()
 }
