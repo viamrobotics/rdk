@@ -1,6 +1,7 @@
 
 #include "motor.h"
-
+#include "pwm.h"
+extern PWM *pwm;
 extern HardwareSerial* debugSerial;
 
 Motor::Motor(const char* name, int in1, int in2, int inDir, int inEn, int pwm)
@@ -51,7 +52,7 @@ void Motor::setPower(int power) {
         power = 255 - power; // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
     }
     if (_inEn >= 0) digitalWrite(_inEn, LOW);
-    if (PWMPin >= 0) analogWrite(PWMPin, power);
+    if (PWMPin >= 0) pwm->analogWrite(PWMPin, power);
 }
 
 void Motor::go(bool forward, int power) {

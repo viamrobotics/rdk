@@ -23,11 +23,11 @@
          },
          {
             "id": "upper_arm",
-            "parent": "shoulder",
+            "parent": "upper_arm_rot",
             "translation": {
-               "x": 53.5,
+               "x": 52.5,
                "y": 0,
-               "z": 284.5
+               "z": 293
             }
          },
          {
@@ -91,16 +91,28 @@
             "min": -118
          },
          {
+            "id": "upper_arm_rot",
+            "type": "revolute",
+            "parent": "shoulder",
+            "axis": {
+               "x": 0,
+               "y": 0,
+               "z": 1
+            },
+            "max": 359,
+            "min": -359
+         },
+         {
             "id": "elbow",
             "type": "revolute",
             "parent": "upper_arm",
             "axis": {
                "x": 0,
-               "y": 1,
+               "y": -1,
                "z": 0
             },
-            "max": 10,
-            "min": -225
+            "max": 225,
+            "min": -11
          },
          {
             "id": "forearm_rot",

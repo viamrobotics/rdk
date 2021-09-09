@@ -16,7 +16,7 @@ BINARIES=( \
 # To be checked via pkg-config --modversion (not always the package version)
 LIBRARIES=( \
 	"vpx 1.7.0 1.10.0" \
-	"x264 0.155.2917 0.161.3049" \
+	"x264 0.155.2917 0.163.3060" \
 	"nlopt 2.7.0 2.7.0" \
 )
 
@@ -112,16 +112,16 @@ do
 		then
 			VERSION="dev"
 		fi
+
+		if verminmax $VERSION ${BINARY[1]} ${BINARY[2]}
+		then
+			echo "OK: ${BINARY[0]} $VERSION"
+		else
+			echo "Fail: ${BINARY[0]} version ($VERSION) is outside expected range: ${BINARY[1]} - ${BINARY[2]}"
+			ALL_GOOD=0
+		fi
 	else
 		echo "${BINARY[0]} not installed. Please run setup.sh or install version ${BINARY[1]}"
-		ALL_GOOD=0
-	fi
-
-	if verminmax $VERSION ${BINARY[1]} ${BINARY[2]}
-	then
-		echo "OK: ${BINARY[0]} $VERSION"
-	else
-		echo "Fail: ${BINARY[0]} version ($VERSION) is outside expected range: ${BINARY[1]} - ${BINARY[2]}"
 		ALL_GOOD=0
 	fi
 done
@@ -133,16 +133,16 @@ do
 	if pkg-config ${LIBRARY[0]} > /dev/null
 	then
 		VERSION=`pkg-config --modversion ${LIBRARY[0]} 2>&1 | grep -Eo '[0-9]*\.[0-9\.]*'`
+
+		if verminmax $VERSION ${LIBRARY[1]} ${LIBRARY[2]}
+		then
+			echo "OK: ${LIBRARY[0]} library $VERSION"
+		else
+			echo "Fail: ${LIBRARY[0]} library version ($VERSION) is outside expected range: ${LIBRARY[1]} - ${LIBRARY[2]}"
+			ALL_GOOD=0
+		fi
 	else
 		echo "${LIBRARY[0]} library not installed. Please run setup.sh or install version ${LIBRARY[1]}"
-		ALL_GOOD=0
-	fi
-
-	if verminmax $VERSION ${LIBRARY[1]} ${LIBRARY[2]}
-	then
-		echo "OK: ${LIBRARY[0]} library $VERSION"
-	else
-		echo "Fail: ${LIBRARY[0]} library version ($VERSION) is outside expected range: ${LIBRARY[1]} - ${LIBRARY[2]}"
 		ALL_GOOD=0
 	fi
 done
