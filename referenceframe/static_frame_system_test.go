@@ -13,6 +13,32 @@ import (
 
 var blankPos map[string][]Input
 
+func TestSimpleFrameSystemFunctions(t *testing.T) {
+	// build the system
+	fs := NewEmptySimpleFrameSystem("test")
+	frame3Pt := r3.Vector{0., 4., 0.} // location of frame3 with respect to world frame
+	err := fs.AddFrame(FrameFromPoint("frame3", frame3Pt), fs.World())
+	test.That(t, err, test.ShouldBeNil)
+	frame1Pt := r3.Vector{0., 3., 0.} // location of frame1 with respect to frame3
+	err = fs.AddFrame(FrameFromPoint("frame1", frame1Pt), fs.GetFrame("frame3"))
+	test.That(t, err, test.ShouldBeNil)
+	frame2Pt := r3.Vector{5., 1., 0.} // location of frame2 with respect to world frame
+	err = fs.AddFrame(FrameFromPoint("frame2", frame2Pt), fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	parents := fs.Parents()
+	frames := fs.Frames()
+	test.That(t, len(parents), test.ShouldEqual, 3)
+	test.That(t, len(frames), test.ShouldEqual, 3)
+
+	// Pruning frame3 should also remove frame1
+	fs.PruneFrame(fs.GetFrame("frame3"))
+	parents = fs.Parents()
+	frames = fs.Frames()
+	test.That(t, len(parents), test.ShouldEqual, 1)
+	test.That(t, len(frames), test.ShouldEqual, 1)
+}
+
 // A simple Frame translation from the world frame to a frame right above it at (0, 3, 0)
 // And then back to the world frame
 // transforming a point at (1, 3, 0)

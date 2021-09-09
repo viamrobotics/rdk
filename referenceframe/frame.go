@@ -21,7 +21,8 @@ type Input struct {
 	Value float64
 }
 
-// Limit describes a minimum and maximum limit for the DOF of the frame
+// Limit describes a minimum and maximum limit for the DOF of the frame.
+// If limits are exceeded, an error will be retuned, but the math will still be performed and an answer given.
 type Limit struct {
 	Min, Max float64
 }
@@ -64,7 +65,7 @@ func NewStaticFrame(name string, pose spatial.Pose) Frame {
 	return &staticFrame{name, pose}
 }
 
-// FrameFromPoint creates a new Frame from a 3D point. It will be given the same orientation as the parent of the frame.
+// FrameFromPoint creates a new Frame from a 3D point.
 func FrameFromPoint(name string, point r3.Vector) Frame {
 	pose := spatial.NewPoseFromPoint(point)
 	frame := NewStaticFrame(name, pose)
