@@ -141,7 +141,6 @@ func (b *arduinoBoard) configureMotor(cfg board.MotorConfig) error {
 			cfg.Pins[pin] = "-1"
 		}
 	}
-
 	cmd := fmt.Sprintf("config-motor-dc %s %s %s %s %s %s e %s %s",
 		cfg.Name,
 		cfg.Pins["pwm"], // Optional if using A/B inputs (one of them will be PWMed if missing)
@@ -167,6 +166,25 @@ func (b *arduinoBoard) configureMotor(cfg board.MotorConfig) error {
 		return err
 	}
 	b.motors[cfg.Name] = m
+	if cfg.Pins["pwm"] != "-1" && cfg.PWMFreq > 0 {
+		//When the motor controller has a PWM pin exposed (either (A && B && PWM) || (DIR && PWM))
+		//We control the motor speed with the PWM pin
+		err = b.pwmSetFreqArduino(cfg.Pins["pwm"], cfg.PWMFreq)
+		if err != nil {
+			return err
+		}
+	} else if (cfg.Pins["a"] != "-1" && cfg.Pins["b"] != "-1") && cfg.PWMFreq > 0 {
+		// When the motor controller only exposes A & B pin
+		// We control the motor speed with both pins
+		err = b.pwmSetFreqArduino(cfg.Pins["a"], cfg.PWMFreq)
+		if err != nil {
+			return err
+		}
+		err = b.pwmSetFreqArduino(cfg.Pins["b"], cfg.PWMFreq)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -268,12 +286,28 @@ func (b *arduinoBoard) GPIOGet(ctx context.Context, pin string) (bool, error) {
 
 // PWMSet sets the given pin to the given duty cycle.
 func (b *arduinoBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	return errors.New("GPIO not supported on arduino yet")
+	return b.pwmSetArduino(pin, dutyCycle)
+}
+func (b *arduinoBoard) pwmSetArduino(pin string, dutyCycle byte) error {
+	cmd := fmt.Sprintf("set-pwm-duty %s %d", pin, dutyCycle)
+	_, err := b.runCommand(cmd)
+	if err != nil {
+		return fmt.Errorf("unexpected return from PWMSet got %w", err)
+	}
+	return nil
 }
 
 // PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
 func (b *arduinoBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	return errors.New("GPIO not supported on arduino yet")
+	return b.pwmSetFreqArduino(pin, freq)
+}
+func (b *arduinoBoard) pwmSetFreqArduino(pin string, freq uint) error {
+	cmd := fmt.Sprintf("set-pwm-freq %s %d", pin, freq)
+	_, err := b.runCommand(cmd)
+	if err != nil {
+		return fmt.Errorf("unexpected return from PWMSetFreq got %w", err)
+	}
+	return nil
 }
 
 // MotorNames returns the name of all known motors.
