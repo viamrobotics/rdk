@@ -20,7 +20,7 @@ func init() {
 			return &Gripper{Name: config.Name}, nil
 		},
 		Frame: func(name string) (referenceframe.Frame, error) {
-			return referenceframe.FrameFromPoint(name, r3.Vector{0, 0, 200}), nil
+			return referenceframe.FrameFromPoint(name, r3.Vector{0, 0, 200})
 		},
 	})
 }

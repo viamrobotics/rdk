@@ -97,7 +97,10 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 
 			q := spatialmath.NewPoseFromOrientationVector(pt, ov)
 
-			transforms[link.ID] = frame.NewStaticFrame(link.ID, q)
+			transforms[link.ID], err = frame.NewStaticFrame(link.ID, q)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"
@@ -128,7 +131,10 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 			linkID := dh.ID
 			linkQuat := spatialmath.NewPoseFromDH(dh.A, dh.D, dh.Alpha)
 
-			transforms[linkID] = frame.NewStaticFrame(linkID, linkQuat)
+			transforms[linkID], err = frame.NewStaticFrame(linkID, linkQuat)
+			if err != nil {
+				return nil, err
+			}
 			parentMap[linkID] = jointID
 		}
 	} else {

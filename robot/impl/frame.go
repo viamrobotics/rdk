@@ -38,7 +38,10 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 			}
 			staticName := c.Name + "_offset"
 			// add the static frame first-- if it is empty, a 0 offset frame will be applied.
-			staticFrame := makeStaticFrame(&c, staticName)
+			staticFrame, err := makeStaticFrame(&c, staticName)
+			if err != nil {
+				return nil, err
+			}
 			// check to see if there are no repeated names
 			if _, ok := names[staticFrame.Name()]; ok {
 				return nil, fmt.Errorf("cannot have more than one frame with name %s", staticFrame.Name())
@@ -67,7 +70,7 @@ func makePoseFromConfig(f *config.FrameConfig) spatial.Pose {
 	return spatial.NewPoseFromOrientationVector(translation, ov)
 }
 
-func makeStaticFrame(comp *config.Component, name string) ref.Frame {
+func makeStaticFrame(comp *config.Component, name string) (ref.Frame, error) {
 	pose := makePoseFromConfig(comp.Frame)
 	return ref.NewStaticFrame(name, pose)
 }
@@ -77,7 +80,7 @@ func makeModelFrame(comp *config.Component) (ref.Frame, error) {
 		return frameFunc(comp.Name)
 	}
 	// return identity frame if no frame function
-	return ref.NewStaticFrame(comp.Name, nil), nil
+	return ref.NewZeroStaticFrame(comp.Name), nil
 }
 
 func buildFrameSystem(name string, frameNames map[string]bool, children map[string][]ref.Frame) (ref.FrameSystem, error) {

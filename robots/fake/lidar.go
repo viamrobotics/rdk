@@ -39,7 +39,7 @@ func init() {
 			return device, nil
 		},
 		Frame: func(name string) (referenceframe.Frame, error) {
-			return referenceframe.FrameFromPoint(name, r3.Vector{50, 0, 0}), nil
+			return referenceframe.FrameFromPoint(name, r3.Vector{50, 0, 0})
 		},
 	})
 }

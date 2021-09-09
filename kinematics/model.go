@@ -111,7 +111,7 @@ func (m *Model) JointRadToQuat(radAngles []float64) (spatialmath.Pose, error) {
 		return nil, err
 	}
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
-	transformations := spatialmath.NewEmptyPose()
+	transformations := spatialmath.NewZeroPose()
 	for _, pose := range poses {
 		transformations = spatialmath.Compose(transformations, pose)
 	}

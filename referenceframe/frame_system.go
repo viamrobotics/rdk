@@ -37,7 +37,7 @@ type simpleFrameSystem struct {
 
 // NewEmptySimpleFrameSystem creates a graph of Frames that have
 func NewEmptySimpleFrameSystem(name string) FrameSystem {
-	worldFrame := NewStaticFrame("world", nil)
+	worldFrame := NewZeroStaticFrame(World)
 	return &simpleFrameSystem{name, worldFrame, map[string]Frame{}, map[Frame]Frame{}}
 }
 
@@ -110,7 +110,10 @@ func (sfs *simpleFrameSystem) checkName(name string, parent Frame) error {
 // It can only be added if the parent of the input frame already exists in the system,
 // and there is no frame with the input's name already.
 func (sfs *simpleFrameSystem) AddFrameFromPose(name string, parent Frame, pose spatial.Pose) error {
-	frame := NewStaticFrame(name, pose)
+	frame, err := NewStaticFrame(name, pose)
+	if err != nil {
+		return err
+	}
 	return sfs.AddFrame(frame, parent)
 }
 
@@ -143,7 +146,7 @@ func (sfs *simpleFrameSystem) transformFrameFromParent(positions map[string][]In
 		return nil, fmt.Errorf("target frame %s not found in FrameSystem", endFrame.Name())
 	}
 	// If parent is nil, that means srcFrame is the world frame, which has no parent.
-	fromParentTransform := spatial.NewEmptyPose()
+	fromParentTransform := spatial.NewZeroPose()
 	if srcParent != nil {
 		// get source parent to world transform
 		fromParentTransform, err = sfs.composeTransforms(srcParent, positions) // returns source to world transform
@@ -176,7 +179,10 @@ func (sfs *simpleFrameSystem) TransformFrame(positions map[string][]Input, srcFr
 // TransformPoint takes in a point with respect to a source Frame, and outputs the point coordinates with respect to the target Frame.
 func (sfs *simpleFrameSystem) TransformPoint(positions map[string][]Input, point r3.Vector, srcFrame, endFrame Frame) (r3.Vector, error) {
 	// Turn point into an anonymous Frame
-	pointFrame := FrameFromPoint("", point)
+	pointFrame, err := FrameFromPoint("", point)
+	if err != nil {
+		return r3.Vector{}, err
+	}
 	// do Transform
 	fullTransform, err := sfs.transformFrameFromParent(positions, pointFrame, srcFrame, endFrame)
 	if err != nil {
@@ -187,7 +193,10 @@ func (sfs *simpleFrameSystem) TransformPoint(positions map[string][]Input, point
 
 // TransformPose takes in a pose with respect to a source Frame, and outputs the pose with respect to the target Frame.
 func (sfs *simpleFrameSystem) TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, endFrame Frame) (spatial.Pose, error) {
-	poseFrame := NewStaticFrame("", pose)
+	poseFrame, err := NewStaticFrame("", pose)
+	if err != nil {
+		return nil, err
+	}
 	return sfs.transformFrameFromParent(positions, poseFrame, srcFrame, endFrame)
 }
 
@@ -198,7 +207,7 @@ func (sfs *simpleFrameSystem) Name() string {
 
 // compose the quaternions from the input frame to the world frame
 func (sfs *simpleFrameSystem) composeTransforms(frame Frame, positions map[string][]Input) (spatial.Pose, error) {
-	q := spatial.NewEmptyPose() // empty initial dualquat
+	q := spatial.NewZeroPose() // empty initial dualquat
 	var errAll error
 	for sfs.parents[frame] != nil { // stop once you reach world node
 		// Transform() gives FROM q TO parent. Add new transforms to the left.
@@ -253,7 +262,7 @@ func ComposeFrameSystems(fs1, fs2 FrameSystem, offset Frame) (FrameSystem, error
 // descendents removed.
 func DivideFrameSystem(fs1 FrameSystem, newRoot Frame) (FrameSystem, FrameSystem, error) {
 	newFS1 := &simpleFrameSystem{fs1.Name() + "_r_" + newRoot.Name(), fs1.World(), map[string]Frame{}, map[Frame]Frame{}}
-	newWorld := NewStaticFrame(World, nil)
+	newWorld := NewZeroStaticFrame(World)
 	newFS2 := &simpleFrameSystem{newRoot.Name(), newWorld, map[string]Frame{}, map[Frame]Frame{}}
 
 	rootFrame := fs1.GetFrame(newRoot.Name())

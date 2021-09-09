@@ -29,7 +29,7 @@ func init() {
 		Frame: func(name string) (referenceframe.Frame, error) {
 			point := r3.Vector{500, 0, 300}
 			pose := spatialmath.NewPoseFromAxisAngle(point, r3.Vector{0, 1, 0}, math.Pi/2.)
-			return referenceframe.NewStaticFrame(name, pose), nil
+			return referenceframe.NewStaticFrame(name, pose)
 		},
 	})
 }
