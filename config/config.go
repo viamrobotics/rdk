@@ -21,8 +21,8 @@ type Config struct {
 	Processes      []pexec.ProcessConfig `json:"processes,omitempty"`
 }
 
-// Validate ensures all parts of the config are valid.
-func (c Config) Validate(fromCloud bool) error {
+// Ensure ensures all parts of the config are valid and sorts components based on what they depend on.
+func (c Config) Ensure(fromCloud bool) error {
 	if c.Cloud != nil {
 		if err := c.Cloud.Validate("cloud", fromCloud); err != nil {
 			return err

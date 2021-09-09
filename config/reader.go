@@ -256,7 +256,7 @@ func fromReader(originalPath string, r io.Reader, skipCloud bool) (*Config, erro
 	if err := decoder.Decode(&cfg); err != nil {
 		return nil, errors.Errorf("cannot parse config %w", err)
 	}
-	if err := cfg.Validate(skipCloud); err != nil {
+	if err := cfg.Ensure(skipCloud); err != nil {
 		return nil, err
 	}
 
@@ -294,7 +294,7 @@ func fromReader(originalPath string, r io.Reader, skipCloud bool) (*Config, erro
 		}
 	}
 
-	if err := cfg.Validate(skipCloud); err != nil {
+	if err := cfg.Ensure(skipCloud); err != nil {
 		return nil, err
 	}
 	return &cfg, nil
