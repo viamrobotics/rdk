@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"errors"
 	"math"
 	"testing"
 
@@ -43,6 +44,21 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	frames = fs.Frames()
 	test.That(t, len(parents), test.ShouldEqual, 1)
 	test.That(t, len(frames), test.ShouldEqual, 1)
+
+	e1 := errors.New("parent frame is nil")
+	e2 := errors.New("parent frame with name \"foo\" not in frame system")
+	e3 := errors.New("frame with name \"frame2\" already in frame system")
+	if sfs, ok := fs.(*simpleFrameSystem); ok {
+		err = sfs.checkName("foo", nil)
+		test.That(t, err.Error(), test.ShouldEqual, e1.Error())
+
+		fFoo := NewZeroStaticFrame("foo")
+		err = sfs.checkName("bar", fFoo)
+		test.That(t, err.Error(), test.ShouldEqual, e2.Error())
+
+		err = sfs.checkName("frame2", fs.World())
+		test.That(t, err.Error(), test.ShouldEqual, e3.Error())
+	}
 }
 
 // A simple Frame translation from the world frame to a frame right above it at (0, 3, 0)

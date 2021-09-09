@@ -62,6 +62,24 @@ func TestForwardKinematics(t *testing.T) {
 	actual = poseToSlice(pos)
 	expect = []float64{258.0935, -258.0935, 360.25, utils.RadToDeg(0.7854), 0.707, -0.707, 0}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
+
+	// Test out of bounds
+	newPos = []float64{-45, 0, 0, 0, 0, 999}
+	pos, err = ComputePosition(m, &pb.JointPositions{Degrees: newPos})
+	test.That(t, pos, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
+}
+
+func TestSwingEdgeCases(t *testing.T) {
+	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"))
+	test.That(t, err, test.ShouldBeNil)
+
+	origin := &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0}}
+	oob := &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 999}}
+	swing := calcSwingPct(oob, origin, m)
+	test.That(t, swing, test.ShouldEqual, math.Inf(1))
+	swing = calcSwingPct(origin, oob, m)
+	test.That(t, swing, test.ShouldEqual, math.Inf(1))
 }
 
 func floatDelta(l1, l2 []float64) float64 {

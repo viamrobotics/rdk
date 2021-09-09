@@ -30,6 +30,11 @@ func TestStaticFrame(t *testing.T) {
 	// check that there are no limits on the static frame
 	limits := frame.Dof()
 	test.That(t, limits, test.ShouldResemble, []Limit{})
+
+	errExpect := errors.New("pose is not allowed to be nil")
+	f, err := NewStaticFrame("test2", nil)
+	test.That(t, err.Error(), test.ShouldEqual, errExpect.Error())
+	test.That(t, f, test.ShouldBeNil)
 }
 
 func TestPrismaticFrame(t *testing.T) {
