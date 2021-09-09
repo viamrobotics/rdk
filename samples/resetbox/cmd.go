@@ -40,8 +40,6 @@ const (
 	tipPinB = "31"
 	vibePin = "33"
 
-	vibeLevel = 96
-
 	gateSpeed    = 25
 	gateCubePass = 50
 	gateOpen     = 80
@@ -51,7 +49,7 @@ const (
 	squeezeCubePass = 55
 	squeezeOpen     = 80
 
-	elevatorBottom = 75
+	elevatorBottom = 25
 	elevatorTop    = 850
 	elevatorSpeed  = 300
 
@@ -65,6 +63,8 @@ const (
 )
 
 var (
+	vibeLevel = uint8(96)
+
 	safeDumpPos  = &pb.JointPositions{Degrees: []float64{0, -43, -71, 0, 98, 0}}
 	cubeReadyPos = &pb.JointPositions{Degrees: []float64{-182.6, -26.8, -33.0, 0, 51.0, 0}}
 	cube1grab    = &pb.JointPositions{Degrees: []float64{-182.6, 11.2, -51.8, 0, 48.6, 0}}
@@ -302,6 +302,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	action.RegisterAction("HomeArm", box.doArmHome)
 	action.RegisterAction("PlaceDuck", box.doPlaceDuck)
 	action.RegisterAction("Vibrate", box.doVibrateToggle)
+	action.RegisterAction("VibeLevel", box.doVibrateLevel)
 	action.RegisterAction("TipUp", box.doTipTableUp)
 	action.RegisterAction("TipDown", box.doTipTableDown)
 	action.RegisterAction("ElevatorUp", box.doElevatorUp)
@@ -407,6 +408,14 @@ func (b *ResetBox) doVibrateToggle(ctx context.Context, r robot.Robot) {
 	} else {
 		b.vibrate(ctx, vibeLevel)
 	}
+}
+
+func (b *ResetBox) doVibrateLevel(ctx context.Context, r robot.Robot) {
+	vibeLevel += 16
+	if vibeLevel > 192 {
+		vibeLevel = 64
+	}
+	b.vibrate(ctx, vibeLevel)
 }
 
 func (b *ResetBox) doTipTableUp(ctx context.Context, r robot.Robot) {
