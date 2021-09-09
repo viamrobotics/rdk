@@ -41,24 +41,24 @@ func init() {
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 			return NewxArm(ctx, config.Host, logger, 6)
 		},
-		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name) },
+		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name, 6) },
 	})
 	registry.RegisterArm("xArm7", registry.ArmRegistration{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 			return NewxArm(ctx, config.Host, logger, 7)
 		},
-		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name) },
+		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name, 7) },
 	})
 }
 
 // XArmModel returns the kinematics model of the xArm, also has all Frame information.
 func xArmModel(dof int) (*kinematics.Model, error) {
 	if dof == 6 {
-		return = kinematics.ParseJSON(xArm6modeljson)
+		return kinematics.ParseJSON(xArm6modeljson)
 	} else if dof == 7 {
-		return = kinematics.ParseJSON(xArm7modeljson)
+		return kinematics.ParseJSON(xArm7modeljson)
 	}
-	return &xArm{}, errors.New("no kinematics model for xarm with specified degrees of freedom")
+	return nil, errors.New("no kinematics model for xarm with specified degrees of freedom")
 }
 
 // xArmFrame returns the reference frame of the arm with the given name.
@@ -71,11 +71,11 @@ func xArmFrame(name string, dof int) (referenceframe.Frame, error) {
 	return frame, nil
 }
 
-// NewxArm6 returns a new xArm6 arm wrapped in a kinematics arm
-func NewxArm6(ctx context.Context, host string, logger golog.Logger, dof int) (arm.Arm, error) {
+// NewxArm returns a new xArm with the specified dof
+func NewxArm(ctx context.Context, host string, logger golog.Logger, dof int) (arm.Arm, error) {
 	conn, err := net.Dial("tcp", host+":502")
 	if err != nil {
-		return &xArm6{}, err
+		return &xArm{}, err
 	}
 	model, err := xArmModel(dof)
 	if err != nil {
