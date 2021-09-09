@@ -167,13 +167,15 @@ func (b *arduinoBoard) configureMotor(cfg board.MotorConfig) error {
 	}
 	b.motors[cfg.Name] = m
 	if cfg.Pins["pwm"] != "-1" && cfg.PWMFreq > 0 {
-		//When PWM pin is set we only need to control this pin
+		//When the motor controller has a PWM pin exposed (either (A && B && PWM) || (DIR && PWM))
+		//We control the motor speed with the PWM pin
 		err = b.pwmSetFreqArduino(cfg.Pins["pwm"], cfg.PWMFreq)
 		if err != nil {
 			return err
 		}
 	} else if (cfg.Pins["a"] != "-1" && cfg.Pins["b"] != "-1") && cfg.PWMFreq > 0 {
-		// When PWM pin is not set we control both A & B
+		// When the motor controller only exposes A & B pin
+		// We control the motor speed with both pins
 		err = b.pwmSetFreqArduino(cfg.Pins["a"], cfg.PWMFreq)
 		if err != nil {
 			return err
@@ -288,9 +290,9 @@ func (b *arduinoBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) e
 }
 func (b *arduinoBoard) pwmSetArduino(pin string, dutyCycle byte) error {
 	cmd := fmt.Sprintf("set-pwm-duty %s %d", pin, dutyCycle)
-	res, err := b.runCommand(cmd)
-	if res != "ok" {
-		return fmt.Errorf("unexpected return from PWMSet got %s", err)
+	_, err := b.runCommand(cmd)
+	if err != nil {
+		return fmt.Errorf("unexpected return from PWMSet got %w", err)
 	}
 	return nil
 }
@@ -301,9 +303,9 @@ func (b *arduinoBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) er
 }
 func (b *arduinoBoard) pwmSetFreqArduino(pin string, freq uint) error {
 	cmd := fmt.Sprintf("set-pwm-freq %s %d", pin, freq)
-	res, err := b.runCommand(cmd)
-	if res != "ok" {
-		return fmt.Errorf("unexpected return from PWMSetFreq got %s", err)
+	_, err := b.runCommand(cmd)
+	if err != nil {
+		return fmt.Errorf("unexpected return from PWMSetFreq got %w", err)
 	}
 	return nil
 }
