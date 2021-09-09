@@ -81,14 +81,22 @@ func (sfs *simpleFrameSystem) GetFrame(name string) Frame {
 	return sfs.frames[name]
 }
 
-// Frames returns a map containing all frames
+// Frames returns a map containing all frames. This is a clone of the FS map.
 func (sfs *simpleFrameSystem) Frames() map[string]Frame {
-	return sfs.frames
+	frameClone := map[string]Frame{}
+	for k, v := range sfs.frames {
+		frameClone[k] = v
+	}
+	return frameClone
 }
 
-// Parents returns a map containing all frames mapped to their parents
+// Parents returns a map containing all frames mapped to their parents. This is a clone of the FS map.
 func (sfs *simpleFrameSystem) Parents() map[Frame]Frame {
-	return sfs.parents
+	parentClone := map[Frame]Frame{}
+	for k, v := range sfs.parents {
+		parentClone[k] = v
+	}
+	return parentClone
 }
 
 func (sfs *simpleFrameSystem) checkName(name string, parent Frame) error {
@@ -129,12 +137,12 @@ func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
 }
 
 // TransformFrame returns the relative Pose between two frames
-func (sfs *simpleFrameSystem) transformFrameFromParent(positions map[string][]Input, srcFrame, srcParent, endFrame Frame) (spatial.Pose, error) {
+func (sfs *simpleFrameSystem) transformFrameFromParent(positions map[string][]Input, srcFrame, srcParent, dstFrame Frame) (spatial.Pose, error) {
 	var err error
 	if srcFrame == nil {
 		return nil, errors.New("source frame is nil")
 	}
-	if endFrame == nil {
+	if dstFrame == nil {
 		return nil, errors.New("target frame is nil")
 	}
 	// check if frames are in system. It is allowed for the src frame to be an anonymous frame not in the system, so
@@ -142,8 +150,8 @@ func (sfs *simpleFrameSystem) transformFrameFromParent(positions map[string][]In
 	if srcParent != nil && !sfs.frameExists(srcParent.Name()) {
 		return nil, fmt.Errorf("source frame parent %s not found in FrameSystem", srcParent.Name())
 	}
-	if !sfs.frameExists(endFrame.Name()) {
-		return nil, fmt.Errorf("target frame %s not found in FrameSystem", endFrame.Name())
+	if !sfs.frameExists(dstFrame.Name()) {
+		return nil, fmt.Errorf("target frame %s not found in FrameSystem", dstFrame.Name())
 	}
 	// If parent is nil, that means srcFrame is the world frame, which has no parent.
 	fromParentTransform := spatial.NewZeroPose()
@@ -155,7 +163,7 @@ func (sfs *simpleFrameSystem) transformFrameFromParent(positions map[string][]In
 		}
 	}
 	// get world to target transform
-	toTargetTransform, err := sfs.composeTransforms(endFrame, positions) // returns target to world transform
+	toTargetTransform, err := sfs.composeTransforms(dstFrame, positions) // returns target to world transform
 	if err != nil && toTargetTransform == nil {
 		return nil, err
 	}
@@ -169,22 +177,25 @@ func (sfs *simpleFrameSystem) transformFrameFromParent(positions map[string][]In
 	return fullTransform, err
 }
 
-func (sfs *simpleFrameSystem) TransformFrame(positions map[string][]Input, srcFrame, endFrame Frame) (spatial.Pose, error) {
+// TransformFrame takes in a source and destination frame, and returns the pose from the first to the second. Positions
+// is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
+func (sfs *simpleFrameSystem) TransformFrame(positions map[string][]Input, srcFrame, dstFrame Frame) (spatial.Pose, error) {
 	if !sfs.frameExists(srcFrame.Name()) {
 		return nil, fmt.Errorf("source frame %s not found in FrameSystem", srcFrame.Name())
 	}
-	return sfs.transformFrameFromParent(positions, srcFrame, sfs.parents[srcFrame], endFrame)
+	return sfs.transformFrameFromParent(positions, srcFrame, sfs.parents[srcFrame], dstFrame)
 }
 
-// TransformPoint takes in a point with respect to a source Frame, and outputs the point coordinates with respect to the target Frame.
-func (sfs *simpleFrameSystem) TransformPoint(positions map[string][]Input, point r3.Vector, srcFrame, endFrame Frame) (r3.Vector, error) {
+// TransformPoint takes in a point with respect to a source Frame, and outputs the point coordinates with respect to
+// the target Frame. Positions is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
+func (sfs *simpleFrameSystem) TransformPoint(positions map[string][]Input, point r3.Vector, srcFrame, dstFrame Frame) (r3.Vector, error) {
 	// Turn point into an anonymous Frame
 	pointFrame, err := FrameFromPoint("", point)
 	if err != nil {
 		return r3.Vector{}, err
 	}
 	// do Transform
-	fullTransform, err := sfs.transformFrameFromParent(positions, pointFrame, srcFrame, endFrame)
+	fullTransform, err := sfs.transformFrameFromParent(positions, pointFrame, srcFrame, dstFrame)
 	if err != nil {
 		return r3.Vector{}, err
 	}
@@ -192,12 +203,13 @@ func (sfs *simpleFrameSystem) TransformPoint(positions map[string][]Input, point
 }
 
 // TransformPose takes in a pose with respect to a source Frame, and outputs the pose with respect to the target Frame.
-func (sfs *simpleFrameSystem) TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, endFrame Frame) (spatial.Pose, error) {
+// Positions is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
+func (sfs *simpleFrameSystem) TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, dstFrame Frame) (spatial.Pose, error) {
 	poseFrame, err := NewStaticFrame("", pose)
 	if err != nil {
 		return nil, err
 	}
-	return sfs.transformFrameFromParent(positions, poseFrame, srcFrame, endFrame)
+	return sfs.transformFrameFromParent(positions, poseFrame, srcFrame, dstFrame)
 }
 
 // Name returns the name of the simpleFrameSystem
