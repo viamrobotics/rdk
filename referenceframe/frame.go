@@ -5,6 +5,7 @@
 package referenceframe
 
 import (
+	"errors"
 	"fmt"
 
 	"go.viam.com/core/arm"
@@ -57,19 +58,23 @@ type staticFrame struct {
 }
 
 // NewStaticFrame creates a frame given a pose relative to its parent. The pose is fixed for all time.
-// Pose is allowed to be nil.
-func NewStaticFrame(name string, pose spatial.Pose) Frame {
+// Pose is not allowed to be nil.
+func NewStaticFrame(name string, pose spatial.Pose) (Frame, error) {
 	if pose == nil {
-		pose = spatial.NewEmptyPose()
+		return nil, errors.New("pose is not allowed to be nil")
 	}
-	return &staticFrame{name, pose}
+	return &staticFrame{name, pose}, nil
+}
+
+// NewZeroStaticFrame creates a frame with no translation or orientation changes
+func NewZeroStaticFrame(name string) Frame {
+	return &staticFrame{name, spatial.NewZeroPose()}
 }
 
 // FrameFromPoint creates a new Frame from a 3D point.
-func FrameFromPoint(name string, point r3.Vector) Frame {
+func FrameFromPoint(name string, point r3.Vector) (Frame, error) {
 	pose := spatial.NewPoseFromPoint(point)
-	frame := NewStaticFrame(name, pose)
-	return frame
+	return NewStaticFrame(name, pose)
 }
 
 // Name is the name of the frame.

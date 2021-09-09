@@ -13,7 +13,7 @@ import (
 
 func TestBasicPoseConstruction(t *testing.T) {
 
-	p := NewEmptyPose()
+	p := NewZeroPose()
 	// Should return an identity dual quat
 	test.That(t, p.Orientation(), test.ShouldResemble, &OrientationVec{0, 0, 0, 1})
 

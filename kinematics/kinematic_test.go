@@ -175,9 +175,11 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	fs := frame.NewEmptySimpleFrameSystem("test")
 
-	urOffset := frame.NewStaticFrame("urOffset", spatial.NewPoseFromPoint(r3.Vector{100, 100, 200}))
+	urOffset, err := frame.NewStaticFrame("urOffset", spatial.NewPoseFromPoint(r3.Vector{100, 100, 200}))
+	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(urOffset, fs.World())
-	gantryOffset := frame.NewStaticFrame("gantryOffset", spatial.NewPoseFromPoint(r3.Vector{-50, -50, -200}))
+	gantryOffset, err := frame.NewStaticFrame("gantryOffset", spatial.NewPoseFromPoint(r3.Vector{-50, -50, -200}))
+	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantryOffset, fs.World())
 
 	limits := []frame.Limit{{math.Inf(-1), math.Inf(1)}, {math.Inf(-1), math.Inf(1)}}
@@ -196,7 +198,8 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 
 	// Note that positive Z is always "forwards". If the position of the arm is such that it is pointing elsewhere,
 	// the resulting translation will be similarly oriented
-	urCamera := frame.NewStaticFrame("urCamera", spatial.NewPoseFromPoint(r3.Vector{0, 0, 30}))
+	urCamera, err := frame.NewStaticFrame("urCamera", spatial.NewPoseFromPoint(r3.Vector{0, 0, 30}))
+	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(urCamera, modelUR5e)
 
 	positions := frame.StartPositions(fs)

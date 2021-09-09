@@ -34,7 +34,7 @@ func init() {
 		},
 		Frame: func(name string) (referenceframe.Frame, error) {
 			// A viam gripper is 220mm from mount point to center of gripper paddles
-			return referenceframe.FrameFromPoint(name, r3.Vector{0, 0, 220}), nil
+			return referenceframe.FrameFromPoint(name, r3.Vector{0, 0, 220})
 		},
 	})
 }

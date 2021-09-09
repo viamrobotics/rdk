@@ -17,8 +17,8 @@ type Pose interface {
 	Invert() Pose
 }
 
-// NewEmptyPose returns a pose at (0,0,0) with same orientation as whatever frame it is placed in.
-func NewEmptyPose() Pose {
+// NewZeroPose returns a pose at (0,0,0) with same orientation as whatever frame it is placed in.
+func NewZeroPose() Pose {
 	return newdualQuaternion()
 }
 
