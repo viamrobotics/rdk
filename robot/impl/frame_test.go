@@ -7,10 +7,10 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/referenceframe"
 	robotimpl "go.viam.com/core/robot/impl"
-
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
 )
 
@@ -130,21 +130,21 @@ func TestWrongFrameSystems(t *testing.T) {
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.FrameSystem(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, errors.Errorf("the system is not fully connected, expected 11 frames but frame system has 9"))
 
 	cfg, err = config.Read("data/fake_wrongconfig2.json") // no world node
 	test.That(t, err, test.ShouldBeNil)
 	r, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.FrameSystem(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'"))
 
-	cfg, err = config.Read("data/fake_wrongconfig3.json") // there is a cycle in the graph
+	cfg, err = config.Read("data/fake_wrongconfig3.json") // one of the nodes was given the name world
 	test.That(t, err, test.ShouldBeNil)
 	r, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.FrameSystem(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, errors.Errorf("cannot have more than one frame with name world"))
 }
 
 func pointAlmostEqual(t *testing.T, from, to r3.Vector) {
