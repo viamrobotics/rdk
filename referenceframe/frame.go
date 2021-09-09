@@ -90,15 +90,15 @@ func (sf *staticFrame) Dof() []Limit {
 }
 
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions
-type prismaticFrame struct {
+type translationalFrame struct {
 	name   string
 	axes   []bool
 	limits []Limit
 }
 
-// NewPrismaticFrame creates a frame given a name and the axes in which to translate
-func NewPrismaticFrame(name string, axes []bool, limits []Limit) (Frame, error) {
-	pf := &prismaticFrame{name: name, axes: axes}
+// NewTranslationalFrame creates a frame given a name and the axes in which to translate
+func NewTranslationalFrame(name string, axes []bool, limits []Limit) (Frame, error) {
+	pf := &translationalFrame{name: name, axes: axes}
 	if len(limits) != pf.dofInt() {
 		return nil, fmt.Errorf("given number of limits %d does not match number of axes %d", len(limits), pf.dofInt())
 	}
@@ -107,12 +107,12 @@ func NewPrismaticFrame(name string, axes []bool, limits []Limit) (Frame, error) 
 }
 
 // Name is the name of the frame.
-func (pf *prismaticFrame) Name() string {
+func (pf *translationalFrame) Name() string {
 	return pf.name
 }
 
 // Transform returns a pose translated by the amount specified in the inputs.
-func (pf *prismaticFrame) Transform(input []Input) (spatial.Pose, error) {
+func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	var err error
 	if len(input) != pf.dofInt() {
 		return nil, fmt.Errorf("given input length %d does not match frame dof %d", len(input), pf.dofInt())
@@ -121,6 +121,7 @@ func (pf *prismaticFrame) Transform(input []Input) (spatial.Pose, error) {
 	tIdx := 0
 	for i, v := range pf.axes {
 		if v {
+			// We allow out-of-bounds calculations, but will return a non-nil error
 			if input[tIdx].Value < pf.limits[tIdx].Min || input[tIdx].Value > pf.limits[tIdx].Max {
 				err = fmt.Errorf("%.5f input out of bounds %.5f", input[tIdx].Value, pf.limits[tIdx])
 			}
@@ -133,12 +134,12 @@ func (pf *prismaticFrame) Transform(input []Input) (spatial.Pose, error) {
 }
 
 // Dof are the degrees of freedom of the transform.
-func (pf *prismaticFrame) Dof() []Limit {
+func (pf *translationalFrame) Dof() []Limit {
 	return pf.limits
 }
 
 // dofInt returns the quantity of axes in which this frame can translate
-func (pf *prismaticFrame) dofInt() int {
+func (pf *translationalFrame) dofInt() int {
 	dof := 0
 	for _, v := range pf.axes {
 		if v {
@@ -148,16 +149,16 @@ func (pf *prismaticFrame) dofInt() int {
 	return dof
 }
 
-type revoluteFrame struct {
+type rotationalFrame struct {
 	name    string
 	rotAxis spatial.R4AA
 	limit   Limit
 }
 
-// NewRevoluteFrame creates a new revoluteFrame struct.
+// NewRotationalFrame creates a new rotationalFrame struct.
 // A standard revolute joint will have 1 DOF
-func NewRevoluteFrame(name string, axis spatial.R4AA, limit Limit) Frame {
-	rf := revoluteFrame{
+func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) Frame {
+	rf := rotationalFrame{
 		name:    name,
 		rotAxis: axis,
 		limit:   limit,
@@ -169,11 +170,12 @@ func NewRevoluteFrame(name string, axis spatial.R4AA, limit Limit) Frame {
 
 // Transform returns the quaternion representing this joint's rotation in space.
 // Important math: this is the specific location where a joint radian is converted to a quaternion.
-func (rf *revoluteFrame) Transform(input []Input) (spatial.Pose, error) {
+func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	var err error
 	if len(input) != 1 {
 		return nil, fmt.Errorf("given input length %d does not match frame dof 1", len(input))
 	}
+	// We allow out-of-bounds calculations, but will return a non-nil error
 	if input[0].Value < rf.limit.Min || input[0].Value > rf.limit.Max {
 		err = fmt.Errorf("%.5f input out of rev frame bounds %.5f", input[0].Value, rf.limit)
 	}
@@ -185,11 +187,11 @@ func (rf *revoluteFrame) Transform(input []Input) (spatial.Pose, error) {
 }
 
 // Dof returns the number of degrees of freedom that a joint has. This would be 1 for a standard revolute joint.
-func (rf *revoluteFrame) Dof() []Limit {
+func (rf *rotationalFrame) Dof() []Limit {
 	return []Limit{rf.limit}
 }
 
 // Name returns the name of the frame
-func (rf *revoluteFrame) Name() string {
+func (rf *rotationalFrame) Name() string {
 	return rf.name
 }

@@ -182,7 +182,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 
 	limits := []frame.Limit{{math.Inf(-1), math.Inf(1)}, {math.Inf(-1), math.Inf(1)}}
 
-	gantry, err := frame.NewPrismaticFrame("gantry", []bool{true, true, false}, limits)
+	gantry, err := frame.NewTranslationalFrame("gantry", []bool{true, true, false}, limits)
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantry, gantryOffset)
 

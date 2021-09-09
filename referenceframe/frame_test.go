@@ -35,11 +35,11 @@ func TestStaticFrame(t *testing.T) {
 func TestPrismaticFrame(t *testing.T) {
 	// define a prismatic transform
 	limits := []Limit{{-30, 30}}
-	frame, err := NewPrismaticFrame("test", []bool{false, true, false}, limits) // can only move on y axis
+	frame, err := NewTranslationalFrame("test", []bool{false, true, false}, limits) // can only move on y axis
 	test.That(t, err, test.ShouldBeNil)
 	// this should return an error
 	badLimits := []Limit{{0, 0}, {-30, 30}, {0, 0}}
-	_, err = NewPrismaticFrame("test", []bool{false, true, false}, badLimits) // can only move on y axis
+	_, err = NewTranslationalFrame("test", []bool{false, true, false}, badLimits) // can only move on y axis
 	test.That(t, err, test.ShouldBeError, errors.New("given number of limits 3 does not match number of axes 1"))
 	// expected output
 	expPose := spatial.NewPoseFromPoint(r3.Vector{0, 20, 0})
@@ -69,7 +69,7 @@ func TestPrismaticFrame(t *testing.T) {
 func TestRevoluteFrame(t *testing.T) {
 	// define a prismatic transform
 	axis := spatial.R4AA{RX: 1, RY: 0, RZ: 0}                               // axis of rotation is x axis
-	frame := &revoluteFrame{"test", axis, Limit{-math.Pi / 2, math.Pi / 2}} // limits between -90 and 90 degrees
+	frame := &rotationalFrame{"test", axis, Limit{-math.Pi / 2, math.Pi / 2}} // limits between -90 and 90 degrees
 	// expected output
 	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{1, 0, 0}, math.Pi/4) // 45 degrees
 	// get expected transform back
