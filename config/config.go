@@ -5,11 +5,65 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-errors/errors"
+
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/core/board"
 )
+
+// SortComponents sorts list of components topologically based off what other components they depend on.
+func SortComponents(components []Component) ([]Component, error) {
+	componentMap := make(map[string]Component)
+	dependencies := make(map[string][]string)
+
+	for _, config := range components {
+		if _, ok := componentMap[config.Name]; ok {
+			return nil, errors.Errorf("component name %q is not unique", config.Name)
+		}
+		componentMap[config.Name] = config
+		dependencies[config.Name] = config.DependsOn
+	}
+
+	for name, dps := range dependencies {
+		for _, depName := range dps {
+			if _, ok := componentMap[depName]; !ok {
+				return nil, utils.NewConfigValidationError(fmt.Sprintf("%s.%v", "components", name), errors.Errorf("dependency %q does not exist", depName))
+			}
+		}
+	}
+
+	sortedCmps := []Component{}
+	visited := make(map[string]bool)
+
+	var dfsHelper func(string, map[string]bool) error
+	dfsHelper = func(name string, path map[string]bool) error {
+		if _, ok := visited[name]; ok {
+			return nil
+		}
+		visited[name] = true
+		if _, ok := path[name]; ok {
+			return errors.New("circular dependency detected in component list")
+		}
+		path[name] = true
+		dps := dependencies[name]
+		for _, dp := range dps {
+			dfsHelper(dp, path)
+		}
+		sortedCmps = append(sortedCmps, componentMap[name])
+		return nil
+	}
+
+	for _, c := range components {
+		if _, ok := visited[c.Name]; !ok {
+			path := make(map[string]bool)
+			dfsHelper(c.Name, path)
+		}
+	}
+
+	return sortedCmps, nil
+}
 
 // A Config describes the configuration of a robot.
 type Config struct {
@@ -22,7 +76,7 @@ type Config struct {
 }
 
 // Ensure ensures all parts of the config are valid and sorts components based on what they depend on.
-func (c Config) Ensure(fromCloud bool) error {
+func (c *Config) Ensure(fromCloud bool) error {
 	if c.Cloud != nil {
 		if err := c.Cloud.Validate("cloud", fromCloud); err != nil {
 			return err
@@ -45,6 +99,14 @@ func (c Config) Ensure(fromCloud bool) error {
 		if err := config.Validate(fmt.Sprintf("%s.%d", "components", idx)); err != nil {
 			return err
 		}
+	}
+
+	if len(c.Components) > 0 {
+		srtCmps, err := SortComponents(c.Components)
+		if err != nil {
+			return err
+		}
+		c.Components = srtCmps
 	}
 
 	for idx, config := range c.Processes {
