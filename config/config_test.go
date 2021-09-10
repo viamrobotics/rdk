@@ -77,6 +77,7 @@ func TestConfigLoad1(t *testing.T) {
 
 	c2 := cfg.FindComponent("c2")
 	test.That(t, c2, test.ShouldNotBeNil)
+	test.That(t, c2.DependsOn, test.ShouldResemble, []string{"c1"})
 
 	test.That(t, c2.Attributes["matrics"].(map[string]interface{})["a"], test.ShouldEqual, 5.1)
 }
