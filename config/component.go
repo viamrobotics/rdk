@@ -35,7 +35,7 @@ type Component struct {
 	Type      ComponentType `json:"type"`
 	SubType   string        `json:"subtype"`
 	Model     string        `json:"model"`
-	DependsOn []string      `json:"dependsOn"`
+	DependsOn []string      `json:"depends_on"`
 
 	Parent            string      `json:"parent"`
 	ParentTranslation Translation `json:"translation"`
