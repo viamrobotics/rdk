@@ -64,11 +64,27 @@ func TestParseComponentFlag(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
 
+	comp, err := ParseComponentFlag("name=baz,type=foo,depends_on=")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, comp.DependsOn, test.ShouldResemble, []string(nil))
+
+	comp, err = ParseComponentFlag("name=baz,type=foo,depends_on=|")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, comp.DependsOn, test.ShouldResemble, []string(nil))
+
+	comp, err = ParseComponentFlag("name=baz,type=foo,depends_on=foo")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, comp.DependsOn, test.ShouldResemble, []string{"foo"})
+
+	comp, err = ParseComponentFlag("name=baz,type=foo,depends_on=foo|")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, comp.DependsOn, test.ShouldResemble, []string{"foo"})
+
 	_, err = ParseComponentFlag("depends_on=foo,bar")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
 
-	comp, err := ParseComponentFlag("type=foo,host=bar,port=5,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
+	comp, err = ParseComponentFlag("type=foo,host=bar,port=5,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.Name, test.ShouldEqual, "baz")
 	test.That(t, comp.Host, test.ShouldEqual, "bar")
