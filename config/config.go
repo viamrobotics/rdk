@@ -15,27 +15,27 @@ import (
 
 // SortComponents sorts list of components topologically based off what other components they depend on.
 func SortComponents(components []Component) ([]Component, error) {
-	componentMap := make(map[string]Component)
-	dependencies := make(map[string][]string)
+	componentToConfig := make(map[string]Component, len(components))
+	dependencies := map[string][]string{}
 
 	for _, config := range components {
-		if _, ok := componentMap[config.Name]; ok {
+		if _, ok := componentToConfig[config.Name]; ok {
 			return nil, errors.Errorf("component name %q is not unique", config.Name)
 		}
-		componentMap[config.Name] = config
+		componentToConfig[config.Name] = config
 		dependencies[config.Name] = config.DependsOn
 	}
 
 	for name, dps := range dependencies {
 		for _, depName := range dps {
-			if _, ok := componentMap[depName]; !ok {
-				return nil, utils.NewConfigValidationError(fmt.Sprintf("%s.%v", "components", name), errors.Errorf("dependency %q does not exist", depName))
+			if _, ok := componentToConfig[depName]; !ok {
+				return nil, utils.NewConfigValidationError(fmt.Sprintf("%s.%s", "components", name), errors.Errorf("dependency %q does not exist", depName))
 			}
 		}
 	}
 
-	sortedCmps := []Component{}
-	visited := make(map[string]bool)
+	sortedCmps := make([]Component, 0, len(components))
+	visited := map[string]bool{}
 
 	var dfsHelper func(string, map[string]bool) error
 	dfsHelper = func(name string, path map[string]bool) error {
@@ -59,7 +59,7 @@ func SortComponents(components []Component) ([]Component, error) {
 				return err
 			}
 		}
-		sortedCmps = append(sortedCmps, componentMap[name])
+		sortedCmps = append(sortedCmps, componentToConfig[name])
 		return nil
 	}
 
