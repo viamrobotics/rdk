@@ -71,7 +71,6 @@ func SortComponents(components []Component) ([]Component, error) {
 			if err := dfsHelper(c.Name, path); err != nil {
 				return nil, err
 			}
-
 		}
 	}
 
