@@ -39,17 +39,25 @@ func SortComponents(components []Component) ([]Component, error) {
 
 	var dfsHelper func(string, map[string]bool) error
 	dfsHelper = func(name string, path map[string]bool) error {
-		if _, ok := visited[name]; ok {
-			return nil
-		}
-		visited[name] = true
 		if _, ok := path[name]; ok {
 			return errors.New("circular dependency detected in component list")
 		}
 		path[name] = true
+		if _, ok := visited[name]; ok {
+			return nil
+		}
+		visited[name] = true
 		dps := dependencies[name]
 		for _, dp := range dps {
-			dfsHelper(dp, path)
+			// create a deep copy of current path
+			pathCopy := make(map[string]bool)
+			for k, v := range path {
+				pathCopy[k] = v
+			}
+
+			if err := dfsHelper(dp, pathCopy); err != nil {
+				return err
+			}
 		}
 		sortedCmps = append(sortedCmps, componentMap[name])
 		return nil
@@ -58,7 +66,10 @@ func SortComponents(components []Component) ([]Component, error) {
 	for _, c := range components {
 		if _, ok := visited[c.Name]; !ok {
 			path := make(map[string]bool)
-			dfsHelper(c.Name, path)
+			if err := dfsHelper(c.Name, path); err != nil {
+				return nil, err
+			}
+
 		}
 	}
 
