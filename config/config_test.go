@@ -190,8 +190,11 @@ func TestConfigSortComponents(t *testing.T) {
 	c5 := Component{Name: "c5", DependsOn: []string{"c2", "c4"}}
 	c6 := Component{Name: "c6"}
 	c7 := Component{Name: "c7", DependsOn: []string{"c6", "c4"}}
+	c8 := Component{Name: "c8", DependsOn: []string{"c6"}}
 
 	circularC1 := Component{Name: "c1", DependsOn: []string{"c2"}}
+	circularC2 := Component{Name: "c2", DependsOn: []string{"c3"}}
+	circularC3 := Component{Name: "c3", DependsOn: []string{"c1"}}
 	for _, tc := range []struct {
 		Name       string
 		Components []Component
@@ -250,7 +253,19 @@ func TestConfigSortComponents(t *testing.T) {
 			"circular dependency",
 			[]Component{circularC1, c2},
 			nil,
-			"circular dependency",
+			"circular dependency detected in component list between c1, c2",
+		},
+		{
+			"circular dependency 2",
+			[]Component{circularC1, circularC2, circularC3},
+			nil,
+			"circular dependency detected in component list between c1, c2, c3",
+		},
+		{
+			"circular dependency 3",
+			[]Component{c6, c4, circularC1, c8, circularC2, circularC3},
+			nil,
+			"circular dependency detected in component list between c1, c2, c3",
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {

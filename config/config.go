@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -37,12 +38,15 @@ func SortComponents(components []Component) ([]Component, error) {
 	sortedCmps := make([]Component, 0, len(components))
 	visited := map[string]bool{}
 
-	var dfsHelper func(string, map[string]bool) error
-	dfsHelper = func(name string, path map[string]bool) error {
-		if _, ok := path[name]; ok {
-			return errors.New("circular dependency detected in component list")
+	var dfsHelper func(string, []string) error
+	dfsHelper = func(name string, path []string) error {
+		for idx, cmpName := range path {
+			if name == cmpName {
+				return errors.Errorf("circular dependency detected in component list between %s", strings.Join(path[idx:], ", "))
+			}
 		}
-		path[name] = true
+
+		path = append(path, name)
 		if _, ok := visited[name]; ok {
 			return nil
 		}
@@ -50,10 +54,8 @@ func SortComponents(components []Component) ([]Component, error) {
 		dps := dependencies[name]
 		for _, dp := range dps {
 			// create a deep copy of current path
-			pathCopy := make(map[string]bool)
-			for k, v := range path {
-				pathCopy[k] = v
-			}
+			pathCopy := make([]string, len(path))
+			copy(pathCopy, path)
 
 			if err := dfsHelper(dp, pathCopy); err != nil {
 				return err
@@ -65,7 +67,7 @@ func SortComponents(components []Component) ([]Component, error) {
 
 	for _, c := range components {
 		if _, ok := visited[c.Name]; !ok {
-			path := make(map[string]bool)
+			var path []string
 			if err := dfsHelper(c.Name, path); err != nil {
 				return nil, err
 			}
