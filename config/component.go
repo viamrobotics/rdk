@@ -102,7 +102,15 @@ func ParseComponentFlag(flag string) (Component, error) {
 		case "model":
 			cmp.Model = keyVal[1]
 		case "depends_on":
-			cmp.DependsOn = strings.Split(keyVal[1], "|")
+			split := strings.Split(keyVal[1], "|")
+
+			var dependsOn []string
+			for _, s := range split {
+				if s != "" {
+					dependsOn = append(dependsOn, s)
+				}
+			}
+			cmp.DependsOn = dependsOn
 		case "attr":
 			if cmp.Attributes == nil {
 				cmp.Attributes = AttributeMap{}
