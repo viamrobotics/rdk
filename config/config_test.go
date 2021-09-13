@@ -154,6 +154,20 @@ func TestConfigEnsure(t *testing.T) {
 	invalidComponents.Components[0].Name = "foo"
 	test.That(t, invalidComponents.Ensure(false), test.ShouldBeNil)
 
+	c1 := Component{Name: "c1"}
+	c2 := Component{Name: "c2", DependsOn: []string{"c1"}}
+	c3 := Component{Name: "c3", DependsOn: []string{"c1", "c2"}}
+	c4 := Component{Name: "c4", DependsOn: []string{"c1", "c3"}}
+	c5 := Component{Name: "c5", DependsOn: []string{"c2", "c4"}}
+	c6 := Component{Name: "c6"}
+	c7 := Component{Name: "c7", DependsOn: []string{"c6", "c4"}}
+	unsortedComponents := Config{
+		Components: []Component{c7, c6, c5, c3, c4, c1, c2},
+	}
+	err = unsortedComponents.Ensure(false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, unsortedComponents.Components, test.ShouldResemble, []Component{c6, c1, c2, c3, c4, c7, c5})
+
 	invalidProcesses := Config{
 		Processes: []pexec.ProcessConfig{{}},
 	}
@@ -166,4 +180,88 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 	invalidProcesses.Processes[0].Name = "foo"
 	test.That(t, invalidProcesses.Ensure(false), test.ShouldBeNil)
+}
+
+func TestConfigSortComponents(t *testing.T) {
+	c1 := Component{Name: "c1"}
+	c2 := Component{Name: "c2", DependsOn: []string{"c1"}}
+	c3 := Component{Name: "c3", DependsOn: []string{"c1", "c2"}}
+	c4 := Component{Name: "c4", DependsOn: []string{"c1", "c3"}}
+	c5 := Component{Name: "c5", DependsOn: []string{"c2", "c4"}}
+	c6 := Component{Name: "c6"}
+	c7 := Component{Name: "c7", DependsOn: []string{"c6", "c4"}}
+
+	circularC1 := Component{Name: "c1", DependsOn: []string{"c2"}}
+	for _, tc := range []struct {
+		Name       string
+		Components []Component
+		Expected   []Component
+		Err        string
+	}{
+		{
+			"empty",
+			[]Component{},
+			[]Component{},
+			"",
+		},
+		{
+			"no change",
+			[]Component{c1, c2},
+			[]Component{c1, c2},
+			"",
+		},
+		{
+			"simple",
+			[]Component{c2, c1},
+			[]Component{c1, c2},
+			"",
+		},
+		{
+			"another simple",
+			[]Component{c3, c2, c1},
+			[]Component{c1, c2, c3},
+			"",
+		},
+		{
+			"complex",
+			[]Component{c2, c3, c1},
+			[]Component{c1, c2, c3},
+			"",
+		},
+		{
+			"more complex",
+			[]Component{c7, c6, c5, c3, c4, c1, c2},
+			[]Component{c6, c1, c2, c3, c4, c7, c5},
+			"",
+		},
+		{
+			"duplicate name",
+			[]Component{c1, c1},
+			nil,
+			"not unique",
+		},
+		{
+			"dependency not found",
+			[]Component{c2},
+			nil,
+			"does not exist",
+		},
+		{
+			"circular dependency",
+			[]Component{circularC1, c2},
+			nil,
+			"circular dependency",
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			sorted, err := SortComponents(tc.Components)
+			if tc.Err == "" {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, sorted, test.ShouldResemble, tc.Expected)
+			} else {
+				test.That(t, sorted, test.ShouldBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
+			}
+		})
+	}
 }
