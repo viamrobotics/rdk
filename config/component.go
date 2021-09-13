@@ -32,9 +32,10 @@ type Component struct {
 	Host string `json:"host"`
 	Port int    `json:"port"`
 
-	Type    ComponentType `json:"type"`
-	SubType string        `json:"subtype"`
-	Model   string        `json:"model"`
+	Type      ComponentType `json:"type"`
+	SubType   string        `json:"subtype"`
+	Model     string        `json:"model"`
+	DependsOn []string      `json:"depends_on"`
 
 	Parent            string      `json:"parent"`
 	ParentTranslation Translation `json:"translation"`
@@ -81,7 +82,7 @@ func ParseComponentFlag(flag string) (Component, error) {
 	for _, part := range componentParts {
 		keyVal := strings.SplitN(part, "=", 2)
 		if len(keyVal) != 2 {
-			return Component{}, errors.New("wrong component format; use type=name,host=host,attr=key:value")
+			return Component{}, errors.New("wrong component format; use type=name,host=host,depends_on=name1|name2,attr=key:value")
 		}
 		switch keyVal[0] {
 		case "name":
@@ -100,6 +101,16 @@ func ParseComponentFlag(flag string) (Component, error) {
 			cmp.SubType = keyVal[1]
 		case "model":
 			cmp.Model = keyVal[1]
+		case "depends_on":
+			split := strings.Split(keyVal[1], "|")
+
+			var dependsOn []string
+			for _, s := range split {
+				if s != "" {
+					dependsOn = append(dependsOn, s)
+				}
+			}
+			cmp.DependsOn = dependsOn
 		case "attr":
 			if cmp.Attributes == nil {
 				cmp.Attributes = AttributeMap{}
