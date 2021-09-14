@@ -3,245 +3,95 @@ package rimage
 import (
 	"image"
 	"image/color"
-	"runtime"
-	"sync"
-	"sync/atomic"
 
 	"go.viam.com/core/utils"
+	"gonum.org/v1/gonum/mat"
 )
 
-// clamp rounds and clamps float64 value to fit into uint8.
-func clampZeroTo255(x float64) uint8 {
-	v := int64(x + 0.5)
-	if v > 255 {
-		return 255
+// ConvolveGray applies a convolution matrix (kernel) to a grayscale image.
+// Example of usage:
+//
+// 		res, err := convolution.ConvolveGray(img, kernel, {1, 1}, BorderReflect)
+//
+// Note: the anchor represents a point inside the area of the kernel. After every step of the convolution the position
+// specified by the anchor point gets updated on the result image.
+func ConvolveGray(img *image.Gray, kernel *Kernel, anchor image.Point, border BorderPad) (*image.Gray, error) {
+	kernelSize := kernel.Size()
+	padded, err := PaddingGray(img, kernelSize, anchor, border)
+	if err != nil {
+		return nil, err
 	}
-	if v > 0 {
-		return uint8(v)
-	}
-	return 0
-}
-
-// Sobel filters are used to approximate the gradient of the image intensity. One filter for each direction.
-var (
-	//sobelX = [3][3]float64{{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}}
-	//sobelY = [3][3]float64{{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}}
-	maxProcs int64
-)
-
-// SetMaxProcs limits the number of concurrent processing goroutines to the given value.
-// A value <= 0 clears the limit.
-func SetMaxProcs(value int) {
-	atomic.StoreInt64(&maxProcs, int64(value))
-}
-
-// parallel processes the data in separate goroutines.
-func parallel(start, stop int, fn func(<-chan int)) {
-	count := stop - start
-	if count < 1 {
-		return
-	}
-
-	procs := runtime.GOMAXPROCS(0)
-	limit := int(atomic.LoadInt64(&maxProcs))
-	if procs > limit && limit > 0 {
-		procs = limit
-	}
-	if procs > count {
-		procs = count
-	}
-
-	c := make(chan int, count)
-	for i := start; i < stop; i++ {
-		c <- i
-	}
-	close(c)
-
-	var wg sync.WaitGroup
-	for i := 0; i < procs; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			fn(c)
-		}()
-	}
-	wg.Wait()
-}
-
-// ConvolveOptions are convolution parameters.
-type ConvolveOptions struct {
-	// If Normalize is true the kernel is normalized before convolution.
-	Normalize bool
-
-	// If Abs is true the absolute value of each color channel is taken after convolution.
-	Abs bool
-
-	// Bias is added to each color channel value after convolution.
-	Bias int
-}
-
-// Convolve3x3 convolves the image with the specified 3x3 convolution kernel.
-// Default parameters are used if a nil *ConvolveOptions is passed.
-func Convolve3x3(img image.Image, kernel [9]float64, stride int, options *ConvolveOptions) *image.NRGBA {
-	return convolve(img, kernel[:], stride, options)
-}
-
-// Convolve5x5 convolves the image with the specified 5x5 convolution kernel.
-// Default parameters are used if a nil *ConvolveOptions is passed.
-func Convolve5x5(img image.Image, kernel [25]float64, stride int, options *ConvolveOptions) *image.NRGBA {
-	return convolve(img, kernel[:], stride, options)
-}
-
-func convolve(img image.Image, kernel []float64, stride int, options *ConvolveOptions) *image.NRGBA {
-	src := img
-	w := src.Bounds().Max.X
-	h := src.Bounds().Max.Y
-	dst := image.NewNRGBA(image.Rect(0, 0, w, h))
-
-	if w < 1 || h < 1 {
-		return dst
-	}
-
-	if options == nil {
-		options = &ConvolveOptions{}
-	}
-
-	if options.Normalize {
-		normalizeKernel(kernel)
-	}
-
-	type coef struct {
-		x, y int
-		k    float64
-	}
-	var coefs []coef
-	var m int
-
-	switch len(kernel) {
-	case 9:
-		m = 1
-	case 25:
-		m = 2
-	}
-
-	i := 0
-	for y := -m; y <= m; y++ {
-		for x := -m; x <= m; x++ {
-			if kernel[i] != 0 {
-				coefs = append(coefs, coef{x: x, y: y, k: kernel[i]})
-			}
-			i++
-		}
-	}
-
-	parallel(0, h, func(ys <-chan int) {
-		for y := range ys {
-			for x := 0; x < w; x++ {
-				var r, g, b float64
-				for _, c := range coefs {
-					ix := x + c.x
-					if ix < 0 {
-						ix = 0
-					} else if ix >= w {
-						ix = w - 1
-					}
-
-					iy := y + c.y
-					if iy < 0 {
-						iy = 0
-					} else if iy >= h {
-						iy = h - 1
-					}
-
-					//off := iy*stride + ix*4
-					r1, g1, b1, _ := src.At(ix, iy).RGBA()
-					// [off : off+3 : off+3]
-					r += float64(r1) * c.k
-					g += float64(g1) * c.k
-					b += float64(b1) * c.k
-				}
-
-				if options.Abs {
-					if r < 0 {
-						r = -r
-					}
-					if g < 0 {
-						g = -g
-					}
-					if b < 0 {
-						b = -b
-					}
-				}
-
-				if options.Bias != 0 {
-					r += float64(options.Bias)
-					g += float64(options.Bias)
-					b += float64(options.Bias)
-				}
-				dst.Set(x, y, color.RGBA{clampZeroTo255(r), clampZeroTo255(g), clampZeroTo255(b), 255})
-
+	originalSize := img.Bounds().Size()
+	resultImage := image.NewGray(img.Bounds())
+	utils.ParallelForEachPixel(originalSize, func(x int, y int) {
+		sum := float64(0)
+		for ky := 0; ky < kernelSize.Y; ky++ {
+			for kx := 0; kx < kernelSize.X; kx++ {
+				pixel := padded.GrayAt(x+kx, y+ky)
+				kE := kernel.At(kx, ky)
+				sum += float64(pixel.Y) * kE
 			}
 		}
+		sum = utils.ClampF64(sum, 0, 255)
+		resultImage.Set(x, y, color.Gray{uint8(sum)})
 	})
-
-	return dst
+	return resultImage, nil
 }
 
-func normalizeKernel(kernel []float64) {
-	var sum, sumpos float64
-	for i := range kernel {
-		sum += kernel[i]
-		if kernel[i] > 0 {
-			sumpos += kernel[i]
-		}
+// ConvolveRGBA applies a convolution matrix (kernel) to an RGBA image.
+// Example of usage:
+//
+// 		res, err := convolution.ConvolveRGBA(img, kernel, {1, 1}, BorderReflect)
+//
+// Note: the anchor represents a point inside the area of the kernel. After every step of the convolution the position
+// specified by the anchor point gets updated on the result image.
+func ConvolveRGBA(img *image.RGBA, kernel *Kernel, anchor image.Point, border BorderPad) (*image.RGBA, error) {
+	kernelSize := kernel.Size()
+	padded, err := PaddingRGBA(img, kernelSize, anchor, border)
+	if err != nil {
+		return nil, err
 	}
-	if sum != 0 {
-		for i := range kernel {
-			kernel[i] /= sum
+	originalSize := img.Bounds().Size()
+	resultImage := image.NewRGBA(img.Bounds())
+	utils.ParallelForEachPixel(originalSize, func(x int, y int) {
+		sumR, sumG, sumB := 0.0, 0.0, 0.0
+		for kx := 0; kx < kernelSize.X; kx++ {
+			for ky := 0; ky < kernelSize.Y; ky++ {
+				pixel := padded.RGBAAt(x+kx, y+ky)
+				sumR += float64(pixel.R) * kernel.At(kx, ky)
+				sumG += float64(pixel.G) * kernel.At(kx, ky)
+				sumB += float64(pixel.B) * kernel.At(kx, ky)
+			}
 		}
-	} else if sumpos != 0 {
-		for i := range kernel {
-			kernel[i] /= sumpos
-		}
-	}
+		sumR = utils.ClampF64(sumR, 0,255)
+		sumG = utils.ClampF64(sumG, 0,255)
+		sumB = utils.ClampF64(sumB, 0,255)
+		rgba := img.RGBAAt(x, y)
+		resultImage.Set(x, y, color.RGBA{uint8(sumR), uint8(sumG), uint8(sumB), rgba.A})
+	})
+	return resultImage, nil
 }
 
-func applyFilter(w int, h int, m image.Image, filter [][]float64, stride int, factor float64, bias float64) *image.RGBA {
-
-	result := image.NewRGBA(image.Rect(0, 0, w, h))
-	for x := 0; x < w; x++ {
-		for y := 0; y < h; y++ {
-
-			var red float64 = 0.0
-			var green float64 = 0.0
-			var blue float64 = 0.0
-
-			for filterY := 0; filterY < stride; filterY++ {
-				for filterX := 0; filterX < stride; filterX++ {
-					imageX := (x - stride/2 + filterX + w) % w
-					imageY := (y - stride/2 + filterY + h) % h
-					r, g, b, _ := m.At(imageX, imageY).RGBA()
-
-					red += (float64(r) / 257) * filter[filterY][filterX]
-					green += (float64(g) / 257) * filter[filterY][filterX]
-					blue += (float64(b) / 257) * filter[filterY][filterX]
-				}
-			}
-
-			_r := utils.MinInt(utils.MaxInt(int(factor*red+bias), 0), 255)
-			_g := utils.MinInt(utils.MaxInt(int(factor*green+bias), 0), 255)
-			_b := utils.MinInt(utils.MaxInt(int(factor*blue+bias), 0), 255)
-
-			c := color.RGBA{
-				uint8(_r),
-				uint8(_g),
-				uint8(_b),
-				255,
-			}
-			result.Set(x, y, c)
-
-		}
-
+func ConvolveGrayFloat64(m *mat.Dense, filter *Kernel) (*mat.Dense, error) {
+	h, w := m.Dims()
+	result := mat.NewDense(h, w, nil)
+	kernelSize := filter.Size()
+	padded, err := PaddingFloat64(m, kernelSize, image.Point{1, 1}, 0)
+	if err != nil {
+		return nil, err
 	}
-	return result
+
+	utils.ParallelForEachPixel(image.Point{w, h}, func(x int, y int) {
+		sum := float64(0)
+		for ky := 0; ky < kernelSize.Y; ky++ {
+			for kx := 0; kx < kernelSize.X; kx++ {
+				pixel := padded.At(y+ky, x+kx)
+				kE := filter.At(kx, ky)
+				sum += pixel * kE
+			}
+		}
+		//sum = utils.ClampF64(sum, utils.MinUint8, float64(utils.MaxUint8))
+		result.Set(y, x, sum)
+	})
+	return result, nil
 }
