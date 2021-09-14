@@ -175,6 +175,33 @@
         
           
           <li>
+            <a href="#proto%2fapi%2fservice%2fv1%2fmetadata.proto">proto/api/service/v1/metadata.proto</a>
+            <ul>
+              
+                <li>
+                  <a href="#proto.api.service.v1.ResourceName"><span class="badge">M</span>ResourceName</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.service.v1.ResourcesRequest"><span class="badge">M</span>ResourcesRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.service.v1.ResourcesResponse"><span class="badge">M</span>ResourcesResponse</a>
+                </li>
+              
+              
+              
+              
+                <li>
+                  <a href="#proto.api.service.v1.MetadataService"><span class="badge">S</span>MetadataService</a>
+                </li>
+              
+            </ul>
+          </li>
+        
+          
+          <li>
             <a href="#proto%2fapi%2fv1%2frobot.proto">proto/api/v1/robot.proto</a>
             <ul>
               
@@ -883,6 +910,150 @@
       </ul>
     </div>
 
+    
+      
+      <div class="file-heading">
+        <h2 id="proto/api/service/v1/metadata.proto">proto/api/service/v1/metadata.proto</h2><a href="#title">Top</a>
+      </div>
+      <p></p>
+
+      
+        <h3 id="proto.api.service.v1.ResourceName">ResourceName</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>uuid</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>namespace</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>subtype</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.service.v1.ResourcesRequest">ResourcesRequest</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.service.v1.ResourcesResponse">ResourcesResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>resources</td>
+                  <td><a href="#proto.api.service.v1.ResourceName">ResourceName</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+
+      
+
+      
+
+      
+        <h3 id="proto.api.service.v1.MetadataService">MetadataService</h3>
+        <p>A MetadataService returns a list of all resources associated with a gRPC serv</p>
+        <table class="enum-table">
+          <thead>
+            <tr><td>Method Name</td><td>Request Type</td><td>Response Type</td><td>Description</td></tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td>Resources</td>
+                <td><a href="#proto.api.service.v1.ResourcesRequest">ResourcesRequest</a></td>
+                <td><a href="#proto.api.service.v1.ResourcesResponse">ResourcesResponse</a></td>
+                <td><p>Status returns the robot&#39;s underlying status.</p></td>
+              </tr>
+            
+          </tbody>
+        </table>
+
+        
+          
+          
+          <h4>Methods with HTTP bindings</h4>
+          <table>
+            <thead>
+              <tr>
+                <td>Method Name</td>
+                <td>Method</td>
+                <td>Pattern</td>
+                <td>Body</td>
+              </tr>
+            </thead>
+            <tbody>
+            
+              
+              
+              <tr>
+                <td>Resources</td>
+                <td>GET</td>
+                <td>/api/v2/service/metadata</td>
+                <td></td>
+              </tr>
+              
+            
+            </tbody>
+          </table>
+          
+        
     
       
       <div class="file-heading">
