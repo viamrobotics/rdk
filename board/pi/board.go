@@ -96,6 +96,7 @@ type piPigpio struct {
 	cfg           board.Config
 	gpioConfigSet map[int]bool
 	analogs       map[string]board.AnalogReader
+	i2cs          map[string]board.I2C
 	spis          map[string]board.SPI
 	servos        map[string]board.Servo
 	interrupts    map[string]board.DigitalInterrupt
@@ -153,6 +154,14 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 		}
 
 		piInstance.servos[c.Name] = &piPigpioServo{piInstance, C.uint(bcom)}
+	}
+
+	// setup I2C buses
+	if len(cfg.I2Cs) != 0 {
+		piInstance.i2cs = make(map[string]board.I2C, len(cfg.I2Cs))
+		for _, sc := range cfg.I2Cs {
+			piInstance.i2cs[sc.Name] = &piPigpioI2C{pi: piInstance}
+		}
 	}
 
 	// setup SPI buses
@@ -480,6 +489,100 @@ func (h *piPigpioSPIHandle) Close() error {
 	return nil
 }
 
+type piPigpioI2C struct {
+	pi           *piPigpio
+	mu           sync.Mutex
+	openHandle   *piPigpioI2CHandle
+	
+}
+
+type piPigpioI2CHandle struct {
+	bus      *piPigpioI2C
+	isClosed bool
+}
+
+// WriteBytes will write the given slice of bytes to the given i2c address
+func (s *piPigpioI2CHandle) WriteBytes(ctx context.Context, addr byte, tx []byte) error {
+
+	if s.isClosed {
+		return errors.New("can't use WriteBytes() on an already closed I2CHandle")
+	}
+
+	var i2cFlags uint
+	i2cFlags = 0
+	
+	// Raspberry Pis are all on i2c bus 1
+	// Exception being the very first model which is on 0, not supported.
+	var bus C.uint
+	bus = 1
+
+	count := len(tx)
+	txPtr := C.CBytes(tx)
+	defer C.free(txPtr)
+
+	handle := C.i2cOpen(bus, (C.uint)(addr), (C.uint)(i2cFlags))
+
+	if handle < 0 {
+		return errors.Errorf("error opening I2C Bus %s return code was %d, flags were %X", bus, handle, i2cFlags)
+	}
+	defer C.i2cClose((C.uint)(handle))
+
+	ret := C.i2cWriteDevice((C.uint)(handle), (*C.char)(txPtr), (C.uint)(count))
+
+	if int(ret) != 0 {
+		return errors.Errorf("error with i2c write %q", ret)
+	}
+
+	return nil
+}
+
+// ReadBytes will read `count` bytes from the given address.
+func (s *piPigpioI2CHandle) ReadBytes(ctx context.Context, addr byte, count int) ([]byte, error) {
+
+	if s.isClosed {
+		return nil, errors.New("can't use ReadBytes() on an already closed I2CHandle")
+	}
+
+	var i2cFlags uint
+	i2cFlags = 0
+	
+	// Raspberry Pis are all on i2c bus 1
+	// Exception being the very first model which is on 0, not supported.
+	var bus C.uint
+	bus = 1
+
+	rx := make([]byte, count)
+	rxPtr := C.CBytes(rx)
+	defer C.free(rxPtr)
+
+	handle := C.i2cOpen(bus, (C.uint)(addr), (C.uint)(i2cFlags))
+
+	if handle < 0 {
+		return nil, errors.Errorf("error opening I2C Bus %s return code was %d, flags were %X", bus, handle, i2cFlags)
+	}
+	defer C.i2cClose((C.uint)(handle))
+
+	ret := C.i2cReadDevice((C.uint)(handle), (*C.char)(rxPtr), (C.uint)(count))
+
+	if int(ret) != 0 {
+		return nil, errors.Errorf("error with i2c write %q", ret)
+	}
+
+	return C.GoBytes(rxPtr, (C.int)(count)), nil
+}
+
+func (s *piPigpioI2C) OpenHandle() (board.I2CHandle, error) {
+	s.mu.Lock()
+	s.openHandle = &piPigpioI2CHandle{bus: s, isClosed: false}
+	return s.openHandle, nil
+}
+
+func (h *piPigpioI2CHandle) Close() error {
+	h.isClosed = true
+	h.bus.mu.Unlock()
+	return nil
+}
+
 // MotorNames returns the name of all known motors.
 func (pi *piPigpio) MotorNames() []string {
 	names := []string{}
@@ -496,6 +599,18 @@ func (pi *piPigpio) SPINames() []string {
 	}
 	names := make([]string, 0, len(pi.spis))
 	for k := range pi.spis {
+		names = append(names, k)
+	}
+	return names
+}
+
+// I2CNames returns the name of all known SPI buses.
+func (pi *piPigpio) I2CNames() []string {
+	if len(pi.i2cs) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(pi.i2cs))
+	for k := range pi.i2cs {
 		names = append(names, k)
 	}
 	return names
@@ -559,6 +674,11 @@ func (s *piPigpioServo) Current(ctx context.Context) (uint8, error) {
 
 func (pi *piPigpio) SPIByName(name string) (board.SPI, bool) {
 	s, ok := pi.spis[name]
+	return s, ok
+}
+
+func (pi *piPigpio) I2CByName(name string) (board.I2C, bool) {
+	s, ok := pi.i2cs[name]
 	return s, ok
 }
 

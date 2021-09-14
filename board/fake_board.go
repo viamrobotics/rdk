@@ -39,6 +39,12 @@ type fakeSPI struct {
 	fifo chan []byte
 }
 
+// A fakeI2C allows opening an I2CHandle.
+type fakeI2C struct {
+	mu   sync.Mutex
+	fifo chan []byte
+}
+
 func (s *fakeSPI) OpenHandle() (SPIHandle, error) {
 	s.mu.Lock()
 	return &fakeSPIHandle{s}, nil
@@ -56,6 +62,31 @@ func (h *fakeSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect string, 
 }
 
 func (h *fakeSPIHandle) Close() error {
+	h.bus.mu.Unlock()
+	return nil
+}
+
+func (s *fakeI2C) OpenHandle() (I2CHandle, error) {
+	s.mu.Lock()
+	return &fakeI2CHandle{s}, nil
+}
+
+// A fakeI2CHandle allows read/write and Close.
+type fakeI2CHandle struct {
+	bus *fakeI2C
+}
+
+func (h *fakeI2CHandle) WriteBytes(ctx context.Context, addr byte, tx []byte) error {
+	h.bus.fifo <- tx
+	return nil
+}
+
+func (h *fakeI2CHandle) ReadBytes(ctx context.Context, addr byte, count int) ([]byte, error) {
+	ret := <-h.bus.fifo
+	return ret[:count], nil
+}
+
+func (h *fakeI2CHandle) Close() error {
 	h.bus.mu.Unlock()
 	return nil
 }
@@ -81,6 +112,7 @@ type FakeBoard struct {
 	Name     string
 	motors   map[string]*FakeMotor
 	servos   map[string]*fakeServo
+	i2cs     map[string]*fakeI2C
 	spis     map[string]*fakeSPI
 	analogs  map[string]*FakeAnalog
 	digitals map[string]DigitalInterrupt
@@ -107,6 +139,12 @@ func (b *FakeBoard) ServoByName(name string) (Servo, bool) {
 // SPIByName returns the servo by the given name if it exists.
 func (b *FakeBoard) SPIByName(name string) (SPI, bool) {
 	s, ok := b.spis[name]
+	return s, ok
+}
+
+// I2CByName returns the servo by the given name if it exists.
+func (b *FakeBoard) I2CByName(name string) (I2C, bool) {
+	s, ok := b.i2cs[name]
 	return s, ok
 }
 
@@ -189,6 +227,15 @@ func (b *FakeBoard) ServoNames() []string {
 func (b *FakeBoard) SPINames() []string {
 	names := []string{}
 	for k := range b.spis {
+		names = append(names, k)
+	}
+	return names
+}
+
+// I2CNames returns the name of all known SPIs.
+func (b *FakeBoard) I2CNames() []string {
+	names := []string{}
+	for k := range b.i2cs {
 		names = append(names, k)
 	}
 	return names

@@ -263,6 +263,11 @@ func (b *arduinoBoard) SPIByName(name string) (board.SPI, bool) {
 	return nil, false
 }
 
+// I2CByName returns an I2C by name.
+func (b *arduinoBoard) I2CByName(name string) (board.I2C, bool) {
+	return nil, false
+}
+
 // AnalogReaderByName returns an analog reader by name.
 func (b *arduinoBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	a, ok := b.analogs[name]
@@ -326,6 +331,11 @@ func (b *arduinoBoard) ServoNames() []string {
 
 // SPINames returns the name of all known SPIs.
 func (b *arduinoBoard) SPINames() []string {
+	return nil
+}
+
+// I2CNames returns the name of all known I2Cs.
+func (b *arduinoBoard) I2CNames() []string {
 	return nil
 }
 
