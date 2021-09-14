@@ -130,3 +130,14 @@ func ScaleByPct(n int, pct float64) int {
 func SampleRandomIntRange(min, max int, r *rand.Rand) int {
 	return r.Intn(max-min+1) + min
 }
+
+// ClampF64 returns min if value is lesser then min, max if value is greater them max or value if the input value is
+// between min and max.
+func ClampF64(value float64, min float64, max float64) float64 {
+	if value < min {
+		return min
+	} else if value > max {
+		return max
+	}
+	return value
+}
