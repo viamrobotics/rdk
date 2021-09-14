@@ -1,12 +1,5 @@
 <html>
   <head>
-    <style type="text/css" media="screen">
-      #source {
-        position: relative;
-        width: 50%;
-        height: 50%;
-      }
-    </style>
     <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
     <script>
       window.webrtcEnabled = {{ .WebRTCEnabled }}
@@ -16,14 +9,13 @@
     {{ if .External }}
     <script src="/static/core/control.js"></script>
     <script src="/static/core/third-party/vue.js"></script>
-    <script src="/static/core/third-party/ace/ace.js" type="text/javascript" charset="utf-8"></script>
     {{ else }}
     <script src="/static/control.js"></script>
     <script src="/static/third-party/vue.js"></script>
-    <script src="/static/third-party/ace/ace.js" type="text/javascript" charset="utf-8"></script>
     {{ end }}
 
     <script>
+
       function roundTo2Decimals(num) {
           num = Math.round(num * 100);
           return num / 100;
@@ -89,7 +81,6 @@
           status.boardsMap = rawSatusObj.boardsMap;
           status.camerasMap = rawSatusObj.camerasMap;
           status.sensorsMap = rawSatusObj.sensorsMap;
-          status.functionsMap = rawSatusObj.functionsMap;
 
           status.armsMap = fixArms(status.armsMap);
 
@@ -116,7 +107,6 @@
               minPtsSegment: 100,
               clusterRad: 5,
               armToggle : {},
-              editor: undefined,
           };
           theApp = new Vue({
               el: '#app',
@@ -342,39 +332,6 @@
                       req.setName(name);
                       robotService.sensorReadings(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
-                  processFunctionResults: function(err, resp) {
-                    grpcCallback(err, resp, false)
-                    if (err) {
-                      document.getElementById("function_results").value = `${err}`;
-                      return;
-                    }
-                    var results = resp.getResultsList();
-
-                    let resultStr = '';
-                    if (results.length > 0) {
-                      resultStr += 'Results: \n';
-                      for (let i = 0; i < results.length && i < results.length; i++) {
-                        let result = results[i];
-                        resultStr += `${i}: ${JSON.stringify(result.toJavaScript())}\n`;
-                      }
-                    }
-                    resultStr += `StdOut: ${resp.getStdOut()}\n`;
-                    resultStr += `StdErr: ${resp.getStdErr()}\n`;
-                    document.getElementById("function_results").value = resultStr;
-                  },
-                  executeFunction : function(name) {
-                      document.getElementById("function_results").value = "";
-                      var req = new robotApi.ExecuteFunctionRequest();
-                      req.setName(name);
-                      robotService.executeFunction(req, {}, this.processFunctionResults);
-                  },
-                  evalSource : function() {
-                      document.getElementById("function_results").value = "";
-                      var req = new robotApi.ExecuteSourceRequest();
-                      req.setSource(theData.editor.getValue());
-                      req.setEngine('javascript');
-                      robotService.executeSource(req, {}, this.processFunctionResults);
-                  },
                   nonEmpty : function(d) {
                       for ( var k in d ) {
                           return true;
@@ -495,13 +452,6 @@
             });
           }
           await restartStatusStream();
-
-          const editor = ace.edit("source");
-          editor.setTheme("ace/theme/monokai");
-          editor.session.setMode("ace/mode/javascript");
-          editor.resize();
-          editor.setReadOnly(false);
-          theData.editor = editor;
       }
 
       pcdGlobal = null;
@@ -602,7 +552,7 @@
         console.debug("waiting for robot service to be ready");
         await window.robotServiceReady;
         console.debug("ready");
-        await startup();
+        startup();
       }
       
     </script>
@@ -613,7 +563,7 @@
         {{range $r := .Actions}}
         <button v-on:click="doAction('{{$r}}')">{{$r}}</button>
         {{end}}
-      </div>   
+      </div>      
 
       <div style="font-color: red">${ error }</div>
 
@@ -834,21 +784,6 @@
       </table>
       
       <div>${res}</div>
-      <div>
-        <h3>Functions</h3>
-        <div id="named_functions" v-if="nonEmpty(status.functionsMap)">
-          <h4>Named</h4>
-          <div v-for="(func, x) in status.functionsMap">
-            <button v-on:click="executeFunction(func[0])">${func[0]}</button>
-          </div>
-        </div>
-        <h4>Evaluate</h4>
-        <div id="source">console.log("hello world")</div>
-        <br/>
-        <button v-on:click="evalSource()">Run</button>
-        <br/>
-        <textarea disabled id="function_results" rows="10" cols="80"></textarea>
-      </div>
 
       <div id="pcd_wrapper">
         <table>

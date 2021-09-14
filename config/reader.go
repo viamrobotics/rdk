@@ -100,9 +100,9 @@ const (
 	cloudConfigUserInfoLocalIPsField = "ips"
 )
 
-// CreateCloudRequest makes a request to fetch the robot config
+// createCloudRequest makes a request to fetch the robot config
 // from a cloud endpoint.
-func CreateCloudRequest(cloudCfg *Cloud) (*http.Request, error) {
+func createCloudRequest(cloudCfg *Cloud) (*http.Request, error) {
 	if cloudCfg.Path == "" {
 		cloudCfg.Path = defaultCloudPath
 	}
@@ -166,7 +166,7 @@ func storeToCache(id string, cfg *Config) error {
 // ReadFromCloud fetches a robot config from the cloud based
 // on the given config.
 func ReadFromCloud(cloudCfg *Cloud, readFromCache bool) (*Config, error) {
-	cloudReq, err := CreateCloudRequest(cloudCfg)
+	cloudReq, err := createCloudRequest(cloudCfg)
 	if err != nil {
 		return nil, err
 	}

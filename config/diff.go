@@ -9,7 +9,6 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/core/board"
-	functionvm "go.viam.com/core/function/vm"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
@@ -23,7 +22,7 @@ type Diff struct {
 	Modified    *ModifiedConfigDiff
 	Removed     *Config
 	Equal       bool
-	PrettyDiff  string
+	prettyDiff  string
 }
 
 // ModifiedConfigDiff is the modificative different between two configs.
@@ -32,13 +31,12 @@ type ModifiedConfigDiff struct {
 	Boards     map[string]board.ConfigDiff
 	Components []Component
 	Processes  []pexec.ProcessConfig
-	Functions  []functionvm.FunctionConfig
 }
 
 // DiffConfigs returns the difference between the two given configs
 // from left to right.
 func DiffConfigs(left, right *Config) (*Diff, error) {
-	PrettyDiff, err := prettyDiff(left, right)
+	prettyDiff, err := prettyDiff(left, right)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +49,7 @@ func DiffConfigs(left, right *Config) (*Diff, error) {
 			Boards: map[string]board.ConfigDiff{},
 		},
 		Removed:    &Config{},
-		PrettyDiff: PrettyDiff,
+		prettyDiff: prettyDiff,
 	}
 
 	// All diffs use the following logic:
@@ -71,11 +69,6 @@ func DiffConfigs(left, right *Config) (*Diff, error) {
 		return nil, err
 	}
 	different = componentsDifferent || different
-	functionsDifferent, err := diffFunctions(left.Functions, right.Functions, &diff)
-	if err != nil {
-		return nil, err
-	}
-	different = functionsDifferent || different
 	different = diffProcesses(left.Processes, right.Processes, &diff) || different
 	diff.Equal = !different
 
@@ -106,7 +99,7 @@ func prettyDiff(left, right *Config) (string, error) {
 
 // String returns a pretty version of the diff.
 func (diff *Diff) String() string {
-	return diff.PrettyDiff
+	return diff.prettyDiff
 }
 
 func diffRemotes(left, right []Remote, diff *Diff) bool {
@@ -482,49 +475,4 @@ func diffProcess(left, right pexec.ProcessConfig, diff *Diff) bool {
 	}
 	diff.Modified.Processes = append(diff.Modified.Processes, right)
 	return true
-}
-
-func diffFunctions(left, right []functionvm.FunctionConfig, diff *Diff) (bool, error) {
-	leftIndex := make(map[string]int)
-	leftM := make(map[string]functionvm.FunctionConfig)
-	for idx, l := range left {
-		leftM[l.Name] = l
-		leftIndex[l.Name] = idx
-	}
-
-	var removed []int
-
-	var different bool
-	for _, r := range right {
-		l, ok := leftM[r.Name]
-		delete(leftM, r.Name)
-		if ok {
-			functionDifferent, err := diffFunction(l, r, diff)
-			if err != nil {
-				return false, err
-			}
-			different = functionDifferent || different
-			continue
-		}
-		diff.Added.Functions = append(diff.Added.Functions, r)
-		different = true
-	}
-
-	for k := range leftM {
-		removed = append(removed, leftIndex[k])
-		different = true
-	}
-	sort.Ints(removed)
-	for _, idx := range removed {
-		diff.Removed.Functions = append(diff.Removed.Functions, left[idx])
-	}
-	return different, nil
-}
-
-func diffFunction(left, right functionvm.FunctionConfig, diff *Diff) (bool, error) {
-	if reflect.DeepEqual(left, right) {
-		return false, nil
-	}
-	diff.Modified.Functions = append(diff.Modified.Functions, right)
-	return true, nil
 }
