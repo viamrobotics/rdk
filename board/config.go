@@ -11,6 +11,7 @@ type Config struct {
 	Name              string                   `json:"name"`
 	Model             string                   `json:"model"` // example: "pi"
 	Motors            []MotorConfig            `json:"motors"`
+	I2Cs              []I2CConfig              `json:"i2cs"`
 	SPIs              []SPIConfig              `json:"spis"`
 	Servos            []ServoConfig            `json:"servos"`
 	Analogs           []AnalogConfig           `json:"analogs"`
@@ -128,6 +129,20 @@ type SPIConfig struct {
 
 // Validate ensures all parts of the config are valid.
 func (config *SPIConfig) Validate(path string) error {
+	if config.Name == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	return nil
+}
+
+// I2CConfig enumerates a specific I2C device by address.
+type I2CConfig struct {
+	Name      string `json:"name"`
+	Address   string `json:"address"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *I2CConfig) Validate(path string) error {
 	if config.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
