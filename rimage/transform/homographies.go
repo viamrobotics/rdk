@@ -18,19 +18,20 @@ import (
 )
 
 func ComputeNormalizationMatFromSliceVecs(pts []r2.Point) *mat.Dense {
-	out := mat.NewDense(3,3,nil)
+	out := mat.NewDense(3, 3, nil)
 	xs, ys := rimage.SliceVecsToXsYs(pts)
 	avgX := floats.Sum(xs) / float64(len(pts))
 	avgY := floats.Sum(ys) / float64(len(pts))
-	stdX := stat.StdDev(xs,nil)
-	stdY := stat.StdDev(ys,nil)
-	out.Set(0,0, avgX)
+	stdX := stat.StdDev(xs, nil)
+	stdY := stat.StdDev(ys, nil)
+	out.Set(0, 0, avgX)
 	out.Set(0, 2, -stdX*avgX)
-	out.Set(1,1, stdY)
-	out.Set(1,2, -stdY*avgY)
-	out.Set(2,2,1)
+	out.Set(1, 1, stdY)
+	out.Set(1, 2, -stdY*avgY)
+	out.Set(2, 2, 1)
 	return out
 }
+
 // EstimateExactHomographyFrom8Points computes the exact homography from 2 sets of 4 matching points
 func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point) (*mat.Dense, error) {
 	if len(s1) != 4 {
@@ -323,7 +324,7 @@ func ApplyNormalizationMat(H rimage.Matrix, pts []r2.Point) []r2.Point {
 		x := H.At(0, 0)*pt.X + H.At(0, 1)*pt.Y + H.At(0, 2)
 		y := H.At(1, 0)*pt.X + H.At(1, 1)*pt.Y + H.At(1, 2)
 		//z := H.At(2, 0)*pt.X + H.At(2, 1)*pt.Y + H.At(2, 2)
-		outPoints[i] = r2.Point{X: x , Y: y }
+		outPoints[i] = r2.Point{X: x, Y: y}
 	}
 	return outPoints
 }
