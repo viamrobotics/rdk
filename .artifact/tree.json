@@ -2733,18 +2733,6 @@
       "size": 1779579
     }
   },
-  "function": {
-    "vm": {
-      "engines": {
-        "javascript": {
-          "libquickjs.wasm": {
-            "hash": "228adce9b9c1af69ddfb7720452e683f",
-            "size": 5671390
-          }
-        }
-      }
-    }
-  },
   "minirover2": {
     "autodrive": {
       "20201218.0819.08.dat.gz": {

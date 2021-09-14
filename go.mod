@@ -50,7 +50,6 @@ require (
 	github.com/starship-technologies/gobag v1.0.6
 	github.com/tidwall/pretty v1.0.2 // indirect
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
-	github.com/wasmerio/wasmer-go v1.0.4
 	go-hep.org/x/hep v0.28.5
 	go.mongodb.org/mongo-driver v1.5.3
 	go.opencensus.io v0.23.0
@@ -77,5 +76,3 @@ require (
 replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de
 
 replace github.com/starship-technologies/gobag => github.com/kkufieta/gobag v0.0.0-20210528190924-d8b19286f98e
-
-replace github.com/wasmerio/wasmer-go => github.com/meshplus/wasmer-go v0.0.0-20210817103436-19ec68f8bfe2

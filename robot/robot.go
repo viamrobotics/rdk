@@ -75,9 +75,6 @@ type Robot interface {
 	// SensorNames returns the name of all known sensors.
 	SensorNames() []string
 
-	// FunctionNames returns the name of all known functions.
-	FunctionNames() []string
-
 	// ProcessManager returns the process manager for the robot.
 	ProcessManager() pexec.ProcessManager
 

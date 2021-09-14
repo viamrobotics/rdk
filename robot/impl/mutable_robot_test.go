@@ -154,12 +154,6 @@ func TestConfigRemote(t *testing.T) {
 				Type: "relative_compass",
 			},
 		},
-		Functions: map[string]bool{
-			"func1":     true,
-			"foo.func1": true,
-			"func2":     true,
-			"foo.func2": true,
-		},
 	}
 
 	test.That(t, status, test.ShouldResemble, expectedStatus)

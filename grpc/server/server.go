@@ -23,8 +23,6 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/board"
-	functionrobot "go.viam.com/core/function/robot"
-	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/grpc"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/pointcloud"
@@ -33,9 +31,6 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/vision/segmentation"
-
-	// Engines
-	_ "go.viam.com/core/function/vm/engines/javascript"
 )
 
 // Server implements the contract from robot.proto that ultimately satisfies
@@ -1009,86 +1004,4 @@ func (s *Server) CompassMark(ctx context.Context, req *pb.CompassMarkRequest) (*
 		return nil, err
 	}
 	return &pb.CompassMarkResponse{}, nil
-}
-
-// ExecuteFunction executes the given function with access to the underlying robot.
-func (s *Server) ExecuteFunction(ctx context.Context, req *pb.ExecuteFunctionRequest) (*pb.ExecuteFunctionResponse, error) {
-	conf, err := s.r.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var funcConfig functionvm.FunctionConfig
-	var found bool
-	for _, conf := range conf.Functions {
-		if conf.Name == req.Name {
-			found = true
-			funcConfig = conf
-		}
-	}
-	if !found {
-		return nil, errors.Errorf("no function with name (%s)", req.Name)
-	}
-	result, err := executeFunctionWithRobotForRPC(ctx, funcConfig, s.r)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.ExecuteFunctionResponse{
-		Results: result.Results,
-		StdOut:  result.StdOut,
-		StdErr:  result.StdErr,
-	}, nil
-}
-
-// ExecuteSource executes the given source with access to the underlying robot.
-func (s *Server) ExecuteSource(ctx context.Context, req *pb.ExecuteSourceRequest) (*pb.ExecuteSourceResponse, error) {
-	result, err := executeFunctionWithRobotForRPC(
-		ctx,
-		functionvm.FunctionConfig{
-			Name:   "_",
-			Engine: functionvm.EngineName(req.Engine),
-			Source: req.Source,
-		},
-		s.r,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.ExecuteSourceResponse{
-		Results: result.Results,
-		StdOut:  result.StdOut,
-		StdErr:  result.StdErr,
-	}, nil
-}
-
-type executionResultRPC struct {
-	Results []*structpb.Value
-	StdOut  string
-	StdErr  string
-}
-
-func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*executionResultRPC, error) {
-	execResult, err := functionrobot.Execute(ctx, f, r)
-	if err != nil {
-		return nil, err
-	}
-	pbResults := make([]*structpb.Value, 0, len(execResult.Results))
-	for _, result := range execResult.Results {
-		val := result.Interface()
-		if (val == functionvm.Undefined{}) {
-			val = "<undefined>" // TODO(erd): holdover for now to make my life easier :)
-		}
-		pbVal, err := structpb.NewValue(val)
-		if err != nil {
-			return nil, err
-		}
-		pbResults = append(pbResults, pbVal)
-	}
-
-	return &executionResultRPC{
-		Results: pbResults,
-		StdOut:  execResult.StdOut,
-		StdErr:  execResult.StdErr,
-	}, nil
 }

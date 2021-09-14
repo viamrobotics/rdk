@@ -41,7 +41,6 @@ type Robot struct {
 	BaseNamesFunc      func() []string
 	BoardNamesFunc     func() []string
 	SensorNamesFunc    func() []string
-	FunctionNamesFunc  func() []string
 	ProcessManagerFunc func() pexec.ProcessManager
 	ConfigFunc         func(ctx context.Context) (*config.Config, error)
 	StatusFunc         func(ctx context.Context) (*pb.Status, error)
@@ -184,14 +183,6 @@ func (r *Robot) SensorNames() []string {
 		return r.Robot.SensorNames()
 	}
 	return r.SensorNamesFunc()
-}
-
-// FunctionNames calls the injected FunctionNames or the real version.
-func (r *Robot) FunctionNames() []string {
-	if r.FunctionNamesFunc == nil {
-		return r.Robot.FunctionNames()
-	}
-	return r.FunctionNamesFunc()
 }
 
 // ProcessManager calls the injected ProcessManager or the real version.
