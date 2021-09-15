@@ -22,6 +22,7 @@ import (
 )
 
 func init() {
+<<<<<<< HEAD
 	registry.RegisterGripper("vx300s", registry.GripperRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 		mut, err := robot.AsMutable(r)
 		if err != nil {
@@ -29,6 +30,11 @@ func init() {
 		}
 		return NewGripper(config.Attributes, getProviderOrCreate(mut).moveLock, logger)
 	}})
+=======
+	registry.RegisterGripper("vx300s", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
+		return NewGripper(config.Attributes, logger)
+	})
+>>>>>>> main
 }
 
 // Gripper TODO
@@ -38,15 +44,13 @@ type Gripper struct {
 }
 
 // NewGripper TODO
-func NewGripper(attributes config.AttributeMap, mutex *sync.Mutex, logger golog.Logger) (*Gripper, error) {
-	jServo := findServo(attributes.String("usbPort"), attributes.String("baudRate"), logger)
-	if mutex == nil {
-		mutex = &sync.Mutex{}
-	}
+func NewGripper(attributes config.AttributeMap, logger golog.Logger) (*Gripper, error) {
+	usbPort := attributes.String("usbPort")
+	jServo := findServo(usbPort, attributes.String("baudRate"), logger)
 	err := jServo.SetTorqueEnable(true)
 	newGripper := Gripper{
 		jServo:   jServo,
-		moveLock: mutex,
+		moveLock: getPortMutex(usbPort),
 	}
 	return &newGripper, err
 }

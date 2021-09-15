@@ -19,40 +19,9 @@ import (
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rlog"
-	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
 )
-
-type proxyProvider struct {
-	mu     sync.RWMutex
-	actual robot.Provider
-}
-
-func (p *proxyProvider) Close() error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return utils.TryClose(p.actual)
-}
-
-func (p *proxyProvider) Ready(r robot.Robot) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Ready(r)
-}
-
-func (p *proxyProvider) replace(newProvider robot.Provider) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newProvider.(*proxyProvider)
-	if !ok {
-		panic(fmt.Errorf("expected new provider to be %T but got %T", actual, newProvider))
-	}
-	if err := utils.TryClose(p.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = actual.actual
-}
 
 type proxyBase struct {
 	mu     sync.RWMutex

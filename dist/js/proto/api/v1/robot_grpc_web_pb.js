@@ -4235,5 +4235,165 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.compassMark =
 };
 
 
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.ExecuteFunctionRequest,
+ *   !proto.proto.api.v1.ExecuteFunctionResponse>}
+ */
+const methodDescriptor_RobotService_ExecuteFunction = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/ExecuteFunction',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.ExecuteFunctionRequest,
+  proto.proto.api.v1.ExecuteFunctionResponse,
+  /**
+   * @param {!proto.proto.api.v1.ExecuteFunctionRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ExecuteFunctionResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ExecuteFunctionRequest,
+ *   !proto.proto.api.v1.ExecuteFunctionResponse>}
+ */
+const methodInfo_RobotService_ExecuteFunction = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ExecuteFunctionResponse,
+  /**
+   * @param {!proto.proto.api.v1.ExecuteFunctionRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ExecuteFunctionResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.ExecuteFunctionRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ExecuteFunctionResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ExecuteFunctionResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.executeFunction =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ExecuteFunction',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ExecuteFunction,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.ExecuteFunctionRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.ExecuteFunctionResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.executeFunction =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ExecuteFunction',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ExecuteFunction);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.ExecuteSourceRequest,
+ *   !proto.proto.api.v1.ExecuteSourceResponse>}
+ */
+const methodDescriptor_RobotService_ExecuteSource = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/ExecuteSource',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.ExecuteSourceRequest,
+  proto.proto.api.v1.ExecuteSourceResponse,
+  /**
+   * @param {!proto.proto.api.v1.ExecuteSourceRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ExecuteSourceResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ExecuteSourceRequest,
+ *   !proto.proto.api.v1.ExecuteSourceResponse>}
+ */
+const methodInfo_RobotService_ExecuteSource = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ExecuteSourceResponse,
+  /**
+   * @param {!proto.proto.api.v1.ExecuteSourceRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ExecuteSourceResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.ExecuteSourceRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ExecuteSourceResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ExecuteSourceResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.executeSource =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ExecuteSource',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ExecuteSource,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.ExecuteSourceRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.ExecuteSourceResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.executeSource =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ExecuteSource',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ExecuteSource);
+};
+
+
 module.exports = proto.proto.api.v1;
 

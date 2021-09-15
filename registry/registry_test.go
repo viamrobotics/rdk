@@ -19,10 +19,6 @@ import (
 )
 
 func TestRegistry(t *testing.T) {
-	pf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (robot.Provider, error) {
-		return nil, nil
-	}
-
 	af := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 		return nil, nil
 	}
@@ -51,7 +47,6 @@ func TestRegistry(t *testing.T) {
 	}
 
 	// test panics
-	test.That(t, func() { RegisterProvider("x", ProviderRegistration{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterCamera("x", CameraRegistration{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterArm("x", ArmRegistration{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterBase("x", BaseRegistration{}) }, test.ShouldPanic)
@@ -60,7 +55,6 @@ func TestRegistry(t *testing.T) {
 	test.That(t, func() { RegisterSensor(sensor.Type("x"), "y", SensorRegistration{}) }, test.ShouldPanic)
 
 	// test register
-	RegisterProvider("x", ProviderRegistration{Constructor: pf})
 	RegisterCamera("x", CameraRegistration{cf, ff})
 	RegisterBase("x", BaseRegistration{Constructor: bf, Frame: ff})
 	RegisterArm("x", ArmRegistration{Constructor: af, Frame: ff})

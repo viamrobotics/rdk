@@ -473,6 +473,24 @@ type RobotServiceCompassMark = {
   readonly responseType: typeof proto_api_v1_robot_pb.CompassMarkResponse;
 };
 
+type RobotServiceExecuteFunction = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.ExecuteFunctionRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.ExecuteFunctionResponse;
+};
+
+type RobotServiceExecuteSource = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.ExecuteSourceRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.ExecuteSourceResponse;
+};
+
 export class RobotService {
   static readonly serviceName: string;
   static readonly Status: RobotServiceStatus;
@@ -527,6 +545,8 @@ export class RobotService {
   static readonly CompassStartCalibration: RobotServiceCompassStartCalibration;
   static readonly CompassStopCalibration: RobotServiceCompassStopCalibration;
   static readonly CompassMark: RobotServiceCompassMark;
+  static readonly ExecuteFunction: RobotServiceExecuteFunction;
+  static readonly ExecuteSource: RobotServiceExecuteSource;
 }
 
 export type ServiceError = { message: string, code: number; metadata: grpc.Metadata }
@@ -1020,6 +1040,24 @@ export class RobotServiceClient {
   compassMark(
     requestMessage: proto_api_v1_robot_pb.CompassMarkRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.CompassMarkResponse|null) => void
+  ): UnaryResponse;
+  executeFunction(
+    requestMessage: proto_api_v1_robot_pb.ExecuteFunctionRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ExecuteFunctionResponse|null) => void
+  ): UnaryResponse;
+  executeFunction(
+    requestMessage: proto_api_v1_robot_pb.ExecuteFunctionRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ExecuteFunctionResponse|null) => void
+  ): UnaryResponse;
+  executeSource(
+    requestMessage: proto_api_v1_robot_pb.ExecuteSourceRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ExecuteSourceResponse|null) => void
+  ): UnaryResponse;
+  executeSource(
+    requestMessage: proto_api_v1_robot_pb.ExecuteSourceRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ExecuteSourceResponse|null) => void
   ): UnaryResponse;
 }
 

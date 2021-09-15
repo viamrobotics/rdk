@@ -47,6 +47,9 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	injectRobot.SensorNamesFunc = func() []string {
 		return []string{"sensor1", "sensor2"}
 	}
+	injectRobot.FunctionNamesFunc = func() []string {
+		return []string{"func1", "func2"}
+	}
 	injectRobot.LoggerFunc = func() golog.Logger {
 		return logger
 	}
@@ -148,6 +151,10 @@ func TestCreateStatus(t *testing.T) {
 					Type: "compass",
 				},
 			},
+			Functions: map[string]bool{
+				"func1": true,
+				"func2": true,
+			},
 		})
 	})
 
@@ -199,6 +206,10 @@ func TestCreateStatus(t *testing.T) {
 				"sensor2": {
 					Type: "compass",
 				},
+			},
+			Functions: map[string]bool{
+				"func1": true,
+				"func2": true,
 			},
 		})
 	})

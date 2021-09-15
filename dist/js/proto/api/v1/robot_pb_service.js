@@ -479,6 +479,24 @@ RobotService.CompassMark = {
   responseType: proto_api_v1_robot_pb.CompassMarkResponse
 };
 
+RobotService.ExecuteFunction = {
+  methodName: "ExecuteFunction",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.ExecuteFunctionRequest,
+  responseType: proto_api_v1_robot_pb.ExecuteFunctionResponse
+};
+
+RobotService.ExecuteSource = {
+  methodName: "ExecuteSource",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.ExecuteSourceRequest,
+  responseType: proto_api_v1_robot_pb.ExecuteSourceResponse
+};
+
 exports.RobotService = RobotService;
 
 function RobotServiceClient(serviceHost, options) {
@@ -2080,6 +2098,68 @@ RobotServiceClient.prototype.compassMark = function compassMark(requestMessage, 
     callback = arguments[1];
   }
   var client = grpc.unary(RobotService.CompassMark, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.executeFunction = function executeFunction(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.ExecuteFunction, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.executeSource = function executeSource(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.ExecuteSource, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

@@ -3,26 +3,94 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/core/board"
+	functionvm "go.viam.com/core/function/vm"
 )
+
+// SortComponents sorts list of components topologically based off what other components they depend on.
+func SortComponents(components []Component) ([]Component, error) {
+	componentToConfig := make(map[string]Component, len(components))
+	dependencies := map[string][]string{}
+
+	for _, config := range components {
+		if _, ok := componentToConfig[config.Name]; ok {
+			return nil, errors.Errorf("component name %q is not unique", config.Name)
+		}
+		componentToConfig[config.Name] = config
+		dependencies[config.Name] = config.DependsOn
+	}
+
+	for name, dps := range dependencies {
+		for _, depName := range dps {
+			if _, ok := componentToConfig[depName]; !ok {
+				return nil, utils.NewConfigValidationError(fmt.Sprintf("%s.%s", "components", name), errors.Errorf("dependency %q does not exist", depName))
+			}
+		}
+	}
+
+	sortedCmps := make([]Component, 0, len(components))
+	visited := map[string]bool{}
+
+	var dfsHelper func(string, []string) error
+	dfsHelper = func(name string, path []string) error {
+		for idx, cmpName := range path {
+			if name == cmpName {
+				return errors.Errorf("circular dependency detected in component list between %s", strings.Join(path[idx:], ", "))
+			}
+		}
+
+		path = append(path, name)
+		if _, ok := visited[name]; ok {
+			return nil
+		}
+		visited[name] = true
+		dps := dependencies[name]
+		for _, dp := range dps {
+			// create a deep copy of current path
+			pathCopy := make([]string, len(path))
+			copy(pathCopy, path)
+
+			if err := dfsHelper(dp, pathCopy); err != nil {
+				return err
+			}
+		}
+		sortedCmps = append(sortedCmps, componentToConfig[name])
+		return nil
+	}
+
+	for _, c := range components {
+		if _, ok := visited[c.Name]; !ok {
+			var path []string
+			if err := dfsHelper(c.Name, path); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return sortedCmps, nil
+}
 
 // A Config describes the configuration of a robot.
 type Config struct {
 	ConfigFilePath string
-	Cloud          *Cloud                `json:"cloud,omitempty"`
-	Remotes        []Remote              `json:"remotes,omitempty"`
-	Boards         []board.Config        `json:"boards,omitempty"`
-	Components     []Component           `json:"components,omitempty"`
-	Processes      []pexec.ProcessConfig `json:"processes,omitempty"`
+	Cloud          *Cloud                      `json:"cloud,omitempty"`
+	Remotes        []Remote                    `json:"remotes,omitempty"`
+	Boards         []board.Config              `json:"boards,omitempty"`
+	Components     []Component                 `json:"components,omitempty"`
+	Processes      []pexec.ProcessConfig       `json:"processes,omitempty"`
+	Functions      []functionvm.FunctionConfig `json:"functions,omitempty"`
 }
 
-// Validate ensures all parts of the config are valid.
-func (c Config) Validate(fromCloud bool) error {
+// Ensure ensures all parts of the config are valid and sorts components based on what they depend on.
+func (c *Config) Ensure(fromCloud bool) error {
 	if c.Cloud != nil {
 		if err := c.Cloud.Validate("cloud", fromCloud); err != nil {
 			return err
@@ -47,8 +115,22 @@ func (c Config) Validate(fromCloud bool) error {
 		}
 	}
 
+	if len(c.Components) > 0 {
+		srtCmps, err := SortComponents(c.Components)
+		if err != nil {
+			return err
+		}
+		c.Components = srtCmps
+	}
+
 	for idx, config := range c.Processes {
 		if err := config.Validate(fmt.Sprintf("%s.%d", "processes", idx)); err != nil {
+			return err
+		}
+	}
+
+	for idx, config := range c.Functions {
+		if err := config.Validate(fmt.Sprintf("%s.%d", "functions", idx)); err != nil {
 			return err
 		}
 	}
