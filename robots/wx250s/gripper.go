@@ -23,11 +23,7 @@ import (
 
 func init() {
 	registry.RegisterGripper("wx250s", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
-		mut, err := robot.AsMutable(r)
-		if err != nil {
-			return nil, err
-		}
-		return NewGripper(config.Attributes, getProviderOrCreate(mut).moveLock, logger)
+		return NewGripper(config.Attributes, logger)
 	})
 }
 
@@ -38,15 +34,13 @@ type Gripper struct {
 }
 
 // NewGripper TODO
-func NewGripper(attributes config.AttributeMap, mutex *sync.Mutex, logger golog.Logger) (*Gripper, error) {
-	jServo := findServo(attributes.String("usbPort"), attributes.String("baudRate"), logger)
-	if mutex == nil {
-		mutex = &sync.Mutex{}
-	}
+func NewGripper(attributes config.AttributeMap, logger golog.Logger) (*Gripper, error) {
+	usbPort := attributes.String("usbPort")
+	jServo := findServo(usbPort, attributes.String("baudRate"), logger)
 	err := jServo.SetTorqueEnable(true)
 	newGripper := Gripper{
 		jServo:   jServo,
-		moveLock: mutex,
+		moveLock: getPortMutex(usbPort),
 	}
 	return &newGripper, err
 }

@@ -17,10 +17,6 @@ import (
 )
 
 func TestRegistry(t *testing.T) {
-	pf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (robot.Provider, error) {
-		return nil, nil
-	}
-
 	af := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 		return nil, nil
 	}
@@ -41,14 +37,12 @@ func TestRegistry(t *testing.T) {
 		return nil, nil
 	}
 
-	RegisterProvider("x", pf)
 	RegisterCamera("x", cf)
 	RegisterArm("x", af)
 	RegisterGripper("x", gf)
 	RegisterLidar("x", lf)
 	RegisterSensor(sensor.Type("x"), "y", sf)
 
-	test.That(t, ProviderLookup("x"), test.ShouldNotBeNil)
 	test.That(t, CameraLookup("x"), test.ShouldNotBeNil)
 	test.That(t, ArmLookup("x"), test.ShouldNotBeNil)
 	test.That(t, GripperLookup("x"), test.ShouldNotBeNil)
