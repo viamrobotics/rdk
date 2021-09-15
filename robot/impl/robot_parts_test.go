@@ -10,7 +10,6 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	functionvm "go.viam.com/core/function/vm"
-	"go.viam.com/core/robot"
 	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/testutils/inject"
 
@@ -422,21 +421,6 @@ func TestPartsAdd(t *testing.T) {
 	test.That(t, sensor1.(*proxyRelativeCompass).actual, test.ShouldEqual, injectRelativeCompass)
 	parts.AddSensor(sensor1, config.Component{Name: "sensor1"})
 	test.That(t, sensor1.(*proxyRelativeCompass).actual, test.ShouldEqual, injectRelativeCompass)
-
-	dummyProv := &dummyProvider{}
-	parts.AddProvider(dummyProv, config.Component{Name: "provider1"})
-	provider1, ok := parts.ProviderByName("provider1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, provider1.(*proxyProvider).actual, test.ShouldEqual, dummyProv)
-	parts.AddProvider(provider1, config.Component{Name: "provider1"})
-	test.That(t, provider1.(*proxyProvider).actual, test.ShouldEqual, dummyProv)
-}
-
-type dummyProvider struct {
-}
-
-func (dp *dummyProvider) Ready(r robot.Robot) error {
-	return nil
 }
 
 func TestPartsMergeAdd(t *testing.T) {
@@ -557,7 +541,6 @@ func TestPartsMergeModify(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
 	test.That(t, err, test.ShouldBeNil)
-	parts.AddProvider(&dummyProvider{}, config.Component{Name: "provider1"})
 
 	checkSame := func(toCheck *robotParts) {
 		t.Helper()
@@ -630,7 +613,6 @@ func TestPartsMergeModify(t *testing.T) {
 	robotForRemote.parts.AddBase(&inject.Base{}, config.Component{Name: "base2_r1"})
 	robotForRemote.parts.AddSensor(&inject.Compass{}, config.Component{Name: "sensor2_r1"})
 	robotForRemote.parts.addFunction("func2_r1")
-	robotForRemote.parts.AddProvider(&dummyProvider{}, config.Component{Name: "provider1_r1"})
 
 	remote1Replacemenet := newRemoteRobot(robotForRemote, config.Remote{Name: "remote1"})
 	replacementParts.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
@@ -664,9 +646,6 @@ func TestPartsMergeModify(t *testing.T) {
 	replacementParts.AddBase(injectBase, config.Component{Name: "base1"})
 	injectCompass := &inject.Compass{}
 	replacementParts.AddSensor(injectCompass, config.Component{Name: "sensor1"})
-	injectProvider := &dummyProvider{}
-	replacementParts.addFunction("func1")
-	replacementParts.AddProvider(injectProvider, config.Component{Name: "provider1"})
 	fp1 := &fakeProcess{id: "1"}
 	_, err = replacementParts.processManager.AddProcess(context.Background(), fp1, false)
 	test.That(t, err, test.ShouldBeNil)
@@ -686,8 +665,6 @@ func TestPartsMergeModify(t *testing.T) {
 	baseBefore, ok := parts.BaseByName("base1")
 	test.That(t, ok, test.ShouldBeTrue)
 	compassBefore, ok := parts.SensorByName("sensor1")
-	test.That(t, ok, test.ShouldBeTrue)
-	providerBefore, ok := parts.ProviderByName("provider1")
 	test.That(t, ok, test.ShouldBeTrue)
 	board1Before, ok := parts.BoardByName("board1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -821,10 +798,6 @@ func TestPartsMergeModify(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, sensor1.(*proxyCompass).actual, test.ShouldEqual, injectCompass)
 	test.That(t, sensor1.(*proxyCompass), test.ShouldEqual, compassBefore)
-	provider1, ok := parts.ProviderByName("provider1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, provider1.(*proxyProvider).actual, test.ShouldEqual, injectProvider)
-	test.That(t, provider1.(*proxyProvider), test.ShouldEqual, providerBefore)
 	motor2, ok := board1.MotorByName("motor2")
 	test.That(t, ok, test.ShouldBeTrue)
 	fakeMotor2, ok := fakeBoard.MotorByName("motor2")

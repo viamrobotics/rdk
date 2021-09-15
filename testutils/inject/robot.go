@@ -32,7 +32,6 @@ type Robot struct {
 	LidarByNameFunc    func(name string) (lidar.Lidar, bool)
 	BoardByNameFunc    func(name string) (board.Board, bool)
 	SensorByNameFunc   func(name string) (sensor.Sensor, bool)
-	ProviderByNameFunc func(name string) (robot.Provider, bool)
 	RemoteNamesFunc    func() []string
 	ArmNamesFunc       func() []string
 	GripperNamesFunc   func() []string
@@ -112,14 +111,6 @@ func (r *Robot) SensorByName(name string) (sensor.Sensor, bool) {
 		return r.Robot.SensorByName(name)
 	}
 	return r.SensorByNameFunc(name)
-}
-
-// ProviderByName calls the injected ProviderByName or the real version.
-func (r *Robot) ProviderByName(name string) (robot.Provider, bool) {
-	if r.ProviderByNameFunc == nil {
-		return r.Robot.ProviderByName(name)
-	}
-	return r.ProviderByNameFunc(name)
 }
 
 // RemoteNames calls the injected RemoteNames or the real version.
