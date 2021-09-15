@@ -19,9 +19,6 @@ import (
 )
 
 type (
-	// A CreateProvider creates a provider from a given config.
-	CreateProvider func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (robot.Provider, error)
-
 	// A CreateCamera creates a camera from a given config.
 	CreateCamera func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error)
 
@@ -91,7 +88,6 @@ var (
 	cameraRegistry   = map[string]CameraRegistration{}
 	armRegistry      = map[string]ArmRegistration{}
 	gripperRegistry  = map[string]GripperRegistration{}
-	providerRegistry = map[string]ProviderRegistration{}
 	baseRegistry     = map[string]BaseRegistration{}
 	lidarRegistry    = map[string]LidarRegistration{}
 	sensorRegistry   = map[sensor.Type]map[string]SensorRegistration{}
@@ -131,18 +127,6 @@ func RegisterGripper(model string, creator GripperRegistration) {
 		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
 	}
 	gripperRegistry[model] = creator
-}
-
-// RegisterProvider register a provider model to a creator.
-func RegisterProvider(model string, creator ProviderRegistration) {
-	_, old := providerRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two providers with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	providerRegistry[model] = creator
 }
 
 // RegisterBase register a base model to a creator.
@@ -206,15 +190,6 @@ func ArmLookup(model string) *ArmRegistration {
 // there is no creator registered.
 func GripperLookup(model string) *GripperRegistration {
 	if registration, ok := gripperRegistry[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// ProviderLookup looks up a provider creator by the given model. nil is returned if
-// there is no creator registered.
-func ProviderLookup(model string) *ProviderRegistration {
-	if registration, ok := providerRegistry[model]; ok {
 		return &registration
 	}
 	return nil

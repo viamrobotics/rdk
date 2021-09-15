@@ -48,9 +48,6 @@ type Robot interface {
 	// SensorByName returns a sensor by name.
 	SensorByName(name string) (sensor.Sensor, bool)
 
-	// ProviderByName returns a provider by name.
-	ProviderByName(name string) (Provider, bool)
-
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
 
@@ -74,6 +71,9 @@ type Robot interface {
 
 	// SensorNames returns the name of all known sensors.
 	SensorNames() []string
+
+	// FunctionNames returns the name of all known functions.
+	FunctionNames() []string
 
 	// ProcessManager returns the process manager for the robot.
 	ProcessManager() pexec.ProcessManager
@@ -111,9 +111,6 @@ type MutableRobot interface {
 	// AddCamera adds a camera to the robot.
 	AddCamera(c camera.Camera, cc config.Component)
 
-	// AddProvider adds a provider to the robot.
-	AddProvider(p Provider, c config.Component)
-
 	// Reconfigure instructs the robot to safely reconfigure itself based
 	// on the given new config.
 	Reconfigure(ctx context.Context, newConfig *config.Config) error
@@ -129,12 +126,4 @@ func AsMutable(r Robot) (MutableRobot, error) {
 		return m, nil
 	}
 	return nil, errors.Errorf("expected %T to be a MutableRobot", r)
-}
-
-// A Provider is responsible for providing functionality to parts in a
-// robot.
-type Provider interface {
-	// Ready does any provider/platform initialization once robot configuration is
-	// finishing.
-	Ready(r Robot) error
 }
