@@ -73,7 +73,8 @@ deb-server: server cameras
 	install -D etc/camera_servers/royaleserver etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/bin/royaleserver
 	install -m 644 -D web/runtime-shared/templates/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/templates/
 	install -m 644 -D web/runtime-shared/static/control.js etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/control.js
-	install -m 644 -D web/runtime-shared/static/third-party/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/third-party
+	install -m 644 -D web/runtime-shared/static/third-party/vue.js etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/third-party/vue.js
+	install -m 644 -D web/runtime-shared/static/third-party/ace/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/third-party/ace
 	cd etc/packaging/work/viam-server-$(SERVER_DEB_VER)/ \
 	&& dch -v $(SERVER_DEB_VER)+`date -u '+%Y%m%d%H%M'` "Auto-build from commit `git log --pretty=format:'%h' -n 1`" \
 	&& dch -r viam \
