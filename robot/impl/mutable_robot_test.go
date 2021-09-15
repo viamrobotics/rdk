@@ -62,7 +62,7 @@ func TestConfigFake(t *testing.T) {
 
 func TestConfigRemote(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read("data/remote_fake.json")
+	cfg, err := config.Read("data/fake.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	r, err := robotimpl.New(context.Background(), cfg, logger)
@@ -167,12 +167,7 @@ func TestConfigRemote(t *testing.T) {
 	cfg2, err := r2.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, 12, test.ShouldEqual, len(cfg2.Components))
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "ppp")
-
-	cfg2, err = r2.Config(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, 12, test.ShouldEqual, len(cfg2.Components))
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "ppp")
+	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "foo.world")
 
 	cancel()
 	<-webDone
