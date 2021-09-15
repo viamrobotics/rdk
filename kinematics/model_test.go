@@ -10,8 +10,6 @@ import (
 	"go.viam.com/core/utils"
 
 	"go.viam.com/test"
-	//~ "gonum.org/v1/gonum/num/dualquat"
-	//~ "gonum.org/v1/gonum/num/quat"
 )
 
 func TestModelLoading(t *testing.T) {

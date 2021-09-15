@@ -10,7 +10,7 @@ import (
 	"go.viam.com/test"
 )
 
-func TestSimpleRevoluteFrame(t *testing.T) {
+func TestSimpleRotationalFrame(t *testing.T) {
 	fs := NewEmptySimpleFrameSystem("test")
 
 	// Revolute joint around X axis
@@ -48,7 +48,7 @@ func TestSimpleRevoluteFrame(t *testing.T) {
 	test.That(t, transformPoint3.Z, test.ShouldAlmostEqual, expectP3.Z)
 }
 
-func TestSimplePrismaticFrame(t *testing.T) {
+func TestSimpleTranslationalFrame(t *testing.T) {
 	fs := NewEmptySimpleFrameSystem("test")
 
 	// 1D gantry that slides in X

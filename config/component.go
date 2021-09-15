@@ -31,10 +31,10 @@ type Component struct {
 	Host string `json:"host"`
 	Port int    `json:"port"`
 
-	Type    ComponentType `json:"type"`
-	SubType string        `json:"subtype"`
-	Model   string        `json:"model"`
-	Frame   *FrameConfig  `json:"frame,omitempty"`
+	Type      ComponentType `json:"type"`
+	SubType   string        `json:"subtype"`
+	Model     string        `json:"model"`
+	Frame     *FrameConfig  `json:"frame,omitempty"`
 	DependsOn []string      `json:"depends_on"`
 
 	Attributes AttributeMap `json:"attributes"`

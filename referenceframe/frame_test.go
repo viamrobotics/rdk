@@ -57,6 +57,15 @@ func TestPrismaticFrame(t *testing.T) {
 	input = FloatsToInputs([]float64{0, 20, 0})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
+
+	// test wrapping
+	wrappedFrame := WrapFrame(frame, spatial.NewPoseFromPoint(r3.Vector{0, 15, 0}))
+	expPose = spatial.NewPoseFromPoint(r3.Vector{0, 35, 0})
+	input = FloatsToInputs([]float64{20})
+	pose, err = wrappedFrame.Transform(input)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pose, test.ShouldResemble, expPose)
+
 	// if you feed in empty input, should get an error
 	input = FloatsToInputs([]float64{})
 	_, err = frame.Transform(input)

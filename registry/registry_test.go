@@ -63,26 +63,13 @@ func TestRegistry(t *testing.T) {
 	RegisterSensor(sensor.Type("x"), "y", SensorRegistration{Constructor: sf, Frame: ff})
 
 	// test look up
-	test.That(t, ProviderLookup("x"), test.ShouldNotBeNil)
-	test.That(t, ProviderLookup("z"), test.ShouldBeNil)
-	test.That(t, ProviderLookup("x").Constructor, test.ShouldNotBeNil)
-	test.That(t, ProviderLookup("x").Frame, test.ShouldBeNil)
-	comp := &config.Component{Type: config.ComponentTypeProvider, Model: "x"}
-	frameFunc, ok := FrameLookup(comp)
-	test.That(t, frameFunc, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldEqual, false)
-	// look up a component that doesn't exist
-	comp = &config.Component{Type: config.ComponentTypeProvider, Model: "z"}
-	frameFunc, ok = FrameLookup(comp)
-	test.That(t, frameFunc, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldEqual, false)
 
 	test.That(t, CameraLookup("x"), test.ShouldNotBeNil)
 	test.That(t, CameraLookup("z"), test.ShouldBeNil)
 	test.That(t, CameraLookup("x").Constructor, test.ShouldNotBeNil)
 	test.That(t, CameraLookup("x").Frame, test.ShouldNotBeNil)
-	comp = &config.Component{Type: config.ComponentTypeCamera, Model: "x"}
-	frameFunc, ok = FrameLookup(comp)
+	comp := &config.Component{Type: config.ComponentTypeCamera, Model: "x"}
+	frameFunc, ok := FrameLookup(comp)
 	test.That(t, frameFunc, test.ShouldEqual, ff)
 	test.That(t, ok, test.ShouldEqual, true)
 	// look up a component that doesn't exist
