@@ -18,7 +18,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MetadataServiceClient interface {
-	// Status returns the robot's underlying status.
+	// Resources returns the list of all resources.
 	Resources(ctx context.Context, in *ResourcesRequest, opts ...grpc.CallOption) (*ResourcesResponse, error)
 }
 
@@ -43,7 +43,7 @@ func (c *metadataServiceClient) Resources(ctx context.Context, in *ResourcesRequ
 // All implementations must embed UnimplementedMetadataServiceServer
 // for forward compatibility
 type MetadataServiceServer interface {
-	// Status returns the robot's underlying status.
+	// Resources returns the list of all resources.
 	Resources(context.Context, *ResourcesRequest) (*ResourcesResponse, error)
 	mustEmbedUnimplementedMetadataServiceServer()
 }

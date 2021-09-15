@@ -12,10 +12,10 @@ import "google/api/httpbody.proto";
 
 // A MetadataService returns a list of all resources associated with a gRPC serv
 service MetadataService {
-  // Status returns the robot's underlying status.
+  // Resources returns the list of all resources.
   rpc Resources(ResourcesRequest) returns (ResourcesResponse) {
       option (google.api.http) = {
-        get: "/api/v2/service/metadata"
+        get: "/api/v2/service/resources"
     };
   }
 }
