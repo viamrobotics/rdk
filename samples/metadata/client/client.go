@@ -3,46 +3,72 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"time"
 
+	rpcclient "go.viam.com/utils/rpc/client"
+
+	"github.com/edaniels/golog"
+	"go.viam.com/utils/rpc/dialer"
+
 	pb "go.viam.com/core/proto/api/service/v1"
-	"google.golang.org/grpc"
 )
 
 var (
-	serverAddr = flag.String("server_addr", "localhost:10000", "The server address in the format of host:port")
+	serverAddr = "localhost:10000"
 )
 
-// GetResources gets the list of resources from the server.
-func GetResources(client pb.MetadataServiceClient) ([]*pb.ResourceName, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	resp, err := client.Resources(ctx, &pb.ResourcesRequest{})
+// MetadataServiceClient satisfies the robot.Robot interface through a gRPC based
+// client conforming to the robot.proto contract.
+type MetadataServiceClient struct {
+	address string
+	conn    dialer.ClientConn
+	client  pb.MetadataServiceClient
+
+	logger golog.Logger
+}
+
+func NewClient(ctx context.Context, address string, logger golog.Logger) (*MetadataServiceClient, error) {
+	conn, err := rpcclient.Dial(ctx, address, rpcclient.DialOptions{Insecure: true}, logger)
 	if err != nil {
 		return nil, err
 	}
 
+	client := pb.NewMetadataServiceClient(conn)
+	mc := &MetadataServiceClient{
+		address: address,
+		conn:    conn,
+		client:  client,
+		logger:  logger,
+	}
+	return mc, nil
+}
+
+// Close cleanly closes the underlying connections
+func (mc *MetadataServiceClient) Close() error {
+	return mc.conn.Close()
+}
+
+// Resources either gets a cached or latest version of the status of the remote
+// robot.
+func (mc *MetadataServiceClient) Resources(ctx context.Context) ([]*pb.ResourceName, error) {
+	resp, err := mc.client.Resources(ctx, &pb.ResourcesRequest{})
+	if err != nil {
+		return nil, err
+	}
 	return resp.Resources, nil
 }
 
 func main() {
-	flag.Parse()
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithInsecure())
-	opts = append(opts, grpc.WithBlock())
-	conn, err := grpc.Dial(*serverAddr, opts...)
-	if err != nil {
-		log.Fatalf("fail to dial: %v", err)
-	}
-	defer conn.Close()
-	client := pb.NewMetadataServiceClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	logger := golog.NewDevelopmentLogger("metadata_service")
+	client, err := NewClient(context.Background(), serverAddr, logger)
 
 	// Looking for a valid feature
 	fmt.Println("Sending message")
-	resources, err := GetResources(client)
+	resources, err := client.Resources(ctx)
 	if err != nil {
 		log.Fatalf("failed to dial: %v", err)
 	}
