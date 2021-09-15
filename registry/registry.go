@@ -41,12 +41,6 @@ type (
 	CreateFrame func(name string) (referenceframe.Frame, error)
 )
 
-// ProviderRegistration stores a Provider constructor (mandatory) and a Frame building function (optional)
-type ProviderRegistration struct {
-	Constructor CreateProvider
-	Frame       CreateFrame
-}
-
 // CameraRegistration stores a Camera constructor (mandatory) and a Frame building function (optional)
 type CameraRegistration struct {
 	Constructor CreateCamera
@@ -85,12 +79,12 @@ type SensorRegistration struct {
 
 // all registries
 var (
-	cameraRegistry   = map[string]CameraRegistration{}
-	armRegistry      = map[string]ArmRegistration{}
-	gripperRegistry  = map[string]GripperRegistration{}
-	baseRegistry     = map[string]BaseRegistration{}
-	lidarRegistry    = map[string]LidarRegistration{}
-	sensorRegistry   = map[sensor.Type]map[string]SensorRegistration{}
+	cameraRegistry  = map[string]CameraRegistration{}
+	armRegistry     = map[string]ArmRegistration{}
+	gripperRegistry = map[string]GripperRegistration{}
+	baseRegistry    = map[string]BaseRegistration{}
+	lidarRegistry   = map[string]LidarRegistration{}
+	sensorRegistry  = map[sensor.Type]map[string]SensorRegistration{}
 )
 
 // RegisterCamera register a camera model to a creator.
@@ -230,12 +224,6 @@ func SensorLookup(sensorType sensor.Type, model string) *SensorRegistration {
 // Otherwise it returns nil and false.
 func FrameLookup(comp *config.Component) (CreateFrame, bool) {
 	switch comp.Type {
-	case config.ComponentTypeProvider:
-		registration := ProviderLookup(comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return nil, false
-		}
-		return registration.Frame, true
 	case config.ComponentTypeBase:
 		registration := BaseLookup(comp.Model)
 		if registration == nil || registration.Frame == nil {

@@ -75,7 +75,7 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 	transforms := map[string]frame.Frame{}
 
 	// Make a map of parents for each element for post-process, to allow items to be processed out of order
-	parentMap := make(map[string]string)
+	parentMap := map[string]string{}
 
 	if m.Model.KinParamType == "SVA" || m.Model.KinParamType == "" {
 		for _, link := range m.Model.Links {
