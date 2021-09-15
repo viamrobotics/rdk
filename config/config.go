@@ -11,7 +11,6 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/board"
 	functionvm "go.viam.com/core/function/vm"
 )
 
@@ -83,7 +82,6 @@ type Config struct {
 	ConfigFilePath string
 	Cloud          *Cloud                      `json:"cloud,omitempty"`
 	Remotes        []Remote                    `json:"remotes,omitempty"`
-	Boards         []board.Config              `json:"boards,omitempty"`
 	Components     []Component                 `json:"components,omitempty"`
 	Processes      []pexec.ProcessConfig       `json:"processes,omitempty"`
 	Functions      []functionvm.FunctionConfig `json:"functions,omitempty"`
@@ -99,12 +97,6 @@ func (c *Config) Ensure(fromCloud bool) error {
 
 	for idx, config := range c.Remotes {
 		if err := config.Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
-			return err
-		}
-	}
-
-	for idx, config := range c.Boards {
-		if err := config.Validate(fmt.Sprintf("%s.%d", "boards", idx)); err != nil {
 			return err
 		}
 	}

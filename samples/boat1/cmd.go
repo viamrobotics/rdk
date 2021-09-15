@@ -19,6 +19,7 @@ import (
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
@@ -45,7 +46,7 @@ var logger = golog.NewDevelopmentLogger("boat1")
 // Boat TODO
 type Boat struct {
 	theBoard        board.Board
-	starboard, port board.Motor
+	starboard, port motor.Motor
 
 	throttle, direction, mode, aSwitch board.DigitalInterrupt
 	rightVertical, rightHorizontal     board.DigitalInterrupt
@@ -343,12 +344,12 @@ func NewBoat(r robot.Robot) (*Boat, error) {
 		return nil, errors.New("cannot find board")
 	}
 
-	b.starboard, ok = b.theBoard.MotorByName("starboard")
+	b.starboard, ok = r.MotorByName("starboard")
 	if !ok {
 		return nil, errors.New("need a starboard motor")
 	}
 
-	b.port, ok = b.theBoard.MotorByName("port")
+	b.port, ok = r.MotorByName("port")
 	if !ok {
 		return nil, errors.New("need a port motor")
 	}

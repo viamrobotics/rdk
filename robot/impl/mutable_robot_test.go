@@ -217,25 +217,25 @@ func TestNewTeardown(t *testing.T) {
 
 	modelName := utils.RandomAlphaString(8)
 	var dummyBoard1 dummyBoard
-	board.RegisterBoard(modelName, func(ctx context.Context, cfg board.Config, logger golog.Logger) (board.Board, error) {
+	registry.RegisterBoard(modelName, registry.Board{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error) {
 		return &dummyBoard1, nil
-	})
+	}})
 	registry.RegisterGripper(modelName, registry.Gripper{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 		return nil, errors.New("whoops")
 	}})
 
 	var failingConfig = fmt.Sprintf(`{
-	"boards": [
-		{
-			"model": "%[1]s",
-			"name": "board1"
-		}
-	],
     "components": [
         {
             "model": "%[1]s",
             "name": "gripper1",
-            "type": "gripper"
+            "type": "gripper",
+            "depends_on": ["board1"]
+        },
+        {
+            "model": "%[1]s",
+            "name": "board1",
+            "type": "board"
         }
     ]
 }

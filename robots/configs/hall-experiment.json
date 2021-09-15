@@ -1,30 +1,53 @@
 {
-    "boards" : [
-        { "name" : "local",
-          "model" : "pi",
-          "motors" : [
-              { "name" : "g",
-                "pins" : {
-                    "a" : "11",
-                    "b" : "13",
-                    "pwm" : "7"
-                },
-                "encoder" : "blue",
-                "encoderB" : "purple",
-                "ticksPerRotation" : 100
-              }
-          ],
-          "digitalInterrupts" : [
-              { "name" : "blue",
-                "pin" : "38",
-                "mode" : "both"
-              },
-              { "name" : "purple",
-                "pin" : "40",
-                "mode" : "both"
-              }
-
-          ]
+    "components":
+    [
+        {
+            "name": "local",
+            "model": "pi",
+            "type": "board",
+            "attributes":
+            {
+                "config":
+                {
+                    "digitalInterrupts":
+                    [
+                        {
+                            "name": "blue",
+                            "pin": "38",
+                            "mode": "both"
+                        },
+                        {
+                            "name": "purple",
+                            "pin": "40",
+                            "mode": "both"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "g",
+            "type": "motor",
+            "model": "pi",
+            "attributes":
+            {
+                "config":
+                {
+                    "pins":
+                    {
+                        "a": "11",
+                        "b": "13",
+                        "pwm": "7"
+                    },
+                    "encoder": "blue",
+                    "encoderB": "purple",
+                    "ticksPerRotation": 100
+                }
+            },
+            "depends_on":
+            [
+                "local"
+            ]
         }
     ]
 }

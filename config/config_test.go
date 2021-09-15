@@ -10,7 +10,6 @@ import (
 
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/testutils/inject"
@@ -24,14 +23,6 @@ func TestConfigRobot(t *testing.T) {
 	test.That(t, len(cfg.Remotes), test.ShouldEqual, 2)
 	test.That(t, cfg.Remotes[0], test.ShouldResemble, config.Remote{Name: "one", Address: "foo", Prefix: true})
 	test.That(t, cfg.Remotes[1], test.ShouldResemble, config.Remote{Name: "two", Address: "bar"})
-}
-
-func TestConfig2(t *testing.T) {
-	cfg, err := config.Read("data/cfgtest2.json")
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, len(cfg.Boards), test.ShouldEqual, 1)
-	test.That(t, cfg.Boards[0].Motors[0].Pins["b"], test.ShouldEqual, "38")
 }
 
 func TestConfig3(t *testing.T) {
@@ -138,16 +129,6 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"address" is required`)
 	invalidRemotes.Remotes[0].Address = "bar"
 	test.That(t, invalidRemotes.Ensure(false), test.ShouldBeNil)
-
-	invalidBoards := config.Config{
-		Boards: []board.Config{{}},
-	}
-	err = invalidBoards.Ensure(false)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `boards.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
-	invalidBoards.Boards[0].Name = "foo"
-	test.That(t, invalidBoards.Ensure(false), test.ShouldBeNil)
 
 	invalidComponents := config.Config{
 		Components: []config.Component{{}},

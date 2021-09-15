@@ -89,6 +89,7 @@
           status.boardsMap = rawSatusObj.boardsMap;
           status.camerasMap = rawSatusObj.camerasMap;
           status.sensorsMap = rawSatusObj.sensorsMap;
+          status.servosMap = rawSatusObj.servosMap;
           status.functionsMap = rawSatusObj.functionsMap;
 
           status.armsMap = fixArms(status.armsMap);
@@ -238,15 +239,14 @@
                           break;
                       }
                   },
-                  servoMove : function(idx, servoIdx, amount) {
-                      const [boardName, boardValue] = theData.status.boardsMap[idx];
-                      const [servoName, servoValue] = boardValue.servosMap[servoIdx];
-                      var angle = servoValue.angle + amount;
-                      const req = new robotApi.BoardServoMoveRequest();
-                      req.setBoardName(boardName);
-                      req.setServoName(servoName);
+                  servoMove : function(name, amount) {
+                      const servo = theData.rawStatus.getServosMap().get(name);
+                      var old = servo.getAngle();
+                      var angle = old + amount;
+                      const req = new robotApi.ServoMoveRequest();
+                      req.setName(name);
                       req.setAngleDeg(angle);
-                      robotService.boardServoMove(req, {}, (err, resp) => grpcCallback(err, resp));
+                      robotService.servoMove(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   motorButton: function(board, motor, cmd) {
                       let req;
@@ -696,6 +696,23 @@
         </ul>
       </div>
 
+      <!-- ******* SERVO *******  -->
+      <div class="servo" v-for="servo in status.servosMap" :key="servo[0]">
+        <h3>Servo ${ servo[0] }</h3>
+        <table border="1">
+          <tr><th>Angle</th><td>${servo[1].angle}</td></tr>
+          <tr>
+            <td></td>
+            <td>
+              <button v-on:click="servoMove(servo[0], -10)">-10</button>
+              <button v-on:click="servoMove(servo[0], -1)">-1</button>
+              <button v-on:click="servoMove(servo[0], 1)">1</button>
+              <button v-on:click="servoMove(servo[0], 10)">10</button>
+            </td>
+          </tr>
+        </table>
+      </div>
+
       <table>
         <tr>
           <td><img id="i0" src=""/></td>
@@ -780,20 +797,6 @@
             <th>${di[0]}</th>
             <td>${di[1].value}</td>
           </tr>
-
-          <tr><th colspan="2">Servos</th></tr>
-          <tbody v-for="(s, servoIndex) in board[1].servosMap" :key="s[0]">
-            <tr><th>${s[0]}</th><td>${s[1].angle}</td></tr>
-            <tr>
-              <td></td>
-              <td>
-                <button v-on:click="servoMove( boardIndex, servoIndex, -10)">-10</button>
-                <button v-on:click="servoMove( boardIndex, servoIndex, -1)">-1</button>
-                <button v-on:click="servoMove( boardIndex, servoIndex, 1)">1</button>
-                <button v-on:click="servoMove( boardIndex, servoIndex, 10)">10</button>
-              </td>
-            </tr>
-          </tbody>
           
         </table>
       </div> <!-- end boards -->

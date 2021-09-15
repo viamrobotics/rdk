@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/utils"
 
@@ -14,8 +15,8 @@ import (
 
 // NewGPIOMotor constructs a new GPIO based motor on the given board using the
 // given configuration.
-func NewGPIOMotor(b Board, mc MotorConfig, logger golog.Logger) (Motor, error) {
-	var m Motor
+func NewGPIOMotor(b Board, mc motor.Config, logger golog.Logger) (motor.Motor, error) {
+	var m motor.Motor
 	pins := mc.Pins
 
 	// If pins["c"] exists, then we have at least 3 data pins, and this is likely a stepper motor
@@ -44,7 +45,7 @@ func NewGPIOMotor(b Board, mc MotorConfig, logger golog.Logger) (Motor, error) {
 	return m, nil
 }
 
-var _ = Motor(&GPIOMotor{})
+var _ = motor.Motor(&GPIOMotor{})
 
 // A GPIOMotor is a GPIO based Motor that resides on a GPIO Board.
 type GPIOMotor struct {

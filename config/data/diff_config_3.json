@@ -10,62 +10,14 @@
             "address": "addr4"
         }
     ],
-    "boards":
-    [
-        {
-            "analogs":
-            [
-                {
-                    "name": "analog1",
-                    "pin": "1"
-                }
-            ],
-            "digitalInterrupts":
-            [
-                
-            ],
-            "model": "fake",
-            "motors":
-            [
-                {
-                    "encoder": "encoder",
-                    "name": "h",
-                    "pins":
-                    {
-                        "a": "2",
-                        "b": "3",
-                        "pwm": "4"
-                    },
-                    "ticksPerRotation": 101
-                }
-            ],
-            "name": "board1",
-            "servos":
-            [
-                {
-                    "name": "servo1",
-                    "pin": "13"
-                }
-            ]
-        },
-        {
-            "name": "board2",
-            "servos":
-            [
-                {
-                    "name": "servo2",
-                    "pin": "14"
-                }
-            ]
-        }
-    ],
     "components":
     [
         {
             "model": "fake",
             "name": "arm1",
             "type": "arm",
-            "attributes": {
+            "attributes":
+            {
                 "two": 2
             }
         },
@@ -73,6 +25,41 @@
             "model": "fake",
             "name": "base2",
             "type": "base"
+        },
+        {
+            "model": "fake",
+            "name": "board1",
+            "type": "board",
+            "attributes":
+            {
+                "config":
+                {
+                    "analogs":
+                    [
+                        {
+                            "name": "analog1",
+                            "pin": "1"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "model": "fake",
+            "name": "board2",
+            "type": "board",
+            "attributes":
+            {
+                "config":
+                {
+                    "digitalInterrupts": [
+                        {
+                            "name": "encoder2",
+                            "pin": "16"
+                        }
+                    ]
+                }
+            }
         }
     ],
     "processes":
