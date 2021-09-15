@@ -42,6 +42,7 @@ const (
 
 	gateSpeed    = 200
 	gateCubePass = 50
+	gateClosed   = 30
 	gateOpen     = 80
 
 	squeezeMaxWidth = 183
@@ -50,7 +51,7 @@ const (
 	squeezeCubePass = 64
 	squeezeOpen     = 80
 
-	elevatorBottom = 25
+	elevatorBottom = 27
 	elevatorTop    = 850
 	elevatorSpeed  = 800
 
@@ -64,7 +65,7 @@ const (
 )
 
 var (
-	vibeLevel = uint8(0)
+	vibeLevel = uint8(96)
 
 	safeDumpPos  = &pb.JointPositions{Degrees: []float64{0, -43, -71, 0, 98, 0}}
 	cubeReadyPos = &pb.JointPositions{Degrees: []float64{-182.6, -26.8, -33.0, 0, 51.0, 0}}
@@ -519,7 +520,7 @@ func (b *ResetBox) home(ctx context.Context) error {
 
 	// Go to starting positions
 	errs = multierr.Combine(
-		b.gate.GoTo(ctx, gateSpeed, gateCubePass),
+		b.gate.GoTo(ctx, gateSpeed, gateClosed),
 		b.setSqueeze(ctx, squeezeClosed),
 		b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom),
 		b.hammer.GoTo(ctx, hammerSpeed, hammerOffset),
@@ -659,19 +660,18 @@ func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
 func (b *ResetBox) runReset(ctx context.Context) error {
 
 	errs := multierr.Combine(
+		b.setSqueeze(ctx, squeezeClosed),
 		b.gate.GoTo(ctx, gateSpeed, gateCubePass),
 		b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom),
 		b.armHome(ctx),
 		// Wait for elevator down
 		b.waitPosReached(ctx, &b.elevator, elevatorBottom),
-		b.setSqueeze(ctx, squeezeCubePass),
 		b.tipTableUp(ctx),
 		b.waitFor(ctx, b.isTableUp),
 	)
 	if errs != nil {
 		return errs
 	}
-	b.vibrate(ctx, vibeLevel)
 
 	errC := make(chan error)
 	go func() {
@@ -682,13 +682,21 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 		)
 	}()
 
+	utils.SelectContextOrWait(ctx, 2000*time.Millisecond)
 	// Three whacks for cubes-behinds-ducks
-	errs = b.hammerTime(ctx, cubeWhacks)
+	errs = multierr.Combine(
+		b.hammerTime(ctx, cubeWhacks),
+		b.setSqueeze(ctx, squeezeCubePass),
+	)
 	if errs != nil {
 		return errs
 	}
+
+
+	b.vibrate(ctx, vibeLevel)
 	// Wait for hammer + 4 seconds
-	// utils.SelectContextOrWait(ctx, 4000*time.Millisecond)
+	utils.SelectContextOrWait(ctx, 3000*time.Millisecond)
+	b.vibrate(ctx, 0)
 	// Cubes in, going up
 	errs = multierr.Combine(
 		b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop),
@@ -702,7 +710,6 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 	go func() {
 		errs2 := b.hammerTime(ctx, duckWhacks)
 		//utils.SelectContextOrWait(ctx, 8000*time.Millisecond)
-		b.vibrate(ctx, 0)
 		errC <- errs2
 	}()
 
@@ -749,14 +756,21 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 		b.waitPosReached(ctx, &b.elevator, elevatorBottom),
 		// Open to load duck
 		b.gate.GoTo(ctx, gateSpeed, gateOpen),
+		b.waitPosReached(ctx, &b.gate, gateOpen),
+	)
+	if errs != nil {
+		return errs
+	}
+	utils.SelectContextOrWait(ctx, 2000*time.Millisecond)
+	errs = multierr.Combine(
 		b.setSqueeze(ctx, squeezeOpen),
+		b.waitPosReached(ctx, &b.squeeze, (squeezeMaxWidth-squeezeOpen)/2),
 	)
 	if errs != nil {
 		return errs
 	}
 	b.vibrate(ctx, vibeLevel)
-	utils.SelectContextOrWait(ctx, 3000*time.Millisecond)
-
+	utils.SelectContextOrWait(ctx, 4000*time.Millisecond)
 	// Duck in, silence and up
 	b.vibrate(ctx, 0)
 	errs = multierr.Combine(
@@ -781,14 +795,14 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 			b.gripper.Open(ctx),
 			b.waitPosReached(ctx, &b.elevator, elevatorBottom),
 			// Open to load duck
-			b.gate.GoTo(ctx, gateSpeed, gateOpen),
 			b.setSqueeze(ctx, squeezeOpen),
+			b.waitPosReached(ctx, &b.squeeze, (squeezeMaxWidth-squeezeOpen)/2),
 		)
 		if errs != nil {
 			return errs
 		}
 		b.vibrate(ctx, vibeLevel)
-		utils.SelectContextOrWait(ctx, 10000*time.Millisecond)
+		utils.SelectContextOrWait(ctx, 4000*time.Millisecond)
 		b.vibrate(ctx, 0)
 		errs = multierr.Combine(
 			b.setSqueeze(ctx, squeezeClosed),
