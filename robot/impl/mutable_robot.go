@@ -98,12 +98,6 @@ func (r *mutableRobot) SensorByName(name string) (sensor.Sensor, bool) {
 	return r.parts.SensorByName(name)
 }
 
-// ProviderByName returns a provider by name. If it does not exist
-// nil is returned.
-func (r *mutableRobot) ProviderByName(name string) (robot.Provider, bool) {
-	return r.parts.ProviderByName(name)
-}
-
 // AddCamera adds a camera to the robot.
 func (r *mutableRobot) AddCamera(c camera.Camera, cc config.Component) {
 	r.parts.AddCamera(c, cc)
@@ -112,11 +106,6 @@ func (r *mutableRobot) AddCamera(c camera.Camera, cc config.Component) {
 // AddBase adds a base to the robot.
 func (r *mutableRobot) AddBase(b base.Base, c config.Component) {
 	r.parts.AddBase(b, c)
-}
-
-// AddProvider adds a provider to the robot.
-func (r *mutableRobot) AddProvider(p robot.Provider, c config.Component) {
-	r.parts.AddProvider(p, c)
 }
 
 // RemoteNames returns the name of all known remote robots.
@@ -239,23 +228,8 @@ func New(ctx context.Context, config *config.Config, logger golog.Logger) (robot
 		return nil, err
 	}
 
-	for _, p := range r.parts.providers {
-		err := p.Ready(r)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	successful = true
 	return r, nil
-}
-
-func (r *mutableRobot) newProvider(ctx context.Context, config config.Component) (robot.Provider, error) {
-	f := registry.ProviderLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown provider model: %s", config.Model)
-	}
-	return f(ctx, r, config, r.logger)
 }
 
 func (r *mutableRobot) newBase(ctx context.Context, config config.Component) (base.Base, error) {

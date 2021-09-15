@@ -34,11 +34,7 @@ var wx250smodeljson []byte
 
 func init() {
 	registry.RegisterArm("wx250s", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		mut, err := robot.AsMutable(r)
-		if err != nil {
-			return nil, err
-		}
-		return NewArm(config.Attributes, getProviderOrCreate(mut).moveLock, logger)
+		return NewArm(config.Attributes, logger)
 	})
 }
 
@@ -81,9 +77,26 @@ func degreeToServoPos(pos float64) int {
 	return int(2048 + (pos/180)*2048)
 }
 
+var (
+	portMapping   = map[string]*sync.Mutex{}
+	portMappingMu sync.Mutex
+)
+
+func getPortMutex(port string) *sync.Mutex {
+	portMappingMu.Lock()
+	defer portMappingMu.Unlock()
+	mu, ok := portMapping[port]
+	if !ok {
+		mu = &sync.Mutex{}
+		portMapping[port] = mu
+	}
+	return mu
+}
+
 // NewArm TODO
-func NewArm(attributes config.AttributeMap, mutex *sync.Mutex, logger golog.Logger) (arm.Arm, error) {
-	servos, err := findServos(attributes.String("usbPort"), attributes.String("baudRate"), attributes.String("armServoCount"))
+func NewArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
+	usbPort := attributes.String("usbPort")
+	servos, err := findServos(usbPort, attributes.String("baudRate"), attributes.String("armServoCount"))
 	if err != nil {
 		return nil, err
 	}
@@ -94,10 +107,6 @@ func NewArm(attributes config.AttributeMap, mutex *sync.Mutex, logger golog.Logg
 	}
 	ik := kinematics.CreateCombinedIKSolver(model, logger, 4)
 
-	if mutex == nil {
-		mutex = &sync.Mutex{}
-	}
-
 	newArm := &Arm{
 		Joints: map[string][]*servo.Servo{
 			"Waist":       {servos[0]},
@@ -107,7 +116,7 @@ func NewArm(attributes config.AttributeMap, mutex *sync.Mutex, logger golog.Logg
 			"Wrist":       {servos[6]},
 			"Wrist_rot":   {servos[7]},
 		},
-		moveLock: mutex,
+		moveLock: getPortMutex(usbPort),
 		logger:   logger,
 		ik:       ik,
 	}

@@ -35,7 +35,6 @@ type robotParts struct {
 	bases          map[string]*proxyBase
 	sensors        map[string]sensor.Sensor
 	functions      map[string]struct{}
-	providers      map[string]*proxyProvider
 	processManager pexec.ProcessManager
 }
 
@@ -51,7 +50,6 @@ func newRobotParts(logger golog.Logger) *robotParts {
 		bases:          map[string]*proxyBase{},
 		sensors:        map[string]sensor.Sensor{},
 		functions:      map[string]struct{}{},
-		providers:      map[string]*proxyProvider{},
 		processManager: pexec.NewProcessManager(logger),
 	}
 }
@@ -148,14 +146,6 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 // addFunction adds a function to the parts.
 func (parts *robotParts) addFunction(name string) {
 	parts.functions[name] = struct{}{}
-}
-
-// AddProvider adds a provider to the parts.
-func (parts *robotParts) AddProvider(p robot.Provider, c config.Component) {
-	if proxy, ok := p.(*proxyProvider); ok {
-		p = proxy.actual
-	}
-	parts.providers[c.Name] = &proxyProvider{actual: p}
 }
 
 // RemoteNames returns the names of all remotes in the parts.
@@ -314,12 +304,6 @@ func (parts *robotParts) Clone() *robotParts {
 		clonedParts.functions = make(map[string]struct{}, len(parts.functions))
 		for k, v := range parts.functions {
 			clonedParts.functions[k] = v
-		}
-	}
-	if len(parts.providers) != 0 {
-		clonedParts.providers = make(map[string]*proxyProvider, len(parts.providers))
-		for k, v := range parts.providers {
-			clonedParts.providers[k] = v
 		}
 	}
 	if parts.processManager != nil {
@@ -502,19 +486,6 @@ func (parts *robotParts) newBoardsModified(ctx context.Context, boardDiffs map[s
 func (parts *robotParts) newComponents(ctx context.Context, components []config.Component, r *mutableRobot) error {
 	for _, c := range components {
 		switch c.Type {
-		case config.ComponentTypeProvider:
-			p, err := r.newProvider(ctx, c)
-			if err != nil {
-				return err
-			}
-			parts.AddProvider(p, c)
-		}
-	}
-
-	for _, c := range components {
-		switch c.Type {
-		case config.ComponentTypeProvider:
-			// handled above
 		case config.ComponentTypeBase:
 			b, err := r.newBase(ctx, c)
 			if err != nil {
@@ -690,22 +661,6 @@ func (parts *robotParts) SensorByName(name string) (sensor.Sensor, bool) {
 	return nil, false
 }
 
-// ProviderByName returns the given provider by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) ProviderByName(name string) (robot.Provider, bool) {
-	part, ok := parts.providers[name]
-	if ok {
-		return part, true
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.ProviderByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
 // PartsMergeResult is the result of merging in parts together.
 type PartsMergeResult struct {
 	ReplacedProcesses []pexec.ManagedProcess
@@ -804,15 +759,6 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 		for k, v := range toAdd.functions {
 			parts.functions[k] = v
-		}
-	}
-
-	if len(toAdd.providers) != 0 {
-		if parts.providers == nil {
-			parts.providers = make(map[string]*proxyProvider, len(toAdd.providers))
-		}
-		for k, v := range toAdd.providers {
-			parts.providers[k] = v
 		}
 	}
 
@@ -933,17 +879,6 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 		}
 	}
 
-	if len(toModify.providers) != 0 {
-		for k, v := range toModify.providers {
-			old, ok := parts.providers[k]
-			if !ok {
-				// should not happen
-				continue
-			}
-			old.replace(v)
-		}
-	}
-
 	return &result, nil
 }
 
@@ -1004,12 +939,6 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 		}
 	}
 
-	if len(toRemove.providers) != 0 {
-		for k := range toRemove.providers {
-			delete(parts.providers, k)
-		}
-	}
-
 	if toRemove.processManager != nil {
 		// assume parts.processManager is non-nil
 		// ignoring result as we will filter out the processes to remove and stop elsewhere
@@ -1050,12 +979,6 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 
 	for _, compConf := range conf.Components {
 		switch compConf.Type {
-		case config.ComponentTypeProvider:
-			part, ok := parts.ProviderByName(compConf.Name)
-			if !ok {
-				continue
-			}
-			filtered.AddProvider(part, compConf)
 		case config.ComponentTypeBase:
 			part, ok := parts.BaseByName(compConf.Name)
 			if !ok {
