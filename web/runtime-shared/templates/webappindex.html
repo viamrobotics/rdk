@@ -15,10 +15,12 @@
     </script>
     {{ if .External }}
     <script src="/static/core/control.js"></script>
+    <script src="/static/core/components.js"></script>
     <script src="/static/core/third-party/vue.js"></script>
     <script src="/static/core/third-party/ace/ace.js" type="text/javascript" charset="utf-8"></script>
     {{ else }}
     <script src="/static/control.js"></script>
+    <script src="/static/components.js"></script>
     <script src="/static/third-party/vue.js"></script>
     <script src="/static/third-party/ace/ace.js" type="text/javascript" charset="utf-8"></script>
     {{ end }}
@@ -122,6 +124,7 @@
               el: '#app',
               delimiters: ['${', '}'],
               data: theData,
+              components: {},
               methods : {
                   armGridInc : function(name, getterSetter, amount) {
                       if (getterSetter[0] == 'o' || getterSetter[0] == 'O') {
