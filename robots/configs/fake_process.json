@@ -1,97 +1,124 @@
 {
-  "boards": [
-    {
-      "analogs": [
+    "components":
+    [
         {
-          "name": "analog1",
-          "pin": "0"
-        }
-      ],
-      "digitalInterrupts": [
+            "model": "fake",
+            "name": "arm1",
+            "type": "arm"
+        },
         {
-          "name": "encoder",
-          "pin": "14"
-        }
-      ],
-      "model": "fake",
-      "motors": [
+            "model": "fake",
+            "name": "base1",
+            "type": "base"
+        },
         {
-          "encoder": "encoder",
-          "name": "g",
-          "pins": {
-            "a": "1",
-            "b": "2",
-            "pwm": "3"
-          },
-          "ticksPerRotation": 100
-        }
-      ],
-      "name": "board1",
-      "servos": [
+            "model": "fake",
+            "name": "gripper1",
+            "type": "gripper"
+        },
         {
-          "name": "servo1",
-          "pin": "12"
+            "model": "fake",
+            "name": "camera1",
+            "type": "camera"
+        },
+        {
+            "model": "fake",
+            "name": "lidar1",
+            "type": "lidar"
+        },
+        {
+            "model": "fake",
+            "name": "compass1",
+            "type": "sensor",
+            "subtype": "compass"
+        },
+        {
+            "model": "fake",
+            "name": "board1",
+            "type": "board",
+            "attributes":
+            {
+                "config":
+                {
+                    "analogs":
+                    [
+                        {
+                            "name": "analog1",
+                            "pin": "0"
+                        }
+                    ],
+                    "digitalInterrupts":
+                    [
+                        {
+                            "name": "encoder",
+                            "pin": "14"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "model": "fake",
+            "name": "servo1",
+            "type": "servo",
+            "attributes": {
+                "pin": "12"
+            }
+        },
+        {
+            "name": "g",
+            "type": "motor",
+            "model": "fake",
+            "attributes":
+            {
+                "config":
+                {
+                    "encoder": "encoder",
+                    "pins":
+                    {
+                        "a": "1",
+                        "b": "2",
+                        "pwm": "3"
+                    },
+                    "ticksPerRotation": 100
+                }
+            }
         }
-      ]
-    }
-  ],
-  "components": [
-    {
-      "model": "fake",
-      "name": "arm1",
-      "type": "arm"
-    },
-    {
-      "model": "fake",
-      "name": "base1",
-      "type": "base"
-    },
-    {
-      "model": "fake",
-      "name": "gripper1",
-      "type": "gripper"
-    },
-    {
-      "model": "fake",
-      "name": "camera1",
-      "type": "camera"
-    },
-    {
-      "model": "fake",
-      "name": "lidar1",
-      "type": "lidar"
-    },
-    {
-      "model": "fake",
-      "name": "compass1",
-      "type": "sensor",
-      "subtype": "compass"
-    }
-  ],
-  "processes": [
-    {
-      "id": "1",
-      "name": "echo",
-      "args": ["hello", "world"],
-      "one_shot": true
-    },
-    {
-      "id": "2",
-      "name": "bash",
-      "args": ["-c", "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 2; done"],
-      "log": true
-    }
-  ],
-  "functions": [
-    {
-      "name": "func1",
-      "engine": "javascript",
-      "source": "(function() { console.log(robot.gripperOpen('gripper1')); return 1}())"
-    },
-    {
-      "name": "func2",
-      "engine": "javascript",
-      "source": "(function() { console.log(robot.gripperGrab('gripper1')); return 2}())"
-    }
-  ]
+    ],
+    "processes":
+    [
+        {
+            "id": "1",
+            "name": "echo",
+            "args":
+            [
+                "hello",
+                "world"
+            ],
+            "one_shot": true
+        },
+        {
+            "id": "2",
+            "name": "bash",
+            "args":
+            [
+                "-c",
+                "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 2; done"
+            ],
+            "log": true
+        }
+    ],
+    "functions":
+    [
+        {
+            "name": "func1",
+            "engine": "javascript",
+            "source": "(function() { console.log(robot.gripperOpen('gripper1')); return 1}())"
+        },
+        {
+            "name": "func2",
+            "engine": "javascript",
+            "source": "(function() { console.log(robot.gripperGrab('gripper1')); return 2}())"
+        }
+    ]
 }

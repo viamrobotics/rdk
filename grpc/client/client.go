@@ -26,6 +26,7 @@ import (
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
@@ -33,6 +34,7 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/servo"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
@@ -57,6 +59,8 @@ type RobotClient struct {
 	cameraNames   []string
 	lidarNames    []string
 	sensorNames   []string
+	servoNames    []string
+	motorNames    []string
 	functionNames []string
 
 	sensorTypes map[string]sensor.Type
@@ -120,8 +124,6 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 
 type boardInfo struct {
 	name                  string
-	motorNames            []string
-	servoNames            []string
 	spiNames              []string
 	analogReaderNames     []string
 	digitalInterruptNames []string
@@ -300,6 +302,24 @@ func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 	}
 }
 
+// ServoByName returns a servo by name. It is assumed to exist on the
+// other end.
+func (rc *RobotClient) ServoByName(name string) (servo.Servo, bool) {
+	return &servoClient{
+		rc:   rc,
+		name: name,
+	}, true
+}
+
+// MotorByName returns a motor by name. It is assumed to exist on the
+// other end.
+func (rc *RobotClient) MotorByName(name string) (motor.Motor, bool) {
+	return &motorClient{
+		rc:   rc,
+		name: name,
+	}, true
+}
+
 // Refresh manually updates the underlying parts of the robot based
 // on a status retrieved from the server.
 // TODO(https://github.com/viamrobotics/core/issues/57) - do not use status
@@ -340,18 +360,6 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 		rc.boardNames = make([]boardInfo, 0, len(status.Boards))
 		for name, boardStatus := range status.Boards {
 			info := boardInfo{name: name}
-			if len(boardStatus.Motors) != 0 {
-				info.motorNames = make([]string, 0, len(boardStatus.Motors))
-				for name := range boardStatus.Motors {
-					info.motorNames = append(info.motorNames, name)
-				}
-			}
-			if len(boardStatus.Servos) != 0 {
-				info.servoNames = make([]string, 0, len(boardStatus.Servos))
-				for name := range boardStatus.Servos {
-					info.servoNames = append(info.servoNames, name)
-				}
-			}
 			if len(boardStatus.Analogs) != 0 {
 				info.analogReaderNames = make([]string, 0, len(boardStatus.Analogs))
 				for name := range boardStatus.Analogs {
@@ -389,8 +397,22 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 			rc.sensorTypes[name] = sensor.Type(sensorStatus.Type)
 		}
 	}
+	rc.servoNames = nil
+	if len(status.Servos) != 0 {
+		rc.servoNames = make([]string, 0, len(status.Servos))
+		for name := range status.Servos {
+			rc.servoNames = append(rc.servoNames, name)
+		}
+	}
+	rc.motorNames = nil
+	if len(status.Motors) != 0 {
+		rc.motorNames = make([]string, 0, len(status.Motors))
+		for name := range status.Motors {
+			rc.motorNames = append(rc.motorNames, name)
+		}
+	}
 	rc.functionNames = nil
-	if len(status.Lidars) != 0 {
+	if len(status.Functions) != 0 {
 		rc.functionNames = make([]string, 0, len(status.Functions))
 		for name := range status.Functions {
 			rc.functionNames = append(rc.functionNames, name)
@@ -463,6 +485,20 @@ func (rc *RobotClient) SensorNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.sensorNames)
+}
+
+// ServoNames returns the names of all known servos.
+func (rc *RobotClient) ServoNames() []string {
+	rc.namesMu.Lock()
+	defer rc.namesMu.Unlock()
+	return copyStringSlice(rc.servoNames)
+}
+
+// MotorNames returns the names of all known motors.
+func (rc *RobotClient) MotorNames() []string {
+	rc.namesMu.Lock()
+	defer rc.namesMu.Unlock()
+	return copyStringSlice(rc.motorNames)
 }
 
 // FunctionNames returns the names of all known functions.
@@ -629,22 +665,6 @@ type boardClient struct {
 	info boardInfo
 }
 
-func (bc *boardClient) MotorByName(name string) (board.Motor, bool) {
-	return &motorClient{
-		rc:        bc.rc,
-		boardName: bc.info.name,
-		motorName: name,
-	}, true
-}
-
-func (bc *boardClient) ServoByName(name string) (board.Servo, bool) {
-	return &servoClient{
-		rc:        bc.rc,
-		boardName: bc.info.name,
-		servoName: name,
-	}, true
-}
-
 // SPIByName may need to be implemented
 func (bc *boardClient) SPIByName(name string) (board.SPI, bool) {
 	return nil, false
@@ -704,14 +724,6 @@ func (bc *boardClient) PWMSetFreq(ctx context.Context, pin string, freq uint) er
 	return err
 }
 
-func (bc *boardClient) MotorNames() []string {
-	return copyStringSlice(bc.info.motorNames)
-}
-
-func (bc *boardClient) ServoNames() []string {
-	return copyStringSlice(bc.info.servoNames)
-}
-
 func (bc *boardClient) SPINames() []string {
 	return copyStringSlice(bc.info.spiNames)
 }
@@ -752,146 +764,7 @@ func (bc *boardClient) Close() error {
 	return nil
 }
 
-// motorClient satisfies a gRPC based board.Motor. Refer to the interface
-// for descriptions of its methods.
-type motorClient struct {
-	rc        *RobotClient
-	boardName string
-	motorName string
-}
-
-func (mc *motorClient) Power(ctx context.Context, powerPct float32) error {
-	_, err := mc.rc.client.BoardMotorPower(ctx, &pb.BoardMotorPowerRequest{
-		BoardName: mc.boardName,
-		MotorName: mc.motorName,
-		PowerPct:  powerPct,
-	})
-	return err
-}
-
-func (mc *motorClient) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-	_, err := mc.rc.client.BoardMotorGo(ctx, &pb.BoardMotorGoRequest{
-		BoardName: mc.boardName,
-		MotorName: mc.motorName,
-		Direction: d,
-		PowerPct:  powerPct,
-	})
-	return err
-}
-
-func (mc *motorClient) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
-	_, err := mc.rc.client.BoardMotorGoFor(ctx, &pb.BoardMotorGoForRequest{
-		BoardName:   mc.boardName,
-		MotorName:   mc.motorName,
-		Direction:   d,
-		Rpm:         rpm,
-		Revolutions: revolutions,
-	})
-	return err
-}
-
-func (mc *motorClient) Position(ctx context.Context) (float64, error) {
-	resp, err := mc.rc.client.BoardMotorPosition(ctx, &pb.BoardMotorPositionRequest{
-		BoardName: mc.boardName,
-		MotorName: mc.motorName,
-	})
-	if err != nil {
-		return math.NaN(), err
-	}
-	return resp.Position, nil
-}
-
-func (mc *motorClient) PositionSupported(ctx context.Context) (bool, error) {
-	resp, err := mc.rc.client.BoardMotorPositionSupported(ctx, &pb.BoardMotorPositionSupportedRequest{
-		BoardName: mc.boardName,
-		MotorName: mc.motorName,
-	})
-	if err != nil {
-		return false, err
-	}
-	return resp.Supported, nil
-}
-
-func (mc *motorClient) Off(ctx context.Context) error {
-	_, err := mc.rc.client.BoardMotorOff(ctx, &pb.BoardMotorOffRequest{
-		BoardName: mc.boardName,
-		MotorName: mc.motorName,
-	})
-	return err
-}
-
-func (mc *motorClient) IsOn(ctx context.Context) (bool, error) {
-	resp, err := mc.rc.client.BoardMotorIsOn(ctx, &pb.BoardMotorIsOnRequest{
-		BoardName: mc.boardName,
-		MotorName: mc.motorName,
-	})
-	if err != nil {
-		return false, err
-	}
-	return resp.IsOn, nil
-}
-
-func (mc *motorClient) GoTo(ctx context.Context, rpm float64, position float64) error {
-	_, err := mc.rc.client.BoardMotorGoTo(ctx, &pb.BoardMotorGoToRequest{
-		BoardName: mc.boardName,
-		MotorName: mc.motorName,
-		Rpm:       rpm,
-		Position:  position,
-	})
-	return err
-}
-
-func (mc *motorClient) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	if stopFunc != nil {
-		return errors.New("stopFunc must be nil when using gRPC")
-	}
-	_, err := mc.rc.client.BoardMotorGoTillStop(ctx, &pb.BoardMotorGoTillStopRequest{
-		BoardName: mc.boardName,
-		MotorName: mc.motorName,
-		Direction: d,
-		Rpm:       rpm,
-	})
-	return err
-}
-
-func (mc *motorClient) Zero(ctx context.Context, offset float64) error {
-	_, err := mc.rc.client.BoardMotorZero(ctx, &pb.BoardMotorZeroRequest{
-		BoardName: mc.boardName,
-		MotorName: mc.motorName,
-		Offset:    offset,
-	})
-	return err
-}
-
-// servoClient satisfies a gRPC based board.Servo. Refer to the interface
-// for descriptions of its methods.
-type servoClient struct {
-	rc        *RobotClient
-	boardName string
-	servoName string
-}
-
-func (sc *servoClient) Move(ctx context.Context, angleDeg uint8) error {
-	_, err := sc.rc.client.BoardServoMove(ctx, &pb.BoardServoMoveRequest{
-		BoardName: sc.boardName,
-		ServoName: sc.servoName,
-		AngleDeg:  uint32(angleDeg),
-	})
-	return err
-}
-
-func (sc *servoClient) Current(ctx context.Context) (uint8, error) {
-	resp, err := sc.rc.client.BoardServoCurrent(ctx, &pb.BoardServoCurrentRequest{
-		BoardName: sc.boardName,
-		ServoName: sc.servoName,
-	})
-	if err != nil {
-		return 0, err
-	}
-	return uint8(resp.AngleDeg), nil
-}
-
-// analogReaderClient satisfies a gRPC based board.Motor. Refer to the interface
+// analogReaderClient satisfies a gRPC based motor.Motor. Refer to the interface
 // for descriptions of its methods.
 type analogReaderClient struct {
 	rc               *RobotClient
@@ -910,7 +783,7 @@ func (arc *analogReaderClient) Read(ctx context.Context) (int, error) {
 	return int(resp.Value), nil
 }
 
-// digitalInterruptClient satisfies a gRPC based board.Motor. Refer to the interface
+// digitalInterruptClient satisfies a gRPC based motor.Motor. Refer to the interface
 // for descriptions of its methods.
 type digitalInterruptClient struct {
 	rc                   *RobotClient
@@ -1190,4 +1063,129 @@ func (rcc *relativeCompassClient) Mark(ctx context.Context) error {
 
 func (rcc *relativeCompassClient) Desc() sensor.Description {
 	return sensor.Description{compass.RelativeType, ""}
+}
+
+// servoClient satisfies a gRPC based servo.Servo. Refer to the interface
+// for descriptions of its methods.
+type servoClient struct {
+	rc   *RobotClient
+	name string
+}
+
+func (sc *servoClient) Move(ctx context.Context, angleDeg uint8) error {
+	_, err := sc.rc.client.ServoMove(ctx, &pb.ServoMoveRequest{
+		Name:     sc.name,
+		AngleDeg: uint32(angleDeg),
+	})
+	return err
+}
+
+func (sc *servoClient) Current(ctx context.Context) (uint8, error) {
+	resp, err := sc.rc.client.ServoCurrent(ctx, &pb.ServoCurrentRequest{
+		Name: sc.name,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return uint8(resp.AngleDeg), nil
+}
+
+// motorClient satisfies a gRPC based motor.Motor. Refer to the interface
+// for descriptions of its methods.
+type motorClient struct {
+	rc   *RobotClient
+	name string
+}
+
+func (mc *motorClient) Power(ctx context.Context, powerPct float32) error {
+	_, err := mc.rc.client.MotorPower(ctx, &pb.MotorPowerRequest{
+		Name:     mc.name,
+		PowerPct: powerPct,
+	})
+	return err
+}
+
+func (mc *motorClient) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+	_, err := mc.rc.client.MotorGo(ctx, &pb.MotorGoRequest{
+		Name:      mc.name,
+		Direction: d,
+		PowerPct:  powerPct,
+	})
+	return err
+}
+
+func (mc *motorClient) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
+	_, err := mc.rc.client.MotorGoFor(ctx, &pb.MotorGoForRequest{
+		Name:        mc.name,
+		Direction:   d,
+		Rpm:         rpm,
+		Revolutions: revolutions,
+	})
+	return err
+}
+
+func (mc *motorClient) Position(ctx context.Context) (float64, error) {
+	resp, err := mc.rc.client.MotorPosition(ctx, &pb.MotorPositionRequest{
+		Name: mc.name,
+	})
+	if err != nil {
+		return math.NaN(), err
+	}
+	return resp.Position, nil
+}
+
+func (mc *motorClient) PositionSupported(ctx context.Context) (bool, error) {
+	resp, err := mc.rc.client.MotorPositionSupported(ctx, &pb.MotorPositionSupportedRequest{
+		Name: mc.name,
+	})
+	if err != nil {
+		return false, err
+	}
+	return resp.Supported, nil
+}
+
+func (mc *motorClient) Off(ctx context.Context) error {
+	_, err := mc.rc.client.MotorOff(ctx, &pb.MotorOffRequest{
+		Name: mc.name,
+	})
+	return err
+}
+
+func (mc *motorClient) IsOn(ctx context.Context) (bool, error) {
+	resp, err := mc.rc.client.MotorIsOn(ctx, &pb.MotorIsOnRequest{
+		Name: mc.name,
+	})
+	if err != nil {
+		return false, err
+	}
+	return resp.IsOn, nil
+}
+
+func (mc *motorClient) GoTo(ctx context.Context, rpm float64, position float64) error {
+	_, err := mc.rc.client.MotorGoTo(ctx, &pb.MotorGoToRequest{
+		Name:     mc.name,
+		Rpm:      rpm,
+		Position: position,
+	})
+	return err
+}
+
+func (mc *motorClient) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+	if stopFunc != nil {
+		return errors.New("stopFunc must be nil when using gRPC")
+	}
+	_, err := mc.rc.client.MotorGoTillStop(ctx, &pb.MotorGoTillStopRequest{
+		Name:      mc.name,
+		Direction: d,
+		Rpm:       rpm,
+	})
+	return err
+}
+
+func (mc *motorClient) Zero(ctx context.Context, offset float64) error {
+	_, err := mc.rc.client.MotorZero(ctx, &pb.MotorZeroRequest{
+		Name:   mc.name,
+		Offset: offset,
+	})
+	return err
 }

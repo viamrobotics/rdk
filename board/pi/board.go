@@ -25,7 +25,10 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/config"
+	"go.viam.com/core/registry"
 	"go.viam.com/core/rlog"
+	"go.viam.com/core/robot"
 
 	pb "go.viam.com/core/proto/api/v1"
 )
@@ -73,9 +76,20 @@ var (
 	}
 )
 
+const modelName = "pi"
+
 // init registers a pi board based on pigpio.
 func init() {
-	board.RegisterBoard("pi", NewPigpio)
+	registry.RegisterBoard(modelName, registry.Board{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error) {
+		attrs := config.Attributes
+		if !attrs.Has("config") {
+			return nil, errors.Errorf("expected to have config in attributes")
+		}
+		boardConfig := attrs["config"].(*board.Config)
+
+		return NewPigpio(ctx, boardConfig, logger)
+	}})
+	board.RegisterConfigAttributeConverter(modelName)
 
 	toAdd := map[string]uint{}
 	for k, v := range piHWPinToBroadcom {
@@ -93,14 +107,12 @@ func init() {
 // accessed via pigpio.
 type piPigpio struct {
 	mu            sync.Mutex
-	cfg           board.Config
+	cfg           *board.Config
 	gpioConfigSet map[int]bool
 	analogs       map[string]board.AnalogReader
 	spis          map[string]board.SPI
-	servos        map[string]board.Servo
 	interrupts    map[string]board.DigitalInterrupt
 	interruptsHW  map[uint]board.DigitalInterrupt
-	motors        map[string]board.Motor
 	logger        golog.Logger
 }
 
@@ -111,9 +123,7 @@ var (
 )
 
 // NewPigpio makes a new pigpio based Board using the given config.
-func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (board.Board, error) {
-	var err error
-
+func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (board.Board, error) {
 	// this is so we can run it inside a daemon
 	internals := C.gpioCfgGetInternals()
 	internals |= C.PI_CFG_NOSIGHANDLER
@@ -143,17 +153,6 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 		}
 	}()
 	instanceMu.Unlock()
-
-	// setup servos
-	piInstance.servos = map[string]board.Servo{}
-	for _, c := range cfg.Servos {
-		bcom, have := piHWPinToBroadcom[c.Pin]
-		if !have {
-			return nil, errors.Errorf("no hw mapping for %s", c.Pin)
-		}
-
-		piInstance.servos[c.Name] = &piPigpioServo{piInstance, C.uint(bcom)}
-	}
 
 	// setup SPI buses
 	if len(cfg.SPIs) != 0 {
@@ -200,29 +199,6 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 		piInstance.interruptsHW[bcom] = di
 		C.setupInterrupt(C.int(bcom))
 
-	}
-
-	// setup motors
-	piInstance.motors = map[string]board.Motor{}
-	for _, c := range cfg.Motors {
-		var m board.Motor
-		if c.Model == "TMC5072" {
-			m, err = board.NewTMCStepperMotor(ctx, piInstance, c, logger)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			m, err = board.NewGPIOMotor(piInstance, c, logger)
-			if err != nil {
-				return nil, err
-			}
-
-			m, err = board.WrapMotorWithEncoder(ctx, piInstance, c, m, logger)
-			if err != nil {
-				return nil, err
-			}
-		}
-		piInstance.motors[c.Name] = m
 	}
 
 	instanceMu.Lock()
@@ -438,7 +414,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 	handle := C.spiOpen(nativeCS, (C.uint)(baud), (C.uint)(spiFlags))
 
 	if handle < 0 {
-		return nil, errors.Errorf("error opening SPI Bus %s return code was %d, flags were %X", s.bus, handle, spiFlags)
+		return nil, errors.Errorf("error opening SPI Bus %s return code was %d, flags were %X", s.bus.busSelect, handle, spiFlags)
 	}
 	defer C.spiClose((C.uint)(handle))
 
@@ -480,15 +456,6 @@ func (h *piPigpioSPIHandle) Close() error {
 	return nil
 }
 
-// MotorNames returns the name of all known motors.
-func (pi *piPigpio) MotorNames() []string {
-	names := []string{}
-	for k := range pi.motors {
-		names = append(names, k)
-	}
-	return names
-}
-
 // SPINames returns the name of all known SPI buses.
 func (pi *piPigpio) SPINames() []string {
 	if len(pi.spis) == 0 {
@@ -496,15 +463,6 @@ func (pi *piPigpio) SPINames() []string {
 	}
 	names := make([]string, 0, len(pi.spis))
 	for k := range pi.spis {
-		names = append(names, k)
-	}
-	return names
-}
-
-// ServoNames returns the name of all known servos.
-func (pi *piPigpio) ServoNames() []string {
-	names := []string{}
-	for k := range pi.servos {
 		names = append(names, k)
 	}
 	return names
@@ -533,48 +491,14 @@ func (pi *piPigpio) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	return a, ok
 }
 
-// piPigpioServo implements a board.Servo using pigpio.
-type piPigpioServo struct {
-	pi  *piPigpio
-	pin C.uint
-}
-
-func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
-	val := 500 + (2000.0 * float64(angle) / 180.0)
-	res := C.gpioServo(s.pin, C.uint(val))
-	if res != 0 {
-		return errors.Errorf("gpioServo failed with %d", res)
-	}
-	return nil
-}
-
-func (s *piPigpioServo) Current(ctx context.Context) (uint8, error) {
-	res := C.gpioGetServoPulsewidth(s.pin)
-	if res <= 0 {
-		// this includes, errors, we'll ignore
-		return 0, nil
-	}
-	return uint8(180 * (float64(res) - 500.0) / 2000), nil
-}
-
 func (pi *piPigpio) SPIByName(name string) (board.SPI, bool) {
 	s, ok := pi.spis[name]
-	return s, ok
-}
-
-func (pi *piPigpio) ServoByName(name string) (board.Servo, bool) {
-	s, ok := pi.servos[name]
 	return s, ok
 }
 
 func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	d, ok := pi.interrupts[name]
 	return d, ok
-}
-
-func (pi *piPigpio) MotorByName(name string) (board.Motor, bool) {
-	m, ok := pi.motors[name]
-	return m, ok
 }
 
 func (pi *piPigpio) ModelAttributes() board.ModelAttributes {
@@ -593,14 +517,6 @@ func (pi *piPigpio) Close() error {
 	instanceMu.Unlock()
 
 	var err error
-	for _, motor := range pi.motors {
-		err = multierr.Combine(err, utils.TryClose(motor))
-	}
-
-	for _, servo := range pi.servos {
-		err = multierr.Combine(err, utils.TryClose(servo))
-	}
-
 	for _, spi := range pi.spis {
 		err = multierr.Combine(err, utils.TryClose(spi))
 	}

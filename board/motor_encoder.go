@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 
 	"github.com/edaniels/golog"
@@ -28,7 +29,8 @@ func getRPMSleepDebug() (time.Duration, bool) {
 	return _rpmSleep, _rpmDebug
 }
 
-func setRPMSleepDebug(dur time.Duration, debug bool) func() {
+// SetRPMSleepDebug is for testing only.
+func SetRPMSleepDebug(dur time.Duration, debug bool) func() {
 	_rpmDebugMu.Lock()
 	prevRPMSleep := _rpmSleep
 	prevRPMDebug := _rpmDebug
@@ -36,12 +38,12 @@ func setRPMSleepDebug(dur time.Duration, debug bool) func() {
 	_rpmDebug = debug
 	_rpmDebugMu.Unlock()
 	return func() {
-		setRPMSleepDebug(prevRPMSleep, prevRPMDebug)
+		SetRPMSleepDebug(prevRPMSleep, prevRPMDebug)
 	}
 }
 
 // WrapMotorWithEncoder takes a motor and adds an encoder onto it in order to understand its odometry.
-func WrapMotorWithEncoder(ctx context.Context, b Board, mc MotorConfig, m Motor, logger golog.Logger) (Motor, error) {
+func WrapMotorWithEncoder(ctx context.Context, b Board, mc motor.Config, m motor.Motor, logger golog.Logger) (motor.Motor, error) {
 	if mc.Encoder == "" {
 		return m, nil
 	}
@@ -55,16 +57,16 @@ func WrapMotorWithEncoder(ctx context.Context, b Board, mc MotorConfig, m Motor,
 		return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.Encoder, mc.Name)
 	}
 
-	var mm *encodedMotor
+	var mm *EncodedMotor
 	var err error
 
 	if mc.EncoderB == "" {
-		encoder := &singleEncoder{i: i}
+		encoder := &SingleEncoder{i: i}
 		mm, err = newEncodedMotor(mc, m, encoder, logger)
 		if err != nil {
 			return nil, err
 		}
-		encoder.m = mm
+		encoder.M = mm
 	} else {
 		b, ok := b.DigitalInterruptByName(mc.EncoderB)
 		if !ok {
@@ -76,19 +78,19 @@ func WrapMotorWithEncoder(ctx context.Context, b Board, mc MotorConfig, m Motor,
 		}
 	}
 
-	mm.rpmMonitorStart()
+	mm.RPMMonitorStart()
 
 	return mm, nil
 }
 
 // NewEncodedMotor creates a new motor that supports an arbitrary source of encoder information
-func NewEncodedMotor(cfg MotorConfig, real Motor, encoder Encoder, logger golog.Logger) (Motor, error) {
+func NewEncodedMotor(cfg motor.Config, real motor.Motor, encoder Encoder, logger golog.Logger) (motor.Motor, error) {
 	return newEncodedMotor(cfg, real, encoder, logger)
 }
 
-func newEncodedMotor(cfg MotorConfig, real Motor, encoder Encoder, logger golog.Logger) (*encodedMotor, error) {
+func newEncodedMotor(cfg motor.Config, real motor.Motor, encoder Encoder, logger golog.Logger) (*EncodedMotor, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
-	em := &encodedMotor{
+	em := &EncodedMotor{
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		cfg:                     cfg,
 		real:                    real,
@@ -125,14 +127,15 @@ func newEncodedMotor(cfg MotorConfig, real Motor, encoder Encoder, logger golog.
 	return em, nil
 }
 
-type encodedMotor struct {
+// EncodedMotor is a motor that utilizes an encoder to track its position.
+type EncodedMotor struct {
 	activeBackgroundWorkers *sync.WaitGroup
-	cfg                     MotorConfig
-	real                    Motor
+	cfg                     motor.Config
+	real                    motor.Motor
 	encoder                 Encoder
 
 	stateMu *sync.RWMutex
-	state   encodedMotorState
+	state   EncodedMotorState
 
 	startedRPMMonitor   bool
 	startedRPMMonitorMu *sync.Mutex
@@ -149,9 +152,9 @@ type encodedMotor struct {
 	cancel          func()
 }
 
-// encodedMotorState is the core, non-statistical state for the motor.
+// EncodedMotorState is the core, non-statistical state for the motor.
 // Multiple values should be updated atomically at the same time.
-type encodedMotorState struct {
+type EncodedMotorState struct {
 	regulated    bool
 	desiredRPM   float64 // <= 0 means worker should do nothing
 	currentRPM   float64
@@ -160,7 +163,8 @@ type encodedMotorState struct {
 	setPoint     int64
 }
 
-func (m *encodedMotor) Position(ctx context.Context) (float64, error) {
+// Position returns the position of the motor.
+func (m *EncodedMotor) Position(ctx context.Context) (float64, error) {
 	ticks, err := m.encoder.Position(ctx)
 	if err != nil {
 		return 0, err
@@ -168,34 +172,38 @@ func (m *encodedMotor) Position(ctx context.Context) (float64, error) {
 	return float64(ticks) / float64(m.cfg.TicksPerRotation), nil
 }
 
-func (m *encodedMotor) rawDirection() pb.DirectionRelative {
+func (m *EncodedMotor) rawDirection() pb.DirectionRelative {
 	m.stateMu.RLock()
 	defer m.stateMu.RUnlock()
 	return m.state.curDirection
 }
 
-func (m *encodedMotor) PositionSupported(ctx context.Context) (bool, error) {
+// PositionSupported returns true.
+func (m *EncodedMotor) PositionSupported(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-func (m *encodedMotor) RPMMonitorCalls() int64 {
+// RPMMonitorCalls returns the number of calls RPM monitor has made.
+func (m *EncodedMotor) RPMMonitorCalls() int64 {
 	return atomic.LoadInt64(&m.rpmMonitorCalls)
 }
 
-func (m *encodedMotor) isRegulated() bool {
+// IsRegulated returns if the motor is currently regulated or not.
+func (m *EncodedMotor) IsRegulated() bool {
 	m.stateMu.RLock()
 	regulated := m.state.regulated
 	m.stateMu.RUnlock()
 	return regulated
 }
 
-func (m *encodedMotor) setRegulated(b bool) {
+// SetRegulated sets if the motor should be regulated.
+func (m *EncodedMotor) SetRegulated(b bool) {
 	m.stateMu.Lock()
 	m.state.regulated = b
 	m.stateMu.Unlock()
 }
 
-func (m *encodedMotor) fixPowerPct(powerPct float32) float32 {
+func (m *EncodedMotor) fixPowerPct(powerPct float32) float32 {
 	if powerPct > m.maxPowerPct {
 		powerPct = m.maxPowerPct
 	} else if powerPct < 0 {
@@ -204,14 +212,15 @@ func (m *encodedMotor) fixPowerPct(powerPct float32) float32 {
 	return powerPct
 }
 
-func (m *encodedMotor) Power(ctx context.Context, powerPct float32) error {
+// Power sets the power of the motor to the given percentage value between 0 and 1.
+func (m *EncodedMotor) Power(ctx context.Context, powerPct float32) error {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 	return m.setPower(ctx, powerPct, false)
 }
 
 // setPower assumes the state lock is held
-func (m *encodedMotor) setPower(ctx context.Context, powerPct float32, internal bool) error {
+func (m *EncodedMotor) setPower(ctx context.Context, powerPct float32, internal bool) error {
 	if !internal {
 		m.state.desiredRPM = 0 // if we're setting power externally, don't control RPM
 	}
@@ -219,14 +228,15 @@ func (m *encodedMotor) setPower(ctx context.Context, powerPct float32, internal 
 	return m.real.Power(ctx, m.state.lastPowerPct)
 }
 
-func (m *encodedMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+// Go instructs the motor to go in a given direction at a given power level between 0 and 1.
+func (m *EncodedMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 	return m.doGo(ctx, d, powerPct, false)
 }
 
 // doGo assumes the state lock is held
-func (m *encodedMotor) doGo(ctx context.Context, d pb.DirectionRelative, powerPct float32, internal bool) error {
+func (m *EncodedMotor) doGo(ctx context.Context, d pb.DirectionRelative, powerPct float32, internal bool) error {
 	if !internal {
 		m.state.desiredRPM = 0    // if we're setting power externally, don't control RPM
 		m.state.regulated = false // user wants direct control, so we stop trying to control the world
@@ -236,7 +246,8 @@ func (m *encodedMotor) doGo(ctx context.Context, d pb.DirectionRelative, powerPc
 	return m.real.Go(ctx, d, m.state.lastPowerPct)
 }
 
-func (m *encodedMotor) rpmMonitorStart() {
+// RPMMonitorStart starts the RPM monitor.
+func (m *EncodedMotor) RPMMonitorStart() {
 	m.startedRPMMonitorMu.Lock()
 	startedRPMMonitor := m.startedRPMMonitor
 	m.startedRPMMonitorMu.Unlock()
@@ -257,7 +268,7 @@ func (m *encodedMotor) rpmMonitorStart() {
 	<-started
 }
 
-func (m *encodedMotor) rpmMonitor(onStart func()) {
+func (m *EncodedMotor) rpmMonitor(onStart func()) {
 	if m.encoder == nil {
 		panic("started rpmMonitor but have no encoder")
 	}
@@ -319,7 +330,7 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 	}
 }
 
-func (m *encodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebug bool) {
+func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebug bool) {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 
@@ -362,7 +373,7 @@ func (m *encodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 
 }
 
-func (m *encodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime int64, desiredRPM, rotationsLeft float64, rpmDebug bool) {
+func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime int64, desiredRPM, rotationsLeft float64, rpmDebug bool) {
 	lastPowerPct := m.state.lastPowerPct
 
 	rotations := float64(pos-lastPos) / float64(m.cfg.TicksPerRotation)
@@ -409,7 +420,7 @@ func (m *encodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime in
 	}
 }
 
-func (m encodedMotor) computeRamp(oldPower, newPower float32) float32 {
+func (m EncodedMotor) computeRamp(oldPower, newPower float32) float32 {
 	if newPower > 1.0 {
 		newPower = 1.0
 	}
@@ -420,12 +431,13 @@ func (m encodedMotor) computeRamp(oldPower, newPower float32) float32 {
 	return m.fixPowerPct(oldPower + (delta * m.rampRate))
 }
 
-func (m *encodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
+// GoFor instructs the motor to go in a given direction at the given RPM for a number of given revolutions.
+func (m *EncodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
 	if d == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
 		return m.Off(ctx)
 	}
 
-	m.rpmMonitorStart()
+	m.RPMMonitorStart()
 
 	if revolutions < 0 {
 		revolutions *= -1
@@ -484,30 +496,33 @@ func (m *encodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 }
 
 // off assumes the state lock is held
-func (m *encodedMotor) off(ctx context.Context) error {
+func (m *EncodedMotor) off(ctx context.Context) error {
 	m.state.desiredRPM = 0
 	m.state.regulated = false
 	return m.real.Off(ctx)
 }
 
-func (m *encodedMotor) Off(ctx context.Context) error {
+// Off turns the motor off.
+func (m *EncodedMotor) Off(ctx context.Context) error {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 	return m.off(ctx)
 }
 
-func (m *encodedMotor) IsOn(ctx context.Context) (bool, error) {
+// IsOn returns if the motor is on or not.
+func (m *EncodedMotor) IsOn(ctx context.Context) (bool, error) {
 	return m.real.IsOn(ctx)
 }
 
-func (m *encodedMotor) Close() error {
+// Close cleanly shuts down the motor.
+func (m *EncodedMotor) Close() error {
 	m.cancel()
 	m.activeBackgroundWorkers.Wait()
 	return nil
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero), at a specific speed.
-func (m *encodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition float64) error {
+func (m *EncodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition float64) error {
 	curPos, err := m.Position(ctx)
 	if err != nil {
 		return err
@@ -523,7 +538,7 @@ func (m *encodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition flo
 }
 
 // GoTillStop moves until physically stopped (though with a ten second timeout) or stopFunc() returns true.
-func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+func (m *EncodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	if err := m.GoFor(ctx, d, rpm, 0); err != nil {
 		return err
 	}
@@ -592,6 +607,6 @@ func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, r
 }
 
 // Zero resets the position to zero/home
-func (m *encodedMotor) Zero(ctx context.Context, offset float64) error {
+func (m *EncodedMotor) Zero(ctx context.Context, offset float64) error {
 	return m.encoder.Zero(ctx, int64(offset*float64(m.cfg.TicksPerRotation)))
 }

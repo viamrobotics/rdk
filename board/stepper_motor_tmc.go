@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 
 	"github.com/edaniels/golog"
@@ -73,7 +74,7 @@ const (
 )
 
 // NewTMCStepperMotor returns a TMC5072 driven motor
-func NewTMCStepperMotor(ctx context.Context, b Board, mc MotorConfig, logger golog.Logger) (*TMCStepperMotor, error) {
+func NewTMCStepperMotor(ctx context.Context, b Board, mc motor.Config, logger golog.Logger) (*TMCStepperMotor, error) {
 	bus, ok := b.SPIByName(mc.Attributes["spi_bus"])
 	if !ok {
 		return nil, errors.Errorf("can't find SPI bus (%s) requested by TMCStepperMotor", mc.Attributes["spi_bus"])
