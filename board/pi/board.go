@@ -563,9 +563,9 @@ func (s *piPigpioI2CHandle) ReadBytes(ctx context.Context, addr byte, count int)
 	defer C.i2cClose((C.uint)(handle))
 
 	ret := C.i2cReadDevice((C.uint)(handle), (*C.char)(rxPtr), (C.uint)(count))
-
-	if int(ret) != 0 {
-		return nil, errors.Errorf("error with i2c write %q", ret)
+	
+	if int(ret) <= 0 {
+		return nil, errors.Errorf("error with i2c read %q", ret)
 	}
 
 	return C.GoBytes(rxPtr, (C.int)(count)), nil

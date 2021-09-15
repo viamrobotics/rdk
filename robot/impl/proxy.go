@@ -420,6 +420,7 @@ func newProxyBoard(actual board.Board) *proxyBoard {
 		motors:   map[string]*proxyBoardMotor{},
 		servos:   map[string]*proxyBoardServo{},
 		spis:     map[string]*proxyBoardSPI{},
+		i2cs:     map[string]*proxyBoardI2C{},
 		analogs:  map[string]*proxyBoardAnalogReader{},
 		digitals: map[string]*proxyBoardDigitalInterrupt{},
 	}
@@ -444,6 +445,13 @@ func newProxyBoard(actual board.Board) *proxyBoard {
 			continue
 		}
 		p.spis[name] = &proxyBoardSPI{actual: actualPart}
+	}
+	for _, name := range actual.I2CNames() {
+		actualPart, ok := actual.I2CByName(name)
+		if !ok {
+			continue
+		}
+		p.i2cs[name] = &proxyBoardI2C{actual: actualPart}
 	}
 	for _, name := range actual.AnalogReaderNames() {
 		actualPart, ok := actual.AnalogReaderByName(name)
