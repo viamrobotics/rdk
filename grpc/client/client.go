@@ -480,18 +480,6 @@ func (rc *RobotClient) FrameLookup(ctx context.Context) (referenceframe.FrameLoo
 	return nil, errUnimplemented
 }
 
-// ProviderByName is not yet implemented and probably will not be due to it not
-// making much sense in a remote context.
-func (rc *RobotClient) ProviderByName(name string) (robot.Provider, bool) {
-	return nil, false
-}
-
-// AddProvider is not yet implemented and probably will not be due to it not
-// making much sense in a remote context.
-func (rc *RobotClient) AddProvider(p robot.Provider, c config.Component) {
-
-}
-
 // Logger returns the logger being used for this robot.
 func (rc *RobotClient) Logger() golog.Logger {
 	return rc.logger

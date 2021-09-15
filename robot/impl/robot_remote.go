@@ -110,15 +110,6 @@ func (rr *remoteRobot) prefixNames(names []string) []string {
 	return newNames
 }
 
-// AddProvider should not be used or needed for a remote robot
-func (rr *remoteRobot) AddProvider(p robot.Provider, c config.Component) {
-}
-
-// ProviderByName should not be used or needed for a remote robot
-func (rr *remoteRobot) ProviderByName(name string) (robot.Provider, bool) {
-	return nil, false
-}
-
 func (rr *remoteRobot) RemoteNames() []string {
 	return nil
 }

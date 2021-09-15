@@ -77,13 +77,6 @@ func (draft *draftRobot) ProcessAndCommit(ctx context.Context) (err error) {
 		return errors.Errorf("error processing draft changes: %w", err)
 	}
 
-	for name, p := range draft.parts.providers {
-		err := p.Ready(draft.original)
-		if err != nil {
-			return errors.Errorf("error readying provider %q: %w", name, err)
-		}
-	}
-
 	draft.original.logger.Info("committing draft changes")
 	if err := draft.Commit(ctx); err != nil {
 		return errors.Errorf("error committing draft changes: %w", err)
