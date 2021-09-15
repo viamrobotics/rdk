@@ -1,8 +1,8 @@
 package javascript
 
 import (
+	_ "embed" // for libquickjs.wasm
 	"fmt"
-	"io/ioutil"
 	"strings"
 
 	"github.com/go-errors/errors"
@@ -10,10 +10,12 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/utils"
-	"go.viam.com/utils/artifact"
 
 	functionvm "go.viam.com/core/function/vm"
 )
+
+//go:embed libquickjs.wasm
+var libquickjsWASMBytes []byte
 
 func init() {
 	functionvm.RegisterEngine(functionvm.EngineNameJavaScript, func() (functionvm.Engine, error) {
@@ -41,19 +43,10 @@ var (
 )
 
 func init() {
-	wasmPath, err := artifact.Path("function/vm/engines/javascript/libquickjs.wasm")
-	if err != nil {
-		panic(err)
-	}
-	wasmBytes, err := ioutil.ReadFile(wasmPath)
-	if err != nil {
-		panic(err)
-	}
-
 	engine := wasmer.NewEngine()
 	store := wasmer.NewStore(engine)
 
-	module, err := wasmer.NewModule(store, wasmBytes)
+	module, err := wasmer.NewModule(store, libquickjsWASMBytes)
 	if err != nil {
 		panic(err)
 	}
