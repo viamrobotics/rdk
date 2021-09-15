@@ -32,8 +32,9 @@ func GetPointCloudPositions(cloud pc.PointCloud) []pc.Vec3 {
 	return positions
 }
 
-func distance(equation []float64, pt pc.Vec3) float64 {
-	return (equation[0]*pt.X + equation[1]*pt.Y + equation[2]*pt.Z + equation[3]) / equation[4]
+func distance(equation [4]float64, pt pc.Vec3) float64 {
+	norm := math.Sqrt(equation[0]*equation[0] + equation[1]*equation[1] + equation[2]*equation[2])
+	return (equation[0]*pt.X + equation[1]*pt.Y + equation[2]*pt.Z + equation[3]) / norm
 }
 
 // pointCloudSplit return two point clouds, one with points found in a map of point positions, and the other with those not in the map.
@@ -80,7 +81,7 @@ func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (pc.P
 	pts := GetPointCloudPositions(cloud)
 	nPoints := cloud.Size()
 
-	bestEquation := make([]float64, 4)
+	bestEquation := [4]float64{}
 	bestInliers := 0
 
 	for i := 0; i < nIterations; i++ {
@@ -100,7 +101,7 @@ func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (pc.P
 		d := -vec.Dot(p2)
 
 		// current plane equation
-		currentEquation := []float64{vec.X, vec.Y, vec.Z, d, vec.Norm()}
+		currentEquation := [4]float64{vec.X, vec.Y, vec.Z, d}
 
 		// compute distance to plane of each point in the cloud
 		//currentInliers := make([]pc.Vec3, len(bestInliers))

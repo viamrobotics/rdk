@@ -79,8 +79,8 @@ func (p *voxelPlane) PointCloud() (PointCloud, error) {
 }
 
 // Equation return the coefficients of the plane equation as a 4-slice of floats
-func (p *voxelPlane) Equation() []float64 {
-	equation := make([]float64, 4)
+func (p *voxelPlane) Equation() [4]float64 {
+	equation := [4]float64{}
 	equation[0] = p.normal.X
 	equation[1] = p.normal.Y
 	equation[2] = p.normal.Z
@@ -257,7 +257,7 @@ type VoxelGrid struct {
 
 // NewVoxelGrid returns a pointer to a VoxelGrid with a (0,0,0) Voxel
 func NewVoxelGrid(voxelSize, lam float64) *VoxelGrid {
-	voxelMap := make(map[VoxelCoords]*Voxel)
+	voxelMap := map[VoxelCoords]*Voxel{}
 	coords := VoxelCoords{
 		I: 0,
 		J: 0,
@@ -284,7 +284,7 @@ func (vg *VoxelGrid) Lambda() float64 {
 }
 
 // VoxelHistogram creates useful plots for determining the parameters of the voxel grid when calibrating a new sensor.
-// Hisotgrams of the number of points in each voxel, the weights of each voxel, and the plane residuals.
+// Histograms of the number of points in each voxel, the weights of each voxel, and the plane residuals.
 func (vg *VoxelGrid) VoxelHistogram(w, h int, name string) (image.Image, error) {
 	var hist *hbook.H1D
 	p := hplot.New()
