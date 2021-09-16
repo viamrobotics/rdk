@@ -15,14 +15,22 @@
     </script>
     {{ if .External }}
     <script src="/static/core/control.js"></script>
-    <script src="/static/core/components.js"></script>
     <script src="/static/core/third-party/vue.js"></script>
     <script src="/static/core/third-party/ace/ace.js" type="text/javascript" charset="utf-8"></script>
+    <script src="/static/core/components.js"></script>
+    <link rel="stylesheet" href="/static/core/components/coreComponents.css">
+    <script type="module">
+      import "/static/core/components/coreComponents.umd.min.js";
+    </script>
     {{ else }}
     <script src="/static/control.js"></script>
-    <script src="/static/components.js"></script>
     <script src="/static/third-party/vue.js"></script>
     <script src="/static/third-party/ace/ace.js" type="text/javascript" charset="utf-8"></script>
+    <script src="/static/components.js"></script>
+    <link rel="stylesheet" href="/static/components/coreComponents.css">
+    <script type="module">
+      import "/static/components/coreComponents.umd.js";
+    </script>
     {{ end }}
 
     <script>
@@ -612,6 +620,7 @@
   </head>
   <body onLoad="waitForClientAndStart()">
     <div id="app">
+      <hello-world msg="TEST"></hello-world>
       <div id="actions">
         {{range $r := .Actions}}
         <button v-on:click="doAction('{{$r}}')">{{$r}}</button>
