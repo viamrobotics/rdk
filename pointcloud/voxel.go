@@ -364,11 +364,14 @@ func (vg *VoxelGrid) GetVoxelFromKey(coords VoxelCoords) *Voxel {
 
 // GetAdjacentVoxels gets adjacent voxels in point cloud in 26-connectivity
 func (vg VoxelGrid) GetAdjacentVoxels(v *Voxel) []VoxelCoords {
+	neighborKeys := []VoxelCoords{}
+	if v == nil {
+		return neighborKeys
+	}
 	I, J, K := v.Key.I, v.Key.J, v.Key.K
 	is := []int64{I - 1, I, I + 1}
 	js := []int64{J - 1, J, J + 1}
 	ks := []int64{K - 1, K, K + 1}
-	neighborKeys := make([]VoxelCoords, 0)
 	for _, i := range is {
 		for _, j := range js {
 			for _, k := range ks {
@@ -384,17 +387,17 @@ func (vg VoxelGrid) GetAdjacentVoxels(v *Voxel) []VoxelCoords {
 	return neighborKeys
 }
 
-// GetNNearestVoxels gets voxels around a grid coordinate that are N units away in each dimension.
+// GetNNearestVoxels gets voxels around a grid coordinate that are N units or less away in each dimension.
 func (vg VoxelGrid) GetNNearestVoxels(v *Voxel, n uint) []VoxelCoords {
+	neighborKeys := []VoxelCoords{}
+	if v == nil {
+		return neighborKeys
+	}
 	I, J, K := v.Key.I, v.Key.J, v.Key.K
 	N := int64(n)
-	is := []int64{I - N, I, I + N}
-	js := []int64{J - N, J, J + N}
-	ks := []int64{K - N, K, K + N}
-	neighborKeys := make([]VoxelCoords, 0)
-	for _, i := range is {
-		for _, j := range js {
-			for _, k := range ks {
+	for i := I - N; i <= I+N; i++ {
+		for j := J - N; j <= J+N; j++ {
+			for k := K - N; k <= K+N; k++ {
 				vox := VoxelCoords{i, j, k}
 				_, ok := vg.Voxels[vox]
 				// if neighboring voxel is in VoxelGrid and is not current voxel

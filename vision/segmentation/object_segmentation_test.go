@@ -84,14 +84,19 @@ func (h *segmentObjectTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorCo
 	vg := pc.NewVoxelGridFromPointCloud(cloud, 0.2, 0.01)
 
 	// Do object segmentation with voxel grid
-	planeConfig := VoxelGridPlaneConfig{
+	voxPlaneConfig := VoxelGridPlaneConfig{
 		weightThresh:   0.9,
 		angleThresh:    30,
 		cosineThresh:   0.1,
 		distanceThresh: 0.1,
 	}
+	voxObjConfig := ObjectConfig{
+		MinPtsInPlane:    50000,
+		MinPtsInSegment:  500,
+		ClusteringRadius: 0.5,
+	}
 
-	voxSegments, err := NewObjectSegmentationFromVoxelGrid(vg, objConfig, planeConfig)
+	voxSegments, err := NewObjectSegmentationFromVoxelGrid(vg, voxObjConfig, voxPlaneConfig)
 	test.That(t, err, test.ShouldBeNil)
 
 	voxObjectClouds := voxSegments.PointClouds()
@@ -139,9 +144,6 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 
-	// turn pointclouds into voxel grid
-	vg := pc.NewVoxelGridFromPointCloud(cloud, 5.0, 1.0)
-
 	// Do object segmentation with point clouds
 	objConfig := ObjectConfig{
 		MinPtsInPlane:    15000,
@@ -161,15 +163,23 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(segImage, "gripper-segmented-pointcloud-image-with-depth")
 
+	// turn pointclouds into voxel grid
+	vg := pc.NewVoxelGridFromPointCloud(cloud, 5.0, 1.0)
+
 	// Do voxel segmentation
-	planeConfig := VoxelGridPlaneConfig{
+	voxPlaneConfig := VoxelGridPlaneConfig{
 		weightThresh:   0.9,
 		angleThresh:    30,
 		cosineThresh:   0.1,
 		distanceThresh: 0.1,
 	}
+	voxObjConfig := ObjectConfig{
+		MinPtsInPlane:    15000,
+		MinPtsInSegment:  100,
+		ClusteringRadius: 7.5,
+	}
 
-	voxSegments, err := NewObjectSegmentationFromVoxelGrid(vg, objConfig, planeConfig)
+	voxSegments, err := NewObjectSegmentationFromVoxelGrid(vg, voxObjConfig, voxPlaneConfig)
 	test.That(t, err, test.ShouldBeNil)
 
 	voxObjectClouds := voxSegments.PointClouds()
