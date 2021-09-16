@@ -225,25 +225,25 @@ func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext,
 	cloud, err := fixed.ToPointCloud()
 	test.That(t, err, test.ShouldBeNil)
 
-	// point cloud plane segmentation
-	planeSegCloud := NewPointCloudPlaneSegmentation(cloud, 50, 150000)
-	planes, nonPlane, err := planeSegCloud.FindPlanes()
+	// create an image where all the planes in the point cloud are color-coded
+	planeSegCloud := NewPointCloudPlaneSegmentation(cloud, 50, 150000) // feed the parameters for the plane segmentation
+	planes, nonPlane, err := planeSegCloud.FindPlanes()                // returns slice of planes and point cloud of non plane points
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(planes), test.ShouldBeGreaterThan, 0)
-	segments := make([]pc.PointCloud, 0, len(planes)+1)
-	segments = append(segments, nonPlane)
+	segments := make([]pc.PointCloud, 0, len(planes)+1) // make a slice for all plane-pointclouds and the non-plane pointcloud
+	segments = append(segments, nonPlane)               // non-plane point cloud gets added first
 	for _, plane := range planes {
 		test.That(t, plane, test.ShouldNotBeNil)
 		planeCloud, err := plane.PointCloud()
 		test.That(t, err, test.ShouldBeNil)
-		segments = append(segments, planeCloud)
+		segments = append(segments, planeCloud) // append the point clouds of each plane to the slice
 	}
-	segImage, err := PointCloudSegmentsToMask(h.cameraParams.ColorCamera, segments)
+	segImage, err := PointCloudSegmentsToMask(h.cameraParams.ColorCamera, segments) // color-coded image of all the planes
 	test.That(t, err, test.ShouldBeNil)
 
 	pCtx.GotDebugImage(segImage, "from-pointcloud")
 
-	// voxel grid creation
+	//Informational histrograms for voxel grid creation. This is useful for determining which lambda value to choose for the voxel grid plane segmentation.
 	voxelSize := 20.
 	lam := 8.0
 	vg := pc.NewVoxelGridFromPointCloud(cloud, voxelSize, lam)
@@ -257,7 +257,7 @@ func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext,
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(histRes, "residual-histograms")
 
-	// voxel grid plane segmentation
+	// voxel grid plane segmentation -- do the same thing as above but using the voxel grid method to get the planes.
 	voxelConfig := VoxelGridPlaneConfig{
 		weightThresh:   0.9,
 		angleThresh:    80,
