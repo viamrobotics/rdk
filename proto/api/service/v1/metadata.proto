@@ -15,7 +15,7 @@ service MetadataService {
   // Resources returns the list of all resources.
   rpc Resources(ResourcesRequest) returns (ResourcesResponse) {
       option (google.api.http) = {
-        get: "/api/v2/service/resources"
+        get: "/api/v2/service/metadata"
     };
   }
 }
