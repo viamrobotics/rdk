@@ -104,6 +104,8 @@ export class Status extends jspb.Message {
   clearLidarsMap(): void;
   getSensorsMap(): jspb.Map<string, SensorStatus>;
   clearSensorsMap(): void;
+  getFunctionsMap(): jspb.Map<string, boolean>;
+  clearFunctionsMap(): void;
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Status.AsObject;
   static toObject(includeInstance: boolean, msg: Status): Status.AsObject;
@@ -123,6 +125,7 @@ export namespace Status {
     camerasMap: Array<[string, boolean]>,
     lidarsMap: Array<[string, boolean]>,
     sensorsMap: Array<[string, SensorStatus.AsObject]>,
+    functionsMap: Array<[string, boolean]>,
   }
 }
 
@@ -2657,6 +2660,110 @@ export class CompassMarkResponse extends jspb.Message {
 
 export namespace CompassMarkResponse {
   export type AsObject = {
+  }
+}
+
+export class ExecuteFunctionRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): ExecuteFunctionRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: ExecuteFunctionRequest): ExecuteFunctionRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: ExecuteFunctionRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ExecuteFunctionRequest;
+  static deserializeBinaryFromReader(message: ExecuteFunctionRequest, reader: jspb.BinaryReader): ExecuteFunctionRequest;
+}
+
+export namespace ExecuteFunctionRequest {
+  export type AsObject = {
+    name: string,
+  }
+}
+
+export class ExecuteFunctionResponse extends jspb.Message {
+  clearResultsList(): void;
+  getResultsList(): Array<google_protobuf_struct_pb.Value>;
+  setResultsList(value: Array<google_protobuf_struct_pb.Value>): void;
+  addResults(value?: google_protobuf_struct_pb.Value, index?: number): google_protobuf_struct_pb.Value;
+
+  getStdOut(): string;
+  setStdOut(value: string): void;
+
+  getStdErr(): string;
+  setStdErr(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): ExecuteFunctionResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: ExecuteFunctionResponse): ExecuteFunctionResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: ExecuteFunctionResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ExecuteFunctionResponse;
+  static deserializeBinaryFromReader(message: ExecuteFunctionResponse, reader: jspb.BinaryReader): ExecuteFunctionResponse;
+}
+
+export namespace ExecuteFunctionResponse {
+  export type AsObject = {
+    resultsList: Array<google_protobuf_struct_pb.Value.AsObject>,
+    stdOut: string,
+    stdErr: string,
+  }
+}
+
+export class ExecuteSourceRequest extends jspb.Message {
+  getSource(): string;
+  setSource(value: string): void;
+
+  getEngine(): string;
+  setEngine(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): ExecuteSourceRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: ExecuteSourceRequest): ExecuteSourceRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: ExecuteSourceRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ExecuteSourceRequest;
+  static deserializeBinaryFromReader(message: ExecuteSourceRequest, reader: jspb.BinaryReader): ExecuteSourceRequest;
+}
+
+export namespace ExecuteSourceRequest {
+  export type AsObject = {
+    source: string,
+    engine: string,
+  }
+}
+
+export class ExecuteSourceResponse extends jspb.Message {
+  clearResultsList(): void;
+  getResultsList(): Array<google_protobuf_struct_pb.Value>;
+  setResultsList(value: Array<google_protobuf_struct_pb.Value>): void;
+  addResults(value?: google_protobuf_struct_pb.Value, index?: number): google_protobuf_struct_pb.Value;
+
+  getStdOut(): string;
+  setStdOut(value: string): void;
+
+  getStdErr(): string;
+  setStdErr(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): ExecuteSourceResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: ExecuteSourceResponse): ExecuteSourceResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: ExecuteSourceResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ExecuteSourceResponse;
+  static deserializeBinaryFromReader(message: ExecuteSourceResponse, reader: jspb.BinaryReader): ExecuteSourceResponse;
+}
+
+export namespace ExecuteSourceResponse {
+  export type AsObject = {
+    resultsList: Array<google_protobuf_struct_pb.Value.AsObject>,
+    stdOut: string,
+    stdErr: string,
   }
 }
 

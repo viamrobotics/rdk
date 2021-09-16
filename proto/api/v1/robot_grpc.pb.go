@@ -134,6 +134,9 @@ type RobotServiceClient interface {
 	CompassStopCalibration(ctx context.Context, in *CompassStopCalibrationRequest, opts ...grpc.CallOption) (*CompassStopCalibrationResponse, error)
 	// CompassMark requests the relative compass of the underlying robot to mark its position.
 	CompassMark(ctx context.Context, in *CompassMarkRequest, opts ...grpc.CallOption) (*CompassMarkResponse, error)
+	// TODO(erd): refactor to functions service
+	ExecuteFunction(ctx context.Context, in *ExecuteFunctionRequest, opts ...grpc.CallOption) (*ExecuteFunctionResponse, error)
+	ExecuteSource(ctx context.Context, in *ExecuteSourceRequest, opts ...grpc.CallOption) (*ExecuteSourceResponse, error)
 }
 
 type robotServiceClient struct {
@@ -635,6 +638,24 @@ func (c *robotServiceClient) CompassMark(ctx context.Context, in *CompassMarkReq
 	return out, nil
 }
 
+func (c *robotServiceClient) ExecuteFunction(ctx context.Context, in *ExecuteFunctionRequest, opts ...grpc.CallOption) (*ExecuteFunctionResponse, error) {
+	out := new(ExecuteFunctionResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ExecuteFunction", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) ExecuteSource(ctx context.Context, in *ExecuteSourceRequest, opts ...grpc.CallOption) (*ExecuteSourceResponse, error) {
+	out := new(ExecuteSourceResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ExecuteSource", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RobotServiceServer is the server API for RobotService service.
 // All implementations must embed UnimplementedRobotServiceServer
 // for forward compatibility
@@ -753,6 +774,9 @@ type RobotServiceServer interface {
 	CompassStopCalibration(context.Context, *CompassStopCalibrationRequest) (*CompassStopCalibrationResponse, error)
 	// CompassMark requests the relative compass of the underlying robot to mark its position.
 	CompassMark(context.Context, *CompassMarkRequest) (*CompassMarkResponse, error)
+	// TODO(erd): refactor to functions service
+	ExecuteFunction(context.Context, *ExecuteFunctionRequest) (*ExecuteFunctionResponse, error)
+	ExecuteSource(context.Context, *ExecuteSourceRequest) (*ExecuteSourceResponse, error)
 	mustEmbedUnimplementedRobotServiceServer()
 }
 
@@ -915,6 +939,12 @@ func (UnimplementedRobotServiceServer) CompassStopCalibration(context.Context, *
 }
 func (UnimplementedRobotServiceServer) CompassMark(context.Context, *CompassMarkRequest) (*CompassMarkResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CompassMark not implemented")
+}
+func (UnimplementedRobotServiceServer) ExecuteFunction(context.Context, *ExecuteFunctionRequest) (*ExecuteFunctionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExecuteFunction not implemented")
+}
+func (UnimplementedRobotServiceServer) ExecuteSource(context.Context, *ExecuteSourceRequest) (*ExecuteSourceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExecuteSource not implemented")
 }
 func (UnimplementedRobotServiceServer) mustEmbedUnimplementedRobotServiceServer() {}
 
@@ -1868,6 +1898,42 @@ func _RobotService_CompassMark_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_ExecuteFunction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExecuteFunctionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).ExecuteFunction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/ExecuteFunction",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).ExecuteFunction(ctx, req.(*ExecuteFunctionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_ExecuteSource_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExecuteSourceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).ExecuteSource(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/ExecuteSource",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).ExecuteSource(ctx, req.(*ExecuteSourceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RobotService_ServiceDesc is the grpc.ServiceDesc for RobotService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2078,6 +2144,14 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CompassMark",
 			Handler:    _RobotService_CompassMark_Handler,
+		},
+		{
+			MethodName: "ExecuteFunction",
+			Handler:    _RobotService_ExecuteFunction_Handler,
+		},
+		{
+			MethodName: "ExecuteSource",
+			Handler:    _RobotService_ExecuteSource_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

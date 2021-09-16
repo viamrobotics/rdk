@@ -412,6 +412,19 @@ service RobotService {
       post: "/api/v1/sensors/compass/{name}/mark"
     };
   }
+
+  // TODO(erd): refactor to functions service
+  rpc ExecuteFunction(ExecuteFunctionRequest) returns (ExecuteFunctionResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/functions/by_name/{name}/execute"
+    }; 
+  }
+
+  rpc ExecuteSource(ExecuteSourceRequest) returns (ExecuteSourceResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/functions/execute_code"
+    }; 
+  }
 }
 
 message StatusRequest {}
@@ -436,6 +449,7 @@ message Status {
   map<string, bool> cameras = 5;
   map<string, bool> lidars = 6;
   map<string, SensorStatus> sensors = 7;
+  map<string, bool> functions = 8;
 }
 
 message ComponentConfig {
@@ -970,3 +984,26 @@ enum DirectionRelative {
   DIRECTION_RELATIVE_FORWARD = 1;
   DIRECTION_RELATIVE_BACKWARD = 2;
 }
+
+message ExecuteFunctionRequest {
+  string name = 1;
+  // TODO(erd): arguments
+}
+
+message ExecuteFunctionResponse {
+  repeated google.protobuf.Value results = 1;
+  string std_out = 2;
+  string std_err = 3;
+}
+
+message ExecuteSourceRequest {
+  string source = 1;
+  string engine = 2;
+}
+
+message ExecuteSourceResponse {
+  repeated google.protobuf.Value results = 1;
+  string std_out = 2;
+  string std_err = 3;
+}
+

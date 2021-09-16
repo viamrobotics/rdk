@@ -18,9 +18,6 @@ import (
 )
 
 type (
-	// A CreateProvider creates a provider from a given config.
-	CreateProvider func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (robot.Provider, error)
-
 	// A CreateCamera creates a camera from a given config.
 	CreateCamera func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error)
 
@@ -42,13 +39,12 @@ type (
 
 // all registries
 var (
-	cameraRegistry   = map[string]CreateCamera{}
-	armRegistry      = map[string]CreateArm{}
-	gripperRegistry  = map[string]CreateGripper{}
-	providerRegistry = map[string]CreateProvider{}
-	baseRegistry     = map[string]CreateBase{}
-	lidarRegistry    = map[string]CreateLidar{}
-	sensorRegistry   = map[sensor.Type]map[string]CreateSensor{}
+	cameraRegistry  = map[string]CreateCamera{}
+	armRegistry     = map[string]CreateArm{}
+	gripperRegistry = map[string]CreateGripper{}
+	baseRegistry    = map[string]CreateBase{}
+	lidarRegistry   = map[string]CreateLidar{}
+	sensorRegistry  = map[sensor.Type]map[string]CreateSensor{}
 )
 
 // RegisterCamera register a camera model to a creator.
@@ -76,15 +72,6 @@ func RegisterGripper(model string, creator CreateGripper) {
 		panic(errors.Errorf("trying to register two grippers with same model %s", model))
 	}
 	gripperRegistry[model] = creator
-}
-
-// RegisterProvider register a provider model to a creator.
-func RegisterProvider(model string, creator CreateProvider) {
-	_, old := providerRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two providers with same model %s", model))
-	}
-	providerRegistry[model] = creator
 }
 
 // RegisterBase register a base model to a creator.
@@ -133,12 +120,6 @@ func ArmLookup(model string) CreateArm {
 // there is no creator registered.
 func GripperLookup(model string) CreateGripper {
 	return gripperRegistry[model]
-}
-
-// ProviderLookup looks up a provider creator by the given model. nil is returned if
-// there is no creator registered.
-func ProviderLookup(model string) CreateProvider {
-	return providerRegistry[model]
 }
 
 // BaseLookup looks up a base creator by the given model. nil is returned if

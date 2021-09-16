@@ -6,6 +6,7 @@
           }
         },
         { "name" : "c2",
+          "depends_on" : ["c1"],
           "attributes" : {
               "matrics" : "$load{foo.json}"
           }

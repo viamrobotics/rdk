@@ -523,6 +523,22 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.ExecuteFunctionRequest"><span class="badge">M</span>ExecuteFunctionRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.ExecuteFunctionResponse"><span class="badge">M</span>ExecuteFunctionResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.ExecuteSourceRequest"><span class="badge">M</span>ExecuteSourceRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.ExecuteSourceResponse"><span class="badge">M</span>ExecuteSourceResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.GripperGrabRequest"><span class="badge">M</span>GripperGrabRequest</a>
                 </li>
               
@@ -656,6 +672,10 @@
               
                 <li>
                   <a href="#proto.api.v1.Status.CamerasEntry"><span class="badge">M</span>Status.CamerasEntry</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.Status.FunctionsEntry"><span class="badge">M</span>Status.FunctionsEntry</a>
                 </li>
               
                 <li>
@@ -3105,6 +3125,137 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.ExecuteFunctionRequest">ExecuteFunctionRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>TODO(erd): arguments </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.ExecuteFunctionResponse">ExecuteFunctionResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>results</td>
+                  <td><a href="#google.protobuf.Value">google.protobuf.Value</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>std_out</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>std_err</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.ExecuteSourceRequest">ExecuteSourceRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>source</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>engine</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.ExecuteSourceResponse">ExecuteSourceResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>results</td>
+                  <td><a href="#google.protobuf.Value">google.protobuf.Value</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>std_out</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>std_err</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.GripperGrabRequest">GripperGrabRequest</h3>
         <p></p>
 
@@ -3928,6 +4079,13 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                   <td><p> </p></td>
                 </tr>
               
+                <tr>
+                  <td>functions</td>
+                  <td><a href="#proto.api.v1.Status.FunctionsEntry">Status.FunctionsEntry</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
             </tbody>
           </table>
 
@@ -4029,6 +4187,37 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
         
       
         <h3 id="proto.api.v1.Status.CamerasEntry">Status.CamerasEntry</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>key</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.Status.FunctionsEntry">Status.FunctionsEntry</h3>
         <p></p>
 
         
@@ -4687,6 +4876,20 @@ is reliant on having an encoder.</p></td>
                 <td><p>CompassMark requests the relative compass of the underlying robot to mark its position.</p></td>
               </tr>
             
+              <tr>
+                <td>ExecuteFunction</td>
+                <td><a href="#proto.api.v1.ExecuteFunctionRequest">ExecuteFunctionRequest</a></td>
+                <td><a href="#proto.api.v1.ExecuteFunctionResponse">ExecuteFunctionResponse</a></td>
+                <td><p>TODO(erd): refactor to functions service</p></td>
+              </tr>
+            
+              <tr>
+                <td>ExecuteSource</td>
+                <td><a href="#proto.api.v1.ExecuteSourceRequest">ExecuteSourceRequest</a></td>
+                <td><a href="#proto.api.v1.ExecuteSourceResponse">ExecuteSourceResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
           </tbody>
         </table>
 
@@ -5221,6 +5424,26 @@ is reliant on having an encoder.</p></td>
                 <td>CompassMark</td>
                 <td>POST</td>
                 <td>/api/v1/sensors/compass/{name}/mark</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>ExecuteFunction</td>
+                <td>POST</td>
+                <td>/api/v1/functions/by_name/{name}/execute</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>ExecuteSource</td>
+                <td>POST</td>
+                <td>/api/v1/functions/execute_code</td>
                 <td></td>
               </tr>
               

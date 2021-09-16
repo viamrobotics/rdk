@@ -54,6 +54,9 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 	injectRobot.SensorNamesFunc = func() []string {
 		return []string{fmt.Sprintf("sensor1%s", suffix), fmt.Sprintf("sensor2%s", suffix)}
 	}
+	injectRobot.FunctionNamesFunc = func() []string {
+		return []string{fmt.Sprintf("func1%s", suffix), fmt.Sprintf("func2%s", suffix)}
+	}
 	injectRobot.LoggerFunc = func() golog.Logger {
 		return logger
 	}
@@ -187,6 +190,11 @@ func TestRemoteRobot(t *testing.T) {
 	robot.conf.Prefix = true
 	test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldResemble, utils.NewStringSet("one.sensor1", "one.sensor2"))
 
+	robot.conf.Prefix = false
+	test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2"))
+	robot.conf.Prefix = true
+	test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("one.func1", "one.func2"))
+
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
 		return nil, errors.New("whoops")
 	}
@@ -259,6 +267,10 @@ func TestRemoteRobot(t *testing.T) {
 			"sensor1": {},
 			"sensor2": {},
 		},
+		Functions: map[string]bool{
+			"func1": true,
+			"func2": true,
+		},
 	}
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return someStatus, nil
@@ -298,6 +310,10 @@ func TestRemoteRobot(t *testing.T) {
 		Sensors: map[string]*pb.SensorStatus{
 			"one.sensor1": {},
 			"one.sensor2": {},
+		},
+		Functions: map[string]bool{
+			"one.func1": true,
+			"one.func2": true,
 		},
 	})
 
