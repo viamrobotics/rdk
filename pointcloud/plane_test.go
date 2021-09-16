@@ -47,3 +47,16 @@ func TestNewPlane(t *testing.T) {
 	pt := Vec3{-1, -1, 1}
 	test.That(t, math.Abs(plane.Distance(pt)), test.ShouldAlmostEqual, math.Sqrt(3))
 }
+
+func TestPointPosition(t *testing.T) {
+	p0 := NewBasicPoint(0., 0., 0.)
+	p1 := NewBasicPoint(0., 2., 2.)
+	p2 := NewBasicPoint(2., 0., 2.)
+	p3 := NewBasicPoint(2., 2., 4.)
+	points := []Point{p0, p1, p2, p3}
+	positions := GetPositions(points)
+	test.That(t, Vec3(positions[0]), test.ShouldResemble, Vec3{0, 0, 0})
+	test.That(t, Vec3(positions[1]), test.ShouldResemble, Vec3{0, 2, 2})
+	test.That(t, Vec3(positions[2]), test.ShouldResemble, Vec3{2, 0, 2})
+	test.That(t, Vec3(positions[3]), test.ShouldResemble, Vec3{2, 2, 4})
+}
