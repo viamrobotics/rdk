@@ -1045,9 +1045,11 @@ func (s *Server) ExecuteSource(ctx context.Context, req *pb.ExecuteSourceRequest
 	result, err := executeFunctionWithRobotForRPC(
 		ctx,
 		functionvm.FunctionConfig{
-			Name:   "_",
-			Engine: functionvm.EngineName(req.Engine),
-			Source: req.Source,
+			Name: "_",
+			AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
+				Engine: functionvm.EngineName(req.Engine),
+				Source: req.Source,
+			},
 		},
 		s.r,
 	)
