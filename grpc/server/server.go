@@ -364,7 +364,11 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	defer release()
+	defer func() {
+		if release != nil {
+			release()
+		}
+	}()
 
 	// choose the best/fastest representation
 	if req.MimeType == grpc.MimeTypeViamBest {
