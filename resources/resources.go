@@ -7,28 +7,36 @@ import (
 	"github.com/go-errors/errors"
 
 	"github.com/google/uuid"
-	pb "go.viam.com/core/proto/api/service/v1"
 )
 
 // Define a few known constants
 const (
 	ResourceNamespaceCore   = "core"
+	ResourceTypeComponent   = "component"
 	ResourceTypeService     = "service"
 	ResourceSubtypeMetadata = "metadata"
 )
 
-// validateResourceName ensures that important fields exist and are valid
-func validateResourceName(resource *pb.ResourceName) error {
-	if _, err := uuid.Parse(resource.Uuid); err != nil {
+type Resource struct {
+	Uuid      string
+	Namespace string
+	Type      string
+	Subtype   string
+	Name      string
+}
+
+// Validate ensures that important fields exist and are valid
+func (r Resource) Validate() error {
+	if _, err := uuid.Parse(r.Uuid); err != nil {
 		return errors.New("uuid field for resource missing or invalid.")
 	}
-	if resource.Namespace == "" {
+	if r.Namespace == "" {
 		return errors.New("namespace field for resource missing or invalid.")
 	}
-	if resource.Type == "" {
+	if r.Type == "" {
 		return errors.New("type field for resource missing or invalid.")
 	}
-	if resource.Subtype == "" {
+	if r.Subtype == "" {
 		return errors.New("subtype field for resource missing or invalid.")
 	}
 	return nil
@@ -36,12 +44,12 @@ func validateResourceName(resource *pb.ResourceName) error {
 
 type Resources struct {
 	mu        sync.Mutex
-	resources []pb.ResourceName
+	resources []Resource
 }
 
 // New creates a new Resources struct and initializes the resource list with a metadata service.
 func New() Resources {
-	resources := []pb.ResourceName{
+	resources := []Resource{
 		{
 			Uuid:      uuid.NewString(),
 			Namespace: ResourceNamespaceCore,
@@ -55,13 +63,13 @@ func New() Resources {
 }
 
 // Resources returns the list of resources.
-func (r *Resources) Resources() []pb.ResourceName {
+func (r *Resources) GetResources() []Resource {
 	return r.resources
 }
 
 // AddResource adds an additional resource to the list. Cannot add another metadata service
-func (r *Resources) AddResource(resource *pb.ResourceName) error {
-	if err := validateResourceName(resource); err != nil {
+func (r *Resources) AddResource(resource Resource) error {
+	if err := resource.Validate(); err != nil {
 		return errors.Errorf("Unable to add resource: %s", err.Error())
 	}
 	if resource.Subtype == ResourceSubtypeMetadata {
@@ -81,22 +89,13 @@ func (r *Resources) AddResource(resource *pb.ResourceName) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.resources = append(
-		r.resources,
-		pb.ResourceName{
-			Uuid:      resource.Uuid,
-			Namespace: resource.Namespace,
-			Type:      resource.Type,
-			Subtype:   resource.Subtype,
-			Name:      resource.Name,
-		},
-	)
+	r.resources = append(r.resources, resource)
 	return nil
 }
 
 // RemoveResource removes resource from the list.
-func (r *Resources) RemoveResource(resource *pb.ResourceName) error {
-	if err := validateResourceName(resource); err != nil {
+func (r *Resources) RemoveResource(resource Resource) error {
+	if err := resource.Validate(); err != nil {
 		return errors.Errorf("Invalid resource to search for: %s", err.Error())
 	}
 	if resource.Subtype == ResourceSubtypeMetadata {
@@ -132,7 +131,7 @@ func (r *Resources) ClearResources() error {
 	defer r.mu.Unlock()
 
 	if idx != -1 {
-		r.resources = []pb.ResourceName{
+		r.resources = []Resource{
 			{
 				Uuid:      uuid.NewString(),
 				Namespace: ResourceNamespaceCore,
@@ -142,9 +141,7 @@ func (r *Resources) ClearResources() error {
 			},
 		}
 	} else {
-		var newList []pb.ResourceName
-		copy(newList, r.resources[idx:idx+1])
-		r.resources = newList
+		r.resources = r.resources[idx : idx+1]
 	}
 	return nil
 }
