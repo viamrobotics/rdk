@@ -108,7 +108,6 @@ func ConvolveGrayFloat64(m *mat.Dense, filter *Kernel) (*mat.Dense, error) {
 				sum += pixel * kE
 			}
 		}
-		//sum = utils.ClampF64(sum, utils.MinUint8, float64(utils.MaxUint8))
 		result.Set(y, x, sum)
 	})
 	return result, nil

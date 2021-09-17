@@ -7,6 +7,7 @@
 package rimage
 
 import (
+	"gonum.org/v1/gonum/mat"
 	"image"
 	"image/color"
 

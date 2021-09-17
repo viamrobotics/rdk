@@ -14,11 +14,7 @@ import (
 )
 
 // This package implements the algorithm to detect individual contours in a contour map and creates their hierarchy.
-// From: Satoshi Suzuki and others. Topological structural analysis of digitized binary images by Border following.
 //       Computer Vision, Graphics, and Image Processing, 30(1):32–46, 1985.
-// It also implements the Douglas Peucker algorithm (https://en.wikipedia.org/wiki/Ramer–Douglas–Peucker_algorithm)
-// to approximate contours with a polygon
-
 // NPixelNeighbors stores the number of neighbors for each pixel (should be 4 or 8)
 var NPixelNeighbors = 8
 
@@ -311,284 +307,324 @@ type Line struct {
 	End   r2.Point
 }
 
-// Contour is a structure that stores and represent a contour with the points in it, its ID, ParentID and a flag
-// that stores if the contour is a hole contour or not
-type Contour struct {
-	Points   []Point
-	Id       int
-	ParentId int
-	IsHole   bool
-}
+// enumeration for Border types
+const (
+	Hole = iota + 1
+	Outer
+)
 
-// NewContour create a pointer to an empty contour with ID 0
-func NewContour() *Contour {
-	return &Contour{
-		Points:   nil,
-		Id:       0,
-		ParentId: 0,
-		IsHole:   false,
+// CreateHoleBorder creates a Hole Border
+func CreateHoleBorder() Border {
+	return Border{
+		segNum:     0,
+		borderType: Hole,
 	}
 }
 
-// NewContourWithID creates a new contour with a given ID
-func NewContourWithID(idx int) *Contour {
-	return &Contour{
-		Points:   nil,
-		Id:       idx,
-		ParentId: 0,
-		IsHole:   false,
+// CreateOuterBorder creates an Outer Border
+func CreateOuterBorder() Border {
+	return Border{
+		segNum:     0,
+		borderType: Outer,
 	}
 }
 
-// neighborIDToIndex maps a neigh ID to the image coordinates
-func neighborIDToIndex(i, j, id int) (int, int) {
-	iNb := 0
-	jNb := 0
-	if id == 0 {
-		iNb, jNb = i, j+1
-	}
-	if id == 1 {
-		iNb, jNb = i-1, j+1
-	}
-	if id == 2 {
-		iNb, jNb = i-1, j
-	}
-	if id == 3 {
-		iNb, jNb = i-1, j-1
-	}
-	if id == 4 {
-		iNb, jNb = i, j-1
-	}
-	if id == 5 {
-		iNb, jNb = i+1, j-1
-	}
-	if id == 6 {
-		iNb, jNb = i+1, j
-	}
-	if id == 7 {
-		iNb, jNb = i+1, j+1
-	}
-
-	return iNb, jNb
+// PointMat stores a point in matrix coordinates convention
+type PointMat struct {
+	Row, Col int
 }
 
-// neighborIndexToID return a neighbor ID from its image coordinates
-func neighborIndexToID(i0, j0, i, j int) int {
-	di := i - i0
-	dj := j - j0
-	if di == 0 && dj == 1 {
-		return 0
-	}
-	if di == -1 && dj == 1 {
-		return 1
-	}
-	if di == -1 && dj == 0 {
-		return 2
-	}
-	if di == -1 && dj == -1 {
-		return 3
-	}
-	if di == 0 && dj == -1 {
-		return 4
-	}
-	if di == 1 && dj == -1 {
-		return 5
-	}
-	if di == 1 && dj == 0 {
-		return 6
-	}
-	if di == 1 && dj == 1 {
-		return 7
-	}
-	return -1
+// Set sets a current point to new coordinates (r,c)
+func (p *PointMat) Set(r, c int) {
+	p.Col = c
+	p.Row = r
 }
 
-// firstClockwiseNonZeroNeighbor returns the first clockwise non-zero element in 8-neighborhood
-func firstClockwiseNonZeroNeighbor(F mat.Dense, i0, j0, i, j, offset int) (int, int) {
-	idNb := neighborIndexToID(i0, j0, i, j)
-	for k := 1; k < NPixelNeighbors; k++ {
-		kk := (idNb - k - offset + NPixelNeighbors*2) % NPixelNeighbors
-		i_, j_ := neighborIDToIndex(i0, j0, kk)
-		if F.At(i_, j_) != 0 {
-			return i_, j_
+// SamePoint returns true if a point q is equal to the point p
+func (p *PointMat) SamePoint(q *PointMat) bool {
+	return p.Row == q.Row && p.Col == q.Col
+}
+
+// ToImagePoint convert a local struct PointMap to an image.Point
+func ToImagePoint(q PointMat) image.Point {
+	return image.Point{q.Col, q.Row}
+}
+
+// Node is a structure storing data from each contour to form a tree
+type Node struct {
+	parent      int
+	firstChild  int
+	nextSibling int
+	border      Border
+}
+
+// reset resets a Node to default values
+func (n *Node) reset() {
+	n.parent = -1
+	n.firstChild = -1
+	n.nextSibling = -1
+}
+
+// stepCCW4 set p to the next counter-clockwise neighbor of pivot from p in connectivity 4
+func (p *PointMat) stepCCW4(pivot *PointMat) {
+	if p.Col > pivot.Col {
+		p.Row = pivot.Row - 1
+		p.Col = pivot.Col
+	} else if p.Col < pivot.Col {
+		p.Row = pivot.Row + 1
+		p.Col = pivot.Col
+	} else if p.Row > pivot.Row {
+		p.Row = pivot.Row
+		p.Col = pivot.Col + 1
+	} else if p.Row < pivot.Row {
+		p.Row = pivot.Row
+		p.Col = pivot.Col - 1
+	}
+}
+
+// stepCW4 goes to the next clockwise neighbor of pivot from p in connectivity 4
+func (p *PointMat) stepCW4(pivot *PointMat) {
+	if p.Col > pivot.Col {
+		p.Row = pivot.Row + 1
+		p.Col = pivot.Col
+	} else if p.Col < pivot.Col {
+		p.Row = pivot.Row - 1
+		p.Col = pivot.Col
+	} else if p.Row > pivot.Row {
+		p.Row = pivot.Row
+		p.Col = pivot.Col - 1
+	} else if p.Row < pivot.Row {
+		p.Row = pivot.Row
+		p.Col = pivot.Col + 1
+	}
+}
+
+//stepCCW8 performs a step around a pixel CCW in the 8-connect neighborhood.
+func (p *PointMat) stepCCW8(pivot *PointMat) {
+	if p.Row == pivot.Row && p.Col > pivot.Col {
+		p.Row = pivot.Row - 1
+		p.Col = pivot.Col + 1
+	} else if p.Col > pivot.Col && p.Row < pivot.Row {
+		p.Row = pivot.Row - 1
+		p.Col = pivot.Col
+	} else if p.Row < pivot.Row && p.Col == pivot.Col {
+		p.Row = pivot.Row - 1
+		p.Col = pivot.Col - 1
+	} else if p.Row < pivot.Row && p.Col < pivot.Col {
+		p.Row = pivot.Row
+		p.Col = pivot.Col - 1
+	} else if p.Row == pivot.Row && p.Col < pivot.Col {
+		p.Row = pivot.Row + 1
+		p.Col = pivot.Col - 1
+	} else if p.Row > pivot.Row && p.Col < pivot.Col {
+		p.Row = pivot.Row + 1
+		p.Col = pivot.Col
+	} else if p.Row > pivot.Row && p.Col == pivot.Col {
+		p.Row = pivot.Row + 1
+		p.Col = pivot.Col + 1
+	} else if p.Row > pivot.Row && p.Col > pivot.Col {
+		p.Row = pivot.Row
+		p.Col = pivot.Col + 1
+	}
+}
+
+//stepCW8 performs a step around a pixel CCW in the 8-connect neighborhood.
+func (p *PointMat) stepCW8(pivot *PointMat) {
+	if p.Row == pivot.Row && p.Col > pivot.Col {
+		p.Row = pivot.Row + 1
+		p.Col = pivot.Col + 1
+	} else if p.Col > pivot.Col && p.Row < pivot.Row {
+		p.Row = pivot.Row
+		p.Col = pivot.Col + 1
+	} else if p.Row < pivot.Row && p.Col == pivot.Col {
+		p.Row = pivot.Row - 1
+		p.Col = pivot.Col + 1
+	} else if p.Row < pivot.Row && p.Col < pivot.Col {
+		p.Row = pivot.Row - 1
+		p.Col = pivot.Col
+	} else if p.Row == pivot.Row && p.Col < pivot.Col {
+		p.Row = pivot.Row - 1
+		p.Col = pivot.Col - 1
+	} else if p.Row > pivot.Row && p.Col < pivot.Col {
+		p.Row = pivot.Row
+		p.Col = pivot.Col - 1
+	} else if p.Row > pivot.Row && p.Col == pivot.Col {
+		p.Row = pivot.Row + 1
+		p.Col = pivot.Col - 1
+	} else if p.Row > pivot.Row && p.Col > pivot.Col {
+		p.Row = pivot.Row + 1
+		p.Col = pivot.Col
+	}
+}
+
+// isPointOutOfBounds checks if a given pixel is out of bounds of the image
+func isPointOutOfBounds(p *PointMat, h, w int) bool {
+	return p.Col >= w || p.Row >= h || p.Col < 0 || p.Row < 0
+}
+
+//marks a pixel as examined after passing through
+func markExamined(mark, center PointMat, checked []bool) {
+	loc := -1
+	//    3
+	//  2 x 0
+	//    1
+	if mark.Col > center.Col {
+		loc = 0
+	} else if mark.Col < center.Col {
+		loc = 2
+	} else if mark.Row > center.Row {
+		loc = 1
+	} else if mark.Row < center.Row {
+		loc = 3
+	}
+	if loc != -1 {
+		checked[loc] = true
+	}
+	return
+}
+
+// isExamined checks if given pixel has already been examined
+func isExamined(checked []bool) bool {
+	return checked[0]
+}
+
+// followBorder is a helper function for the contour finding algorithm
+func followBorder(img *mat.Dense, row, col int, p2 PointMat, nbp Border) []image.Point {
+	nRows, nCols := img.Dims()
+	current := PointMat{
+		Row: p2.Row,
+		Col: p2.Col,
+	}
+	start := PointMat{
+		Row: row,
+		Col: col,
+	}
+	pointSlice := make([]image.Point, 0)
+	for ok := true; ok; ok = isPointOutOfBounds(&current, nRows, nCols) || img.At(current.Row, current.Col) == 0. {
+		current.stepCW8(&start)
+		if current.SamePoint(&p2) {
+			img.Set(start.Row, start.Col, float64(-nbp.segNum))
+			pointSlice = append(pointSlice, image.Point{
+				X: start.Col,
+				Y: start.Row,
+			})
+
+			return pointSlice
 		}
 	}
-	return 0, 0
-}
-
-// firstCounterClockwiseNonZeroNeighbor returns the first counter-clockwise non-zero element in 8-neighborhood
-func firstCounterClockwiseNonZeroNeighbor(F mat.Dense, i0, j0, i, j, offset int) (int, int) {
-	idNb := neighborIndexToID(i0, j0, i, j)
-	for k := 1; k < NPixelNeighbors; k++ {
-		kk := (idNb + k + offset + NPixelNeighbors*2) % NPixelNeighbors
-		i_, j_ := neighborIDToIndex(i0, j0, kk)
-		if F.At(i_, j_) != 0 {
-			return i_, j_
+	p1 := current
+	p3 := start
+	p4 := PointMat{
+		Row: 0,
+		Col: 0,
+	}
+	p2 = p1
+	checked := make([]bool, NPixelNeighbors, NPixelNeighbors)
+	for {
+		current = p2
+		for ok := true; ok; ok = isPointOutOfBounds(&current, nRows, nCols) || img.At(current.Row, current.Col) == 0. {
+			markExamined(current, p3, checked)
+			current.stepCCW8(&p3)
 		}
+		p4 = current
+		if (p3.Col+1 >= nCols || img.At(p3.Row, p3.Col+1) == 0) && isExamined(checked) {
+			img.Set(p3.Row, p3.Col, float64(-nbp.segNum))
+		} else if p3.Col+1 < nCols && img.At(p3.Row, p3.Col) == 1 {
+			img.Set(p3.Row, p3.Col, float64(nbp.segNum))
+		}
+		pointSlice = append(pointSlice, ToImagePoint(p3))
+		if p4.SamePoint(&start) && p3.SamePoint(&p1) {
+			return pointSlice
+		}
+		p2 = p3
+		p3 = p4
 	}
-	return 0, 0
 }
 
-//FindContourHierarchy finds contours in a binary image
-// Implements Suzuki, S. and Abe, K.
-// "Topological Structural Analysis of Digitized Binary Images by Border Following."
-// See source code for step-by-step correspondence to the paper's algorithm
-// description.
-// @param  edges    The bitmap, stored in 1-dimensional row-major form.
-//                  0=background, 1=foreground, will be modified by the function
-//                  to hold semantic information
-// @return          An array of contours found in the image.
-func FindContourHierarchy(edges *mat.Dense) []*Contour {
-	h, w := edges.Dims()
-	nbd := 1
-	lnbd := 1
-	contours := make([]*Contour, 0)
-	// edge cases; fill first and last row and col with 0, without loss of generality
-	for i := 1; i < h-1; i++ {
-		edges.Set(i, 0, 0)
-		edges.Set(i, w-1, 0)
+// FindContours implements the contour hierarchy finding from Suzuki et al.
+func FindContours(img *mat.Dense) ([][]image.Point, []Node) {
+	hierarchy := make([]Node, 0)
+	nRows, nCols := img.Dims()
+	nbd := CreateHoleBorder()
+	nbd.segNum = 1
+	lnbd := CreateHoleBorder()
+	contours := make([][]image.Point, 0)
+	for i := range contours {
+		contours[i] = make([]image.Point, 0)
 	}
-	for j := 1; j < h-1; j++ {
-		edges.Set(0, j, 0)
-		edges.Set(h-1, j, 0)
+	tmpNode := Node{
+		parent:      -1,
+		firstChild:  -1,
+		nextSibling: -1,
+		border:      nbd,
 	}
-	//Scan the picture with a TV raster and perform the following steps
-	//for each pixel such that fij # 0. Every time we begin to scan a
-	//new row of the picture, reset LNBD to 1.
-	for i := 1; i < h-1; i++ {
-		lnbd = 1
-		for j := 1; j < h-1; j++ {
-			i2, j2 := 0, 0
-			if edges.At(i, j) == 0 {
-				continue
-			}
-			//(a) If fij = 1 and fi, j-1 = 0, then decide that the pixel
-			//(i, j) is the border following starting point of an outer
-			//border, increment NBD, and (i2, j2) <- (i, j - 1).
-			if edges.At(i, j) == 1 && edges.At(i, j-1) == 0 {
-				nbd += 1
-				i2 = i
-				j2 = j - 1
-			} else if edges.At(i, j) >= 1 && edges.At(i, j+1) == 0 {
-				//(b) Else if fij >= 1 and fi,j+1 = 0, then decide that the
-				//pixel (i, j) is the border following starting point of a
-				//hole border, increment NBD, (i2, j2) <- (i, j + 1), and
-				//LNBD + fij in case fij > 1.
-				nbd += 1
-				i2 = i
-				j2 = j + 1
-				if edges.At(i, j) > 1 {
-					lnbd = int(edges.At(i, j))
+	hierarchy = append(hierarchy, tmpNode)
+	p2 := PointMat{
+		Row: 0,
+		Col: 0,
+	}
+	borderStartFound := false
+	for r := 0; r < nRows; r++ {
+		lnbd.segNum = 1
+		lnbd.borderType = Hole
+		for c := 0; c < nCols; c++ {
+			borderStartFound = false
+			if (img.At(r, c) == 1 && c-1 < 0) || (img.At(r, c) == 1 && img.At(r, c-1) == 0) {
+				nbd.borderType = Outer
+				nbd.segNum += 1
+				p2.Set(r, c-1)
+				borderStartFound = true
+			} else if c+1 < nCols && (img.At(r, c) >= 1 && img.At(r, c+1) == 0) {
+				nbd.borderType = Hole
+				nbd.segNum += 1
+				if img.At(r, c) > 1 {
+					lnbd.segNum = int(img.At(r, c))
+					lnbd.borderType = hierarchy[lnbd.segNum-1].border.borderType
 				}
-			} else {
-				//(c) Otherwise, go to (4).
-				//(4) If fij != 1, then LNBD <- |fij| and resume the raster
-				//scan from pixel (i,j+1). The algorithm terminates when the
-				//scan reaches the lower right corner of the picture
-				if edges.At(i, j) != 1 {
-					lnbd = int(math.Abs(edges.At(i, j)))
-				}
-				continue
+				p2.Set(r, c+1)
+				borderStartFound = true
 			}
-			//(2) Depending on the types of the newly found border and the border with the sequential number LNBD
-			//  (i.e., the last border met on the current row)
-			// decide the parent of the current border as shown in Table 1.
-			// TABLE 1
-			// Decision Rule for the Parent Border of the Newly Found Border B
-			// ----------------------------------------------------------------
-			// Type of border B with the sequential number LNBD
-			// Type of B \                Outer border         Hole border
-			// ---------------------------------------------------------------
-			// Outer border               The parent border    The border B'
-			//                            of the border B'
-			// Hole border                The border B'      The parent border
-			//                                               of the border B'
-			// ----------------------------------------------------------------
-			B := NewContour()
-			B.Points = make([]Point, 0)
-			B.Points = append(B.Points, Point{float64(j), float64(i)})
-			B.IsHole = j2 == j+1
-			B.Id = nbd
-			contours = append(contours, B)
-
-			B0 := NewContour()
-			for _, contour := range contours {
-				if contour.Id == lnbd {
-					B0 = contour
-					break
-				}
-			}
-			if B0.IsHole {
-				if B.IsHole {
-					B.ParentId = B0.ParentId
+			if borderStartFound {
+				tmpNode.reset()
+				if nbd.borderType == lnbd.borderType {
+					tmpNode.parent = hierarchy[lnbd.segNum-1].parent
+					tmpNode.nextSibling = hierarchy[tmpNode.parent-1].firstChild
+					hierarchy[tmpNode.parent-1].firstChild = nbd.segNum
+					tmpNode.border = nbd
+					hierarchy = append(hierarchy, tmpNode)
 				} else {
-					B.ParentId = lnbd
-				}
-			} else {
-				if B.IsHole {
-					B.ParentId = lnbd
-				} else {
-					B.ParentId = B0.ParentId
-				}
-			}
-			//(3) From the starting point (i, j), follow the detected border:
-			//this is done by the following sub-steps (3.1) through (3.5).
-
-			//(3.1) Starting from (i2, j2), look around clockwise the pixels
-			//in the neighborhood of (i, j) and find a nonzero pixel.
-			//Let (i1, j1) be the first found nonzero pixel. If no nonzero
-			//pixel is found, assign -NBD to fij and go to (4).
-			i1, j1 := -1, -1
-			i1, j1 = firstClockwiseNonZeroNeighbor(*edges, i, j, i2, j2, 0)
-
-			if i1 == 0 && j1 == 0 {
-				edges.Set(i, j, float64(-nbd))
-				//go to (4)
-				if edges.At(i, j) != 1 {
-					lnbd = int(math.Abs(edges.At(i, j)))
-
-				}
-				continue
-			}
-			// (3.2) (i2, j2) <- (i1, j1) ad (i3,j3) <- (i, j).
-			i2, j2 = i1, j1
-			i3, j3 := i, j
-
-			for true {
-				//(3.3) Starting from the next element of the pixel (i2, j2) in the counter-clockwise order,
-				// examine the pixels in the neighborhood of the current pixel (i3, j3)
-				//to find a nonzero pixel and let the first one be (i4, j4).
-				i4, j4 := firstCounterClockwiseNonZeroNeighbor(*edges, i3, j3, i2, j2, 1)
-				contours[len(contours)-1].Points = append(contours[len(contours)-1].Points, Point{float64(j4), float64(i4)})
-
-				//(a) If the pixel (i3, j3 + 1) is a O-pixel examined in the
-				//substep (3.3) then fi3, j3 <-  -NBD.
-				if edges.At(i3, j3+1) == 0 {
-					edges.Set(i3, j3, float64(-nbd))
-
-					//(b) If the pixel (i3, j3 + 1) is not a O-pixel examined
-					//in the sub-step (3.3) and fi3,j3 = 1, then fi3,j3 <- NBD.
-				} else if edges.At(i3, j3) == 1 {
-					edges.Set(i3, j3, float64(nbd))
-				} else {
-					//(c) Otherwise, do not change fi3, j3.
-				}
-
-				//(3.5) If (i4,j4) = (i,j) and (i3,j3) = (i1,j1) (coming back to the starting point), then go to (4)
-				if i4 == i && j4 == j && i3 == i1 && j3 == j1 {
-					if edges.At(i, j) != 1 {
-						lnbd = int(math.Abs(edges.At(i, j)))
+					if hierarchy[lnbd.segNum-1].firstChild != -1 {
+						tmpNode.nextSibling = hierarchy[lnbd.segNum-1].firstChild
 					}
-					break
-				} else {
-					//otherwise, (i2, j2) + (i3, j3),(i3, j3) + (i4, j4), and go back to (3.3)
-					i2, j2 = i3, j3
-					i3, j3 = i4, j4
+					tmpNode.parent = lnbd.segNum
+					hierarchy[lnbd.segNum-1].firstChild = nbd.segNum
+					tmpNode.border = nbd
+					hierarchy = append(hierarchy, tmpNode)
 				}
+				contour := followBorder(img, r, c, p2, nbd)
+				contour = SortPointCounterClockwise(contour)
+				contours = append(contours, contour)
+			}
+			if math.Abs(img.At(r, c)) > 1 {
+				lnbd.segNum = int(math.Abs(img.At(r, c)))
+				//fmt.Println(len(hierarchy))
+				//fmt.Println(lnbd.segNum)
+				idx := lnbd.segNum - 1
+				if idx < 0 {
+					idx = 0
+				}
+				lnbd.borderType = hierarchy[idx].border.borderType
 			}
 		}
 	}
-	return contours
+
+	return contours, hierarchy
+}
+
+// Line represents a line segment.
+type Line struct {
+	Start r2.Point
+	End   r2.Point
 }
 
 // DistanceToPoint returns the perpendicular distance of a point to the line.
