@@ -62,7 +62,6 @@ func main() {
 	//edgesGray, _ := cannyDetector.DetectEdges(img, 0.5)
 
 	// open edges image
-	f, err := os.Open("rimage/cmd/chessboard/edges.png")
 	if err != nil {
 		logger.Error(err)
 	}
@@ -105,4 +104,9 @@ func main() {
 		logger.Error(err)
 	}
 	fmt.Println(grid.M)
-}
+	fmt.Println(len(saddlePoints))
+	fmt.Println(saddleMap.Dims())
+	fmt.Println(mat.Max(saddleMap))
+	// contours
+	cannyDetector := rimage.NewCannyDericheEdgeDetectorWithParameters(cfg.Contours.CannyHigh, cfg.Contours.CannyLow,true)
+	edgesGray, _ := cannyDetector.DetectEdges(img, 0.5)

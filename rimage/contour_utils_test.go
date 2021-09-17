@@ -18,11 +18,68 @@ func TestBorderType(t *testing.T) {
 func TestCreateHoleBorder(t *testing.T) {
 	border := CreateHoleBorder()
 	test.That(t, border.borderType, test.ShouldEqual, Hole)
+	test.That(t, border.borderType, test.ShouldEqual, Outer)
+	assert.Equal(t, border.borderType, Outer)
 }
 
-func TestCreateOuterBorder(t *testing.T) {
-	border := CreateOuterBorder()
-	test.That(t, border.borderType, test.ShouldEqual, Outer)
+func TestPointMat(t *testing.T) {
+	p := PointMat{
+		Row: 0,
+		Col: 0,
+	}
+	assert.Equal(t, p.Row, 0)
+	assert.Equal(t, p.Col, 0)
+	p.Set(1, 2)
+	assert.Equal(t, p.Row, 1)
+	assert.Equal(t, p.Col, 2)
+	q := PointMat{
+		Row: 1,
+		Col: 2,
+	}
+	assert.True(t, p.SamePoint(&q))
+	out := isPointOutOfBounds(&p, 2, 2)
+	assert.True(t, out)
+	out2 := isPointOutOfBounds(&p, 3, 3)
+	assert.False(t, out2)
+}
+
+func TestNode(t *testing.T) {
+	node := Node{
+		parent:      0,
+		firstChild:  0,
+		nextSibling: 0,
+		border:      Border{},
+	}
+	assert.Equal(t, node.parent, 0)
+	assert.Equal(t, node.firstChild, 0)
+	assert.Equal(t, node.nextSibling, 0)
+	assert.Equal(t, node.border.borderType, 0)
+	node.reset()
+	assert.Equal(t, node.parent, -1)
+	assert.Equal(t, node.firstChild, -1)
+	assert.Equal(t, node.nextSibling, -1)
+}
+
+func TestMarkAsExamined(t *testing.T) {
+	center := PointMat{1, 1}
+	mark0 := PointMat{1, 2}
+	mark1 := PointMat{2, 1}
+	mark2 := PointMat{1, 0}
+	mark3 := PointMat{0, 1}
+	checked := make([]bool, 4)
+	assert.False(t, checked[0])
+	markExamined(mark0, center, checked)
+	assert.True(t, checked[0])
+	assert.True(t, isExamined(checked))
+	assert.False(t, checked[1])
+	markExamined(mark1, center, checked)
+	assert.True(t, checked[1])
+	assert.False(t, checked[2])
+	markExamined(mark2, center, checked)
+	assert.True(t, checked[2])
+	assert.False(t, checked[3])
+	markExamined(mark3, center, checked)
+	assert.True(t, checked[3])
 }
 
 func TestFindContours(t *testing.T) {
