@@ -1,0 +1,17 @@
+{
+  "saddle": {
+    "gray": 128.0,
+    "score-min": 10000.0,
+    "score-max": 10000.0,
+    "win-size": 10
+  },
+  "contours": {
+    "canny-low" : 0.078,
+    "canny-high": 0.98
+  },
+  "greedy": {
+    "scale-ratio": 15.0,
+    "min_points_needed": 11,
+    "max_points_needed": 20
+  }
+}

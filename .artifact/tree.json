@@ -3390,6 +3390,10 @@
     }
   },
   "rimage": {
+    "binary_image.jpg": {
+      "hash": "45ca9ed407019c8ef93872c24dff9766",
+      "size": 15292
+    },
     "board1.dat.gz": {
       "hash": "7c1dff933898f30d86407c5bd0c5edb5",
       "size": 165941

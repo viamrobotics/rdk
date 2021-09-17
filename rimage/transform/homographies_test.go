@@ -1,15 +1,15 @@
 package transform
-import (
 
+import (
 	"fmt"
 	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.viam.com/core/utils"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/spatial/r2"
-	"go.viam.com/core/utils"
 )
 
 // CreateRotationMatrix creates a 2x2 rotation matrix with given angle in radians
@@ -87,44 +87,44 @@ func TestEstimateLeastSquaresHomography(t *testing.T) {
 }
 
 func TestGeometricDistance(t *testing.T) {
-	pt1 := r2.Vec{0,0}
-	pt2:=r2.Vec{1,0}
+	pt1 := r2.Vec{0, 0}
+	pt2 := r2.Vec{1, 0}
 	// h = Id, distance should be 1
-	h1 := mat.NewDense(3,3,nil)
-	h1.Set(0,0,1)
-	h1.Set(1,1,1)
-	h1.Set(2,2,1)
+	h1 := mat.NewDense(3, 3, nil)
+	h1.Set(0, 0, 1)
+	h1.Set(1, 1, 1)
+	h1.Set(2, 2, 1)
 	d1 := geometricDistance(pt1, pt2, h1)
 	assert.Equal(t, d1, 1.0)
 	// rotation -pi/2
-	h2 := mat.NewDense(3,3,nil)
-	h2.Set(0,1,1)
-	h2.Set(1,0,-1)
-	h2.Set(2,2,1)
+	h2 := mat.NewDense(3, 3, nil)
+	h2.Set(0, 1, 1)
+	h2.Set(1, 0, -1)
+	h2.Set(2, 2, 1)
 	d2 := geometricDistance(pt1, pt2, h2)
 	assert.Equal(t, d2, 1.0)
 	// rotation -pi/2
-	h3 := mat.NewDense(3,3,nil)
-	h3.Set(0,1,1)
-	h3.Set(1,0,-1)
-	h3.Set(2,2,1)
-	pt3:=r2.Vec{1,0}
+	h3 := mat.NewDense(3, 3, nil)
+	h3.Set(0, 1, 1)
+	h3.Set(1, 0, -1)
+	h3.Set(2, 2, 1)
+	pt3 := r2.Vec{1, 0}
 	d3 := geometricDistance(pt3, pt2, h3)
 	assert.Equal(t, d3, 1.4142135623730951)
 	//fmt.Println(d3)
 }
 
-func TestEstimateHomographyRANSAC(t *testing.T){
+func TestEstimateHomographyRANSAC(t *testing.T) {
 	dim := 2
 	grid := make([]float64, 8)
 	floats.Span(grid, 0, 7)
 	pts1 := utils.Single(dim, grid)
 
 	r, c := pts1.Dims()
-	fmt.Println(r,c)
+	fmt.Println(r, c)
 	fmt.Println(pts1)
 	//pts2 := mat.NewDense(r,c, nil)
-	//for i := 0; i<r;i++{
+	//for i := 0; i<r;i++{..
 	//
 	//		pts2.Set(i, 0, pts1.At(i,0)+2)
 	//		pts2.Set(i, 1, pts1.At(i,0)+3)

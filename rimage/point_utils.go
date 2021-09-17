@@ -8,6 +8,8 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/utils"
+
+	"gonum.org/v1/gonum/floats"
 )
 
 // NoPoints TODO.
@@ -86,6 +88,7 @@ func ArrayToPoints(pts []image.Point) []image.Point {
 	}
 
 	panic(errors.Errorf("invalid number of points passed to ArrayToPoints %d", len(pts)))
+	return nil
 }
 
 // PointAngle TODO.
@@ -149,4 +152,83 @@ func R2RectToImageRect(rec r2.Rect) image.Rectangle {
 // TranslateR2Rect TODO.
 func TranslateR2Rect(rect r2.Rect, pt r2.Point) r2.Rect {
 	return r2.RectFromCenterSize(rect.Center().Add(pt), rect.Size())
+}
+
+// SlicePointsToXsYs converts a slice of image.Point to 2 slices of floats containing x and y coordinates
+func SlicePointsToXsYs(pts []image.Point) ([]float64, []float64) {
+	xs := make([]float64, len(pts))
+	ys := make([]float64, len(pts))
+	for i, pt := range pts {
+		xs[i] = float64(pt.X)
+		ys[i] = float64(pt.Y)
+	}
+	return xs, ys
+}
+
+// SortPointCounterClockwise sorts a slice of image.Point in counterclockwise order, starting from point closest to -pi
+func SortPointCounterClockwise(pts []image.Point) []image.Point {
+	// create new slice of points
+	out := make([]image.Point, len(pts))
+	xs, ys := SlicePointsToXsYs(pts)
+	xMin := floats.Min(xs)
+	xMax := floats.Max(xs)
+	yMin := floats.Min(ys)
+	yMax := floats.Max(ys)
+	centerX := xMin + (xMax-xMin)/2
+	centerY := yMin + (yMax-yMin)/2
+	floats.AddConst(-centerX, xs)
+	floats.AddConst(-centerY, ys)
+	angles := make([]float64, len(pts))
+	for i, _ := range xs {
+		angles[i] = math.Atan2(ys[i], xs[i])
+	}
+	inds := make([]int, len(pts))
+	floats.Argsort(angles, inds)
+
+	for i := 0; i < len(pts); i++ {
+		idx := inds[i]
+		x := int(math.Round(xs[idx] + centerX))
+		y := int(math.Round(ys[idx] + centerY))
+		out[i] = image.Point{x, y}
+	}
+	return out
+}
+
+// SliceVecsToXsYs converts a slice of r2.Vec to 2 slices floats containing x and y coordinates
+func SliceVecsToXsYs(pts []r2.Point) ([]float64, []float64) {
+	xs := make([]float64, len(pts))
+	ys := make([]float64, len(pts))
+	for i, pt := range pts {
+		xs[i] = pt.X
+		ys[i] = pt.Y
+	}
+	return xs, ys
+}
+
+// SortVectorsCounterClockwise sorts a slice of vectors counterclockwise
+func SortVectorsCounterClockwise(pts []r2.Point) []r2.Point {
+	xs, ys := SliceVecsToXsYs(pts)
+	xMin := floats.Min(xs)
+	xMax := floats.Max(xs)
+	yMin := floats.Min(ys)
+	yMax := floats.Max(ys)
+	centerX := xMin + (xMax-xMin)/2
+	centerY := yMin + (yMax-yMin)/2
+	floats.AddConst(-centerX, xs)
+	floats.AddConst(-centerY, ys)
+	angles := make([]float64, len(pts))
+	for i, _ := range xs {
+		angles[i] = math.Atan2(ys[i], xs[i])
+	}
+	inds := make([]int, len(pts))
+	floats.Argsort(angles, inds)
+	// create new slice of vecs
+	out := make([]r2.Point, len(pts))
+	for i := 0; i < len(pts); i++ {
+		idx := inds[i]
+		x := xs[idx]
+		y := ys[idx]
+		out[i] = r2.Point{X: x, Y: y}
+	}
+	return out
 }

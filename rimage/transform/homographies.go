@@ -5,14 +5,15 @@ import (
 	"log"
 	"math"
 
+	"github.com/golang/geo/r2"
+	"github.com/golang/geo/r3"
 	"go.viam.com/core/utils"
 	"gonum.org/v1/gonum/mat"
-	"gonum.org/v1/gonum/spatial/r2"
-	"gonum.org/v1/gonum/spatial/r3"
 	"gonum.org/v1/gonum/stat"
 )
 
-func EstimateExactHomographyFrom8Points(s1, s2 []r2.Vec) (*mat.Dense, error) {
+// EstimateExactHomographyFrom8Points computes the exact homography from 2 sets of 4 matching points
+func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point) (*mat.Dense, error) {
 	x1 := s1[0].X
 	y1 := s1[0].Y
 	X1 := s2[0].X
@@ -157,7 +158,7 @@ func EstimateLeastSquaresHomography(pts1, pts2 *mat.Dense) (*mat.Dense, error) {
 }
 
 // SelectFourPointPairs randomly selects 4 pairs of points in two point slices of the same length
-func SelectFourPointPairs(p1, p2 []r2.Vec) ([]r2.Vec, []r2.Vec, error) {
+func SelectFourPointPairs(p1, p2 []r2.Point) ([]r2.Point, []r2.Point, error) {
 	if len(p1) != len(p2) {
 		err := fmt.Errorf("p1 and p2 should have the same length")
 		return nil, nil, err
@@ -168,8 +169,8 @@ func SelectFourPointPairs(p1, p2 []r2.Vec) ([]r2.Vec, []r2.Vec, error) {
 	}
 
 	// create 2 4-point-slices of selected indices
-	s1 := make([]r2.Vec, 0, 4)
-	s2 := make([]r2.Vec, 0, 4)
+	s1 := make([]r2.Point, 0, 4)
+	s2 := make([]r2.Point, 0, 4)
 	for _, idx := range indices {
 		s1 = append(s1, p1[idx])
 		s2 = append(s2, p2[idx])
@@ -178,22 +179,23 @@ func SelectFourPointPairs(p1, p2 []r2.Vec) ([]r2.Vec, []r2.Vec, error) {
 }
 
 // geometricDistance computes the distance of point1 transformed by the homography h 1->2 to point 2
-func geometricDistance(p1, p2 r2.Vec, h *mat.Dense) float64 {
+func geometricDistance(p1, p2 r2.Point, h *mat.Dense) float64 {
 	pt1 := mat.NewDense(3, 1, []float64{p1.X, p1.Y, 1.0})
 	pt2 := mat.NewDense(3, 1, []float64{p2.X, p2.Y, 1.0})
 	pt2Tilde := mat.NewDense(3, 1, nil)
 	pt2Tilde.Mul(h, pt1)
 	pt2Tilde.Scale(1./pt2Tilde.At(2, 0), pt2Tilde)
-	p := r3.Vec{pt2.At(0, 0), pt2.At(1, 0), pt2.At(2, 0)}
-	q := r3.Vec{pt2Tilde.At(0, 0), pt2Tilde.At(1, 0), pt2Tilde.At(2, 0)}
+
+	p := r3.Vector{pt2.At(0, 0), pt2.At(1, 0), pt2.At(2, 0)}
+	q := r3.Vector{pt2Tilde.At(0, 0), pt2Tilde.At(1, 0), pt2Tilde.At(2, 0)}
 	errVec := p.Sub(q)
 
-	return r3.Norm(errVec)
+	return errVec.Norm()
 }
 
-// EstimateHomographyRANSAC estimates a homography from matches of 2 sets of points
-// with the RANdom SAmple Consensus method
-func EstimateHomographyRANSAC(pts1, pts2 []r2.Vec, thresh float64, nMaxIteration int) (*mat.Dense, []int, error) {
+// EstimateHomographyRANSAC estimates a homography from matches of 2 sets of
+// points with the RANdom SAmple Consensus method
+func EstimateHomographyRANSAC(pts1, pts2 []r2.Point, thresh float64, nMaxIteration int) (*mat.Dense, []int, error) {
 	// test len(pts1)==len(pts2)
 	// test len(pts1) > 4
 	maxInliers := make([]int, 0, len(pts1))
@@ -228,4 +230,15 @@ func EstimateHomographyRANSAC(pts1, pts2 []r2.Vec, thresh float64, nMaxIteration
 		}
 	}
 	return finalH, maxInliers, nil
+}
+
+// ApplyHomography applies a homography on a slice of r2.Vec
+func ApplyHomography(H *mat.Dense, pts []r2.Point) []r2.Point{
+	outPoints := make([]r2.Point, len(pts))
+	for i, pt := range pts{
+		x := H.At(0,0)*pt.X + H.At(0,1)*pt.Y + H.At(0,2)
+		y := H.At(1,0)*pt.X + H.At(1,1)*pt.Y + H.At(1,2)
+		outPoints[i] = r2.Point{x,y}
+	}
+	return outPoints
 }

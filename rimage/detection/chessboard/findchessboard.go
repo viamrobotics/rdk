@@ -1,4 +1,4 @@
-package detection
+package chessboard
 
 import (
 	"github.com/golang/geo/r2"
@@ -6,6 +6,19 @@ import (
 
 	"go.viam.com/core/utils"
 )
+
+type ChessboardDetectionConfiguration struct {
+	Saddle   SaddleConfiguration `json:"saddle"`
+	Contours ChessContoursConfiguration `json:"contours"`
+	Greedy   ChessGreedyConfiguration `json:"greedy"`
+}
+
+//var DefaultSaddleConf = SaddleConfiguration{
+//	GrayThreshold:     128.,
+//	ScoreThresholdMin: 10000.,
+//	ScoreThresholdMax: 100000.,
+//	NMSWindowSize:     10,
+//}
 
 // nonMaxSuppression performs a non maximum supression in a mat.Dense, with a window of size winSize
 func nonMaxSuppression(img *mat.Dense, winSize int) *mat.Dense {
@@ -47,22 +60,14 @@ func getMinSaddleDistance(saddlePoints []r2.Point, pt r2.Point) (r2.Point, float
 	return bestPt, bestDist
 }
 
-
-func SumPositive(i, j int, val float64) float64 {
-	if val > 0 {
-		return 1.
-	}
-	return 0.
-}
-
 // pruneSaddle prunes the saddle points map until the number of non-zero points reaches a value <= 10000
 func pruneSaddle(s *mat.Dense) {
 	thresh := 128.
 	r, c := s.Dims()
-	scores := mat.NewDense(r,c,nil)
+	scores := mat.NewDense(r, c, nil)
 	scores.Apply(SumPositive, s)
 	score := mat.Sum(scores)
-	for score > 10000{
+	for score > 10000 {
 		thresh = thresh * 2
 		decFilt := func(r, c int, v float64) float64 {
 			if v < thresh {

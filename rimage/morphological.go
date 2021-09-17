@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"image"
 
+	"go.viam.com/core/utils"
 	"go.viam.com/rdk/utils"
+	"gonum.org/v1/gonum/mat"
 )
 
 // resource and tutorial on mathematical morphology:
@@ -29,7 +31,7 @@ func makeStructuringElement(k int) *DepthMap {
 	return structEle
 }
 
-// Erode takes in a point, a depth map and an struct element and applies the operation erode(u,v) = min_(i,j){inDM[u+j,v+i]-kernel[j,i]}
+// ErodeSquare takes in a point, a depth map and an struct element and applies the operation erode(u,v) = min_(i,j){inDM[u+j,v+i]-kernel[j,i]}
 // on the rectangle in the depth map centered at the point (u,v) operated on by the element
 // https://clouard.users.greyc.fr/Pantheon/experiments/morphology/index-en.html#ch2-A
 func erode(center image.Point, dm, kernel *DepthMap) Depth {
@@ -52,7 +54,7 @@ func erode(center image.Point, dm, kernel *DepthMap) Depth {
 	return Depth(depth)
 }
 
-// Dilate takes in a point, a depth map and a struct element and applies the operation dilate(u,v) = max_(i,j){inDM[u+j,v+i]+kernel[j,i]}
+// DilateSquare takes in a point, a depth map and a struct element and applies the operation dilate(u,v) = max_(i,j){inDM[u+j,v+i]+kernel[j,i]}
 // on the rectangle in the depth map centered at the point (u,v) operated on by the element
 // https://clouard.users.greyc.fr/Pantheon/experiments/morphology/index-en.html#ch2-A
 func dilate(center image.Point, dm, kernel *DepthMap) Depth {
@@ -129,4 +131,192 @@ func OpeningMorph(dm *DepthMap, kernelSize, iterations int) (*DepthMap, error) {
 		return nil, err
 	}
 	return outDM, nil
+}
+
+// intTuple is storing a pair of int
+// Slices of intTuple are used to store structuring elements for morphological operations
+type intTuple struct {
+	a, b int
+}
+
+// ErodeSquare implements the gray level image erosion with a square structuring element of size k
+func ErodeSquare(img *mat.Dense, k int) (*mat.Dense, error) {
+	r, c := img.Dims()
+	eroded := mat.NewDense(r, c, nil)
+	kernelSize := image.Point{k, k}
+	padded, err := PaddingFloat64(img, kernelSize, image.Point{1, 1}, 255)
+	if err != nil {
+		return nil, err
+	}
+	utils.ParallelForEachPixel(image.Point{c, r}, func(x int, y int) {
+		minVal := 255.
+		foundSmaller := false
+		for ky := 0; ky < kernelSize.Y; ky++ {
+			for kx := 0; kx < kernelSize.X; kx++ {
+
+				px := padded.At(y+ky, x+kx)
+				if px < minVal {
+					minVal = px
+					foundSmaller = true
+				}
+
+			}
+		}
+		if foundSmaller {
+			eroded.Set(y, x, minVal)
+		}
+	})
+	return eroded, nil
+}
+
+// ErodeCross implements the gray level image erosion with a square structuring element of size k
+func ErodeCross(img *mat.Dense) (*mat.Dense, error) {
+	r, c := img.Dims()
+	eroded := mat.NewDense(r, c, nil)
+	kernelSize := image.Point{3, 3}
+	padded, err := PaddingFloat64(img, kernelSize, image.Point{1, 1}, 255)
+	if err != nil {
+		return nil, err
+	}
+	ks := make([]intTuple, 5)
+	ks[0] = intTuple{
+		a: 0,
+		b: 1,
+	}
+	ks[1] = intTuple{
+		a: 2,
+		b: 1,
+	}
+	ks[2] = intTuple{
+		a: 1,
+		b: 1,
+	}
+	ks[3] = intTuple{
+		a: 1,
+		b: 0,
+	}
+	ks[4] = intTuple{
+		a: 1,
+		b: 2,
+	}
+	utils.ParallelForEachPixel(image.Point{c, r}, func(x int, y int) {
+		minVal := 255.
+		foundSmaller := false
+		for _, k := range ks {
+			ky, kx := k.a, k.b
+			px := padded.At(y+ky, x+kx)
+			if px < minVal {
+				minVal = px
+				foundSmaller = true
+			}
+
+		}
+
+		if foundSmaller {
+			eroded.Set(y, x, minVal)
+		}
+
+	})
+	return eroded, nil
+}
+
+// DilateSquare implements the gray level image dilation with a square structuring element of size k
+func DilateSquare(img *mat.Dense, k int) (*mat.Dense, error) {
+	r, c := img.Dims()
+	dilated := mat.NewDense(r, c, nil)
+	kernelSize := image.Point{k, k}
+	padded, err := PaddingFloat64(img, kernelSize, image.Point{1, 1}, 255)
+	if err != nil {
+		return nil, err
+	}
+	px := 0.0
+	utils.ParallelForEachPixel(image.Point{c, r}, func(x int, y int) {
+		maxVal := 0.
+		foundLarger := false
+		for ky := 0; ky < kernelSize.Y; ky++ {
+			for kx := 0; kx < kernelSize.X; kx++ {
+
+				px = padded.At(y+ky, x+kx)
+				if px > maxVal {
+					maxVal = px
+					foundLarger = true
+				}
+
+			}
+		}
+		if foundLarger {
+			dilated.Set(y, x, maxVal)
+		}
+	})
+	return dilated, nil
+}
+
+// DilateCross implements the gray level image dilation with a 3x3 cross structuring element
+func DilateCross(img *mat.Dense) (*mat.Dense, error) {
+	r, c := img.Dims()
+	dilated := mat.NewDense(r, c, nil)
+	kernelSize := image.Point{3, 3}
+	padded, err := PaddingFloat64(img, kernelSize, image.Point{1, 1}, 255)
+	if err != nil {
+		return nil, err
+	}
+	px := 0.0
+	ks := make([]intTuple, 5)
+	ks[0] = intTuple{
+		a: 0,
+		b: 1,
+	}
+	ks[1] = intTuple{
+		a: 2,
+		b: 1,
+	}
+	ks[2] = intTuple{
+		a: 1,
+		b: 1,
+	}
+	ks[3] = intTuple{
+		a: 1,
+		b: 0,
+	}
+	ks[4] = intTuple{
+		a: 1,
+		b: 2,
+	}
+	utils.ParallelForEachPixel(image.Point{c, r}, func(x int, y int) {
+		maxVal := 0.
+		foundLarger := false
+		for _, k := range ks {
+			ky, kx := k.a, k.b
+
+			px = padded.At(y+ky, x+kx)
+			if px > maxVal {
+				maxVal = px
+				foundLarger = true
+			}
+
+		}
+
+		if foundLarger {
+			dilated.Set(y, x, maxVal)
+		}
+
+	})
+	return dilated, nil
+}
+
+// MorphoGradientCross implements the morphological gradient i.e. dilated_img - eroded_img, with cross structuring element
+// of size 3
+func MorphoGradientCross(img *mat.Dense) (*mat.Dense, error) {
+	r, c := img.Dims()
+	gradient := mat.NewDense(r, c, nil)
+	dilated, err := DilateCross(img)
+	if err != nil {
+		return nil, err
+	}
+	eroded, err := ErodeCross(img)
+	if err != nil {
+		return nil, err
+	}
+	gradient.Sub(dilated, eroded)
+	return gradient, nil
 }
