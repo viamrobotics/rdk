@@ -21,6 +21,7 @@ var (
 // Server implements the contract from metadata.proto
 type MetadataServiceServer struct {
 	pb.UnimplementedMetadataServiceServer
+	m
 	resources []*pb.ResourceName
 }
 
