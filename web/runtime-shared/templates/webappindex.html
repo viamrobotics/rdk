@@ -618,9 +618,8 @@
       
     </script>
   </head>
-  <body onLoad="waitForClientAndStart()">
+  <body onLoad="waitForClientAndStart()" style="background: var(--black-10);">
     <div id="app">
-      <hello-world msg="TEST"></hello-world>
       <div id="actions">
         {{range $r := .Actions}}
         <button v-on:click="doAction('{{$r}}')">{{$r}}</button>
@@ -722,11 +721,12 @@
       
       <!-- ******* BOARD *******  -->
 
-      <div class="board" v-for="(board, boardIndex) in status.boardsMap" :key="board[0]">
+      <div class="board" v-for="(board, boardIndex) in status.boardsMap" :key="board[0]" style="width: 900px">
         <h3>Board ${board[0]}</h3>
         <table border="1">
           
           <tr><th colspan="2">Motors</th></tr>
+          <motor-detail v-for="m in board[1].motorsMap" :key="m[0]" v-bind:motor="m" v-on:execute="motorButton(board[0], m[0], {d:'none', s: 0})"></motor-detail>
           <tbody v-for="m in board[1].motorsMap" :key="m[0]">
             <tr>
               <th>${m[0]}</th>
