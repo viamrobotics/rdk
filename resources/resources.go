@@ -72,9 +72,6 @@ func (r *Resources) AddResource(resource Resource) error {
 	if err := resource.Validate(); err != nil {
 		return errors.Errorf("Unable to add resource: %s", err.Error())
 	}
-	if resource.Subtype == ResourceSubtypeMetadata {
-		return errors.New("Unable to add a resource with a metadata subtype.")
-	}
 
 	idx := -1
 	for i := range r.resources {
@@ -86,6 +83,10 @@ func (r *Resources) AddResource(resource Resource) error {
 	if idx != -1 {
 		return errors.Errorf("Resource with uuid %s already exists and cannot be added again.", resource.Uuid)
 	}
+	if resource.Subtype == ResourceSubtypeMetadata {
+		return errors.New("Unable to add a resource with a metadata subtype.")
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -96,11 +97,9 @@ func (r *Resources) AddResource(resource Resource) error {
 // RemoveResource removes resource from the list.
 func (r *Resources) RemoveResource(resource Resource) error {
 	if err := resource.Validate(); err != nil {
-		return errors.Errorf("Invalid resource to search for: %s", err.Error())
+		return errors.Errorf("Invalid resource to find and remove: %s", err.Error())
 	}
-	if resource.Subtype == ResourceSubtypeMetadata {
-		return errors.New("Unable to remove resource with a metadata subtype.")
-	}
+
 	idx := -1
 	for i := range r.resources {
 		if r.resources[i].Uuid == resource.Uuid {
@@ -109,7 +108,10 @@ func (r *Resources) RemoveResource(resource Resource) error {
 		}
 	}
 	if idx == -1 {
-		return errors.Errorf("Unable to find resource with uuid %s.", resource.Uuid)
+		return errors.Errorf("Unable to find and remove resource with uuid %s.", resource.Uuid)
+	}
+	if resource.Subtype == ResourceSubtypeMetadata {
+		return errors.New("Unable to remove resource with a metadata subtype.")
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -130,7 +132,7 @@ func (r *Resources) ClearResources() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if idx != -1 {
+	if idx == -1 {
 		r.resources = []Resource{
 			{
 				Uuid:      uuid.NewString(),
