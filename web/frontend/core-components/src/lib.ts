@@ -1,8 +1,9 @@
 import Vue, { VueConstructor } from "vue";
-import HelloWorld from "./components/HelloWorld.vue";
+import "./styles.css";
+import MotorDetail from "./components/MotorDetail.vue";
 
 const Components: { [key: string]: VueConstructor<Vue> } = {
-  HelloWorld,
+  MotorDetail,
 };
 
 Object.keys(Components).forEach((name) => {

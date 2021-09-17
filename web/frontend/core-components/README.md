@@ -1,4 +1,4 @@
-# component-test
+# core-components
 
 ## Project setup
 ```

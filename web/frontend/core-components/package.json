@@ -1,11 +1,11 @@
 {
-  "name": "component-test",
+  "name": "core-components",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "serve": "vue-cli-service serve",
-    "build:dev": "vue-cli-service build --target lib --name coreComponents --formats umd --dest ../../runtime-shared/static/components ./src/main.ts",
-    "build:prod": "vue-cli-service build --target lib --name coreComponents --formats umd-min --dest ../../runtime-shared/static/components ./src/main.ts",
+    "serve": "vue-cli-service serve --port 3000",
+    "build:dev": "vue-cli-service build --target lib --name coreComponents --formats umd --dest ../../runtime-shared/static/components ./src/lib.ts && rm ../../runtime-shared/static/components/demo.html",
+    "build:prod": "vue-cli-service build --target lib --name coreComponents --formats umd-min --dest ../../runtime-shared/static/components ./src/lib.ts && rm ../../runtime-shared/static/components/demo.html",
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
