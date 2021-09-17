@@ -8,9 +8,10 @@ import (
 	pc "go.viam.com/core/pointcloud"
 )
 
-func createPointClouds(t *testing.T) *Clusters {
-	clouds := make([]pc.PointCloud, 0)
+func createPointClouds(t *testing.T) *Segments {
+	clusters := make([]*PointCloudWithMeta, 0)
 	cloudMap := make(map[pc.Vec3]int)
+	clouds := make([]pc.PointCloud, 0)
 	means := make([]pc.Vec3, 0)
 	for i := 0; i < 3; i++ {
 		clouds = append(clouds, pc.New())
@@ -30,6 +31,7 @@ func createPointClouds(t *testing.T) *Clusters {
 	test.That(t, clouds[0].Set(p03), test.ShouldBeNil)
 	means = append(means, pc.Vec3{0, 0.5, 0.5})
 	test.That(t, pc.CalculateMeanOfPointCloud(clouds[0]), test.ShouldResemble, means[0])
+	clusters = append(clusters, NewPointCloudWithMeta(clouds[0]))
 	// create a 2nd cloud far away
 	p10 := pc.NewBasicPoint(30, 0, 0)
 	cloudMap[p10.Position()] = 1
@@ -45,6 +47,7 @@ func createPointClouds(t *testing.T) *Clusters {
 	test.That(t, clouds[1].Set(p13), test.ShouldBeNil)
 	means = append(means, pc.Vec3{30, 0.5, 0.5})
 	test.That(t, pc.CalculateMeanOfPointCloud(clouds[1]), test.ShouldResemble, means[1])
+	clusters = append(clusters, NewPointCloudWithMeta(clouds[1]))
 	// create 3rd cloud
 	p20 := pc.NewBasicPoint(0, 30, 0)
 	cloudMap[p20.Position()] = 2
@@ -63,7 +66,8 @@ func createPointClouds(t *testing.T) *Clusters {
 	test.That(t, clouds[2].Set(p24), test.ShouldBeNil)
 	means = append(means, pc.Vec3{0.5, 30, 0.5})
 	test.That(t, pc.CalculateMeanOfPointCloud(clouds[2]), test.ShouldResemble, means[2])
-	return &Clusters{clouds, means, cloudMap}
+	clusters = append(clusters, NewPointCloudWithMeta(clouds[2]))
+	return &Segments{clusters, cloudMap}
 }
 
 func TestAssignCluter(t *testing.T) {
@@ -74,23 +78,23 @@ func TestAssignCluter(t *testing.T) {
 	test.That(t, clusters.AssignCluster(p30, 3), test.ShouldBeNil)
 	test.That(t, clusters.N(), test.ShouldEqual, 4)
 	test.That(t, clusters.Indices[p30.Position()], test.ShouldEqual, 3)
-	test.That(t, pc.CalculateMeanOfPointCloud(clusters.PointClouds[3]), test.ShouldResemble, pc.Vec3{30, 30, 1})
+	test.That(t, pc.CalculateMeanOfPointCloud(clusters.Objects[3]), test.ShouldResemble, pc.Vec3{30, 30, 1})
 	// assign a new cluster with a large index
 	pNew := pc.NewBasicPoint(30, 30, 30)
 	test.That(t, clusters.AssignCluster(pNew, 100), test.ShouldBeNil)
 	test.That(t, clusters.N(), test.ShouldEqual, 101)
 	test.That(t, clusters.Indices[pNew.Position()], test.ShouldEqual, 100)
-	test.That(t, pc.CalculateMeanOfPointCloud(clusters.PointClouds[100]), test.ShouldResemble, pc.Vec3{30, 30, 30})
+	test.That(t, pc.CalculateMeanOfPointCloud(clusters.Objects[100]), test.ShouldResemble, pc.Vec3{30, 30, 30})
 }
 
 func TestMergeCluster(t *testing.T) {
 	clusters := createPointClouds(t)
 	// before merge
-	test.That(t, clusters.PointClouds[0].Size(), test.ShouldEqual, 4)
-	test.That(t, clusters.PointClouds[1].Size(), test.ShouldEqual, 4)
-	test.That(t, clusters.PointClouds[2].Size(), test.ShouldEqual, 5)
+	test.That(t, clusters.Objects[0].Size(), test.ShouldEqual, 4)
+	test.That(t, clusters.Objects[1].Size(), test.ShouldEqual, 4)
+	test.That(t, clusters.Objects[2].Size(), test.ShouldEqual, 5)
 	for i := 0; i < 2; i++ {
-		clusters.PointClouds[i].Iterate(func(pt pc.Point) bool {
+		clusters.Objects[i].Iterate(func(pt pc.Point) bool {
 			test.That(t, clusters.Indices[pt.Position()], test.ShouldEqual, i)
 			return true
 		})
@@ -98,26 +102,26 @@ func TestMergeCluster(t *testing.T) {
 	// merge
 	test.That(t, clusters.MergeClusters(0, 1), test.ShouldBeNil)
 	// after merge
-	test.That(t, clusters.PointClouds[0].Size(), test.ShouldEqual, 0)
-	test.That(t, clusters.PointClouds[1].Size(), test.ShouldEqual, 8)
-	test.That(t, clusters.PointClouds[2].Size(), test.ShouldEqual, 5)
-	clusters.PointClouds[1].Iterate(func(pt pc.Point) bool {
+	test.That(t, clusters.Objects[0].Size(), test.ShouldEqual, 0)
+	test.That(t, clusters.Objects[1].Size(), test.ShouldEqual, 8)
+	test.That(t, clusters.Objects[2].Size(), test.ShouldEqual, 5)
+	clusters.Objects[1].Iterate(func(pt pc.Point) bool {
 		test.That(t, clusters.Indices[pt.Position()], test.ShouldEqual, 1)
 		return true
 	})
-	test.That(t, pc.CalculateMeanOfPointCloud(clusters.PointClouds[0]), test.ShouldResemble, pc.Vec3{})
-	test.That(t, pc.CalculateMeanOfPointCloud(clusters.PointClouds[1]), test.ShouldResemble, pc.Vec3{15, 0.5, 0.5})
-	test.That(t, pc.CalculateMeanOfPointCloud(clusters.PointClouds[2]), test.ShouldResemble, pc.Vec3{0.5, 30, 0.5})
+	test.That(t, pc.CalculateMeanOfPointCloud(clusters.Objects[0]), test.ShouldResemble, pc.Vec3{})
+	test.That(t, pc.CalculateMeanOfPointCloud(clusters.Objects[1]), test.ShouldResemble, pc.Vec3{15, 0.5, 0.5})
+	test.That(t, pc.CalculateMeanOfPointCloud(clusters.Objects[2]), test.ShouldResemble, pc.Vec3{0.5, 30, 0.5})
 
 	// merge to new cluster
 	test.That(t, clusters.MergeClusters(2, 3), test.ShouldBeNil)
 	// after merge
-	test.That(t, clusters.PointClouds[0].Size(), test.ShouldEqual, 0)
-	test.That(t, clusters.PointClouds[1].Size(), test.ShouldEqual, 8)
-	test.That(t, clusters.PointClouds[2].Size(), test.ShouldEqual, 0)
-	test.That(t, clusters.PointClouds[3].Size(), test.ShouldEqual, 5)
-	test.That(t, pc.CalculateMeanOfPointCloud(clusters.PointClouds[0]), test.ShouldResemble, pc.Vec3{})
-	test.That(t, pc.CalculateMeanOfPointCloud(clusters.PointClouds[1]), test.ShouldResemble, pc.Vec3{15, 0.5, 0.5})
-	test.That(t, pc.CalculateMeanOfPointCloud(clusters.PointClouds[2]), test.ShouldResemble, pc.Vec3{})
-	test.That(t, pc.CalculateMeanOfPointCloud(clusters.PointClouds[3]), test.ShouldResemble, pc.Vec3{0.5, 30, 0.5})
+	test.That(t, clusters.Objects[0].Size(), test.ShouldEqual, 0)
+	test.That(t, clusters.Objects[1].Size(), test.ShouldEqual, 8)
+	test.That(t, clusters.Objects[2].Size(), test.ShouldEqual, 0)
+	test.That(t, clusters.Objects[3].Size(), test.ShouldEqual, 5)
+	test.That(t, pc.CalculateMeanOfPointCloud(clusters.Objects[0]), test.ShouldResemble, pc.Vec3{})
+	test.That(t, pc.CalculateMeanOfPointCloud(clusters.Objects[1]), test.ShouldResemble, pc.Vec3{15, 0.5, 0.5})
+	test.That(t, pc.CalculateMeanOfPointCloud(clusters.Objects[2]), test.ShouldResemble, pc.Vec3{})
+	test.That(t, pc.CalculateMeanOfPointCloud(clusters.Objects[3]), test.ShouldResemble, pc.Vec3{0.5, 30, 0.5})
 }
