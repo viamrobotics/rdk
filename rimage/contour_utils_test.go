@@ -27,20 +27,20 @@ func TestPointMat(t *testing.T) {
 		Row: 0,
 		Col: 0,
 	}
-	assert.Equal(t, p.Row, 0)
-	assert.Equal(t, p.Col, 0)
+	test.That(t, p.Row, test.ShouldEqual, 0)
+	test.That(t, p.Col, test.ShouldEqual, 0)
 	p.Set(1, 2)
-	assert.Equal(t, p.Row, 1)
-	assert.Equal(t, p.Col, 2)
+	test.That(t, p.Row, test.ShouldEqual, 1)
+	test.That(t, p.Col, test.ShouldEqual, 2)
 	q := PointMat{
 		Row: 1,
 		Col: 2,
 	}
-	assert.True(t, p.SamePoint(&q))
+	test.That(t, p.SamePoint(&q), test.ShouldBeTrue)
 	out := isPointOutOfBounds(&p, 2, 2)
-	assert.True(t, out)
+	test.That(t, out, test.ShouldBeTrue)
 	out2 := isPointOutOfBounds(&p, 3, 3)
-	assert.False(t, out2)
+	test.That(t, out2, test.ShouldBeFalse)
 }
 
 func TestNode(t *testing.T) {
@@ -50,14 +50,16 @@ func TestNode(t *testing.T) {
 		nextSibling: 0,
 		border:      Border{},
 	}
-	assert.Equal(t, node.parent, 0)
-	assert.Equal(t, node.firstChild, 0)
-	assert.Equal(t, node.nextSibling, 0)
-	assert.Equal(t, node.border.borderType, 0)
+	// test creation
+	test.That(t, node.parent, test.ShouldEqual, 0)
+	test.That(t, node.firstChild, test.ShouldEqual, 0)
+	test.That(t, node.nextSibling, test.ShouldEqual, 0)
+	test.That(t, node.border.borderType, test.ShouldEqual, 0)
+	// test reset function
 	node.reset()
-	assert.Equal(t, node.parent, -1)
-	assert.Equal(t, node.firstChild, -1)
-	assert.Equal(t, node.nextSibling, -1)
+	test.That(t, node.parent, test.ShouldEqual, -1)
+	test.That(t, node.firstChild, test.ShouldEqual, -1)
+	test.That(t, node.nextSibling, test.ShouldEqual, -1)
 }
 
 func TestMarkAsExamined(t *testing.T) {
@@ -67,19 +69,19 @@ func TestMarkAsExamined(t *testing.T) {
 	mark2 := PointMat{1, 0}
 	mark3 := PointMat{0, 1}
 	checked := make([]bool, 4)
-	assert.False(t, checked[0])
+	test.That(t, checked[0], test.ShouldBeFalse)
 	markExamined(mark0, center, checked)
-	assert.True(t, checked[0])
-	assert.True(t, isExamined(checked))
-	assert.False(t, checked[1])
+	test.That(t, checked[0], test.ShouldBeTrue)
+	test.That(t, isExamined(checked), test.ShouldBeTrue)
+	test.That(t, checked[1], test.ShouldBeFalse)
 	markExamined(mark1, center, checked)
-	assert.True(t, checked[1])
-	assert.False(t, checked[2])
+	test.That(t, checked[1], test.ShouldBeTrue)
+	test.That(t, checked[2], test.ShouldBeFalse)
 	markExamined(mark2, center, checked)
-	assert.True(t, checked[2])
-	assert.False(t, checked[3])
+	test.That(t, checked[2], test.ShouldBeTrue)
+	test.That(t, checked[3], test.ShouldBeFalse)
 	markExamined(mark3, center, checked)
-	assert.True(t, checked[3])
+	test.That(t, checked[3], test.ShouldBeTrue)
 }
 
 func TestFindContours(t *testing.T) {
@@ -103,6 +105,19 @@ func TestFindContours(t *testing.T) {
 		}
 	}
 	contours, hierarchy := FindContours(binary)
+	// Test hierarchy values
+	test.That(t, len(hierarchy), test.ShouldEqual, 5)
+	test.That(t, hierarchy[0].parent, test.ShouldEqual, -1)
+	test.That(t, hierarchy[1].parent, test.ShouldEqual, 1)
+	test.That(t, hierarchy[2].parent, test.ShouldEqual, 2)
+	test.That(t, hierarchy[1].parent, test.ShouldEqual, 1)
+	test.That(t, hierarchy[4].parent, test.ShouldEqual, 4)
+	// Test contours length
+	test.That(t, len(contours), test.ShouldEqual, 4)
+	test.That(t, len(contours[0]), test.ShouldEqual, 800)
+	test.That(t, len(contours[1]), test.ShouldEqual, 404)
+	test.That(t, len(contours[2]), test.ShouldEqual, 564)
+	test.That(t, len(contours[3]), test.ShouldEqual, 396)
 
 	// Test hierarchy values
 	test.That(t, len(hierarchy), test.ShouldEqual, 5) // number of contours + root
