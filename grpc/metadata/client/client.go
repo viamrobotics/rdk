@@ -12,8 +12,7 @@ import (
 	pb "go.viam.com/core/proto/api/service/v1"
 )
 
-// MetadataServiceClient satisfies the robot.Robot interface through a gRPC based
-// client conforming to the robot.proto contract.
+// MetadataServiceClient is a client satisfies the metadata.proto contract.
 type MetadataServiceClient struct {
 	address string
 	conn    dialer.ClientConn
@@ -45,8 +44,7 @@ func (mc *MetadataServiceClient) Close() error {
 	return mc.conn.Close()
 }
 
-// Resources either gets a cached or latest version of the status of the remote
-// robot.
+// Resources either gets the latest version of the list of resources for the remote robot
 func (mc *MetadataServiceClient) Resources(ctx context.Context) ([]*pb.ResourceName, error) {
 	resp, err := mc.client.Resources(ctx, &pb.ResourcesRequest{})
 	if err != nil {
