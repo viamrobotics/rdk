@@ -142,7 +142,7 @@ func TestAddResource(t *testing.T) {
 			"invalid addition 2",
 			newMetadata,
 			nil,
-			"Unable to add a resource with a metadata subtype",
+			"unable to add a resource with a metadata subtype",
 		},
 		{
 			"one addition",
@@ -214,7 +214,7 @@ func TestRemoveResource(t *testing.T) {
 			"invalid metadata removal",
 			metadata,
 			nil,
-			"Unable to remove resource with a metadata subtype",
+			"unable to remove resource with a metadata subtype",
 		},
 		{
 			"one removal",
@@ -232,7 +232,7 @@ func TestRemoveResource(t *testing.T) {
 			"not found",
 			sensor,
 			nil,
-			"Unable to find and remove resource",
+			"unable to find and remove resource",
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
