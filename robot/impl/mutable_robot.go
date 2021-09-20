@@ -108,6 +108,11 @@ func (r *mutableRobot) AddBase(b base.Base, c config.Component) {
 	r.parts.AddBase(b, c)
 }
 
+// AddSensor adds a base to the robot.
+func (r *mutableRobot) AddSensor(s sensor.Sensor, c config.Component) {
+	r.parts.AddSensor(s, c)
+}
+
 // RemoteNames returns the name of all known remote robots.
 func (r *mutableRobot) RemoteNames() []string {
 	return r.parts.RemoteNames()

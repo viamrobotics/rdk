@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"go.viam.com/utils"
+
+	functionvm "go.viam.com/core/function/vm"
 )
 
 // A Config describes the configuration of a board and all of its connected parts.
@@ -168,16 +170,20 @@ func (config *AnalogConfig) Validate(path string) error {
 
 // DigitalInterruptConfig describes the configuration of digital interrupt for a board.
 type DigitalInterruptConfig struct {
-	Name    string `json:"name"`
-	Pin     string `json:"pin"`
-	Type    string `json:"type"` // e.g. basic, servo
-	Formula string `json:"formula"`
+	Name     string                              `json:"name"`
+	Pin      string                              `json:"pin"`
+	Type     string                              `json:"type"` // e.g. basic, servo
+	Formula  string                              `json:"formula"`
+	Function *functionvm.AnonymousFunctionConfig `json:"function,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (config *DigitalInterruptConfig) Validate(path string) error {
 	if config.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	if config.Function != nil {
+		return config.Function.Validate(fmt.Sprintf("%s.%s", path, "function"))
 	}
 	return nil
 }
