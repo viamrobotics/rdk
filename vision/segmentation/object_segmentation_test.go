@@ -93,7 +93,7 @@ func (h *segmentObjectTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorCo
 	voxObjConfig := ObjectConfig{
 		MinPtsInPlane:    50000,
 		MinPtsInSegment:  500,
-		ClusteringRadius: 0.5,
+		ClusteringRadius: 0.4,
 	}
 
 	voxSegments, err := NewObjectSegmentationFromVoxelGrid(vg, voxObjConfig, voxPlaneConfig)
@@ -176,7 +176,7 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 	voxObjConfig := ObjectConfig{
 		MinPtsInPlane:    15000,
 		MinPtsInSegment:  100,
-		ClusteringRadius: 7.5,
+		ClusteringRadius: 6.5,
 	}
 
 	voxSegments, err := NewObjectSegmentationFromVoxelGrid(vg, voxObjConfig, voxPlaneConfig)
