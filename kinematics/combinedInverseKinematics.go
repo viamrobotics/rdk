@@ -89,7 +89,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed *pb.J
 
 			dist, err := calcSwingPct(seed, myRT.Result, ik.model)
 			// non-nil err means out of bounds joint solution, ignore and move on
-			if err == nil{
+			if err == nil {
 				// Since distances are squared, a perfect "halfway" will have a dist ~0.25. Better than 0.5 is good enough.
 				if dist < 0.5 {
 					found = true

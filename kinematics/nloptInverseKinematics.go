@@ -217,9 +217,9 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 					// out-of-bounds angles. Shouldn't happen, but if it does, record the error and move on without
 					// keeping the invalid solution
 					err = multierr.Combine(err, newErr)
-				}else if swing < 0.5 {
+				} else if swing < 0.5 {
 					return solution, err
-				}else{
+				} else {
 					solutions = append(solutions, solution)
 				}
 			}

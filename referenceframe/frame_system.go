@@ -167,7 +167,7 @@ func (sfs *simpleFrameSystem) transformFrameFromParent(positions map[string][]In
 	if err != nil && toTargetTransform == nil {
 		return nil, err
 	}
-	toTargetTransform = toTargetTransform.Invert()
+	toTargetTransform = spatial.Invert(toTargetTransform)
 	// transform from source to world, world to target
 	srcTransform, err := poseFromPositions(srcFrame, positions)
 	if err != nil && srcTransform == nil {
