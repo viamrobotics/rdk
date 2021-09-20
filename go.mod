@@ -13,6 +13,7 @@ require (
 	github.com/edaniels/gostream v0.0.0-20210709190700-47b04f3f3cf9
 	github.com/erh/egoutil v0.0.10
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
+	github.com/erikstmartin/go-testdb v0.0.0-20160219214506-8d10e4a1bae5 // indirect
 	github.com/fogleman/gg v1.3.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/fullstorydev/grpcurl v1.8.0
@@ -33,7 +34,9 @@ require (
 	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4
 	github.com/jblindsay/lidario v0.0.0-20170420150243-bb03e55f9757
 	github.com/jhump/protoreflect v1.8.1 // indirect
+	github.com/kellydunn/golang-geo v0.7.0 // indirect
 	github.com/klauspost/compress v1.11.7 // indirect
+	github.com/kylelemons/go-gypsy v1.0.0 // indirect
 	github.com/lmittmann/ppm v1.0.0
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/mitchellh/mapstructure v1.4.1
@@ -51,6 +54,7 @@ require (
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
 	github.com/u2takey/ffmpeg-go v0.3.0
 	github.com/wasmerio/wasmer-go v1.0.4
+	github.com/ziutek/mymysql v1.5.4 // indirect
 	go-hep.org/x/hep v0.28.5
 	go.mongodb.org/mongo-driver v1.5.3
 	go.opencensus.io v0.23.0
