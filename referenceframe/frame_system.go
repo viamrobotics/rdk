@@ -246,7 +246,10 @@ func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose,
 	return frame.Transform(input)
 }
 
-// ComposeFrameSystems will combine two frame systems together, placing the world of fs2 at the given offset from
+// ComposeFrameSystems will combine two frame systems together, placing the world of fs2 at the given offset from fs1.
+// This is necessary when dynamically building systems of robots, or mutating a robot after it has already been initialized.
+// For example, two independent rovers, each with their own frame system, need to now know where they are in relation to each other and
+// need to have their frame systems combined.
 func ComposeFrameSystems(fs1, fs2 FrameSystem, offset Frame) (FrameSystem, error) {
 	newFS := &simpleFrameSystem{fs1.Name() + "_" + fs2.Name(), fs1.World(), fs1.Frames(), fs1.Parents()}
 
@@ -271,7 +274,8 @@ func ComposeFrameSystems(fs1, fs2 FrameSystem, offset Frame) (FrameSystem, error
 
 // DivideFrameSystem will take a frame system and a frame in that system, and return two frame systems- one being rooted
 // at the given frame and containing all descendents of it, the other with the original world with the frame and its
-// descendents removed.
+// descendents removed. For example, if there is a frame system with two independent rovers, and one rover goes offline,
+// A user could divide the frame system to remove the offline rover and have the rest of the frame system unaffected.
 func DivideFrameSystem(fs1 FrameSystem, newRoot Frame) (FrameSystem, FrameSystem, error) {
 	newFS1 := &simpleFrameSystem{fs1.Name() + "_r_" + newRoot.Name(), fs1.World(), map[string]Frame{}, map[Frame]Frame{}}
 	newWorld := NewZeroStaticFrame(World)
