@@ -18,7 +18,7 @@
                 "aligned": true
             },
             "frame": {
-                "parent": "world",
+                "parent": "base",
                 "translation": {
                     "x": 2000,
                     "y": 500,
@@ -37,7 +37,7 @@
             "name": "pieceArm",
             "type": "arm",
             "frame": {
-                "parent" : "world",
+                "parent" : "base",
                 "translation": {
                     "x": 500,
                     "y": 500,
@@ -75,18 +75,6 @@
           "attributes": {
             "relative": true
           }
-        }
-    ],
-    "functions": [
-        {
-          "name": "func1",
-          "engine": "javascript",
-          "source": "(function() { console.log(robot.gripperOpen('gripper1')); return 1}())"
-        },
-        {
-          "name": "func2",
-          "engine": "javascript",
-          "source": "(function() { console.log(robot.gripperGrab('gripper1')); return 2}())"
         }
     ]
 }

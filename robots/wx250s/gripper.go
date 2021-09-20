@@ -22,9 +22,9 @@ import (
 )
 
 func init() {
-	registry.RegisterGripper("wx250s", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
+	registry.RegisterGripper("wx250s", registry.Gripper{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 		return NewGripper(config.Attributes, logger)
-	})
+	}})
 }
 
 // Gripper TODO

@@ -23,13 +23,13 @@ const ModelNameClient = "grpc"
 
 // init registers the gRPC lidar client.
 func init() {
-	registry.RegisterLidar(ModelNameClient, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
+	registry.RegisterLidar(ModelNameClient, registry.Lidar{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
 		address := config.Host
 		if config.Port != 0 {
 			address = fmt.Sprintf("%s:%d", address, config.Port)
 		}
 		return NewClient(ctx, address, logger)
-	})
+	}})
 }
 
 // NewClient returns a lidar backed by a gRPC client.
