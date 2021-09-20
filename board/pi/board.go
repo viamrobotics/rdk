@@ -493,7 +493,7 @@ type piPigpioI2C struct {
 	pi           *piPigpio
 	mu           sync.Mutex
 	openHandle   *piPigpioI2CHandle
-	
+	id           int
 }
 
 type piPigpioI2CHandle struct {
@@ -549,7 +549,7 @@ func (s *piPigpioI2CHandle) ReadBytes(ctx context.Context, addr byte, count int)
 	// Raspberry Pis are all on i2c bus 1
 	// Exception being the very first model which is on 0, not supported.
 	var bus C.uint
-	bus = 1
+	bus = s.bus.id
 
 	rx := make([]byte, count)
 	rxPtr := C.CBytes(rx)
