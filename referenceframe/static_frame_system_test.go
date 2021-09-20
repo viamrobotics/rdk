@@ -39,7 +39,7 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	test.That(t, len(frames), test.ShouldEqual, 3)
 
 	// Pruning frame3 should also remove frame1
-	fs.PruneFrame(fs.GetFrame("frame3"))
+	fs.RemoveFrame(fs.GetFrame("frame3"))
 	parents = fs.Parents()
 	frames = fs.Frames()
 	test.That(t, len(parents), test.ShouldEqual, 1)

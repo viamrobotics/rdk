@@ -19,7 +19,7 @@ type FrameSystem interface {
 	World() Frame // return the base world frame
 	GetFrame(name string) Frame
 	AddFrame(frame, parent Frame) error
-	PruneFrame(frame Frame)
+	RemoveFrame(frame Frame)
 	TransformFrame(positions map[string][]Input, srcFrame, endFrame Frame) (spatial.Pose, error)
 	TransformPoint(positions map[string][]Input, point r3.Vector, srcFrame, endFrame Frame) (r3.Vector, error)
 	TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, endFrame Frame) (spatial.Pose, error)
@@ -57,15 +57,15 @@ func (sfs *simpleFrameSystem) frameExists(name string) bool {
 	return false
 }
 
-// PruneFrame will delete the given frame and all descendents from the frame system if it exists.
-func (sfs *simpleFrameSystem) PruneFrame(frame Frame) {
+// RemoveFrame will delete the given frame and all descendents from the frame system if it exists.
+func (sfs *simpleFrameSystem) RemoveFrame(frame Frame) {
 	delete(sfs.frames, frame.Name())
 	delete(sfs.parents, frame)
 
 	// Remove all descendents
 	for f, parent := range sfs.parents {
 		if parent == frame {
-			sfs.PruneFrame(f)
+			sfs.RemoveFrame(f)
 		}
 	}
 }
