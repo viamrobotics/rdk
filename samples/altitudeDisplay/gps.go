@@ -53,7 +53,7 @@ func GpsAlt(ctx context.Context, handle I2CHandle) (float64, error) {
 				strBuf += string(b)
 			}
 		}
-		time.Sleep(50 * time.Millisecond)
+		utils.SelectContextOrWait(ctx, 50*time.Millisecond)
 	}
 	return alt, err
 }
@@ -65,7 +65,7 @@ func parseGPS(line string) (float64, error){
 	}
 	gga, ok := s.(nmea.GGA)
 	if ok {
-		if gga.FixQuality == "0" {
+		if gga.FixQuality == "0" || (gga.Longitude == 0 && gga.Latitude == 0){
 			return -9999, nil
 		}
 		return gga.Altitude, nil

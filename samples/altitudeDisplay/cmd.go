@@ -47,11 +47,13 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	handle, err := i2c.OpenHandle()
 	defer handle.Close()
 	
-	initDisp(handle)
+	// Init the display multiple times, hoping at least one works- sometimes it takes several writes to get a good init
+	for i := 0; i < 50; i++ {
+		initDisp(handle)
+	}
 	
 	for true{
 		meters, err := GpsAlt(ctx, handle)
-		fmt.Println("meters", meters, "err", err)
 		feet := int(meters * 3.28084)
 		meterStr := strconv.Itoa(int(meters))
 		feetStr := strconv.Itoa(feet)

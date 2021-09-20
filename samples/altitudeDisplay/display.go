@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"time"
 	"math"
 
@@ -70,28 +69,16 @@ func initDisp(handle I2CHandle){
 	
 	handle.WriteBytes(context.Background(), addr, init)
 	
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 	
 	// turn on
 	handle.WriteBytes(context.Background(), addr, []byte{0x00, 0xAF})
-	
-	time.Sleep(200 * time.Millisecond)
-	
-	// blank
-	buf := blank()
-	writeBuf(buf, addr, handle)
-	buf = writeString(0, 28, "INIT", buf)
-	writeBuf(buf, addr, handle)
-	buf = blank()
-	time.Sleep(5*time.Second)
-	writeBuf(buf, addr, handle)
 }
 
 func writeAlt(feet, meters string, handle I2CHandle){
 	buf := blank()
 	
 	// account for special messages
-	fmt.Println("mlen", len(meters))
 	if meters != "error" && meters != "lock" {
 		if len(feet) < 5 {
 			feet += " "
@@ -99,8 +86,6 @@ func writeAlt(feet, meters string, handle I2CHandle){
 		feet += "f"
 		meters += " m"
 	}
-	fmt.Println("feet, meters", feet, ",", meters)
-	fmt.Println(meters)
 	buf = writeString(0, 28, feet, buf)
 	buf = writeString(0, 58, meters, buf)
 	writeBuf(buf, addr, handle)
