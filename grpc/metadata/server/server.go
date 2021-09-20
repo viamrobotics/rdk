@@ -8,7 +8,7 @@ import (
 	"go.viam.com/core/resources"
 )
 
-// Server implements the contract from metadata.proto
+// MetadataServer implements the contract from metadata.proto
 type MetadataServer struct {
 	pb.UnimplementedMetadataServiceServer
 	r *resources.Resources
@@ -26,7 +26,7 @@ func (s *MetadataServer) Resources(ctx context.Context, _ *pb.ResourcesRequest) 
 		rNames = append(
 			rNames,
 			&pb.ResourceName{
-				Uuid:      r.Uuid,
+				Uuid:      r.UUID,
 				Namespace: r.Namespace,
 				Type:      r.Type,
 				Subtype:   r.Subtype,

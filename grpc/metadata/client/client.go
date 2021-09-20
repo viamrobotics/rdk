@@ -22,6 +22,8 @@ type MetadataServiceClient struct {
 	logger golog.Logger
 }
 
+// NewClient constructs a new MetadataServiceClient that is served at the given address. The given
+// context can be used to cancel the operation.
 func NewClient(ctx context.Context, address string, logger golog.Logger) (*MetadataServiceClient, error) {
 	conn, err := rpcclient.Dial(ctx, address, rpcclient.DialOptions{Insecure: true}, logger)
 	if err != nil {

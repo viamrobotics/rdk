@@ -28,7 +28,7 @@ func TestResourceValidate(t *testing.T) {
 		{
 			"invalid uuid",
 			resources.Resource{
-				Uuid:      "abcd",
+				UUID:      "abcd",
 				Namespace: resources.ResourceNamespaceCore,
 				Type:      resources.ResourceTypeComponent,
 				Subtype:   "arm",
@@ -39,7 +39,7 @@ func TestResourceValidate(t *testing.T) {
 		{
 			"missing namespace",
 			resources.Resource{
-				Uuid:    uuid.NewString(),
+				UUID:    uuid.NewString(),
 				Type:    resources.ResourceTypeComponent,
 				Subtype: "arm",
 				Name:    "arm1",
@@ -49,7 +49,7 @@ func TestResourceValidate(t *testing.T) {
 		{
 			"missing type",
 			resources.Resource{
-				Uuid:      uuid.NewString(),
+				UUID:      uuid.NewString(),
 				Namespace: resources.ResourceNamespaceCore,
 				Subtype:   "arm",
 				Name:      "arm1",
@@ -59,7 +59,7 @@ func TestResourceValidate(t *testing.T) {
 		{
 			"missing subtype",
 			resources.Resource{
-				Uuid:      uuid.NewString(),
+				UUID:      uuid.NewString(),
 				Namespace: resources.ResourceNamespaceCore,
 				Type:      resources.ResourceTypeComponent,
 				Name:      "arm1",
@@ -69,7 +69,7 @@ func TestResourceValidate(t *testing.T) {
 		{
 			"missing name",
 			resources.Resource{
-				Uuid:      uuid.NewString(),
+				UUID:      uuid.NewString(),
 				Namespace: resources.ResourceNamespaceCore,
 				Type:      resources.ResourceTypeComponent,
 				Subtype:   "arm",
@@ -79,7 +79,7 @@ func TestResourceValidate(t *testing.T) {
 		{
 			"all fields included",
 			resources.Resource{
-				Uuid:      uuid.NewString(),
+				UUID:      uuid.NewString(),
 				Namespace: resources.ResourceNamespaceCore,
 				Type:      resources.ResourceTypeComponent,
 				Subtype:   "arm",
@@ -105,22 +105,22 @@ func TestAddResource(t *testing.T) {
 
 	metadata := r.GetResources()[0]
 	arm := resources.Resource{
-		Uuid:      uuid.NewString(),
+		UUID:      uuid.NewString(),
 		Namespace: resources.ResourceNamespaceCore,
 		Type:      resources.ResourceTypeComponent,
 		Subtype:   "arm",
 		Name:      "arm1",
 	}
 	sensor := resources.Resource{
-		Uuid:      uuid.NewString(),
+		UUID:      uuid.NewString(),
 		Namespace: resources.ResourceNamespaceCore,
 		Type:      resources.ResourceTypeComponent,
 		Subtype:   "sensor",
 		Name:      "sensor1",
 	}
 
-	new_metadata := resources.Resource{
-		Uuid:      uuid.NewString(),
+	newMetadata := resources.Resource{
+		UUID:      uuid.NewString(),
 		Namespace: resources.ResourceNamespaceCore,
 		Type:      resources.ResourceTypeService,
 		Subtype:   resources.ResourceSubtypeMetadata,
@@ -140,7 +140,7 @@ func TestAddResource(t *testing.T) {
 		},
 		{
 			"invalid addition 2",
-			new_metadata,
+			newMetadata,
 			nil,
 			"Unable to add a resource with a metadata subtype",
 		},
@@ -181,14 +181,14 @@ func TestRemoveResource(t *testing.T) {
 
 	metadata := r.GetResources()[0]
 	arm := resources.Resource{
-		Uuid:      uuid.NewString(),
+		UUID:      uuid.NewString(),
 		Namespace: resources.ResourceNamespaceCore,
 		Type:      resources.ResourceTypeComponent,
 		Subtype:   "arm",
 		Name:      "arm1",
 	}
 	sensor := resources.Resource{
-		Uuid:      uuid.NewString(),
+		UUID:      uuid.NewString(),
 		Namespace: resources.ResourceNamespaceCore,
 		Type:      resources.ResourceTypeComponent,
 		Subtype:   "sensor",
@@ -253,14 +253,14 @@ func TestClearResource(t *testing.T) {
 
 	metadata := r.GetResources()[0]
 	arm := resources.Resource{
-		Uuid:      uuid.NewString(),
+		UUID:      uuid.NewString(),
 		Namespace: resources.ResourceNamespaceCore,
 		Type:      resources.ResourceTypeComponent,
 		Subtype:   "arm",
 		Name:      "arm1",
 	}
 	sensor := resources.Resource{
-		Uuid:      uuid.NewString(),
+		UUID:      uuid.NewString(),
 		Namespace: resources.ResourceNamespaceCore,
 		Type:      resources.ResourceTypeComponent,
 		Subtype:   "sensor",

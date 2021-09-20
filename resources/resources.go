@@ -28,37 +28,39 @@ const (
 	ResourceSubtypeSensor   = "sensor"
 )
 
+// Resource represents a known component/service of a robot.
 type Resource struct {
-	Uuid      string
+	UUID      string
 	Namespace string
 	Type      string
 	Subtype   string
 	Name      string
 }
 
-// Validate ensures that important fields exist and are valid
+// Validate ensures that important fields exist and are valid.
 func (r Resource) Validate() error {
-	if _, err := uuid.Parse(r.Uuid); err != nil {
-		return errors.New("uuid field for resource missing or invalid.")
+	if _, err := uuid.Parse(r.UUID); err != nil {
+		return errors.New("uuid field for resource missing or invalid")
 	}
 	if r.Namespace == "" {
-		return errors.New("namespace field for resource missing or invalid.")
+		return errors.New("namespace field for resource missing or invalid")
 	}
 	if r.Type == "" {
-		return errors.New("type field for resource missing or invalid.")
+		return errors.New("type field for resource missing or invalid")
 	}
 	if r.Subtype == "" {
-		return errors.New("subtype field for resource missing or invalid.")
+		return errors.New("subtype field for resource missing or invalid")
 	}
 	return nil
 }
 
+// Resources keeps track of all resources associated with a robot.
 type Resources struct {
 	mu        sync.Mutex
 	resources []Resource
 }
 
-// Creates and populate Resources given a robot.
+// Init Creates and populate Resources given a robot.
 func Init(r robot.Robot) (*Resources, error) {
 	res := New()
 
@@ -72,7 +74,7 @@ func Init(r robot.Robot) (*Resources, error) {
 func New() Resources {
 	resources := []Resource{
 		{
-			Uuid:      uuid.NewString(),
+			UUID:      uuid.NewString(),
 			Namespace: ResourceNamespaceCore,
 			Type:      ResourceTypeService,
 			Subtype:   ResourceSubtypeMetadata,
@@ -83,13 +85,13 @@ func New() Resources {
 	return Resources{resources: resources}
 }
 
-// Populate Resources given a robot.
+// Populate populates Resources given a robot.
 func (r *Resources) Populate(robot robot.Robot) error {
 	// TODO: Currently just a placeholder implementation, this should be rewritten once robot/parts have more metadata about themselves
 	for _, name := range robot.ArmNames() {
 		err := r.AddResource(
 			Resource{
-				Uuid:      uuid.NewString(),
+				UUID:      uuid.NewString(),
 				Namespace: ResourceNamespaceCore, // can be non-core as well
 				Type:      ResourceTypeComponent,
 				Subtype:   ResourceSubtypeArm,
@@ -104,7 +106,7 @@ func (r *Resources) Populate(robot robot.Robot) error {
 	for _, name := range robot.BaseNames() {
 		err := r.AddResource(
 			Resource{
-				Uuid:      uuid.NewString(),
+				UUID:      uuid.NewString(),
 				Namespace: ResourceNamespaceCore,
 				Type:      ResourceTypeComponent,
 				Subtype:   ResourceSubtypeBase,
@@ -118,7 +120,7 @@ func (r *Resources) Populate(robot robot.Robot) error {
 	for _, name := range robot.BoardNames() {
 		err := r.AddResource(
 			Resource{
-				Uuid:      uuid.NewString(),
+				UUID:      uuid.NewString(),
 				Namespace: ResourceNamespaceCore,
 				Type:      ResourceTypeComponent,
 				Subtype:   ResourceSubtypeBoard,
@@ -132,7 +134,7 @@ func (r *Resources) Populate(robot robot.Robot) error {
 	for _, name := range robot.CameraNames() {
 		err := r.AddResource(
 			Resource{
-				Uuid:      uuid.NewString(),
+				UUID:      uuid.NewString(),
 				Namespace: ResourceNamespaceCore,
 				Type:      ResourceTypeComponent,
 				Subtype:   ResourceSubtypeCamera,
@@ -146,7 +148,7 @@ func (r *Resources) Populate(robot robot.Robot) error {
 	for _, name := range robot.FunctionNames() {
 		err := r.AddResource(
 			Resource{
-				Uuid:      uuid.NewString(),
+				UUID:      uuid.NewString(),
 				Namespace: ResourceNamespaceCore,
 				Type:      ResourceTypeService,
 				Subtype:   ResourceSubtypeFunction,
@@ -160,7 +162,7 @@ func (r *Resources) Populate(robot robot.Robot) error {
 	for _, name := range robot.GripperNames() {
 		err := r.AddResource(
 			Resource{
-				Uuid:      uuid.NewString(),
+				UUID:      uuid.NewString(),
 				Namespace: ResourceNamespaceCore,
 				Type:      ResourceTypeComponent,
 				Subtype:   ResourceSubtypeGripper,
@@ -174,7 +176,7 @@ func (r *Resources) Populate(robot robot.Robot) error {
 	for _, name := range robot.LidarNames() {
 		err := r.AddResource(
 			Resource{
-				Uuid:      uuid.NewString(),
+				UUID:      uuid.NewString(),
 				Namespace: ResourceNamespaceCore,
 				Type:      ResourceTypeComponent,
 				Subtype:   ResourceSubtypeLidar,
@@ -188,7 +190,7 @@ func (r *Resources) Populate(robot robot.Robot) error {
 	for _, name := range robot.RemoteNames() {
 		err := r.AddResource(
 			Resource{
-				Uuid:      uuid.NewString(),
+				UUID:      uuid.NewString(),
 				Namespace: ResourceNamespaceCore,
 				Type:      ResourceTypeComponent,
 				Subtype:   ResourceSubtypeRemote,
@@ -202,7 +204,7 @@ func (r *Resources) Populate(robot robot.Robot) error {
 	for _, name := range robot.SensorNames() {
 		err := r.AddResource(
 			Resource{
-				Uuid:      uuid.NewString(),
+				UUID:      uuid.NewString(),
 				Namespace: ResourceNamespaceCore,
 				Type:      ResourceTypeComponent,
 				Subtype:   ResourceSubtypeSensor,
@@ -216,7 +218,7 @@ func (r *Resources) Populate(robot robot.Robot) error {
 	return nil
 }
 
-// Resources returns the list of resources.
+// GetResources returns the list of resources.
 func (r *Resources) GetResources() []Resource {
 	return r.resources
 }
@@ -224,21 +226,21 @@ func (r *Resources) GetResources() []Resource {
 // AddResource adds an additional resource to the list. Cannot add another metadata service
 func (r *Resources) AddResource(resource Resource) error {
 	if err := resource.Validate(); err != nil {
-		return errors.Errorf("Unable to add resource: %s", err.Error())
+		return errors.Errorf("unable to add resource: %s", err.Error())
 	}
 
 	idx := -1
 	for i := range r.resources {
-		if r.resources[i].Uuid == resource.Uuid {
+		if r.resources[i].UUID == resource.UUID {
 			idx = i
 			break
 		}
 	}
 	if idx != -1 {
-		return errors.Errorf("Resource with uuid %s already exists and cannot be added again.", resource.Uuid)
+		return errors.Errorf("resource with uuid %s already exists and cannot be added again", resource.UUID)
 	}
 	if resource.Subtype == ResourceSubtypeMetadata {
-		return errors.New("Unable to add a resource with a metadata subtype.")
+		return errors.New("unable to add a resource with a metadata subtype")
 	}
 
 	r.mu.Lock()
@@ -251,21 +253,21 @@ func (r *Resources) AddResource(resource Resource) error {
 // RemoveResource removes resource from the list.
 func (r *Resources) RemoveResource(resource Resource) error {
 	if err := resource.Validate(); err != nil {
-		return errors.Errorf("Invalid resource to find and remove: %s", err.Error())
+		return errors.Errorf("invalid resource to find and remove: %s", err.Error())
 	}
 
 	idx := -1
 	for i := range r.resources {
-		if r.resources[i].Uuid == resource.Uuid {
+		if r.resources[i].UUID == resource.UUID {
 			idx = i
 			break
 		}
 	}
 	if idx == -1 {
-		return errors.Errorf("Unable to find and remove resource with uuid %s.", resource.Uuid)
+		return errors.Errorf("unable to find and remove resource with uuid %s", resource.UUID)
 	}
 	if resource.Subtype == ResourceSubtypeMetadata {
-		return errors.New("Unable to remove resource with a metadata subtype.")
+		return errors.New("unable to remove resource with a metadata subtype")
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -289,7 +291,7 @@ func (r *Resources) ClearResources() error {
 	if idx == -1 {
 		r.resources = []Resource{
 			{
-				Uuid:      uuid.NewString(),
+				UUID:      uuid.NewString(),
 				Namespace: ResourceNamespaceCore,
 				Type:      ResourceTypeService,
 				Subtype:   ResourceSubtypeMetadata,

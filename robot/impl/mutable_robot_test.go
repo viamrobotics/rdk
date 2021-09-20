@@ -73,6 +73,7 @@ func TestConfigRemote(t *testing.T) {
 	}()
 
 	res, err := resources.Init(r)
+	test.That(t, err, test.ShouldBeNil)
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()

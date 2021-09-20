@@ -19,7 +19,7 @@ import (
 )
 
 var newResource = resources.Resource{
-	Uuid:      uuid.NewString(),
+	UUID:      uuid.NewString(),
 	Namespace: resources.ResourceNamespaceCore,
 	Type:      resources.ResourceTypeComponent,
 	Subtype:   resources.ResourceSubtypeArm,
@@ -28,7 +28,7 @@ var newResource = resources.Resource{
 
 var oneResourceResponse = []*pb.ResourceName{
 	{
-		Uuid:      newResource.Uuid,
+		Uuid:      newResource.UUID,
 		Namespace: newResource.Namespace,
 		Type:      newResource.Type,
 		Subtype:   newResource.Subtype,
