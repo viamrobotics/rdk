@@ -15,7 +15,6 @@ import (
 type Pose interface {
 	Point() r3.Vector
 	Orientation() *OrientationVec
-	Invert() Pose
 }
 
 // NewZeroPose returns a pose at (0,0,0) with same orientation as whatever frame it is placed in.
@@ -121,4 +120,10 @@ func PoseToArmPos(p Pose) *pb.ArmPosition {
 	final.OY = poseOV.OY
 	final.OZ = poseOV.OZ
 	return final
+}
+
+// Invert will return the inverse of a pose. So if a given pose p is the pose of A relative to B, Invert(p) will give
+// the pose of B relative to A
+func Invert(p Pose) Pose {
+	return newdualQuaternionFromPose(p).Invert()
 }
