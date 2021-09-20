@@ -181,10 +181,10 @@ func (r *mutableRobot) Config(ctx context.Context) (*config.Config, error) {
 		}
 
 		for _, c := range rc.Components {
-			if c.Parent == "" {
+			if c.Frame.Parent == "" {
 				for _, rc := range cfgCpy.Remotes {
 					if rc.Name == remoteName {
-						c.Parent = rc.Parent
+						c.Frame.Parent = rc.Parent
 						break
 					}
 				}
@@ -203,8 +203,8 @@ func (r *mutableRobot) Status(ctx context.Context) (*pb.Status, error) {
 	return status.Create(ctx, r)
 }
 
-func (r *mutableRobot) FrameLookup(ctx context.Context) (referenceframe.FrameLookup, error) {
-	return CreateReferenceFrameLookup(ctx, r)
+func (r *mutableRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
+	return CreateReferenceFrameSystem(ctx, r)
 }
 
 // Logger returns the logger the robot is using.
@@ -242,7 +242,7 @@ func (r *mutableRobot) newBase(ctx context.Context, config config.Component) (ba
 	if f == nil {
 		return nil, errors.Errorf("unknown base model: %s", config.Model)
 	}
-	return f(ctx, r, config, r.logger)
+	return f.Constructor(ctx, r, config, r.logger)
 }
 
 func (r *mutableRobot) newArm(ctx context.Context, config config.Component) (arm.Arm, error) {
@@ -251,7 +251,7 @@ func (r *mutableRobot) newArm(ctx context.Context, config config.Component) (arm
 		return nil, errors.Errorf("unknown arm model: %s", config.Model)
 	}
 
-	return f(ctx, r, config, r.logger)
+	return f.Constructor(ctx, r, config, r.logger)
 }
 
 func (r *mutableRobot) newGripper(ctx context.Context, config config.Component) (gripper.Gripper, error) {
@@ -259,7 +259,7 @@ func (r *mutableRobot) newGripper(ctx context.Context, config config.Component) 
 	if f == nil {
 		return nil, errors.Errorf("unknown gripper model: %s", config.Model)
 	}
-	return f(ctx, r, config, r.logger)
+	return f.Constructor(ctx, r, config, r.logger)
 }
 
 func (r *mutableRobot) newCamera(ctx context.Context, config config.Component) (camera.Camera, error) {
@@ -267,7 +267,7 @@ func (r *mutableRobot) newCamera(ctx context.Context, config config.Component) (
 	if f == nil {
 		return nil, errors.Errorf("unknown camera model: %s", config.Model)
 	}
-	is, err := f(ctx, r, config, r.logger)
+	is, err := f.Constructor(ctx, r, config, r.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +279,7 @@ func (r *mutableRobot) newLidar(ctx context.Context, config config.Component) (l
 	if f == nil {
 		return nil, errors.Errorf("unknown lidar model: %s", config.Model)
 	}
-	return f(ctx, r, config, r.logger)
+	return f.Constructor(ctx, r, config, r.logger)
 }
 
 func (r *mutableRobot) newSensor(ctx context.Context, config config.Component, sensorType sensor.Type) (sensor.Sensor, error) {
@@ -287,7 +287,7 @@ func (r *mutableRobot) newSensor(ctx context.Context, config config.Component, s
 	if f == nil {
 		return nil, errors.Errorf("unknown sensor model (type=%s): %s", sensorType, config.Model)
 	}
-	return f(ctx, r, config, r.logger)
+	return f.Constructor(ctx, r, config, r.logger)
 }
 
 // Refresh does nothing for now

@@ -9,12 +9,14 @@
             "name" : "g",
             "model" : "fake",
             "type" : "gripper",
-            "parent" : "a",
-            "translation" : {
-                "x" : 1,
-                "y" : 1,
-                "z" : 1
+            "frame": {
+                "parent" : "a",
+                "translation" : {
+                    "x" : 1,
+                    "y" : 1,
+                    "z" : 1
+                }
             }
-        }                
+        }
     ]
 }

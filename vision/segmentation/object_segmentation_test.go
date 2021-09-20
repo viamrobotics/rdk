@@ -80,34 +80,6 @@ func (h *segmentObjectTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorCo
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(segImage, "segmented-pointcloud-image-with-depth")
 
-	// turn pointcloud into voxel grid
-	vg := pc.NewVoxelGridFromPointCloud(cloud, 0.2, 0.01)
-
-	// Do object segmentation with voxel grid
-	voxPlaneConfig := VoxelGridPlaneConfig{
-		weightThresh:   0.9,
-		angleThresh:    30,
-		cosineThresh:   0.1,
-		distanceThresh: 0.1,
-	}
-	voxObjConfig := ObjectConfig{
-		MinPtsInPlane:    50000,
-		MinPtsInSegment:  500,
-		ClusteringRadius: 0.5,
-	}
-
-	voxSegments, err := NewObjectSegmentationFromVoxelGrid(vg, voxObjConfig, voxPlaneConfig)
-	test.That(t, err, test.ShouldBeNil)
-
-	voxObjectClouds := voxSegments.PointClouds()
-	voxColoredSegments, err := pc.MergePointCloudsWithColor(voxObjectClouds)
-	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugPointCloud(voxColoredSegments, "intel-segments-voxels")
-
-	voxSegImage, err := PointCloudSegmentsToMask(h.cameraParams.ColorCamera, voxObjectClouds)
-	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugImage(voxSegImage, "segmented-voxels-image-with-depth")
-
 	return nil
 
 }

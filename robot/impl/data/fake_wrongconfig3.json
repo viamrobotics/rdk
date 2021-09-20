@@ -66,27 +66,15 @@
         },
         {
           "model": "fake",
-          "name": "compass2",
+          "name": "world",
           "type": "sensor",
           "subtype": "compass",
           "frame": {
-              "parent": "pieceArm"
+              "parent": "pieceGripper"
           },
           "attributes": {
             "relative": true
           }
-        }
-    ],
-    "functions": [
-        {
-          "name": "func1",
-          "engine": "javascript",
-          "source": "(function() { console.log(robot.gripperOpen('gripper1')); return 1}())"
-        },
-        {
-          "name": "func2",
-          "engine": "javascript",
-          "source": "(function() { console.log(robot.gripperGrab('gripper1')); return 2}())"
         }
     ]
 }

@@ -35,6 +35,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
+	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	"goji.io"
 	"goji.io/pat"
@@ -210,26 +211,24 @@ func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, cameraName str
 	armName := h.app.theRobot.ArmNames()[0]
 	arm, ok := h.app.theRobot.ArmByName(armName)
 	if !ok {
-		return fmt.Errorf("failed tor find arm %q", armName)
+		return fmt.Errorf("failed to find arm %q", armName)
 	}
 
-	frameLookup, err := h.app.theRobot.FrameLookup(ctx)
+	frameSys, err := h.app.theRobot.FrameSystem(ctx)
 	if err != nil {
 		return err
 	}
-
-	pos, err := referenceframe.FindTranslationChildToParent(ctx, frameLookup, cameraName, armName)
+	cameraPoint := r3.Vector{x, y, z}
+	input := make(map[string][]referenceframe.Input)
+	pos, err := frameSys.TransformPoint(input, cameraPoint, frameSys.GetFrame(cameraName), frameSys.GetFrame(armName))
 	if err != nil {
 		return err
 	}
 
 	h.app.logger.Debugf("move - %v %v %v\n", x, y, z)
-
 	h.app.logger.Debugf("pos a: %#v\n", pos)
-	pos = referenceframe.OffsetBy(&pb.ArmPosition{X: x, Y: y, Z: z}, pos)
-	h.app.logger.Debugf("pos b: %#v\n", pos)
 
-	return arm.MoveToPosition(ctx, pos)
+	return arm.MoveToPosition(ctx, &pb.ArmPosition{X: pos.X, Y: pos.Y, Z: pos.Z})
 }
 
 func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

@@ -32,9 +32,9 @@ const ModelName = "lidar"
 
 // init registers the lidar compass type.
 func init() {
-	registry.RegisterSensor(compass.Type, ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+	registry.RegisterSensor(compass.Type, ModelName, registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 		return New(ctx, config, logger)
-	})
+	}})
 }
 
 // Lidar is a LiDAR based compass that uses MSE calculations to determine yaw.
@@ -52,10 +52,10 @@ func From(lidar lidar.Lidar) compass.RelativeCompass {
 func New(ctx context.Context, config config.Component, logger golog.Logger) (compass.RelativeCompass, error) {
 	lidarType := config.Attributes.String("type")
 	f := registry.LidarLookup(lidarType)
-	if f == nil {
+	if f == nil || f.Constructor == nil {
 		return nil, errors.Errorf("unknown lidar model: %s", lidarType)
 	}
-	lidar, err := f(ctx, nil, config, logger)
+	lidar, err := f.Constructor(ctx, nil, config, logger)
 	if err != nil {
 		return nil, err
 	}

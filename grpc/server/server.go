@@ -84,18 +84,20 @@ func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigRes
 	resp := &pb.ConfigResponse{}
 	for _, c := range cfg.Components {
 		cc := &pb.ComponentConfig{
-			Name:   c.Name,
-			Type:   string(c.Type),
-			Parent: c.Parent,
-			Translation: &pb.ArmPosition{
-				X:     c.ParentTranslation.X,
-				Y:     c.ParentTranslation.Y,
-				Z:     c.ParentTranslation.Z,
-				OX:    c.ParentOrientation.X,
-				OY:    c.ParentOrientation.Y,
-				OZ:    c.ParentOrientation.Z,
-				Theta: c.ParentOrientation.TH,
-			},
+			Name: c.Name,
+			Type: string(c.Type),
+		}
+		if c.Frame != nil {
+			cc.Parent = c.Frame.Parent
+			cc.Pose = &pb.ArmPosition{
+				X:     c.Frame.Translation.X,
+				Y:     c.Frame.Translation.Y,
+				Z:     c.Frame.Translation.Z,
+				OX:    c.Frame.Orientation.X,
+				OY:    c.Frame.Orientation.Y,
+				OZ:    c.Frame.Orientation.Z,
+				Theta: c.Frame.Orientation.TH,
+			}
 		}
 		resp.Components = append(resp.Components, cc)
 	}

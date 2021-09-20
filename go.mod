@@ -48,6 +48,7 @@ require (
 	github.com/pion/webrtc/v3 v3.0.29
 	github.com/polyfloyd/go-errorlint v0.0.0-20201127212506-19bd8db6546f
 	github.com/pseudomuto/protoc-gen-doc v1.3.2
+	github.com/sbinet/go-python v0.1.0 // indirect
 	github.com/sergi/go-diff v1.2.0
 	github.com/sjwhitworth/golearn v0.0.0-20201127221938-294d65fca392
 	github.com/starship-technologies/gobag v1.0.6
