@@ -108,14 +108,18 @@ func TestDiffConfigs(t *testing.T) {
 		},
 		Functions: []functionvm.FunctionConfig{
 			{
-				Name:   "func1",
-				Engine: "foo",
-				Source: "1",
+				Name: "func1",
+				AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
+					Engine: "foo",
+					Source: "1",
+				},
 			},
 			{
-				Name:   "func2",
-				Engine: "bar",
-				Source: "2",
+				Name: "func2",
+				AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
+					Engine: "bar",
+					Source: "2",
+				},
 			},
 		},
 	}
@@ -208,14 +212,18 @@ func TestDiffConfigs(t *testing.T) {
 		},
 		Functions: []functionvm.FunctionConfig{
 			{
-				Name:   "func1",
-				Engine: "foo",
-				Source: "1+1",
+				Name: "func1",
+				AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
+					Engine: "foo",
+					Source: "1+1",
+				},
 			},
 			{
-				Name:   "func2",
-				Engine: "bar",
-				Source: "2+2",
+				Name: "func2",
+				AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
+					Engine: "bar",
+					Source: "2+2",
+				},
 			},
 		},
 	}
@@ -310,9 +318,11 @@ func TestDiffConfigs(t *testing.T) {
 					},
 					Functions: []functionvm.FunctionConfig{
 						{
-							Name:   "func3",
-							Engine: "baz",
-							Source: "3",
+							Name: "func3",
+							AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
+								Engine: "baz",
+								Source: "3",
+							},
 						},
 					},
 				},
@@ -368,9 +378,11 @@ func TestDiffConfigs(t *testing.T) {
 					},
 					Functions: []functionvm.FunctionConfig{
 						{
-							Name:   "func1",
-							Engine: "foo",
-							Source: "1+1",
+							Name: "func1",
+							AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
+								Engine: "foo",
+								Source: "1+1",
+							},
 						},
 					},
 				},
@@ -395,9 +407,11 @@ func TestDiffConfigs(t *testing.T) {
 					},
 					Functions: []functionvm.FunctionConfig{
 						{
-							Name:   "func2",
-							Engine: "bar",
-							Source: "2",
+							Name: "func2",
+							AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
+								Engine: "bar",
+								Source: "2",
+							},
 						},
 					},
 				},

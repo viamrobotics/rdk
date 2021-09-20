@@ -205,9 +205,11 @@ func TestConfigEnsure(t *testing.T) {
 	}
 
 	invalidFunctions.Functions[0] = functionvm.FunctionConfig{
-		Name:   "one",
-		Engine: functionvm.EngineName(engName1),
-		Source: "three",
+		Name: "one",
+		AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
+			Engine: functionvm.EngineName(engName1),
+			Source: "three",
+		},
 	}
 	err = invalidFunctions.Ensure(false)
 	test.That(t, err, test.ShouldNotBeNil)
