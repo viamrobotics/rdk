@@ -15,6 +15,9 @@
     margin-bottom: 20px;
 }
 
+/*************
+* TYPOGRAPHY *
+*************/
 .component h1 {
     font-size: 68px;
     font-weight: 400;
@@ -48,33 +51,161 @@
     font-weight: 400;
 }
 
+/**********
+* BUTTONS *
+**********/
 .component button {
     font-size: 14px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 1.25px;
     border-radius: 4px;
-    border: 1px solid var(--black-30);
     padding: 8px;
     background: none;
+    border: none;
+    cursor: pointer;
+}
+.component button:hover,
+.component button:active,
+.component button:focus {
+    filter: brightness(var(--hover-brightness));
+}
+.component button:disabled {
+    filter: brightness(var(--disabled-brightness));
+}
+.component button.clear {
+    background-color: var(--white);
+    border: 1px solid var(--black-30);
+    color: var(--black-90);
+}
+.component button.clear:hover,
+.component button.clear:active,
+.component button.clear:focus {
+    background-color: var(--black-10);
+    filter: none;
+}
+.component button.clear:disabled {
+    background-color: var(--black-30);
+    color: var(--black-70);
+    filter: none;
 }
 .component button.blue {
     background-color: var(--blue-90);
-}
-.component button.blue:hover,
-.component button.blue:active,
-.component button.blue:focus {
-    filter: brightness(var(--hover-brightness));
-}
-.component button.blue:disabled {
-    filter: brightness(var(--disabled-brightness));
+    color: var(--white);
 }
 .component button.red {
-    background-color: var(--red-90);
+    background-color: var(--red-100);
+    color: var(--white);
 }
 .component button.green {
     background-color: var(--green-90);
+    color: var(--white);
 }
+
+/*********
+* INPUTS *
+*********/
+.component label.error {
+    color: var(--red-70) !important;
+}
+
+.component input[type=number],
+.component input[type=text] {
+    padding: 8px;
+    border: 1px solid var(--black-30);
+    border-radius: 4px;
+    font-family: 'Source Sans Pro', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+}
+.component input[type=number]:disabled,
+.component input[type=text]:disabled {
+    background-color: var(--black-30);
+}
+.component input[type=number].error,
+.component input[type=text].error {
+    border: 1px solid var(--red-70);
+}
+
+.component input[type=range] {
+    height: 24px;
+    -webkit-appearance: none;
+    margin: 8px 12px 0px 0px;
+    width: 100%;
+  }
+.component input[type=range]:focus {
+    outline: none;
+  }
+.component input[type=range]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 4px;
+    cursor: pointer;
+    background: var(--blue-60);
+    border-radius: 4px;
+    border: none;
+  }
+.component input[type=range]::-webkit-slider-thumb {
+    border: 1px solid var(--blue-60);
+    height: 20px;
+    width: 20px;
+    border-radius: 10px;
+    background: var(--blue-80);
+    cursor: pointer;
+    -webkit-appearance: none;
+    margin-top: -8px;
+  }
+.component input[type=range]:focus::-webkit-slider-runnable-track {
+    background: var(--blue-60);
+  }
+.component input[type=range]::-moz-range-track {
+    width: 100%;
+    height: 4px;
+    cursor: pointer;
+    background: var(--blue-60);
+    border-radius: 4px;
+    border: none;
+  }
+.component input[type=range]::-moz-range-thumb {
+    border: 1px solid var(--blue-60);
+    height: 20px;
+    width: 20px;
+    border-radius: 10px;
+    background: var(--blue-80);
+    cursor: pointer;
+  }
+.component input[type=range]::-ms-track {
+    width: 100%;
+    height: 4px;
+    cursor: pointer;
+    background: transparent;
+    border-color: transparent;
+    color: transparent;
+  }
+.component input[type=range]::-ms-fill-lower {
+    background: var(--blue-60);
+    border: none;
+    border-radius: 4px;
+  }
+.component input[type=range]::-ms-fill-upper {
+    background: var(--blue-60);
+    border: none;
+    border-radius: 4px;
+  }
+.component input[type=range]::-ms-thumb {
+    margin-top: 4px;
+    border: 1px solid var(--blue-60);
+    height: 20px;
+    width: 20px;
+    border-radius: 10px;
+    background: var(--blue-80);
+    cursor: pointer;
+  }
+.component input[type=range]:focus::-ms-fill-lower {
+    background: var(--blue-60);
+  }
+.component input[type=range]:focus::-ms-fill-upper {
+    background: var(--blue-60);
+  }
 
 /************
 * VARIABLES *

@@ -235,17 +235,6 @@ exports.f = DESCRIPTORS ? $getOwnPropertyDescriptor : function getOwnPropertyDes
 
 /***/ }),
 
-/***/ "0a47":
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_71cf80a4_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("faf8");
-/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_71cf80a4_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_71cf80a4_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__);
-/* unused harmony reexport * */
-
-
-/***/ }),
-
 /***/ "0b42":
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -893,6 +882,52 @@ module.exports = function (argument) {
 
 /***/ }),
 
+/***/ "5899":
+/***/ (function(module, exports) {
+
+// a string of all valid unicode whitespaces
+module.exports = '\u0009\u000A\u000B\u000C\u000D\u0020\u00A0\u1680\u2000\u2001\u2002' +
+  '\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000\u2028\u2029\uFEFF';
+
+
+/***/ }),
+
+/***/ "58a8":
+/***/ (function(module, exports, __webpack_require__) {
+
+var requireObjectCoercible = __webpack_require__("1d80");
+var toString = __webpack_require__("577e");
+var whitespaces = __webpack_require__("5899");
+
+var whitespace = '[' + whitespaces + ']';
+var ltrim = RegExp('^' + whitespace + whitespace + '*');
+var rtrim = RegExp(whitespace + whitespace + '*$');
+
+// `String.prototype.{ trim, trimStart, trimEnd, trimLeft, trimRight }` methods implementation
+var createMethod = function (TYPE) {
+  return function ($this) {
+    var string = toString(requireObjectCoercible($this));
+    if (TYPE & 1) string = string.replace(ltrim, '');
+    if (TYPE & 2) string = string.replace(rtrim, '');
+    return string;
+  };
+};
+
+module.exports = {
+  // `String.prototype.{ trimLeft, trimStart }` methods
+  // https://tc39.es/ecma262/#sec-string.prototype.trimstart
+  start: createMethod(1),
+  // `String.prototype.{ trimRight, trimEnd }` methods
+  // https://tc39.es/ecma262/#sec-string.prototype.trimend
+  end: createMethod(2),
+  // `String.prototype.trim` method
+  // https://tc39.es/ecma262/#sec-string.prototype.trim
+  trim: createMethod(3)
+};
+
+
+/***/ }),
+
 /***/ "5c6c":
 /***/ (function(module, exports) {
 
@@ -1031,6 +1066,17 @@ module.exports = {
 
 /***/ }),
 
+/***/ "6a4c":
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_1a4fb7f8_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("cc7f");
+/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_1a4fb7f8_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_1a4fb7f8_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__);
+/* unused harmony reexport * */
+
+
+/***/ }),
+
 /***/ "6eeb":
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -1117,6 +1163,30 @@ function _typeof(obj) {
 
 module.exports = _typeof;
 module.exports["default"] = module.exports, module.exports.__esModule = true;
+
+/***/ }),
+
+/***/ "7156":
+/***/ (function(module, exports, __webpack_require__) {
+
+var isObject = __webpack_require__("861d");
+var setPrototypeOf = __webpack_require__("d2bb");
+
+// makes subclassing work correct for wrapped built-ins
+module.exports = function ($this, dummy, Wrapper) {
+  var NewTarget, NewTargetPrototype;
+  if (
+    // it can work only with native `setPrototypeOf`
+    setPrototypeOf &&
+    // we haven't completely correct pre-ES6 way for getting `new.target`, so use this
+    typeof (NewTarget = dummy.constructor) == 'function' &&
+    NewTarget !== Wrapper &&
+    isObject(NewTargetPrototype = NewTarget.prototype) &&
+    NewTargetPrototype !== Wrapper.prototype
+  ) setPrototypeOf($this, NewTargetPrototype);
+  return $this;
+};
+
 
 /***/ }),
 
@@ -1379,6 +1449,28 @@ module.exports = function (Iterable, NAME, IteratorConstructor, next, DEFAULT, I
 
 /***/ }),
 
+/***/ "7e12":
+/***/ (function(module, exports, __webpack_require__) {
+
+var global = __webpack_require__("da84");
+var toString = __webpack_require__("577e");
+var trim = __webpack_require__("58a8").trim;
+var whitespaces = __webpack_require__("5899");
+
+var $parseFloat = global.parseFloat;
+var FORCED = 1 / $parseFloat(whitespaces + '-0') !== -Infinity;
+
+// `parseFloat` method
+// https://tc39.es/ecma262/#sec-parsefloat-string
+module.exports = FORCED ? function parseFloat(string) {
+  var trimmedString = trim(toString(string));
+  var result = $parseFloat(trimmedString);
+  return result === 0 && trimmedString.charAt(0) == '-' ? -0 : result;
+} : $parseFloat;
+
+
+/***/ }),
+
 /***/ "7f9a":
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -1567,6 +1659,23 @@ module.exports = DESCRIPTORS ? function (object, key, value) {
   object[key] = value;
   return object;
 };
+
+
+/***/ }),
+
+/***/ "9129":
+/***/ (function(module, exports, __webpack_require__) {
+
+var $ = __webpack_require__("23e7");
+
+// `Number.isNaN` method
+// https://tc39.es/ecma262/#sec-number.isnan
+$({ target: 'Number', stat: true }, {
+  isNaN: function isNaN(number) {
+    // eslint-disable-next-line no-self-compare -- NaN check
+    return number != number;
+  }
+});
 
 
 /***/ }),
@@ -2014,6 +2123,96 @@ module.exports = function (argument) {
 
 /***/ }),
 
+/***/ "a9e3":
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+var DESCRIPTORS = __webpack_require__("83ab");
+var global = __webpack_require__("da84");
+var isForced = __webpack_require__("94ca");
+var redefine = __webpack_require__("6eeb");
+var has = __webpack_require__("5135");
+var classof = __webpack_require__("c6b6");
+var inheritIfRequired = __webpack_require__("7156");
+var isSymbol = __webpack_require__("d9b5");
+var toPrimitive = __webpack_require__("c04e");
+var fails = __webpack_require__("d039");
+var create = __webpack_require__("7c73");
+var getOwnPropertyNames = __webpack_require__("241c").f;
+var getOwnPropertyDescriptor = __webpack_require__("06cf").f;
+var defineProperty = __webpack_require__("9bf2").f;
+var trim = __webpack_require__("58a8").trim;
+
+var NUMBER = 'Number';
+var NativeNumber = global[NUMBER];
+var NumberPrototype = NativeNumber.prototype;
+
+// Opera ~12 has broken Object#toString
+var BROKEN_CLASSOF = classof(create(NumberPrototype)) == NUMBER;
+
+// `ToNumber` abstract operation
+// https://tc39.es/ecma262/#sec-tonumber
+var toNumber = function (argument) {
+  if (isSymbol(argument)) throw TypeError('Cannot convert a Symbol value to a number');
+  var it = toPrimitive(argument, 'number');
+  var first, third, radix, maxCode, digits, length, index, code;
+  if (typeof it == 'string' && it.length > 2) {
+    it = trim(it);
+    first = it.charCodeAt(0);
+    if (first === 43 || first === 45) {
+      third = it.charCodeAt(2);
+      if (third === 88 || third === 120) return NaN; // Number('+0x1') should be NaN, old V8 fix
+    } else if (first === 48) {
+      switch (it.charCodeAt(1)) {
+        case 66: case 98: radix = 2; maxCode = 49; break; // fast equal of /^0b[01]+$/i
+        case 79: case 111: radix = 8; maxCode = 55; break; // fast equal of /^0o[0-7]+$/i
+        default: return +it;
+      }
+      digits = it.slice(2);
+      length = digits.length;
+      for (index = 0; index < length; index++) {
+        code = digits.charCodeAt(index);
+        // parseInt parses a string to a first unavailable symbol
+        // but ToNumber should return NaN if a string contains unavailable symbols
+        if (code < 48 || code > maxCode) return NaN;
+      } return parseInt(digits, radix);
+    }
+  } return +it;
+};
+
+// `Number` constructor
+// https://tc39.es/ecma262/#sec-number-constructor
+if (isForced(NUMBER, !NativeNumber(' 0o1') || !NativeNumber('0b1') || NativeNumber('+0x1'))) {
+  var NumberWrapper = function Number(value) {
+    var it = arguments.length < 1 ? 0 : value;
+    var dummy = this;
+    return dummy instanceof NumberWrapper
+      // check on 1..constructor(foo) case
+      && (BROKEN_CLASSOF ? fails(function () { NumberPrototype.valueOf.call(dummy); }) : classof(dummy) != NUMBER)
+        ? inheritIfRequired(new NativeNumber(toNumber(it)), dummy, NumberWrapper) : toNumber(it);
+  };
+  for (var keys = DESCRIPTORS ? getOwnPropertyNames(NativeNumber) : (
+    // ES3:
+    'MAX_VALUE,MIN_VALUE,NaN,NEGATIVE_INFINITY,POSITIVE_INFINITY,' +
+    // ES2015 (in case, if modules with ES2015 Number statics required before):
+    'EPSILON,isFinite,isInteger,isNaN,isSafeInteger,MAX_SAFE_INTEGER,' +
+    'MIN_SAFE_INTEGER,parseFloat,parseInt,isInteger,' +
+    // ESNext
+    'fromString,range'
+  ).split(','), j = 0, key; keys.length > j; j++) {
+    if (has(NativeNumber, key = keys[j]) && !has(NumberWrapper, key)) {
+      defineProperty(NumberWrapper, key, getOwnPropertyDescriptor(NativeNumber, key));
+    }
+  }
+  NumberWrapper.prototype = NumberPrototype;
+  NumberPrototype.constructor = NumberWrapper;
+  redefine(global, NUMBER, NumberWrapper);
+}
+
+
+/***/ }),
+
 /***/ "ae93":
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -2242,6 +2441,22 @@ module.exports = function (input, pref) {
 
 /***/ }),
 
+/***/ "c35a":
+/***/ (function(module, exports, __webpack_require__) {
+
+var $ = __webpack_require__("23e7");
+var parseFloat = __webpack_require__("7e12");
+
+// `Number.parseFloat` method
+// https://tc39.es/ecma262/#sec-number.parseFloat
+// eslint-disable-next-line es/no-number-parsefloat -- required for testing
+$({ target: 'Number', stat: true, forced: Number.parseFloat != parseFloat }, {
+  parseFloat: parseFloat
+});
+
+
+/***/ }),
+
 /***/ "c430":
 /***/ (function(module, exports) {
 
@@ -2341,6 +2556,13 @@ module.exports = function (it) {
   return EXISTS ? document.createElement(it) : {};
 };
 
+
+/***/ }),
+
+/***/ "cc7f":
+/***/ (function(module, exports, __webpack_require__) {
+
+// extracted by mini-css-extract-plugin
 
 /***/ }),
 
@@ -2852,13 +3074,6 @@ module.exports = function (key) {
 
 /***/ }),
 
-/***/ "faf8":
-/***/ (function(module, exports, __webpack_require__) {
-
-// extracted by mini-css-extract-plugin
-
-/***/ }),
-
 /***/ "fb15":
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
@@ -2903,18 +3118,38 @@ var external_commonjs_vue_commonjs2_vue_root_Vue_default = /*#__PURE__*/__webpac
 // EXTERNAL MODULE: ./src/styles.css
 var styles = __webpack_require__("3a62");
 
-// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"5e1ef33a-vue-loader-template"}!./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/components/MotorDetail.vue?vue&type=template&id=71cf80a4&scoped=true&
-var render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',{staticClass:"component"},[_c('div',{staticClass:"card"},[_c('h2',[_vm._v("Current Motor Status for "+_vm._s(_vm.motor[0]))]),_c('div',{staticClass:"details"},[_c('div',{staticClass:"detail"},[_c('h3',[_vm._v("General")]),_c('div',{staticClass:"details"},[_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Motor")]),(_vm.motor[1].on)?_c('h3',{staticStyle:{"color":"var(--green-90)"}},[_vm._v("On")]):_c('h3',[_vm._v("Off")])]),_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Encoders Active")]),(_vm.motor[1].positionSupported)?_c('h3',[_vm._v("Yes")]):_c('h3',[_vm._v("No")])]),_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Position")]),_c('h3',[_vm._v(_vm._s(_vm.motor[1].position))])])])])]),_c('button',{staticClass:"button",on:{"click":function($event){return _vm.$emit('execute')}}},[_vm._v("RUN")])]),_c('div',{staticClass:"card"},[_c('h2',[_vm._v("Single Motor Control")]),_c('div',{staticClass:"details"},[_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Type of Rotation")]),_c('div',{staticClass:"details"},[_c('button',{staticClass:"blue",attrs:{"disabled":_vm.isContinuous},on:{"click":function($event){_vm.isContinuous = !_vm.isContinuous}}},[_vm._v(" Continuous ")]),_c('button',{attrs:{"disabled":!_vm.isContinuous},on:{"click":function($event){_vm.isContinuous = !_vm.isContinuous}}},[_vm._v(" Defined ")])]),_c('p',{staticClass:"subtitle"},[_vm._v("Direction of Rotation")])]),_vm._m(0)])])])}
-var staticRenderFns = [function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',{staticClass:"detail"},[_c('input',{attrs:{"type":"number","placeholder":"Number of Rotations"}}),_c('p',{staticClass:"subtitle"},[_vm._v("Rotations Per Minute")]),_c('input',{attrs:{"type":"range"}})])}]
+// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"89c879de-vue-loader-template"}!./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/components/MotorDetail.vue?vue&type=template&id=1a4fb7f8&scoped=true&
+var render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',{staticClass:"component"},[_c('div',{staticClass:"card"},[_c('h2',[_vm._v("Current Motor Status for "+_vm._s(_vm.motor[0]))]),_c('div',{staticClass:"details"},[_c('div',{staticClass:"detail"},[_c('h3',[_vm._v("General")]),_c('div',{staticClass:"details"},[_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Motor")]),(_vm.motor[1].on)?_c('h3',{staticStyle:{"color":"var(--green-90)"}},[_vm._v("On")]):_c('h3',[_vm._v("Off")])]),_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Encoders Active")]),(_vm.motor[1].positionSupported)?_c('h3',[_vm._v("Yes")]):_c('h3',[_vm._v("No")])]),_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Position")]),_c('h3',[_vm._v(_vm._s(_vm.motor[1].position))])])])])])]),_c('div',{staticClass:"card"},[_c('h2',[_vm._v("Single Motor Control")]),_c('div',{staticClass:"details"},[_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Type of Rotation")]),_c('div',{staticClass:"details margin-bottom"},[_c('button',{class:[_vm.isContinuous ? 'blue' : 'clear'],on:{"click":function($event){_vm.isContinuous = true}}},[_vm._v(" Continuous ")]),_c('button',{class:[!_vm.isContinuous ? 'blue' : 'clear'],on:{"click":function($event){_vm.isContinuous = false}}},[_vm._v(" Defined ")])]),_c('p',{staticClass:"subtitle"},[_vm._v("Direction of Rotation")]),_c('div',{staticClass:"details margin-bottom"},[_c('button',{class:[_vm.isGoingForward ? 'blue' : 'clear'],on:{"click":function($event){_vm.isGoingForward = true}}},[_vm._v(" Forward ")]),_c('button',{class:[!_vm.isGoingForward ? 'blue' : 'clear'],on:{"click":function($event){_vm.isGoingForward = false}}},[_vm._v(" Backward ")])])]),_c('div',{staticClass:"detail",staticStyle:{"flex-grow":"1"}},[_c('label',{class:['subtitle', _vm.numberOfRotationsError ? 'error' : ''],attrs:{"for":"numberOfRotations"}},[_vm._v(" Number of Rotations ")]),_c('input',{directives:[{name:"model",rawName:"v-model",value:(_vm.numberOfRotations),expression:"numberOfRotations"}],class:[
+            'margin-bottom',
+            _vm.numberOfRotationsError ? 'error' : '' ],attrs:{"id":"numberOfRotations","name":"numberOfRotations","type":"text","placeholder":"Enter a number","min":"0","disabled":_vm.isContinuous},domProps:{"value":(_vm.numberOfRotations)},on:{"input":function($event){if($event.target.composing){ return; }_vm.numberOfRotations=$event.target.value}}}),_c('label',{class:['subtitle', _vm.rotationsPerMinuteError ? 'error' : ''],attrs:{"for":"rotationsPerMinuteRange"}},[_vm._v(" Rotations Per Minute ")]),_c('div',{staticClass:"details"},[_c('input',{directives:[{name:"model",rawName:"v-model",value:(_vm.rotationsPerMinute),expression:"rotationsPerMinute"}],attrs:{"id":"rotationsPerMinuteRange","name":"rotationsPerMinuteRange","type":"range","min":"0","max":_vm.MAX_RPM},domProps:{"value":(_vm.rotationsPerMinute)},on:{"__r":function($event){_vm.rotationsPerMinute=$event.target.value}}}),_c('input',{directives:[{name:"model",rawName:"v-model",value:(_vm.rotationsPerMinute),expression:"rotationsPerMinute"}],class:[
+              'margin-bottom',
+              _vm.rotationsPerMinuteError ? 'error' : '' ],attrs:{"name":"rotationsPerMinuteFinite","id":"rotationsPerMinuteFinite","type":"text","min":"0","max":_vm.MAX_RPM},domProps:{"value":(_vm.rotationsPerMinute)},on:{"input":function($event){if($event.target.composing){ return; }_vm.rotationsPerMinute=$event.target.value}}})])])]),_c('div',{staticClass:"details",staticStyle:{"justify-content":"flex-end"}},[_c('button',{staticClass:"red",on:{"click":_vm.stop}},[_c('i',{staticClass:"far fa-times-circle"}),_vm._v(" STOP ")]),_c('button',{staticClass:"green",on:{"click":_vm.emitCommand}},[_c('i',{staticClass:"fas fa-play"}),_vm._v(" RUN ")])])])])}
+var staticRenderFns = []
 
 
-// CONCATENATED MODULE: ./src/components/MotorDetail.vue?vue&type=template&id=71cf80a4&scoped=true&
+// CONCATENATED MODULE: ./src/components/MotorDetail.vue?vue&type=template&id=1a4fb7f8&scoped=true&
 
 // CONCATENATED MODULE: ./node_modules/@babel/runtime/helpers/esm/classCallCheck.js
 function _classCallCheck(instance, Constructor) {
   if (!(instance instanceof Constructor)) {
     throw new TypeError("Cannot call a class as a function");
   }
+}
+// CONCATENATED MODULE: ./node_modules/@babel/runtime/helpers/esm/createClass.js
+function _defineProperties(target, props) {
+  for (var i = 0; i < props.length; i++) {
+    var descriptor = props[i];
+    descriptor.enumerable = descriptor.enumerable || false;
+    descriptor.configurable = true;
+    if ("value" in descriptor) descriptor.writable = true;
+    Object.defineProperty(target, descriptor.key, descriptor);
+  }
+}
+
+function _createClass(Constructor, protoProps, staticProps) {
+  if (protoProps) _defineProperties(Constructor.prototype, protoProps);
+  if (staticProps) _defineProperties(Constructor, staticProps);
+  return Constructor;
 }
 // CONCATENATED MODULE: ./node_modules/@babel/runtime/helpers/esm/setPrototypeOf.js
 function _setPrototypeOf(o, p) {
@@ -3014,6 +3249,15 @@ function _createSuper(Derived) {
     return _possibleConstructorReturn(this, result);
   };
 }
+// EXTERNAL MODULE: ./node_modules/core-js/modules/es.number.parse-float.js
+var es_number_parse_float = __webpack_require__("c35a");
+
+// EXTERNAL MODULE: ./node_modules/core-js/modules/es.number.constructor.js
+var es_number_constructor = __webpack_require__("a9e3");
+
+// EXTERNAL MODULE: ./node_modules/core-js/modules/es.number.is-nan.js
+var es_number_is_nan = __webpack_require__("9129");
+
 // CONCATENATED MODULE: ./node_modules/tslib/tslib.es6.js
 /*! *****************************************************************************
 Copyright (c) Microsoft Corporation.
@@ -3947,6 +4191,10 @@ function Watch(path, options) {
 
 
 
+
+
+
+
 var MotorDetailvue_type_script_lang_ts_MotorDetail = /*#__PURE__*/function (_Vue) {
   _inherits(MotorDetail, _Vue);
 
@@ -3960,8 +4208,84 @@ var MotorDetailvue_type_script_lang_ts_MotorDetail = /*#__PURE__*/function (_Vue
     _this = _super.apply(this, arguments);
     _this.isContinuous = true;
     _this.isGoingForward = true;
+    _this.numberOfRotations = "";
+    _this.numberOfRotationsError = false;
+    _this.rotationsPerMinute = "0";
+    _this.rotationsPerMinuteError = false;
+    _this.MAX_RPM = 160;
     return _this;
   }
+
+  _createClass(MotorDetail, [{
+    key: "command",
+    get: function get() {
+      var cmd = {
+        d: this.isGoingForward ? "forward" : "backward",
+        s: this.isContinuous ? Number.parseFloat(this.rotationsPerMinute) / this.MAX_RPM : Number.parseFloat(this.rotationsPerMinute)
+      };
+
+      if (!this.isContinuous) {
+        cmd["r"] = Number.parseFloat(this.numberOfRotations);
+      }
+
+      return cmd;
+    }
+  }, {
+    key: "clearErrors",
+    value: function clearErrors() {
+      this.numberOfRotationsError = false;
+      this.rotationsPerMinuteError = false;
+    }
+  }, {
+    key: "validateInputs",
+    value: function validateInputs() {
+      var hasErrors = false;
+      this.clearErrors();
+
+      if (!this.isContinuous) {
+        var numberOfRotations = Number.parseFloat(this.numberOfRotations);
+
+        if (Number.isNaN(numberOfRotations)) {
+          this.numberOfRotationsError = true;
+          hasErrors = true;
+        } else if (numberOfRotations < 0) {
+          this.numberOfRotationsError = true;
+          hasErrors = true;
+        }
+      }
+
+      var rotationsPerMinute = Number.parseFloat(this.rotationsPerMinute);
+
+      if (Number.isNaN(rotationsPerMinute)) {
+        this.rotationsPerMinuteError = true;
+        hasErrors = true;
+      } else if (rotationsPerMinute < 0) {
+        this.rotationsPerMinuteError = true;
+        hasErrors = true;
+      } else if (rotationsPerMinute > this.MAX_RPM) {
+        this.rotationsPerMinuteError = true;
+        hasErrors = true;
+      }
+
+      return !hasErrors;
+    }
+  }, {
+    key: "stop",
+    value: function stop() {
+      this.$emit("execute", {
+        d: "none",
+        s: 0
+      });
+    }
+  }, {
+    key: "emitCommand",
+    value: function emitCommand() {
+      if (this.validateInputs()) {
+        console.log(this.command);
+        this.$emit("execute", this.command);
+      }
+    }
+  }]);
 
   return MotorDetail;
 }(external_commonjs_vue_commonjs2_vue_root_Vue_default.a);
@@ -3972,8 +4296,8 @@ MotorDetailvue_type_script_lang_ts_MotorDetail = __decorate([vue_class_component
 /* harmony default export */ var MotorDetailvue_type_script_lang_ts_ = (MotorDetailvue_type_script_lang_ts_MotorDetail);
 // CONCATENATED MODULE: ./src/components/MotorDetail.vue?vue&type=script&lang=ts&
  /* harmony default export */ var components_MotorDetailvue_type_script_lang_ts_ = (MotorDetailvue_type_script_lang_ts_); 
-// EXTERNAL MODULE: ./src/components/MotorDetail.vue?vue&type=style&index=0&id=71cf80a4&scoped=true&lang=css&
-var MotorDetailvue_type_style_index_0_id_71cf80a4_scoped_true_lang_css_ = __webpack_require__("0a47");
+// EXTERNAL MODULE: ./src/components/MotorDetail.vue?vue&type=style&index=0&id=1a4fb7f8&scoped=true&lang=css&
+var MotorDetailvue_type_style_index_0_id_1a4fb7f8_scoped_true_lang_css_ = __webpack_require__("6a4c");
 
 // CONCATENATED MODULE: ./node_modules/vue-loader/lib/runtime/componentNormalizer.js
 /* globals __VUE_SSR_CONTEXT__ */
@@ -4090,7 +4414,7 @@ var component = normalizeComponent(
   staticRenderFns,
   false,
   null,
-  "71cf80a4",
+  "1a4fb7f8",
   null
   
 )
