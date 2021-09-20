@@ -17,6 +17,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/resources"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
@@ -352,6 +353,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	defer myRobot.Close()
 
+	myResources, err := resources.Init(myRobot)
+	if err != nil {
+		return err
+	}
+
 	localBoard, ok := myRobot.BoardByName("local")
 	if !ok {
 		return errors.New("failed to find local board")
@@ -368,5 +374,5 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	options := web.NewOptions()
 	options.AutoTile = false
 	options.Pprof = true
-	return webserver.RunWeb(ctx, myRobot, options, logger)
+	return webserver.RunWeb(ctx, myRobot, myResources, options, logger)
 }

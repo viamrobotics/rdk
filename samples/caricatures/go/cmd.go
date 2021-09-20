@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/config"
+	"go.viam.com/core/resources"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/web"
@@ -79,10 +80,14 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		if err != nil {
 			return err
 		}
+		myResources, err := resources.Init(myRobot)
+		if err != nil {
+			return err
+		}
 		defer myRobot.Close()
 		webOpts := web.NewOptions()
 		webOpts.Insecure = true
-		return webserver.RunWeb(ctx, myRobot, webOpts, logger)
+		return webserver.RunWeb(ctx, myRobot, myResources, webOpts, logger)
 	}
 
 	return nil

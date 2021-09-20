@@ -20,6 +20,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/resources"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
@@ -431,7 +432,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		recordDepthWorker(ctx, depth1)
 	}, activeBackgroundWorkers.Done)
 
-	if err := webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger); err != nil && !errors.Is(err, context.Canceled) {
+	myResources, err := resources.Init(myRobot)
+	if err != nil {
+		return err
+	}
+
+	if err := webserver.RunWeb(ctx, myRobot, myResources, web.NewOptions(), logger); err != nil && !errors.Is(err, context.Canceled) {
 		logger.Errorw("error running web", "error", err)
 		cancel()
 		return err
