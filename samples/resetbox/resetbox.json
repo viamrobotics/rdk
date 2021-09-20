@@ -95,6 +95,22 @@
             "sg_thresh": "0",
             "cal_factor": "1.058333"
           }
+        },
+        {
+          "name": "tipper",
+          "pins": {
+            "pwm": "35",
+            "dir": "37"
+          },
+          "pwmFreq": 8000
+        },
+        {
+          "name": "vibrator",
+          "pins": {
+            "pwm": "16",
+            "dir": "18"
+          },
+          "pwmFreq": 8000
         }
       ],
       "name": "resetboard",
