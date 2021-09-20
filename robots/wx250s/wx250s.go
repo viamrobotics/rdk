@@ -33,7 +33,7 @@ import (
 var wx250smodeljson []byte
 
 func init() {
-	registry.RegisterArm("wx250s", registry.ArmRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+	registry.RegisterArm("wx250s", registry.Arm{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 		return NewArm(config.Attributes, logger)
 	}})
 }

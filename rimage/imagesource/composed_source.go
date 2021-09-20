@@ -17,11 +17,11 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("depthToPretty", registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterCamera("depthToPretty", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		return newDepthToPretty(r, config)
 	}})
 
-	registry.RegisterCamera("overlay", registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterCamera("overlay", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		return newOverlay(r, config)
 	}})
 }

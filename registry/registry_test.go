@@ -47,20 +47,20 @@ func TestRegistry(t *testing.T) {
 	}
 
 	// test panics
-	test.That(t, func() { RegisterCamera("x", CameraRegistration{}) }, test.ShouldPanic)
-	test.That(t, func() { RegisterArm("x", ArmRegistration{}) }, test.ShouldPanic)
-	test.That(t, func() { RegisterBase("x", BaseRegistration{}) }, test.ShouldPanic)
-	test.That(t, func() { RegisterGripper("x", GripperRegistration{}) }, test.ShouldPanic)
-	test.That(t, func() { RegisterLidar("x", LidarRegistration{}) }, test.ShouldPanic)
-	test.That(t, func() { RegisterSensor(sensor.Type("x"), "y", SensorRegistration{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterCamera("x", Camera{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterArm("x", Arm{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterBase("x", Base{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterGripper("x", Gripper{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterLidar("x", Lidar{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterSensor(sensor.Type("x"), "y", Sensor{}) }, test.ShouldPanic)
 
 	// test register
-	RegisterCamera("x", CameraRegistration{cf, ff})
-	RegisterBase("x", BaseRegistration{Constructor: bf, Frame: ff})
-	RegisterArm("x", ArmRegistration{Constructor: af, Frame: ff})
-	RegisterGripper("x", GripperRegistration{gf, ff})
-	RegisterLidar("x", LidarRegistration{Constructor: lf})
-	RegisterSensor(sensor.Type("x"), "y", SensorRegistration{Constructor: sf, Frame: ff})
+	RegisterCamera("x", Camera{cf, ff})
+	RegisterBase("x", Base{Constructor: bf, Frame: ff})
+	RegisterArm("x", Arm{Constructor: af, Frame: ff})
+	RegisterGripper("x", Gripper{gf, ff})
+	RegisterLidar("x", Lidar{Constructor: lf})
+	RegisterSensor(sensor.Type("x"), "y", Sensor{Constructor: sf, Frame: ff})
 
 	// test look up
 

@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("fake", registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterCamera("fake", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		return &Camera{Name: config.Name}, nil
 	}})
 }

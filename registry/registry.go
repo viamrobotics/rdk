@@ -41,54 +41,54 @@ type (
 	CreateFrame func(name string) (referenceframe.Frame, error)
 )
 
-// CameraRegistration stores a Camera constructor (mandatory) and a Frame building function (optional)
-type CameraRegistration struct {
+// Camera stores a Camera constructor (mandatory) and a Frame building function (optional)
+type Camera struct {
 	Constructor CreateCamera
 	Frame       CreateFrame
 }
 
-// ArmRegistration stores an Arm constructor (mandatory) and a Frame building function (optional)
-type ArmRegistration struct {
+// Arm stores an Arm constructor (mandatory) and a Frame building function (optional)
+type Arm struct {
 	Constructor CreateArm
 	Frame       CreateFrame
 }
 
-// GripperRegistration stores a Gripper constructor (mandatory) and a Frame building function (optional)
-type GripperRegistration struct {
+// Gripper stores a Gripper constructor (mandatory) and a Frame building function (optional)
+type Gripper struct {
 	Constructor CreateGripper
 	Frame       CreateFrame
 }
 
-// BaseRegistration stores a Base constructor (mandatory) and a Frame building function (optional)
-type BaseRegistration struct {
+// Base stores a Base constructor (mandatory) and a Frame building function (optional)
+type Base struct {
 	Constructor CreateBase
 	Frame       CreateFrame
 }
 
-// LidarRegistration stores a Lidar constructor (mandatory) and a Frame building function (optional)
-type LidarRegistration struct {
+// Lidar stores a Lidar constructor (mandatory) and a Frame building function (optional)
+type Lidar struct {
 	Constructor CreateLidar
 	Frame       CreateFrame
 }
 
-// SensorRegistration stores a Sensor constructor (mandatory) and a Frame building function (optional)
-type SensorRegistration struct {
+// Sensor stores a Sensor constructor (mandatory) and a Frame building function (optional)
+type Sensor struct {
 	Constructor CreateSensor
 	Frame       CreateFrame
 }
 
 // all registries
 var (
-	cameraRegistry  = map[string]CameraRegistration{}
-	armRegistry     = map[string]ArmRegistration{}
-	gripperRegistry = map[string]GripperRegistration{}
-	baseRegistry    = map[string]BaseRegistration{}
-	lidarRegistry   = map[string]LidarRegistration{}
-	sensorRegistry  = map[sensor.Type]map[string]SensorRegistration{}
+	cameraRegistry  = map[string]Camera{}
+	armRegistry     = map[string]Arm{}
+	gripperRegistry = map[string]Gripper{}
+	baseRegistry    = map[string]Base{}
+	lidarRegistry   = map[string]Lidar{}
+	sensorRegistry  = map[sensor.Type]map[string]Sensor{}
 )
 
 // RegisterCamera register a camera model to a creator.
-func RegisterCamera(model string, creator CameraRegistration) {
+func RegisterCamera(model string, creator Camera) {
 	_, old := cameraRegistry[model]
 	if old {
 		panic(errors.Errorf("trying to register two cameras with same model %s", model))
@@ -100,7 +100,7 @@ func RegisterCamera(model string, creator CameraRegistration) {
 }
 
 // RegisterArm register an arm model to a creator.
-func RegisterArm(model string, creator ArmRegistration) {
+func RegisterArm(model string, creator Arm) {
 	_, old := armRegistry[model]
 	if old {
 		panic(errors.Errorf("trying to register two arms with same model %s", model))
@@ -112,7 +112,7 @@ func RegisterArm(model string, creator ArmRegistration) {
 }
 
 // RegisterGripper register a gripper model to a creator.
-func RegisterGripper(model string, creator GripperRegistration) {
+func RegisterGripper(model string, creator Gripper) {
 	_, old := gripperRegistry[model]
 	if old {
 		panic(errors.Errorf("trying to register two grippers with same model %s", model))
@@ -124,7 +124,7 @@ func RegisterGripper(model string, creator GripperRegistration) {
 }
 
 // RegisterBase register a base model to a creator.
-func RegisterBase(model string, creator BaseRegistration) {
+func RegisterBase(model string, creator Base) {
 	_, old := baseRegistry[model]
 	if old {
 		panic(errors.Errorf("trying to register two bases with same model %s", model))
@@ -136,7 +136,7 @@ func RegisterBase(model string, creator BaseRegistration) {
 }
 
 // RegisterLidar register a lidar model to a creator.
-func RegisterLidar(model string, creator LidarRegistration) {
+func RegisterLidar(model string, creator Lidar) {
 	_, old := lidarRegistry[model]
 	if old {
 		panic(errors.Errorf("trying to register two lidars with same model %s", model))
@@ -148,9 +148,9 @@ func RegisterLidar(model string, creator LidarRegistration) {
 }
 
 // RegisterSensor register a sensor type and model to a creator.
-func RegisterSensor(sensorType sensor.Type, model string, creator SensorRegistration) {
+func RegisterSensor(sensorType sensor.Type, model string, creator Sensor) {
 	if _, ok := sensorRegistry[sensorType]; !ok {
-		sensorRegistry[sensorType] = make(map[string]SensorRegistration)
+		sensorRegistry[sensorType] = make(map[string]Sensor)
 	}
 	_, old := sensorRegistry[sensorType][model]
 	if old {
@@ -164,7 +164,7 @@ func RegisterSensor(sensorType sensor.Type, model string, creator SensorRegistra
 
 // CameraLookup looks up a camera creator by the given model. nil is returned if
 // there is no creator registered.
-func CameraLookup(model string) *CameraRegistration {
+func CameraLookup(model string) *Camera {
 	if registration, ok := cameraRegistry[model]; ok {
 		return &registration
 	}
@@ -173,7 +173,7 @@ func CameraLookup(model string) *CameraRegistration {
 
 // ArmLookup looks up an arm creator by the given model. nil is returned if
 // there is no creator registered.
-func ArmLookup(model string) *ArmRegistration {
+func ArmLookup(model string) *Arm {
 	if registration, ok := armRegistry[model]; ok {
 		return &registration
 	}
@@ -182,7 +182,7 @@ func ArmLookup(model string) *ArmRegistration {
 
 // GripperLookup looks up a gripper creator by the given model. nil is returned if
 // there is no creator registered.
-func GripperLookup(model string) *GripperRegistration {
+func GripperLookup(model string) *Gripper {
 	if registration, ok := gripperRegistry[model]; ok {
 		return &registration
 	}
@@ -191,7 +191,7 @@ func GripperLookup(model string) *GripperRegistration {
 
 // BaseLookup looks up a base creator by the given model. nil is returned if
 // there is no creator registered.
-func BaseLookup(model string) *BaseRegistration {
+func BaseLookup(model string) *Base {
 	if registration, ok := baseRegistry[model]; ok {
 		return &registration
 	}
@@ -200,7 +200,7 @@ func BaseLookup(model string) *BaseRegistration {
 
 // LidarLookup looks up a lidar creator by the given model. nil is returned if
 // there is no creator registered.
-func LidarLookup(model string) *LidarRegistration {
+func LidarLookup(model string) *Lidar {
 	if registration, ok := lidarRegistry[model]; ok {
 		return &registration
 	}
@@ -209,7 +209,7 @@ func LidarLookup(model string) *LidarRegistration {
 
 // SensorLookup looks up a sensor creator by the given model. nil is returned if
 // there is no creator registered.
-func SensorLookup(sensorType sensor.Type, model string) *SensorRegistration {
+func SensorLookup(sensorType sensor.Type, model string) *Sensor {
 	subTyped, ok := sensorRegistry[sensorType]
 	if !ok {
 		return nil
