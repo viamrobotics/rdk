@@ -38,5 +38,5 @@ func (f *FrameInverter) Transform(input []Input) (spatial.Pose, error) {
 	if err != nil && wrappedPose == nil {
 		return nil, err
 	}
-	return wrappedPose.Invert(), err
+	return spatial.Invert(wrappedPose), err
 }

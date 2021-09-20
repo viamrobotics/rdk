@@ -76,9 +76,11 @@ func TestSwingEdgeCases(t *testing.T) {
 
 	origin := &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0}}
 	oob := &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 999}}
-	swing := calcSwingPct(oob, origin, m)
+	swing, err := calcSwingPct(oob, origin, m)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, swing, test.ShouldEqual, math.Inf(1))
-	swing = calcSwingPct(origin, oob, m)
+	swing, err = calcSwingPct(origin, oob, m)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, swing, test.ShouldEqual, math.Inf(1))
 }
 
