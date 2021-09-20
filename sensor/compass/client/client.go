@@ -24,7 +24,7 @@ const ModelNameClient = "grpc"
 
 // init registers a gRPC based compass.
 func init() {
-	registry.RegisterSensor(compass.Type, ModelNameClient, registry.SensorRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+	registry.RegisterSensor(compass.Type, ModelNameClient, registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 		address := config.Host
 		if config.Port != 0 {
 			address = fmt.Sprintf("%s:%d", address, config.Port)

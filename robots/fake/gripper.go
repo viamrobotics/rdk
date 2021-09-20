@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	registry.RegisterGripper(ModelName, registry.GripperRegistration{
+	registry.RegisterGripper(ModelName, registry.Gripper{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 			return &Gripper{Name: config.Name}, nil
 		},

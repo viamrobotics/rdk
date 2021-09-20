@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("depthEdges", registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterCamera("depthEdges", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		return newDepthEdgesSource(r, config)
 	}})
 }

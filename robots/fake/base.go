@@ -12,7 +12,7 @@ import (
 )
 
 func init() {
-	registry.RegisterBase(ModelName, registry.BaseRegistration{Constructor: func(ctx context.Context, r robot.Robot, c config.Component, logger golog.Logger) (base.Base, error) {
+	registry.RegisterBase(ModelName, registry.Base{Constructor: func(ctx context.Context, r robot.Robot, c config.Component, logger golog.Logger) (base.Base, error) {
 		return &Base{Name: c.Name}, nil
 	}})
 }
