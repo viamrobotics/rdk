@@ -212,10 +212,16 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 				solution := arm.JointPositionsFromRadians(angles)
 				// Return immediately if we have a "natural" solution, i.e. one where the halfway point is on the way
 				// to the end point
-				if calcSwingPct(seedAngles, solution, ik.model) < 0.5 {
+				swing, newErr := calcSwingPct(seedAngles, solution, ik.model)
+				if newErr != nil {
+					// out-of-bounds angles. Shouldn't happen, but if it does, record the error and move on without
+					// keeping the invalid solution
+					err = multierr.Combine(err, newErr)
+				}else if swing < 0.5 {
 					return solution, err
+				}else{
+					solutions = append(solutions, solution)
 				}
-				solutions = append(solutions, solution)
 			}
 		}
 		tries++
@@ -236,7 +242,7 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 		}
 	}
 	if len(solutions) > 0 {
-		return bestSolution(seedAngles, solutions, ik.model), nil
+		return bestSolution(seedAngles, solutions, ik.model)
 	}
 	return nil, multierr.Combine(errors.New("kinematics could not solve for position"), err)
 }
