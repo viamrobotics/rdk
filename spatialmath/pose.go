@@ -8,9 +8,10 @@ import (
 	"go.viam.com/core/utils"
 )
 
-// Pose represents a 6dof pose, position and orientation. For convenience, everything is returned as a dual quaternion.
-// translation is the translation operation (Δx,Δy,Δz), in this case [1, 0, 0 ,0][0, Δx/2, Δy/2, Δz/2] is returned
-// orientation is often an SO(3) matrix, in this case an orientation vector is returned
+// Pose represents a 6dof pose, position and orientation, with respect to the origin.
+// The Point() method returns the position in (x,y,z) mm coordinates,
+// and the Orientation() method returns the orientation in (theta, ox, oy, oz)
+// where (ox, oy, oz) is the axis of rotation, and theta is the amount of rotation in radians.
 type Pose interface {
 	Point() r3.Vector
 	Orientation() *OrientationVec
@@ -65,10 +66,9 @@ func NewPoseFromDH(a, d, alpha float64) Pose {
 	return newdualQuaternionFromDH(a, d, alpha)
 }
 
-// Compose takes two poses, converts to dual quaternions and multiplies them together, then normalizes the transform.
-// dualQuaternions apply their operation TO THE RIGHT. example: if you have an operation A and operation B on p
-// pAB means ((pA)B). First A is applied, then B. QUATERNIONS DO NOT COMMUTE IN GENERAL! Cannot guarantee BAp == ABp!
-// Note however that (pA)(B) == (p)(AB)
+// Compose treats Poses as functions A(x) and B(x), and produces a new function C(x) = A(B(x)).
+// It converts the poses to dual quaternions and multiplies them together, normalizes the transformm and returns a new Pose.
+// Composition does not commute in general, i.e. you cannot guarantee ABx == BAx
 func Compose(a, b Pose) Pose {
 	aq := newdualQuaternionFromPose(a)
 	bq := newdualQuaternionFromPose(b)

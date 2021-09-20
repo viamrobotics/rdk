@@ -174,8 +174,8 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) Frame {
 	return &rf
 }
 
-// Transform returns the quaternion representing this joint's rotation in space.
-// Important math: this is the specific location where a joint radian is converted to a quaternion.
+// Transform returns the Pose representing the frame's 6dof motion in space. Requires a slice
+// of inputs that has length equal to the degrees of freedom of the frame.
 func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	var err error
 	if len(input) != 1 {
