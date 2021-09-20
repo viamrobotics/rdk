@@ -1,7 +1,11 @@
 
 BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 
-TAGS = $(shell sh etc/gotags.sh)
+ifneq ("$(wildcard /etc/rpi-issue)","")
+   $(info Raspberry Pi Detected)
+   export CGO_LDFLAGS = -lwasmer
+   TAGS = -tags="pi custom_wasmer_runtime"
+endif
 
 SERVER_DEB_VER = 0.3
 

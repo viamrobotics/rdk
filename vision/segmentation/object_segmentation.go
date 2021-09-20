@@ -8,30 +8,23 @@ import (
 	"github.com/golang/geo/r3"
 )
 
+// ObjectConfig specifies the necessary parameters for object segmentation
+type ObjectConfig struct {
+	MinPtsInPlane    int
+	MinPtsInSegment  int
+	ClusteringRadius float64
+}
+
 // ObjectSegmentation is a struct to store the full point cloud as well as a point cloud array of the objects in the scene.
 type ObjectSegmentation struct {
 	FullCloud pc.PointCloud
-	*Clusters
+	*Segments
 }
 
-// N gives the number of found segments.
-func (objectSeg *ObjectSegmentation) N() int {
-	return len(objectSeg.PointClouds)
-}
-
-// SelectSegmentFromPoint takes a 3D point as input and outputs the point cloud of the object that the point belongs to.
-// returns the full point cloud if the point is not part of any object segment.
-func (objectSeg *ObjectSegmentation) SelectSegmentFromPoint(x, y, z float64) (pc.PointCloud, error) {
-	v := pc.Vec3{x, y, z}
-	if segIndex, ok := objectSeg.Indices[v]; ok {
-		return objectSeg.PointClouds[segIndex], nil
-	}
-	return nil, fmt.Errorf("no segment found at point (%v, %v, %v)", x, y, z)
-}
-
-// CreateObjectSegmentation removes the planes (if any) and returns a segmentation of the objects in a point cloud
-func CreateObjectSegmentation(cloud pc.PointCloud, minPtsInPlane, minPtsInSegment int, clusteringRadius float64) (*ObjectSegmentation, error) {
-	planes, nonPlane, err := FindPlanesInPointCloud(cloud, 10, minPtsInPlane)
+// NewObjectSegmentation removes the planes (if any) and returns a segmentation of the objects in a point cloud
+func NewObjectSegmentation(cloud pc.PointCloud, cfg ObjectConfig) (*ObjectSegmentation, error) {
+	ps := NewPointCloudPlaneSegmentation(cloud, 10, cfg.MinPtsInPlane)
+	planes, nonPlane, err := ps.FindPlanes()
 	if err != nil {
 		return nil, err
 	}
@@ -46,18 +39,18 @@ func CreateObjectSegmentation(cloud pc.PointCloud, minPtsInPlane, minPtsInSegmen
 	if err != nil {
 		return nil, err
 	}
-	segments, err := SegmentPointCloudObjects(objCloud, clusteringRadius, minPtsInSegment)
+	segments, err := segmentPointCloudObjects(objCloud, cfg.ClusteringRadius, cfg.MinPtsInSegment)
 	if err != nil {
 		return nil, err
 	}
-	clusters := NewClustersFromSlice(segments)
-	return &ObjectSegmentation{cloud, clusters}, nil
+	objects := NewSegmentsFromSlice(segments)
+	return &ObjectSegmentation{cloud, objects}, nil
 }
 
 // SegmentPointCloudObjects uses radius based nearest neighbors to segment the images, and then prunes away
 // segments that do not pass a certain threshold of points
-func SegmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]pc.PointCloud, error) {
-	segments, err := RadiusBasedNearestNeighbors(cloud, radius)
+func segmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]pc.PointCloud, error) {
+	segments, err := radiusBasedNearestNeighbors(cloud, radius)
 	if err != nil {
 		return nil, err
 	}
@@ -67,9 +60,9 @@ func SegmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]
 
 // RadiusBasedNearestNeighbors partitions the pointcloud, grouping points within a given radius of each other.
 // Described in the paper "A Clustering Method for Efficient Segmentation of 3D Laser Data" by Klasing et al. 2008
-func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.PointCloud, error) {
+func radiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.PointCloud, error) {
 	var err error
-	clusters := NewClusters()
+	clusters := NewSegments()
 	c := 0
 	cloud.Iterate(func(pt pc.Point) bool {
 		v := pt.Position()
@@ -115,7 +108,7 @@ func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.Poin
 	if err != nil {
 		return nil, err
 	}
-	return clusters.PointClouds, nil
+	return clusters.PointClouds(), nil
 }
 
 // this is pretty inefficient since it has to loop through all the points in the pointcloud to find only the nearest points.
@@ -133,5 +126,110 @@ func findNeighborsInRadius(cloud pc.PointCloud, point pc.Point, radius float64) 
 		}
 		return true
 	})
+	return neighbors
+}
+
+// NewObjectSegmentationFromVoxelGrid removes the planes (if any) and returns a segmentation of the objects in a point cloud
+func NewObjectSegmentationFromVoxelGrid(vg *pc.VoxelGrid, objConfig ObjectConfig, planeConfig VoxelGridPlaneConfig) (*ObjectSegmentation, error) {
+	ps := NewVoxelGridPlaneSegmentation(vg, planeConfig)
+	planes, nonPlane, err := ps.FindPlanes()
+	if err != nil {
+		return nil, err
+	}
+	// if there is a found plane in the scene, take the biggest plane, and only save the non-plane points above it
+	if len(planes) > 0 {
+		nonPlane, _, err = SplitPointCloudByPlane(nonPlane, planes[0])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	objVoxGrid := pc.NewVoxelGridFromPointCloud(nonPlane, vg.VoxelSize(), vg.Lambda())
+	objects, err := voxelBasedNearestNeighbors(objVoxGrid, objConfig.ClusteringRadius)
+	if err != nil {
+		return nil, err
+	}
+	objects = pc.PrunePointClouds(objects, objConfig.MinPtsInSegment)
+	segments := NewSegmentsFromSlice(objects)
+
+	return &ObjectSegmentation{nonPlane, segments}, nil
+}
+
+func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointCloud, error) {
+	var err error
+	vSize := vg.VoxelSize()
+	clusters := NewSegments()
+	c := 0
+	for coord, vox := range vg.Voxels {
+		v := pc.Vec3{float64(coord.I), float64(coord.J), float64(coord.K)}
+		// skip if point already is assigned cluster
+		if _, ok := clusters.Indices[v]; ok {
+			continue
+		}
+		// if not assigned, see if any of its neighbors are assigned a cluster
+		n := int((radius - 0.5*vSize) / vSize)
+		if n < 1 {
+			return nil, fmt.Errorf("cannot use radius %v to cluster voxels of size %v", radius, vSize)
+		}
+		nn := findVoxelNeighborsInRadius(vg, coord, uint(n))
+		for nv, neighborVox := range nn {
+			ptIndex, ptOk := clusters.Indices[v]
+			neighborIndex, neighborOk := clusters.Indices[nv]
+			if ptOk && neighborOk {
+				if ptIndex != neighborIndex {
+					err = clusters.MergeClusters(ptIndex, neighborIndex)
+					if err != nil {
+						return nil, err
+					}
+				}
+			} else if !ptOk && neighborOk {
+				clusters.Indices[v] = neighborIndex // label the voxel coordinate
+				for _, p := range vox.Points {
+					err = clusters.AssignCluster(p, neighborIndex) // label all points in the voxel
+					if err != nil {
+						return nil, err
+					}
+				}
+			} else if ptOk && !neighborOk {
+				clusters.Indices[nv] = ptIndex
+				for _, p := range neighborVox.Points {
+					err = clusters.AssignCluster(p, ptIndex)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		// if none of the neighbors were assigned a cluster, create a new cluster and assign all neighbors to it
+		if _, ok := clusters.Indices[v]; !ok {
+			clusters.Indices[v] = c
+			for _, p := range vox.Points {
+				err = clusters.AssignCluster(p, c)
+				if err != nil {
+					return nil, err
+				}
+			}
+			for nv, neighborVox := range nn {
+				clusters.Indices[nv] = c
+				for _, p := range neighborVox.Points {
+					err = clusters.AssignCluster(p, c)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+			c++
+		}
+	}
+	return clusters.PointClouds(), nil
+}
+
+func findVoxelNeighborsInRadius(vg *pc.VoxelGrid, coord pc.VoxelCoords, n uint) map[pc.Vec3]*pc.Voxel {
+	neighbors := make(map[pc.Vec3]*pc.Voxel)
+	adjCoords := vg.GetNNearestVoxels(vg.Voxels[coord], n)
+	for _, c := range adjCoords {
+		loc := pc.Vec3{float64(c.I), float64(c.J), float64(c.K)}
+		neighbors[loc] = vg.Voxels[c]
+	}
 	return neighbors
 }
