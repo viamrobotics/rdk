@@ -23,10 +23,13 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/camera"
+	grpcmetadata "go.viam.com/core/grpc/metadata/server"
 	grpcserver "go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
+	metadatapb "go.viam.com/core/proto/api/service/v1"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/resources"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/utils"
 	"go.viam.com/core/web"
@@ -380,7 +383,7 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, option
 
 // RunWeb takes the given robot and options and runs the web server. This function will block
 // until the context is done.
-func RunWeb(ctx context.Context, theRobot robot.Robot, options web.Options, logger golog.Logger) (err error) {
+func RunWeb(ctx context.Context, theRobot robot.Robot, theResources *resources.Resources, options web.Options, logger golog.Logger) (err error) {
 	defer func() {
 		if err != nil && goutils.FilterOutError(err, context.Canceled) != nil {
 			logger.Errorw("error running web", "error", err)
@@ -418,6 +421,15 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options web.Options, logg
 		&pb.RobotService_ServiceDesc,
 		grpcserver.New(theRobot),
 		pb.RegisterRobotServiceHandlerFromEndpoint,
+	); err != nil {
+		return err
+	}
+
+	if err := rpcServer.RegisterServiceServer(
+		ctx,
+		&metadatapb.MetadataService_ServiceDesc,
+		grpcmetadata.New(theResources),
+		metadatapb.RegisterMetadataServiceHandlerFromEndpoint,
 	); err != nil {
 		return err
 	}
