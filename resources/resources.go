@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/go-errors/errors"
+	"go.viam.com/core/robot"
 
 	"github.com/google/uuid"
 )
@@ -14,7 +15,16 @@ const (
 	ResourceNamespaceCore   = "core"
 	ResourceTypeComponent   = "component"
 	ResourceTypeService     = "service"
+	ResourceSubtypeArm      = "arm"
+	ResourceSubtypeBase     = "base"
+	ResourceSubtypeBoard    = "board"
+	ResourceSubtypeCamera   = "camera"
+	ResourceSubtypeFunction = "function"
+	ResourceSubtypeGripper  = "gripper"
+	ResourceSubtypeLidar    = "lidar"
 	ResourceSubtypeMetadata = "metadata"
+	ResourceSubtypeRemote   = "remote"
+	ResourceSubtypeSensor   = "sensor"
 )
 
 type Resource struct {
@@ -47,6 +57,16 @@ type Resources struct {
 	resources []Resource
 }
 
+// Creates and populate Resources given a robot.
+func Init(r robot.Robot) (*Resources, error) {
+	res := New()
+
+	if err := res.Populate(r); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
 // New creates a new Resources struct and initializes the resource list with a metadata service.
 func New() Resources {
 	resources := []Resource{
@@ -60,6 +80,139 @@ func New() Resources {
 	}
 
 	return Resources{resources: resources}
+}
+
+// Populate Resources given a robot.
+func (r *Resources) Populate(robot robot.Robot) error {
+	// TODO: Currently just a placeholder implementation, this should be rewritten once robot/parts have more metadata about themselves
+	for _, name := range robot.ArmNames() {
+		err := r.AddResource(
+			Resource{
+				Uuid:      uuid.NewString(),
+				Namespace: ResourceNamespaceCore, // can be non-core as well
+				Type:      ResourceTypeComponent,
+				Subtype:   ResourceSubtypeArm,
+				Name:      name,
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+	}
+	for _, name := range robot.BaseNames() {
+		err := r.AddResource(
+			Resource{
+				Uuid:      uuid.NewString(),
+				Namespace: ResourceNamespaceCore,
+				Type:      ResourceTypeComponent,
+				Subtype:   ResourceSubtypeBase,
+				Name:      name,
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+	for _, name := range robot.BoardNames() {
+		err := r.AddResource(
+			Resource{
+				Uuid:      uuid.NewString(),
+				Namespace: ResourceNamespaceCore,
+				Type:      ResourceTypeComponent,
+				Subtype:   ResourceSubtypeBoard,
+				Name:      name,
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+	for _, name := range robot.CameraNames() {
+		err := r.AddResource(
+			Resource{
+				Uuid:      uuid.NewString(),
+				Namespace: ResourceNamespaceCore,
+				Type:      ResourceTypeComponent,
+				Subtype:   ResourceSubtypeCamera,
+				Name:      name,
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+	for _, name := range robot.FunctionNames() {
+		err := r.AddResource(
+			Resource{
+				Uuid:      uuid.NewString(),
+				Namespace: ResourceNamespaceCore,
+				Type:      ResourceTypeService,
+				Subtype:   ResourceSubtypeFunction,
+				Name:      name,
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+	for _, name := range robot.GripperNames() {
+		err := r.AddResource(
+			Resource{
+				Uuid:      uuid.NewString(),
+				Namespace: ResourceNamespaceCore,
+				Type:      ResourceTypeComponent,
+				Subtype:   ResourceSubtypeGripper,
+				Name:      name,
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+	for _, name := range robot.LidarNames() {
+		err := r.AddResource(
+			Resource{
+				Uuid:      uuid.NewString(),
+				Namespace: ResourceNamespaceCore,
+				Type:      ResourceTypeComponent,
+				Subtype:   ResourceSubtypeLidar,
+				Name:      name,
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+	for _, name := range robot.RemoteNames() {
+		err := r.AddResource(
+			Resource{
+				Uuid:      uuid.NewString(),
+				Namespace: ResourceNamespaceCore,
+				Type:      ResourceTypeComponent,
+				Subtype:   ResourceSubtypeRemote,
+				Name:      name,
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+	for _, name := range robot.SensorNames() {
+		err := r.AddResource(
+			Resource{
+				Uuid:      uuid.NewString(),
+				Namespace: ResourceNamespaceCore,
+				Type:      ResourceTypeComponent,
+				Subtype:   ResourceSubtypeSensor,
+				Name:      name,
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Resources returns the list of resources.
