@@ -33,16 +33,12 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	err = fs.AddFrame(f2, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
-	parents := fs.Parents()
-	frames := fs.Frames()
-	test.That(t, len(parents), test.ShouldEqual, 3)
+	frames := fs.FrameNames()
 	test.That(t, len(frames), test.ShouldEqual, 3)
 
 	// Pruning frame3 should also remove frame1
 	fs.RemoveFrame(fs.GetFrame("frame3"))
-	parents = fs.Parents()
-	frames = fs.Frames()
-	test.That(t, len(parents), test.ShouldEqual, 1)
+	frames = fs.FrameNames()
 	test.That(t, len(frames), test.ShouldEqual, 1)
 
 	e1 := errors.New("parent frame is nil")
@@ -294,12 +290,13 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	err = fs.AddFrame(frame4, fs.GetFrame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
 
-	fs1, fs2, err := DivideFrameSystem(fs, frame3)
+	// This should remove frames 3 and 4 from fs
+	fs2, err := fs.DivideFrameSystem(frame3)
 	test.That(t, err, test.ShouldBeNil)
 
-	f4 := fs1.GetFrame("frame4")
+	f4 := fs.GetFrame("frame4")
 	test.That(t, f4, test.ShouldBeNil)
-	f1 := fs1.GetFrame("frame1")
+	f1 := fs.GetFrame("frame1")
 	test.That(t, f1, test.ShouldNotBeNil)
 
 	f4 = fs2.GetFrame("frame4")
@@ -319,15 +316,15 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Put frame3 back where it was
-	err = fs1.AddFrame(frame3, fs1.World())
+	err = fs.AddFrame(frame3, fs.World())
 	test.That(t, err, test.ShouldBeNil)
-	newFS, err := ComposeFrameSystems(fs1, fs2, frame3)
+	err = fs2.AddIntoFrameSystem(fs, frame3)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm new combined frame system now works as it did before
 	pointStart = r3.Vector{3., 0., 0.} // the point from PoV of frame 2
 	pointEnd = r3.Vector{2., 0., 0.}   // the point from PoV of frame 4
-	transformPoint, err = newFS.TransformPoint(blankPos, pointStart, newFS.GetFrame("frame2"), newFS.GetFrame("frame4"))
+	transformPoint, err = fs.TransformPoint(blankPos, pointStart, fs.GetFrame("frame2"), fs.GetFrame("frame4"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointEnd.X)
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)

@@ -17,14 +17,15 @@ const World = "world"
 type FrameSystem interface {
 	Name() string // return the name of this frame system
 	World() Frame // return the base world frame
+	FrameNames() []string
 	GetFrame(name string) Frame
 	AddFrame(frame, parent Frame) error
 	RemoveFrame(frame Frame)
 	TransformFrame(positions map[string][]Input, srcFrame, endFrame Frame) (spatial.Pose, error)
 	TransformPoint(positions map[string][]Input, point r3.Vector, srcFrame, endFrame Frame) (r3.Vector, error)
 	TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, endFrame Frame) (spatial.Pose, error)
-	Frames() map[string]Frame
-	Parents() map[Frame]Frame
+	AddIntoFrameSystem(fs1 FrameSystem, offset Frame) error
+	DivideFrameSystem(newRoot Frame) (FrameSystem, error)
 }
 
 // simpleFrameSystem implements FrameSystem. It is a simple tree graph.
@@ -81,22 +82,13 @@ func (sfs *simpleFrameSystem) GetFrame(name string) Frame {
 	return sfs.frames[name]
 }
 
-// Frames returns a map containing all frames. This is a clone of the FS map.
-func (sfs *simpleFrameSystem) Frames() map[string]Frame {
-	frameClone := map[string]Frame{}
-	for k, v := range sfs.frames {
-		frameClone[k] = v
+// FrameNames returns the list of frame names registered in the frame system
+func (sfs *simpleFrameSystem) FrameNames() []string {
+	var frameNames []string
+	for k := range sfs.frames {
+		frameNames = append(frameNames, k)
 	}
-	return frameClone
-}
-
-// Parents returns a map containing all frames mapped to their parents. This is a clone of the FS map.
-func (sfs *simpleFrameSystem) Parents() map[Frame]Frame {
-	parentClone := map[Frame]Frame{}
-	for k, v := range sfs.parents {
-		parentClone[k] = v
-	}
-	return parentClone
+	return frameNames
 }
 
 func (sfs *simpleFrameSystem) checkName(name string, parent Frame) error {
@@ -234,6 +226,109 @@ func (sfs *simpleFrameSystem) composeTransforms(frame Frame, positions map[strin
 	return q, errAll
 }
 
+// AddIntoFrameSystem will combine two frame systems together, placing the world of sfs at the given offset from fs1s.
+// This is necessary when dynamically building systems of robots, or mutating a robot after it has already been initialized.
+// For example, two independent rovers, each with their own frame system, need to now know where they are in relation to each other and
+// need to have their frame systems combined.
+func (sfs *simpleFrameSystem) AddIntoFrameSystem(fs1 FrameSystem, offset Frame) error {
+
+	offsetFrame := fs1.GetFrame(offset.Name())
+	if offsetFrame == nil {
+		return fmt.Errorf("offset frame not in fs1 %s", offset.Name())
+	}
+
+	var traceParent func(Frame, Frame) error
+	traceParent = func(frame, parent Frame) error {
+		delete(sfs.parents, frame)
+
+		// Deleting from a map as we iterate through it is OK and safe to do in Go
+		delete(sfs.parents, frame)
+		if parent.Name() == World {
+			parent = offsetFrame
+		}
+		if fs1.GetFrame(frame.Name()) != nil {
+			return fmt.Errorf("frame systems have conflicting frame name %s", frame.Name())
+		}
+		if fs1.GetFrame(parent.Name()) == nil {
+			// Parent not yet added, need to add in order
+			err := traceParent(parent, sfs.parents[parent])
+			if err != nil {
+				return err
+			}
+		}
+		return fs1.AddFrame(frame, parent)
+	}
+
+	// Go through sfs, and reset the parent of any relevant frames from world to the new offset
+	for frame, parent := range sfs.parents {
+		err := traceParent(frame, parent)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// DivideFrameSystem will take a frame system and a frame in that system, and return two frame systems- one being rooted
+// at the given frame and containing all descendents of it, the other with the original world with the frame and its
+// descendents removed. For example, if there is a frame system with two independent rovers, and one rover goes offline,
+// A user could divide the frame system to remove the offline rover and have the rest of the frame system unaffected.
+func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, error) {
+	newWorld := NewZeroStaticFrame(World)
+	newFS := &simpleFrameSystem{newRoot.Name() + "_FS", newWorld, map[string]Frame{}, map[Frame]Frame{}}
+
+	rootFrame := sfs.GetFrame(newRoot.Name())
+	if rootFrame == nil {
+		return nil, fmt.Errorf("newRoot frame not in fs %s", newRoot.Name())
+	}
+
+	delete(sfs.frames, newRoot.Name())
+	delete(sfs.parents, newRoot)
+
+	var traceParent func(Frame, Frame) bool
+	traceParent = func(frame, parent Frame) bool {
+		// Determine to which frame system this frame and its parent should be added
+		if parent == sfs.World() {
+			// keep in sfs
+			return false
+		} else if parent == newRoot || newFS.frameExists(parent.Name()) {
+			return true
+		}
+		return traceParent(parent, sfs.parents[parent])
+	}
+
+	// Deleting from a map as we iterate through it is OK and safe to do in Go
+	for frame, parent := range sfs.parents {
+		addNew := false
+		if parent == newRoot {
+			parent = newWorld
+			addNew = true
+		} else {
+			addNew = traceParent(frame, parent)
+		}
+		if addNew {
+			newFS.frames[frame.Name()] = frame
+			newFS.parents[frame] = parent
+		}
+	}
+
+	sfs.RemoveFrame(rootFrame)
+
+	return newFS, nil
+}
+
+// StartPositions returns a zeroed input map ensuring all frames have inputs
+func StartPositions(fs FrameSystem) map[string][]Input {
+	positions := make(map[string][]Input)
+	for _, fn := range fs.FrameNames() {
+		frame := fs.GetFrame(fn)
+		if frame != nil {
+			positions[fn] = make([]Input, len(frame.Dof()))
+		}
+	}
+	return positions
+}
+
 func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose, error) {
 	// Get frame inputs if necessary
 	var input []Input
@@ -244,83 +339,4 @@ func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose,
 		input = positions[frame.Name()]
 	}
 	return frame.Transform(input)
-}
-
-// ComposeFrameSystems will combine two frame systems together, placing the world of fs2 at the given offset from fs1.
-// This is necessary when dynamically building systems of robots, or mutating a robot after it has already been initialized.
-// For example, two independent rovers, each with their own frame system, need to now know where they are in relation to each other and
-// need to have their frame systems combined.
-func ComposeFrameSystems(fs1, fs2 FrameSystem, offset Frame) (FrameSystem, error) {
-	newFS := &simpleFrameSystem{fs1.Name() + "_" + fs2.Name(), fs1.World(), fs1.Frames(), fs1.Parents()}
-
-	offsetFrame := fs1.GetFrame(offset.Name())
-	if offsetFrame == nil {
-		return nil, fmt.Errorf("offset frame not in fs1 %s", offset.Name())
-	}
-
-	// Go through fs2, and reset the parent of any relevant fromes from world to the new offset
-	for frame, parent := range fs2.Parents() {
-		if parent.Name() == World {
-			parent = offset
-		}
-		if newFS.frameExists(frame.Name()) {
-			return nil, fmt.Errorf("frame systems have conflicting frame name %s", frame.Name())
-		}
-		newFS.frames[frame.Name()] = frame
-		newFS.parents[frame] = parent
-	}
-	return newFS, nil
-}
-
-// DivideFrameSystem will take a frame system and a frame in that system, and return two frame systems- one being rooted
-// at the given frame and containing all descendents of it, the other with the original world with the frame and its
-// descendents removed. For example, if there is a frame system with two independent rovers, and one rover goes offline,
-// A user could divide the frame system to remove the offline rover and have the rest of the frame system unaffected.
-func DivideFrameSystem(fs1 FrameSystem, newRoot Frame) (FrameSystem, FrameSystem, error) {
-	newFS1 := &simpleFrameSystem{fs1.Name() + "_r_" + newRoot.Name(), fs1.World(), map[string]Frame{}, map[Frame]Frame{}}
-	newWorld := NewZeroStaticFrame(World)
-	newFS2 := &simpleFrameSystem{newRoot.Name(), newWorld, map[string]Frame{}, map[Frame]Frame{}}
-
-	rootFrame := fs1.GetFrame(newRoot.Name())
-	if rootFrame == nil {
-		return nil, nil, fmt.Errorf("newRoot frame not in fs1 %s", newRoot.Name())
-	}
-
-	parentMap := fs1.Parents()
-	delete(parentMap, newRoot)
-	var traceParent func(Frame, Frame) *simpleFrameSystem
-	traceParent = func(frame, parent Frame) *simpleFrameSystem {
-		delete(parentMap, frame)
-		var fs *simpleFrameSystem
-
-		// Determine to which frame system this frame and its parent should be added
-		if parent == fs1.World() || newFS1.frameExists(parent.Name()) {
-			fs = newFS1
-		} else if parent == newRoot || newFS2.frameExists(parent.Name()) {
-			fs = newFS2
-			parent = newWorld
-		} else {
-			fs = traceParent(parent, parentMap[parent])
-		}
-		// TODO: Determine if this should use AddFrame, if so we will need to handle errors
-		fs.frames[frame.Name()] = frame
-		fs.parents[frame] = parent
-		return fs
-	}
-
-	// Deleting from a map as we iterate through it is OK and safe to do in Go
-	for frame, parent := range parentMap {
-		traceParent(frame, parent)
-	}
-
-	return newFS1, newFS2, nil
-}
-
-// StartPositions returns a zeroed input map ensuring all frames have inputs
-func StartPositions(fs FrameSystem) map[string][]Input {
-	positions := make(map[string][]Input)
-	for _, frame := range fs.Frames() {
-		positions[frame.Name()] = make([]Input, len(frame.Dof()))
-	}
-	return positions
 }
