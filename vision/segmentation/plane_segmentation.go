@@ -32,8 +32,9 @@ func GetPointCloudPositions(cloud pc.PointCloud) []pc.Vec3 {
 	return positions
 }
 
-func distance(equation []float64, pt pc.Vec3) float64 {
-	return (equation[0]*pt.X + equation[1]*pt.Y + equation[2]*pt.Z + equation[3]) / equation[4]
+func distance(equation [4]float64, pt pc.Vec3) float64 {
+	norm := math.Sqrt(equation[0]*equation[0] + equation[1]*equation[1] + equation[2]*equation[2])
+	return (equation[0]*pt.X + equation[1]*pt.Y + equation[2]*pt.Z + equation[3]) / norm
 }
 
 // pointCloudSplit return two point clouds, one with points found in a map of point positions, and the other with those not in the map.
@@ -66,47 +67,21 @@ func pointCloudSplit(cloud pc.PointCloud, inMap map[pc.Vec3]bool) (pc.PointCloud
 	return mapCloud, nonMapCloud, nil
 }
 
-// Plane defines a planar object in a point cloud
-type Plane struct {
-	pointcloud pc.PointCloud
-	equation   []float64
-}
-
-// NewEmptyPlane initializes an empty plane object
-func NewEmptyPlane() *Plane {
-	return &Plane{pc.New(), []float64{0, 0, 0, 0, 0}}
-}
-
-// PointCloud returns the underlying point cloud of the plane
-func (p *Plane) PointCloud() pc.PointCloud {
-	return p.pointcloud
-}
-
-// Equation returns the plane equation [0]x + [1]y + [2]z + [3] = 0. [4] is the 2-norm of the normal vector.
-func (p *Plane) Equation() []float64 {
-	return p.equation
-}
-
-// Distance calculates the distance from the plane to the input point
-func (p *Plane) Distance(point pc.Vec3) float64 {
-	return distance(p.equation, point)
-}
-
 // SegmentPlane segments the biggest plane in the 3D Pointcloud.
 // nIterations is the number of iteration for ransac
 // nIter to choose? nIter = log(1-p)/log(1-(1-e)^s), where p is prob of success, e is outlier ratio, s is subset size (3 for plane).
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it
 // This function returns a Plane struct, as well as the remaining points in a pointcloud
 // It also returns the equation of the found plane: [0]x + [1]y + [2]z + [3] = 0
-func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (*Plane, pc.PointCloud, error) {
+func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (pc.Plane, pc.PointCloud, error) {
 	if cloud.Size() <= 3 { // if point cloud does not have even 3 points, return original cloud with no planes
-		return NewEmptyPlane(), cloud, nil
+		return pc.NewEmptyPlane(), cloud, nil
 	}
 	r := rand.New(rand.NewSource(1))
 	pts := GetPointCloudPositions(cloud)
 	nPoints := cloud.Size()
 
-	bestEquation := make([]float64, 4)
+	bestEquation := [4]float64{}
 	bestInliers := 0
 
 	for i := 0; i < nIterations; i++ {
@@ -126,7 +101,7 @@ func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (*Pla
 		d := -vec.Dot(p2)
 
 		// current plane equation
-		currentEquation := []float64{vec.X, vec.Y, vec.Z, d, vec.Norm()}
+		currentEquation := [4]float64{vec.X, vec.Y, vec.Z, d}
 
 		// compute distance to plane of each point in the cloud
 		//currentInliers := make([]pc.Vec3, len(bestInliers))
@@ -160,32 +135,56 @@ func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (*Pla
 	if err != nil {
 		return nil, nil, err
 	}
-	return &Plane{planeCloud, bestEquation}, nonPlaneCloud, nil
+	return pc.NewPlane(planeCloud, bestEquation), nonPlaneCloud, nil
 }
 
-// FindPlanesInPointCloud takes in a point cloud and outputs an array of the planes and a point cloud of
-// the leftover points.
+// PlaneSegmentation is an interface used to find geometric planes in a 3D space
+type PlaneSegmentation interface {
+	FindPlanes() ([]pc.Plane, pc.PointCloud, error)
+}
+
+type pointCloudPlaneSegmentation struct {
+	cloud       pc.PointCloud
+	threshold   float64
+	minPoints   int
+	nIterations int
+}
+
+// NewPointCloudPlaneSegmentation initializes the plane segmentation with the necessary parameters to find the planes
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it.
 // minPoints is the minimum number of points necessary to be considered a plane.
-func FindPlanesInPointCloud(cloud pc.PointCloud, threshold float64, minPoints int) ([]*Plane, pc.PointCloud, error) {
-	planes := make([]*Plane, 0)
+func NewPointCloudPlaneSegmentation(cloud pc.PointCloud, threshold float64, minPoints int) PlaneSegmentation {
+	return &pointCloudPlaneSegmentation{cloud, threshold, minPoints, 2000}
+}
+
+// FindPlanes takes in a point cloud and outputs an array of the planes and a point cloud of the leftover points.
+func (pcps *pointCloudPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud, error) {
+	planes := make([]pc.Plane, 0)
 	var err error
-	plane, nonPlaneCloud, err := SegmentPlane(cloud, 2000, threshold)
+	plane, nonPlaneCloud, err := SegmentPlane(pcps.cloud, pcps.nIterations, pcps.threshold)
 	if err != nil {
 		return nil, nil, err
 	}
-	if plane.PointCloud().Size() <= minPoints {
-		return planes, cloud, nil
+	planeCloud, err := plane.PointCloud()
+	if err != nil {
+		return nil, nil, err
+	}
+	if planeCloud.Size() <= pcps.minPoints {
+		return planes, pcps.cloud, nil
 	}
 	planes = append(planes, plane)
 	for {
-		plane, nonPlaneCloud, err = SegmentPlane(nonPlaneCloud, 2000, threshold)
+		plane, nonPlaneCloud, err = SegmentPlane(nonPlaneCloud, pcps.nIterations, pcps.threshold)
 		if err != nil {
 			return nil, nil, err
 		}
-		if plane.PointCloud().Size() <= minPoints {
+		planeCloud, err := plane.PointCloud()
+		if err != nil {
+			return nil, nil, err
+		}
+		if planeCloud.Size() <= pcps.minPoints {
 			// add the failed planeCloud back into the nonPlaneCloud
-			plane.PointCloud().Iterate(func(pt pc.Point) bool {
+			planeCloud.Iterate(func(pt pc.Point) bool {
 				err = nonPlaneCloud.Set(pt)
 				return err == nil
 			})
@@ -199,10 +198,38 @@ func FindPlanesInPointCloud(cloud pc.PointCloud, threshold float64, minPoints in
 	return planes, nonPlaneCloud, nil
 }
 
+// VoxelGridPlaneConfig contains the parameters needed to create a Plane from a VoxelGrid
+type VoxelGridPlaneConfig struct {
+	weightThresh   float64
+	angleThresh    float64 // in degrees
+	cosineThresh   float64
+	distanceThresh float64
+}
+
+type voxelGridPlaneSegmentation struct {
+	*pc.VoxelGrid
+	config VoxelGridPlaneConfig
+}
+
+// NewVoxelGridPlaneSegmentation initializes the necessary parameters needed to do plane segmentation on a voxel grid.
+func NewVoxelGridPlaneSegmentation(vg *pc.VoxelGrid, config VoxelGridPlaneConfig) PlaneSegmentation {
+	return &voxelGridPlaneSegmentation{vg, config}
+}
+
+// FindPlanes takes in a point cloud and outputs an array of the planes and a point cloud of the leftover points.
+func (vgps *voxelGridPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud, error) {
+	vgps.SegmentPlanesRegionGrowing(vgps.config.weightThresh, vgps.config.angleThresh, vgps.config.cosineThresh, vgps.config.distanceThresh)
+	planes, nonPlaneCloud, err := vgps.GetPlanesFromLabels()
+	if err != nil {
+		return nil, nil, err
+	}
+	return planes, nonPlaneCloud, nil
+}
+
 // SplitPointCloudByPlane divides the point cloud in two point clouds, given the equation of a plane.
 // one point cloud will have all the points above the plane and the other with all the points below the plane.
 // Points exactly on the plane are not included!
-func SplitPointCloudByPlane(cloud pc.PointCloud, plane *Plane) (pc.PointCloud, pc.PointCloud, error) {
+func SplitPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane) (pc.PointCloud, pc.PointCloud, error) {
 	aboveCloud, belowCloud := pc.New(), pc.New()
 	var err error
 	cloud.Iterate(func(pt pc.Point) bool {
@@ -224,7 +251,7 @@ func SplitPointCloudByPlane(cloud pc.PointCloud, plane *Plane) (pc.PointCloud, p
 }
 
 // ThresholdPointCloudByPlane returns a pointcloud with the points less than or equal to a given distance from a given plane.
-func ThresholdPointCloudByPlane(cloud pc.PointCloud, plane *Plane, threshold float64) (pc.PointCloud, error) {
+func ThresholdPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane, threshold float64) (pc.PointCloud, error) {
 	thresholdCloud := pc.New()
 	var err error
 	cloud.Iterate(func(pt pc.Point) bool {

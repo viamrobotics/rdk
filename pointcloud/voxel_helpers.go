@@ -63,22 +63,11 @@ func GetOffset(center, normal r3.Vector) float64 {
 	return -normal.Dot(center)
 }
 
-// DistToPlane computes the distance between a point a plane with given normal vector and offset
-func DistToPlane(pt r3.Vector, plane Plane) float64 {
-	num := math.Abs(pt.Dot(plane.Normal) + plane.Offset)
-	denom := plane.Normal.Norm()
-	d := 0.
-	if denom > 0.0001 {
-		d = num / denom
-	}
-	return d
-}
-
 // GetResidual computes the mean fitting error of points to a given plane
 func GetResidual(points []r3.Vector, plane Plane) float64 {
 	dist := 0.
 	for _, pt := range points {
-		d := DistToPlane(pt, plane)
+		d := plane.Distance(Vec3(pt))
 		dist = dist + d*d
 	}
 	dist = dist / float64(len(points))

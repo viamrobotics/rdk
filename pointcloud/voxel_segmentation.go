@@ -3,8 +3,6 @@ package pointcloud
 import (
 	"container/list"
 	"sort"
-
-	"github.com/golang/geo/r3"
 )
 
 // LabelVoxels performs voxel plane labeling
@@ -19,7 +17,7 @@ func (vg *VoxelGrid) LabelVoxels(sortedKeys []VoxelCoords, wTh, thetaTh, phiTh f
 		// and has not been visited yet
 		if vg.Voxels[k].Weight > wTh && !visited[k] && vg.Voxels[k].Label == 0 {
 			// BFS traversal
-			vg.LabelComponentBFS(vg.Voxels[k], currentLabel, wTh, thetaTh, phiTh, visited)
+			vg.labelComponentBFS(vg.Voxels[k], currentLabel, wTh, thetaTh, phiTh, visited)
 			vg.maxLabel = currentLabel
 			currentLabel = currentLabel + 1
 		}
@@ -27,8 +25,8 @@ func (vg *VoxelGrid) LabelVoxels(sortedKeys []VoxelCoords, wTh, thetaTh, phiTh f
 	}
 }
 
-// LabelComponentBFS is a helper function to perform BFS per connected component
-func (vg *VoxelGrid) LabelComponentBFS(vox *Voxel, label int, wTh, thetaTh, phiTh float64, visited map[VoxelCoords]bool) {
+// labelComponentBFS is a helper function to perform BFS per connected component
+func (vg *VoxelGrid) labelComponentBFS(vox *Voxel, label int, wTh, thetaTh, phiTh float64, visited map[VoxelCoords]bool) {
 	queue := list.New()
 	queue.PushBack(vox.Key)
 	visited[vox.Key] = true
@@ -66,44 +64,67 @@ func (vg *VoxelGrid) GetUnlabeledVoxels() []VoxelCoords {
 }
 
 // GetPlanesFromLabels returns a slice containing all the planes in the point cloud
-func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, error) {
-	planes := make([]Plane, vg.maxLabel+1)
-	pointsByLabel := make(map[int][]r3.Vector)
+func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, PointCloud, error) {
+	pointsByLabel := make(map[int][]Point)
 	keysByLabel := make(map[int][]VoxelCoords)
+	seen := make(map[Vec3]bool)
 	for _, vox := range vg.Voxels {
-		currentVoxelLabel := vox.Label
 		// if voxel is entirely included in a plane, add all the points
 		if vox.Label > 0 {
-			pointsByLabel[currentVoxelLabel] = append(pointsByLabel[currentVoxelLabel], vox.Points...)
-			keysByLabel[currentVoxelLabel] = append(keysByLabel[currentVoxelLabel], vox.Key)
+			keysByLabel[vox.Label] = append(keysByLabel[vox.Label], vox.Key)
+			for _, pt := range vox.Points {
+				p := pt.Position()
+				if _, ok := seen[p]; ok { // already assigned point to another label
+					continue
+				} else {
+					seen[p] = true
+					pointsByLabel[vox.Label] = append(pointsByLabel[vox.Label], pt)
+				}
+			}
 		} else {
 			// voxel has points for either no plane or at least two planes
 			// add point by point
 			if len(vox.Points) == len(vox.PointLabels) {
 				for ptIdx, pt := range vox.Points {
-					ptLabel := vox.PointLabels[ptIdx]
-					pointsByLabel[ptLabel] = append(pointsByLabel[ptLabel], pt)
+					p := pt.Position()
+					if _, ok := seen[p]; ok { // already assigned point to another label
+						continue
+					} else {
+						seen[p] = true
+						ptLabel := vox.PointLabels[ptIdx]
+						pointsByLabel[ptLabel] = append(pointsByLabel[ptLabel], pt)
+					}
 				}
 			}
 		}
 	}
 
+	planes := make([]Plane, 0)
+	nonPlane := New()
 	for label, pts := range pointsByLabel {
-		if label > 0 {
-			normalVector := estimatePlaneNormalFromPoints(pts)
-			center := GetVoxelCenter(pts)
+		if label == 0 { // create a point cloud of non-planar points
+			for _, pt := range pts {
+				err := nonPlane.Set(pt)
+				if err != nil {
+					return nil, nil, err
+				}
+			}
+		} else { // create an array of planes
+			positions := GetPositions(pts)
+			normalVector := estimatePlaneNormalFromPoints(positions)
+			center := GetVoxelCenter(positions)
 			offset := GetOffset(center, normalVector)
-			currentPlane := Plane{
-				Normal:    normalVector,
-				Center:    center,
-				Offset:    offset,
-				Points:    pts,
-				VoxelKeys: keysByLabel[label],
+			currentPlane := &voxelPlane{
+				normal:    normalVector,
+				center:    center,
+				offset:    offset,
+				points:    pts,
+				voxelKeys: keysByLabel[label],
 			}
 			planes = append(planes, currentPlane)
 		}
 	}
-	return planes, nil
+	return planes, nonPlane, nil
 }
 
 // LabelNonPlanarVoxels labels potential planar parts in Voxels that are containing more than one plane
@@ -115,13 +136,13 @@ func (vg *VoxelGrid) LabelNonPlanarVoxels(unlabeledVoxels []VoxelCoords, dTh flo
 		vox.PointLabels = make([]int, len(vox.Points))
 		nbVoxels := vg.GetAdjacentVoxels(vox)
 		plane := vox.GetPlane()
-		for i, pt := range vox.Points {
+		for i, pt := range vox.Positions() {
 			dMin := 100000.0
 			outLabel := 0
 			for _, kNb := range nbVoxels {
 				voxNb := vg.Voxels[kNb]
 				if voxNb.Label > 0 {
-					d := DistToPlane(pt, plane)
+					d := plane.Distance(Vec3(pt))
 					if d < dMin {
 						dMin = d
 						outLabel = voxNb.Label

@@ -52,6 +52,20 @@ func TestVoxelGridCreation(t *testing.T) {
 	test.ShouldEqual(vg.maxLabel, 0)
 }
 
+func TestVoxelGridCubeSegmentation(t *testing.T) {
+	nPoints := 1000000
+	pc := GenerateCubeTestData(nPoints)
+	vg := NewVoxelGridFromPointCloud(pc, 0.1, 0.01)
+	vg.SegmentPlanesRegionGrowing(0.7, 25, 0.1, 1.0)
+	test.ShouldEqual(vg.maxLabel, 6)
+	_, err := vg.ConvertToPointCloudWithValue()
+	test.That(t, err, test.ShouldBeNil)
+	planes, nonPlaneCloud, err := vg.GetPlanesFromLabels()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(planes), test.ShouldEqual, 6)
+	test.That(t, nonPlaneCloud.Size(), test.ShouldEqual, 0)
+}
+
 func TestEstimatePlaneNormalFromPoints(t *testing.T) {
 	nPoints := 1000
 	points := make([]r3.Vector, nPoints)
@@ -81,12 +95,12 @@ func TestGetVoxelCenterWeightResidual(t *testing.T) {
 
 	w := GetWeight(points, 1., 0.)
 	test.ShouldAlmostEqual(w, 1.0)
-	plane := Plane{
-		Normal:    r3.Vector{0, 0, 1},
-		Center:    r3.Vector{},
-		Offset:    0,
-		Points:    nil,
-		VoxelKeys: nil,
+	plane := &voxelPlane{
+		normal:    r3.Vector{0, 0, 1},
+		center:    r3.Vector{},
+		offset:    0,
+		points:    nil,
+		voxelKeys: nil,
 	}
 	res := GetResidual(points, plane)
 	test.ShouldAlmostEqual(res, 0.0)
@@ -101,4 +115,35 @@ func TestGetVoxelCoordinates(t *testing.T) {
 	test.ShouldAlmostEqual(coords.I, 0.)
 	test.ShouldAlmostEqual(coords.J, 0.)
 	test.ShouldAlmostEqual(coords.K, 0.)
+}
+
+func TestNNearestVoxel(t *testing.T) {
+	// make the voxel grid
+	voxelSize := 1.0
+	pc := New()
+	vox0 := NewBasicPoint(0., 0., 0.)
+	test.That(t, pc.Set(vox0), test.ShouldBeNil)
+	vox1 := NewBasicPoint(1.1, 1.2, 1.3)
+	test.That(t, pc.Set(vox1), test.ShouldBeNil)
+	vox2 := NewBasicPoint(0.5, 0.5, 1.8)
+	test.That(t, pc.Set(vox2), test.ShouldBeNil)
+	vox3 := NewBasicPoint(0.3, 1.9, 0.1)
+	test.That(t, pc.Set(vox3), test.ShouldBeNil)
+	vox4 := NewBasicPoint(1.3, 0.8, 0.5)
+	test.That(t, pc.Set(vox4), test.ShouldBeNil)
+	vox5 := NewBasicPoint(4.5, 4.2, 3.9)
+	test.That(t, pc.Set(vox5), test.ShouldBeNil)
+	vg := NewVoxelGridFromPointCloud(pc, voxelSize, 0.01)
+	// expect 4 voxels nearest
+	neighbors := vg.GetNNearestVoxels(vg.GetVoxelFromKey(VoxelCoords{0, 0, 0}), 1)
+	test.That(t, len(neighbors), test.ShouldEqual, 4)
+	// expect 5 voxels nearest
+	neighbors = vg.GetNNearestVoxels(vg.GetVoxelFromKey(VoxelCoords{0, 0, 0}), 5)
+	test.That(t, len(neighbors), test.ShouldEqual, 5)
+	// expect 5 voxels nearest from the other side
+	neighbors = vg.GetNNearestVoxels(vg.GetVoxelFromKey(VoxelCoords{4, 4, 3}), 5)
+	test.That(t, len(neighbors), test.ShouldEqual, 5)
+	// no nearest voxels
+	neighbors = vg.GetNNearestVoxels(vg.GetVoxelFromKey(VoxelCoords{4, 4, 3}), 1)
+	test.That(t, len(neighbors), test.ShouldEqual, 0)
 }
