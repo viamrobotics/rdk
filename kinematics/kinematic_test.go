@@ -80,7 +80,7 @@ func TestSwingEdgeCases(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, swing, test.ShouldEqual, math.Inf(1))
 	swing, err = calcSwingPct(origin, oob, m)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, swing, test.ShouldEqual, math.Inf(1))
 }
 
