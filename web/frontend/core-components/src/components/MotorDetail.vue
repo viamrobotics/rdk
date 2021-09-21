@@ -1,7 +1,7 @@
 <template>
   <div class="component">
     <div class="card">
-      <h2>Current Motor Status for {{ motor[0] }}</h2>
+      <h2>Current Motor Status for {{ motorName }}</h2>
 
       <div class="details">
         <div class="detail">
@@ -9,17 +9,17 @@
           <div class="details">
             <div class="detail">
               <p class="subtitle">Motor</p>
-              <h3 v-if="motor[1].on" style="color: var(--green-90)">On</h3>
+              <h3 v-if="motorStatus.on" style="color: var(--green-90)">On</h3>
               <h3 v-else>Off</h3>
             </div>
             <div class="detail">
               <p class="subtitle">Encoders Active</p>
-              <h3 v-if="motor[1].positionSupported">Yes</h3>
+              <h3 v-if="motorStatus.positionSupported">Yes</h3>
               <h3 v-else>No</h3>
             </div>
             <div class="detail">
               <p class="subtitle">Position</p>
-              <h3>{{ motor[1].position }}</h3>
+              <h3>{{ motorStatus.position }}</h3>
             </div>
           </div>
         </div>
@@ -129,10 +129,12 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from "vue-property-decorator";
+import { MotorStatus } from "proto/robot_pb";
 
 @Component
 export default class MotorDetail extends Vue {
-  @Prop() private motor!: [string, { [key: string]: Record<string, unknown> }];
+  @Prop() motorName!: string;
+  @Prop() motorStatus!: MotorStatus.AsObject;
 
   isContinuous = true;
   isGoingForward = true;
@@ -145,7 +147,9 @@ export default class MotorDetail extends Vue {
   get command(): { [key: string]: unknown } {
     let cmd: { [key: string]: unknown } = {
       d: this.isGoingForward ? "forward" : "backward",
-      s: this.isContinuous ? Number.parseFloat(this.rotationsPerMinute)/this.MAX_RPM : Number.parseFloat(this.rotationsPerMinute),
+      s: this.isContinuous
+        ? Number.parseFloat(this.rotationsPerMinute) / this.MAX_RPM
+        : Number.parseFloat(this.rotationsPerMinute),
     };
     if (!this.isContinuous) {
       cmd["r"] = Number.parseFloat(this.numberOfRotations);

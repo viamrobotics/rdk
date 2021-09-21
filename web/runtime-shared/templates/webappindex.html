@@ -728,7 +728,7 @@
         <table border="1">
 
           <tr><th colspan="2">Motors</th></tr>
-          <motor-detail v-for="m in board[1].motorsMap" :key="m[0]" v-bind:motor="m" v-on:execute="motorButton(board[0], m[0], $event)"></motor-detail>
+          <motor-detail v-for="m in board[1].motorsMap" :key="m[0]" v-bind:motor-name="m[0]" v-bind:motor-status="m[1]" v-on:execute="motorButton(board[0], m[0], $event)"></motor-detail>
           <tbody v-for="m in board[1].motorsMap" :key="m[0]">
             <tr>
               <th>${m[0]}</th>
