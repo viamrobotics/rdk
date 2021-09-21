@@ -86,7 +86,7 @@ func NewTMCStepperMotor(ctx context.Context, b Board, c config.Component, mc mot
 		return nil, err
 	}
 
-	calFactor, err := strconv.ParseFloat(c.Attributes.String("cal_factor"), 4)
+	calFactor, err := strconv.ParseFloat(c.Attributes.String("cal_factor"), 64)
 	if err != nil {
 		return nil, err
 	}
