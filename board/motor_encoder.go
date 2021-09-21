@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 
@@ -43,18 +44,18 @@ func SetRPMSleepDebug(dur time.Duration, debug bool) func() {
 }
 
 // WrapMotorWithEncoder takes a motor and adds an encoder onto it in order to understand its odometry.
-func WrapMotorWithEncoder(ctx context.Context, b Board, name string, mc motor.Config, m motor.Motor, logger golog.Logger) (motor.Motor, error) {
+func WrapMotorWithEncoder(ctx context.Context, b Board, c config.Component, mc motor.Config, m motor.Motor, logger golog.Logger) (motor.Motor, error) {
 	if mc.Encoder == "" {
 		return m, nil
 	}
 
 	if mc.TicksPerRotation == 0 {
-		return nil, errors.Errorf("need a TicksPerRotation for motor (%s)", name)
+		return nil, errors.Errorf("need a TicksPerRotation for motor (%s)", c.Name)
 	}
 
 	i, ok := b.DigitalInterruptByName(mc.Encoder)
 	if !ok {
-		return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.Encoder, name)
+		return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.Encoder, c.Name)
 	}
 
 	var mm *EncodedMotor
@@ -62,7 +63,7 @@ func WrapMotorWithEncoder(ctx context.Context, b Board, name string, mc motor.Co
 
 	if mc.EncoderB == "" {
 		encoder := &SingleEncoder{i: i}
-		mm, err = newEncodedMotor(mc, m, encoder, logger)
+		mm, err = newEncodedMotor(c, mc, m, encoder, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -70,9 +71,9 @@ func WrapMotorWithEncoder(ctx context.Context, b Board, name string, mc motor.Co
 	} else {
 		b, ok := b.DigitalInterruptByName(mc.EncoderB)
 		if !ok {
-			return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.EncoderB, name)
+			return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.EncoderB, c.Name)
 		}
-		mm, err = newEncodedMotor(mc, m, NewHallEncoder(i, b), logger)
+		mm, err = newEncodedMotor(c, mc, m, NewHallEncoder(i, b), logger)
 		if err != nil {
 			return nil, err
 		}
@@ -84,23 +85,23 @@ func WrapMotorWithEncoder(ctx context.Context, b Board, name string, mc motor.Co
 }
 
 // NewEncodedMotor creates a new motor that supports an arbitrary source of encoder information
-func NewEncodedMotor(cfg motor.Config, real motor.Motor, encoder Encoder, logger golog.Logger) (motor.Motor, error) {
-	return newEncodedMotor(cfg, real, encoder, logger)
+func NewEncodedMotor(config config.Component, motorConfig motor.Config, real motor.Motor, encoder Encoder, logger golog.Logger) (motor.Motor, error) {
+	return newEncodedMotor(config, motorConfig, real, encoder, logger)
 }
 
-func newEncodedMotor(cfg motor.Config, real motor.Motor, encoder Encoder, logger golog.Logger) (*EncodedMotor, error) {
+func newEncodedMotor(config config.Component, motorConfig motor.Config, real motor.Motor, encoder Encoder, logger golog.Logger) (*EncodedMotor, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	em := &EncodedMotor{
 		activeBackgroundWorkers: &sync.WaitGroup{},
-		cfg:                     cfg,
+		cfg:                     motorConfig,
 		real:                    real,
 		encoder:                 encoder,
 		cancelCtx:               cancelCtx,
 		cancel:                  cancel,
 		stateMu:                 &sync.RWMutex{},
 		startedRPMMonitorMu:     &sync.Mutex{},
-		rampRate:                cfg.RampRate,
-		maxPowerPct:             cfg.MaxPowerPct,
+		rampRate:                motorConfig.RampRate,
+		maxPowerPct:             motorConfig.MaxPowerPct,
 		logger:                  logger,
 	}
 
@@ -118,7 +119,7 @@ func newEncodedMotor(cfg motor.Config, real motor.Motor, encoder Encoder, logger
 		em.maxPowerPct = 1.0
 	}
 
-	if val, ok := cfg.Attributes["rpmDebug"]; ok {
+	if val, ok := config.Attributes["rpmDebug"]; ok {
 		if val == "true" {
 			_rpmDebug = true
 		}

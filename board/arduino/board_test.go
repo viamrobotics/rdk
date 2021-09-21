@@ -191,7 +191,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close()
 
-	m, err := b.configureMotor(cfg.Components[0].Name, cfg.Components[0].Attributes["config"].(*motor.Config))
+	m, err := b.configureMotor(cfg.Components[0], cfg.Components[0].Attributes["config"].(*motor.Config))
 	test.That(t, err, test.ShouldBeNil)
 
 	startPos, err := m.Position(ctx)
@@ -268,7 +268,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close()
 
-	m, err := b.configureMotor("motor1", cfg.Components[0].Attributes["config"].(*motor.Config))
+	m, err := b.configureMotor(cfg.Components[0], cfg.Components[0].Attributes["config"].(*motor.Config))
 	test.That(t, err, test.ShouldBeNil)
 
 	startPos, err := m.Position(ctx)
@@ -345,7 +345,7 @@ func TestArduinoMotorAB(t *testing.T) {
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close()
 
-	m, err := b.configureMotor("motor1", cfg.Components[0].Attributes["config"].(*motor.Config))
+	m, err := b.configureMotor(cfg.Components[0], cfg.Components[0].Attributes["config"].(*motor.Config))
 	test.That(t, err, test.ShouldBeNil)
 
 	startPos, err := m.Position(ctx)

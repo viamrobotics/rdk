@@ -7,6 +7,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robots/fake"
@@ -51,13 +52,6 @@ func TestTMCStepperMotor(t *testing.T) {
 		MaxAcceleration:  500,
 		MaxRPM:           500,
 		TicksPerRotation: 200,
-		Attributes: map[string]string{
-			"spi_bus":     "main",
-			"chip_select": "40",
-			"index":       "0",
-			"sg_thresh":   "0",
-			"cal_factor":  "1.0",
-		},
 	}
 
 	// These are the setup register writes
@@ -77,7 +71,15 @@ func TestTMCStepperMotor(t *testing.T) {
 		{160, 0, 0, 0, 1},
 		{161, 0, 0, 0, 0},
 	})
-	m, err := board.NewTMCStepperMotor(context.Background(), b, mc, logger)
+	m, err := board.NewTMCStepperMotor(context.Background(), b, config.Component{
+		Attributes: config.AttributeMap{
+			"spi_bus":     "main",
+			"chip_select": "40",
+			"index":       "0",
+			"sg_thresh":   "0",
+			"cal_factor":  "1.0",
+		},
+	}, mc, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(m), test.ShouldBeNil)

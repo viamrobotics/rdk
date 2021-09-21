@@ -37,7 +37,7 @@ func init() {
 			return nil, err
 		}
 
-		m, err = board.WrapMotorWithEncoder(ctx, actualBoard, *motorConfig, m, logger)
+		m, err = board.WrapMotorWithEncoder(ctx, actualBoard, config, *motorConfig, m, logger)
 		if err != nil {
 			return nil, err
 		}

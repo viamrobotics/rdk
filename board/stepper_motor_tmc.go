@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 
@@ -74,18 +75,18 @@ const (
 )
 
 // NewTMCStepperMotor returns a TMC5072 driven motor
-func NewTMCStepperMotor(ctx context.Context, b Board, mc motor.Config, logger golog.Logger) (*TMCStepperMotor, error) {
-	bus, ok := b.SPIByName(mc.Attributes["spi_bus"])
+func NewTMCStepperMotor(ctx context.Context, b Board, c config.Component, mc motor.Config, logger golog.Logger) (*TMCStepperMotor, error) {
+	bus, ok := b.SPIByName(c.Attributes.String("spi_bus"))
 	if !ok {
-		return nil, errors.Errorf("can't find SPI bus (%s) requested by TMCStepperMotor", mc.Attributes["spi_bus"])
+		return nil, errors.Errorf("can't find SPI bus (%s) requested by TMCStepperMotor", c.Attributes.String("spi_bus"))
 	}
 
-	index, err := strconv.Atoi(mc.Attributes["index"])
+	index, err := strconv.Atoi(c.Attributes.String("index"))
 	if err != nil {
 		return nil, err
 	}
 
-	calFactor, err := strconv.ParseFloat(mc.Attributes["cal_factor"], 64)
+	calFactor, err := strconv.ParseFloat(c.Attributes.String("cal_factor"), 4)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +94,7 @@ func NewTMCStepperMotor(ctx context.Context, b Board, mc motor.Config, logger go
 	m := &TMCStepperMotor{
 		board:       b,
 		bus:         bus,
-		csPin:       mc.Attributes["chip_select"],
+		csPin:       c.Attributes.String("chip_select"),
 		index:       index,
 		stepsPerRev: mc.TicksPerRotation * uSteps,
 		enPin:       mc.Pins["en"],
@@ -105,7 +106,7 @@ func NewTMCStepperMotor(ctx context.Context, b Board, mc motor.Config, logger go
 
 	rawMaxAcc := m.rpmsToA(m.maxAcc)
 
-	sg, err := strconv.Atoi(mc.Attributes["sg_thresh"])
+	sg, err := strconv.Atoi(c.Attributes.String("sg_thresh"))
 	if err != nil {
 		return nil, err
 	}
