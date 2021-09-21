@@ -9,7 +9,7 @@ import (
 
 	"go.viam.com/core/grpc/metadata/client"
 	"go.viam.com/core/grpc/metadata/server"
-	"go.viam.com/core/metadata"
+	"go.viam.com/core/metadata/service"
 	pb "go.viam.com/core/proto/api/service/v1"
 	"go.viam.com/core/resource"
 
@@ -43,7 +43,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
-	injectMetadata := &metadata.Metadata{}
+	injectMetadata := &service.Service{}
 	pb.RegisterMetadataServiceServer(gServer1, server.New(injectMetadata))
 
 	go gServer1.Serve(listener1)
@@ -74,7 +74,7 @@ func TestClientDialerOption(t *testing.T) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
-	injectMetadata := metadata.New()
+	injectMetadata := service.New()
 	pb.RegisterMetadataServiceServer(gServer, server.New(&injectMetadata))
 
 	go gServer.Serve(listener)
