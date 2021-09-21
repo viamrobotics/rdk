@@ -87,13 +87,16 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed *pb.J
 		returned++
 		if myRT.Err == nil {
 
-			dist := calcSwingPct(seed, myRT.Result, ik.model)
-			// Since distances are squared, a perfect "halfway" will have a dist ~0.25. Better than 0.5 is good enough.
-			if dist < 0.5 {
-				found = true
-				solutions = []*pb.JointPositions{myRT.Result}
-			} else {
-				solutions = append(solutions, myRT.Result)
+			dist, err := calcSwingPct(seed, myRT.Result, ik.model)
+			// non-nil err means out of bounds joint solution, ignore and move on
+			if err == nil {
+				// Since distances are squared, a perfect "halfway" will have a dist ~0.25. Better than 0.5 is good enough.
+				if dist < 0.5 {
+					found = true
+					solutions = []*pb.JointPositions{myRT.Result}
+				} else {
+					solutions = append(solutions, myRT.Result)
+				}
 			}
 		}
 	}
@@ -101,8 +104,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed *pb.J
 	close(noMoreSolutions)
 	activeSolvers.Wait()
 	if len(solutions) > 0 {
-		myRT.Result = bestSolution(seed, solutions, ik.model)
-		myRT.Err = nil
+		myRT.Result, myRT.Err = bestSolution(seed, solutions, ik.model)
 		ik.logger.Debugf("solved joint positions: %v", myRT.Result)
 		solvePos, err := ComputePosition(ik.model, myRT.Result)
 		ik.logger.Debugf("solved 6d position: %v %v", solvePos, err)
@@ -110,8 +112,8 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed *pb.J
 	return myRT.Result, myRT.Err
 }
 
-// Mdl returns the model associated with this IK.
-func (ik *CombinedIK) Mdl() *Model {
+// Model returns the associated model
+func (ik *CombinedIK) Model() *Model {
 	return ik.model
 }
 

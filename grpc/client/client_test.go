@@ -562,19 +562,20 @@ func TestClient(t *testing.T) {
 	cfg := config.Config{
 		Components: []config.Component{
 			{
-				Name:   "a",
-				Type:   config.ComponentTypeArm,
-				Parent: "b",
-				ParentTranslation: config.Translation{
-					X: 1,
-					Y: 2,
-					Z: 3,
-				},
-				ParentOrientation: config.Orientation{
-					X:  4,
-					Y:  5,
-					Z:  6,
-					TH: 7,
+				Name: "a",
+				Type: config.ComponentTypeArm,
+				Frame: &config.FrameConfig{Parent: "b",
+					Translation: config.Translation{
+						X: 1,
+						Y: 2,
+						Z: 3,
+					},
+					Orientation: config.Orientation{
+						X:  4,
+						Y:  5,
+						Z:  6,
+						TH: 7,
+					},
 				},
 			},
 		},

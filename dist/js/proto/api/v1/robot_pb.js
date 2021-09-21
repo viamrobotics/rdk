@@ -3639,7 +3639,7 @@ proto.proto.api.v1.ComponentConfig.toObject = function(includeInstance, msg) {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
     type: jspb.Message.getFieldWithDefault(msg, 2, ""),
     parent: jspb.Message.getFieldWithDefault(msg, 3, ""),
-    translation: (f = msg.getTranslation()) && proto.proto.api.v1.ArmPosition.toObject(includeInstance, f)
+    pose: (f = msg.getPose()) && proto.proto.api.v1.ArmPosition.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -3691,7 +3691,7 @@ proto.proto.api.v1.ComponentConfig.deserializeBinaryFromReader = function(msg, r
     case 4:
       var value = new proto.proto.api.v1.ArmPosition;
       reader.readMessage(value,proto.proto.api.v1.ArmPosition.deserializeBinaryFromReader);
-      msg.setTranslation(value);
+      msg.setPose(value);
       break;
     default:
       reader.skipField();
@@ -3743,7 +3743,7 @@ proto.proto.api.v1.ComponentConfig.serializeBinaryToWriter = function(message, w
       f
     );
   }
-  f = message.getTranslation();
+  f = message.getPose();
   if (f != null) {
     writer.writeMessage(
       4,
@@ -3809,10 +3809,10 @@ proto.proto.api.v1.ComponentConfig.prototype.setParent = function(value) {
 
 
 /**
- * optional ArmPosition translation = 4;
+ * optional ArmPosition pose = 4;
  * @return {?proto.proto.api.v1.ArmPosition}
  */
-proto.proto.api.v1.ComponentConfig.prototype.getTranslation = function() {
+proto.proto.api.v1.ComponentConfig.prototype.getPose = function() {
   return /** @type{?proto.proto.api.v1.ArmPosition} */ (
     jspb.Message.getWrapperField(this, proto.proto.api.v1.ArmPosition, 4));
 };
@@ -3822,7 +3822,7 @@ proto.proto.api.v1.ComponentConfig.prototype.getTranslation = function() {
  * @param {?proto.proto.api.v1.ArmPosition|undefined} value
  * @return {!proto.proto.api.v1.ComponentConfig} returns this
 */
-proto.proto.api.v1.ComponentConfig.prototype.setTranslation = function(value) {
+proto.proto.api.v1.ComponentConfig.prototype.setPose = function(value) {
   return jspb.Message.setWrapperField(this, 4, value);
 };
 
@@ -3831,8 +3831,8 @@ proto.proto.api.v1.ComponentConfig.prototype.setTranslation = function(value) {
  * Clears the message field making it undefined.
  * @return {!proto.proto.api.v1.ComponentConfig} returns this
  */
-proto.proto.api.v1.ComponentConfig.prototype.clearTranslation = function() {
-  return this.setTranslation(undefined);
+proto.proto.api.v1.ComponentConfig.prototype.clearPose = function() {
+  return this.setPose(undefined);
 };
 
 
@@ -3840,7 +3840,7 @@ proto.proto.api.v1.ComponentConfig.prototype.clearTranslation = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.proto.api.v1.ComponentConfig.prototype.hasTranslation = function() {
+proto.proto.api.v1.ComponentConfig.prototype.hasPose = function() {
   return jspb.Message.getField(this, 4) != null;
 };
 

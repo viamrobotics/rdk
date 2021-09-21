@@ -167,12 +167,7 @@ func TestConfigRemote(t *testing.T) {
 	cfg2, err := r2.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, 12, test.ShouldEqual, len(cfg2.Components))
-	test.That(t, cfg2.FindComponent("foo.pieceGripper").Parent, test.ShouldEqual, "ppp")
-
-	cfg2, err = r2.Config(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, 12, test.ShouldEqual, len(cfg2.Components))
-	test.That(t, cfg2.FindComponent("foo.pieceGripper").Parent, test.ShouldEqual, "ppp")
+	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "foo.world")
 
 	cancel()
 	<-webDone
@@ -223,9 +218,9 @@ func TestNewTeardown(t *testing.T) {
 	board.RegisterBoard(modelName, func(ctx context.Context, cfg board.Config, logger golog.Logger) (board.Board, error) {
 		return &dummyBoard1, nil
 	})
-	registry.RegisterGripper(modelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
+	registry.RegisterGripper(modelName, registry.Gripper{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 		return nil, errors.New("whoops")
-	})
+	}})
 
 	var failingConfig = fmt.Sprintf(`{
 	"boards": [

@@ -24,6 +24,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -34,8 +35,11 @@ import (
 var evamodeljson []byte
 
 func init() {
-	registry.RegisterArm("eva", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		return NewEva(ctx, config.Host, config.Attributes, logger)
+	registry.RegisterArm("eva", registry.Arm{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+			return NewEva(ctx, config.Host, config.Attributes, logger)
+		},
+		Frame: func(name string) (referenceframe.Frame, error) { return evaFrame(name) },
 	})
 }
 
@@ -90,7 +94,7 @@ func (e *eva) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(e.ik.Mdl(), joints)
+	return kinematics.ComputePosition(e.ik.Model(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
@@ -308,10 +312,25 @@ func (e *eva) apiUnlock(ctx context.Context) {
 	}
 }
 
+// EvaModel() returns the kinematics model of the Eva, also has all Frame information.
+func evaModel() (*kinematics.Model, error) {
+	return kinematics.ParseJSON(evamodeljson)
+}
+
+// EvaFrame() returns the reference frame of the Eva, also
+func evaFrame(name string) (referenceframe.Frame, error) {
+	frame, err := evaModel()
+	if err != nil {
+		return nil, err
+	}
+	frame.SetName(name)
+	return frame, nil
+}
+
 // NewEva TODO
 func NewEva(ctx context.Context, host string, attrs config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
 
-	model, err := kinematics.ParseJSON(evamodeljson)
+	model, err := evaModel()
 	if err != nil {
 		return nil, err
 	}

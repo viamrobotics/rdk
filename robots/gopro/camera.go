@@ -26,14 +26,15 @@ import (
 const usbHost = "172.27.116.51"
 
 func init() {
-	registry.RegisterCamera("gopro", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
-		gCam, err := newCamera(logger)
-		if err != nil {
-			return nil, err
-		}
-		gCam.start()
-		return &camera.ImageSource{gCam}, nil
-	})
+	registry.RegisterCamera("gopro", registry.Camera{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+			gCam, err := newCamera(logger)
+			if err != nil {
+				return nil, err
+			}
+			gCam.start()
+			return &camera.ImageSource{gCam}, nil
+		}})
 }
 
 func newCamera(logger golog.Logger) (*gpCamera, error) {
