@@ -10,7 +10,6 @@ import (
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	spatial "go.viam.com/core/spatialmath"
-	"go.viam.com/core/utils"
 
 	"github.com/golang/geo/r3"
 )
@@ -65,9 +64,8 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 func makePoseFromConfig(f *config.FrameConfig) spatial.Pose {
 	// get the translation vector. If there is no translation/orientation attribute will default to 0
 	translation := r3.Vector{f.Translation.X, f.Translation.Y, f.Translation.Z}
-
-	ov := &spatial.OrientationVec{utils.DegToRad(f.Orientation.TH), f.Orientation.X, f.Orientation.Y, f.Orientation.Z}
-	return spatial.NewPoseFromOrientationVector(translation, ov)
+	o := f.Orientation()
+	return spatial.NewPoseFromOrientation(translation, o)
 }
 
 func makeStaticFrame(comp *config.Component, name string) (ref.Frame, error) {

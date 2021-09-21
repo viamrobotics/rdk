@@ -33,6 +33,7 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/spatialmath"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
@@ -223,11 +224,11 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 				Y: c.Pose.Y,
 				Z: c.Pose.Z,
 			}
-			cc.Frame.Orientation = config.Orientation{
-				X:  c.Pose.OX,
-				Y:  c.Pose.OY,
-				Z:  c.Pose.OZ,
-				TH: c.Pose.Theta,
+			cc.Frame.OVDegrees = &spatialmath.OrientationVecDegrees{
+				OX:    c.Pose.OX,
+				OY:    c.Pose.OY,
+				OZ:    c.Pose.OZ,
+				Theta: c.Pose.Theta,
 			}
 		}
 		cfg.Components = append(cfg.Components, cc)

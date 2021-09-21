@@ -4,12 +4,15 @@ import (
 	"math"
 
 	"gonum.org/v1/gonum/num/quat"
+
+	"go.viam.com/core/utils"
 )
 
 // Orientation is an interface used to express the different parameterizations of a rotation in 3D Euclidean space.
 type Orientation interface {
 	OV() *OrientationVec
-	AxisAngle() *R4AA
+	OVD() *OrientationVecDegrees
+	AxisAngles() *R4AA
 	Quaternion() quat.Number
 	EulerAngles() *EulerAngles
 }
@@ -17,8 +20,13 @@ type Orientation interface {
 // use quaternions as the private implementation of the Orientation interface
 type quaternion quat.Number
 
-// NewOrientationFromAxisAngle turns an input axis-angle representation into a general Orientation object
-func NewOrientationFromAxisAngle(aa R4AA) Orientation {
+// NewZeroOrientation returns an orientatation which signifies no rotation
+func NewZeroOrientation() Orientation {
+	return &quaternion{1, 0, 0, 0}
+}
+
+// NewOrientationFromAxisAngles turns an input axis-angle representation into a general Orientation object
+func NewOrientationFromAxisAngles(aa *R4AA) Orientation {
 	q := quaternion(aa.ToQuat())
 	return &q
 }
@@ -30,14 +38,20 @@ func NewOrientationFromQuaternion(q quat.Number) Orientation {
 }
 
 // NewOrientationFromOV turns an input orientation vector into a general Orientation object
-func NewOrientationFromOV(ov OrientationVec) Orientation {
+func NewOrientationFromOV(ov *OrientationVec) Orientation {
 	q := quaternion(ov.ToQuat())
 	return &q
 }
 
+// NewOrientationFromOVD turns an input orientation vector using degrees into a general Orientation object
+func NewOrientationFromOVD(ovd *OrientationVecDegrees) Orientation {
+	ov := &OrientationVec{Theta: utils.DegToRad(ovd.Theta), OX: ovd.OX, OY: ovd.OY, OZ: ovd.OZ}
+	return NewOrientationFromOV(ov)
+}
+
 // NewOrientationFromEulerAngles turns an input set of euler angles and outputs a general Orientation object. Algorithm from Wikipedia.
 //https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_angles_conversion
-func NewOrientationFromEulerAngles(ea EulerAngles) Orientation {
+func NewOrientationFromEulerAngles(ea *EulerAngles) Orientation {
 	// Abbreviations for the various angular functions
 	cy := math.Cos(ea.Yaw * 0.5)
 	sy := math.Sin(ea.Yaw * 0.5)
@@ -62,8 +76,14 @@ func (q *quaternion) OV() *OrientationVec {
 	return QuatToOV(quat.Number(*q))
 }
 
+// OVD return the orientation vector representation (using degrees) of the orientation
+func (q *quaternion) OVD() *OrientationVecDegrees {
+	ov := QuatToOV(quat.Number(*q))
+	return &OrientationVecDegrees{Theta: utils.RadToDeg(ov.Theta), OX: ov.OX, OY: ov.OY, OZ: ov.OZ}
+}
+
 // AxisAngle returns the axis angle representation of the orientation
-func (q *quaternion) AxisAngle() *R4AA {
+func (q *quaternion) AxisAngles() *R4AA {
 	aa := QuatToR4AA(quat.Number(*q))
 	return &aa
 }
@@ -79,9 +99,9 @@ func (q *quaternion) EulerAngles() *EulerAngles {
 	angles := EulerAngles{}
 
 	// roll (x-axis rotation)
-	sinr_cosp := 2 * (q.Real*q.Imag + q.Jmag*q.Kmag)
-	cosr_cosp := 1 - 2*(q.Imag*q.Imag+q.Jmag*q.Jmag)
-	angles.Roll = math.Atan2(sinr_cosp, cosr_cosp)
+	sinrCosp := 2 * (q.Real*q.Imag + q.Jmag*q.Kmag)
+	cosrCosp := 1 - 2*(q.Imag*q.Imag+q.Jmag*q.Jmag)
+	angles.Roll = math.Atan2(sinrCosp, cosrCosp)
 
 	// pitch (y-axis rotation)
 	sinp := 2 * (q.Real*q.Jmag - q.Kmag*q.Imag)
@@ -92,9 +112,9 @@ func (q *quaternion) EulerAngles() *EulerAngles {
 	}
 
 	// yaw (z-axis rotation)
-	siny_cosp := 2 * (q.Real*q.Kmag + q.Imag*q.Jmag)
-	cosy_cosp := 1 - 2*(q.Jmag*q.Jmag+q.Kmag*q.Kmag)
-	angles.Yaw = math.Atan2(siny_cosp, cosy_cosp)
+	sinyCosp := 2 * (q.Real*q.Kmag + q.Imag*q.Jmag)
+	cosyCosp := 1 - 2*(q.Jmag*q.Jmag+q.Kmag*q.Kmag)
+	angles.Yaw = math.Atan2(sinyCosp, cosyCosp)
 
 	return &angles
 }

@@ -22,10 +22,10 @@ type R3AA struct {
 
 // R4AA represents an R4 axis angle
 type R4AA struct {
-	Theta float64
-	RX    float64
-	RY    float64
-	RZ    float64
+	Theta float64 `json:"radians"`
+	RX    float64 `json:"x"`
+	RY    float64 `json:"y"`
+	RZ    float64 `json:"z"`
 }
 
 // ToR3 converts an R4 angle axis to R3

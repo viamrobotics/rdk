@@ -18,14 +18,25 @@ import (
 // point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at
 // zero as the north/south pole is circled, the Roll will correct itself to remain in-line.
 type OrientationVec struct {
-	Theta float64
-	OX    float64
-	OY    float64
-	OZ    float64
+	Theta float64 `json:"radians"`
+	OX    float64 `json:"x"`
+	OY    float64 `json:"y"`
+	OZ    float64 `json:"z"`
+}
+
+// OrientationVecDegrees is the orientation vector between two objects, but expressed in degrees rather than radians.
+// Because ArmPosition is in degrees, this is necessary.
+type OrientationVecDegrees struct {
+	Theta float64 `json:"th"`
+	OX    float64 `json:"x"`
+	OY    float64 `json:"y"`
+	OZ    float64 `json:"z"`
 }
 
 // ToQuat converts an orientation vector to a quaternion.
 func (ov *OrientationVec) ToQuat() quat.Number {
+	// make sure OrientationVec is normalized first
+	ov.Normalize()
 
 	// acos(rz) ranges from 0 (north pole) to pi (south pole)
 	lat := math.Acos(ov.OZ)
@@ -56,6 +67,9 @@ func (ov *OrientationVec) ToQuat() quat.Number {
 // Normalize scales the x, y, and z components of an Orientation Vector to be on the unit sphere
 func (ov *OrientationVec) Normalize() {
 	norm := math.Sqrt(ov.OX*ov.OX + ov.OY*ov.OY + ov.OZ*ov.OZ)
+	if norm == 0.0 { // avoid division by zero
+		return
+	}
 	ov.OX /= norm
 	ov.OY /= norm
 	ov.OZ /= norm
