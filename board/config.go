@@ -74,6 +74,9 @@ func (config *Config) Merge(with *Config) (*Config, error) {
 	if len(config.SPIs) != 0 || len(with.SPIs) != 0 {
 		merged.SPIs = append(append([]SPIConfig{}, config.SPIs...), with.SPIs...)
 	}
+	if len(config.I2Cs) != 0 || len(with.I2Cs) != 0 {
+		merged.I2Cs = append(append([]I2CConfig{}, config.I2Cs...), with.I2Cs...)
+	}
 	if len(config.Analogs) != 0 || len(with.Analogs) != 0 {
 		merged.Analogs = append(append([]AnalogConfig{}, config.Analogs...), with.Analogs...)
 	}
@@ -138,13 +141,16 @@ func (config *SPIConfig) Validate(path string) error {
 // I2CConfig enumerates a specific I2C device by address.
 type I2CConfig struct {
 	Name      string `json:"name"`
-	Address   string `json:"address"`
+	Bus   string `json:"bus"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (config *I2CConfig) Validate(path string) error {
 	if config.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	if config.Bus == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "bus")
 	}
 	return nil
 }
