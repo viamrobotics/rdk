@@ -16,7 +16,7 @@ import (
 // Service keeps track of all resources associated with a robot.
 type Service struct {
 	mu        sync.Mutex
-	resources []resource.ResourceName
+	resources []resource.Name
 }
 
 // NewFromRobot Creates and populate Service given a robot.
@@ -31,7 +31,7 @@ func NewFromRobot(r robot.Robot) (*Service, error) {
 
 // New creates a new Service struct and initializes the resource list with a metadata service.
 func New() Service {
-	resources := []resource.ResourceName{
+	resources := []resource.Name{
 		{
 			UUID:      uuid.NewString(),
 			Namespace: resource.ResourceNamespaceCore,
@@ -49,7 +49,7 @@ func (s *Service) Populate(robot robot.Robot) error {
 	// TODO: Currently just a placeholder implementation, this should be rewritten once robot/parts have more metadata about themselves
 	for _, name := range robot.ArmNames() {
 		err := s.Add(
-			resource.ResourceName{
+			resource.Name{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore, // can be non-core as well
 				Type:      resource.ResourceTypeComponent,
@@ -64,7 +64,7 @@ func (s *Service) Populate(robot robot.Robot) error {
 	}
 	for _, name := range robot.BaseNames() {
 		err := s.Add(
-			resource.ResourceName{
+			resource.Name{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
 				Type:      resource.ResourceTypeComponent,
@@ -78,7 +78,7 @@ func (s *Service) Populate(robot robot.Robot) error {
 	}
 	for _, name := range robot.BoardNames() {
 		err := s.Add(
-			resource.ResourceName{
+			resource.Name{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
 				Type:      resource.ResourceTypeComponent,
@@ -92,7 +92,7 @@ func (s *Service) Populate(robot robot.Robot) error {
 	}
 	for _, name := range robot.CameraNames() {
 		err := s.Add(
-			resource.ResourceName{
+			resource.Name{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
 				Type:      resource.ResourceTypeComponent,
@@ -106,7 +106,7 @@ func (s *Service) Populate(robot robot.Robot) error {
 	}
 	for _, name := range robot.FunctionNames() {
 		err := s.Add(
-			resource.ResourceName{
+			resource.Name{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
 				Type:      resource.ResourceTypeService,
@@ -120,7 +120,7 @@ func (s *Service) Populate(robot robot.Robot) error {
 	}
 	for _, name := range robot.GripperNames() {
 		err := s.Add(
-			resource.ResourceName{
+			resource.Name{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
 				Type:      resource.ResourceTypeComponent,
@@ -134,7 +134,7 @@ func (s *Service) Populate(robot robot.Robot) error {
 	}
 	for _, name := range robot.LidarNames() {
 		err := s.Add(
-			resource.ResourceName{
+			resource.Name{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
 				Type:      resource.ResourceTypeComponent,
@@ -148,7 +148,7 @@ func (s *Service) Populate(robot robot.Robot) error {
 	}
 	for _, name := range robot.RemoteNames() {
 		err := s.Add(
-			resource.ResourceName{
+			resource.Name{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
 				Type:      resource.ResourceTypeComponent,
@@ -162,7 +162,7 @@ func (s *Service) Populate(robot robot.Robot) error {
 	}
 	for _, name := range robot.SensorNames() {
 		err := s.Add(
-			resource.ResourceName{
+			resource.Name{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
 				Type:      resource.ResourceTypeComponent,
@@ -178,12 +178,12 @@ func (s *Service) Populate(robot robot.Robot) error {
 }
 
 // All returns the list of resources.
-func (s *Service) All() []resource.ResourceName {
+func (s *Service) All() []resource.Name {
 	return s.resources
 }
 
 // Add adds an additional resource to the list.
-func (s *Service) Add(res resource.ResourceName) error {
+func (s *Service) Add(res resource.Name) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := res.Validate(); err != nil {
@@ -206,7 +206,7 @@ func (s *Service) Add(res resource.ResourceName) error {
 }
 
 // Remove removes resource from the list.
-func (s *Service) Remove(res resource.ResourceName) error {
+func (s *Service) Remove(res resource.Name) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := res.Validate(); err != nil {
@@ -239,7 +239,7 @@ func ContextWithService(ctx context.Context, s *Service) context.Context {
 	return context.WithValue(ctx, ctxKeyMetadata, s)
 }
 
-// ContextMetadata returns a metadata Service struct. It may be nil if the value was never set.
+// ContextService returns a metadata Service struct. It may be nil if the value was never set.
 func ContextService(ctx context.Context) *Service {
 	s := ctx.Value(ctxKeyMetadata)
 	if s == nil {

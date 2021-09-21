@@ -17,7 +17,7 @@ import (
 	"go.viam.com/utils/rpc/dialer"
 
 	"go.viam.com/core/config"
-	"go.viam.com/core/resources"
+	"go.viam.com/core/metadata/service"
 	"go.viam.com/core/rlog"
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/web"
@@ -315,12 +315,10 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		err = multierr.Combine(err, rpcDialer.Close())
 	}()
 	ctx = dialer.ContextWithDialer(ctx, rpcDialer)
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
-	if err != nil {
-		return err
-	}
 
-	myResources, err := resources.Init(myRobot)
+	metadataSvc := service.New()
+	ctx = service.ContextWithService(ctx, &metadataSvc)
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
@@ -348,13 +346,6 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 				if err := myRobot.Reconfigure(ctx, config); err != nil {
 					logger.Errorw("error reconfiguring robot", "error", err)
 				}
-				if err := myResources.ClearResources(); err != nil {
-					logger.Errorw("error reconfiguring metadata service", "error", err)
-				}
-				if err := myResources.Populate(myRobot); err != nil {
-					logger.Errorw("error reconfiguring metadata service", "error", err)
-				}
-
 			}
 		}
 	}, func() {
@@ -381,7 +372,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		options.Insecure = true
 	}
 
-	err = RunWebWithResources(ctx, myRobot, myResources, options, logger)
+	err = RunWeb(ctx, myRobot, options, logger)
 	if err != nil {
 		cancel()
 		return fmt.Errorf("error running web: %w", err)
