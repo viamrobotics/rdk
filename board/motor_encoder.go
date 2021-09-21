@@ -43,18 +43,18 @@ func SetRPMSleepDebug(dur time.Duration, debug bool) func() {
 }
 
 // WrapMotorWithEncoder takes a motor and adds an encoder onto it in order to understand its odometry.
-func WrapMotorWithEncoder(ctx context.Context, b Board, mc motor.Config, m motor.Motor, logger golog.Logger) (motor.Motor, error) {
+func WrapMotorWithEncoder(ctx context.Context, b Board, name string, mc motor.Config, m motor.Motor, logger golog.Logger) (motor.Motor, error) {
 	if mc.Encoder == "" {
 		return m, nil
 	}
 
 	if mc.TicksPerRotation == 0 {
-		return nil, errors.Errorf("need a TicksPerRotation for motor (%s)", mc.Name)
+		return nil, errors.Errorf("need a TicksPerRotation for motor (%s)", name)
 	}
 
 	i, ok := b.DigitalInterruptByName(mc.Encoder)
 	if !ok {
-		return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.Encoder, mc.Name)
+		return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.Encoder, name)
 	}
 
 	var mm *EncodedMotor
@@ -70,7 +70,7 @@ func WrapMotorWithEncoder(ctx context.Context, b Board, mc motor.Config, m motor
 	} else {
 		b, ok := b.DigitalInterruptByName(mc.EncoderB)
 		if !ok {
-			return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.EncoderB, mc.Name)
+			return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.EncoderB, name)
 		}
 		mm, err = newEncodedMotor(mc, m, NewHallEncoder(i, b), logger)
 		if err != nil {

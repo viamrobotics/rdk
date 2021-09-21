@@ -24,7 +24,7 @@ import (
 	"go.viam.com/core/utils"
 )
 
-// init registers a pi servo based on pigpio.
+// init registers a pi motor based on pigpio.
 func init() {
 	registry.RegisterMotor(modelName, registry.Motor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error) {
 		actualBoard, motorConfig, err := getBoardFromRobotConfig(r, config)
@@ -62,12 +62,12 @@ func init() {
 
 func getBoardFromRobotConfig(r robot.Robot, config config.Component) (*piPigpio, *motor.Config, error) {
 	if !config.Attributes.Has("config") {
-		return nil, nil, errors.New("expected config for servo")
+		return nil, nil, errors.New("expected config for motor")
 	}
 
 	motorConfig := config.Attributes["config"].(*motor.Config)
 	if motorConfig.BoardName == "" {
-		return nil, nil, errors.New("expected board name in config for servo")
+		return nil, nil, errors.New("expected board name in config for motor")
 	}
 	b, ok := r.BoardByName(motorConfig.BoardName)
 	if !ok {
@@ -76,7 +76,7 @@ func getBoardFromRobotConfig(r robot.Robot, config config.Component) (*piPigpio,
 	// Note(erd): this would not be needed if encoders were a component
 	actualBoard, ok := utils.UnwrapProxy(b).(*piPigpio)
 	if !ok {
-		return nil, nil, errors.New("expected board to be an arduino board")
+		return nil, nil, errors.New("expected board to be a pi board")
 	}
 	return actualBoard, motorConfig, nil
 }

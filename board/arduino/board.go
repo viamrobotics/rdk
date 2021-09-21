@@ -279,13 +279,14 @@ func (b *arduinoBoard) Close() error {
 }
 
 type encoder struct {
-	b   *arduinoBoard
-	cfg motor.Config
+	b    *arduinoBoard
+	cfg  motor.Config
+	name string
 }
 
 // Position returns the current position in terms of ticks
 func (e *encoder) Position(ctx context.Context) (int64, error) {
-	res, err := e.b.runCommand("motor-position " + e.cfg.Name)
+	res, err := e.b.runCommand("motor-position " + e.name)
 	if err != nil {
 		return 0, err
 	}
@@ -305,7 +306,7 @@ func (e *encoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync
 }
 
 func (e *encoder) Zero(ctx context.Context, offset int64) error {
-	_, err := e.b.runCommand(fmt.Sprintf("motor-zero %s %d", e.cfg.Name, offset))
+	_, err := e.b.runCommand(fmt.Sprintf("motor-zero %s %d", e.name, offset))
 	return err
 }
 

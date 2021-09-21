@@ -48,7 +48,6 @@ func TestTMCStepperMotor(t *testing.T) {
 	b.SPIs = map[string]*fake.SPI{}
 	b.SPIs["main"] = &fake.SPI{FIFO: c}
 	mc := motor.Config{
-		Model:            "TMC5072",
 		MaxAcceleration:  500,
 		MaxRPM:           500,
 		TicksPerRotation: 200,
