@@ -4,33 +4,33 @@ package server
 import (
 	"context"
 
+	"go.viam.com/core/metadata"
 	pb "go.viam.com/core/proto/api/service/v1"
-	"go.viam.com/core/resources"
 )
 
 // MetadataServer implements the contract from metadata.proto
 type MetadataServer struct {
 	pb.UnimplementedMetadataServiceServer
-	r *resources.Resources
+	m *metadata.Metadata
 }
 
 // New constructs a gRPC service server.
-func New(r *resources.Resources) pb.MetadataServiceServer {
-	return &MetadataServer{r: r}
+func New(m *metadata.Metadata) pb.MetadataServiceServer {
+	return &MetadataServer{m: m}
 }
 
 // Resources returns the list of resources.
 func (s *MetadataServer) Resources(ctx context.Context, _ *pb.ResourcesRequest) (*pb.ResourcesResponse, error) {
-	rNames := make([]*pb.ResourceName, 0, len(s.r.GetResources()))
-	for _, r := range s.r.GetResources() {
+	rNames := make([]*pb.ResourceName, 0, len(s.m.All()))
+	for _, m := range s.m.All() {
 		rNames = append(
 			rNames,
 			&pb.ResourceName{
-				Uuid:      r.UUID,
-				Namespace: r.Namespace,
-				Type:      r.Type,
-				Subtype:   r.Subtype,
-				Name:      r.Name,
+				Uuid:      m.UUID,
+				Namespace: m.Namespace,
+				Type:      m.Type,
+				Subtype:   m.Subtype,
+				Name:      m.Name,
 			},
 		)
 	}

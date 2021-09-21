@@ -9,8 +9,9 @@ import (
 
 	"go.viam.com/core/grpc/metadata/client"
 	"go.viam.com/core/grpc/metadata/server"
+	"go.viam.com/core/metadata"
 	pb "go.viam.com/core/proto/api/service/v1"
-	"go.viam.com/core/resources"
+	"go.viam.com/core/resource"
 
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
@@ -18,11 +19,11 @@ import (
 	"google.golang.org/grpc"
 )
 
-var newResource = resources.ResourceName{
+var newResource = resource.ResourceName{
 	UUID:      uuid.NewString(),
-	Namespace: resources.ResourceNamespaceCore,
-	Type:      resources.ResourceTypeComponent,
-	Subtype:   resources.ResourceSubtypeArm,
+	Namespace: resource.ResourceNamespaceCore,
+	Type:      resource.ResourceTypeComponent,
+	Subtype:   resource.ResourceSubtypeArm,
 	Name:      "",
 }
 
@@ -42,8 +43,8 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
-	injectRes1 := &resources.Resources{}
-	pb.RegisterMetadataServiceServer(gServer1, server.New(injectRes1))
+	injectMetadata := &metadata.Metadata{}
+	pb.RegisterMetadataServiceServer(gServer1, server.New(injectMetadata))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -59,10 +60,10 @@ func TestClient(t *testing.T) {
 	client, err := client.NewClient(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	injectRes1.AddResource(newResource)
-	resources, err := client.Resources(context.Background())
+	injectMetadata.Add(newResource)
+	resource, err := client.Resources(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resources, test.ShouldResemble, oneResourceResponse)
+	test.That(t, resource, test.ShouldResemble, oneResourceResponse)
 
 	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)
@@ -73,8 +74,8 @@ func TestClientDialerOption(t *testing.T) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
-	injectRes := resources.New()
-	pb.RegisterMetadataServiceServer(gServer, server.New(&injectRes))
+	injectMetadata := metadata.New()
+	pb.RegisterMetadataServiceServer(gServer, server.New(&injectMetadata))
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
