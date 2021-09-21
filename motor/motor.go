@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/mitchellh/mapstructure"
-	"go.viam.com/utils"
 
 	"go.viam.com/core/config"
 	pb "go.viam.com/core/proto/api/v1"
@@ -54,8 +53,6 @@ type Motor interface {
 
 // Config describes the configuration of a motor.
 type Config struct {
-	Name             string            `json:"name"`
-	Model            string            `json:"model"`
 	Pins             map[string]string `json:"pins"`
 	BoardName        string            `json:"board"`    // used to get encoders
 	Encoder          string            `json:"encoder"`  // name of the digital interrupt that is the encoder
@@ -67,14 +64,6 @@ type Config struct {
 	MaxAcceleration  float64           `json:"max_acceleration"` // RPM per second
 	PWMFreq          uint              `json:"pwmFreq"`
 	Attributes       map[string]string `json:"attributes"`
-}
-
-// Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) error {
-	if config.Name == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "name")
-	}
-	return nil
 }
 
 // RegisterConfigAttributeConverter registers a Config converter.

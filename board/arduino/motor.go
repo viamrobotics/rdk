@@ -38,12 +38,12 @@ func init() {
 			return nil, errors.New("expected board to be an arduino board")
 		}
 
-		return actualBoard.configureMotor(motorConfig)
+		return actualBoard.configureMotor(config.Name, motorConfig)
 	}})
 	motor.RegisterConfigAttributeConverter(modelName)
 }
 
-func (b *arduinoBoard) configureMotor(cfg *motor.Config) (motor.Motor, error) {
+func (b *arduinoBoard) configureMotor(name string, cfg *motor.Config) (motor.Motor, error) {
 	if !((cfg.Pins["pwm"] != "" && cfg.Pins["dir"] != "") || (cfg.Pins["a"] != "" || cfg.Pins["b"] != "")) {
 		return nil, errors.New("arduino needs at least a & b, or dir & pwm pins")
 	}
@@ -62,7 +62,7 @@ func (b *arduinoBoard) configureMotor(cfg *motor.Config) (motor.Motor, error) {
 		}
 	}
 	cmd := fmt.Sprintf("config-motor-dc %s %s %s %s %s %s e %s %s",
-		cfg.Name,
+		name,
 		cfg.Pins["pwm"], // Optional if using A/B inputs (one of them will be PWMed if missing)
 		cfg.Pins["a"],   // Use either A & B, or DIR inputs, never both
 		cfg.Pins["b"],   // (A & B [& PWM] ) || (DIR & PWM)
@@ -81,7 +81,7 @@ func (b *arduinoBoard) configureMotor(cfg *motor.Config) (motor.Motor, error) {
 		return nil, fmt.Errorf("got unknown response when configureMotor %s", res)
 	}
 
-	m, err := board.NewEncodedMotor(*cfg, &arduinoMotor{b, *cfg}, &encoder{b, *cfg}, b.logger)
+	m, err := board.NewEncodedMotor(*cfg, &arduinoMotor{b, *cfg, name}, &encoder{b, *cfg, name}, b.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -108,8 +108,9 @@ func (b *arduinoBoard) configureMotor(cfg *motor.Config) (motor.Motor, error) {
 }
 
 type arduinoMotor struct {
-	b   *arduinoBoard
-	cfg motor.Config
+	b    *arduinoBoard
+	cfg  motor.Config
+	name string
 }
 
 // Power sets the percentage of power the motor should employ between 0-1.
@@ -118,7 +119,7 @@ func (m *arduinoMotor) Power(ctx context.Context, powerPct float32) error {
 		return m.Off(ctx)
 	}
 
-	_, err := m.b.runCommand(fmt.Sprintf("motor-power %s %d", m.cfg.Name, int(255.0*powerPct)))
+	_, err := m.b.runCommand(fmt.Sprintf("motor-power %s %d", m.name, int(255.0*powerPct)))
 	return err
 }
 
@@ -139,7 +140,7 @@ func (m *arduinoMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct 
 		return m.Off(ctx)
 	}
 
-	_, err := m.b.runCommand(fmt.Sprintf("motor-go %s %s %d", m.cfg.Name, dir, int(255.0*powerPct)))
+	_, err := m.b.runCommand(fmt.Sprintf("motor-go %s %s %d", m.name, dir, int(255.0*powerPct)))
 	return err
 }
 
@@ -156,7 +157,7 @@ func (m *arduinoMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 		return errors.New("unknown direction")
 	}
 
-	_, err := m.b.runCommand(fmt.Sprintf("motor-gofor %s %d %d", m.cfg.Name, ticks, ticksPerSecond))
+	_, err := m.b.runCommand(fmt.Sprintf("motor-gofor %s %d %d", m.name, ticks, ticksPerSecond))
 	return err
 }
 
@@ -164,7 +165,7 @@ func (m *arduinoMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 // data is undefined. The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
 func (m *arduinoMotor) Position(ctx context.Context) (float64, error) {
-	res, err := m.b.runCommand("motor-position " + m.cfg.Name)
+	res, err := m.b.runCommand("motor-position " + m.name)
 	if err != nil {
 		return 0, err
 	}
@@ -185,13 +186,13 @@ func (m *arduinoMotor) PositionSupported(ctx context.Context) (bool, error) {
 
 // Off turns the motor off.
 func (m *arduinoMotor) Off(ctx context.Context) error {
-	_, err := m.b.runCommand("motor-off " + m.cfg.Name)
+	_, err := m.b.runCommand("motor-off " + m.name)
 	return err
 }
 
 // IsOn returns whether or not the motor is currently on.
 func (m *arduinoMotor) IsOn(ctx context.Context) (bool, error) {
-	res, err := m.b.runCommand("motor-ison " + m.cfg.Name)
+	res, err := m.b.runCommand("motor-ison " + m.name)
 	if err != nil {
 		return false, err
 	}
@@ -201,7 +202,7 @@ func (m *arduinoMotor) IsOn(ctx context.Context) (bool, error) {
 func (m *arduinoMotor) GoTo(ctx context.Context, rpm float64, target float64) error {
 	ticks := int(target * float64(m.cfg.TicksPerRotation))
 	ticksPerSecond := int(rpm * float64(m.cfg.TicksPerRotation) / 60.0)
-	_, err := m.b.runCommand(fmt.Sprintf("motor-goto %s %d %d", m.cfg.Name, ticks, ticksPerSecond))
+	_, err := m.b.runCommand(fmt.Sprintf("motor-goto %s %d %d", m.name, ticks, ticksPerSecond))
 	return err
 }
 
@@ -211,7 +212,7 @@ func (m *arduinoMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, r
 
 func (m *arduinoMotor) Zero(ctx context.Context, offset float64) error {
 	offsetTicks := int64(offset * float64(m.cfg.TicksPerRotation))
-	_, err := m.b.runCommand(fmt.Sprintf("motor-zero %s %d", m.cfg.Name, offsetTicks))
+	_, err := m.b.runCommand(fmt.Sprintf("motor-zero %s %d", m.name, offsetTicks))
 	return err
 }
 
