@@ -12,12 +12,12 @@ import (
 func TestResourceValidate(t *testing.T) {
 	for _, tc := range []struct {
 		Name        string
-		NewResource resource.ResourceName
+		NewResource resource.Name
 		Err         string
 	}{
 		{
 			"missing uuid",
-			resource.ResourceName{
+			resource.Name{
 				Namespace: resource.ResourceNamespaceCore,
 				Type:      resource.ResourceTypeComponent,
 				Subtype:   "arm",
@@ -27,7 +27,7 @@ func TestResourceValidate(t *testing.T) {
 		},
 		{
 			"invalid uuid",
-			resource.ResourceName{
+			resource.Name{
 				UUID:      "abcd",
 				Namespace: resource.ResourceNamespaceCore,
 				Type:      resource.ResourceTypeComponent,
@@ -38,7 +38,7 @@ func TestResourceValidate(t *testing.T) {
 		},
 		{
 			"missing namespace",
-			resource.ResourceName{
+			resource.Name{
 				UUID:    uuid.NewString(),
 				Type:    resource.ResourceTypeComponent,
 				Subtype: "arm",
@@ -48,7 +48,7 @@ func TestResourceValidate(t *testing.T) {
 		},
 		{
 			"missing type",
-			resource.ResourceName{
+			resource.Name{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
 				Subtype:   "arm",
@@ -58,7 +58,7 @@ func TestResourceValidate(t *testing.T) {
 		},
 		{
 			"missing subtype",
-			resource.ResourceName{
+			resource.Name{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
 				Type:      resource.ResourceTypeComponent,
@@ -68,7 +68,7 @@ func TestResourceValidate(t *testing.T) {
 		},
 		{
 			"missing name",
-			resource.ResourceName{
+			resource.Name{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
 				Type:      resource.ResourceTypeComponent,
@@ -78,7 +78,7 @@ func TestResourceValidate(t *testing.T) {
 		},
 		{
 			"all fields included",
-			resource.ResourceName{
+			resource.Name{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
 				Type:      resource.ResourceTypeComponent,

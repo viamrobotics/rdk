@@ -65,14 +65,14 @@ func TestAdd(t *testing.T) {
 	r := service.New()
 
 	service := r.All()[0]
-	arm := resource.ResourceName{
+	arm := resource.Name{
 		UUID:      uuid.NewString(),
 		Namespace: resource.ResourceNamespaceCore,
 		Type:      resource.ResourceTypeComponent,
 		Subtype:   "arm",
 		Name:      "arm1",
 	}
-	sensor := resource.ResourceName{
+	sensor := resource.Name{
 		UUID:      uuid.NewString(),
 		Namespace: resource.ResourceNamespaceCore,
 		Type:      resource.ResourceTypeComponent,
@@ -80,7 +80,7 @@ func TestAdd(t *testing.T) {
 		Name:      "sensor1",
 	}
 
-	newMetadata := resource.ResourceName{
+	newMetadata := resource.Name{
 		UUID:      uuid.NewString(),
 		Namespace: resource.ResourceNamespaceCore,
 		Type:      resource.ResourceTypeService,
@@ -89,26 +89,26 @@ func TestAdd(t *testing.T) {
 
 	for _, tc := range []struct {
 		Name        string
-		NewResource resource.ResourceName
-		Expected    []resource.ResourceName
+		NewResource resource.Name
+		Expected    []resource.Name
 		Err         string
 	}{
 		{
 			"invalid addition",
-			resource.ResourceName{},
+			resource.Name{},
 			nil,
 			"uuid field for resource missing or invalid",
 		},
 		{
 			"add metadata",
 			newMetadata,
-			[]resource.ResourceName{service, newMetadata},
+			[]resource.Name{service, newMetadata},
 			"",
 		},
 		{
 			"one addition",
 			arm,
-			[]resource.ResourceName{service, newMetadata, arm},
+			[]resource.Name{service, newMetadata, arm},
 			"",
 		},
 		{
@@ -120,7 +120,7 @@ func TestAdd(t *testing.T) {
 		{
 			"another addition",
 			sensor,
-			[]resource.ResourceName{service, newMetadata, arm, sensor},
+			[]resource.Name{service, newMetadata, arm, sensor},
 			"",
 		},
 	} {
@@ -141,14 +141,14 @@ func TestRemove(t *testing.T) {
 	r := service.New()
 
 	service := r.All()[0]
-	arm := resource.ResourceName{
+	arm := resource.Name{
 		UUID:      uuid.NewString(),
 		Namespace: resource.ResourceNamespaceCore,
 		Type:      resource.ResourceTypeComponent,
 		Subtype:   "arm",
 		Name:      "arm1",
 	}
-	sensor := resource.ResourceName{
+	sensor := resource.Name{
 		UUID:      uuid.NewString(),
 		Namespace: resource.ResourceNamespaceCore,
 		Type:      resource.ResourceTypeComponent,
@@ -161,32 +161,32 @@ func TestRemove(t *testing.T) {
 
 	for _, tc := range []struct {
 		Name     string
-		Remove   resource.ResourceName
-		Expected []resource.ResourceName
+		Remove   resource.Name
+		Expected []resource.Name
 		Err      string
 	}{
 		{
 			"invalid removal",
-			resource.ResourceName{},
+			resource.Name{},
 			nil,
 			"uuid field for resource missing or invalid",
 		},
 		{
 			"remove metadata",
 			service,
-			[]resource.ResourceName{arm, sensor},
+			[]resource.Name{arm, sensor},
 			"",
 		},
 		{
 			"one removal",
 			sensor,
-			[]resource.ResourceName{arm},
+			[]resource.Name{arm},
 			"",
 		},
 		{
 			"second removal",
 			arm,
-			[]resource.ResourceName{},
+			[]resource.Name{},
 			"",
 		},
 		{

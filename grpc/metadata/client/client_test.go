@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-var newResource = resource.ResourceName{
+var newResource = resource.Name{
 	UUID:      uuid.NewString(),
 	Namespace: resource.ResourceNamespaceCore,
 	Type:      resource.ResourceTypeComponent,

@@ -24,8 +24,8 @@ const (
 	ResourceSubtypeSensor   = "sensor"
 )
 
-// ResourceName represents a known component/service of a robot.
-type ResourceName struct {
+// Name represents a known component/service of a robot.
+type Name struct {
 	UUID      string
 	Namespace string
 	Type      string
@@ -34,7 +34,7 @@ type ResourceName struct {
 }
 
 // Validate ensures that important fields exist and are valid.
-func (r ResourceName) Validate() error {
+func (r Name) Validate() error {
 	if _, err := uuid.Parse(r.UUID); err != nil {
 		return errors.New("uuid field for resource missing or invalid")
 	}
