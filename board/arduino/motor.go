@@ -38,38 +38,38 @@ func init() {
 			return nil, errors.New("expected board to be an arduino board")
 		}
 
-		return actualBoard.configureMotor(config.Name, motorConfig)
+		return actualBoard.configureMotor(config, motorConfig)
 	}})
 	motor.RegisterConfigAttributeConverter(modelName)
 }
 
-func (b *arduinoBoard) configureMotor(name string, cfg *motor.Config) (motor.Motor, error) {
-	if !((cfg.Pins["pwm"] != "" && cfg.Pins["dir"] != "") || (cfg.Pins["a"] != "" || cfg.Pins["b"] != "")) {
+func (b *arduinoBoard) configureMotor(config config.Component, motorConfig *motor.Config) (motor.Motor, error) {
+	if !((motorConfig.Pins["pwm"] != "" && motorConfig.Pins["dir"] != "") || (motorConfig.Pins["a"] != "" || motorConfig.Pins["b"] != "")) {
 		return nil, errors.New("arduino needs at least a & b, or dir & pwm pins")
 	}
 
-	if cfg.Encoder == "" || cfg.EncoderB == "" {
+	if motorConfig.Encoder == "" || motorConfig.EncoderB == "" {
 		return nil, errors.New("arduino needs a and b hall encoders")
 	}
 
-	if cfg.TicksPerRotation <= 0 {
+	if motorConfig.TicksPerRotation <= 0 {
 		return nil, errors.New("arduino motors TicksPerRotation to be set")
 	}
 
 	for _, pin := range []string{"pwm", "a", "b", "dir", "en"} {
-		if _, ok := cfg.Pins[pin]; !ok {
-			cfg.Pins[pin] = "-1"
+		if _, ok := motorConfig.Pins[pin]; !ok {
+			motorConfig.Pins[pin] = "-1"
 		}
 	}
 	cmd := fmt.Sprintf("config-motor-dc %s %s %s %s %s %s e %s %s",
-		name,
-		cfg.Pins["pwm"], // Optional if using A/B inputs (one of them will be PWMed if missing)
-		cfg.Pins["a"],   // Use either A & B, or DIR inputs, never both
-		cfg.Pins["b"],   // (A & B [& PWM] ) || (DIR & PWM)
-		cfg.Pins["dir"], // PWM is also required when using DIR
-		cfg.Pins["en"],  // Always optional, inverting input (LOW = ENABLED)
-		cfg.Encoder,
-		cfg.EncoderB,
+		config.Name,
+		motorConfig.Pins["pwm"], // Optional if using A/B inputs (one of them will be PWMed if missing)
+		motorConfig.Pins["a"],   // Use either A & B, or DIR inputs, never both
+		motorConfig.Pins["b"],   // (A & B [& PWM] ) || (DIR & PWM)
+		motorConfig.Pins["dir"], // PWM is also required when using DIR
+		motorConfig.Pins["en"],  // Always optional, inverting input (LOW = ENABLED)
+		motorConfig.Encoder,
+		motorConfig.EncoderB,
 	)
 
 	res, err := b.runCommand(cmd)
@@ -81,25 +81,25 @@ func (b *arduinoBoard) configureMotor(name string, cfg *motor.Config) (motor.Mot
 		return nil, fmt.Errorf("got unknown response when configureMotor %s", res)
 	}
 
-	m, err := board.NewEncodedMotor(*cfg, &arduinoMotor{b, *cfg, name}, &encoder{b, *cfg, name}, b.logger)
+	m, err := board.NewEncodedMotor(config, *motorConfig, &arduinoMotor{b, *motorConfig, config.Name}, &encoder{b, *motorConfig, config.Name}, b.logger)
 	if err != nil {
 		return nil, err
 	}
-	if cfg.Pins["pwm"] != "-1" && cfg.PWMFreq > 0 {
+	if motorConfig.Pins["pwm"] != "-1" && motorConfig.PWMFreq > 0 {
 		//When the motor controller has a PWM pin exposed (either (A && B && PWM) || (DIR && PWM))
 		//We control the motor speed with the PWM pin
-		err = b.pwmSetFreqArduino(cfg.Pins["pwm"], cfg.PWMFreq)
+		err = b.pwmSetFreqArduino(motorConfig.Pins["pwm"], motorConfig.PWMFreq)
 		if err != nil {
 			return nil, err
 		}
-	} else if (cfg.Pins["a"] != "-1" && cfg.Pins["b"] != "-1") && cfg.PWMFreq > 0 {
+	} else if (motorConfig.Pins["a"] != "-1" && motorConfig.Pins["b"] != "-1") && motorConfig.PWMFreq > 0 {
 		// When the motor controller only exposes A & B pin
 		// We control the motor speed with both pins
-		err = b.pwmSetFreqArduino(cfg.Pins["a"], cfg.PWMFreq)
+		err = b.pwmSetFreqArduino(motorConfig.Pins["a"], motorConfig.PWMFreq)
 		if err != nil {
 			return nil, err
 		}
-		err = b.pwmSetFreqArduino(cfg.Pins["b"], cfg.PWMFreq)
+		err = b.pwmSetFreqArduino(motorConfig.Pins["b"], motorConfig.PWMFreq)
 		if err != nil {
 			return nil, err
 		}

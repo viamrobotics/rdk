@@ -23,10 +23,10 @@ func RegisterConfigAttributeConverter(model string) {
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	SPIs              []SPIConfig              `json:"spis"`
-	Analogs           []AnalogConfig           `json:"analogs"`
-	DigitalInterrupts []DigitalInterruptConfig `json:"digitalInterrupts"`
-	Attributes        map[string]string        `json:"attributes"`
+	SPIs              []SPIConfig              `json:"spis" mapstructure:"spis"`
+	Analogs           []AnalogConfig           `json:"analogs" mapstructure:"analogs"`
+	DigitalInterrupts []DigitalInterruptConfig `json:"digitalInterrupts" mapstructure:"digitalInterrupts"`
+	Attributes        map[string]string        `json:"attributes" mapstructure:"attributes"`
 }
 
 // Validate ensures all parts of the config are valid.
