@@ -16,7 +16,6 @@ import (
 	"go.viam.com/core/gripper"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
-	"go.viam.com/core/resources"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/web"
@@ -72,9 +71,6 @@ func TestConfigRemote(t *testing.T) {
 		test.That(t, r.Close(), test.ShouldBeNil)
 	}()
 
-	res, err := resources.Init(r)
-	test.That(t, err, test.ShouldBeNil)
-
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	port, err := utils.TryReserveRandomPort()
@@ -84,7 +80,7 @@ func TestConfigRemote(t *testing.T) {
 
 	webDone := make(chan struct{})
 	go func() {
-		webserver.RunWeb(cancelCtx, r, res, options, logger)
+		webserver.RunWeb(cancelCtx, r, options, logger)
 		close(webDone)
 	}()
 
