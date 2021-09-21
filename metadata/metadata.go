@@ -181,8 +181,10 @@ func (m *Metadata) All() []resource.ResourceName {
 	return m.resources
 }
 
-// Add adds an additional resource to the list. Cannot add another metadata service
+// Add adds an additional resource to the list.
 func (m *Metadata) Add(res resource.ResourceName) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if err := res.Validate(); err != nil {
 		return errors.Errorf("unable to add resource: %s", err.Error())
 	}
@@ -197,12 +199,6 @@ func (m *Metadata) Add(res resource.ResourceName) error {
 	if idx != -1 {
 		return errors.Errorf("resource with uuid %s already exists and cannot be added again", res.UUID)
 	}
-	if res.Subtype == resource.ResourceSubtypeMetadata {
-		return errors.New("unable to add a resource with a metadata subtype")
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	m.resources = append(m.resources, res)
 	return nil
@@ -210,6 +206,8 @@ func (m *Metadata) Add(res resource.ResourceName) error {
 
 // Remove removes resource from the list.
 func (m *Metadata) Remove(res resource.ResourceName) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if err := res.Validate(); err != nil {
 		return errors.Errorf("invalid resource to find and remove: %s", err.Error())
 	}
@@ -227,8 +225,6 @@ func (m *Metadata) Remove(res resource.ResourceName) error {
 	if res.Subtype == resource.ResourceSubtypeMetadata {
 		return errors.New("unable to remove resource with a metadata subtype")
 	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	m.resources = append(m.resources[:idx], m.resources[idx+1:]...)
 	return nil
