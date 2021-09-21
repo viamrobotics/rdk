@@ -7,6 +7,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/core/resources"
+	"go.viam.com/core/testutils/inject"
 )
 
 func TestResourceValidate(t *testing.T) {
@@ -98,6 +99,55 @@ func TestResourceValidate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestResourcesPopulate(t *testing.T) {
+	var emptyNames = func() []string {
+		return []string{}
+	}
+	injectRobot := &inject.Robot{
+		ArmNamesFunc:      emptyNames,
+		BaseNamesFunc:     emptyNames,
+		BoardNamesFunc:    emptyNames,
+		CameraNamesFunc:   emptyNames,
+		FunctionNamesFunc: emptyNames,
+		GripperNamesFunc:  emptyNames,
+		LidarNamesFunc:    emptyNames,
+		RemoteNamesFunc:   emptyNames,
+		SensorNamesFunc:   emptyNames,
+	}
+
+	r := resources.New()
+	err := r.Populate(injectRobot)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(r.GetResources()), test.ShouldEqual, 1)
+	test.That(t, r.GetResources()[0].Subtype, test.ShouldResemble, resources.ResourceSubtypeMetadata)
+
+	injectRobot.ArmNamesFunc = func() []string {
+		return []string{"arm1"}
+	}
+	injectRobot.BaseNamesFunc = func() []string {
+		return []string{"base1"}
+	}
+	err = r.ClearResources()
+	test.That(t, err, test.ShouldBeNil)
+	err = r.Populate(injectRobot)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(r.GetResources()), test.ShouldEqual, 3)
+	test.That(t, r.GetResources()[1].Name, test.ShouldEqual, "arm1")
+	test.That(t, r.GetResources()[2].Name, test.ShouldEqual, "base1")
+
+	armUUID := r.GetResources()[1].UUID
+	baseUUID := r.GetResources()[2].UUID
+	err = r.ClearResources()
+	test.That(t, err, test.ShouldBeNil)
+	err = r.Populate(injectRobot)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(r.GetResources()), test.ShouldEqual, 3)
+	test.That(t, r.GetResources()[1].Name, test.ShouldEqual, "arm1")
+	test.That(t, r.GetResources()[1].UUID, test.ShouldNotEqual, armUUID)
+	test.That(t, r.GetResources()[2].Name, test.ShouldEqual, "base1")
+	test.That(t, r.GetResources()[2].UUID, test.ShouldNotEqual, baseUUID)
 }
 
 func TestAddResource(t *testing.T) {
