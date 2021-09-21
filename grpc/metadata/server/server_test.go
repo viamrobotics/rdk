@@ -22,7 +22,7 @@ var emptyResources = &pb.ResourcesResponse{
 	Resources: []*pb.ResourceName{},
 }
 
-var newResource = resources.Resource{
+var newResource = resources.ResourceName{
 	UUID:      uuid.NewString(),
 	Namespace: resources.ResourceNamespaceCore,
 	Type:      resources.ResourceTypeComponent,
