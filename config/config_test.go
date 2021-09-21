@@ -10,9 +10,13 @@ import (
 
 	"go.viam.com/utils/pexec"
 
+	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	functionvm "go.viam.com/core/function/vm"
+	"go.viam.com/core/motor"
 	"go.viam.com/core/testutils/inject"
+
+	_ "go.viam.com/core/robots/fake" // attribute converters
 )
 
 func TestConfigRobot(t *testing.T) {
@@ -41,7 +45,7 @@ func TestConfig3(t *testing.T) {
 	cfg, err := config.Read("data/config3.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(cfg.Components), test.ShouldEqual, 1)
+	test.That(t, len(cfg.Components), test.ShouldEqual, 3)
 	test.That(t, cfg.Components[0].Attributes.Int("foo", 0), test.ShouldEqual, 5)
 	test.That(t, cfg.Components[0].Attributes.Bool("foo2", false), test.ShouldEqual, true)
 	test.That(t, cfg.Components[0].Attributes.Bool("foo3", false), test.ShouldEqual, false)
@@ -59,6 +63,26 @@ func TestConfig3(t *testing.T) {
 
 	test.That(t, cfg.Components[0].Attributes.Float64("bar5", 1.1), test.ShouldEqual, 5.17)
 	test.That(t, cfg.Components[0].Attributes.Float64("bar5-no", 1.1), test.ShouldEqual, 1.1)
+
+	test.That(t, cfg.Components[1].Attributes["config"], test.ShouldResemble, &board.Config{
+		Analogs: []board.AnalogConfig{
+			{Name: "analog1", Pin: "0"},
+		},
+		DigitalInterrupts: []board.DigitalInterruptConfig{
+			{Name: "encoder", Pin: "14"},
+		},
+	})
+
+	test.That(t, cfg.Components[2].Attributes["config"], test.ShouldResemble, &motor.Config{
+		Pins: map[string]string{
+			"dir": "io17",
+			"pwm": "io18",
+		},
+		Encoder:          "encoder-steering-b",
+		EncoderB:         "encoder-steering-a",
+		TicksPerRotation: 10000,
+		MaxPowerPct:      0.5,
+	})
 }
 
 func TestConfigLoad1(t *testing.T) {
