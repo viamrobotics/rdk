@@ -4,53 +4,51 @@ import (
 	"context"
 	"errors"
 	"time"
+
 	"go.viam.com/utils"
 
-	. "go.viam.com/core/board"
-	_ "go.viam.com/core/board/detector"
+	"go.viam.com/core/board"
 
 	"github.com/adrianmo/go-nmea"
 )
 
-
-func GpsAlt(ctx context.Context, handle I2CHandle) (float64, error) {
+// GpsAlt asks the gps to get a lock, and then returns the first good altitude it gets
+func GpsAlt(ctx context.Context, handle board.I2CHandle) (float64, error) {
 	var err error
-	
-	
+
 	cmd314 := addChk([]byte("PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	cmd220 := addChk([]byte("PMTK220,1000"))
-	
+
 	handle.WriteBytes(context.Background(), gpsAddr, cmd314)
 	handle.WriteBytes(context.Background(), gpsAddr, cmd220)
 
 	strBuf := ""
-	
+
 	var alt float64
 	clearBuffer(ctx, handle)
-	
-	for i := 0; i <= 20; i++{
+
+	for i := 0; i <= 20; i++ {
 		select {
 		case <-ctx.Done():
 			return 0, nil
 		default:
 		}
-		buffer := []byte{}
-		buffer, err = handle.ReadBytes(context.Background(), gpsAddr, 32)
+		buffer, err := handle.ReadBytes(context.Background(), gpsAddr, 32)
 		if err != nil {
 			logger.Error(err)
 			continue
 		}
-		
-		for _, b := range buffer{
+
+		for _, b := range buffer {
 			if b == 0x0D {
 				if strBuf != "" {
 					alt, err = parseGPS(strBuf)
-					if err == nil{
+					if err == nil {
 						return alt, nil
 					}
 				}
 				strBuf = ""
-			}else if b != 0x0A{
+			} else if b != 0x0A {
 				strBuf += string(b)
 			}
 		}
@@ -59,24 +57,24 @@ func GpsAlt(ctx context.Context, handle I2CHandle) (float64, error) {
 	return alt, err
 }
 
-func parseGPS(line string) (float64, error){
+func parseGPS(line string) (float64, error) {
 	s, err := nmea.Parse(line)
 	if err != nil {
 		logger.Debugf("can't parse nmea %s : %s", line, err)
 	}
 	gga, ok := s.(nmea.GGA)
 	if ok {
-		if gga.FixQuality == "0" || (gga.Longitude == 0 && gga.Latitude == 0){
+		if gga.FixQuality == "0" || (gga.Longitude == 0 && gga.Latitude == 0) {
 			return -9999, nil
 		}
 		return gga.Altitude, nil
 	}
-	return 0, errors.New("Not a valid GGA string")
+	return 0, errors.New("not a valid GGA string")
 }
 
 func addChk(data []byte) []byte {
 	var chk byte
-	for _, b := range data{
+	for _, b := range data {
 		chk ^= b
 	}
 	newCmd := []byte("$")
@@ -87,16 +85,15 @@ func addChk(data []byte) []byte {
 }
 
 // Reads from the buffer until there is nothing left and we get several newlines in a row
-func clearBuffer(ctx context.Context, handle I2CHandle){
+func clearBuffer(ctx context.Context, handle board.I2CHandle) {
 	emptyBuf := 0
-	// Read until we get empty 10x in a row
-	for emptyBuf < 5{
+	// Read until we get empty 5x in a row
+	for emptyBuf < 5 {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 		}
-		buffer := []byte{}
 		buffer, err := handle.ReadBytes(ctx, gpsAddr, 32)
 		if err != nil {
 			logger.Error(err)

@@ -140,8 +140,8 @@ func (config *SPIConfig) Validate(path string) error {
 
 // I2CConfig enumerates a specific I2C device by address.
 type I2CConfig struct {
-	Name      string `json:"name"`
-	Bus   string `json:"bus"`
+	Name string `json:"name"`
+	Bus  string `json:"bus"`
 }
 
 // Validate ensures all parts of the config are valid.

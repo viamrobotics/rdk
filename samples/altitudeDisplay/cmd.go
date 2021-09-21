@@ -8,20 +8,21 @@ import (
 	"time"
 
 	"go.viam.com/utils"
-	"go.viam.com/core/config"
 
 	_ "go.viam.com/core/board/detector"
+	"go.viam.com/core/config"
 
 	robotimpl "go.viam.com/core/robot/impl"
 
 	"github.com/edaniels/golog"
 )
 
-var boardName = "gpsBoard"
-var END_BYTES = []byte{0x0D, 0x0A}
-var logger = golog.NewDevelopmentLogger("gps")
-var gpsAddr byte = 0x10
-var dispAddr byte = 0x3C
+var (
+	boardName      = "gpsBoard"
+	logger         = golog.NewDevelopmentLogger("gps")
+	gpsAddr   byte = 0x10
+	dispAddr  byte = 0x3C
+)
 
 func main() {
 	utils.ContextualMain(mainWithArgs, logger)
@@ -40,41 +41,45 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 	defer myRobot.Close()
-	
+
 	gpsBoard, ok := myRobot.BoardByName(boardName)
 	if !ok {
 		return fmt.Errorf("failed to find board %s", boardName)
 	}
 	i2c, _ := gpsBoard.I2CByName("gps")
 	handle, err := i2c.OpenHandle()
+	if err != nil {
+		return err
+	}
 	defer handle.Close()
-	
+
 	// Init the display multiple times, hoping at least one works- sometimes it takes several writes to get a good init
 	for i := 0; i < 10; i++ {
-		initDisp(ctx, handle)
+		initDisp(ctx, handle, false)
 	}
-	
-	for true{
+
+	initAnimation(ctx, handle)
+
+	for {
 		meters, err := GpsAlt(ctx, handle)
 		feet := int(meters * 3.28084)
 		meterStr := strconv.Itoa(int(meters))
 		feetStr := strconv.Itoa(feet)
-		if err != nil{
+		if err != nil {
 			feetStr = "gps"
 			meterStr = "error"
-		}else if(meters == -9999){
+		} else if meters == -9999 {
 			feetStr = "no"
 			meterStr = "lock"
 		}
-		
+
 		writeAlt(ctx, feetStr, meterStr, handle)
-		
+
 		select {
-			case <-ctx.Done():
-				return nil
-			default:
+		case <-ctx.Done():
+			return nil
+		default:
 		}
 		time.Sleep(1000 * time.Millisecond)
 	}
-	return nil
 }
