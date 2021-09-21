@@ -662,5 +662,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 			}()
 		}
 	})
+
 	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
 }
