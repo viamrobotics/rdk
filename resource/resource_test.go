@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"go.viam.com/core/resource"
 	"go.viam.com/test"
+
+	"go.viam.com/core/resource"
 )
 
 func TestResourceValidate(t *testing.T) {

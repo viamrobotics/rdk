@@ -1,7 +1,8 @@
-// Package metadata contains a metadata type that can be used to hold information about a robot's components and services.
-package metadata
+// Package service contains a service type that can be used to hold information about a robot's components and services.
+package service
 
 import (
+	"context"
 	"sync"
 
 	"github.com/go-errors/errors"
@@ -12,14 +13,14 @@ import (
 	"github.com/google/uuid"
 )
 
-// Metadata keeps track of all resources associated with a robot.
-type Metadata struct {
+// Service keeps track of all resources associated with a robot.
+type Service struct {
 	mu        sync.Mutex
 	resources []resource.ResourceName
 }
 
-// NewFromRobot Creates and populate Metadata given a robot.
-func NewFromRobot(r robot.Robot) (*Metadata, error) {
+// NewFromRobot Creates and populate Service given a robot.
+func NewFromRobot(r robot.Robot) (*Service, error) {
 	res := New()
 
 	if err := res.Populate(r); err != nil {
@@ -28,8 +29,8 @@ func NewFromRobot(r robot.Robot) (*Metadata, error) {
 	return &res, nil
 }
 
-// New creates a new Metadata struct and initializes the resource list with a metadata service.
-func New() Metadata {
+// New creates a new Service struct and initializes the resource list with a metadata service.
+func New() Service {
 	resources := []resource.ResourceName{
 		{
 			UUID:      uuid.NewString(),
@@ -40,14 +41,14 @@ func New() Metadata {
 		},
 	}
 
-	return Metadata{resources: resources}
+	return Service{resources: resources}
 }
 
-// Populate populates Metadata given a robot.
-func (m *Metadata) Populate(robot robot.Robot) error {
+// Populate populates Service given a robot.
+func (s *Service) Populate(robot robot.Robot) error {
 	// TODO: Currently just a placeholder implementation, this should be rewritten once robot/parts have more metadata about themselves
 	for _, name := range robot.ArmNames() {
-		err := m.Add(
+		err := s.Add(
 			resource.ResourceName{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore, // can be non-core as well
@@ -62,7 +63,7 @@ func (m *Metadata) Populate(robot robot.Robot) error {
 
 	}
 	for _, name := range robot.BaseNames() {
-		err := m.Add(
+		err := s.Add(
 			resource.ResourceName{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
@@ -76,7 +77,7 @@ func (m *Metadata) Populate(robot robot.Robot) error {
 		}
 	}
 	for _, name := range robot.BoardNames() {
-		err := m.Add(
+		err := s.Add(
 			resource.ResourceName{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
@@ -90,7 +91,7 @@ func (m *Metadata) Populate(robot robot.Robot) error {
 		}
 	}
 	for _, name := range robot.CameraNames() {
-		err := m.Add(
+		err := s.Add(
 			resource.ResourceName{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
@@ -104,7 +105,7 @@ func (m *Metadata) Populate(robot robot.Robot) error {
 		}
 	}
 	for _, name := range robot.FunctionNames() {
-		err := m.Add(
+		err := s.Add(
 			resource.ResourceName{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
@@ -118,7 +119,7 @@ func (m *Metadata) Populate(robot robot.Robot) error {
 		}
 	}
 	for _, name := range robot.GripperNames() {
-		err := m.Add(
+		err := s.Add(
 			resource.ResourceName{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
@@ -132,7 +133,7 @@ func (m *Metadata) Populate(robot robot.Robot) error {
 		}
 	}
 	for _, name := range robot.LidarNames() {
-		err := m.Add(
+		err := s.Add(
 			resource.ResourceName{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
@@ -146,7 +147,7 @@ func (m *Metadata) Populate(robot robot.Robot) error {
 		}
 	}
 	for _, name := range robot.RemoteNames() {
-		err := m.Add(
+		err := s.Add(
 			resource.ResourceName{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
@@ -160,7 +161,7 @@ func (m *Metadata) Populate(robot robot.Robot) error {
 		}
 	}
 	for _, name := range robot.SensorNames() {
-		err := m.Add(
+		err := s.Add(
 			resource.ResourceName{
 				UUID:      uuid.NewString(),
 				Namespace: resource.ResourceNamespaceCore,
@@ -177,21 +178,21 @@ func (m *Metadata) Populate(robot robot.Robot) error {
 }
 
 // All returns the list of resources.
-func (m *Metadata) All() []resource.ResourceName {
-	return m.resources
+func (s *Service) All() []resource.ResourceName {
+	return s.resources
 }
 
 // Add adds an additional resource to the list.
-func (m *Metadata) Add(res resource.ResourceName) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+func (s *Service) Add(res resource.ResourceName) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := res.Validate(); err != nil {
 		return errors.Errorf("unable to add resource: %s", err.Error())
 	}
 
 	idx := -1
-	for i := range m.resources {
-		if m.resources[i].UUID == res.UUID {
+	for i := range s.resources {
+		if s.resources[i].UUID == res.UUID {
 			idx = i
 			break
 		}
@@ -200,21 +201,21 @@ func (m *Metadata) Add(res resource.ResourceName) error {
 		return errors.Errorf("resource with uuid %s already exists and cannot be added again", res.UUID)
 	}
 
-	m.resources = append(m.resources, res)
+	s.resources = append(s.resources, res)
 	return nil
 }
 
 // Remove removes resource from the list.
-func (m *Metadata) Remove(res resource.ResourceName) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+func (s *Service) Remove(res resource.ResourceName) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := res.Validate(); err != nil {
 		return errors.Errorf("invalid resource to find and remove: %s", err.Error())
 	}
 
 	idx := -1
-	for i := range m.resources {
-		if m.resources[i].UUID == res.UUID {
+	for i := range s.resources {
+		if s.resources[i].UUID == res.UUID {
 			idx = i
 			break
 		}
@@ -222,10 +223,27 @@ func (m *Metadata) Remove(res resource.ResourceName) error {
 	if idx == -1 {
 		return errors.Errorf("unable to find and remove resource with uuid %s", res.UUID)
 	}
-	if res.Subtype == resource.ResourceSubtypeMetadata {
-		return errors.New("unable to remove resource with a metadata subtype")
-	}
 
-	m.resources = append(m.resources[:idx], m.resources[idx+1:]...)
+	s.resources = append(s.resources[:idx], s.resources[idx+1:]...)
 	return nil
+}
+
+type ctxMetadataKey int
+
+const (
+	ctxKeyMetadata = ctxMetadataKey(iota)
+)
+
+// ContextWithService attaches a metadata Service to the given context.
+func ContextWithService(ctx context.Context, s *Service) context.Context {
+	return context.WithValue(ctx, ctxKeyMetadata, s)
+}
+
+// ContextMetadata returns a metadata Service struct. It may be nil if the value was never set.
+func ContextService(ctx context.Context) *Service {
+	s := ctx.Value(ctxKeyMetadata)
+	if s == nil {
+		return nil
+	}
+	return s.(*Service)
 }

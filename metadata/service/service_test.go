@@ -1,4 +1,4 @@
-package metadata_test
+package service_test
 
 import (
 	"testing"
@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"go.viam.com/test"
 
-	"go.viam.com/core/metadata"
+	"go.viam.com/core/metadata/service"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/testutils/inject"
 )
@@ -27,7 +27,7 @@ func TestPopulate(t *testing.T) {
 		SensorNamesFunc:   emptyNames,
 	}
 
-	r := metadata.New()
+	r := service.New()
 	err := r.Populate(injectRobot)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(r.All()), test.ShouldEqual, 1)
@@ -40,7 +40,7 @@ func TestPopulate(t *testing.T) {
 		return []string{"base1"}
 	}
 
-	r = metadata.New()
+	r = service.New()
 	err = r.Populate(injectRobot)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(r.All()), test.ShouldEqual, 3)
@@ -50,7 +50,7 @@ func TestPopulate(t *testing.T) {
 	armUUID := r.All()[1].UUID
 	baseUUID := r.All()[2].UUID
 
-	r = metadata.New()
+	r = service.New()
 	test.That(t, err, test.ShouldBeNil)
 	err = r.Populate(injectRobot)
 	test.That(t, err, test.ShouldBeNil)
@@ -62,9 +62,9 @@ func TestPopulate(t *testing.T) {
 }
 
 func TestAdd(t *testing.T) {
-	r := metadata.New()
+	r := service.New()
 
-	metadata := r.All()[0]
+	service := r.All()[0]
 	arm := resource.ResourceName{
 		UUID:      uuid.NewString(),
 		Namespace: resource.ResourceNamespaceCore,
@@ -100,15 +100,15 @@ func TestAdd(t *testing.T) {
 			"uuid field for resource missing or invalid",
 		},
 		{
-			"invalid addition 2",
+			"add metadata",
 			newMetadata,
-			nil,
-			"unable to add a resource with a metadata subtype",
+			[]resource.ResourceName{service, newMetadata},
+			"",
 		},
 		{
 			"one addition",
 			arm,
-			[]resource.ResourceName{metadata, arm},
+			[]resource.ResourceName{service, newMetadata, arm},
 			"",
 		},
 		{
@@ -120,7 +120,7 @@ func TestAdd(t *testing.T) {
 		{
 			"another addition",
 			sensor,
-			[]resource.ResourceName{metadata, arm, sensor},
+			[]resource.ResourceName{service, newMetadata, arm, sensor},
 			"",
 		},
 	} {
@@ -138,9 +138,9 @@ func TestAdd(t *testing.T) {
 }
 
 func TestRemove(t *testing.T) {
-	r := metadata.New()
+	r := service.New()
 
-	metadata := r.All()[0]
+	service := r.All()[0]
 	arm := resource.ResourceName{
 		UUID:      uuid.NewString(),
 		Namespace: resource.ResourceNamespaceCore,
@@ -172,21 +172,21 @@ func TestRemove(t *testing.T) {
 			"uuid field for resource missing or invalid",
 		},
 		{
-			"invalid metadata removal",
-			metadata,
-			nil,
-			"unable to remove resource with a metadata subtype",
+			"remove metadata",
+			service,
+			[]resource.ResourceName{arm, sensor},
+			"",
 		},
 		{
 			"one removal",
 			sensor,
-			[]resource.ResourceName{metadata, arm},
+			[]resource.ResourceName{arm},
 			"",
 		},
 		{
 			"second removal",
 			arm,
-			[]resource.ResourceName{metadata},
+			[]resource.ResourceName{},
 			"",
 		},
 		{
