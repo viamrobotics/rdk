@@ -51,9 +51,7 @@
                             "name": "encoder",
                             "pin": "14"
                         }
-                    ],
-                    "model": "fake",
-                    "name": "board1"
+                    ]
                 }
             }
         }
