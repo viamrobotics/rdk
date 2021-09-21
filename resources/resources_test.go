@@ -13,12 +13,12 @@ import (
 func TestResourceValidate(t *testing.T) {
 	for _, tc := range []struct {
 		Name        string
-		NewResource resources.Resource
+		NewResource resources.ResourceName
 		Err         string
 	}{
 		{
 			"missing uuid",
-			resources.Resource{
+			resources.ResourceName{
 				Namespace: resources.ResourceNamespaceCore,
 				Type:      resources.ResourceTypeComponent,
 				Subtype:   "arm",
@@ -28,7 +28,7 @@ func TestResourceValidate(t *testing.T) {
 		},
 		{
 			"invalid uuid",
-			resources.Resource{
+			resources.ResourceName{
 				UUID:      "abcd",
 				Namespace: resources.ResourceNamespaceCore,
 				Type:      resources.ResourceTypeComponent,
@@ -39,7 +39,7 @@ func TestResourceValidate(t *testing.T) {
 		},
 		{
 			"missing namespace",
-			resources.Resource{
+			resources.ResourceName{
 				UUID:    uuid.NewString(),
 				Type:    resources.ResourceTypeComponent,
 				Subtype: "arm",
@@ -49,7 +49,7 @@ func TestResourceValidate(t *testing.T) {
 		},
 		{
 			"missing type",
-			resources.Resource{
+			resources.ResourceName{
 				UUID:      uuid.NewString(),
 				Namespace: resources.ResourceNamespaceCore,
 				Subtype:   "arm",
@@ -59,7 +59,7 @@ func TestResourceValidate(t *testing.T) {
 		},
 		{
 			"missing subtype",
-			resources.Resource{
+			resources.ResourceName{
 				UUID:      uuid.NewString(),
 				Namespace: resources.ResourceNamespaceCore,
 				Type:      resources.ResourceTypeComponent,
@@ -69,7 +69,7 @@ func TestResourceValidate(t *testing.T) {
 		},
 		{
 			"missing name",
-			resources.Resource{
+			resources.ResourceName{
 				UUID:      uuid.NewString(),
 				Namespace: resources.ResourceNamespaceCore,
 				Type:      resources.ResourceTypeComponent,
@@ -79,7 +79,7 @@ func TestResourceValidate(t *testing.T) {
 		},
 		{
 			"all fields included",
-			resources.Resource{
+			resources.ResourceName{
 				UUID:      uuid.NewString(),
 				Namespace: resources.ResourceNamespaceCore,
 				Type:      resources.ResourceTypeComponent,
@@ -154,14 +154,14 @@ func TestAddResource(t *testing.T) {
 	r := resources.New()
 
 	metadata := r.GetResources()[0]
-	arm := resources.Resource{
+	arm := resources.ResourceName{
 		UUID:      uuid.NewString(),
 		Namespace: resources.ResourceNamespaceCore,
 		Type:      resources.ResourceTypeComponent,
 		Subtype:   "arm",
 		Name:      "arm1",
 	}
-	sensor := resources.Resource{
+	sensor := resources.ResourceName{
 		UUID:      uuid.NewString(),
 		Namespace: resources.ResourceNamespaceCore,
 		Type:      resources.ResourceTypeComponent,
@@ -169,7 +169,7 @@ func TestAddResource(t *testing.T) {
 		Name:      "sensor1",
 	}
 
-	newMetadata := resources.Resource{
+	newMetadata := resources.ResourceName{
 		UUID:      uuid.NewString(),
 		Namespace: resources.ResourceNamespaceCore,
 		Type:      resources.ResourceTypeService,
@@ -178,13 +178,13 @@ func TestAddResource(t *testing.T) {
 
 	for _, tc := range []struct {
 		Name        string
-		NewResource resources.Resource
-		Expected    []resources.Resource
+		NewResource resources.ResourceName
+		Expected    []resources.ResourceName
 		Err         string
 	}{
 		{
 			"invalid addition",
-			resources.Resource{},
+			resources.ResourceName{},
 			nil,
 			"uuid field for resource missing or invalid",
 		},
@@ -197,7 +197,7 @@ func TestAddResource(t *testing.T) {
 		{
 			"one addition",
 			arm,
-			[]resources.Resource{metadata, arm},
+			[]resources.ResourceName{metadata, arm},
 			"",
 		},
 		{
@@ -209,7 +209,7 @@ func TestAddResource(t *testing.T) {
 		{
 			"another addition",
 			sensor,
-			[]resources.Resource{metadata, arm, sensor},
+			[]resources.ResourceName{metadata, arm, sensor},
 			"",
 		},
 	} {
@@ -230,14 +230,14 @@ func TestRemoveResource(t *testing.T) {
 	r := resources.New()
 
 	metadata := r.GetResources()[0]
-	arm := resources.Resource{
+	arm := resources.ResourceName{
 		UUID:      uuid.NewString(),
 		Namespace: resources.ResourceNamespaceCore,
 		Type:      resources.ResourceTypeComponent,
 		Subtype:   "arm",
 		Name:      "arm1",
 	}
-	sensor := resources.Resource{
+	sensor := resources.ResourceName{
 		UUID:      uuid.NewString(),
 		Namespace: resources.ResourceNamespaceCore,
 		Type:      resources.ResourceTypeComponent,
@@ -250,13 +250,13 @@ func TestRemoveResource(t *testing.T) {
 
 	for _, tc := range []struct {
 		Name           string
-		RemoveResource resources.Resource
-		Expected       []resources.Resource
+		RemoveResource resources.ResourceName
+		Expected       []resources.ResourceName
 		Err            string
 	}{
 		{
 			"invalid removal",
-			resources.Resource{},
+			resources.ResourceName{},
 			nil,
 			"uuid field for resource missing or invalid",
 		},
@@ -269,13 +269,13 @@ func TestRemoveResource(t *testing.T) {
 		{
 			"one removal",
 			sensor,
-			[]resources.Resource{metadata, arm},
+			[]resources.ResourceName{metadata, arm},
 			"",
 		},
 		{
 			"second removal",
 			arm,
-			[]resources.Resource{metadata},
+			[]resources.ResourceName{metadata},
 			"",
 		},
 		{
@@ -302,14 +302,14 @@ func TestClearResource(t *testing.T) {
 	r := resources.New()
 
 	metadata := r.GetResources()[0]
-	arm := resources.Resource{
+	arm := resources.ResourceName{
 		UUID:      uuid.NewString(),
 		Namespace: resources.ResourceNamespaceCore,
 		Type:      resources.ResourceTypeComponent,
 		Subtype:   "arm",
 		Name:      "arm1",
 	}
-	sensor := resources.Resource{
+	sensor := resources.ResourceName{
 		UUID:      uuid.NewString(),
 		Namespace: resources.ResourceNamespaceCore,
 		Type:      resources.ResourceTypeComponent,
@@ -322,5 +322,5 @@ func TestClearResource(t *testing.T) {
 
 	err := r.ClearResources()
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, r.GetResources(), test.ShouldResemble, []resources.Resource{metadata})
+	test.That(t, r.GetResources(), test.ShouldResemble, []resources.ResourceName{metadata})
 }
