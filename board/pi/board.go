@@ -494,10 +494,10 @@ func (h *piPigpioSPIHandle) Close() error {
 }
 
 type piPigpioI2C struct {
-	pi           *piPigpio
-	mu           sync.Mutex
-	openHandle   *piPigpioI2CHandle
-	id           int
+	pi         *piPigpio
+	mu         sync.Mutex
+	openHandle *piPigpioI2CHandle
+	id         int
 }
 
 type piPigpioI2CHandle struct {
@@ -514,7 +514,7 @@ func (s *piPigpioI2CHandle) WriteBytes(ctx context.Context, addr byte, tx []byte
 
 	var i2cFlags uint
 	i2cFlags = 0
-	
+
 	// Raspberry Pis are all on i2c bus 1
 	// Exception being the very first model which is on 0
 	var bus C.uint
@@ -549,7 +549,7 @@ func (s *piPigpioI2CHandle) ReadBytes(ctx context.Context, addr byte, count int)
 
 	var i2cFlags uint
 	i2cFlags = 0
-	
+
 	// Raspberry Pis are all on i2c bus 1
 	// Exception being the very first model which is on 0
 	var bus C.uint
@@ -567,7 +567,7 @@ func (s *piPigpioI2CHandle) ReadBytes(ctx context.Context, addr byte, count int)
 	defer C.i2cClose((C.uint)(handle))
 
 	ret := C.i2cReadDevice((C.uint)(handle), (*C.char)(rxPtr), (C.uint)(count))
-	
+
 	if int(ret) <= 0 {
 		return nil, errors.Errorf("error with i2c read %q", ret)
 	}

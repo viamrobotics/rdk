@@ -624,6 +624,9 @@ func (p *proxyBoard) merge(newBoard board.Board, diff board.ConfigDiff) {
 	if p.spis == nil && len(diff.Added.SPIs) != 0 {
 		p.spis = make(map[string]*proxyBoardSPI, len(diff.Added.SPIs))
 	}
+	if p.i2cs == nil && len(diff.Added.I2Cs) != 0 {
+		p.i2cs = make(map[string]*proxyBoardI2C, len(diff.Added.I2Cs))
+	}
 	if p.analogs == nil && len(diff.Added.Analogs) != 0 {
 		p.analogs = make(map[string]*proxyBoardAnalogReader, len(diff.Added.Analogs))
 	}
@@ -640,6 +643,9 @@ func (p *proxyBoard) merge(newBoard board.Board, diff board.ConfigDiff) {
 	for _, c := range diff.Added.SPIs {
 		p.spis[c.Name] = actual.spis[c.Name]
 	}
+	for _, c := range diff.Added.I2Cs {
+		p.i2cs[c.Name] = actual.i2cs[c.Name]
+	}
 	for _, c := range diff.Added.Analogs {
 		p.analogs[c.Name] = actual.analogs[c.Name]
 	}
@@ -655,6 +661,9 @@ func (p *proxyBoard) merge(newBoard board.Board, diff board.ConfigDiff) {
 	}
 	for _, c := range diff.Modified.SPIs {
 		p.spis[c.Name].replace(actual.spis[c.Name])
+	}
+	for _, c := range diff.Modified.I2Cs {
+		p.i2cs[c.Name].replace(actual.i2cs[c.Name])
 	}
 	for _, c := range diff.Modified.Analogs {
 		p.analogs[c.Name].replace(actual.analogs[c.Name])
@@ -692,6 +701,16 @@ func (p *proxyBoard) merge(newBoard board.Board, diff board.ConfigDiff) {
 			rlog.Logger.Errorw("error closing SPI but still reconfiguring", "error", err)
 		}
 		delete(p.spis, c.Name)
+	}
+	for _, c := range diff.Removed.I2Cs {
+		toRemove, ok := p.i2cs[c.Name]
+		if !ok {
+			continue // should not happen
+		}
+		if err := utils.TryClose(toRemove); err != nil {
+			rlog.Logger.Errorw("error closing SPI but still reconfiguring", "error", err)
+		}
+		delete(p.i2cs, c.Name)
 	}
 	for _, c := range diff.Removed.Analogs {
 		toRemove, ok := p.analogs[c.Name]
@@ -735,6 +754,7 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 	var oldMotorNames map[string]struct{}
 	var oldServoNames map[string]struct{}
 	var oldSPINames map[string]struct{}
+	var oldI2CNames map[string]struct{}
 	var oldAnalogReaderNames map[string]struct{}
 	var oldDigitalInterruptNames map[string]struct{}
 
@@ -754,6 +774,12 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 		oldSPINames = make(map[string]struct{}, len(p.spis))
 		for name := range p.spis {
 			oldSPINames[name] = struct{}{}
+		}
+	}
+	if len(p.i2cs) != 0 {
+		oldI2CNames = make(map[string]struct{}, len(p.i2cs))
+		for name := range p.i2cs {
+			oldI2CNames[name] = struct{}{}
 		}
 	}
 	if len(p.analogs) != 0 {
@@ -795,6 +821,15 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 			continue
 		}
 		p.spis[name] = newPart
+	}
+	for name, newPart := range actual.i2cs {
+		oldPart, ok := p.i2cs[name]
+		delete(oldI2CNames, name)
+		if ok {
+			oldPart.replace(newPart)
+			continue
+		}
+		p.i2cs[name] = newPart
 	}
 	for name, newPart := range actual.analogs {
 		oldPart, ok := p.analogs[name]
@@ -968,11 +1003,6 @@ type proxyBoardSPI struct {
 	actual board.SPI
 }
 
-type proxyBoardI2C struct {
-	mu     sync.RWMutex
-	actual board.I2C
-}
-
 func (p *proxyBoardSPI) replace(newSPI board.SPI) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -988,6 +1018,24 @@ func (p *proxyBoardSPI) replace(newSPI board.SPI) {
 
 func (p *proxyBoardSPI) OpenHandle() (board.SPIHandle, error) {
 	return p.actual.OpenHandle()
+}
+
+type proxyBoardI2C struct {
+	mu     sync.RWMutex
+	actual board.I2C
+}
+
+func (p *proxyBoardI2C) replace(newI2C board.I2C) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	actual, ok := newI2C.(*proxyBoardI2C)
+	if !ok {
+		panic(fmt.Errorf("expected new I2C to be %T but got %T", actual, newI2C))
+	}
+	if err := utils.TryClose(p.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	p.actual = actual.actual
 }
 
 func (p *proxyBoardI2C) OpenHandle() (board.I2CHandle, error) {
