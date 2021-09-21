@@ -51,7 +51,7 @@ func init() {
 			return nil, err
 		}
 
-		m, err := board.NewTMCStepperMotor(ctx, actualBoard, *motorConfig, logger)
+		m, err := board.NewTMCStepperMotor(ctx, actualBoard, config, *motorConfig, logger)
 		if err != nil {
 			return nil, err
 		}
