@@ -7,26 +7,27 @@ import (
 	"github.com/google/uuid"
 
 	"go.viam.com/core/grpc/metadata/server"
+	"go.viam.com/core/metadata"
 	pb "go.viam.com/core/proto/api/service/v1"
-	"go.viam.com/core/resources"
+	"go.viam.com/core/resource"
 
 	"go.viam.com/test"
 )
 
-func newServer() (pb.MetadataServiceServer, *resources.Resources) {
-	injectRes := resources.Resources{}
-	return server.New(&injectRes), &injectRes
+func newServer() (pb.MetadataServiceServer, *metadata.Metadata) {
+	injectMetadata := metadata.Metadata{}
+	return server.New(&injectMetadata), &injectMetadata
 }
 
 var emptyResources = &pb.ResourcesResponse{
 	Resources: []*pb.ResourceName{},
 }
 
-var newResource = resources.ResourceName{
+var newResource = resource.ResourceName{
 	UUID:      uuid.NewString(),
-	Namespace: resources.ResourceNamespaceCore,
-	Type:      resources.ResourceTypeComponent,
-	Subtype:   resources.ResourceSubtypeArm,
+	Namespace: resource.ResourceNamespaceCore,
+	Type:      resource.ResourceTypeComponent,
+	Subtype:   resource.ResourceSubtypeArm,
 	Name:      "",
 }
 
@@ -41,13 +42,13 @@ var oneResourceResponse = []*pb.ResourceName{
 }
 
 func TestServer(t *testing.T) {
-	t.Run("Resources", func(t *testing.T) {
-		server, injectRes := newServer()
+	t.Run("Metadata", func(t *testing.T) {
+		server, injectMetadata := newServer()
 		resourceResp, err := server.Resources(context.Background(), &pb.ResourcesRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resourceResp, test.ShouldResemble, emptyResources)
 
-		err = injectRes.AddResource(newResource)
+		err = injectMetadata.Add(newResource)
 		test.That(t, err, test.ShouldBeNil)
 		resourceResp, err = server.Resources(context.Background(), &pb.ResourcesRequest{})
 		test.That(t, err, test.ShouldBeNil)

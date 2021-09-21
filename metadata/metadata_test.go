@@ -11,7 +11,7 @@ import (
 	"go.viam.com/core/testutils/inject"
 )
 
-func TestResourcesPopulate(t *testing.T) {
+func TestPopulate(t *testing.T) {
 	var emptyNames = func() []string {
 		return []string{}
 	}
@@ -61,7 +61,7 @@ func TestResourcesPopulate(t *testing.T) {
 	test.That(t, r.All()[2].UUID, test.ShouldNotEqual, baseUUID)
 }
 
-func TestAddResource(t *testing.T) {
+func TestAdd(t *testing.T) {
 	r := metadata.New()
 
 	metadata := r.All()[0]
@@ -137,7 +137,7 @@ func TestAddResource(t *testing.T) {
 	}
 }
 
-func TestRemoveResource(t *testing.T) {
+func TestRemove(t *testing.T) {
 	r := metadata.New()
 
 	metadata := r.All()[0]
