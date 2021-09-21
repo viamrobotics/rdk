@@ -25,7 +25,6 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/resources"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rimage/imagesource"
 	"go.viam.com/core/robot"
@@ -663,9 +662,5 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 			}()
 		}
 	})
-	myResources, err := resources.Init(myRobot)
-	if err != nil {
-		return err
-	}
-	return webserver.RunWeb(ctx, myRobot, myResources, web.NewOptions(), logger)
+	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
 }

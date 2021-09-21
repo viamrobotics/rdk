@@ -321,6 +321,9 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	}
 
 	myResources, err := resources.Init(myRobot)
+	if err != nil {
+		return err
+	}
 
 	// watch for and deliver changes to the robot
 	watcher, err := config.NewWatcher(cfg, logger)
@@ -378,7 +381,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		options.Insecure = true
 	}
 
-	err = RunWeb(ctx, myRobot, myResources, options, logger)
+	err = RunWebWithResources(ctx, myRobot, myResources, options, logger)
 	if err != nil {
 		cancel()
 		return fmt.Errorf("error running web: %w", err)
