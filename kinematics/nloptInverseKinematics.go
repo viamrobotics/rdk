@@ -12,7 +12,7 @@ import (
 
 	"go.viam.com/core/arm"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/spatialmath"
+	spatial "go.viam.com/core/spatialmath"
 )
 
 // NloptIK TODO
@@ -42,14 +42,13 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger, id int) *NloptIK {
 	floatEpsilon := math.Nextafter(1, 2) - 1
 	ik.maxIterations = 10000
 	ik.iterations = 0
-	ik.lowerBound = mdl.MinimumJointLimits()
-	ik.upperBound = mdl.MaximumJointLimits()
+	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.Dof())
 	// How much to adjust joints to determine slope
 	ik.jump = 0.00000001
 
 	// May eventually need to be destroyed to prevent memory leaks
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
-	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(ik.model.Dof()))
+	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(ik.model.Dof())))
 	if err != nil {
 		panic(errors.Errorf("nlopt creation error: %w", err)) // TODO(biotinker): should return error or panic
 	}
@@ -62,12 +61,17 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger, id int) *NloptIK {
 		ik.iterations++
 
 		// TODO(pl): Might need to check if any of x is +/- Inf
-		eePos := JointRadToQuat(ik.model, x)
-		dx := make([]float64, ik.model.OperationalDof()*6)
+		eePos, err := ik.model.JointRadToQuat(x)
+		if err != nil && eePos == nil {
+			ik.logger.Errorf("error calculating eePos in nlopt %q", err)
+			err = ik.opt.ForceStop()
+			ik.logger.Errorf("forcestop error %q", err)
+		}
+		dx := make([]float64, ik.model.OperationalDof()*7)
 
 		// Update dx with the delta to the desired position
 		for _, nextGoal := range ik.getGoals() {
-			dxDelta := eePos.ToDelta(nextGoal.GoalTransform)
+			dxDelta := spatial.PoseDelta(eePos, nextGoal.GoalTransform)
 
 			dxIdx := nextGoal.EffectorID * len(dxDelta)
 			for i, delta := range dxDelta {
@@ -82,10 +86,15 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger, id int) *NloptIK {
 				// Deep copy of our current joint positions
 				xBak := append([]float64{}, x...)
 				xBak[i] += ik.jump
-				eePos := JointRadToQuat(ik.model, xBak)
-				dx2 := make([]float64, ik.model.OperationalDof()*6)
+				eePos, err := ik.model.JointRadToQuat(xBak)
+				if err != nil && eePos == nil {
+					ik.logger.Errorf("error calculating eePos in nlopt %q", err)
+					err = ik.opt.ForceStop()
+					ik.logger.Errorf("forcestop error %q", err)
+				}
+				dx2 := make([]float64, ik.model.OperationalDof()*7)
 				for _, nextGoal := range ik.getGoals() {
-					dxDelta := eePos.ToDelta(nextGoal.GoalTransform)
+					dxDelta := spatial.PoseDelta(eePos, nextGoal.GoalTransform)
 					dxIdx := nextGoal.EffectorID * len(dxDelta)
 					for i, delta := range dxDelta {
 						dx2[dxIdx+i] = delta
@@ -121,7 +130,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger, id int) *NloptIK {
 // addGoal adds a nlopt IK goal
 func (ik *NloptIK) addGoal(newGoal *pb.ArmPosition, effectorID int) {
 
-	goalQuat := spatialmath.NewDualQuaternionFromArmPos(newGoal)
+	goalQuat := spatial.NewPoseFromArmPos(newGoal)
 	ik.goals = append(ik.goals, goal{goalQuat, effectorID})
 }
 
@@ -200,14 +209,19 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 				retrySeed = true
 				startingRadians = newAngles
 			} else {
-				angles = ZeroInlineRotation(ik.model, angles)
 				solution := arm.JointPositionsFromRadians(angles)
 				// Return immediately if we have a "natural" solution, i.e. one where the halfway point is on the way
 				// to the end point
-				if calcSwingPct(seedAngles, solution, ik.model) < 0.5 {
+				swing, newErr := calcSwingPct(seedAngles, solution, ik.model)
+				if newErr != nil {
+					// out-of-bounds angles. Shouldn't happen, but if it does, record the error and move on without
+					// keeping the invalid solution
+					err = multierr.Combine(err, newErr)
+				} else if swing < 0.5 {
 					return solution, err
+				} else {
+					solutions = append(solutions, solution)
 				}
-				solutions = append(solutions, solution)
 			}
 		}
 		tries++
@@ -228,7 +242,7 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 		}
 	}
 	if len(solutions) > 0 {
-		return bestSolution(seedAngles, solutions, ik.model), nil
+		return bestSolution(seedAngles, solutions, ik.model)
 	}
 	return nil, multierr.Combine(errors.New("kinematics could not solve for position"), err)
 }
@@ -238,8 +252,8 @@ func (ik *NloptIK) SetSeed(seed int64) {
 	ik.randSeed = rand.New(rand.NewSource(seed))
 }
 
-// Mdl returns the model associated with this IK.
-func (ik *NloptIK) Mdl() *Model {
+// Model returns the associated model
+func (ik *NloptIK) Model() *Model {
 	return ik.model
 }
 
