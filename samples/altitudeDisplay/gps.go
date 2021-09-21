@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"time"
+	"go.viam.com/utils"
 
 	. "go.viam.com/core/board"
 	_ "go.viam.com/core/board/detector"
@@ -14,18 +15,18 @@ import (
 
 func GpsAlt(ctx context.Context, handle I2CHandle) (float64, error) {
 	var err error
-	var addr byte
-	addr = 0x10
+	
 	
 	cmd314 := addChk([]byte("PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	cmd220 := addChk([]byte("PMTK220,1000"))
 	
-	handle.WriteBytes(context.Background(), addr, cmd314)
-	handle.WriteBytes(context.Background(), addr, cmd220)
+	handle.WriteBytes(context.Background(), gpsAddr, cmd314)
+	handle.WriteBytes(context.Background(), gpsAddr, cmd220)
 
 	strBuf := ""
 	
 	var alt float64
+	clearBuffer(ctx, handle)
 	
 	for i := 0; i <= 20; i++{
 		select {
@@ -34,7 +35,7 @@ func GpsAlt(ctx context.Context, handle I2CHandle) (float64, error) {
 		default:
 		}
 		buffer := []byte{}
-		buffer, err = handle.ReadBytes(context.Background(), addr, 32)
+		buffer, err = handle.ReadBytes(context.Background(), gpsAddr, 32)
 		if err != nil {
 			logger.Error(err)
 			continue
@@ -53,7 +54,7 @@ func GpsAlt(ctx context.Context, handle I2CHandle) (float64, error) {
 				strBuf += string(b)
 			}
 		}
-		utils.SelectContextOrWait(ctx, 50*time.Millisecond)
+		utils.SelectContextOrWait(ctx, 150*time.Millisecond)
 	}
 	return alt, err
 }
@@ -83,4 +84,29 @@ func addChk(data []byte) []byte {
 	newCmd = append(newCmd, []byte("*")...)
 	newCmd = append(newCmd, chk)
 	return newCmd
+}
+
+// Reads from the buffer until there is nothing left and we get several newlines in a row
+func clearBuffer(ctx context.Context, handle I2CHandle){
+	emptyBuf := 0
+	// Read until we get empty 10x in a row
+	for emptyBuf < 5{
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		buffer := []byte{}
+		buffer, err := handle.ReadBytes(ctx, gpsAddr, 32)
+		if err != nil {
+			logger.Error(err)
+			continue
+		}
+		emptyBuf++
+		for _, b := range buffer {
+			if b != 10 {
+				emptyBuf = 0
+			}
+		}
+	}
 }

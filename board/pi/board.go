@@ -160,7 +160,11 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	if len(cfg.I2Cs) != 0 {
 		piInstance.i2cs = make(map[string]board.I2C, len(cfg.I2Cs))
 		for _, sc := range cfg.I2Cs {
-			piInstance.i2cs[sc.Name] = &piPigpioI2C{pi: piInstance}
+			id, err := strconv.Atoi(sc.Bus)
+			if err != nil {
+				return nil, err
+			}
+			piInstance.i2cs[sc.Name] = &piPigpioI2C{pi: piInstance, id: id}
 		}
 	}
 
@@ -512,9 +516,9 @@ func (s *piPigpioI2CHandle) WriteBytes(ctx context.Context, addr byte, tx []byte
 	i2cFlags = 0
 	
 	// Raspberry Pis are all on i2c bus 1
-	// Exception being the very first model which is on 0, not supported.
+	// Exception being the very first model which is on 0
 	var bus C.uint
-	bus = 1
+	bus = (C.uint)(s.bus.id)
 
 	count := len(tx)
 	txPtr := C.CBytes(tx)
@@ -547,9 +551,9 @@ func (s *piPigpioI2CHandle) ReadBytes(ctx context.Context, addr byte, count int)
 	i2cFlags = 0
 	
 	// Raspberry Pis are all on i2c bus 1
-	// Exception being the very first model which is on 0, not supported.
+	// Exception being the very first model which is on 0
 	var bus C.uint
-	bus = s.bus.id
+	bus = (C.uint)(s.bus.id)
 
 	rx := make([]byte, count)
 	rxPtr := C.CBytes(rx)

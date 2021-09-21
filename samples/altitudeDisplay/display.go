@@ -42,12 +42,10 @@ var SH110X_SETLOWCOLUMN byte = 0x00  ///< Not currently used
 var SH110X_SETHIGHCOLUMN byte = 0x10 ///< Not currently used
 var SH110X_SETSTARTLINE byte = 0x40  ///< See datasheet
 
-var addr byte = 0x3C
-
-func initDisp(handle I2CHandle){
+func initDisp(ctx context.Context, handle I2CHandle){
 	// set contrast
 	contrast := []byte{0, 0x81, 0x2F}
-	handle.WriteBytes(context.Background(), addr, contrast)
+	handle.WriteBytes(ctx, dispAddr, contrast)
 	
 	init := []byte{
 		0x00,
@@ -67,15 +65,23 @@ func initDisp(handle I2CHandle){
 		SH110X_NORMALDISPLAY,       // 0xa6
 	}
 	
-	handle.WriteBytes(context.Background(), addr, init)
+	handle.WriteBytes(ctx, dispAddr, init)
 	
 	time.Sleep(100 * time.Millisecond)
 	
 	// turn on
-	handle.WriteBytes(context.Background(), addr, []byte{0x00, 0xAF})
+	handle.WriteBytes(ctx, dispAddr, []byte{0x00, 0xAF})
 }
 
-func writeAlt(feet, meters string, handle I2CHandle){
+func checkInit(ctx context.Context, handle I2CHandle){
+	buffer := []byte{}
+	buffer, _ = handle.ReadBytes(ctx, dispAddr, 1)
+	if buffer[0] == 71 {
+		initDisp(ctx, handle)
+	}
+}
+
+func writeAlt(ctx context.Context, feet, meters string, handle I2CHandle){
 	buf := blank()
 	
 	// account for special messages
@@ -88,27 +94,31 @@ func writeAlt(feet, meters string, handle I2CHandle){
 	}
 	buf = writeString(0, 28, feet, buf)
 	buf = writeString(0, 58, meters, buf)
-	writeBuf(buf, addr, handle)
+	writeBuf(ctx, buf, dispAddr, handle)
 }
 
 func blank() []byte {
 	return make([]byte, 1024)
 }
 
-func writeBuf(buf []byte, addr byte, handle I2CHandle){
+// This actually writes the buffered bytes to the display
+func writeBuf(ctx context.Context, buf []byte, dispAddr byte, handle I2CHandle){
+	
+	checkInit(ctx, handle)
+	
 	var reg byte
 	iter := 0
 	for reg = 0xB0; reg <= 0xBF; reg++{
 		someBytes := []byte{0, reg, 0x10, 0}
-		handle.WriteBytes(context.Background(), addr, someBytes)
+		handle.WriteBytes(context.Background(), dispAddr, someBytes)
 		
 		someBytes = append([]byte{0x40}, buf[0 + iter * 64:31 + iter * 64]...)
-		handle.WriteBytes(context.Background(), addr, someBytes)
+		handle.WriteBytes(context.Background(), dispAddr, someBytes)
 		someBytes = append([]byte{0x40}, buf[31 + iter * 64:62 + iter * 64]...)
-		handle.WriteBytes(context.Background(), addr, someBytes)
+		handle.WriteBytes(context.Background(), dispAddr, someBytes)
 		
 		someBytes = []byte{0x40, buf[62 + iter * 64], buf[63 + iter * 64]}
-		handle.WriteBytes(context.Background(), addr, someBytes)
+		handle.WriteBytes(context.Background(), dispAddr, someBytes)
 		
 		iter++
 	}

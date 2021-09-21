@@ -20,6 +20,8 @@ import (
 var boardName = "gpsBoard"
 var END_BYTES = []byte{0x0D, 0x0A}
 var logger = golog.NewDevelopmentLogger("gps")
+var gpsAddr byte = 0x10
+var dispAddr byte = 0x3C
 
 func main() {
 	utils.ContextualMain(mainWithArgs, logger)
@@ -48,8 +50,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	defer handle.Close()
 	
 	// Init the display multiple times, hoping at least one works- sometimes it takes several writes to get a good init
-	for i := 0; i < 50; i++ {
-		initDisp(handle)
+	for i := 0; i < 10; i++ {
+		initDisp(ctx, handle)
 	}
 	
 	for true{
@@ -65,7 +67,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 			meterStr = "lock"
 		}
 		
-		writeAlt(feetStr, meterStr, handle)
+		writeAlt(ctx, feetStr, meterStr, handle)
 		
 		select {
 			case <-ctx.Done():
