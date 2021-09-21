@@ -381,9 +381,23 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, option
 
 }
 
-// RunWeb takes the given robot and options and runs the web server. This function will block
+// RunWeb takes the given robot and options, create the corresponding resources, and runs the web server.
+func RunWeb(ctx context.Context, theRobot robot.Robot, options web.Options, logger golog.Logger) (err error) {
+	theResources, err := resources.Init(theRobot)
+	if err != nil {
+		return err
+	}
+
+	err = RunWebWithResources(ctx, theRobot, theResources, options, logger)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// RunWebWithResources takes the given robot and resources and options and runs the web server. This function will block
 // until the context is done.
-func RunWeb(ctx context.Context, theRobot robot.Robot, theResources *resources.Resources, options web.Options, logger golog.Logger) (err error) {
+func RunWebWithResources(ctx context.Context, theRobot robot.Robot, theResources *resources.Resources, options web.Options, logger golog.Logger) (err error) {
 	defer func() {
 		if err != nil && goutils.FilterOutError(err, context.Canceled) != nil {
 			logger.Errorw("error running web", "error", err)
