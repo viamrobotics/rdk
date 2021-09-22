@@ -236,8 +236,8 @@ func New(ctx context.Context, config *config.Config, logger golog.Logger) (robot
 	}
 
 	// if metadata exists, update it
-	if m := service.ContextService(ctx); m != nil {
-		if err := r.UpdateMetadata(m); err != nil {
+	if svc := service.ContextService(ctx); svc != nil {
+		if err := r.UpdateMetadata(svc); err != nil {
 			return nil, err
 		}
 	}
@@ -305,15 +305,15 @@ func (r *mutableRobot) Refresh(ctx context.Context) error {
 }
 
 // UpdateMetadata updates metadata service using the currently registered parts of the robot
-func (r *mutableRobot) UpdateMetadata(m *service.Service) error {
+func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 	// TODO: Currently just a placeholder implementation, this should be rewritten once robot/parts have more metadata about themselves
-	for _, name := range m.All() {
-		if name.Subtype != resource.ResourceSubtypeMetadata {
-			if err := m.Remove(name); err != nil {
-				return err
-			}
-		}
+	var resources []resource.Name
+
+	metadata, err := resource.New(resource.ResourceNamespaceCore, resource.ResourceTypeService, resource.ResourceSubtypeMetadata, "")
+	if err != nil {
+		return err
 	}
+	resources = append(resources, metadata)
 
 	for _, name := range r.ArmNames() {
 		res, err := resource.New(
@@ -325,11 +325,7 @@ func (r *mutableRobot) UpdateMetadata(m *service.Service) error {
 		if err != nil {
 			return err
 		}
-		err = m.Add(res)
-		if err != nil {
-			return err
-		}
-
+		resources = append(resources, res)
 	}
 	for _, name := range r.BaseNames() {
 		res, err := resource.New(
@@ -341,10 +337,7 @@ func (r *mutableRobot) UpdateMetadata(m *service.Service) error {
 		if err != nil {
 			return err
 		}
-		err = m.Add(res)
-		if err != nil {
-			return err
-		}
+		resources = append(resources, res)
 	}
 	for _, name := range r.BoardNames() {
 		res, err := resource.New(
@@ -356,10 +349,7 @@ func (r *mutableRobot) UpdateMetadata(m *service.Service) error {
 		if err != nil {
 			return err
 		}
-		err = m.Add(res)
-		if err != nil {
-			return err
-		}
+		resources = append(resources, res)
 	}
 	for _, name := range r.CameraNames() {
 		res, err := resource.New(
@@ -371,10 +361,7 @@ func (r *mutableRobot) UpdateMetadata(m *service.Service) error {
 		if err != nil {
 			return err
 		}
-		err = m.Add(res)
-		if err != nil {
-			return err
-		}
+		resources = append(resources, res)
 	}
 	for _, name := range r.FunctionNames() {
 		res, err := resource.New(
@@ -386,10 +373,7 @@ func (r *mutableRobot) UpdateMetadata(m *service.Service) error {
 		if err != nil {
 			return err
 		}
-		err = m.Add(res)
-		if err != nil {
-			return err
-		}
+		resources = append(resources, res)
 	}
 	for _, name := range r.GripperNames() {
 		res, err := resource.New(
@@ -401,10 +385,7 @@ func (r *mutableRobot) UpdateMetadata(m *service.Service) error {
 		if err != nil {
 			return err
 		}
-		err = m.Add(res)
-		if err != nil {
-			return err
-		}
+		resources = append(resources, res)
 	}
 	for _, name := range r.LidarNames() {
 		res, err := resource.New(
@@ -416,10 +397,7 @@ func (r *mutableRobot) UpdateMetadata(m *service.Service) error {
 		if err != nil {
 			return err
 		}
-		err = m.Add(res)
-		if err != nil {
-			return err
-		}
+		resources = append(resources, res)
 	}
 	for _, name := range r.RemoteNames() {
 		res, err := resource.New(
@@ -431,10 +409,7 @@ func (r *mutableRobot) UpdateMetadata(m *service.Service) error {
 		if err != nil {
 			return err
 		}
-		err = m.Add(res)
-		if err != nil {
-			return err
-		}
+		resources = append(resources, res)
 	}
 	for _, name := range r.SensorNames() {
 		res, err := resource.New(
@@ -446,10 +421,10 @@ func (r *mutableRobot) UpdateMetadata(m *service.Service) error {
 		if err != nil {
 			return err
 		}
-		err = m.Add(res)
-		if err != nil {
-			return err
-		}
+		resources = append(resources, res)
+	}
+	if err := svc.Replace(resources); err != nil {
+		return err
 	}
 	return nil
 }

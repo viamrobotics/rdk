@@ -1,9 +1,9 @@
 package service_test
 
 import (
+	"context"
 	"testing"
 
-	"github.com/google/uuid"
 	"go.viam.com/test"
 
 	"go.viam.com/core/metadata/service"
@@ -14,27 +14,28 @@ func TestAdd(t *testing.T) {
 	r, err := service.New()
 	test.That(t, err, test.ShouldBeNil)
 	service := r.All()[0]
-	arm := resource.Name{
-		UUID:      uuid.NewString(),
-		Namespace: resource.ResourceNamespaceCore,
-		Type:      resource.ResourceTypeComponent,
-		Subtype:   "arm",
-		Name:      "arm1",
-	}
-	sensor := resource.Name{
-		UUID:      uuid.NewString(),
-		Namespace: resource.ResourceNamespaceCore,
-		Type:      resource.ResourceTypeComponent,
-		Subtype:   "sensor",
-		Name:      "sensor1",
-	}
+	arm, err := resource.New(
+		resource.ResourceNamespaceCore,
+		resource.ResourceTypeComponent,
+		resource.ResourceSubtypeArm,
+		"arm1",
+	)
+	test.That(t, err, test.ShouldBeNil)
+	sensor, err := resource.New(
+		resource.ResourceNamespaceCore,
+		resource.ResourceTypeComponent,
+		resource.ResourceSubtypeSensor,
+		"sensor1",
+	)
+	test.That(t, err, test.ShouldBeNil)
 
-	newMetadata := resource.Name{
-		UUID:      uuid.NewString(),
-		Namespace: resource.ResourceNamespaceCore,
-		Type:      resource.ResourceTypeService,
-		Subtype:   resource.ResourceSubtypeMetadata,
-	}
+	newMetadata, err := resource.New(
+		resource.ResourceNamespaceCore,
+		resource.ResourceTypeService,
+		resource.ResourceSubtypeMetadata,
+		"metadata1",
+	)
+	test.That(t, err, test.ShouldBeNil)
 
 	for _, tc := range []struct {
 		Name        string
@@ -86,74 +87,69 @@ func TestAdd(t *testing.T) {
 	}
 }
 
-func TestRemove(t *testing.T) {
+func TestReplace(t *testing.T) {
 	r, err := service.New()
 	test.That(t, err, test.ShouldBeNil)
-
-	service := r.All()[0]
+	test.That(t, len(r.All()), test.ShouldEqual, 1)
 	arm, err := resource.New(
 		resource.ResourceNamespaceCore,
 		resource.ResourceTypeComponent,
-		"arm",
+		resource.ResourceSubtypeArm,
 		"arm1",
 	)
 	test.That(t, err, test.ShouldBeNil)
 	sensor, err := resource.New(
 		resource.ResourceNamespaceCore,
 		resource.ResourceTypeComponent,
-		"sensor",
+		resource.ResourceSubtypeSensor,
 		"sensor1",
 	)
 	test.That(t, err, test.ShouldBeNil)
-	r.Add(arm)
-	r.Add(sensor)
+
+	metadataSvc, err := resource.New(
+		resource.ResourceNamespaceCore,
+		resource.ResourceTypeService,
+		resource.ResourceSubtypeMetadata,
+		"",
+	)
+	test.That(t, err, test.ShouldBeNil)
 
 	for _, tc := range []struct {
-		Name     string
-		Remove   resource.Name
-		Expected []resource.Name
-		Err      string
+		Name         string
+		NewResources []resource.Name
+		Err          string
 	}{
 		{
-			"invalid removal",
-			resource.Name{},
-			nil,
+			"invalid replacement",
+			[]resource.Name{{}},
 			"uuid field for resource missing or invalid",
 		},
 		{
-			"remove metadata",
-			service,
-			[]resource.Name{arm, sensor},
+			"replace",
+			[]resource.Name{metadataSvc, arm, sensor},
 			"",
-		},
-		{
-			"one removal",
-			sensor,
-			[]resource.Name{arm},
-			"",
-		},
-		{
-			"second removal",
-			arm,
-			[]resource.Name{},
-			"",
-		},
-		{
-			"not found",
-			sensor,
-			nil,
-			"unable to find and remove resource",
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			err := r.Remove(tc.Remove)
+			err := r.Replace(tc.NewResources)
 			if tc.Err == "" {
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, r.All(), test.ShouldResemble, tc.Expected)
+				test.That(t, r.All(), test.ShouldResemble, tc.NewResources)
 			} else {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
 			}
 		})
 	}
+}
+
+func TestContextService(t *testing.T) {
+	ctx := context.Background()
+	svc, err := service.New()
+	test.That(t, err, test.ShouldBeNil)
+	ctx = service.ContextWithService(ctx, svc)
+	svc2 := service.ContextService(context.Background())
+	test.That(t, svc2, test.ShouldBeNil)
+	svc2 = service.ContextService(ctx)
+	test.That(t, svc2, test.ShouldEqual, svc)
 }
