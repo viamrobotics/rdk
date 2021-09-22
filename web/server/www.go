@@ -424,7 +424,7 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options web.Options, logg
 		return err
 	}
 
-	// if metadata service is in the context, create a grpc MetadataServer
+	// if metadata service is in the context, register it
 	if s := service.ContextService(ctx); s != nil {
 		if err := rpcServer.RegisterServiceServer(
 			ctx,
