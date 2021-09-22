@@ -22,6 +22,7 @@ type FrameConfig struct {
 }
 
 // Orientation returns the orientation of the object from the config, or an empty orientation if no orientation specified
+// or if orientation not recognized.
 func (fc *FrameConfig) Orientation() spatial.Orientation {
 	if fc.OVDegrees != nil {
 		return spatial.NewOrientationFromOVD(fc.OVDegrees)
