@@ -4,8 +4,9 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/core/spatialmath"
 	"go.viam.com/test"
+
+	"go.viam.com/core/spatialmath"
 )
 
 func TestOrientation(t *testing.T) {

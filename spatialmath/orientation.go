@@ -4,8 +4,9 @@ import (
 	"math"
 
 	"github.com/go-gl/mathgl/mgl64"
-	"go.viam.com/core/utils"
 	"gonum.org/v1/gonum/num/quat"
+
+	"go.viam.com/core/utils"
 )
 
 // Orientation is an interface used to express the different parameterizations of a rotation in 3D Euclidean space.
