@@ -423,8 +423,5 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 		}
 		resources = append(resources, res)
 	}
-	if err := svc.Replace(resources); err != nil {
-		return err
-	}
-	return nil
+	return svc.Replace(resources)
 }
