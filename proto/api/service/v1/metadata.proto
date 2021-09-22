@@ -10,7 +10,7 @@ import "google/api/annotations.proto";
 import "google/api/httpbody.proto";
 
 
-// A MetadataService returns a list of all resources associated with a gRPC serv
+// A MetadataService services maintains all resources associated with a robot
 service MetadataService {
   // Resources returns the list of all resources.
   rpc Resources(ResourcesRequest) returns (ResourcesResponse) {
