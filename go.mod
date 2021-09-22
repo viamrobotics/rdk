@@ -7,8 +7,6 @@ require (
 	github.com/RobinUS2/golang-moving-average v1.0.0
 	github.com/adrianmo/go-nmea v1.3.0
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
-	github.com/d2r2/go-i2c v0.0.0-20191123181816-73a8a799d6bc // indirect
-	github.com/d2r2/go-logger v0.0.0-20210606094344-60e9d1233e22 // indirect
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
 	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e

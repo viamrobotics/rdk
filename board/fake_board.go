@@ -136,13 +136,13 @@ func (b *FakeBoard) ServoByName(name string) (Servo, bool) {
 	return s, ok
 }
 
-// SPIByName returns the servo by the given name if it exists.
+// SPIByName returns the spi by the given name if it exists.
 func (b *FakeBoard) SPIByName(name string) (SPI, bool) {
 	s, ok := b.spis[name]
 	return s, ok
 }
 
-// I2CByName returns the servo by the given name if it exists.
+// I2CByName returns the i2c by the given name if it exists.
 func (b *FakeBoard) I2CByName(name string) (I2C, bool) {
 	s, ok := b.i2cs[name]
 	return s, ok
@@ -232,7 +232,7 @@ func (b *FakeBoard) SPINames() []string {
 	return names
 }
 
-// I2CNames returns the name of all known SPIs.
+// I2CNames returns the name of all known I2Cs.
 func (b *FakeBoard) I2CNames() []string {
 	names := []string{}
 	for k := range b.i2cs {
