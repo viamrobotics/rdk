@@ -55,26 +55,17 @@ func (s *Service) Add(res resource.Name) error {
 	return nil
 }
 
-// Remove removes resource from the list.
-func (s *Service) Remove(res resource.Name) error {
+// Replace replaces the resource list with another resource atomically.
+func (s *Service) Replace(r []resource.Name) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := res.Validate(); err != nil {
-		return errors.Errorf("invalid resource to find and remove: %s", err.Error())
-	}
-
-	idx := -1
-	for i := range s.resources {
-		if s.resources[i].UUID == res.UUID {
-			idx = i
-			break
+	for _, res := range r {
+		if err := res.Validate(); err != nil {
+			return errors.Errorf("unable to replace resources: %s", err.Error())
 		}
 	}
-	if idx == -1 {
-		return errors.Errorf("unable to find and remove resource with uuid %s", res.UUID)
-	}
 
-	s.resources = append(s.resources[:idx], s.resources[idx+1:]...)
+	s.resources = r
 	return nil
 }
 

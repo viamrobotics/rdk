@@ -29,8 +29,8 @@ func (r *mutableRobot) Reconfigure(ctx context.Context, newConfig *config.Config
 	}
 
 	// if metadata exists, update it
-	if m := service.ContextService(ctx); m != nil {
-		if err := r.UpdateMetadata(m); err != nil {
+	if svc := service.ContextService(ctx); svc != nil {
+		if err := r.UpdateMetadata(svc); err != nil {
 			return err
 		}
 	}
