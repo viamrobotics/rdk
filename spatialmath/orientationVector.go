@@ -33,6 +33,16 @@ type OrientationVecDegrees struct {
 	OZ    float64 `json:"z"`
 }
 
+// NewOrientationVec Creates a zero-initialized OrientationVec
+func NewOrientationVec() *OrientationVec {
+	return &OrientationVec{Theta: 0, OX: 0, OY: 0, OZ: 1}
+}
+
+// NewOrientationVecDegrees Creates a zero-initialized OrientationVecDegrees
+func NewOrientationVecDegrees() *OrientationVecDegrees {
+	return &OrientationVecDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1}
+}
+
 // ToQuat converts an orientation vector to a quaternion.
 func (ov *OrientationVec) ToQuat() quat.Number {
 	// make sure OrientationVec is normalized first
