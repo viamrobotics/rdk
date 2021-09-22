@@ -9,7 +9,79 @@ import (
 	"go.viam.com/core/resource"
 )
 
-func TestResourceValidate(t *testing.T) {
+func TestResourceNameNew(t *testing.T) {
+	for _, tc := range []struct {
+		TestName  string
+		Namespace string
+		Type      string
+		Subtype   string
+		Name      string
+		Err       string
+	}{
+		{
+			"missing namespace",
+			"",
+			resource.ResourceTypeComponent,
+			"arm",
+			"arm1",
+			"namespace parameter missing or invalid",
+		},
+		{
+			"missing type",
+			resource.ResourceNamespaceCore,
+			"",
+			"arm",
+			"arm1",
+			"type parameter missing or invalid",
+		},
+		{
+			"missing subtype",
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			"",
+			"arm1",
+			"subtype parameter missing or invalid",
+		},
+		{
+			"missing name",
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			"arm",
+			"",
+			"",
+		},
+		{
+			"all fields included",
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			"arm",
+			"arm1",
+			"",
+		},
+		{
+			"all fields included 2",
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeService,
+			"metadata",
+			"",
+			"",
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			observed, err := resource.New(tc.Namespace, tc.Type, tc.Subtype, tc.Name)
+			if tc.Err == "" {
+				test.That(t, err, test.ShouldBeNil)
+				expected, _ := resource.New(tc.Namespace, tc.Type, tc.Subtype, tc.Name)
+				test.That(t, expected, test.ShouldResemble, observed)
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
+			}
+		})
+	}
+}
+
+func TestResourceNameValidate(t *testing.T) {
 	for _, tc := range []struct {
 		Name        string
 		NewResource resource.Name

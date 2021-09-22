@@ -2,6 +2,8 @@
 package resource
 
 import (
+	"fmt"
+
 	"github.com/go-errors/errors"
 
 	"github.com/google/uuid"
@@ -31,6 +33,30 @@ type Name struct {
 	Type      string
 	Subtype   string
 	Name      string
+}
+
+// New creates a new Name based on parameters passed in.
+func New(namespace string, rType string, subtype string, name string) (Name, error) {
+	if namespace == "" {
+		return Name{}, errors.New("namespace parameter missing or invalid")
+	}
+	if rType == "" {
+		return Name{}, errors.New("type parameter missing or invalid")
+	}
+	if subtype == "" {
+		return Name{}, errors.New("subtype parameter missing or invalid")
+	}
+	i := fmt.Sprintf("%s:%s:%s", namespace, rType, subtype)
+	if name != "" {
+		i = fmt.Sprintf("%s/%s", i, name)
+	}
+	return Name{
+		UUID:      uuid.NewSHA1(uuid.NameSpaceX500, []byte(i)).String(),
+		Namespace: namespace,
+		Type:      rType,
+		Subtype:   subtype,
+		Name:      name,
+	}, nil
 }
 
 // Validate ensures that important fields exist and are valid.

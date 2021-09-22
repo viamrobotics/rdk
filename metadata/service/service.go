@@ -21,27 +21,25 @@ type Service struct {
 
 // NewFromRobot Creates and populate Service given a robot.
 func NewFromRobot(r robot.Robot) (*Service, error) {
-	res := New()
-
+	res, err := New()
+	if err != nil {
+		return nil, err
+	}
 	if err := res.Populate(r); err != nil {
 		return nil, err
 	}
-	return &res, nil
+	return res, nil
 }
 
 // New creates a new Service struct and initializes the resource list with a metadata service.
-func New() Service {
-	resources := []resource.Name{
-		{
-			UUID:      uuid.NewString(),
-			Namespace: resource.ResourceNamespaceCore,
-			Type:      resource.ResourceTypeService,
-			Subtype:   resource.ResourceSubtypeMetadata,
-			Name:      "",
-		},
+func New() (*Service, error) {
+	metadata, err := resource.New(resource.ResourceNamespaceCore, resource.ResourceTypeService, resource.ResourceSubtypeMetadata, "")
+	if err != nil {
+		return nil, err
 	}
+	resources := []resource.Name{metadata}
 
-	return Service{resources: resources}
+	return &Service{resources: resources}, nil
 }
 
 // Populate populates Service given a robot.
