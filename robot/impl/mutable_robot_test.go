@@ -14,8 +14,10 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
+	"go.viam.com/core/metadata/service"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/web"
@@ -245,4 +247,89 @@ func TestNewTeardown(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
 	test.That(t, dummyBoard1.closeCount, test.ShouldEqual, 1)
+}
+
+func TestMetadataUpdate(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read("data/fake.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	ctx := context.Background()
+	svc, err := service.New()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(svc.All()), test.ShouldEqual, 1)
+	ctx = service.ContextWithService(ctx, svc)
+
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r.Close(), test.ShouldBeNil)
+
+	test.That(t, len(svc.All()), test.ShouldEqual, 9)
+
+	resources := []resource.Name{
+		{
+			UUID:      "661c4dea-b6be-56bf-a839-cfb7f99b0a6b",
+			Namespace: resource.ResourceNamespaceCore,
+			Type:      resource.ResourceTypeService,
+			Subtype:   resource.ResourceSubtypeMetadata,
+			Name:      "",
+		},
+		{
+			UUID:      "0ecee0a4-3d25-5bfa-ba5d-4c2f765cef6a",
+			Namespace: resource.ResourceNamespaceCore,
+			Type:      resource.ResourceTypeComponent,
+			Subtype:   resource.ResourceSubtypeArm,
+			Name:      "pieceArm",
+		},
+		{
+			UUID:      "06f7a658-e502-5a3b-a160-af023795b49a",
+			Namespace: resource.ResourceNamespaceCore,
+			Type:      resource.ResourceTypeComponent,
+			Subtype:   resource.ResourceSubtypeCamera,
+			Name:      "cameraOver",
+		},
+		{
+			UUID:      "064a7e85-c5d6-524c-a6c4-d050bca20da9",
+			Namespace: resource.ResourceNamespaceCore,
+			Type:      resource.ResourceTypeService,
+			Subtype:   resource.ResourceSubtypeFunction,
+			Name:      "func1",
+		},
+		{
+			UUID:      "405b6596-11ff-5a69-a3d2-1a945414a632",
+			Namespace: resource.ResourceNamespaceCore,
+			Type:      resource.ResourceTypeService,
+			Subtype:   resource.ResourceSubtypeFunction,
+			Name:      "func2",
+		},
+		{
+			UUID:      "813681b8-d6af-5e1c-b22a-8960ccf204fb",
+			Namespace: resource.ResourceNamespaceCore,
+			Type:      resource.ResourceTypeComponent,
+			Subtype:   resource.ResourceSubtypeGripper,
+			Name:      "pieceGripper",
+		},
+		{
+			UUID:      "b0e1e671-fa92-5d84-b6c1-d50d17e5e2ac",
+			Namespace: resource.ResourceNamespaceCore,
+			Type:      resource.ResourceTypeComponent,
+			Subtype:   resource.ResourceSubtypeLidar,
+			Name:      "lidar1",
+		},
+		{
+			UUID:      "d1587bf0-8655-5eb3-95af-e2f83d872ce8",
+			Namespace: resource.ResourceNamespaceCore,
+			Type:      resource.ResourceTypeComponent,
+			Subtype:   resource.ResourceSubtypeSensor,
+			Name:      "compass1",
+		},
+		{
+			UUID:      "595cfa62-fb18-59ac-9553-d257b3dcebc0",
+			Namespace: resource.ResourceNamespaceCore,
+			Type:      resource.ResourceTypeComponent,
+			Subtype:   resource.ResourceSubtypeSensor,
+			Name:      "compass2",
+		},
+	}
+	test.That(t, svc.All(), test.ShouldResemble, resources)
 }
