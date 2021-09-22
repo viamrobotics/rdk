@@ -27,8 +27,9 @@ func TestPopulate(t *testing.T) {
 		SensorNamesFunc:   emptyNames,
 	}
 
-	r := service.New()
-	err := r.Populate(injectRobot)
+	r, err := service.New()
+	test.That(t, err, test.ShouldBeNil)
+	err = r.Populate(injectRobot)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(r.All()), test.ShouldEqual, 1)
 	test.That(t, r.All()[0].Subtype, test.ShouldResemble, resource.ResourceSubtypeMetadata)
@@ -40,7 +41,8 @@ func TestPopulate(t *testing.T) {
 		return []string{"base1"}
 	}
 
-	r = service.New()
+	r, err = service.New()
+	test.That(t, err, test.ShouldBeNil)
 	err = r.Populate(injectRobot)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(r.All()), test.ShouldEqual, 3)
@@ -50,7 +52,8 @@ func TestPopulate(t *testing.T) {
 	armUUID := r.All()[1].UUID
 	baseUUID := r.All()[2].UUID
 
-	r = service.New()
+	r, err = service.New()
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeNil)
 	err = r.Populate(injectRobot)
 	test.That(t, err, test.ShouldBeNil)
@@ -62,8 +65,8 @@ func TestPopulate(t *testing.T) {
 }
 
 func TestAdd(t *testing.T) {
-	r := service.New()
-
+	r, err := service.New()
+	test.That(t, err, test.ShouldBeNil)
 	service := r.All()[0]
 	arm := resource.Name{
 		UUID:      uuid.NewString(),
@@ -138,24 +141,24 @@ func TestAdd(t *testing.T) {
 }
 
 func TestRemove(t *testing.T) {
-	r := service.New()
+	r, err := service.New()
+	test.That(t, err, test.ShouldBeNil)
 
 	service := r.All()[0]
-	arm := resource.Name{
-		UUID:      uuid.NewString(),
-		Namespace: resource.ResourceNamespaceCore,
-		Type:      resource.ResourceTypeComponent,
-		Subtype:   "arm",
-		Name:      "arm1",
-	}
-	sensor := resource.Name{
-		UUID:      uuid.NewString(),
-		Namespace: resource.ResourceNamespaceCore,
-		Type:      resource.ResourceTypeComponent,
-		Subtype:   "sensor",
-		Name:      "sensor1",
-	}
-
+	arm, err := resource.New(
+		resource.ResourceNamespaceCore,
+		resource.ResourceTypeComponent,
+		"arm",
+		"arm1",
+	)
+	test.That(t, err, test.ShouldBeNil)
+	sensor, err := resource.New(
+		resource.ResourceNamespaceCore,
+		resource.ResourceTypeComponent,
+		"sensor",
+		"sensor1",
+	)
+	test.That(t, err, test.ShouldBeNil)
 	r.Add(arm)
 	r.Add(sensor)
 

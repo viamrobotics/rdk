@@ -14,18 +14,16 @@ import (
 	"go.viam.com/core/resource"
 
 	"github.com/edaniels/golog"
-	"github.com/google/uuid"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 )
 
-var newResource = resource.Name{
-	UUID:      uuid.NewString(),
-	Namespace: resource.ResourceNamespaceCore,
-	Type:      resource.ResourceTypeComponent,
-	Subtype:   resource.ResourceSubtypeArm,
-	Name:      "",
-}
+var newResource, _ = resource.New(
+	resource.ResourceNamespaceCore,
+	resource.ResourceTypeComponent,
+	resource.ResourceSubtypeArm,
+	"",
+)
 
 var oneResourceResponse = []*pb.ResourceName{
 	{
@@ -74,8 +72,9 @@ func TestClientDialerOption(t *testing.T) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
-	injectMetadata := service.New()
-	pb.RegisterMetadataServiceServer(gServer, server.New(&injectMetadata))
+	injectMetadata, err := service.New()
+	test.That(t, err, test.ShouldBeNil)
+	pb.RegisterMetadataServiceServer(gServer, server.New(injectMetadata))
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()

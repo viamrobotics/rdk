@@ -316,8 +316,11 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	}()
 	ctx = dialer.ContextWithDialer(ctx, rpcDialer)
 
-	metadataSvc := service.New()
-	ctx = service.ContextWithService(ctx, &metadataSvc)
+	metadataSvc, err := service.New()
+	if err != nil {
+		return err
+	}
+	ctx = service.ContextWithService(ctx, metadataSvc)
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
