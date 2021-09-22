@@ -14,6 +14,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
+	"go.viam.com/core/metadata/service"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -245,4 +246,22 @@ func TestNewTeardown(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
 	test.That(t, dummyBoard1.closeCount, test.ShouldEqual, 1)
+}
+
+func TestMetadataUpdate(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read("data/fake.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	ctx := context.Background()
+	svc, err := service.New()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(svc.All()), test.ShouldEqual, 1)
+	ctx = service.ContextWithService(ctx, svc)
+
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r.Close(), test.ShouldBeNil)
+
+	test.That(t, len(svc.All()), test.ShouldEqual, 9)
 }

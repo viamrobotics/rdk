@@ -7,6 +7,7 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/core/config"
+	"go.viam.com/core/metadata/service"
 )
 
 // Reconfigure will safely reconfigure a robot based on the given config. It will make
@@ -22,7 +23,18 @@ func (r *mutableRobot) Reconfigure(ctx context.Context, newConfig *config.Config
 	}
 	r.logger.Debugf("reconfiguring with %s", diff)
 	draft := newDraftRobot(r, diff)
-	return draft.ProcessAndCommit(ctx)
+	err = draft.ProcessAndCommit(ctx)
+	if err != nil {
+		return err
+	}
+
+	// if metadata exists, update it
+	if m := service.ContextService(ctx); m != nil {
+		if err := r.UpdateMetadata(m); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // A draftRobot is responsible for the workflow of turning in

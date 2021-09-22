@@ -8,61 +8,7 @@ import (
 
 	"go.viam.com/core/metadata/service"
 	"go.viam.com/core/resource"
-	"go.viam.com/core/testutils/inject"
 )
-
-func TestPopulate(t *testing.T) {
-	var emptyNames = func() []string {
-		return []string{}
-	}
-	injectRobot := &inject.Robot{
-		ArmNamesFunc:      emptyNames,
-		BaseNamesFunc:     emptyNames,
-		BoardNamesFunc:    emptyNames,
-		CameraNamesFunc:   emptyNames,
-		FunctionNamesFunc: emptyNames,
-		GripperNamesFunc:  emptyNames,
-		LidarNamesFunc:    emptyNames,
-		RemoteNamesFunc:   emptyNames,
-		SensorNamesFunc:   emptyNames,
-	}
-
-	r, err := service.New()
-	test.That(t, err, test.ShouldBeNil)
-	err = r.Populate(injectRobot)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(r.All()), test.ShouldEqual, 1)
-	test.That(t, r.All()[0].Subtype, test.ShouldResemble, resource.ResourceSubtypeMetadata)
-
-	injectRobot.ArmNamesFunc = func() []string {
-		return []string{"arm1"}
-	}
-	injectRobot.BaseNamesFunc = func() []string {
-		return []string{"base1"}
-	}
-
-	r, err = service.New()
-	test.That(t, err, test.ShouldBeNil)
-	err = r.Populate(injectRobot)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(r.All()), test.ShouldEqual, 3)
-	test.That(t, r.All()[1].Name, test.ShouldEqual, "arm1")
-	test.That(t, r.All()[2].Name, test.ShouldEqual, "base1")
-
-	armUUID := r.All()[1].UUID
-	baseUUID := r.All()[2].UUID
-
-	r, err = service.New()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, err, test.ShouldBeNil)
-	err = r.Populate(injectRobot)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(r.All()), test.ShouldEqual, 3)
-	test.That(t, r.All()[1].Name, test.ShouldEqual, "arm1")
-	test.That(t, r.All()[1].UUID, test.ShouldNotEqual, armUUID)
-	test.That(t, r.All()[2].Name, test.ShouldEqual, "base1")
-	test.That(t, r.All()[2].UUID, test.ShouldNotEqual, baseUUID)
-}
 
 func TestAdd(t *testing.T) {
 	r, err := service.New()
