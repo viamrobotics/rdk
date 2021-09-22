@@ -17,16 +17,16 @@ import (
 	"go.viam.com/core/utils"
 )
 
-// init registers an arduino servo.
+// init registers an arduino motor.
 func init() {
 	registry.RegisterMotor(modelName, registry.Motor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error) {
 		if !config.Attributes.Has("config") {
-			return nil, errors.New("expected config for servo")
+			return nil, errors.New("expected config for motor")
 		}
 
 		motorConfig := config.Attributes["config"].(*motor.Config)
 		if motorConfig.BoardName == "" {
-			return nil, errors.New("expected board name in config for servo")
+			return nil, errors.New("expected board name in config for motor")
 		}
 		b, ok := r.BoardByName(motorConfig.BoardName)
 		if !ok {
