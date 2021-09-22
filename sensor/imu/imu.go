@@ -15,10 +15,6 @@ type IMU interface {
 	sensor.Sensor
 	// AngularVelocities returns rates of rotation across X, Y, Z axes measured in rad/s.
 	AngularVelocities(ctx context.Context) ([3]float64, error)
-	// Pitch returns current rotation around the X axis in rads.
-	Pitch(ctx context.Context) (float64, error)
-	// Roll returns current rotation around the Y axis in rads.
-	Roll(ctx context.Context) (float64, error)
-	// Yaw returns current rotation around the Z axis in rads.
-	Yaw(ctx context.Context) (float64, error)
+	// Orientation returns pitch (x), roll (y), and yaw (z) in rads.
+	Orientation(ctx context.Context) ([3]float64, error)
 }
