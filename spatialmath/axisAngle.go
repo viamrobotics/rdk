@@ -20,7 +20,7 @@ type R3AA struct {
 	RZ float64
 }
 
-// New R3AA creates an empty R3AA struct
+// NewR3AA creates an empty R3AA struct
 func NewR3AA() *R3AA {
 	return &R3AA{RX: 0, RY: 0, RZ: 0}
 }
@@ -33,7 +33,7 @@ type R4AA struct {
 	RZ    float64 `json:"z"`
 }
 
-// New R4AA creates an empty R4AA struct
+// NewR4AA creates an empty R4AA struct
 func NewR4AA() *R4AA {
 	return &R4AA{Theta: 0, RX: 1, RY: 0, RZ: 0}
 }
