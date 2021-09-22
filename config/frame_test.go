@@ -33,10 +33,13 @@ func TestOrientation(t *testing.T) {
 	test.That(t, o.EulerAngles().Yaw, test.ShouldAlmostEqual, math.Pi/2.)
 
 	// OrientationVecDegrees 90 degrees around z axis
-	ovd := &spatialmath.OrientationVecDegrees{Theta: 89.99999999999999, OX: 0, OY: 0, OZ: 1.0000000000000002}
+	ovd := &spatialmath.OrientationVecDegrees{Theta: 90, OX: 0, OY: 0, OZ: 1}
 	fc.OVDegrees = ovd
 	o = fc.Orientation()
-	test.That(t, o.OVD(), test.ShouldResemble, ovd)
+	test.That(t, o.OVD().Theta, test.ShouldAlmostEqual, 90)
+	test.That(t, o.OVD().OX, test.ShouldAlmostEqual, 0)
+	test.That(t, o.OVD().OY, test.ShouldAlmostEqual, 0)
+	test.That(t, o.OVD().OZ, test.ShouldAlmostEqual, 1)
 	test.That(t, o.EulerAngles().Roll, test.ShouldAlmostEqual, 0)
 	test.That(t, o.EulerAngles().Pitch, test.ShouldAlmostEqual, 0)
 	test.That(t, o.EulerAngles().Yaw, test.ShouldAlmostEqual, math.Pi/2.)
