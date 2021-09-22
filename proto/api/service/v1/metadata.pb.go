@@ -182,7 +182,7 @@ func (*ResourcesResponse) Descriptor() ([]byte, []int) {
 	return file_proto_api_service_v1_metadata_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *ResourcesResponse) All() []*ResourceName {
+func (x *ResourcesResponse) GetResources() []*ResourceName {
 	if x != nil {
 		return x.Resources
 	}
