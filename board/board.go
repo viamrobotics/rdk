@@ -160,9 +160,9 @@ type I2C interface {
 
 // I2CHandle is similar to an io handle. It MUST be closed to release the bus.
 type I2CHandle interface {
-	WriteBytes(ctx context.Context, addr byte, tx []byte) error
+	Write(ctx context.Context, addr byte, tx []byte) error
 
-	ReadBytes(ctx context.Context, addr byte, count int) ([]byte, error)
+	Read(ctx context.Context, addr byte, count int) ([]byte, error)
 
 	// Close closes the handle and releases the lock on the bus.
 	Close() error

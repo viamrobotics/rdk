@@ -505,8 +505,8 @@ type piPigpioI2CHandle struct {
 	isClosed bool
 }
 
-// WriteBytes will write the given slice of bytes to the given i2c address
-func (s *piPigpioI2CHandle) WriteBytes(ctx context.Context, addr byte, tx []byte) error {
+// Write will write the given slice of bytes to the given i2c address
+func (s *piPigpioI2CHandle) Write(ctx context.Context, addr byte, tx []byte) error {
 
 	if s.isClosed {
 		return errors.New("can't use WriteBytes() on an already closed I2CHandle")
@@ -540,8 +540,8 @@ func (s *piPigpioI2CHandle) WriteBytes(ctx context.Context, addr byte, tx []byte
 	return nil
 }
 
-// ReadBytes will read `count` bytes from the given address.
-func (s *piPigpioI2CHandle) ReadBytes(ctx context.Context, addr byte, count int) ([]byte, error) {
+// Read will read `count` bytes from the given address.
+func (s *piPigpioI2CHandle) Read(ctx context.Context, addr byte, count int) ([]byte, error) {
 
 	if s.isClosed {
 		return nil, errors.New("can't use ReadBytes() on an already closed I2CHandle")

@@ -17,12 +17,13 @@ import (
 	"github.com/edaniels/golog"
 )
 
-var (
+const (
 	boardName      = "gpsBoard"
-	logger         = golog.NewDevelopmentLogger("gps")
 	gpsAddr   byte = 0x10
 	dispAddr  byte = 0x3C
 )
+
+var logger = golog.NewDevelopmentLogger("gps")
 
 func main() {
 	utils.ContextualMain(mainWithArgs, logger)

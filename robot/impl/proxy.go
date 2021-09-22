@@ -708,7 +708,7 @@ func (p *proxyBoard) merge(newBoard board.Board, diff board.ConfigDiff) {
 			continue // should not happen
 		}
 		if err := utils.TryClose(toRemove); err != nil {
-			rlog.Logger.Errorw("error closing SPI but still reconfiguring", "error", err)
+			rlog.Logger.Errorw("error closing I2C but still reconfiguring", "error", err)
 		}
 		delete(p.i2cs, c.Name)
 	}

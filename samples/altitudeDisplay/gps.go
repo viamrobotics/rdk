@@ -19,8 +19,8 @@ func GpsAlt(ctx context.Context, handle board.I2CHandle) (float64, error) {
 	cmd314 := addChk([]byte("PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	cmd220 := addChk([]byte("PMTK220,1000"))
 
-	handle.WriteBytes(context.Background(), gpsAddr, cmd314)
-	handle.WriteBytes(context.Background(), gpsAddr, cmd220)
+	handle.Write(context.Background(), gpsAddr, cmd314)
+	handle.Write(context.Background(), gpsAddr, cmd220)
 
 	strBuf := ""
 
@@ -33,7 +33,7 @@ func GpsAlt(ctx context.Context, handle board.I2CHandle) (float64, error) {
 			return 0, nil
 		default:
 		}
-		buffer, err := handle.ReadBytes(context.Background(), gpsAddr, 32)
+		buffer, err := handle.Read(context.Background(), gpsAddr, 32)
 		if err != nil {
 			logger.Error(err)
 			continue
@@ -94,7 +94,7 @@ func clearBuffer(ctx context.Context, handle board.I2CHandle) {
 			return
 		default:
 		}
-		buffer, err := handle.ReadBytes(ctx, gpsAddr, 32)
+		buffer, err := handle.Read(ctx, gpsAddr, 32)
 		if err != nil {
 			logger.Error(err)
 			continue

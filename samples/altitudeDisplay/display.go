@@ -61,19 +61,19 @@ func initDisp(ctx context.Context, handle board.I2CHandle, startup bool) {
 		sh110xNORMALDISPLAY,      // 0xa6
 	}
 
-	handle.WriteBytes(ctx, dispAddr, init)
+	handle.Write(ctx, dispAddr, init)
 
 	time.Sleep(100 * time.Millisecond)
 
 	// turn on
-	handle.WriteBytes(ctx, dispAddr, []byte{0x00, 0xAF})
+	handle.Write(ctx, dispAddr, []byte{0x00, 0xAF})
 	if startup {
 		initAnimation(ctx, handle)
 	}
 }
 
 func checkInit(ctx context.Context, handle board.I2CHandle) {
-	buffer, _ := handle.ReadBytes(ctx, dispAddr, 1)
+	buffer, _ := handle.Read(ctx, dispAddr, 1)
 	if buffer[0] == 71 {
 		initDisp(ctx, handle, false)
 	}
@@ -121,15 +121,15 @@ func writeBuf(ctx context.Context, buf []byte, dispAddr byte, handle board.I2CHa
 	iter := 0
 	for reg = 0xB0; reg <= 0xBF; reg++ {
 		someBytes := []byte{0, reg, 0x10, 0}
-		handle.WriteBytes(context.Background(), dispAddr, someBytes)
+		handle.Write(context.Background(), dispAddr, someBytes)
 
 		someBytes = append([]byte{0x40}, buf[0+iter*64:31+iter*64]...)
-		handle.WriteBytes(context.Background(), dispAddr, someBytes)
+		handle.Write(context.Background(), dispAddr, someBytes)
 		someBytes = append([]byte{0x40}, buf[31+iter*64:62+iter*64]...)
-		handle.WriteBytes(context.Background(), dispAddr, someBytes)
+		handle.Write(context.Background(), dispAddr, someBytes)
 
 		someBytes = []byte{0x40, buf[62+iter*64], buf[63+iter*64]}
-		handle.WriteBytes(context.Background(), dispAddr, someBytes)
+		handle.Write(context.Background(), dispAddr, someBytes)
 
 		iter++
 	}

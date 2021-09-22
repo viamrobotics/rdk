@@ -76,12 +76,12 @@ type fakeI2CHandle struct {
 	bus *fakeI2C
 }
 
-func (h *fakeI2CHandle) WriteBytes(ctx context.Context, addr byte, tx []byte) error {
+func (h *fakeI2CHandle) Write(ctx context.Context, addr byte, tx []byte) error {
 	h.bus.fifo <- tx
 	return nil
 }
 
-func (h *fakeI2CHandle) ReadBytes(ctx context.Context, addr byte, count int) ([]byte, error) {
+func (h *fakeI2CHandle) Read(ctx context.Context, addr byte, count int) ([]byte, error) {
 	ret := <-h.bus.fifo
 	return ret[:count], nil
 }
