@@ -43,10 +43,6 @@ const (
 )
 
 func initDisp(ctx context.Context, handle board.I2CHandle, startup bool) {
-	// set contrast
-	contrast := []byte{0, 0x81, 0x2F}
-	handle.WriteBytes(ctx, dispAddr, contrast)
-
 	init := []byte{
 		0x00,
 		sh110xDISPLAYOFF,               // 0xAE
