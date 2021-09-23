@@ -16,9 +16,6 @@ import (
 	"go.viam.com/core/sensor/imu"
 )
 
-// ModelName is used to register the sensor to a model name.
-const ModelName = "iphone"
-
 // An Measurement is a struct representing the data collected by the IPhone.
 type Measurement struct {
 	RotationRateX *float64 `json:"motionRotationRateX,string"`
@@ -29,17 +26,6 @@ type Measurement struct {
 	Yaw           *float64 `json:"motionYaw,string"`
 	Heading       *float64 `json:"locationHeadingZ,string"`
 }
-
-////// TODO: IPhone is both an IMU and a compass. Should its type still be IMU? Should (can?) it be registered as both?
-//// init registers the iphone IMU type.
-//func init() {
-//	registry.RegisterSensor(imu.Type, ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-//		return New(config.Host, logger)
-//	})
-//	registry.RegisterSensor(compass.Type, ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-//		return New(config.Host, logger)
-//	})
-//}
 
 // IPhone is an iPhone based IMU.
 type IPhone struct {
@@ -117,15 +103,15 @@ func (ip *IPhone) StopCalibration(ctx context.Context) error {
 // TODO: maybe this should just constantly be running in the background pushing to some buffer, and the
 //       actual AngularVelocity/Orientation methods can just read from it
 func (ip *IPhone) readNextMeasurement(ctx context.Context) (*Measurement, error) {
-	timeout := time.Now().Add(100 * time.Millisecond)
+	timeout := time.Now().Add(500 * time.Millisecond)
 	ctx, cancel := context.WithDeadline(ctx, timeout)
 	defer cancel()
 
 	ch := make(chan string, 1)
 	go func() {
 		ip.mut.Lock()
+		defer ip.mut.Unlock()
 		measurement, err := ip.reader.ReadString('\n')
-		ip.mut.Unlock()
 		if err != nil {
 			ip.log.Errorf(err.Error(), err)
 		}
