@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	boardName      = "gpsBoard"
+	boardName      = "altimeterBoard"
 	gpsAddr   byte = 0x10
 	dispAddr  byte = 0x3C
 )
@@ -47,7 +47,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if !ok {
 		return fmt.Errorf("failed to find board %s", boardName)
 	}
-	i2c, _ := gpsBoard.I2CByName("gps")
+	i2c, _ := gpsBoard.I2CByName("bus1")
 	handle, err := i2c.OpenHandle()
 	if err != nil {
 		return err
