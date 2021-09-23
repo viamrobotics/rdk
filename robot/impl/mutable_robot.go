@@ -471,5 +471,29 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 		}
 		resources = append(resources, res)
 	}
+	for _, name := range r.ServoNames() {
+		res, err := resource.New(
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			resource.ResourceSubtypeServo,
+			name,
+		)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, res)
+	}
+	for _, name := range r.MotorNames() {
+		res, err := resource.New(
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			resource.ResourceSubtypeMotor,
+			name,
+		)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, res)
+	}
 	return svc.Replace(resources)
 }
