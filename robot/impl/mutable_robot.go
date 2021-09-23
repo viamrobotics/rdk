@@ -18,12 +18,14 @@ import (
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/metadata/service"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
+	"go.viam.com/core/servo"
 	"go.viam.com/core/status"
 
 	// registration
@@ -100,6 +102,18 @@ func (r *mutableRobot) SensorByName(name string) (sensor.Sensor, bool) {
 	return r.parts.SensorByName(name)
 }
 
+// ServoByName returns a servo by name. If it does not exist
+// nil is returned.
+func (r *mutableRobot) ServoByName(name string) (servo.Servo, bool) {
+	return r.parts.ServoByName(name)
+}
+
+// MotorByName returns a motor by name. If it does not exist
+// nil is returned.
+func (r *mutableRobot) MotorByName(name string) (motor.Motor, bool) {
+	return r.parts.MotorByName(name)
+}
+
 // AddCamera adds a camera to the robot.
 func (r *mutableRobot) AddCamera(c camera.Camera, cc config.Component) {
 	r.parts.AddCamera(c, cc)
@@ -153,6 +167,16 @@ func (r *mutableRobot) BoardNames() []string {
 // SensorNames returns the name of all known sensors.
 func (r *mutableRobot) SensorNames() []string {
 	return r.parts.SensorNames()
+}
+
+// ServoNames returns the name of all known servos.
+func (r *mutableRobot) ServoNames() []string {
+	return r.parts.ServoNames()
+}
+
+// MotorNames returns the name of all known motors.
+func (r *mutableRobot) MotorNames() []string {
+	return r.parts.MotorNames()
 }
 
 // FunctionNames returns the name of all known functions.
@@ -299,6 +323,30 @@ func (r *mutableRobot) newSensor(ctx context.Context, config config.Component, s
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
+func (r *mutableRobot) newServo(ctx context.Context, config config.Component) (servo.Servo, error) {
+	f := registry.ServoLookup(config.Model)
+	if f == nil {
+		return nil, errors.Errorf("unknown servo model: %s", config.Model)
+	}
+	return f.Constructor(ctx, r, config, r.logger)
+}
+
+func (r *mutableRobot) newMotor(ctx context.Context, config config.Component) (motor.Motor, error) {
+	f := registry.MotorLookup(config.Model)
+	if f == nil {
+		return nil, errors.Errorf("unknown motor model: %s", config.Model)
+	}
+	return f.Constructor(ctx, r, config, r.logger)
+}
+
+func (r *mutableRobot) newBoard(ctx context.Context, config config.Component) (board.Board, error) {
+	f := registry.BoardLookup(config.Model)
+	if f == nil {
+		return nil, errors.Errorf("unknown board model: %s", config.Model)
+	}
+	return f.Constructor(ctx, r, config, r.logger)
+}
+
 // Refresh does nothing for now
 func (r *mutableRobot) Refresh(ctx context.Context) error {
 	return nil
@@ -416,6 +464,30 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeSensor,
+			name,
+		)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, res)
+	}
+	for _, name := range r.ServoNames() {
+		res, err := resource.New(
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			resource.ResourceSubtypeServo,
+			name,
+		)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, res)
+	}
+	for _, name := range r.MotorNames() {
+		res, err := resource.New(
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			resource.ResourceSubtypeMotor,
 			name,
 		)
 		if err != nil {

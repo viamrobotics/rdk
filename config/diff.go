@@ -8,7 +8,6 @@ import (
 
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/board"
 	functionvm "go.viam.com/core/function/vm"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
@@ -29,7 +28,6 @@ type Diff struct {
 // ModifiedConfigDiff is the modificative different between two configs.
 type ModifiedConfigDiff struct {
 	Remotes    []Remote
-	Boards     map[string]board.ConfigDiff
 	Components []Component
 	Processes  []pexec.ProcessConfig
 	Functions  []functionvm.FunctionConfig
@@ -44,12 +42,10 @@ func DiffConfigs(left, right *Config) (*Diff, error) {
 	}
 
 	diff := Diff{
-		Left:  left,
-		Right: right,
-		Added: &Config{},
-		Modified: &ModifiedConfigDiff{
-			Boards: map[string]board.ConfigDiff{},
-		},
+		Left:       left,
+		Right:      right,
+		Added:      &Config{},
+		Modified:   &ModifiedConfigDiff{},
 		Removed:    &Config{},
 		PrettyDiff: PrettyDiff,
 	}
@@ -61,11 +57,6 @@ func DiffConfigs(left, right *Config) (*Diff, error) {
 	// If left contains something right does and they are equal => no diff
 	// Note: generics would be nice here!
 	different := diffRemotes(left.Remotes, right.Remotes, &diff)
-	boardsDifferent, err := diffBoards(left.Boards, right.Boards, &diff)
-	if err != nil {
-		return nil, err
-	}
-	different = boardsDifferent || different
 	componentsDifferent, err := diffComponents(left.Components, right.Components, &diff)
 	if err != nil {
 		return nil, err
@@ -148,251 +139,6 @@ func diffRemote(left, right Remote, diff *Diff) bool {
 	}
 	diff.Modified.Remotes = append(diff.Modified.Remotes, right)
 	return true
-}
-
-func diffBoards(left, right []board.Config, diff *Diff) (bool, error) {
-	leftIndex := make(map[string]int)
-	leftM := make(map[string]board.Config)
-	for idx, l := range left {
-		leftM[l.Name] = l
-		leftIndex[l.Name] = idx
-	}
-
-	var removed []int
-
-	var different bool
-	for _, r := range right {
-		l, ok := leftM[r.Name]
-		delete(leftM, r.Name)
-		if ok {
-			boardDifferent, err := diffBoard(l, r, diff)
-			if err != nil {
-				return false, err
-			}
-			different = boardDifferent || different
-			continue
-		}
-		diff.Added.Boards = append(diff.Added.Boards, r)
-		different = true
-	}
-
-	for k := range leftM {
-		removed = append(removed, leftIndex[k])
-		different = true
-	}
-	sort.Ints(removed)
-	for _, idx := range removed {
-		diff.Removed.Boards = append(diff.Removed.Boards, left[idx])
-	}
-	return different, nil
-}
-
-func diffBoard(left, right board.Config, diff *Diff) (bool, error) {
-	if reflect.DeepEqual(left, right) {
-		return false, nil
-	}
-
-	boardDiff := board.ConfigDiff{
-		Left:  &left,
-		Right: &right,
-		Added: &board.Config{
-			Name:  right.Name,
-			Model: right.Model,
-		},
-		Modified: &board.Config{
-			Name:  right.Name,
-			Model: right.Model,
-		},
-		Removed: &board.Config{
-			Name:  right.Name,
-			Model: right.Model,
-		},
-	}
-
-	different := diffBoardMotors(left.Motors, right.Motors, &boardDiff)
-	different = diffBoardServos(left.Servos, right.Servos, &boardDiff) || different
-	different = diffBoardAnalogs(left.Analogs, right.Analogs, &boardDiff) || different
-	interruptsDifferent, err := diffBoardDigitalInterrupts(left.DigitalInterrupts, right.DigitalInterrupts, &boardDiff)
-	if err != nil {
-		return false, err
-	}
-	different = interruptsDifferent || different
-
-	if !different {
-		return false, nil
-	}
-
-	diff.Modified.Boards[right.Name] = boardDiff
-	return true, nil
-}
-
-func diffBoardMotors(left, right []board.MotorConfig, diff *board.ConfigDiff) bool {
-	leftIndex := make(map[string]int)
-	leftM := make(map[string]board.MotorConfig)
-	for idx, l := range left {
-		leftM[l.Name] = l
-		leftIndex[l.Name] = idx
-	}
-
-	var removed []int
-
-	var different bool
-	for _, r := range right {
-		l, ok := leftM[r.Name]
-		delete(leftM, r.Name)
-		if ok {
-			different = diffBoardMotor(l, r, diff) || different
-			continue
-		}
-		diff.Added.Motors = append(diff.Added.Motors, r)
-		different = true
-	}
-
-	for k := range leftM {
-		removed = append(removed, leftIndex[k])
-		different = true
-	}
-	sort.Ints(removed)
-	for _, idx := range removed {
-		diff.Removed.Motors = append(diff.Removed.Motors, left[idx])
-	}
-	return different
-}
-
-func diffBoardMotor(left, right board.MotorConfig, diff *board.ConfigDiff) bool {
-	if reflect.DeepEqual(left, right) {
-		return false
-	}
-	diff.Modified.Motors = append(diff.Modified.Motors, right)
-	return true
-}
-
-func diffBoardServos(left, right []board.ServoConfig, diff *board.ConfigDiff) bool {
-	leftIndex := make(map[string]int)
-	leftM := make(map[string]board.ServoConfig)
-	for idx, l := range left {
-		leftM[l.Name] = l
-		leftIndex[l.Name] = idx
-	}
-
-	var removed []int
-
-	var different bool
-	for _, r := range right {
-		l, ok := leftM[r.Name]
-		delete(leftM, r.Name)
-		if ok {
-			different = diffBoardServo(l, r, diff) || different
-			continue
-		}
-		diff.Added.Servos = append(diff.Added.Servos, r)
-		different = true
-	}
-
-	for k := range leftM {
-		removed = append(removed, leftIndex[k])
-		different = true
-	}
-	sort.Ints(removed)
-	for _, idx := range removed {
-		diff.Removed.Servos = append(diff.Removed.Servos, left[idx])
-	}
-	return different
-}
-
-func diffBoardServo(left, right board.ServoConfig, diff *board.ConfigDiff) bool {
-	if reflect.DeepEqual(left, right) {
-		return false
-	}
-	diff.Modified.Servos = append(diff.Modified.Servos, right)
-	return true
-}
-
-func diffBoardAnalogs(left, right []board.AnalogConfig, diff *board.ConfigDiff) bool {
-	leftIndex := make(map[string]int)
-	leftM := make(map[string]board.AnalogConfig)
-	for idx, l := range left {
-		leftM[l.Name] = l
-		leftIndex[l.Name] = idx
-	}
-
-	var removed []int
-
-	var different bool
-	for _, r := range right {
-		l, ok := leftM[r.Name]
-		delete(leftM, r.Name)
-		if ok {
-			different = diffBoardAnalog(l, r, diff) || different
-			continue
-		}
-		diff.Added.Analogs = append(diff.Added.Analogs, r)
-		different = true
-	}
-
-	for k := range leftM {
-		removed = append(removed, leftIndex[k])
-		different = true
-	}
-	sort.Ints(removed)
-	for _, idx := range removed {
-		diff.Removed.Analogs = append(diff.Removed.Analogs, left[idx])
-	}
-	return different
-}
-
-func diffBoardAnalog(left, right board.AnalogConfig, diff *board.ConfigDiff) bool {
-	if reflect.DeepEqual(left, right) {
-		return false
-	}
-	diff.Modified.Analogs = append(diff.Modified.Analogs, right)
-	return true
-}
-
-func diffBoardDigitalInterrupts(left, right []board.DigitalInterruptConfig, diff *board.ConfigDiff) (bool, error) {
-	leftIndex := make(map[string]int)
-	leftM := make(map[string]board.DigitalInterruptConfig)
-	for idx, l := range left {
-		leftM[l.Name] = l
-		leftIndex[l.Name] = idx
-	}
-
-	var removed []int
-
-	var different bool
-	for _, r := range right {
-		l, ok := leftM[r.Name]
-		delete(leftM, r.Name)
-		if ok {
-			interruptDiffrent, err := diffBoardDigitalInterrupt(l, r, diff)
-			if err != nil {
-				return false, err
-			}
-			different = interruptDiffrent || different
-			continue
-		}
-		diff.Added.DigitalInterrupts = append(diff.Added.DigitalInterrupts, r)
-		different = true
-	}
-
-	for k := range leftM {
-		removed = append(removed, leftIndex[k])
-		different = true
-	}
-	sort.Ints(removed)
-	for _, idx := range removed {
-		diff.Removed.DigitalInterrupts = append(diff.Removed.DigitalInterrupts, left[idx])
-	}
-	return different, nil
-}
-
-func diffBoardDigitalInterrupt(
-	left, right board.DigitalInterruptConfig, diff *board.ConfigDiff) (bool, error) {
-	if reflect.DeepEqual(left, right) {
-		return false, nil
-	}
-	diff.Modified.DigitalInterrupts = append(diff.Modified.DigitalInterrupts, right)
-	return true, nil
 }
 
 func diffComponents(left, right []Component, diff *Diff) (bool, error) {

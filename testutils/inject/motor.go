@@ -3,13 +3,13 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 )
 
 // Motor is an injected motor.
 type Motor struct {
-	board.Motor
+	motor.Motor
 	PowerFunc             func(ctx context.Context, powerPct float32) error
 	GoFunc                func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error
 	GoForFunc             func(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error

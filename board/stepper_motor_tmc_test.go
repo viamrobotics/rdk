@@ -1,4 +1,4 @@
-package board
+package board_test
 
 import (
 	"context"
@@ -6,13 +6,17 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/board"
+	"go.viam.com/core/config"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/robots/fake"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 )
 
-// check is essentially test.That with tb.Error instead of tb.Fatal (Fatal exits and leaves fakeSPI stuck waiting)
+// check is essentially test.That with tb.Error instead of tb.Fatal (Fatal exits and leaves fake.SPI stuck waiting)
 func check(tb testing.TB, actual interface{}, assert func(actual interface{}, expected ...interface{}) string, expected ...interface{}) {
 	tb.Helper()
 	if result := assert(actual, expected...); result != "" {
@@ -39,23 +43,15 @@ func checkRx(t *testing.T, c chan []byte, expects [][]byte, sends [][]byte) {
 
 func TestTMCStepperMotor(t *testing.T) {
 	ctx := context.Background()
-	b := &FakeBoard{}
+	b := &fake.Board{}
 	logger := golog.NewTestLogger(t)
 	c := make(chan []byte)
-	b.spis = map[string]*fakeSPI{}
-	b.spis["main"] = &fakeSPI{fifo: c}
-	mc := MotorConfig{
-		Model:            "TMC5072",
+	b.SPIs = map[string]*fake.SPI{}
+	b.SPIs["main"] = &fake.SPI{FIFO: c}
+	mc := motor.Config{
 		MaxAcceleration:  500,
 		MaxRPM:           500,
 		TicksPerRotation: 200,
-		Attributes: map[string]string{
-			"spi_bus":     "main",
-			"chip_select": "40",
-			"index":       "0",
-			"sg_thresh":   "0",
-			"cal_factor":  "1.0",
-		},
 	}
 
 	// These are the setup register writes
@@ -75,7 +71,15 @@ func TestTMCStepperMotor(t *testing.T) {
 		{160, 0, 0, 0, 1},
 		{161, 0, 0, 0, 0},
 	})
-	m, err := NewTMCStepperMotor(context.Background(), b, mc, logger)
+	m, err := board.NewTMCStepperMotor(context.Background(), b, config.Component{
+		Attributes: config.AttributeMap{
+			"spi_bus":     "main",
+			"chip_select": "40",
+			"index":       "0",
+			"sg_thresh":   "0",
+			"cal_factor":  "1.0",
+		},
+	}, mc, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(m), test.ShouldBeNil)
