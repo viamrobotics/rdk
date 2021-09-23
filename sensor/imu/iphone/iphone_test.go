@@ -66,10 +66,13 @@ func TestAngularVelocities(t *testing.T) {
 
 	// Succeed if IPhone is serving valid AngularVelocity Data, and confirm that the
 	// data is what is expected.
-	err = sendIMUData(l)
-	if err != nil {
-		t.Fatal(err)
-	}
+	go func() {
+		err := sendIMUData(l)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+	
 	time.Sleep(time.Millisecond * 100)
 	ret, err := ip.AngularVelocities(context.Background())
 	test.That(t, err, test.ShouldBeNil)
