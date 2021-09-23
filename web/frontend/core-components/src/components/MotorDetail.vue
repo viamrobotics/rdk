@@ -198,7 +198,6 @@ class MotorCommand {
         };
         break;
     }
-    console.log(toReturn);
     return toReturn;
   }
 
@@ -234,7 +233,6 @@ class MotorCommand {
         };
         break;
     }
-    console.log(toReturn);
     return toReturn;
   }
 }
