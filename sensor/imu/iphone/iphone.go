@@ -42,6 +42,7 @@ func init() {
 
 // IPhone is an iPhone based IMU.
 type IPhone struct {
+	// TODO: Our reader will be bufSize out of date at any given point. Maybe a problem?
 	reader *bufio.Reader // Read connection to iPhone to pull sensor data from.
 }
 
@@ -52,20 +53,9 @@ func New(ctx context.Context, host string, logger golog.Logger) (imu *IPhone, er
 		return nil, err
 	}
 
-	// TODO: check if iPhone is actually sending necessary data? fail fast and all
-	//       but also that would require the iphone to be on whenever this component is initialized.
-	//       So when would that happen?
-	if err = validateReceivingIMUData(conn); err != nil {
-		return nil, err
-	}
-
 	r := bufio.NewReader(conn)
 
 	return &IPhone{reader: r}, nil
-}
-
-func validateReceivingIMUData(conn net.Conn) error {
-	return nil
 }
 
 // Desc returns a description of the IMU.
