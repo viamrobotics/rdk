@@ -123,7 +123,13 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from "vue-property-decorator";
-import { MotorStatus } from "proto/robot_pb";
+import {
+  MotorStatus,
+  DirectionRelative,
+  BoardMotorGoRequest,
+  BoardMotorGoForRequest,
+  BoardMotorGoToRequest,
+} from "proto/robot_pb";
 
 enum MotorCommandType {
   Go = "go",
@@ -131,16 +137,11 @@ enum MotorCommandType {
   GoTo = "goTo",
 }
 
-enum MotorDirection {
-  Forward = "forward",
-  Backward = "backward",
-}
-
 class MotorCommand {
   type = MotorCommandType.Go;
   position = 0;
   speed = 0;
-  direction = MotorDirection.Forward;
+  direction: 0 | 1 | 2 = DirectionRelative.DIRECTION_RELATIVE_FORWARD;
   revolutions = 0;
 
   static MAX_RPM = 160;
@@ -201,39 +202,30 @@ class MotorCommand {
     return toReturn;
   }
 
-  asObject(): Record<string, unknown> {
-    let toReturn = { type: this.type.toString() };
+  asObject(): { type: string; request: unknown } {
+    let req;
     switch (this.type) {
       case MotorCommandType.Go:
-        toReturn = {
-          ...toReturn,
-          ...{
-            d: this.direction.toString(),
-            s: this.speed / 160,
-          },
-        };
+        req = new BoardMotorGoRequest();
+        req.setDirection(this.direction);
+        req.setPowerPct(this.speed / 160);
         break;
       case MotorCommandType.GoFor:
-        toReturn = {
-          ...toReturn,
-          ...{
-            d: this.direction.toString(),
-            s: this.speed,
-            r: this.revolutions,
-          },
-        };
+        req = new BoardMotorGoForRequest();
+        req.setDirection(this.direction);
+        req.setRpm(this.speed);
+        req.setRevolutions(this.revolutions);
         break;
       case MotorCommandType.GoTo:
-        toReturn = {
-          ...toReturn,
-          ...{
-            s: this.speed,
-            p: this.position,
-          },
-        };
+        req = new BoardMotorGoToRequest();
+        req.setRpm(this.speed);
+        req.setPosition(this.position);
         break;
     }
-    return toReturn;
+    return {
+      type: this.type.toString(),
+      request: req,
+    };
   }
 }
 
@@ -258,12 +250,15 @@ export default class MotorDetail extends Vue {
   }
 
   get isGoingForward(): boolean {
-    return this.motorCommand.direction === MotorDirection.Forward;
+    return (
+      this.motorCommand.direction ===
+      DirectionRelative.DIRECTION_RELATIVE_FORWARD
+    );
   }
   set isGoingForward(forward: boolean) {
     this.motorCommand.direction = forward
-      ? MotorDirection.Forward
-      : MotorDirection.Backward;
+      ? DirectionRelative.DIRECTION_RELATIVE_FORWARD
+      : DirectionRelative.DIRECTION_RELATIVE_BACKWARD;
   }
 
   get position(): number {
@@ -308,7 +303,9 @@ export default class MotorDetail extends Vue {
   }
 
   stop(): void {
-    this.$emit("execute", { d: "none", s: 0 });
+    const req = new BoardMotorGoRequest();
+    req.setPowerPct(0);
+    this.$emit("execute", { type: MotorCommandType.Go, request: req });
   }
 
   emitCommand(): void {
