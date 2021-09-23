@@ -72,7 +72,7 @@ func TestAngularVelocities(t *testing.T) {
 			t.Fatal(err)
 		}
 	}()
-	
+
 	time.Sleep(time.Millisecond * 100)
 	ret, err := ip.AngularVelocities(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -96,11 +96,11 @@ func sendIMUData(l net.Listener) error {
 	if err != nil {
 		return err
 	}
+	b, err := json.Marshal(goodIMUData)
+	if err != nil {
+		return err
+	}
 	for {
-		b, err := json.Marshal(goodIMUData)
-		if err != nil {
-			return err
-		}
 		_, err = conn.Write(b)
 		if err != nil {
 			return err
