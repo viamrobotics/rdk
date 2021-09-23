@@ -245,6 +245,14 @@ func (b *arduinoBoard) configure(cfg board.Config) error {
 		return fmt.Errorf("arduino doesn't support DigitalInterrupts yet %v", c)
 	}
 
+	for _, c := range cfg.SPIs {
+		return fmt.Errorf("arduino doesn't support SPI yet %v", c)
+	}
+
+	for _, c := range cfg.I2Cs {
+		return fmt.Errorf("arduino doesn't support I2C yet %v", c)
+	}
+
 	return nil
 }
 
