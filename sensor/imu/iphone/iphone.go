@@ -1,4 +1,4 @@
-// Package iPhone defines an IMU using sensor data provided by an iPhone.
+// Package iPhone defines an IMU and Compass using sensor data provided by an iPhone.
 package iphone
 
 import (
@@ -10,6 +10,7 @@ import (
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
+	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/imu"
 	"net"
 	"time"
@@ -22,14 +23,19 @@ type iphoneMeasurement struct {
 	RotationRateX *float64 `json:"motionRotationRateX,string"`
 	RotationRateY *float64 `json:"motionRotationRateY,string"`
 	RotationRateZ *float64 `json:"motionRotationRateZ,string"`
-	Pitch *float64 `json:"motionPitc,string"`
+	Pitch *float64 `json:"motionPitch,string"`
 	Roll *float64 `json:"motionRoll,string"`
 	Yaw *float64 `json:"motionYaw,string"`
+	Heading *float64 `json:"locationHeadingZ,string"`
 }
 
+// TODO: IPhone is both an IMU and a compass. Should its type still be IMU? Should (can?) it be registered as both?
 // init registers the iphone IMU type.
 func init() {
 	registry.RegisterSensor(imu.Type, ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+		return New(ctx, config.Host, logger)
+	})
+	registry.RegisterSensor(compass.Type, ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 		return New(ctx, config.Host, logger)
 	})
 }
@@ -93,6 +99,24 @@ func (ip *IPhone) Orientation(ctx context.Context) ([3]float64, error) {
 	return ret, nil
 }
 
+func (ip *IPhone) Heading(ctx context.Context) (float64, error) {
+	imuReading, err := ip.readNextMeasurement()
+	if err != nil {
+		return 0, err
+	}
+
+	return *imuReading.Heading, nil
+}
+
+func (ip *IPhone) StartCalibration(ctx context.Context) error {
+	return nil
+}
+
+
+func (ip *IPhone) StopCalibration(ctx context.Context) error {
+	return nil
+}
+
 // TODO: maybe this should just constantly be running in the background pushing to some buffer, and the
 //       actual AngularVelocity/Orientation methods can just read from it
 func (ip *IPhone) readNextMeasurement() (*iphoneMeasurement, error) {
@@ -110,7 +134,10 @@ func (ip *IPhone) readNextMeasurement() (*iphoneMeasurement, error) {
 	return imuReading, nil
 }
 
-// Readings returns the currently predicted heading.
+// Readings returns an array containing:
+// [0]: [3]float64 of angular velocities in rads/s
+// [1]: [3]float64 of pitch, roll, yaw in rads
+// [2]: float64 of the heading in degrees
 func (ip *IPhone) Readings(ctx context.Context) ([]interface{}, error) {
 	velos, err := ip.AngularVelocities(ctx)
 	if err != nil {
@@ -121,5 +148,11 @@ func (ip *IPhone) Readings(ctx context.Context) ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []interface{}{velos, orient}, nil
+
+	heading, err := ip.Heading(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return []interface{}{velos, orient, heading}, nil
 }
