@@ -12,6 +12,44 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
+func TestOrientationConsistency(t *testing.T) {
+	// represent a 45 degree rotation around the x axis in all the representations
+	th := math.Pi / 4.
+	q := quat.Number{math.Cos(th / 2.), math.Sin(th / 2.), 0, 0}              // in quaternion representation
+	aa := &R4AA{th, 1., 0., 0.}                                               // in axis-angle representation
+	ea := &EulerAngles{Roll: th, Pitch: 0, Yaw: 0}                            // in euler angle representation
+	ov := &OrientationVec{2. * th, 0., -math.Sqrt(2) / 2., math.Sqrt(2) / 2.} // in orientation vector representation
+	ovd := &OrientationVecDegrees{90., 0., -math.Sqrt(2) / 2, math.Sqrt(2) / 2}
+
+	qo := NewOrientationFromQuaternion(q)
+	aao := NewOrientationFromAxisAngles(aa)
+	eao := NewOrientationFromEulerAngles(ea)
+	ovo := NewOrientationFromOV(ov)
+	ovdo := NewOrientationFromOVD(ovd)
+
+	// axis angle
+	test.That(t, aao.(*quaternion).Real, test.ShouldAlmostEqual, qo.(*quaternion).Real)
+	test.That(t, aao.(*quaternion).Imag, test.ShouldAlmostEqual, qo.(*quaternion).Imag)
+	test.That(t, aao.(*quaternion).Jmag, test.ShouldAlmostEqual, qo.(*quaternion).Jmag)
+	test.That(t, aao.(*quaternion).Kmag, test.ShouldAlmostEqual, qo.(*quaternion).Kmag)
+	// euler angle
+	test.That(t, eao.(*quaternion).Real, test.ShouldAlmostEqual, qo.(*quaternion).Real)
+	test.That(t, eao.(*quaternion).Imag, test.ShouldAlmostEqual, qo.(*quaternion).Imag)
+	test.That(t, eao.(*quaternion).Jmag, test.ShouldAlmostEqual, qo.(*quaternion).Jmag)
+	test.That(t, eao.(*quaternion).Kmag, test.ShouldAlmostEqual, qo.(*quaternion).Kmag)
+	// orientation vec
+	test.That(t, ovo.(*quaternion).Real, test.ShouldAlmostEqual, qo.(*quaternion).Real)
+	test.That(t, ovo.(*quaternion).Imag, test.ShouldAlmostEqual, qo.(*quaternion).Imag)
+	test.That(t, ovo.(*quaternion).Jmag, test.ShouldAlmostEqual, qo.(*quaternion).Jmag)
+	test.That(t, ovo.(*quaternion).Kmag, test.ShouldAlmostEqual, qo.(*quaternion).Kmag)
+	// orientation vec degrees
+	test.That(t, ovdo.(*quaternion).Real, test.ShouldAlmostEqual, qo.(*quaternion).Real)
+	test.That(t, ovdo.(*quaternion).Imag, test.ShouldAlmostEqual, qo.(*quaternion).Imag)
+	test.That(t, ovdo.(*quaternion).Jmag, test.ShouldAlmostEqual, qo.(*quaternion).Jmag)
+	test.That(t, ovdo.(*quaternion).Kmag, test.ShouldAlmostEqual, qo.(*quaternion).Kmag)
+
+}
+
 func TestZeroOrientation(t *testing.T) {
 	zero := NewZeroOrientation()
 	test.That(t, zero.OV(), test.ShouldResemble, NewOrientationVec())
