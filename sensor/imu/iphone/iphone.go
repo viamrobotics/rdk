@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"sync"
 	"time"
 
 	"go.viam.com/core/config"
@@ -50,6 +51,7 @@ type IPhone struct {
 	// TODO: Our reader will be bufSize out of date at any given point. Maybe a problem?
 	reader *bufio.Reader // Read connection to iPhone to pull sensor data from.
 	log    golog.Logger
+	mut    *sync.Mutex
 }
 
 // New returns a new IPhone IMU that that pulls data from the iPhone at host.
@@ -61,7 +63,7 @@ func New(host string, logger golog.Logger) (imu *IPhone, err error) {
 
 	r := bufio.NewReader(conn)
 
-	return &IPhone{reader: r, log: logger}, nil
+	return &IPhone{reader: r, log: logger, mut: &sync.Mutex{}}, nil
 }
 
 // Desc returns a description of the IMU.
@@ -126,7 +128,9 @@ func (ip *IPhone) readNextMeasurement(ctx context.Context) (*Measurement, error)
 
 	ch := make(chan string, 1)
 	go func() {
+		ip.mut.Lock()
 		measurement, err := ip.reader.ReadString('\n')
+		ip.mut.Unlock()
 		if err != nil {
 			ip.log.Errorf(err.Error(), err)
 		}
