@@ -34,6 +34,7 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/servo"
 
 	"github.com/edaniels/golog"
@@ -298,6 +299,9 @@ func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 		return &compassClient{sc}, true
 	case compass.RelativeType:
 		return &relativeCompassClient{&compassClient{sc}}, true
+	case imu.Type:
+		return &imuClient{sc}, true
+		// return sc, true
 	default:
 		return sc, true
 	}
@@ -1198,4 +1202,63 @@ func (mc *motorClient) Zero(ctx context.Context, offset float64) error {
 		Offset: offset,
 	})
 	return err
+
+type imuClient struct {
+	*sensorClient
+}
+
+func (imuC *imuClient) AngularVelocities(ctx context.Context) ([3]float64, error) {
+	// var emptyVec [3]float64
+	// var imuDevice imu.IMU
+	// sensorNames := imuC.rc.SensorNames()
+	// for _, name := range sensorNames {
+	// 	sensorDevice, ok := imuC.rc.SensorByName(name)
+	// 	if !ok {
+	// 		continue
+	// 	}
+	// 	if c, ok := sensorDevice.(imu.IMU); ok {
+	// 		imuDevice = c
+	// 		break
+	// 	}
+	// }
+	// if imuDevice == nil {
+	// 	// return nil, multierr.Combine(errors.New("no imu devices found"), robotClient.Close())
+	// 	return emptyVec, errors.New("no imu devices found")
+	// }
+	// resp, err := imuDevice.AngularVelocities(ctx)
+
+	// if err != nil {
+	// 	return emptyVec, err
+	// }
+	// return resp, nil
+	result := [3]float64{5.2, 1.0, -0.9}
+	return result, nil
+}
+
+func (imuC *imuClient) Orientation(ctx context.Context) ([3]float64, error) {
+	// var emptyVec [3]float64
+	// var imuDevice imu.IMU
+	// sensorNames := imuC.rc.SensorNames()
+	// for _, name := range sensorNames {
+	// 	sensorDevice, ok := imuC.rc.SensorByName(name)
+	// 	if !ok {
+	// 		continue
+	// 	}
+	// 	if c, ok := sensorDevice.(imu.IMU); ok {
+	// 		imuDevice = c
+	// 		break
+	// 	}
+	// }
+	// if imuDevice == nil {
+	// 	// return nil, multierr.Combine(errors.New("no imu devices found"), robotClient.Close())
+	// 	return emptyVec, errors.New("no imu devices found")
+	// }
+	// resp, err := imuDevice.Orientation(ctx)
+
+	// if err != nil {
+	// 	return emptyVec, err
+	// }
+	// return resp, nil
+	result := [3]float64{5.2, 1.0, -0.9}
+	return result, nil
 }

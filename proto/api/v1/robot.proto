@@ -322,6 +322,20 @@ service RobotService {
     };
   }
 
+    // IMU
+
+  rpc ImuAngularVelocity(ImuAngularVelocityRequest) returns (ImuAngularVelocityResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/sensors/imu/{name}/angularVelocity"
+    };
+  }
+
+  rpc ImuOrientation(ImuOrientationRequest) returns (ImuOrientationResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/sensors/imu/{name}/orientation"
+    };
+  }
+
   // TODO(erd): refactor to functions service
   rpc ExecuteFunction(ExecuteFunctionRequest) returns (ExecuteFunctionResponse) {
     option (google.api.http) = {
@@ -866,6 +880,26 @@ enum DirectionRelative {
   DIRECTION_RELATIVE_FORWARD = 1;
   DIRECTION_RELATIVE_BACKWARD = 2;
 }
+
+// IMU
+
+message ImuAngularVelocityRequest {
+  string name = 1;
+}
+
+message ImuOrientationRequest {
+  string name = 1;
+}
+
+message ImuAngularVelocityResponse {
+  repeated double angular_velocity = 3;
+}
+
+message ImuOrientationResponse {
+  repeated double orientation = 3;
+}
+
+// Execution
 
 message ExecuteFunctionRequest {
   string name = 1;
