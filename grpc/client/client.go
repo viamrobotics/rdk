@@ -210,22 +210,27 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 
 	var cfg config.Config
 	for _, c := range remoteConfig.Components {
-		cfg.Components = append(cfg.Components, config.Component{
-			Name:   c.Name,
-			Type:   config.ComponentType(c.Type),
-			Parent: c.Parent,
-			ParentTranslation: config.Translation{
-				X: c.Translation.X,
-				Y: c.Translation.Y,
-				Z: c.Translation.Z,
+		cc := config.Component{
+			Name: c.Name,
+			Type: config.ComponentType(c.Type),
+			Frame: &config.FrameConfig{
+				Parent: c.Parent,
 			},
-			ParentOrientation: config.Orientation{
-				X:  c.Translation.OX,
-				Y:  c.Translation.OY,
-				Z:  c.Translation.OZ,
-				TH: c.Translation.Theta,
-			},
-		})
+		}
+		if c.Pose != nil {
+			cc.Frame.Translation = config.Translation{
+				X: c.Pose.X,
+				Y: c.Pose.Y,
+				Z: c.Pose.Z,
+			}
+			cc.Frame.Orientation = config.Orientation{
+				X:  c.Pose.OX,
+				Y:  c.Pose.OY,
+				Z:  c.Pose.OZ,
+				TH: c.Pose.Theta,
+			}
+		}
+		cfg.Components = append(cfg.Components, cc)
 	}
 	return &cfg, nil
 }
@@ -474,8 +479,8 @@ func (rc *RobotClient) ProcessManager() pexec.ProcessManager {
 	return pexec.NoopProcessManager
 }
 
-// FrameLookup not implemented for remote robots
-func (rc *RobotClient) FrameLookup(ctx context.Context) (referenceframe.FrameLookup, error) {
+// FrameSystem not implemented for remote robots
+func (rc *RobotClient) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
 	debug.PrintStack()
 	return nil, errUnimplemented
 }

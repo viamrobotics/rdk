@@ -10,7 +10,6 @@ import (
 	"go.viam.com/core/utils"
 
 	"github.com/go-errors/errors"
-	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/num/quat"
 )
@@ -19,8 +18,8 @@ import (
 // end effector as a protobuf ArmPosition. This is performed statelessly without changing any data.
 func ComputePosition(model *Model, joints *pb.JointPositions) (*pb.ArmPosition, error) {
 
-	if len(joints.Degrees) != model.Dof() {
-		return nil, errors.Errorf("incorrect number of joints passed to ComputePosition. Want: %d, got: %d", model.Dof(), len(joints.Degrees))
+	if len(joints.Degrees) != len(model.Dof()) {
+		return nil, errors.Errorf("incorrect number of joints passed to ComputePosition. Want: %d, got: %d", len(model.Dof()), len(joints.Degrees))
 	}
 
 	radAngles := make([]float64, len(joints.Degrees))
@@ -28,53 +27,12 @@ func ComputePosition(model *Model, joints *pb.JointPositions) (*pb.ArmPosition, 
 		radAngles[i] = utils.DegToRad(angle)
 	}
 
-	return JointRadToQuat(model, radAngles).ToArmPos(), nil
-}
-
-// JointRadToQuat takes a model and a list of joint angles in radians and computes the dual quaternion representing the
-// cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
-func JointRadToQuat(model *Model, radAngles []float64) *spatialmath.DualQuaternion {
-	quats := model.GetQuaternions(radAngles)
-	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
-	startPos := spatialmath.NewDualQuaternion()
-	for _, quat := range quats {
-		startPos.Quat = startPos.Transformation(quat.Quat)
+	pose, err := model.JointRadToQuat(radAngles)
+	if err != nil {
+		return nil, err
 	}
-	return startPos
-}
 
-// ZeroInlineRotation will look for joint angles that are approximately complementary (e.g. 0.5 and -0.5) and check if they
-// are inline by seeing if moving both closer to zero changes the 6d position. If they appear to be inline it will set
-// both to zero if they are not. This should avoid needless twists of inline joints.
-func ZeroInlineRotation(m *Model, angles []float64) []float64 {
-	epsilon := 0.0001
-
-	newAngles := make([]float64, len(angles))
-	copy(newAngles, angles)
-
-	for i, angle1 := range angles {
-		for j := i + 1; j < len(angles); j++ {
-			angle2 := angles[j]
-			if mgl64.FloatEqualThreshold(angle1*-1, angle2, epsilon) {
-				tempAngles := make([]float64, len(angles))
-				copy(tempAngles, angles)
-				tempAngles[i] = 0
-				tempAngles[j] = 0
-
-				// These angles are complementary
-				pos1 := JointRadToQuat(m, angles)
-				pos2 := JointRadToQuat(m, tempAngles)
-				distance := SquaredNorm(pos1.ToDelta(pos2))
-
-				// Check we did not move the end effector too much
-				if distance < epsilon*epsilon {
-					newAngles[i] = 0
-					newAngles[j] = 0
-				}
-			}
-		}
-	}
-	return newAngles
+	return spatialmath.PoseToArmPos(pose), nil
 }
 
 // deriv will compute D(q), the derivative of q = e^w with respect to w

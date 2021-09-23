@@ -20,12 +20,12 @@ import (
 var armModelJSON string
 
 func init() {
-	registry.RegisterArm("fake_ik", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+	registry.RegisterArm("fake_ik", registry.Arm{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 		if config.Attributes.Bool("fail_new", false) {
 			return nil, errors.New("whoops")
 		}
 		return NewArmIK(config.Name, logger)
-	})
+	}})
 }
 
 // NewArmIK returns a new fake arm.
@@ -60,7 +60,7 @@ func (a *ArmIK) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(a.ik.Mdl(), joints)
+	return kinematics.ComputePosition(a.ik.Model(), joints)
 }
 
 // MoveToPosition sets the position.
