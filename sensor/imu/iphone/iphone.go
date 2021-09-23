@@ -5,6 +5,8 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/edaniels/golog"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
@@ -19,7 +21,7 @@ import (
 // ModelName is used to register the sensor to a model name.
 const ModelName = "iphone"
 
-type iphoneMeasurement struct {
+type IPhoneMeasurement struct {
 	RotationRateX *float64 `json:"motionRotationRateX,string"`
 	RotationRateY *float64 `json:"motionRotationRateY,string"`
 	RotationRateZ *float64 `json:"motionRotationRateZ,string"`
@@ -33,10 +35,10 @@ type iphoneMeasurement struct {
 // init registers the iphone IMU type.
 func init() {
 	registry.RegisterSensor(imu.Type, ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-		return New(ctx, config.Host, logger)
+		return New(config.Host, logger)
 	})
 	registry.RegisterSensor(compass.Type, ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-		return New(ctx, config.Host, logger)
+		return New(config.Host, logger)
 	})
 }
 
@@ -44,10 +46,11 @@ func init() {
 type IPhone struct {
 	// TODO: Our reader will be bufSize out of date at any given point. Maybe a problem?
 	reader *bufio.Reader // Read connection to iPhone to pull sensor data from.
+	log    golog.Logger
 }
 
 // New returns a new IPhone IMU that that pulls data from the iPhone at host.
-func New(ctx context.Context, host string, logger golog.Logger) (imu *IPhone, err error) {
+func New(host string, logger golog.Logger) (imu *IPhone, err error) {
 	conn, err := net.DialTimeout("tcp", host, 3 * time.Second)
 	if err != nil {
 		return nil, err
@@ -55,7 +58,7 @@ func New(ctx context.Context, host string, logger golog.Logger) (imu *IPhone, er
 
 	r := bufio.NewReader(conn)
 
-	return &IPhone{reader: r}, nil
+	return &IPhone{reader: r, log: logger}, nil
 }
 
 // Desc returns a description of the IMU.
@@ -63,10 +66,11 @@ func (ip *IPhone) Desc() sensor.Description {
 	return sensor.Description{Type: imu.Type, Path: ""}
 }
 
+
 func (ip *IPhone) AngularVelocities(ctx context.Context) ([3]float64, error) {
 	var ret [3]float64
 
-	imuReading, err := ip.readNextMeasurement()
+	imuReading, err := ip.readNextMeasurement(ctx)
 	if err != nil {
 		return ret, err
 	}
@@ -79,7 +83,7 @@ func (ip *IPhone) AngularVelocities(ctx context.Context) ([3]float64, error) {
 func (ip *IPhone) Orientation(ctx context.Context) ([3]float64, error) {
 	var ret [3]float64
 
-	imuReading, err := ip.readNextMeasurement()
+	imuReading, err := ip.readNextMeasurement(ctx)
 	if err != nil {
 		return ret, err
 	}
@@ -90,7 +94,7 @@ func (ip *IPhone) Orientation(ctx context.Context) ([3]float64, error) {
 }
 
 func (ip *IPhone) Heading(ctx context.Context) (float64, error) {
-	imuReading, err := ip.readNextMeasurement()
+	imuReading, err := ip.readNextMeasurement(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -109,19 +113,32 @@ func (ip *IPhone) StopCalibration(ctx context.Context) error {
 
 // TODO: maybe this should just constantly be running in the background pushing to some buffer, and the
 //       actual AngularVelocity/Orientation methods can just read from it
-func (ip *IPhone) readNextMeasurement() (*iphoneMeasurement, error) {
-	measurement, err := ip.reader.ReadString('\n')
-	if err != nil {
-		return nil, err
-	}
+func (ip *IPhone) readNextMeasurement(ctx context.Context) (*IPhoneMeasurement, error) {
+	timeout := time.Now().Add(1 * time.Second)
+	ctx, cancel := context.WithDeadline(ctx, timeout)
+	defer cancel()
 
-	var imuReading *iphoneMeasurement
-	err = json.Unmarshal([]byte(measurement), imuReading)
-	if err != nil {
-		return nil, err
-	}
+	// Create a channel to received a signal that work is done.
+	ch := make(chan string, 1)
+	go func() (){
+		measurement, _ := ip.reader.ReadString('\n')
+		ch <- measurement
+	}()
 
-	return imuReading, nil
+	// Wait for the work to finish. If it takes too long move on.
+	select {
+	case measurement := <-ch:
+		var imuReading IPhoneMeasurement
+		err := json.Unmarshal([]byte(measurement), &imuReading)
+		if err != nil {
+			fmt.Println(err)
+			return nil, err
+		}
+
+		return &imuReading, nil
+	case <-ctx.Done():
+		return nil, errors.New("timed out waiting for iphone measurement")
+	}
 }
 
 // Readings returns an array containing:
