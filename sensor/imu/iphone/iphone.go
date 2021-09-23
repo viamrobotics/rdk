@@ -1,4 +1,4 @@
-// Package iPhone defines an IMU and Compass using sensor data provided by an iPhone.
+// Package iphone defines an IMU and Compass using sensor data provided by an iPhone.
 package iphone
 
 import (
@@ -25,10 +25,10 @@ type IPhoneMeasurement struct {
 	RotationRateX *float64 `json:"motionRotationRateX,string"`
 	RotationRateY *float64 `json:"motionRotationRateY,string"`
 	RotationRateZ *float64 `json:"motionRotationRateZ,string"`
-	Pitch *float64 `json:"motionPitch,string"`
-	Roll *float64 `json:"motionRoll,string"`
-	Yaw *float64 `json:"motionYaw,string"`
-	Heading *float64 `json:"locationHeadingZ,string"`
+	Pitch         *float64 `json:"motionPitch,string"`
+	Roll          *float64 `json:"motionRoll,string"`
+	Yaw           *float64 `json:"motionYaw,string"`
+	Heading       *float64 `json:"locationHeadingZ,string"`
 }
 
 // TODO: IPhone is both an IMU and a compass. Should its type still be IMU? Should (can?) it be registered as both?
@@ -51,7 +51,7 @@ type IPhone struct {
 
 // New returns a new IPhone IMU that that pulls data from the iPhone at host.
 func New(host string, logger golog.Logger) (imu *IPhone, err error) {
-	conn, err := net.DialTimeout("tcp", host, 3 * time.Second)
+	conn, err := net.DialTimeout("tcp", host, 3*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -66,8 +66,7 @@ func (ip *IPhone) Desc() sensor.Description {
 	return sensor.Description{Type: imu.Type, Path: ""}
 }
 
-
-func (ip *IPhone) AngularVelocities(ctx context.Context) ([3]float64, error) {
+func (ip *IPhone) AngularVelocity(ctx context.Context) ([3]float64, error) {
 	var ret [3]float64
 
 	imuReading, err := ip.readNextMeasurement(ctx)
@@ -106,7 +105,6 @@ func (ip *IPhone) StartCalibration(ctx context.Context) error {
 	return nil
 }
 
-
 func (ip *IPhone) StopCalibration(ctx context.Context) error {
 	return nil
 }
@@ -114,18 +112,16 @@ func (ip *IPhone) StopCalibration(ctx context.Context) error {
 // TODO: maybe this should just constantly be running in the background pushing to some buffer, and the
 //       actual AngularVelocity/Orientation methods can just read from it
 func (ip *IPhone) readNextMeasurement(ctx context.Context) (*IPhoneMeasurement, error) {
-	timeout := time.Now().Add(1 * time.Second)
+	timeout := time.Now().Add(100 * time.Millisecond)
 	ctx, cancel := context.WithDeadline(ctx, timeout)
 	defer cancel()
 
-	// Create a channel to received a signal that work is done.
 	ch := make(chan string, 1)
-	go func() (){
+	go func() {
 		measurement, _ := ip.reader.ReadString('\n')
 		ch <- measurement
 	}()
 
-	// Wait for the work to finish. If it takes too long move on.
 	select {
 	case measurement := <-ch:
 		var imuReading IPhoneMeasurement
@@ -146,7 +142,7 @@ func (ip *IPhone) readNextMeasurement(ctx context.Context) (*IPhoneMeasurement, 
 // [1]: [3]float64 of pitch, roll, yaw in rads
 // [2]: float64 of the heading in degrees
 func (ip *IPhone) Readings(ctx context.Context) ([]interface{}, error) {
-	velos, err := ip.AngularVelocities(ctx)
+	velo, err := ip.AngularVelocity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -161,5 +157,5 @@ func (ip *IPhone) Readings(ctx context.Context) ([]interface{}, error) {
 		return nil, err
 	}
 
-	return []interface{}{velos, orient, heading}, nil
+	return []interface{}{velo, orient, heading}, nil
 }
