@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	Type         = "imu"
+	Type = "imu"
 )
 
 type IMU interface {
