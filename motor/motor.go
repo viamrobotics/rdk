@@ -53,24 +53,28 @@ type Motor interface {
 
 // Config describes the configuration of a motor.
 type Config struct {
-	Pins             map[string]string `json:"pins" mapstructure:"pins"`
-	BoardName        string            `json:"board" mapstructure:"board"`       // used to get encoders
-	Encoder          string            `json:"encoder" mapstructure:"encoder"`   // name of the digital interrupt that is the encoder
-	EncoderB         string            `json:"encoderB" mapstructure:"encoderB"` // name of the digital interrupt that is hall encoder b
-	TicksPerRotation int               `json:"ticksPerRotation" mapstructure:"ticksPerRotation"`
-	RampRate         float32           `json:"rampRate" mapstructure:"rampRate"`                 // how fast to ramp power to motor when using rpm control
-	MaxPowerPct      float32           `json:"max_power_pct" mapstructure:"max_power_pct"`       // max power percentage to allow for this motor (0.06 - 1.0)
-	MaxRPM           float64           `json:"max_rpm" mapstructure:"max_rpm"`                   // RPM
-	MaxAcceleration  float64           `json:"max_acceleration" mapstructure:"max_acceleration"` // RPM per second
-	PWMFreq          uint              `json:"pwmFreq" mapstructure:"pwmFreq"`
+	Pins             map[string]string `json:"pins"`
+	BoardName        string            `json:"board"`    // used to get encoders
+	Encoder          string            `json:"encoder"`  // name of the digital interrupt that is the encoder
+	EncoderB         string            `json:"encoderB"` // name of the digital interrupt that is hall encoder b
+	TicksPerRotation int               `json:"ticksPerRotation"`
+	RampRate         float32           `json:"rampRate"`         // how fast to ramp power to motor when using rpm control
+	MaxPowerPct      float32           `json:"max_power_pct"`    // max power percentage to allow for this motor (0.06 - 1.0)
+	MaxRPM           float64           `json:"max_rpm"`          // RPM
+	MaxAcceleration  float64           `json:"max_acceleration"` // RPM per second
+	PWMFreq          uint              `json:"pwmFreq"`
 }
 
 // RegisterConfigAttributeConverter registers a Config converter.
 // Note(erd): This probably shouldn't exist since not all motors have the same config requirements.
 func RegisterConfigAttributeConverter(model string) {
-	config.RegisterAttributeConverter(config.ComponentTypeMotor, model, "config", func(val interface{}) (interface{}, error) {
+	config.RegisterAttributeMapConverter(config.ComponentTypeMotor, model, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
-		if err := mapstructure.Decode(val, &conf); err != nil {
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+		if err != nil {
+			return nil, err
+		}
+		if err := decoder.Decode(attributes); err != nil {
 			return nil, err
 		}
 		return &conf, nil

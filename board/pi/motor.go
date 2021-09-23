@@ -61,11 +61,7 @@ func init() {
 }
 
 func getBoardFromRobotConfig(r robot.Robot, config config.Component) (*piPigpio, *motor.Config, error) {
-	if !config.Attributes.Has("config") {
-		return nil, nil, errors.New("expected config for motor")
-	}
-
-	motorConfig := config.Attributes["config"].(*motor.Config)
+	motorConfig := config.ConvertedAttributes.(*motor.Config)
 	if motorConfig.BoardName == "" {
 		return nil, nil, errors.New("expected board name in config for motor")
 	}
