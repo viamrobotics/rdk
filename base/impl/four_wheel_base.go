@@ -22,7 +22,7 @@ import (
 )
 
 func init() {
-	registry.RegisterBase("four-wheel", CreateFourWheelBase)
+	registry.RegisterBase("four-wheel", registry.Base{Constructor: CreateFourWheelBase})
 }
 
 type fourWheelBase struct {

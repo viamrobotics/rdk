@@ -8,6 +8,8 @@ import (
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
+	"go.viam.com/core/metadata/service"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robots/fake"
 
 	"github.com/edaniels/golog"
@@ -24,11 +26,21 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("no diff", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
-		robot, err := New(context.Background(), conf1, logger)
+
+		ctx := context.Background()
+		svc, err := service.New()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(svc.All()), test.ShouldEqual, 1)
+		ctx = service.ContextWithService(ctx, svc)
+
+		robot, err := New(ctx, conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(), test.ShouldBeNil)
 		}()
+		test.That(t, len(svc.All()), test.ShouldEqual, 4)
+		rCopy := make([]resource.Name, 4)
+		copy(rCopy, svc.All())
 
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ArmNames()...), test.ShouldResemble, utils.NewStringSet("arm1"))
@@ -41,7 +53,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
-		test.That(t, robot.Reconfigure(context.Background(), conf1), test.ShouldBeNil)
+		test.That(t, robot.Reconfigure(ctx, conf1), test.ShouldBeNil)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ArmNames()...), test.ShouldResemble, utils.NewStringSet("arm1"))
 		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
@@ -69,19 +81,29 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
+
+		test.That(t, rCopy, test.ShouldResemble, svc.All())
 	})
 
 	t.Run("empty to additive diff", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		emptyConf := ConfigFromFile(t, "data/diff_config_empty.json")
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
-		robot, err := New(context.Background(), emptyConf, logger)
+
+		ctx := context.Background()
+		svc, err := service.New()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(svc.All()), test.ShouldEqual, 1)
+		ctx = service.ContextWithService(ctx, svc)
+
+		robot, err := New(ctx, emptyConf, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(), test.ShouldBeNil)
 		}()
+		test.That(t, len(svc.All()), test.ShouldEqual, 1)
 
-		test.That(t, robot.Reconfigure(context.Background(), emptyConf), test.ShouldBeNil)
+		test.That(t, robot.Reconfigure(ctx, emptyConf), test.ShouldBeNil)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ArmNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
@@ -93,7 +115,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldBeEmpty)
 
-		test.That(t, robot.Reconfigure(context.Background(), conf1), test.ShouldBeNil)
+		test.That(t, robot.Reconfigure(ctx, conf1), test.ShouldBeNil)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ArmNames()...), test.ShouldResemble, utils.NewStringSet("arm1"))
 		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
@@ -121,6 +143,9 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
+
+		test.That(t, svc, test.ShouldResemble, service.ContextService(ctx))
+		test.That(t, len(svc.All()), test.ShouldEqual, 4)
 	})
 
 	t.Run("additive diff", func(t *testing.T) {

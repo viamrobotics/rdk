@@ -20,13 +20,13 @@ import (
 )
 
 func init() {
-	registry.RegisterGripper("softrobotics", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
+	registry.RegisterGripper("softrobotics", registry.Gripper{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 		b, ok := r.BoardByName("local")
 		if !ok {
 			return nil, errors.New("softrobotics gripper requires a board called local")
 		}
 		return NewGripper(ctx, b, config, logger)
-	})
+	}})
 }
 
 // Gripper TODO

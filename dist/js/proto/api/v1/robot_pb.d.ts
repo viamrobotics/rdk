@@ -139,10 +139,10 @@ export class ComponentConfig extends jspb.Message {
   getParent(): string;
   setParent(value: string): void;
 
-  hasTranslation(): boolean;
-  clearTranslation(): void;
-  getTranslation(): ArmPosition | undefined;
-  setTranslation(value?: ArmPosition): void;
+  hasPose(): boolean;
+  clearPose(): void;
+  getPose(): ArmPosition | undefined;
+  setPose(value?: ArmPosition): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ComponentConfig.AsObject;
@@ -159,7 +159,7 @@ export namespace ComponentConfig {
     name: string,
     type: string,
     parent: string,
-    translation?: ArmPosition.AsObject,
+    pose?: ArmPosition.AsObject,
   }
 }
 

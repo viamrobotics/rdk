@@ -33,9 +33,9 @@ import (
 var vx300smodeljson []byte
 
 func init() {
-	registry.RegisterArm("vx300s", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+	registry.RegisterArm("vx300s", registry.Arm{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 		return NewArm(config.Attributes, logger)
-	})
+	}})
 }
 
 // SleepAngles are the angles we go to to prepare to turn off torque
@@ -130,7 +130,7 @@ func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(a.ik.Mdl(), joints)
+	return kinematics.ComputePosition(a.ik.Model(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.

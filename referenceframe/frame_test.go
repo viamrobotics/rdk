@@ -1,73 +1,102 @@
 package referenceframe
 
 import (
-	"context"
+	"math"
 	"testing"
 
 	"go.viam.com/test"
 
 	pb "go.viam.com/core/proto/api/v1"
+	spatial "go.viam.com/core/spatialmath"
+	"go.viam.com/core/utils"
+
+	"github.com/go-errors/errors"
+	"github.com/golang/geo/r3"
 )
 
-func TestOffset(t *testing.T) {
-	a := &pb.ArmPosition{X: 1, Y: 1, Z: 1}
-	b := &pb.ArmPosition{X: 1, Y: 1, Z: 1}
-	c := OffsetBy(a, b)
-	test.That(t, c.X, test.ShouldEqual, 2)
-	test.That(t, c.Y, test.ShouldEqual, 2)
-	test.That(t, c.Z, test.ShouldEqual, 2)
-}
-
-func TestFindTranslation(t *testing.T) {
-	ctx := context.Background()
-
-	myMap := basicFrameMap{}
-	myMap.add(&basicFrame{name: "base"})
-	myMap.add(&basicFrame{name: "basex"})
-	myMap.add(&basicFrame{name: "arm", parent: "base", offset: &pb.ArmPosition{X: 1, Y: 1, Z: 1}})
-	myMap.add(&basicFrame{name: "camera", parent: "arm", offset: &pb.ArmPosition{X: 1, Y: 1, Z: 1}})
-
-	trans, err := FindTranslationChildToParent(ctx, &myMap, "camera", "base")
+func TestStaticFrame(t *testing.T) {
+	// define a static transform
+	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{1, 2, 3}, r3.Vector{0, 0, 1}, math.Pi/2)
+	frame := &staticFrame{"test", expPose}
+	// get expected transform back
+	emptyInput := FloatsToInputs([]float64{})
+	pose, err := frame.Transform(emptyInput)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, trans.X, test.ShouldEqual, 2)
-	test.That(t, trans.Y, test.ShouldEqual, 2)
-	test.That(t, trans.Z, test.ShouldEqual, 2)
-
-	_, err = FindTranslationChildToParent(ctx, &myMap, "camera", "basex")
+	test.That(t, pose, test.ShouldResemble, expPose)
+	// if you feed in non-empty input, should get err back
+	nonEmptyInput := FloatsToInputs([]float64{0, 0, 0})
+	_, err = frame.Transform(nonEmptyInput)
 	test.That(t, err, test.ShouldNotBeNil)
+	// check that there are no limits on the static frame
+	limits := frame.Dof()
+	test.That(t, limits, test.ShouldResemble, []Limit{})
+
+	errExpect := errors.New("pose is not allowed to be nil")
+	f, err := NewStaticFrame("test2", nil)
+	test.That(t, err.Error(), test.ShouldEqual, errExpect.Error())
+	test.That(t, f, test.ShouldBeNil)
 }
 
-func TestFindTranslationOrderOfOperations(t *testing.T) {
-	ctx := context.Background()
-
-	a := &pb.ArmPosition{X: 0.96, Y: 0.28, Z: 0, OX: 1.2, OY: 1.4, OZ: 1.5, Theta: 1.5}
-	b := &pb.ArmPosition{X: 0.5, Y: 0.5, Z: 0.5, OX: 3.2, OY: 5.4, OZ: 5.5, Theta: 5.5}
-
-	c1 := OffsetBy(a, b)
-	c2 := OffsetBy(b, a)
-
-	test.That(t, c1.X, test.ShouldNotAlmostEqual, c2.X)
-
-	basicFrameMap := basicFrameMap{}
-	basicFrameMap.add(&basicFrame{name: "base"})
-	basicFrameMap.add(&basicFrame{name: "arm", parent: "base", offset: a})
-	basicFrameMap.add(&basicFrame{name: "camera", parent: "arm", offset: b})
-	trans, err := FindTranslationChildToParent(ctx, &basicFrameMap, "camera", "base")
+func TestPrismaticFrame(t *testing.T) {
+	// define a prismatic transform
+	limits := []Limit{{-30, 30}}
+	frame, err := NewTranslationalFrame("test", []bool{false, true, false}, limits) // can only move on y axis
 	test.That(t, err, test.ShouldBeNil)
+	// this should return an error
+	badLimits := []Limit{{0, 0}, {-30, 30}, {0, 0}}
+	_, err = NewTranslationalFrame("test", []bool{false, true, false}, badLimits) // can only move on y axis
+	test.That(t, err, test.ShouldBeError, errors.New("given number of limits 3 does not match number of axes 1"))
+	// expected output
+	expPose := spatial.NewPoseFromPoint(r3.Vector{0, 20, 0})
+	// get expected transform back
+	input := FloatsToInputs([]float64{20})
+	pose, err := frame.Transform(input)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pose, test.ShouldResemble, expPose)
+	// if you feed in too many inputs, should get an error back
+	input = FloatsToInputs([]float64{0, 20, 0})
+	_, err = frame.Transform(input)
+	test.That(t, err, test.ShouldNotBeNil)
 
-	test.That(t, trans.X, test.ShouldAlmostEqual, c1.X)
+	// if you feed in empty input, should get an error
+	input = FloatsToInputs([]float64{})
+	_, err = frame.Transform(input)
+	test.That(t, err, test.ShouldNotBeNil)
+	// if you try to move beyond set limits, should get an error
+	overLimit := 50.0
+	input = FloatsToInputs([]float64{overLimit})
+	_, err = frame.Transform(input)
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of bounds %.5f", overLimit, frame.Dof()[0]))
+	// gets the correct limits back
+	frameLimits := frame.Dof()
+	test.That(t, frameLimits, test.ShouldResemble, limits)
 }
 
-func TestFindTranslationInfLoop(t *testing.T) {
-	ctx := context.Background()
-
-	a := &pb.ArmPosition{X: 0.96, Y: 0.28, Z: 0, OX: 1.2, OY: 1.4, OZ: 1.5, Theta: 1.5}
-	b := &pb.ArmPosition{X: 0.5, Y: 0.5, Z: 0.5, OX: 3.2, OY: 5.4, OZ: 5.5, Theta: 5.5}
-
-	myMap := basicFrameMap{}
-	myMap.add(&basicFrame{name: "arm", parent: "camera", offset: a})
-	myMap.add(&basicFrame{name: "camera", parent: "arm", offset: b})
-
-	_, err := FindTranslationChildToParent(ctx, &myMap, "camera", "base")
+func TestRevoluteFrame(t *testing.T) {
+	// define a prismatic transform
+	axis := spatial.R4AA{RX: 1, RY: 0, RZ: 0}                                 // axis of rotation is x axis
+	frame := &rotationalFrame{"test", axis, Limit{-math.Pi / 2, math.Pi / 2}} // limits between -90 and 90 degrees
+	// expected output
+	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{1, 0, 0}, math.Pi/4) // 45 degrees
+	// get expected transform back
+	input := JointPosToInputs(&pb.JointPositions{Degrees: []float64{45}})
+	pose, err := frame.Transform(input)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pose, test.ShouldResemble, expPose)
+	// if you feed in too many inputs, should get error back
+	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{45, 55}})
+	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
+	// if you feed in empty input, should get errr back
+	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{}})
+	_, err = frame.Transform(input)
+	test.That(t, err, test.ShouldNotBeNil)
+	// if you try to move beyond set limits, should get an error
+	overLimit := 100.0 // degrees
+	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{overLimit}})
+	_, err = frame.Transform(input)
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of rev frame bounds %.5f", utils.DegToRad(overLimit), frame.Dof()[0]))
+	// gets the correct limits back
+	limit := frame.Dof()
+	test.That(t, limit, test.ShouldResemble, []Limit{{-math.Pi / 2, math.Pi / 2}})
 }

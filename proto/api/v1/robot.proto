@@ -456,7 +456,7 @@ message ComponentConfig {
   string name = 1;
   string type = 2;
   string parent = 3;
-  ArmPosition translation = 4;
+  ArmPosition pose = 4;
 }
 
 message ConfigRequest {}

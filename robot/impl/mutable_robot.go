@@ -17,9 +17,11 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/metadata/service"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/status"
@@ -181,10 +183,10 @@ func (r *mutableRobot) Config(ctx context.Context) (*config.Config, error) {
 		}
 
 		for _, c := range rc.Components {
-			if c.Parent == "" {
+			if c.Frame.Parent == "" {
 				for _, rc := range cfgCpy.Remotes {
 					if rc.Name == remoteName {
-						c.Parent = rc.Parent
+						c.Frame.Parent = rc.Parent
 						break
 					}
 				}
@@ -203,8 +205,8 @@ func (r *mutableRobot) Status(ctx context.Context) (*pb.Status, error) {
 	return status.Create(ctx, r)
 }
 
-func (r *mutableRobot) FrameLookup(ctx context.Context) (referenceframe.FrameLookup, error) {
-	return CreateReferenceFrameLookup(ctx, r)
+func (r *mutableRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
+	return CreateReferenceFrameSystem(ctx, r)
 }
 
 // Logger returns the logger the robot is using.
@@ -233,6 +235,13 @@ func New(ctx context.Context, config *config.Config, logger golog.Logger) (robot
 		return nil, err
 	}
 
+	// if metadata exists, update it
+	if svc := service.ContextService(ctx); svc != nil {
+		if err := r.UpdateMetadata(svc); err != nil {
+			return nil, err
+		}
+	}
+
 	successful = true
 	return r, nil
 }
@@ -242,7 +251,7 @@ func (r *mutableRobot) newBase(ctx context.Context, config config.Component) (ba
 	if f == nil {
 		return nil, errors.Errorf("unknown base model: %s", config.Model)
 	}
-	return f(ctx, r, config, r.logger)
+	return f.Constructor(ctx, r, config, r.logger)
 }
 
 func (r *mutableRobot) newArm(ctx context.Context, config config.Component) (arm.Arm, error) {
@@ -251,7 +260,7 @@ func (r *mutableRobot) newArm(ctx context.Context, config config.Component) (arm
 		return nil, errors.Errorf("unknown arm model: %s", config.Model)
 	}
 
-	return f(ctx, r, config, r.logger)
+	return f.Constructor(ctx, r, config, r.logger)
 }
 
 func (r *mutableRobot) newGripper(ctx context.Context, config config.Component) (gripper.Gripper, error) {
@@ -259,7 +268,7 @@ func (r *mutableRobot) newGripper(ctx context.Context, config config.Component) 
 	if f == nil {
 		return nil, errors.Errorf("unknown gripper model: %s", config.Model)
 	}
-	return f(ctx, r, config, r.logger)
+	return f.Constructor(ctx, r, config, r.logger)
 }
 
 func (r *mutableRobot) newCamera(ctx context.Context, config config.Component) (camera.Camera, error) {
@@ -267,7 +276,7 @@ func (r *mutableRobot) newCamera(ctx context.Context, config config.Component) (
 	if f == nil {
 		return nil, errors.Errorf("unknown camera model: %s", config.Model)
 	}
-	is, err := f(ctx, r, config, r.logger)
+	is, err := f.Constructor(ctx, r, config, r.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +288,7 @@ func (r *mutableRobot) newLidar(ctx context.Context, config config.Component) (l
 	if f == nil {
 		return nil, errors.Errorf("unknown lidar model: %s", config.Model)
 	}
-	return f(ctx, r, config, r.logger)
+	return f.Constructor(ctx, r, config, r.logger)
 }
 
 func (r *mutableRobot) newSensor(ctx context.Context, config config.Component, sensorType sensor.Type) (sensor.Sensor, error) {
@@ -287,10 +296,132 @@ func (r *mutableRobot) newSensor(ctx context.Context, config config.Component, s
 	if f == nil {
 		return nil, errors.Errorf("unknown sensor model (type=%s): %s", sensorType, config.Model)
 	}
-	return f(ctx, r, config, r.logger)
+	return f.Constructor(ctx, r, config, r.logger)
 }
 
 // Refresh does nothing for now
 func (r *mutableRobot) Refresh(ctx context.Context) error {
 	return nil
+}
+
+// UpdateMetadata updates metadata service using the currently registered parts of the robot
+func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
+	// TODO: Currently just a placeholder implementation, this should be rewritten once robot/parts have more metadata about themselves
+	var resources []resource.Name
+
+	metadata, err := resource.New(resource.ResourceNamespaceCore, resource.ResourceTypeService, resource.ResourceSubtypeMetadata, "")
+	if err != nil {
+		return err
+	}
+	resources = append(resources, metadata)
+
+	for _, name := range r.ArmNames() {
+		res, err := resource.New(
+			resource.ResourceNamespaceCore, // can be non-core as well
+			resource.ResourceTypeComponent,
+			resource.ResourceSubtypeArm,
+			name,
+		)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, res)
+	}
+	for _, name := range r.BaseNames() {
+		res, err := resource.New(
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			resource.ResourceSubtypeBase,
+			name,
+		)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, res)
+	}
+	for _, name := range r.BoardNames() {
+		res, err := resource.New(
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			resource.ResourceSubtypeBoard,
+			name,
+		)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, res)
+	}
+	for _, name := range r.CameraNames() {
+		res, err := resource.New(
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			resource.ResourceSubtypeCamera,
+			name,
+		)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, res)
+	}
+	for _, name := range r.FunctionNames() {
+		res, err := resource.New(
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeService,
+			resource.ResourceSubtypeFunction,
+			name,
+		)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, res)
+	}
+	for _, name := range r.GripperNames() {
+		res, err := resource.New(
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			resource.ResourceSubtypeGripper,
+			name,
+		)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, res)
+	}
+	for _, name := range r.LidarNames() {
+		res, err := resource.New(
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			resource.ResourceSubtypeLidar,
+			name,
+		)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, res)
+	}
+	for _, name := range r.RemoteNames() {
+		res, err := resource.New(
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			resource.ResourceSubtypeRemote,
+			name,
+		)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, res)
+	}
+	for _, name := range r.SensorNames() {
+		res, err := resource.New(
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			resource.ResourceSubtypeSensor,
+			name,
+		)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, res)
+	}
+	return svc.Replace(resources)
 }

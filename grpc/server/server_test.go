@@ -119,9 +119,11 @@ func TestServer(t *testing.T) {
 		cfg := config.Config{
 			Components: []config.Component{
 				{
-					Name:   "a",
-					Type:   config.ComponentTypeArm,
-					Parent: "b",
+					Name: "a",
+					Type: config.ComponentTypeArm,
+					Frame: &config.FrameConfig{
+						Parent: "b",
+					},
 				},
 			},
 		}
@@ -132,7 +134,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(statusResp.Components), test.ShouldEqual, len(cfg.Components))
 		test.That(t, statusResp.Components[0].Name, test.ShouldEqual, cfg.Components[0].Name)
-		test.That(t, statusResp.Components[0].Parent, test.ShouldEqual, cfg.Components[0].Parent)
+		test.That(t, statusResp.Components[0].Parent, test.ShouldEqual, cfg.Components[0].Frame.Parent)
 		test.That(t, statusResp.Components[0].Type, test.ShouldResemble, string(cfg.Components[0].Type))
 	})
 

@@ -49679,14 +49679,6 @@
   },
   "segmentation": {
     "aligned_intel": {
-      "desktop.both.gz": {
-        "hash": "a3724a090eec2bee6f4fb72c151267bf",
-        "size": 1815706
-      },
-      "desktop.both.gz.las": {
-        "hash": "6a1b7ca481893992bce5a59ff8fc11db",
-        "size": 20405581
-      },
       "desktop2.both.gz": {
         "hash": "be4c6b88b213fc6a6eb085edaaee5cbd",
         "size": 1830798

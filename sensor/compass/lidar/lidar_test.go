@@ -32,9 +32,9 @@ func TestNew(t *testing.T) {
 
 	devType := lidar.Type(utils.RandomAlphaString(5))
 	var newFunc func(conf config.Component) (lidar.Lidar, error)
-	registry.RegisterLidar(string(devType), func(ctx context.Context, r robot.Robot, conf config.Component, logger golog.Logger) (lidar.Lidar, error) {
+	registry.RegisterLidar(string(devType), registry.Lidar{Constructor: func(ctx context.Context, r robot.Robot, conf config.Component, logger golog.Logger) (lidar.Lidar, error) {
 		return newFunc(conf)
-	})
+	}})
 
 	conf := config.Component{Host: "somewhere", Attributes: config.AttributeMap{"type": string(devType)}}
 	newErr := errors.New("woof")
