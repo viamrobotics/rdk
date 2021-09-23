@@ -17,10 +17,12 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/sensor"
+	"go.viam.com/core/servo"
 	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"
@@ -53,6 +55,12 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 	}
 	injectRobot.SensorNamesFunc = func() []string {
 		return []string{fmt.Sprintf("sensor1%s", suffix), fmt.Sprintf("sensor2%s", suffix)}
+	}
+	injectRobot.ServoNamesFunc = func() []string {
+		return []string{fmt.Sprintf("servo1%s", suffix), fmt.Sprintf("servo2%s", suffix)}
+	}
+	injectRobot.MotorNamesFunc = func() []string {
+		return []string{fmt.Sprintf("motor1%s", suffix), fmt.Sprintf("motor2%s", suffix)}
 	}
 	injectRobot.FunctionNamesFunc = func() []string {
 		return []string{fmt.Sprintf("func1%s", suffix), fmt.Sprintf("func2%s", suffix)}
@@ -101,23 +109,19 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		if _, ok := utils.NewStringSet(injectRobot.BoardNames()...)[name]; !ok {
 			return nil, false
 		}
-		fakeBoard, err := board.NewFakeBoard(context.Background(), board.Config{
+		fakeBoard, err := fake.NewBoard(context.Background(), config.Component{
 			Name: name,
-			Motors: []board.MotorConfig{
-				{Name: "motor1"},
-				{Name: "motor2"},
-			},
-			Servos: []board.ServoConfig{
-				{Name: "servo1"},
-				{Name: "servo2"},
-			},
-			Analogs: []board.AnalogConfig{
-				{Name: "analog1"},
-				{Name: "analog2"},
-			},
-			DigitalInterrupts: []board.DigitalInterruptConfig{
-				{Name: "digital1"},
-				{Name: "digital2"},
+			Attributes: config.AttributeMap{
+				"config": &board.Config{
+					Analogs: []board.AnalogConfig{
+						{Name: "analog1"},
+						{Name: "analog2"},
+					},
+					DigitalInterrupts: []board.DigitalInterruptConfig{
+						{Name: "digital1"},
+						{Name: "digital2"},
+					},
+				},
 			},
 		}, logger)
 		if err != nil {
@@ -130,6 +134,18 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 			return nil, false
 		}
 		return &fake.Compass{Name: name}, true
+	}
+	injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
+		if _, ok := utils.NewStringSet(injectRobot.ServoNames()...)[name]; !ok {
+			return nil, false
+		}
+		return &fake.Servo{Name: name}, true
+	}
+	injectRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
+		if _, ok := utils.NewStringSet(injectRobot.MotorNames()...)[name]; !ok {
+			return nil, false
+		}
+		return &fake.Motor{Name: name}, true
 	}
 
 	return injectRobot
@@ -189,6 +205,11 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2"))
 	robot.conf.Prefix = true
 	test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldResemble, utils.NewStringSet("one.sensor1", "one.sensor2"))
+
+	robot.conf.Prefix = false
+	test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2"))
+	robot.conf.Prefix = true
+	test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldResemble, utils.NewStringSet("one.servo1", "one.servo2"))
 
 	robot.conf.Prefix = false
 	test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2"))
@@ -275,6 +296,10 @@ func TestRemoteRobot(t *testing.T) {
 			"sensor1": {},
 			"sensor2": {},
 		},
+		Servos: map[string]*pb.ServoStatus{
+			"servo1": {},
+			"servo2": {},
+		},
 		Functions: map[string]bool{
 			"func1": true,
 			"func2": true,
@@ -318,6 +343,10 @@ func TestRemoteRobot(t *testing.T) {
 		Sensors: map[string]*pb.SensorStatus{
 			"one.sensor1": {},
 			"one.sensor2": {},
+		},
+		Servos: map[string]*pb.ServoStatus{
+			"one.servo1": {},
+			"one.servo2": {},
 		},
 		Functions: map[string]bool{
 			"one.func1": true,
@@ -383,11 +412,11 @@ func TestRemoteRobot(t *testing.T) {
 	robot.conf.Prefix = false
 	board1, ok := robot.BoardByName("board1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).Name, test.ShouldEqual, "board1")
+	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1")
 	robot.conf.Prefix = true
 	board1, ok = robot.BoardByName("one.board1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).Name, test.ShouldEqual, "board1")
+	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1")
 	_, ok = robot.BoardByName("board1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -400,6 +429,17 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
 	_, ok = robot.SensorByName("sensor1_what")
+	test.That(t, ok, test.ShouldBeFalse)
+
+	robot.conf.Prefix = false
+	servo1, ok := robot.ServoByName("servo1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, servo1.(*proxyServo).actual.(*fake.Servo).Name, test.ShouldEqual, "servo1")
+	robot.conf.Prefix = true
+	servo1, ok = robot.ServoByName("one.servo1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, servo1.(*proxyServo).actual.(*fake.Servo).Name, test.ShouldEqual, "servo1")
+	_, ok = robot.ServoByName("servo1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
 	wrapped.errRefresh = true

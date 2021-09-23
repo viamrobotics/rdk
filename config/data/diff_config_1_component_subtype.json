@@ -10,48 +10,6 @@
             "address": "addr2"
         }
     ],
-    "boards":
-    [
-        {
-            "analogs":
-            [
-                {
-                    "name": "analog1",
-                    "pin": "0"
-                }
-            ],
-            "digitalInterrupts":
-            [
-                {
-                    "name": "encoder",
-                    "pin": "14"
-                }
-            ],
-            "model": "fake",
-            "motors":
-            [
-                {
-                    "encoder": "encoder",
-                    "name": "g",
-                    "pins":
-                    {
-                        "a": "1",
-                        "b": "2",
-                        "pwm": "3"
-                    },
-                    "ticksPerRotation": 100
-                }
-            ],
-            "name": "board1",
-            "servos":
-            [
-                {
-                    "name": "servo1",
-                    "pin": "12"
-                }
-            ]
-        }
-    ],
     "components":
     [
         {
@@ -69,6 +27,31 @@
             "type": "base",
             "attributes": {
                 "two": 2
+            }
+        },
+        {
+            "model": "fake",
+            "name": "board1",
+            "type": "board",
+            "attributes":
+            {
+                "config":
+                {
+                    "analogs":
+                    [
+                        {
+                            "name": "analog1",
+                            "pin": "0"
+                        }
+                    ],
+                    "digitalInterrupts":
+                    [
+                        {
+                            "name": "encoder",
+                            "pin": "14"
+                        }
+                    ]
+                }
             }
         }
     ],

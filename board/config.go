@@ -3,38 +3,34 @@ package board
 import (
 	"fmt"
 
+	"github.com/mitchellh/mapstructure"
 	"go.viam.com/utils"
 
+	"go.viam.com/core/config"
 	functionvm "go.viam.com/core/function/vm"
 )
 
+// RegisterConfigAttributeConverter registers a board.Config converter.
+func RegisterConfigAttributeConverter(model string) {
+	config.RegisterAttributeConverter(config.ComponentTypeBoard, model, "config", func(val interface{}) (interface{}, error) {
+		var conf Config
+		if err := mapstructure.Decode(val, &conf); err != nil {
+			return nil, err
+		}
+		return &conf, nil
+	})
+}
+
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	Name              string                   `json:"name"`
-	Model             string                   `json:"model"` // example: "pi"
-	Motors            []MotorConfig            `json:"motors"`
-	SPIs              []SPIConfig              `json:"spis"`
-	Servos            []ServoConfig            `json:"servos"`
-	Analogs           []AnalogConfig           `json:"analogs"`
-	DigitalInterrupts []DigitalInterruptConfig `json:"digitalInterrupts"`
-	Attributes        map[string]string        `json:"attributes"`
+	SPIs              []SPIConfig              `json:"spis" mapstructure:"spis"`
+	Analogs           []AnalogConfig           `json:"analogs" mapstructure:"analogs"`
+	DigitalInterrupts []DigitalInterruptConfig `json:"digitalInterrupts" mapstructure:"digitalInterrupts"`
+	Attributes        map[string]string        `json:"attributes" mapstructure:"attributes"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (config *Config) Validate(path string) error {
-	if config.Name == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "name")
-	}
-	for idx, conf := range config.Motors {
-		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "motors", idx)); err != nil {
-			return err
-		}
-	}
-	for idx, conf := range config.Servos {
-		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "servos", idx)); err != nil {
-			return err
-		}
-	}
 	for idx, conf := range config.SPIs {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "spis", idx)); err != nil {
 			return err
@@ -53,75 +49,6 @@ func (config *Config) Validate(path string) error {
 	return nil
 }
 
-// Merge merges this config with another config to produce a new config. We will
-// assume name and model are the same in both configs.
-func (config *Config) Merge(with *Config) (*Config, error) {
-	if config.Name != with.Name {
-		return nil, fmt.Errorf("expected board names to be the same %q!=%q", config.Name, with.Name)
-	}
-	if config.Model != with.Model {
-		return nil, fmt.Errorf("expected board models to be the same %q!=%q", config.Model, with.Model)
-	}
-	merged := Config{
-		Name:  config.Name,
-		Model: config.Model,
-	}
-	if len(config.Motors) != 0 || len(with.Motors) != 0 {
-		merged.Motors = append(append([]MotorConfig{}, config.Motors...), with.Motors...)
-	}
-	if len(config.Servos) != 0 || len(with.Servos) != 0 {
-		merged.Servos = append(append([]ServoConfig{}, config.Servos...), with.Servos...)
-	}
-	if len(config.SPIs) != 0 || len(with.SPIs) != 0 {
-		merged.SPIs = append(append([]SPIConfig{}, config.SPIs...), with.SPIs...)
-	}
-	if len(config.Analogs) != 0 || len(with.Analogs) != 0 {
-		merged.Analogs = append(append([]AnalogConfig{}, config.Analogs...), with.Analogs...)
-	}
-	if len(config.DigitalInterrupts) != 0 || len(with.DigitalInterrupts) != 0 {
-		merged.DigitalInterrupts = append(append([]DigitalInterruptConfig{}, config.DigitalInterrupts...), with.DigitalInterrupts...)
-	}
-	return &merged, nil
-}
-
-// ConfigDiff is the different between two board configs.
-type ConfigDiff struct {
-	Left, Right *Config
-	Added       *Config
-	Modified    *Config
-	Removed     *Config
-}
-
-// ToConfig converts this diff into a board config suitable for
-// construction/reconfiguration. As such, removals are not considered.
-func (diff *ConfigDiff) ToConfig() (*Config, error) {
-	return diff.Added.Merge(diff.Modified)
-}
-
-// MotorConfig describes the configuration of a motor on a board.
-type MotorConfig struct {
-	Name             string            `json:"name"`
-	Model            string            `json:"model"`
-	Pins             map[string]string `json:"pins"`
-	Encoder          string            `json:"encoder"`  // name of the digital interrupt that is the encoder
-	EncoderB         string            `json:"encoderB"` // name of the digital interrupt that is hall encoder b
-	TicksPerRotation int               `json:"ticksPerRotation"`
-	RampRate         float32           `json:"rampRate"`         // how fast to ramp power to motor when using rpm control
-	MaxPowerPct      float32           `json:"max_power_pct"`    // max power percentage to allow for this motor (0.06 - 1.0)
-	MaxRPM           float64           `json:"max_rpm"`          // RPM
-	MaxAcceleration  float64           `json:"max_acceleration"` // RPM per second
-	PWMFreq          uint              `json:"pwmFreq"`
-	Attributes       map[string]string `json:"attributes"`
-}
-
-// Validate ensures all parts of the config are valid.
-func (config *MotorConfig) Validate(path string) error {
-	if config.Name == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "name")
-	}
-	return nil
-}
-
 // SPIConfig enumerates a specific, shareable SPI bus.
 type SPIConfig struct {
 	Name      string `json:"name"`
@@ -130,20 +57,6 @@ type SPIConfig struct {
 
 // Validate ensures all parts of the config are valid.
 func (config *SPIConfig) Validate(path string) error {
-	if config.Name == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "name")
-	}
-	return nil
-}
-
-// ServoConfig describes the configuration of a servo on a board.
-type ServoConfig struct {
-	Name string `json:"name"`
-	Pin  string `json:"pin"`
-}
-
-// Validate ensures all parts of the config are valid.
-func (config *ServoConfig) Validate(path string) error {
 	if config.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
