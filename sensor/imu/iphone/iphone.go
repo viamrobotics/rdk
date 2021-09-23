@@ -12,7 +12,6 @@ import (
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/imu"
 	"net"
-	"strconv"
 	"time"
 )
 
@@ -20,12 +19,12 @@ import (
 const ModelName = "iphone"
 
 type iphoneMeasurement struct {
-	RotationRateX *string `json:"motionRotationRateX"`
-	RotationRateY *string `json:"motionRotationRateY"`
-	RotationRateZ *string `json:"motionRotationRateZ"`
-	Pitch *string `json:"motionPitch"`
-	Roll *string `json:"motionRoll"`
-	Yaw *string `json:"motionYaw"`
+	RotationRateX *float64 `json:"motionRotationRateX,string"`
+	RotationRateY *float64 `json:"motionRotationRateY,string"`
+	RotationRateZ *float64 `json:"motionRotationRateZ,string"`
+	Pitch *float64 `json:"motionPitc,string"`
+	Roll *float64 `json:"motionRoll,string"`
+	Yaw *float64 `json:"motionYaw,string"`
 }
 
 // init registers the iphone IMU type.
@@ -82,9 +81,7 @@ func (ip *IPhone) AngularVelocities(ctx context.Context) ([3]float64, error) {
 		return ret, err
 	}
 
-	if err = measurementToVelocityArr(imuReading, ret); err != nil {
-		return ret, err
-	}
+	ret[0], ret[1], ret[2] = *imuReading.RotationRateX, *imuReading.RotationRateY, *imuReading.RotationRateZ
 
 	return ret, nil
 }
@@ -103,53 +100,7 @@ func (ip *IPhone) Orientation(ctx context.Context) ([3]float64, error) {
 		return ret, err
 	}
 
-	if err = measurementToOrientationArr(imuReading, ret); err != nil {
-		return ret, err
-	}
+	ret[0], ret[1], ret[2] = *imuReading.Pitch, *imuReading.Roll, *imuReading.Yaw
 
 	return ret, nil
-}
-
-func measurementToVelocityArr(meas iphoneMeasurement, arr [3]float64) error {
-	if x, err := strconv.ParseFloat(*meas.RotationRateX, 64); err != nil {
-		return err
-	} else {
-		arr[0] = x
-	}
-
-	if y, err := strconv.ParseFloat(*meas.RotationRateX, 64); err != nil {
-		return err
-	} else {
-		arr[1] = y
-	}
-
-	if z, err := strconv.ParseFloat(*meas.RotationRateX, 64); err != nil {
-		return err
-	} else {
-		arr[2] = z
-	}
-
-	return nil
-}
-
-func measurementToOrientationArr(meas iphoneMeasurement, arr [3]float64) error {
-	if x, err := strconv.ParseFloat(*meas.Pitch, 64); err != nil {
-		return err
-	} else {
-		arr[0] = x
-	}
-
-	if y, err := strconv.ParseFloat(*meas.Roll, 64); err != nil {
-		return err
-	} else {
-		arr[1] = y
-	}
-
-	if z, err := strconv.ParseFloat(*meas.Yaw, 64); err != nil {
-		return err
-	} else {
-		arr[2] = z
-	}
-
-	return nil
 }
