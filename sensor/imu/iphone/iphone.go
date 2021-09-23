@@ -6,18 +6,20 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"github.com/edaniels/golog"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/imu"
 	"net"
 	"time"
+
+	"github.com/edaniels/golog"
+
+	"go.viam.com/core/sensor"
+	"go.viam.com/core/sensor/imu"
 )
 
 // ModelName is used to register the sensor to a model name.
 const ModelName = "iphone"
 
-type IPhoneMeasurement struct {
+// An Measurement is a struct representing the data collected by the IPhone.
+type Measurement struct {
 	RotationRateX *float64 `json:"motionRotationRateX,string"`
 	RotationRateY *float64 `json:"motionRotationRateY,string"`
 	RotationRateZ *float64 `json:"motionRotationRateZ,string"`
@@ -62,6 +64,7 @@ func (ip *IPhone) Desc() sensor.Description {
 	return sensor.Description{Type: imu.Type, Path: ""}
 }
 
+// AngularVelocity returns an array of AngularVelocity data across x, y, and z axes.
 func (ip *IPhone) AngularVelocity(ctx context.Context) ([3]float64, error) {
 	var ret [3]float64
 
@@ -75,6 +78,7 @@ func (ip *IPhone) AngularVelocity(ctx context.Context) ([3]float64, error) {
 	return ret, nil
 }
 
+// Orientation returns an array of orientation data containing pitch, roll, and yaw.
 func (ip *IPhone) Orientation(ctx context.Context) ([3]float64, error) {
 	var ret [3]float64
 
@@ -88,6 +92,7 @@ func (ip *IPhone) Orientation(ctx context.Context) ([3]float64, error) {
 	return ret, nil
 }
 
+// Heading returns the heading of the IPhone based on the most recently received measurement.
 func (ip *IPhone) Heading(ctx context.Context) (float64, error) {
 	imuReading, err := ip.readNextMeasurement(ctx)
 	if err != nil {
@@ -97,33 +102,37 @@ func (ip *IPhone) Heading(ctx context.Context) (float64, error) {
 	return *imuReading.Heading, nil
 }
 
+// StartCalibration does nothing.
 func (ip *IPhone) StartCalibration(ctx context.Context) error {
 	return nil
 }
 
+// StopCalibration does nothing.
 func (ip *IPhone) StopCalibration(ctx context.Context) error {
 	return nil
 }
 
 // TODO: maybe this should just constantly be running in the background pushing to some buffer, and the
 //       actual AngularVelocity/Orientation methods can just read from it
-func (ip *IPhone) readNextMeasurement(ctx context.Context) (*IPhoneMeasurement, error) {
+func (ip *IPhone) readNextMeasurement(ctx context.Context) (*Measurement, error) {
 	timeout := time.Now().Add(100 * time.Millisecond)
 	ctx, cancel := context.WithDeadline(ctx, timeout)
 	defer cancel()
 
 	ch := make(chan string, 1)
 	go func() {
-		measurement, _ := ip.reader.ReadString('\n')
+		measurement, err := ip.reader.ReadString('\n')
+		if err != nil {
+			ip.log.Errorf(err.Error(), err)
+		}
 		ch <- measurement
 	}()
 
 	select {
 	case measurement := <-ch:
-		var imuReading IPhoneMeasurement
+		var imuReading Measurement
 		err := json.Unmarshal([]byte(measurement), &imuReading)
 		if err != nil {
-			fmt.Println(err)
 			return nil, err
 		}
 
