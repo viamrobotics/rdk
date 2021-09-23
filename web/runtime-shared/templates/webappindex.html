@@ -262,62 +262,39 @@
                       robotService.boardServoMove(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   motorButton: function(board, motor, cmd) {
-                    // let req;
-                    // let fn;
-                    // switch (cmd.type) {
-                    //   case "go":
-                    //     fn = robotService.boardMotorGo;
-                    //     req = new robotApi.BoardMotorGoRequest();
-                    //     if (cmd.s) {
-                    //       req.setPowerPct(cmd.s);
-                    //     }
-                    //     break;
-                    //   case "goFor":
-                    //     fn = robotService.boardMotorGoFor;
-                    //     req = new robotApi.BoardMotorGoForRequest();
-                    //     req.setRevolutions(cmd.r);
-                    //     if (cmd.s) {
-                    //       req.setRpm(cmd.s);
-                    //     }
-                    //     break;
-                    //   case "goTo":
-                    //     fn = robotService.boardMotorGoTo;
-                    //     req = new robotApi.BoardMotorGoToRequest();
-                    //     req.setPosition(cmd.p);
-                    //     if (cmd.s) {
-                    //       req.setRpm(cmd.s);
-                    //     }
-                    //     break;
-                    // }
-                    // req.setBoardName(board);
-                    // req.setMotorName(motor);
-                    // if (cmd.type !== 'goTo') {
-                    //   switch (cmd.d) {
-                    //     case 'backward':
-                    //       req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_BACKWARD);
-                    //       break;
-                    //     case 'forward':
-                    //       req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_FORWARD);
-                    //       break;
-                    //   }
-                    // }
-                    // fn(req, {}, (err, resp) => grpcCallback(err, resp));
 
-                      let req;
-                      if (cmd.r) {
-                        req = new robotApi.BoardMotorGoForRequest();
-                        req.setRevolutions(cmd.r);
-                        if (cmd.s) {
-                          req.setRpm(cmd.s);
-                        }
-                      } else {
+                    let req;
+                    switch (cmd.type) {
+                      case "go":
                         req = new robotApi.BoardMotorGoRequest();
-                        if (cmd.s) {
-                            req.setPowerPct(cmd.s);
-                        }
+                        break;
+                      case "goFor":
+                        req = new robotApi.BoardMotorGoForRequest();
+                        break;
+                      case "goTo":
+                        req = new robotApi.BoardMotorGoToRequest();
+                        break;
+                    }
+
+                    console.log(typeof(req), req);
+
+                    req.setBoardName(board);
+                    req.setMotorName(motor);
+
+                    if (cmd.r) {
+                      req.setRevolutions(cmd.r);
+                    }
+                    if (cmd.s) {
+                      if (cmd.type === "go") {
+                        req.setPowerPct(cmd.s);
+                      } else if (cmd.type === "goFor") {
+                        req.setRpm(cmd.s);
                       }
-                      req.setBoardName(board);
-                      req.setMotorName(motor);
+                    }
+                    if (cmd.p) {
+                      req.setPosition(cmd.p);
+                    }
+                    if (cmd.d) {
                       switch (cmd.d) {
                         case 'backward':
                           req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_BACKWARD);
@@ -326,11 +303,48 @@
                           req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_FORWARD);
                           break;
                       }
-                      if (cmd.r) {
-                        robotService.boardMotorGoFor(req, {}, (err, resp) => grpcCallback(err, resp));
-                      } else {
+                    }
+
+                    switch (cmd.type) {
+                      case "go":
                         robotService.boardMotorGo(req, {}, (err, resp) => grpcCallback(err, resp));
-                      }
+                        break;
+                      case "goFor":
+                        robotService.boardMotorGoFor(req, {}, (err, resp) => grpcCallback(err, resp));
+                        break;
+                      case "goTo":
+                        robotService.boardMotorGoTo(req, {}, (err, resp) => grpcCallback(err, resp));
+                        break;
+                    }
+
+                      // let req;
+                      // if (cmd.r) {
+                      //   req = new robotApi.BoardMotorGoForRequest();
+                      //   req.setRevolutions(cmd.r);
+                      //   if (cmd.s) {
+                      //     req.setRpm(cmd.s);
+                      //   }
+                      // } else {
+                      //   req = new robotApi.BoardMotorGoRequest();
+                      //   if (cmd.s) {
+                      //       req.setPowerPct(cmd.s);
+                      //   }
+                      // }
+                      // req.setBoardName(board);
+                      // req.setMotorName(motor);
+                      // switch (cmd.d) {
+                      //   case 'backward':
+                      //     req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_BACKWARD);
+                      //     break;
+                      //   case 'forward':
+                      //     req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_FORWARD);
+                      //     break;
+                      // }
+                      // if (cmd.r) {
+                      //   robotService.boardMotorGoFor(req, {}, (err, resp) => grpcCallback(err, resp));
+                      // } else {
+                      //   robotService.boardMotorGo(req, {}, (err, resp) => grpcCallback(err, resp));
+                      // }
                   },
                   doAction : function(name) {
                       const req = new robotApi.DoActionRequest();
