@@ -15,10 +15,10 @@ type Translation struct {
 type FrameConfig struct {
 	Parent      string                         `json:"parent"`
 	Translation Translation                    `json:"translation"`
-	OVDegrees   *spatial.OrientationVecDegrees `json:"ovdegrees"`
-	OVRadians   *spatial.OrientationVec        `json:"ovradians"`
-	AxisAngles  *spatial.R4AA                  `json:"axisangles"`
-	EulerAngles *spatial.EulerAngles           `json:"eulerangles"`
+	OVDegrees   *spatial.OrientationVecDegrees `json:"ov_degrees"`
+	OVRadians   *spatial.OrientationVec        `json:"ov_radians"`
+	AxisAngles  *spatial.R4AA                  `json:"axis_angles"`
+	EulerAngles *spatial.EulerAngles           `json:"euler_angles"`
 }
 
 // Orientation returns the orientation of the object from the config, or an empty orientation if no orientation specified

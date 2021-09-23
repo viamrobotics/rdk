@@ -38,6 +38,26 @@ func NewR4AA() *R4AA {
 	return &R4AA{Theta: 0, RX: 1, RY: 0, RZ: 0}
 }
 
+func (r4 *R4AA) AxisAngles() *R4AA {
+	return r4
+}
+
+func (r4 *R4AA) Quaternion() quat.Number {
+	return r4.ToQuat()
+}
+
+func (r4 *R4AA) OrientationVector() *OrientationVec {
+	return QuatToOV(r4.Quaternion())
+}
+
+func (r4 *R4AA) OrientationVectorDegrees() *OrientationVecDegrees {
+	return QuatToOVD(r4.Quaternion())
+}
+
+func (r4 *R4AA) EulerAngles() *EulerAngles {
+	return QuatToEulerAngles(r4.Quaternion())
+}
+
 // ToR3 converts an R4 angle axis to R3
 func (r4 *R4AA) ToR3() R3AA {
 	return R3AA{r4.RX * r4.Theta, r4.RY * r4.Theta, r4.RZ * r4.Theta}
@@ -62,7 +82,7 @@ func (r4 *R4AA) ToQuat() quat.Number {
 func (r4 *R4AA) Normalize() {
 	norm := math.Sqrt(r4.RX*r4.RX + r4.RY*r4.RY + r4.RZ*r4.RZ)
 	if norm == 0.0 { // prevent division by 0
-		return
+		panic("axis angle vector has length of 0")
 	}
 	r4.RX /= norm
 	r4.RY /= norm
