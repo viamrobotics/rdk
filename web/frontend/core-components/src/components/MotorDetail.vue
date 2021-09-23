@@ -145,6 +145,7 @@ class MotorCommand {
   revolutions = 0;
 
   static MAX_RPM = 160;
+  static STOP = new MotorCommand();
 
   private validateRevolutions(revolutions: number): string {
     revolutions = Number.parseFloat(revolutions.toString());
@@ -303,14 +304,11 @@ export default class MotorDetail extends Vue {
   }
 
   stop(): void {
-    const req = new BoardMotorGoRequest();
-    req.setPowerPct(0);
-    this.$emit("execute", { type: MotorCommandType.Go, request: req });
+    this.$emit("execute", MotorCommand.STOP.asObject());
   }
 
   emitCommand(): void {
     if (this.validateInputs()) {
-      console.log(this.command);
       this.$emit("execute", this.command);
     }
   }

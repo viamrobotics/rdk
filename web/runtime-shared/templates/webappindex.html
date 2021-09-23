@@ -262,7 +262,36 @@
                       robotService.boardServoMove(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   motorButton: function(board, motor, cmd) {
-
+                      let req;
+                      if (cmd.r) {
+                        req = new robotApi.BoardMotorGoForRequest();
+                        req.setRevolutions(cmd.r);
+                        if (cmd.s) {
+                          req.setRpm(cmd.s);
+                        }
+                      } else {
+                        req = new robotApi.BoardMotorGoRequest();
+                        if (cmd.s) {
+                            req.setPowerPct(cmd.s);
+                        }
+                      }
+                      req.setBoardName(board);
+                      req.setMotorName(motor);
+                      switch (cmd.d) {
+                        case 'backward':
+                          req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_BACKWARD);
+                          break;
+                        case 'forward':
+                          req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_FORWARD);
+                          break;
+                      }
+                      if (cmd.r) {
+                        robotService.boardMotorGoFor(req, {}, (err, resp) => grpcCallback(err, resp));
+                      } else {
+                        robotService.boardMotorGo(req, {}, (err, resp) => grpcCallback(err, resp));
+                      }
+                  },
+                  motorCommand: function(board, motor, cmd) {
                     let req = cmd.request;
                     req.setBoardName(board);
                     req.setMotorName(motor);
@@ -278,35 +307,6 @@
                         robotService.boardMotorGoTo(req, {}, (err, resp) => grpcCallback(err, resp));
                         break;
                     }
-
-                      // let req;
-                      // if (cmd.r) {
-                      //   req = new robotApi.BoardMotorGoForRequest();
-                      //   req.setRevolutions(cmd.r);
-                      //   if (cmd.s) {
-                      //     req.setRpm(cmd.s);
-                      //   }
-                      // } else {
-                      //   req = new robotApi.BoardMotorGoRequest();
-                      //   if (cmd.s) {
-                      //       req.setPowerPct(cmd.s);
-                      //   }
-                      // }
-                      // req.setBoardName(board);
-                      // req.setMotorName(motor);
-                      // switch (cmd.d) {
-                      //   case 'backward':
-                      //     req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_BACKWARD);
-                      //     break;
-                      //   case 'forward':
-                      //     req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_FORWARD);
-                      //     break;
-                      // }
-                      // if (cmd.r) {
-                      //   robotService.boardMotorGoFor(req, {}, (err, resp) => grpcCallback(err, resp));
-                      // } else {
-                      //   robotService.boardMotorGo(req, {}, (err, resp) => grpcCallback(err, resp));
-                      // }
                   },
                   doAction : function(name) {
                       const req = new robotApi.DoActionRequest();
@@ -745,7 +745,7 @@
         <table border="1">
 
           <tr><th colspan="2">Motors</th></tr>
-          <motor-detail v-for="m in board[1].motorsMap" :key="m[0]" v-bind:motor-name="m[0]" v-bind:motor-status="m[1]" v-on:execute="motorButton(board[0], m[0], $event)"></motor-detail>
+          <motor-detail v-for="m in board[1].motorsMap" :key="m[0]" v-bind:motor-name="m[0]" v-bind:motor-status="m[1]" v-on:execute="motorCommand(board[0], m[0], $event)"></motor-detail>
           <tbody v-for="m in board[1].motorsMap" :key="m[0]">
             <tr>
               <th>${m[0]}</th>
