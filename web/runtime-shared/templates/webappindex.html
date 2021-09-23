@@ -263,47 +263,9 @@
                   },
                   motorButton: function(board, motor, cmd) {
 
-                    let req;
-                    switch (cmd.type) {
-                      case "go":
-                        req = new robotApi.BoardMotorGoRequest();
-                        break;
-                      case "goFor":
-                        req = new robotApi.BoardMotorGoForRequest();
-                        break;
-                      case "goTo":
-                        req = new robotApi.BoardMotorGoToRequest();
-                        break;
-                    }
-
-                    console.log(typeof(req), req);
-
+                    let req = cmd.request;
                     req.setBoardName(board);
                     req.setMotorName(motor);
-
-                    if (cmd.r) {
-                      req.setRevolutions(cmd.r);
-                    }
-                    if (cmd.s) {
-                      if (cmd.type === "go") {
-                        req.setPowerPct(cmd.s);
-                      } else if (cmd.type === "goFor") {
-                        req.setRpm(cmd.s);
-                      }
-                    }
-                    if (cmd.p) {
-                      req.setPosition(cmd.p);
-                    }
-                    if (cmd.d) {
-                      switch (cmd.d) {
-                        case 'backward':
-                          req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_BACKWARD);
-                          break;
-                        case 'forward':
-                          req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_FORWARD);
-                          break;
-                      }
-                    }
 
                     switch (cmd.type) {
                       case "go":
