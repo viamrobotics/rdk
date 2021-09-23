@@ -62,7 +62,7 @@ func validateReceivingIMUData(conn net.Conn) error {
 	return nil
 }
 
-// Desc returns a description of the compass.
+// Desc returns a description of the IMU.
 func (ip *IPhone) Desc() sensor.Description {
 	return sensor.Description{Type: imu.Type, Path: ""}
 }
@@ -93,6 +93,8 @@ func (ip *IPhone) Orientation(ctx context.Context) ([3]float64, error) {
 	return ret, nil
 }
 
+// TODO: maybe this should just constantly be running in the background pushing to some buffer, and the
+//       actual AngularVelocity/Orientation methods can just read from it
 func (ip *IPhone) readNextMeasurement() (*iphoneMeasurement, error) {
 	measurement, err := ip.reader.ReadString('\n')
 	if err != nil {
@@ -106,4 +108,18 @@ func (ip *IPhone) readNextMeasurement() (*iphoneMeasurement, error) {
 	}
 
 	return imuReading, nil
+}
+
+// Readings returns the currently predicted heading.
+func (ip *IPhone) Readings(ctx context.Context) ([]interface{}, error) {
+	velos, err := ip.AngularVelocities(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	orient, err := ip.Orientation(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return []interface{}{velos, orient}, nil
 }
