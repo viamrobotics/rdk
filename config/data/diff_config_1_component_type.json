@@ -16,7 +16,8 @@
             "model": "fake",
             "name": "arm1",
             "type": "base",
-            "attributes": {
+            "attributes":
+            {
                 "one": 1
             }
         },
@@ -24,7 +25,8 @@
             "model": "fake",
             "name": "base1",
             "type": "base",
-            "attributes": {
+            "attributes":
+            {
                 "two": 2
             }
         },
@@ -34,23 +36,20 @@
             "type": "board",
             "attributes":
             {
-                "config":
-                {
-                    "analogs":
-                    [
-                        {
-                            "name": "analog1",
-                            "pin": "0"
-                        }
-                    ],
-                    "digitalInterrupts":
-                    [
-                        {
-                            "name": "encoder",
-                            "pin": "14"
-                        }
-                    ]
-                }
+                "analogs":
+                [
+                    {
+                        "name": "analog1",
+                        "pin": "0"
+                    }
+                ],
+                "digitalInterrupts":
+                [
+                    {
+                        "name": "encoder",
+                        "pin": "14"
+                    }
+                ]
             }
         }
     ],

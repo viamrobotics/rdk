@@ -25,23 +25,20 @@
             "type": "board",
             "attributes":
             {
-                "config":
-                {
-                    "analogs":
-                    [
-                        {
-                            "name": "analog1",
-                            "pin": "1"
-                        }
-                    ],
-                    "digitalInterrupts":
-                    [
-                        {
-                            "name": "encoder",
-                            "pin": "15"
-                        }
-                    ]
-                }
+                "analogs":
+                [
+                    {
+                        "name": "analog1",
+                        "pin": "1"
+                    }
+                ],
+                "digitalInterrupts":
+                [
+                    {
+                        "name": "encoder",
+                        "pin": "15"
+                    }
+                ]
             }
         },
         {
@@ -50,15 +47,13 @@
             "type": "board",
             "attributes":
             {
-                "config":
-                {
-                    "digitalInterrupts": [
-                        {
-                            "name": "encoder2",
-                            "pin": "16"
-                        }
-                    ]
-                }
+                "digitalInterrupts":
+                [
+                    {
+                        "name": "encoder2",
+                        "pin": "16"
+                    }
+                ]
             }
         }
     ],

@@ -12,9 +12,13 @@ import (
 
 // RegisterConfigAttributeConverter registers a board.Config converter.
 func RegisterConfigAttributeConverter(model string) {
-	config.RegisterAttributeConverter(config.ComponentTypeBoard, model, "config", func(val interface{}) (interface{}, error) {
+	config.RegisterAttributeMapConverter(config.ComponentTypeBoard, model, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
-		if err := mapstructure.Decode(val, &conf); err != nil {
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+		if err != nil {
+			return nil, err
+		}
+		if err := decoder.Decode(attributes); err != nil {
 			return nil, err
 		}
 		return &conf, nil
@@ -24,10 +28,10 @@ func RegisterConfigAttributeConverter(model string) {
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
 	I2Cs              []I2CConfig              `json:"i2cs" mapstructure:"i2cs"`
-	SPIs              []SPIConfig              `json:"spis" mapstructure:"spis"`
-	Analogs           []AnalogConfig           `json:"analogs" mapstructure:"analogs"`
-	DigitalInterrupts []DigitalInterruptConfig `json:"digitalInterrupts" mapstructure:"digitalInterrupts"`
-	Attributes        map[string]string        `json:"attributes" mapstructure:"attributes"`
+	SPIs              []SPIConfig              `json:"spis"`
+	Analogs           []AnalogConfig           `json:"analogs"`
+	DigitalInterrupts []DigitalInterruptConfig `json:"digitalInterrupts"`
+	Attributes        map[string]string        `json:"attributes"`
 }
 
 // Validate ensures all parts of the config are valid.

@@ -81,12 +81,7 @@ const modelName = "pi"
 // init registers a pi board based on pigpio.
 func init() {
 	registry.RegisterBoard(modelName, registry.Board{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error) {
-		attrs := config.Attributes
-		if !attrs.Has("config") {
-			return nil, errors.Errorf("expected to have config in attributes")
-		}
-		boardConfig := attrs["config"].(*board.Config)
-
+		boardConfig := config.ConvertedAttributes.(*board.Config)
 		return NewPigpio(ctx, boardConfig, logger)
 	}})
 	board.RegisterConfigAttributeConverter(modelName)

@@ -25,23 +25,20 @@
             "type": "board",
             "attributes":
             {
-                "config":
-                {
-                    "analogs":
-                    [
-                        {
-                            "name": "analog1",
-                            "pin": "0"
-                        }
-                    ],
-                    "digitalInterrupts":
-                    [
-                        {
-                            "name": "encoder",
-                            "pin": "14"
-                        }
-                    ]
-                }
+                "analogs":
+                [
+                    {
+                        "name": "analog1",
+                        "pin": "0"
+                    }
+                ],
+                "digitalInterrupts":
+                [
+                    {
+                        "name": "encoder",
+                        "pin": "14"
+                    }
+                ]
             }
         },
         {
@@ -50,18 +47,15 @@
             "model": "fake",
             "attributes":
             {
-                "config":
+                "pins":
                 {
-                    "pins":
-                    {
-                        "dir": "io17",
-                        "pwm": "io18"
-                    },
-                    "encoder": "encoder-steering-b",
-                    "encoderB": "encoder-steering-a",
-                    "ticksPerRotation": 10000,
-                    "max_power_pct": 0.5
-                }
+                    "dir": "io17",
+                    "pwm": "io18"
+                },
+                "encoder": "encoder-steering-b",
+                "encoderB": "encoder-steering-a",
+                "ticksPerRotation": 10000,
+                "max_power_pct": 0.5
             }
         }
     ]

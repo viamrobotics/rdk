@@ -38,30 +38,28 @@
             "type": "board",
             "attributes":
             {
-                "config":
-                {
-                    "analogs":
-                    [
-                        {
-                            "name": "analog1",
-                            "pin": "0"
-                        }
-                    ],
-                    "digitalInterrupts":
-                    [
-                        {
-                            "name": "encoder",
-                            "pin": "14"
-                        }
-                    ]
-                }
+                "analogs":
+                [
+                    {
+                        "name": "analog1",
+                        "pin": "0"
+                    }
+                ],
+                "digitalInterrupts":
+                [
+                    {
+                        "name": "encoder",
+                        "pin": "14"
+                    }
+                ]
             }
         },
         {
             "model": "fake",
             "name": "servo1",
             "type": "servo",
-            "attributes": {
+            "attributes":
+            {
                 "pin": "12"
             }
         },
@@ -71,17 +69,14 @@
             "model": "fake",
             "attributes":
             {
-                "config":
+                "encoder": "encoder",
+                "pins":
                 {
-                    "encoder": "encoder",
-                    "pins":
-                    {
-                        "a": "1",
-                        "b": "2",
-                        "pwm": "3"
-                    },
-                    "ticksPerRotation": 100
-                }
+                    "a": "1",
+                    "b": "2",
+                    "pwm": "3"
+                },
+                "ticksPerRotation": 100
             }
         }
     ],

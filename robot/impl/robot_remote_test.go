@@ -111,16 +111,14 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		}
 		fakeBoard, err := fake.NewBoard(context.Background(), config.Component{
 			Name: name,
-			Attributes: config.AttributeMap{
-				"config": &board.Config{
-					Analogs: []board.AnalogConfig{
-						{Name: "analog1"},
-						{Name: "analog2"},
-					},
-					DigitalInterrupts: []board.DigitalInterruptConfig{
-						{Name: "digital1"},
-						{Name: "digital2"},
-					},
+			ConvertedAttributes: &board.Config{
+				Analogs: []board.AnalogConfig{
+					{Name: "analog1"},
+					{Name: "analog2"},
+				},
+				DigitalInterrupts: []board.DigitalInterruptConfig{
+					{Name: "digital1"},
+					{Name: "digital2"},
 				},
 			},
 		}, logger)

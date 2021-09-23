@@ -7,60 +7,57 @@
             "type": "board",
             "attributes":
             {
-                "config":
-                {
-                    "digitalInterrupts":
-                    [
-                        {
-                            "name": "throttle",
-                            "note": "rc1",
-                            "pin": "33",
-                            "type": "servo",
-                            "formula": "(max 0 (/ (- raw 1150) 8))"
-                        },
-                        {
-                            "name": "direction",
-                            "pin": "35",
-                            "type": "servo",
-                            "formula": "(/ (- raw 1500) -4)"
-                        },
-                        {
-                            "name": "speed",
-                            "note": "rc3",
-                            "pin": "37",
-                            "type": "servo",
-                            "formula": "(/ (- raw 1500) 4)"
-                        },
-                        {
-                            "name": "left-horizontal",
-                            "note": "rc4",
-                            "pin": "36",
-                            "type": "servo",
-                            "formula": "(/ (- raw 1500) -4)"
-                        },
-                        {
-                            "name": "a",
-                            "note": "rc5",
-                            "pin": "38",
-                            "type": "servo"
-                        },
-                        {
-                            "name": "mode",
-                            "note": "rc6",
-                            "pin": "40",
-                            "type": "servo",
-                            "formula": "(- 2 (/ (- raw 1100) 390))"
-                        },
-                        {
-                            "name": "encoder-steering-a",
-                            "pin": "io23"
-                        },
-                        {
-                            "name": "encoder-steering-b",
-                            "pin": "io22"
-                        }
-                    ]
-                }
+                "digitalInterrupts":
+                [
+                    {
+                        "name": "throttle",
+                        "note": "rc1",
+                        "pin": "33",
+                        "type": "servo",
+                        "formula": "(max 0 (/ (- raw 1150) 8))"
+                    },
+                    {
+                        "name": "direction",
+                        "pin": "35",
+                        "type": "servo",
+                        "formula": "(/ (- raw 1500) -4)"
+                    },
+                    {
+                        "name": "speed",
+                        "note": "rc3",
+                        "pin": "37",
+                        "type": "servo",
+                        "formula": "(/ (- raw 1500) 4)"
+                    },
+                    {
+                        "name": "left-horizontal",
+                        "note": "rc4",
+                        "pin": "36",
+                        "type": "servo",
+                        "formula": "(/ (- raw 1500) -4)"
+                    },
+                    {
+                        "name": "a",
+                        "note": "rc5",
+                        "pin": "38",
+                        "type": "servo"
+                    },
+                    {
+                        "name": "mode",
+                        "note": "rc6",
+                        "pin": "40",
+                        "type": "servo",
+                        "formula": "(- 2 (/ (- raw 1100) 390))"
+                    },
+                    {
+                        "name": "encoder-steering-a",
+                        "pin": "io23"
+                    },
+                    {
+                        "name": "encoder-steering-b",
+                        "pin": "io22"
+                    }
+                ]
             }
         },
         {
@@ -69,17 +66,14 @@
             "model": "pi",
             "attributes":
             {
-                "config":
+                "pins":
                 {
-                    "pins":
-                    {
-                        "dir": "io17",
-                        "pwm": "io18"
-                    },
-                    "encoder": "encoder-steering-b",
-                    "encoderB": "encoder-steering-a",
-                    "ticksPerRotation": 10000
-                }
+                    "dir": "io17",
+                    "pwm": "io18"
+                },
+                "encoder": "encoder-steering-b",
+                "encoderB": "encoder-steering-a",
+                "ticksPerRotation": 10000
             },
             "depends_on":
             [
@@ -92,13 +86,10 @@
             "model": "pi",
             "attributes":
             {
-                "config":
+                "pins":
                 {
-                    "pins":
-                    {
-                        "dir": "io25",
-                        "pwm": "io4"
-                    }
+                    "dir": "io25",
+                    "pwm": "io4"
                 }
             },
             "depends_on":
@@ -112,13 +103,10 @@
             "model": "pi",
             "attributes":
             {
-                "config":
+                "pins":
                 {
-                    "pins":
-                    {
-                        "dir": "io12",
-                        "pwm": "io27"
-                    }
+                    "dir": "io12",
+                    "pwm": "io27"
                 }
             },
             "depends_on":
@@ -127,7 +115,8 @@
             ]
         }
     ],
-    "remotes": [
+    "remotes":
+    [
         {
             "name": "compass",
             "address": "127.0.0.1:4444"

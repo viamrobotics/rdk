@@ -14,7 +14,6 @@ import (
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 )
 
 const modelName = "fake"
@@ -28,13 +27,7 @@ func init() {
 
 // NewBoard returns a new fake board.
 func NewBoard(ctx context.Context, config config.Component, logger golog.Logger) (*Board, error) {
-	var err error
-
-	attrs := config.Attributes
-	if !attrs.Has("config") {
-		return nil, errors.New("expected to have config in attributes")
-	}
-	boardConfig := attrs["config"].(*board.Config)
+	boardConfig := config.ConvertedAttributes.(*board.Config)
 
 	b := &Board{
 		Name:     config.Name,
@@ -53,6 +46,7 @@ func NewBoard(ctx context.Context, config config.Component, logger golog.Logger)
 	}
 
 	for _, c := range boardConfig.DigitalInterrupts {
+		var err error
 		b.Digitals[c.Name], err = board.CreateDigitalInterrupt(c)
 		if err != nil {
 			return nil, err
