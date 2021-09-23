@@ -57,11 +57,12 @@ func TestAngularVelocities(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer l.Close()
 	ip, err := iphone.New(":3000", logger)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = ip.AngularVelocities(context.Background())
+	_, err = ip.AngularVelocity(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Succeed if IPhone is serving valid AngularVelocity Data, and confirm that the
@@ -69,17 +70,17 @@ func TestAngularVelocities(t *testing.T) {
 	go func() {
 		err := sendIMUData(l)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
 	}()
 
 	time.Sleep(time.Millisecond * 100)
-	ret, err := ip.AngularVelocities(context.Background())
+	ret, err := ip.AngularVelocity(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret[0], test.ShouldEqual, rotationRateX)
 	test.That(t, ret[1], test.ShouldEqual, rotationRateY)
 	test.That(t, ret[2], test.ShouldEqual, rotationRateZ)
-	l.Close()
 }
 
 func TestOrientation(t *testing.T) {
@@ -90,6 +91,7 @@ func TestOrientation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer l.Close()
 	ip, err := iphone.New(":3000", logger)
 	if err != nil {
 		t.Fatal(err)
@@ -102,7 +104,8 @@ func TestOrientation(t *testing.T) {
 	go func() {
 		err := sendIMUData(l)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
 	}()
 
@@ -112,7 +115,6 @@ func TestOrientation(t *testing.T) {
 	test.That(t, ret[0], test.ShouldEqual, pitch)
 	test.That(t, ret[1], test.ShouldEqual, roll)
 	test.That(t, ret[2], test.ShouldEqual, yaw)
-	l.Close()
 }
 
 func TestHeading(t *testing.T) {
@@ -123,6 +125,7 @@ func TestHeading(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer l.Close()
 	ip, err := iphone.New(":3000", logger)
 	if err != nil {
 		t.Fatal(err)
@@ -135,7 +138,8 @@ func TestHeading(t *testing.T) {
 	go func() {
 		err := sendIMUData(l)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
 	}()
 
@@ -143,7 +147,6 @@ func TestHeading(t *testing.T) {
 	ret, err := ip.Heading(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret, test.ShouldEqual, heading)
-	l.Close()
 }
 
 func TestReadings(t *testing.T) {
@@ -154,6 +157,7 @@ func TestReadings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer l.Close()
 	ip, err := iphone.New(":3000", logger)
 	if err != nil {
 		t.Fatal(err)
@@ -166,7 +170,8 @@ func TestReadings(t *testing.T) {
 	go func() {
 		err := sendIMUData(l)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
 	}()
 
@@ -176,7 +181,6 @@ func TestReadings(t *testing.T) {
 	test.That(t, ret[0], test.ShouldEqual, [3]float64{rotationRateX, rotationRateY, rotationRateZ})
 	test.That(t, ret[1], test.ShouldEqual, [3]float64{pitch, roll, yaw})
 	test.That(t, ret[2], test.ShouldEqual, heading)
-	l.Close()
 }
 
 // Creates IPhone server that serves invalid IMU Data.
@@ -202,7 +206,7 @@ func sendIMUData(l net.Listener) error {
 		if err != nil {
 			return err
 		}
-		conn.Write([]byte("\n"))
+		_, _ = conn.Write([]byte("\n"))
 		time.Sleep(time.Millisecond * 10)
 	}
 }
