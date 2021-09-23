@@ -10,11 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor/compass"
-
 	"github.com/edaniels/golog"
 
 	"go.viam.com/core/sensor"
@@ -35,16 +30,16 @@ type Measurement struct {
 	Heading       *float64 `json:"locationHeadingZ,string"`
 }
 
-//// TODO: IPhone is both an IMU and a compass. Should its type still be IMU? Should (can?) it be registered as both?
-// init registers the iphone IMU type.
-func init() {
-	registry.RegisterSensor(imu.Type, ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-		return New(config.Host, logger)
-	})
-	registry.RegisterSensor(compass.Type, ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-		return New(config.Host, logger)
-	})
-}
+////// TODO: IPhone is both an IMU and a compass. Should its type still be IMU? Should (can?) it be registered as both?
+//// init registers the iphone IMU type.
+//func init() {
+//	registry.RegisterSensor(imu.Type, ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+//		return New(config.Host, logger)
+//	})
+//	registry.RegisterSensor(compass.Type, ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+//		return New(config.Host, logger)
+//	})
+//}
 
 // IPhone is an iPhone based IMU.
 type IPhone struct {
