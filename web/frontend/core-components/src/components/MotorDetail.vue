@@ -65,7 +65,7 @@
         <div class="detail" style="flex-grow: 1">
           <label
             for="numberOfRotations"
-            v-bind:class="['subtitle', numberOfRotationsError ? 'error' : '']"
+            v-bind:class="['subtitle', errors.revolutions ? 'error' : '']"
           >
             Number of Rotations
           </label>
@@ -76,15 +76,12 @@
             placeholder="Enter a number"
             min="0"
             :disabled="isContinuous"
-            v-bind:class="[
-              'margin-bottom',
-              numberOfRotationsError ? 'error' : '',
-            ]"
+            v-bind:class="['margin-bottom', errors.revolutions ? 'error' : '']"
             v-model="numberOfRotations"
           />
           <label
             for="rotationsPerMinuteRange"
-            v-bind:class="['subtitle', rotationsPerMinuteError ? 'error' : '']"
+            v-bind:class="['subtitle', errors.rpm ? 'error' : '']"
           >
             Rotations Per Minute
           </label>
@@ -104,10 +101,7 @@
               v-model="rotationsPerMinute"
               min="0"
               v-bind:max="MAX_RPM"
-              v-bind:class="[
-                'margin-bottom',
-                rotationsPerMinuteError ? 'error' : '',
-              ]"
+              v-bind:class="['margin-bottom', errors.rpm ? 'error' : '']"
             />
           </div>
         </div>
@@ -131,62 +125,188 @@
 import { Component, Prop, Vue } from "vue-property-decorator";
 import { MotorStatus } from "proto/robot_pb";
 
+enum MotorCommandType {
+  Go = "go",
+  GoFor = "goFor",
+  GoTo = "goTo",
+}
+
+enum MotorDirection {
+  Forward = "forward",
+  Backward = "backward",
+}
+
+class MotorCommand {
+  type = MotorCommandType.Go;
+  position = 0;
+  speed = 0;
+  direction = MotorDirection.Forward;
+  revolutions = 0;
+
+  static MAX_RPM = 160;
+
+  private validateRevolutions(revolutions: number): string {
+    revolutions = Number.parseFloat(revolutions.toString());
+    if (Number.isNaN(revolutions)) {
+      return "Input is not a number";
+    } else if (revolutions < 0) {
+      return "Number of revolutions cannot be less than zero";
+    }
+    return "";
+  }
+
+  private validateRPM(rpm: number): string {
+    rpm = Number.parseFloat(rpm.toString());
+    if (Number.isNaN(rpm)) {
+      return "Input is not a number";
+    } else if (rpm < 0) {
+      return "RPM cannot be less than zero";
+    } else if (rpm > MotorCommand.MAX_RPM) {
+      return "RPM cannot be greater than 160";
+    }
+    return "";
+  }
+
+  private validatePosition(position: number): string {
+    position = Number.parseFloat(position.toString());
+    if (Number.isNaN(position)) {
+      return "Input is not a number";
+    } else if (position < 0) {
+      return "Position cannot be less than zero";
+    }
+    return "";
+  }
+
+  validate(): { [key: string]: string } {
+    let toReturn: { [key: string]: string } = {};
+    switch (this.type) {
+      case MotorCommandType.Go:
+        toReturn = {
+          rpm: this.validateRPM(this.speed),
+        };
+        break;
+      case MotorCommandType.GoFor:
+        toReturn = {
+          rpm: this.validateRPM(this.speed),
+          revolutions: this.validateRevolutions(this.revolutions),
+        };
+        break;
+      case MotorCommandType.GoTo:
+        toReturn = {
+          rpm: this.validateRPM(this.speed),
+          position: this.validatePosition(this.position),
+        };
+        break;
+    }
+    console.log(toReturn);
+    return toReturn;
+  }
+
+  asObject(): Record<string, unknown> {
+    let toReturn = { type: this.type.toString() };
+    switch (this.type) {
+      case MotorCommandType.Go:
+        toReturn = {
+          ...toReturn,
+          ...{
+            d: this.direction.toString(),
+            s: this.speed / 160,
+          },
+        };
+        break;
+      case MotorCommandType.GoFor:
+        toReturn = {
+          ...toReturn,
+          ...{
+            d: this.direction.toString(),
+            s: this.speed,
+            r: this.revolutions,
+          },
+        };
+        break;
+      case MotorCommandType.GoTo:
+        toReturn = {
+          ...toReturn,
+          ...{
+            s: this.speed,
+            p: this.position,
+          },
+        };
+        break;
+    }
+    console.log(toReturn);
+    return toReturn;
+  }
+}
+
 @Component
 export default class MotorDetail extends Vue {
   @Prop() motorName!: string;
   @Prop() motorStatus!: MotorStatus.AsObject;
 
-  isContinuous = true;
-  isGoingForward = true;
-  numberOfRotations = "";
-  numberOfRotationsError = false;
-  rotationsPerMinute = "0";
-  rotationsPerMinuteError = false;
-  MAX_RPM = 160;
+  motorCommand = new MotorCommand();
 
-  get command(): { [key: string]: unknown } {
-    let cmd: { [key: string]: unknown } = {
-      d: this.isGoingForward ? "forward" : "backward",
-      s: this.isContinuous
-        ? Number.parseFloat(this.rotationsPerMinute) / this.MAX_RPM
-        : Number.parseFloat(this.rotationsPerMinute),
-    };
-    if (!this.isContinuous) {
-      cmd["r"] = Number.parseFloat(this.numberOfRotations);
+  get isContinuous(): boolean {
+    return this.motorCommand.type === MotorCommandType.Go;
+  }
+  set isContinuous(continuous: boolean) {
+    if (continuous) {
+      this.motorCommand.type = MotorCommandType.Go;
+    } else if (this.position) {
+      this.motorCommand.type = MotorCommandType.GoTo;
+    } else {
+      this.motorCommand.type = MotorCommandType.GoFor;
     }
-    return cmd;
   }
 
-  private clearErrors() {
-    this.numberOfRotationsError = false;
-    this.rotationsPerMinuteError = false;
+  get isGoingForward(): boolean {
+    return this.motorCommand.direction === MotorDirection.Forward;
+  }
+  set isGoingForward(forward: boolean) {
+    this.motorCommand.direction = forward
+      ? MotorDirection.Forward
+      : MotorDirection.Backward;
+  }
+
+  get position(): number {
+    return this.motorCommand.position;
+  }
+  set position(pos: number) {
+    this.motorCommand.type = MotorCommandType.GoTo;
+    this.motorCommand.position = pos;
+  }
+
+  get rotationsPerMinute(): number {
+    return this.motorCommand.speed;
+  }
+  set rotationsPerMinute(rpm: number) {
+    this.motorCommand.speed = rpm;
+  }
+
+  get numberOfRotations(): number {
+    return this.motorCommand.revolutions;
+  }
+  set numberOfRotations(revolutions: number) {
+    this.motorCommand.type = MotorCommandType.GoFor;
+    this.motorCommand.revolutions = revolutions;
+  }
+
+  errors: { [key: string]: string } = {};
+  MAX_RPM = MotorCommand.MAX_RPM;
+
+  get command(): { [key: string]: unknown } {
+    return this.motorCommand.asObject();
   }
 
   private validateInputs(): boolean {
-    let hasErrors = false;
-    this.clearErrors();
-    if (!this.isContinuous) {
-      const numberOfRotations = Number.parseFloat(this.numberOfRotations);
-      if (Number.isNaN(numberOfRotations)) {
-        this.numberOfRotationsError = true;
-        hasErrors = true;
-      } else if (numberOfRotations < 0) {
-        this.numberOfRotationsError = true;
-        hasErrors = true;
+    this.errors = this.motorCommand.validate();
+    for (let key of Object.keys(this.errors)) {
+      const error = this.errors[key];
+      if (error) {
+        return false;
       }
     }
-    const rotationsPerMinute = Number.parseFloat(this.rotationsPerMinute);
-    if (Number.isNaN(rotationsPerMinute)) {
-      this.rotationsPerMinuteError = true;
-      hasErrors = true;
-    } else if (rotationsPerMinute < 0) {
-      this.rotationsPerMinuteError = true;
-      hasErrors = true;
-    } else if (rotationsPerMinute > this.MAX_RPM) {
-      this.rotationsPerMinuteError = true;
-      hasErrors = true;
-    }
-    return !hasErrors;
+    return true;
   }
 
   stop(): void {
