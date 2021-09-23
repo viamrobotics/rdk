@@ -3,12 +3,14 @@ package iphone_test
 import (
 	"context"
 	"encoding/json"
-	"github.com/edaniels/golog"
-	"go.viam.com/core/sensor/imu/iphone"
-	"go.viam.com/test"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/edaniels/golog"
+	"go.viam.com/test"
+
+	"go.viam.com/core/sensor/imu/iphone"
 )
 
 // Example data for fake iPhone server to repeatedly send.
@@ -20,7 +22,7 @@ var (
 	roll          = 5.05
 	yaw           = 6.06
 	heading       = 7.07
-	goodIMUData   = iphone.IPhoneMeasurement{
+	goodIMUData   = iphone.Measurement{
 		RotationRateX: &rotationRateX,
 		RotationRateY: &rotationRateY,
 		RotationRateZ: &rotationRateZ,

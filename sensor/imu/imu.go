@@ -4,13 +4,16 @@ package imu
 
 import (
 	"context"
+
 	"go.viam.com/core/sensor"
 )
 
+// The known IMU types.
 const (
 	Type = "imu"
 )
 
+// An IMU represents and IMU that can report AngularVelocity and Orientation measurements.
 type IMU interface {
 	sensor.Sensor
 	// AngularVelocity returns rates of rotation across X, Y, Z axes measured in rad/s.
