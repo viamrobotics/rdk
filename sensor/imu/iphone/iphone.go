@@ -12,7 +12,6 @@ import (
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/imu"
 	"net"
 	"time"
@@ -35,9 +34,6 @@ type IPhoneMeasurement struct {
 // init registers the iphone IMU type.
 func init() {
 	registry.RegisterSensor(imu.Type, ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-		return New(config.Host, logger)
-	})
-	registry.RegisterSensor(compass.Type, ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 		return New(config.Host, logger)
 	})
 }
