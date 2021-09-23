@@ -19,7 +19,7 @@ func TestOrientationConsistency(t *testing.T) {
 	aa := &R4AA{th, 1., 0., 0.}                                               // in axis-angle representation
 	ea := &EulerAngles{Roll: th, Pitch: 0, Yaw: 0}                            // in euler angle representation
 	ov := &OrientationVec{2. * th, 0., -math.Sqrt(2) / 2., math.Sqrt(2) / 2.} // in orientation vector representation
-	ovd := &OrientationVecDegrees{90., 0., -math.Sqrt(2) / 2, math.Sqrt(2) / 2}
+	ovd := &OrientationVecDegrees{2 * utils.RadToDeg(th), 0., -math.Sqrt(2) / 2, math.Sqrt(2) / 2}
 
 	qo := NewOrientationFromQuaternion(q)
 	aao := NewOrientationFromAxisAngles(aa)
