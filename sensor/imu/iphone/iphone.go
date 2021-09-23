@@ -70,13 +70,7 @@ func (ip *IPhone) Desc() sensor.Description {
 func (ip *IPhone) AngularVelocities(ctx context.Context) ([3]float64, error) {
 	var ret [3]float64
 
-	measurement, err := ip.reader.ReadString('\n')
-	if err != nil {
-		return ret, err
-	}
-
-	var imuReading iphoneMeasurement
-	err = json.Unmarshal([]byte(measurement), &imuReading)
+	imuReading, err := ip.readNextMeasurement()
 	if err != nil {
 		return ret, err
 	}
@@ -89,13 +83,7 @@ func (ip *IPhone) AngularVelocities(ctx context.Context) ([3]float64, error) {
 func (ip *IPhone) Orientation(ctx context.Context) ([3]float64, error) {
 	var ret [3]float64
 
-	measurement, err := ip.reader.ReadString('\n')
-	if err != nil {
-		return ret, err
-	}
-
-	var imuReading iphoneMeasurement
-	err = json.Unmarshal([]byte(measurement), &imuReading)
+	imuReading, err := ip.readNextMeasurement()
 	if err != nil {
 		return ret, err
 	}
@@ -103,4 +91,19 @@ func (ip *IPhone) Orientation(ctx context.Context) ([3]float64, error) {
 	ret[0], ret[1], ret[2] = *imuReading.Pitch, *imuReading.Roll, *imuReading.Yaw
 
 	return ret, nil
+}
+
+func (ip *IPhone) readNextMeasurement() (*iphoneMeasurement, error) {
+	measurement, err := ip.reader.ReadString('\n')
+	if err != nil {
+		return nil, err
+	}
+
+	var imuReading *iphoneMeasurement
+	err = json.Unmarshal([]byte(measurement), imuReading)
+	if err != nil {
+		return nil, err
+	}
+
+	return imuReading, nil
 }
