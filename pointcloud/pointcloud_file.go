@@ -65,7 +65,7 @@ func NewFromLASFile(fn string, logger golog.Logger) (PointCloud, error) {
 			y < minPreciseFloat64 || y > maxPreciseFloat64 ||
 			z < minPreciseFloat64 || z > maxPreciseFloat64 {
 			logger.Warnf("potential floating point lossiness for LAS point",
-				"point", data, "range", fmt.Sprintf("[%d,%d]", minPreciseFloat64, maxPreciseFloat64))
+				"point", data, "range", fmt.Sprintf("[%f,%f]", minPreciseFloat64, maxPreciseFloat64))
 		}
 		pToSet := NewBasicPoint(x, y, z)
 

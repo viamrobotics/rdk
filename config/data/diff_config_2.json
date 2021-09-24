@@ -10,55 +10,14 @@
             "address": "addr4"
         }
     ],
-    "boards":
-    [
-        {
-            "analogs":
-            [
-                {
-                    "name": "analog1",
-                    "pin": "1"
-                }
-            ],
-            "digitalInterrupts":
-            [
-                {
-                    "name": "encoder",
-                    "pin": "15"
-                }
-            ],
-            "model": "fake",
-            "motors":
-            [
-                {
-                    "encoder": "encoder",
-                    "name": "g",
-                    "pins":
-                    {
-                        "a": "2",
-                        "b": "3",
-                        "pwm": "4"
-                    },
-                    "ticksPerRotation": 101
-                }
-            ],
-            "name": "board1",
-            "servos":
-            [
-                {
-                    "name": "servo1",
-                    "pin": "13"
-                }
-            ]
-        }
-    ],
     "components":
     [
         {
             "model": "fake",
             "name": "arm1",
             "type": "arm",
-            "attributes": {
+            "attributes":
+            {
                 "two": 2
             }
         },
@@ -66,8 +25,34 @@
             "model": "fake",
             "name": "base1",
             "type": "base",
-            "attributes": {
+            "attributes":
+            {
                 "three": 3
+            }
+        },
+        {
+            "model": "fake",
+            "name": "board1",
+            "type": "board",
+            "attributes":
+            {
+                "config":
+                {
+                    "analogs":
+                    [
+                        {
+                            "name": "analog1",
+                            "pin": "1"
+                        }
+                    ],
+                    "digitalInterrupts":
+                    [
+                        {
+                            "name": "encoder",
+                            "pin": "15"
+                        }
+                    ]
+                }
             }
         }
     ],

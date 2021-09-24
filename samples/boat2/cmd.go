@@ -16,6 +16,7 @@ import (
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
@@ -73,7 +74,7 @@ type boat struct {
 	myRobot robot.Robot
 	rc      remoteControl
 
-	squirt, steering, thrust board.Motor
+	squirt, steering, thrust motor.Motor
 	middle                   float64
 	steeringRange            float64
 
@@ -113,17 +114,17 @@ func newBoat(ctx context.Context, myRobot robot.Robot) (*boat, error) {
 
 	// get all motors
 
-	b.squirt, ok = bb.MotorByName("squirt")
+	b.squirt, ok = myRobot.MotorByName("squirt")
 	if !ok {
 		return nil, errors.New("no squirt motor")
 	}
 
-	b.steering, ok = bb.MotorByName("steering")
+	b.steering, ok = myRobot.MotorByName("steering")
 	if !ok {
 		return nil, errors.New("no steering motor")
 	}
 
-	b.thrust, ok = bb.MotorByName("thrust")
+	b.thrust, ok = myRobot.MotorByName("thrust")
 	if !ok {
 		return nil, errors.New("no thrust motor")
 	}

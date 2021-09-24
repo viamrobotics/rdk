@@ -1,0 +1,13 @@
+{
+    "boards" : [
+        { "name": "altimeterBoard",
+          "model" : "pi",
+          "i2cs": [
+          {
+            "name": "bus1",
+            "bus": "1"
+          }
+          ]
+        }
+    ]
+}

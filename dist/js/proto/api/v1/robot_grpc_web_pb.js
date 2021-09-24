@@ -2558,966 +2558,6 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.boardPWMSetFrequency =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.BoardMotorPowerRequest,
- *   !proto.proto.api.v1.BoardMotorPowerResponse>}
- */
-const methodDescriptor_RobotService_BoardMotorPower = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/BoardMotorPower',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.BoardMotorPowerRequest,
-  proto.proto.api.v1.BoardMotorPowerResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorPowerRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorPowerResponse.deserializeBinary
-);
-
-
-/**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.BoardMotorPowerRequest,
- *   !proto.proto.api.v1.BoardMotorPowerResponse>}
- */
-const methodInfo_RobotService_BoardMotorPower = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.BoardMotorPowerResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorPowerRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorPowerResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorPowerRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardMotorPowerResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardMotorPowerResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.v1.RobotServiceClient.prototype.boardMotorPower =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorPower',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorPower,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorPowerRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.v1.BoardMotorPowerResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.boardMotorPower =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorPower',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorPower);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.BoardMotorGoRequest,
- *   !proto.proto.api.v1.BoardMotorGoResponse>}
- */
-const methodDescriptor_RobotService_BoardMotorGo = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/BoardMotorGo',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.BoardMotorGoRequest,
-  proto.proto.api.v1.BoardMotorGoResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorGoRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorGoResponse.deserializeBinary
-);
-
-
-/**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.BoardMotorGoRequest,
- *   !proto.proto.api.v1.BoardMotorGoResponse>}
- */
-const methodInfo_RobotService_BoardMotorGo = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.BoardMotorGoResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorGoRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorGoResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorGoRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardMotorGoResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardMotorGoResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.v1.RobotServiceClient.prototype.boardMotorGo =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorGo',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorGo,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorGoRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.v1.BoardMotorGoResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.boardMotorGo =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorGo',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorGo);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.BoardMotorGoForRequest,
- *   !proto.proto.api.v1.BoardMotorGoForResponse>}
- */
-const methodDescriptor_RobotService_BoardMotorGoFor = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/BoardMotorGoFor',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.BoardMotorGoForRequest,
-  proto.proto.api.v1.BoardMotorGoForResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorGoForRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorGoForResponse.deserializeBinary
-);
-
-
-/**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.BoardMotorGoForRequest,
- *   !proto.proto.api.v1.BoardMotorGoForResponse>}
- */
-const methodInfo_RobotService_BoardMotorGoFor = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.BoardMotorGoForResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorGoForRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorGoForResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorGoForRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardMotorGoForResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardMotorGoForResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.v1.RobotServiceClient.prototype.boardMotorGoFor =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorGoFor',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorGoFor,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorGoForRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.v1.BoardMotorGoForResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.boardMotorGoFor =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorGoFor',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorGoFor);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.BoardMotorGoToRequest,
- *   !proto.proto.api.v1.BoardMotorGoToResponse>}
- */
-const methodDescriptor_RobotService_BoardMotorGoTo = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/BoardMotorGoTo',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.BoardMotorGoToRequest,
-  proto.proto.api.v1.BoardMotorGoToResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorGoToRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorGoToResponse.deserializeBinary
-);
-
-
-/**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.BoardMotorGoToRequest,
- *   !proto.proto.api.v1.BoardMotorGoToResponse>}
- */
-const methodInfo_RobotService_BoardMotorGoTo = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.BoardMotorGoToResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorGoToRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorGoToResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorGoToRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardMotorGoToResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardMotorGoToResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.v1.RobotServiceClient.prototype.boardMotorGoTo =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorGoTo',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorGoTo,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorGoToRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.v1.BoardMotorGoToResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.boardMotorGoTo =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorGoTo',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorGoTo);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.BoardMotorGoTillStopRequest,
- *   !proto.proto.api.v1.BoardMotorGoTillStopResponse>}
- */
-const methodDescriptor_RobotService_BoardMotorGoTillStop = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/BoardMotorGoTillStop',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.BoardMotorGoTillStopRequest,
-  proto.proto.api.v1.BoardMotorGoTillStopResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorGoTillStopRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorGoTillStopResponse.deserializeBinary
-);
-
-
-/**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.BoardMotorGoTillStopRequest,
- *   !proto.proto.api.v1.BoardMotorGoTillStopResponse>}
- */
-const methodInfo_RobotService_BoardMotorGoTillStop = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.BoardMotorGoTillStopResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorGoTillStopRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorGoTillStopResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorGoTillStopRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardMotorGoTillStopResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardMotorGoTillStopResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.v1.RobotServiceClient.prototype.boardMotorGoTillStop =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorGoTillStop',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorGoTillStop,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorGoTillStopRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.v1.BoardMotorGoTillStopResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.boardMotorGoTillStop =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorGoTillStop',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorGoTillStop);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.BoardMotorZeroRequest,
- *   !proto.proto.api.v1.BoardMotorZeroResponse>}
- */
-const methodDescriptor_RobotService_BoardMotorZero = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/BoardMotorZero',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.BoardMotorZeroRequest,
-  proto.proto.api.v1.BoardMotorZeroResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorZeroRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorZeroResponse.deserializeBinary
-);
-
-
-/**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.BoardMotorZeroRequest,
- *   !proto.proto.api.v1.BoardMotorZeroResponse>}
- */
-const methodInfo_RobotService_BoardMotorZero = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.BoardMotorZeroResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorZeroRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorZeroResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorZeroRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardMotorZeroResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardMotorZeroResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.v1.RobotServiceClient.prototype.boardMotorZero =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorZero',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorZero,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorZeroRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.v1.BoardMotorZeroResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.boardMotorZero =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorZero',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorZero);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.BoardMotorPositionRequest,
- *   !proto.proto.api.v1.BoardMotorPositionResponse>}
- */
-const methodDescriptor_RobotService_BoardMotorPosition = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/BoardMotorPosition',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.BoardMotorPositionRequest,
-  proto.proto.api.v1.BoardMotorPositionResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorPositionRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorPositionResponse.deserializeBinary
-);
-
-
-/**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.BoardMotorPositionRequest,
- *   !proto.proto.api.v1.BoardMotorPositionResponse>}
- */
-const methodInfo_RobotService_BoardMotorPosition = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.BoardMotorPositionResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorPositionRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorPositionResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorPositionRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardMotorPositionResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardMotorPositionResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.v1.RobotServiceClient.prototype.boardMotorPosition =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorPosition',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorPosition,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorPositionRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.v1.BoardMotorPositionResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.boardMotorPosition =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorPosition',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorPosition);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.BoardMotorPositionSupportedRequest,
- *   !proto.proto.api.v1.BoardMotorPositionSupportedResponse>}
- */
-const methodDescriptor_RobotService_BoardMotorPositionSupported = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/BoardMotorPositionSupported',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.BoardMotorPositionSupportedRequest,
-  proto.proto.api.v1.BoardMotorPositionSupportedResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorPositionSupportedRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorPositionSupportedResponse.deserializeBinary
-);
-
-
-/**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.BoardMotorPositionSupportedRequest,
- *   !proto.proto.api.v1.BoardMotorPositionSupportedResponse>}
- */
-const methodInfo_RobotService_BoardMotorPositionSupported = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.BoardMotorPositionSupportedResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorPositionSupportedRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorPositionSupportedResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorPositionSupportedRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardMotorPositionSupportedResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardMotorPositionSupportedResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.v1.RobotServiceClient.prototype.boardMotorPositionSupported =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorPositionSupported',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorPositionSupported,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorPositionSupportedRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.v1.BoardMotorPositionSupportedResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.boardMotorPositionSupported =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorPositionSupported',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorPositionSupported);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.BoardMotorOffRequest,
- *   !proto.proto.api.v1.BoardMotorOffResponse>}
- */
-const methodDescriptor_RobotService_BoardMotorOff = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/BoardMotorOff',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.BoardMotorOffRequest,
-  proto.proto.api.v1.BoardMotorOffResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorOffRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorOffResponse.deserializeBinary
-);
-
-
-/**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.BoardMotorOffRequest,
- *   !proto.proto.api.v1.BoardMotorOffResponse>}
- */
-const methodInfo_RobotService_BoardMotorOff = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.BoardMotorOffResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorOffRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorOffResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorOffRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardMotorOffResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardMotorOffResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.v1.RobotServiceClient.prototype.boardMotorOff =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorOff',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorOff,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorOffRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.v1.BoardMotorOffResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.boardMotorOff =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorOff',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorOff);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.BoardMotorIsOnRequest,
- *   !proto.proto.api.v1.BoardMotorIsOnResponse>}
- */
-const methodDescriptor_RobotService_BoardMotorIsOn = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/BoardMotorIsOn',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.BoardMotorIsOnRequest,
-  proto.proto.api.v1.BoardMotorIsOnResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorIsOnRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorIsOnResponse.deserializeBinary
-);
-
-
-/**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.BoardMotorIsOnRequest,
- *   !proto.proto.api.v1.BoardMotorIsOnResponse>}
- */
-const methodInfo_RobotService_BoardMotorIsOn = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.BoardMotorIsOnResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardMotorIsOnRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardMotorIsOnResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorIsOnRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardMotorIsOnResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardMotorIsOnResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.v1.RobotServiceClient.prototype.boardMotorIsOn =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorIsOn',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorIsOn,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.v1.BoardMotorIsOnRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.v1.BoardMotorIsOnResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.boardMotorIsOn =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardMotorIsOn',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardMotorIsOn);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.BoardServoMoveRequest,
- *   !proto.proto.api.v1.BoardServoMoveResponse>}
- */
-const methodDescriptor_RobotService_BoardServoMove = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/BoardServoMove',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.BoardServoMoveRequest,
-  proto.proto.api.v1.BoardServoMoveResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardServoMoveRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardServoMoveResponse.deserializeBinary
-);
-
-
-/**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.BoardServoMoveRequest,
- *   !proto.proto.api.v1.BoardServoMoveResponse>}
- */
-const methodInfo_RobotService_BoardServoMove = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.BoardServoMoveResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardServoMoveRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardServoMoveResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.v1.BoardServoMoveRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardServoMoveResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardServoMoveResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.v1.RobotServiceClient.prototype.boardServoMove =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardServoMove',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardServoMove,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.v1.BoardServoMoveRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.v1.BoardServoMoveResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.boardServoMove =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardServoMove',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardServoMove);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.BoardServoCurrentRequest,
- *   !proto.proto.api.v1.BoardServoCurrentResponse>}
- */
-const methodDescriptor_RobotService_BoardServoCurrent = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/BoardServoCurrent',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.BoardServoCurrentRequest,
-  proto.proto.api.v1.BoardServoCurrentResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardServoCurrentRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardServoCurrentResponse.deserializeBinary
-);
-
-
-/**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.BoardServoCurrentRequest,
- *   !proto.proto.api.v1.BoardServoCurrentResponse>}
- */
-const methodInfo_RobotService_BoardServoCurrent = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.BoardServoCurrentResponse,
-  /**
-   * @param {!proto.proto.api.v1.BoardServoCurrentRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.BoardServoCurrentResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.v1.BoardServoCurrentRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardServoCurrentResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardServoCurrentResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.v1.RobotServiceClient.prototype.boardServoCurrent =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardServoCurrent',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardServoCurrent,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.v1.BoardServoCurrentRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.v1.BoardServoCurrentResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.boardServoCurrent =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardServoCurrent',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_BoardServoCurrent);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.v1.BoardAnalogReaderReadRequest,
  *   !proto.proto.api.v1.BoardAnalogReaderReadResponse>}
  */
@@ -4392,6 +3432,966 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.executeSource =
       request,
       metadata || {},
       methodDescriptor_RobotService_ExecuteSource);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.ServoMoveRequest,
+ *   !proto.proto.api.v1.ServoMoveResponse>}
+ */
+const methodDescriptor_RobotService_ServoMove = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/ServoMove',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.ServoMoveRequest,
+  proto.proto.api.v1.ServoMoveResponse,
+  /**
+   * @param {!proto.proto.api.v1.ServoMoveRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ServoMoveResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ServoMoveRequest,
+ *   !proto.proto.api.v1.ServoMoveResponse>}
+ */
+const methodInfo_RobotService_ServoMove = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ServoMoveResponse,
+  /**
+   * @param {!proto.proto.api.v1.ServoMoveRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ServoMoveResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.ServoMoveRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ServoMoveResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ServoMoveResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.servoMove =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ServoMove',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ServoMove,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.ServoMoveRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.ServoMoveResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.servoMove =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ServoMove',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ServoMove);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.ServoCurrentRequest,
+ *   !proto.proto.api.v1.ServoCurrentResponse>}
+ */
+const methodDescriptor_RobotService_ServoCurrent = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/ServoCurrent',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.ServoCurrentRequest,
+  proto.proto.api.v1.ServoCurrentResponse,
+  /**
+   * @param {!proto.proto.api.v1.ServoCurrentRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ServoCurrentResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ServoCurrentRequest,
+ *   !proto.proto.api.v1.ServoCurrentResponse>}
+ */
+const methodInfo_RobotService_ServoCurrent = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ServoCurrentResponse,
+  /**
+   * @param {!proto.proto.api.v1.ServoCurrentRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ServoCurrentResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.ServoCurrentRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ServoCurrentResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ServoCurrentResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.servoCurrent =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ServoCurrent',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ServoCurrent,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.ServoCurrentRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.ServoCurrentResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.servoCurrent =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ServoCurrent',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ServoCurrent);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.MotorPowerRequest,
+ *   !proto.proto.api.v1.MotorPowerResponse>}
+ */
+const methodDescriptor_RobotService_MotorPower = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/MotorPower',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.MotorPowerRequest,
+  proto.proto.api.v1.MotorPowerResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorPowerRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorPowerResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorPowerRequest,
+ *   !proto.proto.api.v1.MotorPowerResponse>}
+ */
+const methodInfo_RobotService_MotorPower = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorPowerResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorPowerRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorPowerResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorPowerRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorPowerResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorPowerResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.motorPower =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorPower',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorPower,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorPowerRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.MotorPowerResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.motorPower =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorPower',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorPower);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.MotorGoRequest,
+ *   !proto.proto.api.v1.MotorGoResponse>}
+ */
+const methodDescriptor_RobotService_MotorGo = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/MotorGo',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.MotorGoRequest,
+  proto.proto.api.v1.MotorGoResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorGoRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorGoResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorGoRequest,
+ *   !proto.proto.api.v1.MotorGoResponse>}
+ */
+const methodInfo_RobotService_MotorGo = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorGoResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorGoRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorGoResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorGoRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorGoResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorGoResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.motorGo =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorGo',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorGo,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorGoRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.MotorGoResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.motorGo =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorGo',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorGo);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.MotorGoForRequest,
+ *   !proto.proto.api.v1.MotorGoForResponse>}
+ */
+const methodDescriptor_RobotService_MotorGoFor = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/MotorGoFor',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.MotorGoForRequest,
+  proto.proto.api.v1.MotorGoForResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorGoForRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorGoForResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorGoForRequest,
+ *   !proto.proto.api.v1.MotorGoForResponse>}
+ */
+const methodInfo_RobotService_MotorGoFor = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorGoForResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorGoForRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorGoForResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorGoForRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorGoForResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorGoForResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.motorGoFor =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorGoFor',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorGoFor,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorGoForRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.MotorGoForResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.motorGoFor =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorGoFor',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorGoFor);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.MotorGoToRequest,
+ *   !proto.proto.api.v1.MotorGoToResponse>}
+ */
+const methodDescriptor_RobotService_MotorGoTo = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/MotorGoTo',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.MotorGoToRequest,
+  proto.proto.api.v1.MotorGoToResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorGoToRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorGoToResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorGoToRequest,
+ *   !proto.proto.api.v1.MotorGoToResponse>}
+ */
+const methodInfo_RobotService_MotorGoTo = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorGoToResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorGoToRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorGoToResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorGoToRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorGoToResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorGoToResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.motorGoTo =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorGoTo',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorGoTo,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorGoToRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.MotorGoToResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.motorGoTo =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorGoTo',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorGoTo);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.MotorGoTillStopRequest,
+ *   !proto.proto.api.v1.MotorGoTillStopResponse>}
+ */
+const methodDescriptor_RobotService_MotorGoTillStop = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/MotorGoTillStop',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.MotorGoTillStopRequest,
+  proto.proto.api.v1.MotorGoTillStopResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorGoTillStopRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorGoTillStopResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorGoTillStopRequest,
+ *   !proto.proto.api.v1.MotorGoTillStopResponse>}
+ */
+const methodInfo_RobotService_MotorGoTillStop = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorGoTillStopResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorGoTillStopRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorGoTillStopResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorGoTillStopRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorGoTillStopResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorGoTillStopResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.motorGoTillStop =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorGoTillStop',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorGoTillStop,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorGoTillStopRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.MotorGoTillStopResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.motorGoTillStop =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorGoTillStop',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorGoTillStop);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.MotorZeroRequest,
+ *   !proto.proto.api.v1.MotorZeroResponse>}
+ */
+const methodDescriptor_RobotService_MotorZero = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/MotorZero',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.MotorZeroRequest,
+  proto.proto.api.v1.MotorZeroResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorZeroRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorZeroResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorZeroRequest,
+ *   !proto.proto.api.v1.MotorZeroResponse>}
+ */
+const methodInfo_RobotService_MotorZero = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorZeroResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorZeroRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorZeroResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorZeroRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorZeroResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorZeroResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.motorZero =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorZero',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorZero,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorZeroRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.MotorZeroResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.motorZero =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorZero',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorZero);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.MotorPositionRequest,
+ *   !proto.proto.api.v1.MotorPositionResponse>}
+ */
+const methodDescriptor_RobotService_MotorPosition = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/MotorPosition',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.MotorPositionRequest,
+  proto.proto.api.v1.MotorPositionResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorPositionRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorPositionResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorPositionRequest,
+ *   !proto.proto.api.v1.MotorPositionResponse>}
+ */
+const methodInfo_RobotService_MotorPosition = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorPositionResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorPositionRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorPositionResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorPositionRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorPositionResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorPositionResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.motorPosition =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorPosition',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorPosition,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorPositionRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.MotorPositionResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.motorPosition =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorPosition',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorPosition);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.MotorPositionSupportedRequest,
+ *   !proto.proto.api.v1.MotorPositionSupportedResponse>}
+ */
+const methodDescriptor_RobotService_MotorPositionSupported = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/MotorPositionSupported',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.MotorPositionSupportedRequest,
+  proto.proto.api.v1.MotorPositionSupportedResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorPositionSupportedRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorPositionSupportedResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorPositionSupportedRequest,
+ *   !proto.proto.api.v1.MotorPositionSupportedResponse>}
+ */
+const methodInfo_RobotService_MotorPositionSupported = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorPositionSupportedResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorPositionSupportedRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorPositionSupportedResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorPositionSupportedRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorPositionSupportedResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorPositionSupportedResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.motorPositionSupported =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorPositionSupported',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorPositionSupported,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorPositionSupportedRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.MotorPositionSupportedResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.motorPositionSupported =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorPositionSupported',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorPositionSupported);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.MotorOffRequest,
+ *   !proto.proto.api.v1.MotorOffResponse>}
+ */
+const methodDescriptor_RobotService_MotorOff = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/MotorOff',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.MotorOffRequest,
+  proto.proto.api.v1.MotorOffResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorOffRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorOffResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorOffRequest,
+ *   !proto.proto.api.v1.MotorOffResponse>}
+ */
+const methodInfo_RobotService_MotorOff = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorOffResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorOffRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorOffResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorOffRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorOffResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorOffResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.motorOff =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorOff',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorOff,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorOffRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.MotorOffResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.motorOff =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorOff',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorOff);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.MotorIsOnRequest,
+ *   !proto.proto.api.v1.MotorIsOnResponse>}
+ */
+const methodDescriptor_RobotService_MotorIsOn = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/MotorIsOn',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.MotorIsOnRequest,
+  proto.proto.api.v1.MotorIsOnResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorIsOnRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorIsOnResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorIsOnRequest,
+ *   !proto.proto.api.v1.MotorIsOnResponse>}
+ */
+const methodInfo_RobotService_MotorIsOn = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorIsOnResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorIsOnRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorIsOnResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorIsOnRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorIsOnResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorIsOnResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.motorIsOn =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorIsOn',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorIsOn,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorIsOnRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.MotorIsOnResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.motorIsOn =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorIsOn',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorIsOn);
 };
 
 

@@ -1,21 +1,68 @@
 {
-  "components": [
-      {
-          "name": "thing",
-          "model": "eliot",
-          "type": "foo",
-          "attributes" : {
-              "foo" : 5,
-              "foo2" : true,
-              "foo3" : false,
-              "foo4" : "no",
-              "bar" : {
-                  "x" : 6,
-                  "y" : "eliot"
-              },
-              "bar5" : 5.17
-          }
-      }
-  ]
+    "components":
+    [
+        {
+            "name": "thing",
+            "model": "eliot",
+            "type": "foo",
+            "attributes":
+            {
+                "foo": 5,
+                "foo2": true,
+                "foo3": false,
+                "foo4": "no",
+                "bar":
+                {
+                    "x": 6,
+                    "y": "eliot"
+                },
+                "bar5": 5.17
+            }
+        },
+        {
+            "model": "fake",
+            "name": "board1",
+            "type": "board",
+            "attributes":
+            {
+                "config":
+                {
+                    "analogs":
+                    [
+                        {
+                            "name": "analog1",
+                            "pin": "0"
+                        }
+                    ],
+                    "digitalInterrupts":
+                    [
+                        {
+                            "name": "encoder",
+                            "pin": "14"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "steering",
+            "type": "motor",
+            "model": "fake",
+            "attributes":
+            {
+                "config":
+                {
+                    "pins":
+                    {
+                        "dir": "io17",
+                        "pwm": "io18"
+                    },
+                    "encoder": "encoder-steering-b",
+                    "encoderB": "encoder-steering-a",
+                    "ticksPerRotation": 10000,
+                    "max_power_pct": 0.5
+                }
+            }
+        }
+    ]
 }
-

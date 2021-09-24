@@ -23,10 +23,12 @@ import (
 	"go.viam.com/core/grpc/client"
 	grpcserver "go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
+	"go.viam.com/core/servo"
 	"go.viam.com/core/testutils/inject"
 
 	"github.com/golang/geo/r2"
@@ -70,14 +72,14 @@ var emptyStatus = &pb.StatusResponse{
 		Lidars: map[string]bool{
 			"lidar1": true,
 		},
+		Servos: map[string]*pb.ServoStatus{
+			"servo1": {},
+		},
+		Motors: map[string]*pb.MotorStatus{
+			"motor1": {},
+		},
 		Boards: map[string]*pb.BoardStatus{
 			"board1": {
-				Motors: map[string]*pb.MotorStatus{
-					"g": {},
-				},
-				Servos: map[string]*pb.ServoStatus{
-					"servo1": {},
-				},
 				Analogs: map[string]*pb.AnalogStatus{
 					"analog1": {},
 				},
@@ -683,12 +685,6 @@ func TestServer(t *testing.T) {
 
 		err1 := errors.New("whoops")
 		status := &pb.BoardStatus{
-			Motors: map[string]*pb.MotorStatus{
-				"g": {},
-			},
-			Servos: map[string]*pb.ServoStatus{
-				"servo1": {},
-			},
 			Analogs: map[string]*pb.AnalogStatus{
 				"analog1": {},
 			},
@@ -907,391 +903,6 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", uint(123123)})
-	})
-
-	t.Run("BoardMotor", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.BoardMotorGo(context.Background(), &pb.BoardMotorGoRequest{
-			BoardName: "board1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
-
-		_, err = server.BoardMotorGoFor(context.Background(), &pb.BoardMotorGoForRequest{
-			BoardName: "board1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
-
-		injectBoard := &inject.Board{}
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return injectBoard, true
-		}
-		injectBoard.MotorByNameFunc = func(name string) (board.Motor, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err = server.BoardMotorGo(context.Background(), &pb.BoardMotorGoRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown motor")
-		test.That(t, capName, test.ShouldEqual, "motor1")
-
-		injectMotor := &inject.Motor{}
-		injectBoard.MotorByNameFunc = func(name string) (board.Motor, bool) {
-			return injectMotor, true
-		}
-
-		var capArgs []interface{}
-		err1 := errors.New("whoops")
-		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-			capArgs = []interface{}{d, powerPct}
-			return err1
-		}
-		_, err = server.BoardMotorGo(context.Background(), &pb.BoardMotorGoRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, float32(0)})
-
-		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-			capArgs = []interface{}{d, powerPct}
-			return nil
-		}
-		_, err = server.BoardMotorGo(context.Background(), &pb.BoardMotorGoRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-			Direction: pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD,
-			PowerPct:  2,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(2)})
-
-		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-			return errors.New("no")
-		}
-		injectMotor.GoForFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
-			capArgs = []interface{}{d, rpm, revolutions}
-			return err1
-		}
-		_, err = server.BoardMotorGoFor(context.Background(), &pb.BoardMotorGoForRequest{
-			BoardName:   "board1",
-			MotorName:   "motor1",
-			Direction:   pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
-			Rpm:         2.3,
-			Revolutions: 4.5,
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3, 4.5})
-
-		injectMotor.GoForFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
-			capArgs = []interface{}{d, rpm, revolutions}
-			return nil
-		}
-		_, err = server.BoardMotorGoFor(context.Background(), &pb.BoardMotorGoForRequest{
-			BoardName:   "board1",
-			MotorName:   "motor1",
-			Direction:   pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
-			Rpm:         2.3,
-			Revolutions: 4.5,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3, 4.5})
-
-		injectMotor.GoToFunc = func(ctx context.Context, rpm float64, revolutions float64) error {
-			capArgs = []interface{}{rpm, revolutions}
-			return nil
-		}
-		_, err = server.BoardMotorGoTo(context.Background(), &pb.BoardMotorGoToRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-			Rpm:       2.3,
-			Position:  4.5,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{2.3, 4.5})
-
-		injectMotor.GoTillStopFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
-			capArgs = []interface{}{d, rpm, stopFunc}
-			return nil
-		}
-		_, err = server.BoardMotorGoTillStop(context.Background(), &pb.BoardMotorGoTillStopRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-			Direction: pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
-			Rpm:       2.3,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3, (func(context.Context) bool)(nil)})
-
-		injectMotor.ZeroFunc = func(ctx context.Context, offset float64) error {
-			capArgs = []interface{}{offset}
-			return nil
-		}
-		_, err = server.BoardMotorZero(context.Background(), &pb.BoardMotorZeroRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-			Offset:    5.5,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{5.5})
-
-		ctx := context.Background()
-
-		injectMotor.PowerFunc = func(ctx context.Context, powerPct float32) error {
-			capArgs = []interface{}{ctx, powerPct}
-			return err1
-		}
-		_, err = server.BoardMotorPower(ctx, &pb.BoardMotorPowerRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-			PowerPct:  1.23,
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, float32(1.23)})
-
-		injectMotor.PowerFunc = func(ctx context.Context, powerPct float32) error {
-			capArgs = []interface{}{ctx, powerPct}
-			return nil
-		}
-		_, err = server.BoardMotorPower(ctx, &pb.BoardMotorPowerRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-			PowerPct:  1.23,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, float32(1.23)})
-
-		injectMotor.PositionFunc = func(ctx context.Context) (float64, error) {
-			capArgs = []interface{}{ctx}
-			return math.NaN(), err1
-		}
-		_, err = server.BoardMotorPosition(ctx, &pb.BoardMotorPositionRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
-
-		injectMotor.PositionFunc = func(ctx context.Context) (float64, error) {
-			capArgs = []interface{}{ctx}
-			return 1.23, nil
-		}
-		posResp, err := server.BoardMotorPosition(ctx, &pb.BoardMotorPositionRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
-		test.That(t, posResp.Position, test.ShouldEqual, 1.23)
-
-		injectMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
-			capArgs = []interface{}{ctx}
-			return false, err1
-		}
-		_, err = server.BoardMotorPositionSupported(ctx, &pb.BoardMotorPositionSupportedRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
-
-		injectMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
-			capArgs = []interface{}{ctx}
-			return true, nil
-		}
-		posSupportedResp, err := server.BoardMotorPositionSupported(ctx, &pb.BoardMotorPositionSupportedRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
-		test.That(t, posSupportedResp.Supported, test.ShouldBeTrue)
-
-		injectMotor.OffFunc = func(ctx context.Context) error {
-			capArgs = []interface{}{ctx}
-			return err1
-		}
-		_, err = server.BoardMotorOff(ctx, &pb.BoardMotorOffRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
-
-		injectMotor.OffFunc = func(ctx context.Context) error {
-			capArgs = []interface{}{ctx}
-			return nil
-		}
-		_, err = server.BoardMotorOff(ctx, &pb.BoardMotorOffRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
-
-		injectMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
-			capArgs = []interface{}{ctx}
-			return false, err1
-		}
-		_, err = server.BoardMotorIsOn(ctx, &pb.BoardMotorIsOnRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
-
-		injectMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
-			capArgs = []interface{}{ctx}
-			return true, nil
-		}
-		isOnResp, err := server.BoardMotorIsOn(ctx, &pb.BoardMotorIsOnRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
-		test.That(t, isOnResp.IsOn, test.ShouldBeTrue)
-	})
-
-	t.Run("BoardServoMove", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.BoardServoMove(context.Background(), &pb.BoardServoMoveRequest{
-			BoardName: "board1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
-
-		injectBoard := &inject.Board{}
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return injectBoard, true
-		}
-		injectBoard.ServoByNameFunc = func(name string) (board.Servo, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err = server.BoardServoMove(context.Background(), &pb.BoardServoMoveRequest{
-			BoardName: "board1",
-			ServoName: "servo1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown servo")
-		test.That(t, capName, test.ShouldEqual, "servo1")
-
-		injectServo := &inject.Servo{}
-		injectBoard.ServoByNameFunc = func(name string) (board.Servo, bool) {
-			return injectServo, true
-		}
-
-		var capAngle uint8
-		err1 := errors.New("whoops")
-		injectServo.MoveFunc = func(ctx context.Context, angle uint8) error {
-			capAngle = angle
-			return err1
-		}
-		_, err = server.BoardServoMove(context.Background(), &pb.BoardServoMoveRequest{
-			BoardName: "board1",
-			ServoName: "servo1",
-			AngleDeg:  5,
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capAngle, test.ShouldEqual, 5)
-
-		injectServo.MoveFunc = func(ctx context.Context, angle uint8) error {
-			capAngle = angle
-			return nil
-		}
-		_, err = server.BoardServoMove(context.Background(), &pb.BoardServoMoveRequest{
-			BoardName: "board1",
-			ServoName: "servo1",
-			AngleDeg:  5,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capAngle, test.ShouldEqual, 5)
-	})
-
-	t.Run("BoardServoCurrent", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.BoardServoCurrent(context.Background(), &pb.BoardServoCurrentRequest{
-			BoardName: "board1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
-
-		injectBoard := &inject.Board{}
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return injectBoard, true
-		}
-		injectBoard.ServoByNameFunc = func(name string) (board.Servo, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err = server.BoardServoCurrent(context.Background(), &pb.BoardServoCurrentRequest{
-			BoardName: "board1",
-			ServoName: "servo1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown servo")
-		test.That(t, capName, test.ShouldEqual, "servo1")
-
-		injectServo := &inject.Servo{}
-		injectBoard.ServoByNameFunc = func(name string) (board.Servo, bool) {
-			return injectServo, true
-		}
-
-		var capCtx context.Context
-		err1 := errors.New("whoops")
-		injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
-			capCtx = ctx
-			return 0, err1
-		}
-		ctx := context.Background()
-		_, err = server.BoardServoCurrent(context.Background(), &pb.BoardServoCurrentRequest{
-			BoardName: "board1",
-			ServoName: "servo1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capCtx, test.ShouldEqual, ctx)
-
-		injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
-			capCtx = ctx
-			return 8, nil
-		}
-		currentResp, err := server.BoardServoCurrent(context.Background(), &pb.BoardServoCurrentRequest{
-			BoardName: "board1",
-			ServoName: "servo1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capCtx, test.ShouldEqual, ctx)
-		test.That(t, currentResp.AngleDeg, test.ShouldEqual, 8)
 	})
 
 	t.Run("BoardAnalogReaderRead", func(t *testing.T) {
@@ -2103,6 +1714,317 @@ func TestServer(t *testing.T) {
 			Name: "compass1",
 		})
 		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("ServoMove", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err := server.ServoMove(context.Background(), &pb.ServoMoveRequest{
+			Name: "servo1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
+		test.That(t, capName, test.ShouldEqual, "servo1")
+
+		injectServo := &inject.Servo{}
+		injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
+			return injectServo, true
+		}
+
+		var capAngle uint8
+		err1 := errors.New("whoops")
+		injectServo.MoveFunc = func(ctx context.Context, angle uint8) error {
+			capAngle = angle
+			return err1
+		}
+		_, err = server.ServoMove(context.Background(), &pb.ServoMoveRequest{
+			Name:     "servo1",
+			AngleDeg: 5,
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capAngle, test.ShouldEqual, 5)
+
+		injectServo.MoveFunc = func(ctx context.Context, angle uint8) error {
+			capAngle = angle
+			return nil
+		}
+		_, err = server.ServoMove(context.Background(), &pb.ServoMoveRequest{
+			Name:     "servo1",
+			AngleDeg: 5,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capAngle, test.ShouldEqual, 5)
+	})
+
+	t.Run("ServoCurrent", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err := server.ServoCurrent(context.Background(), &pb.ServoCurrentRequest{
+			Name: "servo1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
+		test.That(t, capName, test.ShouldEqual, "servo1")
+
+		injectServo := &inject.Servo{}
+		injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
+			return injectServo, true
+		}
+
+		var capCtx context.Context
+		err1 := errors.New("whoops")
+		injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
+			capCtx = ctx
+			return 0, err1
+		}
+		ctx := context.Background()
+		_, err = server.ServoCurrent(context.Background(), &pb.ServoCurrentRequest{
+			Name: "servo1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capCtx, test.ShouldEqual, ctx)
+
+		injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
+			capCtx = ctx
+			return 8, nil
+		}
+		currentResp, err := server.ServoCurrent(context.Background(), &pb.ServoCurrentRequest{
+			Name: "servo1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capCtx, test.ShouldEqual, ctx)
+		test.That(t, currentResp.AngleDeg, test.ShouldEqual, 8)
+	})
+
+	t.Run("Motor", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			capName = name
+			return nil, false
+		}
+
+		injectRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err := server.MotorGo(context.Background(), &pb.MotorGoRequest{
+			Name: "motor1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
+		test.That(t, capName, test.ShouldEqual, "motor1")
+
+		injectMotor := &inject.Motor{}
+		injectRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
+			return injectMotor, true
+		}
+
+		var capArgs []interface{}
+		err1 := errors.New("whoops")
+		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+			capArgs = []interface{}{d, powerPct}
+			return err1
+		}
+		_, err = server.MotorGo(context.Background(), &pb.MotorGoRequest{
+			Name: "motor1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, float32(0)})
+
+		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+			capArgs = []interface{}{d, powerPct}
+			return nil
+		}
+		_, err = server.MotorGo(context.Background(), &pb.MotorGoRequest{
+			Name:      "motor1",
+			Direction: pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD,
+			PowerPct:  2,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(2)})
+
+		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+			return errors.New("no")
+		}
+		injectMotor.GoForFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
+			capArgs = []interface{}{d, rpm, revolutions}
+			return err1
+		}
+		_, err = server.MotorGoFor(context.Background(), &pb.MotorGoForRequest{
+			Name:        "motor1",
+			Direction:   pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
+			Rpm:         2.3,
+			Revolutions: 4.5,
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3, 4.5})
+
+		injectMotor.GoForFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
+			capArgs = []interface{}{d, rpm, revolutions}
+			return nil
+		}
+		_, err = server.MotorGoFor(context.Background(), &pb.MotorGoForRequest{
+			Name:        "motor1",
+			Direction:   pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
+			Rpm:         2.3,
+			Revolutions: 4.5,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3, 4.5})
+
+		injectMotor.GoToFunc = func(ctx context.Context, rpm float64, revolutions float64) error {
+			capArgs = []interface{}{rpm, revolutions}
+			return nil
+		}
+		_, err = server.MotorGoTo(context.Background(), &pb.MotorGoToRequest{
+			Name:     "motor1",
+			Rpm:      2.3,
+			Position: 4.5,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{2.3, 4.5})
+
+		injectMotor.GoTillStopFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+			capArgs = []interface{}{d, rpm, stopFunc}
+			return nil
+		}
+		_, err = server.MotorGoTillStop(context.Background(), &pb.MotorGoTillStopRequest{
+			Name:      "motor1",
+			Direction: pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
+			Rpm:       2.3,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3, (func(context.Context) bool)(nil)})
+
+		injectMotor.ZeroFunc = func(ctx context.Context, offset float64) error {
+			capArgs = []interface{}{offset}
+			return nil
+		}
+		_, err = server.MotorZero(context.Background(), &pb.MotorZeroRequest{
+			Name:   "motor1",
+			Offset: 5.5,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{5.5})
+
+		ctx := context.Background()
+
+		injectMotor.PowerFunc = func(ctx context.Context, powerPct float32) error {
+			capArgs = []interface{}{ctx, powerPct}
+			return err1
+		}
+		_, err = server.MotorPower(ctx, &pb.MotorPowerRequest{
+			Name:     "motor1",
+			PowerPct: 1.23,
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, float32(1.23)})
+
+		injectMotor.PowerFunc = func(ctx context.Context, powerPct float32) error {
+			capArgs = []interface{}{ctx, powerPct}
+			return nil
+		}
+		_, err = server.MotorPower(ctx, &pb.MotorPowerRequest{
+			Name:     "motor1",
+			PowerPct: 1.23,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, float32(1.23)})
+
+		injectMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+			capArgs = []interface{}{ctx}
+			return math.NaN(), err1
+		}
+		_, err = server.MotorPosition(ctx, &pb.MotorPositionRequest{
+			Name: "motor1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+
+		injectMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+			capArgs = []interface{}{ctx}
+			return 1.23, nil
+		}
+		posResp, err := server.MotorPosition(ctx, &pb.MotorPositionRequest{
+			Name: "motor1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+		test.That(t, posResp.Position, test.ShouldEqual, 1.23)
+
+		injectMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
+			capArgs = []interface{}{ctx}
+			return false, err1
+		}
+		_, err = server.MotorPositionSupported(ctx, &pb.MotorPositionSupportedRequest{
+			Name: "motor1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+
+		injectMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
+			capArgs = []interface{}{ctx}
+			return true, nil
+		}
+		posSupportedResp, err := server.MotorPositionSupported(ctx, &pb.MotorPositionSupportedRequest{
+			Name: "motor1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+		test.That(t, posSupportedResp.Supported, test.ShouldBeTrue)
+
+		injectMotor.OffFunc = func(ctx context.Context) error {
+			capArgs = []interface{}{ctx}
+			return err1
+		}
+		_, err = server.MotorOff(ctx, &pb.MotorOffRequest{
+			Name: "motor1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+
+		injectMotor.OffFunc = func(ctx context.Context) error {
+			capArgs = []interface{}{ctx}
+			return nil
+		}
+		_, err = server.MotorOff(ctx, &pb.MotorOffRequest{
+			Name: "motor1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+
+		injectMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
+			capArgs = []interface{}{ctx}
+			return false, err1
+		}
+		_, err = server.MotorIsOn(ctx, &pb.MotorIsOnRequest{
+			Name: "motor1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+
+		injectMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
+			capArgs = []interface{}{ctx}
+			return true, nil
+		}
+		isOnResp, err := server.MotorIsOn(ctx, &pb.MotorIsOnRequest{
+			Name: "motor1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+		test.That(t, isOnResp.IsOn, test.ShouldBeTrue)
 	})
 }
 
