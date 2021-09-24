@@ -115,20 +115,14 @@ func (ip *IPhone) Orientation(ctx context.Context) ([3]float64, error) {
 // [1]: [3]float64 of pitch, roll, yaw in rads
 // [2]: float64 of the heading in degrees
 func (ip *IPhone) Readings(ctx context.Context) ([]interface{}, error) {
-	velo, err := ip.AngularVelocity(ctx)
-	if err != nil {
-		return nil, err
-	}
+	meas := ip.measurement.Load().(Measurement)
+	var velo [3]float64
+	var orient [3]float64
+	var heading float64
 
-	orient, err := ip.Orientation(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	heading, err := ip.Heading(ctx)
-	if err != nil {
-		return nil, err
-	}
+	velo[0], velo[1], velo[2] = *meas.RotationRateX, *meas.RotationRateY, *meas.RotationRateZ
+	orient[0], orient[1], orient[2] = *meas.Pitch, *meas.Roll, *meas.Yaw
+	heading = *meas.Heading
 
 	return []interface{}{velo, orient, heading}, nil
 }
