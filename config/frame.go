@@ -29,27 +29,48 @@ type OrientationConfig struct {
 // UnmarshalJSON will find the correct struct that implements Orientation
 func (oc *OrientationConfig) UnmarshalJSON(b []byte) error {
 	// unmarshal everything into a string:RawMessage pair
-	var objMap map[string]interface{}
+	var objMap map[string]json.RawMessage
 	var err error
 	err = json.Unmarshal(b, &objMap)
 	if err != nil {
 		return err
 	}
 
-	oc.Type = objMap["type"].(string)
+	var objType string
+	err = json.Unmarshal(objMap["type"], &objType)
+	if err != nil {
+		return err
+	}
+	oc.Type = objType
 
 	switch oc.Type {
 	case "ov_degrees":
-		o := objMap["value"].(spatial.OrientationVecDegrees)
+		var o spatial.OrientationVecDegrees
+		err = json.Unmarshal(objMap["value"], &o)
+		if err != nil {
+			return err
+		}
 		oc.Value = &o
 	case "ov_radians":
-		o := objMap["value"].(spatial.OrientationVec)
+		var o spatial.OrientationVec
+		err = json.Unmarshal(objMap["value"], &o)
+		if err != nil {
+			return err
+		}
 		oc.Value = &o
 	case "axis_angles":
-		o := objMap["value"].(spatial.R4AA)
+		var o spatial.R4AA
+		err = json.Unmarshal(objMap["value"], &o)
+		if err != nil {
+			return err
+		}
 		oc.Value = &o
 	case "euler_angles":
-		o := objMap["value"].(spatial.EulerAngles)
+		var o spatial.EulerAngles
+		err = json.Unmarshal(objMap["value"], &o)
+		if err != nil {
+			return err
+		}
 		oc.Value = &o
 	default:
 		oc.Value = spatial.NewZeroOrientation()
