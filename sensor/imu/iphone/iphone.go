@@ -35,6 +35,7 @@ type IPhone struct {
 	log         golog.Logger
 	mut         *sync.Mutex
 	measurememt atomic.Value
+	host        string
 }
 
 const (
@@ -72,9 +73,11 @@ func New(ctx context.Context, host string, logger golog.Logger) (imu *IPhone, er
 	}
 
 	r := bufio.NewReader(conn)
-	ip := &IPhone{reader: r, log: logger, mut: &sync.Mutex{}}
+	ip := &IPhone{reader: r, log: logger, mut: &sync.Mutex{}, host: host}
 
 	imuReading, err := ip.readNextMeasurementWithRetries(ctx)
+
+	// TODO: The second case should never happen, but seems to sometimes. Figure out why
 	if err != nil || imuReading == nil {
 		logger.Debugw("error reading iphone data", "error", err)
 		return nil, err
@@ -82,11 +85,13 @@ func New(ctx context.Context, host string, logger golog.Logger) (imu *IPhone, er
 	ip.measurememt.Store(*imuReading)
 
 	utils.ManagedGo(func() {
-		imuReading, err := ip.readNextMeasurementWithRetries(ctx)
-		if err != nil {
-			logger.Debugw("error reading iphone data", "error", err)
+		for {
+			imuReading, err := ip.readNextMeasurementWithRetries(ctx)
+			if err != nil {
+				logger.Debugw("error reading iphone data", "error", err)
+			}
+			ip.measurememt.Store(*imuReading)
 		}
-		ip.measurememt.Store(*imuReading)
 	}, func() {
 	})
 
@@ -162,6 +167,13 @@ func (ip *IPhone) readNextMeasurement(ctx context.Context) (*Measurement, error)
 		measurement, err := ip.reader.ReadString('\n')
 		if err != nil {
 			ip.log.Errorf(err.Error(), err)
+			// TODO: make this reconnect logic less bad
+			conn, err := net.DialTimeout("tcp", ip.host, 1*time.Second)
+			if err != nil {
+				ip.log.Errorf("failed to reconnect", err)
+			}
+
+			ip.reader = bufio.NewReader(conn)
 		}
 		ch <- measurement
 	}()
