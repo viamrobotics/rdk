@@ -3,7 +3,6 @@ package iphone_test
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -41,12 +40,19 @@ func TestNew(t *testing.T) {
 	_, err := iphone.New(context.Background(), "fake_host:(", logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	// Succeed if host does exist.
+	// Succeed if host does exist and is sending data.
 	// Create dummy host.
 	l, err := getIphoneServer()
 	if err != nil {
 		t.Fatal(err)
 	}
+	go func() {
+		err := sendIMUData(l)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
 	defer l.Close()
 	_, err = iphone.New(context.Background(), ":3000", logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -55,18 +61,11 @@ func TestNew(t *testing.T) {
 func TestAngularVelocities(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	// Fail if IPhone is not serving AngularVelocity data.
 	l, err := getIphoneServer()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	ip, err := iphone.New(context.Background(), ":3000", logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = ip.AngularVelocity(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
 
 	// Succeed if IPhone is serving valid AngularVelocity Data, and confirm that the
 	// data is what is expected.
@@ -77,6 +76,11 @@ func TestAngularVelocities(t *testing.T) {
 			return
 		}
 	}()
+
+	ip, err := iphone.New(context.Background(), ":3000", logger)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	time.Sleep(time.Millisecond * 100)
 	ret, err := ip.AngularVelocity(context.Background())
@@ -89,18 +93,11 @@ func TestAngularVelocities(t *testing.T) {
 func TestOrientation(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	// Fail if IPhone is not serving Orientation data.
 	l, err := getIphoneServer()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	ip, err := iphone.New(context.Background(), ":3000", logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = ip.Orientation(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
 
 	// Succeed if IPhone is serving valid AngularVelocity Data, and confirm that the
 	// data is what is expected.
@@ -111,6 +108,12 @@ func TestOrientation(t *testing.T) {
 			return
 		}
 	}()
+
+	ip, err := iphone.New(context.Background(), ":3000", logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ip.Orientation(context.Background())
 
 	time.Sleep(time.Millisecond * 100)
 	ret, err := ip.Orientation(context.Background())
@@ -129,12 +132,6 @@ func TestHeading(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	ip, err := iphone.New(context.Background(), ":3000", logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = ip.Heading(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
 
 	// Succeed if IPhone is serving valid AngularVelocity Data, and confirm that the
 	// data is what is expected.
@@ -145,6 +142,11 @@ func TestHeading(t *testing.T) {
 			return
 		}
 	}()
+
+	ip, err := iphone.New(context.Background(), ":3000", logger)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	time.Sleep(time.Millisecond * 100)
 	ret, err := ip.Heading(context.Background())
@@ -161,12 +163,6 @@ func TestReadings(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	ip, err := iphone.New(context.Background(), ":3000", logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = ip.Readings(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
 
 	// Succeed if IPhone is serving valid AngularVelocity Data, and confirm that the
 	// data is what is expected.
@@ -177,6 +173,11 @@ func TestReadings(t *testing.T) {
 			return
 		}
 	}()
+
+	ip, err := iphone.New(context.Background(), ":3000", logger)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	time.Sleep(time.Millisecond * 100)
 	ret, err := ip.Readings(context.Background())
@@ -210,22 +211,5 @@ func sendIMUData(l net.Listener) error {
 			return err
 		}
 		_, _ = conn.Write([]byte("\n"))
-		time.Sleep(time.Millisecond * 10)
-	}
-}
-
-func TestOverall(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	ip, err := iphone.New(context.Background(), "10.237.115.244:54792", logger)
-	if err != nil {
-		logger.Fatal("could not connect to iphone :(")
-	}
-
-	for {
-		ret, err := ip.Heading(context.Background())
-		if err != nil {
-			logger.Error("failed to get heading")
-		}
-		fmt.Println("Recorded heading: " + fmt.Sprintf("%f", ret))
 	}
 }
