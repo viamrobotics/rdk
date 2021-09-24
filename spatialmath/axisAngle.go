@@ -35,25 +35,30 @@ type R4AA struct {
 
 // NewR4AA creates an empty R4AA struct
 func NewR4AA() *R4AA {
-	return &R4AA{Theta: 0, RX: 1, RY: 0, RZ: 0}
+	return &R4AA{Theta: 0, RX: 0, RY: 0, RZ: 1}
 }
 
+// AxisAngles returns the orientation in axis angle representation
 func (r4 *R4AA) AxisAngles() *R4AA {
 	return r4
 }
 
+// Quaternion returns orientation in quaternion representation
 func (r4 *R4AA) Quaternion() quat.Number {
 	return r4.ToQuat()
 }
 
+// OrientationVector returns orientation as an orientation vector (in radians)
 func (r4 *R4AA) OrientationVector() *OrientationVec {
 	return QuatToOV(r4.Quaternion())
 }
 
+// OrientationVectorDegrees returns orientation as an orientation vector (in degrees)
 func (r4 *R4AA) OrientationVectorDegrees() *OrientationVecDegrees {
 	return QuatToOVD(r4.Quaternion())
 }
 
+// EulerAngles returns orientation in Euler angle representation
 func (r4 *R4AA) EulerAngles() *EulerAngles {
 	return QuatToEulerAngles(r4.Quaternion())
 }

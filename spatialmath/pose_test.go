@@ -15,24 +15,24 @@ func TestBasicPoseConstruction(t *testing.T) {
 
 	p := NewZeroPose()
 	// Should return an identity dual quat
-	test.That(t, p.Orientation().OV(), test.ShouldResemble, &OrientationVec{0, 0, 0, 1})
+	test.That(t, p.Orientation().OrientationVector(), test.ShouldResemble, &OrientationVec{0, 0, 0, 1})
 
 	// point at +Y, rotate 90 degrees
 	ov := &OrientationVec{math.Pi / 2, 0, 1, 0}
 	ov.Normalize()
 
 	p = NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, ov)
-	ovCompare(t, p.Orientation().OV(), ov)
+	ovCompare(t, p.Orientation().OrientationVector(), ov)
 	ptCompare(t, p.Point(), r3.Vector{1, 2, 3})
 
 	aa := QuatToR4AA(ov.ToQuat())
 	p = NewPoseFromAxisAngle(r3.Vector{1, 2, 3}, r3.Vector{aa.RX, aa.RY, aa.RZ}, aa.Theta)
 	ptCompare(t, p.Point(), r3.Vector{1, 2, 3})
-	ovCompare(t, p.Orientation().OV(), ov)
+	ovCompare(t, p.Orientation().OrientationVector(), ov)
 
 	p = NewPoseFromPoint(r3.Vector{1, 2, 3})
 	ptCompare(t, p.Point(), r3.Vector{1, 2, 3})
-	test.That(t, p.Orientation().OV(), test.ShouldResemble, &OrientationVec{0, 0, 0, 1})
+	test.That(t, p.Orientation().OrientationVector(), test.ShouldResemble, &OrientationVec{0, 0, 0, 1})
 
 	p1 := NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, ov)
 	p2 := NewPoseFromPoint(r3.Vector{1, 2, 3})
@@ -44,7 +44,7 @@ func TestBasicPoseConstruction(t *testing.T) {
 	test.That(t, delta, test.ShouldResemble, []float64{1., 0., 1., 0., 0., 0.})
 
 	p = NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{4, 5, 6}, 0)
-	test.That(t, p.Orientation().OV(), test.ShouldResemble, &OrientationVec{0, 0, 0, 1})
+	test.That(t, p.Orientation().OrientationVector(), test.ShouldResemble, &OrientationVec{0, 0, 0, 1})
 }
 
 func ptCompare(t *testing.T, p1, p2 r3.Vector) {
