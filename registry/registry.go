@@ -7,7 +7,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/arm"
+	"go.viam.com/utils/rpc/server"
+
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
@@ -16,6 +17,7 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
@@ -24,9 +26,6 @@ import (
 type (
 	// A CreateCamera creates a camera from a given config.
 	CreateCamera func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error)
-
-	// A CreateArm creates an arm from a given config.
-	CreateArm func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error)
 
 	// A CreateGripper creates a gripper from a given config.
 	CreateGripper func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error)
@@ -59,12 +58,6 @@ type (
 // Camera stores a Camera constructor (mandatory) and a Frame building function (optional)
 type Camera struct {
 	Constructor CreateCamera
-	Frame       CreateFrame
-}
-
-// Arm stores an Arm constructor (mandatory) and a Frame building function (optional)
-type Arm struct {
-	Constructor CreateArm
 	Frame       CreateFrame
 }
 
@@ -119,7 +112,6 @@ type Service struct {
 // all registries
 var (
 	cameraRegistry  = map[string]Camera{}
-	armRegistry     = map[string]Arm{}
 	gripperRegistry = map[string]Gripper{}
 	baseRegistry    = map[string]Base{}
 	lidarRegistry   = map[string]Lidar{}
@@ -140,18 +132,6 @@ func RegisterCamera(model string, creator Camera) {
 		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
 	}
 	cameraRegistry[model] = creator
-}
-
-// RegisterArm registers an arm model to a creator.
-func RegisterArm(model string, creator Arm) {
-	_, old := armRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two arms with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	armRegistry[model] = creator
 }
 
 // RegisterGripper registers a gripper model to a creator.
@@ -265,15 +245,6 @@ func CameraLookup(model string) *Camera {
 	return nil
 }
 
-// ArmLookup looks up an arm creator by the given model. nil is returned if
-// there is no creator registered.
-func ArmLookup(model string) *Arm {
-	if registration, ok := armRegistry[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
 // GripperLookup looks up a gripper creator by the given model. nil is returned if
 // there is no creator registered.
 func GripperLookup(model string) *Gripper {
@@ -325,7 +296,7 @@ func FrameLookup(comp *config.Component) (CreateFrame, bool) {
 		}
 		return registration.Frame, true
 	case config.ComponentTypeArm:
-		registration := ArmLookup(comp.Model)
+		registration := CreatorLookup(comp.ResourceType(), comp.Model)
 		if registration == nil || registration.Frame == nil {
 			return nil, false
 		}
@@ -414,4 +385,74 @@ func ServiceLookup(typeName config.ServiceType) *Service {
 		return &registration
 	}
 	return nil
+}
+
+// core api v2 implementation starts here
+
+type (
+	// A CreateResource creates a resource from a given config.
+	CreateResource func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*resource.Resource, error)
+
+	// A RegisterService registers a resource service to the given rpc server
+	RegisterService func(ctx context.Context, server server.Server, resource *interface{}) error
+)
+
+// Creator stores a resource constructor (mandatory) and a Frame building function (optional)
+type Creator struct {
+	Constructor CreateResource
+	Frame       CreateFrame
+}
+
+// ComponentRegistry stores a map of resource creators key to component model names for
+// a certain component type and a way to register said resource to a rpc server
+type ComponentRegistry struct {
+	Models          map[string]Creator
+	RegisterService RegisterService
+}
+
+var (
+	registry = map[string]ComponentRegistry{}
+)
+
+// RegisterCreator register a creator to its corresponding component and model.
+func RegisterCreator(component string, model string, creator Creator, regService RegisterService) {
+	cRegistry, ok := registry[component]
+	if !ok {
+		cRegistry = ComponentRegistry{
+			Models:          map[string]Creator{},
+			RegisterService: regService,
+		}
+	}
+	_, old := cRegistry.Models[model]
+	if old {
+		panic(errors.Errorf("trying to register two resource with same component:%s, model:%s", component, model))
+	}
+	if creator.Constructor == nil {
+		panic(errors.Errorf("cannot register a nil constructor for component:%s, model:%s", component, model))
+	}
+	cRegistry.Models[model] = creator
+	registry[component] = cRegistry
+}
+
+// CreatorLookup looks up a creator by the given component and model. nil is returned if
+// there is no creator registered.
+func CreatorLookup(component string, model string) *Creator {
+	cRegistry, ok := registry[component]
+	if !ok {
+		return nil
+	}
+	if creator, ok := cRegistry.Models[model]; ok {
+		return &creator
+	}
+	return nil
+}
+
+// RegisterServiceLookup looks up a service registrator by the given component. nil is returned if
+// there is no such registrator.
+func RegisterServiceLookup(component string) RegisterService {
+	cRegistry, ok := registry[component]
+	if !ok || cRegistry.RegisterService == nil {
+		return nil
+	}
+	return cRegistry.RegisterService
 }

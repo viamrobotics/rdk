@@ -4,7 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/core/arm"
+	"go.viam.com/utils/rpc/server"
+
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
@@ -13,6 +14,7 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
@@ -22,10 +24,6 @@ import (
 )
 
 func TestRegistry(t *testing.T) {
-	af := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		return nil, nil
-	}
-
 	cf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		return nil, nil
 	}
@@ -64,7 +62,6 @@ func TestRegistry(t *testing.T) {
 
 	// test panics
 	test.That(t, func() { RegisterCamera("x", Camera{}) }, test.ShouldPanic)
-	test.That(t, func() { RegisterArm("x", Arm{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterBase("x", Base{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterGripper("x", Gripper{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterLidar("x", Lidar{}) }, test.ShouldPanic)
@@ -76,7 +73,6 @@ func TestRegistry(t *testing.T) {
 	// test register
 	RegisterCamera("x", Camera{cf, ff})
 	RegisterBase("x", Base{Constructor: bf, Frame: ff})
-	RegisterArm("x", Arm{Constructor: af, Frame: ff})
 	RegisterGripper("x", Gripper{gf, ff})
 	RegisterLidar("x", Lidar{Constructor: lf})
 	RegisterSensor(sensor.Type("x"), "y", Sensor{Constructor: sf, Frame: ff})
@@ -96,20 +92,6 @@ func TestRegistry(t *testing.T) {
 	test.That(t, ok, test.ShouldEqual, true)
 	// look up a component that doesn't exist
 	comp = &config.Component{Type: config.ComponentTypeCamera, Model: "z"}
-	frameFunc, ok = FrameLookup(comp)
-	test.That(t, frameFunc, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldEqual, false)
-
-	test.That(t, ArmLookup("x"), test.ShouldNotBeNil)
-	test.That(t, ArmLookup("z"), test.ShouldBeNil)
-	test.That(t, ArmLookup("x").Constructor, test.ShouldNotBeNil)
-	test.That(t, ArmLookup("x").Frame, test.ShouldNotBeNil)
-	comp = &config.Component{Type: config.ComponentTypeArm, Model: "x"}
-	frameFunc, ok = FrameLookup(comp)
-	test.That(t, frameFunc, test.ShouldEqual, ff)
-	test.That(t, ok, test.ShouldEqual, true)
-	// look up a component that doesn't exist
-	comp = &config.Component{Type: config.ComponentTypeArm, Model: "z"}
 	frameFunc, ok = FrameLookup(comp)
 	test.That(t, frameFunc, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldEqual, false)
@@ -208,6 +190,39 @@ func TestRegistry(t *testing.T) {
 	test.That(t, ok, test.ShouldEqual, true)
 	// look up a component that doesn't exist
 	comp = &config.Component{Type: config.ComponentTypeMotor, Model: "z"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldEqual, false)
+}
+
+func TestCreatorRegistry(t *testing.T) {
+	af := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*resource.Resource, error) {
+		return nil, nil
+	}
+	rf := func(ctx context.Context, server server.Server, resource *interface{}) error {
+		return nil
+	}
+	ff := func(name string) (referenceframe.Frame, error) {
+		return nil, nil
+	}
+	armResourceType := "core:component:arm"
+	armResourceName := "x"
+	test.That(t, func() { RegisterCreator(armResourceType, armResourceName, Creator{}, rf) }, test.ShouldPanic)
+	RegisterCreator(armResourceType, armResourceName, Creator{Constructor: af, Frame: ff}, rf)
+
+	creator := CreatorLookup(armResourceType, armResourceName)
+	test.That(t, creator, test.ShouldNotBeNil)
+	test.That(t, CreatorLookup(armResourceType, "z"), test.ShouldBeNil)
+	test.That(t, creator.Constructor, test.ShouldEqual, af)
+	test.That(t, creator.Frame, test.ShouldEqual, ff)
+	test.That(t, RegisterServiceLookup(armResourceType), test.ShouldEqual, rf)
+
+	comp := &config.Component{Type: config.ComponentTypeArm, Model: armResourceName}
+	frameFunc, ok := FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldEqual, ff)
+	test.That(t, ok, test.ShouldEqual, true)
+	// look up a component that doesn't exist
+	comp = &config.Component{Type: config.ComponentTypeArm, Model: "z"}
 	frameFunc, ok = FrameLookup(comp)
 	test.That(t, frameFunc, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldEqual, false)
