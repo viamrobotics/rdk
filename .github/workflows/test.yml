@@ -19,7 +19,7 @@ jobs:
     name: Build and Test
     runs-on: [self-hosted, x64, DockerTest]
     container:
-      image: localtest:latest
+      image: localhost:5000/localtest
 
     steps:
 
