@@ -69,3 +69,24 @@ func TestR2ToImage(t *testing.T) {
 
 	test.That(t, R2RectToImageRect(resultR2Rect), test.ShouldResemble, resultImageRect)
 }
+
+func TestSliceVecsToXsYs(t *testing.T) {
+	sliceVecs := []r2.Point{{1, 2}, {3, 4}}
+	xs, ys := SliceVecsToXsYs(sliceVecs)
+	test.That(t, len(xs), test.ShouldEqual, 2)
+	test.That(t, len(ys), test.ShouldEqual, 2)
+	test.That(t, xs[0], test.ShouldEqual, 1)
+	test.That(t, xs[1], test.ShouldEqual, 3)
+	test.That(t, ys[0], test.ShouldEqual, 2)
+	test.That(t, ys[1], test.ShouldEqual, 4)
+}
+
+func TestSortPointCounterClockwise(t *testing.T) {
+	pts := []r2.Point{{0, 0}, {0, 1}, {1, 0}, {1, 1}}
+	ptsSorted := SortPointCounterClockwise(pts)
+	test.That(t, len(ptsSorted), test.ShouldEqual, 4)
+	test.That(t, ptsSorted[0], test.ShouldResemble, r2.Point{0, 0})
+	test.That(t, ptsSorted[1], test.ShouldResemble, r2.Point{1, 0})
+	test.That(t, ptsSorted[2], test.ShouldResemble, r2.Point{1, 1})
+	test.That(t, ptsSorted[3], test.ShouldResemble, r2.Point{0, 1})
+}
