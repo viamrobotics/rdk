@@ -15,6 +15,6 @@ USER root
 RUN rm -rf /home/testbot/.cache
 RUN apt clean
 
-RUN cp /home/testbot/.bashrc /root/.bashrc && cp /home/testbot/.viamdevrc /root/.viamdevrc
+RUN cp /home/testbot/.bashrc /home/testbot/.bash_profile /home/testbot/.viamdevrc /root/
 
 ENTRYPOINT ["bash", "-lc"]
