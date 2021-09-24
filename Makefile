@@ -15,7 +15,7 @@ binsetup:
 goformat:
 	go install golang.org/x/tools/cmd/goimports
 	gofmt -s -w .
-	goimports -w -local=go.viam.com/core `go list -f '{{.Dir}}' ./... | grep -Ev "proto"`
+	`go env GOPATH`/bin/goimports -w -local=go.viam.com/core `go list -f '{{.Dir}}' ./... | grep -Ev "proto"`
 
 setup:
 	bash etc/setup.sh
@@ -34,10 +34,6 @@ buf:
 	buf generate --template ./etc/buf.web.gen.yaml buf.build/beta/googleapis:1c473ad9220a49bca9320f4cc690eba5
 
 lint: goformat
-	go install google.golang.org/protobuf/cmd/protoc-gen-go \
-      google.golang.org/grpc/cmd/protoc-gen-go-grpc \
-      github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
-      github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc
 	buf lint
 	go install github.com/edaniels/golinters/cmd/combined
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint
