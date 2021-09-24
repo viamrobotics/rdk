@@ -19,9 +19,11 @@ import (
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc/client"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/motor"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/servo"
 )
 
 // robotParts are the actual parts that make up a robot.
@@ -34,7 +36,9 @@ type robotParts struct {
 	lidars         map[string]*proxyLidar
 	bases          map[string]*proxyBase
 	sensors        map[string]sensor.Sensor
-	providers      map[string]*proxyProvider
+	servos         map[string]*proxyServo
+	motors         map[string]*proxyMotor
+	functions      map[string]struct{}
 	processManager pexec.ProcessManager
 }
 
@@ -49,7 +53,9 @@ func newRobotParts(logger golog.Logger) *robotParts {
 		lidars:         map[string]*proxyLidar{},
 		bases:          map[string]*proxyBase{},
 		sensors:        map[string]sensor.Sensor{},
-		providers:      map[string]*proxyProvider{},
+		servos:         map[string]*proxyServo{},
+		motors:         map[string]*proxyMotor{},
+		functions:      map[string]struct{}{},
 		processManager: pexec.NewProcessManager(logger),
 	}
 }
@@ -70,7 +76,7 @@ func (parts *robotParts) addRemote(r *remoteRobot, c config.Remote) {
 }
 
 // AddBoard adds a board to the parts.
-func (parts *robotParts) AddBoard(b board.Board, c board.Config) {
+func (parts *robotParts) AddBoard(b board.Board, c config.Component) {
 	if proxy, ok := b.(*proxyBoard); ok {
 		b = proxy.actual
 	}
@@ -143,12 +149,27 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 	}
 }
 
-// AddProvider adds a provider to the parts.
-func (parts *robotParts) AddProvider(p robot.Provider, c config.Component) {
-	if proxy, ok := p.(*proxyProvider); ok {
-		p = proxy.actual
+// AddServo adds a servo to the parts.
+func (parts *robotParts) AddServo(s servo.Servo, c config.Component) {
+	c = fixType(c, config.ComponentTypeServo, len(parts.servos))
+	if proxy, ok := s.(*proxyServo); ok {
+		s = proxy.actual
 	}
-	parts.providers[c.Name] = &proxyProvider{actual: p}
+	parts.servos[c.Name] = &proxyServo{actual: s}
+}
+
+// AddMotor adds a motor to the parts.
+func (parts *robotParts) AddMotor(m motor.Motor, c config.Component) {
+	c = fixType(c, config.ComponentTypeMotor, len(parts.motors))
+	if proxy, ok := m.(*proxyMotor); ok {
+		m = proxy.actual
+	}
+	parts.motors[c.Name] = &proxyMotor{actual: m}
+}
+
+// addFunction adds a function to the parts.
+func (parts *robotParts) addFunction(name string) {
+	parts.functions[name] = struct{}{}
 }
 
 // RemoteNames returns the names of all remotes in the parts.
@@ -243,6 +264,33 @@ func (parts *robotParts) SensorNames() []string {
 	return parts.mergeNamesWithRemotes(names, robot.Robot.SensorNames)
 }
 
+// ServoNames returns the names of all servos in the parts.
+func (parts *robotParts) ServoNames() []string {
+	names := []string{}
+	for k := range parts.servos {
+		names = append(names, k)
+	}
+	return parts.mergeNamesWithRemotes(names, robot.Robot.ServoNames)
+}
+
+// MotorNames returns the names of all motors in the parts.
+func (parts *robotParts) MotorNames() []string {
+	names := []string{}
+	for k := range parts.motors {
+		names = append(names, k)
+	}
+	return parts.mergeNamesWithRemotes(names, robot.Robot.MotorNames)
+}
+
+// FunctionNames returns the names of all functions in the parts.
+func (parts *robotParts) FunctionNames() []string {
+	names := []string{}
+	for k := range parts.functions {
+		names = append(names, k)
+	}
+	return parts.mergeNamesWithRemotes(names, robot.Robot.FunctionNames)
+}
+
 // Clone provides a shallow copy of each part.
 func (parts *robotParts) Clone() *robotParts {
 	var clonedParts robotParts
@@ -294,10 +342,22 @@ func (parts *robotParts) Clone() *robotParts {
 			clonedParts.sensors[k] = v
 		}
 	}
-	if len(parts.providers) != 0 {
-		clonedParts.providers = make(map[string]*proxyProvider, len(parts.providers))
-		for k, v := range parts.providers {
-			clonedParts.providers[k] = v
+	if len(parts.servos) != 0 {
+		clonedParts.servos = make(map[string]*proxyServo, len(parts.servos))
+		for k, v := range parts.servos {
+			clonedParts.servos[k] = v
+		}
+	}
+	if len(parts.motors) != 0 {
+		clonedParts.motors = make(map[string]*proxyMotor, len(parts.motors))
+		for k, v := range parts.motors {
+			clonedParts.motors[k] = v
+		}
+	}
+	if len(parts.functions) != 0 {
+		clonedParts.functions = make(map[string]struct{}, len(parts.functions))
+		for k, v := range parts.functions {
+			clonedParts.functions[k] = v
 		}
 	}
 	if parts.processManager != nil {
@@ -349,15 +409,27 @@ func (parts *robotParts) Close() error {
 		}
 	}
 
-	for _, x := range parts.boards {
-		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing board: %w", err))
-		}
-	}
-
 	for _, x := range parts.sensors {
 		if err := utils.TryClose(x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing sensor: %w", err))
+		}
+	}
+
+	for _, x := range parts.servos {
+		if err := utils.TryClose(x); err != nil {
+			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing servo: %w", err))
+		}
+	}
+
+	for _, x := range parts.motors {
+		if err := utils.TryClose(x); err != nil {
+			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing motor: %w", err))
+		}
+	}
+
+	for _, x := range parts.boards {
+		if err := utils.TryClose(x); err != nil {
+			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing board: %w", err))
 		}
 	}
 
@@ -379,12 +451,12 @@ func (parts *robotParts) processConfig(
 		return err
 	}
 
-	if err := parts.newBoards(ctx, config.Boards, logger); err != nil {
+	if err := parts.newComponents(ctx, config.Components, robot); err != nil {
 		return err
 	}
 
-	if err := parts.newComponents(ctx, config.Components, robot); err != nil {
-		return err
+	for _, f := range config.Functions {
+		parts.addFunction(f.Name)
 	}
 
 	return nil
@@ -405,12 +477,12 @@ func (parts *robotParts) processModifiedConfig(
 		return err
 	}
 
-	if err := parts.newBoardsModified(ctx, config.Boards, logger); err != nil {
+	if err := parts.newComponents(ctx, config.Components, robot); err != nil {
 		return err
 	}
 
-	if err := parts.newComponents(ctx, config.Components, robot); err != nil {
-		return err
+	for _, f := range config.Functions {
+		parts.addFunction(f.Name)
 	}
 
 	return nil
@@ -440,51 +512,10 @@ func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote
 	return nil
 }
 
-// newBoards constructs all boards defined.
-func (parts *robotParts) newBoards(ctx context.Context, boards []board.Config, logger golog.Logger) error {
-	for _, c := range boards {
-		b, err := board.NewBoard(ctx, c, logger)
-		if err != nil {
-			return err
-		}
-		parts.AddBoard(b, c)
-	}
-	return nil
-}
-
-// newBoardsModified constructs all boards defined from modifications.
-func (parts *robotParts) newBoardsModified(ctx context.Context, boardDiffs map[string]board.ConfigDiff, logger golog.Logger) error {
-	for _, diff := range boardDiffs {
-		config, err := diff.ToConfig()
-		if err != nil {
-			return err
-		}
-		b, err := board.NewBoard(ctx, *config, logger)
-		if err != nil {
-			return err
-		}
-		parts.AddBoard(b, *config)
-	}
-	return nil
-}
-
 // newComponents constructs all components defined.
 func (parts *robotParts) newComponents(ctx context.Context, components []config.Component, r *mutableRobot) error {
 	for _, c := range components {
 		switch c.Type {
-		case config.ComponentTypeProvider:
-			p, err := r.newProvider(ctx, c)
-			if err != nil {
-				return err
-			}
-			parts.AddProvider(p, c)
-		}
-	}
-
-	for _, c := range components {
-		switch c.Type {
-		case config.ComponentTypeProvider:
-			// handled above
 		case config.ComponentTypeBase:
 			b, err := r.newBase(ctx, c)
 			if err != nil {
@@ -524,6 +555,24 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 				return err
 			}
 			parts.AddSensor(sensorDevice, c)
+		case config.ComponentTypeBoard:
+			board, err := r.newBoard(ctx, c)
+			if err != nil {
+				return err
+			}
+			parts.AddBoard(board, c)
+		case config.ComponentTypeServo:
+			servo, err := r.newServo(ctx, c)
+			if err != nil {
+				return err
+			}
+			parts.AddServo(servo, c)
+		case config.ComponentTypeMotor:
+			motor, err := r.newMotor(ctx, c)
+			if err != nil {
+				return err
+			}
+			parts.AddMotor(motor, c)
 		default:
 			return errors.Errorf("unknown component type: %v", c.Type)
 		}
@@ -660,15 +709,31 @@ func (parts *robotParts) SensorByName(name string) (sensor.Sensor, bool) {
 	return nil, false
 }
 
-// ProviderByName returns the given provider by name, if it exists;
+// ServoByName returns the given servo by name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) ProviderByName(name string) (robot.Provider, bool) {
-	part, ok := parts.providers[name]
+func (parts *robotParts) ServoByName(name string) (servo.Servo, bool) {
+	part, ok := parts.servos[name]
 	if ok {
 		return part, true
 	}
 	for _, remote := range parts.remotes {
-		part, ok := remote.ProviderByName(name)
+		part, ok := remote.ServoByName(name)
+		if ok {
+			return part, true
+		}
+	}
+	return nil, false
+}
+
+// MotorByName returns the given motor by name, if it exists;
+// returns nil otherwise.
+func (parts *robotParts) MotorByName(name string) (motor.Motor, bool) {
+	part, ok := parts.motors[name]
+	if ok {
+		return part, true
+	}
+	for _, remote := range parts.remotes {
+		part, ok := remote.MotorByName(name)
 		if ok {
 			return part, true
 		}
@@ -768,12 +833,30 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 	}
 
-	if len(toAdd.providers) != 0 {
-		if parts.providers == nil {
-			parts.providers = make(map[string]*proxyProvider, len(toAdd.providers))
+	if len(toAdd.servos) != 0 {
+		if parts.servos == nil {
+			parts.servos = make(map[string]*proxyServo, len(toAdd.servos))
 		}
-		for k, v := range toAdd.providers {
-			parts.providers[k] = v
+		for k, v := range toAdd.servos {
+			parts.servos[k] = v
+		}
+	}
+
+	if len(toAdd.motors) != 0 {
+		if parts.motors == nil {
+			parts.motors = make(map[string]*proxyMotor, len(toAdd.motors))
+		}
+		for k, v := range toAdd.motors {
+			parts.motors[k] = v
+		}
+	}
+
+	if len(toAdd.functions) != 0 {
+		if parts.functions == nil {
+			parts.functions = make(map[string]struct{}, len(toAdd.functions))
+		}
+		for k, v := range toAdd.functions {
+			parts.functions[k] = v
 		}
 	}
 
@@ -824,7 +907,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			old.merge(v, diff.Modified.Boards[k])
+			old.replace(v)
 		}
 	}
 
@@ -894,9 +977,20 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 		}
 	}
 
-	if len(toModify.providers) != 0 {
-		for k, v := range toModify.providers {
-			old, ok := parts.providers[k]
+	if len(toModify.servos) != 0 {
+		for k, v := range toModify.servos {
+			old, ok := parts.servos[k]
+			if !ok {
+				// should not happen
+				continue
+			}
+			old.replace(v)
+		}
+	}
+
+	if len(toModify.motors) != 0 {
+		for k, v := range toModify.motors {
+			old, ok := parts.motors[k]
 			if !ok {
 				// should not happen
 				continue
@@ -959,9 +1053,21 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 		}
 	}
 
-	if len(toRemove.providers) != 0 {
-		for k := range toRemove.providers {
-			delete(parts.providers, k)
+	if len(toRemove.servos) != 0 {
+		for k := range toRemove.servos {
+			delete(parts.servos, k)
+		}
+	}
+
+	if len(toRemove.motors) != 0 {
+		for k := range toRemove.motors {
+			delete(parts.motors, k)
+		}
+	}
+
+	if len(toRemove.functions) != 0 {
+		for k := range toRemove.functions {
+			delete(parts.functions, k)
 		}
 	}
 
@@ -995,22 +1101,8 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 		filtered.addRemote(part, conf)
 	}
 
-	for _, conf := range conf.Boards {
-		part, ok := parts.BoardByName(conf.Name)
-		if !ok {
-			continue
-		}
-		filtered.AddBoard(part, conf)
-	}
-
 	for _, compConf := range conf.Components {
 		switch compConf.Type {
-		case config.ComponentTypeProvider:
-			part, ok := parts.ProviderByName(compConf.Name)
-			if !ok {
-				continue
-			}
-			filtered.AddProvider(part, compConf)
 		case config.ComponentTypeBase:
 			part, ok := parts.BaseByName(compConf.Name)
 			if !ok {
@@ -1041,15 +1133,41 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 				continue
 			}
 			filtered.AddLidar(part, compConf)
+		case config.ComponentTypeBoard:
+			part, ok := parts.BoardByName(compConf.Name)
+			if !ok {
+				continue
+			}
+			filtered.AddBoard(part, compConf)
 		case config.ComponentTypeSensor:
 			part, ok := parts.SensorByName(compConf.Name)
 			if !ok {
 				continue
 			}
 			filtered.AddSensor(part, compConf)
+		case config.ComponentTypeServo:
+			part, ok := parts.ServoByName(compConf.Name)
+			if !ok {
+				continue
+			}
+			filtered.AddServo(part, compConf)
+		case config.ComponentTypeMotor:
+			part, ok := parts.MotorByName(compConf.Name)
+			if !ok {
+				continue
+			}
+			filtered.AddMotor(part, compConf)
 		default:
 			return nil, errors.Errorf("unknown component type: %v", compConf.Type)
 		}
+	}
+
+	for _, conf := range conf.Functions {
+		_, ok := parts.functions[conf.Name]
+		if !ok {
+			continue
+		}
+		filtered.addFunction(conf.Name)
 	}
 
 	return filtered, nil

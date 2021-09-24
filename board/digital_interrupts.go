@@ -7,6 +7,7 @@ import (
 	"github.com/erh/scheme"
 	"github.com/go-errors/errors"
 
+	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/utils"
 )
 
@@ -91,6 +92,23 @@ func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error
 		})
 	}
 
+	if cfg.Function != nil {
+		eng, err := functionvm.NewEngine(cfg.Function.Engine)
+		if err != nil {
+			return nil, err
+		}
+		i.AddPostProcessor(func(raw int64) int64 {
+			results, err := eng.ExecuteSource(cfg.Function.Source)
+			if err != nil {
+				panic(err)
+			}
+			if len(results) != 1 {
+				panic(errors.New("expected one result"))
+			}
+			return int64(results[0].MustNumber())
+		})
+	}
+
 	return i, nil
 }
 
@@ -119,8 +137,8 @@ func (i *BasicDigitalInterrupt) Value(ctx context.Context) (int64, error) {
 	return count, nil
 }
 
-// really just for testing
-func (i *BasicDigitalInterrupt) ticks(ctx context.Context, num int, now uint64) error {
+// Ticks is really just for testing
+func (i *BasicDigitalInterrupt) Ticks(ctx context.Context, num int, now uint64) error {
 	for x := 0; x < num; x++ {
 		if err := i.Tick(ctx, true, now+uint64(x)); err != nil {
 			return err

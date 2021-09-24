@@ -1,7 +1,11 @@
 
 BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 
-TAGS = $(shell sh etc/gotags.sh)
+ifneq ("$(wildcard /etc/rpi-issue)","")
+   $(info Raspberry Pi Detected)
+   export CGO_LDFLAGS = -lwasmer
+   TAGS = -tags="pi custom_wasmer_runtime"
+endif
 
 SERVER_DEB_VER = 0.3
 
@@ -73,7 +77,9 @@ deb-server: server cameras
 	install -D etc/camera_servers/royaleserver etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/bin/royaleserver
 	install -m 644 -D web/runtime-shared/templates/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/templates/
 	install -m 644 -D web/runtime-shared/static/control.js etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/control.js
-	install -m 644 -D web/runtime-shared/static/third-party/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/third-party
+	install -m 644 -D web/runtime-shared/static/third-party/vue.js etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/third-party/vue.js
+	install -m 644 -D web/runtime-shared/static/third-party/ace/snippets/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/third-party/ace/snippets
+	install -m 644 -D web/runtime-shared/static/third-party/ace/*.js --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/third-party/ace
 	cd etc/packaging/work/viam-server-$(SERVER_DEB_VER)/ \
 	&& dch -v $(SERVER_DEB_VER)+`date -u '+%Y%m%d%H%M'` "Auto-build from commit `git log --pretty=format:'%h' -n 1`" \
 	&& dch -r viam \
@@ -85,6 +91,6 @@ deb-install: deb-server
 boat: samples/boat1/cmd.go
 	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat samples/boat1/cmd.go
 
-boat2: samples/boat2/cmd.go
-	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat2 samples/boat2/cmd.go
+boat2: samples/boat2/cmd.go samples/boat2/util.go
+	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat2 samples/boat2/cmd.go samples/boat2/util.go
 

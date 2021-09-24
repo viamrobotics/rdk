@@ -16,9 +16,9 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("fake", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterCamera("fake", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		return &Camera{Name: config.Name}, nil
-	})
+	}})
 }
 
 // Camera is a fake camera that always returns the same image.

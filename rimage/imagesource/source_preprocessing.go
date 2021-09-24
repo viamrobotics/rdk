@@ -17,9 +17,9 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("preprocessDepth", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterCamera("preprocessDepth", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		return newPreprocessDepth(r, config)
-	})
+	}})
 }
 
 // PreprocessDepthSource applies pre-processing functions to depth maps in order to smooth edges and fill holes.
