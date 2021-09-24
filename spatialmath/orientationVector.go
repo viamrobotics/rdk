@@ -97,8 +97,8 @@ func (ov *OrientationVec) Quaternion() quat.Number {
 	return ov.ToQuat()
 }
 
-// OrientationVector returns orientation as an orientation vector (in radians)
-func (ov *OrientationVec) OrientationVector() *OrientationVec {
+// OrientationVectorRadians returns orientation as an orientation vector (in radians)
+func (ov *OrientationVec) OrientationVectorRadians() *OrientationVec {
 	return ov
 }
 
@@ -138,8 +138,8 @@ func (ovd *OrientationVecDegrees) Quaternion() quat.Number {
 	return ovd.ToQuat()
 }
 
-// OrientationVector returns orientation as an orientation vector (in radians)
-func (ovd *OrientationVecDegrees) OrientationVector() *OrientationVec {
+// OrientationVectorRadians returns orientation as an orientation vector (in radians)
+func (ovd *OrientationVecDegrees) OrientationVectorRadians() *OrientationVec {
 	return ovd.Radians()
 }
 

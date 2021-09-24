@@ -7,10 +7,11 @@ import (
 )
 
 // EulerAngles are three angles used to represent the rotation of an object in 3D Euclidean space
+// The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.
 type EulerAngles struct {
-	Roll  float64 `json:"roll"`
-	Pitch float64 `json:"pitch"`
-	Yaw   float64 `json:"yaw"`
+	Roll  float64 `json:"roll"`  // phi
+	Pitch float64 `json:"pitch"` // theta
+	Yaw   float64 `json:"yaw"`   // psi
 }
 
 // NewEulerAngles creates an empty EulerAngles struct
@@ -41,8 +42,8 @@ func (ea *EulerAngles) Quaternion() quat.Number {
 	return q
 }
 
-// OrientationVector returns orientation as an orientation vector (in radians)
-func (ea *EulerAngles) OrientationVector() *OrientationVec {
+// OrientationVectorRadians returns orientation as an orientation vector (in radians)
+func (ea *EulerAngles) OrientationVectorRadians() *OrientationVec {
 	return QuatToOV(ea.Quaternion())
 }
 

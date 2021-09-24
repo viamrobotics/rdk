@@ -7,9 +7,9 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
-// Orientation is an interface used to express the different parameterizations of a rotation in 3D Euclidean space.
+// Orientation is an interface used to express the different parameterizations of the orientation of a rigid object or a frame of reference in 3D Euclidean space.
 type Orientation interface {
-	OrientationVector() *OrientationVec
+	OrientationVectorRadians() *OrientationVec
 	OrientationVectorDegrees() *OrientationVecDegrees
 	AxisAngles() *R4AA
 	Quaternion() quat.Number
@@ -34,8 +34,8 @@ func (q *quaternion) AxisAngles() *R4AA {
 	return &aa
 }
 
-// OrientationVector returns orientation as an orientation vector (in radians)
-func (q *quaternion) OrientationVector() *OrientationVec {
+// OrientationVectorRadians returns orientation as an orientation vector (in radians)
+func (q *quaternion) OrientationVectorRadians() *OrientationVec {
 	return QuatToOV(q.Quaternion())
 }
 
@@ -141,7 +141,6 @@ func QuatToOV(q quat.Number) *OrientationVec {
 		if newZ.Kmag < 0 {
 			ov.Theta = -math.Atan2(newX.Jmag, newX.Imag)
 		}
-		//~ fmt.Println(ov)
 	}
 
 	return ov

@@ -1,79 +1,32 @@
 package config
 
 import (
-	"math"
+	"encoding/json"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/spatialmath"
+	spatial "go.viam.com/core/spatialmath"
+	"go.viam.com/utils"
 )
 
-func TestOrientationEmpty(t *testing.T) {
-	fc := &FrameConfig{
-		Parent:      "a",
-		Translation: Translation{1, 2, 3},
-	}
+func TestOrientation(t *testing.T) {
+	file, err := os.Open("data/frames.json")
+	test.That(t, err, test.ShouldBeNil)
 
-	// empty orientation
-	o := fc.Orientation()
-	test.That(t, o.EulerAngles(), test.ShouldResemble, &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: 0})
-}
+	defer utils.UncheckedErrorFunc(file.Close)
 
-func TestOrientationOV(t *testing.T) {
-	fc := &FrameConfig{
-		Parent:      "a",
-		Translation: Translation{1, 2, 3},
-	}
-
-	ov := &spatialmath.OrientationVec{Theta: math.Pi / 2., OX: 0, OY: 0, OZ: 1}
-	fc.OVRadians = ov
-	o := fc.Orientation()
-	test.That(t, o.OV().Theta, test.ShouldAlmostEqual, ov.Theta)
-	test.That(t, o.OV().OX, test.ShouldAlmostEqual, ov.OX)
-	test.That(t, o.OV().OY, test.ShouldAlmostEqual, ov.OY)
-	test.That(t, o.OV().OZ, test.ShouldAlmostEqual, ov.OZ)
-}
-
-func TestOrientationOVD(t *testing.T) {
-	fc := &FrameConfig{
-		Parent:      "a",
-		Translation: Translation{1, 2, 3},
-	}
-
-	ovd := &spatialmath.OrientationVecDegrees{Theta: 60, OX: 0, OY: 0, OZ: 1}
-	fc.OVDegrees = ovd
-	o := fc.Orientation()
-	test.That(t, o.OVD().Theta, test.ShouldAlmostEqual, ovd.Theta)
-	test.That(t, o.OVD().OX, test.ShouldAlmostEqual, ovd.OX)
-	test.That(t, o.OVD().OY, test.ShouldAlmostEqual, ovd.OY)
-	test.That(t, o.OVD().OZ, test.ShouldAlmostEqual, ovd.OZ)
-}
-
-func TestOrientationAxisAngle(t *testing.T) {
-	fc := &FrameConfig{
-		Parent:      "a",
-		Translation: Translation{1, 2, 3},
-	}
-	aa := &spatialmath.R4AA{Theta: math.Pi / 4., RX: 0, RY: 0, RZ: 1}
-	fc.AxisAngles = aa
-	o := fc.Orientation()
-	test.That(t, o.AxisAngles().Theta, test.ShouldAlmostEqual, aa.Theta)
-	test.That(t, o.AxisAngles().RX, test.ShouldAlmostEqual, aa.RX)
-	test.That(t, o.AxisAngles().RY, test.ShouldAlmostEqual, aa.RY)
-	test.That(t, o.AxisAngles().RZ, test.ShouldAlmostEqual, aa.RZ)
-}
-
-func TestOrientationEuler(t *testing.T) {
-	fc := &FrameConfig{
-		Parent:      "a",
-		Translation: Translation{1, 2, 3},
-	}
-	ea := &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: math.Pi / 6.}
-	fc.EulerAngles = ea
-	o := fc.Orientation()
-	test.That(t, o.EulerAngles().Roll, test.ShouldAlmostEqual, ea.Roll)
-	test.That(t, o.EulerAngles().Pitch, test.ShouldAlmostEqual, ea.Pitch)
-	test.That(t, o.EulerAngles().Yaw, test.ShouldAlmostEqual, ea.Yaw)
+	data, err := ioutil.ReadAll(file)
+	test.That(t, err, test.ShouldBeNil)
+	// Parse into config
+	var frame FrameConfig
+	err = json.Unmarshal(data, &frame)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, frame.Parent, test.ShouldEqual, "a")
+	test.That(t, frame.Translation, test.ShouldResemble, Translation{1, 2, 3})
+	test.That(t, frame.Orientation.Type, test.ShouldEqual, "ov_degrees")
+	test.That(t, frame.Orientation.Value.OrientationVectorDegrees(), test.ShouldResemble, &spatial.OrientationVec{45, 0, 0, 1})
 
 }

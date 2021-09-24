@@ -1,6 +1,8 @@
 package config
 
 import (
+	"encoding/json"
+
 	spatial "go.viam.com/core/spatialmath"
 )
 
@@ -13,25 +15,44 @@ type Translation struct {
 
 // FrameConfig the pose and parent of the frame that will be created.
 type FrameConfig struct {
-	Parent      string                         `json:"parent"`
-	Translation Translation                    `json:"translation"`
-	OVDegrees   *spatial.OrientationVecDegrees `json:"ov_degrees"`
-	OVRadians   *spatial.OrientationVec        `json:"ov_radians"`
-	AxisAngles  *spatial.R4AA                  `json:"axis_angles"`
-	EulerAngles *spatial.EulerAngles           `json:"euler_angles"`
+	Parent      string             `json:"parent"`
+	Translation Translation        `json:"translation"`
+	Orientation *OrientationConfig `json:"orientation"`
 }
 
-// Orientation returns the orientation of the object from the config, or an empty orientation if no orientation specified
-// or if orientation not recognized.
-func (fc *FrameConfig) Orientation() spatial.Orientation {
-	if fc.OVDegrees != nil {
-		return spatial.NewOrientationFromOVD(fc.OVDegrees)
-	} else if fc.OVRadians != nil {
-		return spatial.NewOrientationFromOV(fc.OVRadians)
-	} else if fc.AxisAngles != nil {
-		return spatial.NewOrientationFromAxisAngles(fc.AxisAngles)
-	} else if fc.EulerAngles != nil {
-		return spatial.NewOrientationFromEulerAngles(fc.EulerAngles)
+// OrientationConfig specifies the type of orientation representation that is used, and the orientation value
+type OrientationConfig struct {
+	Type  string              `json:"type"`
+	Value spatial.Orientation `json:"value"`
+}
+
+// UnmarshalJSON will find the correct struct that implements Orientation
+func (oc *OrientationConfig) UnmarshalJSON(b []byte) error {
+	// unmarshal everything into a string:RawMessage pair
+	var objMap map[string]interface{}
+	var err error
+	err = json.Unmarshal(b, &objMap)
+	if err != nil {
+		return err
 	}
-	return spatial.NewZeroOrientation()
+
+	oc.Type = objMap["type"].(string)
+
+	switch oc.Type {
+	case "ov_degrees":
+		o := objMap["value"].(spatial.OrientationVecDegrees)
+		oc.Value = &o
+	case "ov_radians":
+		o := objMap["value"].(spatial.OrientationVec)
+		oc.Value = &o
+	case "axis_angles":
+		o := objMap["value"].(spatial.R4AA)
+		oc.Value = &o
+	case "euler_angles":
+		o := objMap["value"].(spatial.EulerAngles)
+		oc.Value = &o
+	default:
+		oc.Value = spatial.NewZeroOrientation()
+	}
+	return nil
 }
