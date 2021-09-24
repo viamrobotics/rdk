@@ -88,8 +88,9 @@ func New(ctx context.Context, host string, logger golog.Logger) (imu *IPhone, er
 			imuReading, err := ip.readNextMeasurementWithRetries(ctx)
 			if err != nil {
 				logger.Debugw("error reading iphone data", "error", err)
+			} else {
+				ip.measurement.Store(*imuReading)
 			}
-			ip.measurement.Store(*imuReading)
 		}
 	}, func() {
 	})
