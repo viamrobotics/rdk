@@ -22,68 +22,6 @@ func TestCreateHoleBorder(t *testing.T) {
 	assert.Equal(t, border.borderType, Outer)
 }
 
-func TestPointMat(t *testing.T) {
-	p := PointMat{
-		Row: 0,
-		Col: 0,
-	}
-	test.That(t, p.Row, test.ShouldEqual, 0)
-	test.That(t, p.Col, test.ShouldEqual, 0)
-	p.Set(1, 2)
-	test.That(t, p.Row, test.ShouldEqual, 1)
-	test.That(t, p.Col, test.ShouldEqual, 2)
-	q := PointMat{
-		Row: 1,
-		Col: 2,
-	}
-	test.That(t, p.SamePoint(&q), test.ShouldBeTrue)
-	out := isPointOutOfBounds(&p, 2, 2)
-	test.That(t, out, test.ShouldBeTrue)
-	out2 := isPointOutOfBounds(&p, 3, 3)
-	test.That(t, out2, test.ShouldBeFalse)
-}
-
-func TestNode(t *testing.T) {
-	node := Node{
-		parent:      0,
-		firstChild:  0,
-		nextSibling: 0,
-		border:      Border{},
-	}
-	// test creation
-	test.That(t, node.parent, test.ShouldEqual, 0)
-	test.That(t, node.firstChild, test.ShouldEqual, 0)
-	test.That(t, node.nextSibling, test.ShouldEqual, 0)
-	test.That(t, node.border.borderType, test.ShouldEqual, 0)
-	// test reset function
-	node.reset()
-	test.That(t, node.parent, test.ShouldEqual, -1)
-	test.That(t, node.firstChild, test.ShouldEqual, -1)
-	test.That(t, node.nextSibling, test.ShouldEqual, -1)
-}
-
-func TestMarkAsExamined(t *testing.T) {
-	center := PointMat{1, 1}
-	mark0 := PointMat{1, 2}
-	mark1 := PointMat{2, 1}
-	mark2 := PointMat{1, 0}
-	mark3 := PointMat{0, 1}
-	checked := make([]bool, 4)
-	test.That(t, checked[0], test.ShouldBeFalse)
-	markExamined(mark0, center, checked)
-	test.That(t, checked[0], test.ShouldBeTrue)
-	test.That(t, isExamined(checked), test.ShouldBeTrue)
-	test.That(t, checked[1], test.ShouldBeFalse)
-	markExamined(mark1, center, checked)
-	test.That(t, checked[1], test.ShouldBeTrue)
-	test.That(t, checked[2], test.ShouldBeFalse)
-	markExamined(mark2, center, checked)
-	test.That(t, checked[2], test.ShouldBeTrue)
-	test.That(t, checked[3], test.ShouldBeFalse)
-	markExamined(mark3, center, checked)
-	test.That(t, checked[3], test.ShouldBeTrue)
-}
-
 func TestFindContours(t *testing.T) {
 	img, err := readImageFromFile(artifact.MustPath("rimage/binary_image.jpg"), false)
 	test.That(t, err, test.ShouldBeNil)
@@ -104,20 +42,20 @@ func TestFindContours(t *testing.T) {
 
 		}
 	}
-	contours, hierarchy := FindContours(binary)
+	contours, hierarchy := FindContoursSuzuki(binary)
 	// Test hierarchy values
 	test.That(t, len(hierarchy), test.ShouldEqual, 5)
-	test.That(t, hierarchy[0].parent, test.ShouldEqual, -1)
-	test.That(t, hierarchy[1].parent, test.ShouldEqual, 1)
-	test.That(t, hierarchy[2].parent, test.ShouldEqual, 2)
-	test.That(t, hierarchy[1].parent, test.ShouldEqual, 1)
-	test.That(t, hierarchy[4].parent, test.ShouldEqual, 4)
+	test.That(t, hierarchy[0][3], test.ShouldEqual, -1)
+	test.That(t, hierarchy[1][3], test.ShouldEqual, 0)
+	test.That(t, hierarchy[2][3], test.ShouldEqual, 1)
+	test.That(t, hierarchy[3][3], test.ShouldEqual, -1)
+	test.That(t, hierarchy[4][3], test.ShouldEqual, 3)
 	// Test contours length
-	test.That(t, len(contours), test.ShouldEqual, 4)
+	test.That(t, len(contours), test.ShouldEqual, 5)
 	test.That(t, len(contours[0]), test.ShouldEqual, 800)
-	test.That(t, len(contours[1]), test.ShouldEqual, 404)
-	test.That(t, len(contours[2]), test.ShouldEqual, 564)
-	test.That(t, len(contours[3]), test.ShouldEqual, 396)
+	test.That(t, len(contours[2]), test.ShouldEqual, 404)
+	test.That(t, len(contours[3]), test.ShouldEqual, 564)
+	test.That(t, len(contours[4]), test.ShouldEqual, 396)
 
 	// Test hierarchy values
 	test.That(t, len(hierarchy), test.ShouldEqual, 5) // number of contours + root
