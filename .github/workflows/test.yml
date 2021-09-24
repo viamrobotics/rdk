@@ -19,7 +19,7 @@ jobs:
     name: Build and Test
     runs-on: [self-hosted, x64, DockerTest]
     container:
-      image: echolabs/robotcoretest:latest
+      image: localtest:latest
 
     steps:
 
