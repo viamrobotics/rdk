@@ -9,10 +9,9 @@ import (
 
 	"github.com/fogleman/gg"
 	"github.com/golang/geo/r2"
+
 	"go.viam.com/utils"
 	"gonum.org/v1/gonum/mat"
-)
-
 // This package implements the algorithm to detect individual contours in a contour map and creates their hierarchy.
 //       Computer Vision, Graphics, and Image Processing, 30(1):32–46, 1985.
 // NPixelNeighbors stores the number of neighbors for each pixel (should be 4 or 8)
