@@ -34,19 +34,17 @@ func TestArduinoPWM(t *testing.T) {
 						Name:  "m1",
 						Model: modelName,
 						Type:  config.ComponentTypeMotor,
-						Attributes: config.AttributeMap{
-							"config": &motor.Config{
-								Pins: map[string]string{
-									"pwm": "5",
-									"a":   "6",
-									"b":   "7",
-									"en":  "8",
-								},
-								Encoder:          "3",
-								EncoderB:         "2",
-								TicksPerRotation: 2000,
-								PWMFreq:          2000,
+						ConvertedAttributes: &motor.Config{
+							Pins: map[string]string{
+								"pwm": "5",
+								"a":   "6",
+								"b":   "7",
+								"en":  "8",
 							},
+							Encoder:          "3",
+							EncoderB:         "2",
+							TicksPerRotation: 2000,
+							PWMFreq:          2000,
 						},
 					},
 				},
@@ -60,18 +58,16 @@ func TestArduinoPWM(t *testing.T) {
 						Name:  "m1",
 						Model: modelName,
 						Type:  config.ComponentTypeMotor,
-						Attributes: config.AttributeMap{
-							"config": &motor.Config{
-								Pins: map[string]string{
-									"a":  "6",
-									"b":  "7",
-									"en": "8",
-								},
-								Encoder:          "3",
-								EncoderB:         "2",
-								TicksPerRotation: 2000,
-								PWMFreq:          2000,
+						ConvertedAttributes: &motor.Config{
+							Pins: map[string]string{
+								"a":  "6",
+								"b":  "7",
+								"en": "8",
 							},
+							Encoder:          "3",
+							EncoderB:         "2",
+							TicksPerRotation: 2000,
+							PWMFreq:          2000,
 						},
 					},
 				},
@@ -85,17 +81,15 @@ func TestArduinoPWM(t *testing.T) {
 						Name:  "m1",
 						Model: modelName,
 						Type:  config.ComponentTypeMotor,
-						Attributes: config.AttributeMap{
-							"config": &motor.Config{
-								Pins: map[string]string{
-									"pwm": "5",
-									"dir": "10",
-								},
-								Encoder:          "3",
-								EncoderB:         "2",
-								TicksPerRotation: 2000,
-								PWMFreq:          2000,
+						ConvertedAttributes: &motor.Config{
+							Pins: map[string]string{
+								"pwm": "5",
+								"dir": "10",
 							},
+							Encoder:          "3",
+							EncoderB:         "2",
+							TicksPerRotation: 2000,
+							PWMFreq:          2000,
 						},
 					},
 				},
@@ -109,19 +103,17 @@ func TestArduinoPWM(t *testing.T) {
 						Name:  "m1",
 						Model: modelName,
 						Type:  config.ComponentTypeMotor,
-						Attributes: config.AttributeMap{
-							"config": &motor.Config{
-								Pins: map[string]string{
-									"pwm": "35",
-									"a":   "6",
-									"b":   "7",
-									"en":  "8",
-								},
-								Encoder:          "3",
-								EncoderB:         "2",
-								TicksPerRotation: 2000,
-								PWMFreq:          2000,
+						ConvertedAttributes: &motor.Config{
+							Pins: map[string]string{
+								"pwm": "35",
+								"a":   "6",
+								"b":   "7",
+								"en":  "8",
 							},
+							Encoder:          "3",
+							EncoderB:         "2",
+							TicksPerRotation: 2000,
+							PWMFreq:          2000,
 						},
 					},
 				},
@@ -138,7 +130,7 @@ func TestArduinoPWM(t *testing.T) {
 			}
 			test.That(t, err, test.ShouldBeNil)
 
-			_, err = b.configureMotor(tc.conf.Components[0], tc.conf.Components[0].Attributes["config"].(*motor.Config))
+			_, err = b.configureMotor(tc.conf.Components[0], tc.conf.Components[0].ConvertedAttributes.(*motor.Config))
 
 			if tc.err == "" {
 				test.That(t, err, test.ShouldBeNil)
@@ -169,18 +161,16 @@ func TestArduinoMotorABPWM(t *testing.T) {
 				Name:  "m1",
 				Model: modelName,
 				Type:  config.ComponentTypeMotor,
-				Attributes: config.AttributeMap{
-					"config": &motor.Config{
-						Pins: map[string]string{
-							"pwm": "5",
-							"a":   "6",
-							"b":   "7",
-							"en":  "8",
-						},
-						Encoder:          "3",
-						EncoderB:         "2",
-						TicksPerRotation: 2000,
+				ConvertedAttributes: &motor.Config{
+					Pins: map[string]string{
+						"pwm": "5",
+						"a":   "6",
+						"b":   "7",
+						"en":  "8",
 					},
+					Encoder:          "3",
+					EncoderB:         "2",
+					TicksPerRotation: 2000,
 				},
 			},
 		},
@@ -195,7 +185,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close()
 
-	m, err := b.configureMotor(cfg.Components[0], cfg.Components[0].Attributes["config"].(*motor.Config))
+	m, err := b.configureMotor(cfg.Components[0], cfg.Components[0].ConvertedAttributes.(*motor.Config))
 	test.That(t, err, test.ShouldBeNil)
 
 	startPos, err := m.Position(ctx)
@@ -247,17 +237,15 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 				Name:  "m1",
 				Model: modelName,
 				Type:  config.ComponentTypeMotor,
-				Attributes: config.AttributeMap{
-					"config": &motor.Config{
-						Pins: map[string]string{
-							"pwm": "5",
-							"dir": "6",
-							"en":  "7",
-						},
-						Encoder:          "3",
-						EncoderB:         "2",
-						TicksPerRotation: 2000,
+				ConvertedAttributes: &motor.Config{
+					Pins: map[string]string{
+						"pwm": "5",
+						"dir": "6",
+						"en":  "7",
 					},
+					Encoder:          "3",
+					EncoderB:         "2",
+					TicksPerRotation: 2000,
 				},
 			},
 		},
@@ -272,7 +260,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close()
 
-	m, err := b.configureMotor(cfg.Components[0], cfg.Components[0].Attributes["config"].(*motor.Config))
+	m, err := b.configureMotor(cfg.Components[0], cfg.Components[0].ConvertedAttributes.(*motor.Config))
 	test.That(t, err, test.ShouldBeNil)
 
 	startPos, err := m.Position(ctx)
@@ -324,17 +312,15 @@ func TestArduinoMotorAB(t *testing.T) {
 				Name:  "m1",
 				Model: modelName,
 				Type:  config.ComponentTypeMotor,
-				Attributes: config.AttributeMap{
-					"config": &motor.Config{
-						Pins: map[string]string{
-							"a":  "5",
-							"b":  "6",
-							"en": "7",
-						},
-						Encoder:          "3",
-						EncoderB:         "2",
-						TicksPerRotation: 2000,
+				ConvertedAttributes: &motor.Config{
+					Pins: map[string]string{
+						"a":  "5",
+						"b":  "6",
+						"en": "7",
 					},
+					Encoder:          "3",
+					EncoderB:         "2",
+					TicksPerRotation: 2000,
 				},
 			},
 		},
@@ -349,7 +335,7 @@ func TestArduinoMotorAB(t *testing.T) {
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close()
 
-	m, err := b.configureMotor(cfg.Components[0], cfg.Components[0].Attributes["config"].(*motor.Config))
+	m, err := b.configureMotor(cfg.Components[0], cfg.Components[0].ConvertedAttributes.(*motor.Config))
 	test.That(t, err, test.ShouldBeNil)
 
 	startPos, err := m.Position(ctx)

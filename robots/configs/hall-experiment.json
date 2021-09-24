@@ -7,22 +7,19 @@
             "type": "board",
             "attributes":
             {
-                "config":
-                {
-                    "digitalInterrupts":
-                    [
-                        {
-                            "name": "blue",
-                            "pin": "38",
-                            "mode": "both"
-                        },
-                        {
-                            "name": "purple",
-                            "pin": "40",
-                            "mode": "both"
-                        }
-                    ]
-                }
+                "digitalInterrupts":
+                [
+                    {
+                        "name": "blue",
+                        "pin": "38",
+                        "mode": "both"
+                    },
+                    {
+                        "name": "purple",
+                        "pin": "40",
+                        "mode": "both"
+                    }
+                ]
             }
         },
         {
@@ -31,18 +28,15 @@
             "model": "pi",
             "attributes":
             {
-                "config":
+                "pins":
                 {
-                    "pins":
-                    {
-                        "a": "11",
-                        "b": "13",
-                        "pwm": "7"
-                    },
-                    "encoder": "blue",
-                    "encoderB": "purple",
-                    "ticksPerRotation": 100
-                }
+                    "a": "11",
+                    "b": "13",
+                    "pwm": "7"
+                },
+                "encoder": "blue",
+                "encoderB": "purple",
+                "ticksPerRotation": 100
             },
             "depends_on":
             [
