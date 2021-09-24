@@ -52,7 +52,7 @@ elif [ "$(uname)" == "Darwin" ]; then
 	fi
 
 
-  if [ "$(uname -m)" == "arm64" ]; then
+	if [ "$(uname -m)" == "arm64" ]; then
 
 		cat > ~/.viamdevrc <<-EOS
 		if [[ "\$VIAM_DEV_ENV"x == "x" ]]; then
@@ -74,7 +74,7 @@ elif [ "$(uname)" == "Darwin" ]; then
 		fi
 		EOS
 
-  fi
+	fi
 
 fi
 
@@ -105,7 +105,7 @@ brew "buf"
 brew "protoc-gen-go"
 brew "protoc-gen-doc"
 brew "protoc-gen-go-grpc"
-brew "protoc-gen-grpc-web"  
+brew "protoc-gen-grpc-web"
 brew "protoc-gen-grpc-gateway"
 brew "ts-protoc-gen"
 brew "grpcurl"
