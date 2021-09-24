@@ -15,9 +15,11 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/arm"
-	"go.viam.com/core/board"
+
+	//"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 
 	"go.viam.com/core/robot"
@@ -26,7 +28,7 @@ import (
 	"go.viam.com/core/web"
 	webserver "go.viam.com/core/web/server"
 
-	_ "go.viam.com/core/board/detector"
+	//_ "go.viam.com/core/board/detector"
 	_ "go.viam.com/core/robots/xarm"
 
 	"github.com/edaniels/golog"
@@ -83,14 +85,14 @@ var logger = golog.NewDevelopmentLogger("resetbox")
 
 // LinearAxis is one or more motors whose motion is converted to linear movement via belts, screw drives, etc.
 type LinearAxis struct {
-	m        []board.Motor
+	m        []motor.Motor
 	mmPerRev float64
 }
 
 // AddMotors takes a slice of motor names and adds them to the axis.
-func (a *LinearAxis) AddMotors(ctx context.Context, board board.Board, names []string) error {
+func (a *LinearAxis) AddMotors(ctx context.Context, robot robot.Robot, names []string) error {
 	for _, n := range names {
-		motor, ok := board.MotorByName(n)
+		motor, ok := robot.MotorByName(n)
 		if ok {
 			a.m = append(a.m, motor)
 		} else {
@@ -124,7 +126,7 @@ func (a *LinearAxis) GoTillStop(ctx context.Context, d pb.DirectionRelative, spe
 	var errs error
 	for _, m := range a.m {
 		homeWorkers.Add(1)
-		go func(motor board.Motor) {
+		go func(motor motor.Motor) {
 			defer homeWorkers.Done()
 			multierr.AppendInto(&errs, motor.GoTillStop(ctx, d, speed*60/a.mmPerRev, nil))
 		}(m)
@@ -180,11 +182,11 @@ type positional interface {
 
 // ResetBox is the parent structure for this project
 type ResetBox struct {
-	logger                   golog.Logger
-	board                    board.Board
+	logger golog.Logger
+	//board                    board.Board
 	gate, squeeze            LinearAxis
 	elevator                 LinearAxis
-	hammer, tipper, vibrator board.Motor
+	hammer, tipper, vibrator motor.Motor
 	arm                      arm.Arm
 	gripper                  gripper.Gripper
 
@@ -202,39 +204,38 @@ type ResetBox struct {
 func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*ResetBox, error) {
 	cancelCtx, cancel := context.WithCancel(ctx)
 	b := &ResetBox{activeBackgroundWorkers: &sync.WaitGroup{}, cancelCtx: cancelCtx, cancel: cancel, logger: logger}
-	resetboard, ok := r.BoardByName("resetboard")
-	if !ok {
-		return nil, errors.New("can't find board: resetboard")
-	}
-	b.board = resetboard
-
+	// resetboard, ok := r.BoardByName("resetboard")
+	// if !ok {
+	// 	return nil, errors.New("can't find board: resetboard")
+	// }
+	// b.board = resetboard
 	b.gate.mmPerRev = 8.0
 	b.squeeze.mmPerRev = 8.0
 	b.elevator.mmPerRev = 60.0
 
 	err := multierr.Combine(
-		b.gate.AddMotors(cancelCtx, b.board, []string{"gateL", "gateR"}),
-		b.squeeze.AddMotors(cancelCtx, b.board, []string{"squeezeL", "squeezeR"}),
-		b.elevator.AddMotors(cancelCtx, b.board, []string{"elevator"}),
+		b.gate.AddMotors(cancelCtx, r, []string{"gateL", "gateR"}),
+		b.squeeze.AddMotors(cancelCtx, r, []string{"squeezeL", "squeezeR"}),
+		b.elevator.AddMotors(cancelCtx, r, []string{"elevator"}),
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	hammer, ok := b.board.MotorByName("hammer")
+	hammer, ok := r.MotorByName("hammer")
 	if !ok {
 		return nil, errors.New("can't find motor named: hammer")
 	}
 	b.hammer = hammer
 
-	tipper, ok := b.board.MotorByName("tipper")
+	tipper, ok := r.MotorByName("tipper")
 	if !ok {
 		return nil, errors.New("can't find motor named: tipper")
 	}
 	b.tipper = tipper
 
-	vibrator, ok := b.board.MotorByName("vibrator")
+	vibrator, ok := r.MotorByName("vibrator")
 	if !ok {
 		return nil, errors.New("can't find motor named: vibrator")
 	}
