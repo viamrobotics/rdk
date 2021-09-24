@@ -23,6 +23,7 @@ func RegisterConfigAttributeConverter(model string) {
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
+	I2Cs              []I2CConfig              `json:"i2cs" mapstructure:"i2cs"`
 	SPIs              []SPIConfig              `json:"spis" mapstructure:"spis"`
 	Analogs           []AnalogConfig           `json:"analogs" mapstructure:"analogs"`
 	DigitalInterrupts []DigitalInterruptConfig `json:"digitalInterrupts" mapstructure:"digitalInterrupts"`
@@ -59,6 +60,23 @@ type SPIConfig struct {
 func (config *SPIConfig) Validate(path string) error {
 	if config.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	return nil
+}
+
+// I2CConfig enumerates a specific, shareable I2C bus
+type I2CConfig struct {
+	Name string `json:"name"`
+	Bus  string `json:"bus"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *I2CConfig) Validate(path string) error {
+	if config.Name == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	if config.Bus == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "bus")
 	}
 	return nil
 }

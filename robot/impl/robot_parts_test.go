@@ -391,6 +391,9 @@ func TestPartsAdd(t *testing.T) {
 	injectBoard.SPINamesFunc = func() []string {
 		return []string{"spi1"}
 	}
+	injectBoard.I2CNamesFunc = func() []string {
+		return []string{"i2c1"}
+	}
 	injectBoard.AnalogReaderNamesFunc = func() []string {
 		return []string{"analog1"}
 	}
@@ -399,6 +402,9 @@ func TestPartsAdd(t *testing.T) {
 	}
 	injectBoard.SPIByNameFunc = func(name string) (board.SPI, bool) {
 		return &inject.SPI{}, true
+	}
+	injectBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
+		return &inject.I2C{}, true
 	}
 	injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 		return &fake.Analog{}, true

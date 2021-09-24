@@ -151,8 +151,8 @@ func (cloud *basicPointCloud) At(x, y, z float64) Point {
 // With 64-bit floating point numbers, you get about 16 decimal digits of precision.
 // To guarantee at least 6 decimal places of precision past 0, Abs(x) cannot be greater than 2^33 - 1.
 const (
-	maxPreciseFloat64 = 8589934591
-	minPreciseFloat64 = -8589934591
+	maxPreciseFloat64 = float64(8589934591)
+	minPreciseFloat64 = float64(-8589934591)
 )
 
 // newOutOfRangeErr returns an error informing that a value is numerically out of range to

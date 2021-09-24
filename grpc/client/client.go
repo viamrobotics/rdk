@@ -125,6 +125,7 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 type boardInfo struct {
 	name                  string
 	spiNames              []string
+	i2cNames              []string
 	analogReaderNames     []string
 	digitalInterruptNames []string
 }
@@ -670,6 +671,11 @@ func (bc *boardClient) SPIByName(name string) (board.SPI, bool) {
 	return nil, false
 }
 
+// I2CByName may need to be implemented
+func (bc *boardClient) I2CByName(name string) (board.I2C, bool) {
+	return nil, false
+}
+
 func (bc *boardClient) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	return &analogReaderClient{
 		rc:               bc.rc,
@@ -726,6 +732,10 @@ func (bc *boardClient) PWMSetFreq(ctx context.Context, pin string, freq uint) er
 
 func (bc *boardClient) SPINames() []string {
 	return copyStringSlice(bc.info.spiNames)
+}
+
+func (bc *boardClient) I2CNames() []string {
+	return copyStringSlice(bc.info.i2cNames)
 }
 
 func (bc *boardClient) AnalogReaderNames() []string {
