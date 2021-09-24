@@ -75,7 +75,7 @@ func New(ctx context.Context, host string, logger golog.Logger) (imu *IPhone, er
 	r := bufio.NewReader(conn)
 	ip := &IPhone{reader: r, log: logger, mut: &sync.RWMutex{}, host: host, conn: conn}
 
-	imuReading, err := ip.readNextMeasurementWithRetries(ctx)
+	imuReading, err := ip.readNextMeasurement(ctx)
 	// TODO: The second case should never happen, but seems to sometimes. Figure out why
 	if err != nil || imuReading == nil {
 		logger.Debugw("error reading iphone data", "error", err)
@@ -85,8 +85,8 @@ func New(ctx context.Context, host string, logger golog.Logger) (imu *IPhone, er
 
 	utils.ManagedGo(func() {
 		for {
-			imuReading, err := ip.readNextMeasurementWithRetries(ctx)
-			if err != nil {
+			imuReading, err := ip.readNextMeasurement(ctx)
+			if err != nil || imuReading == nil {
 				logger.Debugw("error reading iphone data", "error", err)
 			} else {
 				ip.measurement.Store(*imuReading)
@@ -142,19 +142,6 @@ func (ip *IPhone) StopCalibration(ctx context.Context) error {
 	return nil
 }
 
-func (ip *IPhone) readNextMeasurementWithRetries(ctx context.Context) (*Measurement, error) {
-	var err error
-	for i := 0; i < defaultRetries; i++ {
-		res, err := ip.readNextMeasurement(ctx)
-		if err == nil {
-			return res, nil
-		}
-	}
-	return nil, err
-}
-
-// TODO: maybe this should just constantly be running in the background pushing to some buffer, and the
-//       actual AngularVelocity/Orientation methods can just read from it
 func (ip *IPhone) readNextMeasurement(ctx context.Context) (*Measurement, error) {
 	timeout := time.Now().Add(defaultTimeoutMs * time.Millisecond)
 	ctx, cancel := context.WithDeadline(ctx, timeout)
