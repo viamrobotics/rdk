@@ -208,6 +208,7 @@ func TestCreatorRegistry(t *testing.T) {
 	armResourceType := "core:component:arm"
 	armResourceName := "x"
 	test.That(t, func() { RegisterCreator(armResourceType, armResourceName, Creator{}, rf) }, test.ShouldPanic)
+	test.That(t, func() { RegisterCreator(armResourceType, armResourceName, Creator{Constructor: af, Frame: ff}, nil) }, test.ShouldPanic)
 	RegisterCreator(armResourceType, armResourceName, Creator{Constructor: af, Frame: ff}, rf)
 
 	creator := CreatorLookup(armResourceType, armResourceName)
