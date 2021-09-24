@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net"
 	"testing"
-	"time"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -82,7 +81,6 @@ func TestAngularVelocities(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(time.Millisecond * 100)
 	ret, err := ip.AngularVelocity(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret[0], test.ShouldEqual, rotationRateX)
@@ -113,9 +111,7 @@ func TestOrientation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = ip.Orientation(context.Background())
 
-	time.Sleep(time.Millisecond * 100)
 	ret, err := ip.Orientation(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret[0], test.ShouldEqual, pitch)
@@ -148,7 +144,6 @@ func TestHeading(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(time.Millisecond * 100)
 	ret, err := ip.Heading(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret, test.ShouldEqual, heading)
@@ -179,7 +174,6 @@ func TestReadings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(time.Millisecond * 100)
 	ret, err := ip.Readings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret[0], test.ShouldEqual, [3]float64{rotationRateX, rotationRateY, rotationRateZ})
