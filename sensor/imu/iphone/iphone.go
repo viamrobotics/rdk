@@ -6,8 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"go.viam.com/utils"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -29,10 +31,10 @@ type Measurement struct {
 
 // IPhone is an iPhone based IMU.
 type IPhone struct {
-	// TODO: Our reader will be bufSize out of date at any given point. Maybe a problem?
-	reader *bufio.Reader // Read connection to iPhone to pull sensor data from.
-	log    golog.Logger
-	mut    *sync.Mutex
+	reader      *bufio.Reader // Read connection to iPhone to pull sensor data from.
+	log         golog.Logger
+	mut         *sync.Mutex
+	measurememt atomic.Value
 }
 
 const (
@@ -49,10 +51,7 @@ func (ip *IPhone) Desc() sensor.Description {
 func (ip *IPhone) AngularVelocity(ctx context.Context) ([3]float64, error) {
 	var ret [3]float64
 
-	imuReading, err := ip.readNextMeasurementWithRetries(ctx)
-	if err != nil {
-		return ret, err
-	}
+	imuReading := ip.measurememt.Load().(Measurement)
 
 	ret[0], ret[1], ret[2] = *imuReading.RotationRateX, *imuReading.RotationRateY, *imuReading.RotationRateZ
 
@@ -61,34 +60,44 @@ func (ip *IPhone) AngularVelocity(ctx context.Context) ([3]float64, error) {
 
 // Heading returns the heading of the IPhone based on the most recently received measurement.
 func (ip *IPhone) Heading(ctx context.Context) (float64, error) {
-	imuReading, err := ip.readNextMeasurementWithRetries(ctx)
-	if err != nil {
-		return 0, err
-	}
-
+	imuReading := ip.measurememt.Load().(Measurement)
 	return *imuReading.Heading, nil
 }
 
 // New returns a new IPhone IMU that that pulls data from the iPhone at host.
-func New(host string, logger golog.Logger) (imu *IPhone, err error) {
+func New(ctx context.Context, host string, logger golog.Logger) (imu *IPhone, err error) {
 	conn, err := net.DialTimeout("tcp", host, 3*time.Second)
 	if err != nil {
 		return nil, err
 	}
 
 	r := bufio.NewReader(conn)
+	ip := &IPhone{reader: r, log: logger, mut: &sync.Mutex{}}
 
-	return &IPhone{reader: r, log: logger, mut: &sync.Mutex{}}, nil
+	imuReading, err := ip.readNextMeasurementWithRetries(ctx)
+	if err != nil || imuReading == nil {
+		logger.Debugw("error reading iphone data", "error", err)
+		return nil, err
+	}
+	ip.measurememt.Store(*imuReading)
+
+	utils.ManagedGo(func() {
+		imuReading, err := ip.readNextMeasurementWithRetries(ctx)
+		if err != nil {
+			logger.Debugw("error reading iphone data", "error", err)
+		}
+		ip.measurememt.Store(*imuReading)
+	}, func() {
+	})
+
+	return ip, nil
 }
 
 // Orientation returns an array of orientation data containing pitch, roll, and yaw.
 func (ip *IPhone) Orientation(ctx context.Context) ([3]float64, error) {
 	var ret [3]float64
 
-	imuReading, err := ip.readNextMeasurementWithRetries(ctx)
-	if err != nil {
-		return ret, err
-	}
+	imuReading := ip.measurememt.Load().(Measurement)
 
 	ret[0], ret[1], ret[2] = *imuReading.Pitch, *imuReading.Roll, *imuReading.Yaw
 
