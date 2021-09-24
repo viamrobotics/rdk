@@ -38,6 +38,7 @@ func NewBoard(ctx context.Context, config config.Component, logger golog.Logger)
 
 	b := &Board{
 		Name:     config.Name,
+		I2Cs:     map[string]*I2C{},
 		SPIs:     map[string]*SPI{},
 		Analogs:  map[string]*Analog{},
 		Digitals: map[string]board.DigitalInterrupt{},
@@ -65,6 +66,7 @@ func NewBoard(ctx context.Context, config config.Component, logger golog.Logger)
 type Board struct {
 	Name     string
 	SPIs     map[string]*SPI
+	I2Cs     map[string]*I2C
 	Analogs  map[string]*Analog
 	Digitals map[string]board.DigitalInterrupt
 
@@ -78,6 +80,12 @@ type Board struct {
 // SPIByName returns the SPI by the given name if it exists.
 func (b *Board) SPIByName(name string) (board.SPI, bool) {
 	s, ok := b.SPIs[name]
+	return s, ok
+}
+
+// I2CByName returns the i2c by the given name if it exists.
+func (b *Board) I2CByName(name string) (board.I2C, bool) {
+	s, ok := b.I2Cs[name]
 	return s, ok
 }
 
@@ -142,6 +150,15 @@ func (b *Board) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
 func (b *Board) SPINames() []string {
 	names := []string{}
 	for k := range b.SPIs {
+		names = append(names, k)
+	}
+	return names
+}
+
+// I2CNames returns the name of all known I2Cs.
+func (b *Board) I2CNames() []string {
+	names := []string{}
+	for k := range b.I2Cs {
 		names = append(names, k)
 	}
 	return names
@@ -216,6 +233,39 @@ func (h *SPIHandle) Xfer(ctx context.Context, baud uint, chipSelect string, mode
 
 // Close releases access to the bus.
 func (h *SPIHandle) Close() error {
+	h.bus.mu.Unlock()
+	return nil
+}
+
+// A I2C allows opening an I2CHandle.
+type I2C struct {
+	mu   sync.Mutex
+	fifo chan []byte
+}
+
+// OpenHandle opens a handle to perform I2C transfers that must be later closed to release access to the bus.
+func (s *I2C) OpenHandle() (board.I2CHandle, error) {
+	s.mu.Lock()
+	return &I2CHandle{s}, nil
+}
+
+// A I2CHandle allows read/write and Close.
+type I2CHandle struct {
+	bus *I2C
+}
+
+func (h *I2CHandle) Write(ctx context.Context, addr byte, tx []byte) error {
+	h.bus.fifo <- tx
+	return nil
+}
+
+func (h *I2CHandle) Read(ctx context.Context, addr byte, count int) ([]byte, error) {
+	ret := <-h.bus.fifo
+	return ret[:count], nil
+}
+
+// Close releases access to the bus
+func (h *I2CHandle) Close() error {
 	h.bus.mu.Unlock()
 	return nil
 }
