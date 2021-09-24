@@ -3,6 +3,7 @@ package iphone_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -37,7 +38,7 @@ func TestNew(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	// Fail if host does not exist or is not reachable.
-	_, err := iphone.New("fake_host:(", logger)
+	_, err := iphone.New(context.Background(), "fake_host:(", logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Succeed if host does exist.
@@ -47,7 +48,7 @@ func TestNew(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	_, err = iphone.New(":3000", logger)
+	_, err = iphone.New(context.Background(), ":3000", logger)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -60,7 +61,7 @@ func TestAngularVelocities(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	ip, err := iphone.New(":3000", logger)
+	ip, err := iphone.New(context.Background(), ":3000", logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +95,7 @@ func TestOrientation(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	ip, err := iphone.New(":3000", logger)
+	ip, err := iphone.New(context.Background(), ":3000", logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +129,7 @@ func TestHeading(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	ip, err := iphone.New(":3000", logger)
+	ip, err := iphone.New(context.Background(), ":3000", logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +161,7 @@ func TestReadings(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	ip, err := iphone.New(":3000", logger)
+	ip, err := iphone.New(context.Background(), ":3000", logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,5 +211,21 @@ func sendIMUData(l net.Listener) error {
 		}
 		_, _ = conn.Write([]byte("\n"))
 		time.Sleep(time.Millisecond * 10)
+	}
+}
+
+func TestOverall(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ip, err := iphone.New(context.Background(), "192.168.1.250:63384", logger)
+	if err != nil {
+		logger.Fatal("could not connect to iphone :(")
+	}
+
+	for {
+		ret, err := ip.Heading(context.Background())
+		if err != nil {
+			logger.Error("failed to get heading")
+		}
+		fmt.Println("Recorded heading: " + fmt.Sprintf("%f", ret))
 	}
 }
