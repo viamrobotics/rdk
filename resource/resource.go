@@ -28,7 +28,7 @@ const (
 	ResourceSubtypeMotor    = "motor"
 )
 
-// Name represents a known component/service of a robot.
+// Name represents a known component/service representation of a robot.
 type Name struct {
 	UUID      string
 	Namespace string
@@ -76,4 +76,10 @@ func (r Name) Validate() error {
 		return errors.New("subtype field for resource missing or invalid")
 	}
 	return nil
+}
+
+// Resource represents a known component/service of a robot.
+type Resource struct {
+	Name     Name
+	Resource *interface{}
 }
