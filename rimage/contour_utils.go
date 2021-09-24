@@ -99,24 +99,6 @@ func seekMostDistantPoint(l Line, points []r2.Point) (idx int, maxDist float64) 
 	return idx, maxDist
 }
 
-// GetAreaCoveredByConvexContour computes the area covered by the envelope of a convex contour
-// The formula works for all polygons
-func GetAreaCoveredByConvexContour(contour []r2.Point) float64 {
-	if len(contour) < 2 {
-		return float64(len(contour))
-	}
-	sum := 0.
-	for i := 0; i < len(contour); i++ {
-		// get points i and i+1
-		p0 := contour[i]
-		p1 := contour[(i+1)%len(contour)]
-		// update sum
-		sum += float64(p0.X*p1.Y - p0.Y*p1.X)
-	}
-	// take half of absolute value of sum to obtain area
-	return math.Abs(sum) / 2.
-}
-
 // ArcLength returns the perimeter of the contour
 func ArcLength(contour []image.Point) float64 {
 	lastIdx := len(contour) - 1
