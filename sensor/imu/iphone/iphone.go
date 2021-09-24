@@ -77,16 +77,17 @@ func New(ctx context.Context, host string, logger golog.Logger) (imu *IPhone, er
 
 	imuReading, err := ip.readNextMeasurement(ctx)
 	// TODO: The second case should never happen, but seems to sometimes. Figure out why
-	if err != nil || imuReading == nil {
+	if err != nil {
 		logger.Debugw("error reading iphone data", "error", err)
 		return nil, err
 	}
+
 	ip.measurement.Store(*imuReading)
 
 	utils.ManagedGo(func() {
 		for {
 			imuReading, err := ip.readNextMeasurement(ctx)
-			if err != nil || imuReading == nil {
+			if err != nil {
 				logger.Debugw("error reading iphone data", "error", err)
 			} else {
 				ip.measurement.Store(*imuReading)
