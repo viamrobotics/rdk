@@ -17,7 +17,7 @@ env:
 jobs:
   build_and_test:
     name: Build and Test
-    runs-on: [self-hosted, x64]
+    runs-on: [self-hosted, x64, DockerTest]
     container:
       image: echolabs/robotcoretest:latest
 
@@ -34,12 +34,12 @@ jobs:
       run: |
         git config --global url."https://${TOKEN}@github.com".insteadOf "https://github.com"
 
+    - name: Update dev environment
+      run: |
+        make setup
+
     - name: Verify no uncommitted changes from build
       run: |
-        go install google.golang.org/protobuf/cmd/protoc-gen-go \
-          google.golang.org/grpc/cmd/protoc-gen-go-grpc \
-          github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
-          github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc
         git init
         git add .
         make build goformat
