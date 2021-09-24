@@ -3,11 +3,8 @@ package rimage
 import (
 	"image"
 	"math"
-	"sort"
 
 	"github.com/golang/geo/r2"
-	"github.com/gonum/floats"
-	"go.viam.com/core/utils"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -18,14 +15,6 @@ import (
 // to approximate contours with a polygon
 
 var NPixelNeighbors = 8
-
-// GetAngle computes the angle given a 3 square side lengths, in degrees
-func GetAngle(a, b, c float64) float64 {
-	k := (a*a + b*b - c*c) / (2 * a * b)
-	// handle floating point issues
-	k = utils.ClampF64(k, -1, 1)
-	return math.Acos(k) * 180 / math.Pi
-}
 
 // Border stores the ID of a border and its type (Hole or Outer)
 type Border struct {
@@ -52,298 +41,6 @@ func CreateOuterBorder() Border {
 		segNum:     0,
 		borderType: Outer,
 	}
-}
-
-// PointMat stores a point in matrix coordinates convention
-type PointMat struct {
-	Row, Col int
-}
-
-// Set sets a current point to new coordinates (r,c)
-func (p *PointMat) Set(r, c int) {
-	p.Col = c
-	p.Row = r
-}
-
-// SamePoint returns true if a point q is equal to the point p
-func (p *PointMat) SamePoint(q *PointMat) bool {
-	return p.Row == q.Row && p.Col == q.Col
-}
-
-// ToImagePoint convert a local struct PointMap to an image.Point
-func ToImagePoint(q PointMat) image.Point {
-	return image.Point{q.Col, q.Row}
-}
-
-// Node is a structure storing data from each contour to form a tree
-type Node struct {
-	parent      int
-	firstChild  int
-	nextSibling int
-	border      Border
-}
-
-// reset resets a Node to default values
-func (n *Node) reset() {
-	n.parent = -1
-	n.firstChild = -1
-	n.nextSibling = -1
-}
-
-// stepCCW4 set p to the next counter-clockwise neighbor of pivot from p in connectivity 4
-func (p *PointMat) stepCCW4(pivot *PointMat) {
-	if p.Col > pivot.Col {
-		p.Row = pivot.Row - 1
-		p.Col = pivot.Col
-	} else if p.Col < pivot.Col {
-		p.Row = pivot.Row + 1
-		p.Col = pivot.Col
-	} else if p.Row > pivot.Row {
-		p.Row = pivot.Row
-		p.Col = pivot.Col + 1
-	} else if p.Row < pivot.Row {
-		p.Row = pivot.Row
-		p.Col = pivot.Col - 1
-	}
-}
-
-// stepCW4 goes to the next clockwise neighbor of pivot from p in connectivity 4
-func (p *PointMat) stepCW4(pivot *PointMat) {
-	if p.Col > pivot.Col {
-		p.Row = pivot.Row + 1
-		p.Col = pivot.Col
-	} else if p.Col < pivot.Col {
-		p.Row = pivot.Row - 1
-		p.Col = pivot.Col
-	} else if p.Row > pivot.Row {
-		p.Row = pivot.Row
-		p.Col = pivot.Col - 1
-	} else if p.Row < pivot.Row {
-		p.Row = pivot.Row
-		p.Col = pivot.Col + 1
-	}
-}
-
-//stepCCW8 performs a step around a pixel CCW in the 8-connect neighborhood.
-func (p *PointMat) stepCCW8(pivot *PointMat) {
-	if p.Row == pivot.Row && p.Col > pivot.Col {
-		p.Row = pivot.Row - 1
-		p.Col = pivot.Col + 1
-	} else if p.Col > pivot.Col && p.Row < pivot.Row {
-		p.Row = pivot.Row - 1
-		p.Col = pivot.Col
-	} else if p.Row < pivot.Row && p.Col == pivot.Col {
-		p.Row = pivot.Row - 1
-		p.Col = pivot.Col - 1
-	} else if p.Row < pivot.Row && p.Col < pivot.Col {
-		p.Row = pivot.Row
-		p.Col = pivot.Col - 1
-	} else if p.Row == pivot.Row && p.Col < pivot.Col {
-		p.Row = pivot.Row + 1
-		p.Col = pivot.Col - 1
-	} else if p.Row > pivot.Row && p.Col < pivot.Col {
-		p.Row = pivot.Row + 1
-		p.Col = pivot.Col
-	} else if p.Row > pivot.Row && p.Col == pivot.Col {
-		p.Row = pivot.Row + 1
-		p.Col = pivot.Col + 1
-	} else if p.Row > pivot.Row && p.Col > pivot.Col {
-		p.Row = pivot.Row
-		p.Col = pivot.Col + 1
-	}
-}
-
-//stepCW8 performs a step around a pixel CCW in the 8-connect neighborhood.
-func (p *PointMat) stepCW8(pivot *PointMat) {
-	if p.Row == pivot.Row && p.Col > pivot.Col {
-		p.Row = pivot.Row + 1
-		p.Col = pivot.Col + 1
-	} else if p.Col > pivot.Col && p.Row < pivot.Row {
-		p.Row = pivot.Row
-		p.Col = pivot.Col + 1
-	} else if p.Row < pivot.Row && p.Col == pivot.Col {
-		p.Row = pivot.Row - 1
-		p.Col = pivot.Col + 1
-	} else if p.Row < pivot.Row && p.Col < pivot.Col {
-		p.Row = pivot.Row - 1
-		p.Col = pivot.Col
-	} else if p.Row == pivot.Row && p.Col < pivot.Col {
-		p.Row = pivot.Row - 1
-		p.Col = pivot.Col - 1
-	} else if p.Row > pivot.Row && p.Col < pivot.Col {
-		p.Row = pivot.Row
-		p.Col = pivot.Col - 1
-	} else if p.Row > pivot.Row && p.Col == pivot.Col {
-		p.Row = pivot.Row + 1
-		p.Col = pivot.Col - 1
-	} else if p.Row > pivot.Row && p.Col > pivot.Col {
-		p.Row = pivot.Row + 1
-		p.Col = pivot.Col
-	}
-}
-
-// isPointOutOfBounds checks if a given pixel is out of bounds of the image
-func isPointOutOfBounds(p *PointMat, h, w int) bool {
-	return p.Col >= w || p.Row >= h || p.Col < 0 || p.Row < 0
-}
-
-//marks a pixel as examined after passing through
-func markExamined(mark, center PointMat, checked []bool) {
-	loc := -1
-	//    3
-	//  2 x 0
-	//    1
-	if mark.Col > center.Col {
-		loc = 0
-	} else if mark.Col < center.Col {
-		loc = 2
-	} else if mark.Row > center.Row {
-		loc = 1
-	} else if mark.Row < center.Row {
-		loc = 3
-	}
-	if loc != -1 {
-		checked[loc] = true
-	}
-	return
-}
-
-// isExamined checks if given pixel has already been examined
-func isExamined(checked []bool) bool {
-	return checked[0]
-}
-
-// followBorder is a helper function for the contour finding algorithm
-func followBorder(img *mat.Dense, row, col int, p2 PointMat, nbp Border) []image.Point {
-	nRows, nCols := img.Dims()
-	current := PointMat{
-		Row: p2.Row,
-		Col: p2.Col,
-	}
-	start := PointMat{
-		Row: row,
-		Col: col,
-	}
-	pointSlice := make([]image.Point, 0)
-	for ok := true; ok; ok = isPointOutOfBounds(&current, nRows, nCols) || img.At(current.Row, current.Col) == 0. {
-		current.stepCW8(&start)
-		if current.SamePoint(&p2) {
-			img.Set(start.Row, start.Col, float64(-nbp.segNum))
-			pointSlice = append(pointSlice, image.Point{
-				X: start.Col,
-				Y: start.Row,
-			})
-
-			return pointSlice
-		}
-	}
-	p1 := current
-	p3 := start
-	p4 := PointMat{
-		Row: 0,
-		Col: 0,
-	}
-	p2 = p1
-	checked := make([]bool, NPixelNeighbors, NPixelNeighbors)
-	for {
-		current = p2
-		for ok := true; ok; ok = isPointOutOfBounds(&current, nRows, nCols) || img.At(current.Row, current.Col) == 0. {
-			markExamined(current, p3, checked)
-			current.stepCCW8(&p3)
-		}
-		p4 = current
-		if (p3.Col+1 >= nCols || img.At(p3.Row, p3.Col+1) == 0) && isExamined(checked) {
-			img.Set(p3.Row, p3.Col, float64(-nbp.segNum))
-		} else if p3.Col+1 < nCols && img.At(p3.Row, p3.Col) == 1 {
-			img.Set(p3.Row, p3.Col, float64(nbp.segNum))
-		}
-		pointSlice = append(pointSlice, ToImagePoint(p3))
-		if p4.SamePoint(&start) && p3.SamePoint(&p1) {
-			return pointSlice
-		}
-		p2 = p3
-		p3 = p4
-	}
-}
-
-// FindContours implements the contour hierarchy finding from Suzuki et al.
-func FindContours(img *mat.Dense) ([][]image.Point, []Node) {
-	hierarchy := make([]Node, 0)
-	nRows, nCols := img.Dims()
-	nbd := CreateHoleBorder()
-	nbd.segNum = 1
-	lnbd := CreateHoleBorder()
-	contours := make([][]image.Point, 0)
-	for i := range contours {
-		contours[i] = make([]image.Point, 0)
-	}
-	tmpNode := Node{
-		parent:      -1,
-		firstChild:  -1,
-		nextSibling: -1,
-		border:      nbd,
-	}
-	hierarchy = append(hierarchy, tmpNode)
-	p2 := PointMat{
-		Row: 0,
-		Col: 0,
-	}
-	borderStartFound := false
-	for r := 0; r < nRows; r++ {
-		lnbd.segNum = 1
-		lnbd.borderType = Hole
-		for c := 0; c < nCols; c++ {
-			borderStartFound = false
-			if (img.At(r, c) == 1 && c-1 < 0) || (img.At(r, c) == 1 && img.At(r, c-1) == 0) {
-				nbd.borderType = Outer
-				nbd.segNum += 1
-				p2.Set(r, c-1)
-				borderStartFound = true
-			} else if c+1 < nCols && (img.At(r, c) >= 1 && img.At(r, c+1) == 0) {
-				nbd.borderType = Hole
-				nbd.segNum += 1
-				if img.At(r, c) > 1 {
-					lnbd.segNum = int(img.At(r, c))
-					lnbd.borderType = hierarchy[lnbd.segNum-1].border.borderType
-				}
-				p2.Set(r, c+1)
-				borderStartFound = true
-			}
-			if borderStartFound {
-				tmpNode.reset()
-				if nbd.borderType == lnbd.borderType {
-					tmpNode.parent = hierarchy[lnbd.segNum-1].parent
-					tmpNode.nextSibling = hierarchy[tmpNode.parent-1].firstChild
-					hierarchy[tmpNode.parent-1].firstChild = nbd.segNum
-					tmpNode.border = nbd
-					hierarchy = append(hierarchy, tmpNode)
-				} else {
-					if hierarchy[lnbd.segNum-1].firstChild != -1 {
-						tmpNode.nextSibling = hierarchy[lnbd.segNum-1].firstChild
-					}
-					tmpNode.parent = lnbd.segNum
-					hierarchy[lnbd.segNum-1].firstChild = nbd.segNum
-					tmpNode.border = nbd
-					hierarchy = append(hierarchy, tmpNode)
-				}
-				contour := followBorder(img, r, c, p2, nbd)
-				contour = SortPointCounterClockwise(contour)
-				contours = append(contours, contour)
-			}
-			if math.Abs(img.At(r, c)) > 1 {
-				lnbd.segNum = int(math.Abs(img.At(r, c)))
-				//fmt.Println(len(hierarchy))
-				//fmt.Println(lnbd.segNum)
-				idx := lnbd.segNum - 1
-				if idx < 0 {
-					idx = 0
-				}
-				lnbd.borderType = hierarchy[idx].border.borderType
-			}
-		}
-	}
-
-	return contours, hierarchy
 }
 
 // Line represents a line segment.
@@ -404,7 +101,7 @@ func seekMostDistantPoint(l Line, points []r2.Point) (idx int, maxDist float64) 
 
 // GetAreaCoveredByConvexContour computes the area covered by the envelope of a convex contour
 // The formula works for all polygons
-func GetAreaCoveredByConvexContour(contour []PointMat) float64 {
+func GetAreaCoveredByConvexContour(contour []r2.Point) float64 {
 	if len(contour) < 2 {
 		return float64(len(contour))
 	}
@@ -414,54 +111,19 @@ func GetAreaCoveredByConvexContour(contour []PointMat) float64 {
 		p0 := contour[i]
 		p1 := contour[(i+1)%len(contour)]
 		// update sum
-		sum += float64(p0.Col*p1.Row - p0.Row*p1.Col)
+		sum += float64(p0.X*p1.Y - p0.Y*p1.X)
 	}
 	// take half of absolute value of sum to obtain area
 	return math.Abs(sum) / 2.
 }
 
-func IsContourSquare(contour []PointMat) bool {
-	isSquare := false
-	if len(contour) != 4 {
-		return isSquare
-	}
-	p0 := convertPointMatToVec(contour[0])
-	p1 := convertPointMatToVec(contour[1])
-	p2 := convertPointMatToVec(contour[2])
-	p3 := convertPointMatToVec(contour[3])
-	// side lengths
-	dd0 := p0.Sub(p1).Norm()
-	dd1 := p1.Sub(p2).Norm()
-	dd2 := p2.Sub(p3).Norm()
-	dd3 := p3.Sub(p0).Norm()
-	// diagonal lengths
-	xa := p0.Sub(p2).Norm()
-	xb := p1.Sub(p3).Norm()
-	// check that points in contour are part of a convex hull
-	ta := GetAngle(dd3, dd0, xb)
-	tb := GetAngle(dd0, dd1, xa)
-	tc := GetAngle(dd1, dd2, xb)
-	td := GetAngle(dd2, dd3, xa)
-	angles := []float64{ta, tb, tc, td}
-	angleSum := floats.Sum(angles)
-	isConvex := math.Abs(angleSum-360.) < 5.
-	nGoodAngles := uint8(0)
-	for _, angle := range angles {
-		if angle > 40. && angle < 140. {
-			nGoodAngles += 1
-		}
-	}
-	isSquare = nGoodAngles == 4 && isConvex
-	return isSquare
-}
-
 // ArcLength returns the perimeter of the contour
-func ArcLength(contour []PointMat) float64 {
+func ArcLength(contour []image.Point) float64 {
 	lastIdx := len(contour) - 1
-	prev := r2.Point{X: float64(contour[lastIdx].Col), Y: float64(contour[lastIdx].Row)}
+	prev := r2.Point{X: float64(contour[lastIdx].X), Y: float64(contour[lastIdx].Y)}
 	perimeter := 0.
 	for i := 0; i < len(contour); i++ {
-		p1 := r2.Point{X: float64(contour[i].Col), Y: float64(contour[i].Row)}
+		p1 := r2.Point{X: float64(contour[i].X), Y: float64(contour[i].Y)}
 		d := p1.Sub(prev).Norm()
 		perimeter += d
 		prev = p1
@@ -469,57 +131,221 @@ func ArcLength(contour []PointMat) float64 {
 	return perimeter
 }
 
-func SimplifyContours(contours [][]PointMat) [][]r2.Point {
+// SimplifyContours iterates through a slice of contours and performs the contour approximation from ApproxContourDP
+func SimplifyContours(contours [][]image.Point) [][]r2.Point {
 	simplifiedContours := make([][]r2.Point, len(contours))
 
 	for i, c := range contours {
 		eps := ArcLength(c)
-		cf := convertSlicePointMatToSliceVec(c)
+		cf := ConvertSliceImagePointToSliceVec(c)
 		sc := ApproxContourDP(cf, 0.04*eps)
 		simplifiedContours[i] = sc
 	}
 	return simplifiedContours
 }
 
-type ByX []r2.Point
-
-func (a ByX) Len() int           { return len(a) }
-func (a ByX) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByX) Less(i, j int) bool { return a[i].X < a[j].X }
-
-func SortPointsQuad(points []r2.Point) []r2.Point {
-	sorted := make([]r2.Point, 4)
-	out := make([]r2.Point, 4)
-	copy(sorted, points)
-	sort.Sort(ByX(sorted))
-	// get top left and bottom left points
-	if sorted[0].Y < sorted[1].Y {
-		out[0] = sorted[0]
-		out[3] = sorted[1]
-	} else {
-		out[0] = sorted[1]
-		out[3] = sorted[0]
-	}
-	if sorted[2].Y < sorted[3].Y {
-		out[1] = sorted[2]
-		out[2] = sorted[3]
-	} else {
-		out[1] = sorted[3]
-		out[2] = sorted[2]
-	}
-	return out
-}
-
 // helpers
-// convertPointMatToVec converts a pointMat to a r2.Point
-func convertPointMatToVec(p PointMat) r2.Point {
-	return r2.Point{X: float64(p.Col), Y: float64(p.Row)}
+// convertImagePointToVec converts an image.Point to a r2.Point
+func convertImagePointToVec(p image.Point) r2.Point {
+	return r2.Point{X: float64(p.X), Y: float64(p.Y)}
 }
 
-func convertSlicePointMatToSliceVec(pts []PointMat) []r2.Point {
+// ConvertSliceImagePointToSliceVec converts a slice of image.Point to a slice of r2.Point
+func ConvertSliceImagePointToSliceVec(pts []image.Point) []r2.Point {
 	out := make([]r2.Point, len(pts))
 	for i, pt := range pts {
-		out[i] = convertPointMatToVec(pt)
+		out[i] = convertImagePointToVec(pt)
 	}
 	return out
+}
+
+func DeltasToIndex(x, y int) int {
+	return 4 - 2*x + x*y - 2*(1-x*x)*(y*y-y)
+}
+
+var (
+	Index2DeltaX = []int{0, 1, 1, 1, 0, -1, -1, -1}
+	Index2DeltaY = []int{-1, -1, 0, 1, 1, 1, 0, -1}
+)
+
+const (
+	Clockwise = iota
+	CounterClockwise
+)
+
+type Direction int
+
+// RoundNext returns the next pixel around center from start in the direction dir
+func RoundNext(center, start image.Point, dir int) image.Point {
+	deltaX := start.X - center.X
+	deltaY := start.Y - center.Y
+	index := DeltasToIndex(deltaX, deltaY)
+	nextIndex := (index + 9 - 2*dir) % 8
+	//fmt.Println("index : ", index)
+	//fmt.Println("nextIndex : ", nextIndex)
+	nextDeltaX := Index2DeltaX[nextIndex]
+	nextDeltaY := Index2DeltaY[nextIndex]
+	next := image.Point{
+		X: center.X + nextDeltaX,
+		Y: center.Y + nextDeltaY,
+	}
+	return next
+}
+func IsPointWithinBounds(pt image.Point, im *mat.Dense) bool {
+	rows, cols := im.Dims()
+	return pt.X >= 0 && pt.X < cols && pt.Y >= 0 && pt.Y < rows
+}
+func RoundNextForeground1(im *mat.Dense, center, start image.Point, dir int) (image.Point, bool) {
+	found := false
+	current := start
+	var nextFG image.Point
+	for i := 0; i < 7; i++ {
+		next := RoundNext(center, current, dir)
+		if IsPointWithinBounds(next, im) {
+			v := im.At(next.Y, next.X)
+			if v != 0 {
+				found = true
+				nextFG = next
+				break
+			}
+		}
+		current = next
+	}
+	return nextFG, found
+}
+
+func RoundNextForeground2(im *mat.Dense, center, start, through image.Point, dir int) (image.Point, bool, bool) {
+	found, passedThrough := false, false
+	current := start
+	var nextFG image.Point
+	for i := 0; i < 7; i++ {
+		next := RoundNext(center, current, dir)
+		if IsPointWithinBounds(next, im) {
+			v := im.At(next.Y, next.X)
+			if v != 0 {
+				found = true
+				nextFG = next
+				break
+			}
+		}
+		if next == through {
+			passedThrough = true
+		}
+		current = next
+	}
+	return nextFG, found, passedThrough
+}
+
+// FindContoursSuzuki implements the contour finding algorithm in a binary image from Suzuki et al.
+func FindContoursSuzuki(img *mat.Dense) ([][]image.Point, [][]int) {
+	nRows, nCols := img.Dims()
+	im := mat.NewDense(nRows, nCols, nil)
+	im = mat.DenseCopyOf(img)
+	contours := make([][]image.Point, 0)
+	hierarchy := make([][]int, 0)
+	cOuter := make([]bool, 0)
+	lastSons := make([]int, 0)
+	lastOuterMost := -1
+	NBD, LNBD := 1, 1
+	found, passedThrough := false, false
+	for r := 1; r < nRows-1; r++ {
+		LNBD = 1
+		for c := 1; c < nCols-1; c++ {
+			if im.At(r, c) != 0 {
+				p := image.Point{c, r}
+				var p1, p2, p3, p4 image.Point
+				start := false
+
+				if (im.At(r, c) == 1 && c-1 < 0) || (im.At(r, c) == 1 && im.At(r, c-1) == 0) {
+					// outer contour found
+					p2 = image.Point{c - 1, r}
+					start = true
+					cOuter = append(cOuter, true)
+				} else if c+1 < nCols-1 && (im.At(r, c) >= 1 && im.At(r, c+1) == 0) {
+					//c+1 < nCols && (im.At(r,c) >= 1 && im.At(r,c+1) == 0)
+					// Hole border found
+					p2 = image.Point{r, c + 1}
+					if im.At(r, c) > 1 {
+						LNBD = int(im.At(r, c))
+					}
+					start = true
+					cOuter = append(cOuter, false)
+				}
+				// if border found
+				if start {
+					NBD++
+					cnt := make([]image.Point, 0)
+					cnt = append(cnt, image.Point{c, r})
+					lastSons = append(lastSons, -1)
+					cur := len(contours)
+					father, prevSibling, bPrimo := -1, -1, LNBD-2
+					// if outer contour
+					if cOuter[len(cOuter)-1] {
+						if bPrimo >= 0 && cOuter[bPrimo] {
+							father = hierarchy[bPrimo][3]
+						} else {
+							father = bPrimo
+						}
+					} else {
+						if bPrimo == -1 || cOuter[bPrimo] {
+							father = bPrimo
+
+						} else {
+							father = hierarchy[bPrimo][3]
+						}
+					}
+					// if contour has a parent, set siblings
+					if father >= 0 {
+						prevSibling = lastSons[father]
+						if prevSibling < 0 {
+							hierarchy[father][2] = cur
+						} else {
+							hierarchy[prevSibling][0] = cur
+						}
+						lastSons[father] = cur
+					} else {
+						if lastOuterMost >= 0 {
+							hierarchy[lastOuterMost][0] = cur
+							prevSibling = lastOuterMost
+						}
+						lastOuterMost = cur
+					}
+					hierarchy = append(hierarchy, []int{-1, prevSibling, -1, father})
+					// follow contour - check for first non-zero neighbor clockwise
+					p1, found = RoundNextForeground1(im, p, p2, Clockwise)
+					if found {
+						p2, p3 = p1, p
+						for {
+							through := image.Point{p3.X + 1, p3.Y}
+							passedThrough = false
+							p4, found, passedThrough = RoundNextForeground2(im, p3, p2, through, CounterClockwise)
+							if !found {
+								p4 = p2
+							}
+							if passedThrough {
+								im.Set(p3.Y, p3.X, float64(-NBD))
+							} else if im.At(p3.Y, p3.X) == 1 {
+								im.Set(p3.Y, p3.X, float64(NBD))
+							}
+							if p4 == p && p3 == p1 {
+								// we are back to the starting point
+								break
+							}
+							cnt = append(cnt, p4)
+							// update points
+							p2 = p3
+							p3 = p4
+						}
+					} else {
+						im.Set(r, c, float64(-NBD))
+					}
+					contours = append(contours, cnt)
+				}
+				if im.At(r, c) != 1 {
+					LNBD = int(math.Abs(im.At(r, c)))
+				}
+			}
+		}
+	}
+	return contours, hierarchy
 }
