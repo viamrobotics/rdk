@@ -31,16 +31,17 @@ type Measurement struct {
 
 // IPhone is an iPhone based IMU.
 type IPhone struct {
+	host        string        // The host name of the iPhone being connected to.
+	conn        net.Conn      // Connection to IPhone.
 	reader      *bufio.Reader // Read connection to iPhone to pull sensor data from.
 	log         golog.Logger
-	mut         *sync.Mutex
-	measurememt atomic.Value
-	host        string
+	mut         *sync.RWMutex // Mutex to ensure only one goroutine or thread is reading from reader at a time.
+	measurement atomic.Value  // The latest measurement value read from reader.
 }
 
 const (
 	defaultRetries   = 5
-	defaultTimeoutMs = 100
+	defaultTimeoutMs = 1000
 )
 
 // Desc returns a description of the IMU.
@@ -52,7 +53,7 @@ func (ip *IPhone) Desc() sensor.Description {
 func (ip *IPhone) AngularVelocity(ctx context.Context) ([3]float64, error) {
 	var ret [3]float64
 
-	imuReading := ip.measurememt.Load().(Measurement)
+	imuReading := ip.measurement.Load().(Measurement)
 
 	ret[0], ret[1], ret[2] = *imuReading.RotationRateX, *imuReading.RotationRateY, *imuReading.RotationRateZ
 
@@ -61,28 +62,26 @@ func (ip *IPhone) AngularVelocity(ctx context.Context) ([3]float64, error) {
 
 // Heading returns the heading of the IPhone based on the most recently received measurement.
 func (ip *IPhone) Heading(ctx context.Context) (float64, error) {
-	imuReading := ip.measurememt.Load().(Measurement)
+	imuReading := ip.measurement.Load().(Measurement)
 	return *imuReading.Heading, nil
 }
 
 // New returns a new IPhone IMU that that pulls data from the iPhone at host.
 func New(ctx context.Context, host string, logger golog.Logger) (imu *IPhone, err error) {
-	conn, err := net.DialTimeout("tcp", host, 3*time.Second)
+	conn, err := net.DialTimeout("tcp", host, defaultTimeoutMs*time.Millisecond)
 	if err != nil {
 		return nil, err
 	}
-
 	r := bufio.NewReader(conn)
-	ip := &IPhone{reader: r, log: logger, mut: &sync.Mutex{}, host: host}
+	ip := &IPhone{reader: r, log: logger, mut: &sync.RWMutex{}, host: host, conn: conn}
 
 	imuReading, err := ip.readNextMeasurementWithRetries(ctx)
-
 	// TODO: The second case should never happen, but seems to sometimes. Figure out why
 	if err != nil || imuReading == nil {
 		logger.Debugw("error reading iphone data", "error", err)
 		return nil, err
 	}
-	ip.measurememt.Store(*imuReading)
+	ip.measurement.Store(*imuReading)
 
 	utils.ManagedGo(func() {
 		for {
@@ -90,7 +89,7 @@ func New(ctx context.Context, host string, logger golog.Logger) (imu *IPhone, er
 			if err != nil {
 				logger.Debugw("error reading iphone data", "error", err)
 			}
-			ip.measurememt.Store(*imuReading)
+			ip.measurement.Store(*imuReading)
 		}
 	}, func() {
 	})
@@ -102,7 +101,7 @@ func New(ctx context.Context, host string, logger golog.Logger) (imu *IPhone, er
 func (ip *IPhone) Orientation(ctx context.Context) ([3]float64, error) {
 	var ret [3]float64
 
-	imuReading := ip.measurememt.Load().(Measurement)
+	imuReading := ip.measurement.Load().(Measurement)
 
 	ret[0], ret[1], ret[2] = *imuReading.Pitch, *imuReading.Roll, *imuReading.Yaw
 
@@ -166,13 +165,11 @@ func (ip *IPhone) readNextMeasurement(ctx context.Context) (*Measurement, error)
 		defer ip.mut.Unlock()
 		measurement, err := ip.reader.ReadString('\n')
 		if err != nil {
-			ip.log.Errorf(err.Error(), err)
-			// TODO: make this reconnect logic less bad
-			conn, err := net.DialTimeout("tcp", ip.host, 1*time.Second)
+			// If we can't pull the next measurement, it's possible the connection was lost. Try to get another.
+			conn, err := net.DialTimeout("tcp", ip.host, defaultTimeoutMs*time.Millisecond)
 			if err != nil {
-				ip.log.Errorf("failed to reconnect", err)
+				ip.log.Errorf("failed to reconnect" + err.Error())
 			}
-
 			ip.reader = bufio.NewReader(conn)
 		}
 		ch <- measurement
@@ -186,8 +183,8 @@ func (ip *IPhone) readNextMeasurement(ctx context.Context) (*Measurement, error)
 			return nil, err
 		}
 
-		if err = assertContainsAllFields(&imuReading); err != nil {
-			return nil, err
+		if !containsAllFields(&imuReading) {
+			return nil, errors.New("iphone measurement missing required fields")
 		}
 
 		return &imuReading, nil
@@ -196,11 +193,16 @@ func (ip *IPhone) readNextMeasurement(ctx context.Context) (*Measurement, error)
 	}
 }
 
+// Close closes the underlying connection.
+func (ip *IPhone) Close() error {
+	return ip.conn.Close()
+}
+
 // TODO: find way to do this less verbosely and preferably returning the missing field
-func assertContainsAllFields(m *Measurement) error {
+func containsAllFields(m *Measurement) bool {
 	if m.RotationRateX == nil || m.RotationRateY == nil || m.RotationRateZ == nil || m.Pitch == nil || m.Roll == nil ||
 		m.Yaw == nil || m.Heading == nil {
-		return errors.New("missing at least one require field")
+		return false
 	}
-	return nil
+	return true
 }
