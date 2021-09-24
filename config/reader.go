@@ -326,6 +326,7 @@ func fromReader(originalPath string, r io.Reader, skipCloud bool) (*Config, erro
 		if err != nil {
 			return nil, errors.Errorf("error converting attributes for (%s, %s) %w", c.Type, c.Model, err)
 		}
+		cfg.Components[idx].Attributes = nil
 		cfg.Components[idx].ConvertedAttributes = converted
 	}
 
