@@ -1,18 +1,19 @@
 package chessboard
 
 import (
+	"image"
+	"math"
+
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/utils"
 	"gonum.org/v1/gonum/mat"
-	"image"
-	"math"
 )
 
 type SaddleConfiguration struct {
-	GrayThreshold float64     `json:"gray"`// initial threshold for pruning saddle points in saddle map
-	ScoreThresholdMin float64 `json:"score-min"`// minimum saddle score value for pruning
-	ScoreThresholdMax float64 `json:"score-max"`// saddle score above which non pruned or suppressed points are saddle points
-	NMSWindowSize int        `json:"win-size"`// window size for non-maximum suppression
+	GrayThreshold     float64 `json:"gray"`      // initial threshold for pruning saddle points in saddle map
+	ScoreThresholdMin float64 `json:"score-min"` // minimum saddle score value for pruning
+	ScoreThresholdMax float64 `json:"score-max"` // saddle score above which non pruned or suppressed points are saddle points
+	NMSWindowSize     int     `json:"win-size"`  // window size for non-maximum suppression
 }
 
 var DefaultSaddleConf = SaddleConfiguration{
@@ -66,7 +67,7 @@ func SumPositive(i, j int, val float64) float64 {
 }
 
 // PruneSaddle prunes the saddle points map until the number of non-zero points reaches a value <= 10000
-func PruneSaddle(s *mat.Dense, cfg *SaddleConfiguration) *mat.Dense{
+func PruneSaddle(s *mat.Dense, cfg *SaddleConfiguration) *mat.Dense {
 	thresh := cfg.GrayThreshold
 	r, c := s.Dims()
 	scores := mat.NewDense(r, c, nil)
@@ -103,7 +104,6 @@ func NonMaxSuppression(img *mat.Dense, winSize int) *mat.Dense {
 				td := int(math.Min(float64(w), float64(j+winSize+1)))
 				// cell
 				cell := img.Slice(ta, tb, tc, td)
-
 
 				if mat.Max(cell) == img.At(i, j) {
 					imgSup.Set(i, j, img.At(i, j))
@@ -142,7 +142,7 @@ func GetSaddleMapPoints(img *mat.Dense, conf *SaddleConfiguration) (*mat.Dense, 
 	// threshold nms saddle map to get saddle points
 	saddlePoints := make([]image.Point, 0)
 	utils.ParallelForEachPixel(originalSize, func(x int, y int) {
-		if nms.At(y,x) >= conf.ScoreThresholdMax {
+		if nms.At(y, x) >= conf.ScoreThresholdMax {
 			saddlePoints = append(saddlePoints, image.Point{x, y})
 		}
 	})
