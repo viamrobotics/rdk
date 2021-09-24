@@ -10,8 +10,11 @@ USER testbot
 COPY etc/setup.sh /tmp/setup.sh
 RUN bash /tmp/setup.sh
 
-RUN sudo rm -rf /home/testbot/.cache
-RUN sudo apt clean
+USER root
 
-WORKDIR /home/testbot
+RUN rm -rf /home/testbot/.cache
+RUN apt clean
+
+RUN cp /home/testbot/.bashrc /root/.bashrc && cp /home/testbot/.viamdevrc /root/.viamdevrc
+
 ENTRYPOINT ["bash", "-lc"]
