@@ -27,6 +27,6 @@ func TestOrientation(t *testing.T) {
 	test.That(t, frame.Parent, test.ShouldEqual, "a")
 	test.That(t, frame.Translation, test.ShouldResemble, Translation{1, 2, 3})
 	test.That(t, frame.Orientation.Type, test.ShouldEqual, "ov_degrees")
-	test.That(t, frame.Orientation.Value.OrientationVectorDegrees(), test.ShouldResemble, &spatial.OrientationVec{45, 0, 0, 1})
+	test.That(t, frame.Orientation.Value.OrientationVectorDegrees(), test.ShouldResemble, &spatial.OrientationVecDegrees{45, 0, 0, 1})
 
 }
