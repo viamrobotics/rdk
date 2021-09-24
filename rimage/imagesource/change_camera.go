@@ -19,9 +19,9 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("changeCameraSystem", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterCamera("changeCameraSystem", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		return newChangeCameraSystem(r, config)
-	})
+	}})
 
 	config.RegisterAttributeConverter(config.ComponentTypeCamera, "changeCameraSystem", "matrices", func(val interface{}) (interface{}, error) {
 		matrices := &transform.DepthColorIntrinsicsExtrinsics{}

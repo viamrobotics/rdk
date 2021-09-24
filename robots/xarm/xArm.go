@@ -11,6 +11,9 @@ import (
 	"go.viam.com/core/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
+
+	"go.viam.com/core/referenceframe"
+
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -34,33 +37,49 @@ var xArm6modeljson []byte
 var xArm7modeljson []byte
 
 func init() {
-	registry.RegisterArm("xArm6", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		return NewxArm(ctx, config.Host, logger, 6)
+	registry.RegisterArm("xArm6", registry.Arm{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+			return NewxArm(ctx, config.Host, logger, 6)
+		},
+		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name, 6) },
 	})
-	registry.RegisterArm("xArm7", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		return NewxArm(ctx, config.Host, logger, 7)
+	registry.RegisterArm("xArm7", registry.Arm{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+			return NewxArm(ctx, config.Host, logger, 7)
+		},
+		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name, 7) },
 	})
 }
 
-// NewxArm returns a new xArm with an IK solver and the specified
+// XArmModel returns the kinematics model of the xArm, also has all Frame information.
+func xArmModel(dof int) (*kinematics.Model, error) {
+	if dof == 6 {
+		return kinematics.ParseJSON(xArm6modeljson)
+	} else if dof == 7 {
+		return kinematics.ParseJSON(xArm7modeljson)
+	}
+	return nil, errors.New("no kinematics model for xarm with specified degrees of freedom")
+}
+
+// xArmFrame returns the reference frame of the arm with the given name.
+func xArmFrame(name string, dof int) (referenceframe.Frame, error) {
+	frame, err := xArmModel(dof)
+	if err != nil {
+		return nil, err
+	}
+	frame.SetName(name)
+	return frame, nil
+}
+
+// NewxArm returns a new xArm with the specified dof
 func NewxArm(ctx context.Context, host string, logger golog.Logger, dof int) (arm.Arm, error) {
 	conn, err := net.Dial("tcp", host+":502")
 	if err != nil {
 		return &xArm{}, err
 	}
-	var model *kinematics.Model
-	if dof == 6 {
-		model, err = kinematics.ParseJSON(xArm6modeljson)
-		if err != nil {
-			return &xArm{}, err
-		}
-	} else if dof == 7 {
-		model, err = kinematics.ParseJSON(xArm7modeljson)
-		if err != nil {
-			return &xArm{}, err
-		}
-	} else {
-		return &xArm{}, errors.New("no kinematics model for xarm with specified degrees of freedom")
+	model, err := xArmModel(dof)
+	if err != nil {
+		return &xArm{}, err
 	}
 	nCPU := runtime.NumCPU()
 	ik := kinematics.CreateCombinedIKSolver(model, logger, nCPU)

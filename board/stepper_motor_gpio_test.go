@@ -1,4 +1,4 @@
-package board
+package board_test
 
 import (
 	"context"
@@ -7,7 +7,10 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/board"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/robots/fake"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -15,20 +18,20 @@ import (
 
 func TestGPIOStepperMotor(t *testing.T) {
 	ctx := context.Background()
-	b := &FakeBoard{}
+	b := &fake.Board{}
 	logger := golog.NewTestLogger(t)
 
-	m, err := NewGPIOMotor(b, MotorConfig{Pins: map[string]string{"a": "1", "b": "2", "c": "3", "d": "4", "pwm": "5"}, TicksPerRotation: 200}, logger)
+	m, err := board.NewGPIOMotor(b, motor.Config{Pins: map[string]string{"a": "1", "b": "2", "c": "3", "d": "4", "pwm": "5"}, TicksPerRotation: 200}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(m), test.ShouldBeNil)
 	}()
 
 	test.That(t, m.Off(ctx), test.ShouldBeNil)
-	test.That(t, b.gpio["1"], test.ShouldEqual, false)
-	test.That(t, b.gpio["2"], test.ShouldEqual, false)
-	test.That(t, b.gpio["3"], test.ShouldEqual, false)
-	test.That(t, b.gpio["4"], test.ShouldEqual, false)
+	test.That(t, b.GPIO["1"], test.ShouldEqual, false)
+	test.That(t, b.GPIO["2"], test.ShouldEqual, false)
+	test.That(t, b.GPIO["3"], test.ShouldEqual, false)
+	test.That(t, b.GPIO["4"], test.ShouldEqual, false)
 	on, err := m.IsOn(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, on, test.ShouldBeFalse)

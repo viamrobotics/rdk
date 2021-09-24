@@ -13,21 +13,30 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 )
 
 func init() {
-	registry.RegisterGripper("viam", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
-		b, ok := r.BoardByName("local")
-		if !ok {
-			return nil, errors.New("viam gripper requires a board called local")
-		}
-		return NewGripperV1(ctx, b, config.Attributes.Int("pressureLimit", 800), logger)
+	registry.RegisterGripper("viam", registry.Gripper{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
+			b, ok := r.BoardByName("local")
+			if !ok {
+				return nil, errors.New("viam gripper requires a board called local")
+			}
+			return NewGripperV1(ctx, r, b, config.Attributes.Int("pressureLimit", 800), logger)
+		},
+		Frame: func(name string) (referenceframe.Frame, error) {
+			// A viam gripper is 220mm from mount point to center of gripper paddles
+			return referenceframe.FrameFromPoint(name, r3.Vector{0, 0, 220})
+		},
 	})
 }
 
@@ -43,7 +52,7 @@ const (
 
 // GripperV1 represents a Viam gripper
 type GripperV1 struct {
-	motor    board.Motor
+	motor    motor.Motor
 	current  board.AnalogReader
 	pressure board.AnalogReader
 
@@ -60,9 +69,9 @@ type GripperV1 struct {
 }
 
 // NewGripperV1 Returns a GripperV1
-func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, logger golog.Logger) (*GripperV1, error) {
+func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, pressureLimit int, logger golog.Logger) (*GripperV1, error) {
 
-	motor, ok := theBoard.MotorByName("g")
+	motor, ok := r.MotorByName("g")
 	if !ok {
 		return nil, errors.New("failed to find motor 'g'")
 	}

@@ -5,11 +5,11 @@ import (
 	"math/rand"
 	"testing"
 
+	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
 	"go.viam.com/test"
-	"gonum.org/v1/gonum/num/dualquat"
-	"gonum.org/v1/gonum/num/quat"
 )
 
 func TestModelLoading(t *testing.T) {
@@ -17,7 +17,7 @@ func TestModelLoading(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, m.OperationalDof(), test.ShouldEqual, 1)
-	test.That(t, m.Dof(), test.ShouldEqual, 6)
+	test.That(t, len(m.Dof()), test.ShouldEqual, 6)
 
 	isValid := m.AreJointPositionsValid([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
 	test.That(t, isValid, test.ShouldBeTrue)
@@ -27,12 +27,12 @@ func TestModelLoading(t *testing.T) {
 	orig := []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
 	orig[5] += math.Pi * 2
 	orig[4] -= math.Pi * 4
-	normalized := m.Normalize(orig)
-	test.That(t, normalized[4], test.ShouldAlmostEqual, 0.1)
-	test.That(t, normalized[5], test.ShouldAlmostEqual, 0.1)
 
 	randpos := m.GenerateRandomJointPositions(rand.New(rand.NewSource(1)))
 	test.That(t, m.AreJointPositionsValid(randpos), test.ShouldBeTrue)
+
+	m.SetName("foo")
+	test.That(t, m.Name(), test.ShouldEqual, "foo")
 }
 
 func TestJoint(t *testing.T) {
@@ -41,11 +41,18 @@ func TestJoint(t *testing.T) {
 
 	joints := m.Joints()
 	test.That(t, len(joints), test.ShouldEqual, 6)
-	firstJquat := joints[0].Quaternion().Quat
-	firstJquatExpect := dualquat.Number{quat.Number{1, 0, 0, 0}, quat.Number{0, 0, 0, 0}}
-	test.That(t, firstJquat, test.ShouldResemble, firstJquatExpect)
+	pose, err := joints[0].Transform([]referenceframe.Input{{0}})
+	test.That(t, err, test.ShouldBeNil)
+	firstJov := pose.Orientation()
+	firstJovExpect := &spatialmath.OrientationVec{Theta: 0, OX: 0, OY: 0, OZ: 1}
+	test.That(t, firstJov, test.ShouldResemble, firstJovExpect)
 
-	firstJangle := joints[0].AngleQuaternion([]float64{1.5708}).Quat
-	firstJangleExpect := dualquat.Number{quat.Number{0.7071054825112365, 0, 0, 0.7071080798594737}, quat.Number{0, 0, 0, 0}}
-	test.That(t, firstJangle, test.ShouldResemble, firstJangleExpect)
+	pose, err = joints[0].Transform([]referenceframe.Input{{1.5708}})
+	test.That(t, err, test.ShouldBeNil)
+	firstJov = pose.Orientation()
+	firstJovExpect = &spatialmath.OrientationVec{Theta: 1.5708, OX: 0, OY: 0, OZ: 1}
+	test.That(t, firstJov.Theta, test.ShouldAlmostEqual, firstJovExpect.Theta)
+	test.That(t, firstJov.OX, test.ShouldAlmostEqual, firstJovExpect.OX)
+	test.That(t, firstJov.OY, test.ShouldAlmostEqual, firstJovExpect.OY)
+	test.That(t, firstJov.OZ, test.ShouldAlmostEqual, firstJovExpect.OZ)
 }

@@ -3,6 +3,7 @@ package status
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-errors/errors"
 
@@ -108,6 +109,49 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
+	if names := r.ServoNames(); len(names) != 0 {
+		status.Servos = make(map[string]*pb.ServoStatus, len(names))
+		for _, name := range names {
+			x, ok := r.ServoByName(name)
+			if !ok {
+				return nil, fmt.Errorf("servo %q not found", name)
+			}
+			current, err := x.Current(ctx)
+			if err != nil {
+				return nil, err
+			}
+			status.Servos[name] = &pb.ServoStatus{
+				Angle: uint32(current),
+			}
+		}
+	}
+
+	if names := r.MotorNames(); len(names) != 0 {
+		status.Motors = make(map[string]*pb.MotorStatus, len(names))
+		for _, name := range names {
+			x, ok := r.MotorByName(name)
+			if !ok {
+				return nil, fmt.Errorf("motor %q not found", name)
+			}
+			isOn, err := x.IsOn(ctx)
+			if err != nil {
+				return nil, err
+			}
+			position, err := x.Position(ctx)
+			if err != nil {
+				return nil, err
+			}
+			positionSupported, err := x.PositionSupported(ctx)
+			if err != nil {
+				return nil, err
+			}
+			status.Motors[name] = &pb.MotorStatus{
+				On:                isOn,
+				Position:          position,
+				PositionSupported: positionSupported,
+			}
+		}
+	}
 	if names := r.FunctionNames(); len(names) != 0 {
 		status.Functions = make(map[string]bool, len(names))
 		for _, name := range names {

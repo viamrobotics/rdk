@@ -23,6 +23,10 @@ import (
 // different representation.
 type AttributeConverter func(val interface{}) (interface{}, error)
 
+// An AttributeMapConverter converts an attribute map into a possibly
+// different representation.
+type AttributeMapConverter func(attributes AttributeMap) (interface{}, error)
+
 type attributeConverterRegistration struct {
 	compType ComponentType
 	model    string
@@ -30,8 +34,15 @@ type attributeConverterRegistration struct {
 	conv     AttributeConverter
 }
 
+type attributeMapConverterRegistration struct {
+	compType ComponentType
+	model    string
+	conv     AttributeMapConverter
+}
+
 var (
-	attributeConverters = []attributeConverterRegistration{}
+	attributeConverters    = []attributeConverterRegistration{}
+	attributeMapConverters = []attributeMapConverterRegistration{}
 )
 
 // RegisterAttributeConverter associates a component type and model with a way to convert a
@@ -40,9 +51,23 @@ func RegisterAttributeConverter(compType ComponentType, model, attr string, conv
 	attributeConverters = append(attributeConverters, attributeConverterRegistration{compType, model, attr, conv})
 }
 
+// RegisterAttributeMapConverter associates a component type and model with a way to convert all attributes.
+func RegisterAttributeMapConverter(compType ComponentType, model string, conv AttributeMapConverter) {
+	attributeMapConverters = append(attributeMapConverters, attributeMapConverterRegistration{compType, model, conv})
+}
+
 func findConverter(compType ComponentType, model, attr string) AttributeConverter {
 	for _, r := range attributeConverters {
 		if r.compType == compType && r.model == model && r.attr == attr {
+			return r.conv
+		}
+	}
+	return nil
+}
+
+func findMapConverter(compType ComponentType, model string) AttributeMapConverter {
+	for _, r := range attributeMapConverters {
+		if r.compType == compType && r.model == model {
 			return r.conv
 		}
 	}
@@ -265,33 +290,44 @@ func fromReader(originalPath string, r io.Reader, skipCloud bool) (*Config, erro
 	}
 
 	for idx, c := range cfg.Components {
-		for k, v := range c.Attributes {
-			s, ok := v.(string)
-			if ok {
-				cfg.Components[idx].Attributes[k] = os.ExpandEnv(s)
-				loaded := false
-				var err error
-				v, loaded, err = loadSubFromFile(originalPath, s)
+		conv := findMapConverter(c.Type, c.Model)
+		if conv == nil {
+			for k, v := range c.Attributes {
+				s, ok := v.(string)
+				if ok {
+					cfg.Components[idx].Attributes[k] = os.ExpandEnv(s)
+					loaded := false
+					var err error
+					v, loaded, err = loadSubFromFile(originalPath, s)
+					if err != nil {
+						return nil, err
+					}
+					if loaded {
+						cfg.Components[idx].Attributes[k] = v
+					}
+				}
+
+				conv := findConverter(c.Type, c.Model, k)
+				if conv == nil {
+					continue
+				}
+
+				n, err := conv(v)
 				if err != nil {
-					return nil, err
+					return nil, errors.Errorf("error converting attribute for (%s, %s, %s) %w", c.Type, c.Model, k, err)
 				}
-				if loaded {
-					cfg.Components[idx].Attributes[k] = v
-				}
-			}
+				cfg.Components[idx].Attributes[k] = n
 
-			conv := findConverter(c.Type, c.Model, k)
-			if conv == nil {
-				continue
 			}
-
-			n, err := conv(v)
-			if err != nil {
-				return nil, errors.Errorf("error converting attribute for (%s, %s, %s) %w", c.Type, c.Model, k, err)
-			}
-			cfg.Components[idx].Attributes[k] = n
-
+			continue
 		}
+
+		converted, err := conv(c.Attributes)
+		if err != nil {
+			return nil, errors.Errorf("error converting attributes for (%s, %s) %w", c.Type, c.Model, err)
+		}
+		cfg.Components[idx].Attributes = nil
+		cfg.Components[idx].ConvertedAttributes = converted
 	}
 
 	if err := cfg.Ensure(skipCloud); err != nil {

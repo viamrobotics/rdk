@@ -12,10 +12,12 @@ import (
 	"go.viam.com/core/camera"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/sensor"
+	"go.viam.com/core/servo"
 	"go.viam.com/core/status"
 	"go.viam.com/core/testutils/inject"
 
@@ -47,6 +49,12 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	injectRobot.SensorNamesFunc = func() []string {
 		return []string{"sensor1", "sensor2"}
 	}
+	injectRobot.ServoNamesFunc = func() []string {
+		return []string{"servo1", "servo2"}
+	}
+	injectRobot.MotorNamesFunc = func() []string {
+		return []string{"motor1", "motor2"}
+	}
 	injectRobot.FunctionNamesFunc = func() []string {
 		return []string{"func1", "func2"}
 	}
@@ -70,10 +78,16 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return &fake.Lidar{Name: name}, true
 	}
 	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return &board.FakeBoard{Name: name}, true
+		return &fake.Board{Name: name}, true
 	}
 	injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 		return &fake.Compass{Name: name}, true
+	}
+	injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
+		return &fake.Servo{Name: name}, true
+	}
+	injectRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
+		return &fake.Motor{Name: name}, true
 	}
 
 	if withRemotes {
@@ -151,6 +165,14 @@ func TestCreateStatus(t *testing.T) {
 					Type: "compass",
 				},
 			},
+			Servos: map[string]*pb.ServoStatus{
+				"servo1": {},
+				"servo2": {},
+			},
+			Motors: map[string]*pb.MotorStatus{
+				"motor1": {},
+				"motor2": {},
+			},
 			Functions: map[string]bool{
 				"func1": true,
 				"func2": true,
@@ -206,6 +228,14 @@ func TestCreateStatus(t *testing.T) {
 				"sensor2": {
 					Type: "compass",
 				},
+			},
+			Servos: map[string]*pb.ServoStatus{
+				"servo1": {},
+				"servo2": {},
+			},
+			Motors: map[string]*pb.MotorStatus{
+				"motor1": {},
+				"motor2": {},
 			},
 			Functions: map[string]bool{
 				"func1": true,

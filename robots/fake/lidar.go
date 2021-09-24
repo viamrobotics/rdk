@@ -11,29 +11,36 @@ import (
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
+	"github.com/golang/geo/r3"
 )
 
 // LidarType uses the fake model name.
 const LidarType = ModelName
 
 func init() {
-	registry.RegisterLidar(LidarType, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
-		if config.Host == "" {
-			config.Host = "0"
-		}
-		host := strings.TrimPrefix(config.Host, "fake-")
-		seed, err := strconv.ParseInt(host, 10, 64)
-		if err != nil {
-			return nil, err
-		}
-		device := NewLidar(config.Name)
-		device.SetSeed(seed)
-		return device, nil
+	registry.RegisterLidar(LidarType, registry.Lidar{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
+			if config.Host == "" {
+				config.Host = "0"
+			}
+			host := strings.TrimPrefix(config.Host, "fake-")
+			seed, err := strconv.ParseInt(host, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			device := NewLidar(config.Name)
+			device.SetSeed(seed)
+			return device, nil
+		},
+		Frame: func(name string) (referenceframe.Frame, error) {
+			return referenceframe.FrameFromPoint(name, r3.Vector{50, 0, 0})
+		},
 	})
 }
 
