@@ -238,7 +238,8 @@ func ApplyHomography(H *mat.Dense, pts []r2.Point) []r2.Point{
 	for i, pt := range pts{
 		x := H.At(0,0)*pt.X + H.At(0,1)*pt.Y + H.At(0,2)
 		y := H.At(1,0)*pt.X + H.At(1,1)*pt.Y + H.At(1,2)
-		outPoints[i] = r2.Point{x,y}
+		z := H.At(2,0)*pt.X + H.At(2,1)*pt.Y + H.At(2,2)
+		outPoints[i] = r2.Point{x/z,y/z}
 	}
 	return outPoints
 }
