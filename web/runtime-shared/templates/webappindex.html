@@ -89,6 +89,8 @@
           status.boardsMap = rawSatusObj.boardsMap;
           status.camerasMap = rawSatusObj.camerasMap;
           status.sensorsMap = rawSatusObj.sensorsMap;
+          status.servosMap = rawSatusObj.servosMap;
+          status.motorsMap = rawSatusObj.motorsMap;
           status.functionsMap = rawSatusObj.functionsMap;
 
           status.armsMap = fixArms(status.armsMap);
@@ -238,32 +240,30 @@
                           break;
                       }
                   },
-                  servoMove : function(idx, servoIdx, amount) {
-                      const [boardName, boardValue] = theData.status.boardsMap[idx];
-                      const [servoName, servoValue] = boardValue.servosMap[servoIdx];
-                      var angle = servoValue.angle + amount;
-                      const req = new robotApi.BoardServoMoveRequest();
-                      req.setBoardName(boardName);
-                      req.setServoName(servoName);
+                  servoMove : function(name, amount) {
+                      const servo = theData.rawStatus.getServosMap().get(name);
+                      var old = servo.getAngle();
+                      var angle = old + amount;
+                      const req = new robotApi.ServoMoveRequest();
+                      req.setName(name);
                       req.setAngleDeg(angle);
-                      robotService.boardServoMove(req, {}, (err, resp) => grpcCallback(err, resp));
+                      robotService.servoMove(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
-                  motorButton: function(board, motor, cmd) {
+                  motorButton: function(name, cmd) {
                       let req;
                       if (cmd.r) {
-                        req = new robotApi.BoardMotorGoForRequest();
+                        req = new robotApi.MotorGoForRequest();
                         req.setRevolutions(cmd.r);
                         if (cmd.s) {
                           req.setRpm(cmd.s);
                         }
                       } else {
-                        req = new robotApi.BoardMotorGoRequest();
+                        req = new robotApi.MotorGoRequest();
                         if (cmd.s) {
                             req.setPowerPct(cmd.s);
                         }
                       }
-                      req.setBoardName(board);
-                      req.setMotorName(motor);
+                      req.setName(name);
                       switch (cmd.d) {
                         case 'backward':
                           req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_BACKWARD);
@@ -273,9 +273,9 @@
                           break;
                       }
                       if (cmd.r) {
-                        robotService.boardMotorGoFor(req, {}, (err, resp) => grpcCallback(err, resp));
+                        robotService.motorGoFor(req, {}, (err, resp) => grpcCallback(err, resp));
                       } else {
-                        robotService.boardMotorGo(req, {}, (err, resp) => grpcCallback(err, resp));
+                        robotService.motorGo(req, {}, (err, resp) => grpcCallback(err, resp));
                       }
                   },
                   doAction : function(name) {
@@ -696,6 +696,78 @@
         </ul>
       </div>
 
+      <!-- ******* SERVO *******  -->
+      <div class="servo" v-for="servo in status.servosMap" :key="servo[0]">
+        <h3>Servo ${ servo[0] }</h3>
+        <table border="1">
+          <tr><th>Angle</th><td>${servo[1].angle}</td></tr>
+          <tr>
+            <td></td>
+            <td>
+              <button v-on:click="servoMove(servo[0], -10)">-10</button>
+              <button v-on:click="servoMove(servo[0], -1)">-1</button>
+              <button v-on:click="servoMove(servo[0], 1)">1</button>
+              <button v-on:click="servoMove(servo[0], 10)">10</button>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- ******* MOTOR *******  -->
+      <div class="motor" v-for="motor in status.motorsMap" :key="motor[0]">
+        <h3>Motor ${ motor[0] }</h3>
+        <table border="1">
+          <tr>
+              <th>${motor[0]}</th>
+              <td>
+                <button v-on:click="motorButton(motor[0], {d:'backward', s: 1.0})">----</button>
+                <button v-on:click="motorButton(motor[0], {d:'backward', s: .75})">---</button>
+                <button v-on:click="motorButton(motor[0], {d:'backward', s: .50})">--</button>
+                <button v-on:click="motorButton(motor[0], {d:'backward', s: .25})">-</button>
+                <button v-on:click="motorButton(motor[0], {d:'none', s: 0})">0</button>
+                <button v-on:click="motorButton(motor[0], {d:'forward', s: .25})">+</button>
+                <button v-on:click="motorButton(motor[0], {d:'forward', s: .50})">++</button>
+                <button v-on:click="motorButton(motor[0], {d:'forward', s: .75})">+++</button>
+                <button v-on:click="motorButton(motor[0], {d:'forward', s: 1.0})">++++</button>
+              </td>
+            </tr>
+            <tr>
+              <td>50rpm</td>
+              <td>
+                <button v-on:click="motorButton(motor[0], {d:'backward', s: 50, r: 10})">-10</button>
+                <button v-on:click="motorButton(motor[0], {d:'backward', s: 50, r: 1})">-1</button>
+                <button v-on:click="motorButton(motor[0], {d:'backward', s: 50, r: .25})">-.25</button>
+                <button v-on:click="motorButton(motor[0], {d:'forward', s: 50, r: .25})">+.25</button>
+                <button v-on:click="motorButton(motor[0], {d:'forward', s: 50, r: 1})">+1</button>
+                <button v-on:click="motorButton(motor[0], {d:'forward', s: 50, r: 10})">+10</button>
+              </td>
+            </tr>
+            <tr>
+              <td>10rpm</td>
+              <td>
+                <button v-on:click="motorButton(motor[0], {d:'backward', s: 10, r: 10})">-10</button>
+                <button v-on:click="motorButton(motor[0], {d:'backward', s: 10, r: 1})">-1</button>
+                <button v-on:click="motorButton(motor[0], {d:'backward', s: 10, r: .25})">-.25</button>
+                <button v-on:click="motorButton(motor[0], {d:'forward', s: 10, r: .25})">+.25</button>
+                <button v-on:click="motorButton(motor[0], {d:'forward', s: 10, r: 1})">+1</button>
+                <button v-on:click="motorButton(motor[0], {d:'forward', s: 10, r: 10})">+10</button>
+              </td>
+            </tr>
+          <tr>
+            <td align="right">On</td>
+            <td>${motor[1].on}</td>
+          </tr>
+          <tr>
+            <td align="right">PositionSupported</td>
+            <td>${motor[1].positionSupported}</td>
+          </tr>
+          <tr>
+            <td align="right">Position</td>
+            <td>${motor[1].position}</td>
+          </tr>
+        </table>
+      </div>
+
       <table>
         <tr>
           <td><img id="i0" src=""/></td>
@@ -713,61 +785,6 @@
       <div class="board" v-for="(board, boardIndex) in status.boardsMap" :key="board[0]">
         <h3>Board ${board[0]}</h3>
         <table border="1">
-          
-          <tr><th colspan="2">Motors</th></tr>
-          <tbody v-for="m in board[1].motorsMap" :key="m[0]">
-            <tr>
-              <th>${m[0]}</th>
-              <td>
-                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 1.0})">----</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: .75})">---</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: .50})">--</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: .25})">-</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'none', s: 0})">0</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: .25})">+</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: .50})">++</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: .75})">+++</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 1.0})">++++</button>
-              </td>
-            </tr>
-            <tr>
-              <td>50rpm</td>
-              <td>
-                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 50, r: 10})">-10</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 50, r: 1})">-1</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 50, r: .25})">-.25</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 50, r: .25})">+.25</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 50, r: 1})">+1</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 50, r: 10})">+10</button>
-              </td>
-            </tr>
-            <tr>
-              <td>10rpm</td>
-              <td>
-                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 10, r: 10})">-10</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 10, r: 1})">-1</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 10, r: .25})">-.25</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 10, r: .25})">+.25</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 10, r: 1})">+1</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 10, r: 10})">+10</button>
-              </td>
-            </tr>
-            
-            <tr>
-              <td align="right">On</td>
-              <td>${m[1].on}</td>
-            </tr>
-            <tr>
-              <td align="right">PositionSupported</td>
-              <td>${m[1].positionSupported}</td>
-            </tr>
-            <tr>
-              <td align="right">Position</td>
-              <td>${m[1].position}</td>
-            </tr>
-
-
-          </tbody>
 
           <tr><th colspan="2">Analogs</th></tr>
           <tr v-for="a in board[1].analogsMap" :key="a[0]">
@@ -780,20 +797,6 @@
             <th>${di[0]}</th>
             <td>${di[1].value}</td>
           </tr>
-
-          <tr><th colspan="2">Servos</th></tr>
-          <tbody v-for="(s, servoIndex) in board[1].servosMap" :key="s[0]">
-            <tr><th>${s[0]}</th><td>${s[1].angle}</td></tr>
-            <tr>
-              <td></td>
-              <td>
-                <button v-on:click="servoMove( boardIndex, servoIndex, -10)">-10</button>
-                <button v-on:click="servoMove( boardIndex, servoIndex, -1)">-1</button>
-                <button v-on:click="servoMove( boardIndex, servoIndex, 1)">1</button>
-                <button v-on:click="servoMove( boardIndex, servoIndex, 10)">10</button>
-              </td>
-            </tr>
-          </tbody>
           
         </table>
       </div> <!-- end boards -->

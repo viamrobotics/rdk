@@ -60,27 +60,19 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 	}); err != nil {
 		return nil, err
 	}
-	if err := engine.ImportFunction("robot.boardMotorPower", func(args ...functionvm.Value) ([]functionvm.Value, error) {
-		if len(args) < 3 {
-			return nil, errors.New("expected 3 arguments for board name, motor name, and power percentage")
+	if err := engine.ImportFunction("robot.motorPower", func(args ...functionvm.Value) ([]functionvm.Value, error) {
+		if len(args) < 2 {
+			return nil, errors.New("expected 2 arguments for motor name and power percentage")
 		}
-		boardName, err := args[0].String()
+		motorName, err := args[0].String()
 		if err != nil {
 			return nil, err
 		}
-		board, ok := r.BoardByName(boardName)
-		if !ok {
-			return nil, errors.Errorf("no board with that name %s", boardName)
-		}
-		motorName, err := args[1].String()
-		if err != nil {
-			return nil, err
-		}
-		motor, ok := board.MotorByName(motorName)
+		motor, ok := r.MotorByName(motorName)
 		if !ok {
 			return nil, errors.Errorf("no motor with that name %s", motorName)
 		}
-		powerPct, err := args[2].Number()
+		powerPct, err := args[1].Number()
 		if err != nil {
 			return nil, err
 		}
@@ -89,31 +81,23 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 	}); err != nil {
 		return nil, err
 	}
-	if err := engine.ImportFunction("robot.boardMotorGo", func(args ...functionvm.Value) ([]functionvm.Value, error) {
-		if len(args) < 4 {
-			return nil, errors.New("expected 4 arguments for board name, motor name, direction (1-forward,2-backward), and power percentage")
+	if err := engine.ImportFunction("robot.motorGo", func(args ...functionvm.Value) ([]functionvm.Value, error) {
+		if len(args) < 3 {
+			return nil, errors.New("expected 3 arguments for motor name, direction (1-forward,2-backward), and power percentage")
 		}
-		boardName, err := args[0].String()
+		motorName, err := args[0].String()
 		if err != nil {
 			return nil, err
 		}
-		board, ok := r.BoardByName(boardName)
-		if !ok {
-			return nil, errors.Errorf("no board with that name %s", boardName)
-		}
-		motorName, err := args[1].String()
-		if err != nil {
-			return nil, err
-		}
-		motor, ok := board.MotorByName(motorName)
+		motor, ok := r.MotorByName(motorName)
 		if !ok {
 			return nil, errors.Errorf("no motor with that name %s", motorName)
 		}
-		dirRel, err := args[2].Number()
+		dirRel, err := args[1].Number()
 		if err != nil {
 			return nil, err
 		}
-		powerPct, err := args[3].Number()
+		powerPct, err := args[2].Number()
 		if err != nil {
 			return nil, err
 		}
@@ -122,35 +106,27 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 	}); err != nil {
 		return nil, err
 	}
-	if err := engine.ImportFunction("robot.boardMotorGoFor", func(args ...functionvm.Value) ([]functionvm.Value, error) {
-		if len(args) < 5 {
-			return nil, errors.New("expected 5 arguments for board name, motor name, direction (1-forward,2-backward), rpm, and revolutions")
+	if err := engine.ImportFunction("robot.motorGoFor", func(args ...functionvm.Value) ([]functionvm.Value, error) {
+		if len(args) < 4 {
+			return nil, errors.New("expected 4 arguments for motor name, direction (1-forward,2-backward), rpm, and revolutions")
 		}
-		boardName, err := args[0].String()
+		motorName, err := args[0].String()
 		if err != nil {
 			return nil, err
 		}
-		board, ok := r.BoardByName(boardName)
-		if !ok {
-			return nil, errors.Errorf("no board with that name %s", boardName)
-		}
-		motorName, err := args[1].String()
-		if err != nil {
-			return nil, err
-		}
-		motor, ok := board.MotorByName(motorName)
+		motor, ok := r.MotorByName(motorName)
 		if !ok {
 			return nil, errors.Errorf("no motor with that name %s", motorName)
 		}
-		dirRel, err := args[2].Number()
+		dirRel, err := args[1].Number()
 		if err != nil {
 			return nil, err
 		}
-		rpm, err := args[3].Number()
+		rpm, err := args[2].Number()
 		if err != nil {
 			return nil, err
 		}
-		revolutions, err := args[4].Number()
+		revolutions, err := args[3].Number()
 		if err != nil {
 			return nil, err
 		}
@@ -159,31 +135,23 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 	}); err != nil {
 		return nil, err
 	}
-	if err := engine.ImportFunction("robot.boardMotorGoTo", func(args ...functionvm.Value) ([]functionvm.Value, error) {
-		if len(args) < 4 {
-			return nil, errors.New("expected 4 arguments for board name, motor name, rpm, and position")
+	if err := engine.ImportFunction("robot.motorGoTo", func(args ...functionvm.Value) ([]functionvm.Value, error) {
+		if len(args) < 3 {
+			return nil, errors.New("expected 3 arguments for motor name, rpm, and position")
 		}
-		boardName, err := args[0].String()
+		motorName, err := args[0].String()
 		if err != nil {
 			return nil, err
 		}
-		board, ok := r.BoardByName(boardName)
-		if !ok {
-			return nil, errors.Errorf("no board with that name %s", boardName)
-		}
-		motorName, err := args[1].String()
-		if err != nil {
-			return nil, err
-		}
-		motor, ok := board.MotorByName(motorName)
+		motor, ok := r.MotorByName(motorName)
 		if !ok {
 			return nil, errors.Errorf("no motor with that name %s", motorName)
 		}
-		rpm, err := args[2].Number()
+		rpm, err := args[1].Number()
 		if err != nil {
 			return nil, err
 		}
-		position, err := args[3].Number()
+		position, err := args[2].Number()
 		if err != nil {
 			return nil, err
 		}
@@ -192,31 +160,23 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 	}); err != nil {
 		return nil, err
 	}
-	if err := engine.ImportFunction("robot.boardMotorGoTillStop", func(args ...functionvm.Value) ([]functionvm.Value, error) {
-		if len(args) < 4 {
-			return nil, errors.New("expected 4 arguments for board name, motor name, direction (1-forward,2-backward), and rpm")
+	if err := engine.ImportFunction("robot.motorGoTillStop", func(args ...functionvm.Value) ([]functionvm.Value, error) {
+		if len(args) < 3 {
+			return nil, errors.New("expected 4 arguments for motor name, direction (1-forward,2-backward), and rpm")
 		}
-		boardName, err := args[0].String()
+		motorName, err := args[0].String()
 		if err != nil {
 			return nil, err
 		}
-		board, ok := r.BoardByName(boardName)
-		if !ok {
-			return nil, errors.Errorf("no board with that name %s", boardName)
-		}
-		motorName, err := args[1].String()
-		if err != nil {
-			return nil, err
-		}
-		motor, ok := board.MotorByName(motorName)
+		motor, ok := r.MotorByName(motorName)
 		if !ok {
 			return nil, errors.Errorf("no motor with that name %s", motorName)
 		}
-		dirRel, err := args[2].Number()
+		dirRel, err := args[1].Number()
 		if err != nil {
 			return nil, err
 		}
-		rpm, err := args[3].Number()
+		rpm, err := args[2].Number()
 		if err != nil {
 			return nil, err
 		}
@@ -225,27 +185,19 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 	}); err != nil {
 		return nil, err
 	}
-	if err := engine.ImportFunction("robot.boardMotorZero", func(args ...functionvm.Value) ([]functionvm.Value, error) {
-		if len(args) < 4 {
-			return nil, errors.New("expected 4 arguments for board name, motor name, and offset")
+	if err := engine.ImportFunction("robot.motorZero", func(args ...functionvm.Value) ([]functionvm.Value, error) {
+		if len(args) < 2 {
+			return nil, errors.New("expected 2 arguments for motor name and offset")
 		}
-		boardName, err := args[0].String()
+		motorName, err := args[0].String()
 		if err != nil {
 			return nil, err
 		}
-		board, ok := r.BoardByName(boardName)
-		if !ok {
-			return nil, errors.Errorf("no board with that name %s", boardName)
-		}
-		motorName, err := args[1].String()
-		if err != nil {
-			return nil, err
-		}
-		motor, ok := board.MotorByName(motorName)
+		motor, ok := r.MotorByName(motorName)
 		if !ok {
 			return nil, errors.Errorf("no motor with that name %s", motorName)
 		}
-		offset, err := args[2].Number()
+		offset, err := args[1].Number()
 		if err != nil {
 			return nil, err
 		}
@@ -254,23 +206,15 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 	}); err != nil {
 		return nil, err
 	}
-	if err := engine.ImportFunction("robot.boardMotorPosition", func(args ...functionvm.Value) ([]functionvm.Value, error) {
-		if len(args) < 2 {
-			return nil, errors.New("expected 2 arguments for board name and motor name")
+	if err := engine.ImportFunction("robot.motorPosition", func(args ...functionvm.Value) ([]functionvm.Value, error) {
+		if len(args) < 1 {
+			return nil, errors.New("expected 1 argument for motor name")
 		}
-		boardName, err := args[0].String()
+		motorName, err := args[0].String()
 		if err != nil {
 			return nil, err
 		}
-		board, ok := r.BoardByName(boardName)
-		if !ok {
-			return nil, errors.Errorf("no board with that name %s", boardName)
-		}
-		motorName, err := args[1].String()
-		if err != nil {
-			return nil, err
-		}
-		motor, ok := board.MotorByName(motorName)
+		motor, ok := r.MotorByName(motorName)
 		if !ok {
 			return nil, errors.Errorf("no motor with that name %s", motorName)
 		}
@@ -283,23 +227,15 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 	}); err != nil {
 		return nil, err
 	}
-	if err := engine.ImportFunction("robot.boardMotorPositionSupported", func(args ...functionvm.Value) ([]functionvm.Value, error) {
-		if len(args) < 2 {
-			return nil, errors.New("expected 2 arguments for board name and motor name")
+	if err := engine.ImportFunction("robot.motorPositionSupported", func(args ...functionvm.Value) ([]functionvm.Value, error) {
+		if len(args) < 1 {
+			return nil, errors.New("expected 1 argument for motor name")
 		}
-		boardName, err := args[0].String()
+		motorName, err := args[0].String()
 		if err != nil {
 			return nil, err
 		}
-		board, ok := r.BoardByName(boardName)
-		if !ok {
-			return nil, errors.Errorf("no board with that name %s", boardName)
-		}
-		motorName, err := args[1].String()
-		if err != nil {
-			return nil, err
-		}
-		motor, ok := board.MotorByName(motorName)
+		motor, ok := r.MotorByName(motorName)
 		if !ok {
 			return nil, errors.Errorf("no motor with that name %s", motorName)
 		}
@@ -312,23 +248,15 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 	}); err != nil {
 		return nil, err
 	}
-	if err := engine.ImportFunction("robot.boardMotorOff", func(args ...functionvm.Value) ([]functionvm.Value, error) {
-		if len(args) < 2 {
-			return nil, errors.New("expected 2 arguments for board name and motor name")
+	if err := engine.ImportFunction("robot.motorOff", func(args ...functionvm.Value) ([]functionvm.Value, error) {
+		if len(args) < 1 {
+			return nil, errors.New("expected 1 argument for motor name")
 		}
-		boardName, err := args[0].String()
+		motorName, err := args[0].String()
 		if err != nil {
 			return nil, err
 		}
-		board, ok := r.BoardByName(boardName)
-		if !ok {
-			return nil, errors.Errorf("no board with that name %s", boardName)
-		}
-		motorName, err := args[1].String()
-		if err != nil {
-			return nil, err
-		}
-		motor, ok := board.MotorByName(motorName)
+		motor, ok := r.MotorByName(motorName)
 		if !ok {
 			return nil, errors.Errorf("no motor with that name %s", motorName)
 		}
@@ -337,23 +265,15 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 	}); err != nil {
 		return nil, err
 	}
-	if err := engine.ImportFunction("robot.boardMotorIsOn", func(args ...functionvm.Value) ([]functionvm.Value, error) {
-		if len(args) < 2 {
-			return nil, errors.New("expected 2 arguments for board name and motor name")
+	if err := engine.ImportFunction("robot.motorIsOn", func(args ...functionvm.Value) ([]functionvm.Value, error) {
+		if len(args) < 1 {
+			return nil, errors.New("expected 1 argument for motor name")
 		}
-		boardName, err := args[0].String()
+		motorName, err := args[0].String()
 		if err != nil {
 			return nil, err
 		}
-		board, ok := r.BoardByName(boardName)
-		if !ok {
-			return nil, errors.Errorf("no board with that name %s", boardName)
-		}
-		motorName, err := args[1].String()
-		if err != nil {
-			return nil, err
-		}
-		motor, ok := board.MotorByName(motorName)
+		motor, ok := r.MotorByName(motorName)
 		if !ok {
 			return nil, errors.Errorf("no motor with that name %s", motorName)
 		}

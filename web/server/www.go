@@ -23,8 +23,11 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/camera"
+	grpcmetadata "go.viam.com/core/grpc/metadata/server"
 	grpcserver "go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/metadata/service"
+	metadatapb "go.viam.com/core/proto/api/service/v1"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
@@ -419,6 +422,18 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options web.Options, logg
 		pb.RegisterRobotServiceHandlerFromEndpoint,
 	); err != nil {
 		return err
+	}
+
+	// if metadata service is in the context, register it
+	if s := service.ContextService(ctx); s != nil {
+		if err := rpcServer.RegisterServiceServer(
+			ctx,
+			&metadatapb.MetadataService_ServiceDesc,
+			grpcmetadata.New(s),
+			metadatapb.RegisterMetadataServiceHandlerFromEndpoint,
+		); err != nil {
+			return err
+		}
 	}
 
 	if options.Debug {

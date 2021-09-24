@@ -1,8 +1,7 @@
 // Package board defines the interfaces that typically live on a single-board computer
 // such as a Raspberry Pi.
 //
-// Besides the board itself, some other interfaces it defines are motors, servos,
-// analog readers, and digital interrupts.
+// Besides the board itself, some other interfaces it defines are analog readers and digital interrupts.
 package board
 
 import (
@@ -12,16 +11,13 @@ import (
 )
 
 // A Board represents a physical general purpose board that contains various
-// components such as motors, servos, analog readers, and digital interrupts.
+// components such as analog readers, and digital interrupts.
 type Board interface {
-	// MotorByName returns a motor by name.
-	MotorByName(name string) (Motor, bool)
-
-	// ServoByName returns a servo by name.
-	ServoByName(name string) (Servo, bool)
-
 	// SPIByName returns an SPI bus by name.
 	SPIByName(name string) (SPI, bool)
+
+	// I2CByName returns an I2C bus by name.
+	I2CByName(name string) (I2C, bool)
 
 	// AnalogReaderByName returns an analog reader by name.
 	AnalogReaderByName(name string) (AnalogReader, bool)
@@ -29,14 +25,11 @@ type Board interface {
 	// DigitalInterruptByName returns a digital interrupt by name.
 	DigitalInterruptByName(name string) (DigitalInterrupt, bool)
 
-	// MotorNames returns the name of all known motors.
-	MotorNames() []string
-
-	// ServoNames returns the name of all known servos.
-	ServoNames() []string
-
 	// SPINames returns the name of all known SPI busses.
 	SPINames() []string
+
+	// I2CNames returns the name of all known I2C busses.
+	I2CNames() []string
 
 	// AnalogReaderNames returns the name of all known analog readers.
 	AnalogReaderNames() []string
@@ -75,58 +68,6 @@ type ModelAttributes struct {
 	Remote bool
 }
 
-// A Motor represents a physical motor connected to a board.
-type Motor interface {
-
-	// Power sets the percentage of power the motor should employ between 0-1.
-	Power(ctx context.Context, powerPct float32) error
-
-	// Go instructs the motor to go in a specific direction at a percentage
-	// of power between 0-1.
-	Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error
-
-	// GoFor instructs the motor to go in a specific direction for a specific amount of
-	// revolutions at a given speed in revolutions per minute.
-	GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error
-
-	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero), at a specific speed.
-	GoTo(ctx context.Context, rpm float64, position float64) error
-
-	// GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.
-	// Ex: EncodedMotor goes until physically stopped/stalled (detected by change in position being very small over a fixed time.)
-	// Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
-	// Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
-	GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error
-
-	// Set the current position (+/- offset) to be the new zero (home) position.
-	Zero(ctx context.Context, offset float64) error
-
-	// Position reports the position of the motor based on its encoder. If it's not supported, the returned
-	// data is undefined. The unit returned is the number of revolutions which is intended to be fed
-	// back into calls of GoFor.
-	Position(ctx context.Context) (float64, error)
-
-	// PositionSupported returns whether or not the motor supports reporting of its position which
-	// is reliant on having an encoder.
-	PositionSupported(ctx context.Context) (bool, error)
-
-	// Off turns the motor off.
-	Off(ctx context.Context) error
-
-	// IsOn returns whether or not the motor is currently on.
-	IsOn(ctx context.Context) (bool, error)
-}
-
-// A Servo represents a physical servo connected to a board.
-type Servo interface {
-
-	// Move moves the servo to the given angle (0-180 degrees)
-	Move(ctx context.Context, angleDegs uint8) error
-
-	// Current returns the current set angle (degrees) of the servo.
-	Current(ctx context.Context) (uint8, error)
-}
-
 // SPI represents a shareable SPI bus on the board.
 type SPI interface {
 	// OpenHandle locks the shared bus and returns a handle interface that MUST be closed when done.
@@ -142,6 +83,22 @@ type SPIHandle interface {
 	// Large transmissions are usually broken up into multiple transfers.
 	// There are many different paradigms for most of the above, and implementation details are chip/device specific.
 	Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error)
+	// Close closes the handle and releases the lock on the bus.
+	Close() error
+}
+
+// I2C represents a shareable I2C bus on the board.
+type I2C interface {
+	// OpenHandle locks the shared bus and returns a handle interface that MUST be closed when done.
+	OpenHandle() (I2CHandle, error)
+}
+
+// I2CHandle is similar to an io handle. It MUST be closed to release the bus.
+type I2CHandle interface {
+	Write(ctx context.Context, addr byte, tx []byte) error
+
+	Read(ctx context.Context, addr byte, count int) ([]byte, error)
+
 	// Close closes the handle and releases the lock on the bus.
 	Close() error
 }
