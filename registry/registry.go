@@ -418,6 +418,9 @@ var (
 func RegisterCreator(component string, model string, creator Creator, regService RegisterService) {
 	cRegistry, ok := registry[component]
 	if !ok {
+		if regService == nil {
+			panic(errors.Errorf("cannot register a nil RegisterService for component:%s, model:%s", component, model))
+		}
 		cRegistry = ComponentRegistry{
 			Models:          map[string]Creator{},
 			RegisterService: regService,
