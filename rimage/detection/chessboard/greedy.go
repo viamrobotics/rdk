@@ -1,22 +1,24 @@
 package chessboard
 
 import (
+	"math"
+
 	"github.com/golang/geo/r2"
+	"go.viam.com/core/rimage"
 	"go.viam.com/core/rimage/transform"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
-	//"image"
 )
 
 type ChessGreedyConfiguration struct {
-	HomographyAcceptableScaleRatio float64 `json:"scale-ratio"`// acceptable ratio for scale part in estimated homography
-	MinPointsNeeded                int     `json:"min_points_needed"`// minimum number of points to deem grid estimation valid
-	MaxPointsNeeded                int     `json:"max_points_needed"`// if number of valid points above this, greedy iterations can be stopped
+	HomographyAcceptableScaleRatio float64 `json:"scale-ratio"`       // acceptable ratio for scale part in estimated homography
+	MinPointsNeeded                int     `json:"min_points_needed"` // minimum number of points to deem Grid estimation valid
+	MaxPointsNeeded                int     `json:"max_points_needed"` // if number of valid points above this, greedy iterations can be stopped
 }
 
 var quadI = []r2.Point{{0, 1}, {1, 1}, {1, 0}, {0, 0}}
 
-// Single generates an n-dimensional grid using a single set of values.
+// Single generates an n-dimensional Grid using a single set of values.
 // dim specifies the number of dimensions, the entries in x specify the gridded values.
 func Single(dim int, x []float64) [][]float64 {
 	dims := make([]int, dim)
@@ -86,9 +88,9 @@ func SubFor(sub []int, idx int, dims []int) []int {
 	return sub
 }
 
-// getIdentityGrid returns a n x n 2D grid with coordinates offset,..., offset+n-1,
+// getIdentityGrid returns a n x n 2D Grid with coordinates offset,..., offset+n-1,
 func getIdentityGrid(n, offset int) []r2.Point {
-	// create n x n 2D grid 0...n-1
+	// create n x n 2D Grid 0...n-1
 	x := make([]float64, n)
 	floats.Span(x, 0, float64(n-1))
 	pts := Single(2, x)
@@ -100,24 +102,159 @@ func getIdentityGrid(n, offset int) []r2.Point {
 	}
 	// output slice of r2.Point
 	outPoints := make([]r2.Point, 0)
-	for i := 0; i < n; i++ {
-		pt := r2.Point{pts[0][i], pts[1][i]}
+	for i := 0; i < len(pts[0]); i++ {
+		pt := r2.Point{X: pts[0][i], Y: pts[1][i]}
 		outPoints = append(outPoints, pt)
 	}
 	return outPoints
 }
 
-// makeChessGrid returns an identity grid and its transformation with homography H
+// makeChessGrid returns an identity Grid and its transformation with homography H
 func makeChessGrid(H *mat.Dense, n int) ([]r2.Point, []r2.Point) {
-	idealGrid := getIdentityGrid(2 + 2*n, -n)
+	idealGrid := getIdentityGrid(2+2*n, -n)
 	grid := transform.ApplyHomography(H, idealGrid)
 	return idealGrid, grid
-	//return nil, nil
 }
 
-func getInitialChessGrid(quad []r2.Point) ([]r2.Point, []r2.Point, *mat.Dense) {
+func getInitialChessGrid(quad []r2.Point) ([]r2.Point, []r2.Point, *mat.Dense, error) {
 	// order points ccw
+	quad = rimage.SortPointCounterClockwise(quad)
 	// estimate exact homography
-	// make chess grid
-	return nil, nil, nil
+	H, err := transform.EstimateExactHomographyFrom8Points(quadI, quad)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	// make chess Grid
+	idealGrid, grid := makeChessGrid(H, 1)
+	return idealGrid, grid, H, nil
+}
+
+// GenerateNewBestFit gets the homography that gets the most inliers in current Grid
+func GenerateNewBestFit(grid_ideal, grid []r2.Point, grid_good []int) (*mat.Dense, error) {
+	// select valid chessboard corner points in ideal Grid
+	ptsA := make([]r2.Point, 0)
+	for i, pt := range grid_ideal {
+		if grid_good[i] == 1 {
+			ptsA = append(ptsA, pt)
+		}
+	}
+	// select valid chessboard corner points in detected Grid
+	ptsB := make([]r2.Point, 0)
+	for i, pt := range grid {
+		if grid_good[i] == 1 {
+			ptsB = append(ptsB, pt)
+		}
+	}
+	// estimate homography from these points
+	H, _, err := transform.EstimateHomographyRANSAC(ptsA, ptsB, 0.5, 200)
+	if err != nil {
+		return nil, err
+	}
+	return H, nil
+}
+
+// findGoodPoints returns points from a detected Grid that are close to a saddle point and replace these points
+// with the saddle points coordinates
+func findGoodPoints(grid, saddlePoints []r2.Point, maxPointDist float64) ([]r2.Point, []int) {
+	// for each Grid point, get the closest saddle point within range
+	newGrid := make([]r2.Point, len(grid))
+	copy(newGrid, grid)
+	chosenSaddlePoints := make(map[r2.Point]bool, 0)
+	nPoints := len(grid)
+	gridGood := make([]int, nPoints)
+
+	for i, ptI := range grid {
+		pt2, d := getMinSaddleDistance(saddlePoints, ptI)
+		if _, ok := chosenSaddlePoints[pt2]; ok {
+			d = maxPointDist
+		} else {
+			chosenSaddlePoints[pt2] = true
+		}
+		if d < maxPointDist {
+			// replace Grid point with saddle point
+			newGrid[i] = pt2
+			gridGood[i] = 1
+		}
+	}
+
+	return newGrid, gridGood
+}
+
+type ChessGrid struct {
+	M            *mat.Dense // homography from ideal Grid to estimated Grid
+	IdealGrid    []r2.Point // ideal Grid
+	Grid         []r2.Point // detected chessboard Grid
+	GoodPoints   []int      // if point in Grid is valid, GoodPoints[point] = 1, otherwise 0
+	SaddlePoints []r2.Point // slice of saddle points detected in the first step of the chessboard detection algorithm
+}
+
+// sumGoodPoints returns the number of good points in the grid
+func sumGoodPoints(goodPoints []int) int {
+	sum := 0
+	for _, pt := range goodPoints {
+		sum += pt
+	}
+	return sum
+}
+
+// GreedyIterations performs greedy iterations to find the best fitted grid for chess board
+func GreedyIterations(contours [][]r2.Point, saddlePoints []r2.Point, cfg ChessGreedyConfiguration) (*ChessGrid, error) {
+	currentNGood := 0
+	currentGridNext := make([]r2.Point, 0)
+	currentGridGood := make([]int, 0)
+	currentM := mat.NewDense(3, 3, nil)
+	// iterate through contours
+	for _, cnt := range contours {
+		currentGrid, idealGrid, M, err := getInitialChessGrid(cnt)
+		if err != nil {
+			return nil, err
+		}
+		nGood := 0
+		nextGrid := make([]r2.Point, 0)
+		goodGrid := make([]int, 0)
+		// iterate through possible positions of the Grid
+		for gridI := 0; gridI < 7; gridI++ {
+			currentGrid, idealGrid = makeChessGrid(M, gridI+1)
+			nextGrid, goodGrid = findGoodPoints(currentGrid, saddlePoints, 5.0)
+			nGood = sumGoodPoints(goodGrid)
+			if nGood < 4 {
+				M = nil
+				break
+			}
+			M, err = GenerateNewBestFit(idealGrid, nextGrid, goodGrid)
+			if err != nil {
+				return nil, err
+			}
+			if M == nil || math.Abs(M.At(0, 0)/M.At(1, 1)) > cfg.HomographyAcceptableScaleRatio || math.Abs(M.At(1, 1)/M.At(0, 0)) > cfg.HomographyAcceptableScaleRatio {
+				M = nil
+				break
+			}
+		}
+		// if M is nil, go directly to next contour
+		if M == nil {
+			continue
+		} else if nGood > currentNGood {
+			// current fit is better than previous best, store it instead
+			currentNGood = nGood
+			currentGridNext, currentGridGood = nextGrid, goodGrid
+			currentM = M
+		}
+		// if current fit has more that MaxPointsNeeded, estimation is good enough, we can stop the iterations here
+		if nGood > cfg.MaxPointsNeeded {
+			break
+		}
+	}
+	// if we found a relevant Grid estimation, return it
+	if currentNGood > cfg.MinPointsNeeded {
+		finalIdealGrid := getIdentityGrid(2+2*7, -7)
+		return &ChessGrid{
+			M:            currentM,
+			IdealGrid:    finalIdealGrid,
+			Grid:         currentGridNext,
+			GoodPoints:   currentGridGood,
+			SaddlePoints: saddlePoints,
+		}, nil
+	} else {
+		return nil, nil
+	}
 }
