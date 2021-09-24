@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
@@ -19,8 +20,6 @@ import (
 // Aligned matters if you are reading a .both.gz file and both the rgb and d image are already aligned.
 // Otherwise, if you are just reading an image, aligned is a moot parameter and should be false.
 func readImageFromFile(path string, aligned bool) (image.Image, error) {
-	if strings.HasSuffix(path, ".both.gz") {
-		return rimage.ReadBothFromFile(path, aligned)
 	}
 
 	f, err := os.Open(path)
