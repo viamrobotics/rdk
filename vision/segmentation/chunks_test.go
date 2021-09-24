@@ -122,7 +122,11 @@ func (cid *chunkImageDebug) Process(
 			t.Fatal(err)
 		}
 
-		pCtx.GotDebugPointCloud(plane.PointCloud(), "only-plane")
+		planePc, err := plane.PointCloud()
+		if err != nil {
+			t.Fatal(err)
+		}
+		pCtx.GotDebugPointCloud(planePc, "only-plane")
 		pCtx.GotDebugPointCloud(removed, "plane-removed")
 	}
 

@@ -84,18 +84,20 @@ func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigRes
 	resp := &pb.ConfigResponse{}
 	for _, c := range cfg.Components {
 		cc := &pb.ComponentConfig{
-			Name:   c.Name,
-			Type:   string(c.Type),
-			Parent: c.Parent,
-			Translation: &pb.ArmPosition{
-				X:     c.ParentTranslation.X,
-				Y:     c.ParentTranslation.Y,
-				Z:     c.ParentTranslation.Z,
-				OX:    c.ParentOrientation.X,
-				OY:    c.ParentOrientation.Y,
-				OZ:    c.ParentOrientation.Z,
-				Theta: c.ParentOrientation.TH,
-			},
+			Name: c.Name,
+			Type: string(c.Type),
+		}
+		if c.Frame != nil {
+			cc.Parent = c.Frame.Parent
+			cc.Pose = &pb.ArmPosition{
+				X:     c.Frame.Translation.X,
+				Y:     c.Frame.Translation.Y,
+				Z:     c.Frame.Translation.Z,
+				OX:    c.Frame.Orientation.X,
+				OY:    c.Frame.Orientation.Y,
+				OZ:    c.Frame.Orientation.Z,
+				Theta: c.Frame.Orientation.TH,
+			}
 		}
 		resp.Components = append(resp.Components, cc)
 	}
@@ -328,21 +330,22 @@ func (s *Server) ObjectPointClouds(ctx context.Context, req *pb.ObjectPointCloud
 	if err != nil {
 		return nil, err
 	}
-	segments, err := segmentation.CreateObjectSegmentation(pc, int(req.MinPointsInPlane), int(req.MinPointsInSegment), req.ClusteringRadius)
+	config := segmentation.ObjectConfig{int(req.MinPointsInPlane), int(req.MinPointsInSegment), req.ClusteringRadius}
+	segments, err := segmentation.NewObjectSegmentation(pc, config)
 	if err != nil {
 		return nil, err
 	}
 
 	frames := make([][]byte, segments.N())
 	centers := make([]pointcloud.Vec3, segments.N())
-	for i, seg := range segments.PointClouds {
+	for i, seg := range segments.Objects {
 		var buf bytes.Buffer
 		err := seg.ToPCD(&buf)
 		if err != nil {
 			return nil, err
 		}
 		frames[i] = buf.Bytes()
-		centers[i] = segments.Centers[i]
+		centers[i] = seg.Center
 	}
 
 	return &pb.ObjectPointCloudsResponse{
@@ -364,7 +367,11 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	defer release()
+	defer func() {
+		if release != nil {
+			release()
+		}
+	}()
 
 	// choose the best/fastest representation
 	if req.MimeType == grpc.MimeTypeViamBest {
@@ -641,213 +648,6 @@ func (s *Server) BoardPWMSetFrequency(ctx context.Context, req *pb.BoardPWMSetFr
 	return &pb.BoardPWMSetFrequencyResponse{}, b.PWMSetFreq(ctx, req.Pin, uint(req.Frequency))
 }
 
-// BoardMotorPower sets the percentage of power the motor of a board of the underlying robot should employ between 0-1.
-func (s *Server) BoardMotorPower(ctx context.Context, req *pb.BoardMotorPowerRequest) (*pb.BoardMotorPowerResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	theMotor, ok := b.MotorByName(req.MotorName)
-	if !ok {
-		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
-	}
-
-	return &pb.BoardMotorPowerResponse{}, theMotor.Power(ctx, req.PowerPct)
-}
-
-// BoardMotorGo requests the motor of a board of the underlying robot to go.
-func (s *Server) BoardMotorGo(ctx context.Context, req *pb.BoardMotorGoRequest) (*pb.BoardMotorGoResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	theMotor, ok := b.MotorByName(req.MotorName)
-	if !ok {
-		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
-	}
-
-	return &pb.BoardMotorGoResponse{}, theMotor.Go(ctx, req.Direction, req.PowerPct)
-}
-
-// BoardMotorGoFor requests the motor of a board of the underlying robot to go for a certain amount based off
-// the request.
-func (s *Server) BoardMotorGoFor(ctx context.Context, req *pb.BoardMotorGoForRequest) (*pb.BoardMotorGoForResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	theMotor, ok := b.MotorByName(req.MotorName)
-	if !ok {
-		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
-	}
-
-	// erh: this isn't right semantically.
-	// GoFor with 0 rotations means something important.
-	rVal := 0.0
-	if req.Revolutions != 0 {
-		rVal = req.Revolutions
-	}
-
-	return &pb.BoardMotorGoForResponse{}, theMotor.GoFor(ctx, req.Direction, req.Rpm, rVal)
-}
-
-// BoardMotorPosition reports the position of the motor of a board of the underlying robot based on its encoder. If it's not supported, the returned
-// data is undefined. The unit returned is the number of revolutions which is intended to be fed
-// back into calls of BoardMotorGoFor.
-func (s *Server) BoardMotorPosition(ctx context.Context, req *pb.BoardMotorPositionRequest) (*pb.BoardMotorPositionResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	theMotor, ok := b.MotorByName(req.MotorName)
-	if !ok {
-		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
-	}
-
-	pos, err := theMotor.Position(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.BoardMotorPositionResponse{Position: pos}, nil
-}
-
-// BoardMotorPositionSupported returns whether or not the motor of a board of the underlying robot supports reporting of its position which
-// is reliant on having an encoder.
-func (s *Server) BoardMotorPositionSupported(ctx context.Context, req *pb.BoardMotorPositionSupportedRequest) (*pb.BoardMotorPositionSupportedResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	theMotor, ok := b.MotorByName(req.MotorName)
-	if !ok {
-		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
-	}
-
-	supported, err := theMotor.PositionSupported(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.BoardMotorPositionSupportedResponse{Supported: supported}, nil
-}
-
-// BoardMotorOff turns the motor of a board of the underlying robot off.
-func (s *Server) BoardMotorOff(ctx context.Context, req *pb.BoardMotorOffRequest) (*pb.BoardMotorOffResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	theMotor, ok := b.MotorByName(req.MotorName)
-	if !ok {
-		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
-	}
-
-	return &pb.BoardMotorOffResponse{}, theMotor.Off(ctx)
-}
-
-// BoardMotorIsOn returns whether or not the motor of a board of the underlying robot is currently on.
-func (s *Server) BoardMotorIsOn(ctx context.Context, req *pb.BoardMotorIsOnRequest) (*pb.BoardMotorIsOnResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	theMotor, ok := b.MotorByName(req.MotorName)
-	if !ok {
-		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
-	}
-
-	isOn, err := theMotor.IsOn(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.BoardMotorIsOnResponse{IsOn: isOn}, nil
-}
-
-// BoardServoMove requests the servo of a board of the underlying robot to move.
-func (s *Server) BoardServoMove(ctx context.Context, req *pb.BoardServoMoveRequest) (*pb.BoardServoMoveResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	theServo, ok := b.ServoByName(req.ServoName)
-	if !ok {
-		return nil, errors.Errorf("unknown servo: %s", req.ServoName)
-	}
-
-	return &pb.BoardServoMoveResponse{}, theServo.Move(ctx, uint8(req.AngleDeg))
-}
-
-// BoardMotorGoTo requests the motor of a board of the underlying robot to go a specific position.
-func (s *Server) BoardMotorGoTo(ctx context.Context, req *pb.BoardMotorGoToRequest) (*pb.BoardMotorGoToResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	theMotor, ok := b.MotorByName(req.MotorName)
-	if !ok {
-		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
-	}
-
-	return &pb.BoardMotorGoToResponse{}, theMotor.GoTo(ctx, req.Rpm, req.Position)
-}
-
-// BoardMotorGoTillStop requests the motor of a board of the underlying robot to go until stopped either physically or by a limit switch.
-func (s *Server) BoardMotorGoTillStop(ctx context.Context, req *pb.BoardMotorGoTillStopRequest) (*pb.BoardMotorGoTillStopResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	theMotor, ok := b.MotorByName(req.MotorName)
-	if !ok {
-		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
-	}
-
-	return &pb.BoardMotorGoTillStopResponse{}, theMotor.GoTillStop(ctx, req.Direction, req.Rpm, nil)
-}
-
-// BoardMotorZero requests the motor of a board of the underlying robot to reset it's zero/home position.
-func (s *Server) BoardMotorZero(ctx context.Context, req *pb.BoardMotorZeroRequest) (*pb.BoardMotorZeroResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	theMotor, ok := b.MotorByName(req.MotorName)
-	if !ok {
-		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
-	}
-
-	return &pb.BoardMotorZeroResponse{}, theMotor.Zero(ctx, req.Offset)
-}
-
-// BoardServoCurrent returns the current set angle (degrees) of the servo a board of the underlying robot.
-func (s *Server) BoardServoCurrent(ctx context.Context, req *pb.BoardServoCurrentRequest) (*pb.BoardServoCurrentResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	theServo, ok := b.ServoByName(req.ServoName)
-	if !ok {
-		return nil, errors.Errorf("unknown servo: %s", req.ServoName)
-	}
-
-	angleDeg, err := theServo.Current(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.BoardServoCurrentResponse{AngleDeg: uint32(angleDeg)}, nil
-}
-
 // BoardAnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
 func (s *Server) BoardAnalogReaderRead(ctx context.Context, req *pb.BoardAnalogReaderReadRequest) (*pb.BoardAnalogReaderReadResponse, error) {
 	b, ok := s.r.BoardByName(req.BoardName)
@@ -1062,6 +862,153 @@ func (s *Server) ExecuteSource(ctx context.Context, req *pb.ExecuteSourceRequest
 		StdOut:  result.StdOut,
 		StdErr:  result.StdErr,
 	}, nil
+}
+
+// ServoCurrent returns the current set angle (degrees) of the servo a board of the underlying robot.
+func (s *Server) ServoCurrent(ctx context.Context, req *pb.ServoCurrentRequest) (*pb.ServoCurrentResponse, error) {
+	theServo, ok := s.r.ServoByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no servo with name (%s)", req.Name)
+	}
+
+	angleDeg, err := theServo.Current(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.ServoCurrentResponse{AngleDeg: uint32(angleDeg)}, nil
+}
+
+// ServoMove requests the servo of a board of the underlying robot to move.
+func (s *Server) ServoMove(ctx context.Context, req *pb.ServoMoveRequest) (*pb.ServoMoveResponse, error) {
+	theServo, ok := s.r.ServoByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no servo with name (%s)", req.Name)
+	}
+
+	return &pb.ServoMoveResponse{}, theServo.Move(ctx, uint8(req.AngleDeg))
+}
+
+// MotorPower sets the percentage of power the motor of the underlying robot should employ between 0-1.
+func (s *Server) MotorPower(ctx context.Context, req *pb.MotorPowerRequest) (*pb.MotorPowerResponse, error) {
+	theMotor, ok := s.r.MotorByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no motor with name (%s)", req.Name)
+	}
+
+	return &pb.MotorPowerResponse{}, theMotor.Power(ctx, req.PowerPct)
+}
+
+// MotorGo requests the motor of the underlying robot to go.
+func (s *Server) MotorGo(ctx context.Context, req *pb.MotorGoRequest) (*pb.MotorGoResponse, error) {
+	theMotor, ok := s.r.MotorByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no motor with name (%s)", req.Name)
+	}
+
+	return &pb.MotorGoResponse{}, theMotor.Go(ctx, req.Direction, req.PowerPct)
+}
+
+// MotorGoFor requests the motor of the underlying robot to go for a certain amount based off
+// the request.
+func (s *Server) MotorGoFor(ctx context.Context, req *pb.MotorGoForRequest) (*pb.MotorGoForResponse, error) {
+	theMotor, ok := s.r.MotorByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no motor with name (%s)", req.Name)
+	}
+
+	// erh: this isn't right semantically.
+	// GoFor with 0 rotations means something important.
+	rVal := 0.0
+	if req.Revolutions != 0 {
+		rVal = req.Revolutions
+	}
+
+	return &pb.MotorGoForResponse{}, theMotor.GoFor(ctx, req.Direction, req.Rpm, rVal)
+}
+
+// MotorPosition reports the position of the motor of the underlying robot based on its encoder. If it's not supported, the returned
+// data is undefined. The unit returned is the number of revolutions which is intended to be fed
+// back into calls of MotorGoFor.
+func (s *Server) MotorPosition(ctx context.Context, req *pb.MotorPositionRequest) (*pb.MotorPositionResponse, error) {
+	theMotor, ok := s.r.MotorByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no motor with name (%s)", req.Name)
+	}
+
+	pos, err := theMotor.Position(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.MotorPositionResponse{Position: pos}, nil
+}
+
+// MotorPositionSupported returns whether or not the motor of the underlying robot supports reporting of its position which
+// is reliant on having an encoder.
+func (s *Server) MotorPositionSupported(ctx context.Context, req *pb.MotorPositionSupportedRequest) (*pb.MotorPositionSupportedResponse, error) {
+	theMotor, ok := s.r.MotorByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no motor with name (%s)", req.Name)
+	}
+
+	supported, err := theMotor.PositionSupported(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.MotorPositionSupportedResponse{Supported: supported}, nil
+}
+
+// MotorOff turns the motor of the underlying robot off.
+func (s *Server) MotorOff(ctx context.Context, req *pb.MotorOffRequest) (*pb.MotorOffResponse, error) {
+	theMotor, ok := s.r.MotorByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no motor with name (%s)", req.Name)
+	}
+
+	return &pb.MotorOffResponse{}, theMotor.Off(ctx)
+}
+
+// MotorIsOn returns whether or not the motor of the underlying robot is currently on.
+func (s *Server) MotorIsOn(ctx context.Context, req *pb.MotorIsOnRequest) (*pb.MotorIsOnResponse, error) {
+	theMotor, ok := s.r.MotorByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no motor with name (%s)", req.Name)
+	}
+
+	isOn, err := theMotor.IsOn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.MotorIsOnResponse{IsOn: isOn}, nil
+}
+
+// MotorGoTo requests the motor of the underlying robot to go a specific position.
+func (s *Server) MotorGoTo(ctx context.Context, req *pb.MotorGoToRequest) (*pb.MotorGoToResponse, error) {
+	theMotor, ok := s.r.MotorByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no motor with name (%s)", req.Name)
+	}
+
+	return &pb.MotorGoToResponse{}, theMotor.GoTo(ctx, req.Rpm, req.Position)
+}
+
+// MotorGoTillStop requests the motor of the underlying robot to go until stopped either physically or by a limit switch.
+func (s *Server) MotorGoTillStop(ctx context.Context, req *pb.MotorGoTillStopRequest) (*pb.MotorGoTillStopResponse, error) {
+	theMotor, ok := s.r.MotorByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no motor with name (%s)", req.Name)
+	}
+
+	return &pb.MotorGoTillStopResponse{}, theMotor.GoTillStop(ctx, req.Direction, req.Rpm, nil)
+}
+
+// MotorZero requests the motor of the underlying robot to reset it's zero/home position.
+func (s *Server) MotorZero(ctx context.Context, req *pb.MotorZeroRequest) (*pb.MotorZeroResponse, error) {
+	theMotor, ok := s.r.MotorByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no motor with name (%s)", req.Name)
+	}
+
+	return &pb.MotorZeroResponse{}, theMotor.Zero(ctx, req.Offset)
 }
 
 type executionResultRPC struct {

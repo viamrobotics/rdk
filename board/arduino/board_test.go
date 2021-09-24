@@ -14,6 +14,8 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/config"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 )
 
@@ -22,81 +24,97 @@ func TestArduinoPWM(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	for i, tc := range []struct {
-		conf board.Config
+		conf config.Config
 		err  string
 	}{
 		{
-			board.Config{
-				Motors: []board.MotorConfig{
+			config.Config{
+				Components: []config.Component{
 					{
-						Name: "m1",
-						Pins: map[string]string{
-							"pwm": "5",
-							"a":   "6",
-							"b":   "7",
-							"en":  "8",
+						Name:  "m1",
+						Model: modelName,
+						Type:  config.ComponentTypeMotor,
+						ConvertedAttributes: &motor.Config{
+							Pins: map[string]string{
+								"pwm": "5",
+								"a":   "6",
+								"b":   "7",
+								"en":  "8",
+							},
+							Encoder:          "3",
+							EncoderB:         "2",
+							TicksPerRotation: 2000,
+							PWMFreq:          2000,
 						},
-						Encoder:          "3",
-						EncoderB:         "2",
-						TicksPerRotation: 2000,
-						PWMFreq:          2000,
 					},
 				},
 			},
 			"",
 		},
 		{
-			board.Config{
-				Motors: []board.MotorConfig{
+			config.Config{
+				Components: []config.Component{
 					{
-						Name: "m1",
-						Pins: map[string]string{
-							"a":  "6",
-							"b":  "7",
-							"en": "8",
+						Name:  "m1",
+						Model: modelName,
+						Type:  config.ComponentTypeMotor,
+						ConvertedAttributes: &motor.Config{
+							Pins: map[string]string{
+								"a":  "6",
+								"b":  "7",
+								"en": "8",
+							},
+							Encoder:          "3",
+							EncoderB:         "2",
+							TicksPerRotation: 2000,
+							PWMFreq:          2000,
 						},
-						Encoder:          "3",
-						EncoderB:         "2",
-						TicksPerRotation: 2000,
-						PWMFreq:          2000,
 					},
 				},
 			},
 			"",
 		},
 		{
-			board.Config{
-				Motors: []board.MotorConfig{
+			config.Config{
+				Components: []config.Component{
 					{
-						Name: "m1",
-						Pins: map[string]string{
-							"pwm": "5",
-							"dir": "10",
+						Name:  "m1",
+						Model: modelName,
+						Type:  config.ComponentTypeMotor,
+						ConvertedAttributes: &motor.Config{
+							Pins: map[string]string{
+								"pwm": "5",
+								"dir": "10",
+							},
+							Encoder:          "3",
+							EncoderB:         "2",
+							TicksPerRotation: 2000,
+							PWMFreq:          2000,
 						},
-						Encoder:          "3",
-						EncoderB:         "2",
-						TicksPerRotation: 2000,
-						PWMFreq:          2000,
 					},
 				},
 			},
 			"",
 		},
 		{
-			board.Config{
-				Motors: []board.MotorConfig{
+			config.Config{
+				Components: []config.Component{
 					{
-						Name: "m1",
-						Pins: map[string]string{
-							"pwm": "35",
-							"a":   "6",
-							"b":   "7",
-							"en":  "8",
+						Name:  "m1",
+						Model: modelName,
+						Type:  config.ComponentTypeMotor,
+						ConvertedAttributes: &motor.Config{
+							Pins: map[string]string{
+								"pwm": "35",
+								"a":   "6",
+								"b":   "7",
+								"en":  "8",
+							},
+							Encoder:          "3",
+							EncoderB:         "2",
+							TicksPerRotation: 2000,
+							PWMFreq:          2000,
 						},
-						Encoder:          "3",
-						EncoderB:         "2",
-						TicksPerRotation: 2000,
-						PWMFreq:          2000,
 					},
 				},
 			},
@@ -104,12 +122,16 @@ func TestArduinoPWM(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			b, err := newArduino(ctx, tc.conf, logger)
+			b, err := newArduino(ctx, &board.Config{}, logger)
 			if err != nil && strings.HasPrefix(err.Error(), "found ") {
 
 				t.Skip()
 				return
 			}
+			test.That(t, err, test.ShouldBeNil)
+
+			_, err = b.configureMotor(tc.conf.Components[0], tc.conf.Components[0].ConvertedAttributes.(*motor.Config))
+
 			if tc.err == "" {
 				test.That(t, err, test.ShouldBeNil)
 			} else {
@@ -133,23 +155,27 @@ func TestArduinoPWM(t *testing.T) {
 func TestArduinoMotorABPWM(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	cfg := board.Config{
-		Motors: []board.MotorConfig{
+	cfg := config.Config{
+		Components: []config.Component{
 			{
-				Name: "m1",
-				Pins: map[string]string{
-					"pwm": "5",
-					"a":   "6",
-					"b":   "7",
-					"en":  "8",
+				Name:  "m1",
+				Model: modelName,
+				Type:  config.ComponentTypeMotor,
+				ConvertedAttributes: &motor.Config{
+					Pins: map[string]string{
+						"pwm": "5",
+						"a":   "6",
+						"b":   "7",
+						"en":  "8",
+					},
+					Encoder:          "3",
+					EncoderB:         "2",
+					TicksPerRotation: 2000,
 				},
-				Encoder:          "3",
-				EncoderB:         "2",
-				TicksPerRotation: 2000,
 			},
 		},
 	}
-	b, err := newArduino(ctx, cfg, logger)
+	b, err := newArduino(ctx, &board.Config{}, logger)
 	if err != nil && strings.HasPrefix(err.Error(), "found ") {
 
 		t.Skip()
@@ -159,9 +185,8 @@ func TestArduinoMotorABPWM(t *testing.T) {
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close()
 
-	m, ok := b.MotorByName(cfg.Motors[0].Name)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, m, test.ShouldNotBeNil)
+	m, err := b.configureMotor(cfg.Components[0], cfg.Components[0].ConvertedAttributes.(*motor.Config))
+	test.That(t, err, test.ShouldBeNil)
 
 	startPos, err := m.Position(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -206,22 +231,26 @@ func TestArduinoMotorABPWM(t *testing.T) {
 func TestArduinoMotorDirPWM(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	cfg := board.Config{
-		Motors: []board.MotorConfig{
+	cfg := config.Config{
+		Components: []config.Component{
 			{
-				Name: "m1",
-				Pins: map[string]string{
-					"pwm": "5",
-					"dir": "6",
-					"en":  "7",
+				Name:  "m1",
+				Model: modelName,
+				Type:  config.ComponentTypeMotor,
+				ConvertedAttributes: &motor.Config{
+					Pins: map[string]string{
+						"pwm": "5",
+						"dir": "6",
+						"en":  "7",
+					},
+					Encoder:          "3",
+					EncoderB:         "2",
+					TicksPerRotation: 2000,
 				},
-				Encoder:          "3",
-				EncoderB:         "2",
-				TicksPerRotation: 2000,
 			},
 		},
 	}
-	b, err := newArduino(ctx, cfg, logger)
+	b, err := newArduino(ctx, &board.Config{}, logger)
 	if err != nil && strings.HasPrefix(err.Error(), "found ") {
 
 		t.Skip()
@@ -231,9 +260,8 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close()
 
-	m, ok := b.MotorByName(cfg.Motors[0].Name)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, m, test.ShouldNotBeNil)
+	m, err := b.configureMotor(cfg.Components[0], cfg.Components[0].ConvertedAttributes.(*motor.Config))
+	test.That(t, err, test.ShouldBeNil)
 
 	startPos, err := m.Position(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -278,22 +306,26 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 func TestArduinoMotorAB(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	cfg := board.Config{
-		Motors: []board.MotorConfig{
+	cfg := config.Config{
+		Components: []config.Component{
 			{
-				Name: "m1",
-				Pins: map[string]string{
-					"a":  "5",
-					"b":  "6",
-					"en": "7",
+				Name:  "m1",
+				Model: modelName,
+				Type:  config.ComponentTypeMotor,
+				ConvertedAttributes: &motor.Config{
+					Pins: map[string]string{
+						"a":  "5",
+						"b":  "6",
+						"en": "7",
+					},
+					Encoder:          "3",
+					EncoderB:         "2",
+					TicksPerRotation: 2000,
 				},
-				Encoder:          "3",
-				EncoderB:         "2",
-				TicksPerRotation: 2000,
 			},
 		},
 	}
-	b, err := newArduino(ctx, cfg, logger)
+	b, err := newArduino(ctx, &board.Config{}, logger)
 	if err != nil && strings.HasPrefix(err.Error(), "found ") {
 
 		t.Skip()
@@ -303,9 +335,8 @@ func TestArduinoMotorAB(t *testing.T) {
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close()
 
-	m, ok := b.MotorByName(cfg.Motors[0].Name)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, m, test.ShouldNotBeNil)
+	m, err := b.configureMotor(cfg.Components[0], cfg.Components[0].ConvertedAttributes.(*motor.Config))
+	test.That(t, err, test.ShouldBeNil)
 
 	startPos, err := m.Position(ctx)
 	test.That(t, err, test.ShouldBeNil)

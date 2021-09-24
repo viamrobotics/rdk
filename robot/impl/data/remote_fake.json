@@ -1,0 +1,47 @@
+{
+    "components": [
+        {
+            "model": "fake",
+            "name": "pieceGripper",
+            "type": "gripper",
+            "frame": {
+                "parent" : ""
+            }
+        },
+        {
+            "model": "file",
+            "name": "cameraOver",
+            "type": "camera",
+            "attributes": {
+                "color": "artifact_data/vision/chess/board3.png",
+                "depth": "artifact_data/vision/chess/board3.dat.gz",
+                "aligned": true
+            }
+        },
+        {
+            "model": "fake",
+            "name": "pieceArm",
+            "type": "arm"
+        },
+        {
+          "model": "fake",
+          "name": "lidar1",
+          "type": "lidar"
+        },
+        {
+          "model": "fake",
+          "name": "compass1",
+          "type": "sensor",
+          "subtype": "compass"
+        },
+        {
+          "model": "fake",
+          "name": "compass2",
+          "type": "sensor",
+          "subtype": "compass",
+          "attributes": {
+            "relative": true
+          }
+        }
+    ]
+}

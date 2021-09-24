@@ -20,9 +20,9 @@ import (
 )
 
 func init() {
-	registry.RegisterGripper("robotiq", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
+	registry.RegisterGripper("robotiq", registry.Gripper{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 		return NewGripper(ctx, config.Host, logger)
-	})
+	}})
 }
 
 // Gripper TODO
