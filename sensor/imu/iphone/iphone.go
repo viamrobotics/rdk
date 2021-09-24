@@ -40,7 +40,6 @@ type IPhone struct {
 }
 
 const (
-	defaultRetries   = 5
 	defaultTimeoutMs = 1000
 )
 
@@ -76,7 +75,6 @@ func New(ctx context.Context, host string, logger golog.Logger) (imu *IPhone, er
 	ip := &IPhone{reader: r, log: logger, mut: &sync.RWMutex{}, host: host, conn: conn}
 
 	imuReading, err := ip.readNextMeasurement(ctx)
-	// TODO: The second case should never happen, but seems to sometimes. Figure out why
 	if err != nil {
 		logger.Debugw("error reading iphone data", "error", err)
 		return nil, err
