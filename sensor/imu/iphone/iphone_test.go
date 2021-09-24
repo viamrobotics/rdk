@@ -216,7 +216,7 @@ func sendIMUData(l net.Listener) error {
 
 func TestOverall(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	ip, err := iphone.New(context.Background(), "192.168.1.250:63384", logger)
+	ip, err := iphone.New(context.Background(), "10.237.115.244:54792", logger)
 	if err != nil {
 		logger.Fatal("could not connect to iphone :(")
 	}
