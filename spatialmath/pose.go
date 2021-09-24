@@ -24,7 +24,7 @@ func NewZeroPose() Pose {
 
 // NewPoseFromOrientation takes in a position and orientation and returns a Pose.
 func NewPoseFromOrientation(point r3.Vector, o Orientation) Pose {
-	return NewPoseFromOrientationVector(point, o.OV())
+	return NewPoseFromOrientationVector(point, o.OrientationVector())
 }
 
 // NewPoseFromOrientationVector takes in a position and orientation vector and returns a Pose.
@@ -119,7 +119,7 @@ func PoseToArmPos(p Pose) *pb.ArmPosition {
 	final.X = pt.X
 	final.Y = pt.Y
 	final.Z = pt.Z
-	poseOV := p.Orientation().OV()
+	poseOV := p.Orientation().OrientationVector()
 	final.Theta = utils.RadToDeg(poseOV.Theta)
 	final.OX = poseOV.OX
 	final.OY = poseOV.OY

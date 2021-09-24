@@ -1,6 +1,8 @@
 package spatialmath
 
 import (
+	"math"
+
 	"gonum.org/v1/gonum/num/quat"
 )
 
@@ -16,10 +18,12 @@ func NewEulerAngles() *EulerAngles {
 	return &EulerAngles{Roll: 0, Pitch: 0, Yaw: 0}
 }
 
+// EulerAngles returns orientation in Euler angle representation
 func (ea *EulerAngles) EulerAngles() *EulerAngles {
 	return ea
 }
 
+// Quaternion returns orientation in quaternion representation
 func (ea *EulerAngles) Quaternion() quat.Number {
 	cy := math.Cos(ea.Yaw * 0.5)
 	sy := math.Sin(ea.Yaw * 0.5)
@@ -37,14 +41,18 @@ func (ea *EulerAngles) Quaternion() quat.Number {
 	return q
 }
 
+// OrientationVector returns orientation as an orientation vector (in radians)
 func (ea *EulerAngles) OrientationVector() *OrientationVec {
 	return QuatToOV(ea.Quaternion())
 }
 
+// OrientationVectorDegrees returns orientation as an orientation vector (in degrees)
 func (ea *EulerAngles) OrientationVectorDegrees() *OrientationVecDegrees {
 	return QuatToOVD(ea.Quaternion())
 }
 
+// AxisAngles returns the orientation in axis angle representation
 func (ea *EulerAngles) AxisAngles() *R4AA {
-	return &QuatToR4AA(ea.Quaternion())
+	aa := QuatToR4AA(ea.Quaternion())
+	return &aa
 }

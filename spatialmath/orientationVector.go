@@ -6,6 +6,8 @@ import (
 
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/num/quat"
+
+	"go.viam.com/core/utils"
 )
 
 // OrientationVec containing ox, oy, oz, theta represents an orientation vector
@@ -33,8 +35,8 @@ type OrientationVecDegrees struct {
 	OZ    float64 `json:"z"`
 }
 
-// NewOrientationVec Creates a zero-initialized OrientationVec
-func NewOrientationVec() *OrientationVec {
+// NewOrientationVector Creates a zero-initialized OrientationVec
+func NewOrientationVector() *OrientationVec {
 	return &OrientationVec{Theta: 0, OX: 0, OY: 0, OZ: 1}
 }
 
@@ -85,57 +87,69 @@ func (ov *OrientationVec) Normalize() {
 	ov.OZ /= norm
 }
 
+// EulerAngles returns orientation in Euler angle representation
 func (ov *OrientationVec) EulerAngles() *EulerAngles {
 	return QuatToEulerAngles(ov.ToQuat())
 }
 
+// Quaternion returns orientation in quaternion representation
 func (ov *OrientationVec) Quaternion() quat.Number {
 	return ov.ToQuat()
 }
 
+// OrientationVector returns orientation as an orientation vector (in radians)
 func (ov *OrientationVec) OrientationVector() *OrientationVec {
 	return ov
 }
 
+// OrientationVectorDegrees returns orientation as an orientation vector (in degrees)
 func (ov *OrientationVec) OrientationVectorDegrees() *OrientationVecDegrees {
 	return ov.Degrees()
 }
 
+// AxisAngles returns the orientation in axis angle representation
 func (ov *OrientationVec) AxisAngles() *R4AA {
-	return &QuatToR4AA(ov.ToQuat())
+	aa := QuatToR4AA(ov.ToQuat())
+	return &aa
 }
 
-// NewOrientationVecDegrees Creates a zero-initialized OrientationVecDegrees
-func NewOrientationVecDegrees() *OrientationVecDegrees {
+// NewOrientationVectorDegrees Creates a zero-initialized OrientationVecDegrees
+func NewOrientationVectorDegrees() *OrientationVecDegrees {
 	return &OrientationVecDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1}
 }
 
 // Radians converts a OrientationVecDegrees to an OrientationVec
 func (ovd *OrientationVecDegrees) Radians() *OrientationVec {
-	return &OrientationVec{Theta: utils.DegToRad(ov.Theta), OX: ov.OX, OY: ov.OY, OZ: ov.OZ}
+	return &OrientationVec{Theta: utils.DegToRad(ovd.Theta), OX: ovd.OX, OY: ovd.OY, OZ: ovd.OZ}
 }
 
 // ToQuat converts an orientation vector in degrees to a quaternion.
 func (ovd *OrientationVecDegrees) ToQuat() quat.Number {
-	return ov.Radians().ToQuat()
+	return ovd.Radians().ToQuat()
 }
 
+// EulerAngles returns orientation in Euler angle representation
 func (ovd *OrientationVecDegrees) EulerAngles() *EulerAngles {
 	return QuatToEulerAngles(ovd.ToQuat())
 }
 
+// Quaternion returns orientation in quaternion representation
 func (ovd *OrientationVecDegrees) Quaternion() quat.Number {
 	return ovd.ToQuat()
 }
 
+// OrientationVector returns orientation as an orientation vector (in radians)
 func (ovd *OrientationVecDegrees) OrientationVector() *OrientationVec {
 	return ovd.Radians()
 }
 
+// OrientationVectorDegrees returns orientation as an orientation vector (in degrees)
 func (ovd *OrientationVecDegrees) OrientationVectorDegrees() *OrientationVecDegrees {
 	return ovd
 }
 
+// AxisAngles returns the orientation in axis angle representation
 func (ovd *OrientationVecDegrees) AxisAngles() *R4AA {
-	return &QuatToR4AA(ovd.ToQuat())
+	aa := QuatToR4AA(ovd.ToQuat())
+	return &aa
 }

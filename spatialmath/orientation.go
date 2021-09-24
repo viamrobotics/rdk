@@ -5,8 +5,6 @@ import (
 
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/num/quat"
-
-	"go.viam.com/core/utils"
 )
 
 // Orientation is an interface used to express the different parameterizations of a rotation in 3D Euclidean space.
@@ -21,6 +19,34 @@ type Orientation interface {
 // NewZeroOrientation returns an orientatation which signifies no rotation
 func NewZeroOrientation() Orientation {
 	return &EulerAngles{0, 0, 0}
+}
+
+type quaternion quat.Number
+
+// Quaternion returns orientation in quaternion representation
+func (q *quaternion) Quaternion() quat.Number {
+	return quat.Number(*q)
+}
+
+// AxisAngles returns the orientation in axis angle representation
+func (q *quaternion) AxisAngles() *R4AA {
+	aa := QuatToR4AA(q.Quaternion())
+	return &aa
+}
+
+// OrientationVector returns orientation as an orientation vector (in radians)
+func (q *quaternion) OrientationVector() *OrientationVec {
+	return QuatToOV(q.Quaternion())
+}
+
+// OrientationVectorDegrees returns orientation as an orientation vector (in degrees)
+func (q *quaternion) OrientationVectorDegrees() *OrientationVecDegrees {
+	return QuatToOVD(q.Quaternion())
+}
+
+// EulerAngles returns orientation in Euler angle representation
+func (q *quaternion) EulerAngles() *EulerAngles {
+	return QuatToEulerAngles(q.Quaternion())
 }
 
 // QuatToEulerAngles converts a quaternion to the euler angle representation. Algorithm from Wikipedia.
@@ -132,7 +158,7 @@ func QuatToR4AA(q quat.Number) R4AA {
 	}
 
 	if denom < 1e-6 {
-		return R4AA{angle, 1, 0, 0}
+		return R4AA{Theta: angle, RX: 0, RY: 0, RZ: 1}
 	}
 	return R4AA{angle, q.Imag / denom, q.Jmag / denom, q.Kmag / denom}
 }
