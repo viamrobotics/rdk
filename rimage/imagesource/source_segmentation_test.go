@@ -11,12 +11,12 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/utils"
+	"go.viam.com/core/vision/segmentation"
 )
 
 type segmentationSourceTestHelper struct {
-	attrs                          config.AttributeMap
-	minPtsInPlane, minPtsInSegment int
-	clusteringRadius               float64
+	attrs  config.AttributeMap
+	config segmentation.ObjectConfig
 }
 
 func (h *segmentationSourceTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
@@ -34,7 +34,7 @@ func (h *segmentationSourceTestHelper) Process(t *testing.T, pCtx *rimage.Proces
 
 	//
 	source := &StaticSource{fixed}
-	cs := &ColorSegmentsSource{source, h.minPtsInPlane, h.minPtsInSegment, h.clusteringRadius}
+	cs := &ColorSegmentsSource{source, h.config}
 	segments, _, err := cs.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
@@ -62,6 +62,7 @@ func TestSegmentationSourceIntel(t *testing.T) {
 	test.That(t, c, test.ShouldNotBeNil)
 
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/aligned_intel", "*.both.gz", true)
-	err = d.Process(t, &segmentationSourceTestHelper{c.Attributes, 50000, 500, 10.})
+	cfg := segmentation.ObjectConfig{50000, 500, 10.}
+	err = d.Process(t, &segmentationSourceTestHelper{c.Attributes, cfg})
 	test.That(t, err, test.ShouldBeNil)
 }

@@ -70,7 +70,8 @@ func TestClient(t *testing.T) {
 
 	f := registry.SensorLookup(compass.Type, client.ModelNameClient)
 	test.That(t, f, test.ShouldNotBeNil)
-	_, err = f(context.Background(), nil, config.Component{
+	test.That(t, f.Constructor, test.ShouldNotBeNil)
+	_, err = f.Constructor(context.Background(), nil, config.Component{
 		Host: listener1.Addr().(*net.TCPAddr).IP.String(),
 		Port: listener1.Addr().(*net.TCPAddr).Port,
 	}, logger)
@@ -85,7 +86,7 @@ func TestClient(t *testing.T) {
 		return injectDev, true
 	}
 
-	dev, err := f(context.Background(), nil, config.Component{
+	dev, err := f.Constructor(context.Background(), nil, config.Component{
 		Host: listener2.Addr().(*net.TCPAddr).IP.String(),
 		Port: listener2.Addr().(*net.TCPAddr).Port,
 	}, logger)
@@ -110,7 +111,7 @@ func TestClient(t *testing.T) {
 		return injectRelDev, true
 	}
 
-	dev, err = f(context.Background(), nil, config.Component{
+	dev, err = f.Constructor(context.Background(), nil, config.Component{
 		Host: listener3.Addr().(*net.TCPAddr).IP.String(),
 		Port: listener3.Addr().(*net.TCPAddr).Port,
 	}, logger)

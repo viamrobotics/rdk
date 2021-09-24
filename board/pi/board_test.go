@@ -9,7 +9,11 @@ import (
 	"time"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/config"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/registry"
+	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -21,31 +25,19 @@ func TestPiPigpio(t *testing.T) {
 
 	cfg := board.Config{
 		//Analogs: []board.AnalogConfig{{Name: "blue", Pin: "0"}},
-		Servos: []board.ServoConfig{
-			{Name: "servo", Pin: "18"}, // bcom-24
-		},
 		DigitalInterrupts: []board.DigitalInterruptConfig{
 			{Name: "i1", Pin: "11"},                     // plug physical 12(18) into this (17)
 			{Name: "servo-i", Pin: "22", Type: "servo"}, // bcom-25
 			{Name: "hall-a", Pin: "33"},                 // bcom 13
 			{Name: "hall-b", Pin: "37"},                 // bcom 26
 		},
-		Motors: []board.MotorConfig{
-			{
-				Name: "m",
-				Pins: map[string]string{
-					"a":   "13", // bcom 27
-					"b":   "40", // bcom 21
-					"pwm": "7",  // bcom 4
-				},
-				Encoder:          "hall-a",
-				EncoderB:         "hall-b",
-				TicksPerRotation: 200,
-			},
-		},
 	}
 
-	pp, err := NewPigpio(ctx, cfg, logger)
+	pp, err := NewPigpio(ctx, &cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	servoCtor := registry.ServoLookup(modelName)
+	servo1, err := servoCtor(ctx, nil, config.Component{Name: "servo", Attributes: config.AttributeMap{"pin": "18"}}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	p := pp.(*piPigpio)
@@ -55,11 +47,9 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	}()
 
-	cfgGet, err := p.Config(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, cfgGet, test.ShouldResemble, cfg)
 	t.Run("analog test", func(t *testing.T) {
-		reader := p.AnalogReader("blue")
+		reader, ok := p.AnalogReaderByName("blue")
+		test.That(t, ok, test.ShouldBeTrue)
 		if reader == nil {
 			t.Skip("no blue? analog")
 			return
@@ -96,50 +86,79 @@ func TestPiPigpio(t *testing.T) {
 
 		time.Sleep(5 * time.Millisecond)
 
-		before := p.DigitalInterrupt("i1").Value()
+		i1, ok := p.DigitalInterruptByName("i1")
+		test.That(t, ok, test.ShouldBeTrue)
+		before, err := i1.Value(context.Background())
+		test.That(t, err, test.ShouldBeNil)
 
 		err = p.GPIOSetBcom(18, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		time.Sleep(5 * time.Millisecond)
 
-		after := p.DigitalInterrupt("i1").Value()
+		after, err := i1.Value(context.Background())
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, after-before, test.ShouldEqual, int64(1))
 	})
 
 	t.Run("servo in/out", func(t *testing.T) {
-		s := p.Servo("servo")
-		test.That(t, s, test.ShouldNotBeNil)
-
-		err := s.Move(ctx, 90)
+		err := servo1.Move(ctx, 90)
 		test.That(t, err, test.ShouldBeNil)
 
-		v, err := s.Current(ctx)
+		v, err := servo1.Current(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, int(v), test.ShouldEqual, 90)
 
 		time.Sleep(300 * time.Millisecond)
 
-		test.That(t, p.DigitalInterrupt("servo-i").Value(), test.ShouldAlmostEqual, int64(1500), 500) // this is a tad noisy
+		servoI, ok := p.DigitalInterruptByName("servo-i")
+		test.That(t, ok, test.ShouldBeTrue)
+		val, err := servoI.Value(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, val, test.ShouldAlmostEqual, int64(1500), 500) // this is a tad noisy
 	})
 
-	t.Run("motor forward", func(t *testing.T) {
-		m := p.Motor("m")
+	injectRobot := Robot{}
+	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+		return pp, true
+	}
 
-		pos, err := m.Position(ctx)
+	motorCtor := registry.MotorLookup(modelName)
+	motor1, err := motorCtor(ctx, &injectRobot, config.Component{Name: "motor1", Attributes: config.AttributeMap{
+		"config": &motor.Config{
+			Pins: map[string]string{
+				"a":   "13", // bcom 27
+				"b":   "40", // bcom 21
+				"pwm": "7",  // bcom 4
+			},
+			Encoder:          "hall-a",
+			EncoderB:         "hall-b",
+			TicksPerRotation: 200,
+		},
+	},
+	}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("motor forward", func(t *testing.T) {
+		pos, err := motor1.Position(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldAlmostEqual, .0, 01)
 
 		// 15 rpm is about what we can get from 5v. 2 rotations should take 8 seconds
-		err = m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 15, 2)
+		err = motor1.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 15, 2)
 		test.That(t, err, test.ShouldBeNil)
-		on, err := m.IsOn(ctx)
+		on, err := motor1.IsOn(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
+		hallA, ok := p.DigitalInterruptByName("hall-a")
+		test.That(t, ok, test.ShouldBeTrue)
+		hallB, ok := p.DigitalInterruptByName("hall-b")
+		test.That(t, ok, test.ShouldBeTrue)
+
 		loops := 0
 		for {
-			on, err := m.IsOn(ctx)
+			on, err := motor1.IsOn(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			if !on {
 				break
@@ -149,11 +168,15 @@ func TestPiPigpio(t *testing.T) {
 
 			loops++
 			if loops > 100 {
-				pos, err = m.Position(ctx)
+				pos, err = motor1.Position(ctx)
+				test.That(t, err, test.ShouldBeNil)
+				aVal, err := hallA.Value(context.Background())
+				test.That(t, err, test.ShouldBeNil)
+				bVal, err := hallB.Value(context.Background())
 				test.That(t, err, test.ShouldBeNil)
 				t.Fatalf("motor didn't move enough, a: %v b: %v pos: %v",
-					p.DigitalInterrupt("hall-a").Value(),
-					p.DigitalInterrupt("hall-b").Value(),
+					aVal,
+					bVal,
 					pos,
 				)
 			}
@@ -162,18 +185,22 @@ func TestPiPigpio(t *testing.T) {
 	})
 
 	t.Run("motor backward", func(t *testing.T) {
-		m := p.Motor("m")
 		// 15 rpm is about what we can get from 5v. 2 rotations should take 8 seconds
-		err := m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 15, 2)
+		err := motor1.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 15, 2)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := m.IsOn(ctx)
+		on, err := motor1.IsOn(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
+		hallA, ok := p.DigitalInterruptByName("hall-a")
+		test.That(t, ok, test.ShouldBeTrue)
+		hallB, ok := p.DigitalInterruptByName("hall-b")
+		test.That(t, ok, test.ShouldBeTrue)
+
 		loops := 0
 		for {
-			on, err := m.IsOn(ctx)
+			on, err := motor1.IsOn(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			if !on {
 				break
@@ -181,14 +208,31 @@ func TestPiPigpio(t *testing.T) {
 
 			time.Sleep(100 * time.Millisecond)
 			loops++
+			aVal, err := hallA.Value(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+			bVal, err := hallB.Value(context.Background())
+			test.That(t, err, test.ShouldBeNil)
 			if loops > 100 {
 				t.Fatalf("motor didn't move enough, a: %v b: %v",
-					p.DigitalInterrupt("hall-a").Value(),
-					p.DigitalInterrupt("hall-b").Value(),
+					aVal,
+					bVal,
 				)
 			}
 		}
 
 	})
 
+}
+
+type Robot struct {
+	robot.Robot
+	BoardByNameFunc func(name string) (board.Board, bool)
+}
+
+// BoardByName calls the injected BoardByName or the real version.
+func (r *Robot) BoardByName(name string) (board.Board, bool) {
+	if r.BoardByNameFunc == nil {
+		return r.Robot.BoardByName(name)
+	}
+	return r.BoardByNameFunc(name)
 }

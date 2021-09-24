@@ -11,7 +11,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/board"
+	functionvm "go.viam.com/core/function/vm"
 )
 
 // SortComponents sorts list of components topologically based off what other components they depend on.
@@ -80,11 +80,11 @@ func SortComponents(components []Component) ([]Component, error) {
 // A Config describes the configuration of a robot.
 type Config struct {
 	ConfigFilePath string
-	Cloud          *Cloud                `json:"cloud,omitempty"`
-	Remotes        []Remote              `json:"remotes,omitempty"`
-	Boards         []board.Config        `json:"boards,omitempty"`
-	Components     []Component           `json:"components,omitempty"`
-	Processes      []pexec.ProcessConfig `json:"processes,omitempty"`
+	Cloud          *Cloud                      `json:"cloud,omitempty"`
+	Remotes        []Remote                    `json:"remotes,omitempty"`
+	Components     []Component                 `json:"components,omitempty"`
+	Processes      []pexec.ProcessConfig       `json:"processes,omitempty"`
+	Functions      []functionvm.FunctionConfig `json:"functions,omitempty"`
 }
 
 // Ensure ensures all parts of the config are valid and sorts components based on what they depend on.
@@ -97,12 +97,6 @@ func (c *Config) Ensure(fromCloud bool) error {
 
 	for idx, config := range c.Remotes {
 		if err := config.Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
-			return err
-		}
-	}
-
-	for idx, config := range c.Boards {
-		if err := config.Validate(fmt.Sprintf("%s.%d", "boards", idx)); err != nil {
 			return err
 		}
 	}
@@ -123,6 +117,12 @@ func (c *Config) Ensure(fromCloud bool) error {
 
 	for idx, config := range c.Processes {
 		if err := config.Validate(fmt.Sprintf("%s.%d", "processes", idx)); err != nil {
+			return err
+		}
+	}
+
+	for idx, config := range c.Functions {
+		if err := config.Validate(fmt.Sprintf("%s.%d", "functions", idx)); err != nil {
 			return err
 		}
 	}

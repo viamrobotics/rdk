@@ -20,6 +20,7 @@ import (
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
+	"go.viam.com/core/servo"
 	"go.viam.com/core/vision/segmentation"
 	"go.viam.com/core/web"
 	webserver "go.viam.com/core/web/server"
@@ -194,8 +195,7 @@ func findBlack(ctx context.Context, img *rimage.Image, logger golog.Logger) (ima
 
 // Rover TODO
 type Rover struct {
-	theBoard  board.Board
-	pan, tilt board.Servo
+	pan, tilt servo.Servo
 }
 
 func (r *Rover) neckCenter(ctx context.Context) error {
@@ -257,13 +257,13 @@ func (r *Rover) Ready(ctx context.Context, theRobot robot.Robot) error {
 
 // NewRover TODO
 func NewRover(ctx context.Context, r robot.Robot, theBoard board.Board) (*Rover, error) {
-	rover := &Rover{theBoard: theBoard}
+	rover := &Rover{}
 	var ok bool
-	rover.pan, ok = theBoard.ServoByName("pan")
+	rover.pan, ok = r.ServoByName("pan")
 	if !ok {
 		return nil, errors.New("failed to find pan servo")
 	}
-	rover.tilt, ok = theBoard.ServoByName("tilt")
+	rover.tilt, ok = r.ServoByName("tilt")
 	if !ok {
 		return nil, errors.New("failed to find tilt servo")
 	}

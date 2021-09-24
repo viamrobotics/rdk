@@ -144,7 +144,8 @@ func (e *HallEncoder) Zero(ctx context.Context, offset int64) error {
 	return nil
 }
 
-func (e *HallEncoder) rawPosition() int64 {
+// RawPosition returns the raw position of the encoder.
+func (e *HallEncoder) RawPosition() int64 {
 	return atomic.LoadInt64(&e.position)
 }
 
@@ -158,13 +159,20 @@ func (e *HallEncoder) dec() {
 
 // ---------
 
-type singleEncoder struct {
-	i        DigitalInterrupt
-	position int64
-	m        *encodedMotor // note: this is gross, but not sure anyone should use this, so....
+// NewSingleEncoder creates a new SingleEncoder
+func NewSingleEncoder(i DigitalInterrupt) *SingleEncoder {
+	return &SingleEncoder{i: i}
 }
 
-func (e *singleEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync.WaitGroup, onStart func()) {
+// SingleEncoder is a single interrupt based encoder.
+type SingleEncoder struct {
+	i        DigitalInterrupt
+	position int64
+	M        *EncodedMotor // note: this is gross, but not sure anyone should use this, so....
+}
+
+// Start starts up the encoder.
+func (e *SingleEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync.WaitGroup, onStart func()) {
 	encoderChannel := make(chan bool)
 	e.i.AddCallback(encoderChannel)
 	activeBackgroundWorkers.Add(1)
@@ -184,7 +192,7 @@ func (e *singleEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers
 			case <-encoderChannel:
 			}
 
-			dir := e.m.rawDirection()
+			dir := e.M.rawDirection()
 			if dir == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
 				atomic.AddInt64(&e.position, 1)
 				//stop = m.state.regulated && m.state.curPosition >= m.state.setPoint
@@ -192,19 +200,19 @@ func (e *singleEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers
 				atomic.AddInt64(&e.position, -1)
 				//stop = m.state.regulated && m.state.curPosition <= m.state.setPoint
 			} else if rpmDebug {
-				e.m.logger.Warn("got encoder tick but motor should be off")
+				e.M.logger.Warn("got encoder tick but motor should be off")
 			}
 		}
 	}, activeBackgroundWorkers.Done)
 }
 
 // Position returns the current position
-func (e *singleEncoder) Position(ctx context.Context) (int64, error) {
+func (e *SingleEncoder) Position(ctx context.Context) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 
 // Zero resets the position to zero/home
-func (e *singleEncoder) Zero(ctx context.Context, offset int64) error {
+func (e *SingleEncoder) Zero(ctx context.Context, offset int64) error {
 	atomic.StoreInt64(&e.position, offset)
 	return nil
 }

@@ -9,7 +9,7 @@ import (
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
-	"go.viam.com/core/robot"
+	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/testutils/inject"
 
@@ -31,6 +31,9 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2"))
 	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2"))
 	test.That(t, utils.NewStringSet(parts.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2"))
+	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2"))
+	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2"))
+	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2"))
 
 	arm1, ok := parts.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -59,13 +62,23 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	board1, ok := parts.BoardByName("board1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).Name, test.ShouldEqual, "board1")
+	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1")
 	_, ok = parts.BoardByName("board1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 	sensor1, ok := parts.SensorByName("sensor1")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
 	_, ok = parts.SensorByName("sensor1_what")
+	test.That(t, ok, test.ShouldBeFalse)
+	servo1, ok := parts.ServoByName("servo1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, servo1.(*proxyServo).actual.(*fake.Servo).Name, test.ShouldEqual, "servo1")
+	_, ok = parts.ServoByName("servo1_what")
+	test.That(t, ok, test.ShouldBeFalse)
+	motor1, ok := parts.MotorByName("motor1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, motor1.(*proxyMotor).actual.(*fake.Motor).Name, test.ShouldEqual, "motor1")
+	_, ok = parts.MotorByName("motor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
@@ -85,6 +98,9 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
 	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
 	test.That(t, utils.NewStringSet(parts.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "sensor1_r1", "sensor2_r1", "sensor1_r2", "sensor2_r2"))
+	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2", "servo1_r1", "servo2_r1", "servo1_r2", "servo2_r2"))
+	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2", "motor1_r1", "motor2_r1", "motor1_r2", "motor2_r2"))
+	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
 
 	arm1, ok := parts.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -148,13 +164,13 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 
 	board1, ok := parts.BoardByName("board1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).Name, test.ShouldEqual, "board1")
+	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1")
 	board1, ok = parts.BoardByName("board1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).Name, test.ShouldEqual, "board1_r1")
+	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1_r1")
 	board1, ok = parts.BoardByName("board1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).Name, test.ShouldEqual, "board1_r2")
+	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1_r2")
 	_, ok = parts.BoardByName("board1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -168,6 +184,30 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1_r2")
 	_, ok = parts.SensorByName("sensor1_what")
+	test.That(t, ok, test.ShouldBeFalse)
+
+	servo1, ok := parts.ServoByName("servo1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, servo1.(*proxyServo).actual.(*fake.Servo).Name, test.ShouldEqual, "servo1")
+	servo1, ok = parts.ServoByName("servo1_r1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, servo1.(*proxyServo).actual.(*fake.Servo).Name, test.ShouldEqual, "servo1_r1")
+	servo1, ok = parts.ServoByName("servo1_r2")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, servo1.(*proxyServo).actual.(*fake.Servo).Name, test.ShouldEqual, "servo1_r2")
+	_, ok = parts.ServoByName("servo1_what")
+	test.That(t, ok, test.ShouldBeFalse)
+
+	motor1, ok := parts.MotorByName("motor1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, motor1.(*proxyMotor).actual.(*fake.Motor).Name, test.ShouldEqual, "motor1")
+	motor1, ok = parts.MotorByName("motor1_r1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, motor1.(*proxyMotor).actual.(*fake.Motor).Name, test.ShouldEqual, "motor1_r1")
+	motor1, ok = parts.MotorByName("motor1_r2")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, motor1.(*proxyMotor).actual.(*fake.Motor).Name, test.ShouldEqual, "motor1_r2")
+	_, ok = parts.MotorByName("motor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
@@ -202,6 +242,12 @@ func TestPartsClone(t *testing.T) {
 	parts.boards = nil
 	delete(parts.sensors, "sensor1")
 	parts.sensors = nil
+	delete(parts.servos, "servo1")
+	parts.servos = nil
+	delete(parts.motors, "motor1")
+	parts.motors = nil
+	delete(parts.functions, "func1")
+	parts.functions = nil
 	_, ok := parts.processManager.RemoveProcessByID("1")
 	test.That(t, ok, test.ShouldBeTrue)
 	parts.processManager.Stop()
@@ -214,6 +260,9 @@ func TestPartsClone(t *testing.T) {
 	test.That(t, utils.NewStringSet(newParts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
 	test.That(t, utils.NewStringSet(newParts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
 	test.That(t, utils.NewStringSet(newParts.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "sensor1_r1", "sensor2_r1", "sensor1_r2", "sensor2_r2"))
+	test.That(t, utils.NewStringSet(newParts.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2", "servo1_r1", "servo2_r1", "servo1_r2", "servo2_r2"))
+	test.That(t, utils.NewStringSet(newParts.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2", "motor1_r1", "motor2_r1", "motor1_r2", "motor2_r2"))
+	test.That(t, utils.NewStringSet(newParts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
 	test.That(t, utils.NewStringSet(newParts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 	arm1, ok := newParts.ArmByName("arm1")
@@ -278,13 +327,13 @@ func TestPartsClone(t *testing.T) {
 
 	board1, ok := newParts.BoardByName("board1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).Name, test.ShouldEqual, "board1")
+	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1")
 	board1, ok = newParts.BoardByName("board1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).Name, test.ShouldEqual, "board1_r1")
+	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1_r1")
 	board1, ok = newParts.BoardByName("board1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).Name, test.ShouldEqual, "board1_r2")
+	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1_r2")
 	_, ok = newParts.BoardByName("board1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -298,6 +347,30 @@ func TestPartsClone(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1_r2")
 	_, ok = newParts.SensorByName("sensor1_what")
+	test.That(t, ok, test.ShouldBeFalse)
+
+	servo1, ok := newParts.ServoByName("servo1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, servo1.(*proxyServo).actual.(*fake.Servo).Name, test.ShouldEqual, "servo1")
+	servo1, ok = newParts.ServoByName("servo1_r1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, servo1.(*proxyServo).actual.(*fake.Servo).Name, test.ShouldEqual, "servo1_r1")
+	servo1, ok = newParts.ServoByName("servo1_r2")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, servo1.(*proxyServo).actual.(*fake.Servo).Name, test.ShouldEqual, "servo1_r2")
+	_, ok = newParts.ServoByName("servo1_what")
+	test.That(t, ok, test.ShouldBeFalse)
+
+	motor1, ok := newParts.MotorByName("motor1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, motor1.(*proxyMotor).actual.(*fake.Motor).Name, test.ShouldEqual, "motor1")
+	motor1, ok = newParts.MotorByName("motor1_r1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, motor1.(*proxyMotor).actual.(*fake.Motor).Name, test.ShouldEqual, "motor1_r1")
+	motor1, ok = newParts.MotorByName("motor1_r2")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, motor1.(*proxyMotor).actual.(*fake.Motor).Name, test.ShouldEqual, "motor1_r2")
+	_, ok = newParts.MotorByName("motor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
 	proc, ok := newParts.processManager.ProcessByID("1")
@@ -315,12 +388,6 @@ func TestPartsAdd(t *testing.T) {
 	parts := newRobotParts(logger)
 
 	injectBoard := &inject.Board{}
-	injectBoard.MotorNamesFunc = func() []string {
-		return []string{"motor1"}
-	}
-	injectBoard.ServoNamesFunc = func() []string {
-		return []string{"servo1"}
-	}
 	injectBoard.SPINamesFunc = func() []string {
 		return []string{"spi1"}
 	}
@@ -333,12 +400,6 @@ func TestPartsAdd(t *testing.T) {
 	injectBoard.DigitalInterruptNamesFunc = func() []string {
 		return []string{"digital1"}
 	}
-	injectBoard.MotorByNameFunc = func(name string) (board.Motor, bool) {
-		return &inject.Motor{}, true
-	}
-	injectBoard.ServoByNameFunc = func(name string) (board.Servo, bool) {
-		return &inject.Servo{}, true
-	}
 	injectBoard.SPIByNameFunc = func(name string) (board.SPI, bool) {
 		return &inject.SPI{}, true
 	}
@@ -346,17 +407,17 @@ func TestPartsAdd(t *testing.T) {
 		return &inject.I2C{}, true
 	}
 	injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-		return &board.FakeAnalog{}, true
+		return &fake.Analog{}, true
 	}
 	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
 		return &board.BasicDigitalInterrupt{}, true
 	}
 
-	parts.AddBoard(injectBoard, board.Config{Name: "board1"})
+	parts.AddBoard(injectBoard, config.Component{Name: "board1"})
 	board1, ok := parts.BoardByName("board1")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, board1.(*proxyBoard).actual, test.ShouldEqual, injectBoard)
-	parts.AddBoard(board1, board.Config{Name: "board1"})
+	parts.AddBoard(board1, config.Component{Name: "board1"})
 	test.That(t, board1.(*proxyBoard).actual, test.ShouldEqual, injectBoard)
 
 	injectArm := &inject.Arm{}
@@ -423,20 +484,21 @@ func TestPartsAdd(t *testing.T) {
 	parts.AddSensor(sensor1, config.Component{Name: "sensor1"})
 	test.That(t, sensor1.(*proxyRelativeCompass).actual, test.ShouldEqual, injectRelativeCompass)
 
-	dummyProv := &dummyProvider{}
-	parts.AddProvider(dummyProv, config.Component{Name: "provider1"})
-	provider1, ok := parts.ProviderByName("provider1")
+	injectServo := &inject.Servo{}
+	parts.AddServo(injectServo, config.Component{Name: "servo1"})
+	servo1, ok := parts.ServoByName("servo1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, provider1.(*proxyProvider).actual, test.ShouldEqual, dummyProv)
-	parts.AddProvider(provider1, config.Component{Name: "provider1"})
-	test.That(t, provider1.(*proxyProvider).actual, test.ShouldEqual, dummyProv)
-}
+	test.That(t, servo1.(*proxyServo).actual, test.ShouldEqual, injectServo)
+	parts.AddServo(servo1, config.Component{Name: "servo1"})
+	test.That(t, servo1.(*proxyServo).actual, test.ShouldEqual, injectServo)
 
-type dummyProvider struct {
-}
-
-func (dp *dummyProvider) Ready(r robot.Robot) error {
-	return nil
+	injectMotor := &inject.Motor{}
+	parts.AddMotor(injectMotor, config.Component{Name: "motor1"})
+	motor1, ok := parts.MotorByName("motor1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, motor1.(*proxyMotor).actual, test.ShouldEqual, injectMotor)
+	parts.AddMotor(motor1, config.Component{Name: "motor1"})
+	test.That(t, motor1.(*proxyMotor).actual, test.ShouldEqual, injectMotor)
 }
 
 func TestPartsMergeAdd(t *testing.T) {
@@ -461,6 +523,9 @@ func TestPartsMergeAdd(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.SensorNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 	}
 	checkSame := func(toCheck *robotParts) {
@@ -473,6 +538,9 @@ func TestPartsMergeAdd(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "sensor1_r1", "sensor2_r1", "sensor1_r2", "sensor2_r2"))
+		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2", "servo1_r1", "servo2_r1", "servo1_r2", "servo2_r2"))
+		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2", "motor1_r1", "motor2_r1", "motor1_r2", "motor2_r2"))
+		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 	}
 	result, err := parts.MergeAdd(newRobotParts(logger))
@@ -497,6 +565,9 @@ func TestPartsMergeAdd(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2", "base1_other", "base2_other", "base1_other1", "base2_other1"))
 	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2", "board1_other", "board2_other", "board1_other1", "board2_other1"))
 	test.That(t, utils.NewStringSet(parts.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "sensor1_r1", "sensor2_r1", "sensor1_r2", "sensor2_r2", "sensor1_other", "sensor2_other", "sensor1_other1", "sensor2_other1"))
+	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2", "servo1_r1", "servo2_r1", "servo1_r2", "servo2_r2", "servo1_other", "servo2_other", "servo1_other1", "servo2_other1"))
+	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2", "motor1_r1", "motor2_r1", "motor1_r2", "motor2_r2", "motor1_other", "motor2_other", "motor1_other1", "motor2_other1"))
+	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2", "func1_other", "func2_other", "func1_other1", "func2_other1"))
 	test.That(t, utils.NewStringSet(parts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 	emptyParts = newRobotParts(logger)
@@ -522,6 +593,9 @@ func TestPartsMergeAdd(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2", "base1_other", "base2_other", "base1_other1", "base2_other1"))
 	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2", "board1_other", "board2_other", "board1_other1", "board2_other1"))
 	test.That(t, utils.NewStringSet(parts.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "sensor1_r1", "sensor2_r1", "sensor1_r2", "sensor2_r2", "sensor1_other", "sensor2_other", "sensor1_other1", "sensor2_other1"))
+	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2", "servo1_r1", "servo2_r1", "servo1_r2", "servo2_r2", "servo1_other", "servo2_other", "servo1_other1", "servo2_other1"))
+	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2", "motor1_r1", "motor2_r1", "motor1_r2", "motor2_r2", "motor1_other", "motor2_other", "motor1_other1", "motor2_other1"))
+	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2", "func1_other", "func2_other", "func1_other1", "func2_other1"))
 	test.That(t, utils.NewStringSet(parts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 	emptyParts = newRobotParts(logger)
@@ -534,6 +608,9 @@ func TestPartsMergeAdd(t *testing.T) {
 	test.That(t, utils.NewStringSet(emptyParts.BaseNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.BoardNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.SensorNames()...), test.ShouldBeEmpty)
+	test.That(t, utils.NewStringSet(emptyParts.ServoNames()...), test.ShouldBeEmpty)
+	test.That(t, utils.NewStringSet(emptyParts.MotorNames()...), test.ShouldBeEmpty)
+	test.That(t, utils.NewStringSet(emptyParts.FunctionNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 	err = result.Process(parts)
@@ -552,7 +629,6 @@ func TestPartsMergeModify(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
 	test.That(t, err, test.ShouldBeNil)
-	parts.AddProvider(&dummyProvider{}, config.Component{Name: "provider1"})
 
 	checkSame := func(toCheck *robotParts) {
 		t.Helper()
@@ -564,18 +640,17 @@ func TestPartsMergeModify(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "sensor1_r1", "sensor2_r1", "sensor1_r2", "sensor2_r2"))
+		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2", "servo1_r1", "servo2_r1", "servo1_r2", "servo2_r2"))
+		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2", "motor1_r1", "motor2_r1", "motor1_r2", "motor2_r2"))
+		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 		board1, ok := toCheck.BoardByName("board1")
 		test.That(t, ok, test.ShouldBeTrue)
 		board2r1, ok := toCheck.BoardByName("board2_r1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, utils.NewStringSet(board1.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2"))
-		test.That(t, utils.NewStringSet(board1.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2"))
 		test.That(t, utils.NewStringSet(board1.AnalogReaderNames()...), test.ShouldResemble, utils.NewStringSet("analog1", "analog2"))
 		test.That(t, utils.NewStringSet(board1.DigitalInterruptNames()...), test.ShouldResemble, utils.NewStringSet("digital1", "digital2"))
-		test.That(t, utils.NewStringSet(board2r1.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2"))
-		test.That(t, utils.NewStringSet(board2r1.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2"))
 		test.That(t, utils.NewStringSet(board2r1.AnalogReaderNames()...), test.ShouldResemble, utils.NewStringSet("analog1", "analog2"))
 		test.That(t, utils.NewStringSet(board2r1.DigitalInterruptNames()...), test.ShouldResemble, utils.NewStringSet("digital1", "digital2"))
 	}
@@ -593,57 +668,58 @@ func TestPartsMergeModify(t *testing.T) {
 	test.That(t, utils.NewStringSet(emptyParts.BaseNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.BoardNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.SensorNames()...), test.ShouldBeEmpty)
+	test.That(t, utils.NewStringSet(emptyParts.ServoNames()...), test.ShouldBeEmpty)
+	test.That(t, utils.NewStringSet(emptyParts.MotorNames()...), test.ShouldBeEmpty)
+	test.That(t, utils.NewStringSet(emptyParts.FunctionNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 
 	test.That(t, result.Process(parts), test.ShouldBeNil)
 
 	replacementParts := newRobotParts(logger)
 	robotForRemote := &mutableRobot{parts: newRobotParts(logger), logger: logger}
-	fakeBoardRemote, err := board.NewFakeBoard(context.Background(), board.Config{
+	fakeBoardRemote, err := fake.NewBoard(context.Background(), config.Component{
 		Name: "board2",
-		Motors: []board.MotorConfig{
-			{Name: "motor2"},
-		},
-		Servos: []board.ServoConfig{
-			{Name: "servo2"},
-		},
-		Analogs: []board.AnalogConfig{
-			{Name: "analog2"},
-		},
-		DigitalInterrupts: []board.DigitalInterruptConfig{
-			{Name: "digital2"},
+		Attributes: config.AttributeMap{
+			"config": &board.Config{
+				Analogs: []board.AnalogConfig{
+					{Name: "analog2"},
+				},
+				DigitalInterrupts: []board.DigitalInterruptConfig{
+					{Name: "digital2"},
+				},
+			},
 		},
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	robotForRemote.parts.AddBoard(fakeBoardRemote, board.Config{Name: "board2_r1"})
+	robotForRemote.parts.AddBoard(fakeBoardRemote, config.Component{Name: "board2_r1"})
 	robotForRemote.parts.AddArm(&inject.Arm{}, config.Component{Name: "arm2_r1"})
 	robotForRemote.parts.AddGripper(&inject.Gripper{}, config.Component{Name: "gripper2_r1"})
 	robotForRemote.parts.AddLidar(&inject.Lidar{}, config.Component{Name: "lidar2_r1"})
 	robotForRemote.parts.AddCamera(&inject.Camera{}, config.Component{Name: "camera2_r1"})
 	robotForRemote.parts.AddBase(&inject.Base{}, config.Component{Name: "base2_r1"})
 	robotForRemote.parts.AddSensor(&inject.Compass{}, config.Component{Name: "sensor2_r1"})
-	robotForRemote.parts.AddProvider(&dummyProvider{}, config.Component{Name: "provider1_r1"})
+	robotForRemote.parts.AddServo(&inject.Servo{}, config.Component{Name: "servo2_r1"})
+	robotForRemote.parts.AddMotor(&inject.Motor{}, config.Component{Name: "motor2_r1"})
+	robotForRemote.parts.addFunction("func2_r1")
 
 	remote1Replacemenet := newRemoteRobot(robotForRemote, config.Remote{Name: "remote1"})
 	replacementParts.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
 
-	fakeBoard, err := board.NewFakeBoard(context.Background(), board.Config{
+	fakeBoard, err := fake.NewBoard(context.Background(), config.Component{
 		Name: "board1",
-		Motors: []board.MotorConfig{
-			{Name: "motor2"},
-		},
-		Servos: []board.ServoConfig{
-			{Name: "servo2"},
-		},
-		Analogs: []board.AnalogConfig{
-			{Name: "analog2"},
-		},
-		DigitalInterrupts: []board.DigitalInterruptConfig{
-			{Name: "digital2"},
+		Attributes: config.AttributeMap{
+			"config": &board.Config{
+				Analogs: []board.AnalogConfig{
+					{Name: "analog2"},
+				},
+				DigitalInterrupts: []board.DigitalInterruptConfig{
+					{Name: "digital2"},
+				},
+			},
 		},
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	replacementParts.AddBoard(fakeBoard, board.Config{Name: "board1"})
+	replacementParts.AddBoard(fakeBoard, config.Component{Name: "board1"})
 	injectArm := &inject.Arm{}
 	replacementParts.AddArm(injectArm, config.Component{Name: "arm1"})
 	injectGripper := &inject.Gripper{}
@@ -656,237 +732,13 @@ func TestPartsMergeModify(t *testing.T) {
 	replacementParts.AddBase(injectBase, config.Component{Name: "base1"})
 	injectCompass := &inject.Compass{}
 	replacementParts.AddSensor(injectCompass, config.Component{Name: "sensor1"})
-	injectProvider := &dummyProvider{}
-	replacementParts.AddProvider(injectProvider, config.Component{Name: "provider1"})
+	injectServo := &inject.Servo{}
+	replacementParts.AddServo(injectServo, config.Component{Name: "servo1"})
+	injectMotor := &inject.Motor{}
+	replacementParts.AddMotor(injectMotor, config.Component{Name: "motor1"})
 	fp1 := &fakeProcess{id: "1"}
 	_, err = replacementParts.processManager.AddProcess(context.Background(), fp1, false)
 	test.That(t, err, test.ShouldBeNil)
-
-	remote1Before, ok := parts.RemoteByName("remote1")
-	test.That(t, ok, test.ShouldBeTrue)
-	boardBefore, ok := parts.BoardByName("board1")
-	test.That(t, ok, test.ShouldBeTrue)
-	armBefore, ok := parts.ArmByName("arm1")
-	test.That(t, ok, test.ShouldBeTrue)
-	gripperBefore, ok := parts.GripperByName("gripper1")
-	test.That(t, ok, test.ShouldBeTrue)
-	lidarBefore, ok := parts.LidarByName("lidar1")
-	test.That(t, ok, test.ShouldBeTrue)
-	cameraBefore, ok := parts.CameraByName("camera1")
-	test.That(t, ok, test.ShouldBeTrue)
-	baseBefore, ok := parts.BaseByName("base1")
-	test.That(t, ok, test.ShouldBeTrue)
-	compassBefore, ok := parts.SensorByName("sensor1")
-	test.That(t, ok, test.ShouldBeTrue)
-	providerBefore, ok := parts.ProviderByName("provider1")
-	test.That(t, ok, test.ShouldBeTrue)
-	board1Before, ok := parts.BoardByName("board1")
-	test.That(t, ok, test.ShouldBeTrue)
-	motorBefore, ok := board1Before.MotorByName("motor2")
-	test.That(t, ok, test.ShouldBeTrue)
-	servoBefore, ok := board1Before.ServoByName("servo2")
-	test.That(t, ok, test.ShouldBeTrue)
-	analogBefore, ok := board1Before.AnalogReaderByName("analog2")
-	test.That(t, ok, test.ShouldBeTrue)
-	digitalBefore, ok := board1Before.DigitalInterruptByName("digital2")
-	test.That(t, ok, test.ShouldBeTrue)
-	board2r1Before, ok := parts.BoardByName("board2_r1")
-	test.That(t, ok, test.ShouldBeTrue)
-	motorRemoteBefore, ok := board2r1Before.MotorByName("motor2")
-	test.That(t, ok, test.ShouldBeTrue)
-	servoRemoteBefore, ok := board2r1Before.ServoByName("servo2")
-	test.That(t, ok, test.ShouldBeTrue)
-	analogRemoteBefore, ok := board2r1Before.AnalogReaderByName("analog2")
-	test.That(t, ok, test.ShouldBeTrue)
-	digitalRemoteBefore, ok := board2r1Before.DigitalInterruptByName("digital2")
-	test.That(t, ok, test.ShouldBeTrue)
-
-	result, err = parts.MergeModify(context.Background(), replacementParts, &config.Diff{
-		Modified: &config.ModifiedConfigDiff{
-			Boards: map[string]board.ConfigDiff{
-				"board1": {
-					Left: &board.Config{
-						Model: "one",
-					},
-					Right: &board.Config{
-						Model: "one",
-					},
-					Added: &board.Config{
-						Analogs: []board.AnalogConfig{
-							{Name: "analog2"},
-						},
-						DigitalInterrupts: []board.DigitalInterruptConfig{
-							{Name: "digital2"},
-						},
-					},
-					Removed: &board.Config{
-						Motors: []board.MotorConfig{
-							{Name: "motor1"},
-						},
-						Servos: []board.ServoConfig{
-							{Name: "servo1"},
-						},
-						Analogs: []board.AnalogConfig{
-							{Name: "analog1"},
-						},
-						DigitalInterrupts: []board.DigitalInterruptConfig{
-							{Name: "digital1"},
-						},
-					},
-					Modified: &board.Config{
-						Motors: []board.MotorConfig{
-							{Name: "motor2"},
-						},
-						Servos: []board.ServoConfig{
-							{Name: "servo2"},
-						},
-					},
-				},
-				"board2": {
-					Left: &board.Config{
-						Model: "two",
-					},
-					Right: &board.Config{
-						Model: "two",
-					},
-					Added:    &board.Config{},
-					Removed:  &board.Config{},
-					Modified: &board.Config{},
-				},
-			},
-		},
-	})
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, utils.NewStringSet(parts.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
-	test.That(t, utils.NewStringSet(parts.ArmNames()...), test.ShouldResemble, utils.NewStringSet("arm1", "arm2", "arm2_r1", "arm1_r2", "arm2_r2"))
-	test.That(t, utils.NewStringSet(parts.GripperNames()...), test.ShouldResemble, utils.NewStringSet("gripper1", "gripper2", "gripper2_r1", "gripper1_r2", "gripper2_r2"))
-	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera1", "camera2", "camera2_r1", "camera1_r2", "camera2_r2"))
-	test.That(t, utils.NewStringSet(parts.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1", "lidar2", "lidar2_r1", "lidar1_r2", "lidar2_r2"))
-	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base2_r1", "base1_r2", "base2_r2"))
-	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board2_r1", "board1_r2", "board2_r2"))
-	test.That(t, utils.NewStringSet(parts.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "sensor2_r1", "sensor1_r2", "sensor2_r2"))
-	test.That(t, utils.NewStringSet(parts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
-	board1, ok := parts.BoardByName("board1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, utils.NewStringSet(board1.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor2"))
-	test.That(t, utils.NewStringSet(board1.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo2"))
-	test.That(t, utils.NewStringSet(board1.AnalogReaderNames()...), test.ShouldResemble, utils.NewStringSet("analog2"))
-	test.That(t, utils.NewStringSet(board1.DigitalInterruptNames()...), test.ShouldResemble, utils.NewStringSet("digital2"))
-	board2r1, ok := parts.BoardByName("board2_r1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, utils.NewStringSet(board2r1.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor2"))
-	test.That(t, utils.NewStringSet(board2r1.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo2"))
-	test.That(t, utils.NewStringSet(board2r1.AnalogReaderNames()...), test.ShouldResemble, utils.NewStringSet("analog2"))
-	test.That(t, utils.NewStringSet(board2r1.DigitalInterruptNames()...), test.ShouldResemble, utils.NewStringSet("digital2"))
-
-	remote1, ok := parts.RemoteByName("remote1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, remote1, test.ShouldEqual, remote1Before)
-	arm1, ok := parts.ArmByName("arm1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, arm1.(*proxyArm).actual, test.ShouldEqual, injectArm)
-	test.That(t, arm1.(*proxyArm), test.ShouldEqual, armBefore)
-	gripper1, ok := parts.GripperByName("gripper1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, gripper1.(*proxyGripper).actual, test.ShouldEqual, injectGripper)
-	test.That(t, gripper1.(*proxyGripper), test.ShouldEqual, gripperBefore)
-	camera1, ok := parts.CameraByName("camera1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual, test.ShouldEqual, injectCamera)
-	test.That(t, camera1.(*proxyCamera), test.ShouldEqual, cameraBefore)
-	lidar1, ok := parts.LidarByName("lidar1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, lidar1.(*proxyLidar).actual, test.ShouldEqual, injectLidar)
-	test.That(t, lidar1.(*proxyLidar), test.ShouldEqual, lidarBefore)
-	base1, ok := parts.BaseByName("base1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, base1.(*proxyBase).actual, test.ShouldEqual, injectBase)
-	test.That(t, base1.(*proxyBase), test.ShouldEqual, baseBefore)
-	board1, ok = parts.BoardByName("board1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual, test.ShouldEqual, fakeBoard)
-	test.That(t, board1.(*proxyBoard), test.ShouldEqual, boardBefore)
-	sensor1, ok := parts.SensorByName("sensor1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxyCompass).actual, test.ShouldEqual, injectCompass)
-	test.That(t, sensor1.(*proxyCompass), test.ShouldEqual, compassBefore)
-	provider1, ok := parts.ProviderByName("provider1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, provider1.(*proxyProvider).actual, test.ShouldEqual, injectProvider)
-	test.That(t, provider1.(*proxyProvider), test.ShouldEqual, providerBefore)
-	motor2, ok := board1.MotorByName("motor2")
-	test.That(t, ok, test.ShouldBeTrue)
-	fakeMotor2, ok := fakeBoard.MotorByName("motor2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, motor2.(*proxyBoardMotor).actual, test.ShouldEqual, fakeMotor2)
-	test.That(t, motor2.(*proxyBoardMotor), test.ShouldEqual, motorBefore)
-	servo2, ok := board1.ServoByName("servo2")
-	test.That(t, ok, test.ShouldBeTrue)
-	fakeServo2, ok := fakeBoard.ServoByName("servo2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, servo2.(*proxyBoardServo).actual, test.ShouldEqual, fakeServo2)
-	test.That(t, servo2.(*proxyBoardServo), test.ShouldEqual, servoBefore)
-	analog2, ok := board1.AnalogReaderByName("analog2")
-	test.That(t, ok, test.ShouldBeTrue)
-	fakeAnalog2, ok := fakeBoard.AnalogReaderByName("analog2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, analog2.(*proxyBoardAnalogReader).actual, test.ShouldEqual, fakeAnalog2)
-	test.That(t, analog2.(*proxyBoardAnalogReader), test.ShouldNotEqual, analogBefore)
-	replacementBoard1, ok := replacementParts.BoardByName("board1")
-	test.That(t, ok, test.ShouldBeTrue)
-	replacementAnalog2, ok := replacementBoard1.AnalogReaderByName("analog2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, analog2.(*proxyBoardAnalogReader), test.ShouldEqual, replacementAnalog2)
-	digital2, ok := board1.DigitalInterruptByName("digital2")
-	test.That(t, ok, test.ShouldBeTrue)
-	fakeDigital2, ok := fakeBoard.DigitalInterruptByName("digital2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, digital2.(*proxyBoardDigitalInterrupt).actual, test.ShouldEqual, fakeDigital2)
-	test.That(t, digital2.(*proxyBoardDigitalInterrupt), test.ShouldNotEqual, digitalBefore)
-	replacementDigital2, ok := replacementBoard1.DigitalInterruptByName("digital2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, digital2.(*proxyBoardDigitalInterrupt), test.ShouldEqual, replacementDigital2)
-	motor2, ok = board2r1.MotorByName("motor2")
-	test.That(t, ok, test.ShouldBeTrue)
-	fakeMotor2, ok = fakeBoardRemote.MotorByName("motor2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, motor2.(*proxyBoardMotor).actual, test.ShouldEqual, fakeMotor2)
-	test.That(t, motor2.(*proxyBoardMotor), test.ShouldEqual, motorRemoteBefore)
-	servo2, ok = board2r1.ServoByName("servo2")
-	test.That(t, ok, test.ShouldBeTrue)
-	fakeServo2, ok = fakeBoardRemote.ServoByName("servo2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, servo2.(*proxyBoardServo).actual, test.ShouldEqual, fakeServo2)
-	test.That(t, servo2.(*proxyBoardServo), test.ShouldEqual, servoRemoteBefore)
-	analog2, ok = board2r1.AnalogReaderByName("analog2")
-	test.That(t, ok, test.ShouldBeTrue)
-	fakeAnalog2, ok = fakeBoardRemote.AnalogReaderByName("analog2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, analog2.(*proxyBoardAnalogReader).actual, test.ShouldEqual, fakeAnalog2)
-	test.That(t, analog2.(*proxyBoardAnalogReader), test.ShouldEqual, analogRemoteBefore)
-	digital2, ok = board2r1.DigitalInterruptByName("digital2")
-	test.That(t, ok, test.ShouldBeTrue)
-	fakeDigital2, ok = fakeBoardRemote.DigitalInterruptByName("digital2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, digital2.(*proxyBoardDigitalInterrupt).actual, test.ShouldEqual, fakeDigital2)
-	test.That(t, digital2.(*proxyBoardDigitalInterrupt), test.ShouldEqual, digitalRemoteBefore)
-
-	emptyParts = newRobotParts(logger)
-	test.That(t, result.Process(emptyParts), test.ShouldBeNil)
-	test.That(t, utils.NewStringSet(emptyParts.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.ArmNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.GripperNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.CameraNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.LidarNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.BaseNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.BoardNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.SensorNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1"))
-
-	err = result.Process(parts)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected")
 }
 
 func TestPartsMergeRemove(t *testing.T) {
@@ -911,6 +763,9 @@ func TestPartsMergeRemove(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "sensor1_r1", "sensor2_r1", "sensor1_r2", "sensor2_r2"))
+		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2", "servo1_r1", "servo2_r1", "servo1_r2", "servo2_r2"))
+		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2", "motor1_r1", "motor2_r1", "motor1_r2", "motor2_r2"))
+		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 	}
 
@@ -941,6 +796,9 @@ func TestPartsMergeRemove(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(parts.SensorNames()...), test.ShouldBeEmpty)
+	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldBeEmpty)
+	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldBeEmpty)
+	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(parts.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 }
 
@@ -966,6 +824,9 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.SensorNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 	}
 
@@ -1004,16 +865,29 @@ func TestPartsFilterFromConfig(t *testing.T) {
 				Name: "what6",
 				Type: config.ComponentTypeSensor,
 			},
-		},
-		Boards: []board.Config{
 			{
-				Name: "what",
+				Name: "what7",
+				Type: config.ComponentTypeBoard,
+			},
+			{
+
+				Name: "what8",
+				Type: config.ComponentTypeServo,
+			},
+			{
+				Name: "what9",
+				Type: config.ComponentTypeMotor,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
 			{
 				ID:   "what",
 				Name: "echo",
+			},
+		},
+		Functions: []functionvm.FunctionConfig{
+			{
+				Name: "what",
 			},
 		},
 	}, logger)
@@ -1058,16 +932,28 @@ func TestPartsFilterFromConfig(t *testing.T) {
 				Name: "sensor2",
 				Type: config.ComponentTypeSensor,
 			},
-		},
-		Boards: []board.Config{
 			{
 				Name: "board2",
+				Type: config.ComponentTypeBoard,
+			},
+			{
+				Name: "servo2",
+				Type: config.ComponentTypeServo,
+			},
+			{
+				Name: "motor2",
+				Type: config.ComponentTypeMotor,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
 			{
 				ID:   "2",
 				Name: "echo", // does not matter
+			},
+		},
+		Functions: []functionvm.FunctionConfig{
+			{
+				Name: "func2",
 			},
 		},
 	}, logger)
@@ -1081,6 +967,9 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, utils.NewStringSet(filtered.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2"))
 	test.That(t, utils.NewStringSet(filtered.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2"))
 	test.That(t, utils.NewStringSet(filtered.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor2"))
+	test.That(t, utils.NewStringSet(filtered.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo2"))
+	test.That(t, utils.NewStringSet(filtered.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor2"))
+	test.That(t, utils.NewStringSet(filtered.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func2"))
 	test.That(t, utils.NewStringSet(filtered.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("2"))
 
 	filtered, err = parts.FilterFromConfig(&config.Config{
@@ -1114,16 +1003,28 @@ func TestPartsFilterFromConfig(t *testing.T) {
 				Name: "sensor2",
 				Type: config.ComponentTypeSensor,
 			},
-		},
-		Boards: []board.Config{
 			{
 				Name: "board2",
+				Type: config.ComponentTypeBoard,
+			},
+			{
+				Name: "servo2",
+				Type: config.ComponentTypeServo,
+			},
+			{
+				Name: "motor2",
+				Type: config.ComponentTypeMotor,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
 			{
 				ID:   "2",
 				Name: "echo", // does not matter
+			},
+		},
+		Functions: []functionvm.FunctionConfig{
+			{
+				Name: "func2",
 			},
 		},
 	}, logger)
@@ -1137,6 +1038,9 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, utils.NewStringSet(filtered.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base1_r2", "base2_r2"))
 	test.That(t, utils.NewStringSet(filtered.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board1_r2", "board2_r2"))
 	test.That(t, utils.NewStringSet(filtered.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor2", "sensor1_r2", "sensor2_r2"))
+	test.That(t, utils.NewStringSet(filtered.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo2", "servo1_r2", "servo2_r2"))
+	test.That(t, utils.NewStringSet(filtered.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor2", "motor1_r2", "motor2_r2"))
+	test.That(t, utils.NewStringSet(filtered.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func2", "func1_r2", "func2_r2"))
 	test.That(t, utils.NewStringSet(filtered.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("2"))
 
 	filtered, err = parts.FilterFromConfig(&config.Config{
@@ -1224,16 +1128,41 @@ func TestPartsFilterFromConfig(t *testing.T) {
 				Name: "sensor3",
 				Type: config.ComponentTypeSensor,
 			},
-		},
-		Boards: []board.Config{
 			{
 				Name: "board1",
+				Type: config.ComponentTypeBoard,
 			},
 			{
 				Name: "board2",
+				Type: config.ComponentTypeBoard,
 			},
 			{
 				Name: "board3",
+				Type: config.ComponentTypeBoard,
+			},
+			{
+				Name: "servo1",
+				Type: config.ComponentTypeServo,
+			},
+			{
+				Name: "servo2",
+				Type: config.ComponentTypeServo,
+			},
+			{
+				Name: "servo3",
+				Type: config.ComponentTypeServo,
+			},
+			{
+				Name: "motor1",
+				Type: config.ComponentTypeMotor,
+			},
+			{
+				Name: "motor2",
+				Type: config.ComponentTypeMotor,
+			},
+			{
+				Name: "motor3",
+				Type: config.ComponentTypeMotor,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
@@ -1250,6 +1179,17 @@ func TestPartsFilterFromConfig(t *testing.T) {
 				Name: "echo", // does not matter
 			},
 		},
+		Functions: []functionvm.FunctionConfig{
+			{
+				Name: "func1",
+			},
+			{
+				Name: "func2",
+			},
+			{
+				Name: "func3",
+			},
+		},
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1261,6 +1201,9 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, utils.NewStringSet(filtered.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
 	test.That(t, utils.NewStringSet(filtered.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
 	test.That(t, utils.NewStringSet(filtered.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "sensor1_r1", "sensor2_r1", "sensor1_r2", "sensor2_r2"))
+	test.That(t, utils.NewStringSet(filtered.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2", "servo1_r1", "servo2_r1", "servo1_r2", "servo2_r2"))
+	test.That(t, utils.NewStringSet(filtered.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2", "motor1_r1", "motor2_r1", "motor1_r2", "motor2_r2"))
+	test.That(t, utils.NewStringSet(filtered.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
 	test.That(t, utils.NewStringSet(filtered.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 }
 
