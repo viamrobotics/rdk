@@ -116,11 +116,7 @@ func getIdentityGrid(n, offset int) []r2.Point {
 
 // makeChessGrid returns an identity Grid and its transformation with homography H
 func makeChessGrid(H rimage.Matrix, n int) ([]r2.Point, []r2.Point) {
-	idealGrid := getIdentityGrid(2+2*n, -n)
 	grid := transform.ApplyHomography(H, idealGrid)
-	return idealGrid, grid
-}
-
 func getInitialChessGrid(quad []r2.Point) ([]r2.Point, []r2.Point, *mat.Dense, error) {
 	// order points ccw
 	quad = rimage.SortPointCounterClockwise(quad)
