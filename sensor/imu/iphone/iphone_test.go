@@ -45,19 +45,13 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	go func() {
-		err := sendIMUData(l)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-	}()
+	go sendIMUData(logger, l)
 	defer l.Close()
 	_, err = iphone.New(context.Background(), ":3000", logger)
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestAngularVelocities(t *testing.T) {
+func TestAngularVelocity(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	l, err := getIphoneServer()
@@ -68,13 +62,7 @@ func TestAngularVelocities(t *testing.T) {
 
 	// Succeed if IPhone is serving valid AngularVelocity Data, and confirm that the
 	// data is what is expected.
-	go func() {
-		err := sendIMUData(l)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-	}()
+	go sendIMUData(logger, l)
 
 	ip, err := iphone.New(context.Background(), ":3000", logger)
 	if err != nil {
@@ -99,13 +87,7 @@ func TestOrientation(t *testing.T) {
 
 	// Succeed if IPhone is serving valid AngularVelocity Data, and confirm that the
 	// data is what is expected.
-	go func() {
-		err := sendIMUData(l)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-	}()
+	go sendIMUData(logger, l)
 
 	ip, err := iphone.New(context.Background(), ":3000", logger)
 	if err != nil {
@@ -131,13 +113,7 @@ func TestHeading(t *testing.T) {
 
 	// Succeed if IPhone is serving valid AngularVelocity Data, and confirm that the
 	// data is what is expected.
-	go func() {
-		err := sendIMUData(l)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-	}()
+	go sendIMUData(logger, l)
 
 	ip, err := iphone.New(context.Background(), ":3000", logger)
 	if err != nil {
@@ -161,13 +137,7 @@ func TestReadings(t *testing.T) {
 
 	// Succeed if IPhone is serving valid AngularVelocity Data, and confirm that the
 	// data is what is expected.
-	go func() {
-		err := sendIMUData(l)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-	}()
+	go sendIMUData(logger, l)
 
 	ip, err := iphone.New(context.Background(), ":3000", logger)
 	if err != nil {
@@ -190,19 +160,19 @@ func getIphoneServer() (net.Listener, error) {
 	return l, nil
 }
 
-func sendIMUData(l net.Listener) error {
+func sendIMUData(log golog.Logger, l net.Listener) {
 	conn, err := l.Accept()
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
 	b, err := json.Marshal(goodIMUData)
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
 	for {
 		_, err = conn.Write(b)
 		if err != nil {
-			return err
+			log.Fatal(err)
 		}
 		_, _ = conn.Write([]byte("\n"))
 	}
