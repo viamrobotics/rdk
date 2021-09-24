@@ -6,11 +6,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"go.viam.com/utils"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"go.viam.com/utils"
 
 	"github.com/edaniels/golog"
 
@@ -149,7 +150,7 @@ func (ip *IPhone) readNextMeasurement(ctx context.Context) (*Measurement, error)
 			// If we can't pull the next measurement, it's possible the connection was lost. Try to get another.
 			conn, err := net.DialTimeout("tcp", ip.host, defaultTimeoutMs*time.Millisecond)
 			if err != nil {
-				ip.log.Errorf("failed to reconnect" + err.Error())
+				ip.log.Error("failed to reconnect to iphone", "error", err)
 			}
 			ip.reader = bufio.NewReader(conn)
 		}
