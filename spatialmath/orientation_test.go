@@ -23,7 +23,7 @@ var (
 
 func TestZeroOrientation(t *testing.T) {
 	zero := NewZeroOrientation()
-	test.That(t, zero.OrientationVector(), test.ShouldResemble, NewOrientationVector())
+	test.That(t, zero.OrientationVectorRadians(), test.ShouldResemble, NewOrientationVector())
 	test.That(t, zero.OrientationVectorDegrees(), test.ShouldResemble, NewOrientationVectorDegrees())
 	test.That(t, zero.AxisAngles(), test.ShouldResemble, NewR4AA())
 	test.That(t, zero.Quaternion(), test.ShouldResemble, quat.Number{1, 0, 0, 0})
@@ -32,10 +32,10 @@ func TestZeroOrientation(t *testing.T) {
 
 func TestQuaternions(t *testing.T) {
 	qq45x := quaternion(q45x)
-	test.That(t, qq45x.OrientationVector().Theta, test.ShouldAlmostEqual, ov45x.Theta)
-	test.That(t, qq45x.OrientationVector().OX, test.ShouldAlmostEqual, ov45x.OX)
-	test.That(t, qq45x.OrientationVector().OY, test.ShouldAlmostEqual, ov45x.OY)
-	test.That(t, qq45x.OrientationVector().OZ, test.ShouldAlmostEqual, ov45x.OZ)
+	test.That(t, qq45x.OrientationVectorRadians().Theta, test.ShouldAlmostEqual, ov45x.Theta)
+	test.That(t, qq45x.OrientationVectorRadians().OX, test.ShouldAlmostEqual, ov45x.OX)
+	test.That(t, qq45x.OrientationVectorRadians().OY, test.ShouldAlmostEqual, ov45x.OY)
+	test.That(t, qq45x.OrientationVectorRadians().OZ, test.ShouldAlmostEqual, ov45x.OZ)
 	test.That(t, qq45x.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, ovd45x.Theta)
 	test.That(t, qq45x.OrientationVectorDegrees().OX, test.ShouldAlmostEqual, ovd45x.OX)
 	test.That(t, qq45x.OrientationVectorDegrees().OY, test.ShouldAlmostEqual, ovd45x.OY)
@@ -54,10 +54,10 @@ func TestQuaternions(t *testing.T) {
 }
 
 func TestEulerAngles(t *testing.T) {
-	test.That(t, ea45x.OrientationVector().Theta, test.ShouldAlmostEqual, ov45x.Theta)
-	test.That(t, ea45x.OrientationVector().OX, test.ShouldAlmostEqual, ov45x.OX)
-	test.That(t, ea45x.OrientationVector().OY, test.ShouldAlmostEqual, ov45x.OY)
-	test.That(t, ea45x.OrientationVector().OZ, test.ShouldAlmostEqual, ov45x.OZ)
+	test.That(t, ea45x.OrientationVectorRadians().Theta, test.ShouldAlmostEqual, ov45x.Theta)
+	test.That(t, ea45x.OrientationVectorRadians().OX, test.ShouldAlmostEqual, ov45x.OX)
+	test.That(t, ea45x.OrientationVectorRadians().OY, test.ShouldAlmostEqual, ov45x.OY)
+	test.That(t, ea45x.OrientationVectorRadians().OZ, test.ShouldAlmostEqual, ov45x.OZ)
 	test.That(t, ea45x.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, ovd45x.Theta)
 	test.That(t, ea45x.OrientationVectorDegrees().OX, test.ShouldAlmostEqual, ovd45x.OX)
 	test.That(t, ea45x.OrientationVectorDegrees().OY, test.ShouldAlmostEqual, ovd45x.OY)
@@ -76,10 +76,10 @@ func TestEulerAngles(t *testing.T) {
 }
 
 func TestAxisAngles(t *testing.T) {
-	test.That(t, aa45x.OrientationVector().Theta, test.ShouldAlmostEqual, ov45x.Theta)
-	test.That(t, aa45x.OrientationVector().OX, test.ShouldAlmostEqual, ov45x.OX)
-	test.That(t, aa45x.OrientationVector().OY, test.ShouldAlmostEqual, ov45x.OY)
-	test.That(t, aa45x.OrientationVector().OZ, test.ShouldAlmostEqual, ov45x.OZ)
+	test.That(t, aa45x.OrientationVectorRadians().Theta, test.ShouldAlmostEqual, ov45x.Theta)
+	test.That(t, aa45x.OrientationVectorRadians().OX, test.ShouldAlmostEqual, ov45x.OX)
+	test.That(t, aa45x.OrientationVectorRadians().OY, test.ShouldAlmostEqual, ov45x.OY)
+	test.That(t, aa45x.OrientationVectorRadians().OZ, test.ShouldAlmostEqual, ov45x.OZ)
 	test.That(t, aa45x.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, ovd45x.Theta)
 	test.That(t, aa45x.OrientationVectorDegrees().OX, test.ShouldAlmostEqual, ovd45x.OX)
 	test.That(t, aa45x.OrientationVectorDegrees().OY, test.ShouldAlmostEqual, ovd45x.OY)
@@ -98,10 +98,10 @@ func TestAxisAngles(t *testing.T) {
 }
 
 func TestOrientationVector(t *testing.T) {
-	test.That(t, ov45x.OrientationVector().Theta, test.ShouldAlmostEqual, ov45x.Theta)
-	test.That(t, ov45x.OrientationVector().OX, test.ShouldAlmostEqual, ov45x.OX)
-	test.That(t, ov45x.OrientationVector().OY, test.ShouldAlmostEqual, ov45x.OY)
-	test.That(t, ov45x.OrientationVector().OZ, test.ShouldAlmostEqual, ov45x.OZ)
+	test.That(t, ov45x.OrientationVectorRadians().Theta, test.ShouldAlmostEqual, ov45x.Theta)
+	test.That(t, ov45x.OrientationVectorRadians().OX, test.ShouldAlmostEqual, ov45x.OX)
+	test.That(t, ov45x.OrientationVectorRadians().OY, test.ShouldAlmostEqual, ov45x.OY)
+	test.That(t, ov45x.OrientationVectorRadians().OZ, test.ShouldAlmostEqual, ov45x.OZ)
 	test.That(t, ov45x.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, ovd45x.Theta)
 	test.That(t, ov45x.OrientationVectorDegrees().OX, test.ShouldAlmostEqual, ovd45x.OX)
 	test.That(t, ov45x.OrientationVectorDegrees().OY, test.ShouldAlmostEqual, ovd45x.OY)
@@ -120,10 +120,10 @@ func TestOrientationVector(t *testing.T) {
 }
 
 func TestOrientationVectorDegrees(t *testing.T) {
-	test.That(t, ovd45x.OrientationVector().Theta, test.ShouldAlmostEqual, ov45x.Theta)
-	test.That(t, ovd45x.OrientationVector().OX, test.ShouldAlmostEqual, ov45x.OX)
-	test.That(t, ovd45x.OrientationVector().OY, test.ShouldAlmostEqual, ov45x.OY)
-	test.That(t, ovd45x.OrientationVector().OZ, test.ShouldAlmostEqual, ov45x.OZ)
+	test.That(t, ovd45x.OrientationVectorRadians().Theta, test.ShouldAlmostEqual, ov45x.Theta)
+	test.That(t, ovd45x.OrientationVectorRadians().OX, test.ShouldAlmostEqual, ov45x.OX)
+	test.That(t, ovd45x.OrientationVectorRadians().OY, test.ShouldAlmostEqual, ov45x.OY)
+	test.That(t, ovd45x.OrientationVectorRadians().OZ, test.ShouldAlmostEqual, ov45x.OZ)
 	test.That(t, ovd45x.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, ovd45x.Theta)
 	test.That(t, ovd45x.OrientationVectorDegrees().OX, test.ShouldAlmostEqual, ovd45x.OX)
 	test.That(t, ovd45x.OrientationVectorDegrees().OY, test.ShouldAlmostEqual, ovd45x.OY)
