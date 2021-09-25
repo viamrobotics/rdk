@@ -40,9 +40,14 @@ jobs:
 
     - name: Verify no uncommitted changes from build
       run: |
+        whoami
+        env
+        bash -lc "whoami && env"
+        source ~/.viamdevrc
+        env
         git init
         git add .
-        bash -lc 'make build goformat'
+        make build goformat
         GEN_DIFF=$(git diff)
         if [ -n "$GEN_DIFF" ]; then
             echo '"make build goformat" resulted in changes not in git' 1>&2
