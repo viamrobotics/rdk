@@ -40,14 +40,10 @@ jobs:
 
     - name: Verify no uncommitted changes from build
       run: |
-        whoami
-        env
-        bash -lc "whoami && env"
-        source ~/.viamdevrc
-        env
         git init
         git add .
-        make build goformat
+        chown -R testbot .        
+        sudo -u testbot bash -lc 'make build goformat'
         GEN_DIFF=$(git diff)
         if [ -n "$GEN_DIFF" ]; then
             echo '"make build goformat" resulted in changes not in git' 1>&2
@@ -57,7 +53,7 @@ jobs:
 
     - name: Lint
       run: |
-        bash -lc 'make lint'
+        sudo -u testbot bash -lc 'make lint'
 
     - name: Test
       env:
@@ -66,7 +62,7 @@ jobs:
       run: |
         echo "$ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS" | base64 -d > artifact_google_creds.json
         export ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS=`pwd`/artifact_google_creds.json
-        bash -lc 'make cover'
+        sudo -u testbot bash -lc 'make cover'
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
