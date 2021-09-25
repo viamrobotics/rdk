@@ -14,11 +14,6 @@ on:
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
 
-defaults:
-  run:
-    shell: bash
-    working-directory: /home/testbot
-
 jobs:
   build_and_test:
     name: Build and Test
@@ -41,13 +36,13 @@ jobs:
 
     - name: Update dev environment
       run: |
-        sudo -u testbot make setup
+        sudo -u testbot bash -lc 'make setup'
 
     - name: Verify no uncommitted changes from build
       run: |
         git init
         git add .
-        make build goformat
+        bash -lc 'make build goformat'
         GEN_DIFF=$(git diff)
         if [ -n "$GEN_DIFF" ]; then
             echo '"make build goformat" resulted in changes not in git' 1>&2
@@ -57,7 +52,7 @@ jobs:
 
     - name: Lint
       run: |
-        make lint
+        bash -lc 'make lint'
 
     - name: Test
       env:
@@ -66,7 +61,7 @@ jobs:
       run: |
         echo "$ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS" | base64 -d > artifact_google_creds.json
         export ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS=`pwd`/artifact_google_creds.json
-        make cover
+        bash -lc 'make cover'
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
