@@ -1,5 +1,4 @@
-# See https://github.com/mvdan/github-actions-golang for golang nuances
-name: Go
+name: Test
 
 on:
   workflow_dispatch:
@@ -10,9 +9,6 @@ on:
       - '**/.github/workflows/docker.yml'
   pull_request:
     branches: [ main ]
-
-env:
-  GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
 
 jobs:
   build_and_test:
