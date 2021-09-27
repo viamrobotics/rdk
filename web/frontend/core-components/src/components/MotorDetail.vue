@@ -32,32 +32,36 @@
       <div class="details">
         <div class="detail">
           <p class="subtitle">Type of Rotation</p>
-          <div class="details margin-bottom">
+          <div class="radio-buttons margin-bottom">
             <button
-              v-bind:class="[isContinuous ? 'blue' : 'clear']"
+              v-bind:class="[isContinuous ? 'black' : 'clear']"
               v-on:click="isContinuous = true"
             >
+              <i v-if="isContinuous" class="fas fa-check"></i>
               Continuous
             </button>
             <button
-              v-bind:class="[!isContinuous ? 'blue' : 'clear']"
+              v-bind:class="[!isContinuous ? 'black' : 'clear']"
               v-on:click="isContinuous = false"
             >
+              <i v-if="!isContinuous" class="fas fa-check"></i>
               Defined
             </button>
           </div>
           <p class="subtitle">Direction of Rotation</p>
-          <div class="details margin-bottom">
+          <div class="radio-buttons margin-bottom">
             <button
-              v-bind:class="[isGoingForward ? 'blue' : 'clear']"
+              v-bind:class="[isGoingForward ? 'black' : 'clear']"
               v-on:click="isGoingForward = true"
             >
+              <i v-if="isGoingForward" class="fas fa-check"></i>
               Forward
             </button>
             <button
-              v-bind:class="[!isGoingForward ? 'blue' : 'clear']"
+              v-bind:class="[!isGoingForward ? 'black' : 'clear']"
               v-on:click="isGoingForward = false"
             >
+              <i v-if="!isContinuous" class="fas fa-check"></i>
               Backward
             </button>
           </div>
@@ -343,5 +347,13 @@ h2 {
 
 .margin-bottom {
   margin-bottom: 32px;
+}
+
+.radio-buttons {
+  display: flex;
+  flex-direction: row;
+}
+.radio-buttons button {
+  margin: 0;
 }
 </style>

@@ -59,23 +59,24 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 1.25px;
-    border-radius: 4px;
     padding: 8px;
     background: none;
     border: none;
     cursor: pointer;
 }
 .component button:hover,
-.component button:active,
 .component button:focus {
     filter: brightness(var(--hover-brightness));
+}
+.component button:active {
+    filter: none;
 }
 .component button:disabled {
     filter: brightness(var(--disabled-brightness));
 }
 .component button.clear {
     background-color: var(--white);
-    border: 1px solid var(--black-30);
+    border: 1px solid var(--black-100);
     color: var(--black-90);
 }
 .component button.clear:hover,
@@ -89,6 +90,22 @@
     color: var(--black-70);
     filter: none;
 }
+.component button.black {
+    background-color: var(--black-100);
+    border: 1px solid var(--black-100);
+    color: var(--white);
+}
+/* .component button.black:hover,
+.component button.black:active,
+.component button.black:focus {
+    background-color: var(--black-10);
+    filter: none;
+}
+.component button.black:disabled {
+    background-color: var(--black-30);
+    color: var(--black-70);
+    filter: none;
+} */
 .component button.blue {
     background-color: var(--blue-90);
     color: var(--white);
@@ -212,6 +229,7 @@
 *************/
 :root {
     --white: #FFFFFF;
+    --black: #000000;
     --carbon-dark: #42505E;
     --carbon-neutral: #8A9FB6;
     --carbon-light: #B5C4CD;
@@ -261,6 +279,7 @@
     --blue-30: #BBE7FD;
     --blue-20: #EBF9FE;
     --blue-10: #F9FDFF;
+    --purple-100: #6400E4;
 
     --hover-brightness: 1.2;
     --disabled-brightness: 0.85;
