@@ -109,8 +109,7 @@ func (ov *OrientationVec) OrientationVectorDegrees() *OrientationVecDegrees {
 
 // AxisAngles returns the orientation in axis angle representation
 func (ov *OrientationVec) AxisAngles() *R4AA {
-	aa := QuatToR4AA(ov.ToQuat())
-	return &aa
+	return QuatToR4AA(ov.ToQuat())
 }
 
 // NewOrientationVectorDegrees Creates a zero-initialized OrientationVecDegrees
@@ -150,6 +149,5 @@ func (ovd *OrientationVecDegrees) OrientationVectorDegrees() *OrientationVecDegr
 
 // AxisAngles returns the orientation in axis angle representation
 func (ovd *OrientationVecDegrees) AxisAngles() *R4AA {
-	aa := QuatToR4AA(ovd.ToQuat())
-	return &aa
+	return QuatToR4AA(ovd.ToQuat())
 }

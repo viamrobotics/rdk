@@ -30,8 +30,7 @@ func (q *quaternion) Quaternion() quat.Number {
 
 // AxisAngles returns the orientation in axis angle representation
 func (q *quaternion) AxisAngles() *R4AA {
-	aa := QuatToR4AA(q.Quaternion())
-	return &aa
+	return QuatToR4AA(q.Quaternion())
 }
 
 // OrientationVectorRadians returns orientation as an orientation vector (in radians)
@@ -148,7 +147,7 @@ func QuatToOV(q quat.Number) *OrientationVec {
 
 // QuatToR4AA converts a quat to an R4 axis angle in the same way the C++ Eigen library does.
 // https://eigen.tuxfamily.org/dox/AngleAxis_8h_source.html
-func QuatToR4AA(q quat.Number) R4AA {
+func QuatToR4AA(q quat.Number) *R4AA {
 	denom := Norm(q)
 
 	angle := 2 * math.Atan2(denom, math.Abs(q.Real))
@@ -157,9 +156,9 @@ func QuatToR4AA(q quat.Number) R4AA {
 	}
 
 	if denom < 1e-6 {
-		return R4AA{Theta: angle, RX: 0, RY: 0, RZ: 1}
+		return &R4AA{Theta: angle, RX: 0, RY: 0, RZ: 1}
 	}
-	return R4AA{angle, q.Imag / denom, q.Jmag / denom, q.Kmag / denom}
+	return &R4AA{angle, q.Imag / denom, q.Jmag / denom, q.Kmag / denom}
 }
 
 // QuatToR3AA converts a quat to an R3 axis angle in the same way the C++ Eigen library does.
