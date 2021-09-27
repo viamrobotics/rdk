@@ -64,7 +64,7 @@ func readImu(ctx context.Context, deviceAddress string, logger golog.Logger) (er
 				return false
 			}
 
-			angularVelocities, err := sensor.AngularVelocities(context.Background())
+			angularVelocities, err := sensor.AngularVelocity(context.Background())
 			if err != nil {
 				logger.Errorw("failed to get sensor angular velocities", "error", err)
 			} else {

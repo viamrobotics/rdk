@@ -6,6 +6,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"go.viam.com/core/sensor/imu"
 	"image"
 	"image/draw"
 	"image/jpeg"
@@ -809,6 +810,30 @@ func (s *Server) CompassMark(ctx context.Context, req *pb.CompassMarkRequest) (*
 		return nil, err
 	}
 	return &pb.CompassMarkResponse{}, nil
+}
+
+func (s *Server) ImuAngularVelocity(ctx context.Context, req *pb.ImuAngularVelocityRequest) (*pb.ImuAngularVelocityResponse, error) {
+	sensorDevice, ok := s.r.SensorByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no sensor with name (%s)", req.Name)
+	}
+	angularVelocityVec, err := sensorDevice.(imu.IMU).AngularVelocity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.ImuAngularVelocityResponse{AngularVelocity: angularVelocityVec}, nil
+}
+
+func (s *Server) ImuOrientation(ctx context.Context, req *pb.ImuOrientationRequest) (*pb.ImuOrientationResponse, error) {
+	sensorDevice, ok := s.r.SensorByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no sensor with name (%s)", req.Name)
+	}
+	orientationVec, err := sensorDevice.(imu.IMU).Orientation(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.ImuOrientationResponse{Orientation: orientationVec}, nil
 }
 
 // ExecuteFunction executes the given function with access to the underlying robot.

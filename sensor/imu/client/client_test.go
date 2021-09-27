@@ -53,7 +53,7 @@ func TestClient(t *testing.T) {
 
 	f := registry.SensorLookup(imu.Type, client.ModelNameClient)
 	test.That(t, f, test.ShouldNotBeNil)
-	_, err = f(context.Background(), nil, config.Component{
+	_, err = f.Constructor(context.Background(), nil, config.Component{
 		Host: listener1.Addr().(*net.TCPAddr).IP.String(),
 		Port: listener1.Addr().(*net.TCPAddr).Port,
 	}, logger)
@@ -61,19 +61,19 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
 
 	injectDev := &inject.IMU{}
-	rotationVector := [3]float64{5.2, 1.0, -0.9}
-	orientationVector := [3]float64{5.2, 1.0, -0.9}
-	injectDev.AngularVelocitiesFunc = func(ctx context.Context) ([3]float64, error) {
+	rotationVector := []float64{5.2, 1.0, -0.9}
+	orientationVector := []float64{5.2, 1.0, -0.9}
+	injectDev.AngularVelocitiesFunc = func(ctx context.Context) ([]float64, error) {
 		return rotationVector, nil
 	}
-	injectDev.OrientationFunc = func(ctx context.Context) ([3]float64, error) {
+	injectDev.OrientationFunc = func(ctx context.Context) ([]float64, error) {
 		return orientationVector, nil
 	}
 	injectRobot2.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 		return injectDev, true
 	}
 
-	dev, err := f(context.Background(), nil, config.Component{
+	dev, err := f.Constructor(context.Background(), nil, config.Component{
 		Host: listener2.Addr().(*net.TCPAddr).IP.String(),
 		Port: listener2.Addr().(*net.TCPAddr).Port,
 	}, logger)
@@ -81,14 +81,14 @@ func TestClient(t *testing.T) {
 	imuDev := dev.(imu.IMU)
 
 	// test angular velocity properly set
-	angularVelocities, err := imuDev.AngularVelocities(context.Background())
+	angularVelocities, err := imuDev.AngularVelocity(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, angularVelocities, test.ShouldEqual, rotationVector)
+	test.That(t, angularVelocities, test.ShouldResemble, rotationVector)
 
 	// test orientation properly set
 	orientation, err := imuDev.Orientation(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, orientation, test.ShouldEqual, orientationVector)
+	test.That(t, orientation, test.ShouldResemble, orientationVector)
 
 	// test close
 	test.That(t, utils.TryClose(imuDev), test.ShouldBeNil)
