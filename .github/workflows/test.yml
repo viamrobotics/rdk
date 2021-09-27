@@ -19,13 +19,10 @@ jobs:
 
     steps:
 
-    - name: "Test env first"
-      run : |
-        cat .git/config
-        git config --unset url.ssh://git@github.com/.insteadof
-        ssh-keyscan github.com
+    - name: Remove git ssh redirect
+      run : git config --unset url.ssh://git@github.com/.insteadof
 
-    - name: Check out code into the Go module directory
+    - name: Check out code in Core directory
       uses: actions/checkout@v2
       with:
         fetch-depth: 2
@@ -41,7 +38,7 @@ jobs:
       run: |
         sudo -u testbot bash -lc 'make setup'
 
-    - name: Verify no uncommitted changes from build
+    - name: Verify no uncommitted changes from "make build goformat"
       run: |
         git init
         git add .
