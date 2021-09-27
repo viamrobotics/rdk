@@ -40,7 +40,8 @@ type Component struct {
 	Frame     *FrameConfig  `json:"frame,omitempty"`
 	DependsOn []string      `json:"depends_on"`
 
-	Attributes AttributeMap `json:"attributes"`
+	Attributes          AttributeMap `json:"attributes"`
+	ConvertedAttributes interface{}
 }
 
 // Ensure Component conforms to flag.Value.
