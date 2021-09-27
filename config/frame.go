@@ -45,7 +45,7 @@ type Frame struct {
 	Orientation spatial.Orientation `json:"orientation"`
 }
 
-// rawOrientation holds the underlying type of orientation struct, and the value of the struct.
+// rawOrientation holds the underlying type of orientation, and the value.
 type rawOrientation struct {
 	Type  string          `json:"type"`
 	Value json.RawMessage `json:"value"`
