@@ -12,7 +12,7 @@ import (
 
 // RegisterConfigAttributeConverter registers a board.Config converter.
 func RegisterConfigAttributeConverter(model string) {
-	config.RegisterAttributeMapConverter(config.ComponentTypeBoard, model, func(attributes config.AttributeMap) (interface{}, error) {
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeBoard, model, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 		if err != nil {

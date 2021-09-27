@@ -1308,10 +1308,6 @@ go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4 h1:YG1xrvr+VkEifpj4tmxp
 go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4/go.mod h1:bVVm3GcP8koFgCYKWJkCU0r+lkOvTQLeLaFcw8AFghE=
 go.viam.com/test v1.1.0 h1:KXf8crEwt0bHn5iMsjmXg0vPio/yzKGrfd20sWhe/t4=
 go.viam.com/test v1.1.0/go.mod h1:iULewngKZCHSB2QJa1xGSR6+0ICZIHbEfTUGqw0blLs=
-go.viam.com/utils v0.0.2-0.20210811153755-ce34fa7eadb4 h1:x9tjwekI3keSbVc5trb+Sv+Ub0+Q21uTxca9lfRCin0=
-go.viam.com/utils v0.0.2-0.20210811153755-ce34fa7eadb4/go.mod h1:eBQxnwyy2o2cJysKAcznPK/uBloa1djvgb8MMzCQTso=
-go.viam.com/utils v0.0.2-0.20210924213428-1c4f4f4d87ac h1:HDmWYWr9nTPSLXp1DAa1nNo9dyIDpQhFQ82tuJiFCZA=
-go.viam.com/utils v0.0.2-0.20210924213428-1c4f4f4d87ac/go.mod h1:eBQxnwyy2o2cJysKAcznPK/uBloa1djvgb8MMzCQTso=
 go.viam.com/utils v0.0.2-0.20210924214046-c5939f70b09d h1:Qikcy4pMctK6PXUIz1s19W6Dj0RyuJSn6k7M01i90D0=
 go.viam.com/utils v0.0.2-0.20210924214046-c5939f70b09d/go.mod h1:eBQxnwyy2o2cJysKAcznPK/uBloa1djvgb8MMzCQTso=
 go4.org v0.0.0-20180809161055-417644f6feb5/go.mod h1:MkTOUMDaeVYJUOUsaDXIhWPZYa1yOyC1qaOBpL57BhE=

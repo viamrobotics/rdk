@@ -63,6 +63,7 @@ type RobotClient struct {
 	servoNames    []string
 	motorNames    []string
 	functionNames []string
+	serviceNames  []string
 
 	sensorTypes map[string]sensor.Type
 
@@ -322,6 +323,13 @@ func (rc *RobotClient) MotorByName(name string) (motor.Motor, bool) {
 	}, true
 }
 
+// ServiceByName returns a service by name. It is assumed to exist on the
+// other end.
+func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
+	// TODO(erd): implement
+	return nil, false
+}
+
 // Refresh manually updates the underlying parts of the robot based
 // on a status retrieved from the server.
 // TODO(https://github.com/viamrobotics/core/issues/57) - do not use status
@@ -420,6 +428,13 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 			rc.functionNames = append(rc.functionNames, name)
 		}
 	}
+	rc.serviceNames = nil
+	if len(status.Services) != 0 {
+		rc.serviceNames = make([]string, 0, len(status.Services))
+		for name := range status.Services {
+			rc.serviceNames = append(rc.serviceNames, name)
+		}
+	}
 	return nil
 }
 
@@ -508,6 +523,13 @@ func (rc *RobotClient) FunctionNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.functionNames)
+}
+
+// ServiceNames returns the names of all known services.
+func (rc *RobotClient) ServiceNames() []string {
+	rc.namesMu.Lock()
+	defer rc.namesMu.Unlock()
+	return copyStringSlice(rc.serviceNames)
 }
 
 // ProcessManager returns a useless process manager for the sake of

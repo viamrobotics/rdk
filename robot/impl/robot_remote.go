@@ -176,6 +176,12 @@ func (rr *remoteRobot) FunctionNames() []string {
 	return rr.prefixNames(rr.parts.FunctionNames())
 }
 
+func (rr *remoteRobot) ServiceNames() []string {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	return rr.prefixNames(rr.parts.ServiceNames())
+}
+
 func (rr *remoteRobot) RemoteByName(name string) (robot.Robot, bool) {
 	debug.PrintStack()
 	panic(errUnimplemented)
@@ -233,6 +239,12 @@ func (rr *remoteRobot) MotorByName(name string) (motor.Motor, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.MotorByName(rr.unprefixName(name))
+}
+
+func (rr *remoteRobot) ServiceByName(name string) (interface{}, bool) {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	return rr.parts.ServiceByName(rr.unprefixName(name))
 }
 
 func (rr *remoteRobot) ProcessManager() pexec.ProcessManager {
@@ -325,6 +337,12 @@ func (rr *remoteRobot) Status(ctx context.Context) (*pb.Status, error) {
 			rewrittenStatus.Motors[rr.prefixName(k)] = v
 		}
 	}
+	if len(status.Services) != 0 {
+		rewrittenStatus.Services = make(map[string]bool, len(status.Services))
+		for k, v := range status.Services {
+			rewrittenStatus.Services[rr.prefixName(k)] = v
+		}
+	}
 	if len(status.Functions) != 0 {
 		rewrittenStatus.Functions = make(map[string]bool, len(status.Functions))
 		for k, v := range status.Functions {
@@ -415,6 +433,13 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 	for _, name := range robot.FunctionNames() {
 		parts.addFunction(name)
 	}
+	for _, name := range robot.ServiceNames() {
+		part, ok := robot.ServiceByName(name)
+		if !ok {
+			continue
+		}
+		parts.AddService(part, config.Service{Name: name})
+	}
 	return parts
 }
 
@@ -430,6 +455,7 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	var oldServoNames map[string]struct{}
 	var oldMotorNames map[string]struct{}
 	var oldFunctionNames map[string]struct{}
+	var oldServiceNames map[string]struct{}
 
 	if len(parts.boards) != 0 {
 		oldBoardNames = make(map[string]struct{}, len(parts.boards))
@@ -489,6 +515,12 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		oldFunctionNames = make(map[string]struct{}, len(parts.functions))
 		for name := range parts.functions {
 			oldFunctionNames[name] = struct{}{}
+		}
+	}
+	if len(parts.services) != 0 {
+		oldServiceNames = make(map[string]struct{}, len(parts.services))
+		for name := range parts.services {
+			oldServiceNames[name] = struct{}{}
 		}
 	}
 
@@ -581,9 +613,16 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		}
 		parts.functions[name] = newPart
 	}
-	for name, newPart := range newParts.functions {
-		delete(oldSensorNames, name)
-		parts.functions[name] = newPart
+	for name, newPart := range newParts.services {
+		oldPart, ok := parts.services[name]
+		delete(oldMotorNames, name)
+		if ok {
+			_ = oldPart
+			// TODO(erd): how to handle service replacement?
+			// oldPart.replace(newPart)
+			continue
+		}
+		parts.services[name] = newPart
 	}
 
 	for name := range oldBoardNames {
@@ -615,5 +654,8 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	}
 	for name := range oldFunctionNames {
 		delete(parts.functions, name)
+	}
+	for name := range oldServiceNames {
+		delete(parts.services, name)
 	}
 }
