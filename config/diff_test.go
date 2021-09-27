@@ -66,18 +66,16 @@ func TestDiffConfigs(t *testing.T) {
 				Name:  "board1",
 				Model: "fake",
 				Type:  config.ComponentTypeBoard,
-				Attributes: config.AttributeMap{
-					"config": &board.Config{
-						Analogs: []board.AnalogConfig{
-							{
-								Name: "analog1",
-								Pin:  "0",
-							},
-						}, DigitalInterrupts: []board.DigitalInterruptConfig{
-							{
-								Name: "encoder",
-								Pin:  "14",
-							},
+				ConvertedAttributes: &board.Config{
+					Analogs: []board.AnalogConfig{
+						{
+							Name: "analog1",
+							Pin:  "0",
+						},
+					}, DigitalInterrupts: []board.DigitalInterruptConfig{
+						{
+							Name: "encoder",
+							Pin:  "14",
 						},
 					},
 				},
@@ -149,18 +147,16 @@ func TestDiffConfigs(t *testing.T) {
 				Name:  "board1",
 				Model: "fake",
 				Type:  config.ComponentTypeBoard,
-				Attributes: config.AttributeMap{
-					"config": &board.Config{
-						Analogs: []board.AnalogConfig{
-							{
-								Name: "analog1",
-								Pin:  "1",
-							},
-						}, DigitalInterrupts: []board.DigitalInterruptConfig{
-							{
-								Name: "encoder",
-								Pin:  "15",
-							},
+				ConvertedAttributes: &board.Config{
+					Analogs: []board.AnalogConfig{
+						{
+							Name: "analog1",
+							Pin:  "1",
+						},
+					}, DigitalInterrupts: []board.DigitalInterruptConfig{
+						{
+							Name: "encoder",
+							Pin:  "15",
 						},
 					},
 				},
@@ -275,10 +271,8 @@ func TestDiffConfigs(t *testing.T) {
 							Name:  "board2",
 							Type:  config.ComponentTypeBoard,
 							Model: "fake",
-							Attributes: config.AttributeMap{
-								"config": &board.Config{
-									DigitalInterrupts: []board.DigitalInterruptConfig{{Name: "encoder2", Pin: "16"}},
-								},
+							ConvertedAttributes: &board.Config{
+								DigitalInterrupts: []board.DigitalInterruptConfig{{Name: "encoder2", Pin: "16"}},
 							},
 						},
 					},
@@ -324,10 +318,8 @@ func TestDiffConfigs(t *testing.T) {
 							Name:  "board1",
 							Type:  config.ComponentTypeBoard,
 							Model: "fake",
-							Attributes: config.AttributeMap{
-								"config": &board.Config{
-									Analogs: []board.AnalogConfig{{Name: "analog1", Pin: "1"}},
-								},
+							ConvertedAttributes: &board.Config{
+								Analogs: []board.AnalogConfig{{Name: "analog1", Pin: "1"}},
 							},
 						},
 					},

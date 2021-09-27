@@ -679,14 +679,12 @@ func TestPartsMergeModify(t *testing.T) {
 	robotForRemote := &mutableRobot{parts: newRobotParts(logger), logger: logger}
 	fakeBoardRemote, err := fake.NewBoard(context.Background(), config.Component{
 		Name: "board2",
-		Attributes: config.AttributeMap{
-			"config": &board.Config{
-				Analogs: []board.AnalogConfig{
-					{Name: "analog2"},
-				},
-				DigitalInterrupts: []board.DigitalInterruptConfig{
-					{Name: "digital2"},
-				},
+		ConvertedAttributes: &board.Config{
+			Analogs: []board.AnalogConfig{
+				{Name: "analog2"},
+			},
+			DigitalInterrupts: []board.DigitalInterruptConfig{
+				{Name: "digital2"},
 			},
 		},
 	}, logger)
@@ -707,14 +705,12 @@ func TestPartsMergeModify(t *testing.T) {
 
 	fakeBoard, err := fake.NewBoard(context.Background(), config.Component{
 		Name: "board1",
-		Attributes: config.AttributeMap{
-			"config": &board.Config{
-				Analogs: []board.AnalogConfig{
-					{Name: "analog2"},
-				},
-				DigitalInterrupts: []board.DigitalInterruptConfig{
-					{Name: "digital2"},
-				},
+		ConvertedAttributes: &board.Config{
+			Analogs: []board.AnalogConfig{
+				{Name: "analog2"},
+			},
+			DigitalInterrupts: []board.DigitalInterruptConfig{
+				{Name: "digital2"},
 			},
 		},
 	}, logger)

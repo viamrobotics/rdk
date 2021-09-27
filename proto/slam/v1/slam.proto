@@ -159,7 +159,7 @@ service SlamService {
 	}
 	rpc MoveRobotBackward(MoveRobotBackwardRequest) returns (MoveRobotBackwardResponse) {
 	    option (google.api.http) = {
-			post: "/slam/v1/move_robot_forward"
+			post: "/slam/v1/move_robot_backward"
 		};
 	}
 	rpc TurnRobotTo(TurnRobotToRequest) returns (TurnRobotToResponse) {

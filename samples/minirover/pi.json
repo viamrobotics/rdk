@@ -27,28 +27,25 @@
             "type": "board",
             "attributes":
             {
-                "config":
-                {
-                    "digitalInterrupts":
-                    [
-                        {
-                            "name": "fl-e",
-                            "pin": "36"
-                        },
-                        {
-                            "name": "fr-e",
-                            "pin": "18"
-                        },
-                        {
-                            "name": "bl-e",
-                            "pin": "31"
-                        },
-                        {
-                            "name": "br-e",
-                            "pin": "10"
-                        }
-                    ]
-                }
+                "digitalInterrupts":
+                [
+                    {
+                        "name": "fl-e",
+                        "pin": "36"
+                    },
+                    {
+                        "name": "fr-e",
+                        "pin": "18"
+                    },
+                    {
+                        "name": "bl-e",
+                        "pin": "31"
+                    },
+                    {
+                        "name": "br-e",
+                        "pin": "10"
+                    }
+                ]
             }
         },
         {
@@ -83,17 +80,14 @@
             "model": "pi",
             "attributes":
             {
-                "config":
+                "pins":
                 {
-                    "pins":
-                    {
-                        "a": "38",
-                        "b": "40",
-                        "pwm": "11"
-                    },
-                    "encoder": "fl-e",
-                    "ticksPerRotation": 1000
-                }
+                    "a": "38",
+                    "b": "40",
+                    "pwm": "11"
+                },
+                "encoder": "fl-e",
+                "ticksPerRotation": 1000
             },
             "depends_on":
             [
@@ -106,17 +100,14 @@
             "model": "pi",
             "attributes":
             {
-                "config":
+                "pins":
                 {
-                    "pins":
-                    {
-                        "a": "22",
-                        "b": "32",
-                        "pwm": "7"
-                    },
-                    "encoder": "fr-e",
-                    "ticksPerRotation": 1000
-                }
+                    "a": "22",
+                    "b": "32",
+                    "pwm": "7"
+                },
+                "encoder": "fr-e",
+                "ticksPerRotation": 1000
             },
             "depends_on":
             [
@@ -129,17 +120,14 @@
             "model": "pi",
             "attributes":
             {
-                "config":
+                "pins":
                 {
-                    "pins":
-                    {
-                        "a": "37",
-                        "b": "33",
-                        "pwm": "13"
-                    },
-                    "encoder": "bl-e",
-                    "ticksPerRotation": 1000
-                }
+                    "a": "37",
+                    "b": "33",
+                    "pwm": "13"
+                },
+                "encoder": "bl-e",
+                "ticksPerRotation": 1000
             },
             "depends_on":
             [
@@ -152,17 +140,14 @@
             "model": "pi",
             "attributes":
             {
-                "config":
+                "pins":
                 {
-                    "pins":
-                    {
-                        "a": "29",
-                        "b": "35",
-                        "pwm": "15"
-                    },
-                    "encoder": "br-e",
-                    "ticksPerRotation": 1000
-                }
+                    "a": "29",
+                    "b": "35",
+                    "pwm": "15"
+                },
+                "encoder": "br-e",
+                "ticksPerRotation": 1000
             },
             "depends_on":
             [
