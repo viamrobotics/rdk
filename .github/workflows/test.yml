@@ -23,6 +23,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         fetch-depth: 2
+        ssh-strict: 'false'
 
     - name: Configure git for private modules
       env:
