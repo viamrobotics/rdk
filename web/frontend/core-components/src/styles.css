@@ -59,6 +59,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 1.25px;
+    margin: 2px;
     padding: 8px;
     background: none;
     border: none;
@@ -86,8 +87,9 @@
     filter: none;
 }
 .component button.clear:disabled {
-    background-color: var(--black-30);
-    color: var(--black-70);
+    background-color: var(--black-20);
+    color: var(--black-50);
+    border: 1px solid var(--black-30);
     filter: none;
 }
 .component button.black {
@@ -95,17 +97,11 @@
     border: 1px solid var(--black-100);
     color: var(--white);
 }
-/* .component button.black:hover,
-.component button.black:active,
-.component button.black:focus {
-    background-color: var(--black-10);
+.component button.black:disabled {
+    background-color: var(--black-90);
+    color: var(--black-60);
     filter: none;
 }
-.component button.black:disabled {
-    background-color: var(--black-30);
-    color: var(--black-70);
-    filter: none;
-} */
 .component button.blue {
     background-color: var(--blue-90);
     color: var(--white);

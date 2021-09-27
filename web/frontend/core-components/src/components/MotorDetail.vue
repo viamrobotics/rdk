@@ -32,39 +32,17 @@
       <div class="details">
         <div class="detail">
           <p class="subtitle">Type of Rotation</p>
-          <div class="radio-buttons margin-bottom">
-            <button
-              v-bind:class="[isContinuous ? 'black' : 'clear']"
-              v-on:click="isContinuous = true"
-            >
-              <i v-if="isContinuous" class="fas fa-check"></i>
-              Continuous
-            </button>
-            <button
-              v-bind:class="[!isContinuous ? 'black' : 'clear']"
-              v-on:click="isContinuous = false"
-            >
-              <i v-if="!isContinuous" class="fas fa-check"></i>
-              Defined
-            </button>
-          </div>
+          <RadioButtons
+            :options="['Continuous', 'Discrete']"
+            :defaultOption="isContinuous ? 'Continuous' : 'Discrete'"
+            v-on:selectedOption="isContinuous = $event === 'Continuous'"
+          />
           <p class="subtitle">Direction of Rotation</p>
-          <div class="radio-buttons margin-bottom">
-            <button
-              v-bind:class="[isGoingForward ? 'black' : 'clear']"
-              v-on:click="isGoingForward = true"
-            >
-              <i v-if="isGoingForward" class="fas fa-check"></i>
-              Forward
-            </button>
-            <button
-              v-bind:class="[!isGoingForward ? 'black' : 'clear']"
-              v-on:click="isGoingForward = false"
-            >
-              <i v-if="!isContinuous" class="fas fa-check"></i>
-              Backward
-            </button>
-          </div>
+          <RadioButtons
+            :options="['Backward', 'Forward']"
+            :defaultOption="isGoingForward ? 'Forward' : 'Backward'"
+            v-on:selectedOption="isGoingForward = $event === 'Forward'"
+          />
         </div>
         <div class="detail" style="flex-grow: 1">
           <label
@@ -134,6 +112,7 @@ import {
   BoardMotorGoForRequest,
   BoardMotorGoToRequest,
 } from "proto/robot_pb";
+import RadioButtons from "./RadioButtons.vue";
 
 enum MotorCommandType {
   Go = "go",
@@ -234,7 +213,11 @@ class MotorCommand {
   }
 }
 
-@Component
+@Component({
+  components: {
+    RadioButtons,
+  },
+})
 export default class MotorDetail extends Vue {
   @Prop() motorName!: string;
   @Prop() motorStatus!: MotorStatus.AsObject;
@@ -347,13 +330,5 @@ h2 {
 
 .margin-bottom {
   margin-bottom: 32px;
-}
-
-.radio-buttons {
-  display: flex;
-  flex-direction: row;
-}
-.radio-buttons button {
-  margin: 0;
 }
 </style>

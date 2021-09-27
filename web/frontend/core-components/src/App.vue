@@ -1,6 +1,9 @@
 <template>
   <div id="app">
-    <MotorDetail motorName="MOTOR NAME" motorStatus="{on: true, positionSupported: true, position: 33}" />
+    <MotorDetail
+      motorName="MOTOR NAME"
+      motorStatus="{on: true, positionSupported: true, position: 33}"
+    />
   </div>
 </template>
 
@@ -17,7 +20,7 @@ export default class App extends Vue {}
 </script>
 
 <style>
-@import './styles.css';
+@import "./styles.css";
 #app {
   width: 900px;
 }

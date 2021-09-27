@@ -280,6 +280,13 @@ module.exports = !DESCRIPTORS && !fails(function () {
 
 /***/ }),
 
+/***/ "11cc":
+/***/ (function(module, exports, __webpack_require__) {
+
+// extracted by mini-css-extract-plugin
+
+/***/ }),
+
 /***/ "159b":
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -520,6 +527,13 @@ function fromByteArray (uint8) {
 
 /***/ }),
 
+/***/ "1fee":
+/***/ (function(module, exports, __webpack_require__) {
+
+// extracted by mini-css-extract-plugin
+
+/***/ }),
+
 /***/ "23cb":
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -614,6 +628,29 @@ var hiddenKeys = enumBugKeys.concat('length', 'prototype');
 exports.f = Object.getOwnPropertyNames || function getOwnPropertyNames(O) {
   return internalObjectKeys(O, hiddenKeys);
 };
+
+
+/***/ }),
+
+/***/ "2532":
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+var $ = __webpack_require__("23e7");
+var notARegExp = __webpack_require__("5a34");
+var requireObjectCoercible = __webpack_require__("1d80");
+var toString = __webpack_require__("577e");
+var correctIsRegExpLogic = __webpack_require__("ab13");
+
+// `String.prototype.includes` method
+// https://tc39.es/ecma262/#sec-string.prototype.includes
+$({ target: 'String', proto: true, forced: !correctIsRegExpLogic('includes') }, {
+  includes: function includes(searchString /* , position = 0 */) {
+    return !!~toString(requireObjectCoercible(this))
+      .indexOf(toString(notARegExp(searchString)), arguments.length > 1 ? arguments[1] : undefined);
+  }
+});
 
 
 /***/ }),
@@ -1068,6 +1105,25 @@ module.exports = function (key) {
 
 /***/ }),
 
+/***/ "44e7":
+/***/ (function(module, exports, __webpack_require__) {
+
+var isObject = __webpack_require__("861d");
+var classof = __webpack_require__("c6b6");
+var wellKnownSymbol = __webpack_require__("b622");
+
+var MATCH = wellKnownSymbol('match');
+
+// `IsRegExp` abstract operation
+// https://tc39.es/ecma262/#sec-isregexp
+module.exports = function (it) {
+  var isRegExp;
+  return isObject(it) && ((isRegExp = it[MATCH]) !== undefined ? !!isRegExp : classof(it) == 'RegExp');
+};
+
+
+/***/ }),
+
 /***/ "485a":
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -1199,6 +1255,17 @@ module.exports = {
   // https://tc39.es/ecma262/#sec-array.prototype.indexof
   indexOf: createMethod(false)
 };
+
+
+/***/ }),
+
+/***/ "4efe":
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_RadioButtons_vue_vue_type_style_index_0_id_026cafe7_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("1fee");
+/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_RadioButtons_vue_vue_type_style_index_0_id_026cafe7_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_RadioButtons_vue_vue_type_style_index_0_id_026cafe7_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__);
+/* unused harmony reexport * */
 
 
 /***/ }),
@@ -2282,6 +2349,20 @@ proto.google.protobuf.Struct.fromJavaScript = function(obj) {
 
 /***/ }),
 
+/***/ "5a34":
+/***/ (function(module, exports, __webpack_require__) {
+
+var isRegExp = __webpack_require__("44e7");
+
+module.exports = function (it) {
+  if (isRegExp(it)) {
+    throw TypeError("The method doesn't accept regular expressions");
+  } return it;
+};
+
+
+/***/ }),
+
 /***/ "5c6c":
 /***/ (function(module, exports) {
 
@@ -2294,13 +2375,6 @@ module.exports = function (bitmap, value) {
   };
 };
 
-
-/***/ }),
-
-/***/ "5fb1":
-/***/ (function(module, exports, __webpack_require__) {
-
-// extracted by mini-css-extract-plugin
 
 /***/ }),
 
@@ -12593,12 +12667,12 @@ module.exports["default"] = module.exports, module.exports.__esModule = true;
 
 /***/ }),
 
-/***/ "7106":
+/***/ "70f8":
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_c10fb8ea_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("5fb1");
-/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_c10fb8ea_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_c10fb8ea_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_115ca42a_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("11cc");
+/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_115ca42a_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_115ca42a_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__);
 /* unused harmony reexport * */
 
 
@@ -14317,6 +14391,28 @@ if (isForced(NUMBER, !NativeNumber(' 0o1') || !NativeNumber('0b1') || NativeNumb
   NumberPrototype.constructor = NumberWrapper;
   redefine(global, NUMBER, NumberWrapper);
 }
+
+
+/***/ }),
+
+/***/ "ab13":
+/***/ (function(module, exports, __webpack_require__) {
+
+var wellKnownSymbol = __webpack_require__("b622");
+
+var MATCH = wellKnownSymbol('match');
+
+module.exports = function (METHOD_NAME) {
+  var regexp = /./;
+  try {
+    '/./'[METHOD_NAME](regexp);
+  } catch (error1) {
+    try {
+      regexp[MATCH] = false;
+      return '/./'[METHOD_NAME](regexp);
+    } catch (error2) { /* empty */ }
+  } return false;
+};
 
 
 /***/ }),
@@ -17769,6 +17865,29 @@ module.exports = function (object, names) {
   }
   return result;
 };
+
+
+/***/ }),
+
+/***/ "caad":
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+var $ = __webpack_require__("23e7");
+var $includes = __webpack_require__("4d64").includes;
+var addToUnscopables = __webpack_require__("44d2");
+
+// `Array.prototype.includes` method
+// https://tc39.es/ecma262/#sec-array.prototype.includes
+$({ target: 'Array', proto: true }, {
+  includes: function includes(el /* , fromIndex = 0 */) {
+    return $includes(this, el, arguments.length > 1 ? arguments[1] : undefined);
+  }
+});
+
+// https://tc39.es/ecma262/#sec-array.prototype-@@unscopables
+addToUnscopables('includes');
 
 
 /***/ }),
@@ -26116,12 +26235,12 @@ var external_commonjs_vue_commonjs2_vue_root_Vue_default = /*#__PURE__*/__webpac
 // EXTERNAL MODULE: ./src/styles.css
 var styles = __webpack_require__("3a62");
 
-// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"ea643cb6-vue-loader-template"}!./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/components/MotorDetail.vue?vue&type=template&id=c10fb8ea&scoped=true&
-var render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',{staticClass:"component"},[_c('div',{staticClass:"card"},[_c('h2',[_vm._v("Current Motor Status for "+_vm._s(_vm.motorName))]),_c('div',{staticClass:"details"},[_c('div',{staticClass:"detail"},[_c('h3',[_vm._v("General")]),_c('div',{staticClass:"details"},[_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Motor")]),(_vm.motorStatus.on)?_c('h3',{staticStyle:{"color":"var(--green-90)"}},[_vm._v("On")]):_c('h3',[_vm._v("Off")])]),_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Encoders Active")]),(_vm.motorStatus.positionSupported)?_c('h3',[_vm._v("Yes")]):_c('h3',[_vm._v("No")])]),_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Position")]),_c('h3',[_vm._v(_vm._s(_vm.motorStatus.position))])])])])])]),_c('div',{staticClass:"card"},[_c('h2',[_vm._v("Single Motor Control")]),_c('div',{staticClass:"details"},[_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Type of Rotation")]),_c('div',{staticClass:"details margin-bottom"},[_c('button',{class:[_vm.isContinuous ? 'blue' : 'clear'],on:{"click":function($event){_vm.isContinuous = true}}},[_vm._v(" Continuous ")]),_c('button',{class:[!_vm.isContinuous ? 'blue' : 'clear'],on:{"click":function($event){_vm.isContinuous = false}}},[_vm._v(" Defined ")])]),_c('p',{staticClass:"subtitle"},[_vm._v("Direction of Rotation")]),_c('div',{staticClass:"details margin-bottom"},[_c('button',{class:[_vm.isGoingForward ? 'blue' : 'clear'],on:{"click":function($event){_vm.isGoingForward = true}}},[_vm._v(" Forward ")]),_c('button',{class:[!_vm.isGoingForward ? 'blue' : 'clear'],on:{"click":function($event){_vm.isGoingForward = false}}},[_vm._v(" Backward ")])])]),_c('div',{staticClass:"detail",staticStyle:{"flex-grow":"1"}},[_c('label',{class:['subtitle', _vm.errors.revolutions ? 'error' : ''],attrs:{"for":"numberOfRotations"}},[_vm._v(" Number of Rotations ")]),_c('input',{directives:[{name:"model",rawName:"v-model",value:(_vm.numberOfRotations),expression:"numberOfRotations"}],class:['margin-bottom', _vm.errors.revolutions ? 'error' : ''],attrs:{"id":"numberOfRotations","name":"numberOfRotations","type":"text","placeholder":"Enter a number","min":"0","disabled":_vm.isContinuous},domProps:{"value":(_vm.numberOfRotations)},on:{"input":function($event){if($event.target.composing){ return; }_vm.numberOfRotations=$event.target.value}}}),_c('label',{class:['subtitle', _vm.errors.rpm ? 'error' : ''],attrs:{"for":"rotationsPerMinuteRange"}},[_vm._v(" Rotations Per Minute ")]),_c('div',{staticClass:"details"},[_c('input',{directives:[{name:"model",rawName:"v-model",value:(_vm.rotationsPerMinute),expression:"rotationsPerMinute"}],attrs:{"id":"rotationsPerMinuteRange","name":"rotationsPerMinuteRange","type":"range","min":"0","max":_vm.MAX_RPM},domProps:{"value":(_vm.rotationsPerMinute)},on:{"__r":function($event){_vm.rotationsPerMinute=$event.target.value}}}),_c('input',{directives:[{name:"model",rawName:"v-model",value:(_vm.rotationsPerMinute),expression:"rotationsPerMinute"}],class:['margin-bottom', _vm.errors.rpm ? 'error' : ''],attrs:{"name":"rotationsPerMinuteFinite","id":"rotationsPerMinuteFinite","type":"text","min":"0","max":_vm.MAX_RPM},domProps:{"value":(_vm.rotationsPerMinute)},on:{"input":function($event){if($event.target.composing){ return; }_vm.rotationsPerMinute=$event.target.value}}})])])]),_c('div',{staticClass:"details",staticStyle:{"justify-content":"flex-end"}},[_c('button',{staticClass:"red",on:{"click":_vm.stop}},[_c('i',{staticClass:"far fa-times-circle"}),_vm._v(" STOP ")]),_c('button',{staticClass:"green",on:{"click":_vm.emitCommand}},[_c('i',{staticClass:"fas fa-play"}),_vm._v(" RUN ")])])])])}
+// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"ea643cb6-vue-loader-template"}!./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/components/MotorDetail.vue?vue&type=template&id=115ca42a&scoped=true&
+var render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',{staticClass:"component"},[_c('div',{staticClass:"card"},[_c('h2',[_vm._v("Current Motor Status for "+_vm._s(_vm.motorName))]),_c('div',{staticClass:"details"},[_c('div',{staticClass:"detail"},[_c('h3',[_vm._v("General")]),_c('div',{staticClass:"details"},[_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Motor")]),(_vm.motorStatus.on)?_c('h3',{staticStyle:{"color":"var(--green-90)"}},[_vm._v("On")]):_c('h3',[_vm._v("Off")])]),_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Encoders Active")]),(_vm.motorStatus.positionSupported)?_c('h3',[_vm._v("Yes")]):_c('h3',[_vm._v("No")])]),_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Position")]),_c('h3',[_vm._v(_vm._s(_vm.motorStatus.position))])])])])])]),_c('div',{staticClass:"card"},[_c('h2',[_vm._v("Single Motor Control")]),_c('div',{staticClass:"details"},[_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Type of Rotation")]),_c('RadioButtons',{attrs:{"options":['Continuous', 'Discrete'],"defaultOption":_vm.isContinuous ? 'Continuous' : 'Discrete'},on:{"selectedOption":function($event){_vm.isContinuous = $event === 'Continuous'}}}),_c('p',{staticClass:"subtitle"},[_vm._v("Direction of Rotation")]),_c('RadioButtons',{attrs:{"options":['Backward', 'Forward'],"defaultOption":_vm.isGoingForward ? 'Forward' : 'Backward'},on:{"selectedOption":function($event){_vm.isGoingForward = $event === 'Forward'}}})],1),_c('div',{staticClass:"detail",staticStyle:{"flex-grow":"1"}},[_c('label',{class:['subtitle', _vm.errors.revolutions ? 'error' : ''],attrs:{"for":"numberOfRotations"}},[_vm._v(" Number of Rotations ")]),_c('input',{directives:[{name:"model",rawName:"v-model",value:(_vm.numberOfRotations),expression:"numberOfRotations"}],class:['margin-bottom', _vm.errors.revolutions ? 'error' : ''],attrs:{"id":"numberOfRotations","name":"numberOfRotations","type":"text","placeholder":"Enter a number","min":"0","disabled":_vm.isContinuous},domProps:{"value":(_vm.numberOfRotations)},on:{"input":function($event){if($event.target.composing){ return; }_vm.numberOfRotations=$event.target.value}}}),_c('label',{class:['subtitle', _vm.errors.rpm ? 'error' : ''],attrs:{"for":"rotationsPerMinuteRange"}},[_vm._v(" Rotations Per Minute ")]),_c('div',{staticClass:"details"},[_c('input',{directives:[{name:"model",rawName:"v-model",value:(_vm.rotationsPerMinute),expression:"rotationsPerMinute"}],attrs:{"id":"rotationsPerMinuteRange","name":"rotationsPerMinuteRange","type":"range","min":"0","max":_vm.MAX_RPM},domProps:{"value":(_vm.rotationsPerMinute)},on:{"__r":function($event){_vm.rotationsPerMinute=$event.target.value}}}),_c('input',{directives:[{name:"model",rawName:"v-model",value:(_vm.rotationsPerMinute),expression:"rotationsPerMinute"}],class:['margin-bottom', _vm.errors.rpm ? 'error' : ''],attrs:{"name":"rotationsPerMinuteFinite","id":"rotationsPerMinuteFinite","type":"text","min":"0","max":_vm.MAX_RPM},domProps:{"value":(_vm.rotationsPerMinute)},on:{"input":function($event){if($event.target.composing){ return; }_vm.rotationsPerMinute=$event.target.value}}})])])]),_c('div',{staticClass:"details",staticStyle:{"justify-content":"flex-end"}},[_c('button',{staticClass:"red",on:{"click":_vm.stop}},[_c('i',{staticClass:"far fa-times-circle"}),_vm._v(" STOP ")]),_c('button',{staticClass:"green",on:{"click":_vm.emitCommand}},[_c('i',{staticClass:"fas fa-play"}),_vm._v(" RUN ")])])])])}
 var staticRenderFns = []
 
 
-// CONCATENATED MODULE: ./src/components/MotorDetail.vue?vue&type=template&id=c10fb8ea&scoped=true&
+// CONCATENATED MODULE: ./src/components/MotorDetail.vue?vue&type=template&id=115ca42a&scoped=true&
 
 // CONCATENATED MODULE: ./node_modules/@babel/runtime/helpers/esm/setPrototypeOf.js
 function _setPrototypeOf(o, p) {
@@ -27187,7 +27306,205 @@ function Watch(path, options) {
 // EXTERNAL MODULE: /Users/njooma/Developer/core/dist/js/proto/api/v1/robot_pb.js
 var robot_pb = __webpack_require__("e873");
 
+// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"ea643cb6-vue-loader-template"}!./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/components/RadioButtons.vue?vue&type=template&id=026cafe7&scoped=true&
+var RadioButtonsvue_type_template_id_026cafe7_scoped_true_render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',{staticClass:"component"},[_c('div',{staticClass:"radio-buttons"},_vm._l((_vm.options),function(option){return _c('button',{key:option,class:[_vm.selected === option ? 'black' : 'clear'],attrs:{"disabled":_vm.isDisabled(option)},on:{"click":function($event){return _vm.selectOption(option)}}},[(_vm.selected === option)?_c('i',{staticClass:"fas fa-check"}):_vm._e(),_vm._v(" "+_vm._s(option)+" ")])}),0)])}
+var RadioButtonsvue_type_template_id_026cafe7_scoped_true_staticRenderFns = []
+
+
+// CONCATENATED MODULE: ./src/components/RadioButtons.vue?vue&type=template&id=026cafe7&scoped=true&
+
+// EXTERNAL MODULE: ./node_modules/core-js/modules/es.array.includes.js
+var es_array_includes = __webpack_require__("caad");
+
+// EXTERNAL MODULE: ./node_modules/core-js/modules/es.string.includes.js
+var es_string_includes = __webpack_require__("2532");
+
+// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js??ref--14-0!./node_modules/thread-loader/dist/cjs.js!./node_modules/babel-loader/lib!./node_modules/ts-loader??ref--14-3!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/components/RadioButtons.vue?vue&type=script&lang=ts&
+
+
+
+
+
+
+
+
+
+
+var RadioButtonsvue_type_script_lang_ts_MotorDetail = /*#__PURE__*/function (_Vue) {
+  _inherits(MotorDetail, _Vue);
+
+  var _super = _createSuper(MotorDetail);
+
+  function MotorDetail() {
+    var _this;
+
+    _classCallCheck(this, MotorDetail);
+
+    _this = _super.apply(this, arguments);
+    _this.selected = "";
+    return _this;
+  }
+
+  _createClass(MotorDetail, [{
+    key: "created",
+    value: function created() {
+      this.selected = this.defaultOption;
+    }
+  }, {
+    key: "isDisabled",
+    value: function isDisabled(option) {
+      var _this$disabledOptions;
+
+      return !!((_this$disabledOptions = this.disabledOptions) !== null && _this$disabledOptions !== void 0 && _this$disabledOptions.includes(option));
+    }
+  }, {
+    key: "selectOption",
+    value: function selectOption(option) {
+      this.selected = option;
+    }
+  }]);
+
+  return MotorDetail;
+}(external_commonjs_vue_commonjs2_vue_root_Vue_default.a);
+
+__decorate([Prop()], RadioButtonsvue_type_script_lang_ts_MotorDetail.prototype, "options", void 0);
+
+__decorate([Prop()], RadioButtonsvue_type_script_lang_ts_MotorDetail.prototype, "defaultOption", void 0);
+
+__decorate([Prop()], RadioButtonsvue_type_script_lang_ts_MotorDetail.prototype, "disabledOptions", void 0);
+
+__decorate([Emit()], RadioButtonsvue_type_script_lang_ts_MotorDetail.prototype, "selectOption", null);
+
+RadioButtonsvue_type_script_lang_ts_MotorDetail = __decorate([vue_class_component_esm], RadioButtonsvue_type_script_lang_ts_MotorDetail);
+/* harmony default export */ var RadioButtonsvue_type_script_lang_ts_ = (RadioButtonsvue_type_script_lang_ts_MotorDetail);
+// CONCATENATED MODULE: ./src/components/RadioButtons.vue?vue&type=script&lang=ts&
+ /* harmony default export */ var components_RadioButtonsvue_type_script_lang_ts_ = (RadioButtonsvue_type_script_lang_ts_); 
+// EXTERNAL MODULE: ./src/components/RadioButtons.vue?vue&type=style&index=0&id=026cafe7&scoped=true&lang=css&
+var RadioButtonsvue_type_style_index_0_id_026cafe7_scoped_true_lang_css_ = __webpack_require__("4efe");
+
+// CONCATENATED MODULE: ./node_modules/vue-loader/lib/runtime/componentNormalizer.js
+/* globals __VUE_SSR_CONTEXT__ */
+
+// IMPORTANT: Do NOT use ES2015 features in this file (except for modules).
+// This module is a runtime utility for cleaner component module output and will
+// be included in the final webpack user bundle.
+
+function normalizeComponent (
+  scriptExports,
+  render,
+  staticRenderFns,
+  functionalTemplate,
+  injectStyles,
+  scopeId,
+  moduleIdentifier, /* server only */
+  shadowMode /* vue-cli only */
+) {
+  // Vue.extend constructor export interop
+  var options = typeof scriptExports === 'function'
+    ? scriptExports.options
+    : scriptExports
+
+  // render functions
+  if (render) {
+    options.render = render
+    options.staticRenderFns = staticRenderFns
+    options._compiled = true
+  }
+
+  // functional template
+  if (functionalTemplate) {
+    options.functional = true
+  }
+
+  // scopedId
+  if (scopeId) {
+    options._scopeId = 'data-v-' + scopeId
+  }
+
+  var hook
+  if (moduleIdentifier) { // server build
+    hook = function (context) {
+      // 2.3 injection
+      context =
+        context || // cached call
+        (this.$vnode && this.$vnode.ssrContext) || // stateful
+        (this.parent && this.parent.$vnode && this.parent.$vnode.ssrContext) // functional
+      // 2.2 with runInNewContext: true
+      if (!context && typeof __VUE_SSR_CONTEXT__ !== 'undefined') {
+        context = __VUE_SSR_CONTEXT__
+      }
+      // inject component styles
+      if (injectStyles) {
+        injectStyles.call(this, context)
+      }
+      // register component module identifier for async chunk inferrence
+      if (context && context._registeredComponents) {
+        context._registeredComponents.add(moduleIdentifier)
+      }
+    }
+    // used by ssr in case component is cached and beforeCreate
+    // never gets called
+    options._ssrRegister = hook
+  } else if (injectStyles) {
+    hook = shadowMode
+      ? function () {
+        injectStyles.call(
+          this,
+          (options.functional ? this.parent : this).$root.$options.shadowRoot
+        )
+      }
+      : injectStyles
+  }
+
+  if (hook) {
+    if (options.functional) {
+      // for template-only hot-reload because in that case the render fn doesn't
+      // go through the normalizer
+      options._injectStyles = hook
+      // register for functional component in vue file
+      var originalRender = options.render
+      options.render = function renderWithStyleInjection (h, context) {
+        hook.call(context)
+        return originalRender(h, context)
+      }
+    } else {
+      // inject component registration as beforeCreate hook
+      var existing = options.beforeCreate
+      options.beforeCreate = existing
+        ? [].concat(existing, hook)
+        : [hook]
+    }
+  }
+
+  return {
+    exports: scriptExports,
+    options: options
+  }
+}
+
+// CONCATENATED MODULE: ./src/components/RadioButtons.vue
+
+
+
+
+
+
+/* normalize component */
+
+var component = normalizeComponent(
+  components_RadioButtonsvue_type_script_lang_ts_,
+  RadioButtonsvue_type_template_id_026cafe7_scoped_true_render,
+  RadioButtonsvue_type_template_id_026cafe7_scoped_true_staticRenderFns,
+  false,
+  null,
+  "026cafe7",
+  null
+  
+)
+
+/* harmony default export */ var RadioButtons = (component.exports);
 // CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js??ref--14-0!./node_modules/thread-loader/dist/cjs.js!./node_modules/babel-loader/lib!./node_modules/ts-loader??ref--14-3!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/components/MotorDetail.vue?vue&type=script&lang=ts&
+
 
 
 
@@ -27436,112 +27753,16 @@ __decorate([Prop()], MotorDetailvue_type_script_lang_ts_MotorDetail.prototype, "
 
 __decorate([Prop()], MotorDetailvue_type_script_lang_ts_MotorDetail.prototype, "motorStatus", void 0);
 
-MotorDetailvue_type_script_lang_ts_MotorDetail = __decorate([vue_class_component_esm], MotorDetailvue_type_script_lang_ts_MotorDetail);
+MotorDetailvue_type_script_lang_ts_MotorDetail = __decorate([vue_class_component_esm({
+  components: {
+    RadioButtons: RadioButtons
+  }
+})], MotorDetailvue_type_script_lang_ts_MotorDetail);
 /* harmony default export */ var MotorDetailvue_type_script_lang_ts_ = (MotorDetailvue_type_script_lang_ts_MotorDetail);
 // CONCATENATED MODULE: ./src/components/MotorDetail.vue?vue&type=script&lang=ts&
  /* harmony default export */ var components_MotorDetailvue_type_script_lang_ts_ = (MotorDetailvue_type_script_lang_ts_); 
-// EXTERNAL MODULE: ./src/components/MotorDetail.vue?vue&type=style&index=0&id=c10fb8ea&scoped=true&lang=css&
-var MotorDetailvue_type_style_index_0_id_c10fb8ea_scoped_true_lang_css_ = __webpack_require__("7106");
-
-// CONCATENATED MODULE: ./node_modules/vue-loader/lib/runtime/componentNormalizer.js
-/* globals __VUE_SSR_CONTEXT__ */
-
-// IMPORTANT: Do NOT use ES2015 features in this file (except for modules).
-// This module is a runtime utility for cleaner component module output and will
-// be included in the final webpack user bundle.
-
-function normalizeComponent (
-  scriptExports,
-  render,
-  staticRenderFns,
-  functionalTemplate,
-  injectStyles,
-  scopeId,
-  moduleIdentifier, /* server only */
-  shadowMode /* vue-cli only */
-) {
-  // Vue.extend constructor export interop
-  var options = typeof scriptExports === 'function'
-    ? scriptExports.options
-    : scriptExports
-
-  // render functions
-  if (render) {
-    options.render = render
-    options.staticRenderFns = staticRenderFns
-    options._compiled = true
-  }
-
-  // functional template
-  if (functionalTemplate) {
-    options.functional = true
-  }
-
-  // scopedId
-  if (scopeId) {
-    options._scopeId = 'data-v-' + scopeId
-  }
-
-  var hook
-  if (moduleIdentifier) { // server build
-    hook = function (context) {
-      // 2.3 injection
-      context =
-        context || // cached call
-        (this.$vnode && this.$vnode.ssrContext) || // stateful
-        (this.parent && this.parent.$vnode && this.parent.$vnode.ssrContext) // functional
-      // 2.2 with runInNewContext: true
-      if (!context && typeof __VUE_SSR_CONTEXT__ !== 'undefined') {
-        context = __VUE_SSR_CONTEXT__
-      }
-      // inject component styles
-      if (injectStyles) {
-        injectStyles.call(this, context)
-      }
-      // register component module identifier for async chunk inferrence
-      if (context && context._registeredComponents) {
-        context._registeredComponents.add(moduleIdentifier)
-      }
-    }
-    // used by ssr in case component is cached and beforeCreate
-    // never gets called
-    options._ssrRegister = hook
-  } else if (injectStyles) {
-    hook = shadowMode
-      ? function () {
-        injectStyles.call(
-          this,
-          (options.functional ? this.parent : this).$root.$options.shadowRoot
-        )
-      }
-      : injectStyles
-  }
-
-  if (hook) {
-    if (options.functional) {
-      // for template-only hot-reload because in that case the render fn doesn't
-      // go through the normalizer
-      options._injectStyles = hook
-      // register for functional component in vue file
-      var originalRender = options.render
-      options.render = function renderWithStyleInjection (h, context) {
-        hook.call(context)
-        return originalRender(h, context)
-      }
-    } else {
-      // inject component registration as beforeCreate hook
-      var existing = options.beforeCreate
-      options.beforeCreate = existing
-        ? [].concat(existing, hook)
-        : [hook]
-    }
-  }
-
-  return {
-    exports: scriptExports,
-    options: options
-  }
-}
+// EXTERNAL MODULE: ./src/components/MotorDetail.vue?vue&type=style&index=0&id=115ca42a&scoped=true&lang=css&
+var MotorDetailvue_type_style_index_0_id_115ca42a_scoped_true_lang_css_ = __webpack_require__("70f8");
 
 // CONCATENATED MODULE: ./src/components/MotorDetail.vue
 
@@ -27552,18 +27773,18 @@ function normalizeComponent (
 
 /* normalize component */
 
-var component = normalizeComponent(
+var MotorDetail_component = normalizeComponent(
   components_MotorDetailvue_type_script_lang_ts_,
   render,
   staticRenderFns,
   false,
   null,
-  "c10fb8ea",
+  "115ca42a",
   null
   
 )
 
-/* harmony default export */ var components_MotorDetail = (component.exports);
+/* harmony default export */ var components_MotorDetail = (MotorDetail_component.exports);
 // CONCATENATED MODULE: ./src/lib.ts
 
 
