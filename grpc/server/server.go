@@ -23,7 +23,6 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/board"
-	"go.viam.com/core/config"
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/grpc"
@@ -33,6 +32,7 @@ import (
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/vision/segmentation"
 
 	// Engines
@@ -91,17 +91,17 @@ func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigRes
 		if c.Frame != nil {
 			orientation := c.Frame.Orientation
 			if orientation == nil {
-				orientation = config.NewOrientation()
+				orientation = spatialmath.NewZeroOrientation()
 			}
 			cc.Parent = c.Frame.Parent
 			cc.Pose = &pb.ArmPosition{
 				X:     c.Frame.Translation.X,
 				Y:     c.Frame.Translation.Y,
 				Z:     c.Frame.Translation.Z,
-				OX:    orientation.Value.OrientationVectorDegrees().OX,
-				OY:    orientation.Value.OrientationVectorDegrees().OY,
-				OZ:    orientation.Value.OrientationVectorDegrees().OZ,
-				Theta: orientation.Value.OrientationVectorDegrees().Theta,
+				OX:    orientation.OrientationVectorDegrees().OX,
+				OY:    orientation.OrientationVectorDegrees().OY,
+				OZ:    orientation.OrientationVectorDegrees().OZ,
+				Theta: orientation.OrientationVectorDegrees().Theta,
 			}
 		}
 		resp.Components = append(resp.Components, cc)

@@ -29,61 +29,55 @@ func TestOrientation(t *testing.T) {
 	// go through each test case
 
 	// Config with unknown orientation
-	frame := FrameConfig{}
+	frame := Frame{}
 	err = json.Unmarshal(testMap["wrong"], &frame)
 	test.That(t, err, test.ShouldBeError, errors.New("orientation type oiler_angles not recognized"))
 
 	// Empty Config
-	frame = FrameConfig{}
+	frame = Frame{}
 	err = json.Unmarshal(testMap["empty"], &frame)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame.Parent, test.ShouldEqual, "")
 	test.That(t, frame.Translation, test.ShouldResemble, Translation{0, 0, 0})
-	test.That(t, frame.Orientation.Type, test.ShouldEqual, "")
-	test.That(t, frame.Orientation.Value.Quaternion(), test.ShouldResemble, quat.Number{1, 0, 0, 0})
+	test.That(t, frame.Orientation.Quaternion(), test.ShouldResemble, quat.Number{1, 0, 0, 0})
 
 	// Mostly Empty Config
-	frame = FrameConfig{}
+	frame = Frame{}
 	err = json.Unmarshal(testMap["mostlyempty"], &frame)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame.Parent, test.ShouldEqual, "a")
 	test.That(t, frame.Translation, test.ShouldResemble, Translation{0, 0, 0})
-	test.That(t, frame.Orientation.Type, test.ShouldEqual, "")
-	test.That(t, frame.Orientation.Value.Quaternion(), test.ShouldResemble, quat.Number{1, 0, 0, 0})
+	test.That(t, frame.Orientation.Quaternion(), test.ShouldResemble, quat.Number{1, 0, 0, 0})
 
 	// OrientationVectorDegrees Config
-	frame = FrameConfig{}
+	frame = Frame{}
 	err = json.Unmarshal(testMap["ovdegrees"], &frame)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame.Parent, test.ShouldEqual, "a")
 	test.That(t, frame.Translation, test.ShouldResemble, Translation{1, 2, 3})
-	test.That(t, frame.Orientation.Type, test.ShouldEqual, "ov_degrees")
-	test.That(t, frame.Orientation.Value.OrientationVectorDegrees(), test.ShouldResemble, &spatial.OrientationVecDegrees{45, 0, 0, 1})
+	test.That(t, frame.Orientation.OrientationVectorDegrees(), test.ShouldResemble, &spatial.OrientationVecDegrees{45, 0, 0, 1})
 
 	// OrientationVector Radians Config
-	frame = FrameConfig{}
+	frame = Frame{}
 	err = json.Unmarshal(testMap["ovradians"], &frame)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame.Parent, test.ShouldEqual, "b")
 	test.That(t, frame.Translation, test.ShouldResemble, Translation{4, 5, 6})
-	test.That(t, frame.Orientation.Type, test.ShouldEqual, "ov_radians")
-	test.That(t, frame.Orientation.Value.OrientationVectorRadians(), test.ShouldResemble, &spatial.OrientationVec{0.78539816, 0, 1, 0})
+	test.That(t, frame.Orientation.OrientationVectorRadians(), test.ShouldResemble, &spatial.OrientationVec{0.78539816, 0, 1, 0})
 
 	// Euler Angles
-	frame = FrameConfig{}
+	frame = Frame{}
 	err = json.Unmarshal(testMap["euler"], &frame)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame.Parent, test.ShouldEqual, "c")
 	test.That(t, frame.Translation, test.ShouldResemble, Translation{7, 8, 9})
-	test.That(t, frame.Orientation.Type, test.ShouldEqual, "euler_angles")
-	test.That(t, frame.Orientation.Value.EulerAngles(), test.ShouldResemble, &spatial.EulerAngles{Roll: 0, Pitch: 0, Yaw: 45})
+	test.That(t, frame.Orientation.EulerAngles(), test.ShouldResemble, &spatial.EulerAngles{Roll: 0, Pitch: 0, Yaw: 45})
 
 	// Axis angles Config
-	frame = FrameConfig{}
+	frame = Frame{}
 	err = json.Unmarshal(testMap["axisangle"], &frame)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame.Parent, test.ShouldEqual, "d")
 	test.That(t, frame.Translation, test.ShouldResemble, Translation{0, 0, 0})
-	test.That(t, frame.Orientation.Type, test.ShouldEqual, "axis_angles")
-	test.That(t, frame.Orientation.Value.AxisAngles(), test.ShouldResemble, &spatial.R4AA{0.78539816, 1, 0, 0})
+	test.That(t, frame.Orientation.AxisAngles(), test.ShouldResemble, &spatial.R4AA{0.78539816, 1, 0, 0})
 }
