@@ -24,11 +24,14 @@
                     "y": 500,
                     "z": 1300
                 },
-                "ov_degrees": {
-                    "x": 0,
-                    "y": 0,
-                    "z": 1,
-                    "th": 180
+                "orientation": {
+                    "type": "ov_degrees",
+                   "value": { 
+                        "x": 0,
+                        "y": 0,
+                        "z": 1,
+                        "th": 180
+                   }
                 }
             }
         },
