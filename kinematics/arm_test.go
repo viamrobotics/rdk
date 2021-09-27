@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/core/arm"
 	pb "go.viam.com/core/proto/api/v1"
+	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
@@ -18,7 +19,7 @@ import (
 const toSolve = 100
 
 var (
-	home = arm.JointPositionsFromRadians([]float64{0, 0, 0, 0, 0, 0})
+	home = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	nCPU = runtime.NumCPU()
 	seed = rand.New(rand.NewSource(1))
 )
@@ -66,12 +67,12 @@ func BenchCombinedIKinematics(t *testing.B) {
 	// Used for benchmarking solve rate
 	solvedCnt := 0
 	for i := 0; i < toSolve; i++ {
-		randJointPos := arm.JointPositionsFromRadians(m.GenerateRandomJointPositions(seed))
-		randPos, err := ComputePosition(m, randJointPos)
+		randJointPos := m.GenerateRandomJointPositions(seed)
+		randPos, err := ComputePosition(m, arm.JointPositionsFromRadians(randJointPos))
 		test.That(t, err, test.ShouldBeNil)
 		solution, err := ik.Solve(context.Background(), randPos, home)
 		test.That(t, solution, test.ShouldNotBeNil)
-		test.That(t, checkGoodJointDelta([]float64{0, 0, 0, 0, 0, 0}, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
+		test.That(t, checkGoodJointDelta([]float64{0, 0, 0, 0, 0, 0}, frame.InputsToFloats(solution)), test.ShouldBeTrue)
 		if err == nil {
 			solvedCnt++
 		}
@@ -109,15 +110,16 @@ func TestIKTolerances(t *testing.T) {
 		OY: -3.3,
 		OZ: -1.11,
 	}
-	_, err = ik.Solve(context.Background(), pos, arm.JointPositionsFromRadians([]float64{0, 0}))
+	_, err = ik.Solve(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
 	m, err = ParseJSONFile(utils.ResolveFile("robots/varm/v1.json"))
 	test.That(t, err, test.ShouldBeNil)
 	ik = CreateCombinedIKSolver(m, logger, nCPU)
+	ik.SetSolveWeights(m.SolveWeights)
 
-	_, err = ik.Solve(context.Background(), pos, arm.JointPositionsFromRadians([]float64{0, 0}))
+	_, err = ik.Solve(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -158,49 +160,49 @@ func BenchNloptSwing(t *testing.B) {
 	// Test we are able to solve incremental changes without large joint swings
 	for i := 0; i < toSolve; i++ {
 		origRadians := m.GenerateRandomJointPositions(seed)
-		randJointPos := arm.JointPositionsFromRadians(origRadians)
-		randPos, err := ComputePosition(m, randJointPos)
+		randJointPos := frame.FloatsToInputs(origRadians)
+		randPos, err := ComputePosition(m, arm.JointPositionsFromRadians(origRadians))
 		test.That(t, err, test.ShouldBeNil)
 		randPos.X += 10
 		solution, err := ik.Solve(context.Background(), randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
+			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution)), test.ShouldBeTrue)
 		}
 
 		randPos.Y += 10
 		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
+			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution)), test.ShouldBeTrue)
 		}
 
 		randPos.Z += 10
 		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
+			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution)), test.ShouldBeTrue)
 		}
 
 		randPos.OX += 0.1
 		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
+			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution)), test.ShouldBeTrue)
 		}
 
 		randPos.OY += 0.1
 		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
+			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution)), test.ShouldBeTrue)
 		}
 
 		randPos.OZ += 0.1
 		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
+			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution)), test.ShouldBeTrue)
 		}
 
 		randPos.Theta += 45
 		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
+			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution)), test.ShouldBeTrue)
 		}
 	}
 }

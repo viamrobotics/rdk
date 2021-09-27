@@ -21,6 +21,7 @@ import (
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
+	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/utils"
@@ -213,11 +214,11 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error 
 	if err != nil {
 		return err
 	}
-	solution, err := ua.ik.Solve(ctx, pos, joints)
+	solution, err := ua.ik.Solve(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
-	return ua.MoveToJointPositions(ctx, solution)
+	return ua.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
 }
 
 // JointMoveDelta TODO
