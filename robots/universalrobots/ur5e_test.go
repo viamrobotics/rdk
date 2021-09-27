@@ -17,6 +17,7 @@ import (
 	"go.viam.com/core/arm"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
+	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 )
@@ -79,11 +80,11 @@ func testUR5eInverseKinements(t *testing.T, pos *pb.ArmPosition) {
 	test.That(t, err, test.ShouldBeNil)
 	ik := kinematics.CreateCombinedIKSolver(m, logger, 4)
 
-	solution, err := ik.Solve(ctx, pos, arm.JointPositionsFromRadians([]float64{0, 0, 0, 0, 0, 0}))
+	solution, err := ik.Solve(ctx, pos, frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}))
 	test.That(t, err, test.ShouldBeNil)
 
 	// we test that if we go forward from these joints, we end up in the same place
-	jointRadians := arm.JointPositionsToRadians(solution)
+	jointRadians := frame.InputsToFloats(solution)
 	fromDH := computeUR5ePosition(t, jointRadians)
 	test.That(t, pos.X, test.ShouldAlmostEqual, fromDH.X, .01)
 	test.That(t, pos.Y, test.ShouldAlmostEqual, fromDH.Y, .01)

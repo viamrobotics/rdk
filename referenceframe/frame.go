@@ -37,10 +37,24 @@ func FloatsToInputs(floats []float64) []Input {
 	return inputs
 }
 
+// InputsToFloats unwraps Inputs to raw floats
+func InputsToFloats(inputs []Input) []float64 {
+	floats := make([]float64, len(inputs))
+	for i, f := range inputs {
+		floats[i] = f.Value
+	}
+	return floats
+}
+
 // JointPosToInputs will take a pb.JointPositions which has values in Degrees, convert to Radians and wrap in Inputs
 func JointPosToInputs(jp *pb.JointPositions) []Input {
 	floats := arm.JointPositionsToRadians(jp)
 	return FloatsToInputs(floats)
+}
+
+// InputsToJointPos will take a slice of Inputs which are all joint position radians, and return a JointPositions struct.
+func InputsToJointPos(inputs []Input) *pb.JointPositions {
+	return arm.JointPositionsFromRadians(InputsToFloats(inputs))
 }
 
 // Frame represents a single reference frame, e.g. an arm, a joint, etc.

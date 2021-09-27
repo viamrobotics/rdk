@@ -16,6 +16,7 @@ import (
 	"go.viam.com/core/kinematics"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
+	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -233,11 +234,11 @@ func (a *ArmV1) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	if err != nil {
 		return err
 	}
-	solution, err := a.ik.Solve(ctx, pos, joints)
+	solution, err := a.ik.Solve(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
-	return a.MoveToJointPositions(ctx, solution)
+	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
 }
 
 func (a *ArmV1) moveJointToDegrees(ctx context.Context, m motor.Motor, j joint, curDegrees, gotoDegrees float64) error {
