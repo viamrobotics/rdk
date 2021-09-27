@@ -61,10 +61,10 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 	return buildFrameSystem("robot", names, children)
 }
 
-func makePoseFromConfig(f *config.FrameConfig) spatial.Pose {
+func makePoseFromConfig(f *config.Frame) spatial.Pose {
 	// get the translation vector. If there is no translation/orientation attribute will default to 0
 	translation := r3.Vector{f.Translation.X, f.Translation.Y, f.Translation.Z}
-	return spatial.NewPoseFromOrientation(translation, f.Orientation.Value)
+	return spatial.NewPoseFromOrientation(translation, f.Orientation)
 }
 
 func makeStaticFrame(comp *config.Component, name string) (ref.Frame, error) {

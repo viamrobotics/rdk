@@ -557,13 +557,10 @@ func TestClient(t *testing.T) {
 			{
 				Name: "a",
 				Type: config.ComponentTypeArm,
-				Frame: &config.FrameConfig{
+				Frame: &config.Frame{
 					Parent:      "b",
 					Translation: config.Translation{X: 1, Y: 2, Z: 3},
-					Orientation: &config.OrientationConfig{
-						Type:  "ov_degrees",
-						Value: &spatialmath.OrientationVecDegrees{OX: 0, OY: 0, OZ: 1.0000000000000002, Theta: 7},
-					},
+					Orientation: &spatialmath.OrientationVecDegrees{OX: 0, OY: 0, OZ: 1.0000000000000002, Theta: 7},
 				},
 			},
 		},

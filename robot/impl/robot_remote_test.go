@@ -226,13 +226,13 @@ func TestRemoteRobot(t *testing.T) {
 			Components: []config.Component{
 				{
 					Name: "foo",
-					Frame: &config.FrameConfig{
+					Frame: &config.Frame{
 						Parent: "bar",
 					},
 				},
 				{
 					Name: "bar",
-					Frame: &config.FrameConfig{
+					Frame: &config.Frame{
 						Parent: "",
 					},
 				},

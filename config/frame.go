@@ -10,7 +10,7 @@ import (
 // OrientationType defines what orientation representations are known
 type OrientationType string
 
-// The set
+// The set of allowed representations for orientation
 const (
 	OrientationVectorDegrees = OrientationType("ov_degrees")
 	OrientationVectorRadians = OrientationType("ov_radians")
@@ -25,83 +25,98 @@ type Translation struct {
 	Z float64 `json:"z"`
 }
 
-// FrameConfig the pose and parent of the frame that will be created.
-type FrameConfig struct {
-	Parent      string             `json:"parent"`
-	Translation Translation        `json:"translation"`
-	Orientation *OrientationConfig `json:"orientation"`
+/*
+Frame contains the information of the pose and parent of the frame that will be created.
+The Orientation field is an interface. When writing a config file, the orientation field should be of the form
+{
+	"orientation" : {
+		"type": "orientation_type"
+		"value" : {
+			"param0" : ...,
+			"param1" : ...,
+			etc.
+		}
+	}
+}
+*/
+type Frame struct {
+	Parent      string              `json:"parent"`
+	Translation Translation         `json:"translation"`
+	Orientation spatial.Orientation `json:"orientation"`
 }
 
-// OrientationConfig specifies the type of orientation representation that is used, and the orientation value.
-// The valid types are: "ov_degrees", "ov_radians", "euler_angles", and "axis_angles"
-type OrientationConfig struct {
-	Type  OrientationType     `json:"type"`
-	Value spatial.Orientation `json:"value"`
+// rawOrientation holds the underlying type of orientation struct, and the value of the struct.
+type rawOrientation struct {
+	Type  string          `json:"type"`
+	Value json.RawMessage `json:"value"`
 }
 
-// NewOrientation initializes an empty orientation config
-func NewOrientation() *OrientationConfig {
-	return &OrientationConfig{OrientationType(""), spatial.NewZeroOrientation()}
-}
+// UnmarshalJSON will parse the Orientation field into a spatial.Orientation object from a json.rawMessage
+func (fc *Frame) UnmarshalJSON(b []byte) error {
+	temp := struct {
+		Parent      string          `json:"parent"`
+		Translation Translation     `json:"translation"`
+		Orientation json.RawMessage `json:"orientation"`
+	}{}
 
-// UnmarshalJSON will set defaults for the FrameConfig if some fields are empty
-func (fc *FrameConfig) UnmarshalJSON(b []byte) error {
-	fc.Orientation = NewOrientation() // create a default orientation
-	type Alias FrameConfig            // alias to prevent endless loop
-	tmp := (*Alias)(fc)
-	return json.Unmarshal(b, tmp)
-}
-
-// UnmarshalJSON will use the Type field in OrientationConfig to unmarshal into the correct struct that implements Orientation
-func (oc *OrientationConfig) UnmarshalJSON(b []byte) error {
-	// unmarshal everything into a string:RawMessage pair
-	var objMap map[string]json.RawMessage
-	var err error
-	err = json.Unmarshal(b, &objMap)
+	err := json.Unmarshal(b, &temp)
 	if err != nil {
 		return err
 	}
-
-	// unmarshal the type
-	var objType string
-	err = json.Unmarshal(objMap["type"], &objType)
+	orientation, err := parseOrientation(temp.Orientation)
 	if err != nil {
 		return err
 	}
-	oc.Type = OrientationType(objType)
+	fc.Parent = temp.Parent
+	fc.Translation = temp.Translation
+	fc.Orientation = orientation
+	return nil
+}
+
+// parseOrientation will use the Type in rawOrientation to unmarshal the Value into the correct struct that implements Orientation.
+func parseOrientation(j json.RawMessage) (spatial.Orientation, error) {
+	// if there is no Orientation field, return a zero orientation
+	if len(j) == 0 {
+		return spatial.NewZeroOrientation(), nil
+	}
+
+	temp := rawOrientation{}
+	err := json.Unmarshal(j, &temp)
+	if err != nil {
+		return nil, err
+	}
 
 	// use the type to unmarshal the value
-	switch oc.Type {
+	switch OrientationType(temp.Type) {
 	case OrientationVectorDegrees:
 		var o spatial.OrientationVecDegrees
-		err = json.Unmarshal(objMap["value"], &o)
+		err = json.Unmarshal(temp.Value, &o)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		oc.Value = &o
+		return &o, nil
 	case OrientationVectorRadians:
 		var o spatial.OrientationVec
-		err = json.Unmarshal(objMap["value"], &o)
+		err = json.Unmarshal(temp.Value, &o)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		oc.Value = &o
+		return &o, nil
 	case AxisAngles:
 		var o spatial.R4AA
-		err = json.Unmarshal(objMap["value"], &o)
+		err = json.Unmarshal(temp.Value, &o)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		oc.Value = &o
+		return &o, nil
 	case EulerAngles:
 		var o spatial.EulerAngles
-		err = json.Unmarshal(objMap["value"], &o)
+		err = json.Unmarshal(temp.Value, &o)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		oc.Value = &o
+		return &o, nil
 	default:
-		return fmt.Errorf("orientation type %s not recognized", oc.Type)
+		return nil, fmt.Errorf("orientation type %s not recognized", temp.Type)
 	}
-	return nil
 }
