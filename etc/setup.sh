@@ -1,165 +1,136 @@
 #!/bin/bash
 
-set -e
-
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-ROOT_DIR="$DIR/../"
-PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')
-ARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
-if [ "$ARCH" = "x86_64" ]; then
-  ARCH=amd64
+if [ `whoami` == "root" ]; then
+	echo "Please do not run this script directly as root. Use your normal development user account."
+	exit 1
 fi
 
-ENV_OK=1
-if which go; then
-  echo "golang installed"
-else
-  ENV_OK=0
-  PREFIX="/usr/local/go"
-  sudo mkdir -p $PREFIX
-  VERSION="1.17" && \
-    curl -sSL \
-      "https://golang.org/dl/go${VERSION}.${PLATFORM}-${ARCH}.tar.gz" | \
-      sudo tar -xvzf - -C "${PREFIX}" --strip-components 1
-  export PATH=$PATH:/usr/local/go/bin
+if [ "`sudo whoami`x" != "rootx" ]; then
+	echo "Cannot sudo to root. Please correct (install/configure sudo for your user) and try again."
+	exit 1
 fi
 
-if [ "$(uname)" = "Linux" ]; then
-  DISTRO=`awk -F= '/^NAME/{print $2}' /etc/os-release | tr -d '"\n'`
-  case $DISTRO in
-    "Debian"|"Ubuntu")
-      sudo apt update
-      sudo apt -y install libvpx-dev libx264-dev pkg-config cmake
-      if which npm; then
-        echo "node installed"
-      else
-        curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash -
-        sudo apt-get install -y nodejs
-      fi
-      ;;
 
-    "Amazon Linux")
-      sudo yum -y install libvpx-devel git gcc cmake nasm gcc-c++
-      if which npm; then
-        echo "node installed"
-      else
-        curl -sL https://rpm.nodesource.com/setup_14.x | sudo bash -
-        sudo yum -y install nodejs
-      fi
-      if pkg-config --cflags x264; then
-        echo "x264 already setup"
-      else
-        TEMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'x264tmp')
-        cd $TEMP_DIR
-        git clone --depth=1 https://code.videolan.org/videolan/x264.git
-        cd x264
-        echo "building x264"
-        ./configure --prefix=/usr/local --enable-pic --enable-shared && make && sudo make install
-        cd $DIR
-      fi
-      ;;
-    *)
-      echo unknown distro $DISTRO
-      exit 1;
-      ;;
-  esac
+if [ "$(uname)" == "Linux" ]; then
 
-  if which buf; then
-        echo "buf installed"
-  else
-    PREFIX="/usr/local" && \
-    VERSION="0.42.1" && \
-      curl -sSL \
-        "https://github.com/bufbuild/buf/releases/download/v${VERSION}/buf-$(uname -s)-$(uname -m).tar.gz" | \
-        sudo tar -xvzf - -C "${PREFIX}" --strip-components 1
-    curl -L https://github.com/grpc/grpc-web/releases/download/1.2.1/protoc-gen-grpc-web-1.2.1-linux-x86_64 --output protoc-gen-grpc-web
-    chmod +x protoc-gen-grpc-web
-    sudo mv protoc-gen-grpc-web /usr/local/bin/
-    TEMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'protoctmp')
-    cd $TEMP_DIR
-    curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.17.3/protoc-3.17.3-linux-x86_64.zip
-    unzip protoc-3.17.3-linux-x86_64.zip
-    sudo cp bin/* /usr/local/bin
-    sudo cp -R include/* /usr/local/include
-    sudo chmod 755 /usr/local/bin/protoc
-    cd $DIR
-  fi
+	INSTALL_CMD=""
+	if apt --version > /dev/null 2>&1; then
+		# Debian/Ubuntu
+		INSTALL_CMD="apt install --assume-yes build-essential procps curl file git"
+	elif pacman --version > /dev/null 2>&1; then
+		# Arch
+		INSTALL_CMD="pacman -Sy --needed --noconfirm base-devel procps-ng curl git"
+	elif yum --version > /dev/null 2>&1; then
+		# Fedora/Redhat
+		INSTALL_CMD="yum -y install procps-ng curl file git libxcrypt-compat && yum -y groupinstall 'Development Tools'"
+	fi
+
+	sudo bash -c "$INSTALL_CMD"
+
+	if [ $? -ne 0 ]; then
+		echo "Package installation failed when running:"
+		echo "sudo bash -c \"$INSTALL_CMD\""
+		exit 1
+	fi
+
+	cat > ~/.viamdevrc <<-EOS
+	if [[ "\$VIAM_DEV_ENV"x == "x" ]]; then
+		export VIAM_DEV_ENV=1
+		eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+		export LIBRARY_PATH=/home/linuxbrew/.linuxbrew/lib
+		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
+	fi
+	EOS
+
+
+
+elif [ "$(uname)" == "Darwin" ]; then
+
+	if ! gcc --version >/dev/null 2>&1; then
+		echo "Please finish the Xcode CLI tools installation then rerun this script."
+		exit 1
+	fi
+
+
+	if [ "$(uname -m)" == "arm64" ]; then
+
+		cat > ~/.viamdevrc <<-EOS
+		if [[ "\$VIAM_DEV_ENV"x == "x" ]]; then
+			export VIAM_DEV_ENV=1
+			eval "\$(/opt/homebrew/bin/brew shellenv)"
+			export LIBRARY_PATH=/opt/homebrew/lib
+			export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
+		fi
+		EOS
+
+  else # assuming x86_64, but untested
+
+		cat > ~/.viamdevrc <<-EOS
+		if [[ "\$VIAM_DEV_ENV"x == "x" ]]; then
+			export VIAM_DEV_ENV=1
+			eval "\$(/usr/local/bin/brew shellenv)"
+			export LIBRARY_PATH=/usr/local/lib
+			export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
+		fi
+		EOS
+
+	fi
+
 fi
 
-if [ "$(uname)" = "Darwin" ]; then
-  if [ ! -d "/Applications/Xcode.app" ]; then
-    echo "You need to install Xcode"
-    exit 1
-  fi
-  brew tap bufbuild/buf
-  brew bundle --file=- <<-EOS
-    brew "libvpx"
-    brew "x264"
-    brew "pkgconfig"
-    brew "protobuf"
-    brew "buf"
-    brew "cmake"
+
+# Add dev environment variables to shells
+grep -q viamdevrc ~/.bash_profile || echo "source ~/.viamdevrc" >> ~/.bash_profile
+grep -q viamdevrc ~/.bashrc || echo "source ~/.viamdevrc" >> ~/.bashrc
+grep -q viamdevrc ~/.zshrc || echo "source ~/.viamdevrc" >> ~/.zshrc
+
+
+# Install brew
+brew --version > /dev/null 2>&1 || bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || exit 1
+
+# Has to be after the install so the brew eval can run
+source ~/.viamdevrc
+
+brew bundle --file=- <<-EOS
+
+tap  "bufbuild/buf"
+tap  "viamrobotics/brews"
+brew "gcc@5" #Needed for cgo
+brew "make"
+brew "cmake"
+brew "pkgconfig"
+brew "go"
+brew "protobuf"
+brew "buf"
+brew "protoc-gen-go"
+brew "protoc-gen-doc"
+brew "protoc-gen-go-grpc"
+brew "protoc-gen-grpc-web"
+brew "protoc-gen-grpc-gateway"
+brew "ts-protoc-gen"
+brew "grpcurl"
+brew "node"
+brew "nlopt"
+brew "libx11"
+brew "libxext"
+brew "libvpx"
+brew "x264"
+
 EOS
-  curl -L https://github.com/grpc/grpc-web/releases/download/1.2.1/protoc-gen-grpc-web-1.2.1-darwin-x86_64 --output protoc-gen-grpc-web
-  chmod +x protoc-gen-grpc-web
-  sudo mv protoc-gen-grpc-web /usr/local/bin/
+
+if [ $? -ne 0 ]; then
+	exit 1
 fi
 
-go install google.golang.org/protobuf/cmd/protoc-gen-go \
-  google.golang.org/grpc/cmd/protoc-gen-go-grpc \
-  github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
-  github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc \
-  github.com/fullstorydev/grpcurl/cmd/grpcurl
-
-sudo npm install -g ts-protoc-gen
-
-NLOPT_OK=1
-pkg-config nlopt || NLOPT_OK=0
-if [ $NLOPT_OK -eq 0 ] ; then
-  nlopttmp=$(mktemp -d 2>/dev/null || mktemp -d -t 'nlopttmp')
-  cd $nlopttmp
-  curl -O https://codeload.github.com/stevengj/nlopt/tar.gz/v2.7.0 && tar xzvf v2.7.0 && cd nlopt-2.7.0
-  rm -rf v2.7.0
-  cmake . && make -j$(getconf _NPROCESSORS_ONLN) && sudo make install
-  cd $ROOT_DIR
-  rm -rf $nlopttmp
+if [[ "`git rev-parse --is-inside-work-tree 2>/dev/null`x" == "truex" ]]; then
+	git config url.ssh://git@github.com/.insteadOf https://github.com/
+else
+	echo "It seems you weren't actually in the core repository. When you are, you may want to run:"
+	echo -e "\033[41m""git config url.ssh://git@github.com/.insteadOf https://github.com/""\033[0m"
 fi
 
-git init
-GIT_SSH_REWRITE_OK=$(git config --get url.ssh://git@github.com/.insteadOf) || true
-if [ "$GIT_SSH_REWRITE_OK" != "https://github.com/" ]; then
-  git config url.ssh://git@github.com/.insteadOf https://github.com/
-fi
 
-if [ "$(uname)" = "Linux" ]; then
-  echo $PKG_CONFIG_PATH | grep -q /usr/local/lib/pkgconfig || ENV_OK=0
-  echo $PKG_CONFIG_PATH | grep -q /usr/local/lib64/pkgconfig || ENV_OK=0
-  echo $PKG_CONFIG_PATH | grep -q /usr/lib/pkgconfig || ENV_OK=0
-fi
-echo $GOPRIVATE | grep -Fq "github.com/viamrobotics/*,go.viam.com/*" || ENV_OK=0
+echo -e "\033[0;32m""Dev environment setup is complete!""\033[0m"
+echo -e "Don't forget to restart your shell, or execute: ""\033[41m""source ~/.viamdevrc""\033[0m"
+exit 0
 
-if ((ENV_OK)) ; then
-	exit 0
-fi
-
-case $(basename $SHELL) in
-  bash)
-    echo "You need some exports in your .bashrc"
-    if [ "$(uname)" = "Linux" ]; then
-      echo 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH >> ~/.bashrc'
-    fi
-    echo 'echo export PATH=$PATH:/usr/local/go/bin  >> ~/.bashrc'
-    echo 'echo export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*  >> ~/.bashrc'
-    ;;
-
-  zsh)
-    echo "You need some exports in your .zshrc"
-    if [ "$(uname)" = "Linux" ]; then
-      echo 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH >> ~/.zshrc'
-    fi
-    echo 'echo export PATH=$PATH:/usr/local/go/bin  >> ~/.zshrc'
-    echo 'echo export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*  >> ~/.zshrc'
-    ;;
-  *)
-    ;;
-esac

@@ -24,6 +24,8 @@ const (
 	ResourceSubtypeMetadata = "metadata"
 	ResourceSubtypeRemote   = "remote"
 	ResourceSubtypeSensor   = "sensor"
+	ResourceSubtypeServo    = "servo"
+	ResourceSubtypeMotor    = "motor"
 )
 
 // Name represents a known component/service of a robot.

@@ -249,97 +249,6 @@ service RobotService {
     };  
   }
 
-  // Motor
-
-  // BoardMotorPower requests the motor of a board of the underlying robot to set its power.
-  rpc BoardMotorPower(BoardMotorPowerRequest) returns (BoardMotorPowerResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/board/{board_name}/motor/{motor_name}/power"
-    };
-  }
-
-  // BoardMotorGo requests the motor of a board of the underlying robot to go.
-  rpc BoardMotorGo(BoardMotorGoRequest) returns (BoardMotorGoResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/board/{board_name}/motor/{motor_name}/go"
-    };
-  }
-
-  // BoardMotorGoFor requests the motor of a board of the underlying robot to go for a certain amount based off
-  // the request.
-  rpc BoardMotorGoFor(BoardMotorGoForRequest) returns (BoardMotorGoForResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/board/{board_name}/motor/{motor_name}/go_for"
-    };
-  }
-
-  // BoardMotorGoTo requests the motor of a board of the underlying robot to move to a specific position.
-  rpc BoardMotorGoTo(BoardMotorGoToRequest) returns (BoardMotorGoToResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/board/{board_name}/motor/{motor_name}/go_to"
-    };
-  }
-
-  // BoardMotorGoTillStop requests the motor of a board of the underlying robot to move until stopped (either physically or by limit switch.)
-  rpc BoardMotorGoTillStop(BoardMotorGoTillStopRequest) returns (BoardMotorGoTillStopResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/board/{board_name}/motor/{motor_name}/go_till_stop"
-    };
-  }
-
-  // BoardMotorZero requests the motor of a board of the underlying robot to set a new zero/home position.
-  rpc BoardMotorZero(BoardMotorZeroRequest) returns (BoardMotorZeroResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/board/{board_name}/motor/{motor_name}/zero"
-    };
-  }
-
-  // BoardMotorPosition reports the position of the motor of a board of the underlying robot based on its encoder. If it's not supported, the returned
-  // data is undefined. The unit returned is the number of revolutions which is intended to be fed
-  // back into calls of BoardMotorGoFor.
-  rpc BoardMotorPosition(BoardMotorPositionRequest) returns (BoardMotorPositionResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/board/{board_name}/motor/{motor_name}/position"
-    };
-  }
-
-  // BoardMotorPositionSupported returns whether or not the motor of a board of the underlying robot supports reporting of its position which
-  // is reliant on having an encoder.
-  rpc BoardMotorPositionSupported(BoardMotorPositionSupportedRequest) returns (BoardMotorPositionSupportedResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/board/{board_name}/motor/{motor_name}/position_supported"
-    };
-  }
-
-  // BoardMotorOff turns the motor of a board of the underlying robot off.
-  rpc BoardMotorOff(BoardMotorOffRequest) returns (BoardMotorOffResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/board/{board_name}/motor/{motor_name}/off"
-    };
-  }
-
-  rpc BoardMotorIsOn(BoardMotorIsOnRequest) returns (BoardMotorIsOnResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/board/{board_name}/motor/{motor_name}/is_on"
-    };
-  }
-
-  // Servo
-
-  // BoardServoMove requests the servo of a board of the underlying robot to move.
-  rpc BoardServoMove(BoardServoMoveRequest) returns (BoardServoMoveResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/board/{board_name}/servo/{servo_name}/move"
-    };
-  }
-
-  // BoardServoCurrent returns the current set angle (degrees) of the servo a board of the underlying robot.
-  rpc BoardServoCurrent(BoardServoCurrentRequest) returns (BoardServoCurrentResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/board/{board_name}/servo/{servo_name}/current"
-    };
-  }
-
   // Analog Reader
 
   // BoardAnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
@@ -425,6 +334,97 @@ service RobotService {
       post: "/api/v1/functions/execute_code"
     }; 
   }
+
+  // Servo
+
+  // ServoMove requests the servo of the underlying robot to move.
+  rpc ServoMove(ServoMoveRequest) returns (ServoMoveResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/servo/{name}/move"
+    };
+  }
+
+  // ServoCurrent returns the current set angle (degrees) of the servo of the underlying robot.
+  rpc ServoCurrent(ServoCurrentRequest) returns (ServoCurrentResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/servo/{name}/current"
+    };
+  }
+
+  // Motor
+
+  // MotorPower requests the motor of a board of the underlying robot to set its power.
+  rpc MotorPower(MotorPowerRequest) returns (MotorPowerResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/motor/{name}/power"
+    };
+  }
+
+  // MotorGo requests the motor of a board of the underlying robot to go.
+  rpc MotorGo(MotorGoRequest) returns (MotorGoResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/motor/{name}/go"
+    };
+  }
+
+  // MotorGoFor requests the motor of a board of the underlying robot to go for a certain amount based off
+  // the request.
+  rpc MotorGoFor(MotorGoForRequest) returns (MotorGoForResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/motor/{name}/go_for"
+    };
+  }
+
+  // MotorGoTo requests the motor of a board of the underlying robot to move to a specific position.
+  rpc MotorGoTo(MotorGoToRequest) returns (MotorGoToResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/motor/{name}/go_to"
+    };
+  }
+
+  // MotorGoTillStop requests the motor of a board of the underlying robot to move until stopped (either physically or by limit switch.)
+  rpc MotorGoTillStop(MotorGoTillStopRequest) returns (MotorGoTillStopResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/motor/{name}/go_till_stop"
+    };
+  }
+
+  // MotorZero requests the motor of a board of the underlying robot to set a new zero/home position.
+  rpc MotorZero(MotorZeroRequest) returns (MotorZeroResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/motor/{name}/zero"
+    };
+  }
+
+  // MotorPosition reports the position of the motor of a board of the underlying robot based on its encoder. If it's not supported, the returned
+  // data is undefined. The unit returned is the number of revolutions which is intended to be fed
+  // back into calls of MotorGoFor.
+  rpc MotorPosition(MotorPositionRequest) returns (MotorPositionResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/motor/{name}/position"
+    };
+  }
+
+  // MotorPositionSupported returns whether or not the motor of a board of the underlying robot supports reporting of its position which
+  // is reliant on having an encoder.
+  rpc MotorPositionSupported(MotorPositionSupportedRequest) returns (MotorPositionSupportedResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/motor/{name}/position_supported"
+    };
+  }
+
+  // MotorOff turns the motor of a board of the underlying robot off.
+  rpc MotorOff(MotorOffRequest) returns (MotorOffResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/motor/{name}/off"
+    };
+  }
+
+  rpc MotorIsOn(MotorIsOnRequest) returns (MotorIsOnResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/motor/{name}/is_on"
+    };
+  }
 }
 
 message StatusRequest {}
@@ -450,6 +450,8 @@ message Status {
   map<string, bool> lidars = 6;
   map<string, SensorStatus> sensors = 7;
   map<string, bool> functions = 8;
+  map<string, ServoStatus> servos = 9;
+  map<string, MotorStatus> motors = 10;
 }
 
 message ComponentConfig {
@@ -715,20 +717,8 @@ message LidarAngularResolutionResponse {
 // Board
 
 message BoardStatus {
-  map<string, MotorStatus> motors = 1;
-  map<string, ServoStatus> servos = 2;
-  map<string, AnalogStatus> analogs = 3;
-  map<string, DigitalInterruptStatus> digital_interrupts = 4;
-}
-
-message MotorStatus {
-  bool on = 1;
-  bool position_supported = 2;
-  double position = 3;
-}
-
-message ServoStatus {
-  uint32 angle = 1;
+  map<string, AnalogStatus> analogs = 1;
+  map<string, DigitalInterruptStatus> digital_interrupts = 2;
 }
 
 message AnalogStatus {
@@ -782,114 +772,6 @@ message BoardPWMSetFrequencyRequest {
   string name = 1;
   string pin = 2;
   uint64 frequency = 3;
-}
-
-// Motor
-
-message BoardMotorPowerRequest {
-  string board_name = 1;
-  string motor_name = 2;
-  float power_pct = 3;
-}
-
-message BoardMotorPowerResponse {}
-
-message BoardMotorGoRequest {
-  string board_name = 1;
-  string motor_name = 2;
-  DirectionRelative direction = 3; 
-  float power_pct = 4;
-}
-
-message BoardMotorGoResponse {}
-
-message BoardMotorGoForRequest {
-  string board_name = 1;
-  string motor_name = 2;
-  DirectionRelative direction = 3;
-  double rpm = 4;
-  double revolutions = 5;
-}
-
-message BoardMotorGoForResponse {}
-
-message BoardMotorGoToRequest {
-  string board_name = 1;
-  string motor_name = 2;
-  double rpm = 3;
-  double position = 4;
-}
-
-message BoardMotorGoToResponse {}
-
-message BoardMotorGoTillStopRequest {
-  string board_name = 1;
-  string motor_name = 2;
-  DirectionRelative direction = 3;
-  double rpm = 4;
-}
-
-message BoardMotorGoTillStopResponse {}
-
-message BoardMotorZeroRequest {
-  string board_name = 1;
-  string motor_name = 2;
-  double offset = 3;
-}
-
-message BoardMotorZeroResponse {}
-
-message BoardMotorPositionRequest {
-  string board_name = 1;
-  string motor_name = 2;
-}
-
-message BoardMotorPositionResponse {
-  double position = 1;
-}
-
-message BoardMotorPositionSupportedRequest {
-  string board_name = 1;
-  string motor_name = 2;
-}
-
-message BoardMotorPositionSupportedResponse {
-  bool supported = 1;
-}
-
-message BoardMotorOffRequest {
-  string board_name = 1;
-  string motor_name = 2;
-}
-
-message BoardMotorOffResponse {}
-
-message BoardMotorIsOnRequest {
-  string board_name = 1;
-  string motor_name = 2;
-}
-
-message BoardMotorIsOnResponse {
-  bool is_on = 1;
-}
-
-// Servo
-
-message BoardServoMoveRequest {
-  string board_name = 1;
-  string servo_name = 2;
-  uint32 angle_deg = 3; // (0-180)
-}
-
-message BoardServoMoveResponse {}
-
-message BoardServoCurrentRequest {
-  string board_name = 1;
-  string servo_name = 2;
-}
-
-message BoardServoCurrentResponse {
-  uint32 angle_deg = 1; // (0-180)
 }
 
 // Analog Reader
@@ -1007,3 +889,108 @@ message ExecuteSourceResponse {
   string std_err = 3;
 }
 
+message MotorStatus {
+  bool on = 1;
+  bool position_supported = 2;
+  double position = 3;
+}
+
+message ServoStatus {
+  uint32 angle = 1;
+}
+
+// Servo
+
+message ServoMoveRequest {
+  string name = 1;
+  uint32 angle_deg = 2; // (0-180)
+}
+
+message ServoMoveResponse {}
+
+message ServoCurrentRequest {
+  string name = 1;
+}
+
+message ServoCurrentResponse {
+  uint32 angle_deg = 1; // (0-180)
+}
+
+// Motor
+
+message MotorPowerRequest {
+  string name = 1;
+  float power_pct = 2;
+}
+
+message MotorPowerResponse {}
+
+message MotorGoRequest {
+  string name = 1;
+  DirectionRelative direction = 2; 
+  float power_pct = 3;
+}
+
+message MotorGoResponse {}
+
+message MotorGoForRequest {
+  string name = 1;
+  DirectionRelative direction = 2;
+  double rpm = 3;
+  double revolutions = 4;
+}
+
+message MotorGoForResponse {}
+
+message MotorGoToRequest {
+  string name = 1;
+  double rpm = 2;
+  double position = 3;
+}
+
+message MotorGoToResponse {}
+
+message MotorGoTillStopRequest {
+  string name = 1;
+  DirectionRelative direction = 2;
+  double rpm = 3;
+}
+
+message MotorGoTillStopResponse {}
+
+message MotorZeroRequest {
+  string name = 1;
+  double offset = 2;
+}
+
+message MotorZeroResponse {}
+
+message MotorPositionRequest {
+  string name = 1;
+}
+
+message MotorPositionResponse {
+  double position = 1;
+}
+
+message MotorPositionSupportedRequest {
+  string name = 1;
+}
+
+message MotorPositionSupportedResponse {
+  bool supported = 1;
+}
+
+message MotorOffRequest {
+  string name = 1;
+}
+
+message MotorOffResponse {}
+
+message MotorIsOnRequest {
+  string name = 1;
+}
+
+message MotorIsOnResponse {
+  bool is_on = 1;
+}

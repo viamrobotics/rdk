@@ -284,114 +284,6 @@ type RobotServiceBoardPWMSetFrequency = {
   readonly responseType: typeof proto_api_v1_robot_pb.BoardPWMSetFrequencyResponse;
 };
 
-type RobotServiceBoardMotorPower = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.BoardMotorPowerRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.BoardMotorPowerResponse;
-};
-
-type RobotServiceBoardMotorGo = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.BoardMotorGoRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.BoardMotorGoResponse;
-};
-
-type RobotServiceBoardMotorGoFor = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.BoardMotorGoForRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.BoardMotorGoForResponse;
-};
-
-type RobotServiceBoardMotorGoTo = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.BoardMotorGoToRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.BoardMotorGoToResponse;
-};
-
-type RobotServiceBoardMotorGoTillStop = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.BoardMotorGoTillStopRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.BoardMotorGoTillStopResponse;
-};
-
-type RobotServiceBoardMotorZero = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.BoardMotorZeroRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.BoardMotorZeroResponse;
-};
-
-type RobotServiceBoardMotorPosition = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.BoardMotorPositionRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.BoardMotorPositionResponse;
-};
-
-type RobotServiceBoardMotorPositionSupported = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.BoardMotorPositionSupportedRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.BoardMotorPositionSupportedResponse;
-};
-
-type RobotServiceBoardMotorOff = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.BoardMotorOffRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.BoardMotorOffResponse;
-};
-
-type RobotServiceBoardMotorIsOn = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.BoardMotorIsOnRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.BoardMotorIsOnResponse;
-};
-
-type RobotServiceBoardServoMove = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.BoardServoMoveRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.BoardServoMoveResponse;
-};
-
-type RobotServiceBoardServoCurrent = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.BoardServoCurrentRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.BoardServoCurrentResponse;
-};
-
 type RobotServiceBoardAnalogReaderRead = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -491,6 +383,114 @@ type RobotServiceExecuteSource = {
   readonly responseType: typeof proto_api_v1_robot_pb.ExecuteSourceResponse;
 };
 
+type RobotServiceServoMove = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.ServoMoveRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.ServoMoveResponse;
+};
+
+type RobotServiceServoCurrent = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.ServoCurrentRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.ServoCurrentResponse;
+};
+
+type RobotServiceMotorPower = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.MotorPowerRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.MotorPowerResponse;
+};
+
+type RobotServiceMotorGo = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.MotorGoRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.MotorGoResponse;
+};
+
+type RobotServiceMotorGoFor = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.MotorGoForRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.MotorGoForResponse;
+};
+
+type RobotServiceMotorGoTo = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.MotorGoToRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.MotorGoToResponse;
+};
+
+type RobotServiceMotorGoTillStop = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.MotorGoTillStopRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.MotorGoTillStopResponse;
+};
+
+type RobotServiceMotorZero = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.MotorZeroRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.MotorZeroResponse;
+};
+
+type RobotServiceMotorPosition = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.MotorPositionRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.MotorPositionResponse;
+};
+
+type RobotServiceMotorPositionSupported = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.MotorPositionSupportedRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.MotorPositionSupportedResponse;
+};
+
+type RobotServiceMotorOff = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.MotorOffRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.MotorOffResponse;
+};
+
+type RobotServiceMotorIsOn = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.MotorIsOnRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.MotorIsOnResponse;
+};
+
 export class RobotService {
   static readonly serviceName: string;
   static readonly Status: RobotServiceStatus;
@@ -524,18 +524,6 @@ export class RobotService {
   static readonly BoardGPIOGet: RobotServiceBoardGPIOGet;
   static readonly BoardPWMSet: RobotServiceBoardPWMSet;
   static readonly BoardPWMSetFrequency: RobotServiceBoardPWMSetFrequency;
-  static readonly BoardMotorPower: RobotServiceBoardMotorPower;
-  static readonly BoardMotorGo: RobotServiceBoardMotorGo;
-  static readonly BoardMotorGoFor: RobotServiceBoardMotorGoFor;
-  static readonly BoardMotorGoTo: RobotServiceBoardMotorGoTo;
-  static readonly BoardMotorGoTillStop: RobotServiceBoardMotorGoTillStop;
-  static readonly BoardMotorZero: RobotServiceBoardMotorZero;
-  static readonly BoardMotorPosition: RobotServiceBoardMotorPosition;
-  static readonly BoardMotorPositionSupported: RobotServiceBoardMotorPositionSupported;
-  static readonly BoardMotorOff: RobotServiceBoardMotorOff;
-  static readonly BoardMotorIsOn: RobotServiceBoardMotorIsOn;
-  static readonly BoardServoMove: RobotServiceBoardServoMove;
-  static readonly BoardServoCurrent: RobotServiceBoardServoCurrent;
   static readonly BoardAnalogReaderRead: RobotServiceBoardAnalogReaderRead;
   static readonly BoardDigitalInterruptConfig: RobotServiceBoardDigitalInterruptConfig;
   static readonly BoardDigitalInterruptValue: RobotServiceBoardDigitalInterruptValue;
@@ -547,6 +535,18 @@ export class RobotService {
   static readonly CompassMark: RobotServiceCompassMark;
   static readonly ExecuteFunction: RobotServiceExecuteFunction;
   static readonly ExecuteSource: RobotServiceExecuteSource;
+  static readonly ServoMove: RobotServiceServoMove;
+  static readonly ServoCurrent: RobotServiceServoCurrent;
+  static readonly MotorPower: RobotServiceMotorPower;
+  static readonly MotorGo: RobotServiceMotorGo;
+  static readonly MotorGoFor: RobotServiceMotorGoFor;
+  static readonly MotorGoTo: RobotServiceMotorGoTo;
+  static readonly MotorGoTillStop: RobotServiceMotorGoTillStop;
+  static readonly MotorZero: RobotServiceMotorZero;
+  static readonly MotorPosition: RobotServiceMotorPosition;
+  static readonly MotorPositionSupported: RobotServiceMotorPositionSupported;
+  static readonly MotorOff: RobotServiceMotorOff;
+  static readonly MotorIsOn: RobotServiceMotorIsOn;
 }
 
 export type ServiceError = { message: string, code: number; metadata: grpc.Metadata }
@@ -852,114 +852,6 @@ export class RobotServiceClient {
     requestMessage: proto_api_v1_robot_pb.BoardPWMSetFrequencyRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardPWMSetFrequencyResponse|null) => void
   ): UnaryResponse;
-  boardMotorPower(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorPowerRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorPowerResponse|null) => void
-  ): UnaryResponse;
-  boardMotorPower(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorPowerRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorPowerResponse|null) => void
-  ): UnaryResponse;
-  boardMotorGo(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorGoRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorGoResponse|null) => void
-  ): UnaryResponse;
-  boardMotorGo(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorGoRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorGoResponse|null) => void
-  ): UnaryResponse;
-  boardMotorGoFor(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorGoForRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorGoForResponse|null) => void
-  ): UnaryResponse;
-  boardMotorGoFor(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorGoForRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorGoForResponse|null) => void
-  ): UnaryResponse;
-  boardMotorGoTo(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorGoToRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorGoToResponse|null) => void
-  ): UnaryResponse;
-  boardMotorGoTo(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorGoToRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorGoToResponse|null) => void
-  ): UnaryResponse;
-  boardMotorGoTillStop(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorGoTillStopRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorGoTillStopResponse|null) => void
-  ): UnaryResponse;
-  boardMotorGoTillStop(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorGoTillStopRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorGoTillStopResponse|null) => void
-  ): UnaryResponse;
-  boardMotorZero(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorZeroRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorZeroResponse|null) => void
-  ): UnaryResponse;
-  boardMotorZero(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorZeroRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorZeroResponse|null) => void
-  ): UnaryResponse;
-  boardMotorPosition(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorPositionRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorPositionResponse|null) => void
-  ): UnaryResponse;
-  boardMotorPosition(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorPositionRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorPositionResponse|null) => void
-  ): UnaryResponse;
-  boardMotorPositionSupported(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorPositionSupportedRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorPositionSupportedResponse|null) => void
-  ): UnaryResponse;
-  boardMotorPositionSupported(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorPositionSupportedRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorPositionSupportedResponse|null) => void
-  ): UnaryResponse;
-  boardMotorOff(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorOffRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorOffResponse|null) => void
-  ): UnaryResponse;
-  boardMotorOff(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorOffRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorOffResponse|null) => void
-  ): UnaryResponse;
-  boardMotorIsOn(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorIsOnRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorIsOnResponse|null) => void
-  ): UnaryResponse;
-  boardMotorIsOn(
-    requestMessage: proto_api_v1_robot_pb.BoardMotorIsOnRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorIsOnResponse|null) => void
-  ): UnaryResponse;
-  boardServoMove(
-    requestMessage: proto_api_v1_robot_pb.BoardServoMoveRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardServoMoveResponse|null) => void
-  ): UnaryResponse;
-  boardServoMove(
-    requestMessage: proto_api_v1_robot_pb.BoardServoMoveRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardServoMoveResponse|null) => void
-  ): UnaryResponse;
-  boardServoCurrent(
-    requestMessage: proto_api_v1_robot_pb.BoardServoCurrentRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardServoCurrentResponse|null) => void
-  ): UnaryResponse;
-  boardServoCurrent(
-    requestMessage: proto_api_v1_robot_pb.BoardServoCurrentRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardServoCurrentResponse|null) => void
-  ): UnaryResponse;
   boardAnalogReaderRead(
     requestMessage: proto_api_v1_robot_pb.BoardAnalogReaderReadRequest,
     metadata: grpc.Metadata,
@@ -1058,6 +950,114 @@ export class RobotServiceClient {
   executeSource(
     requestMessage: proto_api_v1_robot_pb.ExecuteSourceRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ExecuteSourceResponse|null) => void
+  ): UnaryResponse;
+  servoMove(
+    requestMessage: proto_api_v1_robot_pb.ServoMoveRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoMoveResponse|null) => void
+  ): UnaryResponse;
+  servoMove(
+    requestMessage: proto_api_v1_robot_pb.ServoMoveRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoMoveResponse|null) => void
+  ): UnaryResponse;
+  servoCurrent(
+    requestMessage: proto_api_v1_robot_pb.ServoCurrentRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoCurrentResponse|null) => void
+  ): UnaryResponse;
+  servoCurrent(
+    requestMessage: proto_api_v1_robot_pb.ServoCurrentRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoCurrentResponse|null) => void
+  ): UnaryResponse;
+  motorPower(
+    requestMessage: proto_api_v1_robot_pb.MotorPowerRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorPowerResponse|null) => void
+  ): UnaryResponse;
+  motorPower(
+    requestMessage: proto_api_v1_robot_pb.MotorPowerRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorPowerResponse|null) => void
+  ): UnaryResponse;
+  motorGo(
+    requestMessage: proto_api_v1_robot_pb.MotorGoRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorGoResponse|null) => void
+  ): UnaryResponse;
+  motorGo(
+    requestMessage: proto_api_v1_robot_pb.MotorGoRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorGoResponse|null) => void
+  ): UnaryResponse;
+  motorGoFor(
+    requestMessage: proto_api_v1_robot_pb.MotorGoForRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorGoForResponse|null) => void
+  ): UnaryResponse;
+  motorGoFor(
+    requestMessage: proto_api_v1_robot_pb.MotorGoForRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorGoForResponse|null) => void
+  ): UnaryResponse;
+  motorGoTo(
+    requestMessage: proto_api_v1_robot_pb.MotorGoToRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorGoToResponse|null) => void
+  ): UnaryResponse;
+  motorGoTo(
+    requestMessage: proto_api_v1_robot_pb.MotorGoToRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorGoToResponse|null) => void
+  ): UnaryResponse;
+  motorGoTillStop(
+    requestMessage: proto_api_v1_robot_pb.MotorGoTillStopRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorGoTillStopResponse|null) => void
+  ): UnaryResponse;
+  motorGoTillStop(
+    requestMessage: proto_api_v1_robot_pb.MotorGoTillStopRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorGoTillStopResponse|null) => void
+  ): UnaryResponse;
+  motorZero(
+    requestMessage: proto_api_v1_robot_pb.MotorZeroRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorZeroResponse|null) => void
+  ): UnaryResponse;
+  motorZero(
+    requestMessage: proto_api_v1_robot_pb.MotorZeroRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorZeroResponse|null) => void
+  ): UnaryResponse;
+  motorPosition(
+    requestMessage: proto_api_v1_robot_pb.MotorPositionRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorPositionResponse|null) => void
+  ): UnaryResponse;
+  motorPosition(
+    requestMessage: proto_api_v1_robot_pb.MotorPositionRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorPositionResponse|null) => void
+  ): UnaryResponse;
+  motorPositionSupported(
+    requestMessage: proto_api_v1_robot_pb.MotorPositionSupportedRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorPositionSupportedResponse|null) => void
+  ): UnaryResponse;
+  motorPositionSupported(
+    requestMessage: proto_api_v1_robot_pb.MotorPositionSupportedRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorPositionSupportedResponse|null) => void
+  ): UnaryResponse;
+  motorOff(
+    requestMessage: proto_api_v1_robot_pb.MotorOffRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorOffResponse|null) => void
+  ): UnaryResponse;
+  motorOff(
+    requestMessage: proto_api_v1_robot_pb.MotorOffRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorOffResponse|null) => void
+  ): UnaryResponse;
+  motorIsOn(
+    requestMessage: proto_api_v1_robot_pb.MotorIsOnRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorIsOnResponse|null) => void
+  ): UnaryResponse;
+  motorIsOn(
+    requestMessage: proto_api_v1_robot_pb.MotorIsOnRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorIsOnResponse|null) => void
   ): UnaryResponse;
 }
 

@@ -12,9 +12,9 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/arm"
-	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -46,16 +46,12 @@ var v1modeljson []byte
 
 func init() {
 	registry.RegisterArm("varm1", registry.Arm{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		b, ok := r.BoardByName("local")
-		if !ok {
-			return nil, errors.New("viam arm requires a board called local")
-		}
 		model, err := kinematics.ParseJSON(v1modeljson)
 		if err != nil {
 			return nil, err
 		}
 		ik := kinematics.CreateCombinedIKSolver(model, logger, 4)
-		raw, err := NewArmV1(ctx, b, logger, ik)
+		raw, err := NewArmV1(ctx, r, logger, ik)
 		if err != nil {
 			return nil, err
 		}
@@ -94,8 +90,8 @@ func (j joint) validate() error {
 	return nil
 }
 
-func getMotor(ctx context.Context, theBoard board.Board, name string) (board.Motor, error) {
-	m, ok := theBoard.MotorByName(name)
+func getMotor(ctx context.Context, r robot.Robot, name string) (motor.Motor, error) {
+	m, ok := r.MotorByName(name)
 	if !ok {
 		return nil, errors.Errorf("no motor with name: %s", name)
 	}
@@ -112,11 +108,11 @@ func getMotor(ctx context.Context, theBoard board.Board, name string) (board.Mot
 	return m, nil
 }
 
-func motorOffError(ctx context.Context, m board.Motor, other error) error {
+func motorOffError(ctx context.Context, m motor.Motor, other error) error {
 	return multierr.Combine(other, m.Off(ctx))
 }
 
-func testJointLimit(ctx context.Context, m board.Motor, dir pb.DirectionRelative, logger golog.Logger) (float64, error) {
+func testJointLimit(ctx context.Context, m motor.Motor, dir pb.DirectionRelative, logger golog.Logger) (float64, error) {
 	logger.Debugf("testJointLimit dir: %v", dir)
 	err := m.GoFor(ctx, dir, TestingRPM, 0)
 	if err != nil {
@@ -167,7 +163,7 @@ func testJointLimit(ctx context.Context, m board.Motor, dir pb.DirectionRelative
 }
 
 // NewArmV1 TODO
-func NewArmV1(ctx context.Context, theBoard board.Board, logger golog.Logger, ik kinematics.InverseKinematics) (arm.Arm, error) {
+func NewArmV1(ctx context.Context, r robot.Robot, logger golog.Logger, ik kinematics.InverseKinematics) (arm.Arm, error) {
 	var err error
 	arm := &ArmV1{}
 
@@ -177,12 +173,12 @@ func NewArmV1(ctx context.Context, theBoard board.Board, logger golog.Logger, ik
 	arm.j1.degMin = -142.0
 	arm.j1.degMax = 0.0
 
-	arm.j0Motor, err = getMotor(ctx, theBoard, "m-j0")
+	arm.j0Motor, err = getMotor(ctx, r, "m-j0")
 	if err != nil {
 		return nil, err
 	}
 
-	arm.j1Motor, err = getMotor(ctx, theBoard, "m-j1")
+	arm.j1Motor, err = getMotor(ctx, r, "m-j1")
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +212,7 @@ func NewArmV1(ctx context.Context, theBoard board.Board, logger golog.Logger, ik
 
 // ArmV1 TODO
 type ArmV1 struct {
-	j0Motor, j1Motor board.Motor
+	j0Motor, j1Motor motor.Motor
 
 	j0, j1 joint
 	ik     kinematics.InverseKinematics
@@ -244,7 +240,7 @@ func (a *ArmV1) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	return a.MoveToJointPositions(ctx, solution)
 }
 
-func (a *ArmV1) moveJointToDegrees(ctx context.Context, m board.Motor, j joint, curDegrees, gotoDegrees float64) error {
+func (a *ArmV1) moveJointToDegrees(ctx context.Context, m motor.Motor, j joint, curDegrees, gotoDegrees float64) error {
 	curPos := j.degreesToPosition(curDegrees)
 	gotoPos := j.degreesToPosition(gotoDegrees)
 
@@ -303,7 +299,7 @@ func (a *ArmV1) IsOn(ctx context.Context) (bool, error) {
 	return on0 || on1, multierr.Combine(err0, err1)
 }
 
-func jointToDegrees(ctx context.Context, m board.Motor, j joint) (float64, error) {
+func jointToDegrees(ctx context.Context, m motor.Motor, j joint) (float64, error) {
 	pos, err := m.Position(ctx)
 	if err != nil {
 		return 0, err
