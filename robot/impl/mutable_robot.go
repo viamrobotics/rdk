@@ -114,6 +114,10 @@ func (r *mutableRobot) MotorByName(name string) (motor.Motor, bool) {
 	return r.parts.MotorByName(name)
 }
 
+func (r *mutableRobot) ServiceByName(name string) (interface{}, bool) {
+	return r.parts.ServiceByName(name)
+}
+
 // AddCamera adds a camera to the robot.
 func (r *mutableRobot) AddCamera(c camera.Camera, cc config.Component) {
 	r.parts.AddCamera(c, cc)
@@ -182,6 +186,11 @@ func (r *mutableRobot) MotorNames() []string {
 // FunctionNames returns the name of all known functions.
 func (r *mutableRobot) FunctionNames() []string {
 	return r.parts.FunctionNames()
+}
+
+// ServiceNames returns the name of all known services.
+func (r *mutableRobot) ServiceNames() []string {
+	return r.parts.ServiceNames()
 }
 
 // ProcessManager returns the process manager for the robot.
@@ -343,6 +352,14 @@ func (r *mutableRobot) newBoard(ctx context.Context, config config.Component) (b
 	f := registry.BoardLookup(config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown board model: %s", config.Model)
+	}
+	return f.Constructor(ctx, r, config, r.logger)
+}
+
+func (r *mutableRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
+	f := registry.ServiceLookup(config.Type)
+	if f == nil {
+		return nil, errors.Errorf("unknown service type: %s", config.Type)
 	}
 	return f.Constructor(ctx, r, config, r.logger)
 }

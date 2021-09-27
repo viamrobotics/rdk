@@ -23,6 +23,7 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/sensor/gps"
 	"go.viam.com/core/servo"
 )
 
@@ -38,6 +39,7 @@ type robotParts struct {
 	sensors        map[string]sensor.Sensor
 	servos         map[string]*proxyServo
 	motors         map[string]*proxyMotor
+	services       map[string]interface{}
 	functions      map[string]struct{}
 	processManager pexec.ProcessManager
 }
@@ -55,6 +57,7 @@ func newRobotParts(logger golog.Logger) *robotParts {
 		sensors:        map[string]sensor.Sensor{},
 		servos:         map[string]*proxyServo{},
 		motors:         map[string]*proxyMotor{},
+		services:       map[string]interface{}{},
 		functions:      map[string]struct{}{},
 		processManager: pexec.NewProcessManager(logger),
 	}
@@ -138,11 +141,15 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 		parts.sensors[c.Name] = newProxyCompass(pType.actual)
 	case *proxyRelativeCompass:
 		parts.sensors[c.Name] = newProxyRelativeCompass(pType.actual)
+	case *proxyGPS:
+		parts.sensors[c.Name] = newProxyGPS(pType.actual)
 	default:
 		if r, ok := s.(compass.RelativeCompass); ok {
 			parts.sensors[c.Name] = newProxyRelativeCompass(r)
 		} else if cc, ok := s.(compass.Compass); ok {
 			parts.sensors[c.Name] = newProxyCompass(cc)
+		} else if cc, ok := s.(gps.GPS); ok {
+			parts.sensors[c.Name] = newProxyGPS(cc)
 		} else {
 			parts.sensors[c.Name] = &proxySensor{actual: s}
 		}
@@ -165,6 +172,11 @@ func (parts *robotParts) AddMotor(m motor.Motor, c config.Component) {
 		m = proxy.actual
 	}
 	parts.motors[c.Name] = &proxyMotor{actual: m}
+}
+
+// AddService adds a service to the parts.
+func (parts *robotParts) AddService(svc interface{}, c config.Service) {
+	parts.services[c.Name] = svc
 }
 
 // addFunction adds a function to the parts.
@@ -291,6 +303,15 @@ func (parts *robotParts) FunctionNames() []string {
 	return parts.mergeNamesWithRemotes(names, robot.Robot.FunctionNames)
 }
 
+// ServiceNames returns the names of all service in the parts.
+func (parts *robotParts) ServiceNames() []string {
+	names := []string{}
+	for k := range parts.services {
+		names = append(names, k)
+	}
+	return parts.mergeNamesWithRemotes(names, robot.Robot.ServiceNames)
+}
+
 // Clone provides a shallow copy of each part.
 func (parts *robotParts) Clone() *robotParts {
 	var clonedParts robotParts
@@ -360,6 +381,12 @@ func (parts *robotParts) Clone() *robotParts {
 			clonedParts.functions[k] = v
 		}
 	}
+	if len(parts.services) != 0 {
+		clonedParts.services = make(map[string]interface{}, len(parts.services))
+		for k, v := range parts.services {
+			clonedParts.services[k] = v
+		}
+	}
 	if parts.processManager != nil {
 		clonedParts.processManager = parts.processManager.Clone()
 	}
@@ -371,6 +398,12 @@ func (parts *robotParts) Close() error {
 	var allErrs error
 	if err := parts.processManager.Stop(); err != nil {
 		allErrs = multierr.Combine(allErrs, errors.Errorf("error stopping process manager: %w", err))
+	}
+
+	for _, x := range parts.services {
+		if err := utils.TryClose(x); err != nil {
+			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing service: %w", err))
+		}
 	}
 
 	for _, x := range parts.remotes {
@@ -452,6 +485,10 @@ func (parts *robotParts) processConfig(
 	}
 
 	if err := parts.newComponents(ctx, config.Components, robot); err != nil {
+		return err
+	}
+
+	if err := parts.newServices(ctx, config.Services, robot); err != nil {
 		return err
 	}
 
@@ -576,6 +613,19 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 		default:
 			return errors.Errorf("unknown component type: %v", c.Type)
 		}
+	}
+
+	return nil
+}
+
+// newServices constructs all services defined.
+func (parts *robotParts) newServices(ctx context.Context, services []config.Service, r *mutableRobot) error {
+	for _, c := range services {
+		svc, err := r.newService(ctx, c)
+		if err != nil {
+			return err
+		}
+		parts.AddService(svc, c)
 	}
 
 	return nil
@@ -741,6 +791,20 @@ func (parts *robotParts) MotorByName(name string) (motor.Motor, bool) {
 	return nil, false
 }
 
+func (parts *robotParts) ServiceByName(name string) (interface{}, bool) {
+	part, ok := parts.services[name]
+	if ok {
+		return part, true
+	}
+	for _, remote := range parts.remotes {
+		part, ok := remote.ServiceByName(name)
+		if ok {
+			return part, true
+		}
+	}
+	return nil, false
+}
+
 // PartsMergeResult is the result of merging in parts together.
 type PartsMergeResult struct {
 	ReplacedProcesses []pexec.ManagedProcess
@@ -857,6 +921,15 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 		for k, v := range toAdd.functions {
 			parts.functions[k] = v
+		}
+	}
+
+	if len(toAdd.services) != 0 {
+		if parts.services == nil {
+			parts.services = make(map[string]interface{}, len(toAdd.services))
+		}
+		for k, v := range toAdd.services {
+			parts.services[k] = v
 		}
 	}
 
@@ -999,6 +1072,8 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 		}
 	}
 
+	// TODO(erd): how to handle service replacement?
+
 	return &result, nil
 }
 
@@ -1068,6 +1143,12 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 	if len(toRemove.functions) != 0 {
 		for k := range toRemove.functions {
 			delete(parts.functions, k)
+		}
+	}
+
+	if len(toRemove.services) != 0 {
+		for k := range toRemove.services {
+			delete(parts.services, k)
 		}
 	}
 
@@ -1168,6 +1249,14 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 			continue
 		}
 		filtered.addFunction(conf.Name)
+	}
+
+	for _, conf := range conf.Services {
+		part, ok := parts.services[conf.Name]
+		if !ok {
+			continue
+		}
+		filtered.AddService(part, conf)
 	}
 
 	return filtered, nil

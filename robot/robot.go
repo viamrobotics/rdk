@@ -56,6 +56,10 @@ type Robot interface {
 	// MotorByName returns a motor by name.
 	MotorByName(name string) (motor.Motor, bool)
 
+	// ServiceByName returns a service by name.
+	// TODO(erd): refactor to service resource
+	ServiceByName(name string) (interface{}, bool)
+
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
 
@@ -88,6 +92,9 @@ type Robot interface {
 
 	// FunctionNames returns the name of all known functions.
 	FunctionNames() []string
+
+	// ServiceNames returns the name of all known services.
+	ServiceNames() []string
 
 	// ProcessManager returns the process manager for the robot.
 	ProcessManager() pexec.ProcessManager
