@@ -1,4 +1,3 @@
-# See https://github.com/mvdan/github-actions-golang for golang nuances
 name: Go
 
 on:
@@ -10,9 +9,6 @@ on:
       - '**/.github/workflows/docker.yml'
   pull_request:
     branches: [ main ]
-
-env:
-  GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
 
 jobs:
   build_and_test:
@@ -34,15 +30,16 @@ jobs:
       run: |
         git config --global url."https://${TOKEN}@github.com".insteadOf "https://github.com"
 
+    - name: Update dev environment
+      run: |
+        sudo -u testbot bash -lc 'make setup'
+
     - name: Verify no uncommitted changes from build
       run: |
-        go install google.golang.org/protobuf/cmd/protoc-gen-go \
-          google.golang.org/grpc/cmd/protoc-gen-go-grpc \
-          github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
-          github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc
         git init
         git add .
-        make build goformat
+        chown -R testbot .
+        sudo -u testbot bash -lc 'make build goformat'
         GEN_DIFF=$(git diff)
         if [ -n "$GEN_DIFF" ]; then
             echo '"make build goformat" resulted in changes not in git' 1>&2
@@ -52,7 +49,7 @@ jobs:
 
     - name: Lint
       run: |
-        make lint
+        sudo -u testbot bash -lc 'make lint'
 
     - name: Test
       env:
@@ -61,7 +58,7 @@ jobs:
       run: |
         echo "$ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS" | base64 -d > artifact_google_creds.json
         export ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS=`pwd`/artifact_google_creds.json
-        make cover
+        sudo -u testbot bash -lc 'make cover'
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
