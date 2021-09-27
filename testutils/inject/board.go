@@ -12,14 +12,12 @@ import (
 // Board is an injected board.
 type Board struct {
 	board.Board
-	MotorByNameFunc            func(name string) (board.Motor, bool)
-	ServoByNameFunc            func(name string) (board.Servo, bool)
 	SPIByNameFunc              func(name string) (board.SPI, bool)
+	I2CByNameFunc              func(name string) (board.I2C, bool)
 	AnalogReaderByNameFunc     func(name string) (board.AnalogReader, bool)
 	DigitalInterruptByNameFunc func(name string) (board.DigitalInterrupt, bool)
-	MotorNamesFunc             func() []string
-	ServoNamesFunc             func() []string
 	SPINamesFunc               func() []string
+	I2CNamesFunc               func() []string
 	AnalogReaderNamesFunc      func() []string
 	DigitalInterruptNamesFunc  func() []string
 	CloseFunc                  func() error
@@ -31,28 +29,20 @@ type Board struct {
 	PWMSetFreqFunc             func(ctx context.Context, pin string, freq uint) error
 }
 
-// MotorByName calls the injected MotorByName or the real version.
-func (b *Board) MotorByName(name string) (board.Motor, bool) {
-	if b.MotorByNameFunc == nil {
-		return b.Board.MotorByName(name)
-	}
-	return b.MotorByNameFunc(name)
-}
-
-// ServoByName calls the injected ServoByName or the real version.
-func (b *Board) ServoByName(name string) (board.Servo, bool) {
-	if b.ServoByNameFunc == nil {
-		return b.Board.ServoByName(name)
-	}
-	return b.ServoByNameFunc(name)
-}
-
 // SPIByName calls the injected SPIByName or the real version.
 func (b *Board) SPIByName(name string) (board.SPI, bool) {
 	if b.SPIByNameFunc == nil {
 		return b.Board.SPIByName(name)
 	}
 	return b.SPIByNameFunc(name)
+}
+
+// I2CByName calls the injected I2CByName or the real version.
+func (b *Board) I2CByName(name string) (board.I2C, bool) {
+	if b.I2CByNameFunc == nil {
+		return b.Board.I2CByName(name)
+	}
+	return b.I2CByNameFunc(name)
 }
 
 // AnalogReaderByName calls the injected AnalogReaderByName or the real version.
@@ -71,28 +61,20 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 	return b.DigitalInterruptByNameFunc(name)
 }
 
-// MotorNames calls the injected MotorNames or the real version.
-func (b *Board) MotorNames() []string {
-	if b.MotorNamesFunc == nil {
-		return b.Board.MotorNames()
-	}
-	return b.MotorNamesFunc()
-}
-
-// ServoNames calls the injected ServoNames or the real version.
-func (b *Board) ServoNames() []string {
-	if b.ServoNamesFunc == nil {
-		return b.Board.ServoNames()
-	}
-	return b.ServoNamesFunc()
-}
-
 // SPINames calls the injected SPINames or the real version.
 func (b *Board) SPINames() []string {
 	if b.SPINamesFunc == nil {
 		return b.Board.SPINames()
 	}
 	return b.SPINamesFunc()
+}
+
+// I2CNames calls the injected SPINames or the real version.
+func (b *Board) I2CNames() []string {
+	if b.I2CNamesFunc == nil {
+		return b.Board.I2CNames()
+	}
+	return b.I2CNamesFunc()
 }
 
 // AnalogReaderNames calls the injected AnalogReaderNames or the real version.

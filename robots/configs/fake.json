@@ -1,71 +1,83 @@
 {
-  "boards": [
-    {
-      "analogs": [
+    "components":
+    [
         {
-          "name": "analog1",
-          "pin": "0"
-        }
-      ],
-      "digitalInterrupts": [
+            "model": "fake",
+            "name": "arm1",
+            "type": "arm"
+        },
         {
-          "name": "encoder",
-          "pin": "14"
-        }
-      ],
-      "model": "fake",
-      "motors": [
+            "model": "fake",
+            "name": "base1",
+            "type": "base"
+        },
         {
-          "encoder": "encoder",
-          "name": "g",
-          "pins": {
-            "a": "1",
-            "b": "2",
-            "pwm": "3"
-          },
-          "ticksPerRotation": 100
-        }
-      ],
-      "name": "board1",
-      "servos": [
+            "model": "fake",
+            "name": "gripper1",
+            "type": "gripper"
+        },
         {
-          "name": "servo1",
-          "pin": "12"
+            "model": "fake",
+            "name": "camera1",
+            "type": "camera"
+        },
+        {
+            "model": "fake",
+            "name": "lidar1",
+            "type": "lidar"
+        },
+        {
+            "model": "fake",
+            "name": "compass1",
+            "type": "sensor",
+            "subtype": "compass"
+        },
+        {
+            "model": "fake",
+            "name": "board1",
+            "type": "board",
+            "attributes":
+            {
+                "analogs":
+                [
+                    {
+                        "name": "analog1",
+                        "pin": "0"
+                    }
+                ],
+                "digitalInterrupts":
+                [
+                    {
+                        "name": "encoder",
+                        "pin": "14"
+                    }
+                ]
+            }
+        },
+        {
+            "model": "fake",
+            "name": "servo1",
+            "type": "servo",
+            "attributes":
+            {
+                "pin": "12"
+            }
+        },
+        {
+            "name": "g",
+            "type": "motor",
+            "model": "fake",
+            "attributes":
+            {
+                "encoder": "encoder",
+                "pins":
+                {
+                    "a": "1",
+                    "b": "2",
+                    "pwm": "3"
+                },
+                "ticksPerRotation": 100
+            }
         }
-      ]
-    }
-  ],
-  "components": [
-    {
-      "model": "fake",
-      "name": "arm1",
-      "type": "arm"
-    },
-    {
-      "model": "fake",
-      "name": "base1",
-      "type": "base"
-    },
-    {
-      "model": "fake",
-      "name": "gripper1",
-      "type": "gripper"
-    },
-    {
-      "model": "fake",
-      "name": "camera1",
-      "type": "camera"
-    },
-    {
-      "model": "fake",
-      "name": "lidar1",
-      "type": "lidar"
-    },
-    {
-      "model": "fake",
-      "name": "compass1",
-      "type": "sensor",
-      "subtype": "compass"
-    }
-  ]
+    ]
 }

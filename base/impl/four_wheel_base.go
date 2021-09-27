@@ -13,6 +13,7 @@ import (
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -30,8 +31,8 @@ type fourWheelBase struct {
 	wheelCircumferenceMillis int
 	spinSlipFactor           float64
 
-	frontLeft, frontRight, backRight, backLeft board.Motor
-	allMotors                                  []board.Motor
+	frontLeft, frontRight, backRight, backLeft motor.Motor
+	allMotors                                  []motor.Motor
 }
 
 // return direction, rpm, rotations
@@ -171,24 +172,19 @@ func (base *fourWheelBase) WidthMillis(ctx context.Context) (int, error) {
 
 // CreateFourWheelBase returns a new four wheel base defined by the given config.
 func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error) {
-	board, ok := r.BoardByName(config.Attributes.String("board"))
-	if !ok {
-		return nil, errors.Errorf("need a board for four-wheel, named (%v)", config.Attributes["board"])
-	}
-
-	frontLeft, ok := board.MotorByName(config.Attributes.String("frontLeft"))
+	frontLeft, ok := r.MotorByName(config.Attributes.String("frontLeft"))
 	if !ok {
 		return nil, errors.New("frontLeft motor not found")
 	}
-	frontRight, ok := board.MotorByName(config.Attributes.String("frontRight"))
+	frontRight, ok := r.MotorByName(config.Attributes.String("frontRight"))
 	if !ok {
 		return nil, errors.New("frontRight motor not found")
 	}
-	backLeft, ok := board.MotorByName(config.Attributes.String("backLeft"))
+	backLeft, ok := r.MotorByName(config.Attributes.String("backLeft"))
 	if !ok {
 		return nil, errors.New("backLeft motor not found")
 	}
-	backRight, ok := board.MotorByName(config.Attributes.String("backRight"))
+	backRight, ok := r.MotorByName(config.Attributes.String("backRight"))
 	if !ok {
 		return nil, errors.New("backRight motor not found")
 	}
