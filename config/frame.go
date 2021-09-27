@@ -7,6 +7,17 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 )
 
+// OrientationType defines what orientation representations are known
+type OrientationType string
+
+// The set
+const (
+	OrientationVectorDegrees = OrientationType("ov_degrees")
+	OrientationVectorRadians = OrientationType("ov_radians")
+	EulerAngles              = OrientationType("euler_angles")
+	AxisAngles               = OrientationType("axis_angles")
+)
+
 // Translation is the translation between two objects in the grid system. It is always in millimeters.
 type Translation struct {
 	X float64 `json:"x"`
@@ -24,13 +35,13 @@ type FrameConfig struct {
 // OrientationConfig specifies the type of orientation representation that is used, and the orientation value.
 // The valid types are: "ov_degrees", "ov_radians", "euler_angles", and "axis_angles"
 type OrientationConfig struct {
-	Type  string              `json:"type"`
+	Type  OrientationType     `json:"type"`
 	Value spatial.Orientation `json:"value"`
 }
 
 // NewOrientation initializes an empty orientation config
 func NewOrientation() *OrientationConfig {
-	return &OrientationConfig{"", spatial.NewZeroOrientation()}
+	return &OrientationConfig{OrientationType(""), spatial.NewZeroOrientation()}
 }
 
 // UnmarshalJSON will set defaults for the FrameConfig if some fields are empty
@@ -57,32 +68,32 @@ func (oc *OrientationConfig) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
-	oc.Type = objType
+	oc.Type = OrientationType(objType)
 
 	// use the type to unmarshal the value
 	switch oc.Type {
-	case "ov_degrees":
+	case OrientationVectorDegrees:
 		var o spatial.OrientationVecDegrees
 		err = json.Unmarshal(objMap["value"], &o)
 		if err != nil {
 			return err
 		}
 		oc.Value = &o
-	case "ov_radians":
+	case OrientationVectorRadians:
 		var o spatial.OrientationVec
 		err = json.Unmarshal(objMap["value"], &o)
 		if err != nil {
 			return err
 		}
 		oc.Value = &o
-	case "axis_angles":
+	case AxisAngles:
 		var o spatial.R4AA
 		err = json.Unmarshal(objMap["value"], &o)
 		if err != nil {
 			return err
 		}
 		oc.Value = &o
-	case "euler_angles":
+	case EulerAngles:
 		var o spatial.EulerAngles
 		err = json.Unmarshal(objMap["value"], &o)
 		if err != nil {

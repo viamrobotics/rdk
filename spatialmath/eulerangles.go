@@ -54,6 +54,5 @@ func (ea *EulerAngles) OrientationVectorDegrees() *OrientationVecDegrees {
 
 // AxisAngles returns the orientation in axis angle representation
 func (ea *EulerAngles) AxisAngles() *R4AA {
-	aa := QuatToR4AA(ea.Quaternion())
-	return &aa
+	return QuatToR4AA(ea.Quaternion())
 }
