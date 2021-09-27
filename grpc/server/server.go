@@ -23,6 +23,7 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/board"
+	"go.viam.com/core/config"
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/grpc"
@@ -88,16 +89,19 @@ func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigRes
 			Type: string(c.Type),
 		}
 		if c.Frame != nil {
-			orientation := c.Frame.Orientation()
+			orientation := c.Frame.Orientation
+			if orientation == nil {
+				orientation = config.NewOrientationConfig()
+			}
 			cc.Parent = c.Frame.Parent
 			cc.Pose = &pb.ArmPosition{
 				X:     c.Frame.Translation.X,
 				Y:     c.Frame.Translation.Y,
 				Z:     c.Frame.Translation.Z,
-				OX:    orientation.OVD().OX,
-				OY:    orientation.OVD().OY,
-				OZ:    orientation.OVD().OZ,
-				Theta: orientation.OVD().Theta,
+				OX:    orientation.Value.OrientationVectorDegrees().OX,
+				OY:    orientation.Value.OrientationVectorDegrees().OY,
+				OZ:    orientation.Value.OrientationVectorDegrees().OZ,
+				Theta: orientation.Value.OrientationVectorDegrees().Theta,
 			}
 		}
 		resp.Components = append(resp.Components, cc)

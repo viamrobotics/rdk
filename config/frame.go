@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 
 	spatial "go.viam.com/core/spatialmath"
 )
@@ -26,7 +27,20 @@ type OrientationConfig struct {
 	Value spatial.Orientation `json:"value"`
 }
 
-// UnmarshalJSON will find the correct struct that implements Orientation
+// NewOrientationConfig initializes an empty orientation config
+func NewOrientationConfig() *OrientationConfig {
+	return &OrientationConfig{"", spatial.NewZeroOrientation()}
+}
+
+// UnmarshalJSON will set defaults for the FrameConfig if some fields are empty
+func (fc *FrameConfig) UnmarshalJSON(b []byte) error {
+	fc.Orientation = NewOrientationConfig() // create a default orientation
+	type Alias FrameConfig                  // alias to prevent endless loop
+	tmp := (*Alias)(fc)
+	return json.Unmarshal(b, tmp)
+}
+
+// UnmarshalJSON will use the Type field in OrientationConfig to unmarshal into the correct struct that implements Orientation
 func (oc *OrientationConfig) UnmarshalJSON(b []byte) error {
 	// unmarshal everything into a string:RawMessage pair
 	var objMap map[string]json.RawMessage
@@ -36,6 +50,7 @@ func (oc *OrientationConfig) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
+	// unmarshal the type
 	var objType string
 	err = json.Unmarshal(objMap["type"], &objType)
 	if err != nil {
@@ -43,6 +58,7 @@ func (oc *OrientationConfig) UnmarshalJSON(b []byte) error {
 	}
 	oc.Type = objType
 
+	// use the type to unmarshal the value
 	switch oc.Type {
 	case "ov_degrees":
 		var o spatial.OrientationVecDegrees
@@ -73,7 +89,7 @@ func (oc *OrientationConfig) UnmarshalJSON(b []byte) error {
 		}
 		oc.Value = &o
 	default:
-		oc.Value = spatial.NewZeroOrientation()
+		return fmt.Errorf("orientation type %s not recognized", oc.Type)
 	}
 	return nil
 }
