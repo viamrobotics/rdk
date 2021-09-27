@@ -22,7 +22,7 @@ jobs:
     - name: "Test env first"
       run : |
         cat .git/config
-        cat /etc/ssh/ssh_known_hosts
+        git config --unset url.ssh://git@github.com/.insteadof
         ssh-keyscan github.com
 
     - name: Check out code into the Go module directory
