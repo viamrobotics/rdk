@@ -20,7 +20,7 @@ jobs:
     steps:
 
     - name: Remove git ssh redirect
-      run : git config --unset url.ssh://git@github.com/.insteadof
+      run : git config --unset url.ssh://git@github.com/.insteadof || true
 
     - name: Check out code in Core directory
       uses: actions/checkout@v2
