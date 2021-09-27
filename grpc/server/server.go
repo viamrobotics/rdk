@@ -91,7 +91,7 @@ func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigRes
 		if c.Frame != nil {
 			orientation := c.Frame.Orientation
 			if orientation == nil {
-				orientation = config.NewOrientationConfig()
+				orientation = config.NewOrientation()
 			}
 			cc.Parent = c.Frame.Parent
 			cc.Pose = &pb.ArmPosition{
