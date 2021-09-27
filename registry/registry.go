@@ -3,6 +3,7 @@ package registry
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
@@ -403,59 +404,55 @@ type Creator struct {
 	Frame       CreateFrame
 }
 
-// ComponentRegistry stores a map of resource creators key to component model names for
-// a certain component type and a way to register said resource to a rpc server
-type ComponentRegistry struct {
-	Models          map[string]Creator
-	RegisterService RegisterService
-}
-
+// all registries
 var (
-	registry = map[string]ComponentRegistry{}
+	creatorRegistry = map[string]Creator{}
+
+	// currently unused, should be populated by init() function of resource service
+	registratorRegistry = map[string]RegisterService{}
 )
 
 // RegisterCreator register a creator to its corresponding component and model.
-func RegisterCreator(component string, model string, creator Creator, regService RegisterService) {
-	cRegistry, ok := registry[component]
-	if !ok {
-		if regService == nil {
-			panic(errors.Errorf("cannot register a nil RegisterService for component:%s, model:%s", component, model))
-		}
-		cRegistry = ComponentRegistry{
-			Models:          map[string]Creator{},
-			RegisterService: regService,
-		}
-	}
-	_, old := cRegistry.Models[model]
+func RegisterCreator(component string, model string, creator Creator) {
+	qName := fmt.Sprintf("%s/%s", component, model)
+	_, old := creatorRegistry[qName]
 	if old {
 		panic(errors.Errorf("trying to register two resource with same component:%s, model:%s", component, model))
 	}
 	if creator.Constructor == nil {
 		panic(errors.Errorf("cannot register a nil constructor for component:%s, model:%s", component, model))
 	}
-	cRegistry.Models[model] = creator
-	registry[component] = cRegistry
+	creatorRegistry[qName] = creator
+}
+
+// RegisterServiceRegistrator looks up a service registrator by the given component. nil is returned if
+// there is no such registrator.
+func RegisterServiceRegistrator(component string, registrator RegisterService) {
+	_, old := registratorRegistry[component]
+	if old {
+		panic(errors.Errorf("trying to register two service registrators with same component:%s", component))
+	}
+	if registrator == nil {
+		panic(errors.Errorf("cannot register a nil registrator for component:%s", component))
+	}
+	registratorRegistry[component] = registrator
 }
 
 // CreatorLookup looks up a creator by the given component and model. nil is returned if
 // there is no creator registered.
 func CreatorLookup(component string, model string) *Creator {
-	cRegistry, ok := registry[component]
-	if !ok {
-		return nil
-	}
-	if creator, ok := cRegistry.Models[model]; ok {
-		return &creator
+	qName := fmt.Sprintf("%s/%s", component, model)
+	if registration, ok := creatorRegistry[qName]; ok {
+		return &registration
 	}
 	return nil
 }
 
-// RegisterServiceLookup looks up a service registrator by the given component. nil is returned if
+// ServiceRegistratorLookup looks up a service registrator by the given component. nil is returned if
 // there is no such registrator.
-func RegisterServiceLookup(component string) RegisterService {
-	cRegistry, ok := registry[component]
-	if !ok || cRegistry.RegisterService == nil {
-		return nil
+func ServiceRegistratorLookup(component string) RegisterService {
+	if registration, ok := registratorRegistry[component]; ok {
+		return registration
 	}
-	return cRegistry.RegisterService
+	return nil
 }

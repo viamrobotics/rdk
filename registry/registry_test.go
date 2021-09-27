@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/utils/rpc/server"
-
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
@@ -18,6 +16,7 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
+	"go.viam.com/utils/rpc/server"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -199,24 +198,19 @@ func TestCreatorRegistry(t *testing.T) {
 	af := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*resource.Resource, error) {
 		return nil, nil
 	}
-	rf := func(ctx context.Context, server server.Server, resource *interface{}) error {
-		return nil
-	}
 	ff := func(name string) (referenceframe.Frame, error) {
 		return nil, nil
 	}
 	armResourceType := "core:component:arm"
 	armResourceName := "x"
-	test.That(t, func() { RegisterCreator(armResourceType, armResourceName, Creator{}, rf) }, test.ShouldPanic)
-	test.That(t, func() { RegisterCreator(armResourceType, armResourceName, Creator{Constructor: af, Frame: ff}, nil) }, test.ShouldPanic)
-	RegisterCreator(armResourceType, armResourceName, Creator{Constructor: af, Frame: ff}, rf)
+	test.That(t, func() { RegisterCreator(armResourceType, armResourceName, Creator{}) }, test.ShouldPanic)
+	RegisterCreator(armResourceType, armResourceName, Creator{Constructor: af, Frame: ff})
 
 	creator := CreatorLookup(armResourceType, armResourceName)
 	test.That(t, creator, test.ShouldNotBeNil)
 	test.That(t, CreatorLookup(armResourceType, "z"), test.ShouldBeNil)
 	test.That(t, creator.Constructor, test.ShouldEqual, af)
 	test.That(t, creator.Frame, test.ShouldEqual, ff)
-	test.That(t, RegisterServiceLookup(armResourceType), test.ShouldEqual, rf)
 
 	comp := &config.Component{Type: config.ComponentTypeArm, Model: armResourceName}
 	frameFunc, ok := FrameLookup(comp)
@@ -227,4 +221,18 @@ func TestCreatorRegistry(t *testing.T) {
 	frameFunc, ok = FrameLookup(comp)
 	test.That(t, frameFunc, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldEqual, false)
+}
+
+func TestRegistratorRegistry(t *testing.T) {
+	rf := func(ctx context.Context, server server.Server, resource *interface{}) error {
+		return nil
+	}
+	armResourceType := "core:component:arm"
+	test.That(t, func() { RegisterServiceRegistrator(armResourceType, nil) }, test.ShouldPanic)
+	RegisterServiceRegistrator(armResourceType, rf)
+
+	registrator := ServiceRegistratorLookup(armResourceType)
+	test.That(t, registrator, test.ShouldNotBeNil)
+	test.That(t, ServiceRegistratorLookup("core:component:z"), test.ShouldBeNil)
+	test.That(t, registrator, test.ShouldEqual, rf)
 }
