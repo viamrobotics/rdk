@@ -21,8 +21,8 @@ type FrameConfig struct {
 	Orientation *OrientationConfig `json:"orientation"`
 }
 
-// OrientationConfig specifies the type of orientation representation that is used, and the orientation value
-// the valid types are: "ov_degrees", "ov_radians", "euler_angles", and "axis_angles"
+// OrientationConfig specifies the type of orientation representation that is used, and the orientation value.
+// The valid types are: "ov_degrees", "ov_radians", "euler_angles", and "axis_angles"
 type OrientationConfig struct {
 	Type  string              `json:"type"`
 	Value spatial.Orientation `json:"value"`
