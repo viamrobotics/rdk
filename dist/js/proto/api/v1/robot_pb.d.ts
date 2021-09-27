@@ -2071,6 +2071,90 @@ export namespace CompassMarkResponse {
   }
 }
 
+export class ImuAngularVelocityRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): ImuAngularVelocityRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: ImuAngularVelocityRequest): ImuAngularVelocityRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: ImuAngularVelocityRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ImuAngularVelocityRequest;
+  static deserializeBinaryFromReader(message: ImuAngularVelocityRequest, reader: jspb.BinaryReader): ImuAngularVelocityRequest;
+}
+
+export namespace ImuAngularVelocityRequest {
+  export type AsObject = {
+    name: string,
+  }
+}
+
+export class ImuOrientationRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): ImuOrientationRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: ImuOrientationRequest): ImuOrientationRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: ImuOrientationRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ImuOrientationRequest;
+  static deserializeBinaryFromReader(message: ImuOrientationRequest, reader: jspb.BinaryReader): ImuOrientationRequest;
+}
+
+export namespace ImuOrientationRequest {
+  export type AsObject = {
+    name: string,
+  }
+}
+
+export class ImuAngularVelocityResponse extends jspb.Message {
+  clearAngularVelocityList(): void;
+  getAngularVelocityList(): Array<number>;
+  setAngularVelocityList(value: Array<number>): void;
+  addAngularVelocity(value: number, index?: number): number;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): ImuAngularVelocityResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: ImuAngularVelocityResponse): ImuAngularVelocityResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: ImuAngularVelocityResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ImuAngularVelocityResponse;
+  static deserializeBinaryFromReader(message: ImuAngularVelocityResponse, reader: jspb.BinaryReader): ImuAngularVelocityResponse;
+}
+
+export namespace ImuAngularVelocityResponse {
+  export type AsObject = {
+    angularVelocityList: Array<number>,
+  }
+}
+
+export class ImuOrientationResponse extends jspb.Message {
+  clearOrientationList(): void;
+  getOrientationList(): Array<number>;
+  setOrientationList(value: Array<number>): void;
+  addOrientation(value: number, index?: number): number;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): ImuOrientationResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: ImuOrientationResponse): ImuOrientationResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: ImuOrientationResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ImuOrientationResponse;
+  static deserializeBinaryFromReader(message: ImuOrientationResponse, reader: jspb.BinaryReader): ImuOrientationResponse;
+}
+
+export namespace ImuOrientationResponse {
+  export type AsObject = {
+    orientationList: Array<number>,
+  }
+}
+
 export class ExecuteFunctionRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;

@@ -371,6 +371,24 @@ RobotService.CompassMark = {
   responseType: proto_api_v1_robot_pb.CompassMarkResponse
 };
 
+RobotService.ImuAngularVelocity = {
+  methodName: "ImuAngularVelocity",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.ImuAngularVelocityRequest,
+  responseType: proto_api_v1_robot_pb.ImuAngularVelocityResponse
+};
+
+RobotService.ImuOrientation = {
+  methodName: "ImuOrientation",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.ImuOrientationRequest,
+  responseType: proto_api_v1_robot_pb.ImuOrientationResponse
+};
+
 RobotService.ExecuteFunction = {
   methodName: "ExecuteFunction",
   service: RobotService,
@@ -1726,6 +1744,68 @@ RobotServiceClient.prototype.compassMark = function compassMark(requestMessage, 
     callback = arguments[1];
   }
   var client = grpc.unary(RobotService.CompassMark, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.imuAngularVelocity = function imuAngularVelocity(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.ImuAngularVelocity, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.imuOrientation = function imuOrientation(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.ImuOrientation, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

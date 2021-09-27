@@ -478,6 +478,22 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.ImuAngularVelocityRequest"><span class="badge">M</span>ImuAngularVelocityRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.ImuAngularVelocityResponse"><span class="badge">M</span>ImuAngularVelocityResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.ImuOrientationRequest"><span class="badge">M</span>ImuOrientationRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.ImuOrientationResponse"><span class="badge">M</span>ImuOrientationResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.JointPositions"><span class="badge">M</span>JointPositions</a>
                 </li>
               
@@ -2822,6 +2838,102 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.ImuAngularVelocityRequest">ImuAngularVelocityRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.ImuAngularVelocityResponse">ImuAngularVelocityResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>angular_velocity</td>
+                  <td><a href="#double">double</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.ImuOrientationRequest">ImuOrientationRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.ImuOrientationResponse">ImuOrientationResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>orientation</td>
+                  <td><a href="#double">double</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.JointPositions">JointPositions</h3>
         <p></p>
 
@@ -4876,6 +4988,20 @@ A specific MIME type can be requested but may not necessarily be the same one re
               </tr>
             
               <tr>
+                <td>ImuAngularVelocity</td>
+                <td><a href="#proto.api.v1.ImuAngularVelocityRequest">ImuAngularVelocityRequest</a></td>
+                <td><a href="#proto.api.v1.ImuAngularVelocityResponse">ImuAngularVelocityResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>ImuOrientation</td>
+                <td><a href="#proto.api.v1.ImuOrientationRequest">ImuOrientationRequest</a></td>
+                <td><a href="#proto.api.v1.ImuOrientationResponse">ImuOrientationResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
                 <td>ExecuteFunction</td>
                 <td><a href="#proto.api.v1.ExecuteFunctionRequest">ExecuteFunctionRequest</a></td>
                 <td><a href="#proto.api.v1.ExecuteFunctionResponse">ExecuteFunctionResponse</a></td>
@@ -5391,6 +5517,26 @@ is reliant on having an encoder.</p></td>
                 <td>CompassMark</td>
                 <td>POST</td>
                 <td>/api/v1/sensors/compass/{name}/mark</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>ImuAngularVelocity</td>
+                <td>GET</td>
+                <td>/api/v1/sensors/imu/{name}/angularVelocity</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>ImuOrientation</td>
+                <td>GET</td>
+                <td>/api/v1/sensors/imu/{name}/orientation</td>
                 <td></td>
               </tr>
               

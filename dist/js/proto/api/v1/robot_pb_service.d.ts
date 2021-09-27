@@ -365,6 +365,24 @@ type RobotServiceCompassMark = {
   readonly responseType: typeof proto_api_v1_robot_pb.CompassMarkResponse;
 };
 
+type RobotServiceImuAngularVelocity = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.ImuAngularVelocityRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.ImuAngularVelocityResponse;
+};
+
+type RobotServiceImuOrientation = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.ImuOrientationRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.ImuOrientationResponse;
+};
+
 type RobotServiceExecuteFunction = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -533,6 +551,8 @@ export class RobotService {
   static readonly CompassStartCalibration: RobotServiceCompassStartCalibration;
   static readonly CompassStopCalibration: RobotServiceCompassStopCalibration;
   static readonly CompassMark: RobotServiceCompassMark;
+  static readonly ImuAngularVelocity: RobotServiceImuAngularVelocity;
+  static readonly ImuOrientation: RobotServiceImuOrientation;
   static readonly ExecuteFunction: RobotServiceExecuteFunction;
   static readonly ExecuteSource: RobotServiceExecuteSource;
   static readonly ServoMove: RobotServiceServoMove;
@@ -932,6 +952,24 @@ export class RobotServiceClient {
   compassMark(
     requestMessage: proto_api_v1_robot_pb.CompassMarkRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.CompassMarkResponse|null) => void
+  ): UnaryResponse;
+  imuAngularVelocity(
+    requestMessage: proto_api_v1_robot_pb.ImuAngularVelocityRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ImuAngularVelocityResponse|null) => void
+  ): UnaryResponse;
+  imuAngularVelocity(
+    requestMessage: proto_api_v1_robot_pb.ImuAngularVelocityRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ImuAngularVelocityResponse|null) => void
+  ): UnaryResponse;
+  imuOrientation(
+    requestMessage: proto_api_v1_robot_pb.ImuOrientationRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ImuOrientationResponse|null) => void
+  ): UnaryResponse;
+  imuOrientation(
+    requestMessage: proto_api_v1_robot_pb.ImuOrientationRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ImuOrientationResponse|null) => void
   ): UnaryResponse;
   executeFunction(
     requestMessage: proto_api_v1_robot_pb.ExecuteFunctionRequest,

@@ -4,7 +4,6 @@ package v1
 
 import (
 	context "context"
-
 	httpbody "google.golang.org/genproto/googleapis/api/httpbody"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
@@ -107,6 +106,8 @@ type RobotServiceClient interface {
 	CompassStopCalibration(ctx context.Context, in *CompassStopCalibrationRequest, opts ...grpc.CallOption) (*CompassStopCalibrationResponse, error)
 	// CompassMark requests the relative compass of the underlying robot to mark its position.
 	CompassMark(ctx context.Context, in *CompassMarkRequest, opts ...grpc.CallOption) (*CompassMarkResponse, error)
+	ImuAngularVelocity(ctx context.Context, in *ImuAngularVelocityRequest, opts ...grpc.CallOption) (*ImuAngularVelocityResponse, error)
+	ImuOrientation(ctx context.Context, in *ImuOrientationRequest, opts ...grpc.CallOption) (*ImuOrientationResponse, error)
 	// TODO(erd): refactor to functions service
 	ExecuteFunction(ctx context.Context, in *ExecuteFunctionRequest, opts ...grpc.CallOption) (*ExecuteFunctionResponse, error)
 	ExecuteSource(ctx context.Context, in *ExecuteSourceRequest, opts ...grpc.CallOption) (*ExecuteSourceResponse, error)
@@ -530,6 +531,24 @@ func (c *robotServiceClient) CompassMark(ctx context.Context, in *CompassMarkReq
 	return out, nil
 }
 
+func (c *robotServiceClient) ImuAngularVelocity(ctx context.Context, in *ImuAngularVelocityRequest, opts ...grpc.CallOption) (*ImuAngularVelocityResponse, error) {
+	out := new(ImuAngularVelocityResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ImuAngularVelocity", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) ImuOrientation(ctx context.Context, in *ImuOrientationRequest, opts ...grpc.CallOption) (*ImuOrientationResponse, error) {
+	out := new(ImuOrientationResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ImuOrientation", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *robotServiceClient) ExecuteFunction(ctx context.Context, in *ExecuteFunctionRequest, opts ...grpc.CallOption) (*ExecuteFunctionResponse, error) {
 	out := new(ExecuteFunctionResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ExecuteFunction", in, out, opts...)
@@ -747,6 +766,8 @@ type RobotServiceServer interface {
 	CompassStopCalibration(context.Context, *CompassStopCalibrationRequest) (*CompassStopCalibrationResponse, error)
 	// CompassMark requests the relative compass of the underlying robot to mark its position.
 	CompassMark(context.Context, *CompassMarkRequest) (*CompassMarkResponse, error)
+	ImuAngularVelocity(context.Context, *ImuAngularVelocityRequest) (*ImuAngularVelocityResponse, error)
+	ImuOrientation(context.Context, *ImuOrientationRequest) (*ImuOrientationResponse, error)
 	// TODO(erd): refactor to functions service
 	ExecuteFunction(context.Context, *ExecuteFunctionRequest) (*ExecuteFunctionResponse, error)
 	ExecuteSource(context.Context, *ExecuteSourceRequest) (*ExecuteSourceResponse, error)
@@ -903,6 +924,12 @@ func (UnimplementedRobotServiceServer) CompassStopCalibration(context.Context, *
 }
 func (UnimplementedRobotServiceServer) CompassMark(context.Context, *CompassMarkRequest) (*CompassMarkResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CompassMark not implemented")
+}
+func (UnimplementedRobotServiceServer) ImuAngularVelocity(context.Context, *ImuAngularVelocityRequest) (*ImuAngularVelocityResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ImuAngularVelocity not implemented")
+}
+func (UnimplementedRobotServiceServer) ImuOrientation(context.Context, *ImuOrientationRequest) (*ImuOrientationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ImuOrientation not implemented")
 }
 func (UnimplementedRobotServiceServer) ExecuteFunction(context.Context, *ExecuteFunctionRequest) (*ExecuteFunctionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecuteFunction not implemented")
@@ -1682,6 +1709,42 @@ func _RobotService_CompassMark_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_ImuAngularVelocity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ImuAngularVelocityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).ImuAngularVelocity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/ImuAngularVelocity",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).ImuAngularVelocity(ctx, req.(*ImuAngularVelocityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_ImuOrientation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ImuOrientationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).ImuOrientation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/ImuOrientation",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).ImuOrientation(ctx, req.(*ImuOrientationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RobotService_ExecuteFunction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ExecuteFunctionRequest)
 	if err := dec(in); err != nil {
@@ -2096,6 +2159,14 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CompassMark",
 			Handler:    _RobotService_CompassMark_Handler,
+		},
+		{
+			MethodName: "ImuAngularVelocity",
+			Handler:    _RobotService_ImuAngularVelocity_Handler,
+		},
+		{
+			MethodName: "ImuOrientation",
+			Handler:    _RobotService_ImuOrientation_Handler,
 		},
 		{
 			MethodName: "ExecuteFunction",

@@ -3278,6 +3278,166 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.compassMark =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.ImuAngularVelocityRequest,
+ *   !proto.proto.api.v1.ImuAngularVelocityResponse>}
+ */
+const methodDescriptor_RobotService_ImuAngularVelocity = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/ImuAngularVelocity',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.ImuAngularVelocityRequest,
+  proto.proto.api.v1.ImuAngularVelocityResponse,
+  /**
+   * @param {!proto.proto.api.v1.ImuAngularVelocityRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ImuAngularVelocityResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ImuAngularVelocityRequest,
+ *   !proto.proto.api.v1.ImuAngularVelocityResponse>}
+ */
+const methodInfo_RobotService_ImuAngularVelocity = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ImuAngularVelocityResponse,
+  /**
+   * @param {!proto.proto.api.v1.ImuAngularVelocityRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ImuAngularVelocityResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.ImuAngularVelocityRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ImuAngularVelocityResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ImuAngularVelocityResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.imuAngularVelocity =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ImuAngularVelocity',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ImuAngularVelocity,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.ImuAngularVelocityRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.ImuAngularVelocityResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.imuAngularVelocity =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ImuAngularVelocity',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ImuAngularVelocity);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.ImuOrientationRequest,
+ *   !proto.proto.api.v1.ImuOrientationResponse>}
+ */
+const methodDescriptor_RobotService_ImuOrientation = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/ImuOrientation',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.ImuOrientationRequest,
+  proto.proto.api.v1.ImuOrientationResponse,
+  /**
+   * @param {!proto.proto.api.v1.ImuOrientationRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ImuOrientationResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ImuOrientationRequest,
+ *   !proto.proto.api.v1.ImuOrientationResponse>}
+ */
+const methodInfo_RobotService_ImuOrientation = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ImuOrientationResponse,
+  /**
+   * @param {!proto.proto.api.v1.ImuOrientationRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ImuOrientationResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.ImuOrientationRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ImuOrientationResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ImuOrientationResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.imuOrientation =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ImuOrientation',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ImuOrientation,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.ImuOrientationRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.ImuOrientationResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.imuOrientation =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ImuOrientation',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ImuOrientation);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.v1.ExecuteFunctionRequest,
  *   !proto.proto.api.v1.ExecuteFunctionResponse>}
  */
