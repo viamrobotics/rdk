@@ -52,7 +52,7 @@ testpi:
 	sudo go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/core/board/pi
 
 dockerlocal:
-	docker build -f etc/Dockerfile.fortest -t 'echolabs/robotcoretest:latest' .
+	docker build -f etc/Dockerfile.fortest --no-cache -t 'echolabs/robotcoretest:latest' .
 
 docker: dockerlocal
 	docker push 'echolabs/robotcoretest:latest'
