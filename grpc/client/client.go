@@ -1079,6 +1079,32 @@ func (rcc *relativeCompassClient) Desc() sensor.Description {
 	return sensor.Description{compass.RelativeType, ""}
 }
 
+type imuClient struct {
+	*sensorClient
+}
+
+func (imuC *imuClient) AngularVelocity(ctx context.Context) ([]float64, error) {
+	resp, err := imuC.rc.client.ImuAngularVelocity(ctx, &pb.ImuAngularVelocityRequest{
+		Name: imuC.name,
+	})
+	if err != nil {
+		emptyResp := []float64{math.NaN(), math.NaN(), math.NaN()}
+		return emptyResp, err
+	}
+	return resp.GetAngularVelocity(), nil
+}
+
+func (imuC *imuClient) Orientation(ctx context.Context) ([]float64, error) {
+	resp, err := imuC.rc.client.ImuOrientation(ctx, &pb.ImuOrientationRequest{
+		Name: imuC.name,
+	})
+	if err != nil {
+		emptyResp := []float64{math.NaN(), math.NaN(), math.NaN()}
+		return emptyResp, err
+	}
+	return resp.GetOrientation(), nil
+}
+
 // servoClient satisfies a gRPC based servo.Servo. Refer to the interface
 // for descriptions of its methods.
 type servoClient struct {
@@ -1202,63 +1228,4 @@ func (mc *motorClient) Zero(ctx context.Context, offset float64) error {
 		Offset: offset,
 	})
 	return err
-
-type imuClient struct {
-	*sensorClient
-}
-
-func (imuC *imuClient) AngularVelocities(ctx context.Context) ([3]float64, error) {
-	// var emptyVec [3]float64
-	// var imuDevice imu.IMU
-	// sensorNames := imuC.rc.SensorNames()
-	// for _, name := range sensorNames {
-	// 	sensorDevice, ok := imuC.rc.SensorByName(name)
-	// 	if !ok {
-	// 		continue
-	// 	}
-	// 	if c, ok := sensorDevice.(imu.IMU); ok {
-	// 		imuDevice = c
-	// 		break
-	// 	}
-	// }
-	// if imuDevice == nil {
-	// 	// return nil, multierr.Combine(errors.New("no imu devices found"), robotClient.Close())
-	// 	return emptyVec, errors.New("no imu devices found")
-	// }
-	// resp, err := imuDevice.AngularVelocities(ctx)
-
-	// if err != nil {
-	// 	return emptyVec, err
-	// }
-	// return resp, nil
-	result := [3]float64{5.2, 1.0, -0.9}
-	return result, nil
-}
-
-func (imuC *imuClient) Orientation(ctx context.Context) ([3]float64, error) {
-	// var emptyVec [3]float64
-	// var imuDevice imu.IMU
-	// sensorNames := imuC.rc.SensorNames()
-	// for _, name := range sensorNames {
-	// 	sensorDevice, ok := imuC.rc.SensorByName(name)
-	// 	if !ok {
-	// 		continue
-	// 	}
-	// 	if c, ok := sensorDevice.(imu.IMU); ok {
-	// 		imuDevice = c
-	// 		break
-	// 	}
-	// }
-	// if imuDevice == nil {
-	// 	// return nil, multierr.Combine(errors.New("no imu devices found"), robotClient.Close())
-	// 	return emptyVec, errors.New("no imu devices found")
-	// }
-	// resp, err := imuDevice.Orientation(ctx)
-
-	// if err != nil {
-	// 	return emptyVec, err
-	// }
-	// return resp, nil
-	result := [3]float64{5.2, 1.0, -0.9}
-	return result, nil
 }
