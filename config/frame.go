@@ -28,15 +28,15 @@ type OrientationConfig struct {
 	Value spatial.Orientation `json:"value"`
 }
 
-// NewOrientationConfig initializes an empty orientation config
-func NewOrientationConfig() *OrientationConfig {
+// NewOrientation initializes an empty orientation config
+func NewOrientation() *OrientationConfig {
 	return &OrientationConfig{"", spatial.NewZeroOrientation()}
 }
 
 // UnmarshalJSON will set defaults for the FrameConfig if some fields are empty
 func (fc *FrameConfig) UnmarshalJSON(b []byte) error {
-	fc.Orientation = NewOrientationConfig() // create a default orientation
-	type Alias FrameConfig                  // alias to prevent endless loop
+	fc.Orientation = NewOrientation() // create a default orientation
+	type Alias FrameConfig            // alias to prevent endless loop
 	tmp := (*Alias)(fc)
 	return json.Unmarshal(b, tmp)
 }
