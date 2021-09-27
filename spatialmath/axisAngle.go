@@ -27,7 +27,7 @@ func NewR3AA() *R3AA {
 
 // R4AA represents an R4 axis angle
 type R4AA struct {
-	Theta float64 `json:"radians"`
+	Theta float64 `json:"th"`
 	RX    float64 `json:"x"`
 	RY    float64 `json:"y"`
 	RZ    float64 `json:"z"`

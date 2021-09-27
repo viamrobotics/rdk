@@ -20,7 +20,7 @@ import (
 // point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at
 // zero as the north/south pole is circled, the Roll will correct itself to remain in-line.
 type OrientationVec struct {
-	Theta float64 `json:"radians"`
+	Theta float64 `json:"th"`
 	OX    float64 `json:"x"`
 	OY    float64 `json:"y"`
 	OZ    float64 `json:"z"`

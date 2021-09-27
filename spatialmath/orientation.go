@@ -18,7 +18,7 @@ type Orientation interface {
 
 // NewZeroOrientation returns an orientatation which signifies no rotation
 func NewZeroOrientation() Orientation {
-	return &EulerAngles{0, 0, 0}
+	return &quaternion{1, 0, 0, 0}
 }
 
 type quaternion quat.Number
