@@ -1,4 +1,4 @@
-name: Test
+name: Go
 
 on:
   workflow_dispatch:
@@ -13,9 +13,9 @@ on:
 jobs:
   build_and_test:
     name: Build and Test
-    runs-on: [self-hosted, x64, DockerTest]
+    runs-on: [self-hosted, x64]
     container:
-      image: localhost:5000/localtest
+      image: echolabs/robotcoretest:latest
 
     steps:
 
@@ -38,7 +38,7 @@ jobs:
       run: |
         git init
         git add .
-        chown -R testbot .        
+        chown -R testbot .
         sudo -u testbot bash -lc 'make build goformat'
         GEN_DIFF=$(git diff)
         if [ -n "$GEN_DIFF" ]; then

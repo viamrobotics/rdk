@@ -1,6 +1,6 @@
 FROM debian:latest
 
-RUN apt update && apt install -y sudo
+RUN apt update && apt install -y sudo apt-transport-https
 
 RUN useradd -m testbot
 RUN echo 'testbot ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
@@ -11,3 +11,8 @@ RUN sudo -u testbot bash -l /tmp/setup.sh && rm -rf /home/testbot/.cache && apt 
 RUN cp /home/testbot/.bashrc /home/testbot/.bash_profile /home/testbot/.viamdevrc /root/
 
 ENTRYPOINT ["bash", "-lc"]
+
+# Docker stuff
+RUN curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+RUN apt update && apt install -y docker-ce docker-ce-cli containerd.io && apt clean
