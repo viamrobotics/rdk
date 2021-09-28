@@ -78,10 +78,10 @@ func TestSwingEdgeCases(t *testing.T) {
 
 	origin := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0})
 	oob := frame.FloatsToInputs([]float64{0, 0, 0, 0, 999})
-	swing, err := calcSwingPct(oob, origin, m)
+	swing, err := calcSwingAmount(oob, origin, m)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, swing, test.ShouldEqual, math.Inf(1))
-	swing, err = calcSwingPct(origin, oob, m)
+	swing, err = calcSwingAmount(origin, oob, m)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, swing, test.ShouldEqual, math.Inf(1))
 }
