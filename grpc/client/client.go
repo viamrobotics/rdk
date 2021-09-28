@@ -227,7 +227,7 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 				Y: c.Pose.Y,
 				Z: c.Pose.Z,
 			}
-			cc.Frame.Orientation = &spatialmath.OrientationVecDegrees{
+			cc.Frame.Orientation = &spatialmath.OrientationVectorDegrees{
 				OX:    c.Pose.OX,
 				OY:    c.Pose.OY,
 				OZ:    c.Pose.OZ,
