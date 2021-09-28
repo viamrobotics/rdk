@@ -103,20 +103,26 @@ func (b *arduinoBoard) changeSerialBaudrate(bd int) error {
 	if err != nil {
 		return err
 	}
-	b.runCommand(cmd)
+	_, err = b.runCommand(cmd)
 	if err != nil {
 		return fmt.Errorf("error sending command to arduino: %w", err)
 	}
 	options.BaudRate = bd
-	serial.SetOptions(b.port, options)
-	b.portReader.Reset(b.port)
-	// We run the echo abc command twice, the baudarte change is not carried properly for the first character at least. Either this is an Arduino issue or MacOs doesn't propagate the baudrate change to the USB-CDC until after a character has been written.
-	_, _ = b.runCommand("echo abc")
-	check, err := b.runCommand("echo abc")
+	err = serial.SetOptions(b.port, options)
 	if err != nil {
 		return err
 	}
-	if check != "abc" {
+	b.portReader.Reset(b.port)
+	// We run the echo abc command twice, the baudarte change is not carried properly for the first character at least. Either this is an Arduino issue or MacOs doesn't propagate the baudrate change to the USB-CDC until after a character has been written.
+	check, err := b.runCommand("echo abc")
+	if err == nil && check == "abc" {
+		return nil
+	}
+	check, err = b.runCommand("echo def")
+	if err != nil {
+		return err
+	}
+	if check != "def" {
 		return fmt.Errorf("echo didn't get expected result, got [%s]", check)
 	}
 	return nil
@@ -216,7 +222,10 @@ func (b *arduinoBoard) configure(cfg *board.Config) error {
 		return fmt.Errorf("arduino doesn't support I2C yet %v", c)
 	}
 
-	b.changeSerialBaudrate(115200)
+	err = b.changeSerialBaudrate(115200)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

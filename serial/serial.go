@@ -2,9 +2,10 @@
 package serial
 
 import (
-	"fmt"
 	"io"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	ser "go.bug.st/serial"
 )
@@ -87,21 +88,21 @@ var Open = func(devicePath string, options Options) (io.ReadWriteCloser, error) 
 	return device, nil
 }
 
+// SetOptions to change the cofiguration of a serial port already open
 var SetOptions = func(b io.ReadWriteCloser, options Options) error {
 	mode := &ser.Mode{
-		BaudRate: int(options.BaudRate),
-		Parity:   ser.NoParity,
-		DataBits: int(options.DataBits),
-		StopBits: ser.OneStopBit,
+		BaudRate: options.BaudRate,
+		Parity:   ser.Parity(options.Parity),
+		DataBits: options.DataBits,
+		StopBits: ser.StopBits(options.DataBits),
 	}
 	p, ok := b.(ser.Port)
 	if !ok {
-		return fmt.Errorf("Couldn't convert to underlying Port interface")
+		return errors.New("couldn't convert to underlying Port interface")
 	}
 	err := p.SetMode(mode)
 	if err != nil {
 		return err
 	}
-	p.ResetOutputBuffer()
-	return p.ResetInputBuffer()
+	return nil
 }
