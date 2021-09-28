@@ -66,6 +66,7 @@
             "model": "pi",
             "attributes":
             {
+                "board" : "local",
                 "pins":
                 {
                     "dir": "io17",
@@ -86,6 +87,7 @@
             "model": "pi",
             "attributes":
             {
+                "board" : "local",
                 "pins":
                 {
                     "dir": "io25",
@@ -101,8 +103,10 @@
             "name": "squirt",
             "type": "motor",
             "model": "pi",
+            "board" : "local",
             "attributes":
             {
+                "board" : "local",
                 "pins":
                 {
                     "dir": "io12",
@@ -113,13 +117,6 @@
             [
                 "local"
             ]
-        }
-    ],
-    "remotes":
-    [
-        {
-            "name": "compass",
-            "address": "127.0.0.1:4444"
         }
     ]
 }
