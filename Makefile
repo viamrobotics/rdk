@@ -26,6 +26,7 @@ build-go:
 	go build $(TAGS) ./...
 
 build-web:
+	cd web/frontend/core-components && npm install && npm run build:prod
 	cd web/frontend && npm install && npx webpack
 
 buf:

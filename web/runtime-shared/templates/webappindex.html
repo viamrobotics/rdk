@@ -743,7 +743,14 @@
       </div>
 
       <!-- ******* MOTOR *******  -->
-      <motor-detail v-for="motor in status.motorsMap" :key="'new-' + motor[0]" v-bind:motor-name="motor[0]" v-bind:motor-status="motor[1]" v-on:execute="motorCommand(motor[0], $event)" style="max-width: 900px; margin-top: 64px;"></motor-detail>
+      <motor-detail
+        v-for="motor in status.motorsMap"
+        :key="'new-' + motor[0]"
+        v-bind:motor-name="motor[0]"
+        v-bind:motor-status="motor[1]"
+        v-on:execute="motorCommand(motor[0], $event)"
+        style="max-width: 900px; margin-top: 64px;">
+      </motor-detail>
       <div class="motor" v-for="motor in status.motorsMap" :key="motor[0]">
         <h3>Motor ${ motor[0] }</h3>
         <table border="1">
