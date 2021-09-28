@@ -43,10 +43,11 @@ func getSerialConfig(cfg *board.Config) (serial.Options, string, error) {
 
 	devPath := cfg.Attributes["port"]
 	options := serial.Options{
-		BaudRate: 9600,
-		DataBits: 8,
-		StopBits: serial.OneStopBit,
-		Parity:   serial.NoParity,
+		BaudRate:    9600,
+		DataBits:    8,
+		StopBits:    serial.OneStopBit,
+		Parity:      serial.NoParity,
+		ReadTimeout: 0,
 	}
 
 	if devPath == "" {
