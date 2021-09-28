@@ -178,18 +178,19 @@ func sendIMUData(log golog.Logger, l net.Listener) {
 	}
 }
 
-func TestPlay(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	ip, err := iphone.New(context.Background(), "10.237.115.94:65036", logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for {
-		head, err := ip.Heading(context.Background())
-		if err != nil {
-			logger.Error(err)
-		}
-		logger.Debug(head)
-	}
-}
+// TODO: Remove (or move)
+//func TestPlay(t *testing.T) {
+//	logger := golog.NewTestLogger(t)
+//	ip, err := iphone.New(context.Background(), "10.237.115.94:65036", logger)
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//
+//	for {
+//		head, err := ip.Heading(context.Background())
+//		if err != nil {
+//			logger.Error(err)
+//		}
+//		logger.Debug(head)
+//	}
+//}
