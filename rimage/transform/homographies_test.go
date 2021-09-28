@@ -8,13 +8,11 @@ import (
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
 
-	"go.viam.com/test"
 
 	"go.viam.com/core/utils"
-)
-
-// Single generates an n-dimensional Grid using a single set of values.
-// dim specifies the number of dimensions, the entries in x specify the gridded values.
+	"go.viam.com/core/utils"
+	"gonum.org/v1/gonum/floats"
+	"gonum.org/v1/gonum/mat"
 func Single(dim int, x []float64) [][]float64 {
 	dims := make([]int, dim)
 	for i := range dims {
