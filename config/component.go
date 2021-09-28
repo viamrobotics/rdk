@@ -54,8 +54,8 @@ func (config *Component) String() string {
 	return fmt.Sprintf("%#v", config)
 }
 
-// ResourceType returns the resource type for the component.
-func (config *Component) ResourceType() string {
+// ResourceSubtype returns the resource type for the component.
+func (config *Component) ResourceSubtype() string {
 	cType := string(config.Type)
 	if config.Type == ComponentTypeSensor {
 		cType = config.SubType
@@ -70,7 +70,7 @@ func (config *Component) ResourceType() string {
 
 // FullyQualifiedName returns the fully qualified name for the component.
 func (config *Component) FullyQualifiedName() string {
-	return fmt.Sprintf("%s/%s", config.ResourceType(), config.Name)
+	return fmt.Sprintf("%s/%s", config.ResourceSubtype(), config.Name)
 }
 
 type validator interface {
