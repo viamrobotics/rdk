@@ -61,6 +61,24 @@ func New(namespace string, rType string, subtype string, name string) (Name, err
 	}, nil
 }
 
+// ResourceSubtype returns the resource type for the component.
+func (r Name) ResourceSubtype() string {
+	return fmt.Sprintf(
+		"%s:%s:%s",
+		r.Namespace,
+		r.Type,
+		r.Subtype,
+	)
+}
+
+// FullyQualifiedName returns the fully qualified name for the component.
+func (r Name) FullyQualifiedName() string {
+	if r.Name == "" {
+		return r.ResourceSubtype()
+	}
+	return fmt.Sprintf("%s/%s", r.ResourceSubtype(), r.Name)
+}
+
 // Validate ensures that important fields exist and are valid.
 func (r Name) Validate() error {
 	if _, err := uuid.Parse(r.UUID); err != nil {
@@ -81,5 +99,5 @@ func (r Name) Validate() error {
 // Resource represents a known component/service of a robot.
 type Resource struct {
 	Name     Name
-	Resource *interface{}
+	Resource interface{}
 }

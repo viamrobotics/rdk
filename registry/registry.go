@@ -297,7 +297,7 @@ func FrameLookup(comp *config.Component) (CreateFrame, bool) {
 		}
 		return registration.Frame, true
 	case config.ComponentTypeArm:
-		registration := CreatorLookup(comp.ResourceType(), comp.Model)
+		registration := CreatorLookup(comp.ResourceSubtype(), comp.Model)
 		if registration == nil || registration.Frame == nil {
 			return nil, false
 		}
