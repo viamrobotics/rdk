@@ -21,6 +21,7 @@ class Buffer {
 
     void print(long n) { _port->print(n); }
     void print(const char* s) { _port->print(s); }
+    void changeBaudrate(uint32_t b);
 
    private:
     HardwareSerial* _port;
