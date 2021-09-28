@@ -2,6 +2,7 @@ package transform
 
 import (
 	"fmt"
+	"go.viam.com/core/rimage"
 	"log"
 	"math"
 
@@ -59,8 +60,9 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point) (*mat.Dense, error) {
 		// homography is a 3x3 matrix, with last element =1
 		s := append(x.RawMatrix().Data, 1.)
 		outMat := mat.NewDense(3, 3, s)
-		return outMat, err
+		return outMat, nil
 	} else {
+		fmt.Println("matrix is not invertible")
 		// Otherwise, return nothing
 		return nil, nil
 	}
@@ -193,6 +195,10 @@ func geometricDistance(p1, p2 r2.Point, h *mat.Dense) float64 {
 	return errVec.Norm()
 }
 
+func Are4PointsNonCollinear(p1, p2, p3,p4 r2.Point) bool {
+	return !rimage.AreCollinear(p1, p2, p3, 0.01) && !rimage.AreCollinear(p2, p3, p4, 0.01) && !rimage.AreCollinear(p1, p3, p4, 0.01) && !rimage.AreCollinear(p1, p2, p4, 0.01)
+}
+
 // EstimateHomographyRANSAC estimates a homography from matches of 2 sets of
 // points with the RANdom SAmple Consensus method
 func EstimateHomographyRANSAC(pts1, pts2 []r2.Point, thresh float64, nMaxIteration int) (*mat.Dense, []int, error) {
@@ -207,26 +213,40 @@ func EstimateHomographyRANSAC(pts1, pts2 []r2.Point, thresh float64, nMaxIterati
 		if err != nil {
 			return nil, nil, err
 		}
-		// estimate exact homography from these 4 matches
-		h, err := EstimateExactHomographyFrom8Points(s1, s2)
-		// compute inliers
-		currentInliers := make([]int, 0, len(pts1))
-		for k := 0; k < len(pts1); k++ {
-			d := geometricDistance(s1[k], s2[k], h)
-			if d < 5. {
-				currentInliers = append(currentInliers, k)
+		for !Are4PointsNonCollinear(s1[0], s1[1], s1[2], s1[3]) {
+			s1, s2, err = SelectFourPointPairs(pts1, pts2)
+			if err != nil {
+				return nil, nil, err
 			}
 		}
-		// keep current set of inliers and homography if number of inliers is bigger than before
-		if len(currentInliers) > len(maxInliers) {
-			maxInliers = currentInliers
-			finalH = h
+
+		// estimate exact homography from these 4 matches
+		h, err := EstimateExactHomographyFrom8Points(s1, s2)
+		if err != nil {
+			return nil, nil, err
 		}
-		// if the current homography has a number of inliers that exceeds a certain ratio of points in matches,
-		// iterations can be stopped - the homography estimation is accurate enough
-		nReasonable := int(float64(len(pts1)) * thresh)
-		if len(currentInliers) > nReasonable {
-			break
+		if h !=nil {
+			// compute inliers
+			currentInliers := make([]int, 0, len(pts1))
+			for k := 0; k < 4; k++ {
+				d := geometricDistance(s1[k], s2[k], h)
+				if d < 5. {
+					currentInliers = append(currentInliers, k)
+				}
+			}
+			// keep current set of inliers and homography if number of inliers is bigger than before
+			if len(currentInliers) > len(maxInliers) {
+				maxInliers = currentInliers
+				finalH = h
+			}
+			// if the current homography has a number of inliers that exceeds a certain ratio of points in matches,
+			// iterations can be stopped - the homography estimation is accurate enough
+			nReasonable := int(float64(len(pts1)) * thresh)
+			if len(currentInliers) > nReasonable {
+				break
+			}
+		} else {
+			continue
 		}
 	}
 	return finalH, maxInliers, nil

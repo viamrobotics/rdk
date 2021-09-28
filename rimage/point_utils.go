@@ -221,3 +221,9 @@ func SortVectorsCounterClockwise(pts []r2.Point) []r2.Point {
 	}
 	return out
 }
+
+// AreCollinear returns true if the 3 points a, b and c are collinear
+func AreCollinear(a, b, c r2.Point, eps float64) bool {
+	val := math.Abs((b.X-a.X)*(c.Y-a.Y) - (c.X-a.X)*(b.Y-a.Y))
+	return val < eps
+}
