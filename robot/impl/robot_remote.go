@@ -22,6 +22,7 @@ import (
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
@@ -112,6 +113,23 @@ func (rr *remoteRobot) prefixNames(names []string) []string {
 	return newNames
 }
 
+func (rr *remoteRobot) unprefixQualifiedName(name string) string {
+	if rr.conf.Prefix {
+		split := strings.Split(name, "/")
+		split[len(split)] = rr.unprefixName(split[len(split)])
+		return strings.Join(split, "/")
+	}
+	return name
+}
+
+func (rr *remoteRobot) prefixResourceName(name resource.Name) resource.Name {
+	if !rr.conf.Prefix {
+		return name
+	}
+	name.Name = rr.prefixName(name.Name)
+	return name
+}
+
 func (rr *remoteRobot) RemoteNames() []string {
 	return nil
 }
@@ -182,6 +200,28 @@ func (rr *remoteRobot) ServiceNames() []string {
 	return rr.prefixNames(rr.parts.ServiceNames())
 }
 
+func (rr *remoteRobot) ResourceNames() []resource.Name {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	newNames := make([]resource.Name, 0, len(rr.parts.ResourceNames()))
+	for _, name := range rr.parts.ResourceNames() {
+		name = rr.prefixResourceName(name)
+		newNames = append(newNames, name)
+	}
+	return newNames
+}
+
+func (rr *remoteRobot) Resources() []*resource.Resource {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	newResources := make([]*resource.Resource, 0, len(rr.parts.Resources()))
+	for _, resource := range rr.parts.Resources() {
+		resource.Name = rr.prefixResourceName(resource.Name)
+		newResources = append(newResources, resource)
+	}
+	return newResources
+}
+
 func (rr *remoteRobot) RemoteByName(name string) (robot.Robot, bool) {
 	debug.PrintStack()
 	panic(errUnimplemented)
@@ -245,6 +285,12 @@ func (rr *remoteRobot) ServiceByName(name string) (interface{}, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.ServiceByName(rr.unprefixName(name))
+}
+
+func (rr *remoteRobot) ResourceByName(name string) (*resource.Resource, bool) {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	return rr.parts.ResourceByName(rr.unprefixName(name))
 }
 
 func (rr *remoteRobot) ProcessManager() pexec.ProcessManager {
@@ -367,13 +413,6 @@ func (rr *remoteRobot) Close() error {
 // Be sure to update this function if robotParts grows.
 func partsForRemoteRobot(robot robot.Robot) *robotParts {
 	parts := newRobotParts(robot.Logger().Named("parts"))
-	for _, name := range robot.ArmNames() {
-		part, ok := robot.ArmByName(name)
-		if !ok {
-			continue
-		}
-		parts.AddArm(part, config.Component{Name: name})
-	}
 	for _, name := range robot.BaseNames() {
 		part, ok := robot.BaseByName(name)
 		if !ok {
@@ -440,13 +479,22 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 		}
 		parts.AddService(part, config.Service{Name: name})
 	}
+
+	for _, r := range robot.Resources() {
+		rType := config.ComponentType(r.Name.Subtype)
+		rSubtype := ""
+		if r.Name.Subtype == string(config.ComponentTypeSensor) {
+			rType = config.ComponentTypeSensor
+			rSubtype = r.Name.Subtype
+		}
+		parts.AddResource(r, config.Component{Type: rType, SubType: rSubtype, Name: r.Name.Name})
+	}
 	return parts
 }
 
 // replaceForRemote replaces these parts with the given parts coming from a remote.
 func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	var oldBoardNames map[string]struct{}
-	var oldArmNames map[string]struct{}
 	var oldGripperNames map[string]struct{}
 	var oldCameraNames map[string]struct{}
 	var oldLidarNames map[string]struct{}
@@ -456,17 +504,12 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	var oldMotorNames map[string]struct{}
 	var oldFunctionNames map[string]struct{}
 	var oldServiceNames map[string]struct{}
+	var oldResources map[string]struct{}
 
 	if len(parts.boards) != 0 {
 		oldBoardNames = make(map[string]struct{}, len(parts.boards))
 		for name := range parts.boards {
 			oldBoardNames[name] = struct{}{}
-		}
-	}
-	if len(parts.arms) != 0 {
-		oldArmNames = make(map[string]struct{}, len(parts.arms))
-		for name := range parts.arms {
-			oldArmNames[name] = struct{}{}
 		}
 	}
 	if len(parts.grippers) != 0 {
@@ -524,6 +567,13 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		}
 	}
 
+	if len(parts.resources) != 0 {
+		oldResources = make(map[string]struct{}, len(parts.resources))
+		for name := range parts.resources {
+			oldResources[name] = struct{}{}
+		}
+	}
+
 	for name, newPart := range newParts.boards {
 		oldPart, ok := parts.boards[name]
 		delete(oldBoardNames, name)
@@ -532,15 +582,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 			continue
 		}
 		parts.boards[name] = newPart
-	}
-	for name, newPart := range newParts.arms {
-		oldPart, ok := parts.arms[name]
-		delete(oldArmNames, name)
-		if ok {
-			oldPart.replace(newPart)
-			continue
-		}
-		parts.arms[name] = newPart
 	}
 	for name, newPart := range newParts.grippers {
 		oldPart, ok := parts.grippers[name]
@@ -624,12 +665,18 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		}
 		parts.services[name] = newPart
 	}
+	for name, newPart := range newParts.resources {
+		oldPart, ok := parts.resources[name]
+		delete(oldResources, name)
+		if ok {
+			oldPart.replace(newPart.actual)
+			continue
+		}
+		parts.resources[name] = newPart
+	}
 
 	for name := range oldBoardNames {
 		delete(parts.boards, name)
-	}
-	for name := range oldArmNames {
-		delete(parts.arms, name)
 	}
 	for name := range oldGripperNames {
 		delete(parts.grippers, name)
@@ -657,5 +704,8 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	}
 	for name := range oldServiceNames {
 		delete(parts.services, name)
+	}
+	for name := range oldResources {
+		delete(parts.resources, name)
 	}
 }

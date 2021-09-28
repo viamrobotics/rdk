@@ -16,6 +16,7 @@ import (
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
 
@@ -111,6 +112,12 @@ type Robot interface {
 	// FrameSystem returns a FrameSystem suitable for doing reference frame lookups
 	// and then computing relative offsets of pieces
 	FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error)
+
+	// ResourceNames returns a list of all known resource names
+	ResourceNames() []resource.Name
+
+	// Resources returns a list of all known resources
+	Resources() []*resource.Resource
 
 	// Logger returns the logger the robot is using.
 	Logger() golog.Logger
