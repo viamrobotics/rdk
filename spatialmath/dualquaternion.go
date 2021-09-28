@@ -84,7 +84,7 @@ func newdualQuaternionFromPose(p Pose) *dualQuaternion {
 	if q, ok := p.(*dualQuaternion); ok {
 		return q.Clone()
 	}
-	q := newdualQuaternionFromRotation(p.Orientation().OrientationVectortorRadians())
+	q := newdualQuaternionFromRotation(p.Orientation().OrientationVectorRadians())
 	pt := p.Point()
 	q.SetTranslation(pt.X, pt.Y, pt.Z)
 	return q

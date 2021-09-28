@@ -98,10 +98,10 @@ func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigRes
 				X:     c.Frame.Translation.X,
 				Y:     c.Frame.Translation.Y,
 				Z:     c.Frame.Translation.Z,
-				OX:    orientation.OrientationVectortorDegrees().OX,
-				OY:    orientation.OrientationVectortorDegrees().OY,
-				OZ:    orientation.OrientationVectortorDegrees().OZ,
-				Theta: orientation.OrientationVectortorDegrees().Theta,
+				OX:    orientation.OrientationVectorDegrees().OX,
+				OY:    orientation.OrientationVectorDegrees().OY,
+				OZ:    orientation.OrientationVectorDegrees().OZ,
+				Theta: orientation.OrientationVectorDegrees().Theta,
 			}
 		}
 		resp.Components = append(resp.Components, cc)

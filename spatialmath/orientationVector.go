@@ -35,8 +35,8 @@ type OrientationVectorDegrees struct {
 	OZ    float64 `json:"z"`
 }
 
-// NewOrientationVectortor Creates a zero-initialized OrientationVector
-func NewOrientationVectortor() *OrientationVector {
+// NewOrientationVector Creates a zero-initialized OrientationVector
+func NewOrientationVector() *OrientationVector {
 	return &OrientationVector{Theta: 0, OX: 0, OY: 0, OZ: 1}
 }
 
@@ -97,13 +97,13 @@ func (ov *OrientationVector) Quaternion() quat.Number {
 	return ov.ToQuat()
 }
 
-// OrientationVectortorRadians returns orientation as an orientation vector (in radians)
-func (ov *OrientationVector) OrientationVectortorRadians() *OrientationVector {
+// OrientationVectorRadians returns orientation as an orientation vector (in radians)
+func (ov *OrientationVector) OrientationVectorRadians() *OrientationVector {
 	return ov
 }
 
-// OrientationVectortorDegrees returns orientation as an orientation vector (in degrees)
-func (ov *OrientationVector) OrientationVectortorDegrees() *OrientationVectorDegrees {
+// OrientationVectorDegrees returns orientation as an orientation vector (in degrees)
+func (ov *OrientationVector) OrientationVectorDegrees() *OrientationVectorDegrees {
 	return ov.Degrees()
 }
 
@@ -112,8 +112,8 @@ func (ov *OrientationVector) AxisAngles() *R4AA {
 	return QuatToR4AA(ov.ToQuat())
 }
 
-// NewOrientationVectortorDegrees Creates a zero-initialized OrientationVectorDegrees
-func NewOrientationVectortorDegrees() *OrientationVectorDegrees {
+// NewOrientationVectorDegrees Creates a zero-initialized OrientationVectorDegrees
+func NewOrientationVectorDegrees() *OrientationVectorDegrees {
 	return &OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1}
 }
 
@@ -137,13 +137,13 @@ func (ovd *OrientationVectorDegrees) Quaternion() quat.Number {
 	return ovd.ToQuat()
 }
 
-// OrientationVectortorRadians returns orientation as an orientation vector (in radians)
-func (ovd *OrientationVectorDegrees) OrientationVectortorRadians() *OrientationVector {
+// OrientationVectorRadians returns orientation as an orientation vector (in radians)
+func (ovd *OrientationVectorDegrees) OrientationVectorRadians() *OrientationVector {
 	return ovd.Radians()
 }
 
-// OrientationVectortorDegrees returns orientation as an orientation vector (in degrees)
-func (ovd *OrientationVectorDegrees) OrientationVectortorDegrees() *OrientationVectorDegrees {
+// OrientationVectorDegrees returns orientation as an orientation vector (in degrees)
+func (ovd *OrientationVectorDegrees) OrientationVectorDegrees() *OrientationVectorDegrees {
 	return ovd
 }
 

@@ -9,8 +9,8 @@ import (
 
 // Orientation is an interface used to express the different parameterizations of the orientation of a rigid object or a frame of reference in 3D Euclidean space.
 type Orientation interface {
-	OrientationVectortorRadians() *OrientationVector
-	OrientationVectortorDegrees() *OrientationVectorDegrees
+	OrientationVectorRadians() *OrientationVector
+	OrientationVectorDegrees() *OrientationVectorDegrees
 	AxisAngles() *R4AA
 	Quaternion() quat.Number
 	EulerAngles() *EulerAngles
@@ -33,13 +33,13 @@ func (q *quaternion) AxisAngles() *R4AA {
 	return QuatToR4AA(q.Quaternion())
 }
 
-// OrientationVectortorRadians returns orientation as an orientation vector (in radians)
-func (q *quaternion) OrientationVectortorRadians() *OrientationVector {
+// OrientationVectorRadians returns orientation as an orientation vector (in radians)
+func (q *quaternion) OrientationVectorRadians() *OrientationVector {
 	return QuatToOV(q.Quaternion())
 }
 
-// OrientationVectortorDegrees returns orientation as an orientation vector (in degrees)
-func (q *quaternion) OrientationVectortorDegrees() *OrientationVectorDegrees {
+// OrientationVectorDegrees returns orientation as an orientation vector (in degrees)
+func (q *quaternion) OrientationVectorDegrees() *OrientationVectorDegrees {
 	return QuatToOVD(q.Quaternion())
 }
 

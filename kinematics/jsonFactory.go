@@ -95,7 +95,7 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 			ov := &spatialmath.OrientationVector{utils.DegToRad(link.Orientation.Theta), link.Orientation.OX, link.Orientation.OY, link.Orientation.OZ}
 			pt := r3.Vector{link.Translation.X, link.Translation.Y, link.Translation.Z}
 
-			q := spatialmath.NewPoseFromOrientationVectortor(pt, ov)
+			q := spatialmath.NewPoseFromOrientationVector(pt, ov)
 
 			transforms[link.ID], err = frame.NewStaticFrame(link.ID, q)
 			if err != nil {

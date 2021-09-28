@@ -49,21 +49,21 @@ func TestOrientation(t *testing.T) {
 	test.That(t, frame.Translation, test.ShouldResemble, Translation{0, 0, 0})
 	test.That(t, frame.Orientation.Quaternion(), test.ShouldResemble, quat.Number{1, 0, 0, 0})
 
-	// OrientationVectortorDegrees Config
+	// OrientationVectorDegrees Config
 	frame = Frame{}
 	err = json.Unmarshal(testMap["ovdegrees"], &frame)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame.Parent, test.ShouldEqual, "a")
 	test.That(t, frame.Translation, test.ShouldResemble, Translation{1, 2, 3})
-	test.That(t, frame.Orientation.OrientationVectortorDegrees(), test.ShouldResemble, &spatial.OrientationVectorDegrees{45, 0, 0, 1})
+	test.That(t, frame.Orientation.OrientationVectorDegrees(), test.ShouldResemble, &spatial.OrientationVectorDegrees{45, 0, 0, 1})
 
-	// OrientationVectortor Radians Config
+	// OrientationVector Radians Config
 	frame = Frame{}
 	err = json.Unmarshal(testMap["ovradians"], &frame)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame.Parent, test.ShouldEqual, "b")
 	test.That(t, frame.Translation, test.ShouldResemble, Translation{4, 5, 6})
-	test.That(t, frame.Orientation.OrientationVectortorRadians(), test.ShouldResemble, &spatial.OrientationVector{0.78539816, 0, 1, 0})
+	test.That(t, frame.Orientation.OrientationVectorRadians(), test.ShouldResemble, &spatial.OrientationVector{0.78539816, 0, 1, 0})
 
 	// Euler Angles
 	frame = Frame{}
