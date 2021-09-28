@@ -813,6 +813,7 @@ func (s *Server) CompassMark(ctx context.Context, req *pb.CompassMarkRequest) (*
 	return &pb.CompassMarkResponse{}, nil
 }
 
+// ImuAngularVelocity returns the angular velocity reading of the IMU sensor of the underlying robot
 func (s *Server) ImuAngularVelocity(ctx context.Context, req *pb.ImuAngularVelocityRequest) (*pb.ImuAngularVelocityResponse, error) {
 	sensorDevice, ok := s.r.SensorByName(req.Name)
 	if !ok {
@@ -825,6 +826,7 @@ func (s *Server) ImuAngularVelocity(ctx context.Context, req *pb.ImuAngularVeloc
 	return &pb.ImuAngularVelocityResponse{AngularVelocity: angularVelocityVec}, nil
 }
 
+// ImuOrientation returns the orientation reading of the IMU sensor of the underlying robot
 func (s *Server) ImuOrientation(ctx context.Context, req *pb.ImuOrientationRequest) (*pb.ImuOrientationResponse, error) {
 	sensorDevice, ok := s.r.SensorByName(req.Name)
 	if !ok {
