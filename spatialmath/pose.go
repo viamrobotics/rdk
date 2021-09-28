@@ -24,11 +24,11 @@ func NewZeroPose() Pose {
 
 // NewPoseFromOrientation takes in a position and orientation and returns a Pose.
 func NewPoseFromOrientation(point r3.Vector, o Orientation) Pose {
-	return NewPoseFromOrientationVectortor(point, o.OrientationVectortorRadians())
+	return NewPoseFromOrientationVector(point, o.OrientationVectorRadians())
 }
 
-// NewPoseFromOrientationVectortor takes in a position and orientation vector and returns a Pose.
-func NewPoseFromOrientationVectortor(point r3.Vector, ov *OrientationVector) Pose {
+// NewPoseFromOrientationVector takes in a position and orientation vector and returns a Pose.
+func NewPoseFromOrientationVector(point r3.Vector, ov *OrientationVector) Pose {
 	quat := newdualQuaternion()
 	if ov != nil {
 		quat = newdualQuaternionFromRotation(ov)
@@ -119,7 +119,7 @@ func PoseToArmPos(p Pose) *pb.ArmPosition {
 	final.X = pt.X
 	final.Y = pt.Y
 	final.Z = pt.Z
-	poseOV := p.Orientation().OrientationVectortorRadians()
+	poseOV := p.Orientation().OrientationVectorRadians()
 	final.Theta = utils.RadToDeg(poseOV.Theta)
 	final.OX = poseOV.OX
 	final.OY = poseOV.OY

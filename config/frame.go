@@ -12,8 +12,8 @@ type OrientationType string
 
 // The set of allowed representations for orientation
 const (
-	OrientationVectortorDegrees = OrientationType("ov_degrees")
-	OrientationVectortorRadians = OrientationType("ov_radians")
+	OrientationVectorDegrees = OrientationType("ov_degrees")
+	OrientationVectorRadians = OrientationType("ov_radians")
 	EulerAngles              = OrientationType("euler_angles")
 	AxisAngles               = OrientationType("axis_angles")
 )
@@ -88,14 +88,14 @@ func parseOrientation(j json.RawMessage) (spatial.Orientation, error) {
 
 	// use the type to unmarshal the value
 	switch OrientationType(temp.Type) {
-	case OrientationVectortorDegrees:
+	case OrientationVectorDegrees:
 		var o spatial.OrientationVectorDegrees
 		err = json.Unmarshal(temp.Value, &o)
 		if err != nil {
 			return nil, err
 		}
 		return &o, nil
-	case OrientationVectortorRadians:
+	case OrientationVectorRadians:
 		var o spatial.OrientationVector
 		err = json.Unmarshal(temp.Value, &o)
 		if err != nil {
