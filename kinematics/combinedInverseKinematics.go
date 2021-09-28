@@ -89,10 +89,10 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed []fra
 		returned++
 		if myRT.Err == nil {
 
-			dist, err := calcSwingPct(seed, myRT.Result, ik.model)
+			dist, err := calcSwingAmount(seed, myRT.Result, ik.model)
 			// non-nil err means out of bounds joint solution, ignore and move on
 			if err == nil {
-				if dist < 1.1 {
+				if dist < goodSwingAmt {
 					found = true
 					solutions = [][]frame.Input{myRT.Result}
 				} else {

@@ -209,12 +209,12 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seed []fr
 			solution := frame.FloatsToInputs(solutionRaw)
 			// Return immediately if we have a "natural" solution, i.e. one where the halfway point is on the way
 			// to the end point
-			swing, newErr := calcSwingPct(seed, solution, ik.model)
+			swing, newErr := calcSwingAmount(seed, solution, ik.model)
 			if newErr != nil {
 				// out-of-bounds angles. Shouldn't happen, but if it does, record the error and move on without
 				// keeping the invalid solution
 				err = multierr.Combine(err, newErr)
-			} else if swing < 1.1 {
+			} else if swing < goodSwingAmt {
 				return solution, err
 			} else {
 				solutions = append(solutions, solution)
