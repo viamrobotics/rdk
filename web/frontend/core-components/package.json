@@ -5,7 +5,7 @@
   "scripts": {
     "serve": "vue-cli-service serve --port 3000",
     "build:dev": "vue-cli-service build --target lib --name coreComponents --formats umd --dest ../../runtime-shared/static/components ./src/lib.ts && rm ../../runtime-shared/static/components/demo.html",
-    "build:prod": "vue-cli-service build --target lib --name coreComponents --formats umd-min --dest ../../runtime-shared/static/components ./src/lib.ts && rm ../../runtime-shared/static/components/demo.html",
+    "build:prod": "vue-cli-service build --target lib --name coreComponents --formats umd-min --dest ../../runtime-shared/static/components ./src/lib.ts",
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
