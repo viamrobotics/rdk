@@ -7,59 +7,56 @@
             "type": "board",
             "attributes":
             {
-                "config":
-                {
-                    "digitalInterrupts":
-                    [
-                        {
-                            "name": "throttle",
-                            "note": "rc1",
-                            "pin": "33",
-                            "type": "servo",
-                            "formula": "(max 0 (/ (- raw 1150) 8))"
-                        },
-                        {
-                            "name": "right-horizontal",
-                            "pin": "35",
-                            "type": "servo",
-                            "formula": "(/ (- raw 1500) -4)"
-                        },
-                        {
-                            "name": "right-vertical",
-                            "pin": "37",
-                            "type": "servo",
-                            "formula": "(/ (- raw 1500) 4)"
-                        },
-                        {
-                            "name": "direction",
-                            "note": "rc4",
-                            "pin": "36",
-                            "type": "servo",
-                            "formula": "(/ (- raw 1500) -4)"
-                        },
-                        {
-                            "name": "a",
-                            "note": "rc5",
-                            "pin": "38",
-                            "type": "servo"
-                        },
-                        {
-                            "name": "mode",
-                            "note": "rc6",
-                            "pin": "40",
-                            "type": "servo",
-                            "formula": "(/ (- raw 1100) 390)"
-                        },
-                        {
-                            "name": "port-encoder",
-                            "pin": "29"
-                        },
-                        {
-                            "name": "starboard-encoder",
-                            "pin": "32"
-                        }
-                    ]
-                }
+                "digitalInterrupts":
+                [
+                    {
+                        "name": "throttle",
+                        "note": "rc1",
+                        "pin": "33",
+                        "type": "servo",
+                        "formula": "(max 0 (/ (- raw 1150) 8))"
+                    },
+                    {
+                        "name": "right-horizontal",
+                        "pin": "35",
+                        "type": "servo",
+                        "formula": "(/ (- raw 1500) -4)"
+                    },
+                    {
+                        "name": "right-vertical",
+                        "pin": "37",
+                        "type": "servo",
+                        "formula": "(/ (- raw 1500) 4)"
+                    },
+                    {
+                        "name": "direction",
+                        "note": "rc4",
+                        "pin": "36",
+                        "type": "servo",
+                        "formula": "(/ (- raw 1500) -4)"
+                    },
+                    {
+                        "name": "a",
+                        "note": "rc5",
+                        "pin": "38",
+                        "type": "servo"
+                    },
+                    {
+                        "name": "mode",
+                        "note": "rc6",
+                        "pin": "40",
+                        "type": "servo",
+                        "formula": "(/ (- raw 1100) 390)"
+                    },
+                    {
+                        "name": "port-encoder",
+                        "pin": "29"
+                    },
+                    {
+                        "name": "starboard-encoder",
+                        "pin": "32"
+                    }
+                ]
             }
         },
         {
@@ -68,17 +65,14 @@
             "model": "pi",
             "attributes":
             {
-                "config":
+                "pins":
                 {
-                    "pins":
-                    {
-                        "a": "13",
-                        "b": "11",
-                        "pwm": "15"
-                    },
-                    "encoder": "port-encoder",
-                    "ticksPerRotation": 1000
-                }
+                    "a": "13",
+                    "b": "11",
+                    "pwm": "15"
+                },
+                "encoder": "port-encoder",
+                "ticksPerRotation": 1000
             },
             "depends_on":
             [
@@ -91,17 +85,14 @@
             "model": "pi",
             "attributes":
             {
-                "config":
+                "pins":
                 {
-                    "pins":
-                    {
-                        "a": "16",
-                        "b": "18",
-                        "pwm": "22"
-                    },
-                    "encoder": "starboard-encoder",
-                    "ticksPerRotation": 1000
-                }
+                    "a": "16",
+                    "b": "18",
+                    "pwm": "22"
+                },
+                "encoder": "starboard-encoder",
+                "ticksPerRotation": 1000
             },
             "depends_on":
             [

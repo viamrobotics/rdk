@@ -391,6 +391,9 @@ func TestPartsAdd(t *testing.T) {
 	injectBoard.SPINamesFunc = func() []string {
 		return []string{"spi1"}
 	}
+	injectBoard.I2CNamesFunc = func() []string {
+		return []string{"i2c1"}
+	}
 	injectBoard.AnalogReaderNamesFunc = func() []string {
 		return []string{"analog1"}
 	}
@@ -399,6 +402,9 @@ func TestPartsAdd(t *testing.T) {
 	}
 	injectBoard.SPIByNameFunc = func(name string) (board.SPI, bool) {
 		return &inject.SPI{}, true
+	}
+	injectBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
+		return &inject.I2C{}, true
 	}
 	injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 		return &fake.Analog{}, true
@@ -673,14 +679,12 @@ func TestPartsMergeModify(t *testing.T) {
 	robotForRemote := &mutableRobot{parts: newRobotParts(logger), logger: logger}
 	fakeBoardRemote, err := fake.NewBoard(context.Background(), config.Component{
 		Name: "board2",
-		Attributes: config.AttributeMap{
-			"config": &board.Config{
-				Analogs: []board.AnalogConfig{
-					{Name: "analog2"},
-				},
-				DigitalInterrupts: []board.DigitalInterruptConfig{
-					{Name: "digital2"},
-				},
+		ConvertedAttributes: &board.Config{
+			Analogs: []board.AnalogConfig{
+				{Name: "analog2"},
+			},
+			DigitalInterrupts: []board.DigitalInterruptConfig{
+				{Name: "digital2"},
 			},
 		},
 	}, logger)
@@ -701,14 +705,12 @@ func TestPartsMergeModify(t *testing.T) {
 
 	fakeBoard, err := fake.NewBoard(context.Background(), config.Component{
 		Name: "board1",
-		Attributes: config.AttributeMap{
-			"config": &board.Config{
-				Analogs: []board.AnalogConfig{
-					{Name: "analog2"},
-				},
-				DigitalInterrupts: []board.DigitalInterruptConfig{
-					{Name: "digital2"},
-				},
+		ConvertedAttributes: &board.Config{
+			Analogs: []board.AnalogConfig{
+				{Name: "analog2"},
+			},
+			DigitalInterrupts: []board.DigitalInterruptConfig{
+				{Name: "digital2"},
 			},
 		},
 	}, logger)

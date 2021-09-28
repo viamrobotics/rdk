@@ -48,7 +48,7 @@ func TestFlip(t *testing.T) {
 	end2 := QuatToR4AA(qb2)
 	test.That(t, math.Abs(end1.Theta-end2.Theta), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(end1.RX-end2.RX), test.ShouldBeLessThan, 0.001)
-	test.That(t, math.Abs(end1.RY-end2.RZ), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(end1.RY-end2.RY), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(end1.RZ-end2.RZ), test.ShouldBeLessThan, 0.001)
 }
 

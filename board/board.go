@@ -16,6 +16,9 @@ type Board interface {
 	// SPIByName returns an SPI bus by name.
 	SPIByName(name string) (SPI, bool)
 
+	// I2CByName returns an I2C bus by name.
+	I2CByName(name string) (I2C, bool)
+
 	// AnalogReaderByName returns an analog reader by name.
 	AnalogReaderByName(name string) (AnalogReader, bool)
 
@@ -24,6 +27,9 @@ type Board interface {
 
 	// SPINames returns the name of all known SPI busses.
 	SPINames() []string
+
+	// I2CNames returns the name of all known I2C busses.
+	I2CNames() []string
 
 	// AnalogReaderNames returns the name of all known analog readers.
 	AnalogReaderNames() []string
@@ -77,6 +83,22 @@ type SPIHandle interface {
 	// Large transmissions are usually broken up into multiple transfers.
 	// There are many different paradigms for most of the above, and implementation details are chip/device specific.
 	Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error)
+	// Close closes the handle and releases the lock on the bus.
+	Close() error
+}
+
+// I2C represents a shareable I2C bus on the board.
+type I2C interface {
+	// OpenHandle locks the shared bus and returns a handle interface that MUST be closed when done.
+	OpenHandle() (I2CHandle, error)
+}
+
+// I2CHandle is similar to an io handle. It MUST be closed to release the bus.
+type I2CHandle interface {
+	Write(ctx context.Context, addr byte, tx []byte) error
+
+	Read(ctx context.Context, addr byte, count int) ([]byte, error)
+
 	// Close closes the handle and releases the lock on the bus.
 	Close() error
 }

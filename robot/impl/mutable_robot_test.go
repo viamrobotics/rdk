@@ -195,6 +195,10 @@ func (db *dummyBoard) SPINames() []string {
 	return nil
 }
 
+func (db *dummyBoard) I2CNames() []string {
+	return nil
+}
+
 func (db *dummyBoard) AnalogReaderNames() []string {
 	return nil
 }

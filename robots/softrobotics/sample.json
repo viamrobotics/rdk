@@ -18,16 +18,13 @@
             "model": "pi",
             "attributes":
             {
-                "config":
-                {
-                    "analogs":
-                    [
-                        {
-                            "name": "psi",
-                            "pin": "0"
-                        }
-                    ]
-                }
+                "analogs":
+                [
+                    {
+                        "name": "psi",
+                        "pin": "0"
+                    }
+                ]
             }
         }
     ]
