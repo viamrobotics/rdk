@@ -243,6 +243,14 @@ func (r *mutableRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSys
 	return CreateReferenceFrameSystem(ctx, r)
 }
 
+func (r *mutableRobot) ResourceNames() []resource.Name {
+	return r.parts.ResourceNames()
+}
+
+func (r *mutableRobot) Resources() []*resource.Resource {
+	return r.parts.Resources()
+}
+
 // Logger returns the logger the robot is using.
 func (r *mutableRobot) Logger() golog.Logger {
 	return r.logger
@@ -285,15 +293,6 @@ func (r *mutableRobot) newBase(ctx context.Context, config config.Component) (ba
 	if f == nil {
 		return nil, errors.Errorf("unknown base model: %s", config.Model)
 	}
-	return f.Constructor(ctx, r, config, r.logger)
-}
-
-func (r *mutableRobot) newArm(ctx context.Context, config config.Component) (arm.Arm, error) {
-	f := registry.ArmLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown arm model: %s", config.Model)
-	}
-
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
@@ -361,6 +360,13 @@ func (r *mutableRobot) newService(ctx context.Context, config config.Service) (i
 	f := registry.ServiceLookup(config.Type)
 	if f == nil {
 		return nil, errors.Errorf("unknown service type: %s", config.Type)
+	}
+	return f.Constructor(ctx, r, config, r.logger)
+}
+func (r *mutableRobot) newResource(ctx context.Context, config config.Component) (*resource.Resource, error) {
+	f := registry.CreatorLookup(config.ResourceSubtype(), config.Model)
+	if f == nil {
+		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", config.ResourceSubtype(), config.Model)
 	}
 	return f.Constructor(ctx, r, config, r.logger)
 }

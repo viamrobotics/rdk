@@ -30,6 +30,7 @@ import (
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
@@ -53,7 +54,6 @@ type RobotClient struct {
 	client  pb.RobotServiceClient
 
 	namesMu       *sync.Mutex
-	armNames      []string
 	baseNames     []string
 	gripperNames  []string
 	boardNames    []boardInfo
@@ -64,6 +64,7 @@ type RobotClient struct {
 	motorNames    []string
 	functionNames []string
 	serviceNames  []string
+	resources     map[string]*resource.Resource
 
 	sensorTypes map[string]sensor.Type
 
@@ -344,11 +345,22 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 	rc.storeStatus(status)
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
-	rc.armNames = nil
+	rc.resources = map[string]*resource.Resource{}
 	if len(status.Arms) != 0 {
-		rc.armNames = make([]string, 0, len(status.Arms))
 		for name := range status.Arms {
-			rc.armNames = append(rc.armNames, name)
+			n, err := resource.New(resource.ResourceNamespaceCore, resource.ResourceTypeComponent, resource.ResourceSubtypeArm, name)
+			if err != nil {
+				return err
+			}
+			part, ok := rc.ArmByName(name)
+			if !ok {
+				continue
+			}
+			r := &resource.Resource{
+				Name:     n,
+				Resource: part,
+			}
+			rc.resources[n.FullyQualifiedName()] = r
 		}
 	}
 	rc.baseNames = nil
@@ -455,7 +467,18 @@ func (rc *RobotClient) RemoteNames() []string {
 func (rc *RobotClient) ArmNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
-	return copyStringSlice(rc.armNames)
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		armSubtype := resource.Name{
+			Namespace: resource.ResourceNamespaceCore,
+			Type:      resource.ResourceTypeComponent,
+			Subtype:   resource.ResourceSubtypeArm,
+		}
+		if v.ResourceSubtype() == armSubtype.ResourceSubtype() {
+			names = append(names, v.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // GripperNames returns the names of all known grippers.
@@ -537,6 +560,28 @@ func (rc *RobotClient) ServiceNames() []string {
 // of the interface!
 func (rc *RobotClient) ProcessManager() pexec.ProcessManager {
 	return pexec.NoopProcessManager
+}
+
+// ResourceNames returns all resource names
+func (rc *RobotClient) ResourceNames() []resource.Name {
+	rc.namesMu.Lock()
+	defer rc.namesMu.Unlock()
+	names := []resource.Name{}
+	for _, v := range rc.resources {
+		names = append(names, v.Name)
+	}
+	return names
+}
+
+// Resources returns all resources
+func (rc *RobotClient) Resources() []*resource.Resource {
+	rc.namesMu.Lock()
+	defer rc.namesMu.Unlock()
+	r := []*resource.Resource{}
+	for _, v := range rc.resources {
+		r = append(r, v)
+	}
+	return r
 }
 
 // FrameSystem not implemented for remote robots

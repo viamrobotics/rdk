@@ -20,6 +20,7 @@ import (
 	"go.viam.com/core/grpc/client"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
@@ -31,7 +32,6 @@ import (
 type robotParts struct {
 	remotes        map[string]*remoteRobot
 	boards         map[string]*proxyBoard
-	arms           map[string]*proxyArm
 	grippers       map[string]*proxyGripper
 	cameras        map[string]*proxyCamera
 	lidars         map[string]*proxyLidar
@@ -41,6 +41,7 @@ type robotParts struct {
 	motors         map[string]*proxyMotor
 	services       map[string]interface{}
 	functions      map[string]struct{}
+	resources      map[string]*proxyResource
 	processManager pexec.ProcessManager
 }
 
@@ -49,7 +50,6 @@ func newRobotParts(logger golog.Logger) *robotParts {
 	return &robotParts{
 		remotes:        map[string]*remoteRobot{},
 		boards:         map[string]*proxyBoard{},
-		arms:           map[string]*proxyArm{},
 		grippers:       map[string]*proxyGripper{},
 		cameras:        map[string]*proxyCamera{},
 		lidars:         map[string]*proxyLidar{},
@@ -59,6 +59,7 @@ func newRobotParts(logger golog.Logger) *robotParts {
 		motors:         map[string]*proxyMotor{},
 		services:       map[string]interface{}{},
 		functions:      map[string]struct{}{},
+		resources:      map[string]*proxyResource{},
 		processManager: pexec.NewProcessManager(logger),
 	}
 }
@@ -73,6 +74,13 @@ func fixType(c config.Component, whichType config.ComponentType, pos int) config
 	return c
 }
 
+// ensureResourceSubtype ensures that the constructed component is of the expected type.
+func ensureResourceSubtype(c config.Component, resourceName resource.Name) {
+	if c.ResourceSubtype() != resourceName.ResourceSubtype() {
+		panic(fmt.Sprintf("different types (%s) != (%s)", resourceName.ResourceSubtype(), c.ResourceSubtype()))
+	}
+}
+
 // addRemote adds a remote to the parts.
 func (parts *robotParts) addRemote(r *remoteRobot, c config.Remote) {
 	parts.remotes[c.Name] = r
@@ -84,15 +92,6 @@ func (parts *robotParts) AddBoard(b board.Board, c config.Component) {
 		b = proxy.actual
 	}
 	parts.boards[c.Name] = newProxyBoard(b)
-}
-
-// AddArm adds an arm to the parts.
-func (parts *robotParts) AddArm(a arm.Arm, c config.Component) {
-	c = fixType(c, config.ComponentTypeArm, len(parts.arms))
-	if proxy, ok := a.(*proxyArm); ok {
-		a = proxy.actual
-	}
-	parts.arms[c.Name] = &proxyArm{actual: a}
 }
 
 // AddGripper adds a gripper to the parts.
@@ -184,6 +183,12 @@ func (parts *robotParts) addFunction(name string) {
 	parts.functions[name] = struct{}{}
 }
 
+// AddResource adds a resource to the parts.
+func (parts *robotParts) AddResource(r *resource.Resource, c config.Component) {
+	ensureResourceSubtype(c, r.Name)
+	parts.resources[r.Name.FullyQualifiedName()] = &proxyResource{actual: r}
+}
+
 // RemoteNames returns the names of all remotes in the parts.
 func (parts *robotParts) RemoteNames() []string {
 	names := []string{}
@@ -213,11 +218,38 @@ func (parts *robotParts) mergeNamesWithRemotes(names []string, namesFunc func(re
 	return names
 }
 
+// mergeResourceNamesWithRemotes merges names from the parts itself as well as its
+// remotes.
+func (parts *robotParts) mergeResourceNamesWithRemotes(names []resource.Name, namesFunc func(remote robot.Robot) []resource.Name) []resource.Name {
+	// use this to filter out seen names and preserve order
+	var seen = map[resource.Name]interface{}{}
+	for _, name := range names {
+		seen[name] = struct{}{}
+	}
+	for _, r := range parts.remotes {
+		remoteNames := namesFunc(r)
+		for _, name := range remoteNames {
+			if _, ok := seen[name]; ok {
+				continue
+			}
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
 // ArmNames returns the names of all arms in the parts.
 func (parts *robotParts) ArmNames() []string {
 	names := []string{}
-	for k := range parts.arms {
-		names = append(names, k)
+	for _, n := range parts.ResourceNames() {
+		armSubtype := resource.Name{
+			Namespace: resource.ResourceNamespaceCore,
+			Type:      resource.ResourceTypeComponent,
+			Subtype:   resource.ResourceSubtypeArm,
+		}
+		if n.ResourceSubtype() == armSubtype.ResourceSubtype() {
+			names = append(names, n.Name)
+		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.ArmNames)
 }
@@ -312,6 +344,24 @@ func (parts *robotParts) ServiceNames() []string {
 	return parts.mergeNamesWithRemotes(names, robot.Robot.ServiceNames)
 }
 
+// ResourceNames returns the names of all resources in the parts.
+func (parts *robotParts) ResourceNames() []resource.Name {
+	names := []resource.Name{}
+	for _, v := range parts.resources {
+		names = append(names, v.actual.Name)
+	}
+	return parts.mergeResourceNamesWithRemotes(names, robot.Robot.ResourceNames)
+}
+
+// Resource returns all resources in the parts.
+func (parts *robotParts) Resources() []*resource.Resource {
+	r := []*resource.Resource{}
+	for _, v := range parts.resources {
+		r = append(r, v.actual)
+	}
+	return r
+}
+
 // Clone provides a shallow copy of each part.
 func (parts *robotParts) Clone() *robotParts {
 	var clonedParts robotParts
@@ -325,12 +375,6 @@ func (parts *robotParts) Clone() *robotParts {
 		clonedParts.boards = make(map[string]*proxyBoard, len(parts.boards))
 		for k, v := range parts.boards {
 			clonedParts.boards[k] = v
-		}
-	}
-	if len(parts.arms) != 0 {
-		clonedParts.arms = make(map[string]*proxyArm, len(parts.arms))
-		for k, v := range parts.arms {
-			clonedParts.arms[k] = v
 		}
 	}
 	if len(parts.grippers) != 0 {
@@ -387,6 +431,12 @@ func (parts *robotParts) Clone() *robotParts {
 			clonedParts.services[k] = v
 		}
 	}
+	if len(parts.resources) != 0 {
+		clonedParts.resources = make(map[string]*proxyResource, len(parts.resources))
+		for k, v := range parts.resources {
+			clonedParts.resources[k] = v
+		}
+	}
 	if parts.processManager != nil {
 		clonedParts.processManager = parts.processManager.Clone()
 	}
@@ -409,12 +459,6 @@ func (parts *robotParts) Close() error {
 	for _, x := range parts.remotes {
 		if err := utils.TryClose(x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing remote: %w", err))
-		}
-	}
-
-	for _, x := range parts.arms {
-		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing arm: %w", err))
 		}
 	}
 
@@ -463,6 +507,12 @@ func (parts *robotParts) Close() error {
 	for _, x := range parts.boards {
 		if err := utils.TryClose(x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing board: %w", err))
+		}
+	}
+
+	for _, x := range parts.resources {
+		if err := utils.TryClose(x); err != nil {
+			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing arm: %w", err))
 		}
 	}
 
@@ -560,11 +610,11 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 			}
 			parts.AddBase(b, c)
 		case config.ComponentTypeArm:
-			a, err := r.newArm(ctx, c)
+			r, err := r.newResource(ctx, c)
 			if err != nil {
 				return err
 			}
-			parts.AddArm(a, c)
+			parts.AddResource(r, c)
 		case config.ComponentTypeGripper:
 			g, err := r.newGripper(ctx, c)
 			if err != nil {
@@ -666,9 +716,18 @@ func (parts *robotParts) BoardByName(name string) (board.Board, bool) {
 // ArmByName returns the given arm by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) ArmByName(name string) (arm.Arm, bool) {
-	part, ok := parts.arms[name]
+	rName := resource.Name{
+		Namespace: resource.ResourceNamespaceCore,
+		Type:      resource.ResourceTypeComponent,
+		Subtype:   resource.ResourceSubtypeArm,
+		Name:      name,
+	}
+	r, ok := parts.resources[rName.FullyQualifiedName()]
 	if ok {
-		return part, true
+		part, ok := r.actual.Resource.(arm.Arm)
+		if ok {
+			return part, true
+		}
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.ArmByName(name)
@@ -805,6 +864,22 @@ func (parts *robotParts) ServiceByName(name string) (interface{}, bool) {
 	return nil, false
 }
 
+// ResourceByName returns the given resource by fully qualified name, if it exists;
+// returns nil otherwise.
+func (parts *robotParts) ResourceByName(name string) (*resource.Resource, bool) {
+	part, ok := parts.resources[name]
+	if ok {
+		return part.actual, true
+	}
+	for _, remote := range parts.remotes {
+		part, ok := remote.ResourceByName(name)
+		if ok {
+			return part, true
+		}
+	}
+	return nil, false
+}
+
 // PartsMergeResult is the result of merging in parts together.
 type PartsMergeResult struct {
 	ReplacedProcesses []pexec.ManagedProcess
@@ -840,15 +915,6 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 		for k, v := range toAdd.boards {
 			parts.boards[k] = v
-		}
-	}
-
-	if len(toAdd.arms) != 0 {
-		if parts.arms == nil {
-			parts.arms = make(map[string]*proxyArm, len(toAdd.arms))
-		}
-		for k, v := range toAdd.arms {
-			parts.arms[k] = v
 		}
 	}
 
@@ -933,6 +999,15 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 	}
 
+	if len(toAdd.resources) != 0 {
+		if parts.resources == nil {
+			parts.resources = make(map[string]*proxyResource, len(toAdd.resources))
+		}
+		for k, v := range toAdd.resources {
+			parts.resources[k] = v
+		}
+	}
+
 	var result PartsMergeResult
 	if toAdd.processManager != nil {
 		// assume parts.processManager is non-nil
@@ -976,17 +1051,6 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 	if len(toModify.boards) != 0 {
 		for k, v := range toModify.boards {
 			old, ok := parts.boards[k]
-			if !ok {
-				// should not happen
-				continue
-			}
-			old.replace(v)
-		}
-	}
-
-	if len(toModify.arms) != 0 {
-		for k, v := range toModify.arms {
-			old, ok := parts.arms[k]
 			if !ok {
 				// should not happen
 				continue
@@ -1074,6 +1138,17 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 
 	// TODO(erd): how to handle service replacement?
 
+	if len(toModify.resources) != 0 {
+		for k, v := range toModify.resources {
+			old, ok := parts.resources[k]
+			if !ok {
+				// should not happen
+				continue
+			}
+			old.replace(v.actual)
+		}
+	}
+
 	return &result, nil
 }
 
@@ -1089,12 +1164,6 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 	if len(toRemove.boards) != 0 {
 		for k := range toRemove.boards {
 			delete(parts.boards, k)
-		}
-	}
-
-	if len(toRemove.arms) != 0 {
-		for k := range toRemove.arms {
-			delete(parts.arms, k)
 		}
 	}
 
@@ -1152,6 +1221,12 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 		}
 	}
 
+	if len(toRemove.resources) != 0 {
+		for k := range toRemove.resources {
+			delete(parts.resources, k)
+		}
+	}
+
 	if toRemove.processManager != nil {
 		// assume parts.processManager is non-nil
 		// ignoring result as we will filter out the processes to remove and stop elsewhere
@@ -1191,11 +1266,11 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 			}
 			filtered.AddBase(part, compConf)
 		case config.ComponentTypeArm:
-			part, ok := parts.ArmByName(compConf.Name)
+			resource, ok := parts.ResourceByName(compConf.FullyQualifiedName())
 			if !ok {
 				continue
 			}
-			filtered.AddArm(part, compConf)
+			filtered.AddResource(resource, compConf)
 		case config.ComponentTypeGripper:
 			part, ok := parts.GripperByName(compConf.Name)
 			if !ok {
