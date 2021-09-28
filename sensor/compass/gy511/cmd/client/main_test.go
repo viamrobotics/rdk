@@ -28,16 +28,16 @@ func TestMainMain(t *testing.T) {
 	serial.Search = func(filter serial.SearchFilter) []serial.Description {
 		return searchDevicesFunc(filter)
 	}
-	defaultOpenFunc := func(devicePath string) (io.ReadWriteCloser, error) {
+	defaultOpenFunc := func(devicePath string, options serial.Options) (io.ReadWriteCloser, error) {
 		return nil, errors.Errorf("cannot open %s", devicePath)
 	}
 	prevOpenFunc := serial.Open
 	openDeviceFunc := defaultOpenFunc
-	serial.Open = func(devicePath string) (io.ReadWriteCloser, error) {
+	serial.Open = func(devicePath string, options serial.Options) (io.ReadWriteCloser, error) {
 		if openDeviceFunc == nil {
-			return prevOpenFunc(devicePath)
+			return prevOpenFunc(devicePath, options)
 		}
-		return openDeviceFunc(devicePath)
+		return openDeviceFunc(devicePath, options)
 	}
 	reset := func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
 		logger = tLogger
@@ -74,7 +74,7 @@ func TestMainMain(t *testing.T) {
 					{Path: "path"},
 				}
 			}
-			openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
+			openDeviceFunc = func(devicePath string, options serial.Options) (io.ReadWriteCloser, error) {
 				return &inject.ReadWriteCloser{
 					ReadFunc: func(p []byte) (int, error) {
 						return 0, errors.New("whoops1")
@@ -95,7 +95,7 @@ func TestMainMain(t *testing.T) {
 					{Path: "path"},
 				}
 			}
-			openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
+			openDeviceFunc = func(devicePath string, options serial.Options) (io.ReadWriteCloser, error) {
 				rd := gy511.NewRawGY511()
 				rd.SetHeading(5)
 				return rd, nil
@@ -111,7 +111,7 @@ func TestMainMain(t *testing.T) {
 					{Path: "path"},
 				}
 			}
-			openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
+			openDeviceFunc = func(devicePath string, options serial.Options) (io.ReadWriteCloser, error) {
 				rd := gy511.NewRawGY511()
 				rd.SetHeading(5)
 				return rd, nil
@@ -131,7 +131,7 @@ func TestMainMain(t *testing.T) {
 					{Path: "path"},
 				}
 			}
-			openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
+			openDeviceFunc = func(devicePath string, options serial.Options) (io.ReadWriteCloser, error) {
 				return failingDevice, nil
 			}
 			failingDevice.SetFailAfter(4)

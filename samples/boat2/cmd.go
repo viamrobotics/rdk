@@ -307,7 +307,14 @@ func autoDrive(ctx context.Context, path []*geo.Point, myBoat *boat) error {
 }
 
 func trackGPS(ctx context.Context, myBoat *boat) {
-	dev, err := serial.Open("/dev/ttyAMA0")
+	options := serial.Options{
+		BaudRate:    115200,
+		DataBits:    8,
+		StopBits:    serial.OneStopBit,
+		Parity:      serial.NoParity,
+		ReadTimeout: 0,
+	}
+	dev, err := serial.Open("/dev/ttyAMA0", options)
 	if err != nil {
 		logger.Debugf("canot open gps serial %s", err)
 		return
