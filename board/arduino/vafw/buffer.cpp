@@ -31,3 +31,8 @@ const char* Buffer::getLineAndReset() {
     _pos = 0;
     return _buf;
 }
+
+void Buffer::changeBaudrate(uint32_t b) {
+    _port->end();
+    _port->begin(b);
+}

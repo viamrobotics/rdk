@@ -2,9 +2,11 @@
 package serial
 
 import (
+	"fmt"
 	"io"
+	"time"
 
-	goserial "github.com/jacobsa/go-serial/serial"
+	ser "go.bug.st/serial"
 )
 
 // Description describes a specific serial device/
@@ -24,21 +26,82 @@ const (
 	TypeNumatoGPIO = "numato-gpio"
 )
 
+// Options to be passed to Open(), closly mirrors goserial.OpenOptions
+type Options struct {
+	BaudRate          int
+	DataBits          int
+	StopBits          StopBits
+	RTSCTSFlowControl bool
+	ReadTimeout       int
+	Parity            Parity
+}
+
+// Parity describes a serial port parity setting
+type Parity int
+
+const (
+	// NoParity disable parity control (default)
+	NoParity Parity = iota
+	// OddParity enable odd-parity check
+	OddParity
+	// EvenParity enable even-parity check
+	EvenParity
+	// MarkParity enable mark-parity (always 1) check
+	MarkParity
+	// SpaceParity enable space-parity (always 0) check
+	SpaceParity
+)
+
+// StopBits describe a serial port stop bits setting
+type StopBits int
+
+const (
+	// OneStopBit sets 1 stop bit (default)
+	OneStopBit StopBits = iota
+	// OnePointFiveStopBits sets 1.5 stop bits
+	OnePointFiveStopBits
+	// TwoStopBits sets 2 stop bits
+	TwoStopBits
+)
+
 // Open attempts to open a serial device on the given path. It's a variable
 // in case you need to override it during tests.
-var Open = func(devicePath string) (io.ReadWriteCloser, error) {
-	options := goserial.OpenOptions{
-		PortName:        devicePath,
-		BaudRate:        9600,
-		DataBits:        8,
-		StopBits:        1,
-		MinimumReadSize: 1,
+var Open = func(devicePath string, options Options) (ser.Port, error) {
+
+	mode := &ser.Mode{
+		BaudRate: options.BaudRate,
+		Parity:   ser.Parity(options.Parity),
+		DataBits: options.DataBits,
+		StopBits: ser.StopBits(options.StopBits),
 	}
 
-	device, err := goserial.Open(options)
+	device, err := ser.Open(devicePath, mode)
+	if err != nil {
+		return nil, err
+	}
+	err = device.SetReadTimeout(time.Duration(options.ReadTimeout) * time.Millisecond)
 	if err != nil {
 		return nil, err
 	}
 
 	return device, nil
+}
+
+var SetOptions = func(b io.ReadWriteCloser, options Options) error {
+	mode := &ser.Mode{
+		BaudRate: int(options.BaudRate),
+		Parity:   ser.NoParity,
+		DataBits: int(options.DataBits),
+		StopBits: ser.OneStopBit,
+	}
+	p, ok := b.(ser.Port)
+	if !ok {
+		return fmt.Errorf("Couldn't convert to underlying Port interface")
+	}
+	err := p.SetMode(mode)
+	if err != nil {
+		return err
+	}
+	p.ResetOutputBuffer()
+	return p.ResetInputBuffer()
 }

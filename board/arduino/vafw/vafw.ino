@@ -310,6 +310,19 @@ void processBuffer(Buffer* b) {
         b->println("@ok");
         return;
     }
+	if(const char* rest = isCommand(line, "set-baudrate")){
+		uint32_t bd = 9600;
+		int n = sscanf(rest, "%lu",&bd);
+		if(n != 1){
+			b->print(n);
+			b->println("");
+			b->println("#error parsing set-baudrate");
+			return;
+		}
+		b->println("@ok");
+		b->changeBaudrate(bd);
+		return;
+	}
 
     b->println(line);
     b->println("#unknown command");

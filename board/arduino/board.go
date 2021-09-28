@@ -12,7 +12,6 @@ import (
 	"github.com/edaniels/golog"
 
 	"github.com/go-errors/errors"
-	slib "github.com/jacobsa/go-serial/serial"
 	"go.uber.org/multierr"
 
 	"go.viam.com/core/board"
@@ -40,34 +39,34 @@ func init() {
 	board.RegisterConfigAttributeConverter(modelName)
 }
 
-func getSerialConfig(cfg *board.Config) (slib.OpenOptions, error) {
+func getSerialConfig(cfg *board.Config) (serial.Options, string, error) {
 
-	options := slib.OpenOptions{
-		PortName:        cfg.Attributes["port"],
-		BaudRate:        9600,
-		DataBits:        8,
-		StopBits:        1,
-		MinimumReadSize: 1,
+	devPath := cfg.Attributes["port"]
+	options := serial.Options{
+		BaudRate: 9600,
+		DataBits: 8,
+		StopBits: serial.OneStopBit,
+		Parity:   serial.NoParity,
 	}
 
-	if options.PortName == "" {
+	if devPath == "" {
 		ds := serial.Search(serial.SearchFilter{serial.TypeArduino})
 		if len(ds) != 1 {
-			return options, fmt.Errorf("found %d arduinos", len(ds))
+			return options, devPath, fmt.Errorf("found %d arduinos", len(ds))
 		}
-		options.PortName = ds[0].Path
+		devPath = ds[0].Path
 	}
 
-	return options, nil
+	return options, devPath, nil
 }
 
 func newArduino(ctx context.Context, cfg *board.Config, logger golog.Logger) (*arduinoBoard, error) {
-	options, err := getSerialConfig(cfg)
+	options, devPath, err := getSerialConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	port, err := slib.Open(options)
+	port, err := serial.Open(devPath, options)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +93,32 @@ type arduinoBoard struct {
 	cmdLock    sync.Mutex
 
 	analogs map[string]board.AnalogReader
+}
+
+// Change Arduino board serial baudrate
+func (b *arduinoBoard) changeSerialBaudrate(bd int) error {
+	cmd := fmt.Sprintf("set-baudrate %d", bd)
+	options, _, err := getSerialConfig(b.cfg)
+	if err != nil {
+		return err
+	}
+	b.runCommand(cmd)
+	if err != nil {
+		return fmt.Errorf("error sending command to arduino: %w", err)
+	}
+	options.BaudRate = bd
+	serial.SetOptions(b.port, options)
+	b.portReader.Reset(b.port)
+	// We run the echo abc command twice, the baudarte change is not carried properly for the first character at least. Either this is an Arduino issue or MacOs doesn't propagate the baudrate change to the USB-CDC until after a character has been written.
+	_, _ = b.runCommand("echo abc")
+	check, err := b.runCommand("echo abc")
+	if err != nil {
+		return err
+	}
+	if check != "abc" {
+		return fmt.Errorf("echo didn't get expected result, got [%s]", check)
+	}
+	return nil
 }
 
 func (b *arduinoBoard) runCommand(cmd string) (string, error) {
@@ -189,6 +214,8 @@ func (b *arduinoBoard) configure(cfg *board.Config) error {
 	for _, c := range cfg.I2Cs {
 		return fmt.Errorf("arduino doesn't support I2C yet %v", c)
 	}
+
+	b.changeSerialBaudrate(115200)
 
 	return nil
 }
@@ -288,11 +315,6 @@ func (b *arduinoBoard) ModelAttributes() board.ModelAttributes {
 
 // Close shuts the board down, no methods should be called on the board after this
 func (b *arduinoBoard) Close() error {
-	err := b.resetBoard()
-	if err != nil {
-		return err
-	}
-
 	return b.port.Close()
 }
 
