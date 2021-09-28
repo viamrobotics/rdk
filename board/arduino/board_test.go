@@ -137,6 +137,7 @@ func TestArduinoPWM(t *testing.T) {
 				return
 			}
 			test.That(t, err, test.ShouldBeNil)
+			defer b.Close()
 
 			_, err = b.configureMotor(tc.conf.Components[0], tc.conf.Components[0].Attributes["config"].(*motor.Config))
 
@@ -154,7 +155,6 @@ func TestArduinoPWM(t *testing.T) {
 			test.That(t, err, test.ShouldNotBeNil)
 			err = b.PWMSetFreq(ctx, "-5", 2000)
 			test.That(t, err, test.ShouldNotBeNil)
-			defer b.Close()
 		})
 	}
 }
