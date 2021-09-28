@@ -69,11 +69,26 @@ func calcSwingPct(from, to []frame.Input, model frame.Frame) (float64, error) {
 		// This should never happen as one of the above statements should have returned first
 		return math.Inf(1), err
 	}
+	thirdPos, err := model.Transform(interpolateValues(from, to, 0.333333))
+	if err != nil {
+		// This should never happen as one of the above statements should have returned first
+		return math.Inf(1), err
+	}
 
-	// If we care about swing
+	// If we care about swing, this will measure how much there is
 	endDist := SquaredNorm(spatial.PoseDelta(startPos, endPos))
-	halfDist := SquaredNorm(spatial.PoseDelta(startPos, halfPos))
-	return (halfDist + 1) / (endDist + 1), nil
+	halfDist := SquaredNorm(spatial.PoseDelta(startPos, halfPos)) + SquaredNorm(spatial.PoseDelta(endPos, halfPos))
+	thirdDist := SquaredNorm(spatial.PoseDelta(startPos, thirdPos)) + SquaredNorm(spatial.PoseDelta(endPos, thirdPos))
+
+	// Prevent division by 0
+	if endDist < 0.1 {
+		endDist++
+		halfDist++
+		thirdDist++
+	}
+
+	return halfDist/endDist + thirdDist/endDist, nil
+	//~ return ((halfDist + 1) / (endDist + 1)), nil
 }
 
 // bestSolution will select the best solution from a slice of possible solutions for a given model. "Best" is defined
@@ -103,27 +118,4 @@ func interpolateValues(from, to []frame.Input, by float64) []frame.Input {
 		newVals = append(newVals, frame.Input{j1.Value + ((to[i].Value - j1.Value) * by)})
 	}
 	return newVals
-}
-
-// checkExcessiveSwing takes two lists of radians and ensures there are no huge swings from one to the other.
-func checkExcessiveSwing(orig, solution []frame.Input, allowableSwing float64) (bool, []frame.Input) {
-	swing := false
-	newSolution := make([]frame.Input, len(solution))
-	for i, angle := range solution {
-		newSolution[i] = angle
-		//Allow swings in the 3 most distal joints
-		if i < len(solution)-3 {
-			// Check if swing greater than ~160 degrees.
-			for newSolution[i].Value-orig[i].Value > allowableSwing {
-				newSolution[i].Value -= math.Pi
-				swing = true
-			}
-			for newSolution[i].Value-orig[i].Value < -allowableSwing {
-				newSolution[i].Value += math.Pi
-				swing = true
-			}
-		}
-	}
-
-	return swing, newSolution
 }

@@ -56,7 +56,7 @@ func runSolver(ctx context.Context, solver InverseKinematics, c chan ReturnTest,
 func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed []frame.Input) ([]frame.Input, error) {
 	ik.logger.Debugf("starting joint positions: %v", seed)
 	startPos, err := ik.model.Transform(seed)
-	ik.logger.Debugf("starting 6d position: %v %v", startPos, err)
+	ik.logger.Debugf("starting 6d position: %v %v", spatial.PoseToArmPos(startPos), err)
 	ik.logger.Debugf("goal 6d position: %v", pos)
 
 	// This will adjust the goal position to make movements more intuitive when using incrementation near poles
@@ -92,8 +92,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed []fra
 			dist, err := calcSwingPct(seed, myRT.Result, ik.model)
 			// non-nil err means out of bounds joint solution, ignore and move on
 			if err == nil {
-				// Since distances are squared, a perfect "halfway" will have a dist ~0.25. Better than 0.5 is good enough.
-				if dist < 0.5 {
+				if dist < 1.1 {
 					found = true
 					solutions = [][]frame.Input{myRT.Result}
 				} else {
