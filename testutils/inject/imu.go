@@ -3,8 +3,9 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/core/sensor/imu"
 	"go.viam.com/utils"
+
+	"go.viam.com/core/sensor/imu"
 )
 
 type IMU struct {
