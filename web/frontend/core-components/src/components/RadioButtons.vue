@@ -16,7 +16,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Emit, Prop, Vue } from "vue-property-decorator";
+import { Component, Prop, Vue, Watch } from "vue-property-decorator";
 import "vue-class-component/hooks";
 
 @Component
@@ -27,7 +27,7 @@ export default class MotorDetail extends Vue {
 
   selected: string | undefined = "";
 
-  created(): void {
+  mounted(): void {
     this.selected = this.defaultOption;
   }
 
@@ -35,9 +35,10 @@ export default class MotorDetail extends Vue {
     return !!this.disabledOptions?.includes(option);
   }
 
-  @Emit()
+  @Watch("defaultOption")
   selectOption(option: string): void {
     this.selected = option;
+    this.$emit("selectOption", option);
   }
 }
 </script>

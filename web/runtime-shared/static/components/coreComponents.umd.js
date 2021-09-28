@@ -280,13 +280,6 @@ module.exports = !DESCRIPTORS && !fails(function () {
 
 /***/ }),
 
-/***/ "11cc":
-/***/ (function(module, exports, __webpack_require__) {
-
-// extracted by mini-css-extract-plugin
-
-/***/ }),
-
 /***/ "159b":
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -311,6 +304,13 @@ for (var COLLECTION_NAME in DOMIterables) {
 
 handlePrototype(DOMTokenListPrototype);
 
+
+/***/ }),
+
+/***/ "172f":
+/***/ (function(module, exports, __webpack_require__) {
+
+// extracted by mini-css-extract-plugin
 
 /***/ }),
 
@@ -524,13 +524,6 @@ function fromByteArray (uint8) {
   return parts.join('')
 }
 
-
-/***/ }),
-
-/***/ "1fee":
-/***/ (function(module, exports, __webpack_require__) {
-
-// extracted by mini-css-extract-plugin
 
 /***/ }),
 
@@ -1220,6 +1213,13 @@ $({ target: 'Reflect', stat: true, forced: FORCED, sham: FORCED }, {
 
 /***/ }),
 
+/***/ "4c1c":
+/***/ (function(module, exports, __webpack_require__) {
+
+// extracted by mini-css-extract-plugin
+
+/***/ }),
+
 /***/ "4d64":
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -1259,12 +1259,12 @@ module.exports = {
 
 /***/ }),
 
-/***/ "4efe":
+/***/ "4f35":
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_RadioButtons_vue_vue_type_style_index_0_id_026cafe7_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("1fee");
-/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_RadioButtons_vue_vue_type_style_index_0_id_026cafe7_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_RadioButtons_vue_vue_type_style_index_0_id_026cafe7_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_RadioButtons_vue_vue_type_style_index_0_id_036c58aa_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("172f");
+/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_RadioButtons_vue_vue_type_style_index_0_id_036c58aa_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_RadioButtons_vue_vue_type_style_index_0_id_036c58aa_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__);
 /* unused harmony reexport * */
 
 
@@ -12667,17 +12667,6 @@ module.exports["default"] = module.exports, module.exports.__esModule = true;
 
 /***/ }),
 
-/***/ "70f8":
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_115ca42a_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("11cc");
-/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_115ca42a_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_115ca42a_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__);
-/* unused harmony reexport * */
-
-
-/***/ }),
-
 /***/ "7156":
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -18144,6 +18133,17 @@ for (var COLLECTION_NAME in DOMIterables) {
 }
 
 handlePrototype(DOMTokenListPrototype, 'DOMTokenList');
+
+
+/***/ }),
+
+/***/ "dee2":
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_60c49bdd_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("4c1c");
+/* harmony import */ var _node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_60c49bdd_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_node_modules_mini_css_extract_plugin_dist_loader_js_ref_6_oneOf_1_0_node_modules_css_loader_dist_cjs_js_ref_6_oneOf_1_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_src_index_js_ref_6_oneOf_1_2_node_modules_cache_loader_dist_cjs_js_ref_0_0_node_modules_vue_loader_lib_index_js_vue_loader_options_MotorDetail_vue_vue_type_style_index_0_id_60c49bdd_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__);
+/* unused harmony reexport * */
 
 
 /***/ }),
@@ -26235,12 +26235,12 @@ var external_commonjs_vue_commonjs2_vue_root_Vue_default = /*#__PURE__*/__webpac
 // EXTERNAL MODULE: ./src/styles.css
 var styles = __webpack_require__("3a62");
 
-// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"ea643cb6-vue-loader-template"}!./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/components/MotorDetail.vue?vue&type=template&id=115ca42a&scoped=true&
-var render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',{staticClass:"component"},[_c('div',{staticClass:"card"},[_c('h2',[_vm._v("Current Motor Status for "+_vm._s(_vm.motorName))]),_c('div',{staticClass:"details"},[_c('div',{staticClass:"detail"},[_c('h3',[_vm._v("General")]),_c('div',{staticClass:"details"},[_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Motor")]),(_vm.motorStatus.on)?_c('h3',{staticStyle:{"color":"var(--green-90)"}},[_vm._v("On")]):_c('h3',[_vm._v("Off")])]),_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Encoders Active")]),(_vm.motorStatus.positionSupported)?_c('h3',[_vm._v("Yes")]):_c('h3',[_vm._v("No")])]),_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Position")]),_c('h3',[_vm._v(_vm._s(_vm.motorStatus.position))])])])])])]),_c('div',{staticClass:"card"},[_c('h2',[_vm._v("Single Motor Control")]),_c('div',{staticClass:"details"},[_c('div',{staticClass:"detail"},[_c('p',{staticClass:"subtitle"},[_vm._v("Type of Rotation")]),_c('RadioButtons',{attrs:{"options":['Continuous', 'Discrete'],"defaultOption":_vm.isContinuous ? 'Continuous' : 'Discrete'},on:{"selectedOption":function($event){_vm.isContinuous = $event === 'Continuous'}}}),_c('p',{staticClass:"subtitle"},[_vm._v("Direction of Rotation")]),_c('RadioButtons',{attrs:{"options":['Backward', 'Forward'],"defaultOption":_vm.isGoingForward ? 'Forward' : 'Backward'},on:{"selectedOption":function($event){_vm.isGoingForward = $event === 'Forward'}}})],1),_c('div',{staticClass:"detail",staticStyle:{"flex-grow":"1"}},[_c('label',{class:['subtitle', _vm.errors.revolutions ? 'error' : ''],attrs:{"for":"numberOfRotations"}},[_vm._v(" Number of Rotations ")]),_c('input',{directives:[{name:"model",rawName:"v-model",value:(_vm.numberOfRotations),expression:"numberOfRotations"}],class:['margin-bottom', _vm.errors.revolutions ? 'error' : ''],attrs:{"id":"numberOfRotations","name":"numberOfRotations","type":"text","placeholder":"Enter a number","min":"0","disabled":_vm.isContinuous},domProps:{"value":(_vm.numberOfRotations)},on:{"input":function($event){if($event.target.composing){ return; }_vm.numberOfRotations=$event.target.value}}}),_c('label',{class:['subtitle', _vm.errors.rpm ? 'error' : ''],attrs:{"for":"rotationsPerMinuteRange"}},[_vm._v(" Rotations Per Minute ")]),_c('div',{staticClass:"details"},[_c('input',{directives:[{name:"model",rawName:"v-model",value:(_vm.rotationsPerMinute),expression:"rotationsPerMinute"}],attrs:{"id":"rotationsPerMinuteRange","name":"rotationsPerMinuteRange","type":"range","min":"0","max":_vm.MAX_RPM},domProps:{"value":(_vm.rotationsPerMinute)},on:{"__r":function($event){_vm.rotationsPerMinute=$event.target.value}}}),_c('input',{directives:[{name:"model",rawName:"v-model",value:(_vm.rotationsPerMinute),expression:"rotationsPerMinute"}],class:['margin-bottom', _vm.errors.rpm ? 'error' : ''],attrs:{"name":"rotationsPerMinuteFinite","id":"rotationsPerMinuteFinite","type":"text","min":"0","max":_vm.MAX_RPM},domProps:{"value":(_vm.rotationsPerMinute)},on:{"input":function($event){if($event.target.composing){ return; }_vm.rotationsPerMinute=$event.target.value}}})])])]),_c('div',{staticClass:"details",staticStyle:{"justify-content":"flex-end"}},[_c('button',{staticClass:"red",on:{"click":_vm.stop}},[_c('i',{staticClass:"far fa-times-circle"}),_vm._v(" STOP ")]),_c('button',{staticClass:"green",on:{"click":_vm.emitCommand}},[_c('i',{staticClass:"fas fa-play"}),_vm._v(" RUN ")])])])])}
+// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"ea643cb6-vue-loader-template"}!./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/components/MotorDetail.vue?vue&type=template&id=60c49bdd&scoped=true&
+var render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',{staticClass:"component"},[_c('div',{staticClass:"card"},[_c('div',{staticClass:"header"},[_c('h2',[_vm._v(_vm._s(_vm.motorName)+" Motor")]),(_vm.motorStatus.on)?_c('span',{staticClass:"pill green"},[_vm._v("Running")]):_c('span',{staticClass:"pill"},[_vm._v("Idle")])]),(_vm.motorStatus.positionSupported)?_c('div',{staticClass:"row"},[_c('div',{staticClass:"column"},[_c('h2',[_vm._v(_vm._s(_vm.motorStatus.position))]),_c('p',{staticClass:"subtitle"},[_vm._v("Position")])])]):_vm._e(),_c('div',{staticClass:"row"},[_c('div',{staticClass:"column"},[_c('p',{staticClass:"subtitle"},[_vm._v("Type of Rotation")]),_c('RadioButtons',{attrs:{"options":['Continuous', 'Discrete'],"defaultOption":_vm.isContinuous ? 'Continuous' : 'Discrete',"disabledOptions":_vm.motorStatus.positionSupported ? [] : ['Discrete']},on:{"selectOption":function($event){_vm.isContinuous = $event === 'Continuous'}}})],1),_c('div',{staticClass:"column"},[_c('label',{class:['subtitle', _vm.errors.revolutions ? 'error' : ''],attrs:{"for":"numberOfRotations"}},[_vm._v(" Number of Rotations "+_vm._s(_vm.errors.revolutions ? " - " + _vm.errors.revolutions : "")+" ")]),_c('input',{directives:[{name:"model",rawName:"v-model",value:(_vm.numberOfRotations),expression:"numberOfRotations"}],class:['margin-bottom', _vm.errors.revolutions ? 'error' : ''],staticStyle:{"max-width":"128px"},attrs:{"id":"numberOfRotations","name":"numberOfRotations","type":"text","placeholder":"Enter a number","min":"0","disabled":_vm.isContinuous},domProps:{"value":(_vm.numberOfRotations)},on:{"input":function($event){if($event.target.composing){ return; }_vm.numberOfRotations=$event.target.value}}})]),_c('div',{staticClass:"column"},[_c('p',{staticClass:"subtitle"},[_vm._v("Direction of Rotation")]),_c('RadioButtons',{attrs:{"options":['Backward', 'Forward'],"defaultOption":_vm.isGoingForward ? 'Forward' : 'Backward'},on:{"selectedOption":function($event){_vm.isGoingForward = $event === 'Forward'}}})],1)]),_c('div',{staticClass:"row"},[_c('div',{staticClass:"column"},[_c('label',{class:['subtitle', _vm.errors.speed ? 'error' : ''],attrs:{"for":"speedRange"}},[_vm._v(" Mode "+_vm._s(_vm.errors.speed ? " - " + _vm.errors.speed : "")+" ")]),_c('div',{staticClass:"row",staticStyle:{"align-items":"center"}},[_c('RadioButtons',{staticStyle:{"flex-shrink":"0"},attrs:{"options":['Power', 'RPM'],"defaultOption":_vm.isContinuous ? 'Power' : 'RPM',"disabledOptions":_vm.isContinuous ? ['RPM'] : ['Power']}}),_c('input',{directives:[{name:"model",rawName:"v-model",value:(_vm.speed),expression:"speed"}],staticStyle:{"flex-shrink":"0"},attrs:{"id":"speedRange","name":"speedRange","type":"range","min":"0","max":_vm.motorStatus.positionSupported ? _vm.MAX_RPM : 100},domProps:{"value":(_vm.speed)},on:{"__r":function($event){_vm.speed=$event.target.value}}}),_c('input',{directives:[{name:"model",rawName:"v-model",value:(_vm.speed),expression:"speed"}],class:['margin-bottom', _vm.errors.speed ? 'error' : ''],staticStyle:{"min-width":"48px","max-width":"48px","flex-shrink":"0"},attrs:{"name":"speedFinite","id":"speedFinite","type":"text","min":"0","max":_vm.motorStatus.positionSupported ? _vm.MAX_RPM : 100},domProps:{"value":(_vm.speed)},on:{"input":function($event){if($event.target.composing){ return; }_vm.speed=$event.target.value}}})],1)])]),_c('div',{staticClass:"row",staticStyle:{"justify-content":"flex-end"}},[_c('button',{staticClass:"red",on:{"click":_vm.stop}},[_c('i',{staticClass:"far fa-times-circle"}),_vm._v(" STOP ")]),_c('button',{staticClass:"green",on:{"click":_vm.emitCommand}},[_c('i',{staticClass:"fas fa-play"}),_vm._v(" RUN ")])])])])}
 var staticRenderFns = []
 
 
-// CONCATENATED MODULE: ./src/components/MotorDetail.vue?vue&type=template&id=115ca42a&scoped=true&
+// CONCATENATED MODULE: ./src/components/MotorDetail.vue?vue&type=template&id=60c49bdd&scoped=true&
 
 // CONCATENATED MODULE: ./node_modules/@babel/runtime/helpers/esm/setPrototypeOf.js
 function _setPrototypeOf(o, p) {
@@ -27306,12 +27306,12 @@ function Watch(path, options) {
 // EXTERNAL MODULE: /Users/njooma/Developer/core/dist/js/proto/api/v1/robot_pb.js
 var robot_pb = __webpack_require__("e873");
 
-// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"ea643cb6-vue-loader-template"}!./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/components/RadioButtons.vue?vue&type=template&id=026cafe7&scoped=true&
-var RadioButtonsvue_type_template_id_026cafe7_scoped_true_render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',{staticClass:"component"},[_c('div',{staticClass:"radio-buttons"},_vm._l((_vm.options),function(option){return _c('button',{key:option,class:[_vm.selected === option ? 'black' : 'clear'],attrs:{"disabled":_vm.isDisabled(option)},on:{"click":function($event){return _vm.selectOption(option)}}},[(_vm.selected === option)?_c('i',{staticClass:"fas fa-check"}):_vm._e(),_vm._v(" "+_vm._s(option)+" ")])}),0)])}
-var RadioButtonsvue_type_template_id_026cafe7_scoped_true_staticRenderFns = []
+// CONCATENATED MODULE: ./node_modules/cache-loader/dist/cjs.js?{"cacheDirectory":"node_modules/.cache/vue-loader","cacheIdentifier":"ea643cb6-vue-loader-template"}!./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/cache-loader/dist/cjs.js??ref--0-0!./node_modules/vue-loader/lib??vue-loader-options!./src/components/RadioButtons.vue?vue&type=template&id=036c58aa&scoped=true&
+var RadioButtonsvue_type_template_id_036c58aa_scoped_true_render = function () {var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;return _c('div',{staticClass:"component"},[_c('div',{staticClass:"radio-buttons"},_vm._l((_vm.options),function(option){return _c('button',{key:option,class:[_vm.selected === option ? 'black' : 'clear'],attrs:{"disabled":_vm.isDisabled(option)},on:{"click":function($event){return _vm.selectOption(option)}}},[(_vm.selected === option)?_c('i',{staticClass:"fas fa-check"}):_vm._e(),_vm._v(" "+_vm._s(option)+" ")])}),0)])}
+var RadioButtonsvue_type_template_id_036c58aa_scoped_true_staticRenderFns = []
 
 
-// CONCATENATED MODULE: ./src/components/RadioButtons.vue?vue&type=template&id=026cafe7&scoped=true&
+// CONCATENATED MODULE: ./src/components/RadioButtons.vue?vue&type=template&id=036c58aa&scoped=true&
 
 // EXTERNAL MODULE: ./node_modules/core-js/modules/es.array.includes.js
 var es_array_includes = __webpack_require__("caad");
@@ -27346,8 +27346,8 @@ var RadioButtonsvue_type_script_lang_ts_MotorDetail = /*#__PURE__*/function (_Vu
   }
 
   _createClass(MotorDetail, [{
-    key: "created",
-    value: function created() {
+    key: "mounted",
+    value: function mounted() {
       this.selected = this.defaultOption;
     }
   }, {
@@ -27361,6 +27361,7 @@ var RadioButtonsvue_type_script_lang_ts_MotorDetail = /*#__PURE__*/function (_Vu
     key: "selectOption",
     value: function selectOption(option) {
       this.selected = option;
+      this.$emit("selectOption", option);
     }
   }]);
 
@@ -27373,14 +27374,14 @@ __decorate([Prop()], RadioButtonsvue_type_script_lang_ts_MotorDetail.prototype, 
 
 __decorate([Prop()], RadioButtonsvue_type_script_lang_ts_MotorDetail.prototype, "disabledOptions", void 0);
 
-__decorate([Emit()], RadioButtonsvue_type_script_lang_ts_MotorDetail.prototype, "selectOption", null);
+__decorate([Watch("defaultOption")], RadioButtonsvue_type_script_lang_ts_MotorDetail.prototype, "selectOption", null);
 
 RadioButtonsvue_type_script_lang_ts_MotorDetail = __decorate([vue_class_component_esm], RadioButtonsvue_type_script_lang_ts_MotorDetail);
 /* harmony default export */ var RadioButtonsvue_type_script_lang_ts_ = (RadioButtonsvue_type_script_lang_ts_MotorDetail);
 // CONCATENATED MODULE: ./src/components/RadioButtons.vue?vue&type=script&lang=ts&
  /* harmony default export */ var components_RadioButtonsvue_type_script_lang_ts_ = (RadioButtonsvue_type_script_lang_ts_); 
-// EXTERNAL MODULE: ./src/components/RadioButtons.vue?vue&type=style&index=0&id=026cafe7&scoped=true&lang=css&
-var RadioButtonsvue_type_style_index_0_id_026cafe7_scoped_true_lang_css_ = __webpack_require__("4efe");
+// EXTERNAL MODULE: ./src/components/RadioButtons.vue?vue&type=style&index=0&id=036c58aa&scoped=true&lang=css&
+var RadioButtonsvue_type_style_index_0_id_036c58aa_scoped_true_lang_css_ = __webpack_require__("4f35");
 
 // CONCATENATED MODULE: ./node_modules/vue-loader/lib/runtime/componentNormalizer.js
 /* globals __VUE_SSR_CONTEXT__ */
@@ -27493,11 +27494,11 @@ function normalizeComponent (
 
 var component = normalizeComponent(
   components_RadioButtonsvue_type_script_lang_ts_,
-  RadioButtonsvue_type_template_id_026cafe7_scoped_true_render,
-  RadioButtonsvue_type_template_id_026cafe7_scoped_true_staticRenderFns,
+  RadioButtonsvue_type_template_id_036c58aa_scoped_true_render,
+  RadioButtonsvue_type_template_id_036c58aa_scoped_true_staticRenderFns,
   false,
   null,
-  "026cafe7",
+  "036c58aa",
   null
   
 )
@@ -27566,6 +27567,21 @@ var MotorDetailvue_type_script_lang_ts_MotorCommand = /*#__PURE__*/function () {
       return "";
     }
   }, {
+    key: "validatePower",
+    value: function validatePower(power) {
+      power = Number.parseFloat(power.toString());
+
+      if (Number.isNaN(power)) {
+        return "Input is not a number";
+      } else if (power < 0) {
+        return "Power cannot be less than zero";
+      } else if (power > 100) {
+        return "Power cannot be greater than 100%";
+      }
+
+      return "";
+    }
+  }, {
     key: "validatePosition",
     value: function validatePosition(position) {
       position = Number.parseFloat(position.toString());
@@ -27586,20 +27602,20 @@ var MotorDetailvue_type_script_lang_ts_MotorCommand = /*#__PURE__*/function () {
       switch (this.type) {
         case MotorCommandType.Go:
           toReturn = {
-            rpm: this.validateRPM(this.speed)
+            speed: this.validatePower(this.speed)
           };
           break;
 
         case MotorCommandType.GoFor:
           toReturn = {
-            rpm: this.validateRPM(this.speed),
+            speed: this.validateRPM(this.speed),
             revolutions: this.validateRevolutions(this.revolutions)
           };
           break;
 
         case MotorCommandType.GoTo:
           toReturn = {
-            rpm: this.validateRPM(this.speed),
+            speed: this.validateRPM(this.speed),
             position: this.validatePosition(this.position)
           };
           break;
@@ -27695,12 +27711,12 @@ var MotorDetailvue_type_script_lang_ts_MotorDetail = /*#__PURE__*/function (_Vue
       this.motorCommand.position = pos;
     }
   }, {
-    key: "rotationsPerMinute",
+    key: "speed",
     get: function get() {
       return this.motorCommand.speed;
     },
-    set: function set(rpm) {
-      this.motorCommand.speed = rpm;
+    set: function set(v) {
+      this.motorCommand.speed = v;
     }
   }, {
     key: "numberOfRotations",
@@ -27741,6 +27757,7 @@ var MotorDetailvue_type_script_lang_ts_MotorDetail = /*#__PURE__*/function (_Vue
     key: "emitCommand",
     value: function emitCommand() {
       if (this.validateInputs()) {
+        console.log(this.command);
         this.$emit("execute", this.command);
       }
     }
@@ -27761,8 +27778,8 @@ MotorDetailvue_type_script_lang_ts_MotorDetail = __decorate([vue_class_component
 /* harmony default export */ var MotorDetailvue_type_script_lang_ts_ = (MotorDetailvue_type_script_lang_ts_MotorDetail);
 // CONCATENATED MODULE: ./src/components/MotorDetail.vue?vue&type=script&lang=ts&
  /* harmony default export */ var components_MotorDetailvue_type_script_lang_ts_ = (MotorDetailvue_type_script_lang_ts_); 
-// EXTERNAL MODULE: ./src/components/MotorDetail.vue?vue&type=style&index=0&id=115ca42a&scoped=true&lang=css&
-var MotorDetailvue_type_style_index_0_id_115ca42a_scoped_true_lang_css_ = __webpack_require__("70f8");
+// EXTERNAL MODULE: ./src/components/MotorDetail.vue?vue&type=style&index=0&id=60c49bdd&scoped=true&lang=css&
+var MotorDetailvue_type_style_index_0_id_60c49bdd_scoped_true_lang_css_ = __webpack_require__("dee2");
 
 // CONCATENATED MODULE: ./src/components/MotorDetail.vue
 
@@ -27779,7 +27796,7 @@ var MotorDetail_component = normalizeComponent(
   staticRenderFns,
   false,
   null,
-  "115ca42a",
+  "60c49bdd",
   null
   
 )
