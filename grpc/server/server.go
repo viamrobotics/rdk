@@ -6,7 +6,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"go.viam.com/core/sensor/imu"
 	"image"
 	"image/draw"
 	"image/jpeg"
@@ -14,6 +13,8 @@ import (
 	"math"
 	"sync"
 	"time"
+
+	"go.viam.com/core/sensor/imu"
 
 	"github.com/go-errors/errors"
 
