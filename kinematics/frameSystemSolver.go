@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	//~ "runtime"
+	"runtime"
 
 	"github.com/edaniels/golog"
 
@@ -41,8 +41,7 @@ func (fss *FrameSystemSolver) SolvePose(ctx context.Context, seedMap map[string]
 
 	// Create a frame to solve for, and an IK solver with that frame.
 	sf := &solverFrame{fss, frames, solveFrame, goalFrame}
-	//~ solver := CreateCombinedIKSolver(sf, fss.logger, runtime.NumCPU())
-	solver := CreateCombinedIKSolver(sf, fss.logger, 1)
+	solver := CreateCombinedIKSolver(sf, fss.logger, runtime.NumCPU())
 
 	seed := sf.mapToSlice(seedMap)
 

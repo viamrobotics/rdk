@@ -9,6 +9,9 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 )
 
+// Motions with swing values less than this are considered good enough to do without looking for better ones
+const goodSwingAmt = 1.1
+
 // goal contains a pose representing a location and orientation to try to reach, and the ID of the end
 // effector which should be trying to reach it.
 type goal struct {
@@ -51,11 +54,11 @@ func WeightedSquaredNorm(vec []float64, config SolverDistanceWeights) float64 {
 	return norm
 }
 
-// calcSwingPct will calculate the distance from the start position to the halfway point, and also the start position to
+// calcSwingAmount will calculate the distance from the start position to the halfway point, and also the start position to
 // the end position, and return the ratio of the two. If the result >1.0, then the halfway point is further from the
 // start position than the end position is, and thus solution searching should continue.
 // Positions passed in should be valid, as should their halfway points, so any error will return an infinite distance
-func calcSwingPct(from, to []frame.Input, model frame.Frame) (float64, error) {
+func calcSwingAmount(from, to []frame.Input, model frame.Frame) (float64, error) {
 	startPos, err := model.Transform(from)
 	if err != nil {
 		return math.Inf(1), err
@@ -69,6 +72,8 @@ func calcSwingPct(from, to []frame.Input, model frame.Frame) (float64, error) {
 		// This should never happen as one of the above statements should have returned first
 		return math.Inf(1), err
 	}
+	// We also check the one-third position in addition to the halfway position, to correct for motions with
+	// 1:2 resonance, where a large swing would nevertheless appear to be at a reasonable halfway point.
 	thirdPos, err := model.Transform(interpolateValues(from, to, 0.333333))
 	if err != nil {
 		// This should never happen as one of the above statements should have returned first
@@ -88,7 +93,6 @@ func calcSwingPct(from, to []frame.Input, model frame.Frame) (float64, error) {
 	}
 
 	return halfDist/endDist + thirdDist/endDist, nil
-	//~ return ((halfDist + 1) / (endDist + 1)), nil
 }
 
 // bestSolution will select the best solution from a slice of possible solutions for a given model. "Best" is defined
@@ -97,7 +101,7 @@ func bestSolution(seedAngles []frame.Input, solutions [][]frame.Input, model fra
 	var best []frame.Input
 	dist := math.Inf(1)
 	for _, solution := range solutions {
-		newDist, err := calcSwingPct(seedAngles, solution, model)
+		newDist, err := calcSwingAmount(seedAngles, solution, model)
 		if err != nil {
 			return nil, err
 		}
