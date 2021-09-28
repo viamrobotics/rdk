@@ -6,7 +6,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"sync/atomic"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -16,6 +15,7 @@ import (
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
@@ -30,6 +30,10 @@ import (
 	"github.com/edaniels/golog"
 
 	geo "github.com/kellydunn/golang-geo"
+
+	//"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var logger = golog.NewDevelopmentLogger("boat2")
@@ -73,13 +77,14 @@ type boat struct {
 	myRobot robot.Robot
 	rc      remoteControl
 
-	squirt, steering, thrust board.Motor
+	squirt, steering, thrust motor.Motor
 	middle                   float64
 	steeringRange            float64
 
 	myCompass compass.Compass
 
-	targetDirection int64
+	mongoClient *mongo.Client
+	waypoints   *mongo.Collection
 }
 
 func (b *boat) Off(ctx context.Context) error {
@@ -90,20 +95,40 @@ func (b *boat) Off(ctx context.Context) error {
 }
 
 func (b *boat) GetBearing(ctx context.Context) (float64, error) {
-	dir, err := b.myCompass.Heading(ctx)
-	return (-1 * dir), err
+	if b.myCompass != nil {
+		dir, err := b.myCompass.Heading(ctx)
+		return fixAngle(dir), err
+	}
+
+	if len(path) < 2 {
+		return 0, errors.New("no gps data")
+	}
+	x := len(path)
+	return fixAngle(path[x-2].BearingTo(path[x-1])), nil
 }
 
 // dir -1 -> 1
 func (b *boat) Steer(ctx context.Context, dir float64) error {
 	dir = b.steeringRange * dir
-	dir *= .5 // was too aggressive
+	dir *= .7 // was too aggressive
 	dir += b.middle
 	return b.steering.GoTo(ctx, 50, dir)
 }
 
 func newBoat(ctx context.Context, myRobot robot.Robot) (*boat, error) {
+	var err error
 	b := &boat{myRobot: myRobot}
+
+	b.mongoClient, err = mongo.NewClient(options.Client().ApplyURI("mongodb://127.0.0.1:27017"))
+	if err != nil {
+		return nil, err
+	}
+	err = b.mongoClient.Connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	b.waypoints = b.mongoClient.Database("boat").Collection("waypoints")
 
 	bb, ok := myRobot.BoardByName("local")
 	if !ok {
@@ -113,32 +138,25 @@ func newBoat(ctx context.Context, myRobot robot.Robot) (*boat, error) {
 
 	// get all motors
 
-	b.squirt, ok = bb.MotorByName("squirt")
+	b.squirt, ok = myRobot.MotorByName("squirt")
 	if !ok {
 		return nil, errors.New("no squirt motor")
 	}
 
-	b.steering, ok = bb.MotorByName("steering")
+	b.steering, ok = myRobot.MotorByName("steering")
 	if !ok {
 		return nil, errors.New("no steering motor")
 	}
 
-	b.thrust, ok = bb.MotorByName("thrust")
+	b.thrust, ok = myRobot.MotorByName("thrust")
 	if !ok {
 		return nil, errors.New("no thrust motor")
 	}
 
-	err := b.Off(ctx)
+	err = b.Off(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	// get other things
-	tempCompass, ok := myRobot.SensorByName("compass")
-	if !ok {
-		return nil, errors.New("no compass")
-	}
-	b.myCompass = tempCompass.(compass.Compass)
 
 	// calibrate steering
 	err = b.steering.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 50, nil)
@@ -219,15 +237,92 @@ func runRC(ctx context.Context, myBoat *boat) {
 	}
 }
 
-//var goal = geo.NewPoint(40.7453889, -74.011)
+//var poleAcross = geo.NewPoint(40.7453889, -74.011)
+//var outOfFinger = geo.NewPoint(40.7449719, -74.0109809)
+
+var waypoints = []waypoint{
+	{Lat: 40.745297, Long: -74.010916},
+	{Lat: 40.7448830, Long: -74.0109611},
+	{Lat: 40.7448805, Long: -74.0103623},
+	{Lat: 40.7452645, Long: -74.0102802}, // middle
+	{Lat: 40.7448805, Long: -74.0103623},
+	{Lat: 40.7448830, Long: -74.0109611},
+	{Lat: 40.745297, Long: -74.010916},
+}
 
 var path = []*geo.Point{}
 
-func (b *boat) DirectionAndDistanceToGo(ctx context.Context) (float64, float64, error) {
-	return -90, .05, nil
+func (b *boat) waypointReached(ctx context.Context) error {
+	waypoints = waypoints[1:]
+	return nil
+	/*
+		wp, err := b.nextWaypoint(ctx)
+		if err != nil {
+			return fmt.Errorf("can't mark waypoint reached: %w", err)
+		}
 
-	//fmt.Printf("current bearing: %0.2f distance to goal: %0.3f bearing to goal: %0.2f distance traveled: %0.3f\n",
-	//bearing, distance, bearingToGoal, path[0].GreatCircleDistance(now))
+		//_, err = b.waypoints.DeleteOne(ctx, bson.M{"_id" : wp.ID}, bson.M{ "$set" : bson.M{ "visited" : true } })
+		_, err = b.waypoints.DeleteOne(ctx, bson.M{"_id" : wp.ID})
+		return err
+	*/
+}
+
+type waypoint struct {
+	ID      int
+	Visited bool
+	Order   int
+	Lat     float64
+	Long    float64
+}
+
+func (wp *waypoint) ToPoint() *geo.Point {
+	return geo.NewPoint(wp.Lat, wp.Long)
+}
+
+func (b *boat) nextWaypoint(ctx context.Context) (waypoint, error) {
+	if len(waypoints) == 0 {
+		return waypoint{}, errors.New("no more waypoint")
+	}
+	return waypoints[0], nil
+	/*
+		filter := bson.D{{ "visited" ,false }}
+		cursor, err :=
+			b.waypoints.Find(ctx, filter, options.Find().SetSort( bson.M{ "order" : -1 } ).SetLimit(1))
+		if err != nil {
+			return waypoint{}, fmt.Errorf("can't get next waypoint: %w", err)
+		}
+
+		all := []Waypoint{}
+		err = cursor.All(ctx, &all)
+		if err != nil {
+			return waypoint{}, fmt.Errorf("can't get next waypoint: %w", err)
+		}
+
+		fmt.Printf("hi %v\n", all)
+
+		if len(all) == 0 {
+			return Waypoint{}, errors.New("no more waypoint")
+		}
+
+		return all[0], nil
+	*/
+}
+
+func (b *boat) DirectionAndDistanceToGo(ctx context.Context) (float64, float64, error) {
+	if len(path) == 0 {
+		return 0, 0, nil
+	}
+
+	last := path[len(path)-1]
+
+	wp, err := b.nextWaypoint(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	goal := wp.ToPoint()
+
+	return fixAngle(last.BearingTo(goal)), last.GreatCircleDistance(goal), nil
 }
 
 func fixAngle(a float64) float64 {
@@ -240,64 +335,78 @@ func fixAngle(a float64) float64 {
 	return a
 }
 
-func computerBearing(a, b float64) float64 {
+func computeBearing(a, b float64) float64 {
 	a = fixAngle(a)
 	b = fixAngle(b)
 
-	return b - a
+	t := b - a
+	if t < -180 {
+		t += 360
+	}
+
+	if t > 180 {
+		t -= 360
+	}
+
+	return t
 }
 
-func autoDrive(ctx context.Context, path []*geo.Point, myBoat *boat) error {
+func autoDrive(ctx context.Context, myBoat *boat) {
+	for {
+		if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+			return
+		}
+
+		vals, err := myBoat.rc.Signals(ctx, []string{"mode"})
+		if err != nil {
+			logger.Errorw("error getting rc signal %w", err)
+			continue
+		}
+
+		if vals["mode"] >= 1 {
+			continue
+		}
+
+		err = autoDriveOne(ctx, myBoat)
+		if err != nil {
+			logger.Infof("error driving: %s", err)
+		}
+	}
+}
+
+// returns if at target
+func autoDriveOne(ctx context.Context, myBoat *boat) error {
 	if len(path) <= 1 {
-		return nil
+		return errors.New("no gps data")
 	}
 
-	if true {
-		return nil
-	}
-
-	bearing, err := myBoat.GetBearing(ctx)
+	currentHeading, err := myBoat.GetBearing(ctx)
 	if err != nil {
 		return err
 	}
 
-	bearingToGoal, distance, err := myBoat.DirectionAndDistanceToGo(ctx)
+	bearingToGoal, distanceToGoal, err := myBoat.DirectionAndDistanceToGo(ctx)
 	if err != nil {
 		return err
 	}
 
-	bearing = fixAngle(bearing)
-	bearingToGoal = fixAngle(bearingToGoal)
-
-	if distance < .005 {
+	if distanceToGoal < .005 {
 		logger.Debug("i made it")
-		return nil
+		return myBoat.waypointReached(ctx)
 	}
 
-	bearingDelta := computerBearing(bearingToGoal, bearing)
-	steeringDir := 0.25
+	bearingDelta := computeBearing(bearingToGoal, currentHeading)
+	steeringDir := -bearingDelta / 180.0
 
-	if bearingDelta > 0 {
-		steeringDir *= -1
-	}
+	logger.Debugf("currentHeading: %0.0f bearingToGoal: %0.0f distanceToGoal: %0.3f bearingDelta: %0.1f steeringDir: %0.2f",
+		currentHeading, bearingToGoal, distanceToGoal, bearingDelta, steeringDir)
 
-	fmt.Printf("bearing: %0.3f bearingToGoal: %0.3f bearingDelta: %0.3f steeringDir: %0.3f\n",
-		bearing,
-		bearingToGoal,
-		bearingDelta,
-		steeringDir)
 	err = myBoat.Steer(ctx, steeringDir)
 	if err != nil {
 		return fmt.Errorf("error turning: %w", err)
 	}
 
-	err = myBoat.thrust.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 0.75)
-	if true {
-		time.Sleep(1000 * time.Millisecond)
-		myBoat.thrust.Off(ctx)
-		time.Sleep(1000 * time.Millisecond)
-	}
-
+	err = myBoat.thrust.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 0.7)
 	if err != nil {
 		return fmt.Errorf("erorr thrusting %w", err)
 	}
@@ -336,44 +445,8 @@ func trackGPS(ctx context.Context, myBoat *boat) {
 		if ok {
 			now := ToPoint(gll)
 			path = append(path, now)
-			err := autoDrive(ctx, path, myBoat)
-			if err != nil {
-				logger.Debugf("error driving %v", err)
-				continue
-			}
 		}
 	}
-}
-
-func trackCompass(ctx context.Context, myBoat *boat) {
-	for {
-		if !utils.SelectContextOrWait(ctx, 25*time.Millisecond) {
-			return
-		}
-
-		current, err := myBoat.GetBearing(ctx)
-		if err != nil {
-			logger.Debugf("error reading compoass: %w", err)
-			continue
-		}
-
-		target := float64(atomic.LoadInt64(&myBoat.targetDirection)) / 100
-
-		delta := computerBearing(current, target)
-
-		steeringDir := delta / 180.0
-
-		fmt.Printf("current: %0.2f, target: %0.2f delta: %0.2f steeringDir: %0.2f\n", current, target, delta, steeringDir)
-
-		err = myBoat.Steer(ctx, steeringDir)
-		if err != nil {
-			logger.Info(err)
-			continue
-		}
-
-		myBoat.thrust.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 0.6)
-	}
-
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
@@ -397,11 +470,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
-	b.targetDirection = 180 * 100
 
 	go runRC(ctx, b)
 	go trackGPS(ctx, b)
-	go trackCompass(ctx, b)
+	go autoDrive(ctx, b)
 
 	if err := webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger); err != nil && !errors.Is(err, context.Canceled) {
 		logger.Errorw("error running web", "error", err)

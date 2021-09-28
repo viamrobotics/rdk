@@ -104,7 +104,7 @@
               min="0"
               v-bind:max="motorStatus.positionSupported ? MAX_RPM : 100"
               v-bind:class="['margin-bottom', errors.speed ? 'error' : '']"
-              style="min-width: 48px; max-width: 48px; flex-shrink: 0;"
+              style="min-width: 48px; max-width: 48px; flex-shrink: 0"
             />
           </div>
         </div>
@@ -129,9 +129,9 @@ import { Component, Prop, Vue } from "vue-property-decorator";
 import {
   MotorStatus,
   DirectionRelative,
-  BoardMotorGoRequest,
-  BoardMotorGoForRequest,
-  BoardMotorGoToRequest,
+  MotorGoRequest,
+  MotorGoForRequest,
+  MotorGoToRequest,
 } from "proto/robot_pb";
 import RadioButtons from "./RadioButtons.vue";
 
@@ -223,18 +223,18 @@ class MotorCommand {
     let req;
     switch (this.type) {
       case MotorCommandType.Go:
-        req = new BoardMotorGoRequest();
+        req = new MotorGoRequest();
         req.setDirection(this.direction);
         req.setPowerPct(this.speed / 160);
         break;
       case MotorCommandType.GoFor:
-        req = new BoardMotorGoForRequest();
+        req = new MotorGoForRequest();
         req.setDirection(this.direction);
         req.setRpm(this.speed);
         req.setRevolutions(this.revolutions);
         break;
       case MotorCommandType.GoTo:
-        req = new BoardMotorGoToRequest();
+        req = new MotorGoToRequest();
         req.setRpm(this.speed);
         req.setPosition(this.position);
         break;

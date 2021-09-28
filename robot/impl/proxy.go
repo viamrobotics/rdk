@@ -16,11 +16,13 @@ import (
 	"go.viam.com/core/camera"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/servo"
 )
 
 type proxyBase struct {
@@ -375,9 +377,8 @@ func (p *proxyRelativeCompass) replace(newSensor sensor.Sensor) {
 type proxyBoard struct {
 	mu       sync.RWMutex
 	actual   board.Board
-	motors   map[string]*proxyBoardMotor
-	servos   map[string]*proxyBoardServo
 	spis     map[string]*proxyBoardSPI
+	i2cs     map[string]*proxyBoardI2C
 	analogs  map[string]*proxyBoardAnalogReader
 	digitals map[string]*proxyBoardDigitalInterrupt
 }
@@ -385,33 +386,25 @@ type proxyBoard struct {
 func newProxyBoard(actual board.Board) *proxyBoard {
 	p := &proxyBoard{
 		actual:   actual,
-		motors:   map[string]*proxyBoardMotor{},
-		servos:   map[string]*proxyBoardServo{},
 		spis:     map[string]*proxyBoardSPI{},
+		i2cs:     map[string]*proxyBoardI2C{},
 		analogs:  map[string]*proxyBoardAnalogReader{},
 		digitals: map[string]*proxyBoardDigitalInterrupt{},
 	}
 
-	for _, name := range actual.MotorNames() {
-		actualPart, ok := actual.MotorByName(name)
-		if !ok {
-			continue
-		}
-		p.motors[name] = &proxyBoardMotor{actual: actualPart}
-	}
-	for _, name := range actual.ServoNames() {
-		actualPart, ok := actual.ServoByName(name)
-		if !ok {
-			continue
-		}
-		p.servos[name] = &proxyBoardServo{actual: actualPart}
-	}
 	for _, name := range actual.SPINames() {
 		actualPart, ok := actual.SPIByName(name)
 		if !ok {
 			continue
 		}
 		p.spis[name] = &proxyBoardSPI{actual: actualPart}
+	}
+	for _, name := range actual.I2CNames() {
+		actualPart, ok := actual.I2CByName(name)
+		if !ok {
+			continue
+		}
+		p.i2cs[name] = &proxyBoardI2C{actual: actualPart}
 	}
 	for _, name := range actual.AnalogReaderNames() {
 		actualPart, ok := actual.AnalogReaderByName(name)
@@ -431,24 +424,23 @@ func newProxyBoard(actual board.Board) *proxyBoard {
 	return p
 }
 
-func (p *proxyBoard) MotorByName(name string) (board.Motor, bool) {
+func (p *proxyBoard) ProxyFor() interface{} {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	m, ok := p.motors[name]
-	return m, ok
-}
-
-func (p *proxyBoard) ServoByName(name string) (board.Servo, bool) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	s, ok := p.servos[name]
-	return s, ok
+	return p.actual
 }
 
 func (p *proxyBoard) SPIByName(name string) (board.SPI, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	s, ok := p.spis[name]
+	return s, ok
+}
+
+func (p *proxyBoard) I2CByName(name string) (board.I2C, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	s, ok := p.i2cs[name]
 	return s, ok
 }
 
@@ -490,31 +482,21 @@ func (p *proxyBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) erro
 	return p.actual.PWMSetFreq(ctx, pin, freq)
 }
 
-func (p *proxyBoard) MotorNames() []string {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	names := []string{}
-	for k := range p.motors {
-		names = append(names, k)
-	}
-	return names
-}
-
-func (p *proxyBoard) ServoNames() []string {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	names := []string{}
-	for k := range p.servos {
-		names = append(names, k)
-	}
-	return names
-}
-
 func (p *proxyBoard) SPINames() []string {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	names := []string{}
 	for k := range p.spis {
+		names = append(names, k)
+	}
+	return names
+}
+
+func (p *proxyBoard) I2CNames() []string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	names := []string{}
+	for k := range p.i2cs {
 		names = append(names, k)
 	}
 	return names
@@ -549,123 +531,6 @@ func (p *proxyBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	return board.CreateStatus(ctx, p)
 }
 
-func (p *proxyBoard) merge(newBoard board.Board, diff board.ConfigDiff) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	actual, ok := newBoard.(*proxyBoard)
-	if !ok {
-		panic(fmt.Errorf("expected new board to be %T but got %T", actual, newBoard))
-	}
-
-	if p.motors == nil && len(diff.Added.Motors) != 0 {
-		p.motors = make(map[string]*proxyBoardMotor, len(diff.Added.Motors))
-	}
-	if p.servos == nil && len(diff.Added.Servos) != 0 {
-		p.servos = make(map[string]*proxyBoardServo, len(diff.Added.Servos))
-	}
-	if p.spis == nil && len(diff.Added.SPIs) != 0 {
-		p.spis = make(map[string]*proxyBoardSPI, len(diff.Added.SPIs))
-	}
-	if p.analogs == nil && len(diff.Added.Analogs) != 0 {
-		p.analogs = make(map[string]*proxyBoardAnalogReader, len(diff.Added.Analogs))
-	}
-	if p.digitals == nil && len(diff.Added.DigitalInterrupts) != 0 {
-		p.digitals = make(map[string]*proxyBoardDigitalInterrupt, len(diff.Added.DigitalInterrupts))
-	}
-
-	for _, c := range diff.Added.Motors {
-		p.motors[c.Name] = actual.motors[c.Name]
-	}
-	for _, c := range diff.Added.Servos {
-		p.servos[c.Name] = actual.servos[c.Name]
-	}
-	for _, c := range diff.Added.SPIs {
-		p.spis[c.Name] = actual.spis[c.Name]
-	}
-	for _, c := range diff.Added.Analogs {
-		p.analogs[c.Name] = actual.analogs[c.Name]
-	}
-	for _, c := range diff.Added.DigitalInterrupts {
-		p.digitals[c.Name] = actual.digitals[c.Name]
-	}
-
-	for _, c := range diff.Modified.Motors {
-		p.motors[c.Name].replace(actual.motors[c.Name])
-	}
-	for _, c := range diff.Modified.Servos {
-		p.servos[c.Name].replace(actual.servos[c.Name])
-	}
-	for _, c := range diff.Modified.SPIs {
-		p.spis[c.Name].replace(actual.spis[c.Name])
-	}
-	for _, c := range diff.Modified.Analogs {
-		p.analogs[c.Name].replace(actual.analogs[c.Name])
-	}
-	for _, c := range diff.Modified.DigitalInterrupts {
-		p.digitals[c.Name].replace(actual.digitals[c.Name])
-	}
-
-	for _, c := range diff.Removed.Motors {
-		toRemove, ok := p.motors[c.Name]
-		if !ok {
-			continue // should not happen
-		}
-		if err := utils.TryClose(toRemove); err != nil {
-			rlog.Logger.Errorw("error closing motor but still reconfiguring", "error", err)
-		}
-		delete(p.motors, c.Name)
-	}
-	for _, c := range diff.Removed.Servos {
-		toRemove, ok := p.servos[c.Name]
-		if !ok {
-			continue // should not happen
-		}
-		if err := utils.TryClose(toRemove); err != nil {
-			rlog.Logger.Errorw("error closing servo but still reconfiguring", "error", err)
-		}
-		delete(p.servos, c.Name)
-	}
-	for _, c := range diff.Removed.SPIs {
-		toRemove, ok := p.spis[c.Name]
-		if !ok {
-			continue // should not happen
-		}
-		if err := utils.TryClose(toRemove); err != nil {
-			rlog.Logger.Errorw("error closing SPI but still reconfiguring", "error", err)
-		}
-		delete(p.spis, c.Name)
-	}
-	for _, c := range diff.Removed.Analogs {
-		toRemove, ok := p.analogs[c.Name]
-		if !ok {
-			continue // should not happen
-		}
-		if err := utils.TryClose(toRemove); err != nil {
-			rlog.Logger.Errorw("error closing analog but still reconfiguring", "error", err)
-		}
-		delete(p.analogs, c.Name)
-	}
-	for _, c := range diff.Removed.DigitalInterrupts {
-		toRemove, ok := p.digitals[c.Name]
-		if !ok {
-			continue // should not happen
-		}
-		if err := utils.TryClose(toRemove); err != nil {
-			rlog.Logger.Errorw("error closing digital interrupt but still reconfiguring", "error", err)
-		}
-		delete(p.digitals, c.Name)
-	}
-
-	if diff.Left.Model != diff.Right.Model {
-		if err := utils.TryClose(p.actual); err != nil {
-			rlog.Logger.Errorw("error closing old", "error", err)
-		}
-	}
-
-	p.actual = actual.actual
-}
-
 func (p *proxyBoard) replace(newBoard board.Board) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -675,28 +540,21 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 		panic(fmt.Errorf("expected new board to be %T but got %T", actual, newBoard))
 	}
 
-	var oldMotorNames map[string]struct{}
-	var oldServoNames map[string]struct{}
 	var oldSPINames map[string]struct{}
+	var oldI2CNames map[string]struct{}
 	var oldAnalogReaderNames map[string]struct{}
 	var oldDigitalInterruptNames map[string]struct{}
 
-	if len(p.motors) != 0 {
-		oldMotorNames = make(map[string]struct{}, len(p.motors))
-		for name := range p.motors {
-			oldMotorNames[name] = struct{}{}
-		}
-	}
-	if len(p.servos) != 0 {
-		oldServoNames = make(map[string]struct{}, len(p.servos))
-		for name := range p.servos {
-			oldServoNames[name] = struct{}{}
-		}
-	}
 	if len(p.spis) != 0 {
 		oldSPINames = make(map[string]struct{}, len(p.spis))
 		for name := range p.spis {
 			oldSPINames[name] = struct{}{}
+		}
+	}
+	if len(p.i2cs) != 0 {
+		oldI2CNames = make(map[string]struct{}, len(p.i2cs))
+		for name := range p.i2cs {
+			oldI2CNames[name] = struct{}{}
 		}
 	}
 	if len(p.analogs) != 0 {
@@ -712,24 +570,6 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 		}
 	}
 
-	for name, newPart := range actual.motors {
-		oldPart, ok := p.motors[name]
-		delete(oldMotorNames, name)
-		if ok {
-			oldPart.replace(newPart)
-			continue
-		}
-		p.motors[name] = newPart
-	}
-	for name, newPart := range actual.servos {
-		oldPart, ok := p.servos[name]
-		delete(oldServoNames, name)
-		if ok {
-			oldPart.replace(newPart)
-			continue
-		}
-		p.servos[name] = newPart
-	}
 	for name, newPart := range actual.spis {
 		oldPart, ok := p.spis[name]
 		delete(oldSPINames, name)
@@ -738,6 +578,15 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 			continue
 		}
 		p.spis[name] = newPart
+	}
+	for name, newPart := range actual.i2cs {
+		oldPart, ok := p.i2cs[name]
+		delete(oldI2CNames, name)
+		if ok {
+			oldPart.replace(newPart)
+			continue
+		}
+		p.i2cs[name] = newPart
 	}
 	for name, newPart := range actual.analogs {
 		oldPart, ok := p.analogs[name]
@@ -758,14 +607,11 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 		p.digitals[name] = newPart
 	}
 
-	for name := range oldMotorNames {
-		delete(p.motors, name)
-	}
-	for name := range oldServoNames {
-		delete(p.servos, name)
-	}
 	for name := range oldSPINames {
 		delete(p.spis, name)
+	}
+	for name := range oldI2CNames {
+		delete(p.i2cs, name)
 	}
 	for name := range oldAnalogReaderNames {
 		delete(p.analogs, name)
@@ -774,7 +620,7 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 		delete(p.digitals, name)
 	}
 
-	p.actual = actual
+	p.actual = actual.actual
 }
 
 func (p *proxyBoard) ModelAttributes() board.ModelAttributes {
@@ -787,122 +633,6 @@ func (p *proxyBoard) ModelAttributes() board.ModelAttributes {
 func (p *proxyBoard) Close() error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return utils.TryClose(p.actual)
-}
-
-type proxyBoardMotor struct {
-	mu     sync.RWMutex
-	actual board.Motor
-}
-
-func (p *proxyBoardMotor) replace(newMotor board.Motor) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newMotor.(*proxyBoardMotor)
-	if !ok {
-		panic(fmt.Errorf("expected new motor to be %T but got %T", actual, newMotor))
-	}
-	if err := utils.TryClose(p.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = actual.actual
-}
-
-func (p *proxyBoardMotor) Power(ctx context.Context, powerPct float32) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Power(ctx, powerPct)
-}
-
-func (p *proxyBoardMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Go(ctx, d, powerPct)
-}
-
-func (p *proxyBoardMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.GoFor(ctx, d, rpm, revolutions)
-}
-
-func (p *proxyBoardMotor) Position(ctx context.Context) (float64, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Position(ctx)
-}
-
-func (p *proxyBoardMotor) PositionSupported(ctx context.Context) (bool, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.PositionSupported(ctx)
-}
-
-func (p *proxyBoardMotor) Off(ctx context.Context) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Off(ctx)
-}
-
-func (p *proxyBoardMotor) IsOn(ctx context.Context) (bool, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.IsOn(ctx)
-}
-
-func (p *proxyBoardMotor) Close() error {
-	return utils.TryClose(p.actual)
-}
-
-func (p *proxyBoardMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.GoTo(ctx, rpm, position)
-}
-
-func (p *proxyBoardMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.GoTillStop(ctx, d, rpm, stopFunc)
-}
-
-func (p *proxyBoardMotor) Zero(ctx context.Context, offset float64) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Zero(ctx, offset)
-}
-
-type proxyBoardServo struct {
-	mu     sync.RWMutex
-	actual board.Servo
-}
-
-func (p *proxyBoardServo) replace(newServo board.Servo) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newServo.(*proxyBoardServo)
-	if !ok {
-		panic(fmt.Errorf("expected new servo to be %T but got %T", actual, newServo))
-	}
-	if err := utils.TryClose(p.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = actual.actual
-}
-
-func (p *proxyBoardServo) Move(ctx context.Context, angleDegs uint8) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Move(ctx, angleDegs)
-}
-
-func (p *proxyBoardServo) Current(ctx context.Context) (uint8, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Current(ctx)
-}
-
-func (p *proxyBoardServo) Close() error {
 	return utils.TryClose(p.actual)
 }
 
@@ -925,6 +655,28 @@ func (p *proxyBoardSPI) replace(newSPI board.SPI) {
 }
 
 func (p *proxyBoardSPI) OpenHandle() (board.SPIHandle, error) {
+	return p.actual.OpenHandle()
+}
+
+type proxyBoardI2C struct {
+	mu     sync.RWMutex
+	actual board.I2C
+}
+
+func (p *proxyBoardI2C) replace(newI2C board.I2C) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	actual, ok := newI2C.(*proxyBoardI2C)
+	if !ok {
+		panic(fmt.Errorf("expected new I2C to be %T but got %T", actual, newI2C))
+	}
+	if err := utils.TryClose(p.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	p.actual = actual.actual
+}
+
+func (p *proxyBoardI2C) OpenHandle() (board.I2CHandle, error) {
 	return p.actual.OpenHandle()
 }
 
@@ -1008,4 +760,120 @@ func (p *proxyBoardDigitalInterrupt) Close() error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return utils.TryClose(p.actual)
+}
+
+type proxyServo struct {
+	mu     sync.RWMutex
+	actual servo.Servo
+}
+
+func (p *proxyServo) replace(newServo servo.Servo) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	actual, ok := newServo.(*proxyServo)
+	if !ok {
+		panic(fmt.Errorf("expected new servo to be %T but got %T", actual, newServo))
+	}
+	if err := utils.TryClose(p.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	p.actual = actual.actual
+}
+
+func (p *proxyServo) Move(ctx context.Context, angleDegs uint8) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.Move(ctx, angleDegs)
+}
+
+func (p *proxyServo) Current(ctx context.Context) (uint8, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.Current(ctx)
+}
+
+func (p *proxyServo) Close() error {
+	return utils.TryClose(p.actual)
+}
+
+type proxyMotor struct {
+	mu     sync.RWMutex
+	actual motor.Motor
+}
+
+func (p *proxyMotor) replace(newMotor motor.Motor) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	actual, ok := newMotor.(*proxyMotor)
+	if !ok {
+		panic(fmt.Errorf("expected new motor to be %T but got %T", actual, newMotor))
+	}
+	if err := utils.TryClose(p.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	p.actual = actual.actual
+}
+
+func (p *proxyMotor) Power(ctx context.Context, powerPct float32) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.Power(ctx, powerPct)
+}
+
+func (p *proxyMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.Go(ctx, d, powerPct)
+}
+
+func (p *proxyMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.GoFor(ctx, d, rpm, revolutions)
+}
+
+func (p *proxyMotor) Position(ctx context.Context) (float64, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.Position(ctx)
+}
+
+func (p *proxyMotor) PositionSupported(ctx context.Context) (bool, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.PositionSupported(ctx)
+}
+
+func (p *proxyMotor) Off(ctx context.Context) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.Off(ctx)
+}
+
+func (p *proxyMotor) IsOn(ctx context.Context) (bool, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.IsOn(ctx)
+}
+
+func (p *proxyMotor) Close() error {
+	return utils.TryClose(p.actual)
+}
+
+func (p *proxyMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.GoTo(ctx, rpm, position)
+}
+
+func (p *proxyMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.GoTillStop(ctx, d, rpm, stopFunc)
+}
+
+func (p *proxyMotor) Zero(ctx context.Context, offset float64) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.Zero(ctx, offset)
 }
