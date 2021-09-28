@@ -23,15 +23,15 @@
       "type": "motor",
       "model": "TMC5072",
       "attributes": {
-          "board": "resetboard",
-          "ticksPerRotation": 200,
-          "max_rpm": 450,
-          "max_acceleration": 400,
+        "board": "resetboard",
+        "ticksPerRotation": 200,
+        "max_rpm": 450,
+        "max_acceleration": 400,
         "spi_bus": "main",
         "chip_select": "36",
-        "index": "0",
-        "sg_thresh": "10",
-        "cal_factor": "1.058333"
+        "index": 0,
+        "sg_thresh": 10,
+        "cal_factor": 1.058333
       }
     },
     {
@@ -39,15 +39,15 @@
       "type": "motor",
       "model": "TMC5072",
       "attributes": {
-          "board": "resetboard",
-          "ticksPerRotation": 200,
-          "max_rpm": 450,
-          "max_acceleration": 400,
+        "board": "resetboard",
+        "ticksPerRotation": 200,
+        "max_rpm": 450,
+        "max_acceleration": 400,
         "spi_bus": "main",
         "chip_select": "36",
-        "index": "1",
-        "sg_thresh": "10",
-        "cal_factor": "1.058333"
+        "index": 1,
+        "sg_thresh": 10,
+        "cal_factor": 1.058333
       }
     },
     {
@@ -55,15 +55,15 @@
       "type": "motor",
       "model": "TMC5072",
       "attributes": {
-          "board": "resetboard",
-          "ticksPerRotation": 200,
-          "max_rpm": 450,
-          "max_acceleration": 400,
+        "board": "resetboard",
+        "ticksPerRotation": 200,
+        "max_rpm": 450,
+        "max_acceleration": 400,
         "spi_bus": "main",
         "chip_select": "38",
-        "index": "0",
-        "sg_thresh": "10",
-        "cal_factor": "1.058333"
+        "index": 0,
+        "sg_thresh": 10,
+        "cal_factor": 1.058333
       }
     },
 
@@ -72,15 +72,15 @@
       "type": "motor",
       "model": "TMC5072",
       "attributes": {
-          "board": "resetboard",
-          "ticksPerRotation": 200,
-          "max_rpm": 450,
-          "max_acceleration": 400,
+        "board": "resetboard",
+        "ticksPerRotation": 200,
+        "max_rpm": 450,
+        "max_acceleration": 400,
         "spi_bus": "main",
         "chip_select": "38",
-        "index": "1",
-        "sg_thresh": "10",
-        "cal_factor": "1.058333"
+        "index": 1,
+        "sg_thresh": 10,
+        "cal_factor": 1.058333
       }
     },
 
@@ -89,15 +89,15 @@
       "type": "motor",
       "model": "TMC5072",
       "attributes": {
-          "board": "resetboard",
-          "ticksPerRotation": 200,
-          "max_rpm": 450,
-          "max_acceleration": 400,
+        "board": "resetboard",
+        "ticksPerRotation": 200,
+        "max_rpm": 450,
+        "max_acceleration": 400,
         "spi_bus": "main",
         "chip_select": "40",
-        "index": "0",
-        "sg_thresh": "5",
-        "cal_factor": "1.058333"
+        "index": 0,
+        "sg_thresh": 5,
+        "cal_factor": 1.058333
       }
     },
 
@@ -106,15 +106,15 @@
       "type": "motor",
       "model": "TMC5072",
       "attributes": {
-          "board": "resetboard",
-          "ticksPerRotation": 5370,
-          "max_rpm": 18.5,
-          "max_acceleration": 30,
+        "board": "resetboard",
+        "ticksPerRotation": 5370,
+        "max_rpm": 18.5,
+        "max_acceleration": 30,
         "spi_bus": "main",
         "chip_select": "40",
-        "index": "1",
-        "sg_thresh": "0",
-        "cal_factor": "1.058333"
+        "index": 1,
+        "sg_thresh": 0,
+        "cal_factor": 1.058333
       }
     },
 

@@ -15,11 +15,10 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/arm"
+	"go.viam.com/core/motor"
 
-	//"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 
 	"go.viam.com/core/robot"
@@ -29,6 +28,7 @@ import (
 	webserver "go.viam.com/core/web/server"
 
 	//_ "go.viam.com/core/board/detector"
+	_ "go.viam.com/core/motor/stepper"
 	_ "go.viam.com/core/robots/xarm"
 
 	"github.com/edaniels/golog"

@@ -1,17 +1,21 @@
-package board
+package stepper
 
 import (
 	"context"
 	"math"
-	"strconv"
 	"time"
 
 	"github.com/go-errors/errors"
+	"github.com/mitchellh/mapstructure"
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
+	"go.viam.com/core/registry"
+	"go.viam.com/core/robot"
+
 	pb "go.viam.com/core/proto/api/v1"
 
 	"github.com/edaniels/golog"
@@ -19,10 +23,41 @@ import (
 	"go.uber.org/multierr"
 )
 
+type TMC5072Config struct {
+	motor.Config `mapstructure:",squash"`
+	SPIBus       string  `json:"spi_bus"`
+	ChipSelect   string  `json:"chip_select"`
+	Index        int     `json:"index"`
+	SGThresh     int32   `json:"sg_thresh"`
+	CalFactor    float64 `json:"cal_factor"`
+}
+
+func init() {
+	registry.RegisterMotor("TMC5072", registry.Motor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error) {
+		m, err := NewTMCStepperMotor(ctx, r, config.ConvertedAttributes.(*TMC5072Config), logger)
+		if err != nil {
+			return nil, err
+		}
+		return m, nil
+	}})
+
+	config.RegisterAttributeMapConverter(config.ComponentTypeMotor, "TMC5072", func(attributes config.AttributeMap) (interface{}, error) {
+		var conf TMC5072Config
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
+		if err != nil {
+			return nil, err
+		}
+		if err := decoder.Decode(attributes); err != nil {
+			return nil, err
+		}
+		return &conf, nil
+	})
+}
+
 // A TMCStepperMotor represents a brushless motor connected via a TMC controller chip (ex: TMC5072)
 type TMCStepperMotor struct {
-	board       Board
-	bus         SPI
+	board       board.Board
+	bus         board.SPI
 	csPin       string
 	index       int
 	enPin       string
@@ -75,55 +110,49 @@ const (
 )
 
 // NewTMCStepperMotor returns a TMC5072 driven motor
-func NewTMCStepperMotor(ctx context.Context, b Board, c config.Component, mc motor.Config, logger golog.Logger) (*TMCStepperMotor, error) {
-	bus, ok := b.SPIByName(c.Attributes.String("spi_bus"))
+func NewTMCStepperMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog.Logger) (*TMCStepperMotor, error) {
+	board, ok := r.BoardByName(c.BoardName)
 	if !ok {
-		return nil, errors.Errorf("can't find SPI bus (%s) requested by TMCStepperMotor", c.Attributes.String("spi_bus"))
+		return nil, errors.Errorf("can't find Board (%s) requested by TMCStepperMotor", c.BoardName)
 	}
 
-	index, err := strconv.Atoi(c.Attributes.String("index"))
-	if err != nil {
-		return nil, err
+	bus, ok := board.SPIByName(c.SPIBus)
+	if !ok {
+		return nil, errors.Errorf("can't find SPI bus (%s) requested by TMCStepperMotor", c.SPIBus)
 	}
 
-	calFactor, err := strconv.ParseFloat(c.Attributes.String("cal_factor"), 64)
-	if err != nil {
-		return nil, err
+	if c.CalFactor == 0 {
+		c.CalFactor = 1.0
 	}
 
 	m := &TMCStepperMotor{
-		board:       b,
+		board:       board,
 		bus:         bus,
-		csPin:       c.Attributes.String("chip_select"),
-		index:       index,
-		stepsPerRev: mc.TicksPerRotation * uSteps,
-		enPin:       mc.Pins["en"],
-		maxRPM:      mc.MaxRPM,
-		maxAcc:      mc.MaxAcceleration,
-		fClk:        baseClk / calFactor,
+		csPin:       c.ChipSelect,
+		index:       c.Index,
+		stepsPerRev: c.TicksPerRotation * uSteps,
+		enPin:       c.Pins["en"],
+		maxRPM:      c.MaxRPM,
+		maxAcc:      c.MaxAcceleration,
+		fClk:        baseClk / c.CalFactor,
 		logger:      logger,
 	}
 
 	rawMaxAcc := m.rpmsToA(m.maxAcc)
 
-	sg, err := strconv.Atoi(c.Attributes.String("sg_thresh"))
-	if err != nil {
-		return nil, err
-	}
-	SGThresh := int32(sg)
-	if SGThresh > 63 {
-		SGThresh = 63
-	} else if SGThresh < -64 {
-		SGThresh = -64
+	if c.SGThresh > 63 {
+		c.SGThresh = 63
+	} else if c.SGThresh < -64 {
+		c.SGThresh = -64
 	}
 	// The register is a 6 bit signed int
-	if SGThresh < 0 {
-		SGThresh = int32(64 + math.Abs(float64(SGThresh)))
+	if c.SGThresh < 0 {
+		c.SGThresh = int32(64 + math.Abs(float64(c.SGThresh)))
 	}
 
-	coolConfig := SGThresh << 16
+	coolConfig := c.SGThresh << 16
 
-	err = multierr.Combine(
+	err := multierr.Combine(
 		m.writeReg(ctx, chopConf, 0x000100C3),  // TOFF=3, HSTRT=4, HEND=1, TBL=2, CHM=0 (spreadCycle)
 		m.writeReg(ctx, iHoldIRun, 0x00080F0A), // IHOLD=8 (half current), IRUN=15 (max current), IHOLDDELAY=6
 		m.writeReg(ctx, coolConf, coolConfig),  // Sets just the SGThreshold (for now)
