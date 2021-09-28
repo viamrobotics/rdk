@@ -13,9 +13,11 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/sensor"
+	"go.viam.com/core/servo"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
@@ -48,6 +50,12 @@ type Robot interface {
 	// SensorByName returns a sensor by name.
 	SensorByName(name string) (sensor.Sensor, bool)
 
+	// ServoByName returns a servo by name.
+	ServoByName(name string) (servo.Servo, bool)
+
+	// MotorByName returns a motor by name.
+	MotorByName(name string) (motor.Motor, bool)
+
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
 
@@ -71,6 +79,12 @@ type Robot interface {
 
 	// SensorNames returns the name of all known sensors.
 	SensorNames() []string
+
+	// ServoNames returns the name of all known servos.
+	ServoNames() []string
+
+	// MotorNames returns the name of all known motors.
+	MotorNames() []string
 
 	// FunctionNames returns the name of all known functions.
 	FunctionNames() []string

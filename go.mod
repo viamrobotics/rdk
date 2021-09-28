@@ -27,6 +27,7 @@ require (
 	github.com/gonum/integrate v0.0.0-20181209220457-a422b5c0fdf2 // indirect
 	github.com/gonum/internal v0.0.0-20181124074243-f884aa714029 // indirect
 	github.com/gonum/stat v0.0.0-20181125101827-41a0da705a5b
+	github.com/google/uuid v1.2.0
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.5.0
 	github.com/huandu/xstrings v1.3.2 // indirect
@@ -34,7 +35,7 @@ require (
 	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4
 	github.com/jblindsay/lidario v0.0.0-20170420150243-bb03e55f9757
 	github.com/jhump/protoreflect v1.8.1 // indirect
-	github.com/kellydunn/golang-geo v0.7.0 // indirect
+	github.com/kellydunn/golang-geo v0.7.0
 	github.com/klauspost/compress v1.11.7 // indirect
 	github.com/kylelemons/go-gypsy v1.0.0 // indirect
 	github.com/lmittmann/ppm v1.0.0
@@ -48,7 +49,6 @@ require (
 	github.com/pion/webrtc/v3 v3.0.29
 	github.com/polyfloyd/go-errorlint v0.0.0-20201127212506-19bd8db6546f
 	github.com/pseudomuto/protoc-gen-doc v1.3.2
-	github.com/sbinet/go-python v0.1.0 // indirect
 	github.com/sergi/go-diff v1.2.0
 	github.com/sjwhitworth/golearn v0.0.0-20201127221938-294d65fca392
 	github.com/starship-technologies/gobag v1.0.6
@@ -63,7 +63,7 @@ require (
 	go.uber.org/zap v1.16.0
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
-	go.viam.com/utils v0.0.2-0.20210811153755-ce34fa7eadb4
+	go.viam.com/utils v0.0.2-0.20210924214046-c5939f70b09d
 	goji.io v2.0.2+incompatible
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
 	golang.org/x/image v0.0.0-20210216034530-4410531fe030

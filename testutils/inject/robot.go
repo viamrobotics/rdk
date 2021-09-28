@@ -14,9 +14,11 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
+	"go.viam.com/core/servo"
 
 	"github.com/edaniels/golog"
 )
@@ -32,6 +34,8 @@ type Robot struct {
 	LidarByNameFunc    func(name string) (lidar.Lidar, bool)
 	BoardByNameFunc    func(name string) (board.Board, bool)
 	SensorByNameFunc   func(name string) (sensor.Sensor, bool)
+	ServoByNameFunc    func(name string) (servo.Servo, bool)
+	MotorByNameFunc    func(name string) (motor.Motor, bool)
 	RemoteNamesFunc    func() []string
 	ArmNamesFunc       func() []string
 	GripperNamesFunc   func() []string
@@ -40,6 +44,8 @@ type Robot struct {
 	BaseNamesFunc      func() []string
 	BoardNamesFunc     func() []string
 	SensorNamesFunc    func() []string
+	ServoNamesFunc     func() []string
+	MotorNamesFunc     func() []string
 	FunctionNamesFunc  func() []string
 	ProcessManagerFunc func() pexec.ProcessManager
 	ConfigFunc         func(ctx context.Context) (*config.Config, error)
@@ -113,6 +119,22 @@ func (r *Robot) SensorByName(name string) (sensor.Sensor, bool) {
 	return r.SensorByNameFunc(name)
 }
 
+// ServoByName calls the injected ServoByName or the real version.
+func (r *Robot) ServoByName(name string) (servo.Servo, bool) {
+	if r.ServoByNameFunc == nil {
+		return r.Robot.ServoByName(name)
+	}
+	return r.ServoByNameFunc(name)
+}
+
+// MotorByName calls the injected MotorByName or the real version.
+func (r *Robot) MotorByName(name string) (motor.Motor, bool) {
+	if r.MotorByNameFunc == nil {
+		return r.Robot.MotorByName(name)
+	}
+	return r.MotorByNameFunc(name)
+}
+
 // RemoteNames calls the injected RemoteNames or the real version.
 func (r *Robot) RemoteNames() []string {
 	if r.RemoteNamesFunc == nil {
@@ -175,6 +197,22 @@ func (r *Robot) SensorNames() []string {
 		return r.Robot.SensorNames()
 	}
 	return r.SensorNamesFunc()
+}
+
+// ServoNames calls the injected ServoNames or the real version.
+func (r *Robot) ServoNames() []string {
+	if r.ServoNamesFunc == nil {
+		return r.Robot.ServoNames()
+	}
+	return r.ServoNamesFunc()
+}
+
+// MotorNames calls the injected MotorNames or the real version.
+func (r *Robot) MotorNames() []string {
+	if r.MotorNamesFunc == nil {
+		return r.Robot.MotorNames()
+	}
+	return r.MotorNamesFunc()
 }
 
 // FunctionNames calls the injected FunctionNames or the real version.

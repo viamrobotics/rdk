@@ -9,13 +9,16 @@ import (
 
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
+	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/motor"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
+	"go.viam.com/core/servo"
 )
 
 type (
@@ -39,6 +42,15 @@ type (
 
 	// A CreateFrame creates a frame from a given config.
 	CreateFrame func(name string) (referenceframe.Frame, error)
+
+	// A CreateBoard creates a board from a given config.
+	CreateBoard func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error)
+
+	// A CreateServo creates a servo from a given config.
+	CreateServo func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (servo.Servo, error)
+
+	// A CreateMotor creates a motor from a given config.
+	CreateMotor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error)
 )
 
 // Camera stores a Camera constructor (mandatory) and a Frame building function (optional)
@@ -77,6 +89,24 @@ type Sensor struct {
 	Frame       CreateFrame
 }
 
+// Board stores a Board constructor (mandatory) and a Frame building function (optional)
+type Board struct {
+	Constructor CreateBoard
+	Frame       CreateFrame
+}
+
+// Servo stores a Servo constructor (mandatory) and a Frame building function (optional)
+type Servo struct {
+	Constructor CreateServo
+	Frame       CreateFrame
+}
+
+// Motor stores a Motor constructor (mandatory) and a Frame building function (optional)
+type Motor struct {
+	Constructor CreateMotor
+	Frame       CreateFrame
+}
+
 // all registries
 var (
 	cameraRegistry  = map[string]Camera{}
@@ -85,6 +115,9 @@ var (
 	baseRegistry    = map[string]Base{}
 	lidarRegistry   = map[string]Lidar{}
 	sensorRegistry  = map[sensor.Type]map[string]Sensor{}
+	boardRegistry   = map[string]Board{}
+	servoRegistry   = map[string]Servo{}
+	motorRegistry   = map[string]Motor{}
 )
 
 // RegisterCamera register a camera model to a creator.
@@ -160,6 +193,42 @@ func RegisterSensor(sensorType sensor.Type, model string, creator Sensor) {
 		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
 	}
 	sensorRegistry[sensorType][model] = creator
+}
+
+// RegisterBoard register a board model to a creator.
+func RegisterBoard(model string, creator Board) {
+	_, old := boardRegistry[model]
+	if old {
+		panic(errors.Errorf("trying to register two boards with same model %s", model))
+	}
+	if creator.Constructor == nil {
+		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
+	}
+	boardRegistry[model] = creator
+}
+
+// RegisterServo register a servo model to a creator.
+func RegisterServo(model string, creator Servo) {
+	_, old := servoRegistry[model]
+	if old {
+		panic(errors.Errorf("trying to register two servos with same model %s", model))
+	}
+	if creator.Constructor == nil {
+		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
+	}
+	servoRegistry[model] = creator
+}
+
+// RegisterMotor register a motor model to a creator.
+func RegisterMotor(model string, creator Motor) {
+	_, old := motorRegistry[model]
+	if old {
+		panic(errors.Errorf("trying to register two motors with same model %s", model))
+	}
+	if creator.Constructor == nil {
+		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
+	}
+	motorRegistry[model] = creator
 }
 
 // CameraLookup looks up a camera creator by the given model. nil is returned if
@@ -263,7 +332,52 @@ func FrameLookup(comp *config.Component) (CreateFrame, bool) {
 			return nil, false
 		}
 		return registration.Frame, true
+	case config.ComponentTypeBoard:
+		registration := BoardLookup(comp.Model)
+		if registration == nil || registration.Frame == nil {
+			return nil, false
+		}
+		return registration.Frame, true
+	case config.ComponentTypeServo:
+		registration := ServoLookup(comp.Model)
+		if registration == nil || registration.Frame == nil {
+			return nil, false
+		}
+		return registration.Frame, true
+	case config.ComponentTypeMotor:
+		registration := MotorLookup(comp.Model)
+		if registration == nil || registration.Frame == nil {
+			return nil, false
+		}
+		return registration.Frame, true
 	default:
 		return nil, false
 	}
+}
+
+// BoardLookup looks up a board creator by the given model. nil is returned if
+// there is no creator registered.
+func BoardLookup(model string) *Board {
+	if registration, ok := boardRegistry[model]; ok {
+		return &registration
+	}
+	return nil
+}
+
+// ServoLookup looks up a servo creator by the given model. nil is returned if
+// there is no creator registered.
+func ServoLookup(model string) *Servo {
+	if registration, ok := servoRegistry[model]; ok {
+		return &registration
+	}
+	return nil
+}
+
+// MotorLookup looks up a motor creator by the given model. nil is returned if
+// there is no creator registered.
+func MotorLookup(model string) *Motor {
+	if registration, ok := motorRegistry[model]; ok {
+		return &registration
+	}
+	return nil
 }

@@ -25,7 +25,10 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/config"
+	"go.viam.com/core/registry"
 	"go.viam.com/core/rlog"
+	"go.viam.com/core/robot"
 
 	pb "go.viam.com/core/proto/api/v1"
 )
@@ -73,9 +76,15 @@ var (
 	}
 )
 
+const modelName = "pi"
+
 // init registers a pi board based on pigpio.
 func init() {
-	board.RegisterBoard("pi", NewPigpio)
+	registry.RegisterBoard(modelName, registry.Board{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error) {
+		boardConfig := config.ConvertedAttributes.(*board.Config)
+		return NewPigpio(ctx, boardConfig, logger)
+	}})
+	board.RegisterConfigAttributeConverter(modelName)
 
 	toAdd := map[string]uint{}
 	for k, v := range piHWPinToBroadcom {
@@ -93,14 +102,13 @@ func init() {
 // accessed via pigpio.
 type piPigpio struct {
 	mu            sync.Mutex
-	cfg           board.Config
+	cfg           *board.Config
 	gpioConfigSet map[int]bool
 	analogs       map[string]board.AnalogReader
+	i2cs          map[string]board.I2C
 	spis          map[string]board.SPI
-	servos        map[string]board.Servo
 	interrupts    map[string]board.DigitalInterrupt
 	interruptsHW  map[uint]board.DigitalInterrupt
-	motors        map[string]board.Motor
 	logger        golog.Logger
 }
 
@@ -111,9 +119,7 @@ var (
 )
 
 // NewPigpio makes a new pigpio based Board using the given config.
-func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (board.Board, error) {
-	var err error
-
+func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (board.Board, error) {
 	// this is so we can run it inside a daemon
 	internals := C.gpioCfgGetInternals()
 	internals |= C.PI_CFG_NOSIGHANDLER
@@ -144,15 +150,16 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	}()
 	instanceMu.Unlock()
 
-	// setup servos
-	piInstance.servos = map[string]board.Servo{}
-	for _, c := range cfg.Servos {
-		bcom, have := piHWPinToBroadcom[c.Pin]
-		if !have {
-			return nil, errors.Errorf("no hw mapping for %s", c.Pin)
+	// setup I2C buses
+	if len(cfg.I2Cs) != 0 {
+		piInstance.i2cs = make(map[string]board.I2C, len(cfg.I2Cs))
+		for _, sc := range cfg.I2Cs {
+			id, err := strconv.Atoi(sc.Bus)
+			if err != nil {
+				return nil, err
+			}
+			piInstance.i2cs[sc.Name] = &piPigpioI2C{pi: piInstance, id: id}
 		}
-
-		piInstance.servos[c.Name] = &piPigpioServo{piInstance, C.uint(bcom)}
 	}
 
 	// setup SPI buses
@@ -200,29 +207,6 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 		piInstance.interruptsHW[bcom] = di
 		C.setupInterrupt(C.int(bcom))
 
-	}
-
-	// setup motors
-	piInstance.motors = map[string]board.Motor{}
-	for _, c := range cfg.Motors {
-		var m board.Motor
-		if c.Model == "TMC5072" {
-			m, err = board.NewTMCStepperMotor(ctx, piInstance, c, logger)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			m, err = board.NewGPIOMotor(piInstance, c, logger)
-			if err != nil {
-				return nil, err
-			}
-
-			m, err = board.WrapMotorWithEncoder(ctx, piInstance, c, m, logger)
-			if err != nil {
-				return nil, err
-			}
-		}
-		piInstance.motors[c.Name] = m
 	}
 
 	instanceMu.Lock()
@@ -438,7 +422,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 	handle := C.spiOpen(nativeCS, (C.uint)(baud), (C.uint)(spiFlags))
 
 	if handle < 0 {
-		return nil, errors.Errorf("error opening SPI Bus %s return code was %d, flags were %X", s.bus, handle, spiFlags)
+		return nil, errors.Errorf("error opening SPI Bus %s return code was %d, flags were %X", s.bus.busSelect, handle, spiFlags)
 	}
 	defer C.spiClose((C.uint)(handle))
 
@@ -480,13 +464,98 @@ func (h *piPigpioSPIHandle) Close() error {
 	return nil
 }
 
-// MotorNames returns the name of all known motors.
-func (pi *piPigpio) MotorNames() []string {
-	names := []string{}
-	for k := range pi.motors {
-		names = append(names, k)
+type piPigpioI2C struct {
+	pi         *piPigpio
+	mu         sync.Mutex
+	openHandle *piPigpioI2CHandle
+	id         int
+}
+
+type piPigpioI2CHandle struct {
+	bus      *piPigpioI2C
+	isClosed bool
+}
+
+// Write will write the given slice of bytes to the given i2c address
+func (s *piPigpioI2CHandle) Write(ctx context.Context, addr byte, tx []byte) error {
+
+	if s.isClosed {
+		return errors.New("can't use WriteBytes() on an already closed I2CHandle")
 	}
-	return names
+
+	var i2cFlags uint
+	i2cFlags = 0
+
+	// Raspberry Pis are all on i2c bus 1
+	// Exception being the very first model which is on 0
+	var bus C.uint
+	bus = (C.uint)(s.bus.id)
+
+	count := len(tx)
+	txPtr := C.CBytes(tx)
+	defer C.free(txPtr)
+
+	handle := C.i2cOpen(bus, (C.uint)(addr), (C.uint)(i2cFlags))
+
+	if handle < 0 {
+		return errors.Errorf("error opening I2C Bus %s return code was %d, flags were %X", bus, handle, i2cFlags)
+	}
+	defer C.i2cClose((C.uint)(handle))
+
+	ret := C.i2cWriteDevice((C.uint)(handle), (*C.char)(txPtr), (C.uint)(count))
+
+	if int(ret) != 0 {
+		return errors.Errorf("error with i2c write %q", ret)
+	}
+
+	return nil
+}
+
+// Read will read `count` bytes from the given address.
+func (s *piPigpioI2CHandle) Read(ctx context.Context, addr byte, count int) ([]byte, error) {
+
+	if s.isClosed {
+		return nil, errors.New("can't use ReadBytes() on an already closed I2CHandle")
+	}
+
+	var i2cFlags uint
+	i2cFlags = 0
+
+	// Raspberry Pis are all on i2c bus 1
+	// Exception being the very first model which is on 0
+	var bus C.uint
+	bus = (C.uint)(s.bus.id)
+
+	rx := make([]byte, count)
+	rxPtr := C.CBytes(rx)
+	defer C.free(rxPtr)
+
+	handle := C.i2cOpen(bus, (C.uint)(addr), (C.uint)(i2cFlags))
+
+	if handle < 0 {
+		return nil, errors.Errorf("error opening I2C Bus %s return code was %d, flags were %X", bus, handle, i2cFlags)
+	}
+	defer C.i2cClose((C.uint)(handle))
+
+	ret := C.i2cReadDevice((C.uint)(handle), (*C.char)(rxPtr), (C.uint)(count))
+
+	if int(ret) <= 0 {
+		return nil, errors.Errorf("error with i2c read %q", ret)
+	}
+
+	return C.GoBytes(rxPtr, (C.int)(count)), nil
+}
+
+func (s *piPigpioI2C) OpenHandle() (board.I2CHandle, error) {
+	s.mu.Lock()
+	s.openHandle = &piPigpioI2CHandle{bus: s, isClosed: false}
+	return s.openHandle, nil
+}
+
+func (h *piPigpioI2CHandle) Close() error {
+	h.isClosed = true
+	h.bus.mu.Unlock()
+	return nil
 }
 
 // SPINames returns the name of all known SPI buses.
@@ -501,10 +570,13 @@ func (pi *piPigpio) SPINames() []string {
 	return names
 }
 
-// ServoNames returns the name of all known servos.
-func (pi *piPigpio) ServoNames() []string {
-	names := []string{}
-	for k := range pi.servos {
+// I2CNames returns the name of all known SPI buses.
+func (pi *piPigpio) I2CNames() []string {
+	if len(pi.i2cs) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(pi.i2cs))
+	for k := range pi.i2cs {
 		names = append(names, k)
 	}
 	return names
@@ -533,48 +605,19 @@ func (pi *piPigpio) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	return a, ok
 }
 
-// piPigpioServo implements a board.Servo using pigpio.
-type piPigpioServo struct {
-	pi  *piPigpio
-	pin C.uint
-}
-
-func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
-	val := 500 + (2000.0 * float64(angle) / 180.0)
-	res := C.gpioServo(s.pin, C.uint(val))
-	if res != 0 {
-		return errors.Errorf("gpioServo failed with %d", res)
-	}
-	return nil
-}
-
-func (s *piPigpioServo) Current(ctx context.Context) (uint8, error) {
-	res := C.gpioGetServoPulsewidth(s.pin)
-	if res <= 0 {
-		// this includes, errors, we'll ignore
-		return 0, nil
-	}
-	return uint8(180 * (float64(res) - 500.0) / 2000), nil
-}
-
 func (pi *piPigpio) SPIByName(name string) (board.SPI, bool) {
 	s, ok := pi.spis[name]
 	return s, ok
 }
 
-func (pi *piPigpio) ServoByName(name string) (board.Servo, bool) {
-	s, ok := pi.servos[name]
+func (pi *piPigpio) I2CByName(name string) (board.I2C, bool) {
+	s, ok := pi.i2cs[name]
 	return s, ok
 }
 
 func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	d, ok := pi.interrupts[name]
 	return d, ok
-}
-
-func (pi *piPigpio) MotorByName(name string) (board.Motor, bool) {
-	m, ok := pi.motors[name]
-	return m, ok
 }
 
 func (pi *piPigpio) ModelAttributes() board.ModelAttributes {
@@ -593,14 +636,6 @@ func (pi *piPigpio) Close() error {
 	instanceMu.Unlock()
 
 	var err error
-	for _, motor := range pi.motors {
-		err = multierr.Combine(err, utils.TryClose(motor))
-	}
-
-	for _, servo := range pi.servos {
-		err = multierr.Combine(err, utils.TryClose(servo))
-	}
-
 	for _, spi := range pi.spis {
 		err = multierr.Combine(err, utils.TryClose(spi))
 	}

@@ -17,6 +17,7 @@ import (
 	"go.viam.com/utils/rpc/dialer"
 
 	"go.viam.com/core/config"
+	"go.viam.com/core/metadata/service"
 	"go.viam.com/core/rlog"
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/web"
@@ -314,6 +315,12 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		err = multierr.Combine(err, rpcDialer.Close())
 	}()
 	ctx = dialer.ContextWithDialer(ctx, rpcDialer)
+
+	metadataSvc, err := service.New()
+	if err != nil {
+		return err
+	}
+	ctx = service.ContextWithService(ctx, metadataSvc)
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err

@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 
 	"github.com/edaniels/golog"
@@ -24,7 +25,7 @@ var (
 
 // NewGPIOStepperMotor returns a brushless motor on board with the given configuration. When done using it,
 // please call Close.
-func NewGPIOStepperMotor(b Board, pins map[string]string, mc MotorConfig, logger golog.Logger) (*GPIOStepperMotor, error) {
+func NewGPIOStepperMotor(b Board, pins map[string]string, mc motor.Config, logger golog.Logger) (*GPIOStepperMotor, error) {
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 
@@ -82,7 +83,7 @@ type gpioStepperMotorCmd struct {
 
 // A GPIOStepperMotor represents a brushless motor connected to a board via GPIO.
 type GPIOStepperMotor struct {
-	cfg                     MotorConfig
+	cfg                     motor.Config
 	Board                   Board
 	PWMs                    []string
 	A, B, C, D              string

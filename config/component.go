@@ -22,6 +22,9 @@ const (
 	ComponentTypeCamera  = ComponentType("camera")
 	ComponentTypeLidar   = ComponentType("lidar")
 	ComponentTypeSensor  = ComponentType("sensor")
+	ComponentTypeBoard   = ComponentType("board")
+	ComponentTypeServo   = ComponentType("servo")
+	ComponentTypeMotor   = ComponentType("motor")
 )
 
 // A Component describes the configuration of a component.
@@ -34,10 +37,11 @@ type Component struct {
 	Type      ComponentType `json:"type"`
 	SubType   string        `json:"subtype"`
 	Model     string        `json:"model"`
-	Frame     *FrameConfig  `json:"frame,omitempty"`
+	Frame     *Frame        `json:"frame,omitempty"`
 	DependsOn []string      `json:"depends_on"`
 
-	Attributes AttributeMap `json:"attributes"`
+	Attributes          AttributeMap `json:"attributes"`
+	ConvertedAttributes interface{}
 }
 
 // Ensure Component conforms to flag.Value.
@@ -48,10 +52,23 @@ func (config *Component) String() string {
 	return fmt.Sprintf("%#v", config)
 }
 
+type validator interface {
+	Validate(path string) error
+}
+
 // Validate ensures all parts of the config are valid.
 func (config *Component) Validate(path string) error {
 	if config.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	for key, value := range config.Attributes {
+		v, ok := value.(validator)
+		if !ok {
+			continue
+		}
+		if err := v.Validate(fmt.Sprintf("%s.%s", path, key)); err != nil {
+			return err
+		}
 	}
 	return nil
 }

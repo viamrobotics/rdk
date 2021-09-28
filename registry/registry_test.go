@@ -6,13 +6,16 @@ import (
 
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
+	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/motor"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
+	"go.viam.com/core/servo"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -42,6 +45,19 @@ func TestRegistry(t *testing.T) {
 	bf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error) {
 		return nil, nil
 	}
+
+	bbf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error) {
+		return nil, nil
+	}
+
+	servof := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (servo.Servo, error) {
+		return nil, nil
+	}
+
+	motorf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error) {
+		return nil, nil
+	}
+
 	ff := func(name string) (referenceframe.Frame, error) {
 		return nil, nil
 	}
@@ -53,6 +69,9 @@ func TestRegistry(t *testing.T) {
 	test.That(t, func() { RegisterGripper("x", Gripper{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterLidar("x", Lidar{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterSensor(sensor.Type("x"), "y", Sensor{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterBoard("x", Board{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterServo("x", Servo{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterMotor("x", Motor{}) }, test.ShouldPanic)
 
 	// test register
 	RegisterCamera("x", Camera{cf, ff})
@@ -61,6 +80,9 @@ func TestRegistry(t *testing.T) {
 	RegisterGripper("x", Gripper{gf, ff})
 	RegisterLidar("x", Lidar{Constructor: lf})
 	RegisterSensor(sensor.Type("x"), "y", Sensor{Constructor: sf, Frame: ff})
+	RegisterBoard("x", Board{Constructor: bbf, Frame: ff})
+	RegisterServo("x", Servo{Constructor: servof, Frame: ff})
+	RegisterMotor("x", Motor{Constructor: motorf, Frame: ff})
 
 	// test look up
 
@@ -144,6 +166,48 @@ func TestRegistry(t *testing.T) {
 	test.That(t, ok, test.ShouldEqual, true)
 	// look up a component that doesn't exist
 	comp = &config.Component{Type: config.ComponentTypeSensor, Model: "z", SubType: "x"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldEqual, false)
+
+	test.That(t, BoardLookup("x"), test.ShouldNotBeNil)
+	test.That(t, BoardLookup("z"), test.ShouldBeNil)
+	test.That(t, BoardLookup("x").Constructor, test.ShouldNotBeNil)
+	test.That(t, BoardLookup("x").Frame, test.ShouldNotBeNil)
+	comp = &config.Component{Type: config.ComponentTypeBoard, Model: "x"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldEqual, ff)
+	test.That(t, ok, test.ShouldEqual, true)
+	// look up a component that doesn't exist
+	comp = &config.Component{Type: config.ComponentTypeBoard, Model: "z"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldEqual, false)
+
+	test.That(t, ServoLookup("x"), test.ShouldNotBeNil)
+	test.That(t, ServoLookup("z"), test.ShouldBeNil)
+	test.That(t, ServoLookup("x").Constructor, test.ShouldNotBeNil)
+	test.That(t, ServoLookup("x").Frame, test.ShouldNotBeNil)
+	comp = &config.Component{Type: config.ComponentTypeServo, Model: "x"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldEqual, ff)
+	test.That(t, ok, test.ShouldEqual, true)
+	// look up a component that doesn't exist
+	comp = &config.Component{Type: config.ComponentTypeServo, Model: "z"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldEqual, false)
+
+	test.That(t, MotorLookup("x"), test.ShouldNotBeNil)
+	test.That(t, MotorLookup("z"), test.ShouldBeNil)
+	test.That(t, MotorLookup("x").Constructor, test.ShouldNotBeNil)
+	test.That(t, MotorLookup("x").Frame, test.ShouldNotBeNil)
+	comp = &config.Component{Type: config.ComponentTypeMotor, Model: "x"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldEqual, ff)
+	test.That(t, ok, test.ShouldEqual, true)
+	// look up a component that doesn't exist
+	comp = &config.Component{Type: config.ComponentTypeMotor, Model: "z"}
 	frameFunc, ok = FrameLookup(comp)
 	test.That(t, frameFunc, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldEqual, false)

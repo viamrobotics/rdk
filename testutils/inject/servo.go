@@ -3,12 +3,12 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/servo"
 )
 
 // Servo is an injected servo.
 type Servo struct {
-	board.Servo
+	servo.Servo
 	MoveFunc    func(ctx context.Context, angle uint8) error
 	CurrentFunc func(ctx context.Context) (uint8, error)
 }

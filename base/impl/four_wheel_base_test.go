@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rlog"
@@ -18,16 +17,26 @@ func TestFourWheelBase1(t *testing.T) {
 	ctx := context.Background()
 	r, err := robotimpl.New(ctx,
 		&config.Config{
-			Boards: []board.Config{
+			Components: []config.Component{
 				{
-					Name:  "local",
+					Name:  "fr-m",
 					Model: "fake",
-					Motors: []board.MotorConfig{
-						{Name: "fr-m"},
-						{Name: "fl-m"},
-						{Name: "br-m"},
-						{Name: "bl-m"},
-					},
+					Type:  config.ComponentTypeMotor,
+				},
+				{
+					Name:  "fl-m",
+					Model: "fake",
+					Type:  config.ComponentTypeMotor,
+				},
+				{
+					Name:  "br-m",
+					Model: "fake",
+					Type:  config.ComponentTypeMotor,
+				},
+				{
+					Name:  "bl-m",
+					Model: "fake",
+					Type:  config.ComponentTypeMotor,
 				},
 			},
 		},
@@ -42,7 +51,6 @@ func TestFourWheelBase1(t *testing.T) {
 		Attributes: config.AttributeMap{
 			"widthMillis":              100,
 			"wheelCircumferenceMillis": 1000,
-			"board":                    "local",
 			"frontRight":               "fr-m",
 			"frontLeft":                "fl-m",
 			"backRight":                "br-m",
