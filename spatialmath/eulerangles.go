@@ -42,13 +42,13 @@ func (ea *EulerAngles) Quaternion() quat.Number {
 	return q
 }
 
-// OrientationVectorRadians returns orientation as an orientation vector (in radians)
-func (ea *EulerAngles) OrientationVectorRadians() *OrientationVec {
+// OrientationVectortorRadians returns orientation as an orientation vector (in radians)
+func (ea *EulerAngles) OrientationVectortorRadians() *OrientationVector {
 	return QuatToOV(ea.Quaternion())
 }
 
-// OrientationVectorDegrees returns orientation as an orientation vector (in degrees)
-func (ea *EulerAngles) OrientationVectorDegrees() *OrientationVecDegrees {
+// OrientationVectortorDegrees returns orientation as an orientation vector (in degrees)
+func (ea *EulerAngles) OrientationVectortorDegrees() *OrientationVectorDegrees {
 	return QuatToOVD(ea.Quaternion())
 }
 

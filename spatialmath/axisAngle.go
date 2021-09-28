@@ -48,13 +48,13 @@ func (r4 *R4AA) Quaternion() quat.Number {
 	return r4.ToQuat()
 }
 
-// OrientationVectorRadians returns orientation as an orientation vector (in radians)
-func (r4 *R4AA) OrientationVectorRadians() *OrientationVec {
+// OrientationVectortorRadians returns orientation as an orientation vector (in radians)
+func (r4 *R4AA) OrientationVectortorRadians() *OrientationVector {
 	return QuatToOV(r4.Quaternion())
 }
 
-// OrientationVectorDegrees returns orientation as an orientation vector (in degrees)
-func (r4 *R4AA) OrientationVectorDegrees() *OrientationVecDegrees {
+// OrientationVectortorDegrees returns orientation as an orientation vector (in degrees)
+func (r4 *R4AA) OrientationVectortorDegrees() *OrientationVectorDegrees {
 	return QuatToOVD(r4.Quaternion())
 }
 

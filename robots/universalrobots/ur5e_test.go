@@ -199,7 +199,7 @@ func computeUR5ePosition(t *testing.T, jointRadians []float64) *pb.ArmPosition {
 	var o mat.Dense
 	o.Mul(res, orientationDH.matrix(0))
 
-	ov := spatialmath.OrientationVec{
+	ov := spatialmath.OrientationVector{
 		OX: o.At(0, 3) - res.At(0, 3),
 		OY: o.At(1, 3) - res.At(1, 3),
 		OZ: o.At(2, 3) - res.At(2, 3),
