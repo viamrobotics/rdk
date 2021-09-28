@@ -35,6 +35,7 @@ import (
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/servo"
+	"go.viam.com/core/spatialmath"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
@@ -125,6 +126,7 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 type boardInfo struct {
 	name                  string
 	spiNames              []string
+	i2cNames              []string
 	analogReaderNames     []string
 	digitalInterruptNames []string
 }
@@ -215,7 +217,7 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 		cc := config.Component{
 			Name: c.Name,
 			Type: config.ComponentType(c.Type),
-			Frame: &config.FrameConfig{
+			Frame: &config.Frame{
 				Parent: c.Parent,
 			},
 		}
@@ -225,11 +227,11 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 				Y: c.Pose.Y,
 				Z: c.Pose.Z,
 			}
-			cc.Frame.Orientation = config.Orientation{
-				X:  c.Pose.OX,
-				Y:  c.Pose.OY,
-				Z:  c.Pose.OZ,
-				TH: c.Pose.Theta,
+			cc.Frame.Orientation = &spatialmath.OrientationVecDegrees{
+				OX:    c.Pose.OX,
+				OY:    c.Pose.OY,
+				OZ:    c.Pose.OZ,
+				Theta: c.Pose.Theta,
 			}
 		}
 		cfg.Components = append(cfg.Components, cc)
@@ -670,6 +672,11 @@ func (bc *boardClient) SPIByName(name string) (board.SPI, bool) {
 	return nil, false
 }
 
+// I2CByName may need to be implemented
+func (bc *boardClient) I2CByName(name string) (board.I2C, bool) {
+	return nil, false
+}
+
 func (bc *boardClient) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	return &analogReaderClient{
 		rc:               bc.rc,
@@ -726,6 +733,10 @@ func (bc *boardClient) PWMSetFreq(ctx context.Context, pin string, freq uint) er
 
 func (bc *boardClient) SPINames() []string {
 	return copyStringSlice(bc.info.spiNames)
+}
+
+func (bc *boardClient) I2CNames() []string {
+	return copyStringSlice(bc.info.i2cNames)
 }
 
 func (bc *boardClient) AnalogReaderNames() []string {

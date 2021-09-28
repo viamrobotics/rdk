@@ -124,17 +124,15 @@ func TestPiPigpio(t *testing.T) {
 	}
 
 	motorCtor := registry.MotorLookup(modelName)
-	motor1, err := motorCtor(ctx, &injectRobot, config.Component{Name: "motor1", Attributes: config.AttributeMap{
-		"config": &motor.Config{
-			Pins: map[string]string{
-				"a":   "13", // bcom 27
-				"b":   "40", // bcom 21
-				"pwm": "7",  // bcom 4
-			},
-			Encoder:          "hall-a",
-			EncoderB:         "hall-b",
-			TicksPerRotation: 200,
+	motor1, err := motorCtor(ctx, &injectRobot, config.Component{Name: "motor1", ConvertedAttributes: &motor.Config{
+		Pins: map[string]string{
+			"a":   "13", // bcom 27
+			"b":   "40", // bcom 21
+			"pwm": "7",  // bcom 4
 		},
+		Encoder:          "hall-a",
+		EncoderB:         "hall-b",
+		TicksPerRotation: 200,
 	},
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)

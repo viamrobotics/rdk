@@ -22,9 +22,7 @@ func TestFakeBoard(t *testing.T) {
 		},
 	}
 
-	cfg := config.Component{Name: "board1", Attributes: config.AttributeMap{
-		"config": &boardConfig,
-	}}
+	cfg := config.Component{Name: "board1", ConvertedAttributes: &boardConfig}
 	b, err := NewBoard(context.Background(), cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 

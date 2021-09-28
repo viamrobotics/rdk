@@ -36,23 +36,20 @@
             "type": "board",
             "attributes":
             {
-                "config":
-                {
-                    "analogs":
-                    [
-                        {
-                            "name": "analog1",
-                            "pin": "0"
-                        }
-                    ],
-                    "digitalInterrupts":
-                    [
-                        {
-                            "name": "encoder",
-                            "pin": "14"
-                        }
-                    ]
-                }
+                "analogs":
+                [
+                    {
+                        "name": "analog1",
+                        "pin": "0"
+                    }
+                ],
+                "digitalInterrupts":
+                [
+                    {
+                        "name": "encoder",
+                        "pin": "14"
+                    }
+                ]
             }
         }
     ],

@@ -10,16 +10,21 @@ import (
 
 // Pose represents a 6dof pose, position and orientation, with respect to the origin.
 // The Point() method returns the position in (x,y,z) mm coordinates,
-// and the Orientation() method returns the orientation in (theta, ox, oy, oz)
-// where (ox, oy, oz) is the axis of rotation, and theta is the amount of rotation in radians.
+// and the Orientation() method returns an Orientation object, which has methods to parametrize
+// the rotation in multiple different representations.
 type Pose interface {
 	Point() r3.Vector
-	Orientation() *OrientationVec
+	Orientation() Orientation
 }
 
 // NewZeroPose returns a pose at (0,0,0) with same orientation as whatever frame it is placed in.
 func NewZeroPose() Pose {
 	return newdualQuaternion()
+}
+
+// NewPoseFromOrientation takes in a position and orientation and returns a Pose.
+func NewPoseFromOrientation(point r3.Vector, o Orientation) Pose {
+	return NewPoseFromOrientationVector(point, o.OrientationVectorRadians())
 }
 
 // NewPoseFromOrientationVector takes in a position and orientation vector and returns a Pose.
@@ -86,8 +91,8 @@ func Compose(a, b Pose) Pose {
 func PoseDelta(a, b Pose) []float64 {
 	ret := make([]float64, 6)
 
-	aQ := a.Orientation().ToQuat()
-	bQ := b.Orientation().ToQuat()
+	aQ := a.Orientation().Quaternion()
+	bQ := b.Orientation().Quaternion()
 
 	quatBetween := quat.Mul(bQ, quat.Conj(aQ))
 
@@ -114,7 +119,7 @@ func PoseToArmPos(p Pose) *pb.ArmPosition {
 	final.X = pt.X
 	final.Y = pt.Y
 	final.Z = pt.Z
-	poseOV := p.Orientation()
+	poseOV := p.Orientation().OrientationVectorRadians()
 	final.Theta = utils.RadToDeg(poseOV.Theta)
 	final.OX = poseOV.OX
 	final.OY = poseOV.OY

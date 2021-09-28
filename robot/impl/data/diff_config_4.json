@@ -22,27 +22,24 @@
             "type": "board",
             "attributes":
             {
-                "config":
-                {
-                    "analogs":
-                    [
-                        {
-                            "name": "analog1",
-                            "pin": "0"
-                        },
-                        {
-                            "name": "analog2",
-                            "pin": "1"
-                        }
-                    ],
-                    "digitalInterrupts":
-                    [
-                        {
-                            "name": "encoder",
-                            "pin": "14"
-                        }
-                    ]
-                }
+                "analogs":
+                [
+                    {
+                        "name": "analog1",
+                        "pin": "0"
+                    },
+                    {
+                        "name": "analog2",
+                        "pin": "1"
+                    }
+                ],
+                "digitalInterrupts":
+                [
+                    {
+                        "name": "encoder",
+                        "pin": "14"
+                    }
+                ]
             }
         }
     ],

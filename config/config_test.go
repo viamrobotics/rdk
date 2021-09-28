@@ -64,7 +64,7 @@ func TestConfig3(t *testing.T) {
 	test.That(t, cfg.Components[0].Attributes.Float64("bar5", 1.1), test.ShouldEqual, 5.17)
 	test.That(t, cfg.Components[0].Attributes.Float64("bar5-no", 1.1), test.ShouldEqual, 1.1)
 
-	test.That(t, cfg.Components[1].Attributes["config"], test.ShouldResemble, &board.Config{
+	test.That(t, cfg.Components[1].ConvertedAttributes, test.ShouldResemble, &board.Config{
 		Analogs: []board.AnalogConfig{
 			{Name: "analog1", Pin: "0"},
 		},
@@ -73,7 +73,7 @@ func TestConfig3(t *testing.T) {
 		},
 	})
 
-	test.That(t, cfg.Components[2].Attributes["config"], test.ShouldResemble, &motor.Config{
+	test.That(t, cfg.Components[2].ConvertedAttributes, test.ShouldResemble, &motor.Config{
 		Pins: map[string]string{
 			"dir": "io17",
 			"pwm": "io18",

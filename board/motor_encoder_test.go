@@ -301,9 +301,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
 	b, err := fake.NewBoard(context.Background(), config.Component{
-		Attributes: config.AttributeMap{
-			"config": &board.Config{},
-		},
+		ConvertedAttributes: &board.Config{},
 	}, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 
