@@ -23,6 +23,7 @@ import (
 	"go.uber.org/multierr"
 )
 
+// TMC5072Config extends motor.Config, mainly for RegisterAttributeMapConverter
 type TMC5072Config struct {
 	motor.Config `mapstructure:",squash"`
 	SPIBus       string  `json:"spi_bus"`
