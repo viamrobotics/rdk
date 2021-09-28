@@ -66,7 +66,7 @@ const (
 
 // Open attempts to open a serial device on the given path. It's a variable
 // in case you need to override it during tests.
-var Open = func(devicePath string, options Options) (ser.Port, error) {
+var Open = func(devicePath string, options Options) (io.ReadWriteCloser, error) {
 
 	mode := &ser.Mode{
 		BaudRate: options.BaudRate,
