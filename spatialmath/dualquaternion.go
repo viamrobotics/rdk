@@ -84,7 +84,7 @@ func newdualQuaternionFromPose(p Pose) *dualQuaternion {
 	if q, ok := p.(*dualQuaternion); ok {
 		return q.Clone()
 	}
-	q := newdualQuaternionFromRotation(p.Orientation())
+	q := newdualQuaternionFromRotation(p.Orientation().OrientationVectorRadians())
 	pt := p.Point()
 	q.SetTranslation(pt.X, pt.Y, pt.Z)
 	return q
@@ -120,9 +120,10 @@ func (q *dualQuaternion) Point() r3.Vector {
 	return r3.Vector{tQuat.Imag, tQuat.Jmag, tQuat.Kmag}
 }
 
-// Orientation returns the rotation quaternion as an Orientation Vector.
-func (q *dualQuaternion) Orientation() *OrientationVec {
-	return QuatToOV(q.Real)
+// Orientation returns the rotation quaternion as an Orientation.
+func (q *dualQuaternion) Orientation() Orientation {
+	qq := quaternion(q.Real)
+	return &qq
 }
 
 // SetTranslation correctly sets the translation quaternion against the rotation.
@@ -155,127 +156,6 @@ func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	}
 
 	return dualquat.Mul(q.Number, by)
-}
-
-// QuatToR4AA converts a quat to an R4 axis angle in the same way the C++ Eigen library does.
-// https://eigen.tuxfamily.org/dox/AngleAxis_8h_source.html
-func QuatToR4AA(q quat.Number) R4AA {
-	denom := Norm(q)
-
-	angle := 2 * math.Atan2(denom, math.Abs(q.Real))
-	if q.Real < 0 {
-		angle *= -1
-	}
-
-	if denom < 1e-6 {
-		return R4AA{angle, 1, 0, 0}
-	}
-	return R4AA{angle, q.Imag / denom, q.Jmag / denom, q.Kmag / denom}
-}
-
-// QuatToR3AA converts a quat to an R3 axis angle in the same way the C++ Eigen library does.
-// https://eigen.tuxfamily.org/dox/AngleAxis_8h_source.html
-func QuatToR3AA(q quat.Number) R3AA {
-	denom := Norm(q)
-
-	angle := 2 * math.Atan2(denom, math.Abs(q.Real))
-	if q.Real < 0 {
-		angle *= -1
-	}
-
-	if denom < 1e-6 {
-		return R3AA{1, 0, 0}
-	}
-	return R3AA{angle * q.Imag / denom, angle * q.Jmag / denom, angle * q.Kmag / denom}
-}
-
-// QuatToEuler converts a rotation unit quaternion to euler angles.
-// See the following wikipedia page for the formulas used here:
-// https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_angles_conversion
-// Euler angles are terrible, don't use them.
-func QuatToEuler(q quat.Number) []float64 {
-	w := q.Real
-	x := q.Imag
-	y := q.Jmag
-	z := q.Kmag
-
-	var angles []float64
-
-	angles = append(angles, math.Atan2(2*(w*x+y*z), 1-2*(x*x+y*y)))
-	angles = append(angles, math.Asin(2*(w*y-x*z)))
-	angles = append(angles, math.Atan2(2*(w*z+y*x), 1-2*(y*y+z*z)))
-
-	for i := range angles {
-
-		angles[i] *= radToDeg
-	}
-	return angles
-}
-
-// QuatToOV converts a quaternion to an orientation vector
-func QuatToOV(q quat.Number) *OrientationVec {
-	xAxis := quat.Number{0, -1, 0, 0}
-	zAxis := quat.Number{0, 0, 0, 1}
-	ov := &OrientationVec{}
-	// Get the transform of our +X and +Z points
-	newX := quat.Mul(quat.Mul(q, xAxis), quat.Conj(q))
-	newZ := quat.Mul(quat.Mul(q, zAxis), quat.Conj(q))
-	ov.OX = newZ.Imag
-	ov.OY = newZ.Jmag
-	ov.OZ = newZ.Kmag
-
-	// The contents of ov.newX.Kmag are not in radians but we can use angleEpsilon anyway to check how close we are to
-	// the pole because it's a convenient small number
-	if 1-math.Abs(newZ.Kmag) > angleEpsilon {
-		v1 := mgl64.Vec3{newZ.Imag, newZ.Jmag, newZ.Kmag}
-		v2 := mgl64.Vec3{newX.Imag, newX.Jmag, newX.Kmag}
-
-		// Get the vector normal to the local-x, local-z, origin plane
-		norm1 := v1.Cross(v2)
-
-		// Get the vector normal to the global-z, local-z, origin plane
-		norm2 := v1.Cross(mgl64.Vec3{zAxis.Imag, zAxis.Jmag, zAxis.Kmag})
-
-		// For theta, we find the angle between the planes defined by local-x, global-z, origin and local-x, local-z, origin
-		cosTheta := norm1.Dot(norm2) / (norm1.Len() * norm2.Len())
-		// Account for floating point error
-		if cosTheta > 1 {
-			cosTheta = 1
-		}
-		if cosTheta < -1 {
-			cosTheta = -1
-		}
-
-		theta := math.Acos(cosTheta)
-		if theta > angleEpsilon {
-			// Acos will always produce a positive number, we need to determine directionality of the angle
-			// We rotate newZ by -theta around the newX axis and see if we wind up coplanar with local-x, global-z, origin
-			// If so theta is negative, otherwise positive
-			// An R4AA is a convenient way to rotate a point by an amount around an arbitrary axis
-			aa := R4AA{-theta, ov.OX, ov.OY, ov.OZ}
-			q2 := aa.ToQuat()
-			testZ := quat.Mul(quat.Mul(q2, zAxis), quat.Conj(q2))
-			norm3 := v1.Cross(mgl64.Vec3{testZ.Imag, testZ.Jmag, testZ.Kmag})
-			cosTest := norm1.Dot(norm3) / (norm1.Len() * norm3.Len())
-			if 1-cosTest < angleEpsilon*angleEpsilon {
-				ov.Theta = -theta
-			} else {
-				ov.Theta = theta
-			}
-		} else {
-			ov.Theta = 0
-		}
-	} else {
-		// Special case for when we point directly along the Z axis
-		// Get the vector normal to the local-x, global-z, origin plane
-		ov.Theta = -math.Atan2(newX.Jmag, -newX.Imag)
-		if newZ.Kmag < 0 {
-			ov.Theta = -math.Atan2(newX.Jmag, newX.Imag)
-		}
-		//~ fmt.Println(ov)
-	}
-
-	return ov
 }
 
 // MatToEuler Converts a 4x4 matrix to Euler angles.
