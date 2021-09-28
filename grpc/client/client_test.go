@@ -29,6 +29,7 @@ import (
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/servo"
+	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"
@@ -556,18 +557,10 @@ func TestClient(t *testing.T) {
 			{
 				Name: "a",
 				Type: config.ComponentTypeArm,
-				Frame: &config.FrameConfig{Parent: "b",
-					Translation: config.Translation{
-						X: 1,
-						Y: 2,
-						Z: 3,
-					},
-					Orientation: config.Orientation{
-						X:  4,
-						Y:  5,
-						Z:  6,
-						TH: 7,
-					},
+				Frame: &config.Frame{
+					Parent:      "b",
+					Translation: config.Translation{X: 1, Y: 2, Z: 3},
+					Orientation: &spatialmath.OrientationVecDegrees{OX: 0, OY: 0, OZ: 1.0000000000000002, Theta: 7},
 				},
 			},
 		},

@@ -37,7 +37,7 @@ type Component struct {
 	Type      ComponentType `json:"type"`
 	SubType   string        `json:"subtype"`
 	Model     string        `json:"model"`
-	Frame     *FrameConfig  `json:"frame,omitempty"`
+	Frame     *Frame        `json:"frame,omitempty"`
 	DependsOn []string      `json:"depends_on"`
 
 	Attributes          AttributeMap `json:"attributes"`
