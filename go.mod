@@ -57,7 +57,7 @@ require (
 	github.com/wasmerio/wasmer-go v1.0.4
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	go-hep.org/x/hep v0.28.5
-	go.bug.st/serial v1.3.3 // indirect
+	go.bug.st/serial v1.3.3
 	go.mongodb.org/mongo-driver v1.5.3
 	go.opencensus.io v0.23.0
 	go.uber.org/multierr v1.6.0
