@@ -33,6 +33,7 @@ func init() {
 	}})
 }
 
+// New returns an IMU sensor at the given address..
 func New(ctx context.Context, address string, logger golog.Logger) (imu.IMU, error) {
 	// still using gRPC client? seems wrong
 	robotClient, err := grpcclient.NewClient(ctx, address, logger)

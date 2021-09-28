@@ -8,6 +8,7 @@ import (
 	"go.viam.com/core/sensor/imu"
 )
 
+// IMU is an injected IMU (for testing)
 type IMU struct {
 	imu.IMU
 	ReadingsFunc          func(ctx context.Context) ([]interface{}, error)
@@ -24,7 +25,7 @@ func (imuInst *IMU) Readings(ctx context.Context) ([]interface{}, error) {
 	return imuInst.ReadingsFunc(ctx)
 }
 
-// AngularVelocities calls the injected AngularVelocities or the real version.
+// AngularVelocity calls the injected AngularVelocities or the real version.
 func (imuInst *IMU) AngularVelocity(ctx context.Context) ([]float64, error) {
 	if imuInst.AngularVelocitiesFunc == nil {
 		return imuInst.IMU.AngularVelocity(ctx)
