@@ -21,16 +21,16 @@ func TestDevice(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "directory")
 
-	defaultOpenFunc := func(devicePath string) (io.ReadWriteCloser, error) {
+	defaultOpenFunc := func(devicePath string, options serial.Options) (io.ReadWriteCloser, error) {
 		return nil, errors.Errorf("cannot open %s", devicePath)
 	}
 	prevOpenFunc := serial.Open
 	openDeviceFunc := defaultOpenFunc
-	serial.Open = func(devicePath string) (io.ReadWriteCloser, error) {
+	serial.Open = func(devicePath string, options serial.Options) (io.ReadWriteCloser, error) {
 		if openDeviceFunc == nil {
-			return prevOpenFunc(devicePath)
+			return prevOpenFunc(devicePath, options)
 		}
-		return openDeviceFunc(devicePath)
+		return openDeviceFunc(devicePath, options)
 	}
 	defer func() {
 		serial.Open = prevOpenFunc
@@ -40,7 +40,7 @@ func TestDevice(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot")
 
-	openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
+	openDeviceFunc = func(devicePath string, options serial.Options) (io.ReadWriteCloser, error) {
 		return &inject.ReadWriteCloser{
 			ReadFunc: func(p []byte) (int, error) {
 				return 0, errors.New("whoops1")
@@ -60,7 +60,7 @@ func TestDevice(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops3")
 
 	rd := NewRawGY511()
-	openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
+	openDeviceFunc = func(devicePath string, options serial.Options) (io.ReadWriteCloser, error) {
 		rd.SetHeading(5)
 		return rd, nil
 	}

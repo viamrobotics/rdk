@@ -49,7 +49,14 @@ const headingWindow = 100
 
 // New returns a new gy511 compass that communicates over serial on the given path.
 func New(ctx context.Context, path string, logger golog.Logger) (dev *GY511, err error) {
-	rwc, err := serial.Open(path)
+	options := serial.Options{
+		BaudRate:    115200,
+		DataBits:    8,
+		StopBits:    serial.OneStopBit,
+		Parity:      serial.NoParity,
+		ReadTimeout: 0,
+	}
+	rwc, err := serial.Open(path, options)
 	if err != nil {
 		return nil, err
 	}
