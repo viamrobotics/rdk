@@ -94,7 +94,7 @@ var SetOptions = func(b io.ReadWriteCloser, options Options) error {
 		BaudRate: options.BaudRate,
 		Parity:   ser.Parity(options.Parity),
 		DataBits: options.DataBits,
-		StopBits: ser.StopBits(options.DataBits),
+		StopBits: ser.StopBits(options.StopBits),
 	}
 	p, ok := b.(ser.Port)
 	if !ok {
