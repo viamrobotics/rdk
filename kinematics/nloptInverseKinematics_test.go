@@ -2,7 +2,6 @@ package kinematics
 
 import (
 	"context"
-	//~ "math"
 	"testing"
 
 	pb "go.viam.com/core/proto/api/v1"
@@ -32,22 +31,6 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	_, err = ik.Solve(context.Background(), pos, seed)
 	test.That(t, err, test.ShouldBeNil)
 }
-
-//~ func TestNloptSwingReduction(t *testing.T) {
-//~ startRadians := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
-//~ endRadians := frame.FloatsToInputs([]float64{5, 0.5, 0.3, -0.2, 1.1, 2.3})
-//~ expectRadians := frame.FloatsToInputs([]float64{5 - math.Pi, 0.5, 0.3, -0.2, 1.1, 2.3})
-
-//~ swing, newRadians := checkExcessiveSwing(startRadians, endRadians, 2.8)
-//~ test.That(t, swing, test.ShouldBeTrue)
-//~ for i, val := range newRadians {
-//~ test.That(t, val.Value, test.ShouldAlmostEqual, expectRadians[i].Value)
-//~ }
-
-//~ swing, newRadians = checkExcessiveSwing(startRadians, expectRadians, 2.8)
-//~ test.That(t, swing, test.ShouldBeFalse)
-//~ test.That(t, newRadians, test.ShouldResemble, expectRadians)
-//~ }
 
 func TestInterpolateJoints(t *testing.T) {
 	jp1 := frame.FloatsToInputs([]float64{0, 4})
