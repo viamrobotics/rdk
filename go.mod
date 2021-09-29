@@ -84,3 +84,7 @@ replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210
 replace github.com/starship-technologies/gobag => github.com/kkufieta/gobag v0.0.0-20210528190924-d8b19286f98e
 
 replace github.com/wasmerio/wasmer-go => github.com/meshplus/wasmer-go v0.0.0-20210817103436-19ec68f8bfe2
+
+require github.com/tidwall/gjson v1.6.5 // indirect
+
+require github.com/gin-gonic/gin v1.7.0 // indirect
