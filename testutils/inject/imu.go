@@ -12,8 +12,8 @@ import (
 type IMU struct {
 	imu.IMU
 	ReadingsFunc          func(ctx context.Context) ([]interface{}, error)
-	AngularVelocitiesFunc func(ctx context.Context) ([]float64, error)
-	OrientationFunc       func(ctx context.Context) ([]float64, error)
+	AngularVelocitiesFunc func(ctx context.Context) (map[string]float64, error)
+	OrientationFunc       func(ctx context.Context) (map[string]float64, error)
 	CloseFunc             func() error
 }
 
@@ -26,7 +26,7 @@ func (imuInst *IMU) Readings(ctx context.Context) ([]interface{}, error) {
 }
 
 // AngularVelocity calls the injected AngularVelocities or the real version.
-func (imuInst *IMU) AngularVelocity(ctx context.Context) ([]float64, error) {
+func (imuInst *IMU) AngularVelocity(ctx context.Context) (map[string]float64, error) {
 	if imuInst.AngularVelocitiesFunc == nil {
 		return imuInst.IMU.AngularVelocity(ctx)
 	}
@@ -34,7 +34,7 @@ func (imuInst *IMU) AngularVelocity(ctx context.Context) ([]float64, error) {
 }
 
 // Orientation calls the injected Orientation or the real version.
-func (imuInst *IMU) Orientation(ctx context.Context) ([]float64, error) {
+func (imuInst *IMU) Orientation(ctx context.Context) (map[string]float64, error) {
 	if imuInst.OrientationFunc == nil {
 		return imuInst.IMU.Orientation(ctx)
 	}
