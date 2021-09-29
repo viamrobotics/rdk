@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"reflect"
 	"sync"
 
 	"github.com/golang/geo/r2"
@@ -19,7 +18,6 @@ import (
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/resource"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
@@ -866,27 +864,4 @@ func (p *proxyMotor) Zero(ctx context.Context, offset float64) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.Zero(ctx, offset)
-}
-
-type proxyResource struct {
-	mu     sync.RWMutex
-	actual *resource.Resource
-}
-
-func (p *proxyResource) Close() error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return utils.TryClose(p.actual)
-}
-
-func (p *proxyResource) replace(value *resource.Resource) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if reflect.TypeOf(p.actual.Resource) != reflect.TypeOf(value.Resource) {
-		panic(fmt.Errorf("expected resource to be %T but got %T", p.actual, value))
-	}
-	if err := utils.TryClose(p.actual.Resource); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = value
 }
