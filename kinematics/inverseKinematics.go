@@ -32,7 +32,7 @@ type InverseKinematics interface {
 // toArray returns the SolverDistanceWeights as a slice with the components in the same order as the array returned from
 // pose ToDelta. Note that orientation components are multiplied by 100 since they are usually small to avoid drift.
 func (dc *SolverDistanceWeights) toArray() []float64 {
-	return []float64{dc.Trans.X, dc.Trans.Y, dc.Trans.Z, 10 * dc.Orient.TH, 100 * dc.Orient.X, 100 * dc.Orient.Y, 100 * dc.Orient.Z}
+	return []float64{dc.Trans.X, dc.Trans.Y, dc.Trans.Z, 100 * dc.Orient.TH * dc.Orient.X, 100 * dc.Orient.TH * dc.Orient.Y, 100 * dc.Orient.TH * dc.Orient.Z}
 }
 
 // SquaredNorm returns the dot product of a vector with itself
@@ -59,6 +59,10 @@ func WeightedSquaredNorm(vec []float64, config SolverDistanceWeights) float64 {
 // start position than the end position is, and thus solution searching should continue.
 // Positions passed in should be valid, as should their halfway points, so any error will return an infinite distance
 func calcSwingAmount(from, to []frame.Input, model frame.Frame) (float64, error) {
+
+	// TODO(pl): This will become configurable in various different ways when motion planning is written
+	waypoints := 4
+
 	startPos, err := model.Transform(from)
 	if err != nil {
 		return math.Inf(1), err
@@ -67,50 +71,64 @@ func calcSwingAmount(from, to []frame.Input, model frame.Frame) (float64, error)
 	if err != nil {
 		return math.Inf(1), err
 	}
-	halfPos, err := model.Transform(interpolateValues(from, to, 0.5))
-	if err != nil {
-		// This should never happen as one of the above statements should have returned first
-		return math.Inf(1), err
-	}
-	// We also check the one-third position in addition to the halfway position, to correct for motions with
-	// 1:2 resonance, where a large swing would nevertheless appear to be at a reasonable halfway point.
-	thirdPos, err := model.Transform(interpolateValues(from, to, 0.333333))
-	if err != nil {
-		// This should never happen as one of the above statements should have returned first
-		return math.Inf(1), err
+
+	fullDist := SquaredNorm(spatial.PoseDelta(startPos, endPos))
+
+	dist := 0.
+	orientWeights := SolverDistanceWeights{Orient: XYZTHWeights{1, 1, 1, 1}}
+	for i := 0; i < waypoints; i++ {
+		waypoint := 1. / float64(i+2)
+		interp := interpolateValues(from, to, waypoint)
+		pathPos, err := model.Transform(interp)
+		if err != nil {
+			// This should never happen unless you have invalid waypoints
+			return math.Inf(1), err
+		}
+
+		compPos := pathPos
+		if waypoint != 0.5 {
+			// If we're not at the halfway point, check both sides- since joints move towards and away from singularities,
+			// a smooth joint movement won't be symmetrical.
+			interp = interpolateValues(from, to, 1-waypoint)
+			compPos, err = model.Transform(interp)
+			if err != nil {
+				// This should never happen unless you have invalid waypoints
+				return math.Inf(1), err
+			}
+		}
+
+		// Orientation should cleanly interpolate from one end to the other.
+		// Position will not since arm parts move in arcs, not straight lines, so we check that the position ratio is correct
+		idealPos := spatial.Interpolate(startPos, endPos, waypoint)
+
+		dist += WeightedSquaredNorm(spatial.PoseDelta(pathPos, idealPos), orientWeights) / 50
+		
+		// Ensure that the path position is the correct distance ratio to both the start and end
+		// Note that this does NOT prefent linear deviation from the ideal path, only ensures that the waypoints are
+		// proportionally located from start to end
+		dist += 10*math.Pow(waypoint-SquaredNorm(spatial.PoseDelta(pathPos, startPos))/fullDist, 2)
+		dist += 10*math.Pow(waypoint-SquaredNorm(spatial.PoseDelta(compPos, endPos))/fullDist, 2)
 	}
 
-	// If we care about swing, this will measure how much there is
-	endDist := SquaredNorm(spatial.PoseDelta(startPos, endPos))
-	halfDist := SquaredNorm(spatial.PoseDelta(startPos, halfPos)) + SquaredNorm(spatial.PoseDelta(endPos, halfPos))
-	thirdDist := SquaredNorm(spatial.PoseDelta(startPos, thirdPos)) + SquaredNorm(spatial.PoseDelta(endPos, thirdPos))
-
-	// Prevent division by 0
-	if endDist < 0.1 {
-		endDist++
-		halfDist++
-		thirdDist++
-	}
-
-	return halfDist/endDist + thirdDist/endDist, nil
+	return dist, nil
 }
 
 // bestSolution will select the best solution from a slice of possible solutions for a given model. "Best" is defined
 // such that the interpolated halfway point of the motion is most in line with the movement from start to end.
-func bestSolution(seedAngles []frame.Input, solutions [][]frame.Input, model frame.Frame) ([]frame.Input, error) {
+func bestSolution(seedAngles []frame.Input, solutions [][]frame.Input, model frame.Frame) ([]frame.Input, float64, error) {
 	var best []frame.Input
 	dist := math.Inf(1)
 	for _, solution := range solutions {
 		newDist, err := calcSwingAmount(seedAngles, solution, model)
 		if err != nil {
-			return nil, err
+			return nil, math.Inf(1), err
 		}
 		if newDist < dist {
 			dist = newDist
 			best = solution
 		}
 	}
-	return best, nil
+	return best, dist, nil
 }
 
 // interpolateValues will return a set of joint positions that are the specified percent between the two given sets of

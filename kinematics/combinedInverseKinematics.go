@@ -105,7 +105,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed []fra
 	close(noMoreSolutions)
 	activeSolvers.Wait()
 	if len(solutions) > 0 {
-		myRT.Result, myRT.Err = bestSolution(seed, solutions, ik.model)
+		myRT.Result, _, myRT.Err = bestSolution(seed, solutions, ik.model)
 		ik.logger.Debugf("solved joint positions: %v", myRT.Result)
 		solvePos, err := ik.model.Transform(myRT.Result)
 		ik.logger.Debugf("solved 6d position: %v %v", solvePos, err)
