@@ -97,7 +97,7 @@ func (r Name) Validate() error {
 }
 
 // Resource represents a known component/service of a robot.
-type Resource struct {
-	Name     Name
-	Resource interface{}
+type Resource interface {
+	// Reconfigure reconfigures the resource
+	Reconfigure(newResource Resource)
 }
