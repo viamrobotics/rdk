@@ -61,12 +61,18 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
 
 	injectDev := &inject.IMU{}
-	rotationVector := []float64{5.2, 1.0, -0.9}
-	orientationVector := []float64{5.2, 1.0, -0.9}
-	injectDev.AngularVelocitiesFunc = func(ctx context.Context) ([]float64, error) {
+	//rotationVector := []float64{5.2, 1.0, -0.9}
+	rotationVector := map[string]float64{
+		"x": 5.2, "y": 1.0, "z": -0.9,
+	}
+	//orientationVector := []float64{5.2, 1.0, -0.9}
+	orientationVector := map[string]float64{
+		"x": 5.2, "y": 1.0, "z": -0.9,
+	}
+	injectDev.AngularVelocitiesFunc = func(ctx context.Context) (map[string]float64, error) {
 		return rotationVector, nil
 	}
-	injectDev.OrientationFunc = func(ctx context.Context) ([]float64, error) {
+	injectDev.OrientationFunc = func(ctx context.Context) (map[string]float64, error) {
 		return orientationVector, nil
 	}
 	injectRobot2.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {

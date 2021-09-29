@@ -2112,10 +2112,14 @@ export namespace ImuOrientationRequest {
 }
 
 export class ImuAngularVelocityResponse extends jspb.Message {
-  clearAngularVelocityList(): void;
-  getAngularVelocityList(): Array<number>;
-  setAngularVelocityList(value: Array<number>): void;
-  addAngularVelocity(value: number, index?: number): number;
+  getAngularVelocityX(): number;
+  setAngularVelocityX(value: number): void;
+
+  getAngularVelocityY(): number;
+  setAngularVelocityY(value: number): void;
+
+  getAngularVelocityZ(): number;
+  setAngularVelocityZ(value: number): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ImuAngularVelocityResponse.AsObject;
@@ -2129,15 +2133,21 @@ export class ImuAngularVelocityResponse extends jspb.Message {
 
 export namespace ImuAngularVelocityResponse {
   export type AsObject = {
-    angularVelocityList: Array<number>,
+    angularVelocityX: number,
+    angularVelocityY: number,
+    angularVelocityZ: number,
   }
 }
 
 export class ImuOrientationResponse extends jspb.Message {
-  clearOrientationList(): void;
-  getOrientationList(): Array<number>;
-  setOrientationList(value: Array<number>): void;
-  addOrientation(value: number, index?: number): number;
+  getOrientationX(): number;
+  setOrientationX(value: number): void;
+
+  getOrientationY(): number;
+  setOrientationY(value: number): void;
+
+  getOrientationZ(): number;
+  setOrientationZ(value: number): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ImuOrientationResponse.AsObject;
@@ -2151,7 +2161,9 @@ export class ImuOrientationResponse extends jspb.Message {
 
 export namespace ImuOrientationResponse {
   export type AsObject = {
-    orientationList: Array<number>,
+    orientationX: number,
+    orientationY: number,
+    orientationZ: number,
   }
 }
 

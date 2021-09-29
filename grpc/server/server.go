@@ -823,7 +823,11 @@ func (s *Server) ImuAngularVelocity(ctx context.Context, req *pb.ImuAngularVeloc
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ImuAngularVelocityResponse{AngularVelocity: angularVelocityVec}, nil
+	return &pb.ImuAngularVelocityResponse{
+		AngularVelocityX: angularVelocityVec["x"],
+		AngularVelocityY: angularVelocityVec["y"],
+		AngularVelocityZ: angularVelocityVec["z"],
+	}, nil
 }
 
 // ImuOrientation returns the orientation reading of the IMU sensor of the underlying robot
@@ -836,7 +840,11 @@ func (s *Server) ImuOrientation(ctx context.Context, req *pb.ImuOrientationReque
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ImuOrientationResponse{Orientation: orientationVec}, nil
+	return &pb.ImuOrientationResponse{
+		OrientationX: orientationVec["x"],
+		OrientationY: orientationVec["y"],
+		OrientationZ: orientationVec["z"],
+	}, nil
 }
 
 // ExecuteFunction executes the given function with access to the underlying robot.

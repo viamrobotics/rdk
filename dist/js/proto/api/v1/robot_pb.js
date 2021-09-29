@@ -2113,7 +2113,7 @@ if (goog.DEBUG && !COMPILED) {
  * @constructor
  */
 proto.proto.api.v1.ImuAngularVelocityResponse = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.proto.api.v1.ImuAngularVelocityResponse.repeatedFields_, null);
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
 goog.inherits(proto.proto.api.v1.ImuAngularVelocityResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
@@ -2134,7 +2134,7 @@ if (goog.DEBUG && !COMPILED) {
  * @constructor
  */
 proto.proto.api.v1.ImuOrientationResponse = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.proto.api.v1.ImuOrientationResponse.repeatedFields_, null);
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
 goog.inherits(proto.proto.api.v1.ImuOrientationResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
@@ -17020,13 +17020,6 @@ proto.proto.api.v1.ImuOrientationRequest.prototype.setName = function(value) {
 
 
 
-/**
- * List of repeated fields within this message type.
- * @private {!Array<number>}
- * @const
- */
-proto.proto.api.v1.ImuAngularVelocityResponse.repeatedFields_ = [3];
-
 
 
 if (jspb.Message.GENERATE_TO_OBJECT) {
@@ -17058,7 +17051,9 @@ proto.proto.api.v1.ImuAngularVelocityResponse.prototype.toObject = function(opt_
  */
 proto.proto.api.v1.ImuAngularVelocityResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    angularVelocityList: (f = jspb.Message.getRepeatedFloatingPointField(msg, 3)) == null ? undefined : f
+    angularVelocityX: jspb.Message.getFloatingPointFieldWithDefault(msg, 1, 0.0),
+    angularVelocityY: jspb.Message.getFloatingPointFieldWithDefault(msg, 2, 0.0),
+    angularVelocityZ: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0)
   };
 
   if (includeInstance) {
@@ -17095,11 +17090,17 @@ proto.proto.api.v1.ImuAngularVelocityResponse.deserializeBinaryFromReader = func
     }
     var field = reader.getFieldNumber();
     switch (field) {
+    case 1:
+      var value = /** @type {number} */ (reader.readDouble());
+      msg.setAngularVelocityX(value);
+      break;
+    case 2:
+      var value = /** @type {number} */ (reader.readDouble());
+      msg.setAngularVelocityY(value);
+      break;
     case 3:
-      var values = /** @type {!Array<number>} */ (reader.isDelimited() ? reader.readPackedDouble() : [reader.readDouble()]);
-      for (var i = 0; i < values.length; i++) {
-        msg.addAngularVelocity(values[i]);
-      }
+      var value = /** @type {number} */ (reader.readDouble());
+      msg.setAngularVelocityZ(value);
       break;
     default:
       reader.skipField();
@@ -17130,9 +17131,23 @@ proto.proto.api.v1.ImuAngularVelocityResponse.prototype.serializeBinary = functi
  */
 proto.proto.api.v1.ImuAngularVelocityResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getAngularVelocityList();
-  if (f.length > 0) {
-    writer.writePackedDouble(
+  f = message.getAngularVelocityX();
+  if (f !== 0.0) {
+    writer.writeDouble(
+      1,
+      f
+    );
+  }
+  f = message.getAngularVelocityY();
+  if (f !== 0.0) {
+    writer.writeDouble(
+      2,
+      f
+    );
+  }
+  f = message.getAngularVelocityZ();
+  if (f !== 0.0) {
+    writer.writeDouble(
       3,
       f
     );
@@ -17141,49 +17156,59 @@ proto.proto.api.v1.ImuAngularVelocityResponse.serializeBinaryToWriter = function
 
 
 /**
- * repeated double angular_velocity = 3;
- * @return {!Array<number>}
+ * optional double angular_velocity_x = 1;
+ * @return {number}
  */
-proto.proto.api.v1.ImuAngularVelocityResponse.prototype.getAngularVelocityList = function() {
-  return /** @type {!Array<number>} */ (jspb.Message.getRepeatedFloatingPointField(this, 3));
-};
-
-
-/**
- * @param {!Array<number>} value
- * @return {!proto.proto.api.v1.ImuAngularVelocityResponse} returns this
- */
-proto.proto.api.v1.ImuAngularVelocityResponse.prototype.setAngularVelocityList = function(value) {
-  return jspb.Message.setField(this, 3, value || []);
+proto.proto.api.v1.ImuAngularVelocityResponse.prototype.getAngularVelocityX = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 1, 0.0));
 };
 
 
 /**
  * @param {number} value
- * @param {number=} opt_index
  * @return {!proto.proto.api.v1.ImuAngularVelocityResponse} returns this
  */
-proto.proto.api.v1.ImuAngularVelocityResponse.prototype.addAngularVelocity = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 3, value, opt_index);
+proto.proto.api.v1.ImuAngularVelocityResponse.prototype.setAngularVelocityX = function(value) {
+  return jspb.Message.setProto3FloatField(this, 1, value);
 };
 
 
 /**
- * Clears the list making it empty but non-null.
- * @return {!proto.proto.api.v1.ImuAngularVelocityResponse} returns this
+ * optional double angular_velocity_y = 2;
+ * @return {number}
  */
-proto.proto.api.v1.ImuAngularVelocityResponse.prototype.clearAngularVelocityList = function() {
-  return this.setAngularVelocityList([]);
+proto.proto.api.v1.ImuAngularVelocityResponse.prototype.getAngularVelocityY = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 2, 0.0));
 };
 
 
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.ImuAngularVelocityResponse} returns this
+ */
+proto.proto.api.v1.ImuAngularVelocityResponse.prototype.setAngularVelocityY = function(value) {
+  return jspb.Message.setProto3FloatField(this, 2, value);
+};
+
 
 /**
- * List of repeated fields within this message type.
- * @private {!Array<number>}
- * @const
+ * optional double angular_velocity_z = 3;
+ * @return {number}
  */
-proto.proto.api.v1.ImuOrientationResponse.repeatedFields_ = [3];
+proto.proto.api.v1.ImuAngularVelocityResponse.prototype.getAngularVelocityZ = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.ImuAngularVelocityResponse} returns this
+ */
+proto.proto.api.v1.ImuAngularVelocityResponse.prototype.setAngularVelocityZ = function(value) {
+  return jspb.Message.setProto3FloatField(this, 3, value);
+};
+
+
 
 
 
@@ -17216,7 +17241,9 @@ proto.proto.api.v1.ImuOrientationResponse.prototype.toObject = function(opt_incl
  */
 proto.proto.api.v1.ImuOrientationResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    orientationList: (f = jspb.Message.getRepeatedFloatingPointField(msg, 3)) == null ? undefined : f
+    orientationX: jspb.Message.getFloatingPointFieldWithDefault(msg, 1, 0.0),
+    orientationY: jspb.Message.getFloatingPointFieldWithDefault(msg, 2, 0.0),
+    orientationZ: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0)
   };
 
   if (includeInstance) {
@@ -17253,11 +17280,17 @@ proto.proto.api.v1.ImuOrientationResponse.deserializeBinaryFromReader = function
     }
     var field = reader.getFieldNumber();
     switch (field) {
+    case 1:
+      var value = /** @type {number} */ (reader.readDouble());
+      msg.setOrientationX(value);
+      break;
+    case 2:
+      var value = /** @type {number} */ (reader.readDouble());
+      msg.setOrientationY(value);
+      break;
     case 3:
-      var values = /** @type {!Array<number>} */ (reader.isDelimited() ? reader.readPackedDouble() : [reader.readDouble()]);
-      for (var i = 0; i < values.length; i++) {
-        msg.addOrientation(values[i]);
-      }
+      var value = /** @type {number} */ (reader.readDouble());
+      msg.setOrientationZ(value);
       break;
     default:
       reader.skipField();
@@ -17288,9 +17321,23 @@ proto.proto.api.v1.ImuOrientationResponse.prototype.serializeBinary = function()
  */
 proto.proto.api.v1.ImuOrientationResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getOrientationList();
-  if (f.length > 0) {
-    writer.writePackedDouble(
+  f = message.getOrientationX();
+  if (f !== 0.0) {
+    writer.writeDouble(
+      1,
+      f
+    );
+  }
+  f = message.getOrientationY();
+  if (f !== 0.0) {
+    writer.writeDouble(
+      2,
+      f
+    );
+  }
+  f = message.getOrientationZ();
+  if (f !== 0.0) {
+    writer.writeDouble(
       3,
       f
     );
@@ -17299,39 +17346,56 @@ proto.proto.api.v1.ImuOrientationResponse.serializeBinaryToWriter = function(mes
 
 
 /**
- * repeated double orientation = 3;
- * @return {!Array<number>}
+ * optional double orientation_x = 1;
+ * @return {number}
  */
-proto.proto.api.v1.ImuOrientationResponse.prototype.getOrientationList = function() {
-  return /** @type {!Array<number>} */ (jspb.Message.getRepeatedFloatingPointField(this, 3));
-};
-
-
-/**
- * @param {!Array<number>} value
- * @return {!proto.proto.api.v1.ImuOrientationResponse} returns this
- */
-proto.proto.api.v1.ImuOrientationResponse.prototype.setOrientationList = function(value) {
-  return jspb.Message.setField(this, 3, value || []);
+proto.proto.api.v1.ImuOrientationResponse.prototype.getOrientationX = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 1, 0.0));
 };
 
 
 /**
  * @param {number} value
- * @param {number=} opt_index
  * @return {!proto.proto.api.v1.ImuOrientationResponse} returns this
  */
-proto.proto.api.v1.ImuOrientationResponse.prototype.addOrientation = function(value, opt_index) {
-  return jspb.Message.addToRepeatedField(this, 3, value, opt_index);
+proto.proto.api.v1.ImuOrientationResponse.prototype.setOrientationX = function(value) {
+  return jspb.Message.setProto3FloatField(this, 1, value);
 };
 
 
 /**
- * Clears the list making it empty but non-null.
+ * optional double orientation_y = 2;
+ * @return {number}
+ */
+proto.proto.api.v1.ImuOrientationResponse.prototype.getOrientationY = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 2, 0.0));
+};
+
+
+/**
+ * @param {number} value
  * @return {!proto.proto.api.v1.ImuOrientationResponse} returns this
  */
-proto.proto.api.v1.ImuOrientationResponse.prototype.clearOrientationList = function() {
-  return this.setOrientationList([]);
+proto.proto.api.v1.ImuOrientationResponse.prototype.setOrientationY = function(value) {
+  return jspb.Message.setProto3FloatField(this, 2, value);
+};
+
+
+/**
+ * optional double orientation_z = 3;
+ * @return {number}
+ */
+proto.proto.api.v1.ImuOrientationResponse.prototype.getOrientationZ = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.ImuOrientationResponse} returns this
+ */
+proto.proto.api.v1.ImuOrientationResponse.prototype.setOrientationZ = function(value) {
+  return jspb.Message.setProto3FloatField(this, 3, value);
 };
 
 

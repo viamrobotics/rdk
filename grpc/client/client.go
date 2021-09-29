@@ -1083,26 +1083,40 @@ type imuClient struct {
 	*sensorClient
 }
 
-func (imuC *imuClient) AngularVelocity(ctx context.Context) ([]float64, error) {
+func (imuC *imuClient) emptyVector() map[string]float64 {
+	result := make(map[string]float64)
+	result["x"] = math.NaN()
+	result["y"] = math.NaN()
+	result["z"] = math.NaN()
+	return result
+}
+
+func (imuC *imuClient) AngularVelocity(ctx context.Context) (map[string]float64, error) {
 	resp, err := imuC.rc.client.ImuAngularVelocity(ctx, &pb.ImuAngularVelocityRequest{
 		Name: imuC.name,
 	})
+	result := imuC.emptyVector()
 	if err != nil {
-		emptyResp := []float64{math.NaN(), math.NaN(), math.NaN()}
-		return emptyResp, err
+		return result, err
 	}
-	return resp.GetAngularVelocity(), nil
+	result["x"] = resp.GetAngularVelocityX()
+	result["y"] = resp.GetAngularVelocityY()
+	result["z"] = resp.GetAngularVelocityZ()
+	return result, nil
 }
 
-func (imuC *imuClient) Orientation(ctx context.Context) ([]float64, error) {
+func (imuC *imuClient) Orientation(ctx context.Context) (map[string]float64, error) {
 	resp, err := imuC.rc.client.ImuOrientation(ctx, &pb.ImuOrientationRequest{
 		Name: imuC.name,
 	})
+	result := imuC.emptyVector()
 	if err != nil {
-		emptyResp := []float64{math.NaN(), math.NaN(), math.NaN()}
-		return emptyResp, err
+		return result, err
 	}
-	return resp.GetOrientation(), nil
+	result["x"] = resp.GetOrientationX()
+	result["y"] = resp.GetOrientationY()
+	result["z"] = resp.GetOrientationZ()
+	return result, nil
 }
 
 // servoClient satisfies a gRPC based servo.Servo. Refer to the interface

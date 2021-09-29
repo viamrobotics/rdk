@@ -322,7 +322,7 @@ service RobotService {
     };
   }
 
-    // IMU
+  // IMU
 
   rpc ImuAngularVelocity(ImuAngularVelocityRequest) returns (ImuAngularVelocityResponse) {
     option (google.api.http) = {
@@ -891,12 +891,24 @@ message ImuOrientationRequest {
   string name = 1;
 }
 
+//message ImuAngularVelocityResponse {
+//  repeated double angular_velocity = 3;
+//}
+
+//message ImuOrientationResponse {
+//  repeated double orientation = 3;
+//}
+
 message ImuAngularVelocityResponse {
-  repeated double angular_velocity = 3;
+  double angular_velocity_x = 1;
+  double angular_velocity_y = 2;
+  double angular_velocity_z = 3;
 }
 
 message ImuOrientationResponse {
-  repeated double orientation = 3;
+  double orientation_x = 1;
+  double orientation_y = 2;
+  double orientation_z = 3;
 }
 
 // Execution
