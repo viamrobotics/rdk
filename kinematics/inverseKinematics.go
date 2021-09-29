@@ -10,7 +10,7 @@ import (
 )
 
 // Motions with swing values less than this are considered good enough to do without looking for better ones
-const goodSwingAmt = 1.1
+const goodSwingAmt = 1.6
 
 // goal contains a pose representing a location and orientation to try to reach, and the ID of the end
 // effector which should be trying to reach it.

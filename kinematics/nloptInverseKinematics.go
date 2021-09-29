@@ -42,7 +42,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) *NloptIK 
 	ik.epsilon = 0.001
 	// The absolute smallest value able to be represented by a float64
 	floatEpsilon := math.Nextafter(1, 2) - 1
-	ik.maxIterations = 10000
+	ik.maxIterations = 5000
 	ik.iterations = 0
 	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.Dof())
 	// How much to adjust joints to determine slope
