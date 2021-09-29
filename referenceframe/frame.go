@@ -22,7 +22,7 @@ type Input struct {
 	Value float64
 }
 
-// Limit describes a minimum and maximum limit for the DOF of the frame.
+// Limit describes a minimum and maximum limit for the DoF of the frame.
 // If limits are exceeded, an error will be retuned, but the math will still be performed and an answer given.
 type Limit struct {
 	Min, Max float64
@@ -37,10 +37,24 @@ func FloatsToInputs(floats []float64) []Input {
 	return inputs
 }
 
+// InputsToFloats unwraps Inputs to raw floats
+func InputsToFloats(inputs []Input) []float64 {
+	floats := make([]float64, len(inputs))
+	for i, f := range inputs {
+		floats[i] = f.Value
+	}
+	return floats
+}
+
 // JointPosToInputs will take a pb.JointPositions which has values in Degrees, convert to Radians and wrap in Inputs
 func JointPosToInputs(jp *pb.JointPositions) []Input {
 	floats := arm.JointPositionsToRadians(jp)
 	return FloatsToInputs(floats)
+}
+
+// InputsToJointPos will take a slice of Inputs which are all joint position radians, and return a JointPositions struct.
+func InputsToJointPos(inputs []Input) *pb.JointPositions {
+	return arm.JointPositionsFromRadians(InputsToFloats(inputs))
 }
 
 // Frame represents a single reference frame, e.g. an arm, a joint, etc.
@@ -48,7 +62,7 @@ func JointPosToInputs(jp *pb.JointPositions) []Input {
 type Frame interface {
 	Name() string
 	Transform([]Input) (spatial.Pose, error)
-	Dof() []Limit
+	DoF() []Limit
 }
 
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation from the current Frame to the parent Frame
@@ -85,13 +99,13 @@ func (sf *staticFrame) Name() string {
 // Transform returns the pose associated with this static frame.
 func (sf *staticFrame) Transform(inp []Input) (spatial.Pose, error) {
 	if len(inp) != 0 {
-		return nil, fmt.Errorf("given input length %q does not match frame dof 0", len(inp))
+		return nil, fmt.Errorf("given input length %q does not match frame DoF 0", len(inp))
 	}
 	return sf.transform, nil
 }
 
-// Dof are the degrees of freedom of the transform. In the staticFrame, it is always 0.
-func (sf *staticFrame) Dof() []Limit {
+// DoF are the degrees of freedom of the transform. In the staticFrame, it is always 0.
+func (sf *staticFrame) DoF() []Limit {
 	return []Limit{}
 }
 
@@ -105,8 +119,8 @@ type translationalFrame struct {
 // NewTranslationalFrame creates a frame given a name and the axes in which to translate
 func NewTranslationalFrame(name string, axes []bool, limits []Limit) (Frame, error) {
 	pf := &translationalFrame{name: name, axes: axes}
-	if len(limits) != pf.dofInt() {
-		return nil, fmt.Errorf("given number of limits %d does not match number of axes %d", len(limits), pf.dofInt())
+	if len(limits) != pf.DoFInt() {
+		return nil, fmt.Errorf("given number of limits %d does not match number of axes %d", len(limits), pf.DoFInt())
 	}
 	pf.limits = limits
 	return pf, nil
@@ -120,8 +134,8 @@ func (pf *translationalFrame) Name() string {
 // Transform returns a pose translated by the amount specified in the inputs.
 func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	var err error
-	if len(input) != pf.dofInt() {
-		return nil, fmt.Errorf("given input length %d does not match frame dof %d", len(input), pf.dofInt())
+	if len(input) != pf.DoFInt() {
+		return nil, fmt.Errorf("given input length %d does not match frame DoF %d", len(input), pf.DoFInt())
 	}
 	translation := make([]float64, 3)
 	tIdx := 0
@@ -139,20 +153,20 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	return q, err
 }
 
-// Dof are the degrees of freedom of the transform.
-func (pf *translationalFrame) Dof() []Limit {
+// DoF are the degrees of freedom of the transform.
+func (pf *translationalFrame) DoF() []Limit {
 	return pf.limits
 }
 
-// dofInt returns the quantity of axes in which this frame can translate
-func (pf *translationalFrame) dofInt() int {
-	dof := 0
+// DoFInt returns the quantity of axes in which this frame can translate
+func (pf *translationalFrame) DoFInt() int {
+	DoF := 0
 	for _, v := range pf.axes {
 		if v {
-			dof++
+			DoF++
 		}
 	}
-	return dof
+	return DoF
 }
 
 type rotationalFrame struct {
@@ -162,7 +176,7 @@ type rotationalFrame struct {
 }
 
 // NewRotationalFrame creates a new rotationalFrame struct.
-// A standard revolute joint will have 1 DOF
+// A standard revolute joint will have 1 DoF
 func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) Frame {
 	rf := rotationalFrame{
 		name:    name,
@@ -174,12 +188,12 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) Frame {
 	return &rf
 }
 
-// Transform returns the Pose representing the frame's 6dof motion in space. Requires a slice
+// Transform returns the Pose representing the frame's 6DoF motion in space. Requires a slice
 // of inputs that has length equal to the degrees of freedom of the frame.
 func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	var err error
 	if len(input) != 1 {
-		return nil, fmt.Errorf("given input length %d does not match frame dof 1", len(input))
+		return nil, fmt.Errorf("given input length %d does not match frame DoF 1", len(input))
 	}
 	// We allow out-of-bounds calculations, but will return a non-nil error
 	if input[0].Value < rf.limit.Min || input[0].Value > rf.limit.Max {
@@ -192,8 +206,8 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	return pose, err
 }
 
-// Dof returns the number of degrees of freedom that a joint has. This would be 1 for a standard revolute joint.
-func (rf *rotationalFrame) Dof() []Limit {
+// DoF returns the number of degrees of freedom that a joint has. This would be 1 for a standard revolute joint.
+func (rf *rotationalFrame) DoF() []Limit {
 	return []Limit{rf.limit}
 }
 
