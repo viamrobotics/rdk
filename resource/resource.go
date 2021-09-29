@@ -3,6 +3,7 @@ package resource
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/go-errors/errors"
 
@@ -59,6 +60,22 @@ func New(namespace string, rType string, subtype string, name string) (Name, err
 		Subtype:   subtype,
 		Name:      name,
 	}, nil
+}
+
+// NewFromString creates a new Name based on a fully qualified resource name string passed in.
+func NewFromString(resourceName string) (Name, error) {
+	var name string
+	nameParts := strings.Split(resourceName, "/")
+	if len(nameParts) == 2 {
+		name = nameParts[1]
+	} else if len(nameParts) > 2 {
+		return Name{}, errors.New("invalid resource name string: there is more than one backslash")
+	}
+	rSubtypeParts := strings.Split(nameParts[0], ":")
+	if len(rSubtypeParts) > 3 {
+		return Name{}, errors.New("invalid resource name string: there are more than 2 colons")
+	}
+	return New(rSubtypeParts[0], rSubtypeParts[1], rSubtypeParts[2], name)
 }
 
 // ResourceSubtype returns the resource type for the component.

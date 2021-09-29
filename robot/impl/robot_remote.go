@@ -113,20 +113,22 @@ func (rr *remoteRobot) prefixNames(names []string) []string {
 	return newNames
 }
 
-func (rr *remoteRobot) unprefixQualifiedName(name string) string {
+func (rr *remoteRobot) prefixResourceName(name string) string {
+	if !rr.conf.Prefix {
+		return name
+	}
+	split := strings.Split(name, "/")
+	split[len(split)] = rr.prefixName(split[len(split)])
+	return strings.Join(split, "/")
+
+}
+
+func (rr *remoteRobot) unprefixResourceName(name string) string {
 	if rr.conf.Prefix {
 		split := strings.Split(name, "/")
 		split[len(split)] = rr.unprefixName(split[len(split)])
 		return strings.Join(split, "/")
 	}
-	return name
-}
-
-func (rr *remoteRobot) prefixResourceName(name resource.Name) resource.Name {
-	if !rr.conf.Prefix {
-		return name
-	}
-	name.Name = rr.prefixName(name.Name)
 	return name
 }
 
@@ -200,26 +202,15 @@ func (rr *remoteRobot) ServiceNames() []string {
 	return rr.prefixNames(rr.parts.ServiceNames())
 }
 
-func (rr *remoteRobot) ResourceNames() []resource.Name {
+func (rr *remoteRobot) ResourceNames() []string {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
-	newNames := make([]resource.Name, 0, len(rr.parts.ResourceNames()))
+	newNames := make([]string, 0, len(rr.parts.ResourceNames()))
 	for _, name := range rr.parts.ResourceNames() {
 		name = rr.prefixResourceName(name)
 		newNames = append(newNames, name)
 	}
 	return newNames
-}
-
-func (rr *remoteRobot) Resources() []*resource.Resource {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	newResources := make([]*resource.Resource, 0, len(rr.parts.Resources()))
-	for _, resource := range rr.parts.Resources() {
-		resource.Name = rr.prefixResourceName(resource.Name)
-		newResources = append(newResources, resource)
-	}
-	return newResources
 }
 
 func (rr *remoteRobot) RemoteByName(name string) (robot.Robot, bool) {
@@ -287,10 +278,10 @@ func (rr *remoteRobot) ServiceByName(name string) (interface{}, bool) {
 	return rr.parts.ServiceByName(rr.unprefixName(name))
 }
 
-func (rr *remoteRobot) ResourceByName(name string) (*resource.Resource, bool) {
+func (rr *remoteRobot) ResourceByName(name string) (resource.Resource, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
-	return rr.parts.ResourceByName(rr.unprefixName(name))
+	return rr.parts.ResourceByName(rr.unprefixResourceName(name))
 }
 
 func (rr *remoteRobot) ProcessManager() pexec.ProcessManager {
@@ -480,14 +471,12 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 		parts.AddService(part, config.Service{Name: name})
 	}
 
-	for _, r := range robot.Resources() {
-		rType := config.ComponentType(r.Name.Subtype)
-		rSubtype := ""
-		if r.Name.Subtype == string(config.ComponentTypeSensor) {
-			rType = config.ComponentTypeSensor
-			rSubtype = r.Name.Subtype
+	for _, name := range robot.ResourceNames() {
+		part, ok := robot.ResourceByName(name)
+		if !ok {
+			continue
 		}
-		parts.AddResource(r, config.Component{Type: rType, SubType: rSubtype, Name: r.Name.Name})
+		parts.addResource(name, part)
 	}
 	return parts
 }
@@ -669,7 +658,7 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		oldPart, ok := parts.resources[name]
 		delete(oldResources, name)
 		if ok {
-			oldPart.replace(newPart.actual)
+			oldPart.Reconfigure(newPart)
 			continue
 		}
 		parts.resources[name] = newPart

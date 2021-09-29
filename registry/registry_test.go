@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/utils/rpc/server"
+
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
@@ -16,7 +18,6 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
-	"go.viam.com/utils/rpc/server"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

@@ -61,6 +61,9 @@ type Robot interface {
 	// TODO(erd): refactor to service resource
 	ServiceByName(name string) (interface{}, bool)
 
+	// ResourceByName returns a resource by name
+	ResourceByName(name string) (resource.Resource, bool)
+
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
 
@@ -97,6 +100,9 @@ type Robot interface {
 	// ServiceNames returns the name of all known services.
 	ServiceNames() []string
 
+	// ResourceNames returns a list of all known resource names
+	ResourceNames() []string
+
 	// ProcessManager returns the process manager for the robot.
 	ProcessManager() pexec.ProcessManager
 
@@ -112,15 +118,6 @@ type Robot interface {
 	// FrameSystem returns a FrameSystem suitable for doing reference frame lookups
 	// and then computing relative offsets of pieces
 	FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error)
-
-	// ResourceByName returns a resource by name
-	ResourceByName(name string) resource.Resource
-
-	// ResourceNames returns a list of all known resource names
-	ResourceNames() []string
-
-	// Resources returns a list of all known resources
-	Resources() []resource.Resource
 
 	// Logger returns the logger the robot is using.
 	Logger() golog.Logger

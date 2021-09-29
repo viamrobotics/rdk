@@ -64,7 +64,7 @@ type RobotClient struct {
 	motorNames    []string
 	functionNames []string
 	serviceNames  []string
-	resources     map[string]*resource.Resource
+	resourceNames []string
 
 	sensorTypes map[string]sensor.Type
 
@@ -331,6 +331,11 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 	return nil, false
 }
 
+// ResourceByName is currently unimplemented
+func (rc *RobotClient) ResourceByName(name string) (resource.Resource, bool) {
+	return nil, false
+}
+
 // Refresh manually updates the underlying parts of the robot based
 // on a status retrieved from the server.
 // TODO(https://github.com/viamrobotics/core/issues/57) - do not use status
@@ -345,22 +350,15 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 	rc.storeStatus(status)
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
-	rc.resources = map[string]*resource.Resource{}
+	// TODO: placeholder implementation
+	rc.resourceNames = []string{}
 	if len(status.Arms) != 0 {
 		for name := range status.Arms {
 			n, err := resource.New(resource.ResourceNamespaceCore, resource.ResourceTypeComponent, resource.ResourceSubtypeArm, name)
 			if err != nil {
 				return err
 			}
-			part, ok := rc.ArmByName(name)
-			if !ok {
-				continue
-			}
-			r := &resource.Resource{
-				Name:     n,
-				Resource: part,
-			}
-			rc.resources[n.FullyQualifiedName()] = r
+			rc.resourceNames = append(rc.resourceNames, n.FullyQualifiedName())
 		}
 	}
 	rc.baseNames = nil
@@ -474,8 +472,12 @@ func (rc *RobotClient) ArmNames() []string {
 			Type:      resource.ResourceTypeComponent,
 			Subtype:   resource.ResourceSubtypeArm,
 		}
-		if v.ResourceSubtype() == armSubtype.ResourceSubtype() {
-			names = append(names, v.Name)
+		rName, err := resource.NewFromString(v)
+		if err != nil {
+			continue
+		}
+		if rName.ResourceSubtype() == armSubtype.ResourceSubtype() {
+			names = append(names, rName.Name)
 		}
 	}
 	return copyStringSlice(names)
@@ -563,25 +565,10 @@ func (rc *RobotClient) ProcessManager() pexec.ProcessManager {
 }
 
 // ResourceNames returns all resource names
-func (rc *RobotClient) ResourceNames() []resource.Name {
+func (rc *RobotClient) ResourceNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
-	names := []resource.Name{}
-	for _, v := range rc.resources {
-		names = append(names, v.Name)
-	}
-	return names
-}
-
-// Resources returns all resources
-func (rc *RobotClient) Resources() []*resource.Resource {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
-	r := []*resource.Resource{}
-	for _, v := range rc.resources {
-		r = append(r, v)
-	}
-	return r
+	return copyStringSlice(rc.resourceNames)
 }
 
 // FrameSystem not implemented for remote robots
