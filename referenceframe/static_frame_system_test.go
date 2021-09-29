@@ -36,7 +36,7 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	frames := fs.FrameNames()
 	test.That(t, len(frames), test.ShouldEqual, 3)
 
-	f1Parents, err := fs.TraceFrame(f1)
+	f1Parents, err := fs.TracebackFrame(f1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(f1Parents), test.ShouldEqual, 3)
 
@@ -61,7 +61,7 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldEqual, e3.Error())
 	}
 
-	_, err = fs.TraceFrame(f1)
+	_, err = fs.TracebackFrame(f1)
 	test.That(t, err.Error(), test.ShouldEqual, e4.Error())
 }
 
