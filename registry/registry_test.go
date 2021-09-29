@@ -194,8 +194,8 @@ func TestRegistry(t *testing.T) {
 	test.That(t, ok, test.ShouldEqual, false)
 }
 
-func TestCreatorRegistry(t *testing.T) {
-	af := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*resource.Resource, error) {
+func TestComponentRegistry(t *testing.T) {
+	af := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (resource.Resource, error) {
 		return nil, nil
 	}
 	ff := func(name string) (referenceframe.Frame, error) {
@@ -203,12 +203,12 @@ func TestCreatorRegistry(t *testing.T) {
 	}
 	armResourceSubtype := "core:component:arm"
 	armResourceName := "x"
-	test.That(t, func() { RegisterCreator(armResourceSubtype, armResourceName, Creator{}) }, test.ShouldPanic)
-	RegisterCreator(armResourceSubtype, armResourceName, Creator{Constructor: af, Frame: ff})
+	test.That(t, func() { RegisterComponentCreator(armResourceSubtype, armResourceName, Component{}) }, test.ShouldPanic)
+	RegisterComponentCreator(armResourceSubtype, armResourceName, Component{Constructor: af, Frame: ff})
 
-	creator := CreatorLookup(armResourceSubtype, armResourceName)
+	creator := ComponentLookup(armResourceSubtype, armResourceName)
 	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, CreatorLookup(armResourceSubtype, "z"), test.ShouldBeNil)
+	test.That(t, ComponentLookup(armResourceSubtype, "z"), test.ShouldBeNil)
 	test.That(t, creator.Constructor, test.ShouldEqual, af)
 	test.That(t, creator.Frame, test.ShouldEqual, ff)
 
@@ -224,7 +224,7 @@ func TestCreatorRegistry(t *testing.T) {
 }
 
 func TestRegistratorRegistry(t *testing.T) {
-	rf := func(ctx context.Context, server server.Server, resource *interface{}) error {
+	rf := func(ctx context.Context, server server.Server, resource resource.Resource) error {
 		return nil
 	}
 	armResourceSubtype := "core:component:arm"

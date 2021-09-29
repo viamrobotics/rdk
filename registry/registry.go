@@ -297,7 +297,7 @@ func FrameLookup(comp *config.Component) (CreateFrame, bool) {
 		}
 		return registration.Frame, true
 	case config.ComponentTypeArm:
-		registration := CreatorLookup(comp.ResourceSubtype(), comp.Model)
+		registration := ComponentLookup(comp.ResourceSubtype(), comp.Model)
 		if registration == nil || registration.Frame == nil {
 			return nil, false
 		}
@@ -391,43 +391,43 @@ func ServiceLookup(typeName config.ServiceType) *Service {
 // core api v2 implementation starts here
 
 type (
-	// A CreateResource creates a resource from a given config.
-	CreateResource func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*resource.Resource, error)
+	// A CreateComponent creates a resource from a given config.
+	CreateComponent func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (resource.Resource, error)
 
-	// A RegisterService registers a resource service to the given rpc server
-	RegisterService func(ctx context.Context, server server.Server, resource *interface{}) error
+	// A RegisterRpcService registers a resource service to the given rpc server
+	RegisterRpcService func(ctx context.Context, server server.Server, resource resource.Resource) error
 )
 
-// Creator stores a resource constructor (mandatory) and a Frame building function (optional)
-type Creator struct {
-	Constructor CreateResource
+// Component stores a resource constructor (mandatory) and a Frame building function (optional)
+type Component struct {
+	Constructor CreateComponent
 	Frame       CreateFrame
 }
 
 // all registries
 var (
-	creatorRegistry = map[string]Creator{}
+	componentRegistry = map[string]Component{}
 
 	// currently unused, should be populated by init() function of resource service
-	registratorRegistry = map[string]RegisterService{}
+	registratorRegistry = map[string]RegisterRpcService{}
 )
 
-// RegisterCreator register a creator to its corresponding component and model.
-func RegisterCreator(component string, model string, creator Creator) {
+// RegisterComponentCreator register a creator to its corresponding component and model.
+func RegisterComponentCreator(component string, model string, creator Component) {
 	qName := fmt.Sprintf("%s/%s", component, model)
-	_, old := creatorRegistry[qName]
+	_, old := componentRegistry[qName]
 	if old {
 		panic(errors.Errorf("trying to register two resource with same component:%s, model:%s", component, model))
 	}
 	if creator.Constructor == nil {
 		panic(errors.Errorf("cannot register a nil constructor for component:%s, model:%s", component, model))
 	}
-	creatorRegistry[qName] = creator
+	componentRegistry[qName] = creator
 }
 
 // RegisterServiceRegistrator looks up a service registrator by the given component. nil is returned if
 // there is no such registrator.
-func RegisterServiceRegistrator(component string, registrator RegisterService) {
+func RegisterServiceRegistrator(component string, registrator RegisterRpcService) {
 	_, old := registratorRegistry[component]
 	if old {
 		panic(errors.Errorf("trying to register two service registrators with same component:%s", component))
@@ -438,11 +438,11 @@ func RegisterServiceRegistrator(component string, registrator RegisterService) {
 	registratorRegistry[component] = registrator
 }
 
-// CreatorLookup looks up a creator by the given component and model. nil is returned if
+// ComponentLookup looks up a creator by the given component and model. nil is returned if
 // there is no creator registered.
-func CreatorLookup(component string, model string) *Creator {
+func ComponentLookup(component string, model string) *Component {
 	qName := fmt.Sprintf("%s/%s", component, model)
-	if registration, ok := creatorRegistry[qName]; ok {
+	if registration, ok := componentRegistry[qName]; ok {
 		return &registration
 	}
 	return nil
@@ -450,7 +450,7 @@ func CreatorLookup(component string, model string) *Creator {
 
 // ServiceRegistratorLookup looks up a service registrator by the given component. nil is returned if
 // there is no such registrator.
-func ServiceRegistratorLookup(component string) RegisterService {
+func ServiceRegistratorLookup(component string) RegisterRpcService {
 	if registration, ok := registratorRegistry[component]; ok {
 		return registration
 	}
