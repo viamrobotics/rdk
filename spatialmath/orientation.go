@@ -176,3 +176,22 @@ func QuatToR3AA(q quat.Number) R3AA {
 	}
 	return R3AA{angle * q.Imag / denom, angle * q.Jmag / denom, angle * q.Kmag / denom}
 }
+
+// Used for interpolating orientations.
+// Intro to lerp vs slerp: https://threadreaderapp.com/thread/1176137498323501058.html
+func slerp(qN1, qN2 quat.Number, by float64) quat.Number {
+
+	q1 := mgl64.Quat{qN1.Real, mgl64.Vec3{qN1.Imag, qN1.Jmag, qN1.Kmag}}
+	q2 := mgl64.Quat{qN2.Real, mgl64.Vec3{qN2.Imag, qN2.Jmag, qN2.Kmag}}
+
+	// Use mgl64's quats because they have nlerp and slerp built in
+	q1, q2 = q1.Normalize(), q2.Normalize()
+	var q mgl64.Quat
+	// Use nlerp for 0.5 since it's faster and equal to slerp
+	if by == 0.5 {
+		q = mgl64.QuatNlerp(q1, q2, by)
+	} else {
+		q = mgl64.QuatSlerp(q1, q2, by)
+	}
+	return quat.Number{q.W, q.X(), q.Y(), q.Z()}
+}

@@ -71,7 +71,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) *NloptIK 
 			err = ik.opt.ForceStop()
 			ik.logger.Errorf("forcestop error %q", err)
 		}
-		dx := make([]float64, 7)
+		dx := make([]float64, 6)
 
 		// Update dx with the delta to the desired position
 		for _, nextGoal := range ik.getGoals() {
@@ -96,7 +96,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) *NloptIK 
 					err = ik.opt.ForceStop()
 					ik.logger.Errorf("forcestop error %q", err)
 				}
-				dx2 := make([]float64, 7)
+				dx2 := make([]float64, 6)
 				for _, nextGoal := range ik.getGoals() {
 					dxDelta := spatial.PoseDelta(eePos, nextGoal.GoalTransform)
 					dxIdx := nextGoal.EffectorID * len(dxDelta)
@@ -238,7 +238,8 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seed []fr
 		}
 	}
 	if len(solutions) > 0 {
-		return bestSolution(seed, solutions, ik.model)
+		solution, _, err := bestSolution(seed, solutions, ik.model)
+		return solution, err
 	}
 	return nil, multierr.Combine(errors.New("kinematics could not solve for position"), err)
 }
