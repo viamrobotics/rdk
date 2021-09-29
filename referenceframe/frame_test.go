@@ -100,3 +100,13 @@ func TestRevoluteFrame(t *testing.T) {
 	limit := frame.Dof()
 	test.That(t, limit, test.ShouldResemble, []Limit{{-math.Pi / 2, math.Pi / 2}})
 }
+
+func TestBasicConversions(t *testing.T) {
+	jp := &pb.JointPositions{Degrees: []float64{45, 55}}
+	inputs := JointPosToInputs(jp)
+	test.That(t, jp, test.ShouldResemble, InputsToJointPos(inputs))
+
+	floats := []float64{45, 55, 27}
+	inputs = FloatsToInputs(floats)
+	test.That(t, floats, test.ShouldResemble, InputsToFloats(inputs))
+}
