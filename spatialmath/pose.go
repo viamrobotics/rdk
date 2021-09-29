@@ -132,3 +132,17 @@ func PoseToArmPos(p Pose) *pb.ArmPosition {
 func Invert(p Pose) Pose {
 	return newdualQuaternionFromPose(p).Invert()
 }
+
+// Interpolate will return a new Pose that has been interpolated the set amount between two poses.
+// Note that position and orientation are interpolated separately, then the two are combined.
+// Note that slerp(q1, q2) != slerp(q2, q1)
+// p1 and p2 are the two poses to interpolate between, by is a float representing the amount to interpolate between them.
+// by == 0 will return p1, by == 1 will return p2, and by == 0.5 will return the pose halfway between them.
+func Interpolate(p1, p2 Pose, by float64) Pose {
+	intQ := newdualQuaternion()
+	intQ.Real = slerp(p1.Orientation().Quaternion(), p2.Orientation().Quaternion(), by)
+	intQ.SetTranslation((p1.Point().X+p2.Point().X)*by,
+		(p1.Point().Y+p2.Point().Y)*by,
+		(p1.Point().Z+p2.Point().Z)*by)
+	return intQ
+}

@@ -58,7 +58,7 @@ func NewModel() *Model {
 
 // GenerateRandomJointPositions generates a list of radian joint positions that are random but valid for each joint.
 func (m *Model) GenerateRandomJointPositions(randSeed *rand.Rand) []float64 {
-	limits := m.Dof()
+	limits := m.DoF()
 	jointPos := make([]float64, 0, len(limits))
 
 	for i := 0; i < len(limits); i++ {
@@ -77,7 +77,7 @@ func (m *Model) Joints() []referenceframe.Frame {
 	// OrdTransforms is ordered from end effector -> base, so we reverse the list to get joints from the base outwards.
 	for i := len(m.OrdTransforms) - 1; i >= 0; i-- {
 		transform := m.OrdTransforms[i]
-		if len(transform.Dof()) > 0 {
+		if len(transform.DoF()) > 0 {
 			joints = append(joints, transform)
 		}
 	}
@@ -130,7 +130,7 @@ func (m *Model) GetPoses(pos []float64) ([]spatialmath.Pose, error) {
 		transform := m.OrdTransforms[i]
 
 		var input []referenceframe.Input
-		dof := len(transform.Dof())
+		dof := len(transform.DoF())
 		for j := 0; j < dof; j++ {
 			input = append(input, referenceframe.Input{pos[posIdx]})
 			posIdx++
@@ -150,7 +150,7 @@ func (m *Model) GetPoses(pos []float64) ([]spatialmath.Pose, error) {
 
 // AreJointPositionsValid checks whether the given array of joint positions violates any joint limits.
 func (m *Model) AreJointPositionsValid(pos []float64) bool {
-	limits := m.Dof()
+	limits := m.DoF()
 	for i := 0; i < len(limits); i++ {
 		if pos[i] < limits[i].Min || pos[i] > limits[i].Max {
 			return false
@@ -159,16 +159,16 @@ func (m *Model) AreJointPositionsValid(pos []float64) bool {
 	return true
 }
 
-// OperationalDof returns the number of end effectors. Currently we only support one end effector but will support more.
-func (m *Model) OperationalDof() int {
+// OperationalDoF returns the number of end effectors. Currently we only support one end effector but will support more.
+func (m *Model) OperationalDoF() int {
 	return 1
 }
 
-// Dof returns the number of degrees of freedom within an arm.
-func (m *Model) Dof() []referenceframe.Limit {
+// DoF returns the number of degrees of freedom within an arm.
+func (m *Model) DoF() []referenceframe.Limit {
 	limits := []referenceframe.Limit{}
 	for _, joint := range m.Joints() {
-		limits = append(limits, joint.Dof()...)
+		limits = append(limits, joint.DoF()...)
 	}
 	return limits
 }
