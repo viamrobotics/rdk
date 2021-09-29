@@ -16,6 +16,7 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
@@ -37,6 +38,7 @@ type Robot struct {
 	ServoByNameFunc    func(name string) (servo.Servo, bool)
 	MotorByNameFunc    func(name string) (motor.Motor, bool)
 	ServiceByNameFunc  func(name string) (interface{}, bool)
+	ResourceByNameFunc func(name string) (resource.Resource, bool)
 	RemoteNamesFunc    func() []string
 	ArmNamesFunc       func() []string
 	GripperNamesFunc   func() []string
@@ -49,6 +51,7 @@ type Robot struct {
 	MotorNamesFunc     func() []string
 	FunctionNamesFunc  func() []string
 	ServiceNamesFunc   func() []string
+	ResourceNamesFunc  func() []string
 	ProcessManagerFunc func() pexec.ProcessManager
 	ConfigFunc         func(ctx context.Context) (*config.Config, error)
 	StatusFunc         func(ctx context.Context) (*pb.Status, error)
@@ -239,6 +242,22 @@ func (r *Robot) ServiceNames() []string {
 		return r.Robot.ServiceNames()
 	}
 	return r.ServiceNamesFunc()
+}
+
+// ResourceByName calls the injected ResourceByName or the real version.
+func (r *Robot) ResourceByName(name string) (resource.Resource, bool) {
+	if r.ResourceNamesFunc == nil {
+		return r.Robot.ResourceByName(name)
+	}
+	return r.ResourceByName(name)
+}
+
+// ResourceNames calls the injected ResourceNames or the real version.
+func (r *Robot) ResourceNames() []string {
+	if r.ResourceNamesFunc == nil {
+		return r.Robot.ResourceNames()
+	}
+	return r.ResourceNamesFunc()
 }
 
 // ProcessManager calls the injected ProcessManager or the real version.

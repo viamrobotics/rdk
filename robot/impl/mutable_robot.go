@@ -119,6 +119,12 @@ func (r *mutableRobot) ServiceByName(name string) (interface{}, bool) {
 	return r.parts.ServiceByName(name)
 }
 
+// ResourceByName returns a resource by name. If it does not exist
+// nil is returned.
+func (r *mutableRobot) ResourceByName(name string) (resource.Resource, bool) {
+	return r.parts.ResourceByName(name)
+}
+
 // AddCamera adds a camera to the robot.
 func (r *mutableRobot) AddCamera(c camera.Camera, cc config.Component) {
 	r.parts.AddCamera(c, cc)
@@ -194,6 +200,11 @@ func (r *mutableRobot) ServiceNames() []string {
 	return r.parts.ServiceNames()
 }
 
+// ResourceNames returns the name of all known resources.
+func (r *mutableRobot) ResourceNames() []string {
+	return r.parts.ResourceNames()
+}
+
 // ProcessManager returns the process manager for the robot.
 func (r *mutableRobot) ProcessManager() pexec.ProcessManager {
 	return r.parts.processManager
@@ -241,14 +252,6 @@ func (r *mutableRobot) Status(ctx context.Context) (*pb.Status, error) {
 
 func (r *mutableRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
 	return CreateReferenceFrameSystem(ctx, r)
-}
-
-func (r *mutableRobot) ResourceNames() []resource.Name {
-	return r.parts.ResourceNames()
-}
-
-func (r *mutableRobot) Resources() []*resource.Resource {
-	return r.parts.Resources()
 }
 
 // Logger returns the logger the robot is using.
@@ -363,8 +366,9 @@ func (r *mutableRobot) newService(ctx context.Context, config config.Service) (i
 	}
 	return f.Constructor(ctx, r, config, r.logger)
 }
-func (r *mutableRobot) newResource(ctx context.Context, config config.Component) (*resource.Resource, error) {
-	f := registry.CreatorLookup(config.ResourceSubtype(), config.Model)
+
+func (r *mutableRobot) newResource(ctx context.Context, config config.Component) (resource.Resource, error) {
+	f := registry.ComponentLookup(config.ResourceSubtype(), config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", config.ResourceSubtype(), config.Model)
 	}
@@ -387,18 +391,6 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 	}
 	resources = append(resources, metadata)
 
-	for _, name := range r.ArmNames() {
-		res, err := resource.New(
-			resource.ResourceNamespaceCore, // can be non-core as well
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeArm,
-			name,
-		)
-		if err != nil {
-			return err
-		}
-		resources = append(resources, res)
-	}
 	for _, name := range r.BaseNames() {
 		res, err := resource.New(
 			resource.ResourceNamespaceCore,
@@ -514,6 +506,13 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 			resource.ResourceSubtypeMotor,
 			name,
 		)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, res)
+	}
+	for _, name := range r.ResourceNames() {
+		res, err := resource.NewFromString(name)
 		if err != nil {
 			return err
 		}
