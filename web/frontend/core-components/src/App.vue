@@ -20,7 +20,8 @@ export default class App extends Vue {}
 </script>
 
 <style>
-@import "./styles.css";
+@import "./assets/css/styles.css";
+@import "./assets/css/fontawesome.min.css";
 #app {
   width: 1080px;
 }

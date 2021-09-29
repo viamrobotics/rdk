@@ -1,5 +1,41 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital@0;1&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:ital,wght@0,400;0,600;1,400;1,600&display=swap');
+@font-face {
+    font-family: 'Space Mono';
+    font-weight: normal;
+    font-style: normal;
+    src: url('../webfonts/SpaceMono-Regular.ttf') format('truetype');
+}
+@font-face {
+    font-family: 'Space Mono';
+    font-weight: normal;
+    font-style: italic;
+    src: url('../webfonts/SpaceMono-Italic.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Source Sans Pro';
+    font-weight: normal;
+    font-style: normal;
+    src: url('../webfonts/SourceSansPro-Regular.ttf') format('truetype');
+}
+@font-face {
+    font-family: 'Source Sans Pro';
+    font-weight: normal;
+    font-style: italic;
+    src: url('../webfonts/SourceSansPro-Italic.ttf') format('truetype');
+}
+@font-face {
+    font-family: 'Source Sans Pro';
+    font-weight: bold;
+    font-style: normal;
+    src: url('../webfonts/SourceSansPro-SemiBold.ttf') format('truetype');
+}
+@font-face {
+    font-family: 'Source Sans Pro';
+    font-weight: bold;
+    font-style: italic;
+    src: url('../webfonts/SourceSansPro-SemiBoldItalic.ttf') format('truetype');
+}
+
 
 .component {
     font-family: 'Source Sans Pro', sans-serif;
