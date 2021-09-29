@@ -102,12 +102,12 @@ func calcSwingAmount(from, to []frame.Input, model frame.Frame) (float64, error)
 		idealPos := spatial.Interpolate(startPos, endPos, waypoint)
 
 		dist += WeightedSquaredNorm(spatial.PoseDelta(pathPos, idealPos), orientWeights) / 50
-		
+
 		// Ensure that the path position is the correct distance ratio to both the start and end
 		// Note that this does NOT prefent linear deviation from the ideal path, only ensures that the waypoints are
 		// proportionally located from start to end
-		dist += 10*math.Pow(waypoint-SquaredNorm(spatial.PoseDelta(pathPos, startPos))/fullDist, 2)
-		dist += 10*math.Pow(waypoint-SquaredNorm(spatial.PoseDelta(compPos, endPos))/fullDist, 2)
+		dist += 10 * math.Pow(waypoint-SquaredNorm(spatial.PoseDelta(pathPos, startPos))/fullDist, 2)
+		dist += 10 * math.Pow(waypoint-SquaredNorm(spatial.PoseDelta(compPos, endPos))/fullDist, 2)
 	}
 
 	return dist, nil
