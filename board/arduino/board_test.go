@@ -136,8 +136,8 @@ func TestArduinoPWM(t *testing.T) {
 				t.Skip()
 				return
 			}
-			test.That(t, err, test.ShouldBeNil)
 			defer b.Close()
+			test.That(t, err, test.ShouldBeNil)
 
 			_, err = b.configureMotor(tc.conf.Components[0], tc.conf.Components[0].Attributes["config"].(*motor.Config))
 

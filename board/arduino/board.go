@@ -132,6 +132,10 @@ func (b *arduinoBoard) runCommand(cmd string) (string, error) {
 	b.cmdLock.Lock()
 	defer b.cmdLock.Unlock()
 
+	if b.port == nil {
+		return "", errors.New("Communication port wasn't open or has been already closed")
+	}
+
 	cmd = strings.TrimSpace(cmd)
 	_, err := b.port.Write([]byte(cmd + "\n"))
 	if err != nil {
@@ -325,7 +329,14 @@ func (b *arduinoBoard) ModelAttributes() board.ModelAttributes {
 
 // Close shuts the board down, no methods should be called on the board after this
 func (b *arduinoBoard) Close() error {
-	return b.port.Close()
+	b.cmdLock.Lock()
+	defer b.cmdLock.Unlock()
+	err := b.port.Close()
+	b.port = nil
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 type encoder struct {
