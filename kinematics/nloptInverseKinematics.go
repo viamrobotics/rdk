@@ -276,6 +276,13 @@ func (ik *NloptIK) Model() frame.Frame {
 	return ik.model
 }
 
+// Close destroys the C nlopt object to prevent memory leaks.
+func (ik *NloptIK) Close() error {
+	err := ik.opt.ForceStop()
+	ik.opt.Destroy()
+	return err
+}
+
 // updateBounds will set the allowable maximum/minimum joint angles to disincentivise large swings before small swings
 // have been tried.
 func (ik *NloptIK) updateBounds(seed []frame.Input, tries int) error {

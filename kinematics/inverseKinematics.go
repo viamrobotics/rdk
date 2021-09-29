@@ -27,6 +27,7 @@ type InverseKinematics interface {
 	Solve(context.Context, *pb.ArmPosition, []frame.Input) ([]frame.Input, error)
 	Model() frame.Frame
 	SetSolveWeights(SolverDistanceWeights)
+	Close() error
 }
 
 // toArray returns the SolverDistanceWeights as a slice with the components in the same order as the array returned from
