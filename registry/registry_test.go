@@ -201,14 +201,14 @@ func TestCreatorRegistry(t *testing.T) {
 	ff := func(name string) (referenceframe.Frame, error) {
 		return nil, nil
 	}
-	armResourceType := "core:component:arm"
+	armResourceSubtype := "core:component:arm"
 	armResourceName := "x"
-	test.That(t, func() { RegisterCreator(armResourceType, armResourceName, Creator{}) }, test.ShouldPanic)
-	RegisterCreator(armResourceType, armResourceName, Creator{Constructor: af, Frame: ff})
+	test.That(t, func() { RegisterCreator(armResourceSubtype, armResourceName, Creator{}) }, test.ShouldPanic)
+	RegisterCreator(armResourceSubtype, armResourceName, Creator{Constructor: af, Frame: ff})
 
-	creator := CreatorLookup(armResourceType, armResourceName)
+	creator := CreatorLookup(armResourceSubtype, armResourceName)
 	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, CreatorLookup(armResourceType, "z"), test.ShouldBeNil)
+	test.That(t, CreatorLookup(armResourceSubtype, "z"), test.ShouldBeNil)
 	test.That(t, creator.Constructor, test.ShouldEqual, af)
 	test.That(t, creator.Frame, test.ShouldEqual, ff)
 
@@ -227,11 +227,11 @@ func TestRegistratorRegistry(t *testing.T) {
 	rf := func(ctx context.Context, server server.Server, resource *interface{}) error {
 		return nil
 	}
-	armResourceType := "core:component:arm"
-	test.That(t, func() { RegisterServiceRegistrator(armResourceType, nil) }, test.ShouldPanic)
-	RegisterServiceRegistrator(armResourceType, rf)
+	armResourceSubtype := "core:component:arm"
+	test.That(t, func() { RegisterServiceRegistrator(armResourceSubtype, nil) }, test.ShouldPanic)
+	RegisterServiceRegistrator(armResourceSubtype, rf)
 
-	registrator := ServiceRegistratorLookup(armResourceType)
+	registrator := ServiceRegistratorLookup(armResourceSubtype)
 	test.That(t, registrator, test.ShouldNotBeNil)
 	test.That(t, ServiceRegistratorLookup("core:component:z"), test.ShouldBeNil)
 	test.That(t, registrator, test.ShouldEqual, rf)
