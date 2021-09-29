@@ -7,6 +7,7 @@ import (
 	"runtime"
 
 	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
@@ -48,10 +49,10 @@ func (fss *FrameSystemSolver) SolvePose(ctx context.Context, seedMap map[string]
 	// Solve for the goal position
 	resultSlice, err := solver.Solve(ctx, spatial.PoseToArmPos(goal), seed)
 	if err != nil {
-		return nil, err
+		return nil, multierr.Combine(err, solver.Close())
 	}
 
-	return sf.sliceToMap(resultSlice), nil
+	return sf.sliceToMap(resultSlice), solver.Close()
 }
 
 // solverFrames are meant to be ephemerally created each time a frame system solution is created, and fulfills the

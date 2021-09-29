@@ -13,6 +13,7 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 
 	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 )
 
 // CombinedIK defines the fields necessary to run a combined solver.
@@ -116,6 +117,16 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed []fra
 // Model returns the associated model
 func (ik *CombinedIK) Model() frame.Frame {
 	return ik.model
+}
+
+// Close closes all member IK solvers
+func (ik *CombinedIK) Close() error {
+	var err error
+	for _, solver := range ik.solvers {
+		closeErr := solver.Close()
+		err = multierr.Combine(err, closeErr)
+	}
+	return err
 }
 
 // SetSolveWeights sets the solve weights for the solver.
