@@ -133,7 +133,7 @@ func (b *arduinoBoard) runCommand(cmd string) (string, error) {
 	defer b.cmdLock.Unlock()
 
 	if b.port == nil {
-		return "", errors.New("Communication port wasn't open or has been already closed")
+		return "", errors.New("communication port wasn't open or has been already closed")
 	}
 
 	cmd = strings.TrimSpace(cmd)
