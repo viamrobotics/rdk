@@ -8,8 +8,20 @@
         },
         {
             "model": "fake",
-            "name": "base1",
+            "name": "base1_int",
             "type": "base"
+        },
+        {
+            "model": "intercept_gps",
+            "name": "base1",
+            "type": "base",
+            "attributes": {
+                "base": "base1_int",
+                "gps": "gps1",
+                "start_latitude": 40.745297,
+                "start_longitude": -74.010916
+            },
+            "depends_on": ["base1_int", "gps1"]
         },
         {
             "model": "fake",
@@ -78,6 +90,12 @@
                 },
                 "ticksPerRotation": 100
             }
+        },
+        {
+            "name": "gps1",
+            "type": "sensor",
+            "subtype": "gps",
+            "model": "fake"
         }
     ],
     "processes":
@@ -114,6 +132,20 @@
             "name": "func2",
             "engine": "javascript",
             "source": "(function() { console.log(robot.gripperGrab('gripper1')); return 2}())"
+        }
+    ],
+    "services":
+    [
+        {
+            "name": "navigation",
+            "type": "navigation",
+            "attributes": {
+                "store": {
+                    "type": "memory"
+                },
+                "gps": "gps1",
+                "base": "base1"
+            }
         }
     ]
 }

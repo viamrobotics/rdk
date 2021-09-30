@@ -27,37 +27,48 @@ type AttributeConverter func(val interface{}) (interface{}, error)
 // different representation.
 type AttributeMapConverter func(attributes AttributeMap) (interface{}, error)
 
-type attributeConverterRegistration struct {
+type componentAttributeConverterRegistration struct {
 	compType ComponentType
 	model    string
 	attr     string
 	conv     AttributeConverter
 }
 
-type attributeMapConverterRegistration struct {
+type componentAttributeMapConverterRegistration struct {
 	compType ComponentType
 	model    string
 	conv     AttributeMapConverter
 }
 
-var (
-	attributeConverters    = []attributeConverterRegistration{}
-	attributeMapConverters = []attributeMapConverterRegistration{}
-)
-
-// RegisterAttributeConverter associates a component type and model with a way to convert a
-// particular attribute name.
-func RegisterAttributeConverter(compType ComponentType, model, attr string, conv AttributeConverter) {
-	attributeConverters = append(attributeConverters, attributeConverterRegistration{compType, model, attr, conv})
+type serviceAttributeMapConverterRegistration struct {
+	svcType ServiceType
+	conv    AttributeMapConverter
 }
 
-// RegisterAttributeMapConverter associates a component type and model with a way to convert all attributes.
-func RegisterAttributeMapConverter(compType ComponentType, model string, conv AttributeMapConverter) {
-	attributeMapConverters = append(attributeMapConverters, attributeMapConverterRegistration{compType, model, conv})
+var (
+	componentAttributeConverters    = []componentAttributeConverterRegistration{}
+	componentAttributeMapConverters = []componentAttributeMapConverterRegistration{}
+	serviceAttributeMapConverters   = []serviceAttributeMapConverterRegistration{}
+)
+
+// RegisterComponentAttributeConverter associates a component type and model with a way to convert a
+// particular attribute name.
+func RegisterComponentAttributeConverter(compType ComponentType, model, attr string, conv AttributeConverter) {
+	componentAttributeConverters = append(componentAttributeConverters, componentAttributeConverterRegistration{compType, model, attr, conv})
+}
+
+// RegisterComponentAttributeMapConverter associates a component type and model with a way to convert all attributes.
+func RegisterComponentAttributeMapConverter(compType ComponentType, model string, conv AttributeMapConverter) {
+	componentAttributeMapConverters = append(componentAttributeMapConverters, componentAttributeMapConverterRegistration{compType, model, conv})
+}
+
+// RegisterServiceAttributeMapConverter associates a service type with a way to convert all attributes.
+func RegisterServiceAttributeMapConverter(svcType ServiceType, conv AttributeMapConverter) {
+	serviceAttributeMapConverters = append(serviceAttributeMapConverters, serviceAttributeMapConverterRegistration{svcType, conv})
 }
 
 func findConverter(compType ComponentType, model, attr string) AttributeConverter {
-	for _, r := range attributeConverters {
+	for _, r := range componentAttributeConverters {
 		if r.compType == compType && r.model == model && r.attr == attr {
 			return r.conv
 		}
@@ -66,8 +77,17 @@ func findConverter(compType ComponentType, model, attr string) AttributeConverte
 }
 
 func findMapConverter(compType ComponentType, model string) AttributeMapConverter {
-	for _, r := range attributeMapConverters {
+	for _, r := range componentAttributeMapConverters {
 		if r.compType == compType && r.model == model {
+			return r.conv
+		}
+	}
+	return nil
+}
+
+func findServiceMapConverter(svcType ServiceType) AttributeMapConverter {
+	for _, r := range serviceAttributeMapConverters {
+		if r.svcType == svcType {
 			return r.conv
 		}
 	}
@@ -328,6 +348,20 @@ func fromReader(originalPath string, r io.Reader, skipCloud bool) (*Config, erro
 		}
 		cfg.Components[idx].Attributes = nil
 		cfg.Components[idx].ConvertedAttributes = converted
+	}
+
+	for idx, c := range cfg.Services {
+		conv := findServiceMapConverter(c.Type)
+		if conv == nil {
+			continue
+		}
+
+		converted, err := conv(c.Attributes)
+		if err != nil {
+			return nil, errors.Errorf("error converting attributes for %s %w", c.Type, err)
+		}
+		cfg.Services[idx].Attributes = nil
+		cfg.Services[idx].ConvertedAttributes = converted
 	}
 
 	if err := cfg.Ensure(skipCloud); err != nil {

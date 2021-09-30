@@ -65,6 +65,9 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 	injectRobot.FunctionNamesFunc = func() []string {
 		return []string{fmt.Sprintf("func1%s", suffix), fmt.Sprintf("func2%s", suffix)}
 	}
+	injectRobot.ServiceNamesFunc = func() []string {
+		return []string{fmt.Sprintf("service1%s", suffix), fmt.Sprintf("service2%s", suffix)}
+	}
 	injectRobot.LoggerFunc = func() golog.Logger {
 		return logger
 	}
@@ -144,6 +147,12 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 			return nil, false
 		}
 		return &fake.Motor{Name: name}, true
+	}
+	injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
+		if _, ok := utils.NewStringSet(injectRobot.ServiceNames()...)[name]; !ok {
+			return nil, false
+		}
+		return struct{}{}, true
 	}
 
 	return injectRobot

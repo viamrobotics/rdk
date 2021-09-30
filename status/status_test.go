@@ -58,6 +58,9 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	injectRobot.FunctionNamesFunc = func() []string {
 		return []string{"func1", "func2"}
 	}
+	injectRobot.ServiceNamesFunc = func() []string {
+		return []string{"service1", "service2"}
+	}
 	injectRobot.LoggerFunc = func() golog.Logger {
 		return logger
 	}
@@ -177,6 +180,10 @@ func TestCreateStatus(t *testing.T) {
 				"func1": true,
 				"func2": true,
 			},
+			Services: map[string]bool{
+				"service1": true,
+				"service2": true,
+			},
 		})
 	})
 
@@ -240,6 +247,10 @@ func TestCreateStatus(t *testing.T) {
 			Functions: map[string]bool{
 				"func1": true,
 				"func2": true,
+			},
+			Services: map[string]bool{
+				"service1": true,
+				"service2": true,
 			},
 		})
 	})
