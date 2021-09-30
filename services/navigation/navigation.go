@@ -221,7 +221,9 @@ func (svc *navService) startWaypoint() error {
 				svc.logger.Debugf("currentBearing: %0.0f bearingToGoal: %0.0f distanceToGoal: %0.3f bearingDelta: %0.1f steeringDir: %0.2f",
 					currentBearing, bearingToGoal, distanceToGoal, bearingDelta, steeringDir)
 
-				// TODO(erd): maybe need an arc/stroke abstraction?
+				// TODO(erh->erd): maybe need an arc/stroke abstraction?
+				// - Remember that we added -1*bearingDelta instead of steeringDir
+				// - Test both naval/land to prove it works
 				if _, err := svc.base.Spin(ctx, -1*bearingDelta, 45, true); err != nil {
 					return fmt.Errorf("error turning: %w", err)
 				}
