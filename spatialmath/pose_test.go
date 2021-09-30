@@ -88,4 +88,11 @@ func TestPoseInterpolation(t *testing.T) {
 	p2 = NewPoseFromPoint(r3.Vector{10, 100, 1000})
 	intP = Interpolate(p1, p2, 0.33)
 	ptCompare(t, intP.Point(), r3.Vector{3.3, 33, 330})
+
+	ov := &OrientationVec{math.Pi / 2, 0, 0, -1}
+	ov.Normalize()
+	p1 = NewPoseFromOrientationVector(r3.Vector{100, 100, 200}, ov)
+	p2 = NewPoseFromOrientationVector(r3.Vector{100, 200, 200}, ov)
+	intP = Interpolate(p1, p2, 0.1)
+	ptCompare(t, intP.Point(), r3.Vector{100, 110, 200})
 }
