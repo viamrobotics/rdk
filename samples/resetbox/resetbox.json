@@ -5,19 +5,18 @@
       "model": "pi",
       "type": "board",
       "attributes": {
-          "spis": [
-            {
-              "name": "main",
-              "bus_select": "0"
-            },
-            {
-              "name": "aux",
-              "bus_select": "1"
-            }
-          ]
+        "spis": [
+          {
+            "name": "main",
+            "bus_select": "0"
+          },
+          {
+            "name": "aux",
+            "bus_select": "1"
+          }
+        ]
       }
     },
-
     {
       "name": "gateL",
       "type": "motor",
@@ -66,7 +65,6 @@
         "cal_factor": 1.058333
       }
     },
-
     {
       "name": "squeezeR",
       "type": "motor",
@@ -83,7 +81,6 @@
         "cal_factor": 1.058333
       }
     },
-
     {
       "name": "elevator",
       "type": "motor",
@@ -100,7 +97,6 @@
         "cal_factor": 1.058333
       }
     },
-
     {
       "name": "hammer",
       "type": "motor",
@@ -117,36 +113,32 @@
         "cal_factor": 1.058333
       }
     },
-
-
     {
       "name": "tipper",
       "type": "motor",
       "model": "pi",
       "attributes": {
-          "board": "resetboard",
-          "pwmFreq": 8000,
-          "pins": {
-            "pwm": "35",
-            "dir": "37"
-          }
+        "board": "resetboard",
+        "pwmFreq": 8000,
+        "pins": {
+          "pwm": "35",
+          "dir": "37"
+        }
       }
     },
-
     {
       "name": "vibrator",
       "type": "motor",
       "model": "pi",
       "attributes": {
-          "board": "resetboard",
-          "pwmFreq": 8000,
-          "pins": {
-            "pwm": "16",
-            "dir": "18"
-          }
+        "board": "resetboard",
+        "pwmFreq": 8000,
+        "pins": {
+          "pwm": "16",
+          "dir": "18"
+        }
       }
     },
-
     {
       "host": "10.0.0.99",
       "model": "xArm6",
