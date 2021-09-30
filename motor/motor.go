@@ -68,7 +68,7 @@ type Config struct {
 // RegisterConfigAttributeConverter registers a Config converter.
 // Note(erd): This probably shouldn't exist since not all motors have the same config requirements.
 func RegisterConfigAttributeConverter(model string) {
-	config.RegisterAttributeMapConverter(config.ComponentTypeMotor, model, func(attributes config.AttributeMap) (interface{}, error) {
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeMotor, model, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 		if err != nil {
