@@ -76,6 +76,9 @@ func (store *memoryNavigationStore) Waypoints(ctx context.Context) ([]waypoint, 
 	defer store.mu.RUnlock()
 	wps := make([]waypoint, 0, len(store.waypoints))
 	for _, wp := range store.waypoints {
+		if wp.Visited {
+			continue
+		}
 		wpCopy := *wp
 		wps = append(wps, wpCopy)
 	}
@@ -97,10 +100,12 @@ func (store *memoryNavigationStore) AddWaypoint(ctx context.Context, point *geo.
 func (store *memoryNavigationStore) NextWaypoint(ctx context.Context) (waypoint, error) {
 	store.mu.RLock()
 	defer store.mu.RUnlock()
-	if len(store.waypoints) == 0 {
-		return waypoint{}, errNoMoreWaypoints
+	for _, wp := range store.waypoints {
+		if !wp.Visited {
+			return *wp, nil
+		}
 	}
-	return *store.waypoints[0], nil
+	return waypoint{}, errNoMoreWaypoints
 }
 
 func (store *memoryNavigationStore) WaypointVisited(ctx context.Context, id primitive.ObjectID) error {
