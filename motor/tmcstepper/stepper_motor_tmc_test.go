@@ -1,4 +1,4 @@
-package stepper_test
+package tmcstepper_test
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
-	"go.viam.com/core/motor/stepper"
+	"go.viam.com/core/motor/tmcstepper"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robots/fake"
@@ -56,7 +56,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		return b, true
 	}
 
-	mc := stepper.TMC5072Config{
+	mc := tmcstepper.TMC5072Config{
 		SPIBus:     "main",
 		ChipSelect: "40",
 		Index:      0,
