@@ -141,8 +141,9 @@ func Invert(p Pose) Pose {
 func Interpolate(p1, p2 Pose, by float64) Pose {
 	intQ := newdualQuaternion()
 	intQ.Real = slerp(p1.Orientation().Quaternion(), p2.Orientation().Quaternion(), by)
-	intQ.SetTranslation((p1.Point().X+p2.Point().X)*by,
-		(p1.Point().Y+p2.Point().Y)*by,
-		(p1.Point().Z+p2.Point().Z)*by)
+
+	intQ.SetTranslation((p1.Point().X + (p2.Point().X-p1.Point().X)*by),
+		(p1.Point().Y + (p2.Point().Y-p1.Point().Y)*by),
+		(p1.Point().Z + (p2.Point().Z-p1.Point().Z)*by))
 	return intQ
 }
