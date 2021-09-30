@@ -31,7 +31,7 @@ type InverseKinematics interface {
 }
 
 // toArray returns the SolverDistanceWeights as a slice with the components in the same order as the array returned from
-// pose ToDelta. Note that orientation components are multiplied by 100 since they are usually small to avoid drift.
+// pose ToDelta. Note that orientation components are multiplied by 100 since they are usually small, to avoid drift.
 func (dc *SolverDistanceWeights) toArray() []float64 {
 	return []float64{dc.Trans.X, dc.Trans.Y, dc.Trans.Z, 100 * dc.Orient.TH * dc.Orient.X, 100 * dc.Orient.TH * dc.Orient.Y, 100 * dc.Orient.TH * dc.Orient.Z}
 }

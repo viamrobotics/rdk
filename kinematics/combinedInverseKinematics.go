@@ -18,6 +18,7 @@ import (
 
 // CombinedIK defines the fields necessary to run a combined solver.
 type CombinedIK struct {
+	mp      MotionPlanner
 	solvers []InverseKinematics
 	model   referenceframe.Frame
 	logger  golog.Logger
