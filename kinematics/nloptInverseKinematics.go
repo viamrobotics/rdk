@@ -44,7 +44,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) *NloptIK 
 	floatEpsilon := math.Nextafter(1, 2) - 1
 	ik.maxIterations = 5000
 	ik.iterations = 0
-	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.Dof())
+	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.DoF())
 	// How much to adjust joints to determine slope
 	ik.jump = 0.00000001
 
@@ -52,7 +52,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) *NloptIK 
 
 	// May eventually need to be destroyed to prevent memory leaks
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
-	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(ik.model.Dof())))
+	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(ik.model.DoF())))
 	if err != nil {
 		panic(fmt.Errorf("nlopt creation error: %w", err)) // TODO(biotinker): should return error or panic
 	}
@@ -164,7 +164,7 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seed []fr
 
 	// Solver with ID 1 seeds off current angles
 	if ik.id == 1 {
-		if len(seed) > len(ik.model.Dof()) {
+		if len(seed) > len(ik.model.DoF()) {
 			return nil, errors.New("passed in too many joint positions")
 		}
 		startingPos = seed
@@ -251,7 +251,7 @@ func (ik *NloptIK) SetSeed(seed int64) {
 
 // GenerateRandomPositions generates a random set of positions within the limits of this solver.
 func (ik *NloptIK) GenerateRandomPositions() []frame.Input {
-	pos := make([]frame.Input, len(ik.model.Dof()))
+	pos := make([]frame.Input, len(ik.model.DoF()))
 	for i, l := range ik.lowerBound {
 		u := ik.upperBound[i]
 

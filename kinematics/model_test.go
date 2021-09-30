@@ -16,8 +16,8 @@ func TestModelLoading(t *testing.T) {
 	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, m.OperationalDof(), test.ShouldEqual, 1)
-	test.That(t, len(m.Dof()), test.ShouldEqual, 6)
+	test.That(t, m.OperationalDoF(), test.ShouldEqual, 1)
+	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
 
 	isValid := m.AreJointPositionsValid([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
 	test.That(t, isValid, test.ShouldBeTrue)
