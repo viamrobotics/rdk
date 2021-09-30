@@ -1,4 +1,4 @@
-package stepper
+package tmcstepper
 
 import (
 	"context"
@@ -35,14 +35,14 @@ type TMC5072Config struct {
 
 func init() {
 	registry.RegisterMotor("TMC5072", registry.Motor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error) {
-		m, err := NewTMCStepperMotor(ctx, r, config.ConvertedAttributes.(*TMC5072Config), logger)
+		m, err := NewMotor(ctx, r, config.ConvertedAttributes.(*TMC5072Config), logger)
 		if err != nil {
 			return nil, err
 		}
 		return m, nil
 	}})
 
-	config.RegisterAttributeMapConverter(config.ComponentTypeMotor, "TMC5072", func(attributes config.AttributeMap) (interface{}, error) {
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeMotor, "TMC5072", func(attributes config.AttributeMap) (interface{}, error) {
 		var conf TMC5072Config
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
 		if err != nil {
@@ -55,8 +55,8 @@ func init() {
 	})
 }
 
-// A TMCStepperMotor represents a brushless motor connected via a TMC controller chip (ex: TMC5072)
-type TMCStepperMotor struct {
+// A Motor represents a brushless motor connected via a TMC controller chip (ex: TMC5072)
+type Motor struct {
 	board       board.Board
 	bus         board.SPI
 	csPin       string
@@ -110,23 +110,23 @@ const (
 	modeHold     = int32(3)
 )
 
-// NewTMCStepperMotor returns a TMC5072 driven motor
-func NewTMCStepperMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog.Logger) (*TMCStepperMotor, error) {
+// NewMotor returns a TMC5072 driven motor
+func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog.Logger) (*Motor, error) {
 	board, ok := r.BoardByName(c.BoardName)
 	if !ok {
-		return nil, errors.Errorf("can't find Board (%s) requested by TMCStepperMotor", c.BoardName)
+		return nil, errors.Errorf("can't find Board (%s) requested by Motor", c.BoardName)
 	}
 
 	bus, ok := board.SPIByName(c.SPIBus)
 	if !ok {
-		return nil, errors.Errorf("can't find SPI bus (%s) requested by TMCStepperMotor", c.SPIBus)
+		return nil, errors.Errorf("can't find SPI bus (%s) requested by Motor", c.SPIBus)
 	}
 
 	if c.CalFactor == 0 {
 		c.CalFactor = 1.0
 	}
 
-	m := &TMCStepperMotor{
+	m := &Motor{
 		board:       board,
 		bus:         bus,
 		csPin:       c.ChipSelect,
@@ -181,7 +181,7 @@ func NewTMCStepperMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, lo
 	return m, nil
 }
 
-func (m *TMCStepperMotor) shiftAddr(addr uint8) uint8 {
+func (m *Motor) shiftAddr(addr uint8) uint8 {
 	// Shift register address for motor 1 instead of motor zero
 	if m.index == 1 {
 		if addr >= 0x10 && addr <= 0x11 {
@@ -195,7 +195,7 @@ func (m *TMCStepperMotor) shiftAddr(addr uint8) uint8 {
 	return addr
 }
 
-func (m *TMCStepperMotor) writeReg(ctx context.Context, addr uint8, value int32) error {
+func (m *Motor) writeReg(ctx context.Context, addr uint8, value int32) error {
 
 	addr = m.shiftAddr(addr)
 
@@ -226,7 +226,7 @@ func (m *TMCStepperMotor) writeReg(ctx context.Context, addr uint8, value int32)
 	return nil
 }
 
-func (m *TMCStepperMotor) readReg(ctx context.Context, addr uint8) (int32, error) {
+func (m *Motor) readReg(ctx context.Context, addr uint8) (int32, error) {
 
 	addr = m.shiftAddr(addr)
 
@@ -273,7 +273,7 @@ func (m *TMCStepperMotor) readReg(ctx context.Context, addr uint8) (int32, error
 }
 
 // GetSG returns the current StallGuard reading (effectively an indication of motor load.)
-func (m *TMCStepperMotor) GetSG(ctx context.Context) (int32, error) {
+func (m *Motor) GetSG(ctx context.Context) (int32, error) {
 	rawRead, err := m.readReg(ctx, drvStatus)
 	if err != nil {
 		return 0, err
@@ -284,7 +284,7 @@ func (m *TMCStepperMotor) GetSG(ctx context.Context) (int32, error) {
 }
 
 // Position gives the current motor position
-func (m *TMCStepperMotor) Position(ctx context.Context) (float64, error) {
+func (m *Motor) Position(ctx context.Context) (float64, error) {
 	rawPos, err := m.readReg(ctx, xActual)
 	if err != nil {
 		return 0, err
@@ -293,17 +293,17 @@ func (m *TMCStepperMotor) Position(ctx context.Context) (float64, error) {
 }
 
 // PositionSupported returns true.
-func (m *TMCStepperMotor) PositionSupported(ctx context.Context) (bool, error) {
+func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
 // Power TODO (Should it be amps, not throttle?)
-func (m *TMCStepperMotor) Power(ctx context.Context, powerPct float32) error {
+func (m *Motor) Power(ctx context.Context, powerPct float32) error {
 	return errors.New("power not supported for stepper motors")
 }
 
 // Go sets a velocity as a percentage of maximum
-func (m *TMCStepperMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+func (m *Motor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
 	mode := modeVelPos
 	if d == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
 		mode = modeVelNeg
@@ -317,7 +317,7 @@ func (m *TMCStepperMotor) Go(ctx context.Context, d pb.DirectionRelative, powerP
 }
 
 // GoFor turns in the given direction the given number of times at the given speed. Does not block.
-func (m *TMCStepperMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
+func (m *Motor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
 	curPos, err := m.Position(ctx)
 	if err != nil {
 		return err
@@ -331,7 +331,7 @@ func (m *TMCStepperMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm
 }
 
 // Convert rpm to TMC5072 steps/s
-func (m *TMCStepperMotor) rpmToV(rpm float64) int32 {
+func (m *Motor) rpmToV(rpm float64) int32 {
 	if rpm > m.maxRPM {
 		rpm = m.maxRPM
 	}
@@ -342,7 +342,7 @@ func (m *TMCStepperMotor) rpmToV(rpm float64) int32 {
 }
 
 // Convert rpm/s to TMC5072 steps/taConst^2
-func (m *TMCStepperMotor) rpmsToA(acc float64) int32 {
+func (m *Motor) rpmsToA(acc float64) int32 {
 	// Time constant for accelerations in TMC5072
 	taConst := math.Pow(2, 41) / math.Pow(m.fClk, 2)
 	rawMaxAcc := acc / 60 * float64(m.stepsPerRev) * taConst
@@ -350,7 +350,7 @@ func (m *TMCStepperMotor) rpmsToA(acc float64) int32 {
 }
 
 // GoTo moves to the specified position in terms of rotations.
-func (m *TMCStepperMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
+func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
 	position *= float64(m.stepsPerRev)
 	return multierr.Combine(
 		m.writeReg(ctx, rampMode, modePosition),
@@ -360,24 +360,24 @@ func (m *TMCStepperMotor) GoTo(ctx context.Context, rpm float64, position float6
 }
 
 // IsOn returns true if the motor is currently moving.
-func (m *TMCStepperMotor) IsOn(ctx context.Context) (bool, error) {
+func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 	vel, err := m.readReg(ctx, vActual)
 	on := vel != 0
 	return on, err
 }
 
 // Enable pulls down the hardware enable pin, activating the power stage of the chip
-func (m *TMCStepperMotor) Enable(ctx context.Context, turnOn bool) error {
+func (m *Motor) Enable(ctx context.Context, turnOn bool) error {
 	return m.board.GPIOSet(ctx, m.enPin, !turnOn)
 }
 
 // Off stops the motor.
-func (m *TMCStepperMotor) Off(ctx context.Context) error {
+func (m *Motor) Off(ctx context.Context) error {
 	return m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 0)
 }
 
 // GoTillStop enables StallGuard detection, then moves in the direction/speed given until resistance (endstop) is detected.
-func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+func (m *Motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	if err := m.GoFor(ctx, d, rpm, 1000); err != nil {
 		return err
 	}
@@ -459,7 +459,7 @@ func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative
 }
 
 // Zero resets the current position to the offset given.
-func (m *TMCStepperMotor) Zero(ctx context.Context, offset float64) error {
+func (m *Motor) Zero(ctx context.Context, offset float64) error {
 	on, err := m.IsOn(ctx)
 	if err != nil {
 		return err
