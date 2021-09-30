@@ -31,6 +31,7 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
+	"go.viam.com/core/robotimpl"
 	"go.viam.com/core/utils"
 	"go.viam.com/core/web"
 
@@ -206,32 +207,11 @@ type grabAtCameraPositionHandler struct {
 	app *robotWebApp
 }
 
-func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, cameraName string, camera camera.Camera, x, y, z float64) error {
-	if len(h.app.theRobot.ArmNames()) != 1 {
-		return errors.New("robot needs exactly 1 arm to do grabAt")
-	}
-
-	armName := h.app.theRobot.ArmNames()[0]
-	arm, ok := h.app.theRobot.ArmByName(armName)
-	if !ok {
-		return fmt.Errorf("failed to find arm %q", armName)
-	}
-
-	frameSys, err := h.app.theRobot.FrameSystem(ctx)
-	if err != nil {
-		return err
-	}
+func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, cameraName string, x, y, z float64) error {
 	cameraPoint := r3.Vector{x, y, z}
-	input := make(map[string][]referenceframe.Input)
-	pos, err := frameSys.TransformPoint(input, cameraPoint, frameSys.GetFrame(cameraName), frameSys.GetFrame(armName))
-	if err != nil {
-		return err
-	}
+	cameraPose := spatialmath.NewPoseFromPoint(cameraPoint)
 
-	h.app.logger.Debugf("move - %v %v %v\n", x, y, z)
-	h.app.logger.Debugf("pos a: %#v\n", pos)
-
-	return arm.MoveToPosition(ctx, &pb.ArmPosition{X: pos.X, Y: pos.Y, Z: pos.Z})
+	return robotimpl.MoveGripper(ctx, h.app.theRobot, cameraPose, cameraName)
 }
 
 func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
