@@ -22,16 +22,14 @@ import (
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 
 	"go.viam.com/core/action"
-	"go.viam.com/core/camera"
 	grpcmetadata "go.viam.com/core/grpc/metadata/server"
 	grpcserver "go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/metadata/service"
 	metadatapb "go.viam.com/core/proto/api/service/v1"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
-	"go.viam.com/core/robotimpl"
+	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 	"go.viam.com/core/web"
 
@@ -211,18 +209,13 @@ func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, cameraName str
 	cameraPoint := r3.Vector{x, y, z}
 	cameraPose := spatialmath.NewPoseFromPoint(cameraPoint)
 
-	return robotimpl.MoveGripper(ctx, h.app.theRobot, cameraPose, cameraName)
+	return robot.MoveGripper(ctx, h.app.theRobot, cameraPose, cameraName)
 }
 
 func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	cameraName := pat.Param(r, "camera")
-	camera, ok := h.app.theRobot.CameraByName(cameraName)
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
 
 	xString := pat.Param(r, "x")
 	yString := pat.Param(r, "y")
@@ -250,7 +243,7 @@ func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	err = h.doGrab(ctx, cameraName, camera, x, y, z)
+	err = h.doGrab(ctx, cameraName, x, y, z)
 	if err != nil {
 		h.app.logger.Errorf("error grabbing: %s", err)
 		http.Error(w, fmt.Sprintf("error grabbing: %s", err), http.StatusInternalServerError)
