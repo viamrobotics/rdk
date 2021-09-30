@@ -28,7 +28,7 @@ func NewPoseFromOrientation(point r3.Vector, o Orientation) Pose {
 }
 
 // NewPoseFromOrientationVector takes in a position and orientation vector and returns a Pose.
-func NewPoseFromOrientationVector(point r3.Vector, ov *OrientationVec) Pose {
+func NewPoseFromOrientationVector(point r3.Vector, ov *OrientationVector) Pose {
 	quat := newdualQuaternion()
 	if ov != nil {
 		quat = newdualQuaternionFromRotation(ov)
