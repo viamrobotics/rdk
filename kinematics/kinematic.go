@@ -6,8 +6,8 @@ import (
 	"math"
 
 	pb "go.viam.com/core/proto/api/v1"
+	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
-	"go.viam.com/core/utils"
 
 	"github.com/go-errors/errors"
 	"gonum.org/v1/gonum/floats"
@@ -16,18 +16,13 @@ import (
 
 // ComputePosition takes a model and a protobuf JointPositions in degrees and returns the cartesian position of the
 // end effector as a protobuf ArmPosition. This is performed statelessly without changing any data.
-func ComputePosition(model *Model, joints *pb.JointPositions) (*pb.ArmPosition, error) {
+func ComputePosition(model frame.Frame, joints *pb.JointPositions) (*pb.ArmPosition, error) {
 
-	if len(joints.Degrees) != len(model.Dof()) {
-		return nil, errors.Errorf("incorrect number of joints passed to ComputePosition. Want: %d, got: %d", len(model.Dof()), len(joints.Degrees))
+	if len(joints.Degrees) != len(model.DoF()) {
+		return nil, errors.Errorf("incorrect number of joints passed to ComputePosition. Want: %d, got: %d", len(model.DoF()), len(joints.Degrees))
 	}
 
-	radAngles := make([]float64, len(joints.Degrees))
-	for i, angle := range joints.Degrees {
-		radAngles[i] = utils.DegToRad(angle)
-	}
-
-	pose, err := model.JointRadToQuat(radAngles)
+	pose, err := model.Transform(frame.JointPosToInputs(joints))
 	if err != nil {
 		return nil, err
 	}

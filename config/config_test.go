@@ -35,7 +35,7 @@ func TestConfig3(t *testing.T) {
 		Y string
 	}
 
-	config.RegisterAttributeConverter("foo", "eliot", "bar", func(sub interface{}) (interface{}, error) {
+	config.RegisterComponentAttributeConverter("foo", "eliot", "bar", func(sub interface{}) (interface{}, error) {
 		t := &temp{}
 		err := mapstructure.Decode(sub, t)
 		return t, err

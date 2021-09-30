@@ -491,6 +491,60 @@ type RobotServiceMotorIsOn = {
   readonly responseType: typeof proto_api_v1_robot_pb.MotorIsOnResponse;
 };
 
+type RobotServiceResourceRunCommand = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.ResourceRunCommandRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.ResourceRunCommandResponse;
+};
+
+type RobotServiceNavigationServiceMode = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.NavigationServiceModeRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.NavigationServiceModeResponse;
+};
+
+type RobotServiceNavigationServiceSetMode = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.NavigationServiceSetModeRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.NavigationServiceSetModeResponse;
+};
+
+type RobotServiceNavigationServiceLocation = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.NavigationServiceLocationRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.NavigationServiceLocationResponse;
+};
+
+type RobotServiceNavigationServiceWaypoints = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.NavigationServiceWaypointsRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.NavigationServiceWaypointsResponse;
+};
+
+type RobotServiceNavigationServiceAddWaypoint = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.NavigationServiceAddWaypointRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.NavigationServiceAddWaypointResponse;
+};
+
 export class RobotService {
   static readonly serviceName: string;
   static readonly Status: RobotServiceStatus;
@@ -547,6 +601,12 @@ export class RobotService {
   static readonly MotorPositionSupported: RobotServiceMotorPositionSupported;
   static readonly MotorOff: RobotServiceMotorOff;
   static readonly MotorIsOn: RobotServiceMotorIsOn;
+  static readonly ResourceRunCommand: RobotServiceResourceRunCommand;
+  static readonly NavigationServiceMode: RobotServiceNavigationServiceMode;
+  static readonly NavigationServiceSetMode: RobotServiceNavigationServiceSetMode;
+  static readonly NavigationServiceLocation: RobotServiceNavigationServiceLocation;
+  static readonly NavigationServiceWaypoints: RobotServiceNavigationServiceWaypoints;
+  static readonly NavigationServiceAddWaypoint: RobotServiceNavigationServiceAddWaypoint;
 }
 
 export type ServiceError = { message: string, code: number; metadata: grpc.Metadata }
@@ -1058,6 +1118,60 @@ export class RobotServiceClient {
   motorIsOn(
     requestMessage: proto_api_v1_robot_pb.MotorIsOnRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorIsOnResponse|null) => void
+  ): UnaryResponse;
+  resourceRunCommand(
+    requestMessage: proto_api_v1_robot_pb.ResourceRunCommandRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ResourceRunCommandResponse|null) => void
+  ): UnaryResponse;
+  resourceRunCommand(
+    requestMessage: proto_api_v1_robot_pb.ResourceRunCommandRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ResourceRunCommandResponse|null) => void
+  ): UnaryResponse;
+  navigationServiceMode(
+    requestMessage: proto_api_v1_robot_pb.NavigationServiceModeRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.NavigationServiceModeResponse|null) => void
+  ): UnaryResponse;
+  navigationServiceMode(
+    requestMessage: proto_api_v1_robot_pb.NavigationServiceModeRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.NavigationServiceModeResponse|null) => void
+  ): UnaryResponse;
+  navigationServiceSetMode(
+    requestMessage: proto_api_v1_robot_pb.NavigationServiceSetModeRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.NavigationServiceSetModeResponse|null) => void
+  ): UnaryResponse;
+  navigationServiceSetMode(
+    requestMessage: proto_api_v1_robot_pb.NavigationServiceSetModeRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.NavigationServiceSetModeResponse|null) => void
+  ): UnaryResponse;
+  navigationServiceLocation(
+    requestMessage: proto_api_v1_robot_pb.NavigationServiceLocationRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.NavigationServiceLocationResponse|null) => void
+  ): UnaryResponse;
+  navigationServiceLocation(
+    requestMessage: proto_api_v1_robot_pb.NavigationServiceLocationRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.NavigationServiceLocationResponse|null) => void
+  ): UnaryResponse;
+  navigationServiceWaypoints(
+    requestMessage: proto_api_v1_robot_pb.NavigationServiceWaypointsRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.NavigationServiceWaypointsResponse|null) => void
+  ): UnaryResponse;
+  navigationServiceWaypoints(
+    requestMessage: proto_api_v1_robot_pb.NavigationServiceWaypointsRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.NavigationServiceWaypointsResponse|null) => void
+  ): UnaryResponse;
+  navigationServiceAddWaypoint(
+    requestMessage: proto_api_v1_robot_pb.NavigationServiceAddWaypointRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.NavigationServiceAddWaypointResponse|null) => void
+  ): UnaryResponse;
+  navigationServiceAddWaypoint(
+    requestMessage: proto_api_v1_robot_pb.NavigationServiceAddWaypointRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.NavigationServiceAddWaypointResponse|null) => void
   ): UnaryResponse;
 }
 

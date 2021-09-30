@@ -21,6 +21,7 @@ type FrameSystem interface {
 	GetFrame(name string) Frame
 	AddFrame(frame, parent Frame) error
 	RemoveFrame(frame Frame)
+	TracebackFrame(frame Frame) ([]Frame, error)
 	TransformFrame(positions map[string][]Input, srcFrame, endFrame Frame) (spatial.Pose, error)
 	TransformPoint(positions map[string][]Input, point r3.Vector, srcFrame, endFrame Frame) (r3.Vector, error)
 	TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, endFrame Frame) (spatial.Pose, error)
@@ -80,6 +81,22 @@ func (sfs *simpleFrameSystem) GetFrame(name string) Frame {
 		return sfs.world
 	}
 	return sfs.frames[name]
+}
+
+// TracebackFrame traces the parentage of the given frame up to the world, and returns the full list of frames in between.
+// The list will include both the query frame and the world frame.
+func (sfs *simpleFrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
+	if !sfs.frameExists(query.Name()) {
+		return nil, fmt.Errorf("frame with name %q not in frame system", query.Name())
+	}
+	if query == sfs.world {
+		return []Frame{query}, nil
+	}
+	parents, err := sfs.TracebackFrame(sfs.parents[query])
+	if err != nil {
+		return nil, err
+	}
+	return append([]Frame{query}, parents...), nil
 }
 
 // FrameNames returns the list of frame names registered in the frame system
@@ -323,7 +340,7 @@ func StartPositions(fs FrameSystem) map[string][]Input {
 	for _, fn := range fs.FrameNames() {
 		frame := fs.GetFrame(fn)
 		if frame != nil {
-			positions[fn] = make([]Input, len(frame.Dof()))
+			positions[fn] = make([]Input, len(frame.DoF()))
 		}
 	}
 	return positions
@@ -332,7 +349,7 @@ func StartPositions(fs FrameSystem) map[string][]Input {
 func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose, error) {
 	// Get frame inputs if necessary
 	var input []Input
-	if len(frame.Dof()) > 0 {
+	if len(frame.DoF()) > 0 {
 		if _, ok := positions[frame.Name()]; !ok {
 			return nil, fmt.Errorf("no positions provided for frame with name %s", frame.Name())
 		}

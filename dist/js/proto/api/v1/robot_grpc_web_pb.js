@@ -4395,5 +4395,485 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.motorIsOn =
 };
 
 
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.ResourceRunCommandRequest,
+ *   !proto.proto.api.v1.ResourceRunCommandResponse>}
+ */
+const methodDescriptor_RobotService_ResourceRunCommand = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/ResourceRunCommand',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.ResourceRunCommandRequest,
+  proto.proto.api.v1.ResourceRunCommandResponse,
+  /**
+   * @param {!proto.proto.api.v1.ResourceRunCommandRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ResourceRunCommandResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ResourceRunCommandRequest,
+ *   !proto.proto.api.v1.ResourceRunCommandResponse>}
+ */
+const methodInfo_RobotService_ResourceRunCommand = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ResourceRunCommandResponse,
+  /**
+   * @param {!proto.proto.api.v1.ResourceRunCommandRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ResourceRunCommandResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.ResourceRunCommandRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ResourceRunCommandResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ResourceRunCommandResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.resourceRunCommand =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ResourceRunCommand',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ResourceRunCommand,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.ResourceRunCommandRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.ResourceRunCommandResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.resourceRunCommand =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ResourceRunCommand',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ResourceRunCommand);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.NavigationServiceModeRequest,
+ *   !proto.proto.api.v1.NavigationServiceModeResponse>}
+ */
+const methodDescriptor_RobotService_NavigationServiceMode = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/NavigationServiceMode',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.NavigationServiceModeRequest,
+  proto.proto.api.v1.NavigationServiceModeResponse,
+  /**
+   * @param {!proto.proto.api.v1.NavigationServiceModeRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.NavigationServiceModeResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.NavigationServiceModeRequest,
+ *   !proto.proto.api.v1.NavigationServiceModeResponse>}
+ */
+const methodInfo_RobotService_NavigationServiceMode = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.NavigationServiceModeResponse,
+  /**
+   * @param {!proto.proto.api.v1.NavigationServiceModeRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.NavigationServiceModeResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.NavigationServiceModeRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.NavigationServiceModeResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.NavigationServiceModeResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.navigationServiceMode =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/NavigationServiceMode',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_NavigationServiceMode,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.NavigationServiceModeRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.NavigationServiceModeResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.navigationServiceMode =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/NavigationServiceMode',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_NavigationServiceMode);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.NavigationServiceSetModeRequest,
+ *   !proto.proto.api.v1.NavigationServiceSetModeResponse>}
+ */
+const methodDescriptor_RobotService_NavigationServiceSetMode = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/NavigationServiceSetMode',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.NavigationServiceSetModeRequest,
+  proto.proto.api.v1.NavigationServiceSetModeResponse,
+  /**
+   * @param {!proto.proto.api.v1.NavigationServiceSetModeRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.NavigationServiceSetModeResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.NavigationServiceSetModeRequest,
+ *   !proto.proto.api.v1.NavigationServiceSetModeResponse>}
+ */
+const methodInfo_RobotService_NavigationServiceSetMode = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.NavigationServiceSetModeResponse,
+  /**
+   * @param {!proto.proto.api.v1.NavigationServiceSetModeRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.NavigationServiceSetModeResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.NavigationServiceSetModeRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.NavigationServiceSetModeResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.NavigationServiceSetModeResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.navigationServiceSetMode =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/NavigationServiceSetMode',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_NavigationServiceSetMode,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.NavigationServiceSetModeRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.NavigationServiceSetModeResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.navigationServiceSetMode =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/NavigationServiceSetMode',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_NavigationServiceSetMode);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.NavigationServiceLocationRequest,
+ *   !proto.proto.api.v1.NavigationServiceLocationResponse>}
+ */
+const methodDescriptor_RobotService_NavigationServiceLocation = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/NavigationServiceLocation',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.NavigationServiceLocationRequest,
+  proto.proto.api.v1.NavigationServiceLocationResponse,
+  /**
+   * @param {!proto.proto.api.v1.NavigationServiceLocationRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.NavigationServiceLocationResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.NavigationServiceLocationRequest,
+ *   !proto.proto.api.v1.NavigationServiceLocationResponse>}
+ */
+const methodInfo_RobotService_NavigationServiceLocation = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.NavigationServiceLocationResponse,
+  /**
+   * @param {!proto.proto.api.v1.NavigationServiceLocationRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.NavigationServiceLocationResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.NavigationServiceLocationRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.NavigationServiceLocationResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.NavigationServiceLocationResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.navigationServiceLocation =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/NavigationServiceLocation',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_NavigationServiceLocation,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.NavigationServiceLocationRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.NavigationServiceLocationResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.navigationServiceLocation =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/NavigationServiceLocation',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_NavigationServiceLocation);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.NavigationServiceWaypointsRequest,
+ *   !proto.proto.api.v1.NavigationServiceWaypointsResponse>}
+ */
+const methodDescriptor_RobotService_NavigationServiceWaypoints = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/NavigationServiceWaypoints',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.NavigationServiceWaypointsRequest,
+  proto.proto.api.v1.NavigationServiceWaypointsResponse,
+  /**
+   * @param {!proto.proto.api.v1.NavigationServiceWaypointsRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.NavigationServiceWaypointsResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.NavigationServiceWaypointsRequest,
+ *   !proto.proto.api.v1.NavigationServiceWaypointsResponse>}
+ */
+const methodInfo_RobotService_NavigationServiceWaypoints = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.NavigationServiceWaypointsResponse,
+  /**
+   * @param {!proto.proto.api.v1.NavigationServiceWaypointsRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.NavigationServiceWaypointsResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.NavigationServiceWaypointsRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.NavigationServiceWaypointsResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.NavigationServiceWaypointsResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.navigationServiceWaypoints =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/NavigationServiceWaypoints',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_NavigationServiceWaypoints,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.NavigationServiceWaypointsRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.NavigationServiceWaypointsResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.navigationServiceWaypoints =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/NavigationServiceWaypoints',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_NavigationServiceWaypoints);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.NavigationServiceAddWaypointRequest,
+ *   !proto.proto.api.v1.NavigationServiceAddWaypointResponse>}
+ */
+const methodDescriptor_RobotService_NavigationServiceAddWaypoint = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/NavigationServiceAddWaypoint',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.NavigationServiceAddWaypointRequest,
+  proto.proto.api.v1.NavigationServiceAddWaypointResponse,
+  /**
+   * @param {!proto.proto.api.v1.NavigationServiceAddWaypointRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.NavigationServiceAddWaypointResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.NavigationServiceAddWaypointRequest,
+ *   !proto.proto.api.v1.NavigationServiceAddWaypointResponse>}
+ */
+const methodInfo_RobotService_NavigationServiceAddWaypoint = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.NavigationServiceAddWaypointResponse,
+  /**
+   * @param {!proto.proto.api.v1.NavigationServiceAddWaypointRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.NavigationServiceAddWaypointResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.NavigationServiceAddWaypointRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.NavigationServiceAddWaypointResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.NavigationServiceAddWaypointResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.navigationServiceAddWaypoint =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/NavigationServiceAddWaypoint',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_NavigationServiceAddWaypoint,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.NavigationServiceAddWaypointRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.NavigationServiceAddWaypointResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.navigationServiceAddWaypoint =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/NavigationServiceAddWaypoint',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_NavigationServiceAddWaypoint);
+};
+
+
 module.exports = proto.proto.api.v1;
 

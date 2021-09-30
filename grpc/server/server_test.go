@@ -123,7 +123,7 @@ func TestServer(t *testing.T) {
 				{
 					Name: "a",
 					Type: config.ComponentTypeArm,
-					Frame: &config.FrameConfig{
+					Frame: &config.Frame{
 						Parent: "b",
 					},
 				},

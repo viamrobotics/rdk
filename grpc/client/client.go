@@ -35,6 +35,7 @@ import (
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/servo"
+	"go.viam.com/core/spatialmath"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
@@ -62,6 +63,7 @@ type RobotClient struct {
 	servoNames    []string
 	motorNames    []string
 	functionNames []string
+	serviceNames  []string
 
 	sensorTypes map[string]sensor.Type
 
@@ -216,7 +218,7 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 		cc := config.Component{
 			Name: c.Name,
 			Type: config.ComponentType(c.Type),
-			Frame: &config.FrameConfig{
+			Frame: &config.Frame{
 				Parent: c.Parent,
 			},
 		}
@@ -226,11 +228,11 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 				Y: c.Pose.Y,
 				Z: c.Pose.Z,
 			}
-			cc.Frame.Orientation = config.Orientation{
-				X:  c.Pose.OX,
-				Y:  c.Pose.OY,
-				Z:  c.Pose.OZ,
-				TH: c.Pose.Theta,
+			cc.Frame.Orientation = &spatialmath.OrientationVectorDegrees{
+				OX:    c.Pose.OX,
+				OY:    c.Pose.OY,
+				OZ:    c.Pose.OZ,
+				Theta: c.Pose.Theta,
 			}
 		}
 		cfg.Components = append(cfg.Components, cc)
@@ -319,6 +321,13 @@ func (rc *RobotClient) MotorByName(name string) (motor.Motor, bool) {
 		rc:   rc,
 		name: name,
 	}, true
+}
+
+// ServiceByName returns a service by name. It is assumed to exist on the
+// other end.
+func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
+	// TODO(erd): implement
+	return nil, false
 }
 
 // Refresh manually updates the underlying parts of the robot based
@@ -419,6 +428,13 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 			rc.functionNames = append(rc.functionNames, name)
 		}
 	}
+	rc.serviceNames = nil
+	if len(status.Services) != 0 {
+		rc.serviceNames = make([]string, 0, len(status.Services))
+		for name := range status.Services {
+			rc.serviceNames = append(rc.serviceNames, name)
+		}
+	}
 	return nil
 }
 
@@ -507,6 +523,13 @@ func (rc *RobotClient) FunctionNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.functionNames)
+}
+
+// ServiceNames returns the names of all known services.
+func (rc *RobotClient) ServiceNames() []string {
+	rc.namesMu.Lock()
+	defer rc.namesMu.Unlock()
+	return copyStringSlice(rc.serviceNames)
 }
 
 // ProcessManager returns a useless process manager for the sake of

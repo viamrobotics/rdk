@@ -10,6 +10,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
+	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -69,11 +70,11 @@ func (a *ArmIK) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	if err != nil {
 		return err
 	}
-	solution, err := a.ik.Solve(ctx, pos, joints)
+	solution, err := a.ik.Solve(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
-	return a.MoveToJointPositions(ctx, solution)
+	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
 }
 
 // MoveToJointPositions sets the joints.
