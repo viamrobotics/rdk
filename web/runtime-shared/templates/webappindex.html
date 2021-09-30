@@ -6,6 +6,10 @@
         width: 50%;
         height: 50%;
       }
+      #map {
+        height: 400px;
+        width: 100%;
+      }
     </style>
     <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
     <script>
@@ -36,7 +40,11 @@
         }
         if (stringify === undefined || stringify) {
           try {
-            theData.res = JSON.stringify(resp.toObject());
+            if (resp.toJavaScript) {
+              theData.res = JSON.stringify(resp.toJavaScript());
+            } else {
+              theData.res = JSON.stringify(resp.toObject());
+            }
           } catch (e) {
             theData.error = JSON.stringify(e);
           }
@@ -92,6 +100,7 @@
           status.servosMap = rawSatusObj.servosMap;
           status.motorsMap = rawSatusObj.motorsMap;
           status.functionsMap = rawSatusObj.functionsMap;
+          status.servicesMap = rawSatusObj.servicesMap;
 
           status.armsMap = fixArms(status.armsMap);
 
@@ -119,6 +128,7 @@
               clusterRad: 5,
               armToggle : {},
               editor: undefined,
+              mapOnce: false,
           };
           theApp = new Vue({
               el: '#app',
@@ -381,6 +391,20 @@
                       }
                       return false;
                   },
+                  hasKey : function(d, key) {
+                    if (!d) {
+                      return false;
+                    }
+                    if (Array.isArray(d)) {
+                      for (let i = 0; i < d.length; i++) {
+                        if (d[i] == key || (d[i].length && d[i].length >= 1 && d[i][0] == key)) {
+                          return true;
+                        }
+                      }
+                      return false;
+                    }
+                    return d.hasOwn(key);
+                  },
                   grabClick : function(e) {
                       var mouse = new THREE.Vector2();
                       mouse.x = ((e.offsetX / e.srcElement.offsetWidth) * 2) - 1
@@ -445,8 +469,60 @@
                   doPCDLoad : function(data){
                         const mimeType = 'pointcloud/pcd';
                         pcdLoad(`data:${mimeType};base64,${data}`);
+                  },
+                  setNavigationMode : function(mode){
+                    let pbMode = robotApi.NavigationServiceMode.NAVIGATION_SERVICE_MODE_UNSPECIFIED;
+                    switch (mode) {
+                      case 'manual':
+                        pbMode = robotApi.NavigationServiceMode.NAVIGATION_SERVICE_MODE_MANUAL;
+                        break;
+                      case 'waypoint':
+                        pbMode = robotApi.NavigationServiceMode.NAVIGATION_SERVICE_MODE_WAYPOINT;
+                        break;
+                    }
+                    var req = new robotApi.NavigationServiceSetModeRequest();
+                    req.setMode(pbMode);
+                    robotService.navigationServiceSetMode(req, {}, (err, resp) => grpcCallback(err, resp));
+                  },
+                  setNavigationLocation: function(elId) {
+                    const posSplit = document.getElementById(elId).value.split(",");
+                    if (posSplit.length != 2) {
+                      return;
+                    }
+                    const lat = parseFloat(posSplit[0]);
+                    const lng = parseFloat(posSplit[1]);
+                    var req = new robotApi.ResourceRunCommandRequest();
+                    let gpsName = "";
+                    for (let i = 0; i < theData.status.sensorsMap.length; i++) {
+                      const s = theData.status.sensorsMap[i];
+                      if (s[1].type === 'gps') {
+                        gpsName = s[0];
+                        break;
+                      }
+                    }
+                    if (gpsName === "") {
+                      theData.error = "no gps device found";
+                      return;
+                    }
+                    req.setResourceName("gps1");
+                    req.setCommandName("set_location");
+                    req.setArgs(proto.google.protobuf.Struct.fromJavaScript({
+                      latitude: lat,
+                      longitude: lng,
+                    }))
+                    robotService.resourceRunCommand(req, {}, (err, resp) => grpcCallback(err, resp));
                   }
-              }
+              },
+              directives: {
+                // TODO(erd): replace with vue component after naveed work done
+                mapMounted (el) {
+                  if (theData.mapOnce) {
+                    return;
+                  }
+                  theData.mapOnce = true;
+                  initNavigation();
+                }
+              },
           })
 
           const streamReq = new robotApi.StatusStreamRequest();
@@ -604,7 +680,94 @@
         console.debug("ready");
         await startup();
       }
-      
+
+      async function initNavigation() {
+        await mapReady;
+        window.map = new google.maps.Map(document.getElementById("map"), {zoom: 18});
+        window.map.addListener("click", (e) => {
+          var req = new robotApi.NavigationServiceAddWaypointRequest();
+          var point = new robotApi.GeoPoint();
+          point.setLatitude(e.latLng.lat());
+          point.setLongitude(e.latLng.lng());
+          req.setWaypoint(point);
+          robotService.navigationServiceAddWaypoint(req, {}, (err, resp) => grpcCallback(err, resp));
+        });
+
+        let centered = false;
+        const knownWaypoints = {};
+        const updateWaypoints = function() {
+          var req = new robotApi.NavigationServiceWaypointsRequest();
+          robotService.navigationServiceWaypoints(req, {}, (err, resp) => {
+            grpcCallback(err, resp, false)
+            if (err) {
+              console.log(err);
+              setTimeout(updateWaypoints, 1000);
+              return;
+            }
+            const currentWaypoints = {};
+            var waypoints = resp.getWaypointsList();
+            for (var i = 0; i < waypoints.length; i++) {
+              const waypoint = waypoints[i];
+              const pos = {lat: waypoint.getLatitude(), lng: waypoint.getLongitude()};
+              const posStr = JSON.stringify(pos);
+              if (knownWaypoints[posStr]) {
+                currentWaypoints[posStr] = knownWaypoints[posStr];
+                continue;
+              }
+              const marker = new google.maps.Marker({
+                position: pos,
+                map: window.map,
+              });
+              currentWaypoints[posStr] = marker;
+              knownWaypoints[posStr] = marker;
+              marker.addListener("click", () => {
+                console.log("clicked on marker", pos)
+              });
+            }
+            const waypointsToDelete = Object.keys(knownWaypoints).filter(elem => {
+              return !(elem in currentWaypoints)
+            });
+            for (key of waypointsToDelete) {
+              const marker = knownWaypoints[key];
+              marker.setMap(null);
+              delete knownWaypoints[key];
+            }
+            setTimeout(updateWaypoints, 1000);
+          });
+        }
+        updateWaypoints();
+
+        const locationMarker = new google.maps.Marker({label: "robot"});
+        const updateLocation = function() {
+          var req = new robotApi.NavigationServiceLocationRequest();
+          robotService.navigationServiceLocation(req, {}, (err, resp) => {
+            grpcCallback(err, resp, false)
+            if (err) {
+              console.log(err);
+              setTimeout(updateLocation, 1000);
+              return;
+            }
+            const pos = {lat: resp.getLocation().getLatitude(), lng: resp.getLocation().getLongitude()};
+            if (!centered) {
+              centered = true;
+              window.map.setCenter(pos);              
+            }
+            locationMarker.setPosition(pos);
+            locationMarker.setMap(window.map);
+            setTimeout(updateLocation, 1000);
+          });
+        }
+        updateLocation();
+      }
+
+      function initMap() {
+        mapReadyResolve();
+      }
+
+      let mapReadyResolve;
+      let mapReady = new Promise(resolve => {
+        mapReadyResolve = resolve;
+      });
     </script>
   </head>
   <body onLoad="waitForClientAndStart()">
@@ -922,7 +1085,23 @@
             <td><button v-on:click="doPointLoad(i)">GO</button></td>
         </tr>
       </table>
+      <div id="map-container" v-if="hasKey(status.servicesMap, 'navigation')">
+        <br />
+        <br />
+        <button v-on:click="setNavigationMode('manual')">Manual</button>
+        <button v-on:click="setNavigationMode('waypoint')">Waypoint</button>
+        <br />
+        <input type="text" id="nav-set-location" value="40.745297,-74.010916">
+        <button v-on:click="setNavigationLocation('nav-set-location')">Try Set Location</button>
+        <div id="map" v-map-mounted></div>
+      </div>
     </div> <!-- end vue app -->
+    
+    <!-- TODO(https://github.com/viamrobotics/core/issues/202): remove api key once going into production -->
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBn72TEqFOVWoj06cvua0Dc0pz2uvq90nY&callback=initMap&libraries=&v=weekly"
+      async
+    ></script>
   </body>
 </html>
 

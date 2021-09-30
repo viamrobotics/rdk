@@ -10,11 +10,11 @@ import (
 
 // Pose represents a 6dof pose, position and orientation, with respect to the origin.
 // The Point() method returns the position in (x,y,z) mm coordinates,
-// and the Orientation() method returns the orientation in (theta, ox, oy, oz)
-// where (ox, oy, oz) is the axis of rotation, and theta is the amount of rotation in radians.
+// and the Orientation() method returns an Orientation object, which has methods to parametrize
+// the rotation in multiple different representations.
 type Pose interface {
 	Point() r3.Vector
-	Orientation() *OrientationVec
+	Orientation() Orientation
 }
 
 // NewZeroPose returns a pose at (0,0,0) with same orientation as whatever frame it is placed in.
@@ -22,8 +22,13 @@ func NewZeroPose() Pose {
 	return newdualQuaternion()
 }
 
+// NewPoseFromOrientation takes in a position and orientation and returns a Pose.
+func NewPoseFromOrientation(point r3.Vector, o Orientation) Pose {
+	return NewPoseFromOrientationVector(point, o.OrientationVectorRadians())
+}
+
 // NewPoseFromOrientationVector takes in a position and orientation vector and returns a Pose.
-func NewPoseFromOrientationVector(point r3.Vector, ov *OrientationVec) Pose {
+func NewPoseFromOrientationVector(point r3.Vector, ov *OrientationVector) Pose {
 	quat := newdualQuaternion()
 	if ov != nil {
 		quat = newdualQuaternionFromRotation(ov)
@@ -86,8 +91,8 @@ func Compose(a, b Pose) Pose {
 func PoseDelta(a, b Pose) []float64 {
 	ret := make([]float64, 6)
 
-	aQ := a.Orientation().ToQuat()
-	bQ := b.Orientation().ToQuat()
+	aQ := a.Orientation().Quaternion()
+	bQ := b.Orientation().Quaternion()
 
 	quatBetween := quat.Mul(bQ, quat.Conj(aQ))
 
@@ -114,7 +119,7 @@ func PoseToArmPos(p Pose) *pb.ArmPosition {
 	final.X = pt.X
 	final.Y = pt.Y
 	final.Z = pt.Z
-	poseOV := p.Orientation()
+	poseOV := p.Orientation().OrientationVectorRadians()
 	final.Theta = utils.RadToDeg(poseOV.Theta)
 	final.OX = poseOV.OX
 	final.OY = poseOV.OY
@@ -126,4 +131,19 @@ func PoseToArmPos(p Pose) *pb.ArmPosition {
 // the pose of B relative to A
 func Invert(p Pose) Pose {
 	return newdualQuaternionFromPose(p).Invert()
+}
+
+// Interpolate will return a new Pose that has been interpolated the set amount between two poses.
+// Note that position and orientation are interpolated separately, then the two are combined.
+// Note that slerp(q1, q2) != slerp(q2, q1)
+// p1 and p2 are the two poses to interpolate between, by is a float representing the amount to interpolate between them.
+// by == 0 will return p1, by == 1 will return p2, and by == 0.5 will return the pose halfway between them.
+func Interpolate(p1, p2 Pose, by float64) Pose {
+	intQ := newdualQuaternion()
+	intQ.Real = slerp(p1.Orientation().Quaternion(), p2.Orientation().Quaternion(), by)
+
+	intQ.SetTranslation((p1.Point().X + (p2.Point().X-p1.Point().X)*by),
+		(p1.Point().Y + (p2.Point().Y-p1.Point().Y)*by),
+		(p1.Point().Z + (p2.Point().Z-p1.Point().Z)*by))
+	return intQ
 }

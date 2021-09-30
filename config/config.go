@@ -85,6 +85,7 @@ type Config struct {
 	Components     []Component                 `json:"components,omitempty"`
 	Processes      []pexec.ProcessConfig       `json:"processes,omitempty"`
 	Functions      []functionvm.FunctionConfig `json:"functions,omitempty"`
+	Services       []Service                   `json:"services,omitempty"`
 }
 
 // Ensure ensures all parts of the config are valid and sorts components based on what they depend on.
@@ -123,6 +124,12 @@ func (c *Config) Ensure(fromCloud bool) error {
 
 	for idx, config := range c.Functions {
 		if err := config.Validate(fmt.Sprintf("%s.%d", "functions", idx)); err != nil {
+			return err
+		}
+	}
+
+	for idx, config := range c.Services {
+		if err := config.Validate(fmt.Sprintf("%s.%d", "services", idx)); err != nil {
 			return err
 		}
 	}
