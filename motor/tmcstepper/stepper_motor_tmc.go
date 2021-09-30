@@ -33,8 +33,12 @@ type TMC5072Config struct {
 	CalFactor  float64 `json:"cal_factor"`
 }
 
+const (
+	modelname = "TMC5072"
+)
+
 func init() {
-	registry.RegisterMotor("TMC5072", registry.Motor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error) {
+	registry.RegisterMotor(modelname, registry.Motor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error) {
 		m, err := NewMotor(ctx, r, config.ConvertedAttributes.(*TMC5072Config), logger)
 		if err != nil {
 			return nil, err
@@ -42,7 +46,7 @@ func init() {
 		return m, nil
 	}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeMotor, "TMC5072", func(attributes config.AttributeMap) (interface{}, error) {
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeMotor, modelname, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf TMC5072Config
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
 		if err != nil {
