@@ -67,7 +67,7 @@
           <RadioButtons
             :options="['Backward', 'Forward']"
             :defaultOption="isGoingForward ? 'Forward' : 'Backward'"
-            v-on:selectedOption="isGoingForward = $event === 'Forward'"
+            v-on:selectOption="isGoingForward = $event === 'Forward'"
           />
         </div>
       </div>
@@ -149,7 +149,11 @@ class MotorCommand {
   revolutions = 0;
 
   static MAX_RPM = 160;
-  static STOP = new MotorCommand();
+  static get STOP(): MotorCommand {
+    const cmd = new MotorCommand();
+    cmd.direction = DirectionRelative.DIRECTION_RELATIVE_UNSPECIFIED;
+    return cmd;
+  }
 
   private validateRevolutions(revolutions: number): string {
     revolutions = Number.parseFloat(revolutions.toString());
@@ -219,13 +223,13 @@ class MotorCommand {
     return toReturn;
   }
 
-  asObject(): { type: string; request: unknown } {
+  asObject(): { type: string; request: MotorGoRequest | MotorGoForRequest | MotorGoToRequest } {
     let req;
     switch (this.type) {
       case MotorCommandType.Go:
         req = new MotorGoRequest();
         req.setDirection(this.direction);
-        req.setPowerPct(this.speed / 160);
+        req.setPowerPct(this.speed / 100);
         break;
       case MotorCommandType.GoFor:
         req = new MotorGoForRequest();
@@ -308,10 +312,6 @@ export default class MotorDetail extends Vue {
   errors: { [key: string]: string } = {};
   MAX_RPM = MotorCommand.MAX_RPM;
 
-  private get command(): { [key: string]: unknown } {
-    return this.motorCommand.asObject();
-  }
-
   private validateInputs(): boolean {
     this.errors = this.motorCommand.validate();
     for (let key of Object.keys(this.errors)) {
@@ -329,8 +329,10 @@ export default class MotorDetail extends Vue {
 
   emitCommand(): void {
     if (this.validateInputs()) {
-      console.log(this.command);
-      this.$emit("execute", this.command);
+      const command = this.motorCommand.asObject()
+      console.log(command);
+      const req = command['request'] as MotorGoRequest;
+      this.$emit("execute", command);
     }
   }
 }
