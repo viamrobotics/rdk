@@ -31,6 +31,7 @@ type ModifiedConfigDiff struct {
 	Components []Component
 	Processes  []pexec.ProcessConfig
 	Functions  []functionvm.FunctionConfig
+	Services   []Service
 }
 
 // DiffConfigs returns the difference between the two given configs
@@ -67,6 +68,11 @@ func DiffConfigs(left, right *Config) (*Diff, error) {
 		return nil, err
 	}
 	different = functionsDifferent || different
+	servicesDifferent, err := diffServices(left.Services, right.Services, &diff)
+	if err != nil {
+		return nil, err
+	}
+	different = servicesDifferent || different
 	different = diffProcesses(left.Processes, right.Processes, &diff) || different
 	diff.Equal = !different
 
@@ -272,5 +278,53 @@ func diffFunction(left, right functionvm.FunctionConfig, diff *Diff) (bool, erro
 		return false, nil
 	}
 	diff.Modified.Functions = append(diff.Modified.Functions, right)
+	return true, nil
+}
+
+func diffServices(left, right []Service, diff *Diff) (bool, error) {
+	leftIndex := make(map[string]int)
+	leftM := make(map[string]Service)
+	for idx, l := range left {
+		leftM[l.Name] = l
+		leftIndex[l.Name] = idx
+	}
+
+	var removed []int
+
+	var different bool
+	for _, r := range right {
+		l, ok := leftM[r.Name]
+		delete(leftM, r.Name)
+		if ok {
+			serviceDifferent, err := diffService(l, r, diff)
+			if err != nil {
+				return false, err
+			}
+			different = serviceDifferent || different
+			continue
+		}
+		diff.Added.Services = append(diff.Added.Services, r)
+		different = true
+	}
+
+	for k := range leftM {
+		removed = append(removed, leftIndex[k])
+		different = true
+	}
+	sort.Ints(removed)
+	for _, idx := range removed {
+		diff.Removed.Services = append(diff.Removed.Services, left[idx])
+	}
+	return different, nil
+}
+
+func diffService(left, right Service, diff *Diff) (bool, error) {
+	if reflect.DeepEqual(left, right) {
+		return false, nil
+	}
+	if left.Type != right.Type {
+		return false, fmt.Errorf("cannot modify type of existing service %q", left.Name)
+	}
+	diff.Modified.Services = append(diff.Modified.Services, right)
 	return true, nil
 }

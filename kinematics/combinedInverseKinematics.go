@@ -9,27 +9,30 @@ import (
 	"go.viam.com/utils"
 
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/spatialmath"
 
 	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 )
 
 // CombinedIK defines the fields necessary to run a combined solver.
 type CombinedIK struct {
 	solvers []InverseKinematics
-	model   *Model
+	model   referenceframe.Frame
 	logger  golog.Logger
 }
 
 // ReturnTest is the struct used to communicate over a channel with the child parallel solvers.
 type ReturnTest struct {
 	Err    error
-	Result *pb.JointPositions
+	Result []referenceframe.Input
 }
 
 // CreateCombinedIKSolver creates a combined parallel IK solver with a number of nlopt solvers equal to the nCPU
 // passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
 // and the first valid found solution will be returned.
-func CreateCombinedIKSolver(model *Model, logger golog.Logger, nCPU int) *CombinedIK {
+func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCPU int) *CombinedIK {
 	ik := &CombinedIK{}
 	ik.model = model
 	for i := 1; i <= nCPU; i++ {
@@ -41,7 +44,7 @@ func CreateCombinedIKSolver(model *Model, logger golog.Logger, nCPU int) *Combin
 	return ik
 }
 
-func runSolver(ctx context.Context, solver InverseKinematics, c chan ReturnTest, noMoreSolutions <-chan struct{}, pos *pb.ArmPosition, seed *pb.JointPositions) {
+func runSolver(ctx context.Context, solver InverseKinematics, c chan ReturnTest, noMoreSolutions <-chan struct{}, pos *pb.ArmPosition, seed []referenceframe.Input) {
 	result, err := solver.Solve(ctx, pos, seed)
 	select {
 	case c <- ReturnTest{err, result}:
@@ -51,14 +54,14 @@ func runSolver(ctx context.Context, solver InverseKinematics, c chan ReturnTest,
 
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
 // positions. If unable to solve, the returned error will be non-nil
-func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed *pb.JointPositions) (*pb.JointPositions, error) {
+func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed []referenceframe.Input) ([]referenceframe.Input, error) {
 	ik.logger.Debugf("starting joint positions: %v", seed)
-	startPos, err := ComputePosition(ik.model, seed)
-	ik.logger.Debugf("starting 6d position: %v %v", startPos, err)
+	startPos, err := ik.model.Transform(seed)
+	ik.logger.Debugf("starting 6d position: %v %v", spatialmath.PoseToArmPos(startPos), err)
 	ik.logger.Debugf("goal 6d position: %v", pos)
 
 	// This will adjust the goal position to make movements more intuitive when using incrementation near poles
-	pos = fixOvIncrement(pos, startPos)
+	pos = fixOvIncrement(pos, spatialmath.PoseToArmPos(startPos))
 	ik.logger.Debugf("postfix goal 6d position: %v", pos)
 	c := make(chan ReturnTest)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
@@ -75,9 +78,9 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed *pb.J
 	}
 
 	returned := 0
-	myRT := ReturnTest{errors.New("could not solve for position"), &pb.JointPositions{}}
+	myRT := ReturnTest{errors.New("could not solve for position"), []referenceframe.Input{}}
 
-	var solutions []*pb.JointPositions
+	var solutions [][]referenceframe.Input
 
 	found := false
 
@@ -87,13 +90,12 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed *pb.J
 		returned++
 		if myRT.Err == nil {
 
-			dist, err := calcSwingPct(seed, myRT.Result, ik.model)
+			dist, err := calcSwingAmount(seed, myRT.Result, ik.model)
 			// non-nil err means out of bounds joint solution, ignore and move on
 			if err == nil {
-				// Since distances are squared, a perfect "halfway" will have a dist ~0.25. Better than 0.5 is good enough.
-				if dist < 0.5 {
+				if dist < goodSwingAmt {
 					found = true
-					solutions = []*pb.JointPositions{myRT.Result}
+					solutions = [][]referenceframe.Input{myRT.Result}
 				} else {
 					solutions = append(solutions, myRT.Result)
 				}
@@ -104,17 +106,33 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed *pb.J
 	close(noMoreSolutions)
 	activeSolvers.Wait()
 	if len(solutions) > 0 {
-		myRT.Result, myRT.Err = bestSolution(seed, solutions, ik.model)
+		myRT.Result, _, myRT.Err = bestSolution(seed, solutions, ik.model)
 		ik.logger.Debugf("solved joint positions: %v", myRT.Result)
-		solvePos, err := ComputePosition(ik.model, myRT.Result)
+		solvePos, err := ik.model.Transform(myRT.Result)
 		ik.logger.Debugf("solved 6d position: %v %v", solvePos, err)
 	}
 	return myRT.Result, myRT.Err
 }
 
 // Model returns the associated model
-func (ik *CombinedIK) Model() *Model {
+func (ik *CombinedIK) Model() referenceframe.Frame {
 	return ik.model
+}
+
+// Close closes all member IK solvers
+func (ik *CombinedIK) Close() error {
+	var err error
+	for _, solver := range ik.solvers {
+		err = multierr.Combine(err, solver.Close())
+	}
+	return err
+}
+
+// SetSolveWeights sets the solve weights for the solver.
+func (ik *CombinedIK) SetSolveWeights(weights SolverDistanceWeights) {
+	for _, solver := range ik.solvers {
+		solver.SetSolveWeights(weights)
+	}
 }
 
 // fixOvIncrement will detect whether the given goal position is a precise orientation increment of the current

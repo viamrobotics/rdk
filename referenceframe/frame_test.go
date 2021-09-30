@@ -28,7 +28,7 @@ func TestStaticFrame(t *testing.T) {
 	_, err = frame.Transform(nonEmptyInput)
 	test.That(t, err, test.ShouldNotBeNil)
 	// check that there are no limits on the static frame
-	limits := frame.Dof()
+	limits := frame.DoF()
 	test.That(t, limits, test.ShouldResemble, []Limit{})
 
 	errExpect := errors.New("pose is not allowed to be nil")
@@ -66,9 +66,9 @@ func TestPrismaticFrame(t *testing.T) {
 	overLimit := 50.0
 	input = FloatsToInputs([]float64{overLimit})
 	_, err = frame.Transform(input)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of bounds %.5f", overLimit, frame.Dof()[0]))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of bounds %.5f", overLimit, frame.DoF()[0]))
 	// gets the correct limits back
-	frameLimits := frame.Dof()
+	frameLimits := frame.DoF()
 	test.That(t, frameLimits, test.ShouldResemble, limits)
 }
 
@@ -95,8 +95,18 @@ func TestRevoluteFrame(t *testing.T) {
 	overLimit := 100.0 // degrees
 	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{overLimit}})
 	_, err = frame.Transform(input)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of rev frame bounds %.5f", utils.DegToRad(overLimit), frame.Dof()[0]))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of rev frame bounds %.5f", utils.DegToRad(overLimit), frame.DoF()[0]))
 	// gets the correct limits back
-	limit := frame.Dof()
+	limit := frame.DoF()
 	test.That(t, limit, test.ShouldResemble, []Limit{{-math.Pi / 2, math.Pi / 2}})
+}
+
+func TestBasicConversions(t *testing.T) {
+	jp := &pb.JointPositions{Degrees: []float64{45, 55}}
+	inputs := JointPosToInputs(jp)
+	test.That(t, jp, test.ShouldResemble, InputsToJointPos(inputs))
+
+	floats := []float64{45, 55, 27}
+	inputs = FloatsToInputs(floats)
+	test.That(t, floats, test.ShouldResemble, InputsToFloats(inputs))
 }

@@ -47,7 +47,7 @@ func init() {
 		return &camera.ImageSource{dc}, nil
 	}})
 
-	config.RegisterAttributeConverter(config.ComponentTypeCamera, "depthComposed", "config", func(val interface{}) (interface{}, error) {
+	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "config", func(val interface{}) (interface{}, error) {
 		config := &transform.AlignConfig{}
 		err := mapstructure.Decode(val, config)
 		if err == nil {
@@ -56,7 +56,7 @@ func init() {
 		return config, err
 	})
 
-	config.RegisterAttributeConverter(config.ComponentTypeCamera, "depthComposed", "matrices", func(val interface{}) (interface{}, error) {
+	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "matrices", func(val interface{}) (interface{}, error) {
 		matrices := &transform.DepthColorIntrinsicsExtrinsics{}
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: matrices})
 		if err != nil {

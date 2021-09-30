@@ -14,11 +14,11 @@ import (
 // represent a 45 degree rotation around the x axis in all the representations
 var (
 	th     = math.Pi / 4.
-	q45x   = quat.Number{math.Cos(th / 2.), math.Sin(th / 2.), 0, 0}             // in quaternion representation
-	aa45x  = &R4AA{th, 1., 0., 0.}                                               // in axis-angle representation
-	ea45x  = &EulerAngles{Roll: th, Pitch: 0, Yaw: 0}                            // in euler angle representation
-	ov45x  = &OrientationVec{2. * th, 0., -math.Sqrt(2) / 2., math.Sqrt(2) / 2.} // in orientation vector representation
-	ovd45x = &OrientationVecDegrees{2 * utils.RadToDeg(th), 0., -math.Sqrt(2) / 2, math.Sqrt(2) / 2}
+	q45x   = quat.Number{math.Cos(th / 2.), math.Sin(th / 2.), 0, 0}                // in quaternion representation
+	aa45x  = &R4AA{th, 1., 0., 0.}                                                  // in axis-angle representation
+	ea45x  = &EulerAngles{Roll: th, Pitch: 0, Yaw: 0}                               // in euler angle representation
+	ov45x  = &OrientationVector{2. * th, 0., -math.Sqrt(2) / 2., math.Sqrt(2) / 2.} // in orientation vector representation
+	ovd45x = &OrientationVectorDegrees{2 * utils.RadToDeg(th), 0., -math.Sqrt(2) / 2, math.Sqrt(2) / 2}
 )
 
 func TestZeroOrientation(t *testing.T) {
@@ -139,4 +139,23 @@ func TestOrientationVectorDegrees(t *testing.T) {
 	test.That(t, ovd45x.EulerAngles().Roll, test.ShouldAlmostEqual, ea45x.Roll)
 	test.That(t, ovd45x.EulerAngles().Pitch, test.ShouldAlmostEqual, ea45x.Pitch)
 	test.That(t, ovd45x.EulerAngles().Yaw, test.ShouldAlmostEqual, ea45x.Yaw)
+}
+
+func TestSlerp(t *testing.T) {
+	q1 := q45x
+	q2 := quat.Conj(q45x)
+	s1 := slerp(q1, q2, 0.25)
+	s2 := slerp(q1, q2, 0.5)
+
+	expect1 := quat.Number{0.9808, 0.1951, 0, 0}
+	expect2 := quat.Number{1, 0, 0, 0}
+
+	test.That(t, s1.Real, test.ShouldAlmostEqual, expect1.Real, 0.001)
+	test.That(t, s1.Imag, test.ShouldAlmostEqual, expect1.Imag, 0.001)
+	test.That(t, s1.Jmag, test.ShouldAlmostEqual, expect1.Jmag, 0.001)
+	test.That(t, s1.Kmag, test.ShouldAlmostEqual, expect1.Kmag, 0.001)
+	test.That(t, s2.Real, test.ShouldAlmostEqual, expect2.Real)
+	test.That(t, s2.Imag, test.ShouldAlmostEqual, expect2.Imag)
+	test.That(t, s2.Jmag, test.ShouldAlmostEqual, expect2.Jmag)
+	test.That(t, s2.Kmag, test.ShouldAlmostEqual, expect2.Kmag)
 }

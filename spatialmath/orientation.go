@@ -9,8 +9,8 @@ import (
 
 // Orientation is an interface used to express the different parameterizations of the orientation of a rigid object or a frame of reference in 3D Euclidean space.
 type Orientation interface {
-	OrientationVectorRadians() *OrientationVec
-	OrientationVectorDegrees() *OrientationVecDegrees
+	OrientationVectorRadians() *OrientationVector
+	OrientationVectorDegrees() *OrientationVectorDegrees
 	AxisAngles() *R4AA
 	Quaternion() quat.Number
 	EulerAngles() *EulerAngles
@@ -34,12 +34,12 @@ func (q *quaternion) AxisAngles() *R4AA {
 }
 
 // OrientationVectorRadians returns orientation as an orientation vector (in radians)
-func (q *quaternion) OrientationVectorRadians() *OrientationVec {
+func (q *quaternion) OrientationVectorRadians() *OrientationVector {
 	return QuatToOV(q.Quaternion())
 }
 
 // OrientationVectorDegrees returns orientation as an orientation vector (in degrees)
-func (q *quaternion) OrientationVectorDegrees() *OrientationVecDegrees {
+func (q *quaternion) OrientationVectorDegrees() *OrientationVectorDegrees {
 	return QuatToOVD(q.Quaternion())
 }
 
@@ -75,16 +75,16 @@ func QuatToEulerAngles(q quat.Number) *EulerAngles {
 }
 
 // QuatToOVD converts a quaternion to an orientation vector in degrees
-func QuatToOVD(q quat.Number) *OrientationVecDegrees {
+func QuatToOVD(q quat.Number) *OrientationVectorDegrees {
 	ov := QuatToOV(q)
 	return ov.Degrees()
 }
 
 // QuatToOV converts a quaternion to an orientation vector
-func QuatToOV(q quat.Number) *OrientationVec {
+func QuatToOV(q quat.Number) *OrientationVector {
 	xAxis := quat.Number{0, -1, 0, 0}
 	zAxis := quat.Number{0, 0, 0, 1}
-	ov := &OrientationVec{}
+	ov := &OrientationVector{}
 	// Get the transform of our +X and +Z points
 	newX := quat.Mul(quat.Mul(q, xAxis), quat.Conj(q))
 	newZ := quat.Mul(quat.Mul(q, zAxis), quat.Conj(q))
@@ -175,4 +175,23 @@ func QuatToR3AA(q quat.Number) R3AA {
 		return R3AA{1, 0, 0}
 	}
 	return R3AA{angle * q.Imag / denom, angle * q.Jmag / denom, angle * q.Kmag / denom}
+}
+
+// Used for interpolating orientations.
+// Intro to lerp vs slerp: https://threadreaderapp.com/thread/1176137498323501058.html
+func slerp(qN1, qN2 quat.Number, by float64) quat.Number {
+
+	q1 := mgl64.Quat{qN1.Real, mgl64.Vec3{qN1.Imag, qN1.Jmag, qN1.Kmag}}
+	q2 := mgl64.Quat{qN2.Real, mgl64.Vec3{qN2.Imag, qN2.Jmag, qN2.Kmag}}
+
+	// Use mgl64's quats because they have nlerp and slerp built in
+	q1, q2 = q1.Normalize(), q2.Normalize()
+	var q mgl64.Quat
+	// Use nlerp for 0.5 since it's faster and equal to slerp
+	if by == 0.5 {
+		q = mgl64.QuatNlerp(q1, q2, by)
+	} else {
+		q = mgl64.QuatSlerp(q1, q2, by)
+	}
+	return quat.Number{q.W, q.X(), q.Y(), q.Z()}
 }

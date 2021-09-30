@@ -12,6 +12,7 @@ import (
 	"go.viam.com/core/arm"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
+	frame "go.viam.com/core/referenceframe"
 
 	"go.uber.org/multierr"
 )
@@ -385,11 +386,11 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	if err != nil {
 		return err
 	}
-	solution, err := x.ik.Solve(ctx, pos, joints)
+	solution, err := x.ik.Solve(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
-	return x.MoveToJointPositions(ctx, solution)
+	return x.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
 }
 
 // CurrentJointPositions returns the current positions of all joints.
