@@ -87,7 +87,7 @@ func NewxArm(ctx context.Context, host string, logger golog.Logger, dof int) (ar
 	mutex := &sync.Mutex{}
 	// Start with default speed/acceleration parameters
 	// TODO(pl): add settable speed
-	xA := xArm{dof, 0, conn, 2.0, 4.0, mutex, ik}
+	xA := xArm{dof, 0, conn, 0.35, 8.7, mutex, ik}
 
 	err = xA.start()
 	if err != nil {

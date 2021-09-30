@@ -23,14 +23,14 @@ import (
 	"go.uber.org/multierr"
 )
 
-// TMC5072Config extends motor.Config, mainly for RegisterAttributeMapConverter
+// TMC5072Config extends motor.Config, mainly for RegisterComponentAttributeMapConverter
 type TMC5072Config struct {
-	motor.Config `mapstructure:",squash"`
-	SPIBus       string  `json:"spi_bus"`
-	ChipSelect   string  `json:"chip_select"`
-	Index        int     `json:"index"`
-	SGThresh     int32   `json:"sg_thresh"`
-	CalFactor    float64 `json:"cal_factor"`
+	motor.Config
+	SPIBus     string  `json:"spi_bus"`
+	ChipSelect string  `json:"chip_select"`
+	Index      int     `json:"index"`
+	SGThresh   int32   `json:"sg_thresh"`
+	CalFactor  float64 `json:"cal_factor"`
 }
 
 func init() {
