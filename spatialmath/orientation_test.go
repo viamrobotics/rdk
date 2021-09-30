@@ -14,9 +14,9 @@ import (
 // represent a 45 degree rotation around the x axis in all the representations
 var (
 	th     = math.Pi / 4.
-	q45x   = quat.Number{math.Cos(th / 2.), math.Sin(th / 2.), 0, 0}             // in quaternion representation
-	aa45x  = &R4AA{th, 1., 0., 0.}                                               // in axis-angle representation
-	ea45x  = &EulerAngles{Roll: th, Pitch: 0, Yaw: 0}                            // in euler angle representation
+	q45x   = quat.Number{math.Cos(th / 2.), math.Sin(th / 2.), 0, 0}                // in quaternion representation
+	aa45x  = &R4AA{th, 1., 0., 0.}                                                  // in axis-angle representation
+	ea45x  = &EulerAngles{Roll: th, Pitch: 0, Yaw: 0}                               // in euler angle representation
 	ov45x  = &OrientationVector{2. * th, 0., -math.Sqrt(2) / 2., math.Sqrt(2) / 2.} // in orientation vector representation
 	ovd45x = &OrientationVectorDegrees{2 * utils.RadToDeg(th), 0., -math.Sqrt(2) / 2, math.Sqrt(2) / 2}
 )
