@@ -117,6 +117,29 @@
             [
                 "local"
             ]
+        },
+        {
+            "name": "gps1",
+            "type": "sensor",
+            "subtype": "gps",
+            "model": "nmea-serial"
+        }
+    ],
+    "services":
+    [
+        {
+            "name": "navigation",
+            "type": "navigation",
+            "attributes": {
+                "store": {
+                    "type": "mongodb",
+                    "config": {
+                        "uri": "mongodb://localhost:27017"
+                    }
+                },
+                "gps": "gps1",
+                "base": "base1"
+            }
         }
     ]
 }

@@ -425,6 +425,43 @@ service RobotService {
       get: "/api/v1/motor/{name}/is_on"
     };
   }
+
+  // ResourceRunCommand runs an arbitrary command on a resource if it supports it.
+  rpc ResourceRunCommand(ResourceRunCommandRequest) returns (ResourceRunCommandResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/resource/{resource_name}/run_command"
+    };
+  }
+
+  rpc NavigationServiceMode(NavigationServiceModeRequest) returns (NavigationServiceModeResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/services/navigation/mode"
+    };
+  }
+
+  rpc NavigationServiceSetMode(NavigationServiceSetModeRequest) returns (NavigationServiceSetModeResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/services/navigation/mode"
+    };
+  }
+
+  rpc NavigationServiceLocation(NavigationServiceLocationRequest) returns (NavigationServiceLocationResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/services/navigation/location"
+    };
+  }
+
+  rpc NavigationServiceWaypoints(NavigationServiceWaypointsRequest) returns (NavigationServiceWaypointsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/services/navigation/waypoints"
+    };
+  }
+
+  rpc NavigationServiceAddWaypoint(NavigationServiceAddWaypointRequest) returns (NavigationServiceAddWaypointResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/services/navigation/waypoints"
+    };
+  }
 }
 
 message StatusRequest {}
@@ -452,6 +489,7 @@ message Status {
   map<string, bool> functions = 8;
   map<string, ServoStatus> servos = 9;
   map<string, MotorStatus> motors = 10;
+  map<string, bool> services = 11;
 }
 
 message ComponentConfig {
@@ -993,4 +1031,64 @@ message MotorIsOnRequest {
 
 message MotorIsOnResponse {
   bool is_on = 1;
+}
+
+message ResourceRunCommandRequest {
+  // Note(erd): okay in v1 because names are unique. v2 should be a VRN.
+  string resource_name = 1;
+  string command_name = 2;
+  google.protobuf.Struct args = 3;
+}
+
+message ResourceRunCommandResponse {
+  google.protobuf.Struct result = 1;
+}
+
+enum NavigationServiceMode {
+  NAVIGATION_SERVICE_MODE_UNSPECIFIED = 0;
+  NAVIGATION_SERVICE_MODE_MANUAL = 1;
+  NAVIGATION_SERVICE_MODE_WAYPOINT = 2;
+}
+
+message NavigationServiceModeRequest {
+
+}
+
+message NavigationServiceModeResponse {
+  NavigationServiceMode mode = 1;
+}
+
+message NavigationServiceSetModeRequest {
+  NavigationServiceMode mode = 1;
+}
+
+message NavigationServiceSetModeResponse {
+}
+
+message GeoPoint {
+  double latitude = 1;
+  double longitude = 2;
+}
+
+message NavigationServiceLocationRequest {
+
+}
+
+message NavigationServiceLocationResponse {
+  GeoPoint location = 1;
+}
+
+message NavigationServiceWaypointsRequest {
+
+}
+
+message NavigationServiceWaypointsResponse {
+  repeated GeoPoint waypoints = 1;
+}
+
+message NavigationServiceAddWaypointRequest {
+  GeoPoint waypoint = 1;
+}
+
+message NavigationServiceAddWaypointResponse {
 }

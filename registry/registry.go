@@ -51,6 +51,9 @@ type (
 
 	// A CreateMotor creates a motor from a given config.
 	CreateMotor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error)
+
+	// A CreateService creates a servoce from a given config.
+	CreateService func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error)
 )
 
 // Camera stores a Camera constructor (mandatory) and a Frame building function (optional)
@@ -107,6 +110,12 @@ type Motor struct {
 	Frame       CreateFrame
 }
 
+// Service stores a Service constructor (mandatory) and an attribute converter
+type Service struct {
+	Constructor           CreateService
+	AttributeMapConverter config.AttributeMapConverter
+}
+
 // all registries
 var (
 	cameraRegistry  = map[string]Camera{}
@@ -118,9 +127,10 @@ var (
 	boardRegistry   = map[string]Board{}
 	servoRegistry   = map[string]Servo{}
 	motorRegistry   = map[string]Motor{}
+	serviceRegistry = map[config.ServiceType]Service{}
 )
 
-// RegisterCamera register a camera model to a creator.
+// RegisterCamera registers a camera model to a creator.
 func RegisterCamera(model string, creator Camera) {
 	_, old := cameraRegistry[model]
 	if old {
@@ -132,7 +142,7 @@ func RegisterCamera(model string, creator Camera) {
 	cameraRegistry[model] = creator
 }
 
-// RegisterArm register an arm model to a creator.
+// RegisterArm registers an arm model to a creator.
 func RegisterArm(model string, creator Arm) {
 	_, old := armRegistry[model]
 	if old {
@@ -144,7 +154,7 @@ func RegisterArm(model string, creator Arm) {
 	armRegistry[model] = creator
 }
 
-// RegisterGripper register a gripper model to a creator.
+// RegisterGripper registers a gripper model to a creator.
 func RegisterGripper(model string, creator Gripper) {
 	_, old := gripperRegistry[model]
 	if old {
@@ -156,7 +166,7 @@ func RegisterGripper(model string, creator Gripper) {
 	gripperRegistry[model] = creator
 }
 
-// RegisterBase register a base model to a creator.
+// RegisterBase registers a base model to a creator.
 func RegisterBase(model string, creator Base) {
 	_, old := baseRegistry[model]
 	if old {
@@ -168,7 +178,7 @@ func RegisterBase(model string, creator Base) {
 	baseRegistry[model] = creator
 }
 
-// RegisterLidar register a lidar model to a creator.
+// RegisterLidar registers a lidar model to a creator.
 func RegisterLidar(model string, creator Lidar) {
 	_, old := lidarRegistry[model]
 	if old {
@@ -180,7 +190,7 @@ func RegisterLidar(model string, creator Lidar) {
 	lidarRegistry[model] = creator
 }
 
-// RegisterSensor register a sensor type and model to a creator.
+// RegisterSensor registers a sensor type and model to a creator.
 func RegisterSensor(sensorType sensor.Type, model string, creator Sensor) {
 	if _, ok := sensorRegistry[sensorType]; !ok {
 		sensorRegistry[sensorType] = make(map[string]Sensor)
@@ -195,7 +205,7 @@ func RegisterSensor(sensorType sensor.Type, model string, creator Sensor) {
 	sensorRegistry[sensorType][model] = creator
 }
 
-// RegisterBoard register a board model to a creator.
+// RegisterBoard registers a board model to a creator.
 func RegisterBoard(model string, creator Board) {
 	_, old := boardRegistry[model]
 	if old {
@@ -207,7 +217,7 @@ func RegisterBoard(model string, creator Board) {
 	boardRegistry[model] = creator
 }
 
-// RegisterServo register a servo model to a creator.
+// RegisterServo registers a servo model to a creator.
 func RegisterServo(model string, creator Servo) {
 	_, old := servoRegistry[model]
 	if old {
@@ -219,7 +229,7 @@ func RegisterServo(model string, creator Servo) {
 	servoRegistry[model] = creator
 }
 
-// RegisterMotor register a motor model to a creator.
+// RegisterMotor registers a motor model to a creator.
 func RegisterMotor(model string, creator Motor) {
 	_, old := motorRegistry[model]
 	if old {
@@ -229,6 +239,21 @@ func RegisterMotor(model string, creator Motor) {
 		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
 	}
 	motorRegistry[model] = creator
+}
+
+// RegisterService registers a service type to a registration.
+func RegisterService(typeName config.ServiceType, registration Service) {
+	_, old := serviceRegistry[typeName]
+	if old {
+		panic(errors.Errorf("trying to register two sevices with same type %s", typeName))
+	}
+	if registration.Constructor == nil {
+		panic(errors.Errorf("cannot register a nil constructor for service %s", typeName))
+	}
+	if registration.AttributeMapConverter != nil {
+		config.RegisterServiceAttributeMapConverter(typeName, registration.AttributeMapConverter)
+	}
+	serviceRegistry[typeName] = registration
 }
 
 // CameraLookup looks up a camera creator by the given model. nil is returned if
@@ -377,6 +402,15 @@ func ServoLookup(model string) *Servo {
 // there is no creator registered.
 func MotorLookup(model string) *Motor {
 	if registration, ok := motorRegistry[model]; ok {
+		return &registration
+	}
+	return nil
+}
+
+// ServiceLookup looks up a service registration by the given type. nil is returned if
+// there is no registration.
+func ServiceLookup(typeName config.ServiceType) *Service {
+	if registration, ok := serviceRegistry[typeName]; ok {
 		return &registration
 	}
 	return nil

@@ -36,6 +36,10 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	frames := fs.FrameNames()
 	test.That(t, len(frames), test.ShouldEqual, 3)
 
+	f1Parents, err := fs.TracebackFrame(f1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(f1Parents), test.ShouldEqual, 3)
+
 	// Pruning frame3 should also remove frame1
 	fs.RemoveFrame(fs.GetFrame("frame3"))
 	frames = fs.FrameNames()
@@ -44,6 +48,7 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	e1 := errors.New("parent frame is nil")
 	e2 := errors.New("parent frame with name \"foo\" not in frame system")
 	e3 := errors.New("frame with name \"frame2\" already in frame system")
+	e4 := errors.New("frame with name \"frame1\" not in frame system")
 	if sfs, ok := fs.(*simpleFrameSystem); ok {
 		err = sfs.checkName("foo", nil)
 		test.That(t, err.Error(), test.ShouldEqual, e1.Error())
@@ -55,6 +60,9 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 		err = sfs.checkName("frame2", fs.World())
 		test.That(t, err.Error(), test.ShouldEqual, e3.Error())
 	}
+
+	_, err = fs.TracebackFrame(f1)
+	test.That(t, err.Error(), test.ShouldEqual, e4.Error())
 }
 
 // A simple Frame translation from the world frame to a frame right above it at (0, 3, 0)

@@ -89,14 +89,14 @@ func parseOrientation(j json.RawMessage) (spatial.Orientation, error) {
 	// use the type to unmarshal the value
 	switch OrientationType(temp.Type) {
 	case OrientationVectorDegrees:
-		var o spatial.OrientationVecDegrees
+		var o spatial.OrientationVectorDegrees
 		err = json.Unmarshal(temp.Value, &o)
 		if err != nil {
 			return nil, err
 		}
 		return &o, nil
 	case OrientationVectorRadians:
-		var o spatial.OrientationVec
+		var o spatial.OrientationVector
 		err = json.Unmarshal(temp.Value, &o)
 		if err != nil {
 			return nil, err

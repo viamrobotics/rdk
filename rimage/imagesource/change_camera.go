@@ -23,7 +23,7 @@ func init() {
 		return newChangeCameraSystem(r, config)
 	}})
 
-	config.RegisterAttributeConverter(config.ComponentTypeCamera, "changeCameraSystem", "matrices", func(val interface{}) (interface{}, error) {
+	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "changeCameraSystem", "matrices", func(val interface{}) (interface{}, error) {
 		matrices := &transform.DepthColorIntrinsicsExtrinsics{}
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: matrices})
 		if err != nil {

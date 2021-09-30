@@ -16,8 +16,8 @@ func TestModelLoading(t *testing.T) {
 	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, m.OperationalDof(), test.ShouldEqual, 1)
-	test.That(t, len(m.Dof()), test.ShouldEqual, 6)
+	test.That(t, m.OperationalDoF(), test.ShouldEqual, 1)
+	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
 
 	isValid := m.AreJointPositionsValid([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
 	test.That(t, isValid, test.ShouldBeTrue)
@@ -44,13 +44,13 @@ func TestJoint(t *testing.T) {
 	pose, err := joints[0].Transform([]referenceframe.Input{{0}})
 	test.That(t, err, test.ShouldBeNil)
 	firstJov := pose.Orientation().OrientationVectorRadians()
-	firstJovExpect := &spatialmath.OrientationVec{Theta: 0, OX: 0, OY: 0, OZ: 1}
+	firstJovExpect := &spatialmath.OrientationVector{Theta: 0, OX: 0, OY: 0, OZ: 1}
 	test.That(t, firstJov, test.ShouldResemble, firstJovExpect)
 
 	pose, err = joints[0].Transform([]referenceframe.Input{{1.5708}})
 	test.That(t, err, test.ShouldBeNil)
 	firstJov = pose.Orientation().OrientationVectorRadians()
-	firstJovExpect = &spatialmath.OrientationVec{Theta: 1.5708, OX: 0, OY: 0, OZ: 1}
+	firstJovExpect = &spatialmath.OrientationVector{Theta: 1.5708, OX: 0, OY: 0, OZ: 1}
 	test.That(t, firstJov.Theta, test.ShouldAlmostEqual, firstJovExpect.Theta)
 	test.That(t, firstJov.OX, test.ShouldAlmostEqual, firstJovExpect.OX)
 	test.That(t, firstJov.OY, test.ShouldAlmostEqual, firstJovExpect.OY)
