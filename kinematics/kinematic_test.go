@@ -1,7 +1,6 @@
 package kinematics
 
 import (
-	"context"
 	"math"
 	"testing"
 
@@ -10,7 +9,6 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/quat"
