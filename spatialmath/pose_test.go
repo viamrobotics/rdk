@@ -77,3 +77,22 @@ func TestDualQuatTransform(t *testing.T) {
 	test.That(t, transformedPoint.Y, test.ShouldAlmostEqual, expectedPoint.Y)
 	test.That(t, transformedPoint.Z, test.ShouldAlmostEqual, expectedPoint.Z)
 }
+
+func TestPoseInterpolation(t *testing.T) {
+	p1 := NewPoseFromPoint(r3.Vector{1, 2, 3})
+	p2 := NewPoseFromPoint(r3.Vector{3, 6, 9})
+	intP := Interpolate(p1, p2, 0.5)
+	ptCompare(t, intP.Point(), r3.Vector{2, 4, 6})
+
+	p1 = NewPoseFromPoint(r3.Vector{0, 0, 0})
+	p2 = NewPoseFromPoint(r3.Vector{10, 100, 1000})
+	intP = Interpolate(p1, p2, 0.33)
+	ptCompare(t, intP.Point(), r3.Vector{3.3, 33, 330})
+
+	ov := &OrientationVec{math.Pi / 2, 0, 0, -1}
+	ov.Normalize()
+	p1 = NewPoseFromOrientationVector(r3.Vector{100, 100, 200}, ov)
+	p2 = NewPoseFromOrientationVector(r3.Vector{100, 200, 200}, ov)
+	intP = Interpolate(p1, p2, 0.1)
+	ptCompare(t, intP.Point(), r3.Vector{100, 110, 200})
+}

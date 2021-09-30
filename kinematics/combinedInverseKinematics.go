@@ -9,8 +9,8 @@ import (
 	"go.viam.com/utils"
 
 	pb "go.viam.com/core/proto/api/v1"
-	frame "go.viam.com/core/referenceframe"
-	spatial "go.viam.com/core/spatialmath"
+	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/spatialmath"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
@@ -19,20 +19,20 @@ import (
 // CombinedIK defines the fields necessary to run a combined solver.
 type CombinedIK struct {
 	solvers []InverseKinematics
-	model   frame.Frame
+	model   referenceframe.Frame
 	logger  golog.Logger
 }
 
 // ReturnTest is the struct used to communicate over a channel with the child parallel solvers.
 type ReturnTest struct {
 	Err    error
-	Result []frame.Input
+	Result []referenceframe.Input
 }
 
 // CreateCombinedIKSolver creates a combined parallel IK solver with a number of nlopt solvers equal to the nCPU
 // passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
 // and the first valid found solution will be returned.
-func CreateCombinedIKSolver(model frame.Frame, logger golog.Logger, nCPU int) *CombinedIK {
+func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCPU int) *CombinedIK {
 	ik := &CombinedIK{}
 	ik.model = model
 	for i := 1; i <= nCPU; i++ {
@@ -44,7 +44,7 @@ func CreateCombinedIKSolver(model frame.Frame, logger golog.Logger, nCPU int) *C
 	return ik
 }
 
-func runSolver(ctx context.Context, solver InverseKinematics, c chan ReturnTest, noMoreSolutions <-chan struct{}, pos *pb.ArmPosition, seed []frame.Input) {
+func runSolver(ctx context.Context, solver InverseKinematics, c chan ReturnTest, noMoreSolutions <-chan struct{}, pos *pb.ArmPosition, seed []referenceframe.Input) {
 	result, err := solver.Solve(ctx, pos, seed)
 	select {
 	case c <- ReturnTest{err, result}:
@@ -54,14 +54,14 @@ func runSolver(ctx context.Context, solver InverseKinematics, c chan ReturnTest,
 
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
 // positions. If unable to solve, the returned error will be non-nil
-func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed []frame.Input) ([]frame.Input, error) {
+func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed []referenceframe.Input) ([]referenceframe.Input, error) {
 	ik.logger.Debugf("starting joint positions: %v", seed)
 	startPos, err := ik.model.Transform(seed)
-	ik.logger.Debugf("starting 6d position: %v %v", spatial.PoseToArmPos(startPos), err)
+	ik.logger.Debugf("starting 6d position: %v %v", spatialmath.PoseToArmPos(startPos), err)
 	ik.logger.Debugf("goal 6d position: %v", pos)
 
 	// This will adjust the goal position to make movements more intuitive when using incrementation near poles
-	pos = fixOvIncrement(pos, spatial.PoseToArmPos(startPos))
+	pos = fixOvIncrement(pos, spatialmath.PoseToArmPos(startPos))
 	ik.logger.Debugf("postfix goal 6d position: %v", pos)
 	c := make(chan ReturnTest)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
@@ -78,9 +78,9 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed []fra
 	}
 
 	returned := 0
-	myRT := ReturnTest{errors.New("could not solve for position"), []frame.Input{}}
+	myRT := ReturnTest{errors.New("could not solve for position"), []referenceframe.Input{}}
 
-	var solutions [][]frame.Input
+	var solutions [][]referenceframe.Input
 
 	found := false
 
@@ -95,7 +95,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed []fra
 			if err == nil {
 				if dist < goodSwingAmt {
 					found = true
-					solutions = [][]frame.Input{myRT.Result}
+					solutions = [][]referenceframe.Input{myRT.Result}
 				} else {
 					solutions = append(solutions, myRT.Result)
 				}
@@ -115,7 +115,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed []fra
 }
 
 // Model returns the associated model
-func (ik *CombinedIK) Model() frame.Frame {
+func (ik *CombinedIK) Model() referenceframe.Frame {
 	return ik.model
 }
 
@@ -123,8 +123,7 @@ func (ik *CombinedIK) Model() frame.Frame {
 func (ik *CombinedIK) Close() error {
 	var err error
 	for _, solver := range ik.solvers {
-		closeErr := solver.Close()
-		err = multierr.Combine(err, closeErr)
+		err = multierr.Combine(err, solver.Close())
 	}
 	return err
 }
