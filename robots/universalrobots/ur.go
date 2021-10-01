@@ -23,6 +23,8 @@ import (
 	"go.viam.com/core/referenceframe"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
+	"go.viam.com/core/resource"
+	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/utils"
 
@@ -37,8 +39,8 @@ var ur5modeljson []byte
 var ur5DHmodeljson []byte
 
 func init() {
-	registry.RegisterArm("ur", registry.Arm{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+	registry.RegisterComponentCreator(arm.ResourceSubtype, "ur", registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (resource.Resource, error) {
 			return URArmConnect(ctx, config.Host, config.Attributes.Float64("speed", .1), logger)
 		},
 		Frame: func(name string) (referenceframe.Frame, error) { return ur5eFrame(name) },
@@ -62,7 +64,8 @@ func ur5eFrame(name string) (referenceframe.Frame, error) {
 
 // URArm TODO
 type URArm struct {
-	mu                      *sync.Mutex
+	mu                      sync.RWMutex
+	runtimeLock             *sync.Mutex
 	conn                    net.Conn
 	speed                   float64
 	state                   RobotState
@@ -79,6 +82,12 @@ const waitBackgroundWorkersDur = 5 * time.Second
 
 // Close TODO
 func (ua *URArm) Close() error {
+	ua.mu.RLock()
+	defer ua.mu.RUnlock()
+	return ua.close()
+}
+
+func (ua *URArm) close() error {
 	ua.cancel()
 
 	closeConn := func() {
@@ -125,7 +134,8 @@ func URArmConnect(ctx context.Context, host string, speed float64, logger golog.
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	arm := &URArm{
-		mu:                      &sync.Mutex{},
+		mu:                      sync.RWMutex{},
+		runtimeLock:             &sync.Mutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		conn:                    conn,
 		speed:                   speed,
@@ -163,34 +173,36 @@ func URArmConnect(ctx context.Context, host string, speed float64, logger golog.
 }
 
 func (ua *URArm) setRuntimeError(re error) {
-	ua.mu.Lock()
+	ua.runtimeLock.Lock()
 	ua.runtimeError = re
-	ua.mu.Unlock()
+	ua.runtimeLock.Unlock()
 }
 
 func (ua *URArm) getAndResetRuntimeError() error {
-	ua.mu.Lock()
-	defer ua.mu.Unlock()
+	ua.runtimeLock.Lock()
+	defer ua.runtimeLock.Unlock()
 	re := ua.runtimeError
 	ua.runtimeError = nil
 	return re
 }
 
 func (ua *URArm) setState(state RobotState) {
-	ua.mu.Lock()
+	ua.runtimeLock.Lock()
 	ua.state = state
-	ua.mu.Unlock()
+	ua.runtimeLock.Unlock()
 }
 
 // State TODO
 func (ua *URArm) State() RobotState {
-	ua.mu.Lock()
-	defer ua.mu.Unlock()
+	ua.runtimeLock.Lock()
+	defer ua.runtimeLock.Unlock()
 	return ua.state
 }
 
 // CurrentJointPositions TODO
 func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+	ua.mu.RLock()
+	defer ua.mu.RUnlock()
 	radians := []float64{}
 	state := ua.State()
 	for _, j := range state.Joints {
@@ -201,6 +213,8 @@ func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions,
 
 // CurrentPosition computes and returns the current cartesian position.
 func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+	ua.mu.RLock()
+	defer ua.mu.RUnlock()
 	joints, err := ua.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -210,6 +224,8 @@ func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+	ua.mu.RLock()
+	defer ua.mu.RUnlock()
 	joints, err := ua.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -223,6 +239,8 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error 
 
 // JointMoveDelta TODO
 func (ua *URArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
+	ua.mu.RLock()
+	defer ua.mu.RUnlock()
 	if joint < 0 || joint > 5 {
 		return errors.New("invalid joint")
 	}
@@ -240,11 +258,15 @@ func (ua *URArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 
 // MoveToJointPositions TODO
 func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
+	ua.mu.RLock()
+	defer ua.mu.RUnlock()
 	return ua.MoveToJointPositionRadians(ctx, arm.JointPositionsToRadians(joints))
 }
 
 // MoveToJointPositionRadians TODO
 func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float64) error {
+	ua.mu.RLock()
+	defer ua.mu.RUnlock()
 	if len(radians) != 6 {
 		return errors.New("need 6 joints")
 	}
@@ -317,9 +339,30 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 // AddToLog TODO
 func (ua *URArm) AddToLog(msg string) error {
 	// TODO(erh): check for " in msg
+	ua.mu.RLock()
+	defer ua.mu.RUnlock()
 	cmd := fmt.Sprintf("textmsg(\"%s\")\r\n", msg)
 	_, err := ua.conn.Write([]byte(cmd))
 	return err
+}
+
+// Reconfigure reconfigures the current resource to the resource passed in.
+func (ua *URArm) Reconfigure(newResource resource.Resource) {
+	ua.mu.Lock()
+	defer ua.mu.Unlock()
+	actual, ok := newResource.(*URArm)
+	if !ok {
+		panic(fmt.Errorf("expected new resource to be %T but got %T", actual, newResource))
+	}
+	if err := ua.close(); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	ua.conn = actual.conn
+	ua.speed = actual.speed
+	ua.debug = actual.debug
+	ua.haveData = actual.haveData
+	ua.cancel = actual.cancel
+	ua.ik = actual.ik
 }
 
 func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) error {
