@@ -17,4 +17,9 @@ const (
 type GPS interface {
 	sensor.Sensor
 	Location(ctx context.Context) (lat float64, long float64, err error)
+	Altitude(ctx context.Context) (alt float64, err error)
+	Speed(ctx context.Context) (kph float64, err error)
+	Satellites(ctx context.Context) (active, total int, err error)
+	Accuracy(ctx context.Context) (horizontal, vertical float64, err error)
+	Valid(ctx context.Context) (valid bool, err error)
 }
