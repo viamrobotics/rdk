@@ -20,6 +20,67 @@ func TestComponentValidate(t *testing.T) {
 	test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
 }
 
+func TestComponentStrings(t *testing.T) {
+	for _, tc := range []struct {
+		Name             string
+		Config           Component
+		ExpectedSubtype  string
+		ExpectedFullName string
+	}{
+		{
+			"all fields included",
+			Component{
+				Type: "arm",
+				Name: "foo",
+			},
+			"core:component:arm",
+			"core:component:arm/foo",
+		},
+		{
+			"missing subtype",
+			Component{
+				Name: "foo",
+			},
+			"core:component:",
+			"core:component:/foo",
+		},
+		{
+			"sensor with no subtype",
+			Component{
+				Type: "sensor",
+				Name: "foo",
+			},
+			"core:component:",
+			"core:component:/foo",
+		},
+		{
+			"sensor with subtype",
+			Component{
+				Type:    "sensor",
+				SubType: "compass",
+				Name:    "foo",
+			},
+			"core:component:compass",
+			"core:component:compass/foo",
+		},
+		{
+			"sensor missing name",
+			Component{
+				Type:    "sensor",
+				SubType: "compass",
+				Name:    "",
+			},
+			"core:component:compass",
+			"core:component:compass",
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			test.That(t, tc.Config.ResourceSubtype(), test.ShouldEqual, tc.ExpectedSubtype)
+			test.That(t, tc.Config.FullyQualifiedName(), test.ShouldEqual, tc.ExpectedFullName)
+		})
+	}
+}
+
 func TestComponentFlag(t *testing.T) {
 	type MyStruct struct {
 		Comp  Component `flag:"comp"`
