@@ -10,6 +10,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	functionvm "go.viam.com/core/function/vm"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/testutils/inject"
 
@@ -34,10 +35,11 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2"))
 	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2"))
 	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2"))
+	test.That(t, utils.NewStringSet(parts.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm1", "core:component:arm/arm2"))
 
 	arm1, ok := parts.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).Name, test.ShouldEqual, "arm1")
+	test.That(t, arm1.(resource.Resource).(*fake.Arm).Name, test.ShouldEqual, "arm1")
 	_, ok = parts.ArmByName("arm1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 	base1, ok := parts.BaseByName("base1")
@@ -104,13 +106,13 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 
 	arm1, ok := parts.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).Name, test.ShouldEqual, "arm1")
+	test.That(t, arm1.(resource.Resource).(*fake.Arm).Name, test.ShouldEqual, "arm1")
 	arm1, ok = parts.ArmByName("arm1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).Name, test.ShouldEqual, "arm1_r1")
+	test.That(t, arm1.(resource.Resource).(*fake.Arm).Name, test.ShouldEqual, "arm1_r1")
 	arm1, ok = parts.ArmByName("arm1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).Name, test.ShouldEqual, "arm1_r2")
+	test.That(t, arm1.(resource.Resource).(*fake.Arm).Name, test.ShouldEqual, "arm1_r2")
 	_, ok = parts.ArmByName("arm1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -228,8 +230,6 @@ func TestPartsClone(t *testing.T) {
 	// remove and delete parts to prove clone
 	delete(parts.remotes, "remote1")
 	parts.remotes = nil
-	delete(parts.arms, "arm1")
-	parts.arms = nil
 	delete(parts.grippers, "gripper1")
 	parts.grippers = nil
 	delete(parts.cameras, "camera1")
@@ -248,6 +248,8 @@ func TestPartsClone(t *testing.T) {
 	parts.motors = nil
 	delete(parts.functions, "func1")
 	parts.functions = nil
+	delete(parts.resources, "core:component:arm/arm1")
+	parts.resources = nil
 	_, ok := parts.processManager.RemoveProcessByID("1")
 	test.That(t, ok, test.ShouldBeTrue)
 	parts.processManager.Stop()
@@ -267,13 +269,13 @@ func TestPartsClone(t *testing.T) {
 
 	arm1, ok := newParts.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).Name, test.ShouldEqual, "arm1")
+	test.That(t, arm1.(resource.Resource).(*fake.Arm).Name, test.ShouldEqual, "arm1")
 	arm1, ok = newParts.ArmByName("arm1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).Name, test.ShouldEqual, "arm1_r1")
+	test.That(t, arm1.(resource.Resource).(*fake.Arm).Name, test.ShouldEqual, "arm1_r1")
 	arm1, ok = newParts.ArmByName("arm1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).Name, test.ShouldEqual, "arm1_r2")
+	test.That(t, arm1.(resource.Resource).(*fake.Arm).Name, test.ShouldEqual, "arm1_r2")
 	_, ok = newParts.ArmByName("arm1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -420,14 +422,6 @@ func TestPartsAdd(t *testing.T) {
 	parts.AddBoard(board1, config.Component{Name: "board1"})
 	test.That(t, board1.(*proxyBoard).actual, test.ShouldEqual, injectBoard)
 
-	injectArm := &inject.Arm{}
-	parts.AddArm(injectArm, config.Component{Name: "arm1"})
-	arm1, ok := parts.ArmByName("arm1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, arm1.(*proxyArm).actual, test.ShouldEqual, injectArm)
-	parts.AddArm(arm1, config.Component{Name: "arm1"})
-	test.That(t, arm1.(*proxyArm).actual, test.ShouldEqual, injectArm)
-
 	injectGripper := &inject.Gripper{}
 	parts.AddGripper(injectGripper, config.Component{Name: "gripper1"})
 	gripper1, ok := parts.GripperByName("gripper1")
@@ -499,6 +493,15 @@ func TestPartsAdd(t *testing.T) {
 	test.That(t, motor1.(*proxyMotor).actual, test.ShouldEqual, injectMotor)
 	parts.AddMotor(motor1, config.Component{Name: "motor1"})
 	test.That(t, motor1.(*proxyMotor).actual, test.ShouldEqual, injectMotor)
+
+	injectArm := &inject.Arm{}
+	cfg := &config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
+	parts.addResource(cfg.FullyQualifiedName(), injectArm)
+	arm1, ok := parts.ArmByName("arm1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, arm1.(resource.Resource), test.ShouldEqual, injectArm)
+	parts.addResource(cfg.FullyQualifiedName(), arm1)
+	test.That(t, arm1.(resource.Resource), test.ShouldEqual, injectArm)
 }
 
 func TestPartsMergeAdd(t *testing.T) {
@@ -690,7 +693,6 @@ func TestPartsMergeModify(t *testing.T) {
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	robotForRemote.parts.AddBoard(fakeBoardRemote, config.Component{Name: "board2_r1"})
-	robotForRemote.parts.AddArm(&inject.Arm{}, config.Component{Name: "arm2_r1"})
 	robotForRemote.parts.AddGripper(&inject.Gripper{}, config.Component{Name: "gripper2_r1"})
 	robotForRemote.parts.AddLidar(&inject.Lidar{}, config.Component{Name: "lidar2_r1"})
 	robotForRemote.parts.AddCamera(&inject.Camera{}, config.Component{Name: "camera2_r1"})
@@ -699,6 +701,8 @@ func TestPartsMergeModify(t *testing.T) {
 	robotForRemote.parts.AddServo(&inject.Servo{}, config.Component{Name: "servo2_r1"})
 	robotForRemote.parts.AddMotor(&inject.Motor{}, config.Component{Name: "motor2_r1"})
 	robotForRemote.parts.addFunction("func2_r1")
+	cfg := config.Component{Type: config.ComponentTypeArm, Name: "arm2_r1"}
+	robotForRemote.parts.addResource(cfg.FullyQualifiedName(), &inject.Arm{})
 
 	remote1Replacemenet := newRemoteRobot(robotForRemote, config.Remote{Name: "remote1"})
 	replacementParts.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
@@ -716,8 +720,6 @@ func TestPartsMergeModify(t *testing.T) {
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	replacementParts.AddBoard(fakeBoard, config.Component{Name: "board1"})
-	injectArm := &inject.Arm{}
-	replacementParts.AddArm(injectArm, config.Component{Name: "arm1"})
 	injectGripper := &inject.Gripper{}
 	replacementParts.AddGripper(injectGripper, config.Component{Name: "gripper1"})
 	injectLidar := &inject.Lidar{}
@@ -732,6 +734,9 @@ func TestPartsMergeModify(t *testing.T) {
 	replacementParts.AddServo(injectServo, config.Component{Name: "servo1"})
 	injectMotor := &inject.Motor{}
 	replacementParts.AddMotor(injectMotor, config.Component{Name: "motor1"})
+	cfg = config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
+	injectArm := &inject.Arm{}
+	replacementParts.addResource(cfg.FullyQualifiedName(), injectArm)
 	fp1 := &fakeProcess{id: "1"}
 	_, err = replacementParts.processManager.AddProcess(context.Background(), fp1, false)
 	test.That(t, err, test.ShouldBeNil)

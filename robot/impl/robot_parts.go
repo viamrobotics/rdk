@@ -214,16 +214,11 @@ func (parts *robotParts) mergeNamesWithRemotes(names []string, namesFunc func(re
 func (parts *robotParts) ArmNames() []string {
 	names := []string{}
 	for _, n := range parts.ResourceNames() {
-		armSubtype := resource.Name{
-			Namespace: resource.ResourceNamespaceCore,
-			Type:      resource.ResourceTypeComponent,
-			Subtype:   resource.ResourceSubtypeArm,
-		}
 		rName, err := resource.NewFromString(n)
 		if err != nil {
 			continue
 		}
-		if rName.ResourceSubtype() == armSubtype.ResourceSubtype() {
+		if rName.ResourceSubtype() == arm.ResourceSubtype {
 			names = append(names, rName.Name)
 		}
 	}
