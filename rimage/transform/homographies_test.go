@@ -4,15 +4,17 @@ import (
 	"math"
 	"testing"
 
+	"go.viam.com/test"
+
 	"github.com/golang/geo/r2"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
 
-
-	"go.viam.com/core/utils"
 	"go.viam.com/core/utils"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
+)
+
 func Single(dim int, x []float64) [][]float64 {
 	dims := make([]int, dim)
 	for i := range dims {
