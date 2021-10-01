@@ -10,7 +10,8 @@ import (
 	"go.viam.com/core/utils"
 )
 
-var ResourceSubtype = "core:component:arm"
+// ResourceSubtype is a constant that identifies the component resource subtype
+const ResourceSubtype = "core:component:arm"
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {
