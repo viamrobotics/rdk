@@ -27,6 +27,8 @@ import (
 	"go.viam.com/core/referenceframe"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
+	"go.viam.com/core/resource"
+	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
@@ -36,8 +38,8 @@ import (
 var evamodeljson []byte
 
 func init() {
-	registry.RegisterArm("eva", registry.Arm{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+	registry.RegisterComponentCreator(arm.ResourceSubtype, "eva", registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (resource.Resource, error) {
 			return NewEva(ctx, config.Host, config.Attributes, logger)
 		},
 		Frame: func(name string) (referenceframe.Frame, error) { return evaFrame(name) },
@@ -71,6 +73,7 @@ type evaData struct {
 }
 
 type eva struct {
+	mu           sync.RWMutex
 	host         string
 	version      string
 	token        string
@@ -82,6 +85,8 @@ type eva struct {
 }
 
 func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	data, err := e.DataSnapshot(ctx)
 	if err != nil {
 		return &pb.JointPositions{}, err
@@ -91,6 +96,8 @@ func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, er
 
 // CurrentPosition computes and returns the current cartesian position.
 func (e *eva) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	joints, err := e.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -100,6 +107,8 @@ func (e *eva) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (e *eva) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	joints, err := e.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -112,6 +121,8 @@ func (e *eva) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	radians := arm.JointPositionsToRadians(newPositions)
 
 	err := e.doMoveJoints(ctx, radians)
@@ -145,6 +156,8 @@ func (e *eva) doMoveJoints(ctx context.Context, joints []float64) error {
 }
 
 func (e *eva) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	return errors.New("not done yet")
 }
 
@@ -311,6 +324,25 @@ func (e *eva) apiUnlock(ctx context.Context) {
 	if err != nil {
 		e.logger.Debugf("eva unlock failed: %s", err)
 	}
+}
+
+// Reconfigure reconfigures the current resource to the resource passed in.
+func (e *eva) Reconfigure(newResource resource.Resource) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	actual, ok := newResource.(*eva)
+	if !ok {
+		panic(fmt.Errorf("expected new resource to be %T but got %T", actual, newResource))
+	}
+	if err := utils.TryClose(e); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	e.host = actual.host
+	e.version = actual.version
+	e.token = actual.token
+	e.sessionToken = actual.sessionToken
+	e.moveLock = actual.moveLock
+	e.ik = actual.ik
 }
 
 // EvaModel() returns the kinematics model of the Eva, also has all Frame information.

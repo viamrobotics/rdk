@@ -11,6 +11,7 @@ import (
 	"go.viam.com/core/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
+	"go.viam.com/core/resource"
 
 	"go.viam.com/core/referenceframe"
 
@@ -21,6 +22,7 @@ import (
 )
 
 type xArm struct {
+	mu       sync.RWMutex
 	dof      int
 	tid      uint16
 	conn     net.Conn
@@ -37,14 +39,14 @@ var xArm6modeljson []byte
 var xArm7modeljson []byte
 
 func init() {
-	registry.RegisterArm("xArm6", registry.Arm{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+	registry.RegisterComponentCreator(arm.ResourceSubtype, "xArm6", registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (resource.Resource, error) {
 			return NewxArm(ctx, config.Host, logger, 6)
 		},
 		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name, 6) },
 	})
-	registry.RegisterArm("xArm7", registry.Arm{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+	registry.RegisterComponentCreator(arm.ResourceSubtype, "xArm7", registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (resource.Resource, error) {
 			return NewxArm(ctx, config.Host, logger, 7)
 		},
 		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name, 7) },
@@ -87,7 +89,7 @@ func NewxArm(ctx context.Context, host string, logger golog.Logger, dof int) (ar
 	mutex := &sync.Mutex{}
 	// Start with default speed/acceleration parameters
 	// TODO(pl): add settable speed
-	xA := xArm{dof, 0, conn, 0.35, 8.7, mutex, ik}
+	xA := xArm{dof: dof, tid: 0, conn: conn, speed: 0.35, accel: 8.7, moveLock: mutex, ik: ik}
 
 	err = xA.start()
 	if err != nil {

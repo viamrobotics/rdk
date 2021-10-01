@@ -6,11 +6,16 @@ import (
 	"math"
 
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/utils"
 )
 
+var ResourceSubtype = "core:component:arm"
+
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {
+	resource.Resource
+
 	// CurrentPosition returns the current position of the arm.
 	CurrentPosition(ctx context.Context) (*pb.ArmPosition, error)
 
