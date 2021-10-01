@@ -51,6 +51,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm1"))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 		test.That(t, robot.Reconfigure(ctx, conf1), test.ShouldBeNil)
@@ -64,11 +65,12 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm1"))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 		arm1, ok := robot.ArmByName("arm1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).CloseCount, test.ShouldEqual, 0)
+		test.That(t, arm1.(resource.Resource).(*fake.Arm).CloseCount, test.ShouldEqual, 0)
 
 		base1, ok := robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -115,6 +117,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldBeEmpty)
 
 		test.That(t, robot.Reconfigure(ctx, conf1), test.ShouldBeNil)
@@ -128,11 +131,12 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm1"))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 		arm1, ok := robot.ArmByName("arm1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).CloseCount, test.ShouldEqual, 0)
+		test.That(t, arm1.(resource.Resource).(*fake.Arm).CloseCount, test.ShouldEqual, 0)
 
 		base1, ok := robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -172,6 +176,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm1"))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 		test.That(t, robot.Reconfigure(context.Background(), conf4), test.ShouldBeNil)
@@ -185,11 +190,12 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm1"))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 		arm1, ok := robot.ArmByName("arm1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).CloseCount, test.ShouldEqual, 0)
+		test.That(t, arm1.(resource.Resource).(*fake.Arm).CloseCount, test.ShouldEqual, 0)
 
 		base1, ok := robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -233,11 +239,12 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm1"))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 		arm1, ok := robot.ArmByName("arm1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).CloseCount, test.ShouldEqual, 0)
+		test.That(t, arm1.(resource.Resource).(*fake.Arm).CloseCount, test.ShouldEqual, 0)
 
 		base1, ok := robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -258,11 +265,12 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldBeEmpty)
 
 		_, ok = robot.ArmByName("arm1")
 		test.That(t, ok, test.ShouldBeFalse)
-		test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).CloseCount, test.ShouldEqual, 1)
+		test.That(t, arm1.(resource.Resource).(*fake.Arm).CloseCount, test.ShouldEqual, 1)
 
 		_, ok = robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeFalse)
@@ -293,12 +301,13 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm1"))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 		arm1, ok := robot.ArmByName("arm1")
 		test.That(t, ok, test.ShouldBeTrue)
-		arm1Proxy := arm1.(*proxyArm)
-		arm1Actual := arm1Proxy.actual.(*fake.Arm)
+		arm1Resource := arm1.(resource.Resource)
+		arm1Actual := arm1Resource.(*fake.Arm)
 		test.That(t, arm1Actual.CloseCount, test.ShouldEqual, 0)
 
 		base1, ok := robot.BaseByName("base1")
@@ -330,6 +339,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm1"))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 		test.That(t, arm1Actual.CloseCount, test.ShouldEqual, 1)
@@ -339,7 +349,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		newArm1, ok := robot.ArmByName("arm1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, newArm1, test.ShouldEqual, arm1Proxy)
+		test.That(t, newArm1, test.ShouldEqual, arm1Resource)
 
 		newBase1, ok := robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -382,12 +392,13 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm1"))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 		arm1, ok := robot.ArmByName("arm1")
 		test.That(t, ok, test.ShouldBeTrue)
-		arm1Proxy := arm1.(*proxyArm)
-		arm1Actual := arm1Proxy.actual.(*fake.Arm)
+		arm1Resource := arm1.(resource.Resource)
+		arm1Actual := arm1Resource.(*fake.Arm)
 		test.That(t, arm1Actual.CloseCount, test.ShouldEqual, 0)
 
 		base1, ok := robot.BaseByName("base1")
@@ -413,6 +424,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm1"))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "3"))
 
 		test.That(t, arm1Actual.CloseCount, test.ShouldEqual, 1)
@@ -421,7 +433,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		newArm1, ok := robot.ArmByName("arm1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, newArm1, test.ShouldEqual, arm1Proxy)
+		test.That(t, newArm1, test.ShouldEqual, arm1Resource)
 
 		_, ok = robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeFalse)
@@ -467,11 +479,12 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm1"))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 		arm1, ok := robot.ArmByName("arm1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).CloseCount, test.ShouldEqual, 0)
+		test.That(t, arm1.(resource.Resource).(*fake.Arm).CloseCount, test.ShouldEqual, 0)
 
 		base1, ok := robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -496,9 +509,10 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm1"))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
-		test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).CloseCount, test.ShouldEqual, 0)
+		test.That(t, arm1.(resource.Resource).(*fake.Arm).CloseCount, test.ShouldEqual, 0)
 		test.That(t, base1.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 0)
 		test.That(t, board1.(*proxyBoard).actual.(*fake.Board).CloseCount, test.ShouldEqual, 0)
 

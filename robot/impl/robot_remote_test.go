@@ -19,6 +19,7 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/sensor"
@@ -67,6 +68,9 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 	}
 	injectRobot.ServiceNamesFunc = func() []string {
 		return []string{fmt.Sprintf("service1%s", suffix), fmt.Sprintf("service2%s", suffix)}
+	}
+	injectRobot.ResourceNamesFunc = func() []string {
+		return []string{fmt.Sprintf("core:component:arm/arm1%s", suffix), fmt.Sprintf("core:component:arm/arm2%s", suffix)}
 	}
 	injectRobot.LoggerFunc = func() golog.Logger {
 		return logger
@@ -153,6 +157,17 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 			return nil, false
 		}
 		return struct{}{}, true
+	}
+	injectRobot.ResourceByNameFunc = func(name string) (resource.Resource, bool) {
+		if _, ok := utils.NewStringSet(injectRobot.ResourceNames()...)[name]; !ok {
+			return nil, false
+		}
+		// TODO: some kind of mapping based on resource name may be needed
+		rName, err := resource.NewFromString(name)
+		if err != nil {
+			return nil, false
+		}
+		return &fake.Arm{Name: rName.Name}, true
 	}
 
 	return injectRobot
@@ -364,11 +379,11 @@ func TestRemoteRobot(t *testing.T) {
 	robot.conf.Prefix = false
 	arm1, ok := robot.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).Name, test.ShouldEqual, "arm1")
+	test.That(t, arm1.(resource.Resource).(*fake.Arm).Name, test.ShouldEqual, "arm1")
 	robot.conf.Prefix = true
 	arm1, ok = robot.ArmByName("one.arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).Name, test.ShouldEqual, "arm1")
+	test.That(t, arm1.(resource.Resource).(*fake.Arm).Name, test.ShouldEqual, "arm1")
 	_, ok = robot.ArmByName("arm1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 

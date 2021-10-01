@@ -118,7 +118,7 @@ func (rr *remoteRobot) prefixResourceName(name string) string {
 		return name
 	}
 	split := strings.Split(name, "/")
-	split[len(split)] = rr.prefixName(split[len(split)])
+	split[len(split)-1] = rr.prefixName(split[len(split)-1])
 	return strings.Join(split, "/")
 
 }
@@ -126,7 +126,7 @@ func (rr *remoteRobot) prefixResourceName(name string) string {
 func (rr *remoteRobot) unprefixResourceName(name string) string {
 	if rr.conf.Prefix {
 		split := strings.Split(name, "/")
-		split[len(split)] = rr.unprefixName(split[len(split)])
+		split[len(split)-1] = rr.unprefixName(split[len(split)-1])
 		return strings.Join(split, "/")
 	}
 	return name
