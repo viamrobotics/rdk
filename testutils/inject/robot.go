@@ -148,6 +148,14 @@ func (r *Robot) ServiceByName(name string) (interface{}, bool) {
 	return r.ServiceByNameFunc(name)
 }
 
+// ResourceByName calls the injected ResourceByName or the real version.
+func (r *Robot) ResourceByName(name string) (resource.Resource, bool) {
+	if r.ResourceByNameFunc == nil {
+		return r.Robot.ResourceByName(name)
+	}
+	return r.ResourceByNameFunc(name)
+}
+
 // RemoteNames calls the injected RemoteNames or the real version.
 func (r *Robot) RemoteNames() []string {
 	if r.RemoteNamesFunc == nil {
@@ -242,14 +250,6 @@ func (r *Robot) ServiceNames() []string {
 		return r.Robot.ServiceNames()
 	}
 	return r.ServiceNamesFunc()
-}
-
-// ResourceByName calls the injected ResourceByName or the real version.
-func (r *Robot) ResourceByName(name string) (resource.Resource, bool) {
-	if r.ResourceNamesFunc == nil {
-		return r.Robot.ResourceByName(name)
-	}
-	return r.ResourceByName(name)
 }
 
 // ResourceNames calls the injected ResourceNames or the real version.
