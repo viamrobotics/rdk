@@ -1,6 +1,7 @@
 package chessboard
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r2"
@@ -16,7 +17,10 @@ type ChessGreedyConfiguration struct {
 	MaxPointsNeeded                int     `json:"max_points_needed"` // if number of valid points above this, greedy iterations can be stopped
 }
 
-var quadI = []r2.Point{{0, 1}, {1, 1}, {1, 0}, {0, 0}}
+var (
+	quadCW = []r2.Point{{0, 1}, {1, 1}, {1, 0}, {0, 0}}
+	quadI  = []r2.Point{{0, 0}, {1, 0}, {1, 1}, {0, 1}}
+)
 
 // Single generates an n-dimensional Grid using a single set of values.
 // dim specifies the number of dimensions, the entries in x specify the gridded values.
@@ -48,7 +52,7 @@ func size(dims []int) int {
 }
 
 // SubFor constructs the multi-dimensional subscript for the input linear index.
-// Dims specifies the maximum size in each dimension. SubFor is the converse of
+// dims specifies the maximum size in each dimension. SubFor is the converse of
 // IdxFor.
 //
 // If sub is non-nil the result is stored in-place into sub. If it is nil a new
@@ -125,8 +129,11 @@ func getInitialChessGrid(quad []r2.Point) ([]r2.Point, []r2.Point, *mat.Dense, e
 		return nil, nil, nil, err
 	}
 	// make chess Grid
-	idealGrid, grid := makeChessGrid(H, 1)
-	return idealGrid, grid, H, nil
+	if H != nil {
+		idealGrid, grid := makeChessGrid(H, 1)
+		return idealGrid, grid, H, nil
+	}
+	return nil, nil, nil, nil
 }
 
 // GenerateNewBestFit gets the homography that gets the most inliers in current Grid
@@ -165,6 +172,7 @@ func findGoodPoints(grid, saddlePoints []r2.Point, maxPointDist float64) ([]r2.P
 
 	for i, ptI := range grid {
 		pt2, d := getMinSaddleDistance(saddlePoints, ptI)
+		fmt.Println("min dist saddle point : ", d)
 		if _, ok := chosenSaddlePoints[pt2]; ok {
 			d = maxPointDist
 		} else {
@@ -206,30 +214,38 @@ func GreedyIterations(contours [][]r2.Point, saddlePoints []r2.Point, cfg ChessG
 	// iterate through contours
 	for _, cnt := range contours {
 		currentGrid, idealGrid, M, err := getInitialChessGrid(cnt)
+		if M != nil {
+			fmt.Println("M = ", M)
+		}
 		if err != nil {
 			return nil, err
 		}
 		nGood := 0
 		nextGrid := make([]r2.Point, 0)
 		goodGrid := make([]int, 0)
-		// iterate through possible positions of the Grid
-		for gridI := 0; gridI < 7; gridI++ {
-			currentGrid, idealGrid = makeChessGrid(M, gridI+1)
-			nextGrid, goodGrid = findGoodPoints(currentGrid, saddlePoints, 5.0)
-			nGood = sumGoodPoints(goodGrid)
-			if nGood < 4 {
-				M = nil
-				break
-			}
-			M, err = GenerateNewBestFit(idealGrid, nextGrid, goodGrid)
-			if err != nil {
-				return nil, err
-			}
-			if M == nil || math.Abs(M.At(0, 0)/M.At(1, 1)) > cfg.HomographyAcceptableScaleRatio || math.Abs(M.At(1, 1)/M.At(0, 0)) > cfg.HomographyAcceptableScaleRatio {
-				M = nil
-				break
+		if M != nil {
+			nGood = 0
+			// iterate through possible positions of the Grid
+			for gridI := 0; gridI < 7; gridI++ {
+				currentGrid, idealGrid = makeChessGrid(M, gridI+1)
+				nextGrid, goodGrid = findGoodPoints(currentGrid, saddlePoints, 15.0)
+				nGood = sumGoodPoints(goodGrid)
+				fmt.Println("number of good points : ", nGood)
+				if nGood < 4 {
+					M = nil
+					break
+				}
+				M, err = GenerateNewBestFit(idealGrid, nextGrid, goodGrid)
+				if err != nil {
+					return nil, err
+				}
+				if M == nil || math.Abs(M.At(0, 0)/M.At(1, 1)) > cfg.HomographyAcceptableScaleRatio || math.Abs(M.At(1, 1)/M.At(0, 0)) > cfg.HomographyAcceptableScaleRatio {
+					M = nil
+					break
+				}
 			}
 		}
+
 		// if M is nil, go directly to next contour
 		if M == nil {
 			continue
