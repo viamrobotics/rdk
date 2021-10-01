@@ -11,13 +11,13 @@ import (
 func GetSobelX() Kernel {
 
 	return Kernel{[][]float64{
-			{-1, 0, 1},
-			{-2, 0, 2},
-			{-1, 0, 1},
-		},
+		{-1, 0, 1},
+		{-2, 0, 2},
+		{-1, 0, 1},
+	},
 		3,
 		3,
-		}
+	}
 }
 
 func GetSobelY() Kernel {
@@ -28,7 +28,7 @@ func GetSobelY() Kernel {
 		{1, 2, 1},
 	},
 		3, //bias
-		3,  //factor
+		3, //factor
 	}
 }
 
