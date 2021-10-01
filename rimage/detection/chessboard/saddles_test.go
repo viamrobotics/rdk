@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
