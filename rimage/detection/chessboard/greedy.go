@@ -169,6 +169,7 @@ func findGoodPoints(grid, saddlePoints []r2.Point, maxPointDist float64) ([]r2.P
 
 	for i, ptI := range grid {
 		pt2, d := getMinSaddleDistance(saddlePoints, ptI)
+		fmt.Println("min dist saddle point : ", d)
 		if _, ok := chosenSaddlePoints[pt2]; ok {
 			d = maxPointDist
 		} else {
@@ -230,12 +231,6 @@ func GreedyIterations(contours [][]r2.Point, saddlePoints []r2.Point, cfg ChessG
 				nGood = sumGoodPoints(goodGrid)
 				fmt.Println("nGood = ", nGood)
 				if nGood < 4 {
-					M = nil
-					break
-				}
-				M, err = GenerateNewBestFit(idealGrid, nextGrid, goodGrid)
-				if err != nil {
-					return nil, err
 				}
 				if M == nil || math.Abs(M.At(0, 0)/M.At(1, 1)) > cfg.HomographyAcceptableScaleRatio || math.Abs(M.At(1, 1)/M.At(0, 0)) > cfg.HomographyAcceptableScaleRatio {
 					M = nil
