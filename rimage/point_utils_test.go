@@ -89,15 +89,24 @@ func TestSortPointCounterClockwise(t *testing.T) {
 	test.That(t, ptsSorted[1], test.ShouldResemble, r2.Point{1, 0})
 	test.That(t, ptsSorted[2], test.ShouldResemble, r2.Point{1, 1})
 	test.That(t, ptsSorted[3], test.ShouldResemble, r2.Point{0, 1})
+
+	pts2 := []r2.Point{{0, -20}, {15, -15}, {-15, -15}, {-20, 0}, {20, 0}}
+	ptsSorted2 := SortPointCounterClockwise(pts2)
+	test.That(t, len(ptsSorted2), test.ShouldEqual, 5)
+	test.That(t, ptsSorted2[0], test.ShouldResemble, r2.Point{-15, -15})
+	test.That(t, ptsSorted2[1], test.ShouldResemble, r2.Point{0, -20})
+	test.That(t, ptsSorted2[2], test.ShouldResemble, r2.Point{15, -15})
+	test.That(t, ptsSorted2[3], test.ShouldResemble, r2.Point{20, 0})
+	test.That(t, ptsSorted2[4], test.ShouldResemble, r2.Point{-20, 0})
 }
 
 func TestAreCollinear(t *testing.T) {
-	a := r2.Point{0,0}
-	b := r2.Point{1,0}
-	c := r2.Point{1,1}
-	d := r2.Point{2,0}
-	c1 := AreCollinear(a,b,c, 0.01)
+	a := r2.Point{0, 0}
+	b := r2.Point{1, 0}
+	c := r2.Point{1, 1}
+	d := r2.Point{2, 0}
+	c1 := AreCollinear(a, b, c, 0.01)
 	test.That(t, c1, test.ShouldBeFalse)
-	c2 := AreCollinear(a,b,d, 0.01)
+	c2 := AreCollinear(a, b, d, 0.01)
 	test.That(t, c2, test.ShouldBeTrue)
 }
