@@ -8,9 +8,9 @@ import (
 )
 
 type ChessboardDetectionConfiguration struct {
-	Saddle   SaddleConfiguration `json:"saddle"`
+	Saddle   SaddleConfiguration        `json:"saddle"`
 	Contours ChessContoursConfiguration `json:"contours"`
-	Greedy   ChessGreedyConfiguration `json:"greedy"`
+	Greedy   ChessGreedyConfiguration   `json:"greedy"`
 }
 
 //var DefaultSaddleConf = SaddleConfiguration{
