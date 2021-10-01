@@ -67,7 +67,7 @@ func TestResourceNameNew(t *testing.T) {
 			"",
 		},
 	} {
-		t.Run(tc.Name, func(t *testing.T) {
+		t.Run(tc.TestName, func(t *testing.T) {
 			observed, err := resource.New(tc.Namespace, tc.Type, tc.Subtype, tc.Name)
 			if tc.Err == "" {
 				test.That(t, err, test.ShouldBeNil)
@@ -77,6 +77,127 @@ func TestResourceNameNew(t *testing.T) {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
 			}
+		})
+	}
+}
+
+func TestResourceNameNewFromString(t *testing.T) {
+	for _, tc := range []struct {
+		TestName string
+		Name     string
+		Expected resource.Name
+		Err      string
+	}{
+		{
+			"malformed name",
+			"core/component/arm/arm1",
+			resource.Name{},
+			"there is more than one backslash",
+		},
+		{
+			"too many colons",
+			"core::component::arm/arm1",
+			resource.Name{},
+			"there are more than 2 colons",
+		},
+		{
+			"too few colons",
+			"core.component.arm/arm1",
+			resource.Name{},
+			"there are less than 2 colons",
+		},
+		{
+			"missing name",
+			"core:component:arm",
+			resource.Name{
+				UUID:      "8ad23fcd-7f30-56b9-a7f4-cf37a980b4dd",
+				Namespace: "core",
+				Type:      "component",
+				Subtype:   "arm",
+				Name:      "",
+			},
+			"",
+		},
+		{
+			"all fields included",
+			"core:component:arm/arm1",
+			resource.Name{
+				UUID:      "1ef3fc81-df1d-5ac4-b11d-bc1513e47f06",
+				Namespace: "core",
+				Type:      "component",
+				Subtype:   "arm",
+				Name:      "arm1",
+			},
+			"",
+		},
+		{
+			"all fields included 2",
+			"core:component:compass/compass1",
+			resource.Name{
+				UUID:      "d6358b56-3b43-5626-ab8c-b16e7233a832",
+				Namespace: "core",
+				Type:      "component",
+				Subtype:   "compass",
+				Name:      "compass1",
+			},
+			"",
+		},
+	} {
+		t.Run(tc.TestName, func(t *testing.T) {
+			observed, err := resource.NewFromString(tc.Name)
+			if tc.Err == "" {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, observed, test.ShouldResemble, tc.Expected)
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
+			}
+		})
+	}
+}
+
+func TestResourceNameStrings(t *testing.T) {
+	for _, tc := range []struct {
+		TestName         string
+		Name             resource.Name
+		ExpectedSubtype  string
+		ExpectedFullName string
+	}{
+		{
+			"all fields included",
+			resource.Name{
+				Namespace: "core",
+				Type:      "component",
+				Subtype:   "arm",
+				Name:      "arm1",
+			},
+			"core:component:arm",
+			"core:component:arm/arm1",
+		},
+		{
+			"missing subtype",
+			resource.Name{
+				Namespace: "core",
+				Type:      "component",
+				Name:      "arm1",
+			},
+			"core:component:",
+			"core:component:/arm1",
+		},
+		{
+			"missing name",
+			resource.Name{
+				Namespace: "core",
+				Type:      "component",
+				Subtype:   "arm",
+			},
+			"core:component:arm",
+			"core:component:arm",
+		},
+	} {
+		t.Run(tc.TestName, func(t *testing.T) {
+			test.That(t, tc.Name.ResourceSubtype(), test.ShouldEqual, tc.ExpectedSubtype)
+			test.That(t, tc.Name.FullyQualifiedName(), test.ShouldEqual, tc.ExpectedFullName)
 		})
 	}
 }
