@@ -116,7 +116,9 @@ func (g *pmtkI2CNMEAGPS) Start() {
 			}
 
 			for _, b := range buffer {
-				// PMTK uses CRLF line endings
+				// PMTK uses CRLF line endings to terminate sentences, but just LF to blank data.
+				// Since CR should never appear except at the end of our sentence, we use that to determine sentence end.
+				// LF is merely ignored.
 				if b == 0x0D {
 					if strBuf != "" {
 						g.mu.Lock()
@@ -186,6 +188,7 @@ func (g *pmtkI2CNMEAGPS) Desc() sensor.Description {
 	return sensor.Description{gps.Type, ""}
 }
 
+// PMTK checksums commands by XORing together each byte
 func addChk(data []byte) []byte {
 	chk := checksum(data)
 	newCmd := []byte("$")
