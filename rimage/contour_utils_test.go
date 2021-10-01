@@ -45,20 +45,22 @@ func TestFindContours(t *testing.T) {
 
 		}
 	}
-	contours, hierarchy := FindContoursSuzuki(binary)
+	contours, hierarchy := FindContours(binary)
+
 	// Test hierarchy values
-	test.That(t, len(hierarchy), test.ShouldEqual, 5)
-	test.That(t, hierarchy[0][3], test.ShouldEqual, -1)
-	test.That(t, hierarchy[1][3], test.ShouldEqual, 0)
-	test.That(t, hierarchy[2][3], test.ShouldEqual, 1)
-	test.That(t, hierarchy[3][3], test.ShouldEqual, -1)
-	test.That(t, hierarchy[4][3], test.ShouldEqual, 3)
-	// Test contours length
-	test.That(t, len(contours), test.ShouldEqual, 5)
+	test.That(t, len(hierarchy), test.ShouldEqual, 5) // number of contours + root
+	test.That(t, hierarchy[0].FirstChild, test.ShouldEqual, 4)
+	test.That(t, hierarchy[1].FirstChild, test.ShouldEqual, 3)
+	test.That(t, hierarchy[2].FirstChild, test.ShouldEqual, -1)
+	test.That(t, hierarchy[3].FirstChild, test.ShouldEqual, 5)
+	test.That(t, hierarchy[4].FirstChild, test.ShouldEqual, -1)
+
+	// Test contours length and numbers
+	test.That(t, len(contours), test.ShouldEqual, 4)
 	test.That(t, len(contours[0]), test.ShouldEqual, 800)
-	test.That(t, len(contours[2]), test.ShouldEqual, 404)
-	test.That(t, len(contours[3]), test.ShouldEqual, 564)
-	test.That(t, len(contours[4]), test.ShouldEqual, 396)
+	test.That(t, len(contours[1]), test.ShouldEqual, 404)
+	test.That(t, len(contours[2]), test.ShouldEqual, 564)
+	test.That(t, len(contours[3]), test.ShouldEqual, 396)
 
 }
 
