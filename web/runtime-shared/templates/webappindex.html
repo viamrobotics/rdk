@@ -270,35 +270,6 @@
                       req.setAngleDeg(angle);
                       robotService.servoMove(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
-                  motorButton: function(name, cmd) {
-                      let req;
-                      if (cmd.r) {
-                        req = new robotApi.MotorGoForRequest();
-                        req.setRevolutions(cmd.r);
-                        if (cmd.s) {
-                          req.setRpm(cmd.s);
-                        }
-                      } else {
-                        req = new robotApi.MotorGoRequest();
-                        if (cmd.s) {
-                            req.setPowerPct(cmd.s);
-                        }
-                      }
-                      req.setName(name);
-                      switch (cmd.d) {
-                        case 'backward':
-                          req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_BACKWARD);
-                          break;
-                        case 'forward':
-                          req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_FORWARD);
-                          break;
-                      }
-                      if (cmd.r) {
-                        robotService.motorGoFor(req, {}, (err, resp) => grpcCallback(err, resp));
-                      } else {
-                        robotService.motorGo(req, {}, (err, resp) => grpcCallback(err, resp));
-                      }
-                  },
                   motorCommand: function(motor, cmd) {
                     let req = cmd.request;
                     req.setName(motor);
@@ -912,59 +883,6 @@
         v-on:execute="motorCommand(motor[0], $event)"
         style="max-width: 900px;">
       </motor-detail>
-      <div class="motor" v-for="motor in status.motorsMap" :key="motor[0]">
-        <h3>Motor ${ motor[0] }</h3>
-        <table border="1">
-          <tr>
-              <th>${motor[0]}</th>
-              <td>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: 1.0})">----</button>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: .75})">---</button>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: .50})">--</button>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: .25})">-</button>
-                <button v-on:click="motorButton(motor[0], {d:'none', s: 0})">0</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: .25})">+</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: .50})">++</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: .75})">+++</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: 1.0})">++++</button>
-              </td>
-            </tr>
-            <tr>
-              <td>50rpm</td>
-              <td>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: 50, r: 10})">-10</button>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: 50, r: 1})">-1</button>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: 50, r: .25})">-.25</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: 50, r: .25})">+.25</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: 50, r: 1})">+1</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: 50, r: 10})">+10</button>
-              </td>
-            </tr>
-            <tr>
-              <td>10rpm</td>
-              <td>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: 10, r: 10})">-10</button>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: 10, r: 1})">-1</button>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: 10, r: .25})">-.25</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: 10, r: .25})">+.25</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: 10, r: 1})">+1</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: 10, r: 10})">+10</button>
-              </td>
-            </tr>
-          <tr>
-            <td align="right">On</td>
-            <td>${motor[1].on}</td>
-          </tr>
-          <tr>
-            <td align="right">PositionSupported</td>
-            <td>${motor[1].positionSupported}</td>
-          </tr>
-          <tr>
-            <td align="right">Position</td>
-            <td>${motor[1].position}</td>
-          </tr>
-        </table>
-      </div>
 
       <table>
         <tr>
