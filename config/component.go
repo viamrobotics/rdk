@@ -70,6 +70,9 @@ func (config *Component) ResourceSubtype() string {
 
 // FullyQualifiedName returns the fully qualified name for the component.
 func (config *Component) FullyQualifiedName() string {
+	if config.Name == "" {
+		return config.ResourceSubtype()
+	}
 	return fmt.Sprintf("%s/%s", config.ResourceSubtype(), config.Name)
 }
 
