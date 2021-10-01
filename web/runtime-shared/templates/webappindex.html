@@ -717,6 +717,7 @@
               const marker = new google.maps.Marker({
                 position: pos,
                 map: window.map,
+                label: `${i}`,
               });
               currentWaypoints[posStr] = marker;
               knownWaypoints[posStr] = marker;
