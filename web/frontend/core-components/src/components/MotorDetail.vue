@@ -175,8 +175,6 @@ class MotorCommand {
     position = Number.parseFloat(position.toString());
     if (Number.isNaN(position)) {
       return "Input is not a number";
-    } else if (position < 0) {
-      return "Position cannot be less than zero";
     }
     return "";
   }
