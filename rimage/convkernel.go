@@ -1,4 +1,5 @@
 package rimage
+
 import (
 	"errors"
 	"image"
@@ -70,4 +71,3 @@ func (k *Kernel) Normalize() *Kernel {
 	}
 	return normalized
 }
-
