@@ -6,9 +6,9 @@
     "win-size": 10
   },
   "contours": {
-    "canny-low" : 0.078,
+    "canny-low": 0.75,
     "canny-high": 0.98,
-    "win-size": 4
+    "win-size": 10
   },
   "greedy": {
     "scale-ratio": 15.0,
