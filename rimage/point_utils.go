@@ -168,7 +168,7 @@ func SortPointCounterClockwise(pts []r2.Point) []r2.Point {
 	floats.AddConst(-centerX, xs)
 	floats.AddConst(-centerY, ys)
 	angles := make([]float64, len(pts))
-	for i, _ := range xs {
+	for i := range xs {
 		angles[i] = math.Atan2(ys[i], xs[i])
 	}
 	inds := make([]int, len(pts))
@@ -179,6 +179,37 @@ func SortPointCounterClockwise(pts []r2.Point) []r2.Point {
 		x := math.Round(xs[idx] + centerX)
 		y := math.Round(ys[idx] + centerY)
 		out[i] = r2.Point{X: x, Y: y}
+	}
+	return out
+}
+
+// SortImagePointCounterClockwise sorts a slice of image.Point in counterclockwise order, starting from point closest to -pi
+func SortImagePointCounterClockwise(pts []image.Point) []image.Point {
+	// create new slice of points
+	out := make([]image.Point, len(pts))
+	xs, ys := SlicePointsToXsYs(pts)
+	xMin := floats.Min(xs)
+	xMax := floats.Max(xs)
+	yMin := floats.Min(ys)
+	yMax := floats.Max(ys)
+	centerX := xMin + (xMax-xMin)/2
+	centerY := yMin + (yMax-yMin)/2
+	centerX = floats.Sum(xs) / float64(len(xs))
+	centerY = floats.Sum(ys) / float64(len(ys))
+	floats.AddConst(-centerX, xs)
+	floats.AddConst(-centerY, ys)
+	angles := make([]float64, len(pts))
+	for i := range xs {
+		angles[i] = math.Atan2(ys[i], xs[i])
+	}
+	inds := make([]int, len(pts))
+	floats.Argsort(angles, inds)
+
+	for i := 0; i < len(pts); i++ {
+		idx := inds[i]
+		x := math.Round(xs[idx] + centerX)
+		y := math.Round(ys[idx] + centerY)
+		out[i] = image.Point{X: int(x), Y: int(y)}
 	}
 	return out
 }
@@ -220,6 +251,17 @@ func SortVectorsCounterClockwise(pts []r2.Point) []r2.Point {
 		out[i] = r2.Point{X: x, Y: y}
 	}
 	return out
+}
+
+// SlicePointsToXsYs converts a slice of image.Point to 2 slices floats containing x and y coordinates
+func SlicePointsToXsYs(pts []image.Point) ([]float64, []float64) {
+	xs := make([]float64, len(pts))
+	ys := make([]float64, len(pts))
+	for i, pt := range pts {
+		xs[i] = float64(pt.X)
+		ys[i] = float64(pt.Y)
+	}
+	return xs, ys
 }
 
 // AreCollinear returns true if the 3 points a, b and c are collinear
