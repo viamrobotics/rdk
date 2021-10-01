@@ -2,21 +2,25 @@ package rimage
 
 import (
 	"image"
+	"image/color"
+	"image/png"
 	"math"
+	"os"
 
+	"github.com/fogleman/gg"
 	"github.com/golang/geo/r2"
 	"gonum.org/v1/gonum/mat"
 )
 
 // This package implements the algorithm to detect individual contours in a contour map and creates their hierarchy.
-// From: Satoshi Suzuki and others. Topological structural analysis of digitized binary images by border following.
+// From: Satoshi Suzuki and others. Topological structural analysis of digitized binary images by Border following.
 //       Computer Vision, Graphics, and Image Processing, 30(1):32–46, 1985.
 // It also implements the Douglas Peucker algorithm (https://en.wikipedia.org/wiki/Ramer–Douglas–Peucker_algorithm)
 // to approximate contours with a polygon
 
 var NPixelNeighbors = 8
 
-// Border stores the ID of a border and its type (Hole or Outer)
+// Border stores the ID of a Border and its type (Hole or Outer)
 type Border struct {
 	segNum, borderType int
 }
@@ -41,6 +45,297 @@ func CreateOuterBorder() Border {
 		segNum:     0,
 		borderType: Outer,
 	}
+}
+
+// PointMat stores a point in matrix coordinates convention
+type PointMat struct {
+	Row, Col int
+}
+
+// Set sets a current point to new coordinates (r,c)
+func (p *PointMat) Set(r, c int) {
+	p.Col = c
+	p.Row = r
+}
+
+// SetTo sets a current point to new coordinates (r,c)
+func (p *PointMat) SetTo(p2 PointMat) {
+	p.Col = p2.Col
+	p.Row = p2.Row
+}
+
+// SamePoint returns true if a point q is equal to the point p
+func (p *PointMat) SamePoint(q *PointMat) bool {
+	return p.Row == q.Row && p.Col == q.Col
+}
+
+// Node is a structure storing data from each contour to form a tree
+type Node struct {
+	Parent      int
+	FirstChild  int
+	NextSibling int
+	Border      Border
+}
+
+// reset resets a Node to default values
+func (n *Node) reset() {
+	n.Parent = -1
+	n.FirstChild = -1
+	n.NextSibling = -1
+}
+
+// stepCCW4 set p to the next counter-clockwise neighbor of pivot from p in connectivity 4
+func (p *PointMat) stepCCW4(pivot *PointMat) {
+	if p.Col > pivot.Col {
+		p.Row = pivot.Row - 1
+		p.Col = pivot.Col
+	} else if p.Col < pivot.Col {
+		p.Row = pivot.Row + 1
+		p.Col = pivot.Col
+	} else if p.Row > pivot.Row {
+		p.Row = pivot.Row
+		p.Col = pivot.Col + 1
+	} else if p.Row < pivot.Row {
+		p.Row = pivot.Row
+		p.Col = pivot.Col - 1
+	}
+}
+
+// stepCW4 goes to the next clockwise neighbor of pivot from p in connectivity 4
+func (p *PointMat) stepCW4(pivot *PointMat) {
+	if p.Col > pivot.Col {
+		p.Row = pivot.Row + 1
+		p.Col = pivot.Col
+	} else if p.Col < pivot.Col {
+		p.Row = pivot.Row - 1
+		p.Col = pivot.Col
+	} else if p.Row > pivot.Row {
+		p.Row = pivot.Row
+		p.Col = pivot.Col - 1
+	} else if p.Row < pivot.Row {
+		p.Row = pivot.Row
+		p.Col = pivot.Col + 1
+	}
+}
+
+//stepCCW8 performs a step around a pixel CCW in the 8-connect neighborhood.
+func (p *PointMat) stepCCW8(pivot *PointMat) {
+	if p.Row == pivot.Row && p.Col > pivot.Col {
+		p.Row = pivot.Row - 1
+		p.Col = pivot.Col + 1
+	} else if p.Col > pivot.Col && p.Row < pivot.Row {
+		p.Row = pivot.Row - 1
+		p.Col = pivot.Col
+	} else if p.Row < pivot.Row && p.Col == pivot.Col {
+		p.Row = pivot.Row - 1
+		p.Col = pivot.Col - 1
+	} else if p.Row < pivot.Row && p.Col < pivot.Col {
+		p.Row = pivot.Row
+		p.Col = pivot.Col - 1
+	} else if p.Row == pivot.Row && p.Col < pivot.Col {
+		p.Row = pivot.Row + 1
+		p.Col = pivot.Col - 1
+	} else if p.Row > pivot.Row && p.Col < pivot.Col {
+		p.Row = pivot.Row + 1
+		p.Col = pivot.Col
+	} else if p.Row > pivot.Row && p.Col == pivot.Col {
+		p.Row = pivot.Row + 1
+		p.Col = pivot.Col + 1
+	} else if p.Row > pivot.Row && p.Col > pivot.Col {
+		p.Row = pivot.Row
+		p.Col = pivot.Col + 1
+	}
+}
+
+//stepCW8 performs a step around a pixel CCW in the 8-connect neighborhood.
+func (p *PointMat) stepCW8(pivot *PointMat) {
+	if p.Row == pivot.Row && p.Col > pivot.Col {
+		p.Row = pivot.Row + 1
+		p.Col = pivot.Col + 1
+	} else if p.Col > pivot.Col && p.Row < pivot.Row {
+		p.Row = pivot.Row
+		p.Col = pivot.Col + 1
+	} else if p.Row < pivot.Row && p.Col == pivot.Col {
+		p.Row = pivot.Row - 1
+		p.Col = pivot.Col + 1
+	} else if p.Row < pivot.Row && p.Col < pivot.Col {
+		p.Row = pivot.Row - 1
+		p.Col = pivot.Col
+	} else if p.Row == pivot.Row && p.Col < pivot.Col {
+		p.Row = pivot.Row - 1
+		p.Col = pivot.Col - 1
+	} else if p.Row > pivot.Row && p.Col < pivot.Col {
+		p.Row = pivot.Row
+		p.Col = pivot.Col - 1
+	} else if p.Row > pivot.Row && p.Col == pivot.Col {
+		p.Row = pivot.Row + 1
+		p.Col = pivot.Col - 1
+	} else if p.Row > pivot.Row && p.Col > pivot.Col {
+		p.Row = pivot.Row + 1
+		p.Col = pivot.Col
+	}
+}
+
+// isPointOutOfBounds checks if a given pixel is out of bounds of the image
+func isPointOutOfBounds(p *PointMat, h, w int) bool {
+	return p.Col >= w || p.Row >= h || p.Col < 0 || p.Row < 0
+}
+
+//marks a pixel as examined after passing through
+func markExamined(mark, center PointMat, checked []bool) {
+	loc := -1
+	//    3
+	//  2 x 0
+	//    1
+	if mark.Col > center.Col {
+		loc = 0
+	} else if mark.Col < center.Col {
+		loc = 2
+	} else if mark.Row > center.Row {
+		loc = 1
+	} else if mark.Row < center.Row {
+		loc = 3
+	}
+	if loc != -1 {
+		checked[loc] = true
+	}
+	return
+}
+
+// isExamined checks if given pixel has already been examined
+func isExamined(checked []bool) bool {
+	return checked[0]
+}
+
+// followBorder is a helper function for the contour finding algorithm
+func followBorder(img *mat.Dense, row, col int, p2 PointMat, nbp Border) []image.Point {
+	nRows, nCols := img.Dims()
+	current := PointMat{
+		Row: p2.Row,
+		Col: p2.Col,
+	}
+	start := PointMat{
+		Row: row,
+		Col: col,
+	}
+	pointSlice := make([]image.Point, 0)
+	for ok := true; ok; ok = isPointOutOfBounds(&current, nRows, nCols) || img.At(current.Row, current.Col) == 0. {
+		current.stepCW8(&start)
+		if current.SamePoint(&p2) {
+			img.Set(start.Row, start.Col, float64(-nbp.segNum))
+			pointSlice = append(pointSlice, image.Point{start.Col, start.Row})
+
+			return pointSlice
+		}
+	}
+	p1 := current
+	p3 := start
+	p4 := PointMat{
+		Row: 0,
+		Col: 0,
+	}
+	p2.SetTo(p1)
+	checked := make([]bool, NPixelNeighbors, NPixelNeighbors)
+	for {
+		current.SetTo(p2)
+		for ok := true; ok; ok = isPointOutOfBounds(&current, nRows, nCols) || img.At(current.Row, current.Col) == 0. {
+			markExamined(current, p3, checked)
+			current.stepCCW8(&p3)
+		}
+		p4.SetTo(current)
+		if (p3.Col+1 >= nCols || img.At(p3.Row, p3.Col+1) == 0) && isExamined(checked) {
+			img.Set(p3.Row, p3.Col, float64(-nbp.segNum))
+		} else if p3.Col+1 < nCols && img.At(p3.Row, p3.Col) == 1 {
+			img.Set(p3.Row, p3.Col, float64(nbp.segNum))
+		}
+		pointSlice = append(pointSlice, image.Point{p3.Col, p3.Row}) // adding p3 to contour
+		if p4.SamePoint(&start) && p3.SamePoint(&p1) {
+			return pointSlice
+		}
+
+		p2.SetTo(p3)
+		p3.SetTo(p4)
+	}
+
+}
+
+// FindContours implements the contour hierarchy finding from Suzuki et al.
+func FindContours(img *mat.Dense) ([][]image.Point, []Node) {
+	hierarchy := make([]Node, 0)
+	nRows, nCols := img.Dims()
+	nbd := CreateHoleBorder()
+	nbd.segNum = 1
+	lnbd := CreateHoleBorder()
+	contours := make([][]image.Point, 0)
+	for i := range contours {
+		contours[i] = make([]image.Point, 0)
+	}
+	tmpNode := Node{
+		Parent:      -1,
+		FirstChild:  -1,
+		NextSibling: -1,
+		Border:      nbd,
+	}
+	hierarchy = append(hierarchy, tmpNode)
+	p2 := PointMat{
+		Row: 0,
+		Col: 0,
+	}
+	borderStartFound := false
+	for r := 0; r < nRows; r++ {
+		lnbd.segNum = 1
+		lnbd.borderType = Hole
+		for c := 0; c < nCols; c++ {
+			borderStartFound = false
+			if (img.At(r, c) == 1 && c-1 < 0) || (img.At(r, c) == 1 && img.At(r, c-1) == 0) {
+				nbd.borderType = Outer
+				nbd.segNum += 1
+				p2.Set(r, c-1)
+				borderStartFound = true
+			} else if c+1 < nCols && (img.At(r, c) >= 1 && img.At(r, c+1) == 0) {
+				nbd.borderType = Hole
+				nbd.segNum += 1
+				if img.At(r, c) > 1 {
+					lnbd.segNum = int(img.At(r, c))
+					lnbd.borderType = hierarchy[lnbd.segNum-1].Border.borderType
+				}
+				p2.Set(r, c+1)
+				borderStartFound = true
+			}
+			if borderStartFound {
+				tmpNode.reset()
+				if nbd.borderType == lnbd.borderType {
+					tmpNode.Parent = hierarchy[lnbd.segNum-1].Parent
+					tmpNode.NextSibling = hierarchy[tmpNode.Parent-1].FirstChild
+					hierarchy[tmpNode.Parent-1].FirstChild = nbd.segNum
+					tmpNode.Border = nbd
+					hierarchy = append(hierarchy, tmpNode)
+				} else {
+					if hierarchy[lnbd.segNum-1].FirstChild != -1 {
+						tmpNode.NextSibling = hierarchy[lnbd.segNum-1].FirstChild
+					}
+					tmpNode.Parent = lnbd.segNum
+					hierarchy[lnbd.segNum-1].FirstChild = nbd.segNum
+					tmpNode.Border = nbd
+					hierarchy = append(hierarchy, tmpNode)
+				}
+				contour := followBorder(img, r, c, p2, nbd)
+				//fmt.Println(contour)
+				contour = SortImagePointCounterClockwise(contour)
+				contours = append(contours, contour)
+			}
+			if math.Abs(img.At(r, c)) > 1 {
+				lnbd.segNum = int(math.Abs(img.At(r, c)))
+				idx := lnbd.segNum - 1
+				if idx < 0 {
+					idx = 0
+				}
+				lnbd.borderType = hierarchy[idx].Border.borderType
+			}
+		}
+	}
+
+	return contours, hierarchy
 }
 
 // Line represents a line segment.
@@ -72,13 +367,18 @@ func ApproxContourDP(points []r2.Point, ep float64) []r2.Point {
 	if len(points) <= 2 {
 		return points
 	}
+	points2 := make([]r2.Point, len(points))
+	copy(points2, points)
 
-	l := Line{Start: points[0], End: points[len(points)-1]}
+	if IsContourClosed(points, 5) {
+		points2 = ReorderClosedContourWithFarthestPoints(points2)
+	}
+	l := Line{Start: points2[0], End: points2[len(points)-1]}
 
-	idx, maxDist := seekMostDistantPoint(l, points)
+	idx, maxDist := seekMostDistantPoint(l, points2)
 	if maxDist >= ep {
-		left := ApproxContourDP(points[:idx+1], ep)
-		right := ApproxContourDP(points[idx:], ep)
+		left := ApproxContourDP(points2[:idx+1], ep)
+		right := ApproxContourDP(points2[idx:], ep)
 		return append(left[:len(left)-1], right...)
 	}
 
@@ -118,12 +418,59 @@ func SimplifyContours(contours [][]image.Point) [][]r2.Point {
 	simplifiedContours := make([][]r2.Point, len(contours))
 
 	for i, c := range contours {
-		eps := ArcLength(c)
 		cf := ConvertSliceImagePointToSliceVec(c)
-		sc := ApproxContourDP(cf, 0.04*eps)
+		sc := ApproxContourDP(cf, 0.03*float64(len(c)))
 		simplifiedContours[i] = sc
 	}
 	return simplifiedContours
+}
+
+// ContourPoint is a simple structure for readability
+type ContourPoint struct {
+	Point r2.Point
+	Idx   int
+}
+
+// GetPairOfFarthestPointsContour take an ordered contour and returns the 2 farthest points and their respective
+// indices in that contour
+func GetPairOfFarthestPointsContour(points []r2.Point) (ContourPoint, ContourPoint) {
+	start := ContourPoint{points[0], 0}
+	end := ContourPoint{points[1], 1}
+	distMax := 0.0
+	for i, p := range points {
+		for j, q := range points {
+			d := p.Sub(q).Norm()
+			if d > distMax {
+				start = ContourPoint{p, i}
+				end = ContourPoint{q, j}
+				distMax = d
+			}
+		}
+	}
+	return start, end
+}
+
+// IsContourClosed takes a sorted contour, and returns true if the first and last points of it are spatially epsilon-close
+func IsContourClosed(points []r2.Point, eps float64) bool {
+	start := points[0]
+	end := points[len(points)-1]
+	d := end.Sub(start).Norm()
+
+	return d < eps
+}
+
+// ReorderClosedContourWithFarthestPoints takes a closed ordered contour and reorders the points in it so that all the
+// points from p1 to p2 are in the first part of the contour and points from p2 to p1 in the second part
+func ReorderClosedContourWithFarthestPoints(points []r2.Point) []r2.Point {
+	start, end := GetPairOfFarthestPointsContour(points)
+	if start.Idx > end.Idx {
+		start, end = end, start
+	}
+	c1 := points[start.Idx:end.Idx]
+	c2 := points[end.Idx:]
+	c2 = append(c2, points[:start.Idx]...)
+	reorderedContour := append(c1, c2...)
+	return reorderedContour
 }
 
 // helpers
@@ -141,193 +488,55 @@ func ConvertSliceImagePointToSliceVec(pts []image.Point) []r2.Point {
 	return out
 }
 
-func DeltasToIndex(x, y int) int {
-	return 4 - 2*x + x*y - 2*(1-x*x)*(y*y-y)
-}
-
-var (
-	Index2DeltaX = []int{0, 1, 1, 1, 0, -1, -1, -1}
-	Index2DeltaY = []int{-1, -1, 0, 1, 1, 1, 0, -1}
-)
-
-const (
-	Clockwise = iota
-	CounterClockwise
-)
-
-type Direction int
-
-// RoundNext returns the next pixel around center from start in the direction dir
-func RoundNext(center, start image.Point, dir int) image.Point {
-	deltaX := start.X - center.X
-	deltaY := start.Y - center.Y
-	index := DeltasToIndex(deltaX, deltaY)
-	nextIndex := (index + 9 - 2*dir) % 8
-	//fmt.Println("index : ", index)
-	//fmt.Println("nextIndex : ", nextIndex)
-	nextDeltaX := Index2DeltaX[nextIndex]
-	nextDeltaY := Index2DeltaY[nextIndex]
-	next := image.Point{
-		X: center.X + nextDeltaX,
-		Y: center.Y + nextDeltaY,
+// savePNG takes an image.Image and saves it to a png file fn
+func savePNG(fn string, m image.Image) error {
+	f, err := os.Create(fn)
+	if err != nil {
+		return err
 	}
-	return next
-}
-func IsPointWithinBounds(pt image.Point, im *mat.Dense) bool {
-	rows, cols := im.Dims()
-	return pt.X >= 0 && pt.X < cols && pt.Y >= 0 && pt.Y < rows
-}
-func RoundNextForeground1(im *mat.Dense, center, start image.Point, dir int) (image.Point, bool) {
-	found := false
-	current := start
-	var nextFG image.Point
-	for i := 0; i < 7; i++ {
-		next := RoundNext(center, current, dir)
-		if IsPointWithinBounds(next, im) {
-			v := im.At(next.Y, next.X)
-			if v != 0 {
-				found = true
-				nextFG = next
-				break
-			}
-		}
-		current = next
-	}
-	return nextFG, found
+	defer f.Close()
+	return png.Encode(f, m)
 }
 
-func RoundNextForeground2(im *mat.Dense, center, start, through image.Point, dir int) (image.Point, bool, bool) {
-	found, passedThrough := false, false
-	current := start
-	var nextFG image.Point
-	for i := 0; i < 7; i++ {
-		next := RoundNext(center, current, dir)
-		if IsPointWithinBounds(next, im) {
-			v := im.At(next.Y, next.X)
-			if v != 0 {
-				found = true
-				nextFG = next
-				break
-			}
-		}
-		if next == through {
-			passedThrough = true
-		}
-		current = next
-	}
-	return nextFG, found, passedThrough
-}
+// Viasualization functions
 
-// FindContoursSuzuki implements the contour finding algorithm in a binary image from Suzuki et al.
-func FindContoursSuzuki(img *mat.Dense) ([][]image.Point, [][]int) {
-	nRows, nCols := img.Dims()
-	im := mat.NewDense(nRows, nCols, nil)
-	im = mat.DenseCopyOf(img)
-	contours := make([][]image.Point, 0)
-	hierarchy := make([][]int, 0)
-	cOuter := make([]bool, 0)
-	lastSons := make([]int, 0)
-	lastOuterMost := -1
-	NBD, LNBD := 1, 1
-	found, passedThrough := false, false
-	for r := 1; r < nRows-1; r++ {
-		LNBD = 1
-		for c := 1; c < nCols-1; c++ {
-			if im.At(r, c) != 0 {
-				p := image.Point{c, r}
-				var p1, p2, p3, p4 image.Point
-				start := false
+// DrawContours draws the contours in a black image and saves it in outFile
+func DrawContours(img *mat.Dense, contours [][]image.Point, outFile string) *image.Gray16 {
+	h, w := img.Dims()
+	g := image.NewGray16(image.Rect(0, 0, w, h))
 
-				if (im.At(r, c) == 1 && c-1 < 0) || (im.At(r, c) == 1 && im.At(r, c-1) == 0) {
-					// outer contour found
-					p2 = image.Point{c - 1, r}
-					start = true
-					cOuter = append(cOuter, true)
-				} else if c+1 < nCols-1 && (im.At(r, c) >= 1 && im.At(r, c+1) == 0) {
-					//c+1 < nCols && (im.At(r,c) >= 1 && im.At(r,c+1) == 0)
-					// Hole border found
-					p2 = image.Point{r, c + 1}
-					if im.At(r, c) > 1 {
-						LNBD = int(im.At(r, c))
-					}
-					start = true
-					cOuter = append(cOuter, false)
-				}
-				// if border found
-				if start {
-					NBD++
-					cnt := make([]image.Point, 0)
-					cnt = append(cnt, image.Point{c, r})
-					lastSons = append(lastSons, -1)
-					cur := len(contours)
-					father, prevSibling, bPrimo := -1, -1, LNBD-2
-					// if outer contour
-					if cOuter[len(cOuter)-1] {
-						if bPrimo >= 0 && cOuter[bPrimo] {
-							father = hierarchy[bPrimo][3]
-						} else {
-							father = bPrimo
-						}
-					} else {
-						if bPrimo == -1 || cOuter[bPrimo] {
-							father = bPrimo
-
-						} else {
-							father = hierarchy[bPrimo][3]
-						}
-					}
-					// if contour has a parent, set siblings
-					if father >= 0 {
-						prevSibling = lastSons[father]
-						if prevSibling < 0 {
-							hierarchy[father][2] = cur
-						} else {
-							hierarchy[prevSibling][0] = cur
-						}
-						lastSons[father] = cur
-					} else {
-						if lastOuterMost >= 0 {
-							hierarchy[lastOuterMost][0] = cur
-							prevSibling = lastOuterMost
-						}
-						lastOuterMost = cur
-					}
-					hierarchy = append(hierarchy, []int{-1, prevSibling, -1, father})
-					// follow contour - check for first non-zero neighbor clockwise
-					p1, found = RoundNextForeground1(im, p, p2, Clockwise)
-					if found {
-						p2, p3 = p1, p
-						for {
-							through := image.Point{p3.X + 1, p3.Y}
-							passedThrough = false
-							p4, found, passedThrough = RoundNextForeground2(im, p3, p2, through, CounterClockwise)
-							if !found {
-								p4 = p2
-							}
-							if passedThrough {
-								im.Set(p3.Y, p3.X, float64(-NBD))
-							} else if im.At(p3.Y, p3.X) == 1 {
-								im.Set(p3.Y, p3.X, float64(NBD))
-							}
-							if p4 == p && p3 == p1 {
-								// we are back to the starting point
-								break
-							}
-							cnt = append(cnt, p4)
-							// update points
-							p2 = p3
-							p3 = p4
-						}
-					} else {
-						im.Set(r, c, float64(-NBD))
-					}
-					contours = append(contours, cnt)
-				}
-				if im.At(r, c) != 1 {
-					LNBD = int(math.Abs(im.At(r, c)))
-				}
-			}
+	for i, cnt := range contours {
+		for _, pt := range cnt {
+			g.SetGray16(pt.X, pt.Y, color.Gray16{uint16(i)})
 		}
 	}
-	return contours, hierarchy
+
+	if err := savePNG(outFile, g); err != nil {
+		panic(err)
+	}
+	return g
+}
+
+// DrawContoursSimplified draws the simplified polygonal contours in a black image and saves it in outFile
+func DrawContoursSimplified(img *mat.Dense, contours [][]r2.Point, outFile string) {
+	h, w := img.Dims()
+	dc := gg.NewContext(w, h)
+	dc.SetRGB(0, 0, 0)
+	dc.Clear()
+	for _, cnt := range contours {
+		nPoints := len(cnt)
+		for i, pt := range cnt {
+			x1, y1 := pt.X, pt.Y
+			x2, y2 := cnt[(i+1)%nPoints].X, cnt[(i+1)%nPoints].Y
+			r := 1.0
+			g := 1.0
+			b := 1.0
+			a := 1.0
+			dc.SetRGBA(r, g, b, a)
+			dc.SetLineWidth(1)
+			dc.DrawLine(x1, y1, x2, y2)
+			dc.Stroke()
+		}
+	}
+	dc.SavePNG(outFile)
 }
