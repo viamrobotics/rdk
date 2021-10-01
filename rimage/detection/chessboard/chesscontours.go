@@ -12,8 +12,8 @@ import (
 )
 
 type ChessContoursConfiguration struct {
-	CannyLow  float64 `json:"canny-low"`  // initial threshold for pruning saddle points in saddle map
-	CannyHigh float64 `json:"canny-high"` // minimum saddle score value for pruning
+	CannyLow  float64 `json:"canny-low"`  // low threshold for Canny contours detection
+	CannyHigh float64 `json:"canny-high"` // high threshold for Canny contours detection
 	WinSize   int     `json:"win-size"`   // half window size for looking for saddle points in a chess corner neighborhood
 }
 
@@ -88,9 +88,6 @@ func UpdateCorners(contour []r2.Point, saddleScoreMap *mat.Dense, winSize int) [
 			Y: float64(pt.Y),
 		}
 	}
-
-	// initialize score slice
-	scores := make([]float64, 0, len(contour))
 	// go through contour
 	for i, pt := range contour {
 		cc, rr := pt.X, pt.Y
@@ -110,13 +107,12 @@ func UpdateCorners(contour []r2.Point, saddleScoreMap *mat.Dense, winSize int) [
 				}
 			}
 		}
-		scores = append(scores, saddleScore)
 		bestRow -= int(math.Min(float64(winSize), float64(rowLow)))
 		bestCol -= int(math.Min(float64(winSize), float64(colLow)))
 		if saddleScore > 0. {
 			newContour[i] = r2.Point{
-				X: cc + float64(bestCol),
-				Y: rr + float64(bestRow),
+				X: (cc + float64(bestCol)) / 2,
+				Y: (rr + float64(bestRow)) / 2,
 			}
 		} else {
 			return nil
@@ -149,32 +145,52 @@ func getContourBoundingBoxArea(contour []r2.Point) float64 {
 }
 
 // PruneContours keeps contours that correspond to a chessboard square
-func PruneContours(contours [][]r2.Point, hierarchy [][]int, saddleScoreMap *mat.Dense, winSize int) [][]r2.Point {
+func PruneContours(contours [][]r2.Point, hierarchy []rimage.Node, saddleScoreMap *mat.Dense, winSize int) [][]r2.Point {
 	newContours := make([][]r2.Point, 0)
 	for i, c := range contours {
 		cSorted := rimage.SortPointCounterClockwise(c)
-		fmt.Println(cSorted)
-		h := hierarchy[i]
+		//fmt.Println(cSorted)
+		h := hierarchy[i+1]
 		// we only want child contours
-		if h[2] != -1 {
+		if h.FirstChild != -1 {
 			continue
 		}
+		// if a polygon contour has a very small side, remove it
+		cnt := RemoveSmallSidePolygon(cSorted, 2.0)
 		// select only quadrilaterals
-		if len(c) != 4 {
+		if len(cnt) != 4 {
 			continue
 		}
-		// select contours that caver an area bigger than 64 pixels (8x8 pixel square)
-		if getContourBoundingBoxArea(c) < 64 {
+		// select contours that caver an area bigger than 64 pixels (8x8 pixel square).
+		//TODO(louise): add this area in configuration file?
+		if getContourBoundingBoxArea(cnt) < 64 {
 			continue
 		}
-		if !IsContourSquare(cSorted) {
+		if !IsContourSquare(cnt) {
 			continue
 		}
-		cnt := UpdateCorners(cSorted, saddleScoreMap, winSize)
-		if cnt == nil {
+		cntUpdated := UpdateCorners(cnt, saddleScoreMap, winSize)
+
+		if cntUpdated == nil {
 			continue
 		}
-		newContours = append(newContours, cnt)
+		//fmt.Println(cnt)
+		newContours = append(newContours, cntUpdated)
 	}
 	return newContours
+}
+
+// RemoveSmallSidePolygon takes a polygonal contour as an input (CCW sorted); if a side of the polygon has a length < eps
+// the end point of that side will be removed
+func RemoveSmallSidePolygon(points []r2.Point, eps float64) []r2.Point {
+	outPoints := make([]r2.Point, 0, len(points))
+	for i := range points {
+		p1 := points[i]
+		p2 := points[(i+1)%len(points)]
+		d := p1.Sub(p2).Norm()
+		if d > eps {
+			outPoints = append(outPoints, p1)
+		}
+	}
+	return outPoints
 }
