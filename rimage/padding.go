@@ -1,4 +1,5 @@
 package rimage
+
 import (
 	"errors"
 	"image"
@@ -111,8 +112,28 @@ func rightPaddingReflect(img image.Image, padded image.Image, p Paddings, setPix
 	}
 }
 
+// PaddingFloat64 pads a *mat.Dense - padding mode = reflect
+func PaddingFloat64(img *mat.Dense, kernelSize image.Point, anchor image.Point, border BorderPad) (*mat.Dense, error) {
+	h, w := img.Dims()
+	originalSize := image.Point{w, h}
+	p, err := computePaddingSizes(kernelSize, anchor)
+	if err != nil {
+		return nil, err
+	}
+	rect := getImageRectangleFromPaddingSizes(p, originalSize)
+	newW, newH := rect.Max.X, rect.Max.Y
+	padded := mat.NewDense(newH, newW, nil)
+
+	for x := p.PaddingLeft; x < originalSize.X+p.PaddingLeft; x++ {
+		for y := p.PaddingTop; y < originalSize.Y+p.PaddingTop; y++ {
+			padded.Set(y, x, img.At(y-p.PaddingTop, x-p.PaddingLeft))
+		}
+	}
+	return padded, nil
+}
+
 // PaddingGray appends padding to a given grayscale image. The size of the padding is calculated from the kernel size
-// and the anchor point. Supported border types are: BorderConstant, BorderReplicate, BorderReflect.
+// and the anchor point. Supported Border types are: BorderConstant, BorderReplicate, BorderReflect.
 // Example of usage:
 //
 //		 res, err := padding.PaddingGray(img, {5, 5}, {1, 1}, BorderReflect)
@@ -121,11 +142,11 @@ func rightPaddingReflect(img image.Image, padded image.Image, p Paddings, setPix
 // right borders of the image.
 func PaddingGray(img *image.Gray, kernelSize image.Point, anchor image.Point, border BorderPad) (*image.Gray, error) {
 	originalSize := img.Bounds().Size()
-	p, err := calculatePaddings(kernelSize, anchor)
+	p, err := computePaddingSizes(kernelSize, anchor)
 	if err != nil {
 		return nil, err
 	}
-	rect := getRectangleFromPaddings(p, originalSize)
+	rect := getImageRectangleFromPaddingSizes(p, originalSize)
 	padded := image.NewGray(rect)
 
 	for x := p.PaddingLeft; x < originalSize.X+p.PaddingLeft; x++ {
@@ -164,13 +185,13 @@ func PaddingGray(img *image.Gray, kernelSize image.Point, anchor image.Point, bo
 			padded.Set(x, y, pixel)
 		})
 	default:
-		return nil, errors.New("unknown border type")
+		return nil, errors.New("unknown Border type")
 	}
 	return padded, nil
 }
 
 // PaddingRGBA appends padding to a given RGBA image. The size of the padding is calculated from the kernel size
-// and the anchor point. Supported border types are: BorderConstant, BorderReplicate, BorderReflect.
+// and the anchor point. Supported Border types are: BorderConstant, BorderReplicate, BorderReflect.
 // Example of usage:
 //
 // 		res, err := padding.PaddingRGBA(img, {5, 5}, {1, 1}, BorderReflect)
@@ -179,11 +200,11 @@ func PaddingGray(img *image.Gray, kernelSize image.Point, anchor image.Point, bo
 // right borders of the image.
 func PaddingRGBA(img *image.RGBA, kernelSize image.Point, anchor image.Point, border BorderPad) (*image.RGBA, error) {
 	originalSize := img.Bounds().Size()
-	p, error := calculatePaddings(kernelSize, anchor)
+	p, error := computePaddingSizes(kernelSize, anchor)
 	if error != nil {
 		return nil, error
 	}
-	rect := getRectangleFromPaddings(p, originalSize)
+	rect := getImageRectangleFromPaddingSizes(p, originalSize)
 	padded := image.NewRGBA(rect)
 
 	for x := p.PaddingLeft; x < originalSize.X+p.PaddingLeft; x++ {
@@ -222,51 +243,34 @@ func PaddingRGBA(img *image.RGBA, kernelSize image.Point, anchor image.Point, bo
 			padded.Set(x, y, pixel)
 		})
 	default:
-		return nil, errors.New("unknown border type")
+		return nil, errors.New("unknown Border type")
 	}
 	return padded, nil
 }
 
-// -------------------------------------------------------------------------------------------------------
-func calculatePaddings(kernelSize image.Point, anchor image.Point) (Paddings, error) {
+// helper functions
+func computePaddingSizes(kernelSize image.Point, anchor image.Point) (Paddings, error) {
 	var p Paddings
 	if kernelSize.X < 0 || kernelSize.Y < 0 {
-		return p, errors.New("negative size")
+		return p, errors.New("kernel size is negative")
 	}
 	if anchor.X < 0 || anchor.Y < 0 {
-		return p, errors.New("negative anchor value")
+		return p, errors.New("anchor value is negative")
 	}
 	if anchor.X > kernelSize.X || anchor.Y > kernelSize.Y {
-		return p, errors.New("anc" + "hor value outside of the kernel")
+		return p, errors.New("anchor value outside of the kernel")
 	}
 
-	p = Paddings{PaddingLeft: anchor.X, PaddingRight: kernelSize.X - anchor.X - 1, PaddingTop: anchor.Y, PaddingBottom: kernelSize.Y - anchor.Y - 1}
+	p = Paddings{
+		PaddingLeft: anchor.X, PaddingRight: kernelSize.X - anchor.X - 1,
+		PaddingTop: anchor.Y, PaddingBottom: kernelSize.Y - anchor.Y - 1,
+	}
 
 	return p, nil
 }
 
-func getRectangleFromPaddings(p Paddings, imgSize image.Point) image.Rectangle {
+func getImageRectangleFromPaddingSizes(p Paddings, imgSize image.Point) image.Rectangle {
 	x := p.PaddingLeft + p.PaddingRight + imgSize.X
 	y := p.PaddingTop + p.PaddingBottom + imgSize.Y
 	return image.Rect(0, 0, x, y)
 }
-
-func PaddingFloat64(img *mat.Dense, kernelSize image.Point, anchor image.Point, border BorderPad) (*mat.Dense, error) {
-	h, w := img.Dims()
-	originalSize := image.Point{w, h}
-	p, err := calculatePaddings(kernelSize, anchor)
-	if err != nil {
-		return nil, err
-	}
-	rect := getRectangleFromPaddings(p, originalSize)
-	newW, newH := rect.Max.X, rect.Max.Y
-	padded := mat.NewDense(newH, newW, nil)
-
-	for x := p.PaddingLeft; x < originalSize.X+p.PaddingLeft; x++ {
-		for y := p.PaddingTop; y < originalSize.Y+p.PaddingTop; y++ {
-			padded.Set(y, x, img.At(y-p.PaddingTop, x-p.PaddingLeft))
-		}
-	}
-	return padded, nil
-}
-
