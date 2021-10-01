@@ -144,6 +144,7 @@ type RobotServiceClient interface {
 	NavigationServiceLocation(ctx context.Context, in *NavigationServiceLocationRequest, opts ...grpc.CallOption) (*NavigationServiceLocationResponse, error)
 	NavigationServiceWaypoints(ctx context.Context, in *NavigationServiceWaypointsRequest, opts ...grpc.CallOption) (*NavigationServiceWaypointsResponse, error)
 	NavigationServiceAddWaypoint(ctx context.Context, in *NavigationServiceAddWaypointRequest, opts ...grpc.CallOption) (*NavigationServiceAddWaypointResponse, error)
+	NavigationServiceRemoveWaypoint(ctx context.Context, in *NavigationServiceRemoveWaypointRequest, opts ...grpc.CallOption) (*NavigationServiceRemoveWaypointResponse, error)
 }
 
 type robotServiceClient struct {
@@ -717,6 +718,15 @@ func (c *robotServiceClient) NavigationServiceAddWaypoint(ctx context.Context, i
 	return out, nil
 }
 
+func (c *robotServiceClient) NavigationServiceRemoveWaypoint(ctx context.Context, in *NavigationServiceRemoveWaypointRequest, opts ...grpc.CallOption) (*NavigationServiceRemoveWaypointResponse, error) {
+	out := new(NavigationServiceRemoveWaypointResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/NavigationServiceRemoveWaypoint", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RobotServiceServer is the server API for RobotService service.
 // All implementations must embed UnimplementedRobotServiceServer
 // for forward compatibility
@@ -845,6 +855,7 @@ type RobotServiceServer interface {
 	NavigationServiceLocation(context.Context, *NavigationServiceLocationRequest) (*NavigationServiceLocationResponse, error)
 	NavigationServiceWaypoints(context.Context, *NavigationServiceWaypointsRequest) (*NavigationServiceWaypointsResponse, error)
 	NavigationServiceAddWaypoint(context.Context, *NavigationServiceAddWaypointRequest) (*NavigationServiceAddWaypointResponse, error)
+	NavigationServiceRemoveWaypoint(context.Context, *NavigationServiceRemoveWaypointRequest) (*NavigationServiceRemoveWaypointResponse, error)
 	mustEmbedUnimplementedRobotServiceServer()
 }
 
@@ -1031,6 +1042,9 @@ func (UnimplementedRobotServiceServer) NavigationServiceWaypoints(context.Contex
 }
 func (UnimplementedRobotServiceServer) NavigationServiceAddWaypoint(context.Context, *NavigationServiceAddWaypointRequest) (*NavigationServiceAddWaypointResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NavigationServiceAddWaypoint not implemented")
+}
+func (UnimplementedRobotServiceServer) NavigationServiceRemoveWaypoint(context.Context, *NavigationServiceRemoveWaypointRequest) (*NavigationServiceRemoveWaypointResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NavigationServiceRemoveWaypoint not implemented")
 }
 func (UnimplementedRobotServiceServer) mustEmbedUnimplementedRobotServiceServer() {}
 
@@ -2128,6 +2142,24 @@ func _RobotService_NavigationServiceAddWaypoint_Handler(srv interface{}, ctx con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_NavigationServiceRemoveWaypoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NavigationServiceRemoveWaypointRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).NavigationServiceRemoveWaypoint(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/NavigationServiceRemoveWaypoint",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).NavigationServiceRemoveWaypoint(ctx, req.(*NavigationServiceRemoveWaypointRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RobotService_ServiceDesc is the grpc.ServiceDesc for RobotService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2370,6 +2402,10 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "NavigationServiceAddWaypoint",
 			Handler:    _RobotService_NavigationServiceAddWaypoint_Handler,
+		},
+		{
+			MethodName: "NavigationServiceRemoveWaypoint",
+			Handler:    _RobotService_NavigationServiceRemoveWaypoint_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

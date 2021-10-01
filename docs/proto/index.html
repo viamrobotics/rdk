@@ -654,11 +654,23 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.NavigationServiceRemoveWaypointRequest"><span class="badge">M</span>NavigationServiceRemoveWaypointRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.NavigationServiceRemoveWaypointResponse"><span class="badge">M</span>NavigationServiceRemoveWaypointResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.NavigationServiceSetModeRequest"><span class="badge">M</span>NavigationServiceSetModeRequest</a>
                 </li>
               
                 <li>
                   <a href="#proto.api.v1.NavigationServiceSetModeResponse"><span class="badge">M</span>NavigationServiceSetModeResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.NavigationServiceWaypoint"><span class="badge">M</span>NavigationServiceWaypoint</a>
                 </li>
               
                 <li>
@@ -3799,7 +3811,7 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
             <tbody>
               
                 <tr>
-                  <td>waypoint</td>
+                  <td>location</td>
                   <td><a href="#proto.api.v1.GeoPoint">GeoPoint</a></td>
                   <td></td>
                   <td><p> </p></td>
@@ -3881,6 +3893,37 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.NavigationServiceRemoveWaypointRequest">NavigationServiceRemoveWaypointRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.NavigationServiceRemoveWaypointResponse">NavigationServiceRemoveWaypointResponse</h3>
+        <p></p>
+
+        
+
+        
+      
         <h3 id="proto.api.v1.NavigationServiceSetModeRequest">NavigationServiceSetModeRequest</h3>
         <p></p>
 
@@ -3912,6 +3955,37 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.NavigationServiceWaypoint">NavigationServiceWaypoint</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>location</td>
+                  <td><a href="#proto.api.v1.GeoPoint">GeoPoint</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.NavigationServiceWaypointsRequest">NavigationServiceWaypointsRequest</h3>
         <p></p>
 
@@ -3931,7 +4005,7 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
               
                 <tr>
                   <td>waypoints</td>
-                  <td><a href="#proto.api.v1.GeoPoint">GeoPoint</a></td>
+                  <td><a href="#proto.api.v1.NavigationServiceWaypoint">NavigationServiceWaypoint</a></td>
                   <td>repeated</td>
                   <td><p> </p></td>
                 </tr>
@@ -5394,6 +5468,13 @@ is reliant on having an encoder.</p></td>
                 <td><p></p></td>
               </tr>
             
+              <tr>
+                <td>NavigationServiceRemoveWaypoint</td>
+                <td><a href="#proto.api.v1.NavigationServiceRemoveWaypointRequest">NavigationServiceRemoveWaypointRequest</a></td>
+                <td><a href="#proto.api.v1.NavigationServiceRemoveWaypointResponse">NavigationServiceRemoveWaypointResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
           </tbody>
         </table>
 
@@ -6008,6 +6089,16 @@ is reliant on having an encoder.</p></td>
                 <td>NavigationServiceAddWaypoint</td>
                 <td>POST</td>
                 <td>/api/v1/services/navigation/waypoints</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>NavigationServiceRemoveWaypoint</td>
+                <td>DELETE</td>
+                <td>/api/v1/services/navigation/waypoints/{id}</td>
                 <td></td>
               </tr>
               

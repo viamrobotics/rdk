@@ -545,6 +545,15 @@ type RobotServiceNavigationServiceAddWaypoint = {
   readonly responseType: typeof proto_api_v1_robot_pb.NavigationServiceAddWaypointResponse;
 };
 
+type RobotServiceNavigationServiceRemoveWaypoint = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.NavigationServiceRemoveWaypointRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.NavigationServiceRemoveWaypointResponse;
+};
+
 export class RobotService {
   static readonly serviceName: string;
   static readonly Status: RobotServiceStatus;
@@ -607,6 +616,7 @@ export class RobotService {
   static readonly NavigationServiceLocation: RobotServiceNavigationServiceLocation;
   static readonly NavigationServiceWaypoints: RobotServiceNavigationServiceWaypoints;
   static readonly NavigationServiceAddWaypoint: RobotServiceNavigationServiceAddWaypoint;
+  static readonly NavigationServiceRemoveWaypoint: RobotServiceNavigationServiceRemoveWaypoint;
 }
 
 export type ServiceError = { message: string, code: number; metadata: grpc.Metadata }
@@ -1172,6 +1182,15 @@ export class RobotServiceClient {
   navigationServiceAddWaypoint(
     requestMessage: proto_api_v1_robot_pb.NavigationServiceAddWaypointRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.NavigationServiceAddWaypointResponse|null) => void
+  ): UnaryResponse;
+  navigationServiceRemoveWaypoint(
+    requestMessage: proto_api_v1_robot_pb.NavigationServiceRemoveWaypointRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.NavigationServiceRemoveWaypointResponse|null) => void
+  ): UnaryResponse;
+  navigationServiceRemoveWaypoint(
+    requestMessage: proto_api_v1_robot_pb.NavigationServiceRemoveWaypointRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.NavigationServiceRemoveWaypointResponse|null) => void
   ): UnaryResponse;
 }
 

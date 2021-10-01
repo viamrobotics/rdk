@@ -16,6 +16,7 @@ import (
 
 	"github.com/go-errors/errors"
 	geo "github.com/kellydunn/golang-geo"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -1131,9 +1132,12 @@ func (s *Server) NavigationServiceWaypoints(ctx context.Context, req *pb.Navigat
 	if err != nil {
 		return nil, err
 	}
-	pbWps := make([]*pb.GeoPoint, 0, len(wps))
+	pbWps := make([]*pb.NavigationServiceWaypoint, 0, len(wps))
 	for _, wp := range wps {
-		pbWps = append(pbWps, &pb.GeoPoint{Latitude: wp.Lat(), Longitude: wp.Lng()})
+		pbWps = append(pbWps, &pb.NavigationServiceWaypoint{
+			Id:       wp.ID.Hex(),
+			Location: &pb.GeoPoint{Latitude: wp.Lat, Longitude: wp.Long},
+		})
 	}
 	return &pb.NavigationServiceWaypointsResponse{
 		Waypoints: pbWps,
@@ -1150,8 +1154,25 @@ func (s *Server) NavigationServiceAddWaypoint(ctx context.Context, req *pb.Navig
 	if !ok {
 		return nil, errors.New("service is not a navigation service")
 	}
-	err := navSvc.AddWaypoint(ctx, geo.NewPoint(req.Waypoint.Latitude, req.Waypoint.Longitude))
+	err := navSvc.AddWaypoint(ctx, geo.NewPoint(req.Location.Latitude, req.Location.Longitude))
 	return &pb.NavigationServiceAddWaypointResponse{}, err
+}
+
+// NavigationServiceRemoveWaypoint removes a navigation waypoint.
+func (s *Server) NavigationServiceRemoveWaypoint(ctx context.Context, req *pb.NavigationServiceRemoveWaypointRequest) (*pb.NavigationServiceRemoveWaypointResponse, error) {
+	svc, ok := s.r.ServiceByName("navigation")
+	if !ok {
+		return nil, errors.New("no navigation service")
+	}
+	navSvc, ok := svc.(navigation.Service)
+	if !ok {
+		return nil, errors.New("service is not a navigation service")
+	}
+	id, err := primitive.ObjectIDFromHex(req.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.NavigationServiceRemoveWaypointResponse{}, navSvc.RemoveWaypoint(ctx, id)
 }
 
 type executionResultRPC struct {

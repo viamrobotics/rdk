@@ -2846,6 +2846,32 @@ export namespace NavigationServiceSetModeResponse {
   }
 }
 
+export class NavigationServiceWaypoint extends jspb.Message {
+  getId(): string;
+  setId(value: string): void;
+
+  hasLocation(): boolean;
+  clearLocation(): void;
+  getLocation(): GeoPoint | undefined;
+  setLocation(value?: GeoPoint): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): NavigationServiceWaypoint.AsObject;
+  static toObject(includeInstance: boolean, msg: NavigationServiceWaypoint): NavigationServiceWaypoint.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: NavigationServiceWaypoint, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): NavigationServiceWaypoint;
+  static deserializeBinaryFromReader(message: NavigationServiceWaypoint, reader: jspb.BinaryReader): NavigationServiceWaypoint;
+}
+
+export namespace NavigationServiceWaypoint {
+  export type AsObject = {
+    id: string,
+    location?: GeoPoint.AsObject,
+  }
+}
+
 export class GeoPoint extends jspb.Message {
   getLatitude(): number;
   setLatitude(value: number): void;
@@ -2926,9 +2952,9 @@ export namespace NavigationServiceWaypointsRequest {
 
 export class NavigationServiceWaypointsResponse extends jspb.Message {
   clearWaypointsList(): void;
-  getWaypointsList(): Array<GeoPoint>;
-  setWaypointsList(value: Array<GeoPoint>): void;
-  addWaypoints(value?: GeoPoint, index?: number): GeoPoint;
+  getWaypointsList(): Array<NavigationServiceWaypoint>;
+  setWaypointsList(value: Array<NavigationServiceWaypoint>): void;
+  addWaypoints(value?: NavigationServiceWaypoint, index?: number): NavigationServiceWaypoint;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): NavigationServiceWaypointsResponse.AsObject;
@@ -2942,15 +2968,15 @@ export class NavigationServiceWaypointsResponse extends jspb.Message {
 
 export namespace NavigationServiceWaypointsResponse {
   export type AsObject = {
-    waypointsList: Array<GeoPoint.AsObject>,
+    waypointsList: Array<NavigationServiceWaypoint.AsObject>,
   }
 }
 
 export class NavigationServiceAddWaypointRequest extends jspb.Message {
-  hasWaypoint(): boolean;
-  clearWaypoint(): void;
-  getWaypoint(): GeoPoint | undefined;
-  setWaypoint(value?: GeoPoint): void;
+  hasLocation(): boolean;
+  clearLocation(): void;
+  getLocation(): GeoPoint | undefined;
+  setLocation(value?: GeoPoint): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): NavigationServiceAddWaypointRequest.AsObject;
@@ -2964,7 +2990,7 @@ export class NavigationServiceAddWaypointRequest extends jspb.Message {
 
 export namespace NavigationServiceAddWaypointRequest {
   export type AsObject = {
-    waypoint?: GeoPoint.AsObject,
+    location?: GeoPoint.AsObject,
   }
 }
 
@@ -2980,6 +3006,42 @@ export class NavigationServiceAddWaypointResponse extends jspb.Message {
 }
 
 export namespace NavigationServiceAddWaypointResponse {
+  export type AsObject = {
+  }
+}
+
+export class NavigationServiceRemoveWaypointRequest extends jspb.Message {
+  getId(): string;
+  setId(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): NavigationServiceRemoveWaypointRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: NavigationServiceRemoveWaypointRequest): NavigationServiceRemoveWaypointRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: NavigationServiceRemoveWaypointRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): NavigationServiceRemoveWaypointRequest;
+  static deserializeBinaryFromReader(message: NavigationServiceRemoveWaypointRequest, reader: jspb.BinaryReader): NavigationServiceRemoveWaypointRequest;
+}
+
+export namespace NavigationServiceRemoveWaypointRequest {
+  export type AsObject = {
+    id: string,
+  }
+}
+
+export class NavigationServiceRemoveWaypointResponse extends jspb.Message {
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): NavigationServiceRemoveWaypointResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: NavigationServiceRemoveWaypointResponse): NavigationServiceRemoveWaypointResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: NavigationServiceRemoveWaypointResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): NavigationServiceRemoveWaypointResponse;
+  static deserializeBinaryFromReader(message: NavigationServiceRemoveWaypointResponse, reader: jspb.BinaryReader): NavigationServiceRemoveWaypointResponse;
+}
+
+export namespace NavigationServiceRemoveWaypointResponse {
   export type AsObject = {
   }
 }

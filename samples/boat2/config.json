@@ -122,7 +122,16 @@
             "name": "gps1",
             "type": "sensor",
             "subtype": "gps",
-            "model": "nmea-serial"
+            "model": "nmea-serial",
+            "attributes" : {
+                "path" : "/dev/ttyAMA0"
+            }
+            
+        },
+        {
+            "name" : "base1",
+            "type" : "base",
+            "model" : "viam-boat2"
         }
     ],
     "services":

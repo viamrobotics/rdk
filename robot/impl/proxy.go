@@ -31,6 +31,12 @@ type proxyBase struct {
 	actual base.Base
 }
 
+func (p *proxyBase) ProxyFor() interface{} {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual
+}
+
 func (p *proxyBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

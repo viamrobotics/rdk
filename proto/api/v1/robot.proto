@@ -462,6 +462,12 @@ service RobotService {
       post: "/api/v1/services/navigation/waypoints"
     };
   }
+
+  rpc NavigationServiceRemoveWaypoint(NavigationServiceRemoveWaypointRequest) returns (NavigationServiceRemoveWaypointResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/services/navigation/waypoints/{id}"
+    };
+  }
 }
 
 message StatusRequest {}
@@ -1065,6 +1071,11 @@ message NavigationServiceSetModeRequest {
 message NavigationServiceSetModeResponse {
 }
 
+message NavigationServiceWaypoint {
+  string id = 1;
+  GeoPoint location = 2;
+}
+
 message GeoPoint {
   double latitude = 1;
   double longitude = 2;
@@ -1083,12 +1094,20 @@ message NavigationServiceWaypointsRequest {
 }
 
 message NavigationServiceWaypointsResponse {
-  repeated GeoPoint waypoints = 1;
+  repeated NavigationServiceWaypoint waypoints = 1;
 }
 
 message NavigationServiceAddWaypointRequest {
-  GeoPoint waypoint = 1;
+  GeoPoint location = 1;
 }
 
 message NavigationServiceAddWaypointResponse {
 }
+
+message NavigationServiceRemoveWaypointRequest {
+  string id = 1;
+}
+
+message NavigationServiceRemoveWaypointResponse {
+}
+

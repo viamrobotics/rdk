@@ -10,6 +10,7 @@ import (
 	"github.com/go-errors/errors"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/mitchellh/mapstructure"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/utils"
 
 	"go.viam.com/core/base"
@@ -57,8 +58,9 @@ type Service interface {
 	Location(ctx context.Context) (*geo.Point, error)
 
 	// Waypoint
-	Waypoints(ctx context.Context) ([]*geo.Point, error)
+	Waypoints(ctx context.Context) ([]Waypoint, error)
 	AddWaypoint(ctx context.Context, point *geo.Point) error
+	RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error
 }
 
 // Type is the type of service.
@@ -266,16 +268,14 @@ func (svc *navService) Location(ctx context.Context) (*geo.Point, error) {
 	return currentLoc, nil
 }
 
-func (svc *navService) Waypoints(ctx context.Context) ([]*geo.Point, error) {
+func (svc *navService) Waypoints(ctx context.Context) ([]Waypoint, error) {
 	wps, err := svc.store.Waypoints(ctx)
 	if err != nil {
 		return nil, err
 	}
-	gps := make([]*geo.Point, 0, len(wps))
-	for _, p := range wps {
-		gps = append(gps, p.ToPoint())
-	}
-	return gps, nil
+	wpsCopy := make([]Waypoint, 0, len(wps))
+	wpsCopy = append(wpsCopy, wps...)
+	return wpsCopy, nil
 }
 
 func (svc *navService) AddWaypoint(ctx context.Context, point *geo.Point) error {
@@ -283,7 +283,11 @@ func (svc *navService) AddWaypoint(ctx context.Context, point *geo.Point) error 
 	return err
 }
 
-func (svc *navService) nextWaypoint(ctx context.Context) (waypoint, error) {
+func (svc *navService) RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error {
+	return svc.store.RemoveWaypoint(ctx, id)
+}
+
+func (svc *navService) nextWaypoint(ctx context.Context) (Waypoint, error) {
 	return svc.store.NextWaypoint(ctx)
 }
 

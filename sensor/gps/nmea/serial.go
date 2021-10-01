@@ -43,7 +43,7 @@ const pathAttrName = "path"
 func newSerialNMEAGPS(config config.Component, logger golog.Logger) (*serialNMEAGPS, error) {
 	serialPath := config.Attributes.String(pathAttrName)
 	if serialPath == "" {
-		return nil, fmt.Errorf("expected non-empty string for %q", pathAttrName)
+		return nil, fmt.Errorf("serialNMEAGPS expected non-empty string for %q", pathAttrName)
 	}
 	dev, err := serial.Open(serialPath)
 	if err != nil {
@@ -52,7 +52,7 @@ func newSerialNMEAGPS(config config.Component, logger golog.Logger) (*serialNMEA
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-	g := &serialNMEAGPS{dev: dev, cancelCtx: cancelCtx, cancelFunc: cancelFunc}
+	g := &serialNMEAGPS{dev: dev, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	g.Start()
 
 	return g, nil

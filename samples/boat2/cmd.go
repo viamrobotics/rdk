@@ -120,15 +120,6 @@ func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golo
 		return nil, errors.New("no thrust motor")
 	}
 
-	navServiceTemp, ok := r.ServiceByName("navigation")
-	if !ok {
-		return nil, errors.New("no navigation service")
-	}
-	b.navService, ok = navServiceTemp.(navigation.Service)
-	if !ok {
-		return nil, errors.New("navigation service isn't a nav service")
-	}
-
 	err = b.Stop(ctx)
 	if err != nil {
 		return nil, err
@@ -266,6 +257,15 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return errors.New("no base")
 	}
 	myB := coreutils.UnwrapProxy(b).(*boat)
+
+	navServiceTemp, ok := myRobot.ServiceByName("navigation")
+	if !ok {
+		return errors.New("no navigation service")
+	}
+	myB.navService, ok = navServiceTemp.(navigation.Service)
+	if !ok {
+		return errors.New("navigation service isn't a nav service")
+	}
 
 	go runRC(ctx, myB)
 
