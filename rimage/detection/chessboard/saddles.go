@@ -2,8 +2,11 @@ package chessboard
 
 import (
 	"image"
+	"image/color"
 	"math"
 
+	"github.com/fogleman/gg"
+	"github.com/golang/geo/r2"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/utils"
 	"gonum.org/v1/gonum/mat"
@@ -59,6 +62,8 @@ func computePixelWiseHessianDeterminant(img *mat.Dense) (*mat.Dense, error) {
 	return out, nil
 }
 
+// SumPositive is a function to count strictly positive element in a *mat.Dense
+// Can be used with the Apply function
 func SumPositive(i, j int, val float64) float64 {
 	if val > 0 {
 		return 1.
@@ -148,4 +153,43 @@ func GetSaddleMapPoints(img *mat.Dense, conf *SaddleConfiguration) (*mat.Dense, 
 	})
 
 	return saddleMap, saddlePoints, nil
+}
+
+// visualization functions
+
+// PlotSaddleMap plots polygonal contours and saddle points on a black image and saves it to a png file : outFile
+func PlotSaddleMap(saddlePoints []image.Point, contours [][]r2.Point, outFile string, iw, ih int) {
+
+	dc := gg.NewContext(iw, ih)
+
+	// Draw contours
+	dc.SetRGB(0, 1, 0)
+
+	for _, c := range contours {
+		for i, pt := range c {
+			//dc.SetPixel(int(pt.X), int(pt.Y))
+			p2 := c[(i+1)%len(c)]
+			dc.DrawLine(pt.X, pt.Y, p2.X, p2.Y)
+			dc.SetLineWidth(1)
+			dc.SetRGB(0, 1, 0)
+			dc.Stroke()
+		}
+	}
+	// Draw Saddle Points
+	dc.SetColor(color.RGBA{
+		R: 255,
+		G: 0,
+		B: 0,
+		A: 255,
+	})
+	for _, pt := range saddlePoints {
+		//dc.SetPixel(pt.X, pt.Y)
+		dc.DrawPoint(float64(pt.X), float64(pt.Y), 2.5)
+		dc.Fill()
+	}
+
+	err := dc.SavePNG(outFile)
+	if err != nil {
+		panic(err)
+	}
 }
