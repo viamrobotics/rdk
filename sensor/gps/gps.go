@@ -16,10 +16,10 @@ const (
 // A GPS represents a GPS that can report lat/long measurements.
 type GPS interface {
 	sensor.Sensor
-	Location(ctx context.Context) (lat float64, long float64, err error)
-	Altitude(ctx context.Context) (alt float64, err error)
-	Speed(ctx context.Context) (kph float64, err error)
-	Satellites(ctx context.Context) (active, total int, err error)
-	Accuracy(ctx context.Context) (horizontal, vertical float64, err error)
-	Valid(ctx context.Context) (valid bool, err error)
+	Location(ctx context.Context) (lat float64, long float64, err error) // The current latitude and longitude
+	Altitude(ctx context.Context) (alt float64, err error) // The current altitude in meters
+	Speed(ctx context.Context) (kph float64, err error) // Current ground speed in kph
+	Satellites(ctx context.Context) (active, total int, err error) // Number of satellites used for fix, and total in view
+	Accuracy(ctx context.Context) (horizontal, vertical float64, err error) // Horizontal and vertical position error
+	Valid(ctx context.Context) (valid bool, err error) // Whether or not the GPS chip had a valid fix for the most recent dataset
 }
