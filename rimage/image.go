@@ -7,11 +7,12 @@
 package rimage
 
 import (
-	"gonum.org/v1/gonum/mat"
 	"image"
 	"image/color"
 
+	"go.viam.com/core/utils"
 	"go.viam.com/rdk/utils"
+	"gonum.org/v1/gonum/mat"
 )
 
 // Image is like image.Image but it uses our Color type with a few more
@@ -138,7 +139,7 @@ func (i *Image) SubImage(r image.Rectangle) Image {
 func ConvertColorImageToLuminanceFloat(img Image) *mat.Dense {
 	out := mat.NewDense(img.height, img.width, nil)
 	utils.ParallelForEachPixel(image.Point{img.width, img.height}, func(x int, y int) {
-		c := img.At(x,y)
+		c := img.At(x, y)
 		nc := NewColorFromColor(c)
 		l := Luminance(nc)
 		out.Set(y, x, l)
