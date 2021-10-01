@@ -238,6 +238,11 @@ func TestRemoteRobot(t *testing.T) {
 	robot.conf.Prefix = true
 	test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("one.func1", "one.func2"))
 
+	robot.conf.Prefix = false
+	test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm1", "core:component:arm/arm2"))
+	robot.conf.Prefix = true
+	test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/one.arm1", "core:component:arm/one.arm2"))
+
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
 		return nil, errors.New("whoops")
 	}
@@ -379,11 +384,11 @@ func TestRemoteRobot(t *testing.T) {
 	robot.conf.Prefix = false
 	arm1, ok := robot.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, arm1.(resource.Resource).(*fake.Arm).Name, test.ShouldEqual, "arm1")
+	test.That(t, arm1.(*fake.Arm).Name, test.ShouldEqual, "arm1")
 	robot.conf.Prefix = true
 	arm1, ok = robot.ArmByName("one.arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, arm1.(resource.Resource).(*fake.Arm).Name, test.ShouldEqual, "arm1")
+	test.That(t, arm1.(*fake.Arm).Name, test.ShouldEqual, "arm1")
 	_, ok = robot.ArmByName("arm1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -462,6 +467,17 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, servo1.(*proxyServo).actual.(*fake.Servo).Name, test.ShouldEqual, "servo1")
 	_, ok = robot.ServoByName("servo1_what")
+	test.That(t, ok, test.ShouldBeFalse)
+
+	robot.conf.Prefix = false
+	resource1, ok := robot.ResourceByName("core:component:arm/arm1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resource1.(*fake.Arm).Name, test.ShouldEqual, "arm1")
+	robot.conf.Prefix = true
+	resource1, ok = robot.ResourceByName("core:component:arm/one.arm1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resource1.(*fake.Arm).Name, test.ShouldEqual, "arm1")
+	_, ok = robot.ResourceByName("arm1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
 	wrapped.errRefresh = true
