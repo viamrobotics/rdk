@@ -120,7 +120,6 @@ func (rr *remoteRobot) prefixResourceName(name string) string {
 	split := strings.Split(name, "/")
 	split[len(split)-1] = rr.prefixName(split[len(split)-1])
 	return strings.Join(split, "/")
-
 }
 
 func (rr *remoteRobot) unprefixResourceName(name string) string {

@@ -75,6 +75,9 @@ func NewFromString(resourceName string) (Name, error) {
 	if len(rSubtypeParts) > 3 {
 		return Name{}, errors.New("invalid resource name string: there are more than 2 colons")
 	}
+	if len(rSubtypeParts) < 3 {
+		return Name{}, errors.New("invalid resource name string: there are less than 2 colons")
+	}
 	return New(rSubtypeParts[0], rSubtypeParts[1], rSubtypeParts[2], name)
 }
 

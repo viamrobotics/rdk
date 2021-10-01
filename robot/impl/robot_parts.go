@@ -474,7 +474,7 @@ func (parts *robotParts) Close() error {
 
 	for _, x := range parts.resources {
 		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing arm: %w", err))
+			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing resource: %w", err))
 		}
 	}
 

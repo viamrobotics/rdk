@@ -32,7 +32,6 @@ import (
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/rimage"
-	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
@@ -714,9 +713,6 @@ func (ac *armClient) Reconfigure(newResource resource.Resource) {
 	actual, ok := newResource.(*armClient)
 	if !ok {
 		panic(fmt.Errorf("expected new resource to be %T but got %T", actual, newResource))
-	}
-	if err := utils.TryClose(ac); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	ac.name = actual.name
 	ac.rc = actual.rc
