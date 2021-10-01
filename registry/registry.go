@@ -394,8 +394,8 @@ type (
 	// A CreateComponent creates a resource from a given config.
 	CreateComponent func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (resource.Resource, error)
 
-	// A RegisterRpcService registers a resource service to the given rpc server
-	RegisterRpcService func(ctx context.Context, server server.Server, resource resource.Resource) error
+	// A RegisterRPCService registers a resource service to the given rpc server
+	RegisterRPCService func(ctx context.Context, server server.Server, resource resource.Resource) error
 )
 
 // Component stores a resource constructor (mandatory) and a Frame building function (optional)
@@ -409,7 +409,7 @@ var (
 	componentRegistry = map[string]Component{}
 
 	// currently unused, should be populated by init() function of resource service
-	registratorRegistry = map[string]RegisterRpcService{}
+	registratorRegistry = map[string]RegisterRPCService{}
 )
 
 // RegisterComponentCreator register a creator to its corresponding component and model.
@@ -427,7 +427,7 @@ func RegisterComponentCreator(component string, model string, creator Component)
 
 // RegisterServiceRegistrator looks up a service registrator by the given component. nil is returned if
 // there is no such registrator.
-func RegisterServiceRegistrator(component string, registrator RegisterRpcService) {
+func RegisterServiceRegistrator(component string, registrator RegisterRPCService) {
 	_, old := registratorRegistry[component]
 	if old {
 		panic(errors.Errorf("trying to register two service registrators with same component:%s", component))
@@ -450,7 +450,7 @@ func ComponentLookup(component string, model string) *Component {
 
 // ServiceRegistratorLookup looks up a service registrator by the given component. nil is returned if
 // there is no such registrator.
-func ServiceRegistratorLookup(component string) RegisterRpcService {
+func ServiceRegistratorLookup(component string) RegisterRPCService {
 	if registration, ok := registratorRegistry[component]; ok {
 		return registration
 	}
