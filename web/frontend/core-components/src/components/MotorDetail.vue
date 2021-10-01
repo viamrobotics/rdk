@@ -7,24 +7,6 @@
         <span v-else class="pill">Idle</span>
       </div>
 
-      <!-- <div style="border: 1px solid gray;">
-        <h4 style="margin: 0;">Position control coming soon</h4>
-        <div v-if="!motorStatus.positionSupported" class="row">
-          <div class="column">
-            <label for="positionInput" class="subtitle">Position</label>
-            <input name="positionInput" id="positionInput" type="number" disabled />
-          </div>
-          <button class="clear" disabled>
-            <i class="fas fa-home"></i>
-            Set Home
-          </button>
-          <button class="clear" disabled>
-            <i class="fas fa-crosshairs"></i>
-            Go to Home
-          </button>
-        </div>
-      </div> -->
-
       <div class="row" v-if="motorStatus.positionSupported">
         <div class="column">
           <h2>{{ motorStatus.position }}</h2>
