@@ -689,12 +689,13 @@
           var point = new robotApi.GeoPoint();
           point.setLatitude(e.latLng.lat());
           point.setLongitude(e.latLng.lng());
-          req.setWaypoint(point);
+          req.setLocation(point);
           robotService.navigationServiceAddWaypoint(req, {}, (err, resp) => grpcCallback(err, resp));
         });
 
         let centered = false;
         const knownWaypoints = {};
+        let localLabelCounter = 0;
         const updateWaypoints = function() {
           var req = new robotApi.NavigationServiceWaypointsRequest();
           robotService.navigationServiceWaypoints(req, {}, (err, resp) => {
@@ -708,7 +709,7 @@
             var waypoints = resp.getWaypointsList();
             for (var i = 0; i < waypoints.length; i++) {
               const waypoint = waypoints[i];
-              const pos = {lat: waypoint.getLatitude(), lng: waypoint.getLongitude()};
+              const pos = {lat: waypoint.getLocation().getLatitude(), lng: waypoint.getLocation().getLongitude()};
               const posStr = JSON.stringify(pos);
               if (knownWaypoints[posStr]) {
                 currentWaypoints[posStr] = knownWaypoints[posStr];
@@ -717,12 +718,17 @@
               const marker = new google.maps.Marker({
                 position: pos,
                 map: window.map,
-                label: `${i}`,
+                label: `${localLabelCounter++}`,
               });
               currentWaypoints[posStr] = marker;
               knownWaypoints[posStr] = marker;
               marker.addListener("click", () => {
                 console.log("clicked on marker", pos)
+              });
+              marker.addListener("dblclick", () => {
+                var req = new robotApi.NavigationServiceRemoveWaypointRequest();
+                req.setId(waypoint.getId());
+                robotService.navigationServiceRemoveWaypoint(req, {}, (err, resp) => grpcCallback(err, resp));
               });
             }
             const waypointsToDelete = Object.keys(knownWaypoints).filter(elem => {
