@@ -1,14 +1,16 @@
 package transform
 
 import (
-	"go.viam.com/test"
 	"math"
 	"testing"
 
+	"go.viam.com/test"
+
 	"github.com/golang/geo/r2"
-	"go.viam.com/core/utils"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/core/utils"
 )
 
 // Single generates an n-dimensional Grid using a single set of values.
@@ -207,13 +209,13 @@ func TestEstimateHomographyRANSAC(t *testing.T) {
 	// [[1 0 2],
 	//  [0 1 3],
 	//  [0 0 1]]
-	test.That(t, h.At(0,0), test.ShouldAlmostEqual, 1, 0.001)
-	test.That(t, h.At(1,1), test.ShouldAlmostEqual, 1, 0.001)
-	test.That(t, h.At(0,1), test.ShouldAlmostEqual, 0, 0.001)
-	test.That(t, h.At(1,0), test.ShouldAlmostEqual, 0, 0.001)
-	test.That(t, h.At(0,2), test.ShouldAlmostEqual, 2, 0.001)
-	test.That(t, h.At(1,2), test.ShouldAlmostEqual, 3, 0.001)
-	test.That(t, h.At(2,0), test.ShouldAlmostEqual, 0, 0.001)
-	test.That(t, h.At(2,1), test.ShouldAlmostEqual, 0, 0.001)
-	test.That(t, h.At(2,2), test.ShouldAlmostEqual, 1, 0.001)
+	test.That(t, h.At(0, 0), test.ShouldAlmostEqual, 1, 0.001)
+	test.That(t, h.At(1, 1), test.ShouldAlmostEqual, 1, 0.001)
+	test.That(t, h.At(0, 1), test.ShouldAlmostEqual, 0, 0.001)
+	test.That(t, h.At(1, 0), test.ShouldAlmostEqual, 0, 0.001)
+	test.That(t, h.At(0, 2), test.ShouldAlmostEqual, 2, 0.001)
+	test.That(t, h.At(1, 2), test.ShouldAlmostEqual, 3, 0.001)
+	test.That(t, h.At(2, 0), test.ShouldAlmostEqual, 0, 0.001)
+	test.That(t, h.At(2, 1), test.ShouldAlmostEqual, 0, 0.001)
+	test.That(t, h.At(2, 2), test.ShouldAlmostEqual, 1, 0.001)
 }
