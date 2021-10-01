@@ -1,16 +1,18 @@
 package chessboard
 
 import (
-	"go.viam.com/core/rimage"
-	"go.viam.com/test"
-	"go.viam.com/utils"
-	"go.viam.com/utils/artifact"
-	"gonum.org/v1/gonum/mat"
 	"image"
 	"math"
 	"os"
 	"strings"
 	"testing"
+
+	"go.viam.com/test"
+	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
+	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/core/rimage"
 )
 
 // readImageFromFile extracts the RGB, Z16, or "both" data from an image file.
@@ -35,7 +37,7 @@ func readImageFromFile(path string, aligned bool) (image.Image, error) {
 }
 
 func TestComputeSaddleMap(t *testing.T) {
-	imgPng, err :=readImageFromFile(artifact.MustPath("rimage/image_2021-07-16-15-59-18.png"), false)
+	imgPng, err := readImageFromFile(artifact.MustPath("rimage/image_2021-07-16-15-59-18.png"), false)
 	test.That(t, err, test.ShouldBeNil)
 	bounds := imgPng.Bounds()
 	dims := bounds.Max
@@ -48,15 +50,15 @@ func TestComputeSaddleMap(t *testing.T) {
 	h1, w1 := saddle.Dims()
 	test.That(t, h, test.ShouldEqual, h1)
 	test.That(t, w, test.ShouldEqual, w1)
-	test.That(t, mat.Min(saddle), test.ShouldEqual, 0)  // GT obtained from python prototype code
-	test.That(t, mat.Max(saddle), test.ShouldBeGreaterThan, 1*math.Pow(10, 6))  // GT obtained from python prototype code
-	test.That(t, len(saddlePoints), test.ShouldEqual, 394)  // GT obtained from python prototype code
+	test.That(t, mat.Min(saddle), test.ShouldEqual, 0)                         // GT obtained from python prototype code
+	test.That(t, mat.Max(saddle), test.ShouldBeGreaterThan, 1*math.Pow(10, 6)) // GT obtained from python prototype code
+	test.That(t, len(saddlePoints), test.ShouldEqual, 394)                     // GT obtained from python prototype code
 
 }
 
 func TestNonMaxSuppression(t *testing.T) {
 	// loading an image with 2 points (50,100) and (100,150) convolved with a gaussian
-	imgPng, err :=readImageFromFile(artifact.MustPath("rimage/nms_test_50_100_100_150.png"), false)
+	imgPng, err := readImageFromFile(artifact.MustPath("rimage/nms_test_50_100_100_150.png"), false)
 	test.That(t, err, test.ShouldBeNil)
 	bounds := imgPng.Bounds()
 	dims := bounds.Max
