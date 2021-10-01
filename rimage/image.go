@@ -7,7 +7,6 @@
 package rimage
 
 import (
-	"gonum.org/v1/gonum/mat"
 	"image"
 	"image/color"
 
@@ -16,6 +15,7 @@ import (
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/core/utils"
+	"gonum.org/v1/gonum/mat"
 )
 
 // Image is like image.Image but it uses our Color type with a few more
