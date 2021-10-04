@@ -1,48 +1,66 @@
 <template>
   <div class="component">
     <div class="card">
-      <div class="header">
-        <h2>{{ motorName }} Motor</h2>
-        <span v-if="motorStatus.on" class="pill green">Running</span>
-        <span v-else class="pill">Idle</span>
-      </div>
-
-      <div class="row" v-if="motorStatus.positionSupported">
-        <div class="column">
-          <h2>{{ motorStatus.position }}</h2>
+      <div class="row" style="margin-right: 0; align-items: center;">
+        <div class="header">
+          <h2>{{ motorName }} Motor</h2>
+          <span v-if="motorStatus.on" class="pill green">Running</span>
+          <span v-else class="pill">Idle</span>
+        </div>
+        <div class="column" v-if="motorStatus.positionSupported">
+          <h3 style="line-height: 0.65;">{{ motorStatus.position }}</h3>
           <p class="subtitle">Position</p>
         </div>
+        <div
+          class="row"
+          style="justify-content: flex-end; flex-grow: 1; margin-right: 0"
+        >
+          <button class="red" v-on:click="stop" style="align-self: flex-end">
+            <i class="far fa-times-circle"></i>
+            STOP
+          </button>
+          <button
+            class="green"
+            v-on:click="emitCommand"
+            style="align-self: flex-end"
+          >
+            <i class="fas fa-play"></i>
+            RUN
+          </button>
+        </div>
       </div>
 
-      <div class="row">
-        <div class="column">
-          <p class="subtitle">Type of Rotation</p>
-          <RadioButtons
-            :options="['Continuous', 'Discrete']"
-            :defaultOption="isContinuous ? 'Continuous' : 'Discrete'"
-            :disabledOptions="motorStatus.positionSupported ? [] : ['Discrete']"
-            v-on:selectOption="isContinuous = $event === 'Continuous'"
-          />
-        </div>
-        <div class="column">
-          <label
-            for="numberOfRotations"
-            v-bind:class="['subtitle', errors.revolutions ? 'error' : '']"
-          >
-            Number of Rotations
-            {{ errors.revolutions ? " - " + errors.revolutions : "" }}
-          </label>
-          <input
-            id="numberOfRotations"
-            name="numberOfRotations"
-            type="text"
-            placeholder="Enter a number"
-            min="0"
-            :disabled="isContinuous"
-            v-bind:class="['margin-bottom', errors.revolutions ? 'error' : '']"
-            style="max-width: 128px"
-            v-model="numberOfRotations"
-          />
+      <div class="row" style="justify-content: space-between;">
+        <div class="row">
+          <div class="column">
+            <p class="subtitle">Type of Rotation</p>
+            <RadioButtons
+              :options="['Continuous', 'Discrete']"
+              :defaultOption="isContinuous ? 'Continuous' : 'Discrete'"
+              :disabledOptions="motorStatus.positionSupported ? [] : ['Discrete']"
+              v-on:selectOption="isContinuous = $event === 'Continuous'"
+            />
+          </div>
+          <div class="column">
+            <label
+              for="numberOfRotations"
+              v-bind:class="['subtitle', errors.revolutions ? 'error' : '']"
+            >
+              Number of Rotations
+              {{ errors.revolutions ? " - " + errors.revolutions : "" }}
+            </label>
+            <input
+              id="numberOfRotations"
+              name="numberOfRotations"
+              type="text"
+              placeholder="Enter a number"
+              min="0"
+              :disabled="isContinuous"
+              v-bind:class="['margin-bottom', errors.revolutions ? 'error' : '']"
+              style="max-width: 128px"
+              v-model="numberOfRotations"
+            />
+          </div>
         </div>
         <div class="column">
           <p class="subtitle">Direction of Rotation</p>
@@ -52,49 +70,38 @@
             v-on:selectOption="isGoingForward = $event === 'Forward'"
           />
         </div>
-      </div>
-      <div class="row">
-        <div class="column">
-          <label class="subtitle">Mode</label>
-          <RadioButtons
-            :options="['Power', 'RPM']"
-            :defaultOption="isContinuous ? 'Power' : 'RPM'"
-            :disabledOptions="isContinuous ? ['RPM'] : ['Power']"
-          />
-        </div>
-        <div class="column">
-          <label
-            for="speedFinite"
-            v-bind:class="['subtitle', errors.speed ? 'error' : '']"
-          >
-            {{ isContinuous ? "Power" : "RPM" }}
-            {{ errors.speed ? " - " + errors.speed : "" }}
-          </label>
-          <div class="input-group">
-            <input
-              name="speedFinite"
-              id="speedFinite"
-              type="text"
-              v-model="speed"
-              min="0"
-              v-bind:max="motorStatus.positionSupported ? '' : 100"
-              v-bind:class="['margin-bottom', errors.speed ? 'error' : '']"
-              style="width: 48px"
+        <div class="row">
+          <div class="column">
+            <label class="subtitle">Mode</label>
+            <RadioButtons
+              :options="['Power', 'RPM']"
+              :defaultOption="isContinuous ? 'Power' : 'RPM'"
+              :disabledOptions="isContinuous ? ['RPM'] : ['Power']"
             />
-            <span class="input-post">{{ isContinuous ? "%" : "RPM" }}</span>
+          </div>
+          <div class="column">
+            <label
+              for="speedFinite"
+              v-bind:class="['subtitle', errors.speed ? 'error' : '']"
+            >
+              {{ isContinuous ? "Power" : "RPM" }}
+              {{ errors.speed ? " - " + errors.speed : "" }}
+            </label>
+            <div class="input-group">
+              <input
+                name="speedFinite"
+                id="speedFinite"
+                type="text"
+                v-model="speed"
+                min="0"
+                v-bind:max="motorStatus.positionSupported ? '' : 100"
+                v-bind:class="['margin-bottom', errors.speed ? 'error' : '']"
+                style="width: 48px"
+              />
+              <span class="input-post">{{ isContinuous ? "%" : "RPM" }}</span>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div class="row" style="justify-content: flex-end">
-        <button class="red" v-on:click="stop">
-          <i class="far fa-times-circle"></i>
-          STOP
-        </button>
-        <button class="green" v-on:click="emitCommand">
-          <i class="fas fa-play"></i>
-          RUN
-        </button>
       </div>
     </div>
   </div>
@@ -329,7 +336,6 @@ h3 {
   display: flex;
   flex-direction: row;
   margin-right: 12px;
-  align-items: flex-end;
   gap: 8px;
   margin-bottom: 12px;
 }
