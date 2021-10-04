@@ -33,8 +33,7 @@ type Measurement struct {
 
 // IPhone is an iPhone based IMU.
 type IPhone struct {
-	host string // The host name of the iPhone being connected to.
-	//conn        net.Conn      // Connection to IPhone.
+	host        string        // The host name of the iPhone being connected to.
 	reader      *bufio.Reader // Read connection to iPhone to pull sensor data from.
 	log         golog.Logger
 	mut         *sync.RWMutex // Mutex to ensure only one goroutine or thread is reading from reader at a time.
@@ -167,26 +166,8 @@ func (ip *IPhone) readNextMeasurement(ctx context.Context) (*Measurement, error)
 			return nil, err
 		}
 
-		//if !containsAllFields(&imuReading) {
-		//	return nil, errors.New("iphone measurement missing required fields")
-		//}
-
 		return &imuReading, nil
 	case <-ctx.Done():
 		return nil, errors.New("timed out waiting for iphone measurement")
 	}
-}
-
-//// Close closes the underlying connection.
-//func (ip *IPhone) Close() error {
-//	return ip.conn.Close()
-//}
-
-// TODO: find way to do this less verbosely and preferably returning the missing field
-func containsAllFields(m *Measurement) bool {
-	if m.RotationRateX == nil || m.RotationRateY == nil || m.RotationRateZ == nil || m.Pitch == nil || m.Roll == nil ||
-		m.Yaw == nil || m.Heading == nil {
-		return false
-	}
-	return true
 }
