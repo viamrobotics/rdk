@@ -30,6 +30,12 @@ func NewGPIOMotor(b Board, mc motor.Config, logger golog.Logger) (motor.Motor, e
 		return nil, errors.New("max_power_pct must be between 0.06 and 1.0")
 	}
 
+	if mc.MinPowerPct < 0 {
+		mc.MinPowerPct = 0
+	} else if mc.MinPowerPct > 1.0 {
+		mc.MinPowerPct = 1.0
+	}
+
 	m = &GPIOMotor{
 		b,
 		pins["a"],
@@ -40,6 +46,7 @@ func NewGPIOMotor(b Board, mc motor.Config, logger golog.Logger) (motor.Motor, e
 		false,
 		mc.PWMFreq,
 		pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED,
+		mc.MinPowerPct,
 		mc.MaxPowerPct,
 	}
 	return m, nil
@@ -54,6 +61,7 @@ type GPIOMotor struct {
 	on                 bool
 	pwmFreq            uint
 	curDirection       pb.DirectionRelative
+	minPowerPct        float32
 	maxPowerPct        float32
 }
 
@@ -74,7 +82,7 @@ func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
 		powerPct = m.maxPowerPct
 	}
 
-	if powerPct == 0 {
+	if powerPct <= 0.001 {
 		if m.En != "" {
 			errs = m.Board.GPIOSet(ctx, m.En, true)
 		}
@@ -109,6 +117,10 @@ func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
 		powerPct = 1.0 - powerPct // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
 	} else if m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
 		return errors.New("can't set power when no direction is set")
+	}
+
+	if powerPct < m.minPowerPct {
+		powerPct = m.minPowerPct
 	}
 
 	return multierr.Combine(

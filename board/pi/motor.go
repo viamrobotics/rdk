@@ -44,20 +44,6 @@ func init() {
 		return m, nil
 	}})
 	motor.RegisterConfigAttributeConverter(modelName)
-
-	registry.RegisterMotor("TMC5072", registry.Motor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error) {
-		actualBoard, motorConfig, err := getBoardFromRobotConfig(r, config)
-		if err != nil {
-			return nil, err
-		}
-
-		m, err := board.NewTMCStepperMotor(ctx, actualBoard, config, *motorConfig, logger)
-		if err != nil {
-			return nil, err
-		}
-		return m, nil
-	}})
-	motor.RegisterConfigAttributeConverter("TMC5072")
 }
 
 func getBoardFromRobotConfig(r robot.Robot, config config.Component) (*piPigpio, *motor.Config, error) {

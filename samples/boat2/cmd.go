@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -76,6 +77,9 @@ type boat struct {
 	steeringRange            float64
 
 	navService navigation.Service
+
+	lastDir  float64
+	lastSpin float64
 }
 
 func (b *boat) Stop(ctx context.Context) error {
@@ -87,10 +91,26 @@ func (b *boat) Stop(ctx context.Context) error {
 
 // dir -1 -> 1
 func (b *boat) Steer(ctx context.Context, dir float64) error {
+
+	if math.Abs(dir) > .5 {
+		dir *= 2
+	} else {
+		dir *= .7 // was too aggressive
+	}
+
+	dir += .12
 	dir = b.steeringRange * dir
-	dir *= .7 // was too aggressive
+
 	dir += b.middle
-	return b.steering.GoTo(ctx, 50, dir)
+
+	rpm := 80.0
+	if math.Abs(b.lastDir-dir) < .2 {
+		rpm /= 2
+	}
+
+	b.lastDir = dir
+
+	return b.steering.GoTo(ctx, rpm, dir)
 }
 
 func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golog.Logger) (base.Base, error) {
@@ -159,11 +179,19 @@ func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golo
 }
 
 func (b *boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
-	return 0, b.thrust.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 0.7)
+	speed := float32(0.7)
+	if distanceMillis > 10*1000 {
+		speed = 1.0
+	}
+	if b.lastSpin > 40 {
+		speed = .6
+	}
+	return 0, b.thrust.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, speed)
 }
 
 func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
-	steeringDir := angleDeg / -180.0
+	b.lastSpin = angleDeg
+	steeringDir := angleDeg / 180.0
 
 	logger.Debugf("steeringDir: %0.2f", steeringDir)
 
@@ -210,7 +238,8 @@ func runRC(ctx context.Context, myBoat *boat) {
 			continue
 		}
 
-		err = myBoat.Steer(ctx, float64(vals["direction"])/100.0)
+		direction := float64(vals["direction"]) / 100.0
+		err = myBoat.Steer(ctx, direction)
 		if err != nil {
 			logger.Errorw("error turning: %w", err)
 			continue

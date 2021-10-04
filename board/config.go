@@ -41,6 +41,11 @@ func (config *Config) Validate(path string) error {
 			return err
 		}
 	}
+	for idx, conf := range config.I2Cs {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "i2cs", idx)); err != nil {
+			return err
+		}
+	}
 	for idx, conf := range config.Analogs {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
 			return err
