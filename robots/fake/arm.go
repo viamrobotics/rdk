@@ -10,7 +10,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/arm"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"

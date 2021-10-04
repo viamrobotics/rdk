@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"sync"
 
-	"go.viam.com/core/arm"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	"go.viam.com/core/resource"

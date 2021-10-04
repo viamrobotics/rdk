@@ -21,7 +21,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/arm"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"

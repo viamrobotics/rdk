@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	"go.viam.com/core/arm"
+	"go.viam.com/core/component/arm"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/utils"

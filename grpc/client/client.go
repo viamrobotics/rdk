@@ -18,10 +18,10 @@ import (
 	rpcclient "go.viam.com/utils/rpc/client"
 	"go.viam.com/utils/rpc/dialer"
 
-	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc"
