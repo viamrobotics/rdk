@@ -180,13 +180,13 @@ func sendIMUData(log golog.Logger, l net.Listener) {
 
 func TestPlay(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	ip, err := iphone.New(context.Background(), "10.237.115.94:65036", logger)
+	ip, err := iphone.New(context.Background(), "http://10.237.115.77:3000/measurementStream", logger)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for {
-		head, err := ip.Heading(context.Background())
+		head, err := ip.AngularVelocity(context.Background())
 		if err != nil {
 			logger.Error(err)
 		}

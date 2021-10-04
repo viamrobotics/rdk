@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -21,9 +22,9 @@ import (
 
 // A Measurement is a struct representing the data collected by the IPhone.
 type Measurement struct {
-	RotationRateX *float64 `json:"motionRotationRateX,string"`
-	RotationRateY *float64 `json:"motionRotationRateY,string"`
-	RotationRateZ *float64 `json:"motionRotationRateZ,string"`
+	RotationRateX *float64 `json:"motionRotationRateX"`
+	RotationRateY *float64 `json:"motionRotationRateY"`
+	RotationRateZ *float64 `json:"motionRotationRateZ"`
 	Pitch         *float64 `json:"motionPitch,string"`
 	Roll          *float64 `json:"motionRoll,string"`
 	Yaw           *float64 `json:"motionYaw,string"`
@@ -32,8 +33,8 @@ type Measurement struct {
 
 // IPhone is an iPhone based IMU.
 type IPhone struct {
-	host        string        // The host name of the iPhone being connected to.
-	conn        net.Conn      // Connection to IPhone.
+	host string // The host name of the iPhone being connected to.
+	//conn        net.Conn      // Connection to IPhone.
 	reader      *bufio.Reader // Read connection to iPhone to pull sensor data from.
 	log         golog.Logger
 	mut         *sync.RWMutex // Mutex to ensure only one goroutine or thread is reading from reader at a time.
@@ -68,12 +69,13 @@ func (ip *IPhone) Heading(ctx context.Context) (float64, error) {
 
 // New returns a new IPhone IMU that that pulls data from the iPhone at host.
 func New(ctx context.Context, host string, logger golog.Logger) (imu *IPhone, err error) {
-	conn, err := net.DialTimeout("tcp", host, defaultTimeoutMs*time.Millisecond)
+	//conn, err := net.DialTimeout("tcp", host, defaultTimeoutMs*time.Millisecond)
+	resp, err := http.Get(host)
 	if err != nil {
 		return nil, err
 	}
-	r := bufio.NewReader(conn)
-	ip := &IPhone{reader: r, log: logger, mut: &sync.RWMutex{}, host: host, conn: conn}
+	r := bufio.NewReader(resp.Body)
+	ip := &IPhone{reader: r, log: logger, mut: &sync.RWMutex{}, host: host} //, conn: conn}
 
 	imuReading, err := ip.readNextMeasurement(ctx)
 	if err != nil {
@@ -165,9 +167,9 @@ func (ip *IPhone) readNextMeasurement(ctx context.Context) (*Measurement, error)
 			return nil, err
 		}
 
-		if !containsAllFields(&imuReading) {
-			return nil, errors.New("iphone measurement missing required fields")
-		}
+		//if !containsAllFields(&imuReading) {
+		//	return nil, errors.New("iphone measurement missing required fields")
+		//}
 
 		return &imuReading, nil
 	case <-ctx.Done():
@@ -175,10 +177,10 @@ func (ip *IPhone) readNextMeasurement(ctx context.Context) (*Measurement, error)
 	}
 }
 
-// Close closes the underlying connection.
-func (ip *IPhone) Close() error {
-	return ip.conn.Close()
-}
+//// Close closes the underlying connection.
+//func (ip *IPhone) Close() error {
+//	return ip.conn.Close()
+//}
 
 // TODO: find way to do this less verbosely and preferably returning the missing field
 func containsAllFields(m *Measurement) bool {
