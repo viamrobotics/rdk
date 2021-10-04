@@ -78,7 +78,8 @@ func testUR5eInverseKinements(t *testing.T, pos *pb.ArmPosition) {
 
 	m, err := kinematics.ParseJSON(ur5modeljson)
 	test.That(t, err, test.ShouldBeNil)
-	ik := kinematics.CreateCombinedIKSolver(m, logger, 4)
+	ik, err := kinematics.CreateCombinedIKSolver(m, logger, 4)
+	test.That(t, err, test.ShouldBeNil)
 
 	solution, err := ik.Solve(ctx, pos, frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}))
 	test.That(t, err, test.ShouldBeNil)

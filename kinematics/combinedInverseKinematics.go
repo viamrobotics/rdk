@@ -32,16 +32,19 @@ type ReturnTest struct {
 // CreateCombinedIKSolver creates a combined parallel IK solver with a number of nlopt solvers equal to the nCPU
 // passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
 // and the first valid found solution will be returned.
-func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCPU int) *CombinedIK {
+func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCPU int) (*CombinedIK, error) {
 	ik := &CombinedIK{}
 	ik.model = model
 	for i := 1; i <= nCPU; i++ {
-		nlopt := CreateNloptIKSolver(model, logger, i)
+		nlopt, err := CreateNloptIKSolver(model, logger, i)
+		if err != nil {
+			return nil, err
+		}
 		nlopt.SetSeed(int64(i * 1000))
 		ik.solvers = append(ik.solvers, nlopt)
 	}
 	ik.logger = logger
-	return ik
+	return ik, nil
 }
 
 func runSolver(ctx context.Context, solver InverseKinematics, c chan ReturnTest, noMoreSolutions <-chan struct{}, pos *pb.ArmPosition, seed []referenceframe.Input) {

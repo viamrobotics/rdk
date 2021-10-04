@@ -1,4 +1,4 @@
-package robot
+package robotimpl
 
 import (
 	"context"
@@ -6,13 +6,14 @@ import (
 
 	"go.viam.com/core/kinematics"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/robot"
 	"go.viam.com/core/spatialmath"
 
 	"github.com/go-errors/errors"
 )
 
 // MoveGripper needs a robot with exactly one arm and one gripper and will move the gripper position to the goalPose in the reference frame specified by goalFrameName
-func MoveGripper(ctx context.Context, r Robot, goalPose spatialmath.Pose, goalFrameName string) error {
+func MoveGripper(ctx context.Context, r robot.Robot, goalPose spatialmath.Pose, goalFrameName string) error {
 	if len(r.ArmNames()) != 1 {
 		return errors.New("robot needs exactly 1 arm to do grabAt")
 	}
