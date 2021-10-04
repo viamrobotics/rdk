@@ -1,7 +1,6 @@
 package chessboard
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/golang/geo/r2"
@@ -169,7 +168,6 @@ func findGoodPoints(grid, saddlePoints []r2.Point, maxPointDist float64) ([]r2.P
 
 	for i, ptI := range grid {
 		pt2, d := getMinSaddleDistance(saddlePoints, ptI)
-		fmt.Println("min dist saddle point : ", d)
 		if _, ok := chosenSaddlePoints[pt2]; ok {
 			d = maxPointDist
 		} else {

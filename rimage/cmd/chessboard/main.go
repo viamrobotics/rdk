@@ -7,6 +7,8 @@ import (
 	"image"
 	"os"
 
+	"go.viam.com/utils"
+
 	"github.com/edaniels/golog"
 	"gonum.org/v1/gonum/mat"
 
