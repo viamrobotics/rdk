@@ -7,6 +7,9 @@ endif
 
 LIB_FILES = cameraserver.cpp
 
+setupmacos: macos.sh
+	./macos.sh
+
 intelrealserver: intelrealserver.cpp $(LIB_FILES)
 	g++ -g -std=c++17 intelrealserver.cpp $(LIB_FILES) `pkg-config --cflags --libs realsense2 libhttpserver` $(special) -o intelrealserver
 
