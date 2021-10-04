@@ -28,10 +28,17 @@ func init() {
 
 // GPS is a fake gps device that always returns the set location.
 type GPS struct {
-	mu        sync.Mutex
-	Name      string
-	Latitude  float64
-	Longitude float64
+	mu         sync.Mutex
+	Name       string
+	Latitude   float64
+	Longitude  float64
+	altitude   float64
+	speed      float64
+	activeSats int
+	totalSats  int
+	hAcc       float64
+	vAcc       float64
+	valid      bool
 }
 
 // Readings always returns the set values.
@@ -47,10 +54,45 @@ func (g *GPS) Close() error {
 }
 
 // Location always returns the set values.
-func (g *GPS) Location(ctx context.Context) (float64, float64, error) {
+func (g *GPS) Location(ctx context.Context) (*geo.Point, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.Latitude, g.Longitude, nil
+	return geo.NewPoint(g.Latitude, g.Longitude), nil
+}
+
+// Altitude returns the set value
+func (g *GPS) Altitude(ctx context.Context) (float64, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.altitude, nil
+}
+
+// Speed returns the set value
+func (g *GPS) Speed(ctx context.Context) (float64, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.speed, nil
+}
+
+// Satellites returns the set values
+func (g *GPS) Satellites(ctx context.Context) (int, int, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.activeSats, g.totalSats, nil
+}
+
+// Accuracy returns the set values
+func (g *GPS) Accuracy(ctx context.Context) (float64, float64, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.hAcc, g.vAcc, nil
+}
+
+// Valid returns the set value
+func (g *GPS) Valid(ctx context.Context) (bool, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.valid, nil
 }
 
 // Desc returns that this is a GPS.
@@ -118,13 +160,13 @@ func newInterceptingGPSBase(r robot.Robot, c config.Component) (*interceptingGPS
 }
 
 func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
-	lat, long, err := b.g.Location(ctx)
+	loc, err := b.g.Location(ctx)
 	if err != nil {
 		return 0, err
 	}
 	moved, err := b.b.MoveStraight(ctx, distanceMillis, millisPerSec, true)
 	distKilos := float64(moved) / 1000 / 1000
-	newLoc := geo.NewPoint(lat, long).PointAtDistanceAndBearing(distKilos, b.bearing)
+	newLoc := loc.PointAtDistanceAndBearing(distKilos, b.bearing)
 	// set new location to be where we "perfectly" move to based on bearing
 	b.g.Latitude = newLoc.Lat()
 	b.g.Longitude = newLoc.Lng()
