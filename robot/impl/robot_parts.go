@@ -611,7 +611,7 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 			}
 			parts.AddMotor(motor, c)
 		default:
-			return errors.Errorf("unknown component type: %v", c.Type)
+			return errors.Errorf("unknown component type: %s %v", c.Name, c.Type)
 		}
 	}
 
