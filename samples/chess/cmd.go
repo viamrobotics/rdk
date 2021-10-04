@@ -20,8 +20,8 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/core/arm"
 	"go.viam.com/core/camera"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	pb "go.viam.com/core/proto/api/v1"

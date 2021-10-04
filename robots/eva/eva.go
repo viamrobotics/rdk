@@ -20,11 +20,10 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/arm"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/resource"
@@ -42,7 +41,7 @@ func init() {
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (resource.Resource, error) {
 			return NewEva(ctx, config.Host, config.Attributes, logger)
 		},
-		Frame: func(name string) (referenceframe.Frame, error) { return evaFrame(name) },
+		Frame: func(name string) (frame.Frame, error) { return evaFrame(name) },
 	})
 }
 
@@ -351,7 +350,7 @@ func evaModel() (*kinematics.Model, error) {
 }
 
 // EvaFrame() returns the reference frame of the Eva, also
-func evaFrame(name string) (referenceframe.Frame, error) {
+func evaFrame(name string) (frame.Frame, error) {
 	frame, err := evaModel()
 	if err != nil {
 		return nil, err
