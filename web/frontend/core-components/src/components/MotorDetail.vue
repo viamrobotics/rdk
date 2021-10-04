@@ -77,7 +77,7 @@
               type="text"
               v-model="speed"
               min="0"
-              v-bind:max="motorStatus.positionSupported ? MAX_RPM : 100"
+              v-bind:max="motorStatus.positionSupported ? '' : 100"
               v-bind:class="['margin-bottom', errors.speed ? 'error' : '']"
               style="width: 48px"
             />
@@ -124,7 +124,6 @@ class MotorCommand {
   direction: 0 | 1 | 2 = DirectionRelative.DIRECTION_RELATIVE_FORWARD;
   revolutions = 0;
 
-  static MAX_RPM = 160;
   static get STOP(): MotorCommand {
     const cmd = new MotorCommand();
     cmd.direction = DirectionRelative.DIRECTION_RELATIVE_UNSPECIFIED;
@@ -147,8 +146,6 @@ class MotorCommand {
       return "Input is not a number";
     } else if (rpm < 0) {
       return "RPM cannot be less than zero";
-    } else if (rpm > MotorCommand.MAX_RPM) {
-      return "RPM cannot be greater than 160";
     }
     return "";
   }
@@ -287,7 +284,6 @@ export default class MotorDetail extends Vue {
   }
 
   errors: { [key: string]: string } = {};
-  MAX_RPM = MotorCommand.MAX_RPM;
 
   private validateInputs(): boolean {
     this.errors = this.motorCommand.validate();
