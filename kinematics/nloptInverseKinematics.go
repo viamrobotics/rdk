@@ -111,6 +111,9 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 		}
 		return dist
 	}
+	if len(ik.lowerBound) == 0 || len(ik.upperBound) == 0 {
+		return nil, errors.New("cannot set upper or lower bounds for nlopt, slice is empty")
+	}
 
 	err = multierr.Combine(
 		opt.SetFtolAbs(floatEpsilon),
