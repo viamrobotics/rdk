@@ -22,7 +22,7 @@ type AngularVelocity struct {
 	z float64
 }
 
-// An IMU represents and IMU that can report AngularVelocity and Orientation measurements.
+// An IMU represents a sensor that can report AngularVelocity and Orientation measurements.
 type IMU interface {
 	sensor.Sensor
 	AngularVelocity(ctx context.Context) (AngularVelocity, error)
