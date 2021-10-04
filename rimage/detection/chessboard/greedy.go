@@ -1,16 +1,17 @@
 package chessboard
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/golang/geo/r2"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/rimage/transform"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/core/rimage"
+	"go.viam.com/core/rimage/transform"
 )
 
+// ChessGreedyConfiguration stores the parameters for the iterative refinement of the grid
 type ChessGreedyConfiguration struct {
 	HomographyAcceptableScaleRatio float64 `json:"scale-ratio"`       // acceptable ratio for scale part in estimated homography
 	MinPointsNeeded                int     `json:"min_points_needed"` // minimum number of points to deem Grid estimation valid
@@ -18,8 +19,7 @@ type ChessGreedyConfiguration struct {
 }
 
 var (
-	quadCW = []r2.Point{{0, 1}, {1, 1}, {1, 0}, {0, 0}}
-	quadI  = []r2.Point{{0, 0}, {1, 0}, {1, 1}, {0, 1}}
+	quadI = []r2.Point{{0, 0}, {1, 0}, {1, 1}, {0, 1}}
 )
 
 // Single generates an n-dimensional Grid using a single set of values.
@@ -114,7 +114,7 @@ func getIdentityGrid(n, offset int) []r2.Point {
 }
 
 // makeChessGrid returns an identity Grid and its transformation with homography H
-func makeChessGrid(H *mat.Dense, n int) ([]r2.Point, []r2.Point) {
+func makeChessGrid(H rimage.Matrix, n int) ([]r2.Point, []r2.Point) {
 	idealGrid := getIdentityGrid(2+2*n, -n)
 	grid := transform.ApplyHomography(H, idealGrid)
 	return idealGrid, grid
@@ -137,18 +137,18 @@ func getInitialChessGrid(quad []r2.Point) ([]r2.Point, []r2.Point, *mat.Dense, e
 }
 
 // GenerateNewBestFit gets the homography that gets the most inliers in current Grid
-func GenerateNewBestFit(grid_ideal, grid []r2.Point, grid_good []int) (*mat.Dense, error) {
+func GenerateNewBestFit(gridIdeal, grid []r2.Point, gridGood []int) (*mat.Dense, error) {
 	// select valid chessboard corner points in ideal Grid
 	ptsA := make([]r2.Point, 0)
-	for i, pt := range grid_ideal {
-		if grid_good[i] == 1 {
+	for i, pt := range gridIdeal {
+		if gridGood[i] == 1 {
 			ptsA = append(ptsA, pt)
 		}
 	}
 	// select valid chessboard corner points in detected Grid
 	ptsB := make([]r2.Point, 0)
 	for i, pt := range grid {
-		if grid_good[i] == 1 {
+		if gridGood[i] == 1 {
 			ptsB = append(ptsB, pt)
 		}
 	}
@@ -166,13 +166,12 @@ func findGoodPoints(grid, saddlePoints []r2.Point, maxPointDist float64) ([]r2.P
 	// for each Grid point, get the closest saddle point within range
 	newGrid := make([]r2.Point, len(grid))
 	copy(newGrid, grid)
-	chosenSaddlePoints := make(map[r2.Point]bool, 0)
+	chosenSaddlePoints := make(map[r2.Point]bool)
 	nPoints := len(grid)
 	gridGood := make([]int, nPoints)
 
 	for i, ptI := range grid {
 		pt2, d := getMinSaddleDistance(saddlePoints, ptI)
-		fmt.Println("min dist saddle point : ", d)
 		if _, ok := chosenSaddlePoints[pt2]; ok {
 			d = maxPointDist
 		} else {
@@ -188,6 +187,7 @@ func findGoodPoints(grid, saddlePoints []r2.Point, maxPointDist float64) ([]r2.P
 	return newGrid, gridGood
 }
 
+// ChessGrid stores the data necessary to get the chess grid points in an image
 type ChessGrid struct {
 	M            *mat.Dense // homography from ideal Grid to estimated Grid
 	IdealGrid    []r2.Point // ideal Grid
@@ -211,12 +211,15 @@ func GreedyIterations(contours [][]r2.Point, saddlePoints []r2.Point, cfg ChessG
 	currentGridNext := make([]r2.Point, 0)
 	currentGridGood := make([]int, 0)
 	currentM := mat.NewDense(3, 3, nil)
+	var currentGrid, idealGrid []r2.Point
+	var M *mat.Dense
+	var err error
 	// iterate through contours
 	for _, cnt := range contours {
-		currentGrid, idealGrid, M, err := getInitialChessGrid(cnt)
-		if M != nil {
-			fmt.Println("M = ", M)
-		}
+		_, _, M, err = getInitialChessGrid(cnt)
+		//if M != nil {
+		//	fmt.Println("M = ", M)
+		//}
 		if err != nil {
 			return nil, err
 		}
@@ -230,7 +233,6 @@ func GreedyIterations(contours [][]r2.Point, saddlePoints []r2.Point, cfg ChessG
 				currentGrid, idealGrid = makeChessGrid(M, gridI+1)
 				nextGrid, goodGrid = findGoodPoints(currentGrid, saddlePoints, 15.0)
 				nGood = sumGoodPoints(goodGrid)
-				fmt.Println("number of good points : ", nGood)
 				if nGood < 4 {
 					M = nil
 					break
@@ -270,7 +272,6 @@ func GreedyIterations(contours [][]r2.Point, saddlePoints []r2.Point, cfg ChessG
 			GoodPoints:   currentGridGood,
 			SaddlePoints: saddlePoints,
 		}, nil
-	} else {
-		return nil, nil
 	}
+	return nil, nil
 }

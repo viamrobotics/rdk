@@ -22,16 +22,12 @@ func (m TransformationMatrix) Dims() (int, int) {
 }
 
 func newTransformationMatrix(m mat.Matrix) TransformationMatrix {
-	tm := [][]float64{
-		make([]float64, 3),
-		make([]float64, 3),
-		make([]float64, 3),
-	}
+	tm := mat.NewDense(3, 3, nil)
 
 	if m != nil {
 		for x := 0; x < 3; x++ {
 			for y := 0; y < 3; y++ {
-				tm[x][y] = m.At(x, y)
+				tm.Set(x, y, m.At(x, y))
 			}
 		}
 	}

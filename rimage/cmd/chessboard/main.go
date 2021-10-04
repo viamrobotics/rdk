@@ -7,10 +7,13 @@ import (
 	"image"
 	"os"
 
+	"go.viam.com/utils"
+
 	"github.com/edaniels/golog"
+	"gonum.org/v1/gonum/mat"
+
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rimage/detection/chessboard"
-	"gonum.org/v1/gonum/mat"
 )
 
 var (
@@ -26,9 +29,10 @@ func main() {
 	if err != nil {
 		logger.Error("could not open configuration file")
 	}
-	defer file.Close()
+	utils.UncheckedErrorFunc(file.Close)
+
 	// load configuration
-	cfg := chessboard.ChessboardDetectionConfiguration{}
+	cfg := chessboard.DetectionConfiguration{}
 
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&cfg)
@@ -61,13 +65,13 @@ func main() {
 	// open edges image
 	f, err := os.Open("rimage/cmd/chessboard/edges.png")
 	if err != nil {
-		fmt.Errorf("could not open file")
+		logger.Error(err)
 	}
-	defer f.Close()
+	utils.UncheckedErrorFunc(f.Close)
 
 	edgesGray, _, err := image.Decode(f)
 	if err != nil {
-		fmt.Errorf("could not decode file")
+		logger.Error(err)
 	}
 
 	// convert to float mat for further operations
@@ -82,10 +86,16 @@ func main() {
 	_ = rimage.DrawContours(edges, contours, "contours16.png")
 	// Approximate contours with polygons
 	contoursSimplified := rimage.SimplifyContours(contours)
-	rimage.DrawContoursSimplified(edges, contoursSimplified, "contours_polygons.png")
+	err = rimage.DrawContoursSimplified(edges, contoursSimplified, "contours_polygons.png")
+	if err != nil {
+		logger.Error(err)
+	}
 	// select only contours that correspond to convex quadrilateral
 	prunedContours := chessboard.PruneContours(contoursSimplified, hierarchy, saddleMap, cfg.Contours.WinSize)
-	rimage.DrawContoursSimplified(edges, prunedContours, "pruned_contours.png")
+	err = rimage.DrawContoursSimplified(edges, prunedContours, "pruned_contours.png")
+	if err != nil {
+		logger.Error(err)
+	}
 	chessboard.PlotSaddleMap(saddlePoints, prunedContours, "polygonsWithSaddles.png", ih, iw)
 
 	// greedy iterations to find the best homography

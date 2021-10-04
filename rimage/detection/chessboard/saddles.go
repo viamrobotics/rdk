@@ -7,11 +7,13 @@ import (
 
 	"github.com/fogleman/gg"
 	"github.com/golang/geo/r2"
+	"gonum.org/v1/gonum/mat"
+
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/utils"
-	"gonum.org/v1/gonum/mat"
 )
 
+// SaddleConfiguration stores the parameters to process the Hessian determinant image into a relevant saddle points map
 type SaddleConfiguration struct {
 	GrayThreshold     float64 `json:"gray"`      // initial threshold for pruning saddle points in saddle map
 	ScoreThresholdMin float64 `json:"score-min"` // minimum saddle score value for pruning
@@ -19,6 +21,7 @@ type SaddleConfiguration struct {
 	NMSWindowSize     int     `json:"win-size"`  // window size for non-maximum suppression
 }
 
+// DefaultSaddleConf stores the default parameters for saddle game
 var DefaultSaddleConf = SaddleConfiguration{
 	GrayThreshold:     128.,
 	ScoreThresholdMin: 10000.,
@@ -72,12 +75,14 @@ func SumPositive(i, j int, val float64) float64 {
 }
 
 // PruneSaddle prunes the saddle points map until the number of non-zero points reaches a value <= 10000
-func PruneSaddle(s *mat.Dense, cfg *SaddleConfiguration) *mat.Dense {
+func PruneSaddle(s mat.Matrix, cfg *SaddleConfiguration) *mat.Dense {
 	thresh := cfg.GrayThreshold
-	r, c := s.Dims()
+
+	r, c := (s).Dims()
 	scores := mat.NewDense(r, c, nil)
 	pruned := mat.DenseCopyOf(s)
-	scores.Apply(SumPositive, s)
+	saddleMap := mat.DenseCopyOf(s)
+	scores.Apply(SumPositive, saddleMap)
 	score := mat.Sum(scores)
 	for score > cfg.ScoreThresholdMin {
 		thresh = thresh * 2

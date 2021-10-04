@@ -4,11 +4,11 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/test"
-
 	"github.com/golang/geo/r2"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/test"
 
 	"go.viam.com/core/utils"
 )

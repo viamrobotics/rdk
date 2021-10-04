@@ -4,10 +4,12 @@ import (
 	"image"
 	"image/color"
 
-	"go.viam.com/core/utils"
 	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/core/utils"
 )
 
+// GetSobelX returns the Kernel corresponding to the Sobel kernel in the x direction
 func GetSobelX() Kernel {
 
 	return Kernel{[][]float64{
@@ -20,6 +22,7 @@ func GetSobelX() Kernel {
 	}
 }
 
+// GetSobelY returns the Kernel corresponding to the Sobel kernel in the y direction
 func GetSobelY() Kernel {
 
 	return Kernel{[][]float64{
