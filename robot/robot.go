@@ -16,7 +16,6 @@ import (
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/resource"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
 
@@ -62,7 +61,7 @@ type Robot interface {
 	ServiceByName(name string) (interface{}, bool)
 
 	// ResourceByName returns a resource by name
-	ResourceByName(name string) (resource.Resource, bool)
+	ResourceByName(name string) (interface{}, bool)
 
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string

@@ -11,7 +11,6 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
-	"go.viam.com/core/resource"
 
 	"go.viam.com/core/referenceframe"
 
@@ -22,7 +21,6 @@ import (
 )
 
 type xArm struct {
-	mu       sync.RWMutex
 	dof      int
 	tid      uint16
 	conn     net.Conn
@@ -40,13 +38,13 @@ var xArm7modeljson []byte
 
 func init() {
 	registry.RegisterComponentCreator(arm.ResourceSubtype, "xArm6", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (resource.Resource, error) {
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewxArm(ctx, config.Host, logger, 6)
 		},
 		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name, 6) },
 	})
 	registry.RegisterComponentCreator(arm.ResourceSubtype, "xArm7", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (resource.Resource, error) {
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewxArm(ctx, config.Host, logger, 7)
 		},
 		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name, 7) },
@@ -96,5 +94,5 @@ func NewxArm(ctx context.Context, host string, logger golog.Logger, dof int) (ar
 		return &xArm{}, err
 	}
 
-	return &xA, nil
+	return arm.ToProxyArm(&xA), nil
 }

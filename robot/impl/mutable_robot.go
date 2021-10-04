@@ -121,7 +121,7 @@ func (r *mutableRobot) ServiceByName(name string) (interface{}, bool) {
 
 // ResourceByName returns a resource by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) ResourceByName(name string) (resource.Resource, bool) {
+func (r *mutableRobot) ResourceByName(name string) (interface{}, bool) {
 	return r.parts.ResourceByName(name)
 }
 
@@ -367,7 +367,7 @@ func (r *mutableRobot) newService(ctx context.Context, config config.Service) (i
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *mutableRobot) newResource(ctx context.Context, config config.Component) (resource.Resource, error) {
+func (r *mutableRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
 	f := registry.ComponentLookup(config.ResourceSubtype(), config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", config.ResourceSubtype(), config.Model)

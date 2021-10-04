@@ -27,8 +27,6 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 )
 
@@ -37,7 +35,7 @@ var vx300smodeljson []byte
 
 func init() {
 	registry.RegisterComponentCreator(arm.ResourceSubtype, "vx300s", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (resource.Resource, error) {
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewArm(config.Attributes, logger)
 		},
 	})
@@ -65,7 +63,6 @@ var OffAngles = map[string]float64{
 
 // Arm TODO
 type Arm struct {
-	mu       sync.RWMutex
 	Joints   map[string][]*servo.Servo
 	moveLock *sync.Mutex
 	logger   golog.Logger
@@ -127,13 +124,11 @@ func NewArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error
 		ik:       ik,
 	}
 
-	return newArm, nil
+	return arm.ToProxyArm(newArm), nil
 }
 
 // CurrentPosition computes and returns the current cartesian position.
 func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -143,8 +138,6 @@ func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (a *Arm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -158,8 +151,6 @@ func (a *Arm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position.
 func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	if len(jp.Degrees) > len(a.JointOrder()) {
 		return errors.New("passed in too many positions")
 	}
@@ -178,8 +169,6 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) e
 
 // CurrentJointPositions returns an empty struct, because the vx300s should use joint angles from kinematics.
 func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	angleMap, err := a.GetAllAngles()
 	if err != nil {
 		return &pb.JointPositions{}, err
@@ -200,12 +189,6 @@ func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64)
 
 // Close will get the arm ready to be turned off.
 func (a *Arm) Close() error {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-	return a.close()
-}
-
-func (a *Arm) close() error {
 	// First, check if we are approximately in the sleep position
 	// If so, we can just turn off torque
 	// If not, let's move through the home position first
@@ -238,8 +221,6 @@ func (a *Arm) close() error {
 
 // GetAllAngles will return a map of the angles of each joint, denominated in servo position.
 func (a *Arm) GetAllAngles() (map[string]float64, error) {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
 	angles := make(map[string]float64)
@@ -260,16 +241,12 @@ func (a *Arm) GetAllAngles() (map[string]float64, error) {
 
 // JointOrder TODO
 func (a *Arm) JointOrder() []string {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	return []string{"Waist", "Shoulder", "Elbow", "Forearm_rot", "Wrist", "Wrist_rot"}
 }
 
 // PrintPositions prints positions of all servos.
 // TODO(pl): Print joint names, not just servo numbers
 func (a *Arm) PrintPositions() error {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	posString := ""
 	for i, s := range a.GetAllServos() {
 		pos, err := s.PresentPosition()
@@ -283,8 +260,6 @@ func (a *Arm) PrintPositions() error {
 
 // GetAllServos returns a slice containing all servos in the arm.
 func (a *Arm) GetAllServos() []*servo.Servo {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	var servos []*servo.Servo
 	for _, joint := range a.JointOrder() {
 		servos = append(servos, a.Joints[joint]...)
@@ -294,8 +269,6 @@ func (a *Arm) GetAllServos() []*servo.Servo {
 
 // GetServos returns a slice containing all servos in the named joint.
 func (a *Arm) GetServos(jointName string) []*servo.Servo {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	var servos []*servo.Servo
 	servos = append(servos, a.Joints[jointName]...)
 	return servos
@@ -303,8 +276,6 @@ func (a *Arm) GetServos(jointName string) []*servo.Servo {
 
 // SetAcceleration sets acceleration for servos.
 func (a *Arm) SetAcceleration(accel int) error {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
 	for _, s := range a.GetAllServos() {
@@ -319,8 +290,6 @@ func (a *Arm) SetAcceleration(accel int) error {
 // SetVelocity sets velocity for servos in travel time;
 // recommended value 1000.
 func (a *Arm) SetVelocity(veloc int) error {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
 	for _, s := range a.GetAllServos() {
@@ -334,8 +303,6 @@ func (a *Arm) SetVelocity(veloc int) error {
 
 // TorqueOn turns on torque for all servos.
 func (a *Arm) TorqueOn() error {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
 	for _, s := range a.GetAllServos() {
@@ -349,8 +316,6 @@ func (a *Arm) TorqueOn() error {
 
 // TorqueOff turns off torque for all servos.
 func (a *Arm) TorqueOff() error {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
 	for _, s := range a.GetAllServos() {
@@ -364,8 +329,6 @@ func (a *Arm) TorqueOff() error {
 
 // JointTo set a joint to a position.
 func (a *Arm) JointTo(jointName string, pos int, block bool) {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	if pos > 4095 {
 		pos = 4095
 	} else if pos < 0 {
@@ -380,8 +343,6 @@ func (a *Arm) JointTo(jointName string, pos int, block bool) {
 
 // SleepPosition goes back to the sleep position, ready to turn off torque.
 func (a *Arm) SleepPosition(ctx context.Context) error {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	a.moveLock.Lock()
 	sleepWait := false
 	a.JointTo("Waist", 2048, sleepWait)
@@ -401,8 +362,6 @@ func (a *Arm) GetMoveLock() *sync.Mutex {
 
 // HomePosition goes to the home position.
 func (a *Arm) HomePosition(ctx context.Context) error {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	a.moveLock.Lock()
 
 	wait := false
@@ -415,8 +374,6 @@ func (a *Arm) HomePosition(ctx context.Context) error {
 
 // WaitForMovement takes some servos, and will block until the servos are done moving.
 func (a *Arm) WaitForMovement(ctx context.Context) error {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
 	allAtPos := false
@@ -438,21 +395,6 @@ func (a *Arm) WaitForMovement(ctx context.Context) error {
 		}
 	}
 	return nil
-}
-
-// Reconfigure reconfigures the current resource to the resource passed in.
-func (a *Arm) Reconfigure(newResource resource.Resource) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	actual, ok := newResource.(*Arm)
-	if !ok {
-		panic(fmt.Errorf("expected new resource to be %T but got %T", actual, newResource))
-	}
-	if err := a.close(); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	a.Joints = actual.Joints
-	a.ik = actual.ik
 }
 
 // TODO: Map out *all* servo defaults so that they are always set correctly
