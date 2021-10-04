@@ -7,13 +7,12 @@ import (
 	"image"
 	"os"
 
-	"go.viam.com/utils"
-
 	"github.com/edaniels/golog"
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rimage/detection/chessboard"
+	"go.viam.com/utils"
 )
 
 var (

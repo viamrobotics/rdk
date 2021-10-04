@@ -7,9 +7,9 @@ import (
 	"math"
 	"os"
 
-	"github.com/apex/log"
 	"github.com/fogleman/gg"
 	"github.com/golang/geo/r2"
+	"go.viam.com/utils"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -447,12 +447,7 @@ func savePNG(fn string, m image.Image) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		err = f.Close()
-		if err != nil {
-			log.Error("error closing file in savePNG")
-		}
-	}()
+	utils.UncheckedErrorFunc(f.Close)
 	return png.Encode(f, m)
 }
 
