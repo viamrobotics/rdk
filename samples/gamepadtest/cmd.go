@@ -4,22 +4,13 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"go.viam.com/core/config"
 	"go.viam.com/core/input"
 	"go.viam.com/core/input/gamepad"
-	"go.viam.com/core/config"
-
 
 	"github.com/edaniels/golog"
-
 )
-
-
-
-// "8BitDo Pro 2" wireless
-// "Microsoft X-Box 360 pad" wired
-// "Xbox Wireless Controller" wireless
-// "Microsoft Xbox One X pad"  wired
-
 
 func main() {
 
@@ -33,48 +24,26 @@ func main() {
 		return
 	}
 
+	repFunc := func(ctx context.Context, input input.Input, event input.Event) {
+		fmt.Printf("%s: %.4f\n", event.Code, event.Value)
+		return
+	}
+
 	inputs, err := g.Inputs(ctx)
 	if err != nil {
 		return
 	}
 
-
-	X, ok := inputs[input.AbsoluteX]
-	if !ok {
-		fmt.Println("Can't find X axis")
-	} 
-
-	fmt.Println(X.Name(ctx))
-
-	repFunc := func(ctx context.Context, input input.Input, event input.Event) error {
-		fmt.Println(event.Value)
-		return nil
+	for _, v := range inputs {
+		err = v.RegisterControl(ctx, repFunc, input.AllEvents)
+		if err != nil {
+			return
+		}
 	}
 
-	err = X.RegisterControl(ctx, repFunc, input.PositionChangeAbs)
-	if err != nil {
-		return
-	}
-	
-	g.EventDispatcher(ctx)
-
-
-	logger.Debug("SMURF99")
-
+	// Loop forever
 	for {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 	}
-
-	// fmt.Println("Found gamepad: ", device.Name())
-
-	// fmt.Println(device.EventTypes())
-	// fmt.Println(device.KeyTypes())
-	// fmt.Println(device.AbsoluteTypes())
-
-
-
-
-
-
 
 }
