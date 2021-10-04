@@ -89,7 +89,8 @@
     font-size: 16px;
     font-weight: 600;
 }
-.component caption {
+.component caption,
+.component .caption {
     font-size: 12px;
     font-weight: 400;
 }
@@ -168,7 +169,7 @@
 .component input[type=text] {
     margin: 0;
     padding: 8px;
-    border: 1px solid var(--black-30);
+    border: 1px solid var(--black-100);
     font-family: 'Source Sans Pro', sans-serif;
     font-size: 13px;
     font-weight: 400;
@@ -177,10 +178,25 @@
 .component input[type=text]:disabled {
     background-color: var(--black-20);
     color: var(--black-50);
+    border: 1px solid var(--black-30);
 }
 .component input[type=number].error,
 .component input[type=text].error {
     border: 1px solid var(--red-70);
+}
+
+.component .input-pre {
+    border: 1px solid var(--black-100);
+    border-right: none;
+    padding: 8px;
+    font-size: 13px;
+}
+
+.component .input-post {
+    border: 1px solid var(--black-100);
+    border-left: none;
+    padding: 8px;
+    font-size: 13px;
 }
 
 input[type=range] {

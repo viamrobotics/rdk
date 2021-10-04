@@ -55,29 +55,22 @@
       </div>
       <div class="row">
         <div class="column">
+          <label class="subtitle">Mode</label>
+          <RadioButtons
+            :options="['Power', 'RPM']"
+            :defaultOption="isContinuous ? 'Power' : 'RPM'"
+            :disabledOptions="isContinuous ? ['RPM'] : ['Power']"
+          />
+        </div>
+        <div class="column">
           <label
-            for="speedRange"
+            for="speedFinite"
             v-bind:class="['subtitle', errors.speed ? 'error' : '']"
           >
-            Mode
+            {{ isContinuous ? "Power" : "RPM" }}
             {{ errors.speed ? " - " + errors.speed : "" }}
           </label>
-          <div class="row" style="align-items: center">
-            <RadioButtons
-              :options="['Power', 'RPM']"
-              :defaultOption="isContinuous ? 'Power' : 'RPM'"
-              :disabledOptions="isContinuous ? ['RPM'] : ['Power']"
-              style="flex-shrink: 0"
-            />
-            <input
-              id="speedRange"
-              name="speedRange"
-              type="range"
-              v-model="speed"
-              min="0"
-              v-bind:max="motorStatus.positionSupported ? MAX_RPM : 100"
-              style="flex-shrink: 0"
-            />
+          <div class="input-group">
             <input
               name="speedFinite"
               id="speedFinite"
@@ -86,8 +79,9 @@
               min="0"
               v-bind:max="motorStatus.positionSupported ? MAX_RPM : 100"
               v-bind:class="['margin-bottom', errors.speed ? 'error' : '']"
-              style="min-width: 48px; max-width: 48px; flex-shrink: 0"
+              style="width: 48px"
             />
+            <span class="input-post">{{ isContinuous ? "%" : "RPM" }}</span>
           </div>
         </div>
       </div>
@@ -203,7 +197,10 @@ class MotorCommand {
     return toReturn;
   }
 
-  asObject(): { type: string; request: MotorGoRequest | MotorGoForRequest | MotorGoToRequest } {
+  asObject(): {
+    type: string;
+    request: MotorGoRequest | MotorGoForRequest | MotorGoToRequest;
+  } {
     let req;
     switch (this.type) {
       case MotorCommandType.Go:
@@ -309,9 +306,8 @@ export default class MotorDetail extends Vue {
 
   emitCommand(): void {
     if (this.validateInputs()) {
-      const command = this.motorCommand.asObject()
+      const command = this.motorCommand.asObject();
       console.log(command);
-      const req = command['request'] as MotorGoRequest;
       this.$emit("execute", command);
     }
   }
