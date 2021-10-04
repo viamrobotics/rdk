@@ -188,14 +188,8 @@ func SortImagePointCounterClockwise(pts []image.Point) []image.Point {
 	// create new slice of points
 	out := make([]image.Point, len(pts))
 	xs, ys := SlicePointsToXsYs(pts)
-	xMin := floats.Min(xs)
-	xMax := floats.Max(xs)
-	yMin := floats.Min(ys)
-	yMax := floats.Max(ys)
-	centerX := xMin + (xMax-xMin)/2
-	centerY := yMin + (yMax-yMin)/2
-	centerX = floats.Sum(xs) / float64(len(xs))
-	centerY = floats.Sum(ys) / float64(len(ys))
+	centerX := floats.Sum(xs) / float64(len(xs))
+	centerY := floats.Sum(ys) / float64(len(ys))
 	floats.AddConst(-centerX, xs)
 	floats.AddConst(-centerY, ys)
 	angles := make([]float64, len(pts))

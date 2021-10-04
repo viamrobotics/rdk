@@ -1,16 +1,18 @@
 package transform
 
 import (
-	"fmt"
 	"log"
 	"math"
 
+	"github.com/go-errors/errors"
+
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/utils"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/stat"
+
+	"go.viam.com/core/rimage"
+	"go.viam.com/core/utils"
 )
 
 // EstimateExactHomographyFrom8Points computes the exact homography from 2 sets of 4 matching points
@@ -19,7 +21,6 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point) (*mat.Dense, error) {
 		panic("slice s1 must have 4 points each")
 	}
 	if len(s2) != 4 {
-		fmt.Println(len(s2))
 		panic("slice s2 must have 4 points each")
 	}
 	x1 := s1[0].X
@@ -54,8 +55,8 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point) (*mat.Dense, error) {
 
 	// Set matrices with data from slice
 	A := mat.NewDense(8, 8, a)
-	b_ := []float64{X1, Y1, X2, Y2, X3, Y3, X4, Y4}
-	b := mat.NewDense(8, 1, b_)
+	bSlice := []float64{X1, Y1, X2, Y2, X3, Y3, X4, Y4}
+	b := mat.NewDense(8, 1, bSlice)
 
 	// If matrix A is invertible, get the least square solution
 	if mat.Det(A) != 0 {
@@ -68,14 +69,14 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point) (*mat.Dense, error) {
 		s := append(x.RawMatrix().Data, 1.)
 		outMat := mat.NewDense(3, 3, s)
 		return outMat, nil
-	} else {
-		// Otherwise, matrix cannot be inverted; return nothing
-		return nil, nil
 	}
-
+	// Otherwise, matrix cannot be inverted; return nothing
+	return nil, nil
 }
 
-func MeanVarianceCol(m *mat.Dense, j int) (float64, float64) {
+// MeanVarianceCol is a helper function to compute the normalization matrix for least squares homography estimation
+// It estimates the mean and variance of a column in a *mat.Dense
+func MeanVarianceCol(m mat.Matrix, j int) (float64, float64) {
 	r, _ := m.Dims()
 	col := make([]float64, r)
 
@@ -87,7 +88,7 @@ func MeanVarianceCol(m *mat.Dense, j int) (float64, float64) {
 }
 
 // getNormalizationMatrix gets the matrix to center the points on (0,0)
-func getNormalizationMatrix(pts *mat.Dense) *mat.Dense {
+func getNormalizationMatrix(pts rimage.TransformationMatrix) *mat.Dense {
 
 	avgX, stdX := MeanVarianceCol(pts, 0)
 	avgY, stdY := MeanVarianceCol(pts, 1)
@@ -104,7 +105,8 @@ func getNormalizationMatrix(pts *mat.Dense) *mat.Dense {
 	return outMat
 }
 
-func EstimateLeastSquaresHomography(pts1, pts2 *mat.Dense) (*mat.Dense, error) {
+// EstimateLeastSquaresHomography estimates an homography from 2 sets of corresponding points
+func EstimateLeastSquaresHomography(pts1, pts2 rimage.TransformationMatrix) (*mat.Dense, error) {
 	normalizationMat1 := getNormalizationMatrix(pts1)
 	normalizationMat2 := getNormalizationMatrix(pts2)
 	M := make([]float64, 0)
@@ -168,7 +170,7 @@ func EstimateLeastSquaresHomography(pts1, pts2 *mat.Dense) (*mat.Dense, error) {
 // SelectFourPointPairs randomly selects 4 pairs of points in two point slices of the same length
 func SelectFourPointPairs(p1, p2 []r2.Point) ([]r2.Point, []r2.Point, error) {
 	if len(p1) != len(p2) {
-		err := fmt.Errorf("p1 and p2 should have the same length")
+		err := errors.New("p1 and p2 should have the same length")
 		return nil, nil, err
 	}
 	indices, err := utils.SelectNIndicesWithoutReplacement(4, len(p1))
@@ -187,7 +189,7 @@ func SelectFourPointPairs(p1, p2 []r2.Point) ([]r2.Point, []r2.Point, error) {
 }
 
 // geometricDistance computes the distance of point1 transformed by the homography h 1->2 to point 2
-func geometricDistance(p1, p2 r2.Point, h *mat.Dense) float64 {
+func geometricDistance(p1, p2 r2.Point, h mat.Matrix) float64 {
 	pt1 := mat.NewDense(3, 1, []float64{p1.X, p1.Y, 1.0})
 	pt2 := mat.NewDense(3, 1, []float64{p2.X, p2.Y, 1.0})
 	pt2Tilde := mat.NewDense(3, 1, nil)
@@ -261,7 +263,7 @@ func EstimateHomographyRANSAC(pts1, pts2 []r2.Point, thresh float64, nMaxIterati
 }
 
 // ApplyHomography applies a homography on a slice of r2.Vec
-func ApplyHomography(H *mat.Dense, pts []r2.Point) []r2.Point {
+func ApplyHomography(H rimage.Matrix, pts []r2.Point) []r2.Point {
 	outPoints := make([]r2.Point, len(pts))
 	for i, pt := range pts {
 		x := H.At(0, 0)*pt.X + H.At(0, 1)*pt.Y + H.At(0, 2)

@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 
+	"github.com/apex/log"
 	"github.com/fogleman/gg"
 	"github.com/golang/geo/r2"
 	"gonum.org/v1/gonum/mat"
@@ -18,6 +19,7 @@ import (
 // It also implements the Douglas Peucker algorithm (https://en.wikipedia.org/wiki/Ramer–Douglas–Peucker_algorithm)
 // to approximate contours with a polygon
 
+// NPixelNeighbors stores the number of neighbors for each pixel (should be 4 or 8)
 var NPixelNeighbors = 8
 
 // Border stores the ID of a Border and its type (Hole or Outer)
@@ -82,40 +84,6 @@ func (n *Node) reset() {
 	n.Parent = -1
 	n.FirstChild = -1
 	n.NextSibling = -1
-}
-
-// stepCCW4 set p to the next counter-clockwise neighbor of pivot from p in connectivity 4
-func (p *PointMat) stepCCW4(pivot *PointMat) {
-	if p.Col > pivot.Col {
-		p.Row = pivot.Row - 1
-		p.Col = pivot.Col
-	} else if p.Col < pivot.Col {
-		p.Row = pivot.Row + 1
-		p.Col = pivot.Col
-	} else if p.Row > pivot.Row {
-		p.Row = pivot.Row
-		p.Col = pivot.Col + 1
-	} else if p.Row < pivot.Row {
-		p.Row = pivot.Row
-		p.Col = pivot.Col - 1
-	}
-}
-
-// stepCW4 goes to the next clockwise neighbor of pivot from p in connectivity 4
-func (p *PointMat) stepCW4(pivot *PointMat) {
-	if p.Col > pivot.Col {
-		p.Row = pivot.Row + 1
-		p.Col = pivot.Col
-	} else if p.Col < pivot.Col {
-		p.Row = pivot.Row - 1
-		p.Col = pivot.Col
-	} else if p.Row > pivot.Row {
-		p.Row = pivot.Row
-		p.Col = pivot.Col - 1
-	} else if p.Row < pivot.Row {
-		p.Row = pivot.Row
-		p.Col = pivot.Col + 1
-	}
 }
 
 //stepCCW8 performs a step around a pixel CCW in the 8-connect neighborhood.
@@ -199,7 +167,6 @@ func markExamined(mark, center PointMat, checked []bool) {
 	if loc != -1 {
 		checked[loc] = true
 	}
-	return
 }
 
 // isExamined checks if given pixel has already been examined
@@ -235,7 +202,7 @@ func followBorder(img *mat.Dense, row, col int, p2 PointMat, nbp Border) []image
 		Col: 0,
 	}
 	p2.SetTo(p1)
-	checked := make([]bool, NPixelNeighbors, NPixelNeighbors)
+	checked := make([]bool, NPixelNeighbors)
 	for {
 		current.SetTo(p2)
 		for ok := true; ok; ok = isPointOutOfBounds(&current, nRows, nCols) || img.At(current.Row, current.Col) == 0. {
@@ -289,12 +256,12 @@ func FindContours(img *mat.Dense) ([][]image.Point, []Node) {
 			borderStartFound = false
 			if (img.At(r, c) == 1 && c-1 < 0) || (img.At(r, c) == 1 && img.At(r, c-1) == 0) {
 				nbd.borderType = Outer
-				nbd.segNum += 1
+				nbd.segNum++
 				p2.Set(r, c-1)
 				borderStartFound = true
 			} else if c+1 < nCols && (img.At(r, c) >= 1 && img.At(r, c+1) == 0) {
 				nbd.borderType = Hole
-				nbd.segNum += 1
+				nbd.segNum++
 				if img.At(r, c) > 1 {
 					lnbd.segNum = int(img.At(r, c))
 					lnbd.borderType = hierarchy[lnbd.segNum-1].Border.borderType
@@ -399,20 +366,6 @@ func seekMostDistantPoint(l Line, points []r2.Point) (idx int, maxDist float64) 
 	return idx, maxDist
 }
 
-// ArcLength returns the perimeter of the contour
-func ArcLength(contour []image.Point) float64 {
-	lastIdx := len(contour) - 1
-	prev := r2.Point{X: float64(contour[lastIdx].X), Y: float64(contour[lastIdx].Y)}
-	perimeter := 0.
-	for i := 0; i < len(contour); i++ {
-		p1 := r2.Point{X: float64(contour[i].X), Y: float64(contour[i].Y)}
-		d := p1.Sub(prev).Norm()
-		perimeter += d
-		prev = p1
-	}
-	return perimeter
-}
-
 // SimplifyContours iterates through a slice of contours and performs the contour approximation from ApproxContourDP
 func SimplifyContours(contours [][]image.Point) [][]r2.Point {
 	simplifiedContours := make([][]r2.Point, len(contours))
@@ -494,7 +447,12 @@ func savePNG(fn string, m image.Image) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err = f.Close()
+		if err != nil {
+			log.Error("error closing file in savePNG")
+		}
+	}()
 	return png.Encode(f, m)
 }
 
@@ -518,7 +476,7 @@ func DrawContours(img *mat.Dense, contours [][]image.Point, outFile string) *ima
 }
 
 // DrawContoursSimplified draws the simplified polygonal contours in a black image and saves it in outFile
-func DrawContoursSimplified(img *mat.Dense, contours [][]r2.Point, outFile string) {
+func DrawContoursSimplified(img *mat.Dense, contours [][]r2.Point, outFile string) error {
 	h, w := img.Dims()
 	dc := gg.NewContext(w, h)
 	dc.SetRGB(0, 0, 0)
@@ -538,5 +496,6 @@ func DrawContoursSimplified(img *mat.Dense, contours [][]r2.Point, outFile strin
 			dc.Stroke()
 		}
 	}
-	dc.SavePNG(outFile)
+	err := dc.SavePNG(outFile)
+	return err
 }

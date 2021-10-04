@@ -1,16 +1,17 @@
 package chessboard
 
 import (
-	"fmt"
 	"image"
 	"math"
 
 	"github.com/golang/geo/r2"
+	"gonum.org/v1/gonum/mat"
+
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/utils"
-	"gonum.org/v1/gonum/mat"
 )
 
+// ChessContoursConfiguration stores the parameters needed for contour precessing in chessboard detection
 type ChessContoursConfiguration struct {
 	CannyLow  float64 `json:"canny-low"`  // low threshold for Canny contours detection
 	CannyHigh float64 `json:"canny-high"` // high threshold for Canny contours detection
@@ -18,12 +19,13 @@ type ChessContoursConfiguration struct {
 }
 
 // BinarizeMat take a mat.Dense and returns a binary mat.Dense according to threshold value
-func BinarizeMat(m *mat.Dense, thresh float64) *mat.Dense {
+func BinarizeMat(m mat.Matrix, thresh float64) *mat.Dense {
+
 	out := mat.DenseCopyOf(m)
-	nRows, nCols := m.Dims()
+	nRows, nCols := (m).Dims()
 	originalSize := image.Point{nCols, nRows}
 	utils.ParallelForEachPixel(originalSize, func(x int, y int) {
-		if m.At(y, x) >= thresh {
+		if (m).At(y, x) >= thresh {
 			out.Set(y, x, 1)
 		} else {
 			out.Set(y, x, 0)
@@ -63,12 +65,11 @@ func IsContourSquare(contour []r2.Point) bool {
 	tb := GetAngle(dd0, dd1, xa)
 	tc := GetAngle(dd1, dd2, xb)
 	td := GetAngle(dd2, dd3, xa)
-	fmt.Println(ta, tb, tc, td)
 	angles := []float64{ta, tb, tc, td}
 	nGoodAngles := uint8(0)
 	for _, angle := range angles {
 		if angle > 40. && angle < 150. {
-			nGoodAngles += 1
+			nGoodAngles++
 		}
 	}
 	isSquare = nGoodAngles == 4
@@ -84,8 +85,8 @@ func UpdateCorners(contour []r2.Point, saddleScoreMap *mat.Dense, winSize int) [
 	newContour := make([]r2.Point, len(contour))
 	for i, pt := range contour {
 		newContour[i] = r2.Point{
-			X: float64(pt.X),
-			Y: float64(pt.Y),
+			X: pt.X,
+			Y: pt.Y,
 		}
 	}
 	// go through contour
@@ -149,7 +150,6 @@ func PruneContours(contours [][]r2.Point, hierarchy []rimage.Node, saddleScoreMa
 	newContours := make([][]r2.Point, 0)
 	for i, c := range contours {
 		cSorted := rimage.SortPointCounterClockwise(c)
-		//fmt.Println(cSorted)
 		h := hierarchy[i+1]
 		// we only want child contours
 		if h.FirstChild != -1 {
@@ -174,7 +174,6 @@ func PruneContours(contours [][]r2.Point, hierarchy []rimage.Node, saddleScoreMa
 		if cntUpdated == nil {
 			continue
 		}
-		//fmt.Println(cnt)
 		newContours = append(newContours, cntUpdated)
 	}
 	return newContours
