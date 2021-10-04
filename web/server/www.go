@@ -29,6 +29,7 @@ import (
 	metadatapb "go.viam.com/core/proto/api/service/v1"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robot"
+	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 	"go.viam.com/core/web"
@@ -209,7 +210,7 @@ func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, cameraName str
 	cameraPoint := r3.Vector{x, y, z}
 	cameraPose := spatialmath.NewPoseFromPoint(cameraPoint)
 
-	return robot.MoveGripper(ctx, h.app.theRobot, cameraPose, cameraName)
+	return robotimpl.MoveGripper(ctx, h.app.theRobot, cameraPose, cameraName)
 }
 
 func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

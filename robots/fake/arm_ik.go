@@ -36,7 +36,10 @@ func NewArmIK(name string, logger golog.Logger) (*ArmIK, error) {
 		return nil, err
 	}
 
-	ik := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	if err != nil {
+		return nil, err
+	}
 
 	return &ArmIK{
 		Name:     name,
