@@ -185,12 +185,11 @@ func (svc *navService) startWaypoint() error {
 				return
 			}
 
-			lat, long, err := svc.gpsDevice.Location(svc.cancelCtx)
+			currentLoc, err := svc.gpsDevice.Location(svc.cancelCtx)
 			if err != nil {
 				svc.logger.Errorw("failed to get gps location", "error", err)
 				continue
 			}
-			currentLoc := geo.NewPoint(lat, long)
 
 			path = append(path, currentLoc)
 			if len(path) > 2 {
@@ -258,12 +257,7 @@ func (svc *navService) Location(ctx context.Context) (*geo.Point, error) {
 	if svc.gpsDevice == nil {
 		return nil, errors.New("no way to get location")
 	}
-	lat, long, err := svc.gpsDevice.Location(svc.cancelCtx)
-	if err != nil {
-		return nil, err
-	}
-	currentLoc := geo.NewPoint(lat, long)
-	return currentLoc, nil
+	return svc.gpsDevice.Location(svc.cancelCtx)
 }
 
 func (svc *navService) Waypoints(ctx context.Context) ([]*geo.Point, error) {

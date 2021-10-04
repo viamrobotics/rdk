@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
 
 	"go.viam.com/core/board"
@@ -141,37 +142,37 @@ func (g *pmtkI2CNMEAGPS) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{g.data}, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Location(ctx context.Context) (lat float64, long float64, err error) {
+func (g *pmtkI2CNMEAGPS) Location(ctx context.Context) (*geo.Point, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.lastLocation.Lat(), g.data.lastLocation.Lng(), nil
+	return g.data.location, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Altitude(ctx context.Context) (alt float64, err error) {
+func (g *pmtkI2CNMEAGPS) Altitude(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.lastAlt, nil
+	return g.data.alt, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Speed(ctx context.Context) (kph float64, err error) {
+func (g *pmtkI2CNMEAGPS) Speed(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.lastSpeed, nil
+	return g.data.speed, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Satellites(ctx context.Context) (active, total int, err error) {
+func (g *pmtkI2CNMEAGPS) Satellites(ctx context.Context) (int, int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.satsInUse, g.data.satsInView, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Accuracy(ctx context.Context) (horizontal, vertical float64, err error) {
+func (g *pmtkI2CNMEAGPS) Accuracy(ctx context.Context) (float64, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.lastHDOP, g.data.lastVDOP, nil
+	return g.data.hDOP, g.data.vDOP, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Valid(ctx context.Context) (valid bool, err error) {
+func (g *pmtkI2CNMEAGPS) Valid(ctx context.Context) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.valid, nil
