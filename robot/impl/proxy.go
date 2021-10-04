@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/golang/geo/r2"
+	geo "github.com/kellydunn/golang-geo"
 
 	"go.viam.com/utils"
 
@@ -385,37 +386,37 @@ func newProxyGPS(actual gps.GPS) *proxyGPS {
 	return &proxyGPS{proxySensor: &proxySensor{actual: actual}, actual: actual}
 }
 
-func (p *proxyGPS) Location(ctx context.Context) (lat float64, long float64, err error) {
+func (p *proxyGPS) Location(ctx context.Context) (*geo.Point, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.Location(ctx)
 }
 
-func (p *proxyGPS) Altitude(ctx context.Context) (alt float64, err error) {
+func (p *proxyGPS) Altitude(ctx context.Context) (float64, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.Altitude(ctx)
 }
 
-func (p *proxyGPS) Speed(ctx context.Context) (kph float64, err error) {
+func (p *proxyGPS) Speed(ctx context.Context) (float64, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.Speed(ctx)
 }
 
-func (p *proxyGPS) Satellites(ctx context.Context) (active, total int, err error) {
+func (p *proxyGPS) Satellites(ctx context.Context) (int, int, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.Satellites(ctx)
 }
 
-func (p *proxyGPS) Accuracy(ctx context.Context) (horizontal, vertical float64, err error) {
+func (p *proxyGPS) Accuracy(ctx context.Context) (float64, float64, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.Accuracy(ctx)
 }
 
-func (p *proxyGPS) Valid(ctx context.Context) (valid bool, err error) {
+func (p *proxyGPS) Valid(ctx context.Context) (bool, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.Valid(ctx)

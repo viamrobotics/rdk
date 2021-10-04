@@ -54,10 +54,10 @@ func (g *GPS) Close() error {
 }
 
 // Location always returns the set values.
-func (g *GPS) Location(ctx context.Context) (float64, float64, error) {
+func (g *GPS) Location(ctx context.Context) (*geo.Point, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.Latitude, g.Longitude, nil
+	return geo.NewPoint(g.Latitude, g.Longitude), nil
 }
 
 // Altitude returns the set value
@@ -160,13 +160,13 @@ func newInterceptingGPSBase(r robot.Robot, c config.Component) (*interceptingGPS
 }
 
 func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
-	lat, long, err := b.g.Location(ctx)
+	loc, err := b.g.Location(ctx)
 	if err != nil {
 		return 0, err
 	}
 	moved, err := b.b.MoveStraight(ctx, distanceMillis, millisPerSec, true)
 	distKilos := float64(moved) / 1000 / 1000
-	newLoc := geo.NewPoint(lat, long).PointAtDistanceAndBearing(distKilos, b.bearing)
+	newLoc := loc.PointAtDistanceAndBearing(distKilos, b.bearing)
 	// set new location to be where we "perfectly" move to based on bearing
 	b.g.Latitude = newLoc.Lat()
 	b.g.Longitude = newLoc.Lng()
