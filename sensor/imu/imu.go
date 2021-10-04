@@ -26,5 +26,5 @@ type AngularVelocity struct {
 type IMU interface {
 	sensor.Sensor
 	AngularVelocity(ctx context.Context) (AngularVelocity, error)
-	Orientation(ctx context.Context) (spatialmath.EulerAngles, error)
+	Orientation(ctx context.Context) (spatialmath.Orientation, error)
 }
