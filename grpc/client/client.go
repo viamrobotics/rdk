@@ -332,7 +332,7 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 }
 
 // ResourceByName returns resource by name.
-func (rc *RobotClient) ResourceByName(name string) (resource.Resource, bool) {
+func (rc *RobotClient) ResourceByName(name string) (interface{}, bool) {
 	// TODO: return a generic client or use another registry
 	rName, err := resource.NewFromString(name)
 	if err != nil {
@@ -646,14 +646,11 @@ func (bc *baseClient) WidthMillis(ctx context.Context) (int, error) {
 // armClient satisfies a gRPC based arm.Arm. Refer to the interface
 // for descriptions of its methods.
 type armClient struct {
-	mu   sync.RWMutex
 	rc   *RobotClient
 	name string
 }
 
 func (ac *armClient) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
-	ac.mu.RLock()
-	defer ac.mu.RUnlock()
 	resp, err := ac.rc.client.ArmCurrentPosition(ctx, &pb.ArmCurrentPositionRequest{
 		Name: ac.name,
 	})
@@ -664,8 +661,6 @@ func (ac *armClient) CurrentPosition(ctx context.Context) (*pb.ArmPosition, erro
 }
 
 func (ac *armClient) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
-	ac.mu.RLock()
-	defer ac.mu.RUnlock()
 	_, err := ac.rc.client.ArmMoveToPosition(ctx, &pb.ArmMoveToPositionRequest{
 		Name: ac.name,
 		To:   c,
@@ -674,8 +669,6 @@ func (ac *armClient) MoveToPosition(ctx context.Context, c *pb.ArmPosition) erro
 }
 
 func (ac *armClient) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
-	ac.mu.RLock()
-	defer ac.mu.RUnlock()
 	_, err := ac.rc.client.ArmMoveToJointPositions(ctx, &pb.ArmMoveToJointPositionsRequest{
 		Name: ac.name,
 		To:   pos,
@@ -684,8 +677,6 @@ func (ac *armClient) MoveToJointPositions(ctx context.Context, pos *pb.JointPosi
 }
 
 func (ac *armClient) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
-	ac.mu.RLock()
-	defer ac.mu.RUnlock()
 	resp, err := ac.rc.client.ArmCurrentJointPositions(ctx, &pb.ArmCurrentJointPositionsRequest{
 		Name: ac.name,
 	})
@@ -696,26 +687,12 @@ func (ac *armClient) CurrentJointPositions(ctx context.Context) (*pb.JointPositi
 }
 
 func (ac *armClient) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	ac.mu.RLock()
-	defer ac.mu.RUnlock()
 	_, err := ac.rc.client.ArmJointMoveDelta(ctx, &pb.ArmJointMoveDeltaRequest{
 		Name:       ac.name,
 		Joint:      int32(joint),
 		AmountDegs: amountDegs,
 	})
 	return err
-}
-
-// Reconfigure reconfigures the current resource to the resource passed in.
-func (ac *armClient) Reconfigure(newResource resource.Resource) {
-	ac.mu.Lock()
-	defer ac.mu.Unlock()
-	actual, ok := newResource.(*armClient)
-	if !ok {
-		panic(fmt.Errorf("expected new resource to be %T but got %T", actual, newResource))
-	}
-	ac.name = actual.name
-	ac.rc = actual.rc
 }
 
 // gripperClient satisfies a gRPC based gripper.Gripper. Refer to the interface

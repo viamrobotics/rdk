@@ -18,7 +18,6 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
@@ -392,10 +391,10 @@ func ServiceLookup(typeName config.ServiceType) *Service {
 
 type (
 	// A CreateComponent creates a resource from a given config.
-	CreateComponent func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (resource.Resource, error)
+	CreateComponent func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error)
 
 	// A RegisterRPCService registers a resource service to the given rpc server
-	RegisterRPCService func(ctx context.Context, server server.Server, resource resource.Resource) error
+	RegisterRPCService func(ctx context.Context, server server.Server, resource interface{}) error
 )
 
 // Component stores a resource constructor (mandatory) and a Frame building function (optional)

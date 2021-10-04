@@ -4,9 +4,7 @@ package varm
 import (
 	"context"
 	_ "embed" // for embedding model file
-	"fmt"
 	"math"
-	"sync"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -20,8 +18,6 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
@@ -51,7 +47,7 @@ var v1modeljson []byte
 
 func init() {
 	registry.RegisterComponentCreator(arm.ResourceSubtype, "varm1", registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (resource.Resource, error) {
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			model, err := kinematics.ParseJSON(v1modeljson)
 			if err != nil {
 				return nil, err
@@ -167,54 +163,53 @@ func testJointLimit(ctx context.Context, m motor.Motor, dir pb.DirectionRelative
 // NewArmV1 TODO
 func NewArmV1(ctx context.Context, r robot.Robot, logger golog.Logger, ik kinematics.InverseKinematics) (arm.Arm, error) {
 	var err error
-	arm := &ArmV1{}
+	newArm := &ArmV1{}
 
-	arm.j0.degMin = -135.0
-	arm.j0.degMax = 75.0
+	newArm.j0.degMin = -135.0
+	newArm.j0.degMax = 75.0
 
-	arm.j1.degMin = -142.0
-	arm.j1.degMax = 0.0
+	newArm.j1.degMin = -142.0
+	newArm.j1.degMax = 0.0
 
-	arm.j0Motor, err = getMotor(ctx, r, "m-j0")
+	newArm.j0Motor, err = getMotor(ctx, r, "m-j0")
 	if err != nil {
 		return nil, err
 	}
 
-	arm.j1Motor, err = getMotor(ctx, r, "m-j1")
+	newArm.j1Motor, err = getMotor(ctx, r, "m-j1")
 	if err != nil {
 		return nil, err
 	}
 
-	arm.j0.posMax, err = testJointLimit(ctx, arm.j0Motor, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, logger)
+	newArm.j0.posMax, err = testJointLimit(ctx, newArm.j0Motor, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, logger)
 	if err != nil {
 		return nil, err
 	}
 	/*
-		arm.j1.posMax, err = testJointLimit(ctx, arm.j1Motor, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, logger)
+		newArm.j1.posMax, err = testJointLimit(ctx, newArm.j1Motor, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, logger)
 		if err != nil {
 			return nil, err
 		}
 	*/
-	arm.j0.posMin, err = testJointLimit(ctx, arm.j0Motor, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, logger)
+	newArm.j0.posMin, err = testJointLimit(ctx, newArm.j0Motor, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	arm.j1.posMin, err = testJointLimit(ctx, arm.j1Motor, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, logger)
+	newArm.j1.posMin, err = testJointLimit(ctx, newArm.j1Motor, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	arm.j1.posMax = arm.j1.posMin + 3.417 // TODO(erh): this is super gross
+	newArm.j1.posMax = newArm.j1.posMin + 3.417 // TODO(erh): this is super gross
 
-	logger.Debugf("%#v", arm)
+	logger.Debugf("%#v", newArm)
 
-	return arm, multierr.Combine(arm.j0.validate(), arm.j1.validate())
+	return arm.ToProxyArm(newArm), multierr.Combine(newArm.j0.validate(), newArm.j1.validate())
 }
 
 // ArmV1 TODO
 type ArmV1 struct {
-	mu               sync.RWMutex
 	j0Motor, j1Motor motor.Motor
 
 	j0, j1 joint
@@ -223,8 +218,6 @@ type ArmV1 struct {
 
 // CurrentPosition computes and returns the current cartesian position.
 func (a *ArmV1) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -234,8 +227,6 @@ func (a *ArmV1) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (a *ArmV1) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -263,8 +254,6 @@ func (a *ArmV1) moveJointToDegrees(ctx context.Context, m motor.Motor, j joint, 
 
 // MoveToJointPositions TODO
 func (a *ArmV1) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	if len(pos.Degrees) != 2 {
 		return errors.New("need exactly 2 joints")
 	}
@@ -302,8 +291,6 @@ func (a *ArmV1) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions
 
 // IsOn TODO
 func (a *ArmV1) IsOn(ctx context.Context) (bool, error) {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	on0, err0 := a.j0Motor.IsOn(ctx)
 	on1, err1 := a.j0Motor.IsOn(ctx)
 
@@ -321,8 +308,6 @@ func jointToDegrees(ctx context.Context, m motor.Motor, j joint) (float64, error
 
 // CurrentJointPositions TODO
 func (a *ArmV1) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	var e1, e2 error
 	joints := &pb.JointPositions{Degrees: make([]float64, 2)}
 	joints.Degrees[0], e1 = jointToDegrees(ctx, a.j0Motor, a.j0)
@@ -334,8 +319,6 @@ func (a *ArmV1) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, 
 
 // JointMoveDelta TODO
 func (a *ArmV1) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -352,22 +335,4 @@ func (a *ArmV1) JointMoveDelta(ctx context.Context, joint int, amountDegs float6
 
 func computeInnerJointAngle(j0, j1 float64) float64 {
 	return j0 + j1
-}
-
-// Reconfigure reconfigures the current resource to the resource passed in.
-func (a *ArmV1) Reconfigure(newResource resource.Resource) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	actual, ok := newResource.(*ArmV1)
-	if !ok {
-		panic(fmt.Errorf("expected new resource to be %T but got %T", actual, newResource))
-	}
-	if err := utils.TryClose(a); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	a.j0Motor = actual.j0Motor
-	a.j1Motor = actual.j1Motor
-	a.j0 = actual.j0
-	a.j1 = actual.j1
-	a.ik = actual.ik
 }

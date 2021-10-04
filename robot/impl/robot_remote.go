@@ -277,7 +277,7 @@ func (rr *remoteRobot) ServiceByName(name string) (interface{}, bool) {
 	return rr.parts.ServiceByName(rr.unprefixName(name))
 }
 
-func (rr *remoteRobot) ResourceByName(name string) (resource.Resource, bool) {
+func (rr *remoteRobot) ResourceByName(name string) (interface{}, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.ResourceByName(rr.unprefixResourceName(name))
@@ -657,6 +657,14 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		oldPart, ok := parts.resources[name]
 		delete(oldResources, name)
 		if ok {
+			oldPart, ok := oldPart.(resource.Reconfigurable)
+			if !ok {
+				panic(fmt.Errorf("expected type %T to be reconfigurable but it was not", oldPart))
+			}
+			newPart, ok := newPart.(resource.Reconfigurable)
+			if !ok {
+				panic(fmt.Errorf("expected type %T to be reconfigurable but it was not", newPart))
+			}
 			oldPart.Reconfigure(newPart)
 			continue
 		}

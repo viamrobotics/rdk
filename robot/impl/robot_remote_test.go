@@ -158,7 +158,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		}
 		return struct{}{}, true
 	}
-	injectRobot.ResourceByNameFunc = func(name string) (resource.Resource, bool) {
+	injectRobot.ResourceByNameFunc = func(name string) (interface{}, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.ResourceNames()...)[name]; !ok {
 			return nil, false
 		}
@@ -382,13 +382,11 @@ func TestRemoteRobot(t *testing.T) {
 	})
 
 	robot.conf.Prefix = false
-	arm1, ok := robot.ArmByName("arm1")
+	_, ok := robot.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, arm1.(*fake.Arm).Name, test.ShouldEqual, "arm1")
 	robot.conf.Prefix = true
-	arm1, ok = robot.ArmByName("one.arm1")
+	_, ok = robot.ArmByName("one.arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, arm1.(*fake.Arm).Name, test.ShouldEqual, "arm1")
 	_, ok = robot.ArmByName("arm1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -470,13 +468,11 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
-	resource1, ok := robot.ResourceByName("core:component:arm/arm1")
+	_, ok = robot.ResourceByName("core:component:arm/arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resource1.(*fake.Arm).Name, test.ShouldEqual, "arm1")
 	robot.conf.Prefix = true
-	resource1, ok = robot.ResourceByName("core:component:arm/one.arm1")
+	_, ok = robot.ResourceByName("core:component:arm/one.arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resource1.(*fake.Arm).Name, test.ShouldEqual, "arm1")
 	_, ok = robot.ResourceByName("arm1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 

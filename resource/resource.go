@@ -116,8 +116,8 @@ func (r Name) Validate() error {
 	return nil
 }
 
-// Resource represents a known component/service of a robot.
-type Resource interface {
+// Reconfigurable is implemented when component/service of a robot is reconfigurable.
+type Reconfigurable interface {
 	// Reconfigure reconfigures the resource
-	Reconfigure(newResource Resource)
+	Reconfigure(newResource Reconfigurable)
 }

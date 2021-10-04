@@ -14,7 +14,6 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
@@ -196,7 +195,7 @@ func TestRegistry(t *testing.T) {
 }
 
 func TestComponentRegistry(t *testing.T) {
-	af := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (resource.Resource, error) {
+	af := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		return nil, nil
 	}
 	ff := func(name string) (referenceframe.Frame, error) {
@@ -225,7 +224,7 @@ func TestComponentRegistry(t *testing.T) {
 }
 
 func TestRegistratorRegistry(t *testing.T) {
-	rf := func(ctx context.Context, server server.Server, resource resource.Resource) error {
+	rf := func(ctx context.Context, server server.Server, resource interface{}) error {
 		return nil
 	}
 	armResourceSubtype := "core:component:arm"

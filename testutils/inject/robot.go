@@ -16,7 +16,6 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
@@ -38,7 +37,7 @@ type Robot struct {
 	ServoByNameFunc    func(name string) (servo.Servo, bool)
 	MotorByNameFunc    func(name string) (motor.Motor, bool)
 	ServiceByNameFunc  func(name string) (interface{}, bool)
-	ResourceByNameFunc func(name string) (resource.Resource, bool)
+	ResourceByNameFunc func(name string) (interface{}, bool)
 	RemoteNamesFunc    func() []string
 	ArmNamesFunc       func() []string
 	GripperNamesFunc   func() []string
@@ -149,7 +148,7 @@ func (r *Robot) ServiceByName(name string) (interface{}, bool) {
 }
 
 // ResourceByName calls the injected ResourceByName or the real version.
-func (r *Robot) ResourceByName(name string) (resource.Resource, bool) {
+func (r *Robot) ResourceByName(name string) (interface{}, bool) {
 	if r.ResourceByNameFunc == nil {
 		return r.Robot.ResourceByName(name)
 	}

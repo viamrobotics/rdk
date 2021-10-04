@@ -41,7 +41,7 @@ type robotParts struct {
 	motors         map[string]*proxyMotor
 	services       map[string]interface{}
 	functions      map[string]struct{}
-	resources      map[string]resource.Resource
+	resources      map[string]interface{}
 	processManager pexec.ProcessManager
 }
 
@@ -59,7 +59,7 @@ func newRobotParts(logger golog.Logger) *robotParts {
 		motors:         map[string]*proxyMotor{},
 		services:       map[string]interface{}{},
 		functions:      map[string]struct{}{},
-		resources:      map[string]resource.Resource{},
+		resources:      map[string]interface{}{},
 		processManager: pexec.NewProcessManager(logger),
 	}
 }
@@ -177,7 +177,7 @@ func (parts *robotParts) addFunction(name string) {
 }
 
 // addResource adds a resource to the parts.
-func (parts *robotParts) addResource(name string, r resource.Resource) {
+func (parts *robotParts) addResource(name string, r interface{}) {
 	parts.resources[name] = r
 }
 
@@ -394,7 +394,7 @@ func (parts *robotParts) Clone() *robotParts {
 		}
 	}
 	if len(parts.resources) != 0 {
-		clonedParts.resources = make(map[string]resource.Resource, len(parts.resources))
+		clonedParts.resources = make(map[string]interface{}, len(parts.resources))
 		for k, v := range parts.resources {
 			clonedParts.resources[k] = v
 		}
@@ -828,7 +828,7 @@ func (parts *robotParts) ServiceByName(name string) (interface{}, bool) {
 
 // ResourceByName returns the given resource by fully qualified name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) ResourceByName(name string) (resource.Resource, bool) {
+func (parts *robotParts) ResourceByName(name string) (interface{}, bool) {
 	part, ok := parts.resources[name]
 	if ok {
 		return part, true
@@ -963,7 +963,7 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 
 	if len(toAdd.resources) != 0 {
 		if parts.resources == nil {
-			parts.resources = make(map[string]resource.Resource, len(toAdd.resources))
+			parts.resources = make(map[string]interface{}, len(toAdd.resources))
 		}
 		for k, v := range toAdd.resources {
 			parts.resources[k] = v
@@ -1107,7 +1107,15 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			old.Reconfigure(v)
+			oldPart, ok := old.(resource.Reconfigurable)
+			if !ok {
+				return nil, errors.Errorf("old type %T is not reconfigurable", old)
+			}
+			newPart, ok := v.(resource.Reconfigurable)
+			if !ok {
+				return nil, errors.Errorf("new type %T is not reconfigurable", v)
+			}
+			oldPart.Reconfigure(newPart)
 		}
 	}
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"math"
 	"time"
 
@@ -14,8 +13,6 @@ import (
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/rlog"
 
 	"go.uber.org/multierr"
 )
@@ -192,8 +189,6 @@ func (x *xArm) response(ctx context.Context) (cmd, error) {
 // errors. It may be useful for troubleshooting but as the SDK does not call
 // it directly ever, we probably don't need to either during normal operation
 func (x *xArm) CheckServoErrors(ctx context.Context) error {
-	x.mu.RLock()
-	defer x.mu.RUnlock()
 	c := x.newCmd(regMap["ServoError"])
 	e, err := x.send(ctx, c, false)
 	if err != nil {
@@ -327,12 +322,6 @@ func (x *xArm) motionWait(ctx context.Context) error {
 
 // Close shuts down the arm servos and engages brakes.
 func (x *xArm) Close() error {
-	x.mu.RLock()
-	defer x.mu.RUnlock()
-	return x.close()
-}
-
-func (x *xArm) close() error {
 	err := x.toggleBrake(context.Background(), false)
 	if err != nil {
 		return err
@@ -350,8 +339,6 @@ func (x *xArm) close() error {
 
 // MoveToJointPositions moves the arm to the requested joint positions.
 func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
-	x.mu.RLock()
-	defer x.mu.RUnlock()
 	radians := arm.JointPositionsToRadians(newPositions)
 	c := x.newCmd(regMap["MoveJoints"])
 	jFloatBytes := make([]byte, 4)
@@ -381,15 +368,11 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointP
 
 // JointMoveDelta TODO
 func (x *xArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	x.mu.RLock()
-	defer x.mu.RUnlock()
 	return errors.New("not done yet")
 }
 
 // CurrentPosition computes and returns the current cartesian position.
 func (x *xArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
-	x.mu.RLock()
-	defer x.mu.RUnlock()
 	joints, err := x.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -399,8 +382,6 @@ func (x *xArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (x *xArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
-	x.mu.RLock()
-	defer x.mu.RUnlock()
 	joints, err := x.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -414,8 +395,6 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 
 // CurrentJointPositions returns the current positions of all joints.
 func (x *xArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
-	x.mu.RLock()
-	defer x.mu.RUnlock()
 	c := x.newCmd(regMap["JointPos"])
 
 	jData, err := x.send(ctx, c, true)
@@ -429,23 +408,4 @@ func (x *xArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, e
 	}
 
 	return arm.JointPositionsFromRadians(radians), nil
-}
-
-// Reconfigure reconfigures the current resource to the resource passed in.
-func (x *xArm) Reconfigure(newResource resource.Resource) {
-	x.mu.Lock()
-	defer x.mu.Unlock()
-	actual, ok := newResource.(*xArm)
-	if !ok {
-		panic(fmt.Errorf("expected new resource to be %T but got %T", actual, newResource))
-	}
-	if err := x.close(); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	x.dof = actual.dof
-	x.tid = actual.tid
-	x.conn = actual.conn
-	x.speed = actual.speed
-	x.accel = actual.accel
-	x.ik = actual.ik
 }
