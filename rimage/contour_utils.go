@@ -7,7 +7,6 @@ import (
 	"math"
 	"os"
 
-	"github.com/apex/log"
 	"github.com/fogleman/gg"
 	"github.com/golang/geo/r2"
 
