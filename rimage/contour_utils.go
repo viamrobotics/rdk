@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 
+	"github.com/apex/log"
 	"github.com/fogleman/gg"
 	"github.com/golang/geo/r2"
 
@@ -479,7 +480,6 @@ func markExamined(mark, center PointMat, checked []bool) {
 	if loc != -1 {
 		checked[loc] = true
 	}
-	return
 }
 
 // isExamined checks if given pixel has already been examined
@@ -570,12 +570,12 @@ func FindContours(img *mat.Dense) ([][]image.Point, []Node) {
 			borderStartFound = false
 			if (img.At(r, c) == 1 && c-1 < 0) || (img.At(r, c) == 1 && img.At(r, c-1) == 0) {
 				nbd.borderType = Outer
-				nbd.segNum += 1
+				nbd.segNum++
 				p2.Set(r, c-1)
 				borderStartFound = true
 			} else if c+1 < nCols && (img.At(r, c) >= 1 && img.At(r, c+1) == 0) {
 				nbd.borderType = Hole
-				nbd.segNum += 1
+				nbd.segNum++
 				if img.At(r, c) > 1 {
 					lnbd.segNum = int(img.At(r, c))
 					lnbd.borderType = hierarchy[lnbd.segNum-1].border.borderType
