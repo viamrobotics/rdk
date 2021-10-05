@@ -242,6 +242,14 @@ export default class MotorDetail extends Vue {
 
   motorCommand = new MotorCommand();
 
+  mounted(): void {
+    if (this.motorStatus.positionSupported) {
+      this.motorCommand.type = MotorCommandType.GoFor;
+      this.motorCommand.speed = 10;
+      this.motorCommand.revolutions = 1;
+    }
+  }
+
   get isContinuous(): boolean {
     return this.motorCommand.type === MotorCommandType.Go;
   }
