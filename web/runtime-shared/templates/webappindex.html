@@ -447,6 +447,7 @@
                         theData.pcdClick.foundSegments = true;
                         theData.segments = resp.getFramesList_asB64();
                         theData.segCenters = resp.getCentersList();
+                        theData.segBoundingBoxes = resp.getBoundingBoxesList();
                         theData.pcdClick.calculatingSegments = false;
                       });
                   },
@@ -463,6 +464,12 @@
                         var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         console.log(p);
                         setPoint(p);
+                  },
+                  doBoundingBoxLoad : function(i){
+                        var box = theData.segBoundingBoxes[i];
+                        var center = theData.segCenters[i];
+                        var centerP = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
+                        setBoundingBox(box, centerP);
                   },
                   doPCDLoad : function(data){
                         const mimeType = 'pointcloud/pcd';
@@ -642,6 +649,9 @@
               pcdGlobal.scene.clear();
               pcdGlobal.scene.add( mesh );
               pcdGlobal.scene.add( pcdGlobal.sphere);
+              if (pcdGlobal.cube) {
+                pcdGlobal.scene.add(pcdGlobal.cube);
+              }
               pcdAnimate();
             },
             // called when loading is in progresses
@@ -670,6 +680,18 @@
           theData.pcdClick.z = r(point.z);
           theData.pcdClick.path = path;
           pcdGlobal.sphere.position.copy(point);
+      }
+
+      function setBoundingBox(box, centerPoint) {
+          const geometry = new THREE.BoxGeometry( box.getWidth()/1000., box.getLength()/1000., box.getDepth()/1000. );
+          const edges = new THREE.EdgesGeometry( geometry );
+          const material = new THREE.LineBasicMaterial( { color: 0xff0000 } );
+          const cube = new THREE.LineSegments( edges, material );
+          cube.position.copy(centerPoint);
+          cube.name = "bounding-box";
+          pcdGlobal.scene.remove(pcdGlobal.scene.getObjectByName("bounding-box"));
+          pcdGlobal.cube = cube;
+          pcdGlobal.scene.add(cube);
       }
 
       async function waitForClientAndStart() {
@@ -1032,6 +1054,7 @@
           <th>Object</th>
           <th>PCD</th>
           <th>Point</th>
+          <th>Bounding Box</th>
         </tr>
         <tr>
           <td>Full Image</td>
@@ -1042,6 +1065,7 @@
             <td>Object ${i}</td>
             <td><button v-on:click="doSegmentLoad(seg, i)">GO</button></td>
             <td><button v-on:click="doPointLoad(i)">GO</button></td>
+            <td><button v-on:click="doBoundingBoxLoad(i)">GO</button></td>
         </tr>
       </table>
       <div id="map-container" v-if="hasKey(status.servicesMap, 'navigation')">
