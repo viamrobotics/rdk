@@ -1377,6 +1377,12 @@ func TestServer(t *testing.T) {
 		test.That(t, len(segs.Frames), test.ShouldEqual, 2)
 		test.That(t, segs.Centers[0].Z, test.ShouldEqual, 5.)
 		test.That(t, segs.Centers[1].Z, test.ShouldEqual, 5.)
+		test.That(t, segs.BoundingBoxes[0].Width, test.ShouldEqual, 0)
+		test.That(t, segs.BoundingBoxes[0].Length, test.ShouldEqual, 0)
+		test.That(t, segs.BoundingBoxes[0].Depth, test.ShouldEqual, 2)
+		test.That(t, segs.BoundingBoxes[1].Width, test.ShouldEqual, 0)
+		test.That(t, segs.BoundingBoxes[1].Length, test.ShouldEqual, 0)
+		test.That(t, segs.BoundingBoxes[1].Depth, test.ShouldEqual, 2)
 
 		//empty pointcloud
 		pcB := pointcloud.New()
