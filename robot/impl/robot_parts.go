@@ -1233,12 +1233,6 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 				continue
 			}
 			filtered.AddBase(part, compConf)
-		case config.ComponentTypeArm:
-			resource, ok := parts.ResourceByName(compConf.FullyQualifiedName())
-			if !ok {
-				continue
-			}
-			filtered.addResource(compConf.FullyQualifiedName(), resource)
 		case config.ComponentTypeGripper:
 			part, ok := parts.GripperByName(compConf.Name)
 			if !ok {
@@ -1282,7 +1276,11 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 			}
 			filtered.AddMotor(part, compConf)
 		default:
-			return nil, errors.Errorf("unknown component type: %v", compConf.Type)
+			resource, ok := parts.ResourceByName(compConf.FullyQualifiedName())
+			if !ok {
+				continue
+			}
+			filtered.addResource(compConf.FullyQualifiedName(), resource)
 		}
 	}
 
