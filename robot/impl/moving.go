@@ -27,15 +27,20 @@ func MoveGripper(ctx context.Context, r robot.Robot, goalPose spatialmath.Pose, 
 	if !ok {
 		return fmt.Errorf("failed to find arm %q", armName)
 	}
+
 	gripperName := r.GripperNames()[0]
+	if goalFrameName == gripperName {
+		return errors.New("cannot move gripper with respect to gripper frame, gripper will always be at its own origin")
+	}
 
 	// get the frame system of the robot
 	frameSys, err := r.FrameSystem(ctx)
 	if err != nil {
 		return err
 	}
+	solver := kinematics.NewSolvableFrameSystem(frameSys, r.Logger())
 	// get the initial inputs
-	input := referenceframe.StartPositions(frameSys)
+	input := referenceframe.StartPositions(solver)
 	pos, err := arm.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -43,7 +48,6 @@ func MoveGripper(ctx context.Context, r robot.Robot, goalPose spatialmath.Pose, 
 	input[armName] = referenceframe.JointPosToInputs(pos)
 
 	// the goal is to move the gripper to goalPose (which is given in coord of frame goalFrameName).
-	solver := kinematics.NewSolvableFrameSystem(frameSys, r.Logger())
 	output, err := solver.SolvePose(ctx, input, goalPose, frameSys.GetFrame(gripperName), frameSys.GetFrame(goalFrameName))
 	if err != nil {
 		return err
