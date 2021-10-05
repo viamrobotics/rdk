@@ -21,10 +21,20 @@
     <script src="/static/core/control.js"></script>
     <script src="/static/core/third-party/vue.js"></script>
     <script src="/static/core/third-party/ace/ace.js" type="text/javascript" charset="utf-8"></script>
+    <script src="/static/core/components.js"></script>
+    <link rel="stylesheet" href="/static/core/components/coreComponents.css">
+    <script type="module">
+      import "/static/core/components/coreComponents.umd.min.js";
+    </script>
     {{ else }}
     <script src="/static/control.js"></script>
     <script src="/static/third-party/vue.js"></script>
     <script src="/static/third-party/ace/ace.js" type="text/javascript" charset="utf-8"></script>
+    <script src="/static/components.js"></script>
+    <link rel="stylesheet" href="/static/components/coreComponents.css">
+    <script type="module">
+      import "/static/components/coreComponents.umd.js";
+    </script>
     {{ end }}
 
     <script>
@@ -32,7 +42,7 @@
           num = Math.round(num * 100);
           return num / 100;
       }
-      
+
       function grpcCallback(err, resp, stringify) {
         if (err) {
           theData.error = JSON.stringify(err);
@@ -74,14 +84,14 @@
                                         jointValue : armValue.jointPositions.degreesList[j] || 0,
                                       });
               }
-              
+
               n.push(newArm);
           }
           return n;
       }
 
       firstResult = false;
-      
+
       async function updateStatus(rawStatus) {
           theData.rawStatus = rawStatus;
           window.rawStatus = rawStatus;
@@ -112,7 +122,7 @@
 
           theData.status = status;
       }
-      
+
       async function startup() {
           theData = {
               error : "",
@@ -134,6 +144,7 @@
               el: '#app',
               delimiters: ['${', '}'],
               data: theData,
+              components: {},
               methods : {
                   armGridInc : function(name, getterSetter, amount) {
                       if (getterSetter[0] == 'o' || getterSetter[0] == 'O') {
@@ -186,9 +197,9 @@
                               joint : arm.pieces[i].joint,
                               jointValue : roundTo2Decimals(arm.pieces[i].jointValue),
                           });
-                              
+
                       }
-                      
+
                       theData.armToggle[name] = n;
                   },
                   armModifyAllCancel : function(name, arm) {
@@ -197,10 +208,10 @@
                   armModifyAllDoGrid : function(name) {
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getGridPosition();
-                      
+
                       var newPosition = Object.assign(Object.create(robotApi.ArmPosition.prototype), old);
                       var newPieces = theData.armToggle[name].pieces;
-                      
+
                       for (var i=0; i < newPieces.length; i++) {
                           var getterSetter = newPieces[i].grid[1];
                           const getter = `get${getterSetter}`;
@@ -217,7 +228,7 @@
                   armModifyAllDoJoint : function(name) {
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getJointPositions();
-                      
+
                       var newPosition = Object.assign(Object.create(robotApi.JointPositions.prototype), old);
                       var newList = newPosition.getDegreesList();
 
@@ -225,7 +236,7 @@
                       for (var i=0; i < newPieces.length && i < newList.length; i++) {
                           newList[newPieces[i].joint] = newPieces[i].jointValue;
                       }
-                      
+
                       newPosition.setDegreesList(newList);
 
                       const req = new robotApi.ArmMoveToJointPositionsRequest();
@@ -234,7 +245,7 @@
                       robotService.armMoveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
                       delete theData.armToggle[name];
                   },
-                  
+
                   gripperAction : function(name, action) {
                       let req;
                       switch (action) {
@@ -259,34 +270,21 @@
                       req.setAngleDeg(angle);
                       robotService.servoMove(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
-                  motorButton: function(name, cmd) {
-                      let req;
-                      if (cmd.r) {
-                        req = new robotApi.MotorGoForRequest();
-                        req.setRevolutions(cmd.r);
-                        if (cmd.s) {
-                          req.setRpm(cmd.s);
-                        }
-                      } else {
-                        req = new robotApi.MotorGoRequest();
-                        if (cmd.s) {
-                            req.setPowerPct(cmd.s);
-                        }
-                      }
-                      req.setName(name);
-                      switch (cmd.d) {
-                        case 'backward':
-                          req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_BACKWARD);
-                          break;
-                        case 'forward':
-                          req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_FORWARD);
-                          break;
-                      }
-                      if (cmd.r) {
-                        robotService.motorGoFor(req, {}, (err, resp) => grpcCallback(err, resp));
-                      } else {
+                  motorCommand: function(motor, cmd) {
+                    let req = cmd.request;
+                    req.setName(motor);
+
+                    switch (cmd.type) {
+                      case "go":
                         robotService.motorGo(req, {}, (err, resp) => grpcCallback(err, resp));
-                      }
+                        break;
+                      case "goFor":
+                        robotService.motorGoFor(req, {}, (err, resp) => grpcCallback(err, resp));
+                        break;
+                      case "goTo":
+                        robotService.motorGoTo(req, {}, (err, resp) => grpcCallback(err, resp));
+                        break;
+                    }
                   },
                   doAction : function(name) {
                       const req = new robotApi.DoActionRequest();
@@ -409,9 +407,9 @@
                       var mouse = new THREE.Vector2();
                       mouse.x = ((e.offsetX / e.srcElement.offsetWidth) * 2) - 1
                       mouse.y = ((e.offsetY / e.srcElement.offsetHeight) * -2) + 1
-                      
+
 	                  pcdGlobal.raycaster.setFromCamera( mouse, pcdGlobal.camera );
-                      
+
 	                  var intersects = pcdGlobal.raycaster.intersectObjects( pcdGlobal.scene.children );
                       var p = ( intersects.length ) > 0 ? intersects[ 0 ] : null;
 
@@ -547,7 +545,7 @@
                 await window.reconnect();
               } catch {
                 console.error("failed to reconnect; retrying");
-                setTimeout(() => restartStatusStream(), 1000);  
+                setTimeout(() => restartStatusStream(), 1000);
               }
             }
             statusStream = robotService.statusStream(streamReq);
@@ -581,14 +579,14 @@
       }
 
       pcdGlobal = null;
-      
+
       function initPCDIfNeeded() {
           if (pcdGlobal) {
               return
           }
           theData.pcdClick.enable = true;
           console.log("initing pcd");
-          
+
           const sphereGeometry = new THREE.SphereGeometry( .009, 32, 32 );
           const sphereMaterial = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
 
@@ -602,7 +600,7 @@
 
           pcdGlobal.renderer.setSize( window.innerWidth / 2, window.innerHeight / 2 );
           document.getElementById("pcd").appendChild(pcdGlobal.renderer.domElement);
-          
+
           pcdGlobal.controls = new orbitLib.OrbitControls( pcdGlobal.camera, pcdGlobal.renderer.domElement );
           pcdGlobal.camera.position.set( 0, 0, 0 );
           pcdGlobal.controls.target.set(0,0,-1);
@@ -638,7 +636,7 @@
           var loader = new pcdLib.PCDLoader();
           loader.load(
               path,
-              
+
             // called when the resource is loaded
             function ( mesh ) {
               pcdGlobal.scene.clear();
@@ -757,7 +755,7 @@
             const pos = {lat: resp.getLocation().getLatitude(), lng: resp.getLocation().getLongitude()};
             if (!centered) {
               centered = true;
-              window.map.setCenter(pos);              
+              window.map.setCenter(pos);
             }
             locationMarker.setPosition(pos);
             locationMarker.setMap(window.map);
@@ -777,15 +775,15 @@
       });
     </script>
   </head>
-  <body onLoad="waitForClientAndStart()">
+  <body onLoad="waitForClientAndStart()" style="background: var(--black-10);">
     <div id="app">
       <div id="actions">
         {{range $r := .Actions}}
         <button v-on:click="doAction('{{$r}}')">{{$r}}</button>
         {{end}}
-      </div>   
+      </div>
 
-      <div style="font-color: red">${ error }</div>
+      <div style="color: red">${ error }</div>
 
       <!-- ******* BASE *******  -->
       <div class="base" v-for="base in status.basesMap" :key="base[0]">
@@ -796,7 +794,7 @@
           <li><button v-on:click="baseAction(base[0], 'angle', 15)">Spin Clockwise</button></li>
           <li><button v-on:click="baseAction(base[0], 'angle', -15)">Spin Counterclockwise</button></li>
         </ul>
-        
+
         Speed (mm per sec): <input id="speed" name="speed" value="300"/><br>
         Distances (mm): <input id="distance" name="speed" value="500"/><br>
       </div>
@@ -849,14 +847,14 @@
             <td>${aa.jointValue.toFixed(2)}</td>
           </tr>
           <tr>
-            <th colspan="8"> 
+            <th colspan="8">
               <button v-on:click="armHome( arm.name)">Home</button>
               <button v-on:click="armModifyAll(arm.name, arm)">Modify All</button>
             </th>
           </tr>
         </table> <!-- end main table -->
-      </div> 
-      
+      </div>
+
       <!-- ******* GRIPPER *******  -->
       <div class="gripper" v-for="gripper in status.grippersMap" :key="gripper[0]">
         <h3>Gripper ${ gripper[0] }</h3>
@@ -867,7 +865,7 @@
       </div>
 
       <!-- ******* SERVO *******  -->
-      <div class="servo" v-for="servo in status.servosMap" :key="servo[0]">
+      <div class="servo" v-for="servo in status.servosMap" :key="servo[0]" style="margin-bottom: 64px;">
         <h3>Servo ${ servo[0] }</h3>
         <table border="1">
           <tr><th>Angle</th><td>${servo[1].angle}</td></tr>
@@ -884,59 +882,14 @@
       </div>
 
       <!-- ******* MOTOR *******  -->
-      <div class="motor" v-for="motor in status.motorsMap" :key="motor[0]">
-        <h3>Motor ${ motor[0] }</h3>
-        <table border="1">
-          <tr>
-              <th>${motor[0]}</th>
-              <td>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: 1.0})">----</button>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: .75})">---</button>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: .50})">--</button>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: .25})">-</button>
-                <button v-on:click="motorButton(motor[0], {d:'none', s: 0})">0</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: .25})">+</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: .50})">++</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: .75})">+++</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: 1.0})">++++</button>
-              </td>
-            </tr>
-            <tr>
-              <td>50rpm</td>
-              <td>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: 50, r: 10})">-10</button>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: 50, r: 1})">-1</button>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: 50, r: .25})">-.25</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: 50, r: .25})">+.25</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: 50, r: 1})">+1</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: 50, r: 10})">+10</button>
-              </td>
-            </tr>
-            <tr>
-              <td>10rpm</td>
-              <td>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: 10, r: 10})">-10</button>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: 10, r: 1})">-1</button>
-                <button v-on:click="motorButton(motor[0], {d:'backward', s: 10, r: .25})">-.25</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: 10, r: .25})">+.25</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: 10, r: 1})">+1</button>
-                <button v-on:click="motorButton(motor[0], {d:'forward', s: 10, r: 10})">+10</button>
-              </td>
-            </tr>
-          <tr>
-            <td align="right">On</td>
-            <td>${motor[1].on}</td>
-          </tr>
-          <tr>
-            <td align="right">PositionSupported</td>
-            <td>${motor[1].positionSupported}</td>
-          </tr>
-          <tr>
-            <td align="right">Position</td>
-            <td>${motor[1].position}</td>
-          </tr>
-        </table>
-      </div>
+      <motor-detail
+        v-for="motor in status.motorsMap"
+        :key="'new-' + motor[0]"
+        v-bind:motor-name="motor[0]"
+        v-bind:motor-status="motor[1]"
+        v-on:execute="motorCommand(motor[0], $event)"
+        style="max-width: 1080px;">
+      </motor-detail>
 
       <table>
         <tr>
@@ -949,7 +902,7 @@
           {{ end }}
         </tr>
       </table>
-      
+
       <!-- ******* BOARD *******  -->
 
       <div class="board" v-for="(board, boardIndex) in status.boardsMap" :key="board[0]">
@@ -967,7 +920,6 @@
             <th>${di[0]}</th>
             <td>${di[1].value}</td>
           </tr>
-          
         </table>
       </div> <!-- end boards -->
       <!-- cameras -->
@@ -993,19 +945,19 @@
         <tr>
           <th colspan="2">Sensors</th>
         </tr>
-        
+
         <tr>
           <th>Name</th>
           <th>Type</th>
         </tr>
-        
+
         <tr v-for="(sensor, x) in status.sensorsMap">
           <td>${sensor[0]}</td>
           <td>${sensor[1].type}</td>
           <td><button v-on:click="doSensorReadings(sensor[0])">Get Readings</button></td>
         </tr>
       </table>
-      
+
       <div>${res}</div>
       <div>
         <h3>Functions</h3>
@@ -1103,7 +1055,7 @@
         <div id="map" v-map-mounted></div>
       </div>
     </div> <!-- end vue app -->
-    
+
     <!-- TODO(https://github.com/viamrobotics/core/issues/202): remove api key once going into production -->
     <script
       src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBn72TEqFOVWoj06cvua0Dc0pz2uvq90nY&callback=initMap&libraries=&v=weekly"
@@ -1111,4 +1063,3 @@
     ></script>
   </body>
 </html>
-
