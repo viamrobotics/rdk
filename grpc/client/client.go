@@ -338,7 +338,7 @@ func (rc *RobotClient) ResourceByName(name string) (interface{}, bool) {
 	if err != nil {
 		return nil, false
 	}
-	switch rName.ResourceSubtype() {
+	switch rName.ResourceSubtype.String() {
 	case arm.ResourceSubtype:
 		return &armClient{rc: rc, name: rName.Name}, true
 	default:
@@ -364,11 +364,11 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 	rc.resourceNames = []string{}
 	if len(status.Arms) != 0 {
 		for name := range status.Arms {
-			n, err := resource.New(resource.ResourceNamespaceCore, resource.ResourceTypeComponent, resource.ResourceSubtypeArm, name)
+			n, err := resource.NewName(resource.ResourceNamespaceCore, resource.ResourceTypeComponent, resource.ResourceSubtypeArm, name)
 			if err != nil {
 				return err
 			}
-			rc.resourceNames = append(rc.resourceNames, n.FullyQualifiedName())
+			rc.resourceNames = append(rc.resourceNames, n.String())
 		}
 	}
 	rc.baseNames = nil
@@ -481,7 +481,7 @@ func (rc *RobotClient) ArmNames() []string {
 		if err != nil {
 			continue
 		}
-		if rName.ResourceSubtype() == arm.ResourceSubtype {
+		if rName.ResourceSubtype.String() == arm.ResourceSubtype {
 			names = append(names, rName.Name)
 		}
 	}

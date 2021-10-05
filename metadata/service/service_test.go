@@ -14,14 +14,14 @@ func TestAdd(t *testing.T) {
 	r, err := service.New()
 	test.That(t, err, test.ShouldBeNil)
 	service := r.All()[0]
-	arm, err := resource.New(
+	arm, err := resource.NewName(
 		resource.ResourceNamespaceCore,
 		resource.ResourceTypeComponent,
 		resource.ResourceSubtypeArm,
 		"arm1",
 	)
 	test.That(t, err, test.ShouldBeNil)
-	sensor, err := resource.New(
+	sensor, err := resource.NewName(
 		resource.ResourceNamespaceCore,
 		resource.ResourceTypeComponent,
 		resource.ResourceSubtypeSensor,
@@ -29,7 +29,7 @@ func TestAdd(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	newMetadata, err := resource.New(
+	newMetadata, err := resource.NewName(
 		resource.ResourceNamespaceCore,
 		resource.ResourceTypeService,
 		resource.ResourceSubtypeMetadata,
@@ -91,14 +91,14 @@ func TestReplace(t *testing.T) {
 	r, err := service.New()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(r.All()), test.ShouldEqual, 1)
-	arm, err := resource.New(
+	arm, err := resource.NewName(
 		resource.ResourceNamespaceCore,
 		resource.ResourceTypeComponent,
 		resource.ResourceSubtypeArm,
 		"arm1",
 	)
 	test.That(t, err, test.ShouldBeNil)
-	sensor, err := resource.New(
+	sensor, err := resource.NewName(
 		resource.ResourceNamespaceCore,
 		resource.ResourceTypeComponent,
 		resource.ResourceSubtypeSensor,
@@ -106,7 +106,7 @@ func TestReplace(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	metadataSvc, err := resource.New(
+	metadataSvc, err := resource.NewName(
 		resource.ResourceNamespaceCore,
 		resource.ResourceTypeService,
 		resource.ResourceSubtypeMetadata,

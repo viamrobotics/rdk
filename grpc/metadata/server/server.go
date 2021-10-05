@@ -27,9 +27,9 @@ func (s *MetadataServer) Resources(ctx context.Context, _ *pb.ResourcesRequest) 
 			rNames,
 			&pb.ResourceName{
 				Uuid:      m.UUID,
-				Namespace: m.Namespace,
-				Type:      m.Type,
-				Subtype:   m.Subtype,
+				Namespace: m.ResourceSubtype.ResourceType.Namespace,
+				Type:      m.ResourceSubtype.ResourceType.Type,
+				Subtype:   m.ResourceSubtype.Subtype,
 				Name:      m.Name,
 			},
 		)

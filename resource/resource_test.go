@@ -9,6 +9,104 @@ import (
 	"go.viam.com/core/resource"
 )
 
+func TestResourceTypeNew(t *testing.T) {
+	for _, tc := range []struct {
+		TestName  string
+		Namespace string
+		Type      string
+		Str       string
+		Err       string
+	}{
+		{
+			"missing namespace",
+			"",
+			resource.ResourceTypeComponent,
+			"",
+			"namespace parameter missing or invalid",
+		},
+		{
+			"missing type",
+			resource.ResourceNamespaceCore,
+			"",
+			"",
+			"type parameter missing or invalid",
+		},
+		{
+			"all fields included",
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			"core:component",
+			"",
+		},
+	} {
+		t.Run(tc.TestName, func(t *testing.T) {
+			observed, err := resource.NewType(tc.Namespace, tc.Type)
+			if tc.Err == "" {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, tc.Str, test.ShouldEqual, observed.String())
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
+			}
+		})
+	}
+}
+
+func TestResourceSubtypeNew(t *testing.T) {
+	for _, tc := range []struct {
+		TestName  string
+		Namespace string
+		Type      string
+		Subtype   string
+		Str       string
+		Err       string
+	}{
+		{
+			"missing namespace",
+			"",
+			resource.ResourceTypeComponent,
+			resource.ResourceSubtypeArm,
+			"",
+			"namespace parameter missing or invalid",
+		},
+		{
+			"missing type",
+			resource.ResourceNamespaceCore,
+			"",
+			resource.ResourceSubtypeArm,
+			"",
+			"type parameter missing or invalid",
+		},
+		{
+			"missing subtype",
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			"",
+			"",
+			"subtype parameter missing or invalid",
+		},
+		{
+			"all fields included",
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			resource.ResourceSubtypeArm,
+			"core:component:arm",
+			"",
+		},
+	} {
+		t.Run(tc.TestName, func(t *testing.T) {
+			observed, err := resource.NewSubtype(tc.Namespace, tc.Type, tc.Subtype)
+			if tc.Err == "" {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, tc.Str, test.ShouldEqual, observed.String())
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
+			}
+		})
+	}
+}
+
 func TestResourceNameNew(t *testing.T) {
 	for _, tc := range []struct {
 		TestName  string
@@ -22,7 +120,7 @@ func TestResourceNameNew(t *testing.T) {
 			"missing namespace",
 			"",
 			resource.ResourceTypeComponent,
-			"arm",
+			resource.ResourceSubtypeArm,
 			"arm1",
 			"namespace parameter missing or invalid",
 		},
@@ -30,7 +128,7 @@ func TestResourceNameNew(t *testing.T) {
 			"missing type",
 			resource.ResourceNamespaceCore,
 			"",
-			"arm",
+			resource.ResourceSubtypeArm,
 			"arm1",
 			"type parameter missing or invalid",
 		},
@@ -46,7 +144,7 @@ func TestResourceNameNew(t *testing.T) {
 			"missing name",
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
-			"arm",
+			resource.ResourceSubtypeArm,
 			"",
 			"",
 		},
@@ -54,7 +152,7 @@ func TestResourceNameNew(t *testing.T) {
 			"all fields included",
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
-			"arm",
+			resource.ResourceSubtypeArm,
 			"arm1",
 			"",
 		},
@@ -62,16 +160,16 @@ func TestResourceNameNew(t *testing.T) {
 			"all fields included 2",
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeService,
-			"metadata",
+			resource.ResourceSubtypeMetadata,
 			"",
 			"",
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
-			observed, err := resource.New(tc.Namespace, tc.Type, tc.Subtype, tc.Name)
+			observed, err := resource.NewName(tc.Namespace, tc.Type, tc.Subtype, tc.Name)
 			if tc.Err == "" {
 				test.That(t, err, test.ShouldBeNil)
-				expected, _ := resource.New(tc.Namespace, tc.Type, tc.Subtype, tc.Name)
+				expected, _ := resource.NewName(tc.Namespace, tc.Type, tc.Subtype, tc.Name)
 				test.That(t, expected, test.ShouldResemble, observed)
 			} else {
 				test.That(t, err, test.ShouldNotBeNil)
@@ -110,11 +208,15 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"missing name",
 			"core:component:arm",
 			resource.Name{
-				UUID:      "8ad23fcd-7f30-56b9-a7f4-cf37a980b4dd",
-				Namespace: "core",
-				Type:      "component",
-				Subtype:   "arm",
-				Name:      "",
+				UUID: "8ad23fcd-7f30-56b9-a7f4-cf37a980b4dd",
+				ResourceSubtype: resource.Subtype{
+					ResourceType: resource.Type{
+						Namespace: resource.ResourceNamespaceCore,
+						Type:      resource.ResourceTypeComponent,
+					},
+					Subtype: resource.ResourceSubtypeArm,
+				},
+				Name: "",
 			},
 			"",
 		},
@@ -122,11 +224,15 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"all fields included",
 			"core:component:arm/arm1",
 			resource.Name{
-				UUID:      "1ef3fc81-df1d-5ac4-b11d-bc1513e47f06",
-				Namespace: "core",
-				Type:      "component",
-				Subtype:   "arm",
-				Name:      "arm1",
+				UUID: "1ef3fc81-df1d-5ac4-b11d-bc1513e47f06",
+				ResourceSubtype: resource.Subtype{
+					ResourceType: resource.Type{
+						Namespace: resource.ResourceNamespaceCore,
+						Type:      resource.ResourceTypeComponent,
+					},
+					Subtype: resource.ResourceSubtypeArm,
+				},
+				Name: "arm1",
 			},
 			"",
 		},
@@ -134,11 +240,15 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"all fields included 2",
 			"core:component:compass/compass1",
 			resource.Name{
-				UUID:      "d6358b56-3b43-5626-ab8c-b16e7233a832",
-				Namespace: "core",
-				Type:      "component",
-				Subtype:   "compass",
-				Name:      "compass1",
+				UUID: "d6358b56-3b43-5626-ab8c-b16e7233a832",
+				ResourceSubtype: resource.Subtype{
+					ResourceType: resource.Type{
+						Namespace: resource.ResourceNamespaceCore,
+						Type:      resource.ResourceTypeComponent,
+					},
+					Subtype: "compass",
+				},
+				Name: "compass1",
 			},
 			"",
 		},
@@ -166,10 +276,14 @@ func TestResourceNameStrings(t *testing.T) {
 		{
 			"all fields included",
 			resource.Name{
-				Namespace: "core",
-				Type:      "component",
-				Subtype:   "arm",
-				Name:      "arm1",
+				ResourceSubtype: resource.Subtype{
+					ResourceType: resource.Type{
+						Namespace: resource.ResourceNamespaceCore,
+						Type:      resource.ResourceTypeComponent,
+					},
+					Subtype: resource.ResourceSubtypeArm,
+				},
+				Name: "arm1",
 			},
 			"core:component:arm",
 			"core:component:arm/arm1",
@@ -177,9 +291,13 @@ func TestResourceNameStrings(t *testing.T) {
 		{
 			"missing subtype",
 			resource.Name{
-				Namespace: "core",
-				Type:      "component",
-				Name:      "arm1",
+				ResourceSubtype: resource.Subtype{
+					ResourceType: resource.Type{
+						Namespace: resource.ResourceNamespaceCore,
+						Type:      resource.ResourceTypeComponent,
+					},
+				},
+				Name: "arm1",
 			},
 			"core:component:",
 			"core:component:/arm1",
@@ -187,17 +305,21 @@ func TestResourceNameStrings(t *testing.T) {
 		{
 			"missing name",
 			resource.Name{
-				Namespace: "core",
-				Type:      "component",
-				Subtype:   "arm",
+				ResourceSubtype: resource.Subtype{
+					ResourceType: resource.Type{
+						Namespace: resource.ResourceNamespaceCore,
+						Type:      resource.ResourceTypeComponent,
+					},
+					Subtype: resource.ResourceSubtypeArm,
+				},
 			},
 			"core:component:arm",
 			"core:component:arm",
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
-			test.That(t, tc.Name.ResourceSubtype(), test.ShouldEqual, tc.ExpectedSubtype)
-			test.That(t, tc.Name.FullyQualifiedName(), test.ShouldEqual, tc.ExpectedFullName)
+			test.That(t, tc.Name.ResourceSubtype.String(), test.ShouldEqual, tc.ExpectedSubtype)
+			test.That(t, tc.Name.String(), test.ShouldEqual, tc.ExpectedFullName)
 		})
 	}
 }
@@ -211,72 +333,100 @@ func TestResourceNameValidate(t *testing.T) {
 		{
 			"missing uuid",
 			resource.Name{
-				Namespace: resource.ResourceNamespaceCore,
-				Type:      resource.ResourceTypeComponent,
-				Subtype:   "arm",
-				Name:      "arm1",
+				ResourceSubtype: resource.Subtype{
+					ResourceType: resource.Type{
+						Namespace: resource.ResourceNamespaceCore,
+						Type:      resource.ResourceTypeComponent,
+					},
+					Subtype: resource.ResourceSubtypeArm,
+				},
+				Name: "arm1",
 			},
 			"uuid field for resource missing or invalid",
 		},
 		{
 			"invalid uuid",
 			resource.Name{
-				UUID:      "abcd",
-				Namespace: resource.ResourceNamespaceCore,
-				Type:      resource.ResourceTypeComponent,
-				Subtype:   "arm",
-				Name:      "arm1",
+				UUID: "abcd",
+				ResourceSubtype: resource.Subtype{
+					ResourceType: resource.Type{
+						Namespace: resource.ResourceNamespaceCore,
+						Type:      resource.ResourceTypeComponent,
+					},
+					Subtype: resource.ResourceSubtypeArm,
+				},
+				Name: "arm1",
 			},
 			"uuid field for resource missing or invalid",
 		},
 		{
 			"missing namespace",
 			resource.Name{
-				UUID:    uuid.NewString(),
-				Type:    resource.ResourceTypeComponent,
-				Subtype: "arm",
-				Name:    "arm1",
+				UUID: uuid.NewString(),
+				ResourceSubtype: resource.Subtype{
+					ResourceType: resource.Type{
+						Type: resource.ResourceTypeComponent,
+					},
+					Subtype: resource.ResourceSubtypeArm,
+				},
+				Name: "arm1",
 			},
 			"namespace field for resource missing or invalid",
 		},
 		{
 			"missing type",
 			resource.Name{
-				UUID:      uuid.NewString(),
-				Namespace: resource.ResourceNamespaceCore,
-				Subtype:   "arm",
-				Name:      "arm1",
+				UUID: uuid.NewString(),
+				ResourceSubtype: resource.Subtype{
+					ResourceType: resource.Type{
+						Namespace: resource.ResourceNamespaceCore,
+					},
+					Subtype: resource.ResourceSubtypeArm,
+				},
+				Name: "arm1",
 			},
 			"type field for resource missing or invalid",
 		},
 		{
 			"missing subtype",
 			resource.Name{
-				UUID:      uuid.NewString(),
-				Namespace: resource.ResourceNamespaceCore,
-				Type:      resource.ResourceTypeComponent,
-				Name:      "arm1",
+				UUID: uuid.NewString(),
+				ResourceSubtype: resource.Subtype{
+					ResourceType: resource.Type{
+						Namespace: resource.ResourceNamespaceCore,
+						Type:      resource.ResourceTypeComponent,
+					},
+				},
+				Name: "arm1",
 			},
 			"subtype field for resource missing or invalid",
 		},
 		{
 			"missing name",
 			resource.Name{
-				UUID:      uuid.NewString(),
-				Namespace: resource.ResourceNamespaceCore,
-				Type:      resource.ResourceTypeComponent,
-				Subtype:   "arm",
+				UUID: uuid.NewString(),
+				ResourceSubtype: resource.Subtype{
+					ResourceType: resource.Type{
+						Namespace: resource.ResourceNamespaceCore,
+						Type:      resource.ResourceTypeComponent,
+					},
+					Subtype: resource.ResourceSubtypeArm,
+				},
 			},
 			"",
 		},
 		{
 			"all fields included",
 			resource.Name{
-				UUID:      uuid.NewString(),
-				Namespace: resource.ResourceNamespaceCore,
-				Type:      resource.ResourceTypeComponent,
-				Subtype:   "arm",
-				Name:      "arm1",
+				UUID: uuid.NewString(),
+				ResourceSubtype: resource.Subtype{
+					ResourceType: resource.Type{
+						Namespace: resource.ResourceNamespaceCore,
+						Type:      resource.ResourceTypeComponent,
+					},
+					Subtype: resource.ResourceSubtypeArm,
+				},
+				Name: "arm1",
 			},
 			"",
 		},

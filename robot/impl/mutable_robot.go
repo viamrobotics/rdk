@@ -385,14 +385,14 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 	// TODO: Currently just a placeholder implementation, this should be rewritten once robot/parts have more metadata about themselves
 	var resources []resource.Name
 
-	metadata, err := resource.New(resource.ResourceNamespaceCore, resource.ResourceTypeService, resource.ResourceSubtypeMetadata, "")
+	metadata, err := resource.NewName(resource.ResourceNamespaceCore, resource.ResourceTypeService, resource.ResourceSubtypeMetadata, "")
 	if err != nil {
 		return err
 	}
 	resources = append(resources, metadata)
 
 	for _, name := range r.BaseNames() {
-		res, err := resource.New(
+		res, err := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeBase,
@@ -404,7 +404,7 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 		resources = append(resources, res)
 	}
 	for _, name := range r.BoardNames() {
-		res, err := resource.New(
+		res, err := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeBoard,
@@ -416,7 +416,7 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 		resources = append(resources, res)
 	}
 	for _, name := range r.CameraNames() {
-		res, err := resource.New(
+		res, err := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeCamera,
@@ -428,7 +428,7 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 		resources = append(resources, res)
 	}
 	for _, name := range r.FunctionNames() {
-		res, err := resource.New(
+		res, err := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeService,
 			resource.ResourceSubtypeFunction,
@@ -440,7 +440,7 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 		resources = append(resources, res)
 	}
 	for _, name := range r.GripperNames() {
-		res, err := resource.New(
+		res, err := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeGripper,
@@ -452,7 +452,7 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 		resources = append(resources, res)
 	}
 	for _, name := range r.LidarNames() {
-		res, err := resource.New(
+		res, err := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeLidar,
@@ -464,7 +464,7 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 		resources = append(resources, res)
 	}
 	for _, name := range r.RemoteNames() {
-		res, err := resource.New(
+		res, err := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeRemote,
@@ -476,7 +476,7 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 		resources = append(resources, res)
 	}
 	for _, name := range r.SensorNames() {
-		res, err := resource.New(
+		res, err := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeSensor,
@@ -488,7 +488,7 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 		resources = append(resources, res)
 	}
 	for _, name := range r.ServoNames() {
-		res, err := resource.New(
+		res, err := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeServo,
@@ -500,7 +500,7 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 		resources = append(resources, res)
 	}
 	for _, name := range r.MotorNames() {
-		res, err := resource.New(
+		res, err := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeMotor,

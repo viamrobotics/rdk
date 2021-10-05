@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-var newResource, _ = resource.New(
+var newResource, _ = resource.NewName(
 	resource.ResourceNamespaceCore,
 	resource.ResourceTypeComponent,
 	resource.ResourceSubtypeArm,
@@ -28,9 +28,9 @@ var newResource, _ = resource.New(
 var oneResourceResponse = []*pb.ResourceName{
 	{
 		Uuid:      newResource.UUID,
-		Namespace: newResource.Namespace,
-		Type:      newResource.Type,
-		Subtype:   newResource.Subtype,
+		Namespace: newResource.ResourceSubtype.ResourceType.Namespace,
+		Type:      newResource.ResourceSubtype.ResourceType.Type,
+		Subtype:   newResource.ResourceSubtype.Subtype,
 		Name:      newResource.Name,
 	},
 }
