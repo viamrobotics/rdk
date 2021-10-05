@@ -571,12 +571,6 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 				return err
 			}
 			parts.AddBase(b, c)
-		case config.ComponentTypeArm:
-			r, err := r.newResource(ctx, c)
-			if err != nil {
-				return err
-			}
-			parts.addResource(c.FullyQualifiedName(), r)
 		case config.ComponentTypeGripper:
 			g, err := r.newGripper(ctx, c)
 			if err != nil {
@@ -623,7 +617,11 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 			}
 			parts.AddMotor(motor, c)
 		default:
-			return errors.Errorf("unknown component type: %s %v", c.Name, c.Type)
+			r, err := r.newResource(ctx, c)
+			if err != nil {
+				return err
+			}
+			parts.addResource(c.FullyQualifiedName(), r)
 		}
 	}
 
