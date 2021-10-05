@@ -726,7 +726,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
 
-	resource1, ok := client.ResourceByName("core:component:arm/arm1")
+	resource1, ok := client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
 	_, err = resource1.(*armClient).CurrentPosition(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
@@ -1043,7 +1043,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capSensorName, test.ShouldEqual, "compass2")
 
-	resource1, ok = client.ResourceByName("core:component:arm/arm1")
+	resource1, ok = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
 	pos, err = resource1.(*armClient).CurrentPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -1059,7 +1059,7 @@ func TestClient(t *testing.T) {
 	test.That(t, capArmPos.String(), test.ShouldResemble, pos.String())
 	test.That(t, capArmName, test.ShouldEqual, "arm1")
 
-	resource2, ok := client.ResourceByName("core:component:arm/arm2")
+	resource2, ok := client.ResourceByName(arm.Named("arm2"))
 	test.That(t, ok, test.ShouldBeTrue)
 	jointPos = &pb.JointPositions{Degrees: []float64{1.2, 3.4}}
 	err = resource2.(*armClient).MoveToJointPositions(context.Background(), jointPos)
@@ -1132,7 +1132,7 @@ func TestClientReferesh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4"))
 	test.That(t, utils.NewStringSet(client.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo2", "servo3"))
-	test.That(t, utils.NewStringSet(client.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm2", "core:component:arm/arm3"))
+	test.That(t, utils.NewStringSet(client.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm2"), "core:component:arm/arm3"))
 
 	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)
@@ -1156,7 +1156,7 @@ func TestClientReferesh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass1", "compass2"))
-	test.That(t, utils.NewStringSet(client.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm1"))
+	test.That(t, utils.NewStringSet(client.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm1")))
 
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return finalStatus, nil
@@ -1171,7 +1171,7 @@ func TestClientReferesh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4"))
-	test.That(t, utils.NewStringSet(client.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm2", "core:component:arm/arm3"))
+	test.That(t, utils.NewStringSet(client.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm2"), "core:component:arm/arm3"))
 
 	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)

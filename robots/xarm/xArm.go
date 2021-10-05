@@ -37,13 +37,13 @@ var xArm6modeljson []byte
 var xArm7modeljson []byte
 
 func init() {
-	registry.RegisterComponentCreator(arm.ResourceSubtype, "xArm6", registry.Component{
+	registry.RegisterComponentCreator(arm.ResourceSubtype.String(), "xArm6", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewxArm(ctx, config.Host, logger, 6)
 		},
 		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name, 6) },
 	})
-	registry.RegisterComponentCreator(arm.ResourceSubtype, "xArm7", registry.Component{
+	registry.RegisterComponentCreator(arm.ResourceSubtype.String(), "xArm7", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewxArm(ctx, config.Host, logger, 7)
 		},

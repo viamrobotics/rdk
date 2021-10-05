@@ -239,7 +239,7 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("one.func1", "one.func2"))
 
 	robot.conf.Prefix = false
-	test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/arm1", "core:component:arm/arm2"))
+	test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm1"), arm.Named("arm2")))
 	robot.conf.Prefix = true
 	test.That(t, utils.NewStringSet(robot.ResourceNames()...), test.ShouldResemble, utils.NewStringSet("core:component:arm/one.arm1", "core:component:arm/one.arm2"))
 
@@ -468,7 +468,7 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
-	_, ok = robot.ResourceByName("core:component:arm/arm1")
+	_, ok = robot.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
 	robot.conf.Prefix = true
 	_, ok = robot.ResourceByName("core:component:arm/one.arm1")
