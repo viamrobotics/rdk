@@ -46,7 +46,7 @@ func CalculateMeanOfPointCloud(cloud PointCloud) Vec3 {
 }
 
 // CalculateBoundingBoxOfPointCloud returns the dimensions of the bounding box
-// formed by finding the dimensions of each axis' extrema.
+// formed by finding the dimensions of each axes' extrema.
 func CalculateBoundingBoxOfPointCloud(cloud PointCloud) BoxGeometry {
 	if cloud.Size() == 0 {
 		return BoxGeometry{}
