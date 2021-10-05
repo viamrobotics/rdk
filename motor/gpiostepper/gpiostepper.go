@@ -244,6 +244,8 @@ func (m *gpioStepper) GoTillStop(ctx context.Context, d pb.DirectionRelative, rp
 
 // Set the current position (+/- offset) to be the new zero (home) position.
 func (m *gpioStepper) Zero(ctx context.Context, offset float64) error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	m.stepPosition = int64(offset * float64(m.stepsPerRotation))
 	return nil
 }
@@ -252,6 +254,8 @@ func (m *gpioStepper) Zero(ctx context.Context, offset float64) error {
 // data is undefined. The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
 func (m *gpioStepper) Position(ctx context.Context) (float64, error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	return float64(m.stepPosition) / float64(m.stepsPerRotation), nil
 }
 
