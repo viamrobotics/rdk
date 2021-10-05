@@ -1,0 +1,28 @@
+<template>
+  <div id="app">
+    <MotorDetail
+      motorName="MOTOR NAME"
+      :motorStatus="{ on: true, positionSupported: true, position: 33 }"
+    />
+  </div>
+</template>
+
+<script lang="ts">
+import { Component, Vue } from "vue-property-decorator";
+import MotorDetail from "./components/MotorDetail.vue";
+
+@Component({
+  components: {
+    MotorDetail,
+  },
+})
+export default class App extends Vue {}
+</script>
+
+<style>
+@import "./assets/css/styles.css";
+@import "./assets/css/fontawesome.min.css";
+#app {
+  width: 1080px;
+}
+</style>
