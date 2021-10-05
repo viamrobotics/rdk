@@ -218,7 +218,7 @@ func (parts *robotParts) ArmNames() []string {
 		if err != nil {
 			continue
 		}
-		if rName.ResourceSubtype() == arm.ResourceSubtype {
+		if rName.ResourceSubtype.String() == arm.ResourceSubtype {
 			names = append(names, rName.Name)
 		}
 	}
@@ -676,13 +676,16 @@ func (parts *robotParts) BoardByName(name string) (board.Board, bool) {
 // ArmByName returns the given arm by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) ArmByName(name string) (arm.Arm, bool) {
-	rName := resource.Name{
-		Namespace: resource.ResourceNamespaceCore,
-		Type:      resource.ResourceTypeComponent,
-		Subtype:   resource.ResourceSubtypeArm,
-		Name:      name,
+	rName, err := resource.NewName(
+		resource.ResourceNamespaceCore,
+		resource.ResourceTypeComponent,
+		resource.ResourceSubtypeArm,
+		name,
+	)
+	if err != nil {
+		return nil, false
 	}
-	r, ok := parts.resources[rName.FullyQualifiedName()]
+	r, ok := parts.resources[rName.String()]
 	if ok {
 		part, ok := r.(arm.Arm)
 		if ok {

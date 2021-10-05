@@ -18,7 +18,7 @@ type Service struct {
 
 // New creates a new Service struct and initializes the resource list with a metadata service.
 func New() (*Service, error) {
-	metadata, err := resource.New(resource.ResourceNamespaceCore, resource.ResourceTypeService, resource.ResourceSubtypeMetadata, "")
+	metadata, err := resource.NewName(resource.ResourceNamespaceCore, resource.ResourceTypeService, resource.ResourceSubtypeMetadata, "")
 	if err != nil {
 		return nil, err
 	}

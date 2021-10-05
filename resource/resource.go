@@ -29,36 +29,94 @@ const (
 	ResourceSubtypeMotor    = "motor"
 )
 
-// Name represents a known component/service representation of a robot.
-type Name struct {
-	UUID      string
+// Type represents a known component/service type of a robot.
+type Type struct {
 	Namespace string
 	Type      string
-	Subtype   string
-	Name      string
 }
 
-// New creates a new Name based on parameters passed in.
-func New(namespace string, rType string, subtype string, name string) (Name, error) {
+// NewType creates a new Type based on parameters passed in.
+func NewType(namespace string, rType string) (Type, error) {
 	if namespace == "" {
-		return Name{}, errors.New("namespace parameter missing or invalid")
+		return Type{}, errors.New("namespace parameter missing or invalid")
 	}
 	if rType == "" {
-		return Name{}, errors.New("type parameter missing or invalid")
+		return Type{}, errors.New("type parameter missing or invalid")
+	}
+	return Type{namespace, rType}, nil
+}
+
+// Validate ensures that important fields exist and are valid.
+func (t Type) Validate() error {
+	if t.Namespace == "" {
+		return errors.New("namespace field for resource missing or invalid")
+	}
+	if t.Type == "" {
+		return errors.New("type field for resource missing or invalid")
+	}
+	return nil
+}
+
+// String returns the resource type string for the component.
+func (t Type) String() string {
+	return fmt.Sprintf("%s:%s", t.Namespace, t.Type)
+}
+
+// Subtype represents a known component/service subtype of a robot.
+type Subtype struct {
+	ResourceType Type
+	Subtype      string
+}
+
+// NewSubtype creates a new Subtype based on parameters passed in.
+func NewSubtype(namespace string, rType string, subtype string) (Subtype, error) {
+	resourceType, err := NewType(namespace, rType)
+	if err != nil {
+		return Subtype{}, err
 	}
 	if subtype == "" {
-		return Name{}, errors.New("subtype parameter missing or invalid")
+		return Subtype{}, errors.New("subtype parameter missing or invalid")
 	}
-	i := fmt.Sprintf("%s:%s:%s", namespace, rType, subtype)
+	return Subtype{resourceType, subtype}, nil
+}
+
+// Validate ensures that important fields exist and are valid.
+func (s Subtype) Validate() error {
+	if err := s.ResourceType.Validate(); err != nil {
+		return err
+	}
+	if s.Subtype == "" {
+		return errors.New("subtype field for resource missing or invalid")
+	}
+	return nil
+}
+
+// String returns the resource subtype string for the component.
+func (s Subtype) String() string {
+	return fmt.Sprintf("%s:%s", s.ResourceType, s.Subtype)
+}
+
+// Name represents a known component/service representation of a robot.
+type Name struct {
+	ResourceSubtype Subtype
+	UUID            string
+	Name            string
+}
+
+// NewName creates a new Name based on parameters passed in.
+func NewName(namespace string, rType string, subtype string, name string) (Name, error) {
+	resourceSubtype, err := NewSubtype(namespace, rType, subtype)
+	if err != nil {
+		return Name{}, err
+	}
+	i := resourceSubtype.String()
 	if name != "" {
 		i = fmt.Sprintf("%s/%s", i, name)
 	}
 	return Name{
-		UUID:      uuid.NewSHA1(uuid.NameSpaceX500, []byte(i)).String(),
-		Namespace: namespace,
-		Type:      rType,
-		Subtype:   subtype,
-		Name:      name,
+		UUID:            uuid.NewSHA1(uuid.NameSpaceX500, []byte(i)).String(),
+		ResourceSubtype: resourceSubtype,
+		Name:            name,
 	}, nil
 }
 
@@ -78,42 +136,23 @@ func NewFromString(resourceName string) (Name, error) {
 	if len(rSubtypeParts) < 3 {
 		return Name{}, errors.New("invalid resource name string: there are less than 2 colons")
 	}
-	return New(rSubtypeParts[0], rSubtypeParts[1], rSubtypeParts[2], name)
-}
-
-// ResourceSubtype returns the resource type for the component.
-func (r Name) ResourceSubtype() string {
-	return fmt.Sprintf(
-		"%s:%s:%s",
-		r.Namespace,
-		r.Type,
-		r.Subtype,
-	)
-}
-
-// FullyQualifiedName returns the fully qualified name for the component.
-func (r Name) FullyQualifiedName() string {
-	if r.Name == "" {
-		return r.ResourceSubtype()
-	}
-	return fmt.Sprintf("%s/%s", r.ResourceSubtype(), r.Name)
+	return NewName(rSubtypeParts[0], rSubtypeParts[1], rSubtypeParts[2], name)
 }
 
 // Validate ensures that important fields exist and are valid.
-func (r Name) Validate() error {
-	if _, err := uuid.Parse(r.UUID); err != nil {
+func (n Name) Validate() error {
+	if _, err := uuid.Parse(n.UUID); err != nil {
 		return errors.New("uuid field for resource missing or invalid")
 	}
-	if r.Namespace == "" {
-		return errors.New("namespace field for resource missing or invalid")
+	return n.ResourceSubtype.Validate()
+}
+
+// String returns the fully qualified name for the resource.
+func (n Name) String() string {
+	if n.Name == "" {
+		return n.ResourceSubtype.String()
 	}
-	if r.Type == "" {
-		return errors.New("type field for resource missing or invalid")
-	}
-	if r.Subtype == "" {
-		return errors.New("subtype field for resource missing or invalid")
-	}
-	return nil
+	return fmt.Sprintf("%s/%s", n.ResourceSubtype, n.Name)
 }
 
 // Reconfigurable is implemented when component/service of a robot is reconfigurable.
