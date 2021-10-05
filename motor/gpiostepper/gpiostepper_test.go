@@ -29,12 +29,7 @@ func Test1(t *testing.T) {
 	_, err = newGPIOStepper(ctx, b, mc, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	mc.Pins = map[string]string{"en": "a"}
-
-	_, err = newGPIOStepper(ctx, b, mc, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	mc.Pins["dir"] = "b"
+	mc.Pins = map[string]string{"dir": "b"}
 
 	_, err = newGPIOStepper(ctx, b, mc, logger)
 	test.That(t, err, test.ShouldNotBeNil)

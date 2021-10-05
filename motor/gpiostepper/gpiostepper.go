@@ -51,7 +51,8 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc motor.Config, logger 
 	m := &gpioStepper{
 		theBoard:         b,
 		stepsPerRotation: mc.TicksPerRotation,
-		enablePin:        mc.Pins["en"],
+		enablePinHigh:    mc.Pins["enHigh"],
+		enablePinLow:     mc.Pins["enLow"],
 		stepPin:          mc.Pins["step"],
 		dirPin:           mc.Pins["dir"],
 		logger:           logger,
@@ -68,10 +69,11 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc motor.Config, logger 
 
 type gpioStepper struct {
 	// config
-	theBoard                   board.Board
-	stepsPerRotation           int
-	enablePin, stepPin, dirPin string
-	logger                     golog.Logger
+	theBoard                    board.Board
+	stepsPerRotation            int
+	enablePinHigh, enablePinLow string
+	stepPin, dirPin             string
+	logger                      golog.Logger
 
 	// state
 	lock sync.Mutex
@@ -89,11 +91,7 @@ func (m *gpioStepper) Validate() error {
 	}
 
 	if m.stepsPerRotation == 0 {
-		m.stepsPerRotation = 1
-	}
-
-	if m.enablePin == "" {
-		return errors.New("need an 'en' pin for gpioStepper")
+		m.stepsPerRotation = 200
 	}
 
 	if m.stepPin == "" {
@@ -172,7 +170,7 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 // have to be locked to call
 func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 	err := multierr.Combine(
-		m.theBoard.GPIOSet(ctx, m.enablePin, true),
+		m.enable(ctx, true),
 		m.theBoard.GPIOSet(ctx, m.stepPin, true),
 		m.theBoard.GPIOSet(ctx, m.dirPin, forward),
 	)
@@ -270,7 +268,7 @@ func (m *gpioStepper) Off(ctx context.Context) error {
 	m.stop()
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	return m.theBoard.GPIOSet(ctx, m.enablePin, false)
+	return m.enable(ctx, false)
 }
 
 func (m *gpioStepper) stop() {
@@ -285,4 +283,16 @@ func (m *gpioStepper) IsOn(ctx context.Context) (bool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return m.stepPosition != m.targetStepPosition, nil
+}
+
+func (m *gpioStepper) enable(ctx context.Context, on bool) error {
+	if m.enablePinHigh != "" {
+		return m.theBoard.GPIOSet(ctx, m.enablePinHigh, on)
+	}
+
+	if m.enablePinLow != "" {
+		return m.theBoard.GPIOSet(ctx, m.enablePinLow, !on)
+	}
+
+	return nil
 }
