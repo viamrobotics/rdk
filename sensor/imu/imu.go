@@ -15,16 +15,9 @@ const (
 	Type = "imu"
 )
 
-// AngularVelocity contains angular velocity in rads/s across x/y/z axes.
-type AngularVelocity struct {
-	x float64
-	y float64
-	z float64
-}
-
 // An IMU represents a sensor that can report AngularVelocity and Orientation measurements.
 type IMU interface {
 	sensor.Sensor
-	AngularVelocity(ctx context.Context) (AngularVelocity, error)
+	AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error)
 	Orientation(ctx context.Context) (spatialmath.Orientation, error)
 }
