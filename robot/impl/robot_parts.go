@@ -218,7 +218,7 @@ func (parts *robotParts) ArmNames() []string {
 		if err != nil {
 			continue
 		}
-		if rName.ResourceSubtype.String() == arm.ResourceSubtype {
+		if rName.ResourceSubtype == arm.ResourceSubtype {
 			names = append(names, rName.Name)
 		}
 	}

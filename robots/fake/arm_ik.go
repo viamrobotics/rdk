@@ -25,7 +25,7 @@ import (
 var armModelJSON string
 
 func init() {
-	registry.RegisterComponentCreator(arm.ResourceSubtype, "fake_ik", registry.Component{
+	registry.RegisterComponentCreator(arm.ResourceSubtype.String(), "fake_ik", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			if config.Attributes.Bool("fail_new", false) {
 				return nil, errors.New("whoops")

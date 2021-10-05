@@ -5,6 +5,8 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/component/arm"
+
 	"go.viam.com/test"
 )
 
@@ -34,7 +36,7 @@ func TestComponentStrings(t *testing.T) {
 				Name: "foo",
 			},
 			"core:component:arm",
-			"core:component:arm/foo",
+			arm.Named("foo"),
 		},
 		{
 			"missing subtype",

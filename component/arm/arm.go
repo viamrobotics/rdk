@@ -16,7 +16,16 @@ import (
 )
 
 // ResourceSubtype is a constant that identifies the component resource subtype
-const ResourceSubtype = "core:component:arm"
+var ResourceSubtype, _ = resource.NewSubtype(
+	resource.ResourceNamespaceCore,
+	resource.ResourceTypeComponent,
+	resource.ResourceSubtypeArm,
+)
+
+// Named is a helper for getting the named Arm's fully qualified name
+func Named(name string) string {
+	return fmt.Sprintf("%s/%s", ResourceSubtype.String(), name)
+}
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {

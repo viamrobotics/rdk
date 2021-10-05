@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"go.viam.com/test"
 
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/resource"
 )
 
@@ -222,7 +223,7 @@ func TestResourceNameNewFromString(t *testing.T) {
 		},
 		{
 			"all fields included",
-			"core:component:arm/arm1",
+			arm.Named("arm1"),
 			resource.Name{
 				UUID: "1ef3fc81-df1d-5ac4-b11d-bc1513e47f06",
 				ResourceSubtype: resource.Subtype{
@@ -270,7 +271,6 @@ func TestResourceNameStrings(t *testing.T) {
 	for _, tc := range []struct {
 		TestName         string
 		Name             resource.Name
-		ExpectedSubtype  string
 		ExpectedFullName string
 	}{
 		{
@@ -285,8 +285,7 @@ func TestResourceNameStrings(t *testing.T) {
 				},
 				Name: "arm1",
 			},
-			"core:component:arm",
-			"core:component:arm/arm1",
+			arm.Named("arm1"),
 		},
 		{
 			"missing subtype",
@@ -299,7 +298,6 @@ func TestResourceNameStrings(t *testing.T) {
 				},
 				Name: "arm1",
 			},
-			"core:component:",
 			"core:component:/arm1",
 		},
 		{
@@ -314,11 +312,9 @@ func TestResourceNameStrings(t *testing.T) {
 				},
 			},
 			"core:component:arm",
-			"core:component:arm",
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
-			test.That(t, tc.Name.ResourceSubtype.String(), test.ShouldEqual, tc.ExpectedSubtype)
 			test.That(t, tc.Name.String(), test.ShouldEqual, tc.ExpectedFullName)
 		})
 	}

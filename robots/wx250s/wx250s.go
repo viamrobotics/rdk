@@ -34,7 +34,7 @@ import (
 var wx250smodeljson []byte
 
 func init() {
-	registry.RegisterComponentCreator(arm.ResourceSubtype, "wx250s", registry.Component{
+	registry.RegisterComponentCreator(arm.ResourceSubtype.String(), "wx250s", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewArm(config.Attributes, logger)
 		},
