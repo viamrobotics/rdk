@@ -27,7 +27,7 @@ func makeClouds(t *testing.T) []PointCloud {
 	test.That(t, cloud1.Set(p12), test.ShouldBeNil)
 	p13 := NewBasicPoint(30, 1, 1)
 	test.That(t, cloud1.Set(p13), test.ShouldBeNil)
-	p14 := NewBasicPoint(30, 0.5, 0.5)
+	p14 := NewBasicPoint(28, 0.5, 0.5)
 	test.That(t, cloud1.Set(p14), test.ShouldBeNil)
 
 	return []PointCloud{cloud0, cloud1}
@@ -38,7 +38,15 @@ func TestCalculateMean(t *testing.T) {
 	mean0 := CalculateMeanOfPointCloud(clouds[0])
 	test.That(t, mean0, test.ShouldResemble, Vec3{0, 0.5, 0.5})
 	mean1 := CalculateMeanOfPointCloud(clouds[1])
-	test.That(t, mean1, test.ShouldResemble, Vec3{30, 0.5, 0.5})
+	test.That(t, mean1, test.ShouldResemble, Vec3{29.6, 0.5, 0.5})
+}
+
+func TestCalculateBoundingBox(t *testing.T) {
+	clouds := makeClouds(t)
+	box0 := CalculateBoundingBoxOfPointCloud(clouds[0])
+	test.That(t, box0, test.ShouldResemble, BoxGeometry{0, 1, 1})
+	box1 := CalculateBoundingBoxOfPointCloud(clouds[1])
+	test.That(t, box1, test.ShouldResemble, BoxGeometry{2, 1, 1})
 }
 
 func TestMergePointsWithColor(t *testing.T) {
