@@ -69,12 +69,13 @@
                 "board" : "local",
                 "pins":
                 {
-                    "dir": "io17",
+                    "dir": "io6",
                     "pwm": "io18"
                 },
                 "encoder": "encoder-steering-b",
                 "encoderB": "encoder-steering-a",
-                "ticksPerRotation": 10000
+                "ticksPerRotation": 10000,
+                "min_power_pct" : 0.2
             },
             "depends_on":
             [
@@ -91,7 +92,7 @@
                 "pins":
                 {
                     "dir": "io25",
-                    "pwm": "io4"
+                    "pwm": "io17"
                 }
             },
             "depends_on":

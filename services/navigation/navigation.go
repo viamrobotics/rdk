@@ -3,6 +3,7 @@ package navigation
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -187,16 +188,18 @@ func (svc *navService) startWaypoint() error {
 				return
 			}
 
-			lat, long, err := svc.gpsDevice.Location(svc.cancelCtx)
+			currentLoc, err := svc.gpsDevice.Location(svc.cancelCtx)
 			if err != nil {
 				svc.logger.Errorw("failed to get gps location", "error", err)
 				continue
 			}
-			currentLoc := geo.NewPoint(lat, long)
 
-			path = append(path, currentLoc)
-			if len(path) > 2 {
-				path = path[len(path)-2:]
+			if len(path) <= 1 || currentLoc.GreatCircleDistance(path[len(path)-1]) > .0001 {
+				// gps often updates less frequently
+				path = append(path, currentLoc)
+				if len(path) > 2 {
+					path = path[len(path)-2:]
+				}
 			}
 
 			navOnce := func(ctx context.Context) error {
@@ -230,7 +233,10 @@ func (svc *navService) startWaypoint() error {
 					return fmt.Errorf("error turning: %w", err)
 				}
 
-				if _, err := svc.base.MoveStraight(ctx, 1000, 500, true); err != nil {
+				distanceMillis := distanceToGoal * 1000 * 1000
+				distanceMillis = math.Min(distanceMillis, 10*1000)
+
+				if _, err := svc.base.MoveStraight(ctx, int(distanceMillis), 500, true); err != nil {
 					return fmt.Errorf("error moving %w", err)
 				}
 
@@ -260,12 +266,7 @@ func (svc *navService) Location(ctx context.Context) (*geo.Point, error) {
 	if svc.gpsDevice == nil {
 		return nil, errors.New("no way to get location")
 	}
-	lat, long, err := svc.gpsDevice.Location(svc.cancelCtx)
-	if err != nil {
-		return nil, err
-	}
-	currentLoc := geo.NewPoint(lat, long)
-	return currentLoc, nil
+	return svc.gpsDevice.Location(svc.cancelCtx)
 }
 
 func (svc *navService) Waypoints(ctx context.Context) ([]Waypoint, error) {

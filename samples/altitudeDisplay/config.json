@@ -1,13 +1,33 @@
 {
-    "boards" : [
+    "components" : [
         { "name": "altimeterBoard",
+          "type": "board",
           "model" : "pi",
-          "i2cs": [
-          {
-            "name": "bus1",
-            "bus": "1"
-          }
-          ]
+          "attributes":
+            {
+              "i2cs": [
+              {
+                "name": "bus1",
+                "bus": "1"
+              }
+              ]
+            }
+        },
+        {
+            "name": "gps1",
+            "type": "sensor",
+            "subtype": "gps",
+            "model": "nmea-pmtkI2C",
+            "attributes":
+            {
+                "board" : "altimeterBoard",
+                "bus": "bus1",
+                "address": 16
+            },
+            "depends_on":
+            [
+                "altimeterBoard"
+            ]
         }
     ]
 }

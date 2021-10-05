@@ -90,3 +90,5 @@ boat: samples/boat1/cmd.go
 boat2: samples/boat2/cmd.go
 	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat2 samples/boat2/cmd.go
 
+resetbox: samples/resetbox/cmd.go
+	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/resetbox samples/resetbox/cmd.go

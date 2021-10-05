@@ -59,6 +59,7 @@ type Config struct {
 	EncoderB         string            `json:"encoderB"` // name of the digital interrupt that is hall encoder b
 	TicksPerRotation int               `json:"ticksPerRotation"`
 	RampRate         float32           `json:"rampRate"`         // how fast to ramp power to motor when using rpm control
+	MinPowerPct      float32           `json:"min_power_pct"`    // min power percentage to allow for this motor default is 0.0
 	MaxPowerPct      float32           `json:"max_power_pct"`    // max power percentage to allow for this motor (0.06 - 1.0)
 	MaxRPM           float64           `json:"max_rpm"`          // RPM
 	MaxAcceleration  float64           `json:"max_acceleration"` // RPM per second
