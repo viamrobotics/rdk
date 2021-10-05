@@ -10,10 +10,8 @@ import (
 	"go.viam.com/core/sensor"
 )
 
-// The known IMU types.
-const (
-	Type = "imu"
-)
+// Type is the identifier of an IMU.
+const Type = "imu"
 
 // An IMU represents a sensor that can report AngularVelocity and Orientation measurements.
 type IMU interface {
