@@ -31,7 +31,7 @@ type serialNMEAGPS struct {
 	dev    io.ReadWriteCloser
 	logger golog.Logger
 
-	lastLocation *geo.Point
+	data gpsData
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -40,7 +40,7 @@ type serialNMEAGPS struct {
 
 const pathAttrName = "path"
 
-func newSerialNMEAGPS(config config.Component, logger golog.Logger) (*serialNMEAGPS, error) {
+func newSerialNMEAGPS(config config.Component, logger golog.Logger) (gps.GPS, error) {
 	serialPath := config.Attributes.String(pathAttrName)
 	if serialPath == "" {
 		return nil, fmt.Errorf("serialNMEAGPS expected non-empty string for %q", pathAttrName)
@@ -75,35 +75,59 @@ func (g *serialNMEAGPS) Start() {
 				g.logger.Fatalf("can't read gps serial %s", err)
 			}
 
-			s, err := nmea.Parse(line)
+			// Update our struct's gps data in-place
+			g.mu.Lock()
+			err = parseAndUpdate(line, &g.data)
+			g.mu.Unlock()
 			if err != nil {
 				g.logger.Debugf("can't parse nmea %s : %s", line, err)
-				continue
-			}
-
-			gll, ok := s.(nmea.GLL)
-			if ok {
-				now := toPoint(gll)
-				g.mu.Lock()
-				g.lastLocation = now
-				g.mu.Unlock()
 			}
 		}
 	})
 }
 
 func (g *serialNMEAGPS) Readings(ctx context.Context) ([]interface{}, error) {
-	lat, long, err := g.Location(ctx)
+	loc, err := g.Location(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return []interface{}{lat, long}, nil
+	return []interface{}{loc}, nil
 }
 
-func (g *serialNMEAGPS) Location(ctx context.Context) (lat float64, long float64, err error) {
+func (g *serialNMEAGPS) Location(ctx context.Context) (*geo.Point, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.lastLocation.Lat(), g.lastLocation.Lng(), nil
+	return g.data.location, nil
+}
+
+func (g *serialNMEAGPS) Altitude(ctx context.Context) (float64, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.data.alt, nil
+}
+
+func (g *serialNMEAGPS) Speed(ctx context.Context) (float64, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.data.speed, nil
+}
+
+func (g *serialNMEAGPS) Satellites(ctx context.Context) (int, int, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.data.satsInUse, g.data.satsInView, nil
+}
+
+func (g *serialNMEAGPS) Accuracy(ctx context.Context) (float64, float64, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.data.hDOP, g.data.vDOP, nil
+}
+
+func (g *serialNMEAGPS) Valid(ctx context.Context) (bool, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.data.valid, nil
 }
 
 func (g *serialNMEAGPS) Close() error {

@@ -7,6 +7,10 @@
     
 ## Installation Instructions
 
+### macOS
+Run `make setupmacos`
+
+### Linux
 **If on Raspberry Pi (Debian):** `sudo apt install xorg-dev`
 
 Installing `librealsense`
