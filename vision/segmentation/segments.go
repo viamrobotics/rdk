@@ -11,20 +11,22 @@ import (
 // Can potentially add category or pose information to this struct.
 type PointCloudWithMeta struct {
 	pc.PointCloud
-	Center pc.Vec3
+	Center      pc.Vec3
+	BoundingBox pc.BoxGeometry
 }
 
 // NewPointCloudWithMeta calculates the metadata for an input pointcloud
 func NewPointCloudWithMeta(cloud pc.PointCloud) *PointCloudWithMeta {
 	center := pc.CalculateMeanOfPointCloud(cloud)
-	return &PointCloudWithMeta{cloud, center}
+	boundingBox := pc.CalculateBoundingBoxOfPointCloud(cloud)
+	return &PointCloudWithMeta{cloud, center, boundingBox}
 }
 
 // NewEmptyPointCloudWithMeta creates a new empty point cloud with metadata
 func NewEmptyPointCloudWithMeta() *PointCloudWithMeta {
 	cloud := pc.New()
 	center := pc.Vec3{}
-	return &PointCloudWithMeta{cloud, center}
+	return &PointCloudWithMeta{PointCloud: cloud, Center: center}
 }
 
 // Segments is a struct for keeping track of the individual objects of a point cloud as they are being built.
