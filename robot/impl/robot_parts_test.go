@@ -513,13 +513,16 @@ func TestPartsAdd(t *testing.T) {
 
 	injectArm := &inject.Arm{}
 	cfg := &config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
-	parts.addResource(cfg.FullyQualifiedName(), injectArm)
+
+	rName, err := cfg.ResourceName()
+	test.That(t, err, test.ShouldBeNil)
+	parts.addResource(rName.String(), injectArm)
 	arm1, ok := parts.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, arm1, test.ShouldEqual, injectArm)
-	parts.addResource(cfg.FullyQualifiedName(), arm1)
+	parts.addResource(rName.String(), arm1)
 	test.That(t, arm1, test.ShouldEqual, injectArm)
-	resource1, ok := parts.ResourceByName(cfg.FullyQualifiedName())
+	resource1, ok := parts.ResourceByName(rName.String())
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resource1, test.ShouldEqual, injectArm)
 }
@@ -729,7 +732,9 @@ func TestPartsMergeModify(t *testing.T) {
 	robotForRemote.parts.AddMotor(&inject.Motor{}, config.Component{Name: "motor2_r1"})
 	robotForRemote.parts.addFunction("func2_r1")
 	cfg := config.Component{Type: config.ComponentTypeArm, Name: "arm2_r1"}
-	robotForRemote.parts.addResource(cfg.FullyQualifiedName(), &inject.Arm{})
+	rName, err := cfg.ResourceName()
+	test.That(t, err, test.ShouldBeNil)
+	robotForRemote.parts.addResource(rName.String(), &inject.Arm{})
 
 	remote1Replacemenet := newRemoteRobot(robotForRemote, config.Remote{Name: "remote1"})
 	replacementParts.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
@@ -763,7 +768,9 @@ func TestPartsMergeModify(t *testing.T) {
 	replacementParts.AddMotor(injectMotor, config.Component{Name: "motor1"})
 	cfg = config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
 	injectArm := &inject.Arm{}
-	replacementParts.addResource(cfg.FullyQualifiedName(), injectArm)
+	rName, err = cfg.ResourceName()
+	test.That(t, err, test.ShouldBeNil)
+	replacementParts.addResource(rName.String(), injectArm)
 	fp1 := &fakeProcess{id: "1"}
 	_, err = replacementParts.processManager.AddProcess(context.Background(), fp1, false)
 	test.That(t, err, test.ShouldBeNil)

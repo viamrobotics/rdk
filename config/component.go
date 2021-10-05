@@ -54,26 +54,13 @@ func (config *Component) String() string {
 	return fmt.Sprintf("%#v", config)
 }
 
-// ResourceSubtype returns the resource type for the component.
-func (config *Component) ResourceSubtype() string {
+// ResourceName returns the fully qualified name for the component.
+func (config *Component) ResourceName() (resource.Name, error) {
 	cType := string(config.Type)
 	if config.Type == ComponentTypeSensor {
 		cType = config.SubType
 	}
-	return fmt.Sprintf(
-		"%s:%s:%s",
-		resource.ResourceNamespaceCore,
-		resource.ResourceTypeComponent,
-		cType,
-	)
-}
-
-// FullyQualifiedName returns the fully qualified name for the component.
-func (config *Component) FullyQualifiedName() string {
-	if config.Name == "" {
-		return config.ResourceSubtype()
-	}
-	return fmt.Sprintf("%s/%s", config.ResourceSubtype(), config.Name)
+	return resource.NewName(resource.ResourceNamespaceCore, resource.ResourceTypeComponent, cType, config.Name)
 }
 
 type validator interface {
