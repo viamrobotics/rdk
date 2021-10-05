@@ -924,7 +924,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	checkEmpty(filtered)
 
-	_, err = parts.FilterFromConfig(&config.Config{
+	filtered, err = parts.FilterFromConfig(&config.Config{
 		Components: []config.Component{
 			{
 				Name: "what1",
@@ -932,9 +932,8 @@ func TestPartsFilterFromConfig(t *testing.T) {
 			},
 		},
 	}, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "unknown")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "something")
+	test.That(t, err, test.ShouldBeNil)
+	checkEmpty(filtered)
 
 	filtered, err = parts.FilterFromConfig(&config.Config{
 		Components: []config.Component{
