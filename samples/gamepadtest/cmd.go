@@ -8,6 +8,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
 	"go.viam.com/core/input/gamepad"
+	"go.viam.com/core/registry"
 
 	"github.com/edaniels/golog"
 )
@@ -17,7 +18,13 @@ func main() {
 	var logger = golog.NewDevelopmentLogger("gamepadtest")
 	ctx := context.Background()
 
-	g, err := gamepad.NewGamepad(ctx, nil, config.Component{}, logger)
+	registration := registry.InputLookup("gamepad")
+	if registration == nil {
+		fmt.Println("No gamepad component type found")
+		return
+	}
+
+	g, err := registration.Constructor(ctx, nil, config.Component{Type: config.ComponentTypeInput, Model: "gamepad", ConvertedAttributes: gamepad.Config{DevFile: ""}}, logger)
 
 	if err != nil {
 		fmt.Println(err)

@@ -25,6 +25,7 @@ const (
 	ComponentTypeBoard   = ComponentType("board")
 	ComponentTypeServo   = ComponentType("servo")
 	ComponentTypeMotor   = ComponentType("motor")
+	ComponentTypeInput   = ComponentType("input")
 )
 
 // A Component describes the configuration of a component.
