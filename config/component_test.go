@@ -22,12 +22,13 @@ func TestComponentValidate(t *testing.T) {
 	test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
 }
 
-func TestComponentStrings(t *testing.T) {
+func TestComponentResourceName(t *testing.T) {
 	for _, tc := range []struct {
 		Name             string
 		Config           Component
 		ExpectedSubtype  string
 		ExpectedFullName string
+		Err              string
 	}{
 		{
 			"all fields included",
@@ -37,14 +38,16 @@ func TestComponentStrings(t *testing.T) {
 			},
 			"core:component:arm",
 			arm.Named("foo"),
+			"",
 		},
 		{
 			"missing subtype",
 			Component{
 				Name: "foo",
 			},
-			"core:component:",
-			"core:component:/foo",
+			"",
+			"",
+			"subtype parameter missing or invalid",
 		},
 		{
 			"sensor with no subtype",
@@ -52,8 +55,9 @@ func TestComponentStrings(t *testing.T) {
 				Type: "sensor",
 				Name: "foo",
 			},
-			"core:component:",
-			"core:component:/foo",
+			"",
+			"",
+			"subtype parameter missing or invalid",
 		},
 		{
 			"sensor with subtype",
@@ -64,6 +68,7 @@ func TestComponentStrings(t *testing.T) {
 			},
 			"core:component:compass",
 			"core:component:compass/foo",
+			"",
 		},
 		{
 			"sensor missing name",
@@ -74,11 +79,19 @@ func TestComponentStrings(t *testing.T) {
 			},
 			"core:component:compass",
 			"core:component:compass",
+			"",
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			test.That(t, tc.Config.ResourceSubtype(), test.ShouldEqual, tc.ExpectedSubtype)
-			test.That(t, tc.Config.FullyQualifiedName(), test.ShouldEqual, tc.ExpectedFullName)
+			rName, err := tc.Config.ResourceName()
+			if tc.Err == "" {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, rName.ResourceSubtype.String(), test.ShouldEqual, tc.ExpectedSubtype)
+				test.That(t, rName.String(), test.ShouldEqual, tc.ExpectedFullName)
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldEqual, tc.Err)
+			}
 		})
 	}
 }

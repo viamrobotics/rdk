@@ -621,7 +621,11 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 			if err != nil {
 				return err
 			}
-			parts.addResource(c.FullyQualifiedName(), r)
+			rName, err := c.ResourceName()
+			if err != nil {
+				return err
+			}
+			parts.addResource(rName.String(), r)
 		}
 	}
 
@@ -1279,11 +1283,15 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 			}
 			filtered.AddMotor(part, compConf)
 		default:
-			resource, ok := parts.ResourceByName(compConf.FullyQualifiedName())
+			rName, err := compConf.ResourceName()
+			if err != nil {
+				continue
+			}
+			resource, ok := parts.ResourceByName(rName.String())
 			if !ok {
 				continue
 			}
-			filtered.addResource(compConf.FullyQualifiedName(), resource)
+			filtered.addResource(rName.String(), resource)
 		}
 	}
 

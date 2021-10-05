@@ -296,7 +296,11 @@ func FrameLookup(comp *config.Component) (CreateFrame, bool) {
 		}
 		return registration.Frame, true
 	case config.ComponentTypeArm:
-		registration := ComponentLookup(comp.ResourceSubtype(), comp.Model)
+		rName, err := comp.ResourceName()
+		if err != nil {
+			return nil, false
+		}
+		registration := ComponentLookup(rName.ResourceSubtype.String(), comp.Model)
 		if registration == nil || registration.Frame == nil {
 			return nil, false
 		}

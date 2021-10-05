@@ -368,9 +368,13 @@ func (r *mutableRobot) newService(ctx context.Context, config config.Service) (i
 }
 
 func (r *mutableRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
-	f := registry.ComponentLookup(config.ResourceSubtype(), config.Model)
+	rName, err := config.ResourceName()
+	if err != nil {
+		return nil, err
+	}
+	f := registry.ComponentLookup(rName.ResourceSubtype.String(), config.Model)
 	if f == nil {
-		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", config.ResourceSubtype(), config.Model)
+		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.ResourceSubtype.String(), config.Model)
 	}
 	return f.Constructor(ctx, r, config, r.logger)
 }
