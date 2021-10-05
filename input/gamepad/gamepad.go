@@ -12,12 +12,39 @@ import (
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
+	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 	"github.com/kenshaw/evdev"
+	"github.com/mitchellh/mapstructure"
 )
+
+const (
+	modelname = "gamepad"
+)
+
+// Config is used for converting config attributes
+type Config struct {
+	DevFile string `json:"dev_file"`
+}
+
+func init() {
+	registry.RegisterInput(modelname, registry.Input{Constructor: NewGamepad})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInput, modelname, func(attributes config.AttributeMap) (interface{}, error) {
+		var conf Config
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
+		if err != nil {
+			return nil, err
+		}
+		if err := decoder.Decode(attributes); err != nil {
+			return nil, err
+		}
+		return &conf, nil
+	})
+}
 
 type Gamepad struct {
 	dev     *evdev.Evdev
@@ -138,13 +165,19 @@ func (g *Gamepad) eventDispatcher(ctx context.Context) {
 }
 
 func NewGamepad(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
-	devs, err := filepath.Glob("/dev/input/event*")
-	if err != nil {
-		return nil, err
-	}
-
 	pad := &Gamepad{}
 	pad.logger = logger
+
+	var err error
+	var devs []string
+	devs = []string{config.ConvertedAttributes.(Config).DevFile}
+
+	if len(devs) != 1 || devs[0] == "" {
+		devs, err = filepath.Glob("/dev/input/event*")
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	for _, n := range devs {
 		dev, err := evdev.OpenFile(n)
@@ -152,7 +185,7 @@ func NewGamepad(ctx context.Context, r robot.Robot, config config.Component, log
 			continue
 		}
 		name := dev.Name()
-		logger.Infof("found gamepad: %s", name)
+		logger.Infof("found gamepad: '%s' at %s", name, n)
 		mapping, ok := GamepadModels[name]
 		if ok {
 			pad.dev = dev

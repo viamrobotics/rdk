@@ -10,6 +10,7 @@ import (
 	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
+	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/referenceframe"
@@ -58,6 +59,10 @@ func TestRegistry(t *testing.T) {
 		return nil, nil
 	}
 
+	inputf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
+		return nil, nil
+	}
+
 	ff := func(name string) (referenceframe.Frame, error) {
 		return nil, nil
 	}
@@ -72,6 +77,7 @@ func TestRegistry(t *testing.T) {
 	test.That(t, func() { RegisterBoard("x", Board{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterServo("x", Servo{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterMotor("x", Motor{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterInput("x", Input{}) }, test.ShouldPanic)
 
 	// test register
 	RegisterCamera("x", Camera{cf, ff})
@@ -83,6 +89,7 @@ func TestRegistry(t *testing.T) {
 	RegisterBoard("x", Board{Constructor: bbf, Frame: ff})
 	RegisterServo("x", Servo{Constructor: servof, Frame: ff})
 	RegisterMotor("x", Motor{Constructor: motorf, Frame: ff})
+	RegisterInput("x", Input{Constructor: inputf, Frame: ff})
 
 	// test look up
 
@@ -208,6 +215,20 @@ func TestRegistry(t *testing.T) {
 	test.That(t, ok, test.ShouldEqual, true)
 	// look up a component that doesn't exist
 	comp = &config.Component{Type: config.ComponentTypeMotor, Model: "z"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldEqual, false)
+
+	test.That(t, InputLookup("x"), test.ShouldNotBeNil)
+	test.That(t, InputLookup("z"), test.ShouldBeNil)
+	test.That(t, InputLookup("x").Constructor, test.ShouldNotBeNil)
+	test.That(t, InputLookup("x").Frame, test.ShouldNotBeNil)
+	comp = &config.Component{Type: config.ComponentTypeInput, Model: "x"}
+	frameFunc, ok = FrameLookup(comp)
+	test.That(t, frameFunc, test.ShouldEqual, ff)
+	test.That(t, ok, test.ShouldEqual, true)
+	// look up a component that doesn't exist
+	comp = &config.Component{Type: config.ComponentTypeInput, Model: "z"}
 	frameFunc, ok = FrameLookup(comp)
 	test.That(t, frameFunc, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldEqual, false)
