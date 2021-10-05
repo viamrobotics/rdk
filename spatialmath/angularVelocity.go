@@ -1,6 +1,6 @@
 package spatialmath
 
-// AngularVelocity contains angular velocity in rads/s across x/y/z axes.
+// AngularVelocity contains angular velocity in deg/s across x/y/z axes.
 type AngularVelocity struct {
 	x float64 `json:"x"`
 	y float64 `json:"y"`
