@@ -177,7 +177,7 @@ type rotationalFrame struct {
 
 // NewRotationalFrame creates a new rotationalFrame struct.
 // A standard revolute joint will have 1 DoF
-func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) Frame {
+func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, error) {
 	rf := rotationalFrame{
 		name:    name,
 		rotAxis: axis,
@@ -185,7 +185,7 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) Frame {
 	}
 	rf.rotAxis.Normalize()
 
-	return &rf
+	return &rf, nil
 }
 
 // Transform returns the Pose representing the frame's 6DoF motion in space. Requires a slice

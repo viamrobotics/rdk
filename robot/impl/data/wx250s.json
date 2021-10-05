@@ -4,6 +4,9 @@
             "model": "wx250s",
             "name": "pieceGripper",
             "type": "gripper",
+            "frame" : {
+                "parent" : "pieceArm"
+            },
             "attributes" : {
               "usbPort"       : "/dev/ttyUSB0",
               "baudRate"      : "1000000"
@@ -13,6 +16,9 @@
             "model": "wx250s",
             "name": "pieceArm",
             "type": "arm",
+            "frame" : {
+                "parent" : "world"
+            },
             "attributes" : {
               "usbPort"       : "/dev/ttyUSB0",
               "baudRate"      : "1000000",
