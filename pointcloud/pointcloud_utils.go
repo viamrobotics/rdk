@@ -2,6 +2,7 @@ package pointcloud
 
 import (
 	"image/color"
+	"math"
 
 	"github.com/lucasb-eyer/go-colorful"
 )
@@ -42,6 +43,19 @@ func CalculateMeanOfPointCloud(cloud PointCloud) Vec3 {
 		return true
 	})
 	return Vec3{x / n, y / n, z / n}
+}
+
+// CalculateBoundingBoxOfPointCloud returns the dimensions of the bounding box
+// formed by finding the dimensions of each axes' extrema.
+func CalculateBoundingBoxOfPointCloud(cloud PointCloud) BoxGeometry {
+	if cloud.Size() == 0 {
+		return BoxGeometry{}
+	}
+	return BoxGeometry{
+		Width:  math.Abs(cloud.MaxX() - cloud.MinX()),
+		Length: math.Abs(cloud.MaxY() - cloud.MinY()),
+		Depth:  math.Abs(cloud.MaxZ() - cloud.MinZ()),
+	}
 }
 
 // PrunePointClouds removes point clouds from a slice if the point cloud has less than nMin points.

@@ -374,6 +374,10 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.BoxGeometry"><span class="badge">M</span>BoxGeometry</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.CameraFrameRequest"><span class="badge">M</span>CameraFrameRequest</a>
                 </li>
               
@@ -2260,6 +2264,44 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.BoxGeometry">BoxGeometry</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>width</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>length</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>depth</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.CameraFrameRequest">CameraFrameRequest</h3>
         <p></p>
 
@@ -4096,6 +4138,13 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                 <tr>
                   <td>centers</td>
                   <td><a href="#proto.api.v1.Vector3">Vector3</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>bounding_boxes</td>
+                  <td><a href="#proto.api.v1.BoxGeometry">BoxGeometry</a></td>
                   <td>repeated</td>
                   <td><p> </p></td>
                 </tr>

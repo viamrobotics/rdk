@@ -687,10 +687,17 @@ message Vector3 {
   double z = 3;
 }
 
+message BoxGeometry {
+  double width = 1;
+  double length = 2;
+  double depth = 3;
+}
+
 message ObjectPointCloudsResponse {
   string mime_type = 1;
   repeated bytes frames = 2;
   repeated Vector3 centers = 3;
+  repeated BoxGeometry bounding_boxes = 4;
 }
 
 // Lidar

@@ -347,6 +347,7 @@ func (s *Server) ObjectPointClouds(ctx context.Context, req *pb.ObjectPointCloud
 
 	frames := make([][]byte, segments.N())
 	centers := make([]pointcloud.Vec3, segments.N())
+	boundingBoxes := make([]pointcloud.BoxGeometry, segments.N())
 	for i, seg := range segments.Objects {
 		var buf bytes.Buffer
 		err := seg.ToPCD(&buf)
@@ -355,12 +356,14 @@ func (s *Server) ObjectPointClouds(ctx context.Context, req *pb.ObjectPointCloud
 		}
 		frames[i] = buf.Bytes()
 		centers[i] = seg.Center
+		boundingBoxes[i] = seg.BoundingBox
 	}
 
 	return &pb.ObjectPointCloudsResponse{
-		MimeType: grpc.MimeTypePCD,
-		Frames:   frames,
-		Centers:  pointsToProto(centers),
+		MimeType:      grpc.MimeTypePCD,
+		Frames:        frames,
+		Centers:       pointsToProto(centers),
+		BoundingBoxes: boxesToProto(boundingBoxes),
 	}, nil
 }
 
@@ -596,6 +599,22 @@ func pointsToProto(vs []pointcloud.Vec3) []*pb.Vector3 {
 		pvs = append(pvs, pointToProto(v))
 	}
 	return pvs
+}
+
+func boxToProto(b pointcloud.BoxGeometry) *pb.BoxGeometry {
+	return &pb.BoxGeometry{
+		Width:  b.Width,
+		Length: b.Length,
+		Depth:  b.Depth,
+	}
+}
+
+func boxesToProto(bs []pointcloud.BoxGeometry) []*pb.BoxGeometry {
+	pbs := make([]*pb.BoxGeometry, 0, len(bs))
+	for _, v := range bs {
+		pbs = append(pbs, boxToProto(v))
+	}
+	return pbs
 }
 
 // BoardStatus returns the status of a board of the underlying robot.
