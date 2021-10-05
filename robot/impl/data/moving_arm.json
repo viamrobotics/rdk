@@ -1,0 +1,25 @@
+{
+    "components": [
+        {
+            "model": "fake",
+            "name": "pieceGripper",
+            "type": "gripper",
+            "frame" : {
+                "parent" : "pieceArm",
+                "translation" : {
+                    "x": 0,
+                    "y": 0,
+                    "z": 100.0
+                }
+            }
+        },
+        {
+            "model": "fake_ik",
+            "name": "pieceArm",
+            "type": "arm",
+            "frame" : {
+                "parent" : "world"
+            }
+        }
+    ]
+}

@@ -60,6 +60,9 @@ func runSolver(ctx context.Context, solver InverseKinematics, c chan ReturnTest,
 func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed []referenceframe.Input) ([]referenceframe.Input, error) {
 	ik.logger.Debugf("starting joint positions: %v", seed)
 	startPos, err := ik.model.Transform(seed)
+	if err != nil {
+		return nil, err
+	}
 	ik.logger.Debugf("starting 6d position: %v %v", spatialmath.PoseToArmPos(startPos), err)
 	ik.logger.Debugf("goal 6d position: %v", pos)
 
