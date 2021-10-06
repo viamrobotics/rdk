@@ -3,11 +3,8 @@ package fake
 import (
 	"context"
 	_ "embed" // for arm model
-	"fmt"
 
 	"github.com/go-errors/errors"
-
-	"go.viam.com/utils"
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
@@ -15,7 +12,6 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
-	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
@@ -104,20 +100,4 @@ func (a *ArmIK) JointMoveDelta(ctx context.Context, joint int, amountDegs float6
 func (a *ArmIK) Close() error {
 	a.CloseCount++
 	return nil
-}
-
-// Reconfigure reconfigures the current resource to the resource passed in.
-func (a *ArmIK) Reconfigure(newResource interface{}) {
-	actual, ok := newResource.(*ArmIK)
-	if !ok {
-		panic(fmt.Errorf("expected new resource to be %T but got %T", actual, newResource))
-	}
-	if err := utils.TryClose(a); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	a.Name = actual.Name
-	a.position = actual.position
-	a.joints = actual.joints
-	a.ik = actual.ik
-	a.CloseCount = actual.CloseCount
 }

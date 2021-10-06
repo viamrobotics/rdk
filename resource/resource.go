@@ -158,5 +158,5 @@ func (n Name) String() string {
 // Reconfigurable is implemented when component/service of a robot is reconfigurable.
 type Reconfigurable interface {
 	// Reconfigure reconfigures the resource
-	Reconfigure(newResource Reconfigurable)
+	Reconfigure(newResource Reconfigurable) error
 }

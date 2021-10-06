@@ -2,8 +2,9 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"testing"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/utils"
 
@@ -755,13 +756,14 @@ type mockFake struct {
 	reconCount int
 }
 
-func (m *mockFake) Reconfigure(newResource resource.Reconfigurable) {
+func (m *mockFake) Reconfigure(newResource resource.Reconfigurable) error {
 	new, ok := newResource.(*mockFake)
 	if !ok {
-		panic(fmt.Errorf("expected new arm to be %T but got %T", m, newResource))
+		return errors.Errorf("expected new arm to be %T but got %T", m, newResource)
 	}
 	m.x = new.x
 	m.reconCount++
+	return nil
 }
 
 type mockFake2 struct {
