@@ -206,11 +206,29 @@ type grabAtCameraPositionHandler struct {
 	app *robotWebApp
 }
 
-func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, cameraName string, x, y, z float64) error {
+func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, cameraName string, x, y, z float64) (bool, error) {
+	r := h.app.theRobot
+	// get gripper component
+	if len(r.GripperNames()) != 1 {
+		return false, errors.New("robot needs exactly 1 arm for doGrab")
+	}
+	gripperName := r.GripperNames()[0]
+	gripper, ok := r.GripperByName(gripperName)
+	if !ok {
+		return false, fmt.Errorf("failed to find gripper %q", gripperName)
+	}
+	// do gripper movement
+	err := gripper.Open(ctx)
+	if err != nil {
+		return false, err
+	}
 	cameraPoint := r3.Vector{x, y, z}
 	cameraPose := spatialmath.NewPoseFromPoint(cameraPoint)
-
-	return robotimpl.MoveGripper(ctx, h.app.theRobot, cameraPose, cameraName)
+	err = robotimpl.MoveGripper(ctx, r, cameraPose, cameraName)
+	if err != nil {
+		return false, err
+	}
+	return gripper.Grab(ctx)
 }
 
 func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -244,11 +262,14 @@ func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	err = h.doGrab(ctx, cameraName, x, y, z)
+	didGrab, err := h.doGrab(ctx, cameraName, x, y, z)
 	if err != nil {
 		h.app.logger.Errorf("error grabbing: %s", err)
 		http.Error(w, fmt.Sprintf("error grabbing: %s", err), http.StatusInternalServerError)
 		return
+	}
+	if !didGrab {
+		h.app.logger.Error("failed to grab anything")
 	}
 
 }
