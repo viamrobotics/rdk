@@ -1,6 +1,7 @@
 package segmentation
 
 import (
+	"context"
 	"image"
 	"testing"
 
@@ -117,7 +118,7 @@ func (cid *chunkImageDebug) Process(
 			t.Fatal(err)
 		}
 
-		plane, removed, err := SegmentPlane(pc, 3000, 5)
+		plane, removed, err := SegmentPlane(context.Background(), pc, 3000, 5)
 		if err != nil {
 			t.Fatal(err)
 		}
