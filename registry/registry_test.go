@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/utils/rpc/server"
-
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
@@ -221,18 +219,4 @@ func TestComponentRegistry(t *testing.T) {
 	frameFunc, ok = FrameLookup(comp)
 	test.That(t, frameFunc, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldEqual, false)
-}
-
-func TestRegistratorRegistry(t *testing.T) {
-	rf := func(ctx context.Context, server server.Server, resource interface{}) error {
-		return nil
-	}
-	armResourceSubtype := "core:component:arm"
-	test.That(t, func() { RegisterServiceRegistrator(armResourceSubtype, nil) }, test.ShouldPanic)
-	RegisterServiceRegistrator(armResourceSubtype, rf)
-
-	registrator := ServiceRegistratorLookup(armResourceSubtype)
-	test.That(t, registrator, test.ShouldNotBeNil)
-	test.That(t, ServiceRegistratorLookup("core:component:z"), test.ShouldBeNil)
-	test.That(t, registrator, test.ShouldEqual, rf)
 }

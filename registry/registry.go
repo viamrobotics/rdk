@@ -8,8 +8,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 
-	"go.viam.com/utils/rpc/server"
-
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
@@ -396,9 +394,6 @@ func ServiceLookup(typeName config.ServiceType) *Service {
 type (
 	// A CreateComponent creates a resource from a given config.
 	CreateComponent func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error)
-
-	// A RegisterRPCService registers a resource service to the given rpc server
-	RegisterRPCService func(ctx context.Context, server server.Server, resource interface{}) error
 )
 
 // Component stores a resource constructor (mandatory) and a Frame building function (optional)
@@ -410,9 +405,6 @@ type Component struct {
 // all registries
 var (
 	componentRegistry = map[string]Component{}
-
-	// currently unused, should be populated by init() function of resource service
-	registratorRegistry = map[string]RegisterRPCService{}
 )
 
 // RegisterComponentCreator register a creator to its corresponding component and model.
@@ -428,34 +420,12 @@ func RegisterComponentCreator(component string, model string, creator Component)
 	componentRegistry[qName] = creator
 }
 
-// RegisterServiceRegistrator looks up a service registrator by the given component. nil is returned if
-// there is no such registrator.
-func RegisterServiceRegistrator(component string, registrator RegisterRPCService) {
-	_, old := registratorRegistry[component]
-	if old {
-		panic(errors.Errorf("trying to register two service registrators with same component:%s", component))
-	}
-	if registrator == nil {
-		panic(errors.Errorf("cannot register a nil registrator for component:%s", component))
-	}
-	registratorRegistry[component] = registrator
-}
-
 // ComponentLookup looks up a creator by the given component and model. nil is returned if
 // there is no creator registered.
 func ComponentLookup(component string, model string) *Component {
 	qName := fmt.Sprintf("%s/%s", component, model)
 	if registration, ok := componentRegistry[qName]; ok {
 		return &registration
-	}
-	return nil
-}
-
-// ServiceRegistratorLookup looks up a service registrator by the given component. nil is returned if
-// there is no such registrator.
-func ServiceRegistratorLookup(component string) RegisterRPCService {
-	if registration, ok := registratorRegistry[component]; ok {
-		return registration
 	}
 	return nil
 }
