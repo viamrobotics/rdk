@@ -46,8 +46,10 @@ type Arm interface {
 	JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error
 }
 
-var _ = Arm(&reconfigurableArm{})
-var _ = resource.Reconfigurable(&reconfigurableArm{})
+var (
+	_ = Arm(&reconfigurableArm{})
+	_ = resource.Reconfigurable(&reconfigurableArm{})
+)
 
 type reconfigurableArm struct {
 	mu     sync.RWMutex
