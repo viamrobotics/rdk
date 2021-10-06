@@ -141,11 +141,9 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 					currentEquation := equations[workNum]
 					// store all the Points that are below a certain distance to the plane
 					for _, pt := range pts {
-						//dist := (currentEquation[0]*pt.X + currentEquation[1]*pt.Y + currentEquation[2]*pt.Z + currentEquation[3]) / vec.Norm()
 						dist := distance(currentEquation, pt)
 						if math.Abs(dist) < threshold {
 							currentInliers++
-							//currentInliers = append(currentInliers, pt)
 						}
 					}
 					// if the current plane contains more pixels than the previously stored one, save this one as the biggest plane
