@@ -31,9 +31,9 @@ type Config struct {
 }
 
 func init() {
-	registry.RegisterInput(modelname, registry.Input{Constructor: NewGamepad})
+	registry.RegisterInputController(modelname, registry.InputController{Constructor: NewGamepad})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInput, modelname, func(attributes config.AttributeMap) (interface{}, error) {
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelname, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
 		if err != nil {

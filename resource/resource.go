@@ -11,21 +11,22 @@ import (
 
 // Placeholder definitions for a few known constants
 const (
-	ResourceNamespaceCore   = "core"
-	ResourceTypeComponent   = "component"
-	ResourceTypeService     = "service"
-	ResourceSubtypeArm      = "arm"
-	ResourceSubtypeBase     = "base"
-	ResourceSubtypeBoard    = "board"
-	ResourceSubtypeCamera   = "camera"
-	ResourceSubtypeFunction = "function"
-	ResourceSubtypeGripper  = "gripper"
-	ResourceSubtypeLidar    = "lidar"
-	ResourceSubtypeMetadata = "metadata"
-	ResourceSubtypeRemote   = "remote"
-	ResourceSubtypeSensor   = "sensor"
-	ResourceSubtypeServo    = "servo"
-	ResourceSubtypeMotor    = "motor"
+	ResourceNamespaceCore          = "core"
+	ResourceTypeComponent          = "component"
+	ResourceTypeService            = "service"
+	ResourceSubtypeArm             = "arm"
+	ResourceSubtypeBase            = "base"
+	ResourceSubtypeBoard           = "board"
+	ResourceSubtypeCamera          = "camera"
+	ResourceSubtypeFunction        = "function"
+	ResourceSubtypeGripper         = "gripper"
+	ResourceSubtypeLidar           = "lidar"
+	ResourceSubtypeMetadata        = "metadata"
+	ResourceSubtypeRemote          = "remote"
+	ResourceSubtypeSensor          = "sensor"
+	ResourceSubtypeServo           = "servo"
+	ResourceSubtypeMotor           = "motor"
+	ResourceSubtypeInputController = "input_controller"
 )
 
 // Name represents a known component/service of a robot.

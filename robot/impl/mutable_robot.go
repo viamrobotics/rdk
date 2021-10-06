@@ -16,6 +16,7 @@ import (
 	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
+	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/metadata/service"
 	"go.viam.com/core/motor"
@@ -115,6 +116,12 @@ func (r *mutableRobot) MotorByName(name string) (motor.Motor, bool) {
 	return r.parts.MotorByName(name)
 }
 
+// InputControllerByName returns an input.Controller by name. If it does not exist
+// nil is returned.
+func (r *mutableRobot) InputControllerByName(name string) (input.Controller, bool) {
+	return r.parts.InputControllerByName(name)
+}
+
 func (r *mutableRobot) ServiceByName(name string) (interface{}, bool) {
 	return r.parts.ServiceByName(name)
 }
@@ -182,6 +189,11 @@ func (r *mutableRobot) ServoNames() []string {
 // MotorNames returns the name of all known motors.
 func (r *mutableRobot) MotorNames() []string {
 	return r.parts.MotorNames()
+}
+
+// InputControllerNames returns the name of all known input Controllers.
+func (r *mutableRobot) InputControllerNames() []string {
+	return r.parts.InputControllerNames()
 }
 
 // FunctionNames returns the name of all known functions.
@@ -349,6 +361,14 @@ func (r *mutableRobot) newMotor(ctx context.Context, config config.Component) (m
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
+func (r *mutableRobot) newInputController(ctx context.Context, config config.Component) (input.Controller, error) {
+	f := registry.InputControllerLookup(config.Model)
+	if f == nil {
+		return nil, errors.Errorf("unknown input controller model: %s", config.Model)
+	}
+	return f.Constructor(ctx, r, config, r.logger)
+}
+
 func (r *mutableRobot) newBoard(ctx context.Context, config config.Component) (board.Board, error) {
 	f := registry.BoardLookup(config.Model)
 	if f == nil {
@@ -506,6 +526,18 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeMotor,
+			name,
+		)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, res)
+	}
+	for _, name := range r.InputControllerNames() {
+		res, err := resource.New(
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			resource.ResourceSubtypeInputController,
 			name,
 		)
 		if err != nil {
