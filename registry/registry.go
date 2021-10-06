@@ -407,8 +407,8 @@ var (
 	componentRegistry = map[string]Component{}
 )
 
-// RegisterComponentCreator register a creator to its corresponding component and model.
-func RegisterComponentCreator(component string, model string, creator Component) {
+// RegisterComponent register a creator to its corresponding component and model.
+func RegisterComponent(component string, model string, creator Component) {
 	qName := fmt.Sprintf("%s/%s", component, model)
 	_, old := componentRegistry[qName]
 	if old {

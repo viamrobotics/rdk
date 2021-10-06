@@ -201,8 +201,8 @@ func TestComponentRegistry(t *testing.T) {
 	}
 	armResourceSubtype := "core:component:arm"
 	armResourceName := "x"
-	test.That(t, func() { RegisterComponentCreator(armResourceSubtype, armResourceName, Component{}) }, test.ShouldPanic)
-	RegisterComponentCreator(armResourceSubtype, armResourceName, Component{Constructor: af, Frame: ff})
+	test.That(t, func() { RegisterComponent(armResourceSubtype, armResourceName, Component{}) }, test.ShouldPanic)
+	RegisterComponent(armResourceSubtype, armResourceName, Component{Constructor: af, Frame: ff})
 
 	creator := ComponentLookup(armResourceSubtype, armResourceName)
 	test.That(t, creator, test.ShouldNotBeNil)
