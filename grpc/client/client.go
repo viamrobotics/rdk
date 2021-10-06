@@ -25,6 +25,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc"
+	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
@@ -52,18 +53,19 @@ type RobotClient struct {
 	conn    dialer.ClientConn
 	client  pb.RobotServiceClient
 
-	namesMu       *sync.Mutex
-	armNames      []string
-	baseNames     []string
-	gripperNames  []string
-	boardNames    []boardInfo
-	cameraNames   []string
-	lidarNames    []string
-	sensorNames   []string
-	servoNames    []string
-	motorNames    []string
-	functionNames []string
-	serviceNames  []string
+	namesMu              *sync.Mutex
+	armNames             []string
+	baseNames            []string
+	gripperNames         []string
+	boardNames           []boardInfo
+	cameraNames          []string
+	lidarNames           []string
+	sensorNames          []string
+	servoNames           []string
+	motorNames           []string
+	inputControllerNames []string
+	functionNames        []string
+	serviceNames         []string
 
 	sensorTypes map[string]sensor.Type
 
@@ -323,6 +325,15 @@ func (rc *RobotClient) MotorByName(name string) (motor.Motor, bool) {
 	}, true
 }
 
+// InputControllerByName returns an input.Controller by name. It is assumed to exist on the
+// other end.
+func (rc *RobotClient) InputControllerByName(name string) (input.Controller, bool) {
+	return &inputControllerClient{
+		rc:   rc,
+		name: name,
+	}, true
+}
+
 // ServiceByName returns a service by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
@@ -421,6 +432,13 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 			rc.motorNames = append(rc.motorNames, name)
 		}
 	}
+	// rc.inputControllerNames = nil
+	// if len(status.InputControllers) != 0 {
+	// 	rc.inputControllerNames = make([]string, 0, len(status.InputControllers))
+	// 	for name := range status.InputControllers {
+	// 		rc.inputControllerNames = append(rc.inputControllerNames, name)
+	// 	}
+	// }
 	rc.functionNames = nil
 	if len(status.Functions) != 0 {
 		rc.functionNames = make([]string, 0, len(status.Functions))
@@ -511,11 +529,11 @@ func (rc *RobotClient) ServoNames() []string {
 	return copyStringSlice(rc.servoNames)
 }
 
-// MotorNames returns the names of all known motors.
-func (rc *RobotClient) MotorNames() []string {
+// InputControllerNames returns the names of all known input controllers.
+func (rc *RobotClient) InputControllerNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
-	return copyStringSlice(rc.motorNames)
+	return copyStringSlice(rc.inputControllerNames)
 }
 
 // FunctionNames returns the names of all known functions.
@@ -1221,4 +1239,18 @@ func (mc *motorClient) Zero(ctx context.Context, offset float64) error {
 		Offset: offset,
 	})
 	return err
+}
+
+// inputControllerClient satisfies a gRPC based input.Controller. Refer to the interface
+// for descriptions of its methods.
+type inputControllerClient struct {
+	rc   *RobotClient
+	name string
+}
+
+func (cc *inputControllerClient) Inputs(ctx context.Context) (map[input.ControlCode]input.Input, error) {
+	resp, err := cc.rc.client.InputControllerInputs(ctx, &pb.InputControllerInputsRequest{
+		Name: cc.name,
+	})
+	return resp, err
 }

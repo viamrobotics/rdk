@@ -18,13 +18,13 @@ func main() {
 	var logger = golog.NewDevelopmentLogger("gamepadtest")
 	ctx := context.Background()
 
-	registration := registry.InputLookup("gamepad")
+	registration := registry.InputControllerLookup("gamepad")
 	if registration == nil {
 		fmt.Println("No gamepad component type found")
 		return
 	}
 
-	g, err := registration.Constructor(ctx, nil, config.Component{Type: config.ComponentTypeInput, Model: "gamepad", ConvertedAttributes: gamepad.Config{DevFile: ""}}, logger)
+	g, err := registration.Constructor(ctx, nil, config.Component{Type: config.ComponentTypeInputController, Model: "gamepad", ConvertedAttributes: gamepad.Config{DevFile: ""}}, logger)
 
 	if err != nil {
 		fmt.Println(err)
