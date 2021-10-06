@@ -7,6 +7,7 @@ import (
 	"math"
 	"sync"
 
+	"github.com/go-errors/errors"
 	viamutils "go.viam.com/utils"
 
 	pb "go.viam.com/core/proto/api/v1"
@@ -92,17 +93,18 @@ func (r *reconfigurableArm) Close() error {
 	return viamutils.TryClose(r.actual)
 }
 
-func (r *reconfigurableArm) Reconfigure(newArm resource.Reconfigurable) {
+func (r *reconfigurableArm) Reconfigure(newArm resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	actual, ok := newArm.(*reconfigurableArm)
 	if !ok {
-		panic(fmt.Errorf("expected new arm to be %T but got %T", r, newArm))
+		return errors.Errorf("expected new arm to be %T but got %T", r, newArm)
 	}
 	if err := viamutils.TryClose(r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
+	return nil
 }
 
 // WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm.

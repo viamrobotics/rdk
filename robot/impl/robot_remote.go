@@ -678,7 +678,9 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 			if !ok {
 				panic(fmt.Errorf("expected type %T to be reconfigurable but it was not", newPart))
 			}
-			oldPart.Reconfigure(newPart)
+			if err := oldPart.Reconfigure(newPart); err != nil {
+				panic(err)
+			}
 			continue
 		}
 		parts.resources[name] = newPart

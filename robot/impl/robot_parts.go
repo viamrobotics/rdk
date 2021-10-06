@@ -1120,7 +1120,9 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 			if !ok {
 				return nil, errors.Errorf("new type %T is not reconfigurable", v)
 			}
-			oldPart.Reconfigure(newPart)
+			if err := oldPart.Reconfigure(newPart); err != nil {
+				return nil, err
+			}
 		}
 	}
 
