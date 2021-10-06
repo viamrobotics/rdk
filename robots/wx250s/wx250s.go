@@ -108,7 +108,10 @@ func NewArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error
 	if err != nil {
 		return nil, err
 	}
-	ik := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	if err != nil {
+		return nil, err
+	}
 
 	newArm := &Arm{
 		Joints: map[string][]*servo.Servo{

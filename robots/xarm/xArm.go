@@ -82,7 +82,10 @@ func NewxArm(ctx context.Context, host string, logger golog.Logger, dof int) (ar
 		return &xArm{}, err
 	}
 	nCPU := runtime.NumCPU()
-	ik := kinematics.CreateCombinedIKSolver(model, logger, nCPU)
+	ik, err := kinematics.CreateCombinedIKSolver(model, logger, nCPU)
+	if err != nil {
+		return &xArm{}, err
+	}
 
 	mutex := &sync.Mutex{}
 	// Start with default speed/acceleration parameters

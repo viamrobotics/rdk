@@ -45,7 +45,10 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 
 	// Create a frame to solve for, and an IK solver with that frame.
 	sf := &solverFrame{fss, frames, solveFrame, goalFrame}
-	solver := CreateCombinedIKSolver(sf, fss.logger, runtime.NumCPU()/2)
+	solver, err := CreateCombinedIKSolver(sf, fss.logger, runtime.NumCPU()/2)
+	if err != nil {
+		return nil, err
+	}
 
 	seed := sf.mapToSlice(seedMap)
 
