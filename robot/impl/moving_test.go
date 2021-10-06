@@ -4,16 +4,17 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/core/config"
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/spatialmath"
-	"go.viam.com/test"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 )
 
-func TestArmThatDoesntMove(t *testing.T) {
+func TestGripperThatDoesntMove(t *testing.T) {
 	cfg, err := config.Read("data/fake.json")
 	test.That(t, err, test.ShouldBeNil)
 	logger := golog.NewTestLogger(t)
@@ -28,7 +29,7 @@ func TestArmThatDoesntMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, "cannot set upper or lower bounds for nlopt, slice is empty")
 }
 
-func TestMoveGripperFrame(t *testing.T) {
+func TestMoveInGripperFrame(t *testing.T) {
 	cfg, err := config.Read("data/moving_arm.json")
 	test.That(t, err, test.ShouldBeNil)
 	logger := golog.NewTestLogger(t)
@@ -44,7 +45,7 @@ func TestMoveGripperFrame(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, "cannot move gripper with respect to gripper frame, gripper will always be at its own origin")
 }
 
-func TestMovingArm(t *testing.T) {
+func TestMovingGripper(t *testing.T) {
 	cfg, err := config.Read("data/moving_arm.json")
 	test.That(t, err, test.ShouldBeNil)
 	logger := golog.NewTestLogger(t)
