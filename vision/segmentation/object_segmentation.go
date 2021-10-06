@@ -25,7 +25,6 @@ type ObjectSegmentation struct {
 // NewObjectSegmentation removes the planes (if any) and returns a segmentation of the objects in a point cloud
 func NewObjectSegmentation(ctx context.Context, cloud pc.PointCloud, cfg ObjectConfig) (*ObjectSegmentation, error) {
 	ps := NewPointCloudPlaneSegmentation(cloud, 10, cfg.MinPtsInPlane)
-	// TODO(erd): about a second... limiting factor
 	planes, nonPlane, err := ps.FindPlanes(ctx)
 	if err != nil {
 		return nil, err
