@@ -158,7 +158,7 @@ func URArmConnect(ctx context.Context, host string, speed float64, logger golog.
 	case <-timer.C:
 		return nil, multierr.Combine(errors.Errorf("arm failed to respond in time (%s)", respondTimeout), newArm.Close())
 	case <-onData:
-		return arm.ToProxyArm(newArm), nil
+		return arm.WrapWithReconfigurable(newArm), nil
 	}
 }
 

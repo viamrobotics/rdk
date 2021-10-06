@@ -46,70 +46,70 @@ type Arm interface {
 	JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error
 }
 
-var _ = Arm(&proxyArm{})
-var _ = resource.Reconfigurable(&proxyArm{})
+var _ = Arm(&reconfigurableArm{})
+var _ = resource.Reconfigurable(&reconfigurableArm{})
 
-type proxyArm struct {
+type reconfigurableArm struct {
 	mu     sync.RWMutex
 	actual Arm
 }
 
-func (p *proxyArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.CurrentPosition(ctx)
+func (r *reconfigurableArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.CurrentPosition(ctx)
 }
 
-func (p *proxyArm) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.MoveToPosition(ctx, c)
+func (r *reconfigurableArm) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.MoveToPosition(ctx, c)
 }
 
-func (p *proxyArm) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.MoveToJointPositions(ctx, pos)
+func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.MoveToJointPositions(ctx, pos)
 }
 
-func (p *proxyArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.CurrentJointPositions(ctx)
+func (r *reconfigurableArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.CurrentJointPositions(ctx)
 }
 
-func (p *proxyArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.JointMoveDelta(ctx, joint, amountDegs)
+func (r *reconfigurableArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.JointMoveDelta(ctx, joint, amountDegs)
 }
 
-func (p *proxyArm) Close() error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return viamutils.TryClose(p.actual)
+func (r *reconfigurableArm) Close() error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return viamutils.TryClose(r.actual)
 }
 
-func (p *proxyArm) Reconfigure(newArm resource.Reconfigurable) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newArm.(*proxyArm)
+func (r *reconfigurableArm) Reconfigure(newArm resource.Reconfigurable) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	actual, ok := newArm.(*reconfigurableArm)
 	if !ok {
-		panic(fmt.Errorf("expected new arm to be %T but got %T", p, newArm))
+		panic(fmt.Errorf("expected new arm to be %T but got %T", r, newArm))
 	}
-	if err := viamutils.TryClose(p.actual); err != nil {
+	if err := viamutils.TryClose(r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
-	p.actual = actual.actual
+	r.actual = actual.actual
 }
 
-// ToProxyArm converts a regular Arm implementation to a proxyArm.
-// If arm is already a proxyArm, then nothing is done.
-func ToProxyArm(arm Arm) Arm {
-	if proxy, ok := arm.(*proxyArm); ok {
-		return proxy
+// WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm.
+// If arm is already a reconfigurableArm, then nothing is done.
+func WrapWithReconfigurable(arm Arm) Arm {
+	if reconfigurable, ok := arm.(*reconfigurableArm); ok {
+		return reconfigurable
 	}
-	return &proxyArm{actual: arm}
+	return &reconfigurableArm{actual: arm}
 }
 
 // NewPositionFromMetersAndOV returns a three-dimensional arm position
