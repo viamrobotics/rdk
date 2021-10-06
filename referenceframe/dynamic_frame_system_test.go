@@ -14,7 +14,8 @@ func TestSimpleRotationalFrame(t *testing.T) {
 	fs := NewEmptySimpleFrameSystem("test")
 
 	// Revolute joint around X axis
-	joint := NewRotationalFrame("joint", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-math.Pi * 2, math.Pi * 2})
+	joint, err := NewRotationalFrame("joint", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-math.Pi * 2, math.Pi * 2})
+	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(joint, fs.World())
 
 	// Displace (2,2,10) from the joint

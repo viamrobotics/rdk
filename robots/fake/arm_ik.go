@@ -21,22 +21,45 @@ import (
 var armModelJSON string
 
 func init() {
-	registry.RegisterArm("fake_ik", registry.Arm{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		if config.Attributes.Bool("fail_new", false) {
-			return nil, errors.New("whoops")
-		}
-		return NewArmIK(config.Name, logger)
-	}})
+	registry.RegisterArm("fake_ik", registry.Arm{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+			if config.Attributes.Bool("fail_new", false) {
+				return nil, errors.New("whoops")
+			}
+			return NewArmIK(config.Name, logger)
+		},
+		Frame: func(name string) (frame.Frame, error) {
+			return fakeFrame(name)
+		},
+	})
+}
+
+// fakeModel returns the kinematics model
+func fakeModel() (*kinematics.Model, error) {
+	return kinematics.ParseJSON([]byte(armModelJSON))
+}
+
+// fakeFrame returns the reference frame of the fake arm
+func fakeFrame(name string) (frame.Frame, error) {
+	f, err := fakeModel()
+	if err != nil {
+		return nil, err
+	}
+	f.SetName(name)
+	return f, nil
 }
 
 // NewArmIK returns a new fake arm.
 func NewArmIK(name string, logger golog.Logger) (*ArmIK, error) {
-	model, err := kinematics.ParseJSON([]byte(armModelJSON))
+	model, err := fakeModel()
 	if err != nil {
 		return nil, err
 	}
 
-	ik := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	if err != nil {
+		return nil, err
+	}
 
 	return &ArmIK{
 		Name:     name,

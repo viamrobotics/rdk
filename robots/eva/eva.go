@@ -335,7 +335,10 @@ func NewEva(ctx context.Context, host string, attrs config.AttributeMap, logger 
 	if err != nil {
 		return nil, err
 	}
-	ik := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	if err != nil {
+		return nil, err
+	}
 
 	e := &eva{
 		host:     host,
