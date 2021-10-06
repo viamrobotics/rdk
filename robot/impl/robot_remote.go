@@ -113,28 +113,24 @@ func (rr *remoteRobot) prefixNames(names []string) []string {
 	return newNames
 }
 
-func (rr *remoteRobot) prefixResourceName(name string) (string, error) {
+func (rr *remoteRobot) prefixResourceName(name resource.Name) resource.Name {
 	if !rr.conf.Prefix {
-		return name, nil
+		return name
 	}
-	rName, err := resource.NewFromString(name)
-	if err != nil {
-		return "", err
-	}
-	rName.Name = rr.prefixName(rName.Name)
-	return rName.String(), nil
+	newName := rr.prefixName(name.Name)
+	return resource.NewName(
+		name.Namespace, name.ResourceType, name.ResourceSubtype, newName,
+	)
 }
 
-func (rr *remoteRobot) unprefixResourceName(name string) (string, error) {
-	if rr.conf.Prefix {
-		rName, err := resource.NewFromString(name)
-		if err != nil {
-			return "", err
-		}
-		rName.Name = rr.unprefixName(rName.Name)
-		return rName.String(), nil
+func (rr *remoteRobot) unprefixResourceName(name resource.Name) resource.Name {
+	if !rr.conf.Prefix {
+		return name
 	}
-	return name, nil
+	newName := rr.unprefixName(name.Name)
+	return resource.NewName(
+		name.Namespace, name.ResourceType, name.ResourceSubtype, newName,
+	)
 }
 
 func (rr *remoteRobot) RemoteNames() []string {
@@ -207,15 +203,12 @@ func (rr *remoteRobot) ServiceNames() []string {
 	return rr.prefixNames(rr.parts.ServiceNames())
 }
 
-func (rr *remoteRobot) ResourceNames() []string {
+func (rr *remoteRobot) ResourceNames() []resource.Name {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
-	newNames := make([]string, 0, len(rr.parts.ResourceNames()))
+	newNames := make([]resource.Name, 0, len(rr.parts.ResourceNames()))
 	for _, name := range rr.parts.ResourceNames() {
-		name, err := rr.prefixResourceName(name)
-		if err != nil {
-			continue
-		}
+		name := rr.prefixResourceName(name)
 		newNames = append(newNames, name)
 	}
 	return newNames
@@ -286,13 +279,10 @@ func (rr *remoteRobot) ServiceByName(name string) (interface{}, bool) {
 	return rr.parts.ServiceByName(rr.unprefixName(name))
 }
 
-func (rr *remoteRobot) ResourceByName(name string) (interface{}, bool) {
+func (rr *remoteRobot) ResourceByName(name resource.Name) (interface{}, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
-	newName, err := rr.unprefixResourceName(name)
-	if err != nil {
-		return nil, false
-	}
+	newName := rr.unprefixResourceName(name)
 	return rr.parts.ResourceByName(newName)
 }
 
@@ -505,7 +495,7 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	var oldMotorNames map[string]struct{}
 	var oldFunctionNames map[string]struct{}
 	var oldServiceNames map[string]struct{}
-	var oldResources map[string]struct{}
+	var oldResources map[resource.Name]struct{}
 
 	if len(parts.boards) != 0 {
 		oldBoardNames = make(map[string]struct{}, len(parts.boards))
@@ -569,7 +559,7 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	}
 
 	if len(parts.resources) != 0 {
-		oldResources = make(map[string]struct{}, len(parts.resources))
+		oldResources = make(map[resource.Name]struct{}, len(parts.resources))
 		for name := range parts.resources {
 			oldResources[name] = struct{}{}
 		}

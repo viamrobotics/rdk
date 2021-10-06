@@ -41,7 +41,7 @@ type robotParts struct {
 	motors         map[string]*proxyMotor
 	services       map[string]interface{}
 	functions      map[string]struct{}
-	resources      map[string]interface{}
+	resources      map[resource.Name]interface{}
 	processManager pexec.ProcessManager
 }
 
@@ -59,7 +59,7 @@ func newRobotParts(logger golog.Logger) *robotParts {
 		motors:         map[string]*proxyMotor{},
 		services:       map[string]interface{}{},
 		functions:      map[string]struct{}{},
-		resources:      map[string]interface{}{},
+		resources:      map[resource.Name]interface{}{},
 		processManager: pexec.NewProcessManager(logger),
 	}
 }
@@ -177,7 +177,7 @@ func (parts *robotParts) addFunction(name string) {
 }
 
 // addResource adds a resource to the parts.
-func (parts *robotParts) addResource(name string, r interface{}) {
+func (parts *robotParts) addResource(name resource.Name, r interface{}) {
 	parts.resources[name] = r
 }
 
@@ -210,16 +210,32 @@ func (parts *robotParts) mergeNamesWithRemotes(names []string, namesFunc func(re
 	return names
 }
 
+// mergeResourceNamesWithRemotes merges names from the parts itself as well as its
+// remotes.
+func (parts *robotParts) mergeResourceNamesWithRemotes(names []resource.Name) []resource.Name {
+	// use this to filter out seen names and preserve order
+	seen := make(map[resource.Name]struct{}, len(parts.resources))
+	for _, name := range names {
+		seen[name] = struct{}{}
+	}
+	for _, r := range parts.remotes {
+		remoteNames := r.ResourceNames()
+		for _, name := range remoteNames {
+			if _, ok := seen[name]; ok {
+				continue
+			}
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
 // ArmNames returns the names of all arms in the parts.
 func (parts *robotParts) ArmNames() []string {
 	names := []string{}
 	for _, n := range parts.ResourceNames() {
-		rName, err := resource.NewFromString(n)
-		if err != nil {
-			continue
-		}
-		if rName.ResourceSubtype == arm.ResourceSubtype {
-			names = append(names, rName.Name)
+		if n.Subtype == arm.Subtype {
+			names = append(names, n.Name)
 		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.ArmNames)
@@ -316,12 +332,12 @@ func (parts *robotParts) ServiceNames() []string {
 }
 
 // ResourceNames returns the names of all resources in the parts.
-func (parts *robotParts) ResourceNames() []string {
-	names := []string{}
+func (parts *robotParts) ResourceNames() []resource.Name {
+	names := []resource.Name{}
 	for k := range parts.resources {
 		names = append(names, k)
 	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.ResourceNames)
+	return parts.mergeResourceNamesWithRemotes(names)
 }
 
 // Clone provides a shallow copy of each part.
@@ -394,7 +410,7 @@ func (parts *robotParts) Clone() *robotParts {
 		}
 	}
 	if len(parts.resources) != 0 {
-		clonedParts.resources = make(map[string]interface{}, len(parts.resources))
+		clonedParts.resources = make(map[resource.Name]interface{}, len(parts.resources))
 		for k, v := range parts.resources {
 			clonedParts.resources[k] = v
 		}
@@ -621,11 +637,8 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 			if err != nil {
 				return err
 			}
-			rName, err := c.ResourceName()
-			if err != nil {
-				return err
-			}
-			parts.addResource(rName.String(), r)
+			rName := c.ResourceName()
+			parts.addResource(rName, r)
 		}
 	}
 
@@ -680,16 +693,8 @@ func (parts *robotParts) BoardByName(name string) (board.Board, bool) {
 // ArmByName returns the given arm by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) ArmByName(name string) (arm.Arm, bool) {
-	rName, err := resource.NewName(
-		resource.ResourceNamespaceCore,
-		resource.ResourceTypeComponent,
-		resource.ResourceSubtypeArm,
-		name,
-	)
-	if err != nil {
-		return nil, false
-	}
-	r, ok := parts.resources[rName.String()]
+	rName := arm.Named(name)
+	r, ok := parts.resources[rName]
 	if ok {
 		part, ok := r.(arm.Arm)
 		if ok {
@@ -833,7 +838,7 @@ func (parts *robotParts) ServiceByName(name string) (interface{}, bool) {
 
 // ResourceByName returns the given resource by fully qualified name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) ResourceByName(name string) (interface{}, bool) {
+func (parts *robotParts) ResourceByName(name resource.Name) (interface{}, bool) {
 	part, ok := parts.resources[name]
 	if ok {
 		return part, true
@@ -968,7 +973,7 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 
 	if len(toAdd.resources) != 0 {
 		if parts.resources == nil {
-			parts.resources = make(map[string]interface{}, len(toAdd.resources))
+			parts.resources = make(map[resource.Name]interface{}, len(toAdd.resources))
 		}
 		for k, v := range toAdd.resources {
 			parts.resources[k] = v
@@ -1285,15 +1290,12 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 			}
 			filtered.AddMotor(part, compConf)
 		default:
-			rName, err := compConf.ResourceName()
-			if err != nil {
-				continue
-			}
-			resource, ok := parts.ResourceByName(rName.String())
+			rName := compConf.ResourceName()
+			resource, ok := parts.ResourceByName(rName)
 			if !ok {
 				continue
 			}
-			filtered.addResource(rName.String(), resource)
+			filtered.addResource(rName, resource)
 		}
 	}
 

@@ -64,7 +64,7 @@ type RobotClient struct {
 	motorNames    []string
 	functionNames []string
 	serviceNames  []string
-	resourceNames []string
+	resourceNames []resource.Name
 
 	sensorTypes map[string]sensor.Type
 
@@ -332,15 +332,10 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 }
 
 // ResourceByName returns resource by name.
-func (rc *RobotClient) ResourceByName(name string) (interface{}, bool) {
-	// TODO: return a generic client or use another registry
-	rName, err := resource.NewFromString(name)
-	if err != nil {
-		return nil, false
-	}
-	switch rName.ResourceSubtype {
-	case arm.ResourceSubtype:
-		return &armClient{rc: rc, name: rName.Name}, true
+func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
+	switch name.Subtype {
+	case arm.Subtype:
+		return &armClient{rc: rc, name: name.Name}, true
 	default:
 		return nil, false
 	}
@@ -361,14 +356,10 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
 	// TODO: placeholder implementation
-	rc.resourceNames = []string{}
+	rc.resourceNames = []resource.Name{}
 	if len(status.Arms) != 0 {
 		for name := range status.Arms {
-			n, err := resource.NewName(resource.ResourceNamespaceCore, resource.ResourceTypeComponent, resource.ResourceSubtypeArm, name)
-			if err != nil {
-				return err
-			}
-			rc.resourceNames = append(rc.resourceNames, n.String())
+			rc.resourceNames = append(rc.resourceNames, arm.Named(name))
 		}
 	}
 	rc.baseNames = nil
@@ -477,12 +468,8 @@ func (rc *RobotClient) ArmNames() []string {
 	defer rc.namesMu.RUnlock()
 	names := []string{}
 	for _, v := range rc.ResourceNames() {
-		rName, err := resource.NewFromString(v)
-		if err != nil {
-			continue
-		}
-		if rName.ResourceSubtype == arm.ResourceSubtype {
-			names = append(names, rName.Name)
+		if v.Subtype == arm.Subtype {
+			names = append(names, v.Name)
 		}
 	}
 	return copyStringSlice(names)
@@ -570,10 +557,19 @@ func (rc *RobotClient) ProcessManager() pexec.ProcessManager {
 }
 
 // ResourceNames returns all resource names
-func (rc *RobotClient) ResourceNames() []string {
+func (rc *RobotClient) ResourceNames() []resource.Name {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.resourceNames)
+	names := []resource.Name{}
+	for _, v := range rc.resourceNames {
+		names = append(
+			names,
+			resource.NewName(
+				v.Namespace, v.ResourceType, v.ResourceSubtype, v.Name,
+			),
+		)
+	}
+	return names
 }
 
 // FrameSystem not implemented for remote robots

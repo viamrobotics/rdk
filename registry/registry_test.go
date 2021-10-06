@@ -7,6 +7,7 @@ import (
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
@@ -199,14 +200,13 @@ func TestComponentRegistry(t *testing.T) {
 	ff := func(name string) (referenceframe.Frame, error) {
 		return nil, nil
 	}
-	armResourceSubtype := "core:component:arm"
 	armResourceName := "x"
-	test.That(t, func() { RegisterComponent(armResourceSubtype, armResourceName, Component{}) }, test.ShouldPanic)
-	RegisterComponent(armResourceSubtype, armResourceName, Component{Constructor: af, Frame: ff})
+	test.That(t, func() { RegisterComponent(arm.Subtype, armResourceName, Component{}) }, test.ShouldPanic)
+	RegisterComponent(arm.Subtype, armResourceName, Component{Constructor: af, Frame: ff})
 
-	creator := ComponentLookup(armResourceSubtype, armResourceName)
+	creator := ComponentLookup(arm.Subtype, armResourceName)
 	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, ComponentLookup(armResourceSubtype, "z"), test.ShouldBeNil)
+	test.That(t, ComponentLookup(arm.Subtype, "z"), test.ShouldBeNil)
 	test.That(t, creator.Constructor, test.ShouldEqual, af)
 	test.That(t, creator.Frame, test.ShouldEqual, ff)
 

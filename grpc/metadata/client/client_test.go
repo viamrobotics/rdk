@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/utils/rpc/dialer"
 
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/grpc/metadata/client"
 	"go.viam.com/core/grpc/metadata/server"
 	"go.viam.com/core/metadata/service"
@@ -18,19 +19,19 @@ import (
 	"google.golang.org/grpc"
 )
 
-var newResource, _ = resource.NewName(
+var newResource = resource.NewName(
 	resource.ResourceNamespaceCore,
 	resource.ResourceTypeComponent,
-	resource.ResourceSubtypeArm,
+	arm.SubtypeName,
 	"",
 )
 
 var oneResourceResponse = []*pb.ResourceName{
 	{
 		Uuid:      newResource.UUID,
-		Namespace: newResource.ResourceSubtype.ResourceType.Namespace,
-		Type:      newResource.ResourceSubtype.ResourceType.Type,
-		Subtype:   newResource.ResourceSubtype.Subtype,
+		Namespace: string(newResource.Namespace),
+		Type:      string(newResource.ResourceType),
+		Subtype:   string(newResource.ResourceSubtype),
 		Name:      newResource.Name,
 	},
 }
