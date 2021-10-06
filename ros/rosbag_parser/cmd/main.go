@@ -52,7 +52,7 @@ func saveImageAsPng(img image.Image, filename string) error {
 }
 
 // extractPlanes extract planes from an image with depth.
-func extractPlanes(imgWd *rimage.ImageWithDepth) (*segmentation.SegmentedImage, error) {
+func extractPlanes(ctx context.Context, imgWd *rimage.ImageWithDepth) (*segmentation.SegmentedImage, error) {
 	// Set camera matrices in image-with-depth
 	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
 	if err != nil {
@@ -68,7 +68,7 @@ func extractPlanes(imgWd *rimage.ImageWithDepth) (*segmentation.SegmentedImage, 
 
 	// Extract the planes from the point cloud
 	planeSeg := segmentation.NewPointCloudPlaneSegmentation(pcl, 50, 150000)
-	planes, _, err := planeSeg.FindPlanes()
+	planes, _, err := planeSeg.FindPlanes(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			}
 
 			// Apply plane segmentation on image
-			segImg, err := extractPlanes(imgWd)
+			segImg, err := extractPlanes(ctx, imgWd)
 			if err != nil {
 				return err
 			}

@@ -53,7 +53,7 @@ func (cs *ColorSegmentsSource) Next(ctx context.Context) (image.Image, func(), e
 	if err != nil {
 		return nil, nil, err
 	}
-	segments, err := segmentation.NewObjectSegmentation(cloud, cs.config)
+	segments, err := segmentation.NewObjectSegmentation(ctx, cloud, cs.config)
 	if err != nil {
 		return nil, nil, err
 	}

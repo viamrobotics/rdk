@@ -1,6 +1,7 @@
 package segmentation
 
 import (
+	"context"
 	"image"
 	"image/color"
 	"math"
@@ -54,7 +55,7 @@ func TestSegmentPlane(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// Segment Plane
 	nIter := 3000
-	plane, _, err := SegmentPlane(cloud, nIter, 0.5)
+	plane, _, err := SegmentPlane(context.Background(), cloud, nIter, 0.5)
 	eq := plane.Equation()
 	test.That(t, err, test.ShouldBeNil)
 	// assign gt plane equation - obtained from open3d library with the same parameters
@@ -147,7 +148,7 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 	for i := 0; i < b.N; i++ {
 		// Segment Plane
-		_, _, err := SegmentPlane(pts, 2500, 0.0025)
+		_, _, err := SegmentPlane(context.Background(), pts, 2500, 0.0025)
 		test.That(b, err, test.ShouldBeNil)
 	}
 }
@@ -226,8 +227,8 @@ func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext,
 	test.That(t, err, test.ShouldBeNil)
 
 	// create an image where all the planes in the point cloud are color-coded
-	planeSegCloud := NewPointCloudPlaneSegmentation(cloud, 50, 150000) // feed the parameters for the plane segmentation
-	planes, nonPlane, err := planeSegCloud.FindPlanes()                // returns slice of planes and point cloud of non plane points
+	planeSegCloud := NewPointCloudPlaneSegmentation(cloud, 50, 150000)      // feed the parameters for the plane segmentation
+	planes, nonPlane, err := planeSegCloud.FindPlanes(context.Background()) // returns slice of planes and point cloud of non plane points
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(planes), test.ShouldBeGreaterThan, 0)
 	segments := make([]pc.PointCloud, 0, len(planes)+1) // make a slice for all plane-pointclouds and the non-plane pointcloud
@@ -265,7 +266,7 @@ func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext,
 		distanceThresh: voxelSize * 0.5,
 	}
 	planeSegVoxel := NewVoxelGridPlaneSegmentation(vg, voxelConfig)
-	planesVox, nonPlaneVox, err := planeSegVoxel.FindPlanes()
+	planesVox, nonPlaneVox, err := planeSegVoxel.FindPlanes(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(planesVox), test.ShouldBeGreaterThan, 0)
 	t.Logf("number of planes: %d", len(planesVox))
@@ -332,14 +333,14 @@ func (h *gripperPlaneTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorCon
 	}
 	vg := pc.NewVoxelGridFromPointCloud(cloud, 8.0, 0.1)
 	planeSegVoxel := NewVoxelGridPlaneSegmentation(vg, voxelConfig)
-	planesVox, _, err := planeSegVoxel.FindPlanes()
+	planesVox, _, err := planeSegVoxel.FindPlanes(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(planesVox), test.ShouldBeGreaterThan, 0)
 	t.Logf("number of planes: %d", len(planesVox))
 
 	// point cloud plane segmentation
 	planeSeg := NewPointCloudPlaneSegmentation(cloud, 10, 15000)
-	planes, nonPlane, err := planeSeg.FindPlanes()
+	planes, nonPlane, err := planeSeg.FindPlanes(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(planes), test.ShouldBeGreaterThan, 0)
 

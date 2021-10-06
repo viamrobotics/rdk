@@ -210,6 +210,7 @@ func NewIntelServerSource(host string, port int, attrs config.AttributeMap) (*In
 
 // Close TODO
 func (s *IntelServerSource) Close() error {
+	s.client.CloseIdleConnections()
 	return nil
 }
 
