@@ -41,7 +41,7 @@ func NewArm(name string) arm.Arm {
 		position: &pb.ArmPosition{},
 		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
 	}
-	return arm.ToProxyArm(newArm)
+	return arm.WrapWithReconfigurable(newArm)
 }
 
 // Arm is a fake arm that can simply read and set properties.

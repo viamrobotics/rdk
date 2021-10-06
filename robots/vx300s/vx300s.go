@@ -124,7 +124,7 @@ func NewArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error
 		ik:       ik,
 	}
 
-	return arm.ToProxyArm(newArm), nil
+	return arm.WrapWithReconfigurable(newArm), nil
 }
 
 // CurrentPosition computes and returns the current cartesian position.

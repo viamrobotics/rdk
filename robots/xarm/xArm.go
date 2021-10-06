@@ -94,5 +94,5 @@ func NewxArm(ctx context.Context, host string, logger golog.Logger, dof int) (ar
 		return &xArm{}, err
 	}
 
-	return arm.ToProxyArm(&xA), nil
+	return arm.WrapWithReconfigurable(&xA), nil
 }
