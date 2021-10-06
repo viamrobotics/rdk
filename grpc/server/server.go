@@ -20,6 +20,7 @@ import (
 
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/utils"
 
@@ -28,6 +29,7 @@ import (
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/grpc"
+	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
@@ -1223,4 +1225,95 @@ func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionCo
 		StdOut:  execResult.StdOut,
 		StdErr:  execResult.StdErr,
 	}, nil
+}
+
+func (s *Server) InputControllerInputs(ctx context.Context, req *pb.InputControllerInputsRequest) (*pb.InputControllerInputsResponse, error) {
+	controller, ok := s.r.InputControllerByName(req.Controller)
+	if !ok {
+		return nil, errors.Errorf("no input controller with name (%s)", req.Controller)
+	}
+
+	inputList, err := controller.Inputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &pb.InputControllerInputsResponse{}
+
+	for k := range inputList {
+		resp.Inputs = append(resp.Inputs, uint32(k))
+	}
+
+	return resp, nil
+}
+
+func (s *Server) InputState(ctx context.Context, req *pb.InputStateRequest) (*pb.InputEvent, error) {
+	controller, ok := s.r.InputControllerByName(req.Controller)
+	if !ok {
+		return nil, errors.Errorf("no input controller with name (%s)", req.Controller)
+	}
+
+	inputList, err := controller.Inputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	inp, ok := inputList[input.ControlCode(req.Code)]
+	if !ok {
+		return nil, errors.Errorf("no input %s on controller (%s)", input.ControlCode(req.Code).String(), req.Controller)
+	}
+
+	state, err := inp.State(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &pb.InputEvent{
+		Time:  timestamppb.New(state.Time),
+		Event: uint32(state.Event),
+		Code:  uint32(state.Code),
+		Value: state.Value,
+	}
+
+	return resp, nil
+}
+
+func (s *Server) InputStateStream(req *pb.InputStateStreamRequest, server pb.RobotService_InputStateStreamServer) error {
+
+	controller, ok := s.r.InputControllerByName(req.Controller)
+	if !ok {
+		return errors.Errorf("no input controller with name (%s)", req.Controller)
+	}
+
+	inputList, err := controller.Inputs(server.Context())
+	if err != nil {
+		return err
+	}
+
+	inp, ok := inputList[input.ControlCode(req.Code)]
+	if !ok {
+		return errors.Errorf("no input %s on controller (%s)", input.ControlCode(req.Code).String(), req.Controller)
+	}
+
+	ctrlFunc := func(ctx context.Context, inp input.Input, eventIn input.Event) {
+		resp := &pb.InputEvent{
+			Time:  timestamppb.New(eventIn.Time),
+			Event: uint32(eventIn.Event),
+			Code:  uint32(eventIn.Code),
+			Value: eventIn.Value,
+		}
+		err := server.Send(resp)
+		if err != nil {
+			s.r.Logger().Error(err)
+		}
+	}
+
+	for _, ev := range req.Events {
+		err := inp.RegisterControl(server.Context(), ctrlFunc, input.EventType(ev))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

@@ -152,6 +152,14 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			}
 		}
 	}
+
+	if names := r.InputControllerNames(); len(names) != 0 {
+		status.InputControllers = make(map[string]bool, len(names))
+		for _, name := range names {
+			status.InputControllers[name] = true
+		}
+	}
+
 	if names := r.FunctionNames(); len(names) != 0 {
 		status.Functions = make(map[string]bool, len(names))
 		for _, name := range names {

@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"io"
 	"math"
 	"runtime/debug"
 	"sync"
@@ -432,13 +433,13 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 			rc.motorNames = append(rc.motorNames, name)
 		}
 	}
-	// rc.inputControllerNames = nil
-	// if len(status.InputControllers) != 0 {
-	// 	rc.inputControllerNames = make([]string, 0, len(status.InputControllers))
-	// 	for name := range status.InputControllers {
-	// 		rc.inputControllerNames = append(rc.inputControllerNames, name)
-	// 	}
-	// }
+	rc.inputControllerNames = nil
+	if len(status.InputControllers) != 0 {
+		rc.inputControllerNames = make([]string, 0, len(status.InputControllers))
+		for name := range status.InputControllers {
+			rc.inputControllerNames = append(rc.inputControllerNames, name)
+		}
+	}
 	rc.functionNames = nil
 	if len(status.Functions) != 0 {
 		rc.functionNames = make([]string, 0, len(status.Functions))
@@ -527,6 +528,13 @@ func (rc *RobotClient) ServoNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.servoNames)
+}
+
+// MotorNames returns the names of all known motors.
+func (rc *RobotClient) MotorNames() []string {
+	rc.namesMu.Lock()
+	defer rc.namesMu.Unlock()
+	return copyStringSlice(rc.motorNames)
 }
 
 // InputControllerNames returns the names of all known input controllers.
@@ -1250,7 +1258,173 @@ type inputControllerClient struct {
 
 func (cc *inputControllerClient) Inputs(ctx context.Context) (map[input.ControlCode]input.Input, error) {
 	resp, err := cc.rc.client.InputControllerInputs(ctx, &pb.InputControllerInputsRequest{
-		Name: cc.name,
+		Controller: cc.name,
 	})
-	return resp, err
+	if err != nil {
+		return nil, err
+	}
+	inputs := make(map[input.ControlCode]input.Input)
+	for _, code := range resp.Inputs {
+		inputs[input.ControlCode(code)] = &inputClient{controller: cc, controlCode: input.ControlCode(code)}
+	}
+	return inputs, nil
+}
+
+type inputClient struct {
+	controller      *inputControllerClient
+	rc              *RobotClient
+	controlCode     input.ControlCode
+	streamCancel    context.CancelFunc
+	streamConnected bool
+	mu              sync.Mutex
+	callbacks       map[input.EventType]input.ControlFunction
+}
+
+func (ic *inputClient) Name(ctx context.Context) string {
+	return ic.controlCode.String()
+}
+
+func (ic *inputClient) State(ctx context.Context) (input.Event, error) {
+	resp, err := ic.rc.client.InputState(ctx, &pb.InputStateRequest{
+		Controller: ic.controller.name,
+		Code:       uint32(ic.controlCode),
+	})
+	if err != nil {
+		return input.Event{}, err
+	}
+
+	event := input.Event{
+		Time:  resp.Time.AsTime(),
+		Event: input.EventType(resp.Event),
+		Code:  input.ControlCode(resp.Code),
+		Value: resp.Value,
+	}
+
+	return event, nil
+}
+
+func (ic *inputClient) RegisterControl(ctx context.Context, ctrlFunc input.ControlFunction, trigger input.EventType) error {
+	ic.mu.Lock()
+	defer ic.mu.Unlock()
+
+	if trigger == input.ButtonChange {
+		ic.callbacks[input.ButtonUp] = ctrlFunc
+		ic.callbacks[input.ButtonDown] = ctrlFunc
+	} else {
+		ic.callbacks[trigger] = ctrlFunc
+	}
+
+	go ic.connectStream(ctx)
+	return nil
+}
+
+func (ic *inputClient) connectStream(ctx context.Context) {
+
+	// Will retry on connection errors and disconnects
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		req := &pb.InputStateStreamRequest{
+			Controller: ic.controller.name,
+			Code:       uint32(ic.controlCode),
+		}
+
+		var haveCallbacks bool
+		ic.mu.Lock()
+		for event, ctrlFunc := range ic.callbacks {
+			if ctrlFunc != nil {
+				haveCallbacks = true
+				req.Events = append(req.Events, uint32(event))
+			}
+		}
+
+		if ic.streamCancel != nil {
+			ic.streamCancel()
+		}
+
+		if !haveCallbacks {
+			ic.streamCancel = nil
+			ic.streamConnected = false
+			ic.mu.Unlock()
+			return
+		}
+
+		streamCtx, cancel := context.WithCancel(ctx)
+		ic.streamCancel = cancel
+
+		stream, err := ic.rc.client.InputStateStream(streamCtx, req)
+		if err != nil {
+			ic.streamConnected = false
+			ic.controller.rc.logger.Error(err)
+			continue
+		}
+
+		ic.streamConnected = true
+		ic.mu.Unlock()
+
+		// Send a connect event
+		eventOut := input.Event{
+			Time:  time.Now(),
+			Event: input.Connect,
+			Code:  ic.controlCode,
+			Value: 0,
+		}
+		ic.execCallback(ctx, eventOut)
+
+		// Handle the rest of the stream
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			eventIn, err := stream.Recv()
+			if err == io.EOF && eventIn == nil {
+				ic.mu.Lock()
+				ic.streamConnected = false
+				ic.mu.Unlock()
+				eventOut := input.Event{
+					Time:  time.Now(),
+					Event: input.Disconnect,
+					Code:  ic.controlCode,
+					Value: 0,
+				}
+				ic.execCallback(ctx, eventOut)
+				continue
+			}
+			if err != nil {
+				ic.controller.rc.logger.Error(err)
+				return
+			}
+
+			eventOut := input.Event{
+				Time:  eventIn.Time.AsTime(),
+				Event: input.EventType(eventIn.Event),
+				Code:  input.ControlCode(eventIn.Code),
+				Value: eventIn.Value,
+			}
+			ic.execCallback(ctx, eventOut)
+		}
+	}
+
+	return
+
+}
+
+func (ic *inputClient) execCallback(ctx context.Context, event input.Event) {
+	ic.mu.Lock()
+	defer ic.mu.Unlock()
+	callback, ok := ic.callbacks[event.Event]
+	if ok {
+		go callback(ctx, ic, event)
+	}
+	callbackAll, ok := ic.callbacks[input.AllEvents]
+	if ok {
+		go callbackAll(ctx, ic, event)
+	}
+	return
 }
