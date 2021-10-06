@@ -19,10 +19,6 @@ func NewGPIOMotor(b Board, mc motor.Config, logger golog.Logger) (motor.Motor, e
 	var m motor.Motor
 	pins := mc.Pins
 
-	// If pins["c"] exists, then we have at least 3 data pins, and this is likely a stepper motor
-	if _, ok := pins["c"]; ok {
-		return NewGPIOStepperMotor(b, pins, mc, logger)
-	}
 	if mc.MaxPowerPct == 0 {
 		mc.MaxPowerPct = 1.0
 	}

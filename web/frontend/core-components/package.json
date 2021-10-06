@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve --port 3000",
-    "build:dev": "vue-cli-service build --target lib --name coreComponents --formats umd --dest ../../runtime-shared/static/components ./src/lib.ts && rm ../../runtime-shared/static/components/demo.html",
+    "build:dev": "vue-cli-service build --target lib --name coreComponents --formats umd-min --dest ../../runtime-shared/static/components ./src/lib.ts",
     "build:prod": "vue-cli-service build --target lib --name coreComponents --formats umd-min --dest ../../runtime-shared/static/components ./src/lib.ts && rm ../../runtime-shared/static/components/coreComponents.umd.min.js.map",
     "lint": "vue-cli-service lint"
   },

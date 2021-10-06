@@ -22,15 +22,15 @@ import (
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 
 	"go.viam.com/core/action"
-	"go.viam.com/core/camera"
 	grpcmetadata "go.viam.com/core/grpc/metadata/server"
 	grpcserver "go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/metadata/service"
 	metadatapb "go.viam.com/core/proto/api/service/v1"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
+	robotimpl "go.viam.com/core/robot/impl"
+	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 	"go.viam.com/core/web"
 
@@ -206,43 +206,35 @@ type grabAtCameraPositionHandler struct {
 	app *robotWebApp
 }
 
-func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, cameraName string, camera camera.Camera, x, y, z float64) error {
-	if len(h.app.theRobot.ArmNames()) != 1 {
-		return errors.New("robot needs exactly 1 arm to do grabAt")
+func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, cameraName string, x, y, z float64) (bool, error) {
+	r := h.app.theRobot
+	// get gripper component
+	if len(r.GripperNames()) != 1 {
+		return false, errors.New("robot needs exactly 1 arm for doGrab")
 	}
-
-	armName := h.app.theRobot.ArmNames()[0]
-	arm, ok := h.app.theRobot.ArmByName(armName)
+	gripperName := r.GripperNames()[0]
+	gripper, ok := r.GripperByName(gripperName)
 	if !ok {
-		return fmt.Errorf("failed to find arm %q", armName)
+		return false, fmt.Errorf("failed to find gripper %q", gripperName)
 	}
-
-	frameSys, err := h.app.theRobot.FrameSystem(ctx)
+	// do gripper movement
+	err := gripper.Open(ctx)
 	if err != nil {
-		return err
+		return false, err
 	}
 	cameraPoint := r3.Vector{x, y, z}
-	input := make(map[string][]referenceframe.Input)
-	pos, err := frameSys.TransformPoint(input, cameraPoint, frameSys.GetFrame(cameraName), frameSys.GetFrame(armName))
+	cameraPose := spatialmath.NewPoseFromPoint(cameraPoint)
+	err = robotimpl.MoveGripper(ctx, r, cameraPose, cameraName)
 	if err != nil {
-		return err
+		return false, err
 	}
-
-	h.app.logger.Debugf("move - %v %v %v\n", x, y, z)
-	h.app.logger.Debugf("pos a: %#v\n", pos)
-
-	return arm.MoveToPosition(ctx, &pb.ArmPosition{X: pos.X, Y: pos.Y, Z: pos.Z})
+	return gripper.Grab(ctx)
 }
 
 func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	cameraName := pat.Param(r, "camera")
-	camera, ok := h.app.theRobot.CameraByName(cameraName)
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
 
 	xString := pat.Param(r, "x")
 	yString := pat.Param(r, "y")
@@ -270,11 +262,14 @@ func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	err = h.doGrab(ctx, cameraName, camera, x, y, z)
+	didGrab, err := h.doGrab(ctx, cameraName, x, y, z)
 	if err != nil {
 		h.app.logger.Errorf("error grabbing: %s", err)
 		http.Error(w, fmt.Sprintf("error grabbing: %s", err), http.StatusInternalServerError)
 		return
+	}
+	if !didGrab {
+		h.app.logger.Error("failed to grab anything")
 	}
 
 }

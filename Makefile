@@ -77,6 +77,10 @@ deb-server: server cameras
 	install -m 644 -D web/runtime-shared/static/third-party/vue.js etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/third-party/vue.js
 	install -m 644 -D web/runtime-shared/static/third-party/ace/snippets/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/third-party/ace/snippets
 	install -m 644 -D web/runtime-shared/static/third-party/ace/*.js --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/third-party/ace
+	install -m 644 -D web/runtime-shared/static/components/*.js --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/components
+	install -m 644 -D web/runtime-shared/static/components/*.css --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/components
+	install -m 644 -D web/runtime-shared/static/components/fonts/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/components/fonts
+	install -m 644 -D web/runtime-shared/static/components/img/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/components/img
 	cd etc/packaging/work/viam-server-$(SERVER_DEB_VER)/ \
 	&& dch -v $(SERVER_DEB_VER)+`date -u '+%Y%m%d%H%M'` "Auto-build from commit `git log --pretty=format:'%h' -n 1`" \
 	&& dch -r viam \

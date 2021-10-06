@@ -5,7 +5,6 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/utils"
 )
 
 // Pose represents a 6dof pose, position and orientation, with respect to the origin.
@@ -119,8 +118,8 @@ func PoseToArmPos(p Pose) *pb.ArmPosition {
 	final.X = pt.X
 	final.Y = pt.Y
 	final.Z = pt.Z
-	poseOV := p.Orientation().OrientationVectorRadians()
-	final.Theta = utils.RadToDeg(poseOV.Theta)
+	poseOV := p.Orientation().OrientationVectorDegrees()
+	final.Theta = poseOV.Theta
 	final.OX = poseOV.OX
 	final.OY = poseOV.OY
 	final.OZ = poseOV.OZ

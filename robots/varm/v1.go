@@ -52,10 +52,17 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			ik := kinematics.CreateCombinedIKSolver(model, logger, 4)
-			return NewArmV1(ctx, r, logger, ik)
-		},
-	})
+			ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+			if err != nil {
+				return nil, err
+			}
+			raw, err := NewArmV1(ctx, r, logger, ik)
+			if err != nil {
+				return nil, err
+			}
+
+			return raw, nil
+		}})
 }
 
 type joint struct {

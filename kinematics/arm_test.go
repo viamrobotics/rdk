@@ -29,7 +29,8 @@ func TestCombinedIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
-	ik := CreateCombinedIKSolver(m, logger, nCPU)
+	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Test ability to arrive at another position
 	pos := &pb.ArmPosition{
@@ -61,7 +62,8 @@ func BenchCombinedIKinematics(t *testing.B) {
 
 	m, err := ParseJSONFile(utils.ResolveFile("robots/eva/eva_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
-	ik := CreateCombinedIKSolver(m, logger, nCPU)
+	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Test we are able to solve random valid positions from other random valid positions
 	// Used for benchmarking solve rate
@@ -85,7 +87,8 @@ func TestUR5NloptIKinematics(t *testing.T) {
 
 	m, err := ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"))
 	test.That(t, err, test.ShouldBeNil)
-	ik := CreateCombinedIKSolver(m, logger, nCPU)
+	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
+	test.That(t, err, test.ShouldBeNil)
 
 	goalJP := arm.JointPositionsFromRadians([]float64{-4.128, 2.71, 2.798, 2.3, 1.291, 0.62})
 	goal, err := ComputePosition(m, goalJP)
@@ -99,7 +102,8 @@ func TestIKTolerances(t *testing.T) {
 
 	m, err := ParseJSONFile(utils.ResolveFile("robots/varm/v1_test.json"))
 	test.That(t, err, test.ShouldBeNil)
-	ik := CreateCombinedIKSolver(m, logger, nCPU)
+	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
 	pos := &pb.ArmPosition{
@@ -116,7 +120,8 @@ func TestIKTolerances(t *testing.T) {
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
 	m, err = ParseJSONFile(utils.ResolveFile("robots/varm/v1.json"))
 	test.That(t, err, test.ShouldBeNil)
-	ik = CreateCombinedIKSolver(m, logger, nCPU)
+	ik, err = CreateCombinedIKSolver(m, logger, nCPU)
+	test.That(t, err, test.ShouldBeNil)
 	ik.SetSolveWeights(m.SolveWeights)
 
 	_, err = ik.Solve(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
@@ -155,7 +160,8 @@ func BenchNloptSwing(t *testing.B) {
 	logger := golog.NewDevelopmentLogger("testSwing")
 	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
-	ik := CreateCombinedIKSolver(m, logger, nCPU)
+	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Test we are able to solve incremental changes without large joint swings
 	for i := 0; i < toSolve; i++ {

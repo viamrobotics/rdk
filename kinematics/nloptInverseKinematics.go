@@ -34,7 +34,7 @@ type NloptIK struct {
 }
 
 // CreateNloptIKSolver TODO
-func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) *NloptIK {
+func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK, error) {
 	ik := &NloptIK{id: id, logger: logger}
 	ik.randSeed = rand.New(rand.NewSource(1))
 	ik.model = mdl
@@ -54,7 +54,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) *NloptIK 
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
 	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(ik.model.DoF())))
 	if err != nil {
-		panic(fmt.Errorf("nlopt creation error: %w", err)) // TODO(biotinker): should return error or panic
+		return nil, fmt.Errorf("nlopt creation error: %w", err)
 	}
 	ik.opt = opt
 
@@ -111,6 +111,9 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) *NloptIK 
 		}
 		return dist
 	}
+	if len(ik.lowerBound) == 0 || len(ik.upperBound) == 0 {
+		return nil, errors.New("cannot set upper or lower bounds for nlopt, slice is empty")
+	}
 
 	err = multierr.Combine(
 		opt.SetFtolAbs(floatEpsilon),
@@ -125,10 +128,10 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) *NloptIK 
 	)
 
 	if err != nil {
-		panic(err) // TODO(biotinker): return error?
+		return nil, err
 	}
 
-	return ik
+	return ik, nil
 }
 
 // addGoal adds a nlopt IK goal

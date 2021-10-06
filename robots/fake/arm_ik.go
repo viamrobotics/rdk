@@ -28,17 +28,39 @@ func init() {
 			}
 			return NewArmIK(config.Name, logger)
 		},
+		Frame: func(name string) (frame.Frame, error) {
+			return fakeFrame(name)
+		},
 	})
+}
+
+// fakeModel returns the kinematics model
+func fakeModel() (*kinematics.Model, error) {
+	return kinematics.ParseJSON([]byte(armModelJSON))
+}
+
+// fakeFrame returns the reference frame of the fake arm
+func fakeFrame(name string) (frame.Frame, error) {
+	f, err := fakeModel()
+	if err != nil {
+		return nil, err
+	}
+	f.SetName(name)
+	return f, nil
 }
 
 // NewArmIK returns a new fake arm.
 func NewArmIK(name string, logger golog.Logger) (arm.Arm, error) {
-	model, err := kinematics.ParseJSON([]byte(armModelJSON))
+	model, err := fakeModel()
 	if err != nil {
 		return nil, err
 	}
 
-	ik := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	if err != nil {
+		return nil, err
+	}
+
 	newArm := &ArmIK{
 		Name:     name,
 		position: &pb.ArmPosition{},
