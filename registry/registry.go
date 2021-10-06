@@ -16,6 +16,7 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
@@ -294,11 +295,8 @@ func FrameLookup(comp *config.Component) (CreateFrame, bool) {
 		}
 		return registration.Frame, true
 	case config.ComponentTypeArm:
-		rName, err := comp.ResourceName()
-		if err != nil {
-			return nil, false
-		}
-		registration := ComponentLookup(rName.ResourceSubtype.String(), comp.Model)
+		rName := comp.ResourceName()
+		registration := ComponentLookup(rName.Subtype, comp.Model)
 		if registration == nil || registration.Frame == nil {
 			return nil, false
 		}
@@ -408,22 +406,22 @@ var (
 )
 
 // RegisterComponent register a creator to its corresponding component and model.
-func RegisterComponent(component string, model string, creator Component) {
-	qName := fmt.Sprintf("%s/%s", component, model)
+func RegisterComponent(subtype resource.Subtype, model string, creator Component) {
+	qName := fmt.Sprintf("%s/%s", subtype, model)
 	_, old := componentRegistry[qName]
 	if old {
-		panic(errors.Errorf("trying to register two resource with same component:%s, model:%s", component, model))
+		panic(errors.Errorf("trying to register two resource with same subtype:%s, model:%s", subtype, model))
 	}
 	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for component:%s, model:%s", component, model))
+		panic(errors.Errorf("cannot register a nil constructor for subtype:%s, model:%s", subtype, model))
 	}
 	componentRegistry[qName] = creator
 }
 
-// ComponentLookup looks up a creator by the given component and model. nil is returned if
+// ComponentLookup looks up a creator by the given subtype and model. nil is returned if
 // there is no creator registered.
-func ComponentLookup(component string, model string) *Component {
-	qName := fmt.Sprintf("%s/%s", component, model)
+func ComponentLookup(subtype resource.Subtype, model string) *Component {
+	qName := fmt.Sprintf("%s/%s", subtype, model)
 	if registration, ok := componentRegistry[qName]; ok {
 		return &registration
 	}

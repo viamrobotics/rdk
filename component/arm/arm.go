@@ -3,7 +3,6 @@ package arm
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"sync"
 
@@ -16,16 +15,19 @@ import (
 	"go.viam.com/core/utils"
 )
 
-// ResourceSubtype is a constant that identifies the component resource subtype
-var ResourceSubtype, _ = resource.NewSubtype(
+// SubtypeName is a constant that identifies the component resource subtype string "arm"
+const SubtypeName = resource.SubtypeName("arm")
+
+// Subtype is a constant that identifies the component resource subtype
+var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceCore,
 	resource.ResourceTypeComponent,
-	resource.ResourceSubtypeArm,
+	SubtypeName,
 )
 
-// Named is a helper for getting the named Arm's fully qualified name
-func Named(name string) string {
-	return fmt.Sprintf("%s/%s", ResourceSubtype.String(), name)
+// Named is a helper for getting the named Arm's typed resource name
+func Named(name string) resource.Name {
+	return resource.NewFromSubtype(Subtype, name)
 }
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.

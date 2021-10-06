@@ -11,6 +11,7 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	functionvm "go.viam.com/core/function/vm"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/testutils/inject"
 
@@ -35,7 +36,7 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2"))
 	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2"))
 	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2"))
-	test.That(t, utils.NewStringSet(parts.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm1"), arm.Named("arm2")))
+	test.That(t, newResourceNameSet(parts.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm1"), arm.Named("arm2")}...))
 
 	_, ok := parts.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -83,7 +84,7 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	_, ok = parts.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName("core:component:arm/arm1_what")
+	_, ok = parts.ResourceByName(arm.Named("arm_what"))
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
@@ -106,7 +107,7 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2", "servo1_r1", "servo2_r1", "servo1_r2", "servo2_r2"))
 	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2", "motor1_r1", "motor2_r1", "motor1_r2", "motor2_r2"))
 	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
-	test.That(t, utils.NewStringSet(parts.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm1"), arm.Named("arm2"), "core:component:arm/arm1_r1", "core:component:arm/arm2_r1", "core:component:arm/arm1_r2", "core:component:arm/arm2_r2"))
+	test.That(t, newResourceNameSet(parts.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}...))
 
 	_, ok := parts.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -215,11 +216,11 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 
 	_, ok = parts.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName("core:component:arm/arm1_r1")
+	_, ok = parts.ResourceByName(arm.Named("arm1_r1"))
 	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName("core:component:arm/arm1_r2")
+	_, ok = parts.ResourceByName(arm.Named("arm1_r2"))
 	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName("core:component:arm/arm1_what")
+	_, ok = parts.ResourceByName(arm.Named("arm1_what"))
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
@@ -275,7 +276,7 @@ func TestPartsClone(t *testing.T) {
 	test.That(t, utils.NewStringSet(newParts.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2", "servo1_r1", "servo2_r1", "servo1_r2", "servo2_r2"))
 	test.That(t, utils.NewStringSet(newParts.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2", "motor1_r1", "motor2_r1", "motor1_r2", "motor2_r2"))
 	test.That(t, utils.NewStringSet(newParts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
-	test.That(t, utils.NewStringSet(newParts.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm1"), arm.Named("arm2"), "core:component:arm/arm1_r1", "core:component:arm/arm2_r1", "core:component:arm/arm1_r2", "core:component:arm/arm2_r2"))
+	test.That(t, newResourceNameSet(newParts.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}...))
 	test.That(t, utils.NewStringSet(newParts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 	_, ok = newParts.ArmByName("arm1")
@@ -385,11 +386,11 @@ func TestPartsClone(t *testing.T) {
 
 	_, ok = newParts.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName("core:component:arm/arm1_r1")
+	_, ok = newParts.ResourceByName(arm.Named("arm1_r1"))
 	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName("core:component:arm/arm1_r2")
+	_, ok = newParts.ResourceByName(arm.Named("arm1_r2"))
 	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName("core:component:arm/arm1_what")
+	_, ok = newParts.ResourceByName(arm.Named("arm1_what"))
 	test.That(t, ok, test.ShouldBeFalse)
 
 	proc, ok := newParts.processManager.ProcessByID("1")
@@ -514,15 +515,14 @@ func TestPartsAdd(t *testing.T) {
 	injectArm := &inject.Arm{}
 	cfg := &config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
 
-	rName, err := cfg.ResourceName()
-	test.That(t, err, test.ShouldBeNil)
-	parts.addResource(rName.String(), injectArm)
+	rName := cfg.ResourceName()
+	parts.addResource(rName, injectArm)
 	arm1, ok := parts.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, arm1, test.ShouldEqual, injectArm)
-	parts.addResource(rName.String(), arm1)
+	parts.addResource(rName, arm1)
 	test.That(t, arm1, test.ShouldEqual, injectArm)
-	resource1, ok := parts.ResourceByName(rName.String())
+	resource1, ok := parts.ResourceByName(rName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resource1, test.ShouldEqual, injectArm)
 }
@@ -552,7 +552,7 @@ func TestPartsMergeAdd(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.ResourceNames()...), test.ShouldBeEmpty)
+		test.That(t, newResourceNameSet(toCheck.ResourceNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 	}
 	checkSame := func(toCheck *robotParts) {
@@ -568,7 +568,7 @@ func TestPartsMergeAdd(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2", "servo1_r1", "servo2_r1", "servo1_r2", "servo2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2", "motor1_r1", "motor2_r1", "motor1_r2", "motor2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
-		test.That(t, utils.NewStringSet(toCheck.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm1"), arm.Named("arm2"), "core:component:arm/arm1_r1", "core:component:arm/arm2_r1", "core:component:arm/arm1_r2", "core:component:arm/arm2_r2"))
+		test.That(t, newResourceNameSet(toCheck.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}...))
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 	}
 	result, err := parts.MergeAdd(newRobotParts(logger))
@@ -596,7 +596,7 @@ func TestPartsMergeAdd(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2", "servo1_r1", "servo2_r1", "servo1_r2", "servo2_r2", "servo1_other", "servo2_other", "servo1_other1", "servo2_other1"))
 	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2", "motor1_r1", "motor2_r1", "motor1_r2", "motor2_r2", "motor1_other", "motor2_other", "motor1_other1", "motor2_other1"))
 	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2", "func1_other", "func2_other", "func1_other1", "func2_other1"))
-	test.That(t, utils.NewStringSet(parts.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm1"), arm.Named("arm2"), "core:component:arm/arm1_r1", "core:component:arm/arm2_r1", "core:component:arm/arm1_r2", "core:component:arm/arm2_r2", "core:component:arm/arm1_other", "core:component:arm/arm2_other", "core:component:arm/arm1_other1", "core:component:arm/arm2_other1"))
+	test.That(t, newResourceNameSet(parts.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2"), arm.Named("arm1_other"), arm.Named("arm2_other"), arm.Named("arm1_other1"), arm.Named("arm2_other1")}...))
 	test.That(t, utils.NewStringSet(parts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 	emptyParts = newRobotParts(logger)
@@ -625,7 +625,7 @@ func TestPartsMergeAdd(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2", "servo1_r1", "servo2_r1", "servo1_r2", "servo2_r2", "servo1_other", "servo2_other", "servo1_other1", "servo2_other1"))
 	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2", "motor1_r1", "motor2_r1", "motor1_r2", "motor2_r2", "motor1_other", "motor2_other", "motor1_other1", "motor2_other1"))
 	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2", "func1_other", "func2_other", "func1_other1", "func2_other1"))
-	test.That(t, utils.NewStringSet(parts.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm1"), arm.Named("arm2"), "core:component:arm/arm1_r1", "core:component:arm/arm2_r1", "core:component:arm/arm1_r2", "core:component:arm/arm2_r2", "core:component:arm/arm1_other", "core:component:arm/arm2_other", "core:component:arm/arm1_other1", "core:component:arm/arm2_other1"))
+	test.That(t, newResourceNameSet(parts.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2"), arm.Named("arm1_other"), arm.Named("arm2_other"), arm.Named("arm1_other1"), arm.Named("arm2_other1")}...))
 	test.That(t, utils.NewStringSet(parts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 	emptyParts = newRobotParts(logger)
@@ -641,7 +641,7 @@ func TestPartsMergeAdd(t *testing.T) {
 	test.That(t, utils.NewStringSet(emptyParts.ServoNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.MotorNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.FunctionNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.ResourceNames()...), test.ShouldBeEmpty)
+	test.That(t, newResourceNameSet(emptyParts.ResourceNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 	err = result.Process(parts)
@@ -674,7 +674,7 @@ func TestPartsMergeModify(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2", "servo1_r1", "servo2_r1", "servo1_r2", "servo2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2", "motor1_r1", "motor2_r1", "motor1_r2", "motor2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
-		test.That(t, utils.NewStringSet(toCheck.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm1"), arm.Named("arm2"), "core:component:arm/arm1_r1", "core:component:arm/arm2_r1", "core:component:arm/arm1_r2", "core:component:arm/arm2_r2"))
+		test.That(t, newResourceNameSet(toCheck.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}...))
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 		board1, ok := toCheck.BoardByName("board1")
@@ -703,7 +703,7 @@ func TestPartsMergeModify(t *testing.T) {
 	test.That(t, utils.NewStringSet(emptyParts.ServoNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.MotorNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.FunctionNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.ResourceNames()...), test.ShouldBeEmpty)
+	test.That(t, newResourceNameSet(emptyParts.ResourceNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 
 	test.That(t, result.Process(parts), test.ShouldBeNil)
@@ -732,9 +732,9 @@ func TestPartsMergeModify(t *testing.T) {
 	robotForRemote.parts.AddMotor(&inject.Motor{}, config.Component{Name: "motor2_r1"})
 	robotForRemote.parts.addFunction("func2_r1")
 	cfg := config.Component{Type: config.ComponentTypeArm, Name: "arm2_r1"}
-	rName, err := cfg.ResourceName()
+	rName := cfg.ResourceName()
 	test.That(t, err, test.ShouldBeNil)
-	robotForRemote.parts.addResource(rName.String(), &inject.Arm{})
+	robotForRemote.parts.addResource(rName, &inject.Arm{})
 
 	remote1Replacemenet := newRemoteRobot(robotForRemote, config.Remote{Name: "remote1"})
 	replacementParts.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
@@ -768,9 +768,8 @@ func TestPartsMergeModify(t *testing.T) {
 	replacementParts.AddMotor(injectMotor, config.Component{Name: "motor1"})
 	cfg = config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
 	injectArm := &inject.Arm{}
-	rName, err = cfg.ResourceName()
-	test.That(t, err, test.ShouldBeNil)
-	replacementParts.addResource(rName.String(), injectArm)
+	rName = cfg.ResourceName()
+	replacementParts.addResource(rName, injectArm)
 	fp1 := &fakeProcess{id: "1"}
 	_, err = replacementParts.processManager.AddProcess(context.Background(), fp1, false)
 	test.That(t, err, test.ShouldBeNil)
@@ -801,7 +800,7 @@ func TestPartsMergeRemove(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2", "servo1_r1", "servo2_r1", "servo1_r2", "servo2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2", "motor1_r1", "motor2_r1", "motor1_r2", "motor2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
-		test.That(t, utils.NewStringSet(toCheck.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm1"), arm.Named("arm2"), "core:component:arm/arm1_r1", "core:component:arm/arm2_r1", "core:component:arm/arm1_r2", "core:component:arm/arm2_r2"))
+		test.That(t, newResourceNameSet(toCheck.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}...))
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 	}
 
@@ -835,7 +834,7 @@ func TestPartsMergeRemove(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(parts.ResourceNames()...), test.ShouldBeEmpty)
+	test.That(t, newResourceNameSet(parts.ResourceNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(parts.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 }
 
@@ -864,7 +863,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.ResourceNames()...), test.ShouldBeEmpty)
+		test.That(t, newResourceNameSet(toCheck.ResourceNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 	}
 
@@ -1007,7 +1006,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, utils.NewStringSet(filtered.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo2"))
 	test.That(t, utils.NewStringSet(filtered.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor2"))
 	test.That(t, utils.NewStringSet(filtered.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func2"))
-	test.That(t, utils.NewStringSet(filtered.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm2")))
+	test.That(t, newResourceNameSet(filtered.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm2")}...))
 	test.That(t, utils.NewStringSet(filtered.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("2"))
 
 	filtered, err = parts.FilterFromConfig(&config.Config{
@@ -1079,7 +1078,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, utils.NewStringSet(filtered.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo2", "servo1_r2", "servo2_r2"))
 	test.That(t, utils.NewStringSet(filtered.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor2", "motor1_r2", "motor2_r2"))
 	test.That(t, utils.NewStringSet(filtered.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func2", "func1_r2", "func2_r2"))
-	test.That(t, utils.NewStringSet(filtered.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm2"), "core:component:arm/arm1_r2", "core:component:arm/arm2_r2"))
+	test.That(t, newResourceNameSet(filtered.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm2"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}...))
 	test.That(t, utils.NewStringSet(filtered.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("2"))
 
 	filtered, err = parts.FilterFromConfig(&config.Config{
@@ -1243,7 +1242,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, utils.NewStringSet(filtered.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2", "servo1_r1", "servo2_r1", "servo1_r2", "servo2_r2"))
 	test.That(t, utils.NewStringSet(filtered.MotorNames()...), test.ShouldResemble, utils.NewStringSet("motor1", "motor2", "motor1_r1", "motor2_r1", "motor1_r2", "motor2_r2"))
 	test.That(t, utils.NewStringSet(filtered.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
-	test.That(t, utils.NewStringSet(filtered.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm1"), arm.Named("arm2"), "core:component:arm/arm1_r1", "core:component:arm/arm2_r1", "core:component:arm/arm1_r2", "core:component:arm/arm2_r2"))
+	test.That(t, newResourceNameSet(filtered.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}...))
 	test.That(t, utils.NewStringSet(filtered.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 }
 

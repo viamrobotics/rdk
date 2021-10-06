@@ -25,6 +25,7 @@ import (
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
@@ -1132,7 +1133,7 @@ func TestClientReferesh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4"))
 	test.That(t, utils.NewStringSet(client.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo2", "servo3"))
-	test.That(t, utils.NewStringSet(client.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm2"), "core:component:arm/arm3"))
+	test.That(t, client.ResourceNames(), test.ShouldResemble, []resource.Name{arm.Named("arm2"), arm.Named("arm3")})
 
 	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)
@@ -1156,7 +1157,7 @@ func TestClientReferesh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass1", "compass2"))
-	test.That(t, utils.NewStringSet(client.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm1")))
+	test.That(t, client.ResourceNames(), test.ShouldResemble, []resource.Name{arm.Named("arm1")})
 
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return finalStatus, nil
@@ -1171,7 +1172,7 @@ func TestClientReferesh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4"))
-	test.That(t, utils.NewStringSet(client.ResourceNames()...), test.ShouldResemble, utils.NewStringSet(arm.Named("arm2"), "core:component:arm/arm3"))
+	test.That(t, client.ResourceNames(), test.ShouldResemble, []resource.Name{arm.Named("arm2"), arm.Named("arm3")})
 
 	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)

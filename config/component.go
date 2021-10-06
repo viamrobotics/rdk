@@ -54,13 +54,13 @@ func (config *Component) String() string {
 	return fmt.Sprintf("%#v", config)
 }
 
-// ResourceName returns the fully qualified name for the component.
-func (config *Component) ResourceName() (resource.Name, error) {
+// ResourceName returns the  ResourceName for the component.
+func (config *Component) ResourceName() resource.Name {
 	cType := string(config.Type)
 	if config.Type == ComponentTypeSensor {
 		cType = config.SubType
 	}
-	return resource.NewName(resource.ResourceNamespaceCore, resource.ResourceTypeComponent, cType, config.Name)
+	return resource.NewName(resource.ResourceNamespaceCore, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
 }
 
 type validator interface {

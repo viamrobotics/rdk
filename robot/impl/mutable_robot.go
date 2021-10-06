@@ -121,7 +121,7 @@ func (r *mutableRobot) ServiceByName(name string) (interface{}, bool) {
 
 // ResourceByName returns a resource by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) ResourceByName(name string) (interface{}, bool) {
+func (r *mutableRobot) ResourceByName(name resource.Name) (interface{}, bool) {
 	return r.parts.ResourceByName(name)
 }
 
@@ -201,7 +201,7 @@ func (r *mutableRobot) ServiceNames() []string {
 }
 
 // ResourceNames returns the name of all known resources.
-func (r *mutableRobot) ResourceNames() []string {
+func (r *mutableRobot) ResourceNames() []resource.Name {
 	return r.parts.ResourceNames()
 }
 
@@ -368,13 +368,10 @@ func (r *mutableRobot) newService(ctx context.Context, config config.Service) (i
 }
 
 func (r *mutableRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
-	rName, err := config.ResourceName()
-	if err != nil {
-		return nil, err
-	}
-	f := registry.ComponentLookup(rName.ResourceSubtype.String(), config.Model)
+	rName := config.ResourceName()
+	f := registry.ComponentLookup(rName.Subtype, config.Model)
 	if f == nil {
-		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.ResourceSubtype.String(), config.Model)
+		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
 	}
 	return f.Constructor(ctx, r, config, r.logger)
 }
@@ -389,138 +386,100 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 	// TODO: Currently just a placeholder implementation, this should be rewritten once robot/parts have more metadata about themselves
 	var resources []resource.Name
 
-	metadata, err := resource.NewName(resource.ResourceNamespaceCore, resource.ResourceTypeService, resource.ResourceSubtypeMetadata, "")
-	if err != nil {
-		return err
-	}
+	metadata := resource.NewFromSubtype(service.Subtype, "")
 	resources = append(resources, metadata)
 
 	for _, name := range r.BaseNames() {
-		res, err := resource.NewName(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeBase,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
 	for _, name := range r.BoardNames() {
-		res, err := resource.NewName(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeBoard,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
 	for _, name := range r.CameraNames() {
-		res, err := resource.NewName(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeCamera,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
 	for _, name := range r.FunctionNames() {
-		res, err := resource.NewName(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeService,
 			resource.ResourceSubtypeFunction,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
 	for _, name := range r.GripperNames() {
-		res, err := resource.NewName(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeGripper,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
 	for _, name := range r.LidarNames() {
-		res, err := resource.NewName(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeLidar,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
 	for _, name := range r.RemoteNames() {
-		res, err := resource.NewName(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeRemote,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
 	for _, name := range r.SensorNames() {
-		res, err := resource.NewName(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeSensor,
 			name,
 		)
-		if err != nil {
-			return err
-		}
+
 		resources = append(resources, res)
 	}
 	for _, name := range r.ServoNames() {
-		res, err := resource.NewName(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeServo,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
 	for _, name := range r.MotorNames() {
-		res, err := resource.NewName(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeMotor,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
-	for _, name := range r.ResourceNames() {
-		res, err := resource.NewFromString(name)
-		if err != nil {
-			return err
-		}
-		resources = append(resources, res)
-	}
+	resources = append(resources, r.ResourceNames()...)
 	return svc.Replace(resources)
 }
