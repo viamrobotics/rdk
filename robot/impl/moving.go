@@ -47,8 +47,15 @@ func MoveGripper(ctx context.Context, r robot.Robot, goalPose spatialmath.Pose, 
 	}
 	input[armName] = referenceframe.JointPosToInputs(pos)
 
-	// the goal is to move the gripper to goalPose (which is given in coord of frame goalFrameName).
-	output, err := solver.SolvePose(ctx, input, goalPose, frameSys.GetFrame(gripperName), frameSys.GetFrame(goalFrameName))
+	// update the goal orientation to match the current arm orientation, keep the point from goalPose
+	armPose, err := solver.TransformFrame(input, solver.GetFrame(armName), solver.GetFrame(goalFrameName))
+	if err != nil {
+		return err
+	}
+	newGoalPose := spatialmath.NewPoseFromOrientation(goalPose.Point(), armPose.Orientation())
+
+	// the goal is to move the gripper to newGoalPose (which is given in coord of frame goalFrameName).
+	output, err := solver.SolvePose(ctx, input, newGoalPose, frameSys.GetFrame(gripperName), frameSys.GetFrame(goalFrameName))
 	if err != nil {
 		return err
 	}
