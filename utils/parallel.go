@@ -67,8 +67,6 @@ func GroupWorkParallel(ctx context.Context, totalSize int, before BeforeParallel
 			}
 		})
 	}
-	// 37784*2000
-	// 2000*
 	wait.Wait()
 	return nil
 }
