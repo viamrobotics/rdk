@@ -27,12 +27,12 @@ func TestRobotReconfigure(t *testing.T) {
 		return conf
 	}
 	mockSubtype := "core:component:mock"
-	registry.RegisterComponentCreator(mockSubtype, "fake", registry.Component{
+	registry.RegisterComponent(mockSubtype, "fake", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return &mockFake{x: 5}, nil
 		},
 	})
-	registry.RegisterComponentCreator(mockSubtype, "fake2", registry.Component{
+	registry.RegisterComponent(mockSubtype, "fake2", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return &mockFake2{x: 5}, nil
 		},

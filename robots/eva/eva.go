@@ -35,7 +35,7 @@ import (
 var evamodeljson []byte
 
 func init() {
-	registry.RegisterComponentCreator(arm.ResourceSubtype.String(), "eva", registry.Component{
+	registry.RegisterComponent(arm.ResourceSubtype.String(), "eva", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewEva(ctx, config.Host, config.Attributes, logger)
 		},
