@@ -33,16 +33,19 @@ type ReturnTest struct {
 // CreateCombinedIKSolver creates a combined parallel IK solver with a number of nlopt solvers equal to the nCPU
 // passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
 // and the first valid found solution will be returned.
-func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCPU int) *CombinedIK {
+func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCPU int) (*CombinedIK, error) {
 	ik := &CombinedIK{}
 	ik.model = model
 	for i := 1; i <= nCPU; i++ {
-		nlopt := CreateNloptIKSolver(model, logger, i)
+		nlopt, err := CreateNloptIKSolver(model, logger, i)
+		if err != nil {
+			return nil, err
+		}
 		nlopt.SetSeed(int64(i * 1000))
 		ik.solvers = append(ik.solvers, nlopt)
 	}
 	ik.logger = logger
-	return ik
+	return ik, nil
 }
 
 func runSolver(ctx context.Context, solver InverseKinematics, c chan ReturnTest, noMoreSolutions <-chan struct{}, pos *pb.ArmPosition, seed []referenceframe.Input) {
@@ -58,7 +61,10 @@ func runSolver(ctx context.Context, solver InverseKinematics, c chan ReturnTest,
 func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed []referenceframe.Input) ([]referenceframe.Input, error) {
 	ik.logger.Debugf("starting joint positions: %v", seed)
 	startPos, err := ik.model.Transform(seed)
-	ik.logger.Debugf("starting 6d position: %v %v", spatialmath.PoseToArmPos(startPos), err)
+	if err != nil {
+		return nil, err
+	}
+	ik.logger.Debugf("starting 6d position: %v", spatialmath.PoseToArmPos(startPos))
 	ik.logger.Debugf("goal 6d position: %v", pos)
 
 	// This will adjust the goal position to make movements more intuitive when using incrementation near poles
@@ -110,7 +116,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed []ref
 		myRT.Result, _, myRT.Err = bestSolution(seed, solutions, ik.model)
 		ik.logger.Debugf("solved joint positions: %v", myRT.Result)
 		solvePos, err := ik.model.Transform(myRT.Result)
-		ik.logger.Debugf("solved 6d position: %v %v", solvePos, err)
+		ik.logger.Debugf("solved 6d position: %v %v", spatialmath.PoseToArmPos(solvePos), err)
 	}
 	return myRT.Result, myRT.Err
 }

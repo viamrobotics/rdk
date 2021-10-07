@@ -26,6 +26,7 @@ build-go:
 	go build $(TAGS) ./...
 
 build-web:
+	cd web/frontend/core-components && npm install && npm run build:prod
 	cd web/frontend && npm install && npx webpack
 
 buf:
@@ -76,6 +77,10 @@ deb-server: server cameras
 	install -m 644 -D web/runtime-shared/static/third-party/vue.js etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/third-party/vue.js
 	install -m 644 -D web/runtime-shared/static/third-party/ace/snippets/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/third-party/ace/snippets
 	install -m 644 -D web/runtime-shared/static/third-party/ace/*.js --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/third-party/ace
+	install -m 644 -D web/runtime-shared/static/components/*.js --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/components
+	install -m 644 -D web/runtime-shared/static/components/*.css --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/components
+	install -m 644 -D web/runtime-shared/static/components/fonts/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/components/fonts
+	install -m 644 -D web/runtime-shared/static/components/img/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/components/img
 	cd etc/packaging/work/viam-server-$(SERVER_DEB_VER)/ \
 	&& dch -v $(SERVER_DEB_VER)+`date -u '+%Y%m%d%H%M'` "Auto-build from commit `git log --pretty=format:'%h' -n 1`" \
 	&& dch -r viam \
@@ -87,6 +92,8 @@ deb-install: deb-server
 boat: samples/boat1/cmd.go
 	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat samples/boat1/cmd.go
 
-boat2: samples/boat2/cmd.go samples/boat2/util.go
-	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat2 samples/boat2/cmd.go samples/boat2/util.go
+boat2: samples/boat2/cmd.go
+	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat2 samples/boat2/cmd.go
 
+resetbox: samples/resetbox/cmd.go
+	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/resetbox samples/resetbox/cmd.go

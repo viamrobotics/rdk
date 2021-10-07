@@ -36,6 +36,7 @@ type Robot struct {
 	SensorByNameFunc   func(name string) (sensor.Sensor, bool)
 	ServoByNameFunc    func(name string) (servo.Servo, bool)
 	MotorByNameFunc    func(name string) (motor.Motor, bool)
+	ServiceByNameFunc  func(name string) (interface{}, bool)
 	RemoteNamesFunc    func() []string
 	ArmNamesFunc       func() []string
 	GripperNamesFunc   func() []string
@@ -47,6 +48,7 @@ type Robot struct {
 	ServoNamesFunc     func() []string
 	MotorNamesFunc     func() []string
 	FunctionNamesFunc  func() []string
+	ServiceNamesFunc   func() []string
 	ProcessManagerFunc func() pexec.ProcessManager
 	ConfigFunc         func(ctx context.Context) (*config.Config, error)
 	StatusFunc         func(ctx context.Context) (*pb.Status, error)
@@ -135,6 +137,14 @@ func (r *Robot) MotorByName(name string) (motor.Motor, bool) {
 	return r.MotorByNameFunc(name)
 }
 
+// ServiceByName calls the injected ServiceByName or the real version.
+func (r *Robot) ServiceByName(name string) (interface{}, bool) {
+	if r.ServiceByNameFunc == nil {
+		return r.Robot.ServiceByName(name)
+	}
+	return r.ServiceByNameFunc(name)
+}
+
 // RemoteNames calls the injected RemoteNames or the real version.
 func (r *Robot) RemoteNames() []string {
 	if r.RemoteNamesFunc == nil {
@@ -221,6 +231,14 @@ func (r *Robot) FunctionNames() []string {
 		return r.Robot.FunctionNames()
 	}
 	return r.FunctionNamesFunc()
+}
+
+// ServiceNames calls the injected ServiceNames or the real version.
+func (r *Robot) ServiceNames() []string {
+	if r.ServiceNamesFunc == nil {
+		return r.Robot.ServiceNames()
+	}
+	return r.ServiceNamesFunc()
 }
 
 // ProcessManager calls the injected ProcessManager or the real version.

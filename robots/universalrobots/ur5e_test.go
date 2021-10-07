@@ -78,7 +78,8 @@ func testUR5eInverseKinements(t *testing.T, pos *pb.ArmPosition) {
 
 	m, err := kinematics.ParseJSON(ur5modeljson)
 	test.That(t, err, test.ShouldBeNil)
-	ik := kinematics.CreateCombinedIKSolver(m, logger, 4)
+	ik, err := kinematics.CreateCombinedIKSolver(m, logger, 4)
+	test.That(t, err, test.ShouldBeNil)
 
 	solution, err := ik.Solve(ctx, pos, frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}))
 	test.That(t, err, test.ShouldBeNil)
@@ -199,7 +200,7 @@ func computeUR5ePosition(t *testing.T, jointRadians []float64) *pb.ArmPosition {
 	var o mat.Dense
 	o.Mul(res, orientationDH.matrix(0))
 
-	ov := spatialmath.OrientationVec{
+	ov := spatialmath.OrientationVector{
 		OX: o.At(0, 3) - res.At(0, 3),
 		OY: o.At(1, 3) - res.At(1, 3),
 		OZ: o.At(2, 3) - res.At(2, 3),

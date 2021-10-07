@@ -12,7 +12,7 @@ import (
 
 // RegisterConfigAttributeConverter registers a board.Config converter.
 func RegisterConfigAttributeConverter(model string) {
-	config.RegisterAttributeMapConverter(config.ComponentTypeBoard, model, func(attributes config.AttributeMap) (interface{}, error) {
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeBoard, model, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 		if err != nil {
@@ -38,6 +38,11 @@ type Config struct {
 func (config *Config) Validate(path string) error {
 	for idx, conf := range config.SPIs {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "spis", idx)); err != nil {
+			return err
+		}
+	}
+	for idx, conf := range config.I2Cs {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "i2cs", idx)); err != nil {
 			return err
 		}
 	}

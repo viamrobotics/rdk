@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
+	geo "github.com/kellydunn/golang-geo"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -32,7 +34,9 @@ import (
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/services/navigation"
 	"go.viam.com/core/spatialmath"
+	coreutils "go.viam.com/core/utils"
 	"go.viam.com/core/vision/segmentation"
 
 	// Engines
@@ -336,13 +340,14 @@ func (s *Server) ObjectPointClouds(ctx context.Context, req *pb.ObjectPointCloud
 		return nil, err
 	}
 	config := segmentation.ObjectConfig{int(req.MinPointsInPlane), int(req.MinPointsInSegment), req.ClusteringRadius}
-	segments, err := segmentation.NewObjectSegmentation(pc, config)
+	segments, err := segmentation.NewObjectSegmentation(ctx, pc, config)
 	if err != nil {
 		return nil, err
 	}
 
 	frames := make([][]byte, segments.N())
 	centers := make([]pointcloud.Vec3, segments.N())
+	boundingBoxes := make([]pointcloud.BoxGeometry, segments.N())
 	for i, seg := range segments.Objects {
 		var buf bytes.Buffer
 		err := seg.ToPCD(&buf)
@@ -351,12 +356,14 @@ func (s *Server) ObjectPointClouds(ctx context.Context, req *pb.ObjectPointCloud
 		}
 		frames[i] = buf.Bytes()
 		centers[i] = seg.Center
+		boundingBoxes[i] = seg.BoundingBox
 	}
 
 	return &pb.ObjectPointCloudsResponse{
-		MimeType: grpc.MimeTypePCD,
-		Frames:   frames,
-		Centers:  pointsToProto(centers),
+		MimeType:      grpc.MimeTypePCD,
+		Frames:        frames,
+		Centers:       pointsToProto(centers),
+		BoundingBoxes: boxesToProto(boundingBoxes),
 	}, nil
 }
 
@@ -592,6 +599,22 @@ func pointsToProto(vs []pointcloud.Vec3) []*pb.Vector3 {
 		pvs = append(pvs, pointToProto(v))
 	}
 	return pvs
+}
+
+func boxToProto(b pointcloud.BoxGeometry) *pb.BoxGeometry {
+	return &pb.BoxGeometry{
+		Width:  b.Width,
+		Length: b.Length,
+		Depth:  b.Depth,
+	}
+}
+
+func boxesToProto(bs []pointcloud.BoxGeometry) []*pb.BoxGeometry {
+	pbs := make([]*pb.BoxGeometry, 0, len(bs))
+	for _, v := range bs {
+		pbs = append(pbs, boxToProto(v))
+	}
+	return pbs
 }
 
 // BoardStatus returns the status of a board of the underlying robot.
@@ -1014,6 +1037,161 @@ func (s *Server) MotorZero(ctx context.Context, req *pb.MotorZeroRequest) (*pb.M
 	}
 
 	return &pb.MotorZeroResponse{}, theMotor.Zero(ctx, req.Offset)
+}
+
+type runCommander interface {
+	RunCommand(ctx context.Context, name string, args map[string]interface{}) (map[string]interface{}, error)
+}
+
+// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
+func (s *Server) ResourceRunCommand(ctx context.Context, req *pb.ResourceRunCommandRequest) (*pb.ResourceRunCommandResponse, error) {
+	// TODO(erd): support all resources
+	// we know only gps has this right now, so just look at sensors!
+	resource, ok := s.r.SensorByName(req.ResourceName)
+	if !ok {
+		return nil, errors.Errorf("no resource with name (%s)", req.ResourceName)
+	}
+	commander, ok := coreutils.UnwrapProxy(resource).(runCommander)
+	if !ok {
+		return nil, errors.New("cannot run commands on this resource")
+	}
+	result, err := commander.RunCommand(ctx, req.CommandName, req.Args.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	resultPb, err := structpb.NewStruct(result)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.ResourceRunCommandResponse{Result: resultPb}, nil
+}
+
+// NavigationServiceMode returns the mode of the service.
+func (s *Server) NavigationServiceMode(ctx context.Context, req *pb.NavigationServiceModeRequest) (*pb.NavigationServiceModeResponse, error) {
+	svc, ok := s.r.ServiceByName("navigation")
+	if !ok {
+		return nil, errors.New("no navigation service")
+	}
+	navSvc, ok := svc.(navigation.Service)
+	if !ok {
+		return nil, errors.New("service is not a navigation service")
+	}
+	m, err := navSvc.Mode(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pbM := pb.NavigationServiceMode_NAVIGATION_SERVICE_MODE_UNSPECIFIED
+	switch m {
+	case navigation.ModeManual:
+		pbM = pb.NavigationServiceMode_NAVIGATION_SERVICE_MODE_MANUAL
+	case navigation.ModeWaypoint:
+		pbM = pb.NavigationServiceMode_NAVIGATION_SERVICE_MODE_WAYPOINT
+	}
+	return &pb.NavigationServiceModeResponse{
+		Mode: pbM,
+	}, nil
+}
+
+// NavigationServiceSetMode sets the mode of the service.
+func (s *Server) NavigationServiceSetMode(ctx context.Context, req *pb.NavigationServiceSetModeRequest) (*pb.NavigationServiceSetModeResponse, error) {
+	svc, ok := s.r.ServiceByName("navigation")
+	if !ok {
+		return nil, errors.New("no navigation service")
+	}
+	navSvc, ok := svc.(navigation.Service)
+	if !ok {
+		return nil, errors.New("service is not a navigation service")
+	}
+	switch req.Mode {
+	case pb.NavigationServiceMode_NAVIGATION_SERVICE_MODE_MANUAL:
+		if err := navSvc.SetMode(ctx, navigation.ModeManual); err != nil {
+			return nil, err
+		}
+	case pb.NavigationServiceMode_NAVIGATION_SERVICE_MODE_WAYPOINT:
+		if err := navSvc.SetMode(ctx, navigation.ModeWaypoint); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, errors.Errorf("unknown mode %q", req.Mode.String())
+	}
+	return &pb.NavigationServiceSetModeResponse{}, nil
+}
+
+// NavigationServiceLocation returns the location of the robot.
+func (s *Server) NavigationServiceLocation(ctx context.Context, req *pb.NavigationServiceLocationRequest) (*pb.NavigationServiceLocationResponse, error) {
+	svc, ok := s.r.ServiceByName("navigation")
+	if !ok {
+		return nil, errors.New("no navigation service")
+	}
+	navSvc, ok := svc.(navigation.Service)
+	if !ok {
+		return nil, errors.New("service is not a navigation service")
+	}
+	loc, err := navSvc.Location(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.NavigationServiceLocationResponse{
+		Location: &pb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
+	}, nil
+}
+
+// NavigationServiceWaypoints returns the navigation waypoints of the robot.
+func (s *Server) NavigationServiceWaypoints(ctx context.Context, req *pb.NavigationServiceWaypointsRequest) (*pb.NavigationServiceWaypointsResponse, error) {
+	svc, ok := s.r.ServiceByName("navigation")
+	if !ok {
+		return nil, errors.New("no navigation service")
+	}
+	navSvc, ok := svc.(navigation.Service)
+	if !ok {
+		return nil, errors.New("service is not a navigation service")
+	}
+	wps, err := navSvc.Waypoints(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pbWps := make([]*pb.NavigationServiceWaypoint, 0, len(wps))
+	for _, wp := range wps {
+		pbWps = append(pbWps, &pb.NavigationServiceWaypoint{
+			Id:       wp.ID.Hex(),
+			Location: &pb.GeoPoint{Latitude: wp.Lat, Longitude: wp.Long},
+		})
+	}
+	return &pb.NavigationServiceWaypointsResponse{
+		Waypoints: pbWps,
+	}, nil
+}
+
+// NavigationServiceAddWaypoint adds a new navigation waypoint.
+func (s *Server) NavigationServiceAddWaypoint(ctx context.Context, req *pb.NavigationServiceAddWaypointRequest) (*pb.NavigationServiceAddWaypointResponse, error) {
+	svc, ok := s.r.ServiceByName("navigation")
+	if !ok {
+		return nil, errors.New("no navigation service")
+	}
+	navSvc, ok := svc.(navigation.Service)
+	if !ok {
+		return nil, errors.New("service is not a navigation service")
+	}
+	err := navSvc.AddWaypoint(ctx, geo.NewPoint(req.Location.Latitude, req.Location.Longitude))
+	return &pb.NavigationServiceAddWaypointResponse{}, err
+}
+
+// NavigationServiceRemoveWaypoint removes a navigation waypoint.
+func (s *Server) NavigationServiceRemoveWaypoint(ctx context.Context, req *pb.NavigationServiceRemoveWaypointRequest) (*pb.NavigationServiceRemoveWaypointResponse, error) {
+	svc, ok := s.r.ServiceByName("navigation")
+	if !ok {
+		return nil, errors.New("no navigation service")
+	}
+	navSvc, ok := svc.(navigation.Service)
+	if !ok {
+		return nil, errors.New("service is not a navigation service")
+	}
+	id, err := primitive.ObjectIDFromHex(req.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.NavigationServiceRemoveWaypointResponse{}, navSvc.RemoveWaypoint(ctx, id)
 }
 
 type executionResultRPC struct {

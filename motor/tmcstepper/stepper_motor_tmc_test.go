@@ -1,4 +1,4 @@
-package board_test
+package tmcstepper_test
 
 import (
 	"context"
@@ -9,8 +9,11 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
+	"go.viam.com/core/motor/tmcstepper"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/registry"
 	"go.viam.com/core/robots/fake"
+	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -43,16 +46,31 @@ func checkRx(t *testing.T, c chan []byte, expects [][]byte, sends [][]byte) {
 
 func TestTMCStepperMotor(t *testing.T) {
 	ctx := context.Background()
-	b := &fake.Board{}
 	logger := golog.NewTestLogger(t)
 	c := make(chan []byte)
+	b := &fake.Board{}
 	b.SPIs = map[string]*fake.SPI{}
 	b.SPIs["main"] = &fake.SPI{FIFO: c}
-	mc := motor.Config{
-		MaxAcceleration:  500,
-		MaxRPM:           500,
-		TicksPerRotation: 200,
+	r := inject.Robot{}
+	r.BoardByNameFunc = func(name string) (board.Board, bool) {
+		return b, true
 	}
+
+	mc := tmcstepper.TMC5072Config{
+		SPIBus:     "main",
+		ChipSelect: "40",
+		Index:      0,
+		SGThresh:   0,
+		CalFactor:  1.0,
+		Config: motor.Config{
+			MaxAcceleration:  500,
+			MaxRPM:           500,
+			TicksPerRotation: 200,
+		},
+	}
+
+	motorReg := registry.MotorLookup("TMC5072")
+	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
 	go checkTx(t, c, [][]byte{
@@ -71,15 +89,8 @@ func TestTMCStepperMotor(t *testing.T) {
 		{160, 0, 0, 0, 1},
 		{161, 0, 0, 0, 0},
 	})
-	m, err := board.NewTMCStepperMotor(context.Background(), b, config.Component{
-		Attributes: config.AttributeMap{
-			"spi_bus":     "main",
-			"chip_select": "40",
-			"index":       "0",
-			"sg_thresh":   "0",
-			"cal_factor":  "1.0",
-		},
-	}, mc, logger)
+
+	m, err := motorReg.Constructor(context.Background(), &r, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(m), test.ShouldBeNil)
