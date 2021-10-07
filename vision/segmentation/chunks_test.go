@@ -9,7 +9,12 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/core/rimage"
+	"go.viam.com/core/utils"
 )
+
+func init() {
+	utils.ParallelFactor = 1
+}
 
 type chunkImageDebug struct {
 }

@@ -8,15 +8,18 @@ import (
 	goutils "go.viam.com/utils"
 )
 
-var parallelFactor = runtime.GOMAXPROCS(0)
+// ParallelFactor controls the max level of parallelization. This might be useful
+// to set in tests where too much parallelism actually slows tests down in
+// aggregate.
+var ParallelFactor = runtime.GOMAXPROCS(0)
 
 func init() {
-	if parallelFactor <= 0 {
-		parallelFactor = 1
+	if ParallelFactor <= 0 {
+		ParallelFactor = 1
 	}
-	quarterProcs := float64(parallelFactor) * .25
+	quarterProcs := float64(ParallelFactor) * .25
 	if quarterProcs > 8 {
-		parallelFactor = int(quarterProcs)
+		ParallelFactor = int(quarterProcs)
 	}
 }
 
@@ -34,12 +37,12 @@ type (
 // GroupWorkParallel parallelizes the given size of work over multiple workers.
 func GroupWorkParallel(ctx context.Context, totalSize int, before BeforeParallelGroupWorkFunc, groupWork GroupWorkFunc) error {
 	extra := 0
-	if totalSize > parallelFactor {
-		extra = totalSize % parallelFactor
+	if totalSize > ParallelFactor {
+		extra = totalSize % ParallelFactor
 	}
-	groupSize := totalSize / parallelFactor
+	groupSize := totalSize / ParallelFactor
 
-	numGroups := parallelFactor
+	numGroups := ParallelFactor
 	before(numGroups)
 
 	var wait sync.WaitGroup
