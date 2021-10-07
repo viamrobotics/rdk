@@ -1,4 +1,4 @@
-//go:generate stringer -output=eventtypes_controlcodes_string.go -type=EventType,ControlCode
+//go:generate stringer -output=input_strings.go -type=EventType,ControlCode
 
 // Package input provides human input, such as buttons, switches, knobs, gamepads, joysticks, keyboards, mice, etc.
 package input

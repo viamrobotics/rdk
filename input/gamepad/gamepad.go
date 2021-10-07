@@ -90,7 +90,8 @@ func (g *Controller) eventDispatcher(ctx context.Context) {
 			if eventIn == nil || eventIn.Event.Type == evdev.EventMisc || (eventIn.Event.Type == evdev.EventSync && eventIn.Event.Code == 0) {
 				continue
 			}
-			//g.logger.Debugf("%s: Type: %d, Code: %d, Value: %d\n", timevaltoTime(eventIn.Event.Time), eventIn.Event.Type, eventIn.Event.Code, eventIn.Event.Value)
+			// Use debug line below when developing new controller mappings
+			// g.logger.Debugf("%s: Type: %d, Code: %d, Value: %d\n", timevaltoTime(eventIn.Event.Time), eventIn.Event.Type, eventIn.Event.Code, eventIn.Event.Value)
 
 			var eventOut input.Event
 			if eventIn.Event.Type == evdev.EventAbsolute {

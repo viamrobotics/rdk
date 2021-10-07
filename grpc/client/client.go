@@ -1288,8 +1288,6 @@ func (ic *inputClient) State(ctx context.Context) (input.Event, error) {
 		Code:       uint32(ic.controlCode),
 	})
 
-	//fmt.Printf("Resp: %+v, err: %+v\n", resp, err)
-
 	if err != nil {
 		return input.Event{}, err
 	}
@@ -1300,8 +1298,6 @@ func (ic *inputClient) State(ctx context.Context) (input.Event, error) {
 		Code:  input.ControlCode(resp.Code),
 		Value: resp.Value,
 	}
-
-	//fmt.Printf("EventOut: %+v\n", event)
 
 	return event, nil
 }
