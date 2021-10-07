@@ -23,7 +23,8 @@ import (
 )
 
 const (
-	modelname = "gamepad"
+	modelname      = "gamepad"
+	defaultMapping = "Microsoft X-Box 360 pad"
 )
 
 // Config is used for converting config attributes
@@ -193,13 +194,32 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 			continue
 		}
 		name := dev.Name()
-		logger.Infof("found gamepad: '%s' at %s", name, n)
+		logger.Infof("found known gamepad: '%s' at %s", name, n)
 		mapping, ok := GamepadMappings[name]
 		if ok {
 			pad.dev = dev
 			pad.Model = pad.dev.Name()
 			pad.Mapping = mapping
 			break
+		}
+	}
+
+	// Fallback to a default mapping
+	if pad.dev == nil {
+		for _, n := range devs {
+			dev, err := evdev.OpenFile(n)
+			if err != nil {
+				continue
+			}
+			if dev.IsJoystick() {
+				name := dev.Name()
+				logger.Infof("found gamepad: '%s' at %s", name, n)
+				logger.Infof("no button mapping for '%s', using default: '%s'", name, defaultMapping)
+				pad.dev = dev
+				pad.Model = pad.dev.Name()
+				pad.Mapping = GamepadMappings[defaultMapping]
+				break
+			}
 		}
 	}
 
