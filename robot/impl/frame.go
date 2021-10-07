@@ -107,8 +107,8 @@ func buildFrameSystem(name string, frameNames map[string]bool, children map[stri
 		}
 	}
 	// ensure that there are no disconnected frames
-	if len(visited) != len(frameNames) {
-		return nil, fmt.Errorf("the system is not fully connected, expected %d frames but frame system has %d", len(frameNames), len(visited))
-	}
+	//~ if len(visited) != len(frameNames) {
+		//~ return nil, fmt.Errorf("the system is not fully connected, expected %d frames but frame system has %d", len(frameNames), len(visited))
+	//~ }
 	return fs, nil
 }
