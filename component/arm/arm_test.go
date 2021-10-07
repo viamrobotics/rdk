@@ -51,23 +51,23 @@ func TestArmName(t *testing.T) {
 
 func TestWrapWtihReconfigurable(t *testing.T) {
 	actualArm1 := &mockArm{Name: "arm1"}
-	fakeArm1 := WrapWithReconfigurable(actualArm1)
-
+	fakeArm1, err := WrapWithReconfigurable(actualArm1)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeArm1.(*reconfigurableArm).actual, test.ShouldEqual, actualArm1)
 }
 
 func TestReconfigurableArm(t *testing.T) {
 	actualArm1 := &mockArm{Name: "arm1"}
-	fakeArm1 := WrapWithReconfigurable(actualArm1)
-
+	fakeArm1, err := WrapWithReconfigurable(actualArm1)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeArm1.(*reconfigurableArm).actual, test.ShouldEqual, actualArm1)
 
 	actualArm2 := &mockArm{Name: "arm2"}
-	fakeArm2 := WrapWithReconfigurable(actualArm2)
-
+	fakeArm2, err := WrapWithReconfigurable(actualArm2)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualArm1.reconCount, test.ShouldEqual, 0)
 
-	err := fakeArm1.(*reconfigurableArm).Reconfigure(fakeArm2.(resource.Reconfigurable))
+	err = fakeArm1.(*reconfigurableArm).Reconfigure(fakeArm2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeArm1.(*reconfigurableArm).actual, test.ShouldEqual, actualArm2)
 	test.That(t, actualArm1.reconCount, test.ShouldEqual, 1)

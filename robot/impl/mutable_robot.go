@@ -373,7 +373,15 @@ func (r *mutableRobot) newResource(ctx context.Context, config config.Component)
 	if f == nil {
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
 	}
-	return f.Constructor(ctx, r, config, r.logger)
+	newResource, err := f.Constructor(ctx, r, config, r.logger)
+	if err != nil {
+		return nil, err
+	}
+	c := registry.ComponentSubtypeLookup(rName.Subtype)
+	if c == nil {
+		return newResource, nil
+	}
+	return c.Reconfigurable(newResource)
 }
 
 // Refresh does nothing for now

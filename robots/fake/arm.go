@@ -36,12 +36,11 @@ func init() {
 
 // NewArm returns a new fake arm.
 func NewArm(name string) arm.Arm {
-	newArm := &Arm{
+	return &Arm{
 		Name:     name,
 		position: &pb.ArmPosition{},
 		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
 	}
-	return arm.WrapWithReconfigurable(newArm)
 }
 
 // Arm is a fake arm that can simply read and set properties.
