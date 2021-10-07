@@ -1,4 +1,5 @@
 //go:build linux
+// +build linux
 
 package gamepad
 
@@ -13,14 +14,14 @@ var GamepadModels = map[string]Mapping{
 	// Wireless, X-input mode
 	"8BitDo Pro 2": {
 		Axes: map[evdev.AbsoluteType]input.ControlCode{
-			0: input.AbsoluteX,
-			1: input.AbsoluteY,
-			2: input.AbsoluteZ,
-			3: input.AbsoluteRX,
-			4: input.AbsoluteRY,
-			5: input.AbsoluteRZ,
-			6: input.AbsoluteHat0X,
-			7: input.AbsoluteHat0Y,
+			0:  input.AbsoluteX,
+			1:  input.AbsoluteY,
+			2:  input.AbsoluteZ,
+			3:  input.AbsoluteRX,
+			4:  input.AbsoluteRY,
+			5:  input.AbsoluteRZ,
+			16: input.AbsoluteHat0X,
+			17: input.AbsoluteHat0Y,
 		},
 		Buttons: map[evdev.KeyType]input.ControlCode{
 			304: input.ButtonSouth,
