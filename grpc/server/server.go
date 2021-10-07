@@ -1227,6 +1227,7 @@ func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionCo
 	}, nil
 }
 
+// InputControllerInputs lists the inputs of an input.Controller
 func (s *Server) InputControllerInputs(ctx context.Context, req *pb.InputControllerInputsRequest) (*pb.InputControllerInputsResponse, error) {
 	controller, ok := s.r.InputControllerByName(req.Controller)
 	if !ok {
@@ -1247,6 +1248,7 @@ func (s *Server) InputControllerInputs(ctx context.Context, req *pb.InputControl
 	return resp, nil
 }
 
+// InputState returns the state (input.Event) of an input.Input
 func (s *Server) InputState(ctx context.Context, req *pb.InputStateRequest) (*pb.InputEvent, error) {
 	controller, ok := s.r.InputControllerByName(req.Controller)
 	if !ok {
@@ -1278,6 +1280,7 @@ func (s *Server) InputState(ctx context.Context, req *pb.InputStateRequest) (*pb
 	return resp, nil
 }
 
+// InputStateStream returns a stream of input.Event from an input.Input
 func (s *Server) InputStateStream(req *pb.InputStateStreamRequest, server pb.RobotService_InputStateStreamServer) error {
 
 	controller, ok := s.r.InputControllerByName(req.Controller)
@@ -1295,6 +1298,8 @@ func (s *Server) InputStateStream(req *pb.InputStateStreamRequest, server pb.Rob
 		return errors.Errorf("no input %s on controller (%s)", input.ControlCode(req.Code).String(), req.Controller)
 	}
 
+	eventsChan := make(chan *pb.InputEvent, 1024)
+
 	ctrlFunc := func(ctx context.Context, inp input.Input, eventIn input.Event) {
 		resp := &pb.InputEvent{
 			Time:  timestamppb.New(eventIn.Time),
@@ -1302,10 +1307,7 @@ func (s *Server) InputStateStream(req *pb.InputStateStreamRequest, server pb.Rob
 			Code:  uint32(eventIn.Code),
 			Value: eventIn.Value,
 		}
-		err := server.Send(resp)
-		if err != nil {
-			s.r.Logger().Error(err)
-		}
+		eventsChan <- resp
 	}
 
 	for _, ev := range req.Events {
@@ -1315,5 +1317,15 @@ func (s *Server) InputStateStream(req *pb.InputStateStreamRequest, server pb.Rob
 		}
 	}
 
-	return nil
+	for {
+		select {
+		case <-server.Context().Done():
+			return server.Context().Err()
+		case msg := <-eventsChan:
+			err := server.Send(msg)
+			if err != nil {
+				return err
+			}
+		}
+	}
 }

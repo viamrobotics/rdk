@@ -9,8 +9,8 @@ import (
 	"go.viam.com/core/input"
 )
 
-// GamepadModels contains all the axes/button translations for each model
-var GamepadModels = map[string]Mapping{
+// GamepadMappings contains all the axes/button translations for each model
+var GamepadMappings = map[string]Mapping{
 	// Wireless, X-input mode
 	"8BitDo Pro 2": {
 		Axes: map[evdev.AbsoluteType]input.ControlCode{
