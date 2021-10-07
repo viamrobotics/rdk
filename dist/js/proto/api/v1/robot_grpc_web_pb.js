@@ -20,6 +20,8 @@ var google_protobuf_struct_pb = require('google-protobuf/google/protobuf/struct_
 
 var google_protobuf_duration_pb = require('google-protobuf/google/protobuf/duration_pb.js')
 
+var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/timestamp_pb.js')
+
 var google_api_annotations_pb = require('../../../google/api/annotations_pb.js')
 
 var google_api_httpbody_pb = require('../../../google/api/httpbody_pb.js')
@@ -4392,6 +4394,241 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.motorIsOn =
       request,
       metadata || {},
       methodDescriptor_RobotService_MotorIsOn);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.InputControllerInputsRequest,
+ *   !proto.proto.api.v1.InputControllerInputsResponse>}
+ */
+const methodDescriptor_RobotService_InputControllerInputs = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/InputControllerInputs',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.InputControllerInputsRequest,
+  proto.proto.api.v1.InputControllerInputsResponse,
+  /**
+   * @param {!proto.proto.api.v1.InputControllerInputsRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.InputControllerInputsResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.InputControllerInputsRequest,
+ *   !proto.proto.api.v1.InputControllerInputsResponse>}
+ */
+const methodInfo_RobotService_InputControllerInputs = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.InputControllerInputsResponse,
+  /**
+   * @param {!proto.proto.api.v1.InputControllerInputsRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.InputControllerInputsResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.InputControllerInputsRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.InputControllerInputsResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.InputControllerInputsResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.inputControllerInputs =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/InputControllerInputs',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_InputControllerInputs,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.InputControllerInputsRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.InputControllerInputsResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.inputControllerInputs =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/InputControllerInputs',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_InputControllerInputs);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.InputStateRequest,
+ *   !proto.proto.api.v1.InputEvent>}
+ */
+const methodDescriptor_RobotService_InputState = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/InputState',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.InputStateRequest,
+  proto.proto.api.v1.InputEvent,
+  /**
+   * @param {!proto.proto.api.v1.InputStateRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.InputEvent.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.InputStateRequest,
+ *   !proto.proto.api.v1.InputEvent>}
+ */
+const methodInfo_RobotService_InputState = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.InputEvent,
+  /**
+   * @param {!proto.proto.api.v1.InputStateRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.InputEvent.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.InputStateRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.InputEvent)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.InputEvent>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.inputState =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/InputState',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_InputState,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.InputStateRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.InputEvent>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.inputState =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/InputState',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_InputState);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.InputStateStreamRequest,
+ *   !proto.proto.api.v1.InputEvent>}
+ */
+const methodDescriptor_RobotService_InputStateStream = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/InputStateStream',
+  grpc.web.MethodType.SERVER_STREAMING,
+  proto.proto.api.v1.InputStateStreamRequest,
+  proto.proto.api.v1.InputEvent,
+  /**
+   * @param {!proto.proto.api.v1.InputStateStreamRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.InputEvent.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.InputStateStreamRequest,
+ *   !proto.proto.api.v1.InputEvent>}
+ */
+const methodInfo_RobotService_InputStateStream = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.InputEvent,
+  /**
+   * @param {!proto.proto.api.v1.InputStateStreamRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.InputEvent.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.InputStateStreamRequest} request The request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.InputEvent>}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.inputStateStream =
+    function(request, metadata) {
+  return this.client_.serverStreaming(this.hostname_ +
+      '/proto.api.v1.RobotService/InputStateStream',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_InputStateStream);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.InputStateStreamRequest} request The request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.InputEvent>}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.inputStateStream =
+    function(request, metadata) {
+  return this.client_.serverStreaming(this.hostname_ +
+      '/proto.api.v1.RobotService/InputStateStream',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_InputStateStream);
 };
 
 

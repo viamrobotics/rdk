@@ -486,6 +486,26 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.InputControllerInputsRequest"><span class="badge">M</span>InputControllerInputsRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.InputControllerInputsResponse"><span class="badge">M</span>InputControllerInputsResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.InputEvent"><span class="badge">M</span>InputEvent</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.InputStateRequest"><span class="badge">M</span>InputStateRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.InputStateStreamRequest"><span class="badge">M</span>InputStateStreamRequest</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.JointPositions"><span class="badge">M</span>JointPositions</a>
                 </li>
               
@@ -767,6 +787,10 @@
               
                 <li>
                   <a href="#proto.api.v1.Status.GrippersEntry"><span class="badge">M</span>Status.GrippersEntry</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.Status.InputControllersEntry"><span class="badge">M</span>Status.InputControllersEntry</a>
                 </li>
               
                 <li>
@@ -2967,6 +2991,168 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.InputControllerInputsRequest">InputControllerInputsRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>controller</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.InputControllerInputsResponse">InputControllerInputsResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>inputs</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.InputEvent">InputEvent</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>time</td>
+                  <td><a href="#google.protobuf.Timestamp">google.protobuf.Timestamp</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>event</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>code</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.InputStateRequest">InputStateRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>controller</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>code</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.InputStateStreamRequest">InputStateStreamRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>controller</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>code</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>events</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.JointPositions">JointPositions</h3>
         <p></p>
 
@@ -4549,6 +4735,13 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                   <td><p> </p></td>
                 </tr>
               
+                <tr>
+                  <td>input_controllers</td>
+                  <td><a href="#proto.api.v1.Status.InputControllersEntry">Status.InputControllersEntry</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
             </tbody>
           </table>
 
@@ -4712,6 +4905,37 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
         
       
         <h3 id="proto.api.v1.Status.GrippersEntry">Status.GrippersEntry</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>key</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.Status.InputControllersEntry">Status.InputControllersEntry</h3>
         <p></p>
 
         
@@ -5476,6 +5700,27 @@ is reliant on having an encoder.</p></td>
               </tr>
             
               <tr>
+                <td>InputControllerInputs</td>
+                <td><a href="#proto.api.v1.InputControllerInputsRequest">InputControllerInputsRequest</a></td>
+                <td><a href="#proto.api.v1.InputControllerInputsResponse">InputControllerInputsResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>InputState</td>
+                <td><a href="#proto.api.v1.InputStateRequest">InputStateRequest</a></td>
+                <td><a href="#proto.api.v1.InputEvent">InputEvent</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>InputStateStream</td>
+                <td><a href="#proto.api.v1.InputStateStreamRequest">InputStateStreamRequest</a></td>
+                <td><a href="#proto.api.v1.InputEvent">InputEvent</a> stream</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
                 <td>ResourceRunCommand</td>
                 <td><a href="#proto.api.v1.ResourceRunCommandRequest">ResourceRunCommandRequest</a></td>
                 <td><a href="#proto.api.v1.ResourceRunCommandResponse">ResourceRunCommandResponse</a></td>
@@ -6078,6 +6323,36 @@ is reliant on having an encoder.</p></td>
                 <td>MotorIsOn</td>
                 <td>GET</td>
                 <td>/api/v1/motor/{name}/is_on</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>InputControllerInputs</td>
+                <td>GET</td>
+                <td>/api/v1/input/{controller}/inputs</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>InputState</td>
+                <td>GET</td>
+                <td>/api/v1/input/{controller}/{code}/state</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>InputStateStream</td>
+                <td>GET</td>
+                <td>/api/v1/input/{controller}/{code}/stream</td>
                 <td></td>
               </tr>
               
