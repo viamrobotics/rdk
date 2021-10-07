@@ -77,7 +77,7 @@ func TestRegistry(t *testing.T) {
 	test.That(t, func() { RegisterBoard("x", Board{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterServo("x", Servo{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterMotor("x", Motor{}) }, test.ShouldPanic)
-	test.That(t, func() { RegisterInput("x", Input{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterInputController("x", InputController{}) }, test.ShouldPanic)
 
 	// test register
 	RegisterCamera("x", Camera{cf, ff})
@@ -89,7 +89,7 @@ func TestRegistry(t *testing.T) {
 	RegisterBoard("x", Board{Constructor: bbf, Frame: ff})
 	RegisterServo("x", Servo{Constructor: servof, Frame: ff})
 	RegisterMotor("x", Motor{Constructor: motorf, Frame: ff})
-	RegisterInput("x", Input{Constructor: inputf, Frame: ff})
+	RegisterInputController("x", InputController{Constructor: inputf, Frame: ff})
 
 	// test look up
 
@@ -219,16 +219,16 @@ func TestRegistry(t *testing.T) {
 	test.That(t, frameFunc, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldEqual, false)
 
-	test.That(t, InputLookup("x"), test.ShouldNotBeNil)
-	test.That(t, InputLookup("z"), test.ShouldBeNil)
-	test.That(t, InputLookup("x").Constructor, test.ShouldNotBeNil)
-	test.That(t, InputLookup("x").Frame, test.ShouldNotBeNil)
-	comp = &config.Component{Type: config.ComponentTypeInput, Model: "x"}
+	test.That(t, InputControllerLookup("x"), test.ShouldNotBeNil)
+	test.That(t, InputControllerLookup("z"), test.ShouldBeNil)
+	test.That(t, InputControllerLookup("x").Constructor, test.ShouldNotBeNil)
+	test.That(t, InputControllerLookup("x").Frame, test.ShouldNotBeNil)
+	comp = &config.Component{Type: config.ComponentTypeInputController, Model: "x"}
 	frameFunc, ok = FrameLookup(comp)
 	test.That(t, frameFunc, test.ShouldEqual, ff)
 	test.That(t, ok, test.ShouldEqual, true)
 	// look up a component that doesn't exist
-	comp = &config.Component{Type: config.ComponentTypeInput, Model: "z"}
+	comp = &config.Component{Type: config.ComponentTypeInputController, Model: "z"}
 	frameFunc, ok = FrameLookup(comp)
 	test.That(t, frameFunc, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldEqual, false)

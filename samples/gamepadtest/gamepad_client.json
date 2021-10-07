@@ -1,0 +1,8 @@
+{
+  "remotes": [
+    {
+      "address": "arclight.local:8080",
+      "name": "desktop"
+    }
+  ]
+}

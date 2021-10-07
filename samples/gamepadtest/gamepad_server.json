@@ -1,0 +1,12 @@
+{
+  "components": [
+    {
+      "name": "gamepad1",
+      "model": "gamepad",
+      "type": "input_controller",
+      "attributes": {
+        "dev_file": ""
+      }
+    }
+  ]
+}

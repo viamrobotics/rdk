@@ -1272,7 +1272,6 @@ func (cc *inputControllerClient) Inputs(ctx context.Context) (map[input.ControlC
 
 type inputClient struct {
 	controller      *inputControllerClient
-	rc              *RobotClient
 	controlCode     input.ControlCode
 	streamCancel    context.CancelFunc
 	streamConnected bool
@@ -1285,10 +1284,13 @@ func (ic *inputClient) Name(ctx context.Context) string {
 }
 
 func (ic *inputClient) State(ctx context.Context) (input.Event, error) {
-	resp, err := ic.rc.client.InputState(ctx, &pb.InputStateRequest{
+	resp, err := ic.controller.rc.client.InputState(ctx, &pb.InputStateRequest{
 		Controller: ic.controller.name,
 		Code:       uint32(ic.controlCode),
 	})
+
+	//fmt.Printf("Resp: %+v, err: %+v\n", resp, err)
+
 	if err != nil {
 		return input.Event{}, err
 	}
@@ -1300,6 +1302,8 @@ func (ic *inputClient) State(ctx context.Context) (input.Event, error) {
 		Value: resp.Value,
 	}
 
+	//fmt.Printf("EventOut: %+v\n", event)
+
 	return event, nil
 }
 
@@ -1307,6 +1311,9 @@ func (ic *inputClient) RegisterControl(ctx context.Context, ctrlFunc input.Contr
 	ic.mu.Lock()
 	defer ic.mu.Unlock()
 
+	if ic.callbacks == nil {
+		ic.callbacks = make(map[input.EventType]input.ControlFunction)
+	}
 	if trigger == input.ButtonChange {
 		ic.callbacks[input.ButtonUp] = ctrlFunc
 		ic.callbacks[input.ButtonDown] = ctrlFunc
@@ -1356,7 +1363,7 @@ func (ic *inputClient) connectStream(ctx context.Context) {
 		streamCtx, cancel := context.WithCancel(ctx)
 		ic.streamCancel = cancel
 
-		stream, err := ic.rc.client.InputStateStream(streamCtx, req)
+		stream, err := ic.controller.rc.client.InputStateStream(streamCtx, req)
 		if err != nil {
 			ic.streamConnected = false
 			ic.controller.rc.logger.Error(err)
@@ -1383,7 +1390,7 @@ func (ic *inputClient) connectStream(ctx context.Context) {
 			default:
 			}
 			eventIn, err := stream.Recv()
-			if err == io.EOF && eventIn == nil {
+			if errors.Is(err, io.EOF) && eventIn == nil {
 				ic.mu.Lock()
 				ic.streamConnected = false
 				ic.mu.Unlock()
