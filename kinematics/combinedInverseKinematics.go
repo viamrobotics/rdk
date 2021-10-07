@@ -63,7 +63,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed []ref
 	if err != nil {
 		return nil, err
 	}
-	ik.logger.Debugf("starting 6d position: %v %v", spatialmath.PoseToArmPos(startPos))
+	ik.logger.Debugf("starting 6d position: %v", spatialmath.PoseToArmPos(startPos))
 	ik.logger.Debugf("goal 6d position: %v", pos)
 
 	// This will adjust the goal position to make movements more intuitive when using incrementation near poles
