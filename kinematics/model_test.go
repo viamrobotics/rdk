@@ -44,13 +44,13 @@ func TestJoint(t *testing.T) {
 	pose, err := joints[0].Transform([]referenceframe.Input{{0}})
 	test.That(t, err, test.ShouldBeNil)
 	firstJov := pose.Orientation().OrientationVectorRadians()
-	firstJovExpect := &spatialmath.OrientationVec{Theta: 0, OX: 0, OY: 0, OZ: 1}
+	firstJovExpect := &spatialmath.OrientationVector{Theta: 0, OX: 0, OY: 0, OZ: 1}
 	test.That(t, firstJov, test.ShouldResemble, firstJovExpect)
 
 	pose, err = joints[0].Transform([]referenceframe.Input{{1.5708}})
 	test.That(t, err, test.ShouldBeNil)
 	firstJov = pose.Orientation().OrientationVectorRadians()
-	firstJovExpect = &spatialmath.OrientationVec{Theta: 1.5708, OX: 0, OY: 0, OZ: 1}
+	firstJovExpect = &spatialmath.OrientationVector{Theta: 1.5708, OX: 0, OY: 0, OZ: 1}
 	test.That(t, firstJov.Theta, test.ShouldAlmostEqual, firstJovExpect.Theta)
 	test.That(t, firstJov.OX, test.ShouldAlmostEqual, firstJovExpect.OX)
 	test.That(t, firstJov.OY, test.ShouldAlmostEqual, firstJovExpect.OY)

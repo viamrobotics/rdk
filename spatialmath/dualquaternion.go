@@ -40,7 +40,7 @@ func newdualQuaternion() *dualQuaternion {
 
 // newdualQuaternionFromRotation returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided
 // orientation vector.
-func newdualQuaternionFromRotation(ov *OrientationVec) *dualQuaternion {
+func newdualQuaternionFromRotation(ov *OrientationVector) *dualQuaternion {
 	// Handle the zero case
 	if ov.OX == 0 && ov.OY == 0 && ov.OZ == 0 {
 		ov.OZ = 1
@@ -73,7 +73,7 @@ func newdualQuaternionFromDH(a, d, alpha float64) *dualQuaternion {
 // newdualQuaternionFromArmPos returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided
 // arm position.
 func newdualQuaternionFromArmPos(pos *pb.ArmPosition) *dualQuaternion {
-	q := newdualQuaternionFromRotation(&OrientationVec{pos.Theta * degToRad, pos.OX, pos.OY, pos.OZ})
+	q := newdualQuaternionFromRotation(&OrientationVector{pos.Theta * degToRad, pos.OX, pos.OY, pos.OZ})
 	q.SetTranslation(pos.X, pos.Y, pos.Z)
 	return q
 }

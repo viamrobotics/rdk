@@ -158,6 +158,12 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			status.Functions[name] = true
 		}
 	}
+	if names := r.ServiceNames(); len(names) != 0 {
+		status.Services = make(map[string]bool, len(names))
+		for _, name := range names {
+			status.Services[name] = true
+		}
+	}
 
 	return &status, nil
 }

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/golang/geo/r2"
+	geo "github.com/kellydunn/golang-geo"
 
 	"go.viam.com/utils"
 
@@ -22,12 +23,19 @@ import (
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/sensor/gps"
 	"go.viam.com/core/servo"
 )
 
 type proxyBase struct {
 	mu     sync.RWMutex
 	actual base.Base
+}
+
+func (p *proxyBase) ProxyFor() interface{} {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual
 }
 
 func (p *proxyBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
@@ -372,6 +380,72 @@ func (p *proxyRelativeCompass) replace(newSensor sensor.Sensor) {
 	p.actual = actual.actual
 	p.proxyCompass.actual = actual.actual
 	p.proxySensor.actual = actual.actual
+}
+
+type proxyGPS struct {
+	*proxySensor
+	mu     sync.RWMutex
+	actual gps.GPS
+}
+
+func newProxyGPS(actual gps.GPS) *proxyGPS {
+	return &proxyGPS{proxySensor: &proxySensor{actual: actual}, actual: actual}
+}
+
+func (p *proxyGPS) Location(ctx context.Context) (*geo.Point, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.Location(ctx)
+}
+
+func (p *proxyGPS) Altitude(ctx context.Context) (float64, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.Altitude(ctx)
+}
+
+func (p *proxyGPS) Speed(ctx context.Context) (float64, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.Speed(ctx)
+}
+
+func (p *proxyGPS) Satellites(ctx context.Context) (int, int, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.Satellites(ctx)
+}
+
+func (p *proxyGPS) Accuracy(ctx context.Context) (float64, float64, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.Accuracy(ctx)
+}
+
+func (p *proxyGPS) Valid(ctx context.Context) (bool, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.Valid(ctx)
+}
+
+func (p *proxyGPS) replace(newSensor sensor.Sensor) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	actual, ok := newSensor.(*proxyGPS)
+	if !ok {
+		panic(fmt.Errorf("expected new gps to be %T but got %T", actual, newSensor))
+	}
+	if err := utils.TryClose(p.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	p.actual = actual.actual
+	p.proxySensor.actual = actual.actual
+}
+
+func (p *proxyGPS) ProxyFor() interface{} {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual
 }
 
 type proxyBoard struct {

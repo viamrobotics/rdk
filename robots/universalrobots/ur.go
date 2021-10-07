@@ -115,7 +115,10 @@ func URArmConnect(ctx context.Context, host string, speed float64, logger golog.
 	if err != nil {
 		return nil, err
 	}
-	ik := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	if err != nil {
+		return nil, err
+	}
 
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", host+":30001")

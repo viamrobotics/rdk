@@ -2,6 +2,7 @@
 package segmentation
 
 import (
+	"context"
 	"image"
 	"math"
 	"math/rand"
@@ -73,7 +74,7 @@ func pointCloudSplit(cloud pc.PointCloud, inMap map[pc.Vec3]bool) (pc.PointCloud
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it
 // This function returns a Plane struct, as well as the remaining points in a pointcloud
 // It also returns the equation of the found plane: [0]x + [1]y + [2]z + [3] = 0
-func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (pc.Plane, pc.PointCloud, error) {
+func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, threshold float64) (pc.Plane, pc.PointCloud, error) {
 	if cloud.Size() <= 3 { // if point cloud does not have even 3 points, return original cloud with no planes
 		return pc.NewEmptyPlane(), cloud, nil
 	}
@@ -81,9 +82,8 @@ func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (pc.P
 	pts := GetPointCloudPositions(cloud)
 	nPoints := cloud.Size()
 
-	bestEquation := [4]float64{}
-	bestInliers := 0
-
+	// First get all equations
+	equations := make([][4]float64, 0, nIterations)
 	for i := 0; i < nIterations; i++ {
 		// sample 3 Points from the slice of 3D Points
 		n1, n2, n3 := utils.SampleRandomIntRange(1, nPoints-1, r), utils.SampleRandomIntRange(1, nPoints-1, r), utils.SampleRandomIntRange(1, nPoints-1, r)
@@ -102,45 +102,91 @@ func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (pc.P
 
 		// current plane equation
 		currentEquation := [4]float64{vec.X, vec.Y, vec.Z, d}
-
-		// compute distance to plane of each point in the cloud
-		//currentInliers := make([]pc.Vec3, len(bestInliers))
-		currentInliers := 0
-
-		// store all the Points that are below a certain distance to the plane
-		for _, pt := range pts {
-			//dist := (currentEquation[0]*pt.X + currentEquation[1]*pt.Y + currentEquation[2]*pt.Z + currentEquation[3]) / vec.Norm()
-			dist := distance(currentEquation, pt)
-			if math.Abs(dist) < threshold {
-				currentInliers++
-				//currentInliers = append(currentInliers, pt)
-			}
-		}
-		// if the current plane contains more pixels than the previously stored one, save this one as the biggest plane
-		if currentInliers > bestInliers {
-			bestEquation = currentEquation
-			bestInliers = currentInliers
-		}
+		equations = append(equations, currentEquation)
 	}
 
-	bestInliersMap := make(map[pc.Vec3]bool)
-	for _, pt := range pts {
-		dist := distance(bestEquation, pt)
-		if math.Abs(dist) < threshold {
-			bestInliersMap[pt] = true
-		}
+	// Then find the best equation in parallel. It ends up being faster to loop
+	// by equations (iterations) and then points due to what I (erd) think is
+	// memory locality exploitation.
+	var bestEquation [4]float64
+	type bestResult struct {
+		equation [4]float64
+		inliers  int
 	}
-
-	planeCloud, nonPlaneCloud, err := pointCloudSplit(cloud, bestInliersMap)
-	if err != nil {
+	var bestResults []bestResult
+	if err := utils.GroupWorkParallel(
+		ctx,
+		nIterations,
+		func(numGroups int) {
+			bestResults = make([]bestResult, numGroups)
+		},
+		func(groupNum, groupSize, from, to int) (utils.MemberWorkFunc, utils.GroupWorkDoneFunc) {
+			bestEquation := [4]float64{}
+			bestInliers := 0
+			return func(memberNum int, workNum int) {
+					currentInliers := 0
+					currentEquation := equations[workNum]
+					// store all the Points that are below a certain distance to the plane
+					for _, pt := range pts {
+						dist := distance(currentEquation, pt)
+						if math.Abs(dist) < threshold {
+							currentInliers++
+						}
+					}
+					// if the current plane contains more pixels than the previously stored one, save this one as the biggest plane
+					if currentInliers > bestInliers {
+						bestEquation = currentEquation
+						bestInliers = currentInliers
+					}
+				}, func() {
+					bestResults[groupNum] = bestResult{bestEquation, bestInliers}
+				}
+		},
+	); err != nil {
 		return nil, nil, err
 	}
-	return pc.NewPlane(planeCloud, bestEquation), nonPlaneCloud, nil
+
+	bestIdx := 0
+	bestInliers := 0
+	for i, result := range bestResults {
+		if result.inliers > bestInliers {
+			bestIdx = i
+		}
+	}
+	bestEquation = bestResults[bestIdx].equation
+
+	planeCloud := pc.NewWithPrealloc(bestInliers)
+	nonPlaneCloud := pc.NewWithPrealloc(nPoints - bestInliers)
+	planeCloudCenter := r3.Vector{}
+	for _, pt := range pts {
+		dist := distance(bestEquation, pt)
+		var err error
+		cpt := cloud.At(pt.X, pt.Y, pt.Z)
+		if cpt == nil {
+			return nil, nil, errors.Errorf("expected cloud to contain point (%v, %v, %v)", pt.X, pt.Y, pt.Z)
+		}
+		if math.Abs(dist) < threshold {
+			planeCloudCenter = planeCloudCenter.Add(r3.Vector(pt))
+			err = planeCloud.Set(cloud.At(pt.X, pt.Y, pt.Z))
+		} else {
+			err = nonPlaneCloud.Set(cloud.At(pt.X, pt.Y, pt.Z))
+		}
+		if err != nil {
+			return nil, nil, errors.Errorf("error setting point (%v, %v, %v) in point cloud - %w", pt.X, pt.Y, pt.Z, err)
+		}
+	}
+
+	if planeCloud.Size() != 0 {
+		planeCloudCenter = planeCloudCenter.Mul(1. / float64(planeCloud.Size()))
+	}
+
+	plane := pc.NewPlaneWithCenter(planeCloud, bestEquation, pc.Vec3(planeCloudCenter))
+	return plane, nonPlaneCloud, nil
 }
 
 // PlaneSegmentation is an interface used to find geometric planes in a 3D space
 type PlaneSegmentation interface {
-	FindPlanes() ([]pc.Plane, pc.PointCloud, error)
+	FindPlanes(ctx context.Context) ([]pc.Plane, pc.PointCloud, error)
 }
 
 type pointCloudPlaneSegmentation struct {
@@ -158,10 +204,10 @@ func NewPointCloudPlaneSegmentation(cloud pc.PointCloud, threshold float64, minP
 }
 
 // FindPlanes takes in a point cloud and outputs an array of the planes and a point cloud of the leftover points.
-func (pcps *pointCloudPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud, error) {
+func (pcps *pointCloudPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.Plane, pc.PointCloud, error) {
 	planes := make([]pc.Plane, 0)
 	var err error
-	plane, nonPlaneCloud, err := SegmentPlane(pcps.cloud, pcps.nIterations, pcps.threshold)
+	plane, nonPlaneCloud, err := SegmentPlane(ctx, pcps.cloud, pcps.nIterations, pcps.threshold)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -173,27 +219,28 @@ func (pcps *pointCloudPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud
 		return planes, pcps.cloud, nil
 	}
 	planes = append(planes, plane)
+	var lastNonPlaneCloud pc.PointCloud
 	for {
-		plane, nonPlaneCloud, err = SegmentPlane(nonPlaneCloud, pcps.nIterations, pcps.threshold)
+		lastNonPlaneCloud = nonPlaneCloud
+		smallerPlane, smallerNonPlaneCloud, err := SegmentPlane(ctx, nonPlaneCloud, pcps.nIterations, pcps.threshold)
 		if err != nil {
 			return nil, nil, err
 		}
-		planeCloud, err := plane.PointCloud()
+		planeCloud, err := smallerPlane.PointCloud()
 		if err != nil {
 			return nil, nil, err
 		}
 		if planeCloud.Size() <= pcps.minPoints {
-			// add the failed planeCloud back into the nonPlaneCloud
-			planeCloud.Iterate(func(pt pc.Point) bool {
-				err = nonPlaneCloud.Set(pt)
-				return err == nil
-			})
+			// this cloud is not valid so revert to last
+			nonPlaneCloud = lastNonPlaneCloud
 			if err != nil {
 				return nil, nil, err
 			}
 			break
+		} else {
+			nonPlaneCloud = smallerNonPlaneCloud
 		}
-		planes = append(planes, plane)
+		planes = append(planes, smallerPlane)
 	}
 	return planes, nonPlaneCloud, nil
 }
@@ -217,7 +264,7 @@ func NewVoxelGridPlaneSegmentation(vg *pc.VoxelGrid, config VoxelGridPlaneConfig
 }
 
 // FindPlanes takes in a point cloud and outputs an array of the planes and a point cloud of the leftover points.
-func (vgps *voxelGridPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud, error) {
+func (vgps *voxelGridPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.Plane, pc.PointCloud, error) {
 	vgps.SegmentPlanesRegionGrowing(vgps.config.weightThresh, vgps.config.angleThresh, vgps.config.cosineThresh, vgps.config.distanceThresh)
 	planes, nonPlaneCloud, err := vgps.GetPlanesFromLabels()
 	if err != nil {

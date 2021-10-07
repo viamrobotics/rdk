@@ -10,7 +10,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
 	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e
-	github.com/edaniels/gostream v0.0.0-20210709190700-47b04f3f3cf9
+	github.com/edaniels/gostream v0.0.0-20210929204829-88d8811577f6
 	github.com/erh/egoutil v0.0.10
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/erikstmartin/go-testdb v0.0.0-20160219214506-8d10e4a1bae5 // indirect
@@ -84,3 +84,7 @@ replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210
 replace github.com/starship-technologies/gobag => github.com/kkufieta/gobag v0.0.0-20210528190924-d8b19286f98e
 
 replace github.com/wasmerio/wasmer-go => github.com/meshplus/wasmer-go v0.0.0-20210817103436-19ec68f8bfe2
+
+require github.com/tidwall/gjson v1.6.5 // indirect
+
+require github.com/gin-gonic/gin v1.7.0 // indirect

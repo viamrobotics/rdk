@@ -55,7 +55,7 @@ func TestOrientation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame.Parent, test.ShouldEqual, "a")
 	test.That(t, frame.Translation, test.ShouldResemble, Translation{1, 2, 3})
-	test.That(t, frame.Orientation.OrientationVectorDegrees(), test.ShouldResemble, &spatial.OrientationVecDegrees{45, 0, 0, 1})
+	test.That(t, frame.Orientation.OrientationVectorDegrees(), test.ShouldResemble, &spatial.OrientationVectorDegrees{45, 0, 0, 1})
 
 	// OrientationVector Radians Config
 	frame = Frame{}
@@ -63,7 +63,7 @@ func TestOrientation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frame.Parent, test.ShouldEqual, "b")
 	test.That(t, frame.Translation, test.ShouldResemble, Translation{4, 5, 6})
-	test.That(t, frame.Orientation.OrientationVectorRadians(), test.ShouldResemble, &spatial.OrientationVec{0.78539816, 0, 1, 0})
+	test.That(t, frame.Orientation.OrientationVectorRadians(), test.ShouldResemble, &spatial.OrientationVector{0.78539816, 0, 1, 0})
 
 	// Euler Angles
 	frame = Frame{}

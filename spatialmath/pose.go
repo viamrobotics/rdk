@@ -5,7 +5,6 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/utils"
 )
 
 // Pose represents a 6dof pose, position and orientation, with respect to the origin.
@@ -24,11 +23,14 @@ func NewZeroPose() Pose {
 
 // NewPoseFromOrientation takes in a position and orientation and returns a Pose.
 func NewPoseFromOrientation(point r3.Vector, o Orientation) Pose {
+	if o == nil {
+		return NewPoseFromPoint(point)
+	}
 	return NewPoseFromOrientationVector(point, o.OrientationVectorRadians())
 }
 
 // NewPoseFromOrientationVector takes in a position and orientation vector and returns a Pose.
-func NewPoseFromOrientationVector(point r3.Vector, ov *OrientationVec) Pose {
+func NewPoseFromOrientationVector(point r3.Vector, ov *OrientationVector) Pose {
 	quat := newdualQuaternion()
 	if ov != nil {
 		quat = newdualQuaternionFromRotation(ov)
@@ -119,8 +121,8 @@ func PoseToArmPos(p Pose) *pb.ArmPosition {
 	final.X = pt.X
 	final.Y = pt.Y
 	final.Z = pt.Z
-	poseOV := p.Orientation().OrientationVectorRadians()
-	final.Theta = utils.RadToDeg(poseOV.Theta)
+	poseOV := p.Orientation().OrientationVectorDegrees()
+	final.Theta = poseOV.Theta
 	final.OX = poseOV.OX
 	final.OY = poseOV.OY
 	final.OZ = poseOV.OZ
@@ -141,8 +143,9 @@ func Invert(p Pose) Pose {
 func Interpolate(p1, p2 Pose, by float64) Pose {
 	intQ := newdualQuaternion()
 	intQ.Real = slerp(p1.Orientation().Quaternion(), p2.Orientation().Quaternion(), by)
-	intQ.SetTranslation((p1.Point().X+p2.Point().X)*by,
-		(p1.Point().Y+p2.Point().Y)*by,
-		(p1.Point().Z+p2.Point().Z)*by)
+
+	intQ.SetTranslation((p1.Point().X + (p2.Point().X-p1.Point().X)*by),
+		(p1.Point().Y + (p2.Point().Y-p1.Point().Y)*by),
+		(p1.Point().Z + (p2.Point().Z-p1.Point().Z)*by))
 	return intQ
 }

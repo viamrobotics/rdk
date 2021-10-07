@@ -69,12 +69,13 @@
                 "board" : "local",
                 "pins":
                 {
-                    "dir": "io17",
+                    "dir": "io6",
                     "pwm": "io18"
                 },
                 "encoder": "encoder-steering-b",
                 "encoderB": "encoder-steering-a",
-                "ticksPerRotation": 10000
+                "ticksPerRotation": 10000,
+                "min_power_pct" : 0.2
             },
             "depends_on":
             [
@@ -91,7 +92,7 @@
                 "pins":
                 {
                     "dir": "io25",
-                    "pwm": "io4"
+                    "pwm": "io17"
                 }
             },
             "depends_on":
@@ -117,6 +118,38 @@
             [
                 "local"
             ]
+        },
+        {
+            "name": "gps1",
+            "type": "sensor",
+            "subtype": "gps",
+            "model": "nmea-serial",
+            "attributes" : {
+                "path" : "/dev/ttyAMA0"
+            }
+            
+        },
+        {
+            "name" : "base1",
+            "type" : "base",
+            "model" : "viam-boat2"
+        }
+    ],
+    "services":
+    [
+        {
+            "name": "navigation",
+            "type": "navigation",
+            "attributes": {
+                "store": {
+                    "type": "mongodb",
+                    "config": {
+                        "uri": "mongodb://localhost:27017"
+                    }
+                },
+                "gps": "gps1",
+                "base": "base1"
+            }
         }
     ]
 }

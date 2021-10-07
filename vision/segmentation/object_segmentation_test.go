@@ -2,6 +2,7 @@ package segmentation
 
 import (
 	"bytes"
+	"context"
 	"image"
 	"io/ioutil"
 	"testing"
@@ -30,7 +31,7 @@ func TestCalculateSegmentMeans(t *testing.T) {
 		MinPtsInSegment:  500,
 		ClusteringRadius: 10.0,
 	}
-	segments, err := NewObjectSegmentation(cloud, objConfig)
+	segments, err := NewObjectSegmentation(context.Background(), cloud, objConfig)
 	test.That(t, err, test.ShouldBeNil)
 	// get center points
 	for i := 0; i < segments.N(); i++ {
@@ -68,7 +69,7 @@ func (h *segmentObjectTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorCo
 	}
 
 	// Do object segmentation with point clouds
-	segments, err := NewObjectSegmentation(cloud, objConfig)
+	segments, err := NewObjectSegmentation(context.Background(), cloud, objConfig)
 	test.That(t, err, test.ShouldBeNil)
 
 	objectClouds := segments.PointClouds()
@@ -123,7 +124,7 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 		ClusteringRadius: 10.0,
 	}
 
-	segments, err := NewObjectSegmentation(cloud, objConfig)
+	segments, err := NewObjectSegmentation(context.Background(), cloud, objConfig)
 	test.That(t, err, test.ShouldBeNil)
 
 	objectClouds := segments.PointClouds()
@@ -151,7 +152,7 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 		ClusteringRadius: 7.5,
 	}
 
-	voxSegments, err := NewObjectSegmentationFromVoxelGrid(vg, voxObjConfig, voxPlaneConfig)
+	voxSegments, err := NewObjectSegmentationFromVoxelGrid(context.Background(), vg, voxObjConfig, voxPlaneConfig)
 	test.That(t, err, test.ShouldBeNil)
 
 	voxObjectClouds := voxSegments.PointClouds()

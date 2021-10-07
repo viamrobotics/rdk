@@ -35,7 +35,12 @@ func NewPlane(cloud PointCloud, equation [4]float64) Plane {
 	if cloud.Size() != 0 {
 		center = center.Mul(1. / float64(cloud.Size()))
 	}
-	return &pointcloudPlane{cloud, equation, Vec3(center)}
+	return NewPlaneWithCenter(cloud, equation, Vec3(center))
+}
+
+// NewPlaneWithCenter creates a new plane object from a point cloud
+func NewPlaneWithCenter(cloud PointCloud, equation [4]float64, center Vec3) Plane {
+	return &pointcloudPlane{cloud, equation, center}
 }
 
 // PointCloud returns the underlying point cloud of the plane

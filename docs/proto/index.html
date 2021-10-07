@@ -374,6 +374,10 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.BoxGeometry"><span class="badge">M</span>BoxGeometry</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.CameraFrameRequest"><span class="badge">M</span>CameraFrameRequest</a>
                 </li>
               
@@ -459,6 +463,10 @@
               
                 <li>
                   <a href="#proto.api.v1.ExecuteSourceResponse"><span class="badge">M</span>ExecuteSourceResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.GeoPoint"><span class="badge">M</span>GeoPoint</a>
                 </li>
               
                 <li>
@@ -626,6 +634,58 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.NavigationServiceAddWaypointRequest"><span class="badge">M</span>NavigationServiceAddWaypointRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.NavigationServiceAddWaypointResponse"><span class="badge">M</span>NavigationServiceAddWaypointResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.NavigationServiceLocationRequest"><span class="badge">M</span>NavigationServiceLocationRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.NavigationServiceLocationResponse"><span class="badge">M</span>NavigationServiceLocationResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.NavigationServiceModeRequest"><span class="badge">M</span>NavigationServiceModeRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.NavigationServiceModeResponse"><span class="badge">M</span>NavigationServiceModeResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.NavigationServiceRemoveWaypointRequest"><span class="badge">M</span>NavigationServiceRemoveWaypointRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.NavigationServiceRemoveWaypointResponse"><span class="badge">M</span>NavigationServiceRemoveWaypointResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.NavigationServiceSetModeRequest"><span class="badge">M</span>NavigationServiceSetModeRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.NavigationServiceSetModeResponse"><span class="badge">M</span>NavigationServiceSetModeResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.NavigationServiceWaypoint"><span class="badge">M</span>NavigationServiceWaypoint</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.NavigationServiceWaypointsRequest"><span class="badge">M</span>NavigationServiceWaypointsRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.NavigationServiceWaypointsResponse"><span class="badge">M</span>NavigationServiceWaypointsResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.ObjectPointCloudsRequest"><span class="badge">M</span>ObjectPointCloudsRequest</a>
                 </li>
               
@@ -639,6 +699,14 @@
               
                 <li>
                   <a href="#proto.api.v1.PointCloudResponse"><span class="badge">M</span>PointCloudResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.ResourceRunCommandRequest"><span class="badge">M</span>ResourceRunCommandRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.ResourceRunCommandResponse"><span class="badge">M</span>ResourceRunCommandResponse</a>
                 </li>
               
                 <li>
@@ -714,6 +782,10 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.Status.ServicesEntry"><span class="badge">M</span>Status.ServicesEntry</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.Status.ServosEntry"><span class="badge">M</span>Status.ServosEntry</a>
                 </li>
               
@@ -740,6 +812,10 @@
               
                 <li>
                   <a href="#proto.api.v1.DirectionRelative"><span class="badge">E</span>DirectionRelative</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.NavigationServiceMode"><span class="badge">E</span>NavigationServiceMode</a>
                 </li>
               
               
@@ -2188,6 +2264,44 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.BoxGeometry">BoxGeometry</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>width</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>length</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>depth</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.CameraFrameRequest">CameraFrameRequest</h3>
         <p></p>
 
@@ -2732,6 +2846,37 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                 <tr>
                   <td>std_err</td>
                   <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.GeoPoint">GeoPoint</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>latitude</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>longitude</td>
+                  <td><a href="#double">double</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -3697,6 +3842,223 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.NavigationServiceAddWaypointRequest">NavigationServiceAddWaypointRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>location</td>
+                  <td><a href="#proto.api.v1.GeoPoint">GeoPoint</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.NavigationServiceAddWaypointResponse">NavigationServiceAddWaypointResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.NavigationServiceLocationRequest">NavigationServiceLocationRequest</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.NavigationServiceLocationResponse">NavigationServiceLocationResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>location</td>
+                  <td><a href="#proto.api.v1.GeoPoint">GeoPoint</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.NavigationServiceModeRequest">NavigationServiceModeRequest</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.NavigationServiceModeResponse">NavigationServiceModeResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>mode</td>
+                  <td><a href="#proto.api.v1.NavigationServiceMode">NavigationServiceMode</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.NavigationServiceRemoveWaypointRequest">NavigationServiceRemoveWaypointRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.NavigationServiceRemoveWaypointResponse">NavigationServiceRemoveWaypointResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.NavigationServiceSetModeRequest">NavigationServiceSetModeRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>mode</td>
+                  <td><a href="#proto.api.v1.NavigationServiceMode">NavigationServiceMode</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.NavigationServiceSetModeResponse">NavigationServiceSetModeResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.NavigationServiceWaypoint">NavigationServiceWaypoint</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>location</td>
+                  <td><a href="#proto.api.v1.GeoPoint">GeoPoint</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.NavigationServiceWaypointsRequest">NavigationServiceWaypointsRequest</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.NavigationServiceWaypointsResponse">NavigationServiceWaypointsResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>waypoints</td>
+                  <td><a href="#proto.api.v1.NavigationServiceWaypoint">NavigationServiceWaypoint</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.ObjectPointCloudsRequest">ObjectPointCloudsRequest</h3>
         <p></p>
 
@@ -3780,6 +4142,13 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                   <td><p> </p></td>
                 </tr>
               
+                <tr>
+                  <td>bounding_boxes</td>
+                  <td><a href="#proto.api.v1.BoxGeometry">BoxGeometry</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
             </tbody>
           </table>
 
@@ -3838,6 +4207,68 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                 <tr>
                   <td>frame</td>
                   <td><a href="#bytes">bytes</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.ResourceRunCommandRequest">ResourceRunCommandRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>resource_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Note(erd): okay in v1 because names are unique. v2 should be a VRN. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>command_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>args</td>
+                  <td><a href="#google.protobuf.Struct">google.protobuf.Struct</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.ResourceRunCommandResponse">ResourceRunCommandResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>result</td>
+                  <td><a href="#google.protobuf.Struct">google.protobuf.Struct</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -4107,6 +4538,13 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                 <tr>
                   <td>motors</td>
                   <td><a href="#proto.api.v1.Status.MotorsEntry">Status.MotorsEntry</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>services</td>
+                  <td><a href="#proto.api.v1.Status.ServicesEntry">Status.ServicesEntry</a></td>
                   <td>repeated</td>
                   <td><p> </p></td>
                 </tr>
@@ -4397,6 +4835,37 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.Status.ServicesEntry">Status.ServicesEntry</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>key</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.Status.ServosEntry">Status.ServosEntry</h3>
         <p></p>
 
@@ -4569,6 +5038,35 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
             
               <tr>
                 <td>DIRECTION_RELATIVE_BACKWARD</td>
+                <td>2</td>
+                <td><p></p></td>
+              </tr>
+            
+          </tbody>
+        </table>
+      
+        <h3 id="proto.api.v1.NavigationServiceMode">NavigationServiceMode</h3>
+        <p></p>
+        <table class="enum-table">
+          <thead>
+            <tr><td>Name</td><td>Number</td><td>Description</td></tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td>NAVIGATION_SERVICE_MODE_UNSPECIFIED</td>
+                <td>0</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>NAVIGATION_SERVICE_MODE_MANUAL</td>
+                <td>1</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>NAVIGATION_SERVICE_MODE_WAYPOINT</td>
                 <td>2</td>
                 <td><p></p></td>
               </tr>
@@ -4974,6 +5472,55 @@ is reliant on having an encoder.</p></td>
                 <td>MotorIsOn</td>
                 <td><a href="#proto.api.v1.MotorIsOnRequest">MotorIsOnRequest</a></td>
                 <td><a href="#proto.api.v1.MotorIsOnResponse">MotorIsOnResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>ResourceRunCommand</td>
+                <td><a href="#proto.api.v1.ResourceRunCommandRequest">ResourceRunCommandRequest</a></td>
+                <td><a href="#proto.api.v1.ResourceRunCommandResponse">ResourceRunCommandResponse</a></td>
+                <td><p>ResourceRunCommand runs an arbitrary command on a resource if it supports it.</p></td>
+              </tr>
+            
+              <tr>
+                <td>NavigationServiceMode</td>
+                <td><a href="#proto.api.v1.NavigationServiceModeRequest">NavigationServiceModeRequest</a></td>
+                <td><a href="#proto.api.v1.NavigationServiceModeResponse">NavigationServiceModeResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>NavigationServiceSetMode</td>
+                <td><a href="#proto.api.v1.NavigationServiceSetModeRequest">NavigationServiceSetModeRequest</a></td>
+                <td><a href="#proto.api.v1.NavigationServiceSetModeResponse">NavigationServiceSetModeResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>NavigationServiceLocation</td>
+                <td><a href="#proto.api.v1.NavigationServiceLocationRequest">NavigationServiceLocationRequest</a></td>
+                <td><a href="#proto.api.v1.NavigationServiceLocationResponse">NavigationServiceLocationResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>NavigationServiceWaypoints</td>
+                <td><a href="#proto.api.v1.NavigationServiceWaypointsRequest">NavigationServiceWaypointsRequest</a></td>
+                <td><a href="#proto.api.v1.NavigationServiceWaypointsResponse">NavigationServiceWaypointsResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>NavigationServiceAddWaypoint</td>
+                <td><a href="#proto.api.v1.NavigationServiceAddWaypointRequest">NavigationServiceAddWaypointRequest</a></td>
+                <td><a href="#proto.api.v1.NavigationServiceAddWaypointResponse">NavigationServiceAddWaypointResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>NavigationServiceRemoveWaypoint</td>
+                <td><a href="#proto.api.v1.NavigationServiceRemoveWaypointRequest">NavigationServiceRemoveWaypointRequest</a></td>
+                <td><a href="#proto.api.v1.NavigationServiceRemoveWaypointResponse">NavigationServiceRemoveWaypointResponse</a></td>
                 <td><p></p></td>
               </tr>
             
@@ -5531,6 +6078,76 @@ is reliant on having an encoder.</p></td>
                 <td>MotorIsOn</td>
                 <td>GET</td>
                 <td>/api/v1/motor/{name}/is_on</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>ResourceRunCommand</td>
+                <td>POST</td>
+                <td>/api/v1/resource/{resource_name}/run_command</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>NavigationServiceMode</td>
+                <td>GET</td>
+                <td>/api/v1/services/navigation/mode</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>NavigationServiceSetMode</td>
+                <td>PUT</td>
+                <td>/api/v1/services/navigation/mode</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>NavigationServiceLocation</td>
+                <td>GET</td>
+                <td>/api/v1/services/navigation/location</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>NavigationServiceWaypoints</td>
+                <td>GET</td>
+                <td>/api/v1/services/navigation/waypoints</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>NavigationServiceAddWaypoint</td>
+                <td>POST</td>
+                <td>/api/v1/services/navigation/waypoints</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>NavigationServiceRemoveWaypoint</td>
+                <td>DELETE</td>
+                <td>/api/v1/services/navigation/waypoints/{id}</td>
                 <td></td>
               </tr>
               
