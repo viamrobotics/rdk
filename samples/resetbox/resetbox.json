@@ -144,12 +144,18 @@
       "model": "xArm6",
       "name": "xArm6",
       "type": "arm"
+      "frame" : {
+          "parent" : "world"
+      }
     }
   ],
   "remotes": [
     {
       "address": "vg2105m04.local:8080",
       "name": "gripper"
+      "frame" : {
+          "parent" : "xArm6"
+      }
     }
   ]
 }

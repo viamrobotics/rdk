@@ -23,6 +23,9 @@ func NewZeroPose() Pose {
 
 // NewPoseFromOrientation takes in a position and orientation and returns a Pose.
 func NewPoseFromOrientation(point r3.Vector, o Orientation) Pose {
+	if o == nil {
+		return NewPoseFromPoint(point)
+	}
 	return NewPoseFromOrientationVector(point, o.OrientationVectorRadians())
 }
 
