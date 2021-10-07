@@ -1,7 +1,7 @@
 {
   "remotes": [
     {
-      "address": "arclight.local:8080",
+      "address": "TestPC.local:8080",
       "name": "TestPC"
     }
   ]
