@@ -159,16 +159,21 @@ func (e *HallEncoder) dec() {
 
 // ---------
 
+// DirectionAware lets you ask what direction something is moving. Only used for SingleEncoder for now, unclear future.
+type DirectionAware interface {
+	DirectionMoving() pb.DirectionRelative
+}
+
 // NewSingleEncoder creates a new SingleEncoder
-func NewSingleEncoder(i DigitalInterrupt) *SingleEncoder {
-	return &SingleEncoder{i: i}
+func NewSingleEncoder(i DigitalInterrupt, da DirectionAware) *SingleEncoder {
+	return &SingleEncoder{i: i, m: da}
 }
 
 // SingleEncoder is a single interrupt based encoder.
 type SingleEncoder struct {
 	i        DigitalInterrupt
 	position int64
-	M        *EncodedMotor // note: this is gross, but not sure anyone should use this, so....
+	m        DirectionAware
 }
 
 // Start starts up the encoder.
@@ -178,7 +183,6 @@ func (e *SingleEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers
 	activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		onStart()
-		_, rpmDebug := getRPMSleepDebug()
 		for {
 			select {
 			case <-cancelCtx.Done():
@@ -192,15 +196,13 @@ func (e *SingleEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers
 			case <-encoderChannel:
 			}
 
-			dir := e.M.rawDirection()
+			dir := e.m.DirectionMoving()
 			if dir == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
 				atomic.AddInt64(&e.position, 1)
 				//stop = m.state.regulated && m.state.curPosition >= m.state.setPoint
 			} else if dir == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
 				atomic.AddInt64(&e.position, -1)
 				//stop = m.state.regulated && m.state.curPosition <= m.state.setPoint
-			} else if rpmDebug {
-				e.M.logger.Warn("got encoder tick but motor should be off")
 			}
 		}
 	}, activeBackgroundWorkers.Done)
