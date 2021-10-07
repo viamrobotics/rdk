@@ -1,4 +1,6 @@
 //go:generate stringer -output=eventtypes_controlcodes_string.go -type=EventType,ControlCode
+
+// Package input provides human input, such as buttons, switches, knobs, gamepads, joysticks, keyboards, mice, etc.
 package input
 
 import (
@@ -6,40 +8,44 @@ import (
 	"time"
 )
 
-// This is a logical "container" more than an actual device
-// Could be a single gamepad, or a collection of digitalInterrupts and analogReaders, some local, some remote
+// Controller is a logical "container" more than an actual device
+// Could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
 type Controller interface {
 	Inputs(ctx context.Context) (map[ControlCode]Input, error)
 }
 
+// Input represents a single axis or button, defined by its ControlCode
 type Input interface {
-	Name(ctx context.Context) string
-	State(ctx context.Context) (Event, error) // returns most recent event (which should be the current state)
+	Name(ctx context.Context) string          // The stringified representation of the ControlCode
+	State(ctx context.Context) (Event, error) // returns most recent Event (which should be the current state)
 	RegisterControl(ctx context.Context, ctrlFunc ControlFunction, trigger EventType) error
 }
 
+// ControlFunction is a callback passed to RegisterControl
 type ControlFunction func(ctx context.Context, input Input, event Event)
 
+// EventType represents the type of input event, and is returned by State() or passed to ControlFunction callbacks.
 // Extensible for further events
 // Ex: LongPress might be useful on remote network connections where ButtonDown/ButtonUp timing might be too variable
 type EventType uint8
 
+// EventType codes, to be expanded as new input devices are developed
 const (
-	AllEvents         EventType = 0
-	Connect           EventType = 1
+	AllEvents         EventType = 0 // Callbacks registered for this event will be called in ADDITION to other registered event callbacks
+	Connect           EventType = 1 // Sent at controller initialization, and on reconnects
 	Disconnect        EventType = 2 // If unplugged, or wireless/network times out
-	ButtonDown        EventType = 3
-	ButtonUp          EventType = 4
-	ButtonChange      EventType = 5 // Both up and down for convinence
-	PositionChangeAbs EventType = 6 // Absolute position is reported, a la joysticks
-	PositionChangeRel EventType = 7 // Relative position is reported, a la mice, or simulating axes with up/down buttons
+	ButtonDown        EventType = 3 // Typical keypress
+	ButtonUp          EventType = 4 // Key release
+	ButtonChange      EventType = 5 // Both up and down for convinence during registration, not typically emitted
+	PositionChangeAbs EventType = 6 // Absolute position is reported via Value, a la joysticks
+	PositionChangeRel EventType = 7 // Relative position is reported via Value, a la mice, or simulating axes with up/down buttons
 )
 
-// Effectively keycode mappings
-// This allows one InputButton to provide multiple keys via codes, so a keyboard doesn't need to define 104 keys
-// Can be completely ignored for basic gamepad/arrows/select type use as well.
+// ControlCode identifies the type of input (specific Axis or Button)
+// This is similar to KeyCodes used in various HID layers
 type ControlCode uint32
 
+// ControlCodes, to be expanded as new input devices are developed
 const (
 	// Reserving keys under 1000 for overlap with standard keycodes
 	// Axes
@@ -67,7 +73,7 @@ const (
 	ButtonRecord ControlCode = 2011
 )
 
-// The event returned to the registered ControlFunction
+// Event is passed to the registered ControlFunction or returned by State()
 type Event struct {
 	Time  time.Time
 	Event EventType

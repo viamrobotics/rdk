@@ -252,7 +252,7 @@ func RegisterMotor(model string, creator Motor) {
 	motorRegistry[model] = creator
 }
 
-// RegisterInput registers an input model to a creator.
+// RegisterInputController registers an input controller model to a creator.
 func RegisterInputController(model string, creator InputController) {
 	_, old := inputControllerRegistry[model]
 	if old {

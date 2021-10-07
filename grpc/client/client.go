@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"io"
 	"math"
 	"runtime/debug"
 	"sync"
@@ -1367,7 +1366,13 @@ func (ic *inputClient) connectStream(ctx context.Context) {
 		if err != nil {
 			ic.streamConnected = false
 			ic.controller.rc.logger.Error(err)
-			continue
+			ic.mu.Unlock()
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(3 * time.Second):
+				continue
+			}
 		}
 
 		ic.streamConnected = true
@@ -1383,6 +1388,7 @@ func (ic *inputClient) connectStream(ctx context.Context) {
 		ic.execCallback(ctx, eventOut)
 
 		// Handle the rest of the stream
+	processing:
 		for {
 			select {
 			case <-ctx.Done():
@@ -1390,7 +1396,7 @@ func (ic *inputClient) connectStream(ctx context.Context) {
 			default:
 			}
 			eventIn, err := stream.Recv()
-			if errors.Is(err, io.EOF) && eventIn == nil {
+			if err != nil && eventIn == nil {
 				ic.mu.Lock()
 				ic.streamConnected = false
 				ic.mu.Unlock()
@@ -1401,11 +1407,16 @@ func (ic *inputClient) connectStream(ctx context.Context) {
 					Value: 0,
 				}
 				ic.execCallback(ctx, eventOut)
-				continue
+				ic.controller.rc.logger.Error(err)
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(3 * time.Second):
+					break processing
+				}
 			}
 			if err != nil {
 				ic.controller.rc.logger.Error(err)
-				return
 			}
 
 			eventOut := input.Event{
@@ -1417,9 +1428,6 @@ func (ic *inputClient) connectStream(ctx context.Context) {
 			ic.execCallback(ctx, eventOut)
 		}
 	}
-
-	return
-
 }
 
 func (ic *inputClient) execCallback(ctx context.Context, event input.Event) {
@@ -1433,5 +1441,4 @@ func (ic *inputClient) execCallback(ctx context.Context, event input.Event) {
 	if ok {
 		go callbackAll(ctx, ic, event)
 	}
-	return
 }

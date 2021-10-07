@@ -1,7 +1,7 @@
 {
   "components": [
     {
-      "name": "gamepad1",
+      "name": "TestGamepad",
       "model": "gamepad",
       "type": "input_controller",
       "attributes": {

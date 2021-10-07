@@ -433,12 +433,6 @@ service RobotService {
     };
   }
 
-  rpc InputName(InputNameRequest) returns (InputNameResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/input/{controller}/{code}/name"
-    };
-  }
-
   rpc InputState(InputStateRequest) returns (InputEvent) {
     option (google.api.http) = {
       get: "/api/v1/input/{controller}/{code}/state"
@@ -1150,15 +1144,6 @@ message InputControllerInputsRequest {
 
 message InputControllerInputsResponse {
   repeated uint32 inputs = 1;
-}
-
-message InputNameRequest {
-  string controller = 1;
-  uint32 code = 2;
-}
-
-message InputNameResponse {
-  string name = 1;
 }
 
 message InputStateRequest {

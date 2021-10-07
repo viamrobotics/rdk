@@ -32,7 +32,7 @@ type Config struct {
 }
 
 func init() {
-	registry.RegisterInputController(modelname, registry.InputController{Constructor: NewGamepad})
+	registry.RegisterInputController(modelname, registry.InputController{Constructor: NewController})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelname, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
@@ -47,23 +47,26 @@ func init() {
 	})
 }
 
-type Gamepad struct {
+// Controller is an input.Controller
+type Controller struct {
 	dev     *evdev.Evdev
 	Model   string
 	Mapping Mapping
-	inputs  map[input.ControlCode]*GamepadInput
+	inputs  map[input.ControlCode]*Input
 	logger  golog.Logger
 
 	callbacks map[input.ControlCode]map[input.EventType]input.ControlFunction
 }
 
+// Mapping represents the evedev code to input.ControlCode mapping for a given gamepad model
 type Mapping struct {
 	Buttons map[evdev.KeyType]input.ControlCode
 	Axes    map[evdev.AbsoluteType]input.ControlCode
 }
 
-type GamepadInput struct {
-	pad         *Gamepad
+// Input is a single input.Input
+type Input struct {
+	pad         *Controller
 	controlCode input.ControlCode
 	mu          *sync.Mutex
 	lastEvent   input.Event
@@ -77,7 +80,7 @@ func scaleAxis(x int32, inMin int32, inMax int32, outMin float64, outMax float64
 	return float64(x-inMin)*(outMax-outMin)/float64(inMax-inMin) + outMin
 }
 
-func (g *Gamepad) eventDispatcher(ctx context.Context) {
+func (g *Controller) eventDispatcher(ctx context.Context) {
 	evChan := g.dev.Poll(ctx)
 	for {
 		select {
@@ -167,8 +170,9 @@ func (g *Gamepad) eventDispatcher(ctx context.Context) {
 	}
 }
 
-func NewGamepad(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
-	pad := &Gamepad{}
+// NewController creates a new gamepad
+func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
+	pad := &Controller{}
 	pad.logger = logger
 
 	var err error
@@ -189,7 +193,7 @@ func NewGamepad(ctx context.Context, r robot.Robot, config config.Component, log
 		}
 		name := dev.Name()
 		logger.Infof("found gamepad: '%s' at %s", name, n)
-		mapping, ok := GamepadModels[name]
+		mapping, ok := GamepadMappings[name]
 		if ok {
 			pad.dev = dev
 			pad.Model = pad.dev.Name()
@@ -202,17 +206,27 @@ func NewGamepad(ctx context.Context, r robot.Robot, config config.Component, log
 		return nil, errors.New("no gamepad found (check /dev/input/eventXX permissions)")
 	}
 
-	pad.inputs = make(map[input.ControlCode]*GamepadInput)
+	pad.inputs = make(map[input.ControlCode]*Input)
 	for _, v := range pad.Mapping.Axes {
-		pad.inputs[v] = &GamepadInput{pad: pad, mu: &sync.Mutex{}, controlCode: v}
+		pad.inputs[v] = &Input{pad: pad, mu: &sync.Mutex{}, controlCode: v}
 	}
 	for _, v := range pad.Mapping.Buttons {
-		pad.inputs[v] = &GamepadInput{pad: pad, mu: &sync.Mutex{}, controlCode: v}
+		pad.inputs[v] = &Input{pad: pad, mu: &sync.Mutex{}, controlCode: v}
 	}
 
 	pad.callbacks = make(map[input.ControlCode]map[input.EventType]input.ControlFunction)
 
 	//logger.Debugf("Map: %+v", pad.Mapping)
+
+	for code, inp := range pad.inputs {
+		conEvent := input.Event{
+			Time:  time.Now(),
+			Event: input.Connect,
+			Code:  code,
+			Value: 0,
+		}
+		inp.lastEvent = conEvent
+	}
 
 	go pad.eventDispatcher(ctx)
 
@@ -220,7 +234,8 @@ func NewGamepad(ctx context.Context, r robot.Robot, config config.Component, log
 
 }
 
-func (g *Gamepad) Inputs(ctx context.Context) (map[input.ControlCode]input.Input, error) {
+// Inputs lists the inputs of the gamepad
+func (g *Controller) Inputs(ctx context.Context) (map[input.ControlCode]input.Input, error) {
 	ret := make(map[input.ControlCode]input.Input)
 	for k, v := range g.inputs {
 		ret[k] = v
@@ -228,17 +243,20 @@ func (g *Gamepad) Inputs(ctx context.Context) (map[input.ControlCode]input.Input
 	return ret, nil
 }
 
-func (i *GamepadInput) Name(ctx context.Context) string {
+// Name returns the stringified ControlCode of the input
+func (i *Input) Name(ctx context.Context) string {
 	return i.controlCode.String()
 }
 
-func (i *GamepadInput) State(ctx context.Context) (input.Event, error) {
+// State returns the last input.Event (the current state)
+func (i *Input) State(ctx context.Context) (input.Event, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return i.lastEvent, nil
 }
 
-func (i *GamepadInput) RegisterControl(ctx context.Context, ctrlFunc input.ControlFunction, trigger input.EventType) error {
+// RegisterControl registers a callback function to be executed on the specified trigger Event
+func (i *Input) RegisterControl(ctx context.Context, ctrlFunc input.ControlFunction, trigger input.EventType) error {
 
 	if i.pad.callbacks[i.controlCode] == nil {
 		i.pad.callbacks[i.controlCode] = make(map[input.EventType]input.ControlFunction)
