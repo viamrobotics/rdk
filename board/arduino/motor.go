@@ -8,9 +8,9 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
+	"go.viam.com/core/motor/gpio"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -77,7 +77,7 @@ func (b *arduinoBoard) configureMotor(config config.Component, motorConfig *moto
 		return nil, fmt.Errorf("got unknown response when configureMotor %s", res)
 	}
 
-	m, err := board.NewEncodedMotor(config, *motorConfig, &arduinoMotor{b, *motorConfig, config.Name}, &encoder{b, *motorConfig, config.Name}, b.logger)
+	m, err := gpio.NewEncodedMotor(config, *motorConfig, &arduinoMotor{b, *motorConfig, config.Name}, &encoder{b, *motorConfig, config.Name}, b.logger)
 	if err != nil {
 		return nil, err
 	}

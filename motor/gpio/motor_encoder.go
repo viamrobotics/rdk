@@ -1,4 +1,4 @@
-package board
+package gpio
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
@@ -44,7 +45,7 @@ func SetRPMSleepDebug(dur time.Duration, debug bool) func() {
 }
 
 // WrapMotorWithEncoder takes a motor and adds an encoder onto it in order to understand its odometry.
-func WrapMotorWithEncoder(ctx context.Context, b Board, c config.Component, mc motor.Config, m motor.Motor, logger golog.Logger) (motor.Motor, error) {
+func WrapMotorWithEncoder(ctx context.Context, b board.Board, c config.Component, mc motor.Config, m motor.Motor, logger golog.Logger) (motor.Motor, error) {
 	if mc.Encoder == "" {
 		return m, nil
 	}
@@ -62,18 +63,17 @@ func WrapMotorWithEncoder(ctx context.Context, b Board, c config.Component, mc m
 	var err error
 
 	if mc.EncoderB == "" {
-		encoder := &SingleEncoder{i: i}
+		encoder := board.NewSingleEncoder(i, mm)
 		mm, err = newEncodedMotor(c, mc, m, encoder, logger)
 		if err != nil {
 			return nil, err
 		}
-		encoder.M = mm
 	} else {
 		b, ok := b.DigitalInterruptByName(mc.EncoderB)
 		if !ok {
 			return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.EncoderB, c.Name)
 		}
-		mm, err = newEncodedMotor(c, mc, m, NewHallEncoder(i, b), logger)
+		mm, err = newEncodedMotor(c, mc, m, board.NewHallEncoder(i, b), logger)
 		if err != nil {
 			return nil, err
 		}
@@ -85,11 +85,11 @@ func WrapMotorWithEncoder(ctx context.Context, b Board, c config.Component, mc m
 }
 
 // NewEncodedMotor creates a new motor that supports an arbitrary source of encoder information
-func NewEncodedMotor(config config.Component, motorConfig motor.Config, real motor.Motor, encoder Encoder, logger golog.Logger) (motor.Motor, error) {
+func NewEncodedMotor(config config.Component, motorConfig motor.Config, real motor.Motor, encoder board.Encoder, logger golog.Logger) (motor.Motor, error) {
 	return newEncodedMotor(config, motorConfig, real, encoder, logger)
 }
 
-func newEncodedMotor(config config.Component, motorConfig motor.Config, real motor.Motor, encoder Encoder, logger golog.Logger) (*EncodedMotor, error) {
+func newEncodedMotor(config config.Component, motorConfig motor.Config, real motor.Motor, encoder board.Encoder, logger golog.Logger) (*EncodedMotor, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	em := &EncodedMotor{
 		activeBackgroundWorkers: &sync.WaitGroup{},
@@ -133,7 +133,7 @@ type EncodedMotor struct {
 	activeBackgroundWorkers *sync.WaitGroup
 	cfg                     motor.Config
 	real                    motor.Motor
-	encoder                 Encoder
+	encoder                 board.Encoder
 
 	stateMu *sync.RWMutex
 	state   EncodedMotorState
@@ -173,7 +173,8 @@ func (m *EncodedMotor) Position(ctx context.Context) (float64, error) {
 	return float64(ticks) / float64(m.cfg.TicksPerRotation), nil
 }
 
-func (m *EncodedMotor) rawDirection() pb.DirectionRelative {
+// DirectionMoving says what direction we're moving right now
+func (m *EncodedMotor) DirectionMoving() pb.DirectionRelative {
 	m.stateMu.RLock()
 	defer m.stateMu.RUnlock()
 	return m.state.curDirection
@@ -442,7 +443,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 
 	if revolutions < 0 {
 		revolutions *= -1
-		d = FlipDirection(d)
+		d = board.FlipDirection(d)
 	}
 
 	if revolutions == 0 {

@@ -116,6 +116,7 @@ type PostProcessor func(raw int64) int64
 
 // FlipDirection flips over a relative direction. For example, forward
 // flips to backward.
+// TODO(erh): should this move to motor?
 func FlipDirection(d pb.DirectionRelative) pb.DirectionRelative {
 	switch d {
 	case pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD:

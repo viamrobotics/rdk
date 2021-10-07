@@ -1,10 +1,9 @@
-package board_test
+package gpio
 
 import (
 	"context"
 	"testing"
 
-	"go.viam.com/core/board"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robots/fake"
@@ -19,7 +18,7 @@ func TestMotorABPWM(t *testing.T) {
 	b := &fake.Board{}
 	logger := golog.NewTestLogger(t)
 
-	m, err := board.NewGPIOMotor(b, motor.Config{Pins: map[string]string{"a": "1", "b": "2", "pwm": "3"}, PWMFreq: 4000}, logger)
+	m, err := NewMotor(b, motor.Config{Pins: map[string]string{"a": "1", "b": "2", "pwm": "3"}, PWMFreq: 4000}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, m.Off(ctx), test.ShouldBeNil)
@@ -82,7 +81,7 @@ func TestMotorDirPWM(t *testing.T) {
 	b := &fake.Board{}
 	logger := golog.NewTestLogger(t)
 
-	m, err := board.NewGPIOMotor(b, motor.Config{Pins: map[string]string{"dir": "1", "en": "2", "pwm": "3"}, PWMFreq: 4000}, logger)
+	m, err := NewMotor(b, motor.Config{Pins: map[string]string{"dir": "1", "en": "2", "pwm": "3"}, PWMFreq: 4000}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, m.Off(ctx), test.ShouldBeNil)
@@ -131,7 +130,7 @@ func TestMotorAB(t *testing.T) {
 	b := &fake.Board{}
 	logger := golog.NewTestLogger(t)
 
-	m, err := board.NewGPIOMotor(b, motor.Config{Pins: map[string]string{"a": "1", "b": "2", "en": "3"}, PWMFreq: 4000}, logger)
+	m, err := NewMotor(b, motor.Config{Pins: map[string]string{"a": "1", "b": "2", "en": "3"}, PWMFreq: 4000}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, m.Off(ctx), test.ShouldBeNil)

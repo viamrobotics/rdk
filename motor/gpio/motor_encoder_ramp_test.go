@@ -1,4 +1,4 @@
-package board
+package gpio
 
 import (
 	"testing"
