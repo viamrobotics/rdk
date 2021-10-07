@@ -340,7 +340,7 @@ func (s *Server) ObjectPointClouds(ctx context.Context, req *pb.ObjectPointCloud
 		return nil, err
 	}
 	config := segmentation.ObjectConfig{int(req.MinPointsInPlane), int(req.MinPointsInSegment), req.ClusteringRadius}
-	segments, err := segmentation.NewObjectSegmentation(pc, config)
+	segments, err := segmentation.NewObjectSegmentation(ctx, pc, config)
 	if err != nil {
 		return nil, err
 	}

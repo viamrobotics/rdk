@@ -97,8 +97,13 @@ type basicPointCloud struct {
 
 // New returns an empty PointCloud backed by a basicPointCloud.
 func New() PointCloud {
+	return NewWithPrealloc(0)
+}
+
+// NewWithPrealloc returns an empty, preallocated PointCloud backed by a basicPointCloud.
+func NewWithPrealloc(size int) PointCloud {
 	return &basicPointCloud{
-		points: map[key]Point{},
+		points: make(map[key]Point, size),
 		minX:   math.MaxFloat64,
 		minY:   math.MaxFloat64,
 		minZ:   math.MaxFloat64,

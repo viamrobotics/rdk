@@ -1,6 +1,7 @@
 package segmentation
 
 import (
+	"context"
 	"fmt"
 
 	pc "go.viam.com/core/pointcloud"
@@ -22,9 +23,9 @@ type ObjectSegmentation struct {
 }
 
 // NewObjectSegmentation removes the planes (if any) and returns a segmentation of the objects in a point cloud
-func NewObjectSegmentation(cloud pc.PointCloud, cfg ObjectConfig) (*ObjectSegmentation, error) {
+func NewObjectSegmentation(ctx context.Context, cloud pc.PointCloud, cfg ObjectConfig) (*ObjectSegmentation, error) {
 	ps := NewPointCloudPlaneSegmentation(cloud, 10, cfg.MinPtsInPlane)
-	planes, nonPlane, err := ps.FindPlanes()
+	planes, nonPlane, err := ps.FindPlanes(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -130,9 +131,9 @@ func findNeighborsInRadius(cloud pc.PointCloud, point pc.Point, radius float64) 
 }
 
 // NewObjectSegmentationFromVoxelGrid removes the planes (if any) and returns a segmentation of the objects in a point cloud
-func NewObjectSegmentationFromVoxelGrid(vg *pc.VoxelGrid, objConfig ObjectConfig, planeConfig VoxelGridPlaneConfig) (*ObjectSegmentation, error) {
+func NewObjectSegmentationFromVoxelGrid(ctx context.Context, vg *pc.VoxelGrid, objConfig ObjectConfig, planeConfig VoxelGridPlaneConfig) (*ObjectSegmentation, error) {
 	ps := NewVoxelGridPlaneSegmentation(vg, planeConfig)
-	planes, nonPlane, err := ps.FindPlanes()
+	planes, nonPlane, err := ps.FindPlanes(ctx)
 	if err != nil {
 		return nil, err
 	}
