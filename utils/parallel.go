@@ -14,6 +14,10 @@ func init() {
 	if parallelFactor <= 0 {
 		parallelFactor = 1
 	}
+	quarterProcs := float64(parallelFactor) * .25
+	if quarterProcs > 8 {
+		parallelFactor = int(quarterProcs)
+	}
 }
 
 type (
