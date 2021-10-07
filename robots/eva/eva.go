@@ -352,5 +352,5 @@ func NewEva(ctx context.Context, host string, attrs config.AttributeMap, logger 
 
 	e.logger.Debugf("connected to eva: %v", name)
 
-	return arm.WrapWithReconfigurable(e), nil
+	return e, nil
 }

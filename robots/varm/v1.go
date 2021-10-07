@@ -212,7 +212,7 @@ func NewArmV1(ctx context.Context, r robot.Robot, logger golog.Logger, ik kinema
 
 	logger.Debugf("%#v", newArm)
 
-	return arm.WrapWithReconfigurable(newArm), multierr.Combine(newArm.j0.validate(), newArm.j1.validate())
+	return newArm, multierr.Combine(newArm.j0.validate(), newArm.j1.validate())
 }
 
 // ArmV1 TODO

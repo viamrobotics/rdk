@@ -113,7 +113,7 @@ func NewArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error
 		return nil, err
 	}
 
-	newArm := &Arm{
+	return &Arm{
 		Joints: map[string][]*servo.Servo{
 			"Waist":       {servos[0]},
 			"Shoulder":    {servos[1], servos[2]},
@@ -125,9 +125,7 @@ func NewArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error
 		moveLock: getPortMutex(usbPort),
 		logger:   logger,
 		ik:       ik,
-	}
-
-	return arm.WrapWithReconfigurable(newArm), nil
+	}, nil
 }
 
 // CurrentPosition computes and returns the current cartesian position.

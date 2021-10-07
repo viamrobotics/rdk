@@ -13,6 +13,7 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
@@ -219,4 +220,20 @@ func TestComponentRegistry(t *testing.T) {
 	frameFunc, ok = FrameLookup(comp)
 	test.That(t, frameFunc, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldEqual, false)
+}
+
+func TestComponentSubtypeRegistry(t *testing.T) {
+	rf := func(r interface{}) (resource.Reconfigurable, error) {
+		return nil, nil
+	}
+	newSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, arm.SubtypeName)
+	test.That(t, func() { RegisterComponentSubtype(newSubtype, ComponentSubtype{}) }, test.ShouldPanic)
+
+	RegisterComponentSubtype(newSubtype, ComponentSubtype{rf})
+	creator := ComponentSubtypeLookup(newSubtype)
+	test.That(t, creator, test.ShouldNotBeNil)
+
+	subtype2 := resource.NewSubtype(resource.Namespace("acme2"), resource.ResourceTypeComponent, arm.SubtypeName)
+	test.That(t, ComponentSubtypeLookup(subtype2), test.ShouldBeNil)
+	test.That(t, creator.Reconfigurable, test.ShouldEqual, rf)
 }

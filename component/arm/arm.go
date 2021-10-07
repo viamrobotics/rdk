@@ -111,11 +111,15 @@ func (r *reconfigurableArm) Reconfigure(newArm resource.Reconfigurable) error {
 
 // WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm.
 // If arm is already a reconfigurableArm, then nothing is done.
-func WrapWithReconfigurable(arm Arm) Arm {
-	if reconfigurable, ok := arm.(*reconfigurableArm); ok {
-		return reconfigurable
+func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+	arm, ok := r.(Arm)
+	if !ok {
+		return nil, errors.Errorf("expected resource to be Arm but got %T", r)
 	}
-	return &reconfigurableArm{actual: arm}
+	if reconfigurable, ok := arm.(*reconfigurableArm); ok {
+		return reconfigurable, nil
+	}
+	return &reconfigurableArm{actual: arm}, nil
 }
 
 // NewPositionFromMetersAndOV returns a three-dimensional arm position

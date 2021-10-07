@@ -61,14 +61,12 @@ func NewArmIK(name string, logger golog.Logger) (arm.Arm, error) {
 		return nil, err
 	}
 
-	newArm := &ArmIK{
+	return &ArmIK{
 		Name:     name,
 		position: &pb.ArmPosition{},
 		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
 		ik:       ik,
-	}
-
-	return arm.WrapWithReconfigurable(newArm), nil
+	}, nil
 }
 
 // ArmIK is a fake arm that can simply read and set properties.
