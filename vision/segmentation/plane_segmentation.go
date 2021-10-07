@@ -219,7 +219,7 @@ func (pcps *pointCloudPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.P
 		return planes, pcps.cloud, nil
 	}
 	planes = append(planes, plane)
-	lastNonPlaneCloud := nonPlaneCloud
+	var lastNonPlaneCloud pc.PointCloud
 	for {
 		lastNonPlaneCloud = nonPlaneCloud
 		smallerPlane, smallerNonPlaneCloud, err := SegmentPlane(ctx, nonPlaneCloud, pcps.nIterations, pcps.threshold)
