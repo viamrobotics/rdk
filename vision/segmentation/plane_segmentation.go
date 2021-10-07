@@ -81,41 +81,28 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 	r := rand.New(rand.NewSource(1))
 	pts := GetPointCloudPositions(cloud)
 	nPoints := cloud.Size()
-	if nPoints == 0 {
-		return pc.NewEmptyPlane(), pc.New(), nil
-	}
 
 	// First get all equations
-	equations := make([][4]float64, nIterations)
-	if err := utils.GroupWorkParallel(
-		ctx,
-		nIterations,
-		func(numGroups int) {},
-		func(groupNum, groupSize, from, to int) (utils.MemberWorkFunc, utils.GroupWorkDoneFunc) {
-			for i := from; i < to; i++ {
-				// sample 3 Points from the slice of 3D Points
-				n1, n2, n3 := utils.SampleRandomIntRange(1, nPoints-1, r), utils.SampleRandomIntRange(1, nPoints-1, r), utils.SampleRandomIntRange(1, nPoints-1, r)
-				p1, p2, p3 := r3.Vector(pts[n1]), r3.Vector(pts[n2]), r3.Vector(pts[n3])
+	equations := make([][4]float64, 0, nIterations)
+	for i := 0; i < nIterations; i++ {
+		// sample 3 Points from the slice of 3D Points
+		n1, n2, n3 := utils.SampleRandomIntRange(1, nPoints-1, r), utils.SampleRandomIntRange(1, nPoints-1, r), utils.SampleRandomIntRange(1, nPoints-1, r)
+		p1, p2, p3 := r3.Vector(pts[n1]), r3.Vector(pts[n2]), r3.Vector(pts[n3])
 
-				// get 2 vectors that are going to define the plane
-				v1 := p2.Sub(p1)
-				v2 := p3.Sub(p1)
-				// cross product to get the normal unit vector to the plane (v1, v2)
-				cross := v1.Cross(v2)
-				vec := cross.Normalize()
-				// find current plane equation denoted as:
-				// cross[0]*x + cross[1]*y + cross[2]*z + d = 0
-				// to find d, we just need to pick a point and deduce d from the plane equation (vec orth to p1, p2, p3)
-				d := -vec.Dot(p2)
+		// get 2 vectors that are going to define the plane
+		v1 := p2.Sub(p1)
+		v2 := p3.Sub(p1)
+		// cross product to get the normal unit vector to the plane (v1, v2)
+		cross := v1.Cross(v2)
+		vec := cross.Normalize()
+		// find current plane equation denoted as:
+		// cross[0]*x + cross[1]*y + cross[2]*z + d = 0
+		// to find d, we just need to pick a point and deduce d from the plane equation (vec orth to p1, p2, p3)
+		d := -vec.Dot(p2)
 
-				// current plane equation
-				currentEquation := [4]float64{vec.X, vec.Y, vec.Z, d}
-				equations[i] = currentEquation
-			}
-			return nil, nil
-		},
-	); err != nil {
-		return nil, nil, err
+		// current plane equation
+		currentEquation := [4]float64{vec.X, vec.Y, vec.Z, d}
+		equations = append(equations, currentEquation)
 	}
 
 	// Then find the best equation in parallel. It ends up being faster to loop
