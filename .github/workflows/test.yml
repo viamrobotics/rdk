@@ -19,16 +19,16 @@ jobs:
 
     steps:
 
-    - name: Check out code in Core directory
-      uses: actions/checkout@v2
-      with:
-        fetch-depth: 2
-
     - name: Configure git for private modules
       env:
         TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
       run: |
         sudo -u testbot bash -lc "git config --global url.\"https://${TOKEN}@github.com\".insteadOf \"https://github.com\""
+
+    - name: Check out code in Core directory
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 2
 
     - name: Update dev environment
       run: |
