@@ -43,7 +43,7 @@ require (
 	github.com/starship-technologies/gobag v1.0.6
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
 	github.com/u2takey/ffmpeg-go v0.3.0
-	github.com/viamrobotics/SensorExporter v0.0.0-20211008170254-4bab14a4b4e3
+	github.com/viamrobotics/SensorExporter/go/iphone v0.0.0-20211008164120-7bbcdb99e4dd
 	github.com/wasmerio/wasmer-go v1.0.4
 	go-hep.org/x/hep v0.28.5
 	go.mongodb.org/mongo-driver v1.5.3
