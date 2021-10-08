@@ -581,6 +581,10 @@ func TestClient(t *testing.T) {
 					Orientation: &spatialmath.OrientationVectorDegrees{OX: 0, OY: 0, OZ: 1.0000000000000002, Theta: 7},
 				},
 			},
+			{
+				Name: "b",
+				Type: config.ComponentTypeBase,
+			},
 		},
 	}
 	injectRobot1.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
@@ -593,6 +597,8 @@ func TestClient(t *testing.T) {
 	newCfg, err := client.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, newCfg.Components[0], test.ShouldResemble, cfg.Components[0])
+	test.That(t, newCfg.Components[1], test.ShouldResemble, cfg.Components[1])
+	test.That(t, newCfg.Components[1].Frame, test.ShouldBeNil)
 
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return nil, errors.New("whoops")
