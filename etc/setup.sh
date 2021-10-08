@@ -122,10 +122,13 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-git config --global --get-regexp url. > /dev/null
-if [ $? -ne 0 ]; then
+if [[ "`git rev-parse --is-inside-work-tree 2>/dev/null`x" == "truex" ]]; then
 	git config --global url.ssh://git@github.com/.insteadOf https://github.com/
+else
+	echo "It seems you weren't actually in the core repository. When you are, you may want to run:"
+	echo -e "\033[41m""git config --global url.ssh://git@github.com/.insteadOf https://github.com/""\033[0m"
 fi
+
 
 echo -e "\033[0;32m""Dev environment setup is complete!""\033[0m"
 echo -e "Don't forget to restart your shell, or execute: ""\033[41m""source ~/.viamdevrc""\033[0m"
