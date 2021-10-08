@@ -21,6 +21,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc/server"
+	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
@@ -78,6 +79,9 @@ var emptyStatus = &pb.Status{
 	Motors: map[string]*pb.MotorStatus{
 		"motor1": {},
 		"motor2": {},
+	},
+	InputControllers: map[string]bool{
+		"inputController1": true,
 	},
 	Servos: map[string]*pb.ServoStatus{
 		"servo1": {},
@@ -161,6 +165,10 @@ var finalStatus = &pb.Status{
 		"motor2": {},
 		"motor3": {},
 	},
+	InputControllers: map[string]bool{
+		"inputController2": true,
+		"inputController3": true,
+	},
 	Boards: map[string]*pb.BoardStatus{
 		"board2": {
 			Analogs: map[string]*pb.AnalogStatus{
@@ -226,7 +234,9 @@ func TestClient(t *testing.T) {
 	injectRobot1.MotorByNameFunc = func(name string) (motor.Motor, bool) {
 		return nil, false
 	}
-
+	injectRobot1.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
+		return nil, false
+	}
 	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return emptyStatus, nil
 	}
@@ -236,6 +246,7 @@ func TestClient(t *testing.T) {
 		capGripperName          string
 		capBoardName            string
 		capMotorName            string
+		capInputControllerName  string
 		capServoName            string
 		capAnalogReaderName     string
 		capDigitalInterruptName string
@@ -529,6 +540,25 @@ func TestClient(t *testing.T) {
 	}
 	injectRelCompassDev.StopCalibrationFunc = func(ctx context.Context) error {
 		return nil
+	}
+
+	injectInputControllerDev := &inject.InputController{}
+	startInput := &inject.Input{}
+	startInput.NameFunc = func(ctx context.Context) string { return input.ButtonStart.String() }
+	startInput.StateFunc = func(ctx context.Context) (input.Event, error) {
+		return input.Event{Time: time.Now(), Event: input.ButtonDown, Code: input.ButtonStart, Value: 1.0}, nil
+	}
+	startInput.RegisterControlFunc = func(ctx context.Context, ctrlFunc input.ControlFunction, trigger input.EventType) error {
+		outEvent := input.Event{Time: time.Now(), Event: trigger, Code: input.ButtonStart, Value: 0.0}
+		ctrlFunc(context.Background(), startInput, outEvent)
+		return nil
+	}
+	injectInputControllerDev.InputsFunc = func(ctx context.Context) (map[input.ControlCode]input.Input, error) {
+		return map[input.ControlCode]input.Input{input.ButtonStart: startInput}, nil
+	}
+	injectRobot2.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
+		capInputControllerName = name
+		return injectInputControllerDev, true
 	}
 
 	go gServer1.Serve(listener1)
@@ -984,6 +1014,37 @@ func TestClient(t *testing.T) {
 	err = utils.TryClose(lidarDev)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capLidarName, test.ShouldEqual, "lidar1")
+
+	inputControllerDev, ok := client.InputControllerByName("inputController1")
+	test.That(t, ok, test.ShouldBeTrue)
+	inputList, err := inputControllerDev.Inputs(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	inputDev, ok := inputList[input.ButtonStart]
+	test.That(t, ok, test.ShouldBeTrue)
+
+	startTime := time.Now()
+	test.That(t, inputDev.Name(context.Background()), test.ShouldEqual, "ButtonStart")
+	outState, err := inputDev.State(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, outState.Event, test.ShouldEqual, input.ButtonDown)
+	test.That(t, outState.Code, test.ShouldEqual, input.ButtonStart)
+	test.That(t, outState.Value, test.ShouldEqual, 1)
+	test.That(t, outState.Time.After(startTime), test.ShouldBeTrue)
+	test.That(t, outState.Time.Before(time.Now()), test.ShouldBeTrue)
+
+	evStream := make(chan input.Event)
+	ctrlFuncIn := func(ctx context.Context, input input.Input, event input.Event) { evStream <- event }
+	streamCtx, streamCancel := context.WithCancel(context.Background())
+	err = inputDev.RegisterControl(streamCtx, ctrlFuncIn, input.ButtonUp)
+	test.That(t, err, test.ShouldBeNil)
+	ev := <-evStream
+	test.That(t, ev.Event, test.ShouldEqual, input.ButtonUp)
+	test.That(t, ev.Code, test.ShouldEqual, input.ButtonStart)
+	test.That(t, ev.Value, test.ShouldEqual, 0.0)
+	test.That(t, ev.Time.After(startTime), test.ShouldBeTrue)
+	test.That(t, ev.Time.Before(time.Now()), test.ShouldBeTrue)
+	streamCancel()
+	test.That(t, capInputControllerName, test.ShouldEqual, "inputController1")
 
 	sensorDev, ok := client.SensorByName("compass1")
 	test.That(t, ok, test.ShouldBeTrue)
