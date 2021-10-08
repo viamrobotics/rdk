@@ -29,7 +29,7 @@ import (
 	"go.viam.com/core/status"
 
 	// registration
-	_ "github.com/viamrobotics/SensorExporter/go/iphone"
+	_ "github.com/viamrobotics/SensorExporter/go"
 
 	// registration
 	_ "go.viam.com/core/lidar/client"
