@@ -123,10 +123,10 @@ if [ $? -ne 0 ]; then
 fi
 
 if [[ "`git rev-parse --is-inside-work-tree 2>/dev/null`x" == "truex" ]]; then
-	git config --global url.ssh://git@github.com/.insteadOf https://github.com/
+	git config url.ssh://git@github.com/.insteadOf https://github.com/
 else
 	echo "It seems you weren't actually in the core repository. When you are, you may want to run:"
-	echo -e "\033[41m""git config --global url.ssh://git@github.com/.insteadOf https://github.com/""\033[0m"
+	echo -e "\033[41m""git config url.ssh://git@github.com/.insteadOf https://github.com/""\033[0m"
 fi
 
 
