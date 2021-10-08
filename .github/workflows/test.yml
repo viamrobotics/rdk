@@ -28,6 +28,7 @@ jobs:
     - name: Check out code in Core directory
       uses: actions/checkout@v2
       with:
+        token: ${{ secrets.GIT_ACCESS_TOKEN }}
         fetch-depth: 2
 
     - name: Update dev environment
