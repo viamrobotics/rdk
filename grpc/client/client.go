@@ -34,6 +34,7 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
 
@@ -300,6 +301,8 @@ func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 		return &compassClient{sc}, true
 	case compass.RelativeType:
 		return &relativeCompassClient{&compassClient{sc}}, true
+	case imu.Type:
+		return &imuClient{sc}, true
 	default:
 		return sc, true
 	}
@@ -1039,7 +1042,7 @@ func (sc *sensorClient) Desc() sensor.Description {
 	return sensor.Description{sc.sensorType, ""}
 }
 
-// compassClient satisfies a gRPC based compass.Device. Refer to the interface
+// compassClient satisfies a gRPC based compass.Compass. Refer to the interface
 // for descriptions of its methods.
 type compassClient struct {
 	*sensorClient
@@ -1096,6 +1099,57 @@ func (rcc *relativeCompassClient) Mark(ctx context.Context) error {
 
 func (rcc *relativeCompassClient) Desc() sensor.Description {
 	return sensor.Description{compass.RelativeType, ""}
+}
+
+// imuClient satisfies a gRPC based imu.IMU. Refer to the interface
+// for descriptions of its methods.
+type imuClient struct {
+	*sensorClient
+}
+
+func (ic *imuClient) Readings(ctx context.Context) ([]interface{}, error) {
+	vel, err := ic.AngularVelocity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	orientation, err := ic.Orientation(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ea := orientation.EulerAngles()
+	return []interface{}{vel.X, vel.Y, vel.Z, ea.Roll, ea.Pitch, ea.Yaw}, nil
+}
+
+func (ic *imuClient) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+	resp, err := ic.rc.client.IMUAngularVelocity(ctx, &pb.IMUAngularVelocityRequest{
+		Name: ic.name,
+	})
+	if err != nil {
+		return spatialmath.AngularVelocity{}, err
+	}
+	return spatialmath.AngularVelocity{
+		X: resp.AngularVelocity.X,
+		Y: resp.AngularVelocity.Y,
+		Z: resp.AngularVelocity.Z,
+	}, nil
+}
+
+func (ic *imuClient) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+	resp, err := ic.rc.client.IMUOrientation(ctx, &pb.IMUOrientationRequest{
+		Name: ic.name,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &spatialmath.EulerAngles{
+		Roll:  resp.Orientation.Roll,
+		Pitch: resp.Orientation.Pitch,
+		Yaw:   resp.Orientation.Yaw,
+	}, nil
+}
+
+func (ic *imuClient) Desc() sensor.Description {
+	return sensor.Description{imu.Type, ""}
 }
 
 // servoClient satisfies a gRPC based servo.Servo. Refer to the interface
