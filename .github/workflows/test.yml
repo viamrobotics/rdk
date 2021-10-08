@@ -19,9 +19,6 @@ jobs:
 
     steps:
 
-    - name: Remove git ssh redirect
-      run : git config --unset url.ssh://git@github.com/.insteadof || true
-
     - name: Check out code in Core directory
       uses: actions/checkout@v2
       with:
@@ -31,7 +28,7 @@ jobs:
       env:
         TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
       run: |
-        git config --global url."https://${TOKEN}@github.com".insteadOf "https://github.com"
+        sudo -u testbot bash -lc "git config --global url.\"https://${TOKEN}@github.com\".insteadOf \"https://github.com\""
 
     - name: Update dev environment
       run: |
