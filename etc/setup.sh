@@ -38,7 +38,7 @@ if [ "$(uname)" == "Linux" ]; then
 		export VIAM_DEV_ENV=1
 		eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 		export LIBRARY_PATH=/home/linuxbrew/.linuxbrew/lib
-		export GOPRIVATE=github.com/viamrobotics/*,github.com/viamrobotics/SensorExporter/go/*,go.viam.com/*
+		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 	fi
 	EOS
 
@@ -59,7 +59,7 @@ elif [ "$(uname)" == "Darwin" ]; then
 			export VIAM_DEV_ENV=1
 			eval "\$(/opt/homebrew/bin/brew shellenv)"
 			export LIBRARY_PATH=/opt/homebrew/lib
-			export GOPRIVATE=github.com/viamrobotics/*,github.com/viamrobotics/SensorExporter/go/*,go.viam.com/*
+			export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 		fi
 		EOS
 
@@ -70,7 +70,7 @@ elif [ "$(uname)" == "Darwin" ]; then
 			export VIAM_DEV_ENV=1
 			eval "\$(/usr/local/bin/brew shellenv)"
 			export LIBRARY_PATH=/usr/local/lib
-			export GOPRIVATE=github.com/viamrobotics/*,github.com/viamrobotics/SensorExporter/go/*,go.viam.com/*
+			export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 		fi
 		EOS
 
