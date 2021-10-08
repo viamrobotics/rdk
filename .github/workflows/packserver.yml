@@ -10,7 +10,7 @@ on:
       - '**/.github/workflows/docker.yml'
 
 env:
-  GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
+  GOPRIVATE: "github.com/viamrobotics/*,github.com/viamrobotics/SensorExporter/go/*,go.viam.com/*"
 
 jobs:
   build_and_pack:
