@@ -220,11 +220,12 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 		cc := config.Component{
 			Name: c.Name,
 			Type: config.ComponentType(c.Type),
-			Frame: &config.Frame{
-				Parent: c.Parent,
-			},
 		}
-		if c.Pose != nil {
+		// check if component has frame attribute, leave as nil if it doesn't
+		if c.Parent != "" {
+			cc.Frame = &config.Frame{Parent: c.Parent}
+		}
+		if cc.Frame != nil && c.Pose != nil {
 			cc.Frame.Translation = config.Translation{
 				X: c.Pose.X,
 				Y: c.Pose.Y,
