@@ -29,6 +29,9 @@ import (
 	"go.viam.com/core/status"
 
 	// registration
+	_ "github.com/viamrobotics/SensorExporter/go/iphone"
+
+	// registration
 	_ "go.viam.com/core/lidar/client"
 	_ "go.viam.com/core/robots/fake"
 	_ "go.viam.com/core/sensor/compass/client"
