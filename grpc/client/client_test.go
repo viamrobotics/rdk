@@ -28,7 +28,6 @@ import (
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/testutils/inject"
@@ -74,9 +73,6 @@ var emptyStatus = &pb.Status{
 		},
 		"compass2": {
 			Type: compass.RelativeType,
-		},
-		"imu1": {
-			Type: imu.Type,
 		},
 	},
 	Motors: map[string]*pb.MotorStatus{
@@ -500,14 +496,10 @@ func TestClient(t *testing.T) {
 
 	injectCompassDev := &inject.Compass{}
 	injectRelCompassDev := &inject.RelativeCompass{}
-	injectIMUDev := &inject.IMU{}
 	injectRobot2.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 		capSensorName = name
 		if name == "compass2" {
 			return injectRelCompassDev, true
-		}
-		if name == "imu1" {
-			return injectIMUDev, true
 		}
 		return injectCompassDev, true
 	}
@@ -537,15 +529,6 @@ func TestClient(t *testing.T) {
 	}
 	injectRelCompassDev.StopCalibrationFunc = func(ctx context.Context) error {
 		return nil
-	}
-	injectIMUDev.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
-		return []interface{}{1.2, 2.3}, nil
-	}
-	injectIMUDev.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
-		return spatialmath.AngularVelocity{1, 2, 3}, nil
-	}
-	injectIMUDev.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
-		return &spatialmath.EulerAngles{1, 2, 3}, nil
 	}
 
 	go gServer1.Serve(listener1)
@@ -1038,22 +1021,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capSensorName, test.ShouldEqual, "compass2")
 
-	sensorDev, ok = client.SensorByName("imu1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensorDev, test.ShouldImplement, (*imu.IMU)(nil))
-	readings, err = sensorDev.Readings(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings, test.ShouldResemble, []interface{}{float64(1), float64(2), float64(3), float64(1), float64(2), float64(3)})
-	imuDev := sensorDev.(imu.IMU)
-	vel, err := imuDev.AngularVelocity(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, vel, test.ShouldResemble, spatialmath.AngularVelocity{1, 2, 3})
-	orientation, err := imuDev.Orientation(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	ea := orientation.EulerAngles()
-	test.That(t, ea, test.ShouldResemble, &spatialmath.EulerAngles{1, 2, 3})
-	test.That(t, capSensorName, test.ShouldEqual, "imu1")
-
 	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -1135,7 +1102,7 @@ func TestClientReferesh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1"))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board3"))
-	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass1", "compass2", "imu1"))
+	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass1", "compass2"))
 
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return finalStatus, nil

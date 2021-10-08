@@ -34,7 +34,6 @@ import (
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/services/navigation"
 	"go.viam.com/core/spatialmath"
 	coreutils "go.viam.com/core/utils"
@@ -1193,53 +1192,6 @@ func (s *Server) NavigationServiceRemoveWaypoint(ctx context.Context, req *pb.Na
 		return nil, err
 	}
 	return &pb.NavigationServiceRemoveWaypointResponse{}, navSvc.RemoveWaypoint(ctx, id)
-}
-
-func (s *Server) imuByName(name string) (imu.IMU, error) {
-	sensorDevice, ok := s.r.SensorByName(name)
-	if !ok {
-		return nil, errors.Errorf("no sensor with name (%s)", name)
-	}
-	return sensorDevice.(imu.IMU), nil
-}
-
-// IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
-func (s *Server) IMUAngularVelocity(ctx context.Context, req *pb.IMUAngularVelocityRequest) (*pb.IMUAngularVelocityResponse, error) {
-	imuDevice, err := s.imuByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	vel, err := imuDevice.AngularVelocity(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.IMUAngularVelocityResponse{
-		AngularVelocity: &pb.AngularVelocity{
-			X: vel.X,
-			Y: vel.Y,
-			Z: vel.Z,
-		},
-	}, nil
-}
-
-// IMUOrientation returns the most recent angular velocity reading from the given IMU.
-func (s *Server) IMUOrientation(ctx context.Context, req *pb.IMUOrientationRequest) (*pb.IMUOrientationResponse, error) {
-	imuDevice, err := s.imuByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	orientation, err := imuDevice.Orientation(ctx)
-	if err != nil {
-		return nil, err
-	}
-	ea := orientation.EulerAngles()
-	return &pb.IMUOrientationResponse{
-		Orientation: &pb.EulerAngles{
-			Roll:  ea.Roll,
-			Pitch: ea.Pitch,
-			Yaw:   ea.Yaw,
-		},
-	}, nil
 }
 
 type executionResultRPC struct {
