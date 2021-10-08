@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 
 	"go.viam.com/core/config"
 	ref "go.viam.com/core/referenceframe"
@@ -111,7 +112,7 @@ func buildFrameSystem(name string, frameNames map[string]bool, children map[stri
 	}
 	// ensure that there are no disconnected frames
 	if len(visited) != len(frameNames) {
-		return nil, fmt.Errorf("the frame system is not fully connected, expected %d frames but frame system has %d. Expected frames are: %v", len(frameNames), len(visited), mapKeys(frameNames))
+		return nil, fmt.Errorf("the frame system is not fully connected, expected %d frames but frame system has %d. Expected frames are: %v. Actual frames are: %v", len(frameNames), len(visited), mapKeys(frameNames), mapKeys(visited))
 	}
 	return fs, nil
 }
@@ -123,5 +124,6 @@ func mapKeys(fullmap map[string]bool) []string {
 		keys[i] = k
 		i++
 	}
+	sort.Strings(keys)
 	return keys
 }

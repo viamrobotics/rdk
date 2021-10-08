@@ -1,0 +1,95 @@
+{
+    "components": [
+        {
+            "model": "fake",
+            "name": "pieceGripper",
+            "type": "gripper",
+            "frame": {
+                "parent" : "pieceArm"
+            }
+        },
+        {
+            "model": "file",
+            "name": "cameraOver",
+            "type": "camera",
+            "attributes": {
+                "color": "artifact_data/vision/chess/board3.png",
+                "depth": "artifact_data/vision/chess/board3.dat.gz",
+                "aligned": true
+            },
+            "frame": {
+                "parent": "",
+                "translation": {
+                    "x": 2000,
+                    "y": 500,
+                    "z": 1300
+                },
+                "orientation": {
+                    "type": "ov_degrees",
+                   "value": { 
+                        "x": 0,
+                        "y": 0,
+                        "z": 1,
+                        "th": 180
+                   }
+                }
+            }
+        },
+        {
+            "model": "fake",
+            "name": "pieceArm",
+            "type": "arm",
+            "frame": {
+                "parent" : "world",
+                "translation": {
+                    "x": 500,
+                    "y": 500,
+                    "z": 1000
+                }
+            }
+        },
+        {
+          "model": "fake",
+          "name": "lidar1",
+          "type": "lidar",
+          "frame" : {
+              "parent": "cameraOver",
+              "translation": {
+                  "x" : 0,
+                  "y" : 0,
+                  "z" : 200
+              }
+          }
+        },
+        {
+          "model": "fake",
+          "name": "compass1",
+          "type": "sensor",
+          "subtype": "compass"
+        },
+        {
+          "model": "fake",
+          "name": "compass2",
+          "type": "sensor",
+          "subtype": "compass",
+          "frame": {
+              "parent": "pieceArm"
+          },
+          "attributes": {
+            "relative": true
+          }
+        }
+    ],
+    "functions": [
+        {
+          "name": "func1",
+          "engine": "javascript",
+          "source": "(function() { console.log(robot.gripperOpen('gripper1')); return 1}())"
+        },
+        {
+          "name": "func2",
+          "engine": "javascript",
+          "source": "(function() { console.log(robot.gripperGrab('gripper1')); return 2}())"
+        }
+    ]
+}
