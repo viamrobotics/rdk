@@ -20,13 +20,11 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rimage"
-	"go.viam.com/core/rimage/imagesource"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/utils"
@@ -562,9 +560,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	currentPosition := position.StartingPosition()
 
 	initialPositionOk := false
-
-	annotatedImageHolder := &imagesource.StaticSource{}
-	myRobot.AddCamera(&camera.ImageSource{annotatedImageHolder}, config.Component{})
 
 	goutils.PanicCapturingGo(func() {
 		for {
