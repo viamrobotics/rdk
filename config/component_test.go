@@ -5,6 +5,9 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/component/arm"
+	"go.viam.com/core/resource"
+
 	"go.viam.com/test"
 )
 
@@ -18,6 +21,109 @@ func TestComponentValidate(t *testing.T) {
 		Name: "foo",
 	}
 	test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+}
+
+func TestComponentResourceName(t *testing.T) {
+	for _, tc := range []struct {
+		Name            string
+		Config          Component
+		ExpectedSubtype resource.Subtype
+		ExpectedName    resource.Name
+	}{
+		{
+			"all fields included",
+			Component{
+				Type: "arm",
+				Name: "foo",
+			},
+			arm.Subtype,
+			arm.Named("foo"),
+		},
+		{
+			"missing subtype",
+			Component{
+				Name: "foo",
+			},
+			resource.Subtype{
+				Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+				ResourceSubtype: resource.SubtypeName(""),
+			},
+			resource.Name{
+				UUID: "4e2cd153-a2c4-5957-b034-9e1174b39ed2",
+				Subtype: resource.Subtype{
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					ResourceSubtype: resource.SubtypeName(""),
+				},
+				Name: "foo",
+			},
+		},
+		{
+			"sensor with no subtype",
+			Component{
+				Type: "sensor",
+				Name: "foo",
+			},
+			resource.Subtype{
+				Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+				ResourceSubtype: resource.SubtypeName(""),
+			},
+			resource.Name{
+				UUID: "4e2cd153-a2c4-5957-b034-9e1174b39ed2",
+				Subtype: resource.Subtype{
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					ResourceSubtype: resource.SubtypeName(""),
+				},
+				Name: "foo",
+			},
+		},
+		{
+			"sensor with subtype",
+			Component{
+				Type:    "sensor",
+				SubType: "compass",
+				Name:    "foo",
+			},
+			resource.Subtype{
+				Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+				ResourceSubtype: resource.ResourceSubtypeCompass,
+			},
+			resource.Name{
+				UUID: "89308714-cdf2-5402-b028-4b5a061f403c",
+				Subtype: resource.Subtype{
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					ResourceSubtype: resource.ResourceSubtypeCompass,
+				},
+				Name: "foo",
+			},
+		},
+		{
+			"sensor missing name",
+			Component{
+				Type:    "sensor",
+				SubType: "compass",
+				Name:    "",
+			},
+			resource.Subtype{
+				Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+				ResourceSubtype: resource.ResourceSubtypeCompass,
+			},
+			resource.Name{
+				UUID: "a7520aed-92c7-56eb-b048-edcb3069c41c",
+				Subtype: resource.Subtype{
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					ResourceSubtype: resource.ResourceSubtypeCompass,
+				},
+				Name: "",
+			},
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			rName := tc.Config.ResourceName()
+			test.That(t, rName.Subtype, test.ShouldResemble, tc.ExpectedSubtype)
+			test.That(t, rName, test.ShouldResemble, tc.ExpectedName)
+
+		})
+	}
 }
 
 func TestComponentFlag(t *testing.T) {

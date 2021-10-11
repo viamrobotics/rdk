@@ -41,6 +41,16 @@
                     }
                 ]
             }
+        },
+        {
+            "model": "fake",
+            "name": "mock1",
+            "type": "mock"
+        },
+        {
+            "model": "fake2",
+            "name": "mock2",
+            "type": "mock"
         }
     ],
     "processes":

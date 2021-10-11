@@ -21,7 +21,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/arm"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
@@ -34,9 +34,11 @@ import (
 var vx300smodeljson []byte
 
 func init() {
-	registry.RegisterArm("vx300s", registry.Arm{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		return NewArm(config.Attributes, logger)
-	}})
+	registry.RegisterComponent(arm.Subtype, "vx300s", registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewArm(config.Attributes, logger)
+		},
+	})
 }
 
 // SleepAngles are the angles we go to to prepare to turn off torque
@@ -111,7 +113,7 @@ func NewArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error
 		return nil, err
 	}
 
-	newArm := &Arm{
+	return &Arm{
 		Joints: map[string][]*servo.Servo{
 			"Waist":       {servos[0]},
 			"Shoulder":    {servos[1], servos[2]},
@@ -123,9 +125,7 @@ func NewArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error
 		moveLock: getPortMutex(usbPort),
 		logger:   logger,
 		ik:       ik,
-	}
-
-	return newArm, nil
+	}, nil
 }
 
 // CurrentPosition computes and returns the current cartesian position.

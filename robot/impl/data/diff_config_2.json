@@ -40,6 +40,20 @@
                     }
                 ]
             }
+        },
+        {
+            "model": "fake",
+            "name": "mock1",
+            "type": "mock",
+            "attributes":
+            {
+                "one": 2
+            }
+        },
+        {
+            "model": "fake2",
+            "name": "mock2",
+            "type": "mock"
         }
     ],
     "processes":
