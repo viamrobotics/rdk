@@ -128,21 +128,6 @@ func (r *mutableRobot) ResourceByName(name resource.Name) (interface{}, bool) {
 	return r.parts.ResourceByName(name)
 }
 
-// AddCamera adds a camera to the robot.
-func (r *mutableRobot) AddCamera(c camera.Camera, cc config.Component) {
-	r.parts.AddCamera(c, cc)
-}
-
-// AddBase adds a base to the robot.
-func (r *mutableRobot) AddBase(b base.Base, c config.Component) {
-	r.parts.AddBase(b, c)
-}
-
-// AddSensor adds a base to the robot.
-func (r *mutableRobot) AddSensor(s sensor.Sensor, c config.Component) {
-	r.parts.AddSensor(s, c)
-}
-
 // RemoteNames returns the name of all known remote robots.
 func (r *mutableRobot) RemoteNames() []string {
 	return r.parts.RemoteNames()
