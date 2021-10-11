@@ -10,10 +10,9 @@ import (
 	"github.com/edaniels/golog"
 	"gonum.org/v1/gonum/mat"
 
-	"go.viam.com/utils"
-
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rimage/detection/chessboard"
+	"go.viam.com/utils"
 )
 
 var (
@@ -29,7 +28,7 @@ func main() {
 	if err != nil {
 		logger.Error("could not open configuration file")
 	}
-	utils.UncheckedErrorFunc(file.Close)
+	defer utils.UncheckedErrorFunc(file.Close)
 
 	// load configuration
 	cfg := chessboard.DetectionConfiguration{}
@@ -67,7 +66,7 @@ func main() {
 	if err != nil {
 		logger.Error(err)
 	}
-	utils.UncheckedErrorFunc(f.Close)
+	defer utils.UncheckedErrorFunc(f.Close)
 
 	edgesGray, _, err := image.Decode(f)
 	if err != nil {
@@ -100,9 +99,10 @@ func main() {
 
 	// greedy iterations to find the best homography
 	//TODO(louise): fix homography iteration issue
-	//grid, err := chessboard.GreedyIterations(prunedContours, saddles, cfg.Greedy)
-	//if err != nil {
-	//	logger.Error(err)
-	//}
-	//fmt.Println(grid.M)
+	saddles := rimage.ConvertSliceImagePointToSliceVec(saddlePoints)
+	grid, err := chessboard.GreedyIterations(prunedContours, saddles, cfg.Greedy)
+	if err != nil {
+		logger.Error(err)
+	}
+	fmt.Println(grid.M)
 }

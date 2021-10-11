@@ -1,6 +1,8 @@
 package transform
 
 import (
+	"fmt"
+	"gonum.org/v1/gonum/floats"
 	"log"
 	"math"
 
@@ -15,6 +17,20 @@ import (
 	"go.viam.com/core/utils"
 )
 
+func ComputeNormalizationMatFromSliceVecs(pts []r2.Point) *mat.Dense {
+	out := mat.NewDense(3,3,nil)
+	xs, ys := rimage.SliceVecsToXsYs(pts)
+	avgX := floats.Sum(xs) / float64(len(pts))
+	avgY := floats.Sum(ys) / float64(len(pts))
+	stdX := stat.StdDev(xs,nil)
+	stdY := stat.StdDev(ys,nil)
+	out.Set(0,0, avgX)
+	out.Set(0, 2, -stdX*avgX)
+	out.Set(1,1, stdY)
+	out.Set(1,2, -stdY*avgY)
+	out.Set(2,2,1)
+	return out
+}
 // EstimateExactHomographyFrom8Points computes the exact homography from 2 sets of 4 matching points
 func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point) (*mat.Dense, error) {
 	if len(s1) != 4 {
@@ -23,25 +39,32 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point) (*mat.Dense, error) {
 	if len(s2) != 4 {
 		panic("slice s2 must have 4 points each")
 	}
-	x1 := s1[0].X
-	y1 := s1[0].Y
-	X1 := s2[0].X
-	Y1 := s2[0].Y
+	//norm1 := ComputeNormalizationMatFromSliceVecs(s1)
+	//norm2 := ComputeNormalizationMatFromSliceVecs(s1)
+	//st1 := ApplyNormalizationMat(norm1, s1)
+	//st2 := ApplyNormalizationMat(norm2, s2)
+	st1 := s1
+	st2 := s2
 
-	x2 := s1[1].X
-	y2 := s1[1].Y
-	X2 := s2[1].X
-	Y2 := s2[1].Y
+	x1 := st1[0].X
+	y1 := st1[0].Y
+	X1 := st2[0].X
+	Y1 := st2[0].Y
 
-	x3 := s1[2].X
-	y3 := s1[2].Y
-	X3 := s2[2].X
-	Y3 := s2[2].Y
+	x2 := st1[1].X
+	y2 := st1[1].Y
+	X2 := st2[1].X
+	Y2 := st2[1].Y
 
-	x4 := s1[3].X
-	y4 := s1[3].Y
-	X4 := s2[3].X
-	Y4 := s2[3].Y
+	x3 := st1[2].X
+	y3 := st1[2].Y
+	X3 := st2[2].X
+	Y3 := st2[2].Y
+
+	x4 := st1[3].X
+	y4 := st1[3].Y
+	X4 := st2[3].X
+	Y4 := st2[3].Y
 	// create homography system
 	a := []float64{x1, y1, 1, 0, 0, 0, -X1 * x1, -X1 * y1,
 		0, 0, 0, x1, y1, 1, -Y1 * x1, -Y1 * y1,
@@ -68,7 +91,26 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point) (*mat.Dense, error) {
 		// homography is a 3x3 matrix, with last element =1
 		s := append(x.RawMatrix().Data, 1.)
 		outMat := mat.NewDense(3, 3, s)
-		return outMat, nil
+		// de-normalize data
+		//invNorm1 := mat.NewDense(3, 3, nil)
+		//err = invNorm1.Inverse(norm1)
+		//if err != nil {
+		//	panic(err)
+		//}
+		//invNorm2 := mat.NewDense(3, 3, nil)
+		//err = invNorm2.Inverse(norm2)
+		//if err != nil {
+		//	panic(err)
+		//}
+		//var m1, m2, m3 mat.Dense
+		//m1.Mul(norm1, outMat)
+		//m2.Mul(&m1, invNorm2)
+		//m3.Scale(1./m2.At(2, 2), &m2)
+		//fmt.Println(m3)
+		//
+		//return &m3, nil
+		fmt.Println(outMat)
+		return outMat, err
 	}
 	// Otherwise, matrix cannot be inverted; return nothing
 	return nil, nil
@@ -270,6 +312,18 @@ func ApplyHomography(H rimage.Matrix, pts []r2.Point) []r2.Point {
 		y := H.At(1, 0)*pt.X + H.At(1, 1)*pt.Y + H.At(1, 2)
 		z := H.At(2, 0)*pt.X + H.At(2, 1)*pt.Y + H.At(2, 2)
 		outPoints[i] = r2.Point{X: x / z, Y: y / z}
+	}
+	return outPoints
+}
+
+// ApplyNormalizationMat applies a normalization matrix to a slice of r2.Point
+func ApplyNormalizationMat(H rimage.Matrix, pts []r2.Point) []r2.Point {
+	outPoints := make([]r2.Point, len(pts))
+	for i, pt := range pts {
+		x := H.At(0, 0)*pt.X + H.At(0, 1)*pt.Y + H.At(0, 2)
+		y := H.At(1, 0)*pt.X + H.At(1, 1)*pt.Y + H.At(1, 2)
+		//z := H.At(2, 0)*pt.X + H.At(2, 1)*pt.Y + H.At(2, 2)
+		outPoints[i] = r2.Point{X: x , Y: y }
 	}
 	return outPoints
 }

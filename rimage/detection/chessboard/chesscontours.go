@@ -112,8 +112,8 @@ func UpdateCorners(contour []r2.Point, saddleScoreMap *mat.Dense, winSize int) [
 		bestCol -= int(math.Min(float64(winSize), float64(colLow)))
 		if saddleScore > 0. {
 			newContour[i] = r2.Point{
-				X: (cc + float64(bestCol)) / 2,
-				Y: (rr + float64(bestRow)) / 2,
+				X: cc + float64(bestCol),
+				Y: rr + float64(bestRow),
 			}
 		} else {
 			return nil
