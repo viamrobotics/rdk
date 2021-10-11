@@ -18,10 +18,10 @@ import (
 	rpcclient "go.viam.com/utils/rpc/client"
 	"go.viam.com/utils/rpc/dialer"
 
-	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc"
@@ -30,6 +30,7 @@ import (
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
@@ -53,8 +54,7 @@ type RobotClient struct {
 	conn    dialer.ClientConn
 	client  pb.RobotServiceClient
 
-	namesMu       *sync.Mutex
-	armNames      []string
+	namesMu       *sync.RWMutex
 	baseNames     []string
 	gripperNames  []string
 	boardNames    []boardInfo
@@ -65,6 +65,7 @@ type RobotClient struct {
 	motorNames    []string
 	functionNames []string
 	serviceNames  []string
+	resourceNames []resource.Name
 
 	sensorTypes map[string]sensor.Type
 
@@ -107,7 +108,7 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 		sensorTypes:             map[string]sensor.Type{},
 		cancelBackgroundWorkers: cancel,
 		logger:                  logger,
-		namesMu:                 &sync.Mutex{},
+		namesMu:                 &sync.RWMutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		cachedStatusMu:          &sync.Mutex{},
 	}
@@ -251,7 +252,7 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 // ArmByName returns a arm by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) ArmByName(name string) (arm.Arm, bool) {
-	return &armClient{rc, name}, true
+	return &armClient{rc: rc, name: name}, true
 }
 
 // BaseByName returns a base by name. It is assumed to exist on the
@@ -333,6 +334,16 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 	return nil, false
 }
 
+// ResourceByName returns resource by name.
+func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
+	switch name.Subtype {
+	case arm.Subtype:
+		return &armClient{rc: rc, name: name.Name}, true
+	default:
+		return nil, false
+	}
+}
+
 // Refresh manually updates the underlying parts of the robot based
 // on a status retrieved from the server.
 // TODO(https://github.com/viamrobotics/core/issues/57) - do not use status
@@ -347,11 +358,11 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 	rc.storeStatus(status)
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
-	rc.armNames = nil
+	// TODO: placeholder implementation
+	rc.resourceNames = []resource.Name{}
 	if len(status.Arms) != 0 {
-		rc.armNames = make([]string, 0, len(status.Arms))
 		for name := range status.Arms {
-			rc.armNames = append(rc.armNames, name)
+			rc.resourceNames = append(rc.resourceNames, arm.Named(name))
 		}
 	}
 	rc.baseNames = nil
@@ -456,43 +467,49 @@ func (rc *RobotClient) RemoteNames() []string {
 
 // ArmNames returns the names of all known arms.
 func (rc *RobotClient) ArmNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
-	return copyStringSlice(rc.armNames)
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		if v.Subtype == arm.Subtype {
+			names = append(names, v.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // GripperNames returns the names of all known grippers.
 func (rc *RobotClient) GripperNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.gripperNames)
 }
 
 // CameraNames returns the names of all known cameras.
 func (rc *RobotClient) CameraNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.cameraNames)
 }
 
 // LidarNames returns the names of all known lidars.
 func (rc *RobotClient) LidarNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.lidarNames)
 }
 
 // BaseNames returns the names of all known bases.
 func (rc *RobotClient) BaseNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.baseNames)
 }
 
 // BoardNames returns the names of all known boards.
 func (rc *RobotClient) BoardNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	out := make([]string, 0, len(rc.boardNames))
 	for _, info := range rc.boardNames {
 		out = append(out, info.name)
@@ -502,29 +519,29 @@ func (rc *RobotClient) BoardNames() []string {
 
 // SensorNames returns the names of all known sensors.
 func (rc *RobotClient) SensorNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.sensorNames)
 }
 
 // ServoNames returns the names of all known servos.
 func (rc *RobotClient) ServoNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.servoNames)
 }
 
 // MotorNames returns the names of all known motors.
 func (rc *RobotClient) MotorNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.motorNames)
 }
 
 // FunctionNames returns the names of all known functions.
 func (rc *RobotClient) FunctionNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.functionNames)
 }
 
@@ -540,6 +557,22 @@ func (rc *RobotClient) ServiceNames() []string {
 // of the interface!
 func (rc *RobotClient) ProcessManager() pexec.ProcessManager {
 	return pexec.NoopProcessManager
+}
+
+// ResourceNames returns all resource names
+func (rc *RobotClient) ResourceNames() []resource.Name {
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
+	names := []resource.Name{}
+	for _, v := range rc.resourceNames {
+		names = append(
+			names,
+			resource.NewName(
+				v.Namespace, v.ResourceType, v.ResourceSubtype, v.Name,
+			),
+		)
+	}
+	return names
 }
 
 // FrameSystem not implemented for remote robots

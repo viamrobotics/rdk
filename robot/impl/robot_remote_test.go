@@ -10,15 +10,16 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/sensor"
@@ -67,6 +68,9 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 	}
 	injectRobot.ServiceNamesFunc = func() []string {
 		return []string{fmt.Sprintf("service1%s", suffix), fmt.Sprintf("service2%s", suffix)}
+	}
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{arm.Named(fmt.Sprintf("arm1%s", suffix)), arm.Named(fmt.Sprintf("arm2%s", suffix))}
 	}
 	injectRobot.LoggerFunc = func() golog.Logger {
 		return logger
@@ -154,6 +158,15 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		}
 		return struct{}{}, true
 	}
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		for _, rName := range injectRobot.ResourceNames() {
+			if rName == name {
+				// TODO: some kind of mapping based on resource name may be needed
+				return &fake.Arm{Name: name.Name}, true
+			}
+		}
+		return nil, false
+	}
 
 	return injectRobot
 }
@@ -162,6 +175,13 @@ func setupInjectRobot(logger golog.Logger) *inject.Robot {
 	return setupInjectRobotWithSuffx(logger, "")
 }
 
+func newResourceNameSet(values ...resource.Name) map[resource.Name]struct{} {
+	set := make(map[resource.Name]struct{}, len(values))
+	for _, val := range values {
+		set[val] = struct{}{}
+	}
+	return set
+}
 func TestRemoteRobot(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
@@ -222,6 +242,11 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2"))
 	robot.conf.Prefix = true
 	test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("one.func1", "one.func2"))
+
+	robot.conf.Prefix = false
+	test.That(t, newResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm1"), arm.Named("arm2")}...))
+	robot.conf.Prefix = true
+	test.That(t, newResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("one.arm1"), arm.Named("one.arm2")}...))
 
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
 		return nil, errors.New("whoops")
@@ -362,13 +387,11 @@ func TestRemoteRobot(t *testing.T) {
 	})
 
 	robot.conf.Prefix = false
-	arm1, ok := robot.ArmByName("arm1")
+	_, ok := robot.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).Name, test.ShouldEqual, "arm1")
 	robot.conf.Prefix = true
-	arm1, ok = robot.ArmByName("one.arm1")
+	_, ok = robot.ArmByName("one.arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).Name, test.ShouldEqual, "arm1")
 	_, ok = robot.ArmByName("arm1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -447,6 +470,15 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, servo1.(*proxyServo).actual.(*fake.Servo).Name, test.ShouldEqual, "servo1")
 	_, ok = robot.ServoByName("servo1_what")
+	test.That(t, ok, test.ShouldBeFalse)
+
+	robot.conf.Prefix = false
+	_, ok = robot.ResourceByName(arm.Named("arm1"))
+	test.That(t, ok, test.ShouldBeTrue)
+	robot.conf.Prefix = true
+	_, ok = robot.ResourceByName(arm.Named("one.arm1"))
+	test.That(t, ok, test.ShouldBeTrue)
+	_, ok = robot.ResourceByName(arm.Named("arm1_what"))
 	test.That(t, ok, test.ShouldBeFalse)
 
 	wrapped.errRefresh = true

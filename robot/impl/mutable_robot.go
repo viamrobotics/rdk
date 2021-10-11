@@ -10,10 +10,10 @@ import (
 
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
@@ -122,6 +122,12 @@ func (r *mutableRobot) ServiceByName(name string) (interface{}, bool) {
 	return r.parts.ServiceByName(name)
 }
 
+// ResourceByName returns a resource by name. If it does not exist
+// nil is returned.
+func (r *mutableRobot) ResourceByName(name resource.Name) (interface{}, bool) {
+	return r.parts.ResourceByName(name)
+}
+
 // AddCamera adds a camera to the robot.
 func (r *mutableRobot) AddCamera(c camera.Camera, cc config.Component) {
 	r.parts.AddCamera(c, cc)
@@ -195,6 +201,11 @@ func (r *mutableRobot) FunctionNames() []string {
 // ServiceNames returns the name of all known services.
 func (r *mutableRobot) ServiceNames() []string {
 	return r.parts.ServiceNames()
+}
+
+// ResourceNames returns the name of all known resources.
+func (r *mutableRobot) ResourceNames() []resource.Name {
+	return r.parts.ResourceNames()
 }
 
 // ProcessManager returns the process manager for the robot.
@@ -291,15 +302,6 @@ func (r *mutableRobot) newBase(ctx context.Context, config config.Component) (ba
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *mutableRobot) newArm(ctx context.Context, config config.Component) (arm.Arm, error) {
-	f := registry.ArmLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown arm model: %s", config.Model)
-	}
-
-	return f.Constructor(ctx, r, config, r.logger)
-}
-
 func (r *mutableRobot) newGripper(ctx context.Context, config config.Component) (gripper.Gripper, error) {
 	f := registry.GripperLookup(config.Model)
 	if f == nil {
@@ -368,6 +370,23 @@ func (r *mutableRobot) newService(ctx context.Context, config config.Service) (i
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
+func (r *mutableRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
+	rName := config.ResourceName()
+	f := registry.ComponentLookup(rName.Subtype, config.Model)
+	if f == nil {
+		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
+	}
+	newResource, err := f.Constructor(ctx, r, config, r.logger)
+	if err != nil {
+		return nil, err
+	}
+	c := registry.ComponentSubtypeLookup(rName.Subtype)
+	if c == nil {
+		return newResource, nil
+	}
+	return c.Reconfigurable(newResource)
+}
+
 // Refresh does nothing for now
 func (r *mutableRobot) Refresh(ctx context.Context) error {
 	return nil
@@ -378,143 +397,100 @@ func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
 	// TODO: Currently just a placeholder implementation, this should be rewritten once robot/parts have more metadata about themselves
 	var resources []resource.Name
 
-	metadata, err := resource.New(resource.ResourceNamespaceCore, resource.ResourceTypeService, resource.ResourceSubtypeMetadata, "")
-	if err != nil {
-		return err
-	}
+	metadata := resource.NewFromSubtype(service.Subtype, "")
 	resources = append(resources, metadata)
 
-	for _, name := range r.ArmNames() {
-		res, err := resource.New(
-			resource.ResourceNamespaceCore, // can be non-core as well
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeArm,
-			name,
-		)
-		if err != nil {
-			return err
-		}
-		resources = append(resources, res)
-	}
 	for _, name := range r.BaseNames() {
-		res, err := resource.New(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeBase,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
 	for _, name := range r.BoardNames() {
-		res, err := resource.New(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeBoard,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
 	for _, name := range r.CameraNames() {
-		res, err := resource.New(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeCamera,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
 	for _, name := range r.FunctionNames() {
-		res, err := resource.New(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeService,
 			resource.ResourceSubtypeFunction,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
 	for _, name := range r.GripperNames() {
-		res, err := resource.New(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeGripper,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
 	for _, name := range r.LidarNames() {
-		res, err := resource.New(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeLidar,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
 	for _, name := range r.RemoteNames() {
-		res, err := resource.New(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeRemote,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
 	for _, name := range r.SensorNames() {
-		res, err := resource.New(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeSensor,
 			name,
 		)
-		if err != nil {
-			return err
-		}
+
 		resources = append(resources, res)
 	}
 	for _, name := range r.ServoNames() {
-		res, err := resource.New(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeServo,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
 	for _, name := range r.MotorNames() {
-		res, err := resource.New(
+		res := resource.NewName(
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeMotor,
 			name,
 		)
-		if err != nil {
-			return err
-		}
 		resources = append(resources, res)
 	}
+	resources = append(resources, r.ResourceNames()...)
 	return svc.Replace(resources)
 }

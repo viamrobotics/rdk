@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/arm"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
@@ -19,8 +19,8 @@ import (
 )
 
 func init() {
-	registry.RegisterArm("fake", registry.Arm{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+	registry.RegisterComponent(arm.Subtype, "fake", registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			if config.Attributes.Bool("fail_new", false) {
 				return nil, errors.New("whoops")
 			}
@@ -35,7 +35,7 @@ func init() {
 }
 
 // NewArm returns a new fake arm.
-func NewArm(name string) *Arm {
+func NewArm(name string) arm.Arm {
 	return &Arm{
 		Name:     name,
 		position: &pb.ArmPosition{},

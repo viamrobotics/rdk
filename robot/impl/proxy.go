@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
@@ -76,60 +75,6 @@ func (p *proxyBase) replace(newBase base.Base) {
 	actual, ok := newBase.(*proxyBase)
 	if !ok {
 		panic(fmt.Errorf("expected new base to be %T but got %T", actual, newBase))
-	}
-	if err := utils.TryClose(p.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = actual.actual
-}
-
-type proxyArm struct {
-	mu     sync.RWMutex
-	actual arm.Arm
-}
-
-func (p *proxyArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.CurrentPosition(ctx)
-}
-
-func (p *proxyArm) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.MoveToPosition(ctx, c)
-}
-
-func (p *proxyArm) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.MoveToJointPositions(ctx, pos)
-}
-
-func (p *proxyArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.CurrentJointPositions(ctx)
-}
-
-func (p *proxyArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.JointMoveDelta(ctx, joint, amountDegs)
-}
-
-func (p *proxyArm) Close() error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return utils.TryClose(p.actual)
-}
-
-func (p *proxyArm) replace(newArm arm.Arm) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newArm.(*proxyArm)
-	if !ok {
-		panic(fmt.Errorf("expected new arm to be %T but got %T", actual, newArm))
 	}
 	if err := utils.TryClose(p.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)

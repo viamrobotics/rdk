@@ -6,10 +6,10 @@ import (
 
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"

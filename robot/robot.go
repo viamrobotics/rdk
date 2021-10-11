@@ -6,16 +6,17 @@ import (
 
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
 
@@ -60,6 +61,9 @@ type Robot interface {
 	// TODO(erd): refactor to service resource
 	ServiceByName(name string) (interface{}, bool)
 
+	// ResourceByName returns a resource by name
+	ResourceByName(name resource.Name) (interface{}, bool)
+
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
 
@@ -95,6 +99,9 @@ type Robot interface {
 
 	// ServiceNames returns the name of all known services.
 	ServiceNames() []string
+
+	// ResourceNames returns a list of all known resource names
+	ResourceNames() []resource.Name
 
 	// ProcessManager returns the process manager for the robot.
 	ProcessManager() pexec.ProcessManager
