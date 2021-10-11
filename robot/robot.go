@@ -121,6 +121,9 @@ type Robot interface {
 
 	// Logger returns the logger the robot is using.
 	Logger() golog.Logger
+
+	// Close attempts to cleanly close down all constituent parts of the robot.
+	Close() error
 }
 
 // A Refresher can refresh the contents of a robot.
@@ -145,9 +148,6 @@ type MutableRobot interface {
 	// Reconfigure instructs the robot to safely reconfigure itself based
 	// on the given new config.
 	Reconfigure(ctx context.Context, newConfig *config.Config) error
-
-	// Close attempts to cleanly close down all constituent parts of the robot.
-	Close() error
 }
 
 // AsMutable returns a mutable version of the given robot if it
