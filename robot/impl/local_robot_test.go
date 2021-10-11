@@ -172,13 +172,24 @@ func TestConfigRemote(t *testing.T) {
 	cfg2, err := r2.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, 12, test.ShouldEqual, len(cfg2.Components))
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "ppp")
+	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "foo.world")
+	test.That(t, cfg2.FindComponent("foo.lidar1").Frame.Parent, test.ShouldEqual, "foo.cameraOver")
+
+	remoteConfig.Remotes[0].Prefix = false
+	r3, err := robotimpl.New(context.Background(), remoteConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	cfg3, err := r3.Config(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cfg3.FindComponent("pieceArm").Frame.Parent, test.ShouldEqual, "ppp")
+	test.That(t, cfg3.FindComponent("lidar1").Frame.Parent, test.ShouldEqual, "cameraOver")
 
 	cancel()
 	<-webDone
 
 	test.That(t, r.Close(), test.ShouldBeNil)
 	test.That(t, r2.Close(), test.ShouldBeNil)
+	test.That(t, r3.Close(), test.ShouldBeNil)
+
 }
 
 type dummyBoard struct {

@@ -213,7 +213,7 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 		}
 
 		for _, c := range rc.Components {
-			if c.Frame != nil {
+			if c.Frame != nil && c.Frame.Parent == "world" {
 				for _, rc := range cfgCpy.Remotes {
 					if rc.Name == remoteName {
 						c.Frame = rc.Frame
