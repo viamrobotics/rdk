@@ -231,10 +231,10 @@ func (r *mutableRobot) Config(ctx context.Context) (*config.Config, error) {
 		}
 
 		for _, c := range rc.Components {
-			if c.Frame.Parent == "" {
+			if c.Frame != nil {
 				for _, rc := range cfgCpy.Remotes {
 					if rc.Name == remoteName {
-						c.Frame.Parent = rc.Parent
+						c.Frame = rc.Frame
 						break
 					}
 				}

@@ -267,8 +267,11 @@ func TestRemoteRobot(t *testing.T) {
 				{
 					Name: "bar",
 					Frame: &config.Frame{
-						Parent: "",
+						Parent: "world",
 					},
+				},
+				{
+					Name: "som",
 				},
 			},
 		}
@@ -283,7 +286,9 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, conf.Components[0].Name, test.ShouldEqual, "one.foo")
 	test.That(t, conf.Components[0].Frame.Parent, test.ShouldEqual, "one.bar")
 	test.That(t, conf.Components[1].Name, test.ShouldEqual, "one.bar")
-	test.That(t, conf.Components[1].Frame.Parent, test.ShouldEqual, "")
+	test.That(t, conf.Components[1].Frame.Parent, test.ShouldEqual, "one.world")
+	test.That(t, conf.Components[2].Name, test.ShouldEqual, "one.som")
+	test.That(t, conf.Components[2].Frame, test.ShouldBeNil)
 
 	robot.conf.Prefix = false
 	conf, err = robot.Config(context.Background())
@@ -291,7 +296,9 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, conf.Components[0].Name, test.ShouldEqual, "foo")
 	test.That(t, conf.Components[0].Frame.Parent, test.ShouldEqual, "bar")
 	test.That(t, conf.Components[1].Name, test.ShouldEqual, "bar")
-	test.That(t, conf.Components[1].Frame.Parent, test.ShouldEqual, "")
+	test.That(t, conf.Components[1].Frame.Parent, test.ShouldEqual, "world")
+	test.That(t, conf.Components[2].Name, test.ShouldEqual, "som")
+	test.That(t, conf.Components[2].Frame, test.ShouldBeNil)
 
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return nil, errors.New("whoops")
