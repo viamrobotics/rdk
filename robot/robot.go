@@ -136,15 +136,6 @@ type Refresher interface {
 type MutableRobot interface {
 	Robot
 
-	// AddBase adds a base to the robot.
-	AddBase(b base.Base, c config.Component)
-
-	// AddCamera adds a camera to the robot.
-	AddCamera(c camera.Camera, cc config.Component)
-
-	// AddSensor adds a sensor to the robot.
-	AddSensor(s sensor.Sensor, c config.Component)
-
 	// Reconfigure instructs the robot to safely reconfigure itself based
 	// on the given new config.
 	Reconfigure(ctx context.Context, newConfig *config.Config) error
