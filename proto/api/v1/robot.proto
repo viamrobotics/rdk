@@ -468,6 +468,22 @@ service RobotService {
       delete: "/api/v1/services/navigation/waypoints/{id}"
     };
   }
+
+  // IMU
+
+  // IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
+  rpc IMUAngularVelocity(IMUAngularVelocityRequest) returns (IMUAngularVelocityResponse) {
+      option (google.api.http) = {
+      get: "/api/v1/sensors/imu/{name}/angular_velocity"
+    };
+  }
+
+  // IMUOrientation returns the most recent orientation reading from the given IMU.
+  rpc IMUOrientation(IMUOrientationRequest) returns (IMUOrientationResponse) {
+      option (google.api.http) = {
+      get: "/api/v1/sensors/imu/{name}/orientation"
+    };
+  }
 }
 
 message StatusRequest {}
@@ -1118,3 +1134,33 @@ message NavigationServiceRemoveWaypointRequest {
 message NavigationServiceRemoveWaypointResponse {
 }
 
+// AngularVelocity contains angular velocity in deg/s across x/y/z axes.
+message AngularVelocity {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+}
+
+// EulerAngles are three angles used to represent the rotation of an object in 3D Euclidean space
+// The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.
+message EulerAngles {
+  double roll = 1;
+  double pitch = 2;
+  double yaw = 3;
+}
+
+message IMUAngularVelocityRequest {
+  string name = 1;
+}
+
+message IMUAngularVelocityResponse {
+  AngularVelocity angular_velocity = 1;
+}
+
+message IMUOrientationRequest {
+  string name = 1;
+}
+
+message IMUOrientationResponse {
+  EulerAngles orientation = 1;
+}

@@ -63,7 +63,7 @@
         {
             "name": "steering",
             "type": "motor",
-            "model": "pi",
+            "model": "gpio",
             "attributes":
             {
                 "board" : "local",
@@ -85,7 +85,7 @@
         {
             "name": "thrust",
             "type": "motor",
-            "model": "pi",
+            "model": "gpio",
             "attributes":
             {
                 "board" : "local",
@@ -103,7 +103,7 @@
         {
             "name": "squirt",
             "type": "motor",
-            "model": "pi",
+            "model": "gpio",
             "board" : "local",
             "attributes":
             {
@@ -128,6 +128,12 @@
                 "path" : "/dev/ttyAMA0"
             }
             
+        },
+        {
+            "name" : "imu",
+            "type" : "sensor",
+            "subtype" : "imu",
+            "model" : "temp-imu"
         },
         {
             "name" : "base1",

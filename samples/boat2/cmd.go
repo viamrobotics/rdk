@@ -2,13 +2,17 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
 	"math"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-errors/errors"
+	slib "github.com/jacobsa/go-serial/serial"
 	"go.uber.org/multierr"
 
 	"go.viam.com/utils"
@@ -21,7 +25,11 @@ import (
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
+	"go.viam.com/core/sensor"
+	"go.viam.com/core/sensor/imu"
+	"go.viam.com/core/serial"
 	"go.viam.com/core/services/navigation"
+	"go.viam.com/core/spatialmath"
 	coreutils "go.viam.com/core/utils"
 	"go.viam.com/core/web"
 	webserver "go.viam.com/core/web/server"
@@ -71,6 +79,7 @@ func main() {
 type boat struct {
 	myRobot robot.Robot
 	rc      remoteControl
+	myImu   imu.IMU
 
 	squirt, steering, thrust motor.Motor
 	middle                   float64
@@ -122,6 +131,29 @@ func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golo
 		return nil, errors.New("no local board")
 	}
 	b.rc = &rcRemoteControl{bb}
+
+	tempIMU, ok := r.SensorByName("imu")
+	if !ok {
+		return nil, errors.New("need imu")
+	}
+	b.myImu, ok = tempIMU.(imu.IMU)
+	if !ok {
+		return nil, fmt.Errorf("wanted an imu but got an %T %#v", tempIMU, tempIMU)
+	}
+
+	if true {
+		for {
+			if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+				return nil, errors.New("oops")
+			}
+
+			r, err := b.myImu.Readings(ctx)
+			if err != nil {
+				return nil, err
+			}
+			fmt.Printf("%#v\n", r)
+		}
+	}
 
 	// get all motors
 
@@ -261,6 +293,119 @@ func runRC(ctx context.Context, myBoat *boat) {
 	}
 }
 
+func newArduinoIMU(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+	options := slib.OpenOptions{
+		BaudRate:        115200,
+		DataBits:        8,
+		StopBits:        1,
+		MinimumReadSize: 1,
+	}
+
+	ds := serial.Search(serial.SearchFilter{serial.TypeArduino})
+	if len(ds) != 1 {
+		return nil, fmt.Errorf("found %d arduinos", len(ds))
+	}
+	options.PortName = ds[0].Path
+
+	port, err := slib.Open(options)
+	if err != nil {
+		return nil, err
+	}
+
+	portReader := bufio.NewReader(port)
+
+	i := &myIMU{}
+
+	go func() {
+		defer port.Close()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			line, err := portReader.ReadString('\n')
+			if err != nil {
+				i.lastError = err
+			} else {
+				i.lastError = i.parse(line)
+			}
+		}
+	}()
+
+	return i, nil
+}
+
+type myIMU struct {
+	angularVelocity spatialmath.AngularVelocity
+	orientation     spatialmath.EulerAngles
+	lastError       error
+}
+
+func (i *myIMU) parse(line string) error {
+	line = strings.TrimSpace(line)
+	line = strings.ReplaceAll(line, " ", "")
+	line = strings.ReplaceAll(line, "\t", "")
+
+	pcs := strings.Split(line, ":")
+	if len(pcs) != 2 {
+		// probably init
+		return nil
+	}
+
+	name := pcs[0]
+	pcs = strings.Split(pcs[1], "|")
+	if len(pcs) != 3 {
+		return fmt.Errorf("bad line %s", line)
+	}
+
+	x, err := strconv.ParseFloat(pcs[0][2:], 64)
+	if err != nil {
+		return fmt.Errorf("bad line %s", line)
+	}
+
+	y, err := strconv.ParseFloat(pcs[1][2:], 64)
+	if err != nil {
+		return fmt.Errorf("bad line %s", line)
+	}
+
+	z, err := strconv.ParseFloat(pcs[2][2:], 64)
+	if err != nil {
+		return fmt.Errorf("bad line %s", line)
+	}
+
+	if name == "Orient" {
+		// TODO: not sure if units are right, but docs say the raw data is euler
+		i.orientation.Roll = x
+		i.orientation.Pitch = y
+		i.orientation.Yaw = z
+	} else if name == "Gyro" {
+		// TODO: not sure if units are right
+		i.angularVelocity.X = x
+		i.angularVelocity.Y = y
+		i.angularVelocity.Z = z
+	}
+
+	return nil
+}
+
+func (i *myIMU) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+	return i.angularVelocity, i.lastError
+}
+func (i *myIMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+	return &i.orientation, i.lastError
+}
+
+func (i *myIMU) Readings(ctx context.Context) ([]interface{}, error) {
+	return []interface{}{i.angularVelocity, i.orientation}, i.lastError
+}
+
+func (i *myIMU) Desc() sensor.Description {
+	return sensor.Description{imu.Type, ""}
+}
+
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
@@ -271,6 +416,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 
 	// register boat as base properly
 	registry.RegisterBase("viam-boat2", registry.Base{Constructor: newBoat})
+
+	registry.RegisterSensor(imu.Type, "temp-imu", registry.Sensor{Constructor: newArduinoIMU})
 
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
