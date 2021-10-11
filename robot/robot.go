@@ -21,7 +21,6 @@ import (
 	"go.viam.com/core/servo"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 )
 
 // A Robot encompasses all functionality of some robot comprised
@@ -121,6 +120,9 @@ type Robot interface {
 
 	// Logger returns the logger the robot is using.
 	Logger() golog.Logger
+
+	// Close attempts to cleanly close down all constituent parts of the robot.
+	Close() error
 }
 
 // A Refresher can refresh the contents of a robot.
@@ -129,32 +131,11 @@ type Refresher interface {
 	Refresh(ctx context.Context) error
 }
 
-// A MutableRobot is a Robot that can have its parts modified.
-type MutableRobot interface {
+// A LocalRobot is a Robot that can have its parts modified.
+type LocalRobot interface {
 	Robot
-
-	// AddBase adds a base to the robot.
-	AddBase(b base.Base, c config.Component)
-
-	// AddCamera adds a camera to the robot.
-	AddCamera(c camera.Camera, cc config.Component)
-
-	// AddSensor adds a sensor to the robot.
-	AddSensor(s sensor.Sensor, c config.Component)
 
 	// Reconfigure instructs the robot to safely reconfigure itself based
 	// on the given new config.
 	Reconfigure(ctx context.Context, newConfig *config.Config) error
-
-	// Close attempts to cleanly close down all constituent parts of the robot.
-	Close() error
-}
-
-// AsMutable returns a mutable version of the given robot if it
-// supports it.
-func AsMutable(r Robot) (MutableRobot, error) {
-	if m, ok := r.(MutableRobot); ok {
-		return m, nil
-	}
-	return nil, errors.Errorf("expected %T to be a MutableRobot", r)
 }

@@ -1,4 +1,4 @@
-// Package robotimpl defines implementations of robot.Robot and robot.MutableRobot.
+// Package robotimpl defines implementations of robot.Robot and robot.LocalRobot.
 //
 // It also provides a remote robot implementation that is aware that the robot.Robot
 // it is working with is not on the same physical system.
@@ -47,11 +47,11 @@ import (
 	"github.com/go-errors/errors"
 )
 
-var _ = robot.MutableRobot(&mutableRobot{})
+var _ = robot.LocalRobot(&localRobot{})
 
-// mutableRobot satisfies robot.MutableRobot and defers most
+// localRobot satisfies robot.LocalRobot and defers most
 // logic to its parts.
-type mutableRobot struct {
+type localRobot struct {
 	mu     sync.Mutex
 	parts  *robotParts
 	config *config.Config
@@ -60,167 +60,152 @@ type mutableRobot struct {
 
 // RemoteByName returns a remote robot by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) RemoteByName(name string) (robot.Robot, bool) {
+func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 	return r.parts.RemoteByName(name)
 }
 
 // BoardByName returns a board by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) BoardByName(name string) (board.Board, bool) {
+func (r *localRobot) BoardByName(name string) (board.Board, bool) {
 	return r.parts.BoardByName(name)
 }
 
 // ArmByName returns an arm by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) ArmByName(name string) (arm.Arm, bool) {
+func (r *localRobot) ArmByName(name string) (arm.Arm, bool) {
 	return r.parts.ArmByName(name)
 }
 
 // BaseByName returns a base by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) BaseByName(name string) (base.Base, bool) {
+func (r *localRobot) BaseByName(name string) (base.Base, bool) {
 	return r.parts.BaseByName(name)
 }
 
 // GripperByName returns a gripper by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) GripperByName(name string) (gripper.Gripper, bool) {
+func (r *localRobot) GripperByName(name string) (gripper.Gripper, bool) {
 	return r.parts.GripperByName(name)
 }
 
 // CameraByName returns a camera by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) CameraByName(name string) (camera.Camera, bool) {
+func (r *localRobot) CameraByName(name string) (camera.Camera, bool) {
 	return r.parts.CameraByName(name)
 }
 
 // LidarByName returns a lidar by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) LidarByName(name string) (lidar.Lidar, bool) {
+func (r *localRobot) LidarByName(name string) (lidar.Lidar, bool) {
 	return r.parts.LidarByName(name)
 }
 
 // SensorByName returns a sensor by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) SensorByName(name string) (sensor.Sensor, bool) {
+func (r *localRobot) SensorByName(name string) (sensor.Sensor, bool) {
 	return r.parts.SensorByName(name)
 }
 
 // ServoByName returns a servo by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) ServoByName(name string) (servo.Servo, bool) {
+func (r *localRobot) ServoByName(name string) (servo.Servo, bool) {
 	return r.parts.ServoByName(name)
 }
 
 // MotorByName returns a motor by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) MotorByName(name string) (motor.Motor, bool) {
+func (r *localRobot) MotorByName(name string) (motor.Motor, bool) {
 	return r.parts.MotorByName(name)
 }
 
-func (r *mutableRobot) ServiceByName(name string) (interface{}, bool) {
+func (r *localRobot) ServiceByName(name string) (interface{}, bool) {
 	return r.parts.ServiceByName(name)
 }
 
 // ResourceByName returns a resource by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) ResourceByName(name resource.Name) (interface{}, bool) {
+func (r *localRobot) ResourceByName(name resource.Name) (interface{}, bool) {
 	return r.parts.ResourceByName(name)
 }
 
-// AddCamera adds a camera to the robot.
-func (r *mutableRobot) AddCamera(c camera.Camera, cc config.Component) {
-	r.parts.AddCamera(c, cc)
-}
-
-// AddBase adds a base to the robot.
-func (r *mutableRobot) AddBase(b base.Base, c config.Component) {
-	r.parts.AddBase(b, c)
-}
-
-// AddSensor adds a base to the robot.
-func (r *mutableRobot) AddSensor(s sensor.Sensor, c config.Component) {
-	r.parts.AddSensor(s, c)
-}
-
 // RemoteNames returns the name of all known remote robots.
-func (r *mutableRobot) RemoteNames() []string {
+func (r *localRobot) RemoteNames() []string {
 	return r.parts.RemoteNames()
 }
 
 // ArmNames returns the name of all known arms.
-func (r *mutableRobot) ArmNames() []string {
+func (r *localRobot) ArmNames() []string {
 	return r.parts.ArmNames()
 }
 
 // GripperNames returns the name of all known grippers.
-func (r *mutableRobot) GripperNames() []string {
+func (r *localRobot) GripperNames() []string {
 	return r.parts.GripperNames()
 }
 
 // CameraNames returns the name of all known cameras.
-func (r *mutableRobot) CameraNames() []string {
+func (r *localRobot) CameraNames() []string {
 	return r.parts.CameraNames()
 }
 
 // LidarNames returns the name of all known lidars.
-func (r *mutableRobot) LidarNames() []string {
+func (r *localRobot) LidarNames() []string {
 	return r.parts.LidarNames()
 }
 
 // BaseNames returns the name of all known bases.
-func (r *mutableRobot) BaseNames() []string {
+func (r *localRobot) BaseNames() []string {
 	return r.parts.BaseNames()
 }
 
 // BoardNames returns the name of all known boards.
-func (r *mutableRobot) BoardNames() []string {
+func (r *localRobot) BoardNames() []string {
 	return r.parts.BoardNames()
 }
 
 // SensorNames returns the name of all known sensors.
-func (r *mutableRobot) SensorNames() []string {
+func (r *localRobot) SensorNames() []string {
 	return r.parts.SensorNames()
 }
 
 // ServoNames returns the name of all known servos.
-func (r *mutableRobot) ServoNames() []string {
+func (r *localRobot) ServoNames() []string {
 	return r.parts.ServoNames()
 }
 
 // MotorNames returns the name of all known motors.
-func (r *mutableRobot) MotorNames() []string {
+func (r *localRobot) MotorNames() []string {
 	return r.parts.MotorNames()
 }
 
 // FunctionNames returns the name of all known functions.
-func (r *mutableRobot) FunctionNames() []string {
+func (r *localRobot) FunctionNames() []string {
 	return r.parts.FunctionNames()
 }
 
 // ServiceNames returns the name of all known services.
-func (r *mutableRobot) ServiceNames() []string {
+func (r *localRobot) ServiceNames() []string {
 	return r.parts.ServiceNames()
 }
 
 // ResourceNames returns the name of all known resources.
-func (r *mutableRobot) ResourceNames() []resource.Name {
+func (r *localRobot) ResourceNames() []resource.Name {
 	return r.parts.ResourceNames()
 }
 
 // ProcessManager returns the process manager for the robot.
-func (r *mutableRobot) ProcessManager() pexec.ProcessManager {
+func (r *localRobot) ProcessManager() pexec.ProcessManager {
 	return r.parts.processManager
 }
 
 // Close attempts to cleanly close down all constituent parts of the robot.
-func (r *mutableRobot) Close() error {
+func (r *localRobot) Close() error {
 	return r.parts.Close()
 }
 
 // Config returns the config used to construct the robot.
 // This is allowed to be partial or empty.
-func (r *mutableRobot) Config(ctx context.Context) (*config.Config, error) {
+func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 	cfgCpy := *r.config
 	cfgCpy.Components = append([]config.Component{}, cfgCpy.Components...)
 
@@ -249,22 +234,22 @@ func (r *mutableRobot) Config(ctx context.Context) (*config.Config, error) {
 // Status returns the current status of the robot. Usually you
 // should use the CreateStatus helper instead of directly calling
 // this.
-func (r *mutableRobot) Status(ctx context.Context) (*pb.Status, error) {
+func (r *localRobot) Status(ctx context.Context) (*pb.Status, error) {
 	return status.Create(ctx, r)
 }
 
-func (r *mutableRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
+func (r *localRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
 	return CreateReferenceFrameSystem(ctx, r)
 }
 
 // Logger returns the logger the robot is using.
-func (r *mutableRobot) Logger() golog.Logger {
+func (r *localRobot) Logger() golog.Logger {
 	return r.logger
 }
 
 // New returns a new robot with parts sourced from the given config.
-func New(ctx context.Context, config *config.Config, logger golog.Logger) (robot.MutableRobot, error) {
-	r := &mutableRobot{
+func New(ctx context.Context, config *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
+	r := &localRobot{
 		parts:  newRobotParts(logger),
 		logger: logger,
 	}
@@ -294,7 +279,7 @@ func New(ctx context.Context, config *config.Config, logger golog.Logger) (robot
 	return r, nil
 }
 
-func (r *mutableRobot) newBase(ctx context.Context, config config.Component) (base.Base, error) {
+func (r *localRobot) newBase(ctx context.Context, config config.Component) (base.Base, error) {
 	f := registry.BaseLookup(config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown base model: %s", config.Model)
@@ -302,7 +287,7 @@ func (r *mutableRobot) newBase(ctx context.Context, config config.Component) (ba
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *mutableRobot) newGripper(ctx context.Context, config config.Component) (gripper.Gripper, error) {
+func (r *localRobot) newGripper(ctx context.Context, config config.Component) (gripper.Gripper, error) {
 	f := registry.GripperLookup(config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown gripper model: %s", config.Model)
@@ -310,7 +295,7 @@ func (r *mutableRobot) newGripper(ctx context.Context, config config.Component) 
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *mutableRobot) newCamera(ctx context.Context, config config.Component) (camera.Camera, error) {
+func (r *localRobot) newCamera(ctx context.Context, config config.Component) (camera.Camera, error) {
 	f := registry.CameraLookup(config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown camera model: %s", config.Model)
@@ -322,7 +307,7 @@ func (r *mutableRobot) newCamera(ctx context.Context, config config.Component) (
 	return &camera.ImageSource{is}, nil
 }
 
-func (r *mutableRobot) newLidar(ctx context.Context, config config.Component) (lidar.Lidar, error) {
+func (r *localRobot) newLidar(ctx context.Context, config config.Component) (lidar.Lidar, error) {
 	f := registry.LidarLookup(config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown lidar model: %s", config.Model)
@@ -330,7 +315,7 @@ func (r *mutableRobot) newLidar(ctx context.Context, config config.Component) (l
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *mutableRobot) newSensor(ctx context.Context, config config.Component, sensorType sensor.Type) (sensor.Sensor, error) {
+func (r *localRobot) newSensor(ctx context.Context, config config.Component, sensorType sensor.Type) (sensor.Sensor, error) {
 	f := registry.SensorLookup(sensorType, config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown sensor model (type=%s): %s", sensorType, config.Model)
@@ -338,7 +323,7 @@ func (r *mutableRobot) newSensor(ctx context.Context, config config.Component, s
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *mutableRobot) newServo(ctx context.Context, config config.Component) (servo.Servo, error) {
+func (r *localRobot) newServo(ctx context.Context, config config.Component) (servo.Servo, error) {
 	f := registry.ServoLookup(config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown servo model: %s", config.Model)
@@ -346,7 +331,7 @@ func (r *mutableRobot) newServo(ctx context.Context, config config.Component) (s
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *mutableRobot) newMotor(ctx context.Context, config config.Component) (motor.Motor, error) {
+func (r *localRobot) newMotor(ctx context.Context, config config.Component) (motor.Motor, error) {
 	f := registry.MotorLookup(config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown motor model: %s", config.Model)
@@ -354,7 +339,7 @@ func (r *mutableRobot) newMotor(ctx context.Context, config config.Component) (m
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *mutableRobot) newBoard(ctx context.Context, config config.Component) (board.Board, error) {
+func (r *localRobot) newBoard(ctx context.Context, config config.Component) (board.Board, error) {
 	f := registry.BoardLookup(config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown board model: %s", config.Model)
@@ -362,7 +347,7 @@ func (r *mutableRobot) newBoard(ctx context.Context, config config.Component) (b
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *mutableRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
+func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
 	f := registry.ServiceLookup(config.Type)
 	if f == nil {
 		return nil, errors.Errorf("unknown service type: %s", config.Type)
@@ -370,7 +355,7 @@ func (r *mutableRobot) newService(ctx context.Context, config config.Service) (i
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *mutableRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
+func (r *localRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
 	rName := config.ResourceName()
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
 	if f == nil {
@@ -388,12 +373,12 @@ func (r *mutableRobot) newResource(ctx context.Context, config config.Component)
 }
 
 // Refresh does nothing for now
-func (r *mutableRobot) Refresh(ctx context.Context) error {
+func (r *localRobot) Refresh(ctx context.Context) error {
 	return nil
 }
 
 // UpdateMetadata updates metadata service using the currently registered parts of the robot
-func (r *mutableRobot) UpdateMetadata(svc *service.Service) error {
+func (r *localRobot) UpdateMetadata(svc *service.Service) error {
 	// TODO: Currently just a placeholder implementation, this should be rewritten once robot/parts have more metadata about themselves
 	var resources []resource.Name
 

@@ -506,7 +506,7 @@ func (parts *robotParts) Close() error {
 func (parts *robotParts) processConfig(
 	ctx context.Context,
 	config *config.Config,
-	robot *mutableRobot,
+	robot *localRobot,
 	logger golog.Logger,
 ) error {
 	if err := parts.newProcesses(ctx, config.Processes); err != nil {
@@ -536,7 +536,7 @@ func (parts *robotParts) processConfig(
 func (parts *robotParts) processModifiedConfig(
 	ctx context.Context,
 	config *config.ModifiedConfigDiff,
-	robot *mutableRobot,
+	robot *localRobot,
 	logger golog.Logger,
 ) error {
 	if err := parts.newProcesses(ctx, config.Processes); err != nil {
@@ -583,7 +583,7 @@ func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote
 }
 
 // newComponents constructs all components defined.
-func (parts *robotParts) newComponents(ctx context.Context, components []config.Component, r *mutableRobot) error {
+func (parts *robotParts) newComponents(ctx context.Context, components []config.Component, r *localRobot) error {
 	for _, c := range components {
 		switch c.Type {
 		case config.ComponentTypeBase:
@@ -651,7 +651,7 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 }
 
 // newServices constructs all services defined.
-func (parts *robotParts) newServices(ctx context.Context, services []config.Service, r *mutableRobot) error {
+func (parts *robotParts) newServices(ctx context.Context, services []config.Service, r *localRobot) error {
 	for _, c := range services {
 		svc, err := r.newService(ctx, c)
 		if err != nil {
