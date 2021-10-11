@@ -21,7 +21,6 @@ import (
 	"go.viam.com/core/servo"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 )
 
 // A Robot encompasses all functionality of some robot comprised
@@ -139,13 +138,4 @@ type LocalRobot interface {
 	// Reconfigure instructs the robot to safely reconfigure itself based
 	// on the given new config.
 	Reconfigure(ctx context.Context, newConfig *config.Config) error
-}
-
-// AsLocal returns a mutable version of the given robot if it
-// supports it.
-func AsLocal(r Robot) (LocalRobot, error) {
-	if m, ok := r.(LocalRobot); ok {
-		return m, nil
-	}
-	return nil, errors.Errorf("expected %T to be a LocalRobot", r)
 }
