@@ -1,6 +1,7 @@
 package chessboard
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r2"
@@ -106,8 +107,8 @@ func getIdentityGrid(n, offset int) []r2.Point {
 	}
 	// output slice of r2.Point
 	outPoints := make([]r2.Point, 0)
-	for i := 0; i < len(pts[0]); i++ {
-		pt := r2.Point{X: pts[0][i], Y: pts[1][i]}
+	for i := 0; i < len(pts); i++ {
+		pt := r2.Point{X: pts[i][1], Y: pts[i][0]}
 		outPoints = append(outPoints, pt)
 	}
 	return outPoints
@@ -217,9 +218,6 @@ func GreedyIterations(contours [][]r2.Point, saddlePoints []r2.Point, cfg ChessG
 	// iterate through contours
 	for _, cnt := range contours {
 		_, _, M, err = getInitialChessGrid(cnt)
-		//if M != nil {
-		//	fmt.Println("M = ", M)
-		//}
 		if err != nil {
 			return nil, err
 		}
@@ -230,9 +228,11 @@ func GreedyIterations(contours [][]r2.Point, saddlePoints []r2.Point, cfg ChessG
 			nGood = 0
 			// iterate through possible positions of the Grid
 			for gridI := 0; gridI < 7; gridI++ {
-				currentGrid, idealGrid = makeChessGrid(M, gridI+1)
+				idealGrid, currentGrid = makeChessGrid(M, gridI+1)
 				nextGrid, goodGrid = findGoodPoints(currentGrid, saddlePoints, 15.0)
+
 				nGood = sumGoodPoints(goodGrid)
+				fmt.Println("nGood = ", nGood)
 				if nGood < 4 {
 					M = nil
 					break

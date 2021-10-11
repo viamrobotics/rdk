@@ -447,7 +447,7 @@ func savePNG(fn string, m image.Image) error {
 	if err != nil {
 		return err
 	}
-	utils.UncheckedErrorFunc(f.Close)
+	defer utils.UncheckedErrorFunc(f.Close)
 	return png.Encode(f, m)
 }
 
@@ -473,7 +473,7 @@ func DrawContours(img *mat.Dense, contours [][]image.Point, outFile string) *ima
 // DrawContoursSimplified draws the simplified polygonal contours in a black image and saves it in outFile
 func DrawContoursSimplified(img *mat.Dense, contours [][]r2.Point, outFile string) error {
 	h, w := img.Dims()
-	dc := gg.NewContext(w, h)
+	dc := gg.NewContext(h, w)
 	dc.SetRGB(0, 0, 0)
 	dc.Clear()
 	for _, cnt := range contours {
@@ -487,7 +487,7 @@ func DrawContoursSimplified(img *mat.Dense, contours [][]r2.Point, outFile strin
 			a := 1.0
 			dc.SetRGBA(r, g, b, a)
 			dc.SetLineWidth(1)
-			dc.DrawLine(x1, y1, x2, y2)
+			dc.DrawLine(y1, x1, y2, x2)
 			dc.Stroke()
 		}
 	}
