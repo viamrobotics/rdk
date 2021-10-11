@@ -13,7 +13,7 @@ import (
 // Reconfigure will safely reconfigure a robot based on the given config. It will make
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources.
-func (r *mutableRobot) Reconfigure(ctx context.Context, newConfig *config.Config) error {
+func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) error {
 	diff, err := config.DiffConfigs(r.config, newConfig)
 	if err != nil {
 		return err
@@ -42,7 +42,7 @@ func (r *mutableRobot) Reconfigure(ctx context.Context, newConfig *config.Config
 // for an existing one. It understands how to rollback and commit
 // changes as safe as it possibly can.
 type draftRobot struct {
-	original *mutableRobot
+	original *localRobot
 	diff     *config.Diff
 	parts    *robotParts
 
@@ -56,7 +56,7 @@ type draftRobot struct {
 // newDraftRobot returns a new draft of a robot based on the given
 // original robot and the diff describing what the new robot
 // should look like.
-func newDraftRobot(r *mutableRobot, diff *config.Diff) *draftRobot {
+func newDraftRobot(r *localRobot, diff *config.Diff) *draftRobot {
 	return &draftRobot{
 		original:      r,
 		diff:          diff,

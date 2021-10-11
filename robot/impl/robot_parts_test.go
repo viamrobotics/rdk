@@ -709,7 +709,7 @@ func TestPartsMergeModify(t *testing.T) {
 	test.That(t, result.Process(parts), test.ShouldBeNil)
 
 	replacementParts := newRobotParts(logger)
-	robotForRemote := &mutableRobot{parts: newRobotParts(logger), logger: logger}
+	robotForRemote := &localRobot{parts: newRobotParts(logger), logger: logger}
 	fakeBoardRemote, err := fake.NewBoard(context.Background(), config.Component{
 		Name: "board2",
 		ConvertedAttributes: &board.Config{

@@ -132,8 +132,8 @@ type Refresher interface {
 	Refresh(ctx context.Context) error
 }
 
-// A MutableRobot is a Robot that can have its parts modified.
-type MutableRobot interface {
+// A LocalRobot is a Robot that can have its parts modified.
+type LocalRobot interface {
 	Robot
 
 	// Reconfigure instructs the robot to safely reconfigure itself based
@@ -141,11 +141,11 @@ type MutableRobot interface {
 	Reconfigure(ctx context.Context, newConfig *config.Config) error
 }
 
-// AsMutable returns a mutable version of the given robot if it
+// AsLocal returns a mutable version of the given robot if it
 // supports it.
-func AsMutable(r Robot) (MutableRobot, error) {
-	if m, ok := r.(MutableRobot); ok {
+func AsLocal(r Robot) (LocalRobot, error) {
+	if m, ok := r.(LocalRobot); ok {
 		return m, nil
 	}
-	return nil, errors.Errorf("expected %T to be a MutableRobot", r)
+	return nil, errors.Errorf("expected %T to be a LocalRobot", r)
 }
