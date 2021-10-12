@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
 	"go.viam.com/core/registry"
@@ -50,13 +52,15 @@ func init() {
 
 // Controller is an input.Controller
 type Controller struct {
-	dev     *evdev.Evdev
-	Model   string
-	Mapping Mapping
-	inputs  map[input.ControlCode]*Input
-	logger  golog.Logger
-
-	callbacks map[input.ControlCode]map[input.EventType]input.ControlFunction
+	dev                     *evdev.Evdev
+	Model                   string
+	Mapping                 Mapping
+	inputs                  map[input.ControlCode]*Input
+	logger                  golog.Logger
+	mu                      *sync.RWMutex
+	activeBackgroundWorkers sync.WaitGroup
+	cancelFunc              func()
+	callbacks               map[input.ControlCode]map[input.EventType]input.ControlFunction
 }
 
 // Mapping represents the evedev code to input.ControlCode mapping for a given gamepad model
@@ -69,7 +73,7 @@ type Mapping struct {
 type Input struct {
 	pad         *Controller
 	controlCode input.ControlCode
-	mu          *sync.Mutex
+	mu          *sync.RWMutex
 	lastEvent   input.Event
 }
 
@@ -95,7 +99,8 @@ func (g *Controller) eventDispatcher(ctx context.Context) {
 			// g.logger.Debugf("%s: Type: %d, Code: %d, Value: %d\n", timevaltoTime(eventIn.Event.Time), eventIn.Event.Type, eventIn.Event.Code, eventIn.Event.Value)
 
 			var eventOut input.Event
-			if eventIn.Event.Type == evdev.EventAbsolute {
+			switch eventIn.Event.Type {
+			case evdev.EventAbsolute:
 				thisAxis, ok := g.Mapping.Axes[eventIn.Type.(evdev.AbsoluteType)]
 				if !ok {
 					// Unmapped axis
@@ -125,8 +130,7 @@ func (g *Controller) eventDispatcher(ctx context.Context) {
 					Value: scaledPos,
 				}
 
-			} else if eventIn.Event.Type == evdev.EventKey {
-
+			case evdev.EventKey:
 				thisButton, ok := g.Mapping.Buttons[eventIn.Type.(evdev.KeyType)]
 				if !ok {
 					// Unmapped button
@@ -146,7 +150,7 @@ func (g *Controller) eventDispatcher(ctx context.Context) {
 					eventOut.Event = input.ButtonUp
 				}
 
-			} else {
+			default:
 				g.logger.Debugf("unhandled event: %+v", eventIn)
 			}
 
@@ -154,34 +158,52 @@ func (g *Controller) eventDispatcher(ctx context.Context) {
 			g.inputs[eventOut.Code].lastEvent = eventOut
 			g.inputs[eventOut.Code].mu.Unlock()
 
-			//g.logger.Debugf("EventOut: %+v", eventOut)
+			g.mu.RLock()
 			_, ok := g.callbacks[eventOut.Code]
+			g.mu.RUnlock()
 			if !ok {
+				g.mu.Lock()
 				g.callbacks[eventOut.Code] = make(map[input.EventType]input.ControlFunction)
+				g.mu.Unlock()
 			}
+			g.mu.RLock()
 			ctrlFunc, ok := g.callbacks[eventOut.Code][eventOut.Event]
 			if ok {
-				go ctrlFunc(ctx, g.inputs[eventOut.Code], eventOut)
+				g.activeBackgroundWorkers.Add(1)
+				utils.PanicCapturingGo(func() {
+					ctrlFunc(ctx, g.inputs[eventOut.Code], eventOut)
+					g.activeBackgroundWorkers.Done()
+				})
 			}
 
 			ctrlFuncAll, ok := g.callbacks[eventOut.Code][input.AllEvents]
 			if ok {
-				go ctrlFuncAll(ctx, g.inputs[eventOut.Code], eventOut)
+				g.activeBackgroundWorkers.Add(1)
+				utils.PanicCapturingGo(func() {
+					ctrlFuncAll(ctx, g.inputs[eventOut.Code], eventOut)
+					g.activeBackgroundWorkers.Done()
+				})
 			}
+			g.mu.RUnlock()
+
 		}
 	}
 }
 
 // NewController creates a new gamepad
 func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
-	pad := &Controller{}
+	var pad Controller
 	pad.logger = logger
 
-	var err error
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+
+	pad.cancelFunc = cancel
+
 	var devs []string
 	devs = []string{config.ConvertedAttributes.(*Config).DevFile}
 
 	if len(devs) != 1 || devs[0] == "" {
+		var err error
 		devs, err = filepath.Glob("/dev/input/event*")
 		if err != nil {
 			return nil, err
@@ -229,15 +251,13 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 
 	pad.inputs = make(map[input.ControlCode]*Input)
 	for _, v := range pad.Mapping.Axes {
-		pad.inputs[v] = &Input{pad: pad, mu: &sync.Mutex{}, controlCode: v}
+		pad.inputs[v] = &Input{pad: &pad, mu: &sync.RWMutex{}, controlCode: v}
 	}
 	for _, v := range pad.Mapping.Buttons {
-		pad.inputs[v] = &Input{pad: pad, mu: &sync.Mutex{}, controlCode: v}
+		pad.inputs[v] = &Input{pad: &pad, mu: &sync.RWMutex{}, controlCode: v}
 	}
 
 	pad.callbacks = make(map[input.ControlCode]map[input.EventType]input.ControlFunction)
-
-	//logger.Debugf("Map: %+v", pad.Mapping)
 
 	for code, inp := range pad.inputs {
 		conEvent := input.Event{
@@ -249,10 +269,21 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 		inp.lastEvent = conEvent
 	}
 
-	go pad.eventDispatcher(ctx)
+	pad.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		pad.eventDispatcher(ctxWithCancel)
+		pad.activeBackgroundWorkers.Done()
+	})
 
-	return pad, nil
+	return &pad, nil
 
+}
+
+// Close terminates background worker threads
+func (g *Controller) Close() error {
+	g.cancelFunc()
+	g.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 // Inputs lists the inputs of the gamepad
@@ -271,14 +302,15 @@ func (i *Input) Name(ctx context.Context) string {
 
 // State returns the last input.Event (the current state)
 func (i *Input) State(ctx context.Context) (input.Event, error) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.lastEvent, nil
 }
 
 // RegisterControl registers a callback function to be executed on the specified trigger Event
 func (i *Input) RegisterControl(ctx context.Context, ctrlFunc input.ControlFunction, trigger input.EventType) error {
-
+	i.pad.mu.Lock()
+	defer i.pad.mu.Unlock()
 	if i.pad.callbacks[i.controlCode] == nil {
 		i.pad.callbacks[i.controlCode] = make(map[input.EventType]input.ControlFunction)
 	}

@@ -16,13 +16,18 @@ type Controller interface {
 
 // Input represents a single axis or button, defined by its ControlCode
 type Input interface {
-	Name(ctx context.Context) string          // The stringified representation of the ControlCode
-	State(ctx context.Context) (Event, error) // returns most recent Event (which should be the current state)
+	// Name returns the stringified representation of the ControlCode
+	Name(ctx context.Context) string
+
+	// State returns most recent Event (which should be the current state)
+	State(ctx context.Context) (Event, error)
+
+	// RegisterControl registers a callback for the trigger EventType
 	RegisterControl(ctx context.Context, ctrlFunc ControlFunction, trigger EventType) error
 }
 
 // ControlFunction is a callback passed to RegisterControl
-type ControlFunction func(ctx context.Context, input Input, event Event)
+type ControlFunction func(ctx context.Context, inp Input, ev Event)
 
 // EventType represents the type of input event, and is returned by State() or passed to ControlFunction callbacks.
 // Extensible for further events
