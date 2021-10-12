@@ -30,17 +30,22 @@ import (
 //go:embed test_helper.html
 var testHelperHTML string
 
+type namedString struct {
+	File string
+	Name string
+}
+
 type oneTestOutput struct {
-	Images []string
-	PCDs   []string
+	Images []namedString
+	PCDs   []namedString
 }
 
-func (one *oneTestOutput) addImageCell(outputFile string) {
-	one.Images = append(one.Images, filepath.Base(outputFile))
+func (one *oneTestOutput) addImageCell(outputFile, name string) {
+	one.Images = append(one.Images, namedString{filepath.Base(outputFile), name})
 }
 
-func (one *oneTestOutput) addPCDCell(outputFile string) {
-	one.PCDs = append(one.PCDs, filepath.Base(outputFile))
+func (one *oneTestOutput) addPCDCell(outputFile, name string) {
+	one.PCDs = append(one.PCDs, namedString{filepath.Base(outputFile), name})
 }
 
 type testOutput struct {
@@ -119,7 +124,7 @@ func (pCtx *ProcessorContext) GotDebugImage(img image.Image, name string) {
 			panic(err)
 		}
 	})
-	pCtx.output.getFile(pCtx.currentFile).addImageCell(outFile)
+	pCtx.output.getFile(pCtx.currentFile).addImageCell(outFile, name)
 }
 
 // GotDebugPointCloud TODO
@@ -143,7 +148,7 @@ func (pCtx *ProcessorContext) GotDebugPointCloud(pc pointcloud.PointCloud, name 
 
 		atomic.AddInt32(&pCtx.d.pendingImages, -1)
 	}()
-	pCtx.output.getFile(pCtx.currentFile).addPCDCell(outFile)
+	pCtx.output.getFile(pCtx.currentFile).addPCDCell(outFile, name)
 }
 
 // MultipleImageTestDebuggerProcessor TODO
