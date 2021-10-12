@@ -117,7 +117,6 @@ type Motor struct {
 // InputController stores an input.Controller constructor (mandatory) and a Frame building function (optional)
 type InputController struct {
 	Constructor CreateInputController
-	Frame       CreateFrame
 }
 
 // Service stores a Service constructor (mandatory) and an attribute converter
@@ -394,12 +393,6 @@ func FrameLookup(comp *config.Component) (CreateFrame, bool) {
 		return registration.Frame, true
 	case config.ComponentTypeMotor:
 		registration := MotorLookup(comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return nil, false
-		}
-		return registration.Frame, true
-	case config.ComponentTypeInputController:
-		registration := InputControllerLookup(comp.Model)
 		if registration == nil || registration.Frame == nil {
 			return nil, false
 		}

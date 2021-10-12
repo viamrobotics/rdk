@@ -441,7 +441,7 @@ service RobotService {
 
   rpc InputStateStream(InputStateStreamRequest) returns (stream InputEvent) {
     option (google.api.http) = {
-      get: "/api/v1/input/{controller}/{code}/stream"
+      get: "/api/v1/input/{controller}/{code}/state_stream"
     };
   }
 

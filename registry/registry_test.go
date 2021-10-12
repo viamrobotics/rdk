@@ -89,7 +89,7 @@ func TestRegistry(t *testing.T) {
 	RegisterBoard("x", Board{Constructor: bbf, Frame: ff})
 	RegisterServo("x", Servo{Constructor: servof, Frame: ff})
 	RegisterMotor("x", Motor{Constructor: motorf, Frame: ff})
-	RegisterInputController("x", InputController{Constructor: inputf, Frame: ff})
+	RegisterInputController("x", InputController{Constructor: inputf})
 
 	// test look up
 
@@ -222,11 +222,10 @@ func TestRegistry(t *testing.T) {
 	test.That(t, InputControllerLookup("x"), test.ShouldNotBeNil)
 	test.That(t, InputControllerLookup("z"), test.ShouldBeNil)
 	test.That(t, InputControllerLookup("x").Constructor, test.ShouldNotBeNil)
-	test.That(t, InputControllerLookup("x").Frame, test.ShouldNotBeNil)
 	comp = &config.Component{Type: config.ComponentTypeInputController, Model: "x"}
 	frameFunc, ok = FrameLookup(comp)
-	test.That(t, frameFunc, test.ShouldEqual, ff)
-	test.That(t, ok, test.ShouldEqual, true)
+	test.That(t, frameFunc, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeFalse)
 	// look up a component that doesn't exist
 	comp = &config.Component{Type: config.ComponentTypeInputController, Model: "z"}
 	frameFunc, ok = FrameLookup(comp)
