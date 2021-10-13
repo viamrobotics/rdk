@@ -211,6 +211,7 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 
 	for remoteName, remote := range r.parts.remotes {
 		rc, err := remote.Config(ctx) // the config of the remote robot
+		rcCopy := *rc                 // make a copy to not overwrite the original remote robot configs
 		if err != nil {
 			return nil, err
 		}
@@ -222,7 +223,7 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 		if rConf.Prefix {
 			worldName = rConf.Name + "." + referenceframe.World
 		}
-		for _, c := range rc.Components {
+		for _, c := range rcCopy.Components {
 			if c.Frame != nil && c.Frame.Parent == worldName {
 				if rConf.Frame == nil { // world frames of the local and remote robot perfectly overlap
 					c.Frame.Parent = referenceframe.World
