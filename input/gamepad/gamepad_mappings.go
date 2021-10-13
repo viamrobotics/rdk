@@ -4,7 +4,7 @@
 package gamepad
 
 import (
-	"github.com/kenshaw/evdev"
+	"github.com/viamrobotics/evdev"
 
 	"go.viam.com/core/input"
 )

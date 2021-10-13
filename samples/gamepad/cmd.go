@@ -39,9 +39,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	defer myRobot.Close()
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	debugOut(ctx, myRobot)
 	webOpts := web.NewOptions()
 	webOpts.Insecure = true
@@ -49,7 +46,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	err = webserver.RunWeb(ctx, myRobot, webOpts, logger)
 	if err != nil && !errors.Is(err, context.Canceled) {
 		logger.Errorw("error running web", "error", err)
-		cancel()
 		return err
 	}
 

@@ -75,6 +75,6 @@ require github.com/tidwall/gjson v1.6.5 // indirect
 
 require (
 	github.com/gin-gonic/gin v1.7.0 // indirect
-	github.com/kenshaw/evdev v0.1.0 // indirect
+	github.com/viamrobotics/evdev v0.1.1 // indirect
 )
 

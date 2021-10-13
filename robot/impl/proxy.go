@@ -1036,3 +1036,9 @@ func (p *proxyInputController) Inputs(ctx context.Context) (map[input.ControlCod
 	defer p.mu.RUnlock()
 	return p.actual.Inputs(ctx)
 }
+
+func (p *proxyInputController) Close() error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return utils.TryClose(p.actual)
+}
