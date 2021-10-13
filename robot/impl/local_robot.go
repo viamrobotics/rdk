@@ -26,6 +26,7 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
+	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/status"
 
 	// registration
@@ -42,6 +43,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
+	"github.com/golang/geo/r3"
 )
 
 var _ = robot.LocalRobot(&localRobot{})
@@ -206,17 +208,24 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 	cfgCpy := *r.config
 	cfgCpy.Components = append([]config.Component{}, cfgCpy.Components...)
 
-	for remoteName, r := range r.parts.remotes {
-		rc, err := r.Config(ctx)
+	for remoteName, remote := range r.parts.remotes {
+		rc, err := remote.Config(ctx)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, c := range rc.Components {
 			if c.Frame != nil && c.Frame.Parent == "world" {
-				for _, rc := range cfgCpy.Remotes {
-					if rc.Name == remoteName {
-						c.Frame = rc.Frame
+				for _, rConf := range cfgCpy.Remotes {
+					if rConf.Name == remoteName {
+						if rConf.Frame == nil { // do nothing
+							break
+						}
+						newTranslation, newOrientation := composeFrameOffsets(rConf.Frame, c.Frame)
+						// attach the frames connected to world node of the remote to the Frame defined in the Remote's config
+						c.Frame.Parent = rConf.Frame.Parent
+						c.Frame.Translation = newTranslation
+						c.Frame.Orientation = newOrientation
 						break
 					}
 				}
@@ -226,6 +235,18 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 
 	}
 	return &cfgCpy, nil
+}
+
+// composeFrameOffsets takes two config Frames and returns the composition of their 6dof poses
+func composeFrameOffsets(a, b *config.Frame) (config.Translation, spatialmath.Orientation) {
+	aTrans := r3.Vector{a.Translation.X, a.Translation.Y, a.Translation.Z}
+	bTrans := r3.Vector{b.Translation.X, b.Translation.Y, b.Translation.Z}
+	aPose := spatialmath.NewPoseFromOrientation(aTrans, a.Orientation)
+	bPose := spatialmath.NewPoseFromOrientation(bTrans, b.Orientation)
+	cPose := spatialmath.Compose(aPose, bPose)
+	translation := config.Translation{cPose.Point().X, cPose.Point().Y, cPose.Point().Z}
+	orientation := cPose.Orientation()
+	return translation, orientation
 }
 
 // Status returns the current status of the robot. Usually you
