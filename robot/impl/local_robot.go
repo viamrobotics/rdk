@@ -30,6 +30,8 @@ import (
 
 	// registration
 	_ "go.viam.com/SensorExporter/go"
+
+	// registration
 	_ "go.viam.com/core/lidar/client"
 	_ "go.viam.com/core/robots/fake"
 	_ "go.viam.com/core/sensor/compass/client"
