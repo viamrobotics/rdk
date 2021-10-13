@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"go.viam.com/utils/pexec"
@@ -209,25 +210,27 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 	cfgCpy.Components = append([]config.Component{}, cfgCpy.Components...)
 
 	for remoteName, remote := range r.parts.remotes {
-		rc, err := remote.Config(ctx)
+		rc, err := remote.Config(ctx) // the config of the remote robot
 		if err != nil {
 			return nil, err
 		}
-
+		rConf, err := r.getRemoteConfig(ctx, remoteName) // the Remote config
+		if err != nil {
+			return nil, err
+		}
+		worldName := referenceframe.World
+		if rConf.Prefix {
+			worldName = rConf.Name + "." + referenceframe.World
+		}
 		for _, c := range rc.Components {
-			if c.Frame != nil && c.Frame.Parent == "world" {
-				for _, rConf := range cfgCpy.Remotes {
-					if rConf.Name == remoteName {
-						if rConf.Frame == nil { // do nothing
-							break
-						}
-						newTranslation, newOrientation := composeFrameOffsets(rConf.Frame, c.Frame)
-						// attach the frames connected to world node of the remote to the Frame defined in the Remote's config
-						c.Frame.Parent = rConf.Frame.Parent
-						c.Frame.Translation = newTranslation
-						c.Frame.Orientation = newOrientation
-						break
-					}
+			if c.Frame != nil && c.Frame.Parent == worldName {
+				if rConf.Frame == nil { // world frames of the local and remote robot perfectly overlap
+					c.Frame.Parent = referenceframe.World
+				} else { // attach the frames connected to world node of the remote to the Frame defined in the Remote's config
+					newTranslation, newOrientation := composeFrameOffsets(rConf.Frame, c.Frame)
+					c.Frame.Parent = rConf.Frame.Parent
+					c.Frame.Translation = newTranslation
+					c.Frame.Orientation = newOrientation
 				}
 			}
 			cfgCpy.Components = append(cfgCpy.Components, c)
@@ -235,6 +238,16 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 
 	}
 	return &cfgCpy, nil
+}
+
+// getRemoteConfig gets the parameters for the Remote
+func (r *localRobot) getRemoteConfig(ctx context.Context, remoteName string) (*config.Remote, error) {
+	for _, rConf := range r.config.Remotes {
+		if rConf.Name == remoteName {
+			return &rConf, nil
+		}
+	}
+	return nil, fmt.Errorf("cannot find Remote config with name %q", remoteName)
 }
 
 // composeFrameOffsets takes two config Frames and returns the composition of their 6dof poses
