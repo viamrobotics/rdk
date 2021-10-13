@@ -18,6 +18,7 @@ import (
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/metadata/service"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
@@ -91,13 +92,23 @@ func TestConfigRemote(t *testing.T) {
 
 	addr := fmt.Sprintf("localhost:%d", port)
 	remoteConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Name:  "foo",
+				Type:  config.ComponentTypeBase,
+				Model: "fake",
+				Frame: &config.Frame{
+					Parent: referenceframe.World,
+				},
+			},
+		},
 		Remotes: []config.Remote{
 			{
 				Name:    "foo",
 				Address: addr,
 				Prefix:  true,
 				Frame: &config.Frame{
-					Parent:      "ppp",
+					Parent:      "foo",
 					Translation: config.Translation{100, 200, 300},
 					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
 				},
@@ -105,7 +116,7 @@ func TestConfigRemote(t *testing.T) {
 			{
 				Address: addr,
 				Frame: &config.Frame{
-					Parent:      "qqq",
+					Parent:      referenceframe.World,
 					Translation: config.Translation{100, 200, 300},
 					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
 				},
@@ -120,6 +131,9 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	expectedStatus := &pb.Status{
+		Bases: map[string]bool{
+			"foo": true,
+		},
 		Arms: map[string]*pb.ArmStatus{
 			"pieceArm": {
 				GridPosition: &pb.ArmPosition{
@@ -180,8 +194,8 @@ func TestConfigRemote(t *testing.T) {
 
 	cfg2, err := r2.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, 12, test.ShouldEqual, len(cfg2.Components))
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "ppp")
+	test.That(t, 13, test.ShouldEqual, len(cfg2.Components))
+	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "foo")
 	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Translation.X, test.ShouldAlmostEqual, -400.)
 	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Translation.Y, test.ShouldAlmostEqual, 700.)
 	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Translation.Z, test.ShouldAlmostEqual, 1300.)
@@ -193,7 +207,7 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, cfg2.FindComponent("foo.lidar1").Frame.Translation, test.ShouldResemble, config.Translation{0, 0, 200})
 	test.That(t, cfg2.FindComponent("foo.lidar1").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
-	test.That(t, cfg2.FindComponent("pieceArm").Frame.Parent, test.ShouldEqual, "qqq")
+	test.That(t, cfg2.FindComponent("pieceArm").Frame.Parent, test.ShouldEqual, "world")
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation.X, test.ShouldAlmostEqual, -400.)
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation.Y, test.ShouldAlmostEqual, 700.)
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation.Z, test.ShouldAlmostEqual, 1300.)
@@ -204,6 +218,9 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, cfg2.FindComponent("lidar1").Frame.Parent, test.ShouldEqual, "cameraOver")
 	test.That(t, cfg2.FindComponent("lidar1").Frame.Translation, test.ShouldResemble, config.Translation{0, 0, 200})
 	test.That(t, cfg2.FindComponent("lidar1").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
+
+	_, err = r2.FrameSystem(context.Background())
+	test.That(t, err, test.ShouldBeNil)
 
 	cancel()
 	<-webDone
