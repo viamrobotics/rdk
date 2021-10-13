@@ -207,7 +207,7 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, cfg2.FindComponent("foo.lidar1").Frame.Translation, test.ShouldResemble, config.Translation{0, 0, 200})
 	test.That(t, cfg2.FindComponent("foo.lidar1").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
-	test.That(t, cfg2.FindComponent("pieceArm").Frame.Parent, test.ShouldEqual, "world")
+	test.That(t, cfg2.FindComponent("pieceArm").Frame.Parent, test.ShouldEqual, referenceframe.World)
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation.X, test.ShouldAlmostEqual, -400.)
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation.Y, test.ShouldAlmostEqual, 700.)
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation.Z, test.ShouldAlmostEqual, 1300.)
