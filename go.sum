@@ -1238,6 +1238,8 @@ github.com/valyala/tcplisten v0.0.0-20161114210144-ceec8f93295a/go.mod h1:v3UYOV
 github.com/viamrobotics/SensorExporter v0.0.0-20211008170254-4bab14a4b4e3 h1:jd4hv2Y4hLD3VmQydRX5mbPTsUS+bPrNISTN5R5iXDY=
 github.com/viamrobotics/SensorExporter v0.0.0-20211008170254-4bab14a4b4e3/go.mod h1:glnPRt9Gm9SHvQCSCIHZziNauXJLAe4/VI4T5HMUazk=
 github.com/viamrobotics/SensorExporter/go/iphone v0.0.0-20211008164120-7bbcdb99e4dd/go.mod h1:XUtWaeBEmrQ6waoO9rv7D/rC3XYYRo3RLMX5bXrm0K8=
+github.com/viamrobotics/evdev v0.1.1 h1:DKVQVo8IhbHTZNnivV8Lehj4LJcxBe9FBHG9uf5Dyt0=
+github.com/viamrobotics/evdev v0.1.1/go.mod h1:N6nuZmPz7HEIpM7esNWwLxbYzqWqLSZkfI/1Sccckqk=
 github.com/viki-org/dnscache v0.0.0-20130720023526-c70c1f23c5d8/go.mod h1:dniwbG03GafCjFohMDmz6Zc6oCuiqgH6tGNyXTkHzXE=
 github.com/wcharczuk/go-chart v2.0.1+incompatible h1:0pz39ZAycJFF7ju/1mepnk26RLVLBCWz1STcD3doU0A=
 github.com/wcharczuk/go-chart v2.0.1+incompatible/go.mod h1:PF5tmL4EIx/7Wf+hEkpCqYi5He4u90sw+0+6FhrryuE=

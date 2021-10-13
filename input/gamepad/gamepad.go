@@ -20,7 +20,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
-	"github.com/kenshaw/evdev"
+	"github.com/viamrobotics/evdev"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -57,7 +57,7 @@ type Controller struct {
 	Mapping                 Mapping
 	inputs                  map[input.ControlCode]*Input
 	logger                  golog.Logger
-	mu                      *sync.RWMutex
+	mu                      sync.RWMutex
 	activeBackgroundWorkers sync.WaitGroup
 	cancelFunc              func()
 	callbacks               map[input.ControlCode]map[input.EventType]input.ControlFunction
@@ -73,7 +73,7 @@ type Mapping struct {
 type Input struct {
 	pad         *Controller
 	controlCode input.ControlCode
-	mu          *sync.RWMutex
+	mu          sync.RWMutex
 	lastEvent   input.Event
 }
 
@@ -90,6 +90,10 @@ func (g *Controller) eventDispatcher(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			err := g.dev.Close()
+			if err != nil {
+				g.logger.Error(err)
+			}
 			return
 		case eventIn := <-evChan:
 			if eventIn == nil || eventIn.Event.Type == evdev.EventMisc || (eventIn.Event.Type == evdev.EventSync && eventIn.Event.Code == 0) {
@@ -251,10 +255,10 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 
 	pad.inputs = make(map[input.ControlCode]*Input)
 	for _, v := range pad.Mapping.Axes {
-		pad.inputs[v] = &Input{pad: &pad, mu: &sync.RWMutex{}, controlCode: v}
+		pad.inputs[v] = &Input{pad: &pad, controlCode: v}
 	}
 	for _, v := range pad.Mapping.Buttons {
-		pad.inputs[v] = &Input{pad: &pad, mu: &sync.RWMutex{}, controlCode: v}
+		pad.inputs[v] = &Input{pad: &pad, controlCode: v}
 	}
 
 	pad.callbacks = make(map[input.ControlCode]map[input.EventType]input.ControlFunction)
