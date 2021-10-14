@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/metadata/service"
@@ -93,7 +94,9 @@ func TestConfigRemote(t *testing.T) {
 				Name:    "foo",
 				Address: addr,
 				Prefix:  true,
-				Parent:  "ppp",
+				Frame: &config.Frame{
+					Parent: "ppp",
+				},
 			},
 			{
 				Address: addr,
@@ -169,7 +172,7 @@ func TestConfigRemote(t *testing.T) {
 	cfg2, err := r2.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, 12, test.ShouldEqual, len(cfg2.Components))
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "foo.world")
+	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "ppp")
 
 	cancel()
 	<-webDone
@@ -272,67 +275,103 @@ func TestMetadataUpdate(t *testing.T) {
 
 	resources := map[resource.Name]struct{}{
 		{
-			UUID:      "661c4dea-b6be-56bf-a839-cfb7f99b0a6b",
-			Namespace: resource.ResourceNamespaceCore,
-			Type:      resource.ResourceTypeService,
-			Subtype:   resource.ResourceSubtypeMetadata,
-			Name:      "",
+			UUID: "661c4dea-b6be-56bf-a839-cfb7f99b0a6b",
+			Subtype: resource.Subtype{
+				Type: resource.Type{
+					Namespace:    resource.ResourceNamespaceCore,
+					ResourceType: resource.ResourceTypeService,
+				},
+				ResourceSubtype: service.SubtypeName,
+			},
+			Name: "",
 		}: {},
 		{
-			UUID:      "0ecee0a4-3d25-5bfa-ba5d-4c2f765cef6a",
-			Namespace: resource.ResourceNamespaceCore,
-			Type:      resource.ResourceTypeComponent,
-			Subtype:   resource.ResourceSubtypeArm,
-			Name:      "pieceArm",
+			UUID: "0ecee0a4-3d25-5bfa-ba5d-4c2f765cef6a",
+			Subtype: resource.Subtype{
+				Type: resource.Type{
+					Namespace:    resource.ResourceNamespaceCore,
+					ResourceType: resource.ResourceTypeComponent,
+				},
+				ResourceSubtype: arm.SubtypeName,
+			},
+			Name: "pieceArm",
 		}: {},
 		{
-			UUID:      "06f7a658-e502-5a3b-a160-af023795b49a",
-			Namespace: resource.ResourceNamespaceCore,
-			Type:      resource.ResourceTypeComponent,
-			Subtype:   resource.ResourceSubtypeCamera,
-			Name:      "cameraOver",
+			UUID: "06f7a658-e502-5a3b-a160-af023795b49a",
+			Subtype: resource.Subtype{
+				Type: resource.Type{
+					Namespace:    resource.ResourceNamespaceCore,
+					ResourceType: resource.ResourceTypeComponent,
+				},
+				ResourceSubtype: resource.ResourceSubtypeCamera,
+			},
+			Name: "cameraOver",
 		}: {},
 		{
-			UUID:      "064a7e85-c5d6-524c-a6c4-d050bca20da9",
-			Namespace: resource.ResourceNamespaceCore,
-			Type:      resource.ResourceTypeService,
-			Subtype:   resource.ResourceSubtypeFunction,
-			Name:      "func1",
+			UUID: "064a7e85-c5d6-524c-a6c4-d050bca20da9",
+			Subtype: resource.Subtype{
+				Type: resource.Type{
+					Namespace:    resource.ResourceNamespaceCore,
+					ResourceType: resource.ResourceTypeService,
+				},
+				ResourceSubtype: resource.ResourceSubtypeFunction,
+			},
+			Name: "func1",
 		}: {},
 		{
-			UUID:      "405b6596-11ff-5a69-a3d2-1a945414a632",
-			Namespace: resource.ResourceNamespaceCore,
-			Type:      resource.ResourceTypeService,
-			Subtype:   resource.ResourceSubtypeFunction,
-			Name:      "func2",
+			UUID: "405b6596-11ff-5a69-a3d2-1a945414a632",
+			Subtype: resource.Subtype{
+				Type: resource.Type{
+					Namespace:    resource.ResourceNamespaceCore,
+					ResourceType: resource.ResourceTypeService,
+				},
+				ResourceSubtype: resource.ResourceSubtypeFunction,
+			},
+			Name: "func2",
 		}: {},
 		{
-			UUID:      "813681b8-d6af-5e1c-b22a-8960ccf204fb",
-			Namespace: resource.ResourceNamespaceCore,
-			Type:      resource.ResourceTypeComponent,
-			Subtype:   resource.ResourceSubtypeGripper,
-			Name:      "pieceGripper",
+			UUID: "813681b8-d6af-5e1c-b22a-8960ccf204fb",
+			Subtype: resource.Subtype{
+				Type: resource.Type{
+					Namespace:    resource.ResourceNamespaceCore,
+					ResourceType: resource.ResourceTypeComponent,
+				},
+				ResourceSubtype: resource.ResourceSubtypeGripper,
+			},
+			Name: "pieceGripper",
 		}: {},
 		{
-			UUID:      "b0e1e671-fa92-5d84-b6c1-d50d17e5e2ac",
-			Namespace: resource.ResourceNamespaceCore,
-			Type:      resource.ResourceTypeComponent,
-			Subtype:   resource.ResourceSubtypeLidar,
-			Name:      "lidar1",
+			UUID: "b0e1e671-fa92-5d84-b6c1-d50d17e5e2ac",
+			Subtype: resource.Subtype{
+				Type: resource.Type{
+					Namespace:    resource.ResourceNamespaceCore,
+					ResourceType: resource.ResourceTypeComponent,
+				},
+				ResourceSubtype: resource.ResourceSubtypeLidar,
+			},
+			Name: "lidar1",
 		}: {},
 		{
-			UUID:      "d1587bf0-8655-5eb3-95af-e2f83d872ce8",
-			Namespace: resource.ResourceNamespaceCore,
-			Type:      resource.ResourceTypeComponent,
-			Subtype:   resource.ResourceSubtypeSensor,
-			Name:      "compass1",
+			UUID: "d1587bf0-8655-5eb3-95af-e2f83d872ce8",
+			Subtype: resource.Subtype{
+				Type: resource.Type{
+					Namespace:    resource.ResourceNamespaceCore,
+					ResourceType: resource.ResourceTypeComponent,
+				},
+				ResourceSubtype: resource.ResourceSubtypeSensor,
+			},
+			Name: "compass1",
 		}: {},
 		{
-			UUID:      "595cfa62-fb18-59ac-9553-d257b3dcebc0",
-			Namespace: resource.ResourceNamespaceCore,
-			Type:      resource.ResourceTypeComponent,
-			Subtype:   resource.ResourceSubtypeSensor,
-			Name:      "compass2",
+			UUID: "595cfa62-fb18-59ac-9553-d257b3dcebc0",
+			Subtype: resource.Subtype{
+				Type: resource.Type{
+					Namespace:    resource.ResourceNamespaceCore,
+					ResourceType: resource.ResourceTypeComponent,
+				},
+				ResourceSubtype: resource.ResourceSubtypeSensor,
+			},
+			Name: "compass2",
 		}: {},
 	}
 	svcResources := svc.All()

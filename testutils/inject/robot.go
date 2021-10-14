@@ -7,15 +7,16 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
@@ -37,6 +38,7 @@ type Robot struct {
 	ServoByNameFunc    func(name string) (servo.Servo, bool)
 	MotorByNameFunc    func(name string) (motor.Motor, bool)
 	ServiceByNameFunc  func(name string) (interface{}, bool)
+	ResourceByNameFunc func(name resource.Name) (interface{}, bool)
 	RemoteNamesFunc    func() []string
 	ArmNamesFunc       func() []string
 	GripperNamesFunc   func() []string
@@ -49,6 +51,7 @@ type Robot struct {
 	MotorNamesFunc     func() []string
 	FunctionNamesFunc  func() []string
 	ServiceNamesFunc   func() []string
+	ResourceNamesFunc  func() []resource.Name
 	ProcessManagerFunc func() pexec.ProcessManager
 	ConfigFunc         func(ctx context.Context) (*config.Config, error)
 	StatusFunc         func(ctx context.Context) (*pb.Status, error)
@@ -145,6 +148,14 @@ func (r *Robot) ServiceByName(name string) (interface{}, bool) {
 	return r.ServiceByNameFunc(name)
 }
 
+// ResourceByName calls the injected ResourceByName or the real version.
+func (r *Robot) ResourceByName(name resource.Name) (interface{}, bool) {
+	if r.ResourceByNameFunc == nil {
+		return r.Robot.ResourceByName(name)
+	}
+	return r.ResourceByNameFunc(name)
+}
+
 // RemoteNames calls the injected RemoteNames or the real version.
 func (r *Robot) RemoteNames() []string {
 	if r.RemoteNamesFunc == nil {
@@ -239,6 +250,14 @@ func (r *Robot) ServiceNames() []string {
 		return r.Robot.ServiceNames()
 	}
 	return r.ServiceNamesFunc()
+}
+
+// ResourceNames calls the injected ResourceNames or the real version.
+func (r *Robot) ResourceNames() []resource.Name {
+	if r.ResourceNamesFunc == nil {
+		return r.Robot.ResourceNames()
+	}
+	return r.ResourceNamesFunc()
 }
 
 // ProcessManager calls the injected ProcessManager or the real version.

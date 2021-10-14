@@ -1,10 +1,11 @@
-package board
+package gpio
 
 import (
 	"context"
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/core/board"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/utils"
@@ -13,9 +14,9 @@ import (
 	"go.uber.org/multierr"
 )
 
-// NewGPIOMotor constructs a new GPIO based motor on the given board using the
+// NewMotor constructs a new GPIO based motor on the given board using the
 // given configuration.
-func NewGPIOMotor(b Board, mc motor.Config, logger golog.Logger) (motor.Motor, error) {
+func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor, error) {
 	var m motor.Motor
 	pins := mc.Pins
 
@@ -32,7 +33,7 @@ func NewGPIOMotor(b Board, mc motor.Config, logger golog.Logger) (motor.Motor, e
 		mc.MinPowerPct = 1.0
 	}
 
-	m = &GPIOMotor{
+	m = &Motor{
 		b,
 		pins["a"],
 		pins["b"],
@@ -48,11 +49,11 @@ func NewGPIOMotor(b Board, mc motor.Config, logger golog.Logger) (motor.Motor, e
 	return m, nil
 }
 
-var _ = motor.Motor(&GPIOMotor{})
+var _ = motor.Motor(&Motor{})
 
-// A GPIOMotor is a GPIO based Motor that resides on a GPIO Board.
-type GPIOMotor struct {
-	Board              Board
+// A Motor is a GPIO based Motor that resides on a GPIO Board.
+type Motor struct {
+	Board              board.Board
 	A, B, Dir, PWM, En string
 	on                 bool
 	pwmFreq            uint
@@ -62,17 +63,17 @@ type GPIOMotor struct {
 }
 
 // Position always returns 0.
-func (m *GPIOMotor) Position(ctx context.Context) (float64, error) {
+func (m *Motor) Position(ctx context.Context) (float64, error) {
 	return 0, nil
 }
 
 // PositionSupported always returns false.
-func (m *GPIOMotor) PositionSupported(ctx context.Context) (bool, error) {
+func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
 // Power sets the associated pins (as discovered) and sets PWM to the given power percentage.
-func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
+func (m *Motor) Power(ctx context.Context, powerPct float32) error {
 	var errs error
 	if powerPct > m.maxPowerPct {
 		powerPct = m.maxPowerPct
@@ -127,7 +128,7 @@ func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
 }
 
 // Go instructs the motor to operate at a certain power percentage in a given direction.
-func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+func (m *Motor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
 	switch d {
 	case pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED:
 		return m.Off(ctx)
@@ -163,33 +164,33 @@ func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct flo
 }
 
 // GoFor is not yet supported.
-func (m *GPIOMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
+func (m *Motor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
 	return errors.New("not supported")
 }
 
 // IsOn returns if the motor is currently on or off.
-func (m *GPIOMotor) IsOn(ctx context.Context) (bool, error) {
+func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 	return m.on, nil
 }
 
 // Off turns the motor off by setting the appropriate pins to low states.
-func (m *GPIOMotor) Off(ctx context.Context) error {
+func (m *Motor) Off(ctx context.Context) error {
 	m.on = false
 	m.curDirection = pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED
 	return m.Power(ctx, 0)
 }
 
 // GoTo is not supported
-func (m *GPIOMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
+func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
 	return errors.New("not supported")
 }
 
 // GoTillStop is not supported
-func (m *GPIOMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+func (m *Motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	return errors.New("not supported")
 }
 
 // Zero is not supported
-func (m *GPIOMotor) Zero(ctx context.Context, offset float64) error {
+func (m *Motor) Zero(ctx context.Context, offset float64) error {
 	return errors.New("not supported")
 }

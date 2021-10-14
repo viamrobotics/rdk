@@ -9,6 +9,8 @@ import (
 	"github.com/go-errors/errors"
 
 	"go.viam.com/utils"
+
+	"go.viam.com/core/resource"
 )
 
 // A ComponentType defines a type of component.
@@ -50,6 +52,15 @@ var _ = flag.Value(&Component{})
 // String returns a verbose representation of the config.
 func (config *Component) String() string {
 	return fmt.Sprintf("%#v", config)
+}
+
+// ResourceName returns the  ResourceName for the component.
+func (config *Component) ResourceName() resource.Name {
+	cType := string(config.Type)
+	if config.Type == ComponentTypeSensor {
+		cType = config.SubType
+	}
+	return resource.NewName(resource.ResourceNamespaceCore, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
 }
 
 type validator interface {

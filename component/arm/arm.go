@@ -4,13 +4,35 @@ package arm
 import (
 	"context"
 	"math"
+	"sync"
+
+	"github.com/go-errors/errors"
+	viamutils "go.viam.com/utils"
 
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/resource"
+	"go.viam.com/core/rlog"
 	"go.viam.com/core/utils"
 )
 
+// SubtypeName is a constant that identifies the component resource subtype string "arm"
+const SubtypeName = resource.SubtypeName("arm")
+
+// Subtype is a constant that identifies the component resource subtype
+var Subtype = resource.NewSubtype(
+	resource.ResourceNamespaceCore,
+	resource.ResourceTypeComponent,
+	SubtypeName,
+)
+
+// Named is a helper for getting the named Arm's typed resource name
+func Named(name string) resource.Name {
+	return resource.NewFromSubtype(Subtype, name)
+}
+
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {
+
 	// CurrentPosition returns the current position of the arm.
 	CurrentPosition(ctx context.Context) (*pb.ArmPosition, error)
 
@@ -25,6 +47,79 @@ type Arm interface {
 
 	// JointMoveDelta moves a specific joint of the arm by the given amount.
 	JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error
+}
+
+var (
+	_ = Arm(&reconfigurableArm{})
+	_ = resource.Reconfigurable(&reconfigurableArm{})
+)
+
+type reconfigurableArm struct {
+	mu     sync.RWMutex
+	actual Arm
+}
+
+func (r *reconfigurableArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.CurrentPosition(ctx)
+}
+
+func (r *reconfigurableArm) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.MoveToPosition(ctx, c)
+}
+
+func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.MoveToJointPositions(ctx, pos)
+}
+
+func (r *reconfigurableArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.CurrentJointPositions(ctx)
+}
+
+func (r *reconfigurableArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.JointMoveDelta(ctx, joint, amountDegs)
+}
+
+func (r *reconfigurableArm) Close() error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return viamutils.TryClose(r.actual)
+}
+
+func (r *reconfigurableArm) Reconfigure(newArm resource.Reconfigurable) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	actual, ok := newArm.(*reconfigurableArm)
+	if !ok {
+		return errors.Errorf("expected new arm to be %T but got %T", r, newArm)
+	}
+	if err := viamutils.TryClose(r.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	r.actual = actual.actual
+	return nil
+}
+
+// WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm.
+// If arm is already a reconfigurableArm, then nothing is done.
+func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+	arm, ok := r.(Arm)
+	if !ok {
+		return nil, errors.Errorf("expected resource to be Arm but got %T", r)
+	}
+	if reconfigurable, ok := arm.(*reconfigurableArm); ok {
+		return reconfigurable, nil
+	}
+	return &reconfigurableArm{actual: arm}, nil
 }
 
 // NewPositionFromMetersAndOV returns a three-dimensional arm position

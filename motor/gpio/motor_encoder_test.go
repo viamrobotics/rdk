@@ -1,4 +1,4 @@
-package board_test
+package gpio
 
 import (
 	"context"
@@ -25,21 +25,20 @@ func nowNanosTest() uint64 {
 
 func TestMotorEncoder1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	undo := board.SetRPMSleepDebug(1, false)
+	undo := SetRPMSleepDebug(1, false)
 	defer undo()
 
 	cfg := motor.Config{TicksPerRotation: 100}
 	real := &fake.Motor{}
 	interrupt := &board.BasicDigitalInterrupt{}
-	encoder := board.NewSingleEncoder(interrupt)
 
-	motorIfc, err := board.NewEncodedMotor(config.Component{}, cfg, real, encoder, logger)
+	motorIfc, err := NewEncodedMotor(config.Component{}, cfg, real, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
-	motor := motorIfc.(*board.EncodedMotor)
+	motor := motorIfc.(*EncodedMotor)
 	defer func() {
 		test.That(t, motor.Close(), test.ShouldBeNil)
 	}()
-	encoder.M = motor
+	motor.encoder = board.NewSingleEncoder(interrupt, motor)
 
 	// test some basic defaults
 	isOn, err := motor.IsOn(context.Background())
@@ -148,7 +147,7 @@ func TestMotorEncoder1(t *testing.T) {
 
 func TestMotorEncoderHall(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	undo := board.SetRPMSleepDebug(1, false)
+	undo := SetRPMSleepDebug(1, false)
 	defer undo()
 
 	cfg := motor.Config{TicksPerRotation: 100}
@@ -157,9 +156,9 @@ func TestMotorEncoderHall(t *testing.T) {
 	encoderB := &board.BasicDigitalInterrupt{}
 	encoder := board.NewHallEncoder(encoderA, encoderB)
 
-	motorIfc, err := board.NewEncodedMotor(config.Component{}, cfg, real, encoder, logger)
+	motorIfc, err := NewEncodedMotor(config.Component{}, cfg, real, encoder, logger)
 	test.That(t, err, test.ShouldBeNil)
-	motor := motorIfc.(*board.EncodedMotor)
+	motor := motorIfc.(*EncodedMotor)
 	defer func() {
 		test.That(t, motor.Close(), test.ShouldBeNil)
 	}()
@@ -233,7 +232,7 @@ func TestMotorEncoderHall(t *testing.T) {
 
 	// do a GoFor and make sure we stop
 	t.Run("GoFor", func(t *testing.T) {
-		undo := board.SetRPMSleepDebug(1, false)
+		undo := SetRPMSleepDebug(1, false)
 		defer undo()
 
 		err := motor.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 100, 1)
@@ -258,7 +257,7 @@ func TestMotorEncoderHall(t *testing.T) {
 	})
 
 	t.Run("GoFor-backwards", func(t *testing.T) {
-		undo := board.SetRPMSleepDebug(1, false)
+		undo := SetRPMSleepDebug(1, false)
 		defer undo()
 
 		err := motor.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 100, 1)
@@ -289,13 +288,13 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 	real := &fake.Motor{}
 
 	// don't wrap with no encoder
-	m, err := board.WrapMotorWithEncoder(context.Background(), nil, config.Component{Name: "motor1"}, motor.Config{}, real, logger)
+	m, err := WrapMotorWithEncoder(context.Background(), nil, config.Component{Name: "motor1"}, motor.Config{}, real, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m, test.ShouldEqual, real)
 	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
 	// enforce need TicksPerRotation
-	m, err = board.WrapMotorWithEncoder(context.Background(), nil, config.Component{Name: "motor1"}, motor.Config{Encoder: "a"}, real, logger)
+	m, err = WrapMotorWithEncoder(context.Background(), nil, config.Component{Name: "motor1"}, motor.Config{Encoder: "a"}, real, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, m, test.ShouldBeNil)
 	test.That(t, utils.TryClose(m), test.ShouldBeNil)
@@ -306,25 +305,25 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// enforce need encoder
-	m, err = board.WrapMotorWithEncoder(context.Background(), b, config.Component{Name: "motor1"}, motor.Config{Encoder: "a", TicksPerRotation: 100}, real, logger)
+	m, err = WrapMotorWithEncoder(context.Background(), b, config.Component{Name: "motor1"}, motor.Config{Encoder: "a", TicksPerRotation: 100}, real, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, m, test.ShouldBeNil)
 	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
 	b.Digitals["a"] = &board.BasicDigitalInterrupt{}
-	m, err = board.WrapMotorWithEncoder(context.Background(), b, config.Component{Name: "motor1"}, motor.Config{Encoder: "a", TicksPerRotation: 100}, real, logger)
+	m, err = WrapMotorWithEncoder(context.Background(), b, config.Component{Name: "motor1"}, motor.Config{Encoder: "a", TicksPerRotation: 100}, real, logger)
 	test.That(t, err, test.ShouldBeNil)
-	_, ok := m.(*board.EncodedMotor)
+	_, ok := m.(*EncodedMotor)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
 	// enforce need encoder b
-	m, err = board.WrapMotorWithEncoder(context.Background(), b, config.Component{Name: "motor1"}, motor.Config{Encoder: "a", TicksPerRotation: 100, EncoderB: "b"}, real, logger)
+	m, err = WrapMotorWithEncoder(context.Background(), b, config.Component{Name: "motor1"}, motor.Config{Encoder: "a", TicksPerRotation: 100, EncoderB: "b"}, real, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, m, test.ShouldBeNil)
 	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
-	m, err = board.WrapMotorWithEncoder(context.Background(), b, config.Component{Name: "motor1"}, motor.Config{Encoder: "a", EncoderB: "b", TicksPerRotation: 100}, real, logger)
+	m, err = WrapMotorWithEncoder(context.Background(), b, config.Component{Name: "motor1"}, motor.Config{Encoder: "a", EncoderB: "b", TicksPerRotation: 100}, real, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, m, test.ShouldBeNil)
 	test.That(t, utils.TryClose(m), test.ShouldBeNil)
