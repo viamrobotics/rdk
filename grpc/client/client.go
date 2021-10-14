@@ -1328,7 +1328,8 @@ type inputClient struct {
 	controlCode     input.ControlCode
 	streamCancel    context.CancelFunc
 	streamConnected bool
-	mu              sync.Mutex
+	mu              sync.RWMutex
+	callbackWait    sync.WaitGroup
 	callbacks       map[input.EventType]input.ControlFunction
 }
 
@@ -1370,7 +1371,11 @@ func (ic *inputClient) RegisterControl(ctx context.Context, ctrlFunc input.Contr
 		ic.callbacks[trigger] = ctrlFunc
 	}
 
-	go ic.connectStream(ctx)
+	ic.controller.rc.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		ic.connectStream(ctx)
+		ic.controller.rc.activeBackgroundWorkers.Done()
+	})
 	return nil
 }
 
@@ -1380,6 +1385,7 @@ func (ic *inputClient) connectStream(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			ic.callbackWait.Wait()
 			return
 		default:
 		}
@@ -1406,6 +1412,7 @@ func (ic *inputClient) connectStream(ctx context.Context) {
 			ic.streamCancel = nil
 			ic.streamConnected = false
 			ic.mu.Unlock()
+			ic.callbackWait.Wait()
 			return
 		}
 
@@ -1417,11 +1424,11 @@ func (ic *inputClient) connectStream(ctx context.Context) {
 			ic.streamConnected = false
 			ic.controller.rc.logger.Error(err)
 			ic.mu.Unlock()
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(3 * time.Second):
+			if utils.SelectContextOrWait(ctx, 3*time.Second) {
 				continue
+			} else {
+				ic.callbackWait.Wait()
+				return
 			}
 		}
 
@@ -1438,10 +1445,10 @@ func (ic *inputClient) connectStream(ctx context.Context) {
 		ic.execCallback(ctx, eventOut)
 
 		// Handle the rest of the stream
-	processing:
 		for {
 			select {
 			case <-ctx.Done():
+				ic.callbackWait.Wait()
 				return
 			default:
 			}
@@ -1458,11 +1465,11 @@ func (ic *inputClient) connectStream(ctx context.Context) {
 				}
 				ic.execCallback(ctx, eventOut)
 				ic.controller.rc.logger.Error(err)
-				select {
-				case <-ctx.Done():
+				if utils.SelectContextOrWait(ctx, 3*time.Second) {
+					break
+				} else {
+					ic.callbackWait.Wait()
 					return
-				case <-time.After(3 * time.Second):
-					break processing
 				}
 			}
 			if err != nil {
@@ -1481,14 +1488,22 @@ func (ic *inputClient) connectStream(ctx context.Context) {
 }
 
 func (ic *inputClient) execCallback(ctx context.Context, event input.Event) {
-	ic.mu.Lock()
-	defer ic.mu.Unlock()
+	ic.mu.RLock()
+	defer ic.mu.RUnlock()
 	callback, ok := ic.callbacks[event.Event]
 	if ok {
-		go callback(ctx, ic, event)
+		ic.callbackWait.Add(1)
+		utils.PanicCapturingGo(func() {
+			callback(ctx, ic, event)
+			ic.callbackWait.Done()
+		})
 	}
 	callbackAll, ok := ic.callbacks[input.AllEvents]
 	if ok {
-		go callbackAll(ctx, ic, event)
+		ic.callbackWait.Add(1)
+		utils.PanicCapturingGo(func() {
+			callbackAll(ctx, ic, event)
+			ic.callbackWait.Done()
+		})
 	}
 }

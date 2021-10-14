@@ -20,8 +20,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
-	"github.com/viamrobotics/evdev"
 	"github.com/mitchellh/mapstructure"
+	"github.com/viamrobotics/evdev"
 )
 
 const (
