@@ -68,7 +68,7 @@ func debugOut(ctx context.Context, r robot.Robot) {
 	}
 
 	for _, v := range inputs {
-		event, _ := v.State(ctx)
+		event, _ := v.LastEvent(ctx)
 		fmt.Printf("%s:%s: %.4f\n", event.Code, event.Event, event.Value)
 
 		err = v.RegisterControl(ctx, repFunc, input.AllEvents)

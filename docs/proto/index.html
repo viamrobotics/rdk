@@ -522,11 +522,11 @@
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.InputStateRequest"><span class="badge">M</span>InputStateRequest</a>
+                  <a href="#proto.api.v1.InputEventStreamRequest"><span class="badge">M</span>InputEventStreamRequest</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.InputStateStreamRequest"><span class="badge">M</span>InputStateStreamRequest</a>
+                  <a href="#proto.api.v1.InputLastEventRequest"><span class="badge">M</span>InputLastEventRequest</a>
                 </li>
               
                 <li>
@@ -3223,7 +3223,7 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
               
                 <tr>
                   <td>inputs</td>
-                  <td><a href="#uint32">uint32</a></td>
+                  <td><a href="#string">string</a></td>
                   <td>repeated</td>
                   <td><p> </p></td>
                 </tr>
@@ -3254,14 +3254,14 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
               
                 <tr>
                   <td>event</td>
-                  <td><a href="#uint32">uint32</a></td>
+                  <td><a href="#string">string</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
               
                 <tr>
                   <td>code</td>
-                  <td><a href="#uint32">uint32</a></td>
+                  <td><a href="#string">string</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -3280,7 +3280,7 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
-        <h3 id="proto.api.v1.InputStateRequest">InputStateRequest</h3>
+        <h3 id="proto.api.v1.InputEventStreamRequest">InputEventStreamRequest</h3>
         <p></p>
 
         
@@ -3299,8 +3299,15 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
               
                 <tr>
                   <td>code</td>
-                  <td><a href="#uint32">uint32</a></td>
+                  <td><a href="#string">string</a></td>
                   <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>events</td>
+                  <td><a href="#string">string</a></td>
+                  <td>repeated</td>
                   <td><p> </p></td>
                 </tr>
               
@@ -3311,7 +3318,7 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
-        <h3 id="proto.api.v1.InputStateStreamRequest">InputStateStreamRequest</h3>
+        <h3 id="proto.api.v1.InputLastEventRequest">InputLastEventRequest</h3>
         <p></p>
 
         
@@ -3330,15 +3337,8 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
               
                 <tr>
                   <td>code</td>
-                  <td><a href="#uint32">uint32</a></td>
+                  <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>events</td>
-                  <td><a href="#uint32">uint32</a></td>
-                  <td>repeated</td>
                   <td><p> </p></td>
                 </tr>
               
@@ -5903,15 +5903,15 @@ is reliant on having an encoder.</p></td>
               </tr>
             
               <tr>
-                <td>InputState</td>
-                <td><a href="#proto.api.v1.InputStateRequest">InputStateRequest</a></td>
+                <td>InputLastEvent</td>
+                <td><a href="#proto.api.v1.InputLastEventRequest">InputLastEventRequest</a></td>
                 <td><a href="#proto.api.v1.InputEvent">InputEvent</a></td>
                 <td><p></p></td>
               </tr>
             
               <tr>
-                <td>InputStateStream</td>
-                <td><a href="#proto.api.v1.InputStateStreamRequest">InputStateStreamRequest</a></td>
+                <td>InputEventStream</td>
+                <td><a href="#proto.api.v1.InputEventStreamRequest">InputEventStreamRequest</a></td>
                 <td><a href="#proto.api.v1.InputEvent">InputEvent</a> stream</td>
                 <td><p></p></td>
               </tr>
@@ -6550,9 +6550,9 @@ is reliant on having an encoder.</p></td>
               
               
               <tr>
-                <td>InputState</td>
+                <td>InputLastEvent</td>
                 <td>GET</td>
-                <td>/api/v1/input/{controller}/{code}/state</td>
+                <td>/api/v1/input/{controller}/{code}/last_event</td>
                 <td></td>
               </tr>
               
@@ -6560,9 +6560,9 @@ is reliant on having an encoder.</p></td>
               
               
               <tr>
-                <td>InputStateStream</td>
+                <td>InputEventStream</td>
                 <td>GET</td>
-                <td>/api/v1/input/{controller}/{code}/state_stream</td>
+                <td>/api/v1/input/{controller}/{code}/event_stream</td>
                 <td></td>
               </tr>
               

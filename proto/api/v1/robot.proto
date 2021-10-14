@@ -433,15 +433,15 @@ service RobotService {
     };
   }
 
-  rpc InputState(InputStateRequest) returns (InputEvent) {
+  rpc InputLastEvent(InputLastEventRequest) returns (InputEvent) {
     option (google.api.http) = {
-      get: "/api/v1/input/{controller}/{code}/state"
+      get: "/api/v1/input/{controller}/{code}/last_event"
     };
   }
 
-  rpc InputStateStream(InputStateStreamRequest) returns (stream InputEvent) {
+  rpc InputEventStream(InputEventStreamRequest) returns (stream InputEvent) {
     option (google.api.http) = {
-      get: "/api/v1/input/{controller}/{code}/state_stream"
+      get: "/api/v1/input/{controller}/{code}/event_stream"
     };
   }
 
@@ -1159,25 +1159,25 @@ message InputControllerInputsRequest {
 }
 
 message InputControllerInputsResponse {
-  repeated uint32 inputs = 1;
+  repeated string inputs = 1;
 }
 
-message InputStateRequest {
+message InputLastEventRequest {
   string controller = 1;
-  uint32 code = 2;
+  string code = 2;
 }
 
 message InputEvent {
   google.protobuf.Timestamp time = 1;
-  uint32 event = 2;
-  uint32 code = 3;
+  string event = 2;
+  string code = 3;
   double value = 4;
 }
 
-message InputStateStreamRequest {
+message InputEventStreamRequest {
   string controller = 1;
-  uint32 code = 2;
-  repeated uint32 events = 3;
+  string code = 2;
+  repeated string events = 3;
 }
 
 // AngularVelocity contains angular velocity in deg/s across x/y/z axes.

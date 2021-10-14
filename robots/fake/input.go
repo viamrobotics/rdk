@@ -76,12 +76,12 @@ type Input struct {
 }
 
 // Name returns the stringified ControlCode of the input
-func (i *Input) Name(ctx context.Context) string {
-	return i.controlCode.String()
+func (i *Input) Name(ctx context.Context) input.ControlCode {
+	return i.controlCode
 }
 
-// State returns the last input.Event (the current state)
-func (i *Input) State(ctx context.Context) (input.Event, error) {
+// LastEvent returns the last input.Event (the current state)
+func (i *Input) LastEvent(ctx context.Context) (input.Event, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return i.lastEvent, nil

@@ -506,21 +506,21 @@ RobotService.InputControllerInputs = {
   responseType: proto_api_v1_robot_pb.InputControllerInputsResponse
 };
 
-RobotService.InputState = {
-  methodName: "InputState",
+RobotService.InputLastEvent = {
+  methodName: "InputLastEvent",
   service: RobotService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_v1_robot_pb.InputStateRequest,
+  requestType: proto_api_v1_robot_pb.InputLastEventRequest,
   responseType: proto_api_v1_robot_pb.InputEvent
 };
 
-RobotService.InputStateStream = {
-  methodName: "InputStateStream",
+RobotService.InputEventStream = {
+  methodName: "InputEventStream",
   service: RobotService,
   requestStream: false,
   responseStream: true,
-  requestType: proto_api_v1_robot_pb.InputStateStreamRequest,
+  requestType: proto_api_v1_robot_pb.InputEventStreamRequest,
   responseType: proto_api_v1_robot_pb.InputEvent
 };
 
@@ -2325,11 +2325,11 @@ RobotServiceClient.prototype.inputControllerInputs = function inputControllerInp
   };
 };
 
-RobotServiceClient.prototype.inputState = function inputState(requestMessage, metadata, callback) {
+RobotServiceClient.prototype.inputLastEvent = function inputLastEvent(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(RobotService.InputState, {
+  var client = grpc.unary(RobotService.InputLastEvent, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -2356,13 +2356,13 @@ RobotServiceClient.prototype.inputState = function inputState(requestMessage, me
   };
 };
 
-RobotServiceClient.prototype.inputStateStream = function inputStateStream(requestMessage, metadata) {
+RobotServiceClient.prototype.inputEventStream = function inputEventStream(requestMessage, metadata) {
   var listeners = {
     data: [],
     end: [],
     status: []
   };
-  var client = grpc.invoke(RobotService.InputStateStream, {
+  var client = grpc.invoke(RobotService.InputEventStream, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

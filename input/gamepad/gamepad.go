@@ -39,7 +39,7 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelname, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 		if err != nil {
 			return nil, err
 		}
@@ -149,9 +149,9 @@ func (g *Controller) eventDispatcher(ctx context.Context) {
 				}
 
 				if eventIn.Event.Value == 1 {
-					eventOut.Event = input.ButtonDown
+					eventOut.Event = input.ButtonPress
 				} else if eventIn.Event.Value == 0 {
-					eventOut.Event = input.ButtonUp
+					eventOut.Event = input.ButtonRelease
 				}
 
 			default:
@@ -299,13 +299,13 @@ func (g *Controller) Inputs(ctx context.Context) (map[input.ControlCode]input.In
 	return ret, nil
 }
 
-// Name returns the stringified ControlCode of the input
-func (i *Input) Name(ctx context.Context) string {
-	return i.controlCode.String()
+// Name returns the ControlCode of the input
+func (i *Input) Name(ctx context.Context) input.ControlCode {
+	return i.controlCode
 }
 
-// State returns the last input.Event (the current state)
-func (i *Input) State(ctx context.Context) (input.Event, error) {
+// LastEvent returns the last input.Event (the current state)
+func (i *Input) LastEvent(ctx context.Context) (input.Event, error) {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	return i.lastEvent, nil
@@ -320,8 +320,8 @@ func (i *Input) RegisterControl(ctx context.Context, ctrlFunc input.ControlFunct
 	}
 
 	if trigger == input.ButtonChange {
-		i.pad.callbacks[i.controlCode][input.ButtonUp] = ctrlFunc
-		i.pad.callbacks[i.controlCode][input.ButtonDown] = ctrlFunc
+		i.pad.callbacks[i.controlCode][input.ButtonRelease] = ctrlFunc
+		i.pad.callbacks[i.controlCode][input.ButtonPress] = ctrlFunc
 	} else {
 		i.pad.callbacks[i.controlCode][trigger] = ctrlFunc
 	}

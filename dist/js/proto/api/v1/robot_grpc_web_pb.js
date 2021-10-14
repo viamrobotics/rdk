@@ -4480,16 +4480,16 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.inputControllerInputs =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.InputStateRequest,
+ *   !proto.proto.api.v1.InputLastEventRequest,
  *   !proto.proto.api.v1.InputEvent>}
  */
-const methodDescriptor_RobotService_InputState = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/InputState',
+const methodDescriptor_RobotService_InputLastEvent = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/InputLastEvent',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.InputStateRequest,
+  proto.proto.api.v1.InputLastEventRequest,
   proto.proto.api.v1.InputEvent,
   /**
-   * @param {!proto.proto.api.v1.InputStateRequest} request
+   * @param {!proto.proto.api.v1.InputLastEventRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
@@ -4502,13 +4502,13 @@ const methodDescriptor_RobotService_InputState = new grpc.web.MethodDescriptor(
 /**
  * @const
  * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.InputStateRequest,
+ *   !proto.proto.api.v1.InputLastEventRequest,
  *   !proto.proto.api.v1.InputEvent>}
  */
-const methodInfo_RobotService_InputState = new grpc.web.AbstractClientBase.MethodInfo(
+const methodInfo_RobotService_InputLastEvent = new grpc.web.AbstractClientBase.MethodInfo(
   proto.proto.api.v1.InputEvent,
   /**
-   * @param {!proto.proto.api.v1.InputStateRequest} request
+   * @param {!proto.proto.api.v1.InputLastEventRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
@@ -4519,7 +4519,7 @@ const methodInfo_RobotService_InputState = new grpc.web.AbstractClientBase.Metho
 
 
 /**
- * @param {!proto.proto.api.v1.InputStateRequest} request The
+ * @param {!proto.proto.api.v1.InputLastEventRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
@@ -4528,48 +4528,48 @@ const methodInfo_RobotService_InputState = new grpc.web.AbstractClientBase.Metho
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.InputEvent>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.v1.RobotServiceClient.prototype.inputState =
+proto.proto.api.v1.RobotServiceClient.prototype.inputLastEvent =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/InputState',
+      '/proto.api.v1.RobotService/InputLastEvent',
       request,
       metadata || {},
-      methodDescriptor_RobotService_InputState,
+      methodDescriptor_RobotService_InputLastEvent,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.v1.InputStateRequest} request The
+ * @param {!proto.proto.api.v1.InputLastEventRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.InputEvent>}
  *     Promise that resolves to the response
  */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.inputState =
+proto.proto.api.v1.RobotServicePromiseClient.prototype.inputLastEvent =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/InputState',
+      '/proto.api.v1.RobotService/InputLastEvent',
       request,
       metadata || {},
-      methodDescriptor_RobotService_InputState);
+      methodDescriptor_RobotService_InputLastEvent);
 };
 
 
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.InputStateStreamRequest,
+ *   !proto.proto.api.v1.InputEventStreamRequest,
  *   !proto.proto.api.v1.InputEvent>}
  */
-const methodDescriptor_RobotService_InputStateStream = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/InputStateStream',
+const methodDescriptor_RobotService_InputEventStream = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/InputEventStream',
   grpc.web.MethodType.SERVER_STREAMING,
-  proto.proto.api.v1.InputStateStreamRequest,
+  proto.proto.api.v1.InputEventStreamRequest,
   proto.proto.api.v1.InputEvent,
   /**
-   * @param {!proto.proto.api.v1.InputStateStreamRequest} request
+   * @param {!proto.proto.api.v1.InputEventStreamRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
@@ -4582,13 +4582,13 @@ const methodDescriptor_RobotService_InputStateStream = new grpc.web.MethodDescri
 /**
  * @const
  * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.InputStateStreamRequest,
+ *   !proto.proto.api.v1.InputEventStreamRequest,
  *   !proto.proto.api.v1.InputEvent>}
  */
-const methodInfo_RobotService_InputStateStream = new grpc.web.AbstractClientBase.MethodInfo(
+const methodInfo_RobotService_InputEventStream = new grpc.web.AbstractClientBase.MethodInfo(
   proto.proto.api.v1.InputEvent,
   /**
-   * @param {!proto.proto.api.v1.InputStateStreamRequest} request
+   * @param {!proto.proto.api.v1.InputEventStreamRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
@@ -4599,36 +4599,36 @@ const methodInfo_RobotService_InputStateStream = new grpc.web.AbstractClientBase
 
 
 /**
- * @param {!proto.proto.api.v1.InputStateStreamRequest} request The request proto
+ * @param {!proto.proto.api.v1.InputEventStreamRequest} request The request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.InputEvent>}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.v1.RobotServiceClient.prototype.inputStateStream =
+proto.proto.api.v1.RobotServiceClient.prototype.inputEventStream =
     function(request, metadata) {
   return this.client_.serverStreaming(this.hostname_ +
-      '/proto.api.v1.RobotService/InputStateStream',
+      '/proto.api.v1.RobotService/InputEventStream',
       request,
       metadata || {},
-      methodDescriptor_RobotService_InputStateStream);
+      methodDescriptor_RobotService_InputEventStream);
 };
 
 
 /**
- * @param {!proto.proto.api.v1.InputStateStreamRequest} request The request proto
+ * @param {!proto.proto.api.v1.InputEventStreamRequest} request The request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.InputEvent>}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.inputStateStream =
+proto.proto.api.v1.RobotServicePromiseClient.prototype.inputEventStream =
     function(request, metadata) {
   return this.client_.serverStreaming(this.hostname_ +
-      '/proto.api.v1.RobotService/InputStateStream',
+      '/proto.api.v1.RobotService/InputEventStream',
       request,
       metadata || {},
-      methodDescriptor_RobotService_InputStateStream);
+      methodDescriptor_RobotService_InputEventStream);
 };
 
 

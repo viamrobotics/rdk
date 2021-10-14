@@ -2125,12 +2125,12 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldEqual, err1)
 
 		startInput := &inject.Input{}
-		startInput.NameFunc = func(ctx context.Context) string { return input.ButtonStart.String() }
-		startInput.StateFunc = func(ctx context.Context) (input.Event, error) {
-			return input.Event{Time: time.Now(), Event: input.ButtonDown, Code: input.ButtonStart, Value: 1.0}, nil
+		startInput.NameFunc = func(ctx context.Context) input.ControlCode { return input.ButtonStart }
+		startInput.LastEventFunc = func(ctx context.Context) (input.Event, error) {
+			return input.Event{Time: time.Now(), Event: input.ButtonPress, Code: input.ButtonStart, Value: 1.0}, nil
 		}
 		startInput.RegisterControlFunc = func(ctx context.Context, ctrlFunc input.ControlFunction, trigger input.EventType) error {
-			outEvent := input.Event{Time: time.Now(), Event: input.ButtonUp, Code: input.ButtonStart, Value: 0.0}
+			outEvent := input.Event{Time: time.Now(), Event: input.ButtonRelease, Code: input.ButtonStart, Value: 0.0}
 			ctrlFunc(context.Background(), startInput, outEvent)
 			return nil
 		}
@@ -2153,23 +2153,23 @@ func TestServer(t *testing.T) {
 		})
 
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Inputs, test.ShouldResemble, []uint32{uint32(input.ButtonStart)})
+		test.That(t, resp.Inputs, test.ShouldResemble, []string{string(input.ButtonStart)})
 
-		_, err = server.InputState(context.Background(), &pb.InputStateRequest{
+		_, err = server.InputLastEvent(context.Background(), &pb.InputLastEventRequest{
 			Controller: "inputController1",
-			Code:       uint32(input.ButtonSouth),
+			Code:       string(input.ButtonSouth),
 		})
 
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no input")
 		startTime := time.Now()
-		resp2, err := server.InputState(context.Background(), &pb.InputStateRequest{
+		resp2, err := server.InputLastEvent(context.Background(), &pb.InputLastEventRequest{
 			Controller: "inputController1",
-			Code:       uint32(input.ButtonStart),
+			Code:       string(input.ButtonStart),
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp2.Code, test.ShouldEqual, uint32(input.ButtonStart))
-		test.That(t, resp2.Event, test.ShouldEqual, uint32(input.ButtonDown))
+		test.That(t, resp2.Code, test.ShouldEqual, string(input.ButtonStart))
+		test.That(t, resp2.Event, test.ShouldEqual, string(input.ButtonPress))
 		test.That(t, resp2.Value, test.ShouldEqual, 1.0)
 		test.That(t, resp2.Time.AsTime().After(startTime), test.ShouldBeTrue)
 		test.That(t, resp2.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
@@ -2181,10 +2181,10 @@ func TestServer(t *testing.T) {
 			ctx:       cancelCtx,
 			messageCh: messageCh,
 		}
-		err = server.InputStateStream(&pb.InputStateStreamRequest{
+		err = server.InputEventStream(&pb.InputEventStreamRequest{
 			Controller: "inputController1",
-			Code:       uint32(input.ButtonSouth),
-			Events:     []uint32{uint32(input.ButtonDown)},
+			Code:       string(input.ButtonSouth),
+			Events:     []string{string(input.ButtonPress)},
 		}, streamServer)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no input")
@@ -2192,20 +2192,20 @@ func TestServer(t *testing.T) {
 		relayFunc := func(ctx context.Context, input input.Input, event input.Event) {
 			messageCh <- &pb.InputEvent{
 				Time:  timestamppb.New(event.Time),
-				Event: uint32(event.Event),
-				Code:  uint32(event.Code),
+				Event: string(event.Event),
+				Code:  string(event.Code),
 				Value: event.Value,
 			}
 		}
 
-		err = startInput.RegisterControl(cancelCtx, relayFunc, input.ButtonDown)
+		err = startInput.RegisterControl(cancelCtx, relayFunc, input.ButtonPress)
 		test.That(t, err, test.ShouldBeNil)
 
 		streamServer.fail = true
-		err = server.InputStateStream(&pb.InputStateStreamRequest{
+		err = server.InputEventStream(&pb.InputEventStreamRequest{
 			Controller: "inputController1",
-			Code:       uint32(input.ButtonStart),
-			Events:     []uint32{uint32(input.ButtonDown)},
+			Code:       string(input.ButtonStart),
+			Events:     []string{string(input.ButtonPress)},
 		}, streamServer)
 
 		test.That(t, err, test.ShouldNotBeNil)
@@ -2215,17 +2215,17 @@ func TestServer(t *testing.T) {
 		done := make(chan struct{})
 		streamServer.fail = false
 		go func() {
-			streamErr = server.InputStateStream(&pb.InputStateStreamRequest{
+			streamErr = server.InputEventStream(&pb.InputEventStreamRequest{
 				Controller: "inputController1",
-				Code:       uint32(input.ButtonStart),
-				Events:     []uint32{uint32(input.ButtonUp)},
+				Code:       string(input.ButtonStart),
+				Events:     []string{string(input.ButtonRelease)},
 			}, streamServer)
 			close(done)
 		}()
 
 		resp3 := <-messageCh
-		test.That(t, resp3.Code, test.ShouldEqual, uint32(input.ButtonStart))
-		test.That(t, resp3.Event, test.ShouldEqual, input.ButtonUp)
+		test.That(t, resp3.Code, test.ShouldEqual, string(input.ButtonStart))
+		test.That(t, resp3.Event, test.ShouldEqual, input.ButtonRelease)
 		test.That(t, resp3.Value, test.ShouldEqual, 0)
 		test.That(t, resp3.Time.AsTime().After(startTime), test.ShouldBeTrue)
 		test.That(t, resp3.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
