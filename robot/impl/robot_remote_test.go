@@ -335,8 +335,8 @@ func TestRemoteRobot(t *testing.T) {
 			"lidar2": true,
 		},
 		Sensors: map[string]*pb.SensorStatus{
-			"sensor1": {},
-			"sensor2": {},
+			"sensor1":     {},
+			"sensor2":     {},
 			"forcematrix": {},
 		},
 		Servos: map[string]*pb.ServoStatus{
@@ -384,8 +384,8 @@ func TestRemoteRobot(t *testing.T) {
 			"one.lidar2": true,
 		},
 		Sensors: map[string]*pb.SensorStatus{
-			"one.sensor1": {},
-			"one.sensor2": {},
+			"one.sensor1":     {},
+			"one.sensor2":     {},
 			"one.forcematrix": {},
 		},
 		Servos: map[string]*pb.ServoStatus{

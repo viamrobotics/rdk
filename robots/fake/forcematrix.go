@@ -2,7 +2,9 @@ package fake
 
 import (
 	"context"
+
 	"github.com/edaniels/golog"
+
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -39,4 +41,3 @@ func (fsm *Forcematrix) Readings(ctx context.Context) ([]interface{}, error) {
 func (fsm *Forcematrix) Desc() sensor.Description {
 	return sensor.Description{forcematrix.Type, ""}
 }
-
