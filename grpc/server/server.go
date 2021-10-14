@@ -34,6 +34,7 @@ import (
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/services/navigation"
 	"go.viam.com/core/spatialmath"
@@ -1271,4 +1272,50 @@ func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionCo
 		StdOut:  execResult.StdOut,
 		StdErr:  execResult.StdErr,
 	}, nil
+}
+
+// matrixToProto is a helper function to convert force matrix values from a 2-dimensional
+// slice into protobuf format.
+func matrixToProto(matrix [][]int) *pb.ForceMatrixMatrixResponse {
+
+	rows := len(matrix)
+	var cols int
+	if rows != 0 {
+		cols = len(matrix[0])
+	}
+
+	data := make([]uint32, 0, rows*cols)
+	for row := 0; row < rows; row++ {
+		for col := 0; col < cols; col++ {
+			data = append(data, uint32(matrix[row][col]))
+		}
+	}
+
+	return &pb.ForceMatrixMatrixResponse{Matrix: &pb.Matrix{
+		Rows: uint32(rows),
+		Cols: uint32(cols),
+		Data: data,
+	}}
+}
+
+// ForceMatrixMatrix returns a matrix of measured forces on a matrix force sensor.
+func (s *Server) ForceMatrixMatrix(ctx context.Context, req *pb.ForceMatrixMatrixRequest) (*pb.ForceMatrixMatrixResponse, error) {
+	forceMatrixDevice, err := s.forceMatrixByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	matrix, err := forceMatrixDevice.Matrix(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return matrixToProto(matrix), nil
+}
+
+func (s *Server) forceMatrixByName(name string) (forcematrix.ForceMatrix, error) {
+	sensorDevice, ok := s.r.SensorByName(name)
+	if !ok {
+		return nil, errors.Errorf("no force matrix with name (%s)", name)
+	}
+	return sensorDevice.(forcematrix.ForceMatrix), nil
 }

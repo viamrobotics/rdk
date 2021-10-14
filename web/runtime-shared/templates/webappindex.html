@@ -375,11 +375,75 @@
                       robotService.executeFunction(req, {}, this.processFunctionResults);
                   },
                   evalSource : function() {
-                      document.getElementById("function_results").value = "";
-                      var req = new robotApi.ExecuteSourceRequest();
-                      req.setSource(theData.editor.getValue());
-                      req.setEngine('javascript');
-                      robotService.executeSource(req, {}, this.processFunctionResults);
+                    document.getElementById("function_results").value = "";
+                    var req = new robotApi.ExecuteSourceRequest();
+                    req.setSource(theData.editor.getValue());
+                    req.setEngine('javascript');
+                    robotService.executeSource(req, {}, this.processFunctionResults);
+                  },
+                  visualizeForceMatrix: function(name, type, id) {
+                    document.getElementById('force-button-id-' + id).style.visibility = 'hidden';
+
+                    // 2D animation stuff
+                    let canvas2D = document.getElementById('force-2d-id-' + id);
+                    var animation_stuff_2D = {
+                      ctx: canvas2D.getContext('2d'),
+                      squareWidth: 50,
+                      maxValue: 1,
+                      canvasId: 'force-2d-id-' + id
+                    }
+
+                    // 3D animation stuff
+                    var width = 500;
+                    var height = 500;
+
+                    const scene = new THREE.Scene();
+                    scene.background = new THREE.Color( 0xFBE7C6 );
+                    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+
+                    const renderer = new THREE.WebGLRenderer();
+                    renderer.setSize(width, height);
+                    var div_3d = document.getElementById('force-3d-id-' + id);
+                    div_3d.appendChild(renderer.domElement);
+                    camera.position.z = 4;
+                    camera.position.y = -4;
+
+                    var animation_stuff_3D = {
+                      cubes: [],
+                      scene: scene
+                    }
+
+                    // Allows moving the 3D scene using the mouse
+                    controls = new trackLib.TrackballControls( camera, renderer.domElement);
+                    controls.target.set( 0, 0, 0 )
+                    controls.rotateSpeed = 1.0
+
+                    let startedForceAnimation = false;
+                    const timeInterval = 10; // in milliseconds
+                    // Loop through grabbing data & visualizing it
+                    setTimeout(function getDataAndVisualizeIt(name, id) {
+                      var req = new robotApi.ForceMatrixMatrixRequest();
+                      req.setName(name);
+
+                      if (type === "forcematrix") {
+                        robotService.forceMatrixMatrix(req, {}, (err, resp) => animateForceMatrix(err, resp, animation_stuff_2D, animation_stuff_3D));
+                      } else {
+                        console.log("error: unknown force matrix type");
+                      }
+
+                      // Start the 3D game engine animation if it hasn't been started yet
+                      if (!startedForceAnimation) {
+                        startedForceAnimation = true;
+                        function animate() {
+                            requestAnimationFrame( animate );
+                            controls.update()
+                            renderer.render( scene, camera );
+                        }
+                        animate();
+                      }
+
+                      setTimeout(getDataAndVisualizeIt, 10, name, id);
+                    }, timeInterval, name, id);
                   },
                   nonEmpty : function(d) {
                       for ( var k in d ) {
@@ -692,6 +756,105 @@
           pcdGlobal.scene.add(cube);
       }
 
+      function animateForceMatrix(err, resp, anim_2D, anim_3D) {
+          grpcCallback(err, resp);
+          if (err) {
+            console.log("error getting force sensor readings: ", err);
+            return;
+          }
+          var [rows, cols, data] = resp.getMatrix().array;
+          if (data.length !== rows * cols) {
+            console.log("corrupt force sensor data");
+            return;
+          }
+
+          // 3D animation stuff: If this is the first time we're receiving data,
+          // let's add cubes to the 3D view
+          if (anim_3D.cubes.length == 0) {
+              console.log("Initializing cubes array")
+              for (let i = 0; i < rows; i++) {
+                  cubeRow = []
+                  for (let j = 0; j < cols; j++) {
+                      const geometry = new THREE.BoxGeometry(1, 1, 0.1);
+                      const material = new THREE.MeshBasicMaterial( { color: 0xffaebc} );
+                      const cube = new THREE.Mesh( geometry, material );
+                      cube.translateX(i * 1.1 - rows / 2);
+                      cube.translateY(- j * 1.1 + cols / 2);
+                      cubeRow.push(cube);
+                      anim_3D.scene.add(cube);
+                  }
+                  anim_3D.cubes.push(cubeRow)
+              }
+          }
+          const offset = 100;
+          let canvas2D = document.getElementById(anim_2D.canvasId);
+          let canvasHeight = (50 * rows) + 20;
+          let canvasWidth = 150 * cols + offset;
+          let currentHeight = canvas2D.height;
+          let currentWidth = canvas2D.width;
+          if ((canvasHeight !== currentHeight) || (canvasWidth !== currentWidth)) {
+            canvas2D.height = canvasHeight;
+            canvas2D.width = canvasWidth;
+          }
+
+
+          // TODO: The placing & sizing of everything that's displayed is hardcoded
+          // e.g. the canvas size, location of boxes, etc.
+          // To allow for any size of sensor, and to use the space on the screen
+          // more efficiently (plus make a mobile version available), changing to
+          // adaptive sizing would be great.
+          const gradientRate = 10;
+          const gradientHeight = 20;
+          const spaceBetweenTextAndGradient = 35;
+          for (let i = 0; i < rows; i++) {
+            for (let j = 0; j < cols; j++) {
+              let value = data[i * cols + j];
+              if (value > anim_2D.maxValue) {
+                  anim_2D.maxValue = value
+              }
+
+              greenShade = 255/anim_2D.maxValue * value;
+              // --- 2D animation stuff ---
+              anim_2D.ctx.fillStyle = 'rgb(0, ' + greenShade + ', 0)'; // old version with just green color
+              anim_2D.ctx.fillRect(offset + i * anim_2D.squareWidth, j * anim_2D.squareWidth, anim_2D.squareWidth, anim_2D.squareWidth);
+
+              // Write out raw values
+              anim_2D.ctx.fillStyle = 'white'
+              anim_2D.ctx.font = '20px sans-serif';
+              anim_2D.ctx.fillText(value, offset + i * anim_2D.squareWidth, (j+0.6) * anim_2D.squareWidth);
+
+              // Add gradient to the left of 2D animation stuff
+              for (let g = 0; g < gradientRate; g++) {
+                // Create colored boxes
+                let greenShade = 255/gradientRate * g;
+                anim_2D.ctx.fillStyle = 'rgb(0, ' + greenShade + ', 0)'; // old version with just green color
+                anim_2D.ctx.fillRect(spaceBetweenTextAndGradient, g * gradientHeight, 40, gradientHeight);
+
+                // Label the boxes
+                anim_2D.ctx.fillStyle = 'white';
+                anim_2D.ctx.fillRect(0, g * gradientHeight, spaceBetweenTextAndGradient, gradientHeight);
+                anim_2D.ctx.fillStyle = 'black'
+                anim_2D.ctx.font = '15px sans-serif';
+                anim_2D.ctx.fillText(Math.floor(anim_2D.maxValue/(gradientRate - 1) * g) ,0, gradientHeight * (g + 1));
+              }
+
+              // Write the out separately in black so it's easy to read
+              anim_2D.ctx.fillStyle = 'white'
+              anim_2D.ctx.fillRect(offset + (i + 2) * anim_2D.squareWidth + 300, j * anim_2D.squareWidth, anim_2D.squareWidth, anim_2D.squareWidth);
+              anim_2D.ctx.fillStyle = 'black'
+              anim_2D.ctx.font = '20px sans-serif';
+              anim_2D.ctx.strokeRect(offset + (i + 2) * anim_2D.squareWidth + 300, j * anim_2D.squareWidth, anim_2D.squareWidth, anim_2D.squareWidth);
+              anim_2D.ctx.fillText(value, offset + (i + 2) * anim_2D.squareWidth + 300, (j+0.6) * anim_2D.squareWidth);
+
+              // --- 3D animation stuff ---
+              anim_3D.cubes[i][j].material.color.setRGB(0, greenShade/255, 0)
+              anim_3D.cubes[i][j].scale.setZ(value / anim_2D.maxValue * 14)
+              anim_3D.cubes[i][j].position.setZ(0)
+              anim_3D.cubes[i][j].translateZ(value/anim_2D.maxValue * 7 * 0.1)
+            }
+          }
+      }
+
       async function waitForClientAndStart() {
         console.debug("waiting for robot service to be ready");
         await window.robotServiceReady;
@@ -974,7 +1137,15 @@
         <tr v-for="(sensor, x) in status.sensorsMap">
           <td>${sensor[0]}</td>
           <td>${sensor[1].type}</td>
-          <td><button v-on:click="doSensorReadings(sensor[0])">Get Readings</button></td>
+          <td>
+            <template v-if="sensor[1].type === 'forcematrix'">
+              <button :id="'force-button-id-' + x" v-on:click="visualizeForceMatrix(sensor[0], sensor[1].type, x)">Visualize Force Matrix</button>
+              <!-- canvas element is resized later upon arrival of sensor data (see animateForceMatrix)  -->
+              <canvas :id="'force-2d-id-' + x" width="1000" height="300" style="margin-top: 20px;"></canvas>
+              <div :id="'force-3d-id-' + x"></div>
+            </template>
+            <button v-else v-on:click="doSensorReadings(sensor[0])">Get Readings</button>
+          </td>
         </tr>
       </table>
 
