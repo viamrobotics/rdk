@@ -111,12 +111,12 @@ func calcSwingAmount(from, to []frame.Input, model frame.Frame) (float64, error)
 		dist += 10 * math.Pow(waypoint-SquaredNorm(spatial.PoseDelta(pathPos, startPos))/fullDist, 2)
 		dist += 10 * math.Pow(waypoint-SquaredNorm(spatial.PoseDelta(compPos, endPos))/fullDist, 2)
 	}
-	
+
 	// Add total amount of joint movement to distance
-	for i, f := range(from){
+	for i, f := range from {
 		dist += math.Abs(f.Value - to[i].Value)
 	}
-	
+
 	return dist, nil
 }
 
