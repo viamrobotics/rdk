@@ -19,10 +19,12 @@ func init() {
 		}})
 }
 
+// ForceMatrix is a fake ForceMatrix that always returns the same matrix of values
 type ForceMatrix struct {
 	Name string
 }
 
+// Matrix always returns the same matrix
 func (fsm *ForceMatrix) Matrix(ctx context.Context) (matrix [][]int, error error) {
 	result := make([][]int, 4)
 	for i := 0; i < len(result); i++ {
@@ -33,7 +35,10 @@ func (fsm *ForceMatrix) Matrix(ctx context.Context) (matrix [][]int, error error
 
 // Readings always returns the same values.
 func (fsm *ForceMatrix) Readings(ctx context.Context) ([]interface{}, error) {
-	matrix, _ := fsm.Matrix(ctx)
+	matrix, err := fsm.Matrix(ctx)
+	if err != nil {
+		return nil, err
+	}
 	return []interface{}{matrix}, nil
 }
 

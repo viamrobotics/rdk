@@ -19,7 +19,7 @@ func RunForPanic(f func()) (didPanic bool, err error) {
 			case error:
 				err = x
 			default:
-				err = errors.New("Encountered panic of unknown type!")
+				err = errors.New("encountered panic of unknown type")
 			}
 			didPanic = true
 		}
