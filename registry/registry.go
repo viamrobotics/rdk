@@ -3,19 +3,21 @@ package registry
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
@@ -24,9 +26,6 @@ import (
 type (
 	// A CreateCamera creates a camera from a given config.
 	CreateCamera func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error)
-
-	// A CreateArm creates an arm from a given config.
-	CreateArm func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error)
 
 	// A CreateGripper creates a gripper from a given config.
 	CreateGripper func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error)
@@ -59,12 +58,6 @@ type (
 // Camera stores a Camera constructor (mandatory) and a Frame building function (optional)
 type Camera struct {
 	Constructor CreateCamera
-	Frame       CreateFrame
-}
-
-// Arm stores an Arm constructor (mandatory) and a Frame building function (optional)
-type Arm struct {
-	Constructor CreateArm
 	Frame       CreateFrame
 }
 
@@ -119,7 +112,6 @@ type Service struct {
 // all registries
 var (
 	cameraRegistry  = map[string]Camera{}
-	armRegistry     = map[string]Arm{}
 	gripperRegistry = map[string]Gripper{}
 	baseRegistry    = map[string]Base{}
 	lidarRegistry   = map[string]Lidar{}
@@ -140,18 +132,6 @@ func RegisterCamera(model string, creator Camera) {
 		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
 	}
 	cameraRegistry[model] = creator
-}
-
-// RegisterArm registers an arm model to a creator.
-func RegisterArm(model string, creator Arm) {
-	_, old := armRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two arms with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	armRegistry[model] = creator
 }
 
 // RegisterGripper registers a gripper model to a creator.
@@ -265,15 +245,6 @@ func CameraLookup(model string) *Camera {
 	return nil
 }
 
-// ArmLookup looks up an arm creator by the given model. nil is returned if
-// there is no creator registered.
-func ArmLookup(model string) *Arm {
-	if registration, ok := armRegistry[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
 // GripperLookup looks up a gripper creator by the given model. nil is returned if
 // there is no creator registered.
 func GripperLookup(model string) *Gripper {
@@ -325,7 +296,8 @@ func FrameLookup(comp *config.Component) (CreateFrame, bool) {
 		}
 		return registration.Frame, true
 	case config.ComponentTypeArm:
-		registration := ArmLookup(comp.Model)
+		rName := comp.ResourceName()
+		registration := ComponentLookup(rName.Subtype, comp.Model)
 		if registration == nil || registration.Frame == nil {
 			return nil, false
 		}
@@ -414,4 +386,85 @@ func ServiceLookup(typeName config.ServiceType) *Service {
 		return &registration
 	}
 	return nil
+}
+
+// core api v2 implementation starts here
+
+type (
+	// A CreateComponent creates a resource from a given config.
+	CreateComponent func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error)
+
+	// A CreateReconfigurable makes a reconfigurable resource from a given resource.
+	CreateReconfigurable func(resource interface{}) (resource.Reconfigurable, error)
+)
+
+// Component stores a resource constructor (mandatory) and a Frame building function (optional)
+type Component struct {
+	Constructor CreateComponent
+	Frame       CreateFrame
+}
+
+// ComponentSubtype stores a reconfigurable resource creator
+type ComponentSubtype struct {
+	Reconfigurable CreateReconfigurable
+}
+
+// all registries
+var (
+	componentRegistry        = map[string]Component{}
+	componentSubtypeRegistry = map[resource.Subtype]ComponentSubtype{}
+)
+
+// RegisterComponent register a creator to its corresponding component and model.
+func RegisterComponent(subtype resource.Subtype, model string, creator Component) {
+	qName := fmt.Sprintf("%s/%s", subtype, model)
+	_, old := componentRegistry[qName]
+	if old {
+		panic(errors.Errorf("trying to register two resources with same subtype:%s, model:%s", subtype, model))
+	}
+	if creator.Constructor == nil {
+		panic(errors.Errorf("cannot register a nil constructor for subtype:%s, model:%s", subtype, model))
+	}
+	componentRegistry[qName] = creator
+}
+
+// ComponentLookup looks up a creator by the given subtype and model. nil is returned if
+// there is no creator registered.
+func ComponentLookup(subtype resource.Subtype, model string) *Component {
+	qName := fmt.Sprintf("%s/%s", subtype, model)
+	if registration, ok := componentRegistry[qName]; ok {
+		return &registration
+	}
+	return nil
+}
+
+// RegisterComponentSubtype register a ComponentSubtype to its corresponding component subtype.
+func RegisterComponentSubtype(subtype resource.Subtype, creator ComponentSubtype) {
+	_, old := componentSubtypeRegistry[subtype]
+	if old {
+		panic(errors.Errorf("trying to register two of the same component subtype:%s", subtype))
+	}
+	if creator.Reconfigurable == nil {
+		panic(errors.Errorf("cannot register a nil Reconfigurable constructor for subtype:%s", subtype))
+	}
+	componentSubtypeRegistry[subtype] = creator
+}
+
+// ComponentSubtypeLookup looks up a ComponentSubtype by the given subtype. nil is returned if
+// there is None.
+func ComponentSubtypeLookup(subtype resource.Subtype) *ComponentSubtype {
+	if registration, ok := componentSubtypeRegistry[subtype]; ok {
+		return &registration
+	}
+	return nil
+}
+
+// TODO: currently here because of import cycles. get rid of this block at conclusion of Core v2 migration.
+//these registrations should happen in the subtype's go package instead.
+func init() {
+	RegisterComponentSubtype(arm.Subtype, ComponentSubtype{
+		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
+			return arm.WrapWithReconfigurable(r)
+		},
+	})
 }

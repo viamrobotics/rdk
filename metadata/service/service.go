@@ -10,6 +10,16 @@ import (
 	"go.viam.com/core/resource"
 )
 
+// SubtypeName is a constant that identifies the component resource subtype
+const SubtypeName = resource.SubtypeName("metadata")
+
+// Subtype is a constant that identifies the component resource subtype
+var Subtype = resource.NewSubtype(
+	resource.ResourceNamespaceCore,
+	resource.ResourceTypeService,
+	SubtypeName,
+)
+
 // Service keeps track of all resources associated with a robot.
 type Service struct {
 	mu        sync.Mutex
@@ -18,10 +28,7 @@ type Service struct {
 
 // New creates a new Service struct and initializes the resource list with a metadata service.
 func New() (*Service, error) {
-	metadata, err := resource.New(resource.ResourceNamespaceCore, resource.ResourceTypeService, resource.ResourceSubtypeMetadata, "")
-	if err != nil {
-		return nil, err
-	}
+	metadata := resource.NewFromSubtype(Subtype, "")
 	resources := []resource.Name{metadata}
 
 	return &Service{resources: resources}, nil

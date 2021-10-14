@@ -152,7 +152,7 @@ type Remote struct {
 	Name    string `json:"name"`
 	Address string `json:"address"`
 	Prefix  bool   `json:"prefix"`
-	Parent  string `json:"parent"`
+	Frame   *Frame `json:"frame,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -162,6 +162,11 @@ func (config *Remote) Validate(path string) error {
 	}
 	if config.Address == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "address")
+	}
+	if config.Frame != nil {
+		if config.Frame.Parent == "" {
+			return utils.NewConfigValidationFieldRequiredError(path, "frame.parent")
+		}
 	}
 	return nil
 }

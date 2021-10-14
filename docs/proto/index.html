@@ -210,6 +210,10 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.AngularVelocity"><span class="badge">M</span>AngularVelocity</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.ArmCurrentJointPositionsRequest"><span class="badge">M</span>ArmCurrentJointPositionsRequest</a>
                 </li>
               
@@ -450,6 +454,10 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.EulerAngles"><span class="badge">M</span>EulerAngles</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.ExecuteFunctionRequest"><span class="badge">M</span>ExecuteFunctionRequest</a>
                 </li>
               
@@ -483,6 +491,22 @@
               
                 <li>
                   <a href="#proto.api.v1.GripperOpenResponse"><span class="badge">M</span>GripperOpenResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.IMUAngularVelocityRequest"><span class="badge">M</span>IMUAngularVelocityRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.IMUAngularVelocityResponse"><span class="badge">M</span>IMUAngularVelocityResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.IMUOrientationRequest"><span class="badge">M</span>IMUOrientationRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.IMUOrientationResponse"><span class="badge">M</span>IMUOrientationResponse</a>
                 </li>
               
                 <li>
@@ -1151,6 +1175,44 @@
                 <tr>
                   <td>value</td>
                   <td><a href="#int32">int32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.AngularVelocity">AngularVelocity</h3>
+        <p>AngularVelocity contains angular velocity in deg/s across x/y/z axes.</p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>x</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>y</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>z</td>
+                  <td><a href="#double">double</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -2726,6 +2788,44 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.EulerAngles">EulerAngles</h3>
+        <p>EulerAngles are three angles used to represent the rotation of an object in 3D Euclidean space</p><p>The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.</p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>roll</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>pitch</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>yaw</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.ExecuteFunctionRequest">ExecuteFunctionRequest</h3>
         <p></p>
 
@@ -2964,6 +3064,102 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
         <p></p>
 
         
+
+        
+      
+        <h3 id="proto.api.v1.IMUAngularVelocityRequest">IMUAngularVelocityRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.IMUAngularVelocityResponse">IMUAngularVelocityResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>angular_velocity</td>
+                  <td><a href="#proto.api.v1.AngularVelocity">AngularVelocity</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.IMUOrientationRequest">IMUOrientationRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.IMUOrientationResponse">IMUOrientationResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>orientation</td>
+                  <td><a href="#proto.api.v1.EulerAngles">EulerAngles</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
 
         
       
@@ -5524,6 +5720,20 @@ is reliant on having an encoder.</p></td>
                 <td><p></p></td>
               </tr>
             
+              <tr>
+                <td>IMUAngularVelocity</td>
+                <td><a href="#proto.api.v1.IMUAngularVelocityRequest">IMUAngularVelocityRequest</a></td>
+                <td><a href="#proto.api.v1.IMUAngularVelocityResponse">IMUAngularVelocityResponse</a></td>
+                <td><p>IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.</p></td>
+              </tr>
+            
+              <tr>
+                <td>IMUOrientation</td>
+                <td><a href="#proto.api.v1.IMUOrientationRequest">IMUOrientationRequest</a></td>
+                <td><a href="#proto.api.v1.IMUOrientationResponse">IMUOrientationResponse</a></td>
+                <td><p>IMUOrientation returns the most recent orientation reading from the given IMU.</p></td>
+              </tr>
+            
           </tbody>
         </table>
 
@@ -6148,6 +6358,26 @@ is reliant on having an encoder.</p></td>
                 <td>NavigationServiceRemoveWaypoint</td>
                 <td>DELETE</td>
                 <td>/api/v1/services/navigation/waypoints/{id}</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>IMUAngularVelocity</td>
+                <td>GET</td>
+                <td>/api/v1/sensors/imu/{name}/angular_velocity</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>IMUOrientation</td>
+                <td>GET</td>
+                <td>/api/v1/sensors/imu/{name}/orientation</td>
                 <td></td>
               </tr>
               

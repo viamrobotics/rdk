@@ -11,7 +11,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/arm"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	"go.viam.com/core/motor"
@@ -46,22 +46,23 @@ const (
 var v1modeljson []byte
 
 func init() {
-	registry.RegisterArm("varm1", registry.Arm{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		model, err := kinematics.ParseJSON(v1modeljson)
-		if err != nil {
-			return nil, err
-		}
-		ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
-		if err != nil {
-			return nil, err
-		}
-		raw, err := NewArmV1(ctx, r, logger, ik)
-		if err != nil {
-			return nil, err
-		}
+	registry.RegisterComponent(arm.Subtype, "varm1", registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			model, err := kinematics.ParseJSON(v1modeljson)
+			if err != nil {
+				return nil, err
+			}
+			ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+			if err != nil {
+				return nil, err
+			}
+			raw, err := NewArmV1(ctx, r, logger, ik)
+			if err != nil {
+				return nil, err
+			}
 
-		return raw, nil
-	}})
+			return raw, nil
+		}})
 }
 
 type joint struct {
@@ -169,49 +170,49 @@ func testJointLimit(ctx context.Context, m motor.Motor, dir pb.DirectionRelative
 // NewArmV1 TODO
 func NewArmV1(ctx context.Context, r robot.Robot, logger golog.Logger, ik kinematics.InverseKinematics) (arm.Arm, error) {
 	var err error
-	arm := &ArmV1{}
+	newArm := &ArmV1{}
 
-	arm.j0.degMin = -135.0
-	arm.j0.degMax = 75.0
+	newArm.j0.degMin = -135.0
+	newArm.j0.degMax = 75.0
 
-	arm.j1.degMin = -142.0
-	arm.j1.degMax = 0.0
+	newArm.j1.degMin = -142.0
+	newArm.j1.degMax = 0.0
 
-	arm.j0Motor, err = getMotor(ctx, r, "m-j0")
+	newArm.j0Motor, err = getMotor(ctx, r, "m-j0")
 	if err != nil {
 		return nil, err
 	}
 
-	arm.j1Motor, err = getMotor(ctx, r, "m-j1")
+	newArm.j1Motor, err = getMotor(ctx, r, "m-j1")
 	if err != nil {
 		return nil, err
 	}
 
-	arm.j0.posMax, err = testJointLimit(ctx, arm.j0Motor, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, logger)
+	newArm.j0.posMax, err = testJointLimit(ctx, newArm.j0Motor, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, logger)
 	if err != nil {
 		return nil, err
 	}
 	/*
-		arm.j1.posMax, err = testJointLimit(ctx, arm.j1Motor, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, logger)
+		newArm.j1.posMax, err = testJointLimit(ctx, newArm.j1Motor, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, logger)
 		if err != nil {
 			return nil, err
 		}
 	*/
-	arm.j0.posMin, err = testJointLimit(ctx, arm.j0Motor, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, logger)
+	newArm.j0.posMin, err = testJointLimit(ctx, newArm.j0Motor, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	arm.j1.posMin, err = testJointLimit(ctx, arm.j1Motor, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, logger)
+	newArm.j1.posMin, err = testJointLimit(ctx, newArm.j1Motor, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	arm.j1.posMax = arm.j1.posMin + 3.417 // TODO(erh): this is super gross
+	newArm.j1.posMax = newArm.j1.posMin + 3.417 // TODO(erh): this is super gross
 
-	logger.Debugf("%#v", arm)
+	logger.Debugf("%#v", newArm)
 
-	return arm, multierr.Combine(arm.j0.validate(), arm.j1.validate())
+	return newArm, multierr.Combine(newArm.j0.validate(), newArm.j1.validate())
 }
 
 // ArmV1 TODO

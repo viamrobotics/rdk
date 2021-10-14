@@ -42,12 +42,12 @@ func init() {
 
 // TODO
 const (
-	TargetRPM               = 100
+	TargetRPM               = 200
 	MaxCurrent              = 300
 	CurrentBadReadingCounts = 50
-	MinRotationGap          = 2.0
-	MaxRotationGap          = 3.0
-	OpenPosOffset           = 0.2 // Reduce maximum opening width, keeps out of mechanical binding region
+	MinRotationGap          = 4.0
+	MaxRotationGap          = 5.0
+	OpenPosOffset           = 0.4 // Reduce maximum opening width, keeps out of mechanical binding region
 )
 
 // GripperV1 represents a Viam gripper

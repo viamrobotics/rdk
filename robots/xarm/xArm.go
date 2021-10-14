@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"sync"
 
-	"go.viam.com/core/arm"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 
@@ -37,14 +37,14 @@ var xArm6modeljson []byte
 var xArm7modeljson []byte
 
 func init() {
-	registry.RegisterArm("xArm6", registry.Arm{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+	registry.RegisterComponent(arm.Subtype, "xArm6", registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewxArm(ctx, config.Host, logger, 6)
 		},
 		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name, 6) },
 	})
-	registry.RegisterArm("xArm7", registry.Arm{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+	registry.RegisterComponent(arm.Subtype, "xArm7", registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewxArm(ctx, config.Host, logger, 7)
 		},
 		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name, 7) },

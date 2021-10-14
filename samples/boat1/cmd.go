@@ -17,10 +17,12 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/registry"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
@@ -334,8 +336,8 @@ func recordDepthWorker(ctx context.Context, depthSensor sensor.Sensor) {
 	}
 }
 
-// NewBoat TODO
-func NewBoat(r robot.Robot) (*Boat, error) {
+// newBoat TODO
+func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golog.Logger) (base.Base, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	b := &Boat{activeBackgroundWorkers: &sync.WaitGroup{}, cancelCtx: cancelCtx, cancel: cancel}
 	var ok bool
@@ -384,6 +386,8 @@ func NewBoat(r robot.Robot) (*Boat, error) {
 		return nil, errors.New("need a vertical digital interrupt")
 	}
 
+	b.StartRC(ctx)
+
 	return b, nil
 }
 
@@ -399,20 +403,14 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
+	// register boat as base properly
+	registry.RegisterBase("viam-boat1", registry.Base{Constructor: newBoat})
+
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
 	defer myRobot.Close()
-
-	boat, err := NewBoat(myRobot)
-	if err != nil {
-		return err
-	}
-	defer boat.Close()
-	boat.StartRC(ctx)
-
-	myRobot.AddBase(boat, config.Component{Name: "boatbot"})
 
 	depth1, ok := myRobot.SensorByName("depth1")
 	if !ok {
