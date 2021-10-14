@@ -2088,6 +2088,42 @@ func TestServer(t *testing.T) {
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
 		test.That(t, isOnResp.IsOn, test.ShouldBeTrue)
 	})
+
+	t.Run("ForceMatrixMatrix", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err := server.ForceMatrixMatrix(context.Background(), &pb.ForceMatrixMatrixRequest{
+			Name: "fsm1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no force matrix")
+		test.That(t, capName, test.ShouldEqual, "fsm1")
+
+		var capMatrix [][]int
+		injectFsm := &inject.ForceMatrix{}
+		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+			return injectFsm, true
+		}
+		expectedMatrix := make([][]int, 4)
+		for i := 0; i < len(expectedMatrix); i++ {
+			expectedMatrix[i] = []int{1, 2, 3, 4}
+		}
+		injectFsm.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+			capMatrix = expectedMatrix
+			return expectedMatrix, nil
+		}
+		_, err = server.ForceMatrixMatrix(context.Background(), &pb.ForceMatrixMatrixRequest{
+			Name: "fsm1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capMatrix, test.ShouldResemble, expectedMatrix)
+
+	})
 }
 
 type robotServiceStatusStreamServer struct {
