@@ -25,7 +25,7 @@ type ForceMatrix struct {
 }
 
 // Matrix always returns the same matrix
-func (fsm *ForceMatrix) Matrix(ctx context.Context) (matrix [][]int, error error) {
+func (fsm *ForceMatrix) Matrix(ctx context.Context) ([][]int, error) {
 	result := make([][]int, 4)
 	for i := 0; i < len(result); i++ {
 		result[i] = []int{1, 1, 1, 1}

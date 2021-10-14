@@ -518,12 +518,12 @@ func TestClient(t *testing.T) {
 	for i := 0; i < len(expectedMatrix); i++ {
 		expectedMatrix[i] = []int{1, 2, 3, 4}
 	}
-	injectFsm.MatrixFunc = func(ctx context.Context) (matrix [][]int, err error) {
+	injectFsm.MatrixFunc = func(ctx context.Context) ([][]int, error) {
 		return expectedMatrix, nil
 	}
 
 	injectFsm2 := &inject.ForceMatrix{}
-	injectFsm2.MatrixFunc = func(ctx context.Context) (matrix [][]int, err error) {
+	injectFsm2.MatrixFunc = func(ctx context.Context) ([][]int, error) {
 		return nil, errors.New("bad matrix")
 	}
 
