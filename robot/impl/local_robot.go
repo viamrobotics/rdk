@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"go.viam.com/utils/pexec"
@@ -26,6 +27,7 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
+	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/status"
 
 	// registration
@@ -45,6 +47,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
+	"github.com/golang/geo/r3"
 )
 
 var _ = robot.LocalRobot(&localRobot{})
@@ -209,19 +212,29 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 	cfgCpy := *r.config
 	cfgCpy.Components = append([]config.Component{}, cfgCpy.Components...)
 
-	for remoteName, r := range r.parts.remotes {
-		rc, err := r.Config(ctx)
+	for remoteName, remote := range r.parts.remotes {
+		rc, err := remote.Config(ctx)
+		rcCopy := *rc
 		if err != nil {
 			return nil, err
 		}
-
-		for _, c := range rc.Components {
-			if c.Frame != nil {
-				for _, rc := range cfgCpy.Remotes {
-					if rc.Name == remoteName {
-						c.Frame = rc.Frame
-						break
-					}
+		rConf, err := r.getRemoteConfig(ctx, remoteName)
+		if err != nil {
+			return nil, err
+		}
+		worldName := referenceframe.World
+		if rConf.Prefix {
+			worldName = rConf.Name + "." + referenceframe.World
+		}
+		for _, c := range rcCopy.Components {
+			if c.Frame != nil && c.Frame.Parent == worldName {
+				if rConf.Frame == nil { // world frames of the local and remote robot perfectly overlap
+					c.Frame.Parent = referenceframe.World
+				} else { // attach the frames connected to world node of the remote to the Frame defined in the Remote's config
+					newTranslation, newOrientation := composeFrameOffsets(rConf.Frame, c.Frame)
+					c.Frame.Parent = rConf.Frame.Parent
+					c.Frame.Translation = newTranslation
+					c.Frame.Orientation = newOrientation
 				}
 			}
 			cfgCpy.Components = append(cfgCpy.Components, c)
@@ -229,6 +242,28 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 
 	}
 	return &cfgCpy, nil
+}
+
+// getRemoteConfig gets the parameters for the Remote
+func (r *localRobot) getRemoteConfig(ctx context.Context, remoteName string) (*config.Remote, error) {
+	for _, rConf := range r.config.Remotes {
+		if rConf.Name == remoteName {
+			return &rConf, nil
+		}
+	}
+	return nil, fmt.Errorf("cannot find Remote config with name %q", remoteName)
+}
+
+// composeFrameOffsets takes two config Frames and returns the composition of their 6dof poses
+func composeFrameOffsets(a, b *config.Frame) (config.Translation, spatialmath.Orientation) {
+	aTrans := r3.Vector{a.Translation.X, a.Translation.Y, a.Translation.Z}
+	bTrans := r3.Vector{b.Translation.X, b.Translation.Y, b.Translation.Z}
+	aPose := spatialmath.NewPoseFromOrientation(aTrans, a.Orientation)
+	bPose := spatialmath.NewPoseFromOrientation(bTrans, b.Orientation)
+	cPose := spatialmath.Compose(aPose, bPose)
+	translation := config.Translation{cPose.Point().X, cPose.Point().Y, cPose.Point().Z}
+	orientation := cPose.Orientation()
+	return translation, orientation
 }
 
 // Status returns the current status of the robot. Usually you
