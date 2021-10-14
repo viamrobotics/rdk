@@ -524,7 +524,7 @@ func TestClient(t *testing.T) {
 
 	injectFsm2 := &inject.ForceMatrix{}
 	injectFsm2.MatrixFunc = func(ctx context.Context) (matrix [][]int, err error) {
-		return nil, errors.New("bad matrix!")
+		return nil, errors.New("bad matrix")
 	}
 
 	injectCompassDev := &inject.Compass{}
