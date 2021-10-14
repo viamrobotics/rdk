@@ -18,5 +18,5 @@ const (
 // with integers that correlate to the forces applied to the sensor.
 type ForceMatrix interface {
 	sensor.Sensor
-	Matrix(ctx context.Context) (matrix [][]int, err error)
+	Matrix(ctx context.Context) ([][]int, error)
 }
