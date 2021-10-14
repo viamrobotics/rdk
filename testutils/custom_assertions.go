@@ -10,7 +10,7 @@ import (
 // in a function that does not and supply the latter function as the argument
 // to RunForPanic
 func RunForPanic(f func()) (didPanic bool, err error) {
-	defer func() () {
+	defer func() {
 		r := recover()
 		if r != nil {
 			switch x := r.(type) {

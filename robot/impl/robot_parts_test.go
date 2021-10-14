@@ -523,7 +523,6 @@ func TestPartsAdd(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, fsm.(*proxyForcematrix).actual, test.ShouldEqual, injectFsm)
 
-
 	injectServo := &inject.Servo{}
 	parts.AddServo(injectServo, config.Component{Name: "servo1"})
 	servo1, ok := parts.ServoByName("servo1")
