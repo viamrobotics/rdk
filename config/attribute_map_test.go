@@ -50,6 +50,7 @@ func TestAttributeMap(t *testing.T) {
 	b = sampleAttributeMap.Bool("junk_key", false)
 	test.That(t, b, test.ShouldBeFalse)
 	b = sampleAttributeMap.Bool("junk_key", true)
+	test.That(t, b, test.ShouldBeTrue)
 
 	// TODO: write tests for below functions
 	// AttributeMap.Float64
