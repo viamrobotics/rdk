@@ -213,12 +213,12 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 	cfgCpy.Components = append([]config.Component{}, cfgCpy.Components...)
 
 	for remoteName, remote := range r.parts.remotes {
-		rc, err := remote.Config(ctx) // the config of the remote robot
-		rcCopy := *rc                 // make a copy to not overwrite the original remote robot configs
+		rc, err := remote.Config(ctx)
+		rcCopy := *rc
 		if err != nil {
 			return nil, err
 		}
-		rConf, err := r.getRemoteConfig(ctx, remoteName) // the Remote config
+		rConf, err := r.getRemoteConfig(ctx, remoteName)
 		if err != nil {
 			return nil, err
 		}
