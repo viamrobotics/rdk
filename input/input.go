@@ -1,5 +1,3 @@
-//go:generate stringer -output=input_strings.go -type=EventType,ControlCode
-
 // Package input provides human input, such as buttons, switches, knobs, gamepads, joysticks, keyboards, mice, etc.
 package input
 
@@ -16,11 +14,11 @@ type Controller interface {
 
 // Input represents a single axis or button, defined by its ControlCode
 type Input interface {
-	// Name returns the stringified representation of the ControlCode
-	Name(ctx context.Context) string
+	// Name returns the ControlCode
+	Name(ctx context.Context) ControlCode
 
-	// State returns most recent Event (which should be the current state)
-	State(ctx context.Context) (Event, error)
+	// LastEvent returns most recent Event (which should be the current state)
+	LastEvent(ctx context.Context) (Event, error)
 
 	// RegisterControl registers a callback for the trigger EventType
 	RegisterControl(ctx context.Context, ctrlFunc ControlFunction, trigger EventType) error
@@ -29,53 +27,50 @@ type Input interface {
 // ControlFunction is a callback passed to RegisterControl
 type ControlFunction func(ctx context.Context, inp Input, ev Event)
 
-// EventType represents the type of input event, and is returned by State() or passed to ControlFunction callbacks.
-// Extensible for further events
-// Ex: LongPress might be useful on remote network connections where ButtonDown/ButtonUp timing might be too variable
-type EventType uint8
+// EventType represents the type of input event, and is returned by LastEvent() or passed to ControlFunction callbacks.
+type EventType string
 
-// EventType codes, to be expanded as new input devices are developed
+// EventType list, to be expanded as new input devices are developed
 const (
-	AllEvents         EventType = 0 // Callbacks registered for this event will be called in ADDITION to other registered event callbacks
-	Connect           EventType = 1 // Sent at controller initialization, and on reconnects
-	Disconnect        EventType = 2 // If unplugged, or wireless/network times out
-	ButtonDown        EventType = 3 // Typical keypress
-	ButtonUp          EventType = 4 // Key release
-	ButtonChange      EventType = 5 // Both up and down for convinence during registration, not typically emitted
-	PositionChangeAbs EventType = 6 // Absolute position is reported via Value, a la joysticks
-	PositionChangeRel EventType = 7 // Relative position is reported via Value, a la mice, or simulating axes with up/down buttons
+	AllEvents         EventType = "AllEvents"         // Callbacks registered for this event will be called in ADDITION to other registered event callbacks
+	Connect           EventType = "Connect"           // Sent at controller initialization, and on reconnects
+	Disconnect        EventType = "Disconnect"        // If unplugged, or wireless/network times out
+	ButtonPress       EventType = "ButtonPress"       // Typical keypress
+	ButtonRelease     EventType = "ButtonRelease"     // Key release
+	ButtonChange      EventType = "ButtonChange"      // Both up and down for convinence during registration, not typically emitted
+	PositionChangeAbs EventType = "PositionChangeAbs" // Absolute position is reported via Value, a la joysticks
+	PositionChangeRel EventType = "PositionChangeRel" // Relative position is reported via Value, a la mice, or simulating axes with up/down buttons
 )
 
-// ControlCode identifies the type of input (specific Axis or Button)
-// This is similar to KeyCodes used in various HID layers
-type ControlCode uint32
+// ControlCode identifies the input (specific Axis or Button) of a controller
+type ControlCode string
 
 // ControlCodes, to be expanded as new input devices are developed
 const (
 	// Reserving keys under 1000 for overlap with standard keycodes
 	// Axes
-	AbsoluteX     ControlCode = 1000
-	AbsoluteY     ControlCode = 1001
-	AbsoluteZ     ControlCode = 1002
-	AbsoluteRX    ControlCode = 1003
-	AbsoluteRY    ControlCode = 1004
-	AbsoluteRZ    ControlCode = 1005
-	AbsoluteHat0X ControlCode = 1006
-	AbsoluteHat0Y ControlCode = 1007
+	AbsoluteX     ControlCode = "AbsoluteX"
+	AbsoluteY     ControlCode = "AbsoluteY"
+	AbsoluteZ     ControlCode = "AbsoluteZ"
+	AbsoluteRX    ControlCode = "AbsoluteRX"
+	AbsoluteRY    ControlCode = "AbsoluteRY"
+	AbsoluteRZ    ControlCode = "AbsoluteRZ"
+	AbsoluteHat0X ControlCode = "AbsoluteHat0X"
+	AbsoluteHat0Y ControlCode = "AbsoluteHat0Y"
 
 	// Buttons
-	ButtonSouth  ControlCode = 2000
-	ButtonEast   ControlCode = 2001
-	ButtonWest   ControlCode = 2002
-	ButtonNorth  ControlCode = 2003
-	ButtonLT     ControlCode = 2004
-	ButtonRT     ControlCode = 2005
-	ButtonLThumb ControlCode = 2006
-	ButtonRThumb ControlCode = 2007
-	ButtonSelect ControlCode = 2008
-	ButtonStart  ControlCode = 2009
-	ButtonMenu   ControlCode = 2010
-	ButtonRecord ControlCode = 2011
+	ButtonSouth  ControlCode = "ButtonSouth"
+	ButtonEast   ControlCode = "ButtonEast"
+	ButtonWest   ControlCode = "ButtonWest"
+	ButtonNorth  ControlCode = "ButtonNorth"
+	ButtonLT     ControlCode = "ButtonLT"
+	ButtonRT     ControlCode = "ButtonRT"
+	ButtonLThumb ControlCode = "ButtonLThumb"
+	ButtonRThumb ControlCode = "ButtonRThumb"
+	ButtonSelect ControlCode = "ButtonSelect"
+	ButtonStart  ControlCode = "ButtonStart"
+	ButtonMenu   ControlCode = "ButtonMenu"
+	ButtonRecord ControlCode = "ButtonRecord"
 )
 
 // Event is passed to the registered ControlFunction or returned by State()

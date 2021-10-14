@@ -1333,14 +1333,14 @@ type inputClient struct {
 	callbacks       map[input.EventType]input.ControlFunction
 }
 
-func (ic *inputClient) Name(ctx context.Context) string {
-	return ic.controlCode.String()
+func (ic *inputClient) Name(ctx context.Context) input.ControlCode {
+	return ic.controlCode
 }
 
-func (ic *inputClient) State(ctx context.Context) (input.Event, error) {
-	resp, err := ic.controller.rc.client.InputState(ctx, &pb.InputStateRequest{
+func (ic *inputClient) LastEvent(ctx context.Context) (input.Event, error) {
+	resp, err := ic.controller.rc.client.InputLastEvent(ctx, &pb.InputLastEventRequest{
 		Controller: ic.controller.name,
-		Code:       uint32(ic.controlCode),
+		Code:       string(ic.controlCode),
 	})
 
 	if err != nil {
@@ -1365,8 +1365,8 @@ func (ic *inputClient) RegisterControl(ctx context.Context, ctrlFunc input.Contr
 		ic.callbacks = make(map[input.EventType]input.ControlFunction)
 	}
 	if trigger == input.ButtonChange {
-		ic.callbacks[input.ButtonUp] = ctrlFunc
-		ic.callbacks[input.ButtonDown] = ctrlFunc
+		ic.callbacks[input.ButtonRelease] = ctrlFunc
+		ic.callbacks[input.ButtonPress] = ctrlFunc
 	} else {
 		ic.callbacks[trigger] = ctrlFunc
 	}
@@ -1390,9 +1390,9 @@ func (ic *inputClient) connectStream(ctx context.Context) {
 		default:
 		}
 
-		req := &pb.InputStateStreamRequest{
+		req := &pb.InputEventStreamRequest{
 			Controller: ic.controller.name,
-			Code:       uint32(ic.controlCode),
+			Code:       string(ic.controlCode),
 		}
 
 		var haveCallbacks bool
@@ -1400,7 +1400,7 @@ func (ic *inputClient) connectStream(ctx context.Context) {
 		for event, ctrlFunc := range ic.callbacks {
 			if ctrlFunc != nil {
 				haveCallbacks = true
-				req.Events = append(req.Events, uint32(event))
+				req.Events = append(req.Events, string(event))
 			}
 		}
 
@@ -1419,7 +1419,7 @@ func (ic *inputClient) connectStream(ctx context.Context) {
 		streamCtx, cancel := context.WithCancel(ctx)
 		ic.streamCancel = cancel
 
-		stream, err := ic.controller.rc.client.InputStateStream(streamCtx, req)
+		stream, err := ic.controller.rc.client.InputEventStream(streamCtx, req)
 		if err != nil {
 			ic.streamConnected = false
 			ic.controller.rc.logger.Error(err)

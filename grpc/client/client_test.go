@@ -561,9 +561,9 @@ func TestClient(t *testing.T) {
 
 	injectInputControllerDev := &inject.InputController{}
 	startInput := &inject.Input{}
-	startInput.NameFunc = func(ctx context.Context) string { return input.ButtonStart.String() }
-	startInput.StateFunc = func(ctx context.Context) (input.Event, error) {
-		return input.Event{Time: time.Now(), Event: input.ButtonDown, Code: input.ButtonStart, Value: 1.0}, nil
+	startInput.NameFunc = func(ctx context.Context) input.ControlCode { return input.ButtonStart }
+	startInput.LastEventFunc = func(ctx context.Context) (input.Event, error) {
+		return input.Event{Time: time.Now(), Event: input.ButtonPress, Code: input.ButtonStart, Value: 1.0}, nil
 	}
 	startInput.RegisterControlFunc = func(ctx context.Context, ctrlFunc input.ControlFunction, trigger input.EventType) error {
 		outEvent := input.Event{Time: time.Now(), Event: trigger, Code: input.ButtonStart, Value: 0.0}
@@ -1041,9 +1041,9 @@ func TestClient(t *testing.T) {
 
 	startTime := time.Now()
 	test.That(t, inputDev.Name(context.Background()), test.ShouldEqual, "ButtonStart")
-	outState, err := inputDev.State(context.Background())
+	outState, err := inputDev.LastEvent(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, outState.Event, test.ShouldEqual, input.ButtonDown)
+	test.That(t, outState.Event, test.ShouldEqual, input.ButtonPress)
 	test.That(t, outState.Code, test.ShouldEqual, input.ButtonStart)
 	test.That(t, outState.Value, test.ShouldEqual, 1)
 	test.That(t, outState.Time.After(startTime), test.ShouldBeTrue)
@@ -1052,10 +1052,10 @@ func TestClient(t *testing.T) {
 	evStream := make(chan input.Event)
 	ctrlFuncIn := func(ctx context.Context, input input.Input, event input.Event) { evStream <- event }
 	streamCtx, streamCancel := context.WithCancel(context.Background())
-	err = inputDev.RegisterControl(streamCtx, ctrlFuncIn, input.ButtonUp)
+	err = inputDev.RegisterControl(streamCtx, ctrlFuncIn, input.ButtonRelease)
 	test.That(t, err, test.ShouldBeNil)
 	ev := <-evStream
-	test.That(t, ev.Event, test.ShouldEqual, input.ButtonUp)
+	test.That(t, ev.Event, test.ShouldEqual, input.ButtonRelease)
 	test.That(t, ev.Code, test.ShouldEqual, input.ButtonStart)
 	test.That(t, ev.Value, test.ShouldEqual, 0.0)
 	test.That(t, ev.Time.After(startTime), test.ShouldBeTrue)

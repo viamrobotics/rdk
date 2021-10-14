@@ -1290,14 +1290,14 @@ func (s *Server) InputControllerInputs(ctx context.Context, req *pb.InputControl
 	resp := &pb.InputControllerInputsResponse{}
 
 	for k := range inputList {
-		resp.Inputs = append(resp.Inputs, uint32(k))
+		resp.Inputs = append(resp.Inputs, string(k))
 	}
 
 	return resp, nil
 }
 
-// InputState returns the state (input.Event) of an input.Input
-func (s *Server) InputState(ctx context.Context, req *pb.InputStateRequest) (*pb.InputEvent, error) {
+// InputLastEvent returns the last input.Event (current state) of an input.Input
+func (s *Server) InputLastEvent(ctx context.Context, req *pb.InputLastEventRequest) (*pb.InputEvent, error) {
 	controller, ok := s.r.InputControllerByName(req.Controller)
 	if !ok {
 		return nil, errors.Errorf("no input controller with name (%s)", req.Controller)
@@ -1310,26 +1310,26 @@ func (s *Server) InputState(ctx context.Context, req *pb.InputStateRequest) (*pb
 
 	inp, ok := inputList[input.ControlCode(req.Code)]
 	if !ok {
-		return nil, errors.Errorf("no input %s on controller (%s)", input.ControlCode(req.Code).String(), req.Controller)
+		return nil, errors.Errorf("no input %s on controller (%s)", input.ControlCode(req.Code), req.Controller)
 	}
 
-	state, err := inp.State(ctx)
+	state, err := inp.LastEvent(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	resp := &pb.InputEvent{
 		Time:  timestamppb.New(state.Time),
-		Event: uint32(state.Event),
-		Code:  uint32(state.Code),
+		Event: string(state.Event),
+		Code:  string(state.Code),
 		Value: state.Value,
 	}
 
 	return resp, nil
 }
 
-// InputStateStream returns a stream of input.Event from an input.Input
-func (s *Server) InputStateStream(req *pb.InputStateStreamRequest, server pb.RobotService_InputStateStreamServer) error {
+// InputEventStream returns a stream of input.Event from an input.Input
+func (s *Server) InputEventStream(req *pb.InputEventStreamRequest, server pb.RobotService_InputEventStreamServer) error {
 
 	controller, ok := s.r.InputControllerByName(req.Controller)
 	if !ok {
@@ -1343,7 +1343,7 @@ func (s *Server) InputStateStream(req *pb.InputStateStreamRequest, server pb.Rob
 
 	inp, ok := inputList[input.ControlCode(req.Code)]
 	if !ok {
-		return errors.Errorf("no input %s on controller (%s)", input.ControlCode(req.Code).String(), req.Controller)
+		return errors.Errorf("no input %s on controller (%s)", input.ControlCode(req.Code), req.Controller)
 	}
 
 	eventsChan := make(chan *pb.InputEvent, 1024)
@@ -1351,8 +1351,8 @@ func (s *Server) InputStateStream(req *pb.InputStateStreamRequest, server pb.Rob
 	ctrlFunc := func(ctx context.Context, inp input.Input, eventIn input.Event) {
 		resp := &pb.InputEvent{
 			Time:  timestamppb.New(eventIn.Time),
-			Event: uint32(eventIn.Event),
-			Code:  uint32(eventIn.Code),
+			Event: string(eventIn.Event),
+			Code:  string(eventIn.Code),
 			Value: eventIn.Value,
 		}
 		eventsChan <- resp
