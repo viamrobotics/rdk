@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"go.viam.com/test"
-
-	"go.viam.com/core/testutils"
 )
 
 var sampleAttributeMap = AttributeMap{
@@ -40,12 +38,8 @@ func TestAttributeMap(t *testing.T) {
 	badFalseGetter := func() {
 		sampleAttributeMap.Bool("bad_boolean_false", false)
 	}
-	didPanic, err := testutils.RunForPanic(badTrueGetter)
-	test.That(t, didPanic, test.ShouldBeTrue)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "wanted a bool")
-	didPanic, err = testutils.RunForPanic(badFalseGetter)
-	test.That(t, didPanic, test.ShouldBeTrue)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "wanted a bool")
+	test.That(t, badTrueGetter, test.ShouldPanic)
+	test.That(t, badFalseGetter, test.ShouldPanic)
 	// AttributeMap.Bool provides default boolean value when key is missing
 	b = sampleAttributeMap.Bool("junk_key", false)
 	test.That(t, b, test.ShouldBeFalse)
@@ -69,12 +63,8 @@ func TestAttributeMap(t *testing.T) {
 	badIntSliceGetter2 := func() {
 		sampleAttributeMap.IntSlice("bad_int_slice_2")
 	}
-	didPanic, err = testutils.RunForPanic(badIntSliceGetter1)
-	test.That(t, didPanic, test.ShouldBeTrue)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "wanted a []int")
-	didPanic, err = testutils.RunForPanic(badIntSliceGetter2)
-	test.That(t, didPanic, test.ShouldBeTrue)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "values in (bad_int_slice_2) need to be ints")
+	test.That(t, badIntSliceGetter1, test.ShouldPanic)
+	test.That(t, badIntSliceGetter2, test.ShouldPanic)
 
 	// AttributeMap.IntSlice
 	// AttributeMap.IntSlice properly returns an int slice
@@ -88,11 +78,7 @@ func TestAttributeMap(t *testing.T) {
 	badStringSliceGetter2 := func() {
 		sampleAttributeMap.StringSlice("bad_string_slice_2")
 	}
-	didPanic, err = testutils.RunForPanic(badStringSliceGetter1)
-	test.That(t, didPanic, test.ShouldBeTrue)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "wanted a []string")
-	didPanic, err = testutils.RunForPanic(badStringSliceGetter2)
-	test.That(t, didPanic, test.ShouldBeTrue)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "values in (bad_string_slice_2) need to be strings")
+	test.That(t, badStringSliceGetter1, test.ShouldPanic)
+	test.That(t, badStringSliceGetter2, test.ShouldPanic)
 
 }
