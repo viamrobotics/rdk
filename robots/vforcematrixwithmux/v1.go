@@ -25,8 +25,8 @@ func init() {
 		}})
 }
 
-// ForceSensorMatrixWithMux represents a force sensor matrix that's wired up with a mux.
-type ForceSensorMatrixWithMux struct {
+// ForceMatrixWithMux represents a force matrix that's wired up with a mux.
+type ForceMatrixWithMux struct {
 	columnGpioPins []string
 	muxGpioPins    []string // which GPIO pins are S2, S1, S0 connected to?
 	ioPins         []int    // integers that indicate which Y pin we're connected to (Y0-Y7)
@@ -36,9 +36,9 @@ type ForceSensorMatrixWithMux struct {
 	board        board.Board
 }
 
-// NewMux returns a new ForceSensorMatrixWithMux given column gpio pins, mux gpio pins, io pins, and
+// NewMux returns a new ForceMatrixWithMux given column gpio pins, mux gpio pins, io pins, and
 // an analog channel.
-func NewMux(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*ForceSensorMatrixWithMux, error) {
+func NewMux(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*ForceMatrixWithMux, error) {
 	boardName := config.Attributes.String("board")
 	b, exists := r.BoardByName(boardName)
 	if !exists {
@@ -52,7 +52,7 @@ func NewMux(ctx context.Context, r robot.Robot, config config.Component, logger 
 	reader, exists := b.AnalogReaderByName(analogChannel)
 
 	if exists {
-		return &ForceSensorMatrixWithMux{
+		return &ForceMatrixWithMux{
 			columnGpioPins: columnGpioPins,
 			muxGpioPins:    muxGpioPins,
 			ioPins:         ioPins,
@@ -65,7 +65,7 @@ func NewMux(ctx context.Context, r robot.Robot, config config.Component, logger 
 }
 
 // setMuxGpioPins sets the gpio pins that control the mux based on its given logic table.
-func (fmsm *ForceSensorMatrixWithMux) setMuxGpioPins(ctx context.Context, ioPin int) error {
+func (fmsm *ForceMatrixWithMux) setMuxGpioPins(ctx context.Context, ioPin int) error {
 	// The logicTable corresponds to select pins in the order of
 	// [s2, s1, s0]
 	var logicTable [3]bool
@@ -100,7 +100,7 @@ func (fmsm *ForceSensorMatrixWithMux) setMuxGpioPins(ctx context.Context, ioPin 
 }
 
 // Matrix returns a matrix of measurements from the force sensor.
-func (fmsm *ForceSensorMatrixWithMux) Matrix(ctx context.Context) ([][]int, error) {
+func (fmsm *ForceMatrixWithMux) Matrix(ctx context.Context) ([][]int, error) {
 	matrix := make([][]int, len(fmsm.columnGpioPins))
 	for i := 0; i < len(fmsm.columnGpioPins); i++ {
 		if err := fmsm.board.GPIOSet(ctx, fmsm.columnGpioPins[i], true); err != nil {
@@ -133,7 +133,7 @@ func (fmsm *ForceSensorMatrixWithMux) Matrix(ctx context.Context) ([][]int, erro
 }
 
 // Readings returns a flattened matrix of measurements from the force sensor.
-func (fmsm *ForceSensorMatrixWithMux) Readings(ctx context.Context) ([]interface{}, error) {
+func (fmsm *ForceMatrixWithMux) Readings(ctx context.Context) ([]interface{}, error) {
 	matrix, err := fmsm.Matrix(ctx)
 	if err != nil {
 		return nil, err
@@ -148,6 +148,6 @@ func (fmsm *ForceSensorMatrixWithMux) Readings(ctx context.Context) ([]interface
 }
 
 // Desc returns that this is a forcematrix mux sensor type.
-func (fmsm *ForceSensorMatrixWithMux) Desc() sensor.Description {
+func (fmsm *ForceMatrixWithMux) Desc() sensor.Description {
 	return sensor.Description{forcematrix.Type, ""}
 }

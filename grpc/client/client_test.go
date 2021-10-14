@@ -513,7 +513,7 @@ func TestClient(t *testing.T) {
 		return injectLidarDev, true
 	}
 
-	injectFsm := &inject.Forcematrix{}
+	injectFsm := &inject.ForceMatrix{}
 	expectedMatrix := make([][]int, 4)
 	for i := 0; i < len(expectedMatrix); i++ {
 		expectedMatrix[i] = []int{1, 2, 3, 4}
@@ -522,7 +522,7 @@ func TestClient(t *testing.T) {
 		return expectedMatrix, nil
 	}
 
-	injectFsm2 := &inject.Forcematrix{}
+	injectFsm2 := &inject.ForceMatrix{}
 	injectFsm2.MatrixFunc = func(ctx context.Context) (matrix [][]int, err error) {
 		return nil, errors.Errorf("bad matrix!")
 	}
@@ -1149,14 +1149,14 @@ func TestClient(t *testing.T) {
 
 	sensorDev, ok = client.SensorByName("fsm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensorDev, test.ShouldImplement, (*forcematrix.Forcematrix)(nil))
+	test.That(t, sensorDev, test.ShouldImplement, (*forcematrix.ForceMatrix)(nil))
 	readings, err = sensorDev.Readings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings[0], test.ShouldResemble, expectedMatrix)
 
 	sensorDev, ok = client.SensorByName("fsm2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensorDev, test.ShouldImplement, (*forcematrix.Forcematrix)(nil))
+	test.That(t, sensorDev, test.ShouldImplement, (*forcematrix.ForceMatrix)(nil))
 	_, err = sensorDev.Readings(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "bad matrix")

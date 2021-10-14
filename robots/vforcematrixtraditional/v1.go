@@ -25,16 +25,16 @@ func init() {
 		}})
 }
 
-// ForceSensorMatrixTraditional represents a force sensor matrix without a mux.
-type ForceSensorMatrixTraditional struct {
+// ForceMatrixTraditional represents a force matrix without a mux.
+type ForceMatrixTraditional struct {
 	gpioPins       []string
 	analogChannels []string
 	analogReaders  []board.AnalogReader
 	board          board.Board
 }
 
-// New returns a new ForceSensorMatrixTraditional given gpio pins and analog channels.
-func New(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*ForceSensorMatrixTraditional, error) {
+// New returns a new ForceMatrixTraditional given gpio pins and analog channels.
+func New(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*ForceMatrixTraditional, error) {
 	boardName := config.Attributes.String("board")
 	b, exists := r.BoardByName(boardName)
 	if !exists {
@@ -53,7 +53,7 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		analogReaders = append(analogReaders, reader)
 	}
 
-	return &ForceSensorMatrixTraditional{
+	return &ForceMatrixTraditional{
 		gpioPins:       gpioPins,
 		analogChannels: analogChannels,
 		analogReaders:  analogReaders,
@@ -62,7 +62,7 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 }
 
 // Matrix returns a matrix of measurements from the force sensor.
-func (fsm *ForceSensorMatrixTraditional) Matrix(ctx context.Context) ([][]int, error) {
+func (fsm *ForceMatrixTraditional) Matrix(ctx context.Context) ([][]int, error) {
 	matrix := make([][]int, len(fsm.gpioPins))
 	for i := 0; i < len(fsm.gpioPins); i++ {
 		if err := fsm.board.GPIOSet(ctx, fsm.gpioPins[i], true); err != nil {
@@ -91,7 +91,7 @@ func (fsm *ForceSensorMatrixTraditional) Matrix(ctx context.Context) ([][]int, e
 }
 
 // Readings returns a flattened matrix of measurements from the force sensor.
-func (fsm *ForceSensorMatrixTraditional) Readings(ctx context.Context) ([]interface{}, error) {
+func (fsm *ForceMatrixTraditional) Readings(ctx context.Context) ([]interface{}, error) {
 	matrix, err := fsm.Matrix(ctx)
 	if err != nil {
 		return nil, err
@@ -106,6 +106,6 @@ func (fsm *ForceSensorMatrixTraditional) Readings(ctx context.Context) ([]interf
 }
 
 // Desc returns that this is a forcematrix sensor type.
-func (fsm *ForceSensorMatrixTraditional) Desc() sensor.Description {
+func (fsm *ForceMatrixTraditional) Desc() sensor.Description {
 	return sensor.Description{forcematrix.Type, ""}
 }

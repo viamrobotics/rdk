@@ -133,8 +133,8 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 		parts.sensors[c.Name] = &proxySensor{actual: pType.actual}
 	case *proxyCompass:
 		parts.sensors[c.Name] = newProxyCompass(pType.actual)
-	case *proxyForcematrix:
-		parts.sensors[c.Name] = newProxyForcematrix(pType.actual)
+	case *proxyForceMatrix:
+		parts.sensors[c.Name] = newProxyForceMatrix(pType.actual)
 	case *proxyRelativeCompass:
 		parts.sensors[c.Name] = newProxyRelativeCompass(pType.actual)
 	case *proxyGPS:
@@ -150,8 +150,8 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 			parts.sensors[c.Name] = newProxyGPS(cc)
 		} else if cc, ok := s.(imu.IMU); ok {
 			parts.sensors[c.Name] = newProxyIMU(cc)
-		} else if fm, ok := s.(forcematrix.Forcematrix); ok {
-			parts.sensors[c.Name] = newProxyForcematrix(fm)
+		} else if fm, ok := s.(forcematrix.ForceMatrix); ok {
+			parts.sensors[c.Name] = newProxyForceMatrix(fm)
 		} else {
 			parts.sensors[c.Name] = &proxySensor{actual: s}
 		}

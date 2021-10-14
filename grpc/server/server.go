@@ -1312,10 +1312,10 @@ func (s *Server) ForceMatrixMatrix(ctx context.Context, req *pb.ForceMatrixMatri
 	return matrixToProto(matrix), nil
 }
 
-func (s *Server) forceMatrixByName(name string) (forcematrix.Forcematrix, error) {
+func (s *Server) forceMatrixByName(name string) (forcematrix.ForceMatrix, error) {
 	sensorDevice, ok := s.r.SensorByName(name)
 	if !ok {
-		return nil, errors.Errorf("no force sensor matrix with name (%s)", name)
+		return nil, errors.Errorf("no force matrix with name (%s)", name)
 	}
-	return sensorDevice.(forcematrix.Forcematrix), nil
+	return sensorDevice.(forcematrix.ForceMatrix), nil
 }
