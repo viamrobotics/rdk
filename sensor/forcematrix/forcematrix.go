@@ -14,9 +14,9 @@ const (
 	Type = "forcematrix"
 )
 
-// A Forcematrix represents a force sensor that outputs a 2-dimensional array
+// A ForceMatrix represents a force sensor that outputs a 2-dimensional array
 // with integers that correlate to the forces applied to the sensor.
-type Forcematrix interface {
+type ForceMatrix interface {
 	sensor.Sensor
 	Matrix(ctx context.Context) (matrix [][]int, err error)
 }

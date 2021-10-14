@@ -1315,8 +1315,8 @@ func (mc *motorClient) Zero(ctx context.Context, offset float64) error {
 }
 
 // forcematrixClient satisfies a gRPC based
-// forcematrix.Forcematrix.
-// Refer to the Forcematrix interface for descriptions of its methods.
+// forcematrix.ForceMatrix.
+// Refer to the ForceMatrix interface for descriptions of its methods.
 type forcematrixClient struct {
 	*sensorClient
 }
@@ -1344,8 +1344,8 @@ func (fmc *forcematrixClient) Desc() sensor.Description {
 	return sensor.Description{forcematrix.Type, ""}
 }
 
-// Ensure implements Forcematrix
-var _ = forcematrix.Forcematrix(&forcematrixClient{})
+// Ensure implements ForceMatrix
+var _ = forcematrix.ForceMatrix(&forcematrixClient{})
 
 // protoToMatrix is a helper function to convert protobuf matrix values into a 2-dimensional int slice.
 func protoToMatrix(matrixResponse *pb.ForceMatrixMatrixResponse) [][]int {

@@ -454,26 +454,26 @@ func (p *proxyIMU) Orientation(ctx context.Context) (spatialmath.Orientation, er
 	return p.actual.Orientation(ctx)
 }
 
-type proxyForcematrix struct {
+type proxyForceMatrix struct {
 	*proxySensor
 	mu     sync.RWMutex
-	actual forcematrix.Forcematrix
+	actual forcematrix.ForceMatrix
 }
 
-func newProxyForcematrix(actual forcematrix.Forcematrix) *proxyForcematrix {
-	return &proxyForcematrix{proxySensor: &proxySensor{actual: actual}, actual: actual}
+func newProxyForceMatrix(actual forcematrix.ForceMatrix) *proxyForceMatrix {
+	return &proxyForceMatrix{proxySensor: &proxySensor{actual: actual}, actual: actual}
 }
 
-func (p *proxyForcematrix) Matrix(ctx context.Context) ([][]int, error) {
+func (p *proxyForceMatrix) Matrix(ctx context.Context) ([][]int, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.Matrix(ctx)
 }
 
-func (p *proxyForcematrix) replace(newSensor sensor.Sensor) {
+func (p *proxyForceMatrix) replace(newSensor sensor.Sensor) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	actual, ok := newSensor.(*proxyForcematrix)
+	actual, ok := newSensor.(*proxyForceMatrix)
 	if !ok {
 		panic(fmt.Errorf("expected new forcematrix to be %T but got %T", actual, newSensor))
 	}

@@ -2101,11 +2101,11 @@ func TestServer(t *testing.T) {
 			Name: "fsm1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no force sensor matrix")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no force matrix")
 		test.That(t, capName, test.ShouldEqual, "fsm1")
 
 		var capMatrix [][]int
-		injectFsm := &inject.Forcematrix{}
+		injectFsm := &inject.ForceMatrix{}
 		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 			return injectFsm, true
 		}

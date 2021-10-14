@@ -74,7 +74,7 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	fsm, ok := parts.SensorByName("forcematrix")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForcematrix).actual.(*fake.Forcematrix).Name, test.ShouldEqual, "forcematrix")
+	test.That(t, fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name, test.ShouldEqual, "forcematrix")
 	servo1, ok := parts.ServoByName("servo1")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, servo1.(*proxyServo).actual.(*fake.Servo).Name, test.ShouldEqual, "servo1")
@@ -192,13 +192,13 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1_r2")
 	fsm, ok := parts.SensorByName("forcematrix")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForcematrix).actual.(*fake.Forcematrix).Name, test.ShouldEqual, "forcematrix")
+	test.That(t, fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name, test.ShouldEqual, "forcematrix")
 	fsm, ok = parts.SensorByName("forcematrix_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForcematrix).actual.(*fake.Forcematrix).Name, test.ShouldEqual, "forcematrix_r1")
+	test.That(t, fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name, test.ShouldEqual, "forcematrix_r1")
 	fsm, ok = parts.SensorByName("forcematrix_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForcematrix).actual.(*fake.Forcematrix).Name, test.ShouldEqual, "forcematrix_r2")
+	test.That(t, fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name, test.ShouldEqual, "forcematrix_r2")
 	_, ok = parts.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -371,13 +371,13 @@ func TestPartsClone(t *testing.T) {
 	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1_r2")
 	fsm, ok := newParts.SensorByName("forcematrix")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForcematrix).actual.(*fake.Forcematrix).Name, test.ShouldEqual, "forcematrix")
+	test.That(t, fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name, test.ShouldEqual, "forcematrix")
 	fsm, ok = newParts.SensorByName("forcematrix_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForcematrix).actual.(*fake.Forcematrix).Name, test.ShouldEqual, "forcematrix_r1")
+	test.That(t, fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name, test.ShouldEqual, "forcematrix_r1")
 	fsm, ok = newParts.SensorByName("forcematrix_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForcematrix).actual.(*fake.Forcematrix).Name, test.ShouldEqual, "forcematrix_r2")
+	test.That(t, fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name, test.ShouldEqual, "forcematrix_r2")
 	_, ok = newParts.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -517,11 +517,11 @@ func TestPartsAdd(t *testing.T) {
 	parts.AddSensor(sensor1, config.Component{Name: "sensor1"})
 	test.That(t, sensor1.(*proxyRelativeCompass).actual, test.ShouldEqual, injectRelativeCompass)
 
-	injectFsm := &inject.Forcematrix{}
+	injectFsm := &inject.ForceMatrix{}
 	parts.AddSensor(injectFsm, config.Component{Name: "forcematrix"})
 	fsm, ok := parts.SensorByName("forcematrix")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForcematrix).actual, test.ShouldEqual, injectFsm)
+	test.That(t, fsm.(*proxyForceMatrix).actual, test.ShouldEqual, injectFsm)
 
 	injectServo := &inject.Servo{}
 	parts.AddServo(injectServo, config.Component{Name: "servo1"})

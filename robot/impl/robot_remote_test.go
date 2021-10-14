@@ -139,7 +139,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 			return nil, false
 		}
 		if strings.HasPrefix(name, "forcematrix") {
-			return &fake.Forcematrix{Name: name}, true
+			return &fake.ForceMatrix{Name: name}, true
 		}
 		return &fake.Compass{Name: name}, true
 	}
@@ -474,7 +474,7 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	fsm, ok := robot.SensorByName("forcematrix")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForcematrix).actual.(*fake.Forcematrix).Name, test.ShouldEqual, "forcematrix")
+	test.That(t, fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name, test.ShouldEqual, "forcematrix")
 
 	robot.conf.Prefix = false
 	servo1, ok := robot.ServoByName("servo1")
