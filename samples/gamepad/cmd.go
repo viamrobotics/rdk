@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"time"
 
 	"github.com/go-errors/errors"
 	"go.viam.com/utils"
@@ -38,8 +39,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 	defer myRobot.Close()
-
-	debugOut(ctx, myRobot)
+	go debugOut(ctx, myRobot)
 	webOpts := web.NewOptions()
 	webOpts.Insecure = true
 
@@ -62,19 +62,26 @@ func debugOut(ctx context.Context, r robot.Robot) {
 		fmt.Printf("%s:%s: %.4f\n", event.Code, event.Event, event.Value)
 	}
 
-	inputs, err := g.Inputs(ctx)
-	if err != nil {
-		return
-	}
-
-	for _, v := range inputs {
-		event, _ := v.LastEvent(ctx)
-		fmt.Printf("%s:%s: %.4f\n", event.Code, event.Event, event.Value)
-
-		err = v.RegisterControl(ctx, repFunc, input.AllEvents)
-		if err != nil {
+	// Expects auto_reconnect to be set in the config
+	for {
+		if !utils.SelectContextOrWait(ctx, 1*time.Second) {
 			return
 		}
-	}
+		inputs, err := g.Inputs(ctx)
+		if err != nil {
+			logger.Error(err)
+			continue
+		}
 
+		for _, v := range inputs {
+			event, _ := v.LastEvent(ctx)
+			fmt.Printf("%s:%s: %.4f\n", event.Code, event.Event, event.Value)
+
+			err = v.RegisterControl(ctx, repFunc, input.AllEvents)
+			if err != nil {
+				return
+			}
+		}
+		break
+	}
 }

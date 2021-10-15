@@ -5,7 +5,8 @@
       "model": "gamepad",
       "type": "input_controller",
       "attributes": {
-        "dev_file": ""
+        "dev_file": "",
+        "auto_reconnect": true
       }
     }
   ]

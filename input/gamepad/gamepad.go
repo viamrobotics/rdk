@@ -7,6 +7,7 @@ import (
 	"context"
 	"math"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -31,7 +32,8 @@ const (
 
 // Config is used for converting config attributes
 type Config struct {
-	DevFile string `json:"dev_file"`
+	DevFile       string `json:"dev_file"`
+	AutoReconnect bool   `json:"auto_reconnect"`
 }
 
 func init() {
@@ -61,6 +63,8 @@ type Controller struct {
 	activeBackgroundWorkers sync.WaitGroup
 	cancelFunc              func()
 	callbacks               map[input.ControlCode]map[input.EventType]input.ControlFunction
+	devFile                 string
+	reconnect               bool
 }
 
 // Mapping represents the evedev code to input.ControlCode mapping for a given gamepad model
@@ -104,6 +108,18 @@ func (g *Controller) eventDispatcher(ctx context.Context) {
 
 			var eventOut input.Event
 			switch eventIn.Event.Type {
+			case evdev.EventSync:
+				if evdev.SyncType(eventIn.Event.Code) == 4 {
+					g.sendConnectionStatus(ctx, false)
+					err := g.dev.Close()
+					if err != nil {
+						g.logger.Error(err)
+					}
+					g.dev = nil
+					return
+				}
+				g.logger.Debugf("unhandled event: %+v", eventIn)
+
 			case evdev.EventAbsolute:
 				thisAxis, ok := g.Mapping.Axes[eventIn.Type.(evdev.AbsoluteType)]
 				if !ok {
@@ -158,59 +174,81 @@ func (g *Controller) eventDispatcher(ctx context.Context) {
 				g.logger.Debugf("unhandled event: %+v", eventIn)
 			}
 
-			g.inputs[eventOut.Code].mu.Lock()
-			g.inputs[eventOut.Code].lastEvent = eventOut
-			g.inputs[eventOut.Code].mu.Unlock()
-
-			g.mu.RLock()
-			_, ok := g.callbacks[eventOut.Code]
-			g.mu.RUnlock()
-			if !ok {
-				g.mu.Lock()
-				g.callbacks[eventOut.Code] = make(map[input.EventType]input.ControlFunction)
-				g.mu.Unlock()
-			}
-			g.mu.RLock()
-			ctrlFunc, ok := g.callbacks[eventOut.Code][eventOut.Event]
-			if ok {
-				g.activeBackgroundWorkers.Add(1)
-				utils.PanicCapturingGo(func() {
-					ctrlFunc(ctx, g.inputs[eventOut.Code], eventOut)
-					g.activeBackgroundWorkers.Done()
-				})
-			}
-
-			ctrlFuncAll, ok := g.callbacks[eventOut.Code][input.AllEvents]
-			if ok {
-				g.activeBackgroundWorkers.Add(1)
-				utils.PanicCapturingGo(func() {
-					ctrlFuncAll(ctx, g.inputs[eventOut.Code], eventOut)
-					g.activeBackgroundWorkers.Done()
-				})
-			}
-			g.mu.RUnlock()
-
+			g.makeCallbacks(ctx, eventOut)
 		}
 	}
 }
 
+func (g *Controller) sendConnectionStatus(ctx context.Context, connected bool) {
+	code := input.Disconnect
+	now := time.Now()
+	if connected {
+		code = input.Connect
+	}
+
+	for k, v := range g.inputs {
+		if v.lastEvent.Event != code {
+			eventOut := input.Event{
+				Time:  now,
+				Event: code,
+				Code:  k,
+				Value: 0,
+			}
+			g.makeCallbacks(ctx, eventOut)
+		}
+	}
+}
+
+func (g *Controller) makeCallbacks(ctx context.Context, eventOut input.Event) {
+	g.inputs[eventOut.Code].mu.Lock()
+	g.inputs[eventOut.Code].lastEvent = eventOut
+	g.inputs[eventOut.Code].mu.Unlock()
+
+	g.mu.RLock()
+	_, ok := g.callbacks[eventOut.Code]
+	g.mu.RUnlock()
+	if !ok {
+		g.mu.Lock()
+		g.callbacks[eventOut.Code] = make(map[input.EventType]input.ControlFunction)
+		g.mu.Unlock()
+	}
+	g.mu.RLock()
+	ctrlFunc, ok := g.callbacks[eventOut.Code][eventOut.Event]
+	if ok {
+		g.activeBackgroundWorkers.Add(1)
+		utils.PanicCapturingGo(func() {
+			ctrlFunc(ctx, g.inputs[eventOut.Code], eventOut)
+			g.activeBackgroundWorkers.Done()
+		})
+	}
+
+	ctrlFuncAll, ok := g.callbacks[eventOut.Code][input.AllEvents]
+	if ok {
+		g.activeBackgroundWorkers.Add(1)
+		utils.PanicCapturingGo(func() {
+			ctrlFuncAll(ctx, g.inputs[eventOut.Code], eventOut)
+			g.activeBackgroundWorkers.Done()
+		})
+	}
+	g.mu.RUnlock()
+}
+
 // NewController creates a new gamepad
 func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
-	var pad Controller
-	pad.logger = logger
+	return createController(ctx, logger, config.ConvertedAttributes.(*Config).DevFile, config.ConvertedAttributes.(*Config).AutoReconnect)
+}
 
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-
-	pad.cancelFunc = cancel
-
+func (g *Controller) connectDev(ctx context.Context) error {
+	g.mu.Lock()
 	var devs []string
-	devs = []string{config.ConvertedAttributes.(*Config).DevFile}
+	devs = []string{g.devFile}
 
 	if len(devs) != 1 || devs[0] == "" {
 		var err error
 		devs, err = filepath.Glob("/dev/input/event*")
 		if err != nil {
-			return nil, err
+			g.mu.Unlock()
+			return err
 		}
 	}
 
@@ -220,18 +258,18 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 			continue
 		}
 		name := dev.Name()
-		logger.Infof("found known gamepad: '%s' at %s", name, n)
+		g.logger.Infof("found known gamepad: '%s' at %s", name, n)
 		mapping, ok := GamepadMappings[name]
 		if ok {
-			pad.dev = dev
-			pad.Model = pad.dev.Name()
-			pad.Mapping = mapping
+			g.dev = dev
+			g.Model = g.dev.Name()
+			g.Mapping = mapping
 			break
 		}
 	}
 
 	// Fallback to a default mapping
-	if pad.dev == nil {
+	if g.dev == nil {
 		for _, n := range devs {
 			dev, err := evdev.OpenFile(n)
 			if err != nil {
@@ -239,44 +277,66 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 			}
 			if dev.IsJoystick() {
 				name := dev.Name()
-				logger.Infof("found gamepad: '%s' at %s", name, n)
-				logger.Infof("no button mapping for '%s', using default: '%s'", name, defaultMapping)
-				pad.dev = dev
-				pad.Model = pad.dev.Name()
-				pad.Mapping = GamepadMappings[defaultMapping]
+				g.logger.Infof("found gamepad: '%s' at %s", name, n)
+				g.logger.Infof("no button mapping for '%s', using default: '%s'", name, defaultMapping)
+				g.dev = dev
+				g.Model = g.dev.Name()
+				g.Mapping = GamepadMappings[defaultMapping]
 				break
 			}
 		}
 	}
 
-	if pad.dev == nil {
-		return nil, errors.New("no gamepad found (check /dev/input/eventXX permissions)")
+	if g.dev == nil {
+		g.mu.Unlock()
+		return errors.New("no gamepad found (check /dev/input/eventXX permissions)")
 	}
 
-	pad.inputs = make(map[input.ControlCode]*Input)
-	for _, v := range pad.Mapping.Axes {
-		pad.inputs[v] = &Input{pad: &pad, controlCode: v}
+	g.inputs = make(map[input.ControlCode]*Input)
+	for _, v := range g.Mapping.Axes {
+		g.inputs[v] = &Input{pad: g, controlCode: v}
 	}
-	for _, v := range pad.Mapping.Buttons {
-		pad.inputs[v] = &Input{pad: &pad, controlCode: v}
+	for _, v := range g.Mapping.Buttons {
+		g.inputs[v] = &Input{pad: g, controlCode: v}
 	}
 
+	g.mu.Unlock()
+	g.sendConnectionStatus(ctx, true)
+
+	return nil
+}
+
+func createController(ctx context.Context, logger golog.Logger, devFile string, reconnect bool) (input.Controller, error) {
+
+	var pad Controller
+	pad.logger = logger
+	pad.reconnect = reconnect
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	pad.cancelFunc = cancel
+	pad.devFile = devFile
 	pad.callbacks = make(map[input.ControlCode]map[input.EventType]input.ControlFunction)
-
-	for code, inp := range pad.inputs {
-		conEvent := input.Event{
-			Time:  time.Now(),
-			Event: input.Connect,
-			Code:  code,
-			Value: 0,
-		}
-		inp.lastEvent = conEvent
-	}
 
 	pad.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		pad.eventDispatcher(ctxWithCancel)
-		pad.activeBackgroundWorkers.Done()
+		defer pad.activeBackgroundWorkers.Done()
+		for {
+			if !utils.SelectContextOrWait(ctxWithCancel, 250*time.Millisecond) {
+				return
+			}
+			err := pad.connectDev(ctxWithCancel)
+			if err != nil {
+				if pad.reconnect {
+					if !strings.Contains(err.Error(), "no gamepad found") {
+						pad.logger.Error(err)
+					}
+					continue
+				} else {
+					pad.logger.Fatal(err)
+					return
+				}
+			}
+			pad.eventDispatcher(ctxWithCancel)
+		}
 	})
 
 	return &pad, nil
@@ -292,6 +352,11 @@ func (g *Controller) Close() error {
 
 // Inputs lists the inputs of the gamepad
 func (g *Controller) Inputs(ctx context.Context) (map[input.ControlCode]input.Input, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	if g.dev == nil && len(g.inputs) == 0 {
+		return nil, errors.New("no controller connected")
+	}
 	ret := make(map[input.ControlCode]input.Input)
 	for k, v := range g.inputs {
 		ret[k] = v
