@@ -67,19 +67,24 @@
       <tr>
         <td colspan=100>{{$testFile}}</td>
       </tr>
+      
       <tr>
         {{ range $i := $one.Images}}
         <td>
-          <img width=300 src="{{$i}}"/>
+          <img width=300 src="{{$i.File}}"/>
+          <br>
+          {{$i.Name}}
         </td>
         {{ end }}
 
         {{ range $i := $one.PCDs}}
         <td>
-          <div id="{{$i}}" class="pcd_display"></div>
+          <div id="{{$i.File}}" class="pcd_display"></div>
           <script>
-            pcds.push("{{$i}}");
+            pcds.push("{{$i.File}}");
           </script>
+          <br>
+          {{$i.Name}}
         </td>
         {{ end }}
 

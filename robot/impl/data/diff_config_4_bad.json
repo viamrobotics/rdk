@@ -1,0 +1,75 @@
+{
+    "components":
+    [
+        {
+            "model": "fake",
+            "name": "arm1",
+            "type": "arm"
+        },
+        {
+            "model": "fake",
+            "name": "base1",
+            "type": "base"
+        },
+        {
+            "model": "fake",
+            "name": "board1",
+            "type": "board",
+            "attributes":
+            {
+                "analogs":
+                [
+                    {
+                        "name": "analog1",
+                        "pin": "0"
+                    }
+                ],
+                "digitalInterrupts":
+                [
+                    {
+                        "name": "encoder",
+                        "pin": "14"
+                    }
+                ]
+            }
+        },
+        {
+            "model": "fake",
+            "name": "mock1",
+            "type": "mock"
+        },
+        {
+            "model": "fake2",
+            "name": "mock2",
+            "type": "mock",
+            "attributes":
+            {
+                "one": 2
+            }
+        }
+    ],
+    "processes":
+    [
+        {
+            "id": "1",
+            "name": "echo",
+            "args":
+            [
+                "hello",
+                "world"
+            ],
+            "one_shot": true
+        },
+        {
+            "id": "2",
+            "name": "echo",
+            "args":
+            [
+                "hello",
+                "world",
+                "again"
+            ],
+            "one_shot": true
+        }
+    ]
+}

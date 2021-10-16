@@ -148,11 +148,14 @@ func (c Config) FindComponent(name string) *Component {
 }
 
 // A Remote describes a remote robot that should be integrated.
+// The Frame field defines how the "world" node of the remote robot should be reconciled with the "world" node of the
+// the current robot. All components of the remote robot who have Parent as "world" will be attached to the parent defined
+// in Frame, and with the given offset as well.
 type Remote struct {
 	Name    string `json:"name"`
 	Address string `json:"address"`
 	Prefix  bool   `json:"prefix"`
-	Parent  string `json:"parent"`
+	Frame   *Frame `json:"frame,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -162,6 +165,11 @@ func (config *Remote) Validate(path string) error {
 	}
 	if config.Address == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "address")
+	}
+	if config.Frame != nil {
+		if config.Frame.Parent == "" {
+			return utils.NewConfigValidationFieldRequiredError(path, "frame.parent")
+		}
 	}
 	return nil
 }

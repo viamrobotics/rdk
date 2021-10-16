@@ -140,11 +140,14 @@ func (m *Motor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32
 				m.Power(ctx, powerPct),
 			)
 		}
-		return multierr.Combine(
-			m.Board.GPIOSet(ctx, m.A, true),
-			m.Board.GPIOSet(ctx, m.B, false),
-			m.Power(ctx, powerPct), // Must be last for A/B only drivers
-		)
+		if m.A != "" && m.B != "" {
+			return multierr.Combine(
+				m.Board.GPIOSet(ctx, m.A, true),
+				m.Board.GPIOSet(ctx, m.B, false),
+				m.Power(ctx, powerPct), // Must be last for A/B only drivers
+			)
+		}
+		return m.Power(ctx, powerPct)
 	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
 		m.curDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
 		if m.Dir != "" {
@@ -153,11 +156,14 @@ func (m *Motor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32
 				m.Power(ctx, powerPct),
 			)
 		}
-		return multierr.Combine(
-			m.Board.GPIOSet(ctx, m.A, false),
-			m.Board.GPIOSet(ctx, m.B, true),
-			m.Power(ctx, powerPct), // Must be last for A/B only motors (where PWM will take over one of A or B)
-		)
+		if m.A != "" && m.B != "" {
+			return multierr.Combine(
+				m.Board.GPIOSet(ctx, m.A, false),
+				m.Board.GPIOSet(ctx, m.B, true),
+				m.Power(ctx, powerPct), // Must be last for A/B only motors (where PWM will take over one of A or B)
+			)
+		}
+		return errors.New("trying to go backwards but don't have dir or a&b pins")
 	}
 
 	return errors.Errorf("unknown direction %v", d)

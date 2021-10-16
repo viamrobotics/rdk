@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/grpc/metadata/server"
 	"go.viam.com/core/metadata/service"
 	pb "go.viam.com/core/proto/api/service/v1"
@@ -21,19 +22,19 @@ var emptyResources = &pb.ResourcesResponse{
 	Resources: []*pb.ResourceName{},
 }
 
-var newResource, _ = resource.New(
+var newResource = resource.NewName(
 	resource.ResourceNamespaceCore,
 	resource.ResourceTypeComponent,
-	resource.ResourceSubtypeArm,
+	arm.SubtypeName,
 	"",
 )
 
 var oneResourceResponse = []*pb.ResourceName{
 	{
 		Uuid:      newResource.UUID,
-		Namespace: newResource.Namespace,
-		Type:      newResource.Type,
-		Subtype:   newResource.Subtype,
+		Namespace: string(newResource.Namespace),
+		Type:      string(newResource.ResourceType),
+		Subtype:   string(newResource.ResourceSubtype),
 		Name:      newResource.Name,
 	},
 }

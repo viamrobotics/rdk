@@ -16,7 +16,7 @@ import (
 
 	"go.uber.org/multierr"
 
-	"go.viam.com/core/arm"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
@@ -37,8 +37,8 @@ var ur5modeljson []byte
 var ur5DHmodeljson []byte
 
 func init() {
-	registry.RegisterArm("ur", registry.Arm{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+	registry.RegisterComponent(arm.Subtype, "ur", registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return URArmConnect(ctx, config.Host, config.Attributes.Float64("speed", .1), logger)
 		},
 		Frame: func(name string) (referenceframe.Frame, error) { return ur5eFrame(name) },
@@ -127,7 +127,7 @@ func URArmConnect(ctx context.Context, host string, speed float64, logger golog.
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
-	arm := &URArm{
+	newArm := &URArm{
 		mu:                      &sync.Mutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		conn:                    conn,
@@ -141,27 +141,27 @@ func URArmConnect(ctx context.Context, host string, speed float64, logger golog.
 
 	onData := make(chan struct{})
 	var onDataOnce sync.Once
-	arm.activeBackgroundWorkers.Add(1)
+	newArm.activeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		if err := reader(cancelCtx, conn, arm, func() {
+		if err := reader(cancelCtx, conn, newArm, func() {
 			onDataOnce.Do(func() {
 				close(onData)
 			})
 		}); err != nil {
 			logger.Errorw("reader failed", "error", err)
 		}
-	}, arm.activeBackgroundWorkers.Done)
+	}, newArm.activeBackgroundWorkers.Done)
 
 	respondTimeout := 2 * time.Second
 	timer := time.NewTimer(respondTimeout)
 	defer timer.Stop()
 	select {
 	case <-ctx.Done():
-		return nil, multierr.Combine(ctx.Err(), arm.Close())
+		return nil, multierr.Combine(ctx.Err(), newArm.Close())
 	case <-timer.C:
-		return nil, multierr.Combine(errors.Errorf("arm failed to respond in time (%s)", respondTimeout), arm.Close())
+		return nil, multierr.Combine(errors.Errorf("arm failed to respond in time (%s)", respondTimeout), newArm.Close())
 	case <-onData:
-		return arm, nil
+		return newArm, nil
 	}
 }
 

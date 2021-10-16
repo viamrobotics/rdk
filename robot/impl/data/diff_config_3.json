@@ -55,6 +55,15 @@
                     }
                 ]
             }
+        },
+        {
+            "model": "fake",
+            "name": "mock1",
+            "type": "mock",
+            "attributes":
+            {
+                "one": 2
+            }
         }
     ],
     "processes":

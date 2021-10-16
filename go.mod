@@ -43,13 +43,13 @@ require (
 	github.com/starship-technologies/gobag v1.0.6
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
 	github.com/u2takey/ffmpeg-go v0.3.0
-	github.com/viamrobotics/SensorExporter v0.0.0-20211008170254-4bab14a4b4e3
 	github.com/wasmerio/wasmer-go v1.0.4
 	go-hep.org/x/hep v0.28.5
 	go.mongodb.org/mongo-driver v1.5.3
 	go.opencensus.io v0.23.0
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0
+	go.viam.com/SensorExporter v0.0.0-20211013205849-ef5a0ac22848
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
 	go.viam.com/utils v0.0.2-0.20210924214046-c5939f70b09d
@@ -71,9 +71,4 @@ replace github.com/starship-technologies/gobag => github.com/kkufieta/gobag v0.0
 
 replace github.com/wasmerio/wasmer-go => github.com/meshplus/wasmer-go v0.0.0-20210817103436-19ec68f8bfe2
 
-require github.com/tidwall/gjson v1.6.5 // indirect
-
-require (
-	github.com/gin-gonic/gin v1.7.0 // indirect
-	github.com/viamrobotics/evdev v0.1.3 // indirect
-)
+require github.com/viamrobotics/evdev v0.1.3
