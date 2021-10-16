@@ -9,15 +9,17 @@ import (
 	"testing"
 	"time"
 
+	"go.viam.com/core/sensor/forcematrix"
+
 	"github.com/go-errors/errors"
 
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc/dialer"
 
-	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc/server"
@@ -26,6 +28,7 @@ import (
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
@@ -78,6 +81,12 @@ var emptyStatus = &pb.Status{
 		},
 		"imu1": {
 			Type: imu.Type,
+		},
+		"fsm1": {
+			Type: forcematrix.Type,
+		},
+		"fsm2": {
+			Type: forcematrix.Type,
 		},
 	},
 	Motors: map[string]*pb.MotorStatus{
@@ -159,6 +168,12 @@ var finalStatus = &pb.Status{
 		},
 		"compass4": {
 			Type: compass.RelativeType,
+		},
+		"fsm1": {
+			Type: forcematrix.Type,
+		},
+		"fsm2": {
+			Type: forcematrix.Type,
 		},
 	},
 	Servos: map[string]*pb.ServoStatus{
@@ -509,19 +524,39 @@ func TestClient(t *testing.T) {
 		return injectLidarDev, true
 	}
 
+	injectFsm := &inject.ForceMatrix{}
+	expectedMatrix := make([][]int, 4)
+	for i := 0; i < len(expectedMatrix); i++ {
+		expectedMatrix[i] = []int{1, 2, 3, 4}
+	}
+	injectFsm.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		return expectedMatrix, nil
+	}
+
+	injectFsm2 := &inject.ForceMatrix{}
+	injectFsm2.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		return nil, errors.New("bad matrix")
+	}
+
 	injectCompassDev := &inject.Compass{}
 	injectRelCompassDev := &inject.RelativeCompass{}
 	injectIMUDev := &inject.IMU{}
 	injectRobot2.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 		capSensorName = name
-		if name == "compass2" {
+		switch name {
+		case "compass2":
 			return injectRelCompassDev, true
-		}
-		if name == "imu1" {
+		case "imu1":
 			return injectIMUDev, true
+		case "fsm1":
+			return injectFsm, true
+		case "fsm2":
+			return injectFsm2, true
+		default:
+			return injectCompassDev, true
 		}
-		return injectCompassDev, true
 	}
+
 	injectCompassDev.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 		return []interface{}{1.2, 2.3}, nil
 	}
@@ -610,6 +645,10 @@ func TestClient(t *testing.T) {
 					Orientation: &spatialmath.OrientationVectorDegrees{OX: 0, OY: 0, OZ: 1.0000000000000002, Theta: 7},
 				},
 			},
+			{
+				Name: "b",
+				Type: config.ComponentTypeBase,
+			},
 		},
 	}
 	injectRobot1.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
@@ -622,6 +661,8 @@ func TestClient(t *testing.T) {
 	newCfg, err := client.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, newCfg.Components[0], test.ShouldResemble, cfg.Components[0])
+	test.That(t, newCfg.Components[1], test.ShouldResemble, cfg.Components[1])
+	test.That(t, newCfg.Components[1].Frame, test.ShouldBeNil)
 
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return nil, errors.New("whoops")
@@ -772,6 +813,28 @@ func TestClient(t *testing.T) {
 	_, err = sensorDevice.Readings(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
+
+	resource1, ok := client.ResourceByName(arm.Named("arm1"))
+	test.That(t, ok, test.ShouldBeTrue)
+	_, err = resource1.(*armClient).CurrentPosition(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+
+	_, err = resource1.(*armClient).CurrentJointPositions(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+
+	err = resource1.(*armClient).MoveToPosition(context.Background(), &pb.ArmPosition{X: 1})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+
+	err = resource1.(*armClient).MoveToJointPositions(context.Background(), &pb.JointPositions{Degrees: []float64{1}})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+
+	err = resource1.(*armClient).JointMoveDelta(context.Background(), 0, 0)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
 	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)
@@ -1115,8 +1178,60 @@ func TestClient(t *testing.T) {
 	test.That(t, ea, test.ShouldResemble, &spatialmath.EulerAngles{1, 2, 3})
 	test.That(t, capSensorName, test.ShouldEqual, "imu1")
 
+	resource1, ok = client.ResourceByName(arm.Named("arm1"))
+	test.That(t, ok, test.ShouldBeTrue)
+	pos, err = resource1.(*armClient).CurrentPosition(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
+
+	jp, err = resource1.(*armClient).CurrentJointPositions(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, jp.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].JointPositions.String())
+
+	pos = &pb.ArmPosition{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
+	err = resource1.(*armClient).MoveToPosition(context.Background(), pos)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capArmPos.String(), test.ShouldResemble, pos.String())
+	test.That(t, capArmName, test.ShouldEqual, "arm1")
+
+	resource2, ok := client.ResourceByName(arm.Named("arm2"))
+	test.That(t, ok, test.ShouldBeTrue)
+	jointPos = &pb.JointPositions{Degrees: []float64{1.2, 3.4}}
+	err = resource2.(*armClient).MoveToJointPositions(context.Background(), jointPos)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos.String())
+	test.That(t, capArmName, test.ShouldEqual, "arm2")
+
+	err = resource2.(*armClient).JointMoveDelta(context.Background(), 2, 28)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capArmJoint, test.ShouldEqual, 2)
+	test.That(t, capArmJointAngleDeg, test.ShouldEqual, 28)
+	test.That(t, capArmName, test.ShouldEqual, "arm2")
+
+	sensorDev, ok = client.SensorByName("fsm1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, sensorDev, test.ShouldImplement, (*forcematrix.ForceMatrix)(nil))
+	readings, err = sensorDev.Readings(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, readings[0], test.ShouldResemble, expectedMatrix)
+
+	sensorDev, ok = client.SensorByName("fsm2")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, sensorDev, test.ShouldImplement, (*forcematrix.ForceMatrix)(nil))
+	_, err = sensorDev.Readings(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "bad matrix")
+
 	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func newResourceNameSet(values ...resource.Name) map[resource.Name]struct{} {
+	set := make(map[resource.Name]struct{}, len(values))
+	for _, val := range values {
+		set[val] = struct{}{}
+	}
+	return set
 }
 
 func TestClientReferesh(t *testing.T) {
@@ -1172,8 +1287,9 @@ func TestClientReferesh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar2", "lidar3"))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
-	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4"))
+	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4", "fsm1", "fsm2"))
 	test.That(t, utils.NewStringSet(client.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo2", "servo3"))
+	test.That(t, newResourceNameSet(client.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm2"), arm.Named("arm3")}...))
 
 	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)
@@ -1196,7 +1312,8 @@ func TestClientReferesh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1"))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board3"))
-	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass1", "compass2", "imu1"))
+	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass1", "compass2", "imu1", "fsm1", "fsm2"))
+	test.That(t, newResourceNameSet(client.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm1")}...))
 
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return finalStatus, nil
@@ -1210,7 +1327,8 @@ func TestClientReferesh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar2", "lidar3"))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
-	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4"))
+	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4", "fsm1", "fsm2"))
+	test.That(t, newResourceNameSet(client.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm2"), arm.Named("arm3")}...))
 
 	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)

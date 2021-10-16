@@ -14,7 +14,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/action"
-	"go.viam.com/core/arm"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/motor"
 
 	"go.viam.com/core/config"

@@ -1,8 +1,6 @@
 package spatialmath
 
+import "github.com/golang/geo/r3"
+
 // AngularVelocity contains angular velocity in deg/s across x/y/z axes.
-type AngularVelocity struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-	Z float64 `json:"z"`
-}
+type AngularVelocity r3.Vector

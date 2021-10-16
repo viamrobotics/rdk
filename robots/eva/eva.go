@@ -20,11 +20,10 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/arm"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -36,11 +35,11 @@ import (
 var evamodeljson []byte
 
 func init() {
-	registry.RegisterArm("eva", registry.Arm{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+	registry.RegisterComponent(arm.Subtype, "eva", registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewEva(ctx, config.Host, config.Attributes, logger)
 		},
-		Frame: func(name string) (referenceframe.Frame, error) { return evaFrame(name) },
+		Frame: func(name string) (frame.Frame, error) { return evaFrame(name) },
 	})
 }
 
@@ -132,9 +131,6 @@ func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPo
 }
 
 func (e *eva) doMoveJoints(ctx context.Context, joints []float64) error {
-	e.moveLock.Lock()
-	defer e.moveLock.Unlock()
-
 	err := e.apiLock(ctx)
 	if err != nil {
 		return err
@@ -319,7 +315,7 @@ func evaModel() (*kinematics.Model, error) {
 }
 
 // EvaFrame() returns the reference frame of the Eva, also
-func evaFrame(name string) (referenceframe.Frame, error) {
+func evaFrame(name string) (frame.Frame, error) {
 	frame, err := evaModel()
 	if err != nil {
 		return nil, err

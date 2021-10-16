@@ -6,6 +6,7 @@ import (
 
 	"go.viam.com/test"
 
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/metadata/service"
 	"go.viam.com/core/resource"
 )
@@ -14,14 +15,9 @@ func TestAdd(t *testing.T) {
 	r, err := service.New()
 	test.That(t, err, test.ShouldBeNil)
 	service := r.All()[0]
-	arm, err := resource.New(
-		resource.ResourceNamespaceCore,
-		resource.ResourceTypeComponent,
-		resource.ResourceSubtypeArm,
-		"arm1",
-	)
+	arm := arm.Named("arm1")
 	test.That(t, err, test.ShouldBeNil)
-	sensor, err := resource.New(
+	sensor := resource.NewName(
 		resource.ResourceNamespaceCore,
 		resource.ResourceTypeComponent,
 		resource.ResourceSubtypeSensor,
@@ -29,12 +25,8 @@ func TestAdd(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	newMetadata, err := resource.New(
-		resource.ResourceNamespaceCore,
-		resource.ResourceTypeService,
-		resource.ResourceSubtypeMetadata,
-		"metadata1",
-	)
+	newMetadata := resource.NewFromSubtype(service.Subtype, "metadata1")
+
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, tc := range []struct {
@@ -91,14 +83,9 @@ func TestReplace(t *testing.T) {
 	r, err := service.New()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(r.All()), test.ShouldEqual, 1)
-	arm, err := resource.New(
-		resource.ResourceNamespaceCore,
-		resource.ResourceTypeComponent,
-		resource.ResourceSubtypeArm,
-		"arm1",
-	)
+	arm := arm.Named("arm1")
 	test.That(t, err, test.ShouldBeNil)
-	sensor, err := resource.New(
+	sensor := resource.NewName(
 		resource.ResourceNamespaceCore,
 		resource.ResourceTypeComponent,
 		resource.ResourceSubtypeSensor,
@@ -106,12 +93,7 @@ func TestReplace(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	metadataSvc, err := resource.New(
-		resource.ResourceNamespaceCore,
-		resource.ResourceTypeService,
-		resource.ResourceSubtypeMetadata,
-		"",
-	)
+	metadataSvc := resource.NewFromSubtype(service.Subtype, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, tc := range []struct {

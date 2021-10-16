@@ -6,6 +6,8 @@ import (
 	"math"
 	"sort"
 
+	"go.viam.com/core/utils"
+
 	"github.com/go-errors/errors"
 
 	"github.com/disintegration/imaging"
@@ -21,12 +23,8 @@ func (i *Image) AverageColorAndStats(p image.Point, radius int) (Color, float64)
 	total := 0.0
 	num := 0.0
 
-	for xx := p.X - radius; xx <= p.X+radius; xx++ {
-		for yy := p.Y - radius; yy <= p.Y+radius; yy++ {
-			if xx < 0 || yy < 0 || xx >= i.width || yy >= i.height {
-				continue
-			}
-
+	for xx := utils.MaxInt(0, p.X-radius); xx < utils.MinInt(p.X+radius, i.width); xx++ {
+		for yy := utils.MaxInt(0, p.Y-radius); yy < utils.MinInt(p.Y+radius, i.height); yy++ {
 			num++
 
 			myColor := i.Get(image.Point{xx, yy})

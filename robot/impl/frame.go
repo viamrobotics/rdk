@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 
 	"go.viam.com/core/config"
 	ref "go.viam.com/core/referenceframe"
@@ -31,6 +32,9 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 			return nil, errors.New("all components need names")
 		}
 		if c.Frame != nil {
+			if c.Frame.Parent == "" {
+				return nil, fmt.Errorf("parent field in component %q is empty", c.Name)
+			}
 			modelFrame, err := makeModelFrame(&c)
 			if err != nil {
 				return nil, err
@@ -108,7 +112,18 @@ func buildFrameSystem(name string, frameNames map[string]bool, children map[stri
 	}
 	// ensure that there are no disconnected frames
 	if len(visited) != len(frameNames) {
-		return nil, fmt.Errorf("the system is not fully connected, expected %d frames but frame system has %d", len(frameNames), len(visited))
+		return nil, fmt.Errorf("the frame system is not fully connected, expected %d frames but frame system has %d. Expected frames are: %v. Actual frames are: %v", len(frameNames), len(visited), mapKeys(frameNames), mapKeys(visited))
 	}
 	return fs, nil
+}
+
+func mapKeys(fullmap map[string]bool) []string {
+	keys := make([]string, len(fullmap))
+	i := 0
+	for k := range fullmap {
+		keys[i] = k
+		i++
+	}
+	sort.Strings(keys)
+	return keys
 }

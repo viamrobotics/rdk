@@ -14,10 +14,10 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/action"
-	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc/client"
@@ -2234,6 +2234,41 @@ func TestServer(t *testing.T) {
 		<-done
 		test.That(t, streamErr, test.ShouldEqual, context.Canceled)
 
+	})
+
+	t.Run("ForceMatrixMatrix", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err := server.ForceMatrixMatrix(context.Background(), &pb.ForceMatrixMatrixRequest{
+			Name: "fsm1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no force matrix")
+		test.That(t, capName, test.ShouldEqual, "fsm1")
+
+		var capMatrix [][]int
+		injectFsm := &inject.ForceMatrix{}
+		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+			return injectFsm, true
+		}
+		expectedMatrix := make([][]int, 4)
+		for i := 0; i < len(expectedMatrix); i++ {
+			expectedMatrix[i] = []int{1, 2, 3, 4}
+		}
+		injectFsm.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+			capMatrix = expectedMatrix
+			return expectedMatrix, nil
+		}
+		_, err = server.ForceMatrixMatrix(context.Background(), &pb.ForceMatrixMatrixRequest{
+			Name: "fsm1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capMatrix, test.ShouldResemble, expectedMatrix)
 	})
 
 }

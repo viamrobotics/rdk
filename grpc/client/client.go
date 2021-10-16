@@ -18,10 +18,10 @@ import (
 	rpcclient "go.viam.com/utils/rpc/client"
 	"go.viam.com/utils/rpc/dialer"
 
-	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc"
@@ -31,10 +31,12 @@ import (
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
@@ -54,8 +56,7 @@ type RobotClient struct {
 	conn    dialer.ClientConn
 	client  pb.RobotServiceClient
 
-	namesMu              *sync.Mutex
-	armNames             []string
+	namesMu              *sync.RWMutex
 	baseNames            []string
 	gripperNames         []string
 	boardNames           []boardInfo
@@ -67,6 +68,7 @@ type RobotClient struct {
 	inputControllerNames []string
 	functionNames        []string
 	serviceNames         []string
+	resourceNames        []resource.Name
 
 	sensorTypes map[string]sensor.Type
 
@@ -109,7 +111,7 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 		sensorTypes:             map[string]sensor.Type{},
 		cancelBackgroundWorkers: cancel,
 		logger:                  logger,
-		namesMu:                 &sync.Mutex{},
+		namesMu:                 &sync.RWMutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		cachedStatusMu:          &sync.Mutex{},
 	}
@@ -221,11 +223,12 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 		cc := config.Component{
 			Name: c.Name,
 			Type: config.ComponentType(c.Type),
-			Frame: &config.Frame{
-				Parent: c.Parent,
-			},
 		}
-		if c.Pose != nil {
+		// check if component has frame attribute, leave as nil if it doesn't
+		if c.Parent != "" {
+			cc.Frame = &config.Frame{Parent: c.Parent}
+		}
+		if cc.Frame != nil && c.Pose != nil {
 			cc.Frame.Translation = config.Translation{
 				X: c.Pose.X,
 				Y: c.Pose.Y,
@@ -250,10 +253,10 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 	panic(errUnimplemented)
 }
 
-// ArmByName returns a arm by name. It is assumed to exist on the
+// ArmByName returns an arm by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) ArmByName(name string) (arm.Arm, bool) {
-	return &armClient{rc, name}, true
+	return &armClient{rc: rc, name: name}, true
 }
 
 // BaseByName returns a base by name. It is assumed to exist on the
@@ -305,6 +308,8 @@ func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 		return &relativeCompassClient{&compassClient{sc}}, true
 	case imu.Type:
 		return &imuClient{sc}, true
+	case forcematrix.Type:
+		return &forcematrixClient{sc}, true
 	default:
 		return sc, true
 	}
@@ -344,6 +349,16 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 	return nil, false
 }
 
+// ResourceByName returns resource by name.
+func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
+	switch name.Subtype {
+	case arm.Subtype:
+		return &armClient{rc: rc, name: name.Name}, true
+	default:
+		return nil, false
+	}
+}
+
 // Refresh manually updates the underlying parts of the robot based
 // on a status retrieved from the server.
 // TODO(https://github.com/viamrobotics/core/issues/57) - do not use status
@@ -358,11 +373,11 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 	rc.storeStatus(status)
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
-	rc.armNames = nil
+	// TODO: placeholder implementation
+	rc.resourceNames = []resource.Name{}
 	if len(status.Arms) != 0 {
-		rc.armNames = make([]string, 0, len(status.Arms))
 		for name := range status.Arms {
-			rc.armNames = append(rc.armNames, name)
+			rc.resourceNames = append(rc.resourceNames, arm.Named(name))
 		}
 	}
 	rc.baseNames = nil
@@ -474,43 +489,49 @@ func (rc *RobotClient) RemoteNames() []string {
 
 // ArmNames returns the names of all known arms.
 func (rc *RobotClient) ArmNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
-	return copyStringSlice(rc.armNames)
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		if v.Subtype == arm.Subtype {
+			names = append(names, v.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // GripperNames returns the names of all known grippers.
 func (rc *RobotClient) GripperNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.gripperNames)
 }
 
 // CameraNames returns the names of all known cameras.
 func (rc *RobotClient) CameraNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.cameraNames)
 }
 
 // LidarNames returns the names of all known lidars.
 func (rc *RobotClient) LidarNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.lidarNames)
 }
 
 // BaseNames returns the names of all known bases.
 func (rc *RobotClient) BaseNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.baseNames)
 }
 
 // BoardNames returns the names of all known boards.
 func (rc *RobotClient) BoardNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	out := make([]string, 0, len(rc.boardNames))
 	for _, info := range rc.boardNames {
 		out = append(out, info.name)
@@ -520,22 +541,22 @@ func (rc *RobotClient) BoardNames() []string {
 
 // SensorNames returns the names of all known sensors.
 func (rc *RobotClient) SensorNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.sensorNames)
 }
 
 // ServoNames returns the names of all known servos.
 func (rc *RobotClient) ServoNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.servoNames)
 }
 
 // MotorNames returns the names of all known motors.
 func (rc *RobotClient) MotorNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.motorNames)
 }
 
@@ -548,8 +569,8 @@ func (rc *RobotClient) InputControllerNames() []string {
 
 // FunctionNames returns the names of all known functions.
 func (rc *RobotClient) FunctionNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.functionNames)
 }
 
@@ -565,6 +586,22 @@ func (rc *RobotClient) ServiceNames() []string {
 // of the interface!
 func (rc *RobotClient) ProcessManager() pexec.ProcessManager {
 	return pexec.NoopProcessManager
+}
+
+// ResourceNames returns all resource names
+func (rc *RobotClient) ResourceNames() []resource.Name {
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
+	names := []resource.Name{}
+	for _, v := range rc.resourceNames {
+		names = append(
+			names,
+			resource.NewName(
+				v.Namespace, v.ResourceType, v.ResourceSubtype, v.Name,
+			),
+		)
+	}
+	return names
 }
 
 // FrameSystem not implemented for remote robots
@@ -1109,7 +1146,7 @@ func (cc *compassClient) Desc() sensor.Description {
 	return sensor.Description{compass.Type, ""}
 }
 
-// relativeCompassClient satisfies a gRPC based compass.RelativeDevice. Refer to the interface
+// relativeCompassClient satisfies a gRPC based compass.RelativeCompass. Refer to the interface
 // for descriptions of its methods.
 type relativeCompassClient struct {
 	*compassClient
@@ -1506,4 +1543,51 @@ func (ic *inputClient) execCallback(ctx context.Context, event input.Event) {
 			ic.callbackWait.Done()
 		})
 	}
+}
+
+// forcematrixClient satisfies a gRPC based
+// forcematrix.ForceMatrix.
+// Refer to the ForceMatrix interface for descriptions of its methods.
+type forcematrixClient struct {
+	*sensorClient
+}
+
+func (fmc *forcematrixClient) Readings(ctx context.Context) ([]interface{}, error) {
+	matrix, err := fmc.Matrix(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return []interface{}{matrix}, nil
+}
+
+func (fmc *forcematrixClient) Matrix(ctx context.Context) ([][]int, error) {
+	resp, err := fmc.rc.client.ForceMatrixMatrix(ctx,
+		&pb.ForceMatrixMatrixRequest{
+			Name: fmc.name,
+		})
+	if err != nil {
+		return nil, err
+	}
+	return protoToMatrix(resp), nil
+}
+
+func (fmc *forcematrixClient) Desc() sensor.Description {
+	return sensor.Description{forcematrix.Type, ""}
+}
+
+// Ensure implements ForceMatrix
+var _ = forcematrix.ForceMatrix(&forcematrixClient{})
+
+// protoToMatrix is a helper function to convert protobuf matrix values into a 2-dimensional int slice.
+func protoToMatrix(matrixResponse *pb.ForceMatrixMatrixResponse) [][]int {
+	rows := matrixResponse.Matrix.Rows
+	cols := matrixResponse.Matrix.Cols
+	matrix := make([][]int, rows)
+	for r := range matrix {
+		matrix[r] = make([]int, cols)
+		for c := range matrix[r] {
+			matrix[r][c] = int(matrixResponse.Matrix.Data[r*int(cols)+c])
+		}
+	}
+	return matrix
 }

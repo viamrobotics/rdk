@@ -98,6 +98,11 @@
             [
                 "local"
             ]
+        },
+        {
+            "name" : "boatbot",
+            "type" : "base",
+            "model" : "viam-boat1"
         }
     ],
     "remotes":
