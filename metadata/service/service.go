@@ -20,6 +20,17 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
+type Metadata interface {
+	// All returns the list of resources.
+	All() []resource.Name
+
+	// Add adds an additional resource to the list.
+	Add(res resource.Name) error
+
+	// Replace replaces the resource list with another resource list atomically.
+	Replace(r []resource.Name) error
+}
+
 // Service keeps track of all resources associated with a robot.
 type Service struct {
 	mu        sync.Mutex
@@ -27,7 +38,7 @@ type Service struct {
 }
 
 // New creates a new Service struct and initializes the resource list with a metadata service.
-func New() (*Service, error) {
+func New() (Metadata, error) {
 	metadata := resource.NewFromSubtype(Subtype, "")
 	resources := []resource.Name{metadata}
 
@@ -62,7 +73,7 @@ func (s *Service) Add(res resource.Name) error {
 	return nil
 }
 
-// Replace replaces the resource list with another resource atomically.
+// Replace replaces the resource list with another resource list atomically.
 func (s *Service) Replace(r []resource.Name) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
