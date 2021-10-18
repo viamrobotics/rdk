@@ -76,7 +76,6 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 	injectMetadata := &inject.Metadata{}
-	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterMetadataServiceServer(gServer, server.New(injectMetadata))
 
 	go gServer.Serve(listener)
