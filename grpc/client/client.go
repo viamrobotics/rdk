@@ -25,6 +25,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc"
+	metadataclient "go.viam.com/core/grpc/metadata/client"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
@@ -362,13 +363,29 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 	rc.storeStatus(status)
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
+
 	// TODO: placeholder implementation
-	rc.resourceNames = []resource.Name{}
-	if len(status.Arms) != 0 {
-		for name := range status.Arms {
-			rc.resourceNames = append(rc.resourceNames, arm.Named(name))
+	// call metadata service. don't fail even if there is an error - it is ok if remote's metadata service is unimplemented
+	metadataClient, err := metadataclient.NewClient(ctx, rc.address, rc.logger)
+	if err == nil {
+		names, err := metadataClient.Resources(ctx)
+		if err == nil {
+			rc.resourceNames = make([]resource.Name, 0, len(names))
+			for _, name := range names {
+				newName := resource.NewName(
+					resource.Namespace(name.Namespace),
+					resource.TypeName(name.Type),
+					resource.SubtypeName(name.Subtype),
+					name.Name,
+				)
+				rc.resourceNames = append(rc.resourceNames, newName)
+			}
+		}
+		if err = metadataClient.Close(); err != nil {
+			return err
 		}
 	}
+
 	rc.baseNames = nil
 	if len(status.Bases) != 0 {
 		rc.baseNames = make([]string, 0, len(status.Bases))
