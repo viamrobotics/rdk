@@ -94,15 +94,15 @@ const (
 )
 
 // ContextWithService attaches a metadata Service to the given context.
-func ContextWithService(ctx context.Context, s *Service) context.Context {
-	return context.WithValue(ctx, ctxKeyMetadata, s)
+func ContextWithService(ctx context.Context, m Metadata) context.Context {
+	return context.WithValue(ctx, ctxKeyMetadata, m)
 }
 
 // ContextService returns a metadata Service struct. It may be nil if the value was never set.
-func ContextService(ctx context.Context) *Service {
+func ContextService(ctx context.Context) Metadata {
 	s := ctx.Value(ctxKeyMetadata)
 	if s == nil {
 		return nil
 	}
-	return s.(*Service)
+	return s.(Metadata)
 }
