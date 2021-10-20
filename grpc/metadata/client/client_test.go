@@ -5,6 +5,7 @@ import (
 	"net"
 	"testing"
 
+	rpcclient "go.viam.com/utils/rpc/client"
 	"go.viam.com/utils/rpc/dialer"
 
 	"go.viam.com/core/component/arm"
@@ -51,12 +52,12 @@ func TestClient(t *testing.T) {
 	// failing
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err = client.NewClient(cancelCtx, listener1.Addr().String(), logger)
+	_, err = client.NewClient(cancelCtx, listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 
 	// working
-	client, err := client.NewClient(context.Background(), listener1.Addr().String(), logger)
+	client, err := client.NewClient(context.Background(), listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMetadata.Add(newResource)
@@ -82,9 +83,9 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &trackingDialer{Dialer: dialer.NewCachedDialer()}
 	ctx := dialer.ContextWithDialer(context.Background(), td)
-	client1, err := client.NewClient(ctx, listener.Addr().String(), logger)
+	client1, err := client.NewClient(ctx, listener.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := client.NewClient(ctx, listener.Addr().String(), logger)
+	client2, err := client.NewClient(ctx, listener.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.dialCalled, test.ShouldEqual, 2)
 
