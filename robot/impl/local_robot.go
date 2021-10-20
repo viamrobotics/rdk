@@ -34,9 +34,7 @@ import (
 	_ "go.viam.com/SensorExporter/go"
 
 	// registration
-	_ "go.viam.com/core/lidar/client"
 	_ "go.viam.com/core/robots/fake"
-	_ "go.viam.com/core/sensor/compass/client"
 	_ "go.viam.com/core/sensor/compass/gy511"
 	_ "go.viam.com/core/sensor/compass/lidar"
 	_ "go.viam.com/core/sensor/forcematrix"

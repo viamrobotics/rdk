@@ -14,6 +14,7 @@ import (
 	"github.com/go-errors/errors"
 
 	"go.viam.com/utils"
+	rpcclient "go.viam.com/utils/rpc/client"
 	"go.viam.com/utils/rpc/dialer"
 
 	"go.viam.com/core/base"
@@ -1222,7 +1223,7 @@ func TestClientRefresh(t *testing.T) {
 	client, err := NewClientWithOptions(
 		context.Background(),
 		listener.Addr().String(),
-		RobotClientOptions{RefreshEvery: dur, Insecure: true},
+		RobotClientOptions{RefreshEvery: dur, DialOptions: rpcclient.DialOptions{Insecure: true}},
 		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -1258,7 +1259,7 @@ func TestClientRefresh(t *testing.T) {
 	client, err = NewClientWithOptions(
 		context.Background(),
 		listener.Addr().String(),
-		RobotClientOptions{RefreshEvery: dur, Insecure: true},
+		RobotClientOptions{RefreshEvery: dur, DialOptions: rpcclient.DialOptions{Insecure: true}},
 		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
