@@ -15,8 +15,9 @@ import (
 
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
-	rpcclient "go.viam.com/utils/rpc/client"
 	"go.viam.com/utils/rpc/dialer"
+
+	rpcclient "go.viam.com/utils/rpc/client"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -85,17 +86,14 @@ type RobotClientOptions struct {
 	// robot. If unset, it will not be refreshed automatically.
 	RefreshEvery time.Duration
 
-	// Insecure determines if the gRPC connection is TLS based.
-	Insecure bool
+	// DialOptions are options using for clients dialing gRPC servers.
+	DialOptions rpcclient.DialOptions
 }
 
 // NewClientWithOptions constructs a new RobotClient that is served at the given address. The given
 // context can be used to cancel the operation. Additionally, construction time options can be given.
 func NewClientWithOptions(ctx context.Context, address string, opts RobotClientOptions, logger golog.Logger) (*RobotClient, error) {
-	ctx, timeoutCancel := context.WithTimeout(ctx, 20*time.Second)
-	defer timeoutCancel()
-
-	conn, err := rpcclient.Dial(ctx, address, rpcclient.DialOptions{Insecure: opts.Insecure}, logger)
+	conn, err := grpc.Dial(ctx, address, opts.DialOptions, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +136,11 @@ type boardInfo struct {
 // NewClient constructs a new RobotClient that is served at the given address. The given
 // context can be used to cancel the operation.
 func NewClient(ctx context.Context, address string, logger golog.Logger) (*RobotClient, error) {
-	return NewClientWithOptions(ctx, address, RobotClientOptions{Insecure: true}, logger)
+	return NewClientWithOptions(ctx, address, RobotClientOptions{
+		DialOptions: rpcclient.DialOptions{
+			Insecure: true,
+		},
+	}, logger)
 }
 
 // Close cleanly closes the underlying connections and stops the refresh goroutine
