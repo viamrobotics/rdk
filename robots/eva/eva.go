@@ -37,7 +37,7 @@ var evamodeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, "eva", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewEva(ctx, config.Host, config.Attributes, logger)
+			return NewEva(ctx, config, logger)
 		},
 		Frame: func(name string) (frame.Frame, error) { return evaFrame(name) },
 	})
@@ -78,6 +78,9 @@ type eva struct {
 	moveLock *sync.Mutex
 	logger   golog.Logger
 	ik       kinematics.InverseKinematics
+
+	frame       frame.Frame
+	frameconfig *config.Frame
 }
 
 func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
@@ -309,6 +312,16 @@ func (e *eva) apiUnlock(ctx context.Context) {
 	}
 }
 
+// Frame returns the intrinsic frame of the arm
+func (e *eva) Frame() frame.Frame {
+	return e.frame
+}
+
+// FrameSystemLink returns all the information necessary for including the arm in a FrameSystem
+func (e *eva) FrameSystemLink() (*config.Frame, frame.Frame) {
+	return e.frameconfig, e.frame
+}
+
 // EvaModel() returns the kinematics model of the Eva, also has all Frame information.
 func evaModel() (*kinematics.Model, error) {
 	return kinematics.ParseJSON(evamodeljson)
@@ -325,8 +338,9 @@ func evaFrame(name string) (frame.Frame, error) {
 }
 
 // NewEva TODO
-func NewEva(ctx context.Context, host string, attrs config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
-
+func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+	attrs := cfg.Attributes
+	host := cfg.Host
 	model, err := evaModel()
 	if err != nil {
 		return nil, err
@@ -335,14 +349,20 @@ func NewEva(ctx context.Context, host string, attrs config.AttributeMap, logger 
 	if err != nil {
 		return nil, err
 	}
+	fr, err := evaFrame(cfg.Name)
+	if err != nil {
+		return nil, err
+	}
 
 	e := &eva{
-		host:     host,
-		version:  "v1",
-		token:    attrs.String("token"),
-		logger:   logger,
-		moveLock: &sync.Mutex{},
-		ik:       ik,
+		host:        host,
+		version:     "v1",
+		token:       attrs.String("token"),
+		logger:      logger,
+		moveLock:    &sync.Mutex{},
+		ik:          ik,
+		frame:       fr,
+		frameconfig: cfg.Frame,
 	}
 
 	name, err := e.apiName(ctx)

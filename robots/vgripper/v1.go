@@ -31,7 +31,7 @@ func init() {
 			if !ok {
 				return nil, errors.New("viam gripper requires a board called local")
 			}
-			return NewGripperV1(ctx, r, b, config.Attributes.Int("pressureLimit", 800), logger)
+			return NewGripperV1(ctx, r, b, config, logger)
 		},
 		Frame: func(name string) (referenceframe.Frame, error) {
 			// A viam gripper is 220mm from mount point to center of gripper paddles
@@ -66,11 +66,14 @@ type GripperV1 struct {
 	logger                        golog.Logger
 
 	numBadCurrentReadings int
+
+	frame       referenceframe.Frame
+	frameconfig *config.Frame
 }
 
 // NewGripperV1 Returns a GripperV1
-func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, pressureLimit int, logger golog.Logger) (*GripperV1, error) {
-
+func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg config.Component, logger golog.Logger) (*GripperV1, error) {
+	pressureLimit := cfg.Attributes.Int("pressureLimit", 800)
 	motor, ok := r.MotorByName("g")
 	if !ok {
 		return nil, errors.New("failed to find motor 'g'")
@@ -83,6 +86,10 @@ func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, pres
 	if !ok {
 		return nil, errors.New("failed to find analog reader 'pressure'")
 	}
+	frame, err := referenceframe.FrameFromPoint(cfg.Name, r3.Vector{0, 0, 220})
+	if err != nil {
+		return nil, err
+	}
 
 	vg := &GripperV1{
 		motor:           motor,
@@ -91,6 +98,8 @@ func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, pres
 		holdingPressure: .5,
 		pressureLimit:   pressureLimit,
 		logger:          logger,
+		frame:           frame,
+		frameconfig:     cfg.Frame,
 	}
 
 	if vg.motor == nil {
@@ -255,6 +264,16 @@ func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, pres
 	}
 
 	return vg, vg.Open(ctx)
+}
+
+// Frame returns the intrinsic frame of the gripper
+func (vg *GripperV1) Frame() referenceframe.Frame {
+	return vg.frame
+}
+
+// FrameSystemLink returns all the information necessary for including the gripper in a FrameSystem
+func (vg *GripperV1) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
+	return vg.frameconfig, vg.frame
 }
 
 // Open opens the jaws

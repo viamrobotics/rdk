@@ -17,7 +17,11 @@ import (
 func init() {
 	registry.RegisterGripper(ModelName, registry.Gripper{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
-			return &Gripper{Name: config.Name}, nil
+			frame, err := referenceframe.FrameFromPoint(config.Name, r3.Vector{0, 0, 200})
+			if err != nil {
+				return nil, err
+			}
+			return &Gripper{Name: config.Name, frame: frame, frameconfig: config.Frame}, nil
 		},
 		Frame: func(name string) (referenceframe.Frame, error) {
 			return referenceframe.FrameFromPoint(name, r3.Vector{0, 0, 200})
@@ -27,7 +31,19 @@ func init() {
 
 // Gripper is a fake gripper that can simply read and set properties.
 type Gripper struct {
-	Name string
+	Name        string
+	frame       referenceframe.Frame
+	frameconfig *config.Frame
+}
+
+// Frame returns the intrinsic frame of the gripper
+func (g *Gripper) Frame() referenceframe.Frame {
+	return g.frame
+}
+
+// FrameSystemLink returns all the information necessary for including the gripper in a FrameSystem
+func (g *Gripper) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
+	return g.frameconfig, g.frame
 }
 
 // Open does nothing.

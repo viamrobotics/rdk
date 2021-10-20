@@ -34,7 +34,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			device := NewLidar(config.Name)
+			device := NewLidar(config)
 			device.SetSeed(seed)
 			return device, nil
 		},
@@ -46,16 +46,33 @@ func init() {
 
 // A Lidar outputs noisy scans based on its current position and seed.
 type Lidar struct {
-	Name       string
-	mu         *sync.Mutex
-	posX, posY float64
-	started    bool
-	seed       int64
+	Name        string
+	mu          *sync.Mutex
+	posX, posY  float64
+	started     bool
+	seed        int64
+	frame       referenceframe.Frame
+	frameconfig *config.Frame
 }
 
 // NewLidar returns a new fake lidar.
-func NewLidar(name string) *Lidar {
-	return &Lidar{Name: name, mu: &sync.Mutex{}}
+func NewLidar(cfg config.Component) *Lidar {
+	name := cfg.Name
+	frame, err := referenceframe.FrameFromPoint(name, r3.Vector{50, 0, 0})
+	if err != nil {
+		panic("this fake lidar frame does not work for some reason")
+	}
+	return &Lidar{Name: name, mu: &sync.Mutex{}, frame: frame, frameconfig: cfg.Frame}
+}
+
+// Frame returns the intrinsic frame of the lidar
+func (l *Lidar) Frame() referenceframe.Frame {
+	return l.frame
+}
+
+// FrameSystemLink returns all the information necessary for including the lidar in a FrameSystem
+func (l *Lidar) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
+	return l.frameconfig, l.frame
 }
 
 // SetPosition sets the given position.
