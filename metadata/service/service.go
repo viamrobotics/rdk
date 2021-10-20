@@ -20,6 +20,7 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
+// Metadata defines what a metdata service should be able to do
 type Metadata interface {
 	// All returns the list of resources.
 	All() []resource.Name
