@@ -26,7 +26,7 @@ func init() {
 			if config.Attributes.Bool("fail_new", false) {
 				return nil, errors.New("whoops")
 			}
-			return NewArmIK(config.Name, logger)
+			return NewArmIK(config, logger)
 		},
 		Frame: func(name string) (frame.Frame, error) {
 			return fakeFrame(name)
@@ -50,7 +50,8 @@ func fakeFrame(name string) (frame.Frame, error) {
 }
 
 // NewArmIK returns a new fake arm.
-func NewArmIK(name string, logger golog.Logger) (arm.Arm, error) {
+func NewArmIK(cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+	name := cfg.Name
 	model, err := fakeModel()
 	if err != nil {
 		return nil, err
@@ -60,22 +61,40 @@ func NewArmIK(name string, logger golog.Logger) (arm.Arm, error) {
 	if err != nil {
 		return nil, err
 	}
+	fr, err := fakeFrame(name)
+	if err != nil {
+		return nil, err
+	}
 
 	return &ArmIK{
-		Name:     name,
-		position: &pb.ArmPosition{},
-		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
-		ik:       ik,
+		Name:        name,
+		position:    &pb.ArmPosition{},
+		joints:      &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		ik:          ik,
+		frame:       fr,
+		frameconfig: cfg.Frame,
 	}, nil
 }
 
 // ArmIK is a fake arm that can simply read and set properties.
 type ArmIK struct {
-	Name       string
-	position   *pb.ArmPosition
-	joints     *pb.JointPositions
-	ik         kinematics.InverseKinematics
-	CloseCount int
+	Name        string
+	position    *pb.ArmPosition
+	joints      *pb.JointPositions
+	ik          kinematics.InverseKinematics
+	CloseCount  int
+	frame       frame.Frame
+	frameconfig *config.Frame
+}
+
+// Frame returns the intrinsic frame of the arm
+func (a *ArmIK) Frame() frame.Frame {
+	return a.frame
+}
+
+// FrameSystemLink returns all the information necessary for including the arm in a FrameSystem
+func (a *ArmIK) FrameSystemLink() (*config.Frame, frame.Frame) {
+	return a.frameconfig, a.frame
 }
 
 // CurrentPosition returns the set position.

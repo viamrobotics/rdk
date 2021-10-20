@@ -39,7 +39,7 @@ var ur5DHmodeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, "ur", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return URArmConnect(ctx, config.Host, config.Attributes.Float64("speed", .1), logger)
+			return URArmConnect(ctx, config, logger)
 		},
 		Frame: func(name string) (referenceframe.Frame, error) { return ur5eFrame(name) },
 	})
@@ -73,6 +73,8 @@ type URArm struct {
 	cancel                  func()
 	activeBackgroundWorkers *sync.WaitGroup
 	ik                      kinematics.InverseKinematics
+	frame                   referenceframe.Frame
+	frameconfig             *config.Frame
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -106,7 +108,9 @@ func (ua *URArm) Close() error {
 }
 
 // URArmConnect TODO
-func URArmConnect(ctx context.Context, host string, speed float64, logger golog.Logger) (arm.Arm, error) {
+func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+	speed := cfg.Attributes.Float64("speed", .1)
+	host := cfg.Host
 	if speed > 1 || speed < .1 {
 		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
 	}
@@ -116,6 +120,10 @@ func URArmConnect(ctx context.Context, host string, speed float64, logger golog.
 		return nil, err
 	}
 	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	if err != nil {
+		return nil, err
+	}
+	frame, err := ur5eFrame(cfg.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -137,6 +145,8 @@ func URArmConnect(ctx context.Context, host string, speed float64, logger golog.
 		logger:                  logger,
 		cancel:                  cancel,
 		ik:                      ik,
+		frame:                   frame,
+		frameconfig:             cfg.Frame,
 	}
 
 	onData := make(chan struct{})
@@ -163,6 +173,16 @@ func URArmConnect(ctx context.Context, host string, speed float64, logger golog.
 	case <-onData:
 		return newArm, nil
 	}
+}
+
+// Frame returns the intrinsic frame of the arm
+func (ua *URArm) Frame() referenceframe.Frame {
+	return ua.frame
+}
+
+// FrameSystemLink returns all the information necessary for including the arm in a FrameSystem
+func (ua *URArm) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
+	return ua.frameconfig, ua.frame
 }
 
 func (ua *URArm) setRuntimeError(re error) {

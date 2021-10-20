@@ -110,7 +110,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		if _, ok := utils.NewStringSet(injectRobot.LidarNames()...)[name]; !ok {
 			return nil, false
 		}
-		return fake.NewLidar(name), true
+		return fake.NewLidar(config.Component{Name: name}), true
 	}
 	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.BoardNames()...)[name]; !ok {
