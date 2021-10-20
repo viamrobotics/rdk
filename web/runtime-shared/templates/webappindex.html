@@ -648,7 +648,7 @@
           }
           await restartStatusStream();
 
-          // query metadata service every 10s
+          // query metadata service every 0.5s
           const metadataReq = new metadataApi.ResourcesRequest();
           const metadataCallBack = function(err, resp) {
             grpcCallback(err, resp, false)
@@ -657,7 +657,7 @@
           }
           const queryMetadata = async function() {
             const metadataResp = metadataService.resources(metadataReq, {}, metadataCallBack);
-            setTimeout(() => queryMetadata(), 10000);
+            setTimeout(() => queryMetadata(), 500);
           }
           await queryMetadata();
 
