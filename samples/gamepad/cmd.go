@@ -64,7 +64,7 @@ func debugOut(ctx context.Context, r robot.Robot) {
 
 	// Expects auto_reconnect to be set in the config
 	for {
-		if !utils.SelectContextOrWait(ctx, 1*time.Second) {
+		if !utils.SelectContextOrWait(ctx, time.Second) {
 			return
 		}
 		inputs, err := g.Inputs(ctx)
