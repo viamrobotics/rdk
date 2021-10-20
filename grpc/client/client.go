@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
+	"go.uber.org/multierr"
 
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -43,6 +44,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -354,7 +357,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 // TODO(https://github.com/viamrobotics/core/issues/57) - do not use status
 // as we plan on making it a more expensive request with more details than
 // needed for the purposes of this method.
-func (rc *RobotClient) Refresh(ctx context.Context) error {
+func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	status, err := rc.status(ctx)
 	if err != nil {
 		return errors.Errorf("status call failed: %w", err)
@@ -365,24 +368,29 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 	defer rc.namesMu.Unlock()
 
 	// TODO: placeholder implementation
-	// call metadata service. don't fail even if there is an error - it is ok if remote's metadata service is unimplemented
+	// call metadata service.
 	metadataClient, err := metadataclient.NewClient(ctx, rc.address, rc.logger)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = multierr.Combine(err, metadataClient.Close())
+	}()
+	names, err := metadataClient.Resources(ctx)
+	// only return if it is not unimplemented - means a bigger error came up
+	if grpcstatus.Code(err) != codes.Unimplemented {
+		return err
+	}
 	if err == nil {
-		names, err := metadataClient.Resources(ctx)
-		if err == nil {
-			rc.resourceNames = make([]resource.Name, 0, len(names))
-			for _, name := range names {
-				newName := resource.NewName(
-					resource.Namespace(name.Namespace),
-					resource.TypeName(name.Type),
-					resource.SubtypeName(name.Subtype),
-					name.Name,
-				)
-				rc.resourceNames = append(rc.resourceNames, newName)
-			}
-		}
-		if err = metadataClient.Close(); err != nil {
-			return err
+		rc.resourceNames = make([]resource.Name, 0, len(names))
+		for _, name := range names {
+			newName := resource.NewName(
+				resource.Namespace(name.Namespace),
+				resource.TypeName(name.Type),
+				resource.SubtypeName(name.Subtype),
+				name.Name,
+			)
+			rc.resourceNames = append(rc.resourceNames, newName)
 		}
 	}
 
