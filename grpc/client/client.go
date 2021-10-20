@@ -1410,8 +1410,8 @@ func (ic *inputClient) RegisterControl(ctx context.Context, ctrlFunc input.Contr
 
 	ic.controller.rc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
+		defer ic.controller.rc.activeBackgroundWorkers.Done()
 		ic.connectStream(ctx)
-		ic.controller.rc.activeBackgroundWorkers.Done()
 	})
 	return nil
 }
@@ -1531,16 +1531,16 @@ func (ic *inputClient) execCallback(ctx context.Context, event input.Event) {
 	if ok {
 		ic.callbackWait.Add(1)
 		utils.PanicCapturingGo(func() {
+			defer ic.callbackWait.Done()
 			callback(ctx, ic, event)
-			ic.callbackWait.Done()
 		})
 	}
 	callbackAll, ok := ic.callbacks[input.AllEvents]
 	if ok {
 		ic.callbackWait.Add(1)
 		utils.PanicCapturingGo(func() {
+			defer ic.callbackWait.Done()
 			callbackAll(ctx, ic, event)
-			ic.callbackWait.Done()
 		})
 	}
 }

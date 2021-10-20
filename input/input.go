@@ -47,7 +47,6 @@ type ControlCode string
 
 // ControlCodes, to be expanded as new input devices are developed
 const (
-	// Reserving keys under 1000 for overlap with standard keycodes
 	// Axes
 	AbsoluteX     ControlCode = "AbsoluteX"
 	AbsoluteY     ControlCode = "AbsoluteY"
