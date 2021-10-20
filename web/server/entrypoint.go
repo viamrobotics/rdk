@@ -26,6 +26,7 @@ import (
 	_ "go.viam.com/core/base/impl"
 	_ "go.viam.com/core/board/arduino"
 	_ "go.viam.com/core/board/detector"
+	_ "go.viam.com/core/camera/velodyne" // velodyne lidary
 	_ "go.viam.com/core/motor/gpio"
 	_ "go.viam.com/core/motor/gpiostepper"
 	_ "go.viam.com/core/rimage/imagesource"
