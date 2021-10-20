@@ -262,19 +262,25 @@ func TestRemoteRobot(t *testing.T) {
 		return &config.Config{
 			Components: []config.Component{
 				{
-					Name: "foo",
+					Name:  "foo",
+					Type:  "gripper",
+					Model: "fake",
 					Frame: &config.Frame{
 						Parent: "bar",
 					},
 				},
 				{
-					Name: "bar",
+					Name:  "bar",
+					Type:  "arm",
+					Model: "fake",
 					Frame: &config.Frame{
 						Parent: "world",
 					},
 				},
 				{
-					Name: "som",
+					Name:  "som",
+					Type:  "camera",
+					Model: "fake",
 				},
 			},
 		}
@@ -287,20 +293,32 @@ func TestRemoteRobot(t *testing.T) {
 	conf, err := robot.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conf.Components[0].Name, test.ShouldEqual, "one.foo")
+	test.That(t, conf.Components[0].Type, test.ShouldEqual, "gripper")
+	test.That(t, conf.Components[0].Model, test.ShouldEqual, "fake")
 	test.That(t, conf.Components[0].Frame.Parent, test.ShouldEqual, "one.bar")
 	test.That(t, conf.Components[1].Name, test.ShouldEqual, "one.bar")
+	test.That(t, conf.Components[1].Type, test.ShouldEqual, "arm")
+	test.That(t, conf.Components[1].Model, test.ShouldEqual, "fake")
 	test.That(t, conf.Components[1].Frame.Parent, test.ShouldEqual, "one.world")
 	test.That(t, conf.Components[2].Name, test.ShouldEqual, "one.som")
+	test.That(t, conf.Components[2].Type, test.ShouldEqual, "camera")
+	test.That(t, conf.Components[2].Model, test.ShouldEqual, "fake")
 	test.That(t, conf.Components[2].Frame, test.ShouldBeNil)
 
 	robot.conf.Prefix = false
 	conf, err = robot.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conf.Components[0].Name, test.ShouldEqual, "foo")
+	test.That(t, conf.Components[0].Type, test.ShouldEqual, "gripper")
+	test.That(t, conf.Components[0].Model, test.ShouldEqual, "fake")
 	test.That(t, conf.Components[0].Frame.Parent, test.ShouldEqual, "bar")
 	test.That(t, conf.Components[1].Name, test.ShouldEqual, "bar")
+	test.That(t, conf.Components[1].Type, test.ShouldEqual, "arm")
+	test.That(t, conf.Components[1].Model, test.ShouldEqual, "fake")
 	test.That(t, conf.Components[1].Frame.Parent, test.ShouldEqual, "world")
 	test.That(t, conf.Components[2].Name, test.ShouldEqual, "som")
+	test.That(t, conf.Components[2].Type, test.ShouldEqual, "camera")
+	test.That(t, conf.Components[2].Model, test.ShouldEqual, "fake")
 	test.That(t, conf.Components[2].Frame, test.ShouldBeNil)
 
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
