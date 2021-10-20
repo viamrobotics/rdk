@@ -371,7 +371,7 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 
 	// TODO: placeholder implementation
 	// call metadata service.
-	metadataClient, err := metadataclient.NewClient(ctx, rc.address, rc.logger)
+	metadataClient, err := metadataclient.NewClient(ctx, rc.address, rpcclient.DialOptions{Insecure: true}, rc.logger)
 	if err != nil {
 		return err
 	}
