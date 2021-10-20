@@ -226,6 +226,8 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, 19, test.ShouldEqual, len(cfg2.Components))
 
+	test.That(t, cfg2.FindComponent("pieceArm").Type, test.ShouldEqual, "arm")
+	test.That(t, cfg2.FindComponent("pieceArm").Model, test.ShouldEqual, "fake")
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Parent, test.ShouldEqual, referenceframe.World)
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation.X, test.ShouldAlmostEqual, -400.)
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation.Y, test.ShouldAlmostEqual, 700.)

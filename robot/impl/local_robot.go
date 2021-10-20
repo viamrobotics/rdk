@@ -208,12 +208,13 @@ func (r *localRobot) Close() error {
 // Config returns the config used to construct the robot.
 // This is allowed to be partial or empty.
 func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
+	logger := r.Logger()
 	cfgCpy := *r.config
 	cfgCpy.Components = append([]config.Component{}, cfgCpy.Components...)
 
 	for remoteName, remote := range r.parts.remotes {
+		logger.Debugf("config for remote robot %q", remoteName)
 		rc, err := remote.Config(ctx)
-		rcCopy := *rc
 		if err != nil {
 			return nil, err
 		}
@@ -225,7 +226,8 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 		if rConf.Prefix {
 			worldName = rConf.Name + "." + referenceframe.World
 		}
-		for _, c := range rcCopy.Components {
+		for _, c := range rc.Components {
+			logger.Debugf("component %q is type %q and model %q", c.Name, c.Type, c.Model)
 			if c.Frame != nil && c.Frame.Parent == worldName {
 				if rConf.Frame == nil { // world frames of the local and remote robot perfectly overlap
 					c.Frame.Parent = referenceframe.World
