@@ -21,7 +21,7 @@ clean:
 buf:
 	cd ../.. && buf generate --template ./grpc/cpp/buf.gen.yaml
 	cd ../.. && buf generate --template ./grpc/cpp/buf.grpc.gen.yaml
-	cd ../.. && buf generate --template ./grpc/cpp/buf.gen.yaml buf.build/beta/googleapis
+	cd ../.. && buf generate --template ./grpc/cpp/buf.gen.yaml buf.build/googleapis/googleapis
 
 setup:
 	bash etc/setup.sh

@@ -1,0 +1,32 @@
+{
+    "components":
+    [
+        {
+            "name": "local",
+            "type": "board",
+            "model": "jetson",
+            "attributes": {
+                "analogs": [
+                    {
+                        "chip_select": "18",
+                        "name": "current",
+                        "pin": "1",
+                        "spi_bus": "1"
+                    },
+                    {
+                        "chip_select": "18",
+                        "name": "pressure",
+                        "pin": "0",
+                        "spi_bus": "1"
+                    }
+                ],
+                "spis": [
+                    {
+                        "bus_select": "1",
+                        "name": "1"
+                    }
+                ]
+            }
+        }
+    ]
+}

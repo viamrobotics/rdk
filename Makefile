@@ -32,7 +32,7 @@ build-web:
 buf:
 	buf lint
 	buf generate
-	buf generate --template ./etc/buf.web.gen.yaml buf.build/beta/googleapis:1c473ad9220a49bca9320f4cc690eba5
+	buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
 
 lint: goformat
 	buf lint
