@@ -14,6 +14,14 @@ import (
 
 var blankPos map[string][]Input
 
+func frameNames(frames []Frame) []string {
+	names := make([]string, len(frames))
+	for i, f := range frames {
+		names[i] = f.Name()
+	}
+	return names
+}
+
 func TestSimpleFrameSystemFunctions(t *testing.T) {
 	// build the system
 	fs := NewEmptySimpleFrameSystem("test")
@@ -39,6 +47,7 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	f1Parents, err := fs.TracebackFrame(f1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(f1Parents), test.ShouldEqual, 3)
+	test.That(t, frameNames(f1Parents), test.ShouldResemble, []string{"frame1", "frame3", "world"})
 
 	// Pruning frame3 should also remove frame1
 	fs.RemoveFrame(fs.GetFrame("frame3"))
@@ -298,9 +307,14 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	err = fs.AddFrame(frame4, fs.GetFrame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
 
+	// complete fs
+	t.Logf("frames in fs: %v", fs.FrameNames())
+
 	// This should remove frames 3 and 4 from fs
 	fs2, err := fs.DivideFrameSystem(frame3)
 	test.That(t, err, test.ShouldBeNil)
+	t.Logf("frames in fs after divide: %v", fs.FrameNames())
+	t.Logf("frames in fs2 after divide: %v", fs2.FrameNames())
 
 	f4 := fs.GetFrame("frame4")
 	test.That(t, f4, test.ShouldBeNil)
@@ -328,6 +342,11 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = fs2.AddIntoFrameSystem(fs, frame3)
 	test.That(t, err, test.ShouldBeNil)
+
+	// Comfirm that fs2 is empty now
+	t.Logf("frames in fs after merge: %v", fs.FrameNames())
+	t.Logf("frames in fs2 after merge: %v", fs2.FrameNames())
+	test.That(t, len(fs2.FrameNames()), test.ShouldEqual, 0)
 
 	// Confirm new combined frame system now works as it did before
 	pointStart = r3.Vector{3., 0., 0.} // the point from PoV of frame 2
