@@ -412,7 +412,7 @@ func (r *localRobot) Refresh(ctx context.Context) error {
 }
 
 // UpdateMetadata updates metadata service using the currently registered parts of the robot
-func (r *localRobot) UpdateMetadata(svc *service.Service) error {
+func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 	// TODO: Currently just a placeholder implementation, this should be rewritten once robot/parts have more metadata about themselves
 	var resources []resource.Name
 

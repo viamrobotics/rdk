@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
+	"go.uber.org/multierr"
 
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -26,6 +27,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc"
+	metadataclient "go.viam.com/core/grpc/metadata/client"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
@@ -43,6 +45,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -355,7 +359,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 // TODO(https://github.com/viamrobotics/core/issues/57) - do not use status
 // as we plan on making it a more expensive request with more details than
 // needed for the purposes of this method.
-func (rc *RobotClient) Refresh(ctx context.Context) error {
+func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	status, err := rc.status(ctx)
 	if err != nil {
 		return errors.Errorf("status call failed: %w", err)
@@ -364,13 +368,34 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 	rc.storeStatus(status)
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
+
 	// TODO: placeholder implementation
-	rc.resourceNames = []resource.Name{}
-	if len(status.Arms) != 0 {
-		for name := range status.Arms {
-			rc.resourceNames = append(rc.resourceNames, arm.Named(name))
+	// call metadata service.
+	metadataClient, err := metadataclient.NewClient(ctx, rc.address, rpcclient.DialOptions{Insecure: true}, rc.logger)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = multierr.Combine(err, metadataClient.Close())
+	}()
+	names, err := metadataClient.Resources(ctx)
+	// only return if it is not unimplemented - means a bigger error came up
+	if err != nil && grpcstatus.Code(err) != codes.Unimplemented {
+		return err
+	}
+	if err == nil {
+		rc.resourceNames = make([]resource.Name, 0, len(names))
+		for _, name := range names {
+			newName := resource.NewName(
+				resource.Namespace(name.Namespace),
+				resource.TypeName(name.Type),
+				resource.SubtypeName(name.Subtype),
+				name.Name,
+			)
+			rc.resourceNames = append(rc.resourceNames, newName)
 		}
 	}
+
 	rc.baseNames = nil
 	if len(status.Bases) != 0 {
 		rc.baseNames = make([]string, 0, len(status.Bases))

@@ -23,10 +23,12 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
+	metadataserver "go.viam.com/core/grpc/metadata/server"
 	"go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
+	metadatapb "go.viam.com/core/proto/api/service/v1"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/rimage"
@@ -108,6 +110,8 @@ var emptyStatus = &pb.Status{
 		"board3": {},
 	},
 }
+
+var emptyResources = []resource.Name{arm.Named("arm1")}
 
 var finalStatus = &pb.Status{
 	Arms: map[string]*pb.ArmStatus{
@@ -202,6 +206,8 @@ var finalStatus = &pb.Status{
 		},
 	},
 }
+
+var finalResources = []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
 
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -1174,13 +1180,15 @@ func newResourceNameSet(values ...resource.Name) map[resource.Name]struct{} {
 	return set
 }
 
-func TestClientReferesh(t *testing.T) {
+func TestClientRefresh(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	injectMetadata := &inject.Metadata{}
+	metadatapb.RegisterMetadataServiceServer(gServer, metadataserver.New(injectMetadata))
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
@@ -1201,6 +1209,13 @@ func TestClientReferesh(t *testing.T) {
 			return finalStatus, nil
 		}
 		return emptyStatus, nil
+	}
+
+	injectMetadata.AllFunc = func() []resource.Name {
+		if callCount > 5 {
+			return finalResources
+		}
+		return emptyResources
 	}
 
 	start := time.Now()
@@ -1237,6 +1252,10 @@ func TestClientReferesh(t *testing.T) {
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return emptyStatus, nil
 	}
+
+	injectMetadata.AllFunc = func() []resource.Name {
+		return emptyResources
+	}
 	client, err = NewClientWithOptions(
 		context.Background(),
 		listener.Addr().String(),
@@ -1257,6 +1276,9 @@ func TestClientReferesh(t *testing.T) {
 
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return finalStatus, nil
+	}
+	injectMetadata.AllFunc = func() []resource.Name {
+		return finalResources
 	}
 	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
 
@@ -1281,6 +1303,8 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	injectMetadata := &inject.Metadata{}
+	metadatapb.RegisterMetadataServiceServer(gServer, metadataserver.New(injectMetadata))
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
@@ -1289,13 +1313,17 @@ func TestClientDialerOption(t *testing.T) {
 		return emptyStatus, nil
 	}
 
+	injectMetadata.AllFunc = func() []resource.Name {
+		return emptyResources
+	}
+
 	td := &trackingDialer{Dialer: dialer.NewCachedDialer()}
 	ctx := dialer.ContextWithDialer(context.Background(), td)
 	client1, err := NewClient(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	client2, err := NewClient(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.dialCalled, test.ShouldEqual, 2)
+	test.That(t, td.dialCalled, test.ShouldEqual, 4)
 
 	err = client1.Close()
 	test.That(t, err, test.ShouldBeNil)

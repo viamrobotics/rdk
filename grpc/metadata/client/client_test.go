@@ -11,9 +11,9 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/grpc/metadata/client"
 	"go.viam.com/core/grpc/metadata/server"
-	"go.viam.com/core/metadata/service"
 	pb "go.viam.com/core/proto/api/service/v1"
 	"go.viam.com/core/resource"
+	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -43,7 +43,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
-	injectMetadata := &service.Service{}
+	injectMetadata := &inject.Metadata{}
 	pb.RegisterMetadataServiceServer(gServer1, server.New(injectMetadata))
 
 	go gServer1.Serve(listener1)
@@ -60,7 +60,9 @@ func TestClient(t *testing.T) {
 	client, err := client.NewClient(context.Background(), listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	injectMetadata.Add(newResource)
+	injectMetadata.AllFunc = func() []resource.Name {
+		return []resource.Name{newResource}
+	}
 	resource, err := client.Resources(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resource, test.ShouldResemble, oneResourceResponse)
@@ -74,8 +76,7 @@ func TestClientDialerOption(t *testing.T) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
-	injectMetadata, err := service.New()
-	test.That(t, err, test.ShouldBeNil)
+	injectMetadata := &inject.Metadata{}
 	pb.RegisterMetadataServiceServer(gServer, server.New(injectMetadata))
 
 	go gServer.Serve(listener)
