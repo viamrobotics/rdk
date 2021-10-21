@@ -244,6 +244,7 @@ func (sfs *simpleFrameSystem) composeTransforms(frame Frame, positions map[strin
 }
 
 // AddIntoFrameSystem will combine two frame systems together, placing the world of sfs at the given offset from fs1s.
+// The offset frame must already be present within sfs, so should be added before Merge happens.
 // This is necessary when dynamically building systems of robots, or mutating a robot after it has already been initialized.
 // For example, two independent rovers, each with their own frame system, need to now know where they are in relation to each other and
 // need to have their frame systems combined.
@@ -283,6 +284,39 @@ func (sfs *simpleFrameSystem) AddIntoFrameSystem(fs1 FrameSystem, offset Frame) 
 			return err
 		}
 	}
+	return nil
+}
+
+// MergeFrameSystem will combine two frame systems together, placing the world of fs1 at the "attach" frame in sfs.
+// The frame where fs1 will be attached to must already exist within sfs, so should be added before Merge happens.
+// This is necessary when dynamically building systems of robots, or mutating a robot after it has already been initialized.
+// For example, two independent rovers, each with their own frame system, need to now know where they are in relation to each other and
+// need to have their frame systems combined.
+func (sfs *simpleFrameSystem) MergeFrameSystem(fs1 FrameSystem, attach Frame) error {
+
+	attachFrame := sfs.GetFrame(attach.Name())
+	if attachFrame == nil {
+		return fmt.Errorf("frame to attach %q to not in target frame system %q", attach.Name(), sfs.Name())
+	}
+
+	// make a map where the parent frame is the key and the slice of children frames is the value
+	children := map[Frame][]Frame{}
+	for _, name := range fs1.FrameNames() {
+		child := fs1.GetFrame(name)
+		parent := fs1.TracebackFrame(child)[1] // 0 is always the frame itself
+		children[parent] = append(children[parent], child)
+	}
+
+	queue := []Frame{fs1.World()}
+	for len(queue) != 0 {
+		parent := queue[0]
+		queue = queue[1:]
+		c := children[parent]
+		if parent == fs1.World() {
+			sfs.AddFrame(frame, parent)
+		}
+	}
+
 	return nil
 }
 

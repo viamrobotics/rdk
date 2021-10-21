@@ -16,73 +16,149 @@ import (
 	"github.com/golang/geo/r3"
 )
 
-// CreateReferenceFrameSystem takes a robot and implements the FrameSystem api
-func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSystem, error) {
-	cfg, err := r.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
+// FrameSystemLinker has a method that returns all the information needed to add the component
+// to a FrameSystem.
+type FrameSystemLinker interface {
+	FrameSystemLink() (*config.Frame, referenceframe.Frame)
+}
 
-	// build each frame in the config file
+// namedPart is used to collect the various named robot parts that could potentially have frame information
+type namedPart struct {
+	Name string
+	Part interface{}
+}
+
+func CreateRobotFrameSystem(ctx context.Context, r robot.Robot, robotName string) (ref.FrameSystem, error) {
+	// collect the necessary robot parts (skipping remotes, services, etc)
+	parts := collectRobotParts(r)
+
+	// collect the frame info from each part that will be used to build the system
 	children := map[string][]ref.Frame{}
 	names := map[string]bool{}
 	names[ref.World] = true
-	// loop through components and grab the components that have frame info
-	for _, c := range cfg.Components {
-		if c.Name == "" {
-			return nil, errors.New("all components need names")
+	for _, part := range parts {
+		if part.Name == "" {
+			return nil, errors.New("part name cannot be empty")
 		}
-		if c.Frame != nil {
-			if c.Frame.Parent == "" {
-				return nil, fmt.Errorf("parent field in component %q is empty", c.Name)
-			}
-			modelFrame, err := makeModelFrame(&c)
-			if err != nil {
-				return nil, err
-			}
-			staticName := c.Name + "_offset"
-			// add the static frame first-- if it is empty, a 0 offset frame will be applied.
-			staticFrame, err := makeStaticFrame(&c, staticName)
-			if err != nil {
-				return nil, err
-			}
-			// check to see if there are no repeated names
-			if _, ok := names[staticFrame.Name()]; ok {
-				return nil, fmt.Errorf("cannot have more than one frame with name %s", staticFrame.Name())
-			}
-			names[staticFrame.Name()] = true
-			// attach the static frame to the parent
-			children[c.Frame.Parent] = append(children[c.Frame.Parent], staticFrame)
-
-			// if the model frame exists, add it as well
-			if _, ok := names[modelFrame.Name()]; ok {
-				return nil, fmt.Errorf("cannot have more than one frame with name %s", modelFrame.Name())
-			}
-			names[modelFrame.Name()] = true
-			// store the children Frames in a list to build the tree later
-			children[staticFrame.Name()] = append(children[staticFrame.Name()], modelFrame)
+		err := createFrameFromPart(part, children, names)
+		if err != nil {
+			return nil, err
 		}
 	}
-	return buildFrameSystem("robot", names, children, r.Logger())
+	return buildFrameSystem(robotName, names, children, r.Logger())
 }
 
-func makePoseFromConfig(f *config.Frame) spatial.Pose {
-	// get the translation vector. If there is no translation/orientation attribute will default to 0
-	translation := r3.Vector{f.Translation.X, f.Translation.Y, f.Translation.Z}
-	return spatial.NewPoseFromOrientation(translation, f.Orientation)
-}
-
-func makeStaticFrame(comp *config.Component, name string) (ref.Frame, error) {
-	pose := makePoseFromConfig(comp.Frame)
-	return ref.NewStaticFrame(name, pose)
-}
-
-func makeModelFrame(comp *config.Component) (ref.Frame, error) {
-	if frameFunc, ok := registry.FrameLookup(comp); ok {
-		return frameFunc(comp.Name)
+// collectRobotParts collects the physical parts of the robot that may have frame info (excluding remote robots and services, etc)
+func collectRobotParts(r robot.Robot) []namedPart {
+	parts := []namedPart{}
+	for _, name := range r.BaseNames() {
+		part, ok := r.BaseByName(name)
+		if !ok {
+			continue
+		}
+		parts = append(parts, namedPart{name, part})
 	}
-	// return identity frame if no frame function
-	return ref.NewZeroStaticFrame(comp.Name), nil
+	for _, name := range r.BoardNames() {
+		part, ok := r.BoardByName(name)
+		if !ok {
+			continue
+		}
+		parts = append(parts, namedPart{name, part})
+	}
+	for _, name := range r.CameraNames() {
+		part, ok := r.CameraByName(name)
+		if !ok {
+			continue
+		}
+		parts = append(parts, namedPart{name, part})
+	}
+	for _, name := range r.GripperNames() {
+		part, ok := r.GripperByName(name)
+		if !ok {
+			continue
+		}
+		parts = append(parts, namedPart{name, part})
+	}
+	for _, name := range r.LidarNames() {
+		part, ok := r.LidarByName(name)
+		if !ok {
+			continue
+		}
+		parts = append(parts, namedPart{name, part})
+	}
+	for _, name := range r.SensorNames() {
+		part, ok := r.SensorByName(name)
+		if !ok {
+			continue
+		}
+		parts = append(parts, namedPart{name, part})
+	}
+	for _, name := range r.ServoNames() {
+		part, ok := r.ServoByName(name)
+		if !ok {
+			continue
+		}
+		parts = append(parts, namedPart{name, part})
+	}
+	for _, name := range r.MotorNames() {
+		part, ok := r.MotorByName(name)
+		if !ok {
+			continue
+		}
+		parts = append(parts, namedPart{name, part})
+	}
+
+	for _, name := range r.ResourceNames() {
+		part, ok := r.ResourceByName(name)
+		if !ok {
+			continue
+		}
+		parts = append(parts, namedPart{name, part})
+	}
+	return parts
+}
+
+// createFrameFromPart will gather the frame information and build the frames from robot parts that have FrameSystemLink() defined.
+func createFrameFromPart(part namedPart, children map[string][]ref.Frame, names map[string]bool) error {
+	var modelFrame ref.Frame
+	var frameConfig *config.Frame
+	// part must have FrameSystemLink() defined to be added to a FrameSystem
+	if fsl, ok := part.Part.(FrameSystemLinker); ok {
+		frameConfig, modelFrame = fsl.FrameSystemLink()
+	} else {
+		return fmt.Errorf("part %q does not have FrameSystemLink() defined", part.Name)
+	}
+	// if a part has no frame config, skip over it
+	if frameConfig == nil {
+		return nil
+	}
+	// parent field is a necessary attribute
+	if frameConfig.Parent == "" {
+		return fmt.Errorf("parent field in frame config for part %q is empty", part.Name)
+	}
+	// use identity frame if no model frame defined
+	if modelFrame == nil {
+		modelFrame = ref.NewZeroStaticFrame(part.Name)
+	}
+	// static frame defines an offset from the parent part-- if it is empty, a 0 offset frame will be applied.
+	staticName := part.Name + "_offset"
+	staticFrame, err := makeStaticFrame(frameConfig, staticName)
+	if err != nil {
+		return err
+	}
+	// check to see if there are no repeated names
+	if _, ok := names[staticFrame.Name()]; ok {
+		return fmt.Errorf("cannot have more than one frame with name %s", staticFrame.Name())
+	}
+	names[staticFrame.Name()] = true
+	if _, ok := names[modelFrame.Name()]; ok {
+		return fmt.Errorf("cannot have more than one frame with name %s", modelFrame.Name())
+	}
+	names[modelFrame.Name()] = true
+	// attach the static frame to the parent, then the model frame to the static frame
+	children[frameConfig.Parent] = append(children[frameConfig.Parent], staticFrame)
+	children[staticFrame.Name()] = append(children[staticFrame.Name()], modelFrame)
+	return nil
 }
 
 func buildFrameSystem(name string, frameNames map[string]bool, children map[string][]ref.Frame, logger golog.Logger) (ref.FrameSystem, error) {
@@ -117,6 +193,17 @@ func buildFrameSystem(name string, frameNames map[string]bool, children map[stri
 	}
 	logger.Debugf("frames in robot frame system are: %v", frameNamesWithDof(fs))
 	return fs, nil
+}
+
+func makePoseFromConfig(f *config.Frame) spatial.Pose {
+	// get the translation vector. If there is no translation/orientation attribute will default to 0
+	translation := r3.Vector{f.Translation.X, f.Translation.Y, f.Translation.Z}
+	return spatial.NewPoseFromOrientation(translation, f.Orientation)
+}
+
+func makeStaticFrame(comp *config.Frame, name string) (ref.Frame, error) {
+	pose := makePoseFromConfig(comp)
+	return ref.NewStaticFrame(name, pose)
 }
 
 func frameNamesWithDof(sys ref.FrameSystem) []string {

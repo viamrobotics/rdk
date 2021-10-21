@@ -274,8 +274,36 @@ func (r *localRobot) Status(ctx context.Context) (*pb.Status, error) {
 	return status.Create(ctx, r)
 }
 
+// FrameSystem returns the FrameSystem of the robot
 func (r *localRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
-	return CreateReferenceFrameSystem(ctx, r)
+	// make frame system for each of its remote parts
+	remoteFrameSystems := make(referenceframe.FrameSystem, 0, len(r.parts.remotes))
+	for remoteName, remote := range r.parts.remotes {
+		remoteFrameSys, err := CreateRobotFrameSystem(ctx, remote, remoteName)
+		if err != nil {
+			return nil, err
+		}
+		remoteFrameSystems = append(remoteFrameSystems, remoteFrameSys)
+	}
+	// create the base reference frame system
+	baseFrameSystem, err := CreateRobotFrameSystem(ctx, r, "local_robot")
+	if err != nil {
+		return nil, err
+	}
+	// merge all the frame systems together
+	for _, remote := range remoteFrameSystem {
+		rConf := r.getRemoteConfig(ctx, remote.Name())
+		if rConf.Frame == nil {
+			return nil, fmt.Errorf("remote %q has no Frame attribute, cannot merge frame system", rConf.Name)
+		}
+		// attach the world of the remote frame system, with the given offset, to rConf.Frame.Parent
+		offset := makePoseFromConfig(rConf.Frame)
+		err := baseFrameSystem.MergeFrameSystem(remote, offset, rConf.Frame.Parent)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return baseFrameSystem, nil
 }
 
 // Logger returns the logger the robot is using.
