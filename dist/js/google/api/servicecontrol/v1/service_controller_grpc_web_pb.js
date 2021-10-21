@@ -36,7 +36,7 @@ proto.google.api.servicecontrol.v1 = require('./service_controller_pb.js');
 /**
  * @param {string} hostname
  * @param {?Object} credentials
- * @param {?grpc.web.ClientOptions} options
+ * @param {?Object} options
  * @constructor
  * @struct
  * @final
@@ -44,7 +44,7 @@ proto.google.api.servicecontrol.v1 = require('./service_controller_pb.js');
 proto.google.api.servicecontrol.v1.ServiceControllerClient =
     function(hostname, credentials, options) {
   if (!options) options = {};
-  options.format = 'text';
+  options['format'] = 'text';
 
   /**
    * @private @const {!grpc.web.GrpcWebClientBase} The client
@@ -62,7 +62,7 @@ proto.google.api.servicecontrol.v1.ServiceControllerClient =
 /**
  * @param {string} hostname
  * @param {?Object} credentials
- * @param {?grpc.web.ClientOptions} options
+ * @param {?Object} options
  * @constructor
  * @struct
  * @final
@@ -70,7 +70,7 @@ proto.google.api.servicecontrol.v1.ServiceControllerClient =
 proto.google.api.servicecontrol.v1.ServiceControllerPromiseClient =
     function(hostname, credentials, options) {
   if (!options) options = {};
-  options.format = 'text';
+  options['format'] = 'text';
 
   /**
    * @private @const {!grpc.web.GrpcWebClientBase} The client
@@ -108,11 +108,30 @@ const methodDescriptor_ServiceController_Check = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.google.api.servicecontrol.v1.CheckRequest,
+ *   !proto.google.api.servicecontrol.v1.CheckResponse>}
+ */
+const methodInfo_ServiceController_Check = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.google.api.servicecontrol.v1.CheckResponse,
+  /**
+   * @param {!proto.google.api.servicecontrol.v1.CheckRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.google.api.servicecontrol.v1.CheckResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.google.api.servicecontrol.v1.CheckRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.google.api.servicecontrol.v1.CheckResponse)}
+ * @param {function(?grpc.web.Error, ?proto.google.api.servicecontrol.v1.CheckResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.servicecontrol.v1.CheckResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -131,7 +150,7 @@ proto.google.api.servicecontrol.v1.ServiceControllerClient.prototype.check =
 /**
  * @param {!proto.google.api.servicecontrol.v1.CheckRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.servicecontrol.v1.CheckResponse>}
  *     Promise that resolves to the response
@@ -169,11 +188,30 @@ const methodDescriptor_ServiceController_Report = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.google.api.servicecontrol.v1.ReportRequest,
+ *   !proto.google.api.servicecontrol.v1.ReportResponse>}
+ */
+const methodInfo_ServiceController_Report = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.google.api.servicecontrol.v1.ReportResponse,
+  /**
+   * @param {!proto.google.api.servicecontrol.v1.ReportRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.google.api.servicecontrol.v1.ReportResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.google.api.servicecontrol.v1.ReportRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.google.api.servicecontrol.v1.ReportResponse)}
+ * @param {function(?grpc.web.Error, ?proto.google.api.servicecontrol.v1.ReportResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.servicecontrol.v1.ReportResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -192,7 +230,7 @@ proto.google.api.servicecontrol.v1.ServiceControllerClient.prototype.report =
 /**
  * @param {!proto.google.api.servicecontrol.v1.ReportRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.servicecontrol.v1.ReportResponse>}
  *     Promise that resolves to the response

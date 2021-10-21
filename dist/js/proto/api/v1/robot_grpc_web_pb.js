@@ -31,7 +31,7 @@ proto.proto.api.v1 = require('./robot_pb.js');
 /**
  * @param {string} hostname
  * @param {?Object} credentials
- * @param {?grpc.web.ClientOptions} options
+ * @param {?Object} options
  * @constructor
  * @struct
  * @final
@@ -39,7 +39,7 @@ proto.proto.api.v1 = require('./robot_pb.js');
 proto.proto.api.v1.RobotServiceClient =
     function(hostname, credentials, options) {
   if (!options) options = {};
-  options.format = 'text';
+  options['format'] = 'text';
 
   /**
    * @private @const {!grpc.web.GrpcWebClientBase} The client
@@ -57,7 +57,7 @@ proto.proto.api.v1.RobotServiceClient =
 /**
  * @param {string} hostname
  * @param {?Object} credentials
- * @param {?grpc.web.ClientOptions} options
+ * @param {?Object} options
  * @constructor
  * @struct
  * @final
@@ -65,7 +65,7 @@ proto.proto.api.v1.RobotServiceClient =
 proto.proto.api.v1.RobotServicePromiseClient =
     function(hostname, credentials, options) {
   if (!options) options = {};
-  options.format = 'text';
+  options['format'] = 'text';
 
   /**
    * @private @const {!grpc.web.GrpcWebClientBase} The client
@@ -103,11 +103,30 @@ const methodDescriptor_RobotService_Status = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.StatusRequest,
+ *   !proto.proto.api.v1.StatusResponse>}
+ */
+const methodInfo_RobotService_Status = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.StatusResponse,
+  /**
+   * @param {!proto.proto.api.v1.StatusRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.StatusResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.StatusRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.StatusResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.StatusResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.StatusResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -126,7 +145,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.status =
 /**
  * @param {!proto.proto.api.v1.StatusRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.StatusResponse>}
  *     Promise that resolves to the response
@@ -164,8 +183,27 @@ const methodDescriptor_RobotService_StatusStream = new grpc.web.MethodDescriptor
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.StatusStreamRequest,
+ *   !proto.proto.api.v1.StatusStreamResponse>}
+ */
+const methodInfo_RobotService_StatusStream = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.StatusStreamResponse,
+  /**
+   * @param {!proto.proto.api.v1.StatusStreamRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.StatusStreamResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.StatusStreamRequest} request The request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.StatusStreamResponse>}
  *     The XHR Node Readable Stream
@@ -182,7 +220,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.statusStream =
 
 /**
  * @param {!proto.proto.api.v1.StatusStreamRequest} request The request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.StatusStreamResponse>}
  *     The XHR Node Readable Stream
@@ -220,11 +258,30 @@ const methodDescriptor_RobotService_Config = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ConfigRequest,
+ *   !proto.proto.api.v1.ConfigResponse>}
+ */
+const methodInfo_RobotService_Config = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ConfigResponse,
+  /**
+   * @param {!proto.proto.api.v1.ConfigRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ConfigResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.ConfigRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.ConfigResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ConfigResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ConfigResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -243,7 +300,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.config =
 /**
  * @param {!proto.proto.api.v1.ConfigRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.ConfigResponse>}
  *     Promise that resolves to the response
@@ -281,11 +338,30 @@ const methodDescriptor_RobotService_DoAction = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.DoActionRequest,
+ *   !proto.proto.api.v1.DoActionResponse>}
+ */
+const methodInfo_RobotService_DoAction = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.DoActionResponse,
+  /**
+   * @param {!proto.proto.api.v1.DoActionRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.DoActionResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.DoActionRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.DoActionResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.DoActionResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.DoActionResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -304,7 +380,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.doAction =
 /**
  * @param {!proto.proto.api.v1.DoActionRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.DoActionResponse>}
  *     Promise that resolves to the response
@@ -342,11 +418,30 @@ const methodDescriptor_RobotService_ArmCurrentPosition = new grpc.web.MethodDesc
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ArmCurrentPositionRequest,
+ *   !proto.proto.api.v1.ArmCurrentPositionResponse>}
+ */
+const methodInfo_RobotService_ArmCurrentPosition = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ArmCurrentPositionResponse,
+  /**
+   * @param {!proto.proto.api.v1.ArmCurrentPositionRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ArmCurrentPositionResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.ArmCurrentPositionRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.ArmCurrentPositionResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ArmCurrentPositionResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ArmCurrentPositionResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -365,7 +460,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.armCurrentPosition =
 /**
  * @param {!proto.proto.api.v1.ArmCurrentPositionRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.ArmCurrentPositionResponse>}
  *     Promise that resolves to the response
@@ -403,11 +498,30 @@ const methodDescriptor_RobotService_ArmMoveToPosition = new grpc.web.MethodDescr
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ArmMoveToPositionRequest,
+ *   !proto.proto.api.v1.ArmMoveToPositionResponse>}
+ */
+const methodInfo_RobotService_ArmMoveToPosition = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ArmMoveToPositionResponse,
+  /**
+   * @param {!proto.proto.api.v1.ArmMoveToPositionRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ArmMoveToPositionResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.ArmMoveToPositionRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.ArmMoveToPositionResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ArmMoveToPositionResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ArmMoveToPositionResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -426,7 +540,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.armMoveToPosition =
 /**
  * @param {!proto.proto.api.v1.ArmMoveToPositionRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.ArmMoveToPositionResponse>}
  *     Promise that resolves to the response
@@ -464,11 +578,30 @@ const methodDescriptor_RobotService_ArmCurrentJointPositions = new grpc.web.Meth
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ArmCurrentJointPositionsRequest,
+ *   !proto.proto.api.v1.ArmCurrentJointPositionsResponse>}
+ */
+const methodInfo_RobotService_ArmCurrentJointPositions = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ArmCurrentJointPositionsResponse,
+  /**
+   * @param {!proto.proto.api.v1.ArmCurrentJointPositionsRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ArmCurrentJointPositionsResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.ArmCurrentJointPositionsRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.ArmCurrentJointPositionsResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ArmCurrentJointPositionsResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ArmCurrentJointPositionsResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -487,7 +620,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.armCurrentJointPositions =
 /**
  * @param {!proto.proto.api.v1.ArmCurrentJointPositionsRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.ArmCurrentJointPositionsResponse>}
  *     Promise that resolves to the response
@@ -525,11 +658,30 @@ const methodDescriptor_RobotService_ArmMoveToJointPositions = new grpc.web.Metho
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ArmMoveToJointPositionsRequest,
+ *   !proto.proto.api.v1.ArmMoveToJointPositionsResponse>}
+ */
+const methodInfo_RobotService_ArmMoveToJointPositions = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ArmMoveToJointPositionsResponse,
+  /**
+   * @param {!proto.proto.api.v1.ArmMoveToJointPositionsRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ArmMoveToJointPositionsResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.ArmMoveToJointPositionsRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.ArmMoveToJointPositionsResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ArmMoveToJointPositionsResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ArmMoveToJointPositionsResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -548,7 +700,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.armMoveToJointPositions =
 /**
  * @param {!proto.proto.api.v1.ArmMoveToJointPositionsRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.ArmMoveToJointPositionsResponse>}
  *     Promise that resolves to the response
@@ -586,11 +738,30 @@ const methodDescriptor_RobotService_ArmJointMoveDelta = new grpc.web.MethodDescr
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ArmJointMoveDeltaRequest,
+ *   !proto.proto.api.v1.ArmJointMoveDeltaResponse>}
+ */
+const methodInfo_RobotService_ArmJointMoveDelta = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ArmJointMoveDeltaResponse,
+  /**
+   * @param {!proto.proto.api.v1.ArmJointMoveDeltaRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ArmJointMoveDeltaResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.ArmJointMoveDeltaRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.ArmJointMoveDeltaResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ArmJointMoveDeltaResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ArmJointMoveDeltaResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -609,7 +780,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.armJointMoveDelta =
 /**
  * @param {!proto.proto.api.v1.ArmJointMoveDeltaRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.ArmJointMoveDeltaResponse>}
  *     Promise that resolves to the response
@@ -647,11 +818,30 @@ const methodDescriptor_RobotService_BaseMoveStraight = new grpc.web.MethodDescri
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.BaseMoveStraightRequest,
+ *   !proto.proto.api.v1.BaseMoveStraightResponse>}
+ */
+const methodInfo_RobotService_BaseMoveStraight = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BaseMoveStraightResponse,
+  /**
+   * @param {!proto.proto.api.v1.BaseMoveStraightRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BaseMoveStraightResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.BaseMoveStraightRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.BaseMoveStraightResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BaseMoveStraightResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BaseMoveStraightResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -670,7 +860,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.baseMoveStraight =
 /**
  * @param {!proto.proto.api.v1.BaseMoveStraightRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.BaseMoveStraightResponse>}
  *     Promise that resolves to the response
@@ -708,11 +898,30 @@ const methodDescriptor_RobotService_BaseSpin = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.BaseSpinRequest,
+ *   !proto.proto.api.v1.BaseSpinResponse>}
+ */
+const methodInfo_RobotService_BaseSpin = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BaseSpinResponse,
+  /**
+   * @param {!proto.proto.api.v1.BaseSpinRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BaseSpinResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.BaseSpinRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.BaseSpinResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BaseSpinResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BaseSpinResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -731,7 +940,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.baseSpin =
 /**
  * @param {!proto.proto.api.v1.BaseSpinRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.BaseSpinResponse>}
  *     Promise that resolves to the response
@@ -769,11 +978,30 @@ const methodDescriptor_RobotService_BaseStop = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.BaseStopRequest,
+ *   !proto.proto.api.v1.BaseStopResponse>}
+ */
+const methodInfo_RobotService_BaseStop = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BaseStopResponse,
+  /**
+   * @param {!proto.proto.api.v1.BaseStopRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BaseStopResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.BaseStopRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.BaseStopResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BaseStopResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BaseStopResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -792,7 +1020,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.baseStop =
 /**
  * @param {!proto.proto.api.v1.BaseStopRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.BaseStopResponse>}
  *     Promise that resolves to the response
@@ -830,11 +1058,30 @@ const methodDescriptor_RobotService_BaseWidthMillis = new grpc.web.MethodDescrip
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.BaseWidthMillisRequest,
+ *   !proto.proto.api.v1.BaseWidthMillisResponse>}
+ */
+const methodInfo_RobotService_BaseWidthMillis = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BaseWidthMillisResponse,
+  /**
+   * @param {!proto.proto.api.v1.BaseWidthMillisRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BaseWidthMillisResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.BaseWidthMillisRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.BaseWidthMillisResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BaseWidthMillisResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BaseWidthMillisResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -853,7 +1100,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.baseWidthMillis =
 /**
  * @param {!proto.proto.api.v1.BaseWidthMillisRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.BaseWidthMillisResponse>}
  *     Promise that resolves to the response
@@ -891,11 +1138,30 @@ const methodDescriptor_RobotService_GripperOpen = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.GripperOpenRequest,
+ *   !proto.proto.api.v1.GripperOpenResponse>}
+ */
+const methodInfo_RobotService_GripperOpen = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.GripperOpenResponse,
+  /**
+   * @param {!proto.proto.api.v1.GripperOpenRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.GripperOpenResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.GripperOpenRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.GripperOpenResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.GripperOpenResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.GripperOpenResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -914,7 +1180,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.gripperOpen =
 /**
  * @param {!proto.proto.api.v1.GripperOpenRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.GripperOpenResponse>}
  *     Promise that resolves to the response
@@ -952,11 +1218,30 @@ const methodDescriptor_RobotService_GripperGrab = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.GripperGrabRequest,
+ *   !proto.proto.api.v1.GripperGrabResponse>}
+ */
+const methodInfo_RobotService_GripperGrab = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.GripperGrabResponse,
+  /**
+   * @param {!proto.proto.api.v1.GripperGrabRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.GripperGrabResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.GripperGrabRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.GripperGrabResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.GripperGrabResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.GripperGrabResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -975,7 +1260,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.gripperGrab =
 /**
  * @param {!proto.proto.api.v1.GripperGrabRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.GripperGrabResponse>}
  *     Promise that resolves to the response
@@ -1013,11 +1298,30 @@ const methodDescriptor_RobotService_CameraFrame = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.CameraFrameRequest,
+ *   !proto.proto.api.v1.CameraFrameResponse>}
+ */
+const methodInfo_RobotService_CameraFrame = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.CameraFrameResponse,
+  /**
+   * @param {!proto.proto.api.v1.CameraFrameRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.CameraFrameResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.CameraFrameRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.CameraFrameResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.CameraFrameResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.CameraFrameResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1036,7 +1340,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.cameraFrame =
 /**
  * @param {!proto.proto.api.v1.CameraFrameRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.CameraFrameResponse>}
  *     Promise that resolves to the response
@@ -1074,11 +1378,30 @@ const methodDescriptor_RobotService_CameraRenderFrame = new grpc.web.MethodDescr
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.CameraRenderFrameRequest,
+ *   !proto.google.api.HttpBody>}
+ */
+const methodInfo_RobotService_CameraRenderFrame = new grpc.web.AbstractClientBase.MethodInfo(
+  google_api_httpbody_pb.HttpBody,
+  /**
+   * @param {!proto.proto.api.v1.CameraRenderFrameRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  google_api_httpbody_pb.HttpBody.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.CameraRenderFrameRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.google.api.HttpBody)}
+ * @param {function(?grpc.web.Error, ?proto.google.api.HttpBody)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.HttpBody>|undefined}
  *     The XHR Node Readable Stream
@@ -1097,7 +1420,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.cameraRenderFrame =
 /**
  * @param {!proto.proto.api.v1.CameraRenderFrameRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.HttpBody>}
  *     Promise that resolves to the response
@@ -1135,11 +1458,30 @@ const methodDescriptor_RobotService_PointCloud = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.PointCloudRequest,
+ *   !proto.proto.api.v1.PointCloudResponse>}
+ */
+const methodInfo_RobotService_PointCloud = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.PointCloudResponse,
+  /**
+   * @param {!proto.proto.api.v1.PointCloudRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.PointCloudResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.PointCloudRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.PointCloudResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.PointCloudResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.PointCloudResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1158,7 +1500,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.pointCloud =
 /**
  * @param {!proto.proto.api.v1.PointCloudRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.PointCloudResponse>}
  *     Promise that resolves to the response
@@ -1196,11 +1538,30 @@ const methodDescriptor_RobotService_ObjectPointClouds = new grpc.web.MethodDescr
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ObjectPointCloudsRequest,
+ *   !proto.proto.api.v1.ObjectPointCloudsResponse>}
+ */
+const methodInfo_RobotService_ObjectPointClouds = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ObjectPointCloudsResponse,
+  /**
+   * @param {!proto.proto.api.v1.ObjectPointCloudsRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ObjectPointCloudsResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.ObjectPointCloudsRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.ObjectPointCloudsResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ObjectPointCloudsResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ObjectPointCloudsResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1219,7 +1580,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.objectPointClouds =
 /**
  * @param {!proto.proto.api.v1.ObjectPointCloudsRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.ObjectPointCloudsResponse>}
  *     Promise that resolves to the response
@@ -1257,11 +1618,30 @@ const methodDescriptor_RobotService_LidarInfo = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.LidarInfoRequest,
+ *   !proto.proto.api.v1.LidarInfoResponse>}
+ */
+const methodInfo_RobotService_LidarInfo = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.LidarInfoResponse,
+  /**
+   * @param {!proto.proto.api.v1.LidarInfoRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.LidarInfoResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.LidarInfoRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.LidarInfoResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.LidarInfoResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.LidarInfoResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1280,7 +1660,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.lidarInfo =
 /**
  * @param {!proto.proto.api.v1.LidarInfoRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.LidarInfoResponse>}
  *     Promise that resolves to the response
@@ -1318,11 +1698,30 @@ const methodDescriptor_RobotService_LidarStart = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.LidarStartRequest,
+ *   !proto.proto.api.v1.LidarStartResponse>}
+ */
+const methodInfo_RobotService_LidarStart = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.LidarStartResponse,
+  /**
+   * @param {!proto.proto.api.v1.LidarStartRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.LidarStartResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.LidarStartRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.LidarStartResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.LidarStartResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.LidarStartResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1341,7 +1740,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.lidarStart =
 /**
  * @param {!proto.proto.api.v1.LidarStartRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.LidarStartResponse>}
  *     Promise that resolves to the response
@@ -1379,11 +1778,30 @@ const methodDescriptor_RobotService_LidarStop = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.LidarStopRequest,
+ *   !proto.proto.api.v1.LidarStopResponse>}
+ */
+const methodInfo_RobotService_LidarStop = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.LidarStopResponse,
+  /**
+   * @param {!proto.proto.api.v1.LidarStopRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.LidarStopResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.LidarStopRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.LidarStopResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.LidarStopResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.LidarStopResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1402,7 +1820,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.lidarStop =
 /**
  * @param {!proto.proto.api.v1.LidarStopRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.LidarStopResponse>}
  *     Promise that resolves to the response
@@ -1440,11 +1858,30 @@ const methodDescriptor_RobotService_LidarScan = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.LidarScanRequest,
+ *   !proto.proto.api.v1.LidarScanResponse>}
+ */
+const methodInfo_RobotService_LidarScan = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.LidarScanResponse,
+  /**
+   * @param {!proto.proto.api.v1.LidarScanRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.LidarScanResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.LidarScanRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.LidarScanResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.LidarScanResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.LidarScanResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1463,7 +1900,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.lidarScan =
 /**
  * @param {!proto.proto.api.v1.LidarScanRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.LidarScanResponse>}
  *     Promise that resolves to the response
@@ -1501,11 +1938,30 @@ const methodDescriptor_RobotService_LidarRange = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.LidarRangeRequest,
+ *   !proto.proto.api.v1.LidarRangeResponse>}
+ */
+const methodInfo_RobotService_LidarRange = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.LidarRangeResponse,
+  /**
+   * @param {!proto.proto.api.v1.LidarRangeRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.LidarRangeResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.LidarRangeRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.LidarRangeResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.LidarRangeResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.LidarRangeResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1524,7 +1980,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.lidarRange =
 /**
  * @param {!proto.proto.api.v1.LidarRangeRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.LidarRangeResponse>}
  *     Promise that resolves to the response
@@ -1562,11 +2018,30 @@ const methodDescriptor_RobotService_LidarBounds = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.LidarBoundsRequest,
+ *   !proto.proto.api.v1.LidarBoundsResponse>}
+ */
+const methodInfo_RobotService_LidarBounds = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.LidarBoundsResponse,
+  /**
+   * @param {!proto.proto.api.v1.LidarBoundsRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.LidarBoundsResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.LidarBoundsRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.LidarBoundsResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.LidarBoundsResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.LidarBoundsResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1585,7 +2060,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.lidarBounds =
 /**
  * @param {!proto.proto.api.v1.LidarBoundsRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.LidarBoundsResponse>}
  *     Promise that resolves to the response
@@ -1623,11 +2098,30 @@ const methodDescriptor_RobotService_LidarAngularResolution = new grpc.web.Method
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.LidarAngularResolutionRequest,
+ *   !proto.proto.api.v1.LidarAngularResolutionResponse>}
+ */
+const methodInfo_RobotService_LidarAngularResolution = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.LidarAngularResolutionResponse,
+  /**
+   * @param {!proto.proto.api.v1.LidarAngularResolutionRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.LidarAngularResolutionResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.LidarAngularResolutionRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.LidarAngularResolutionResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.LidarAngularResolutionResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.LidarAngularResolutionResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1646,7 +2140,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.lidarAngularResolution =
 /**
  * @param {!proto.proto.api.v1.LidarAngularResolutionRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.LidarAngularResolutionResponse>}
  *     Promise that resolves to the response
@@ -1684,11 +2178,30 @@ const methodDescriptor_RobotService_BoardStatus = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.BoardStatusRequest,
+ *   !proto.proto.api.v1.BoardStatusResponse>}
+ */
+const methodInfo_RobotService_BoardStatus = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BoardStatusResponse,
+  /**
+   * @param {!proto.proto.api.v1.BoardStatusRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BoardStatusResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.BoardStatusRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.BoardStatusResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardStatusResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardStatusResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1707,7 +2220,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.boardStatus =
 /**
  * @param {!proto.proto.api.v1.BoardStatusRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.BoardStatusResponse>}
  *     Promise that resolves to the response
@@ -1745,11 +2258,30 @@ const methodDescriptor_RobotService_BoardGPIOSet = new grpc.web.MethodDescriptor
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.BoardGPIOSetRequest,
+ *   !proto.proto.api.v1.BoardGPIOSetResponse>}
+ */
+const methodInfo_RobotService_BoardGPIOSet = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BoardGPIOSetResponse,
+  /**
+   * @param {!proto.proto.api.v1.BoardGPIOSetRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BoardGPIOSetResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.BoardGPIOSetRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.BoardGPIOSetResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardGPIOSetResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardGPIOSetResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1768,7 +2300,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.boardGPIOSet =
 /**
  * @param {!proto.proto.api.v1.BoardGPIOSetRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.BoardGPIOSetResponse>}
  *     Promise that resolves to the response
@@ -1806,11 +2338,30 @@ const methodDescriptor_RobotService_BoardGPIOGet = new grpc.web.MethodDescriptor
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.BoardGPIOGetRequest,
+ *   !proto.proto.api.v1.BoardGPIOGetResponse>}
+ */
+const methodInfo_RobotService_BoardGPIOGet = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BoardGPIOGetResponse,
+  /**
+   * @param {!proto.proto.api.v1.BoardGPIOGetRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BoardGPIOGetResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.BoardGPIOGetRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.BoardGPIOGetResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardGPIOGetResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardGPIOGetResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1829,7 +2380,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.boardGPIOGet =
 /**
  * @param {!proto.proto.api.v1.BoardGPIOGetRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.BoardGPIOGetResponse>}
  *     Promise that resolves to the response
@@ -1867,11 +2418,30 @@ const methodDescriptor_RobotService_BoardPWMSet = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.BoardPWMSetRequest,
+ *   !proto.proto.api.v1.BoardPWMSetResponse>}
+ */
+const methodInfo_RobotService_BoardPWMSet = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BoardPWMSetResponse,
+  /**
+   * @param {!proto.proto.api.v1.BoardPWMSetRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BoardPWMSetResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.BoardPWMSetRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.BoardPWMSetResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardPWMSetResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardPWMSetResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1890,7 +2460,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.boardPWMSet =
 /**
  * @param {!proto.proto.api.v1.BoardPWMSetRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.BoardPWMSetResponse>}
  *     Promise that resolves to the response
@@ -1928,11 +2498,30 @@ const methodDescriptor_RobotService_BoardPWMSetFrequency = new grpc.web.MethodDe
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.BoardPWMSetFrequencyRequest,
+ *   !proto.proto.api.v1.BoardPWMSetFrequencyResponse>}
+ */
+const methodInfo_RobotService_BoardPWMSetFrequency = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BoardPWMSetFrequencyResponse,
+  /**
+   * @param {!proto.proto.api.v1.BoardPWMSetFrequencyRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BoardPWMSetFrequencyResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.BoardPWMSetFrequencyRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.BoardPWMSetFrequencyResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardPWMSetFrequencyResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardPWMSetFrequencyResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1951,7 +2540,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.boardPWMSetFrequency =
 /**
  * @param {!proto.proto.api.v1.BoardPWMSetFrequencyRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.BoardPWMSetFrequencyResponse>}
  *     Promise that resolves to the response
@@ -1989,11 +2578,30 @@ const methodDescriptor_RobotService_BoardAnalogReaderRead = new grpc.web.MethodD
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.BoardAnalogReaderReadRequest,
+ *   !proto.proto.api.v1.BoardAnalogReaderReadResponse>}
+ */
+const methodInfo_RobotService_BoardAnalogReaderRead = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BoardAnalogReaderReadResponse,
+  /**
+   * @param {!proto.proto.api.v1.BoardAnalogReaderReadRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BoardAnalogReaderReadResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.BoardAnalogReaderReadRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.BoardAnalogReaderReadResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardAnalogReaderReadResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardAnalogReaderReadResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -2012,7 +2620,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.boardAnalogReaderRead =
 /**
  * @param {!proto.proto.api.v1.BoardAnalogReaderReadRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.BoardAnalogReaderReadResponse>}
  *     Promise that resolves to the response
@@ -2050,11 +2658,30 @@ const methodDescriptor_RobotService_BoardDigitalInterruptConfig = new grpc.web.M
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.BoardDigitalInterruptConfigRequest,
+ *   !proto.proto.api.v1.BoardDigitalInterruptConfigResponse>}
+ */
+const methodInfo_RobotService_BoardDigitalInterruptConfig = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BoardDigitalInterruptConfigResponse,
+  /**
+   * @param {!proto.proto.api.v1.BoardDigitalInterruptConfigRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BoardDigitalInterruptConfigResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.BoardDigitalInterruptConfigRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.BoardDigitalInterruptConfigResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardDigitalInterruptConfigResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardDigitalInterruptConfigResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -2073,7 +2700,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.boardDigitalInterruptConfig =
 /**
  * @param {!proto.proto.api.v1.BoardDigitalInterruptConfigRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.BoardDigitalInterruptConfigResponse>}
  *     Promise that resolves to the response
@@ -2111,11 +2738,30 @@ const methodDescriptor_RobotService_BoardDigitalInterruptValue = new grpc.web.Me
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.BoardDigitalInterruptValueRequest,
+ *   !proto.proto.api.v1.BoardDigitalInterruptValueResponse>}
+ */
+const methodInfo_RobotService_BoardDigitalInterruptValue = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BoardDigitalInterruptValueResponse,
+  /**
+   * @param {!proto.proto.api.v1.BoardDigitalInterruptValueRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BoardDigitalInterruptValueResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.BoardDigitalInterruptValueRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.BoardDigitalInterruptValueResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardDigitalInterruptValueResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardDigitalInterruptValueResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -2134,7 +2780,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.boardDigitalInterruptValue =
 /**
  * @param {!proto.proto.api.v1.BoardDigitalInterruptValueRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.BoardDigitalInterruptValueResponse>}
  *     Promise that resolves to the response
@@ -2172,11 +2818,30 @@ const methodDescriptor_RobotService_BoardDigitalInterruptTick = new grpc.web.Met
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.BoardDigitalInterruptTickRequest,
+ *   !proto.proto.api.v1.BoardDigitalInterruptTickResponse>}
+ */
+const methodInfo_RobotService_BoardDigitalInterruptTick = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BoardDigitalInterruptTickResponse,
+  /**
+   * @param {!proto.proto.api.v1.BoardDigitalInterruptTickRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BoardDigitalInterruptTickResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.BoardDigitalInterruptTickRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.BoardDigitalInterruptTickResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardDigitalInterruptTickResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardDigitalInterruptTickResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -2195,7 +2860,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.boardDigitalInterruptTick =
 /**
  * @param {!proto.proto.api.v1.BoardDigitalInterruptTickRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.BoardDigitalInterruptTickResponse>}
  *     Promise that resolves to the response
@@ -2233,11 +2898,30 @@ const methodDescriptor_RobotService_SensorReadings = new grpc.web.MethodDescript
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.SensorReadingsRequest,
+ *   !proto.proto.api.v1.SensorReadingsResponse>}
+ */
+const methodInfo_RobotService_SensorReadings = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.SensorReadingsResponse,
+  /**
+   * @param {!proto.proto.api.v1.SensorReadingsRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.SensorReadingsResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.SensorReadingsRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.SensorReadingsResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.SensorReadingsResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.SensorReadingsResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -2256,7 +2940,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.sensorReadings =
 /**
  * @param {!proto.proto.api.v1.SensorReadingsRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.SensorReadingsResponse>}
  *     Promise that resolves to the response
@@ -2294,11 +2978,30 @@ const methodDescriptor_RobotService_CompassHeading = new grpc.web.MethodDescript
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.CompassHeadingRequest,
+ *   !proto.proto.api.v1.CompassHeadingResponse>}
+ */
+const methodInfo_RobotService_CompassHeading = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.CompassHeadingResponse,
+  /**
+   * @param {!proto.proto.api.v1.CompassHeadingRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.CompassHeadingResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.CompassHeadingRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.CompassHeadingResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.CompassHeadingResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.CompassHeadingResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -2317,7 +3020,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.compassHeading =
 /**
  * @param {!proto.proto.api.v1.CompassHeadingRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.CompassHeadingResponse>}
  *     Promise that resolves to the response
@@ -2355,11 +3058,30 @@ const methodDescriptor_RobotService_CompassStartCalibration = new grpc.web.Metho
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.CompassStartCalibrationRequest,
+ *   !proto.proto.api.v1.CompassStartCalibrationResponse>}
+ */
+const methodInfo_RobotService_CompassStartCalibration = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.CompassStartCalibrationResponse,
+  /**
+   * @param {!proto.proto.api.v1.CompassStartCalibrationRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.CompassStartCalibrationResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.CompassStartCalibrationRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.CompassStartCalibrationResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.CompassStartCalibrationResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.CompassStartCalibrationResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -2378,7 +3100,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.compassStartCalibration =
 /**
  * @param {!proto.proto.api.v1.CompassStartCalibrationRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.CompassStartCalibrationResponse>}
  *     Promise that resolves to the response
@@ -2416,11 +3138,30 @@ const methodDescriptor_RobotService_CompassStopCalibration = new grpc.web.Method
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.CompassStopCalibrationRequest,
+ *   !proto.proto.api.v1.CompassStopCalibrationResponse>}
+ */
+const methodInfo_RobotService_CompassStopCalibration = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.CompassStopCalibrationResponse,
+  /**
+   * @param {!proto.proto.api.v1.CompassStopCalibrationRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.CompassStopCalibrationResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.CompassStopCalibrationRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.CompassStopCalibrationResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.CompassStopCalibrationResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.CompassStopCalibrationResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -2439,7 +3180,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.compassStopCalibration =
 /**
  * @param {!proto.proto.api.v1.CompassStopCalibrationRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.CompassStopCalibrationResponse>}
  *     Promise that resolves to the response
@@ -2477,11 +3218,30 @@ const methodDescriptor_RobotService_CompassMark = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.CompassMarkRequest,
+ *   !proto.proto.api.v1.CompassMarkResponse>}
+ */
+const methodInfo_RobotService_CompassMark = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.CompassMarkResponse,
+  /**
+   * @param {!proto.proto.api.v1.CompassMarkRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.CompassMarkResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.CompassMarkRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.CompassMarkResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.CompassMarkResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.CompassMarkResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -2500,7 +3260,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.compassMark =
 /**
  * @param {!proto.proto.api.v1.CompassMarkRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.CompassMarkResponse>}
  *     Promise that resolves to the response
@@ -2538,11 +3298,30 @@ const methodDescriptor_RobotService_ForceMatrixMatrix = new grpc.web.MethodDescr
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ForceMatrixMatrixRequest,
+ *   !proto.proto.api.v1.ForceMatrixMatrixResponse>}
+ */
+const methodInfo_RobotService_ForceMatrixMatrix = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ForceMatrixMatrixResponse,
+  /**
+   * @param {!proto.proto.api.v1.ForceMatrixMatrixRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ForceMatrixMatrixResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.ForceMatrixMatrixRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.ForceMatrixMatrixResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ForceMatrixMatrixResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ForceMatrixMatrixResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -2561,7 +3340,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.forceMatrixMatrix =
 /**
  * @param {!proto.proto.api.v1.ForceMatrixMatrixRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.ForceMatrixMatrixResponse>}
  *     Promise that resolves to the response
@@ -2599,11 +3378,30 @@ const methodDescriptor_RobotService_ExecuteFunction = new grpc.web.MethodDescrip
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ExecuteFunctionRequest,
+ *   !proto.proto.api.v1.ExecuteFunctionResponse>}
+ */
+const methodInfo_RobotService_ExecuteFunction = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ExecuteFunctionResponse,
+  /**
+   * @param {!proto.proto.api.v1.ExecuteFunctionRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ExecuteFunctionResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.ExecuteFunctionRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.ExecuteFunctionResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ExecuteFunctionResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ExecuteFunctionResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -2622,7 +3420,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.executeFunction =
 /**
  * @param {!proto.proto.api.v1.ExecuteFunctionRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.ExecuteFunctionResponse>}
  *     Promise that resolves to the response
@@ -2660,11 +3458,30 @@ const methodDescriptor_RobotService_ExecuteSource = new grpc.web.MethodDescripto
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ExecuteSourceRequest,
+ *   !proto.proto.api.v1.ExecuteSourceResponse>}
+ */
+const methodInfo_RobotService_ExecuteSource = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ExecuteSourceResponse,
+  /**
+   * @param {!proto.proto.api.v1.ExecuteSourceRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ExecuteSourceResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.ExecuteSourceRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.ExecuteSourceResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ExecuteSourceResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ExecuteSourceResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -2683,7 +3500,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.executeSource =
 /**
  * @param {!proto.proto.api.v1.ExecuteSourceRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.ExecuteSourceResponse>}
  *     Promise that resolves to the response
@@ -2721,11 +3538,30 @@ const methodDescriptor_RobotService_ServoMove = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ServoMoveRequest,
+ *   !proto.proto.api.v1.ServoMoveResponse>}
+ */
+const methodInfo_RobotService_ServoMove = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ServoMoveResponse,
+  /**
+   * @param {!proto.proto.api.v1.ServoMoveRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ServoMoveResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.ServoMoveRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.ServoMoveResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ServoMoveResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ServoMoveResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -2744,7 +3580,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.servoMove =
 /**
  * @param {!proto.proto.api.v1.ServoMoveRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.ServoMoveResponse>}
  *     Promise that resolves to the response
@@ -2782,11 +3618,30 @@ const methodDescriptor_RobotService_ServoCurrent = new grpc.web.MethodDescriptor
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ServoCurrentRequest,
+ *   !proto.proto.api.v1.ServoCurrentResponse>}
+ */
+const methodInfo_RobotService_ServoCurrent = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ServoCurrentResponse,
+  /**
+   * @param {!proto.proto.api.v1.ServoCurrentRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ServoCurrentResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.ServoCurrentRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.ServoCurrentResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ServoCurrentResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ServoCurrentResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -2805,7 +3660,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.servoCurrent =
 /**
  * @param {!proto.proto.api.v1.ServoCurrentRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.ServoCurrentResponse>}
  *     Promise that resolves to the response
@@ -2843,11 +3698,30 @@ const methodDescriptor_RobotService_MotorPower = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorPowerRequest,
+ *   !proto.proto.api.v1.MotorPowerResponse>}
+ */
+const methodInfo_RobotService_MotorPower = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorPowerResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorPowerRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorPowerResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.MotorPowerRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.MotorPowerResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorPowerResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorPowerResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -2866,7 +3740,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.motorPower =
 /**
  * @param {!proto.proto.api.v1.MotorPowerRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.MotorPowerResponse>}
  *     Promise that resolves to the response
@@ -2904,11 +3778,30 @@ const methodDescriptor_RobotService_MotorGo = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorGoRequest,
+ *   !proto.proto.api.v1.MotorGoResponse>}
+ */
+const methodInfo_RobotService_MotorGo = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorGoResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorGoRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorGoResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.MotorGoRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.MotorGoResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorGoResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorGoResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -2927,7 +3820,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.motorGo =
 /**
  * @param {!proto.proto.api.v1.MotorGoRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.MotorGoResponse>}
  *     Promise that resolves to the response
@@ -2965,11 +3858,30 @@ const methodDescriptor_RobotService_MotorGoFor = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorGoForRequest,
+ *   !proto.proto.api.v1.MotorGoForResponse>}
+ */
+const methodInfo_RobotService_MotorGoFor = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorGoForResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorGoForRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorGoForResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.MotorGoForRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.MotorGoForResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorGoForResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorGoForResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -2988,7 +3900,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.motorGoFor =
 /**
  * @param {!proto.proto.api.v1.MotorGoForRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.MotorGoForResponse>}
  *     Promise that resolves to the response
@@ -3026,11 +3938,30 @@ const methodDescriptor_RobotService_MotorGoTo = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorGoToRequest,
+ *   !proto.proto.api.v1.MotorGoToResponse>}
+ */
+const methodInfo_RobotService_MotorGoTo = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorGoToResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorGoToRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorGoToResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.MotorGoToRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.MotorGoToResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorGoToResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorGoToResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3049,7 +3980,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.motorGoTo =
 /**
  * @param {!proto.proto.api.v1.MotorGoToRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.MotorGoToResponse>}
  *     Promise that resolves to the response
@@ -3087,11 +4018,30 @@ const methodDescriptor_RobotService_MotorGoTillStop = new grpc.web.MethodDescrip
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorGoTillStopRequest,
+ *   !proto.proto.api.v1.MotorGoTillStopResponse>}
+ */
+const methodInfo_RobotService_MotorGoTillStop = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorGoTillStopResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorGoTillStopRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorGoTillStopResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.MotorGoTillStopRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.MotorGoTillStopResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorGoTillStopResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorGoTillStopResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3110,7 +4060,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.motorGoTillStop =
 /**
  * @param {!proto.proto.api.v1.MotorGoTillStopRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.MotorGoTillStopResponse>}
  *     Promise that resolves to the response
@@ -3148,11 +4098,30 @@ const methodDescriptor_RobotService_MotorZero = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorZeroRequest,
+ *   !proto.proto.api.v1.MotorZeroResponse>}
+ */
+const methodInfo_RobotService_MotorZero = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorZeroResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorZeroRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorZeroResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.MotorZeroRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.MotorZeroResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorZeroResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorZeroResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3171,7 +4140,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.motorZero =
 /**
  * @param {!proto.proto.api.v1.MotorZeroRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.MotorZeroResponse>}
  *     Promise that resolves to the response
@@ -3209,11 +4178,30 @@ const methodDescriptor_RobotService_MotorPosition = new grpc.web.MethodDescripto
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorPositionRequest,
+ *   !proto.proto.api.v1.MotorPositionResponse>}
+ */
+const methodInfo_RobotService_MotorPosition = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorPositionResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorPositionRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorPositionResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.MotorPositionRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.MotorPositionResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorPositionResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorPositionResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3232,7 +4220,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.motorPosition =
 /**
  * @param {!proto.proto.api.v1.MotorPositionRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.MotorPositionResponse>}
  *     Promise that resolves to the response
@@ -3270,11 +4258,30 @@ const methodDescriptor_RobotService_MotorPositionSupported = new grpc.web.Method
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorPositionSupportedRequest,
+ *   !proto.proto.api.v1.MotorPositionSupportedResponse>}
+ */
+const methodInfo_RobotService_MotorPositionSupported = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorPositionSupportedResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorPositionSupportedRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorPositionSupportedResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.MotorPositionSupportedRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.MotorPositionSupportedResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorPositionSupportedResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorPositionSupportedResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3293,7 +4300,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.motorPositionSupported =
 /**
  * @param {!proto.proto.api.v1.MotorPositionSupportedRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.MotorPositionSupportedResponse>}
  *     Promise that resolves to the response
@@ -3331,11 +4338,30 @@ const methodDescriptor_RobotService_MotorOff = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorOffRequest,
+ *   !proto.proto.api.v1.MotorOffResponse>}
+ */
+const methodInfo_RobotService_MotorOff = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorOffResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorOffRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorOffResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.MotorOffRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.MotorOffResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorOffResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorOffResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3354,7 +4380,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.motorOff =
 /**
  * @param {!proto.proto.api.v1.MotorOffRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.MotorOffResponse>}
  *     Promise that resolves to the response
@@ -3392,11 +4418,30 @@ const methodDescriptor_RobotService_MotorIsOn = new grpc.web.MethodDescriptor(
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorIsOnRequest,
+ *   !proto.proto.api.v1.MotorIsOnResponse>}
+ */
+const methodInfo_RobotService_MotorIsOn = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorIsOnResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorIsOnRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorIsOnResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.MotorIsOnRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.MotorIsOnResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorIsOnResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorIsOnResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3415,7 +4460,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.motorIsOn =
 /**
  * @param {!proto.proto.api.v1.MotorIsOnRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.MotorIsOnResponse>}
  *     Promise that resolves to the response
@@ -3453,11 +4498,30 @@ const methodDescriptor_RobotService_ResourceRunCommand = new grpc.web.MethodDesc
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ResourceRunCommandRequest,
+ *   !proto.proto.api.v1.ResourceRunCommandResponse>}
+ */
+const methodInfo_RobotService_ResourceRunCommand = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ResourceRunCommandResponse,
+  /**
+   * @param {!proto.proto.api.v1.ResourceRunCommandRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ResourceRunCommandResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.ResourceRunCommandRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.ResourceRunCommandResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ResourceRunCommandResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ResourceRunCommandResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3476,7 +4540,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.resourceRunCommand =
 /**
  * @param {!proto.proto.api.v1.ResourceRunCommandRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.ResourceRunCommandResponse>}
  *     Promise that resolves to the response
@@ -3514,11 +4578,30 @@ const methodDescriptor_RobotService_NavigationServiceMode = new grpc.web.MethodD
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.NavigationServiceModeRequest,
+ *   !proto.proto.api.v1.NavigationServiceModeResponse>}
+ */
+const methodInfo_RobotService_NavigationServiceMode = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.NavigationServiceModeResponse,
+  /**
+   * @param {!proto.proto.api.v1.NavigationServiceModeRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.NavigationServiceModeResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.NavigationServiceModeRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.NavigationServiceModeResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.NavigationServiceModeResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.NavigationServiceModeResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3537,7 +4620,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.navigationServiceMode =
 /**
  * @param {!proto.proto.api.v1.NavigationServiceModeRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.NavigationServiceModeResponse>}
  *     Promise that resolves to the response
@@ -3575,11 +4658,30 @@ const methodDescriptor_RobotService_NavigationServiceSetMode = new grpc.web.Meth
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.NavigationServiceSetModeRequest,
+ *   !proto.proto.api.v1.NavigationServiceSetModeResponse>}
+ */
+const methodInfo_RobotService_NavigationServiceSetMode = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.NavigationServiceSetModeResponse,
+  /**
+   * @param {!proto.proto.api.v1.NavigationServiceSetModeRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.NavigationServiceSetModeResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.NavigationServiceSetModeRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.NavigationServiceSetModeResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.NavigationServiceSetModeResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.NavigationServiceSetModeResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3598,7 +4700,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.navigationServiceSetMode =
 /**
  * @param {!proto.proto.api.v1.NavigationServiceSetModeRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.NavigationServiceSetModeResponse>}
  *     Promise that resolves to the response
@@ -3636,11 +4738,30 @@ const methodDescriptor_RobotService_NavigationServiceLocation = new grpc.web.Met
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.NavigationServiceLocationRequest,
+ *   !proto.proto.api.v1.NavigationServiceLocationResponse>}
+ */
+const methodInfo_RobotService_NavigationServiceLocation = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.NavigationServiceLocationResponse,
+  /**
+   * @param {!proto.proto.api.v1.NavigationServiceLocationRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.NavigationServiceLocationResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.NavigationServiceLocationRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.NavigationServiceLocationResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.NavigationServiceLocationResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.NavigationServiceLocationResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3659,7 +4780,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.navigationServiceLocation =
 /**
  * @param {!proto.proto.api.v1.NavigationServiceLocationRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.NavigationServiceLocationResponse>}
  *     Promise that resolves to the response
@@ -3697,11 +4818,30 @@ const methodDescriptor_RobotService_NavigationServiceWaypoints = new grpc.web.Me
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.NavigationServiceWaypointsRequest,
+ *   !proto.proto.api.v1.NavigationServiceWaypointsResponse>}
+ */
+const methodInfo_RobotService_NavigationServiceWaypoints = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.NavigationServiceWaypointsResponse,
+  /**
+   * @param {!proto.proto.api.v1.NavigationServiceWaypointsRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.NavigationServiceWaypointsResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.NavigationServiceWaypointsRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.NavigationServiceWaypointsResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.NavigationServiceWaypointsResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.NavigationServiceWaypointsResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3720,7 +4860,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.navigationServiceWaypoints =
 /**
  * @param {!proto.proto.api.v1.NavigationServiceWaypointsRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.NavigationServiceWaypointsResponse>}
  *     Promise that resolves to the response
@@ -3758,11 +4898,30 @@ const methodDescriptor_RobotService_NavigationServiceAddWaypoint = new grpc.web.
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.NavigationServiceAddWaypointRequest,
+ *   !proto.proto.api.v1.NavigationServiceAddWaypointResponse>}
+ */
+const methodInfo_RobotService_NavigationServiceAddWaypoint = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.NavigationServiceAddWaypointResponse,
+  /**
+   * @param {!proto.proto.api.v1.NavigationServiceAddWaypointRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.NavigationServiceAddWaypointResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.NavigationServiceAddWaypointRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.NavigationServiceAddWaypointResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.NavigationServiceAddWaypointResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.NavigationServiceAddWaypointResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3781,7 +4940,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.navigationServiceAddWaypoint =
 /**
  * @param {!proto.proto.api.v1.NavigationServiceAddWaypointRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.NavigationServiceAddWaypointResponse>}
  *     Promise that resolves to the response
@@ -3819,11 +4978,30 @@ const methodDescriptor_RobotService_NavigationServiceRemoveWaypoint = new grpc.w
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.NavigationServiceRemoveWaypointRequest,
+ *   !proto.proto.api.v1.NavigationServiceRemoveWaypointResponse>}
+ */
+const methodInfo_RobotService_NavigationServiceRemoveWaypoint = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.NavigationServiceRemoveWaypointResponse,
+  /**
+   * @param {!proto.proto.api.v1.NavigationServiceRemoveWaypointRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.NavigationServiceRemoveWaypointResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.NavigationServiceRemoveWaypointRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.NavigationServiceRemoveWaypointResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.NavigationServiceRemoveWaypointResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.NavigationServiceRemoveWaypointResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3842,7 +5020,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.navigationServiceRemoveWaypoint 
 /**
  * @param {!proto.proto.api.v1.NavigationServiceRemoveWaypointRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.NavigationServiceRemoveWaypointResponse>}
  *     Promise that resolves to the response
@@ -3880,11 +5058,30 @@ const methodDescriptor_RobotService_IMUAngularVelocity = new grpc.web.MethodDesc
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.IMUAngularVelocityRequest,
+ *   !proto.proto.api.v1.IMUAngularVelocityResponse>}
+ */
+const methodInfo_RobotService_IMUAngularVelocity = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.IMUAngularVelocityResponse,
+  /**
+   * @param {!proto.proto.api.v1.IMUAngularVelocityRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.IMUAngularVelocityResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.IMUAngularVelocityRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.IMUAngularVelocityResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.IMUAngularVelocityResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.IMUAngularVelocityResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3903,7 +5100,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.iMUAngularVelocity =
 /**
  * @param {!proto.proto.api.v1.IMUAngularVelocityRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.IMUAngularVelocityResponse>}
  *     Promise that resolves to the response
@@ -3941,11 +5138,30 @@ const methodDescriptor_RobotService_IMUOrientation = new grpc.web.MethodDescript
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.IMUOrientationRequest,
+ *   !proto.proto.api.v1.IMUOrientationResponse>}
+ */
+const methodInfo_RobotService_IMUOrientation = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.IMUOrientationResponse,
+  /**
+   * @param {!proto.proto.api.v1.IMUOrientationRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.IMUOrientationResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.IMUOrientationRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.IMUOrientationResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.IMUOrientationResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.IMUOrientationResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3964,7 +5180,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.iMUOrientation =
 /**
  * @param {!proto.proto.api.v1.IMUOrientationRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.IMUOrientationResponse>}
  *     Promise that resolves to the response
