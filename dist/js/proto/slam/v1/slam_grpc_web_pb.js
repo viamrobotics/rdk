@@ -25,7 +25,7 @@ proto.proto.slam.v1 = require('./slam_pb.js');
 /**
  * @param {string} hostname
  * @param {?Object} credentials
- * @param {?Object} options
+ * @param {?grpc.web.ClientOptions} options
  * @constructor
  * @struct
  * @final
@@ -33,7 +33,7 @@ proto.proto.slam.v1 = require('./slam_pb.js');
 proto.proto.slam.v1.SlamServiceClient =
     function(hostname, credentials, options) {
   if (!options) options = {};
-  options['format'] = 'text';
+  options.format = 'text';
 
   /**
    * @private @const {!grpc.web.GrpcWebClientBase} The client
@@ -51,7 +51,7 @@ proto.proto.slam.v1.SlamServiceClient =
 /**
  * @param {string} hostname
  * @param {?Object} credentials
- * @param {?Object} options
+ * @param {?grpc.web.ClientOptions} options
  * @constructor
  * @struct
  * @final
@@ -59,7 +59,7 @@ proto.proto.slam.v1.SlamServiceClient =
 proto.proto.slam.v1.SlamServicePromiseClient =
     function(hostname, credentials, options) {
   if (!options) options = {};
-  options['format'] = 'text';
+  options.format = 'text';
 
   /**
    * @private @const {!grpc.web.GrpcWebClientBase} The client
@@ -97,30 +97,11 @@ const methodDescriptor_SlamService_Save = new grpc.web.MethodDescriptor(
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.slam.v1.SaveRequest,
- *   !proto.proto.slam.v1.SaveResponse>}
- */
-const methodInfo_SlamService_Save = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.slam.v1.SaveResponse,
-  /**
-   * @param {!proto.proto.slam.v1.SaveRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.slam.v1.SaveResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.proto.slam.v1.SaveRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.slam.v1.SaveResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.slam.v1.SaveResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.slam.v1.SaveResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -139,7 +120,7 @@ proto.proto.slam.v1.SlamServiceClient.prototype.save =
 /**
  * @param {!proto.proto.slam.v1.SaveRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.slam.v1.SaveResponse>}
  *     Promise that resolves to the response
@@ -177,30 +158,11 @@ const methodDescriptor_SlamService_Stats = new grpc.web.MethodDescriptor(
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.slam.v1.StatsRequest,
- *   !proto.proto.slam.v1.StatsResponse>}
- */
-const methodInfo_SlamService_Stats = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.slam.v1.StatsResponse,
-  /**
-   * @param {!proto.proto.slam.v1.StatsRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.slam.v1.StatsResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.proto.slam.v1.StatsRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.slam.v1.StatsResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.slam.v1.StatsResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.slam.v1.StatsResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -219,7 +181,7 @@ proto.proto.slam.v1.SlamServiceClient.prototype.stats =
 /**
  * @param {!proto.proto.slam.v1.StatsRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.slam.v1.StatsResponse>}
  *     Promise that resolves to the response
@@ -257,30 +219,11 @@ const methodDescriptor_SlamService_Calibrate = new grpc.web.MethodDescriptor(
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.slam.v1.CalibrateRequest,
- *   !proto.proto.slam.v1.CalibrateResponse>}
- */
-const methodInfo_SlamService_Calibrate = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.slam.v1.CalibrateResponse,
-  /**
-   * @param {!proto.proto.slam.v1.CalibrateRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.slam.v1.CalibrateResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.proto.slam.v1.CalibrateRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.slam.v1.CalibrateResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.slam.v1.CalibrateResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.slam.v1.CalibrateResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -299,7 +242,7 @@ proto.proto.slam.v1.SlamServiceClient.prototype.calibrate =
 /**
  * @param {!proto.proto.slam.v1.CalibrateRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.slam.v1.CalibrateResponse>}
  *     Promise that resolves to the response
@@ -337,30 +280,11 @@ const methodDescriptor_SlamService_MoveRobot = new grpc.web.MethodDescriptor(
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.slam.v1.MoveRobotRequest,
- *   !proto.proto.slam.v1.MoveRobotResponse>}
- */
-const methodInfo_SlamService_MoveRobot = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.slam.v1.MoveRobotResponse,
-  /**
-   * @param {!proto.proto.slam.v1.MoveRobotRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.slam.v1.MoveRobotResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.proto.slam.v1.MoveRobotRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.slam.v1.MoveRobotResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.slam.v1.MoveRobotResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.slam.v1.MoveRobotResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -379,7 +303,7 @@ proto.proto.slam.v1.SlamServiceClient.prototype.moveRobot =
 /**
  * @param {!proto.proto.slam.v1.MoveRobotRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.slam.v1.MoveRobotResponse>}
  *     Promise that resolves to the response
@@ -417,30 +341,11 @@ const methodDescriptor_SlamService_MoveRobotForward = new grpc.web.MethodDescrip
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.slam.v1.MoveRobotForwardRequest,
- *   !proto.proto.slam.v1.MoveRobotForwardResponse>}
- */
-const methodInfo_SlamService_MoveRobotForward = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.slam.v1.MoveRobotForwardResponse,
-  /**
-   * @param {!proto.proto.slam.v1.MoveRobotForwardRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.slam.v1.MoveRobotForwardResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.proto.slam.v1.MoveRobotForwardRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.slam.v1.MoveRobotForwardResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.slam.v1.MoveRobotForwardResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.slam.v1.MoveRobotForwardResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -459,7 +364,7 @@ proto.proto.slam.v1.SlamServiceClient.prototype.moveRobotForward =
 /**
  * @param {!proto.proto.slam.v1.MoveRobotForwardRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.slam.v1.MoveRobotForwardResponse>}
  *     Promise that resolves to the response
@@ -497,30 +402,11 @@ const methodDescriptor_SlamService_MoveRobotBackward = new grpc.web.MethodDescri
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.slam.v1.MoveRobotBackwardRequest,
- *   !proto.proto.slam.v1.MoveRobotBackwardResponse>}
- */
-const methodInfo_SlamService_MoveRobotBackward = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.slam.v1.MoveRobotBackwardResponse,
-  /**
-   * @param {!proto.proto.slam.v1.MoveRobotBackwardRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.slam.v1.MoveRobotBackwardResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.proto.slam.v1.MoveRobotBackwardRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.slam.v1.MoveRobotBackwardResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.slam.v1.MoveRobotBackwardResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.slam.v1.MoveRobotBackwardResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -539,7 +425,7 @@ proto.proto.slam.v1.SlamServiceClient.prototype.moveRobotBackward =
 /**
  * @param {!proto.proto.slam.v1.MoveRobotBackwardRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.slam.v1.MoveRobotBackwardResponse>}
  *     Promise that resolves to the response
@@ -577,30 +463,11 @@ const methodDescriptor_SlamService_TurnRobotTo = new grpc.web.MethodDescriptor(
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.slam.v1.TurnRobotToRequest,
- *   !proto.proto.slam.v1.TurnRobotToResponse>}
- */
-const methodInfo_SlamService_TurnRobotTo = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.slam.v1.TurnRobotToResponse,
-  /**
-   * @param {!proto.proto.slam.v1.TurnRobotToRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.slam.v1.TurnRobotToResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.proto.slam.v1.TurnRobotToRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.slam.v1.TurnRobotToResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.slam.v1.TurnRobotToResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.slam.v1.TurnRobotToResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -619,7 +486,7 @@ proto.proto.slam.v1.SlamServiceClient.prototype.turnRobotTo =
 /**
  * @param {!proto.proto.slam.v1.TurnRobotToRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.slam.v1.TurnRobotToResponse>}
  *     Promise that resolves to the response
@@ -657,30 +524,11 @@ const methodDescriptor_SlamService_UpdateRobotDeviceOffset = new grpc.web.Method
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.slam.v1.UpdateRobotDeviceOffsetRequest,
- *   !proto.proto.slam.v1.UpdateRobotDeviceOffsetResponse>}
- */
-const methodInfo_SlamService_UpdateRobotDeviceOffset = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.slam.v1.UpdateRobotDeviceOffsetResponse,
-  /**
-   * @param {!proto.proto.slam.v1.UpdateRobotDeviceOffsetRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.slam.v1.UpdateRobotDeviceOffsetResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.proto.slam.v1.UpdateRobotDeviceOffsetRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.slam.v1.UpdateRobotDeviceOffsetResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.slam.v1.UpdateRobotDeviceOffsetResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.slam.v1.UpdateRobotDeviceOffsetResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -699,7 +547,7 @@ proto.proto.slam.v1.SlamServiceClient.prototype.updateRobotDeviceOffset =
 /**
  * @param {!proto.proto.slam.v1.UpdateRobotDeviceOffsetRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.slam.v1.UpdateRobotDeviceOffsetResponse>}
  *     Promise that resolves to the response
@@ -737,30 +585,11 @@ const methodDescriptor_SlamService_StartLidar = new grpc.web.MethodDescriptor(
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.slam.v1.StartLidarRequest,
- *   !proto.proto.slam.v1.StartLidarResponse>}
- */
-const methodInfo_SlamService_StartLidar = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.slam.v1.StartLidarResponse,
-  /**
-   * @param {!proto.proto.slam.v1.StartLidarRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.slam.v1.StartLidarResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.proto.slam.v1.StartLidarRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.slam.v1.StartLidarResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.slam.v1.StartLidarResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.slam.v1.StartLidarResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -779,7 +608,7 @@ proto.proto.slam.v1.SlamServiceClient.prototype.startLidar =
 /**
  * @param {!proto.proto.slam.v1.StartLidarRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.slam.v1.StartLidarResponse>}
  *     Promise that resolves to the response
@@ -817,30 +646,11 @@ const methodDescriptor_SlamService_StopLidar = new grpc.web.MethodDescriptor(
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.slam.v1.StopLidarRequest,
- *   !proto.proto.slam.v1.StopLidarResponse>}
- */
-const methodInfo_SlamService_StopLidar = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.slam.v1.StopLidarResponse,
-  /**
-   * @param {!proto.proto.slam.v1.StopLidarRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.slam.v1.StopLidarResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.proto.slam.v1.StopLidarRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.slam.v1.StopLidarResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.slam.v1.StopLidarResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.slam.v1.StopLidarResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -859,7 +669,7 @@ proto.proto.slam.v1.SlamServiceClient.prototype.stopLidar =
 /**
  * @param {!proto.proto.slam.v1.StopLidarRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.slam.v1.StopLidarResponse>}
  *     Promise that resolves to the response
@@ -897,30 +707,11 @@ const methodDescriptor_SlamService_GetLidarSeed = new grpc.web.MethodDescriptor(
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.slam.v1.GetLidarSeedRequest,
- *   !proto.proto.slam.v1.GetLidarSeedResponse>}
- */
-const methodInfo_SlamService_GetLidarSeed = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.slam.v1.GetLidarSeedResponse,
-  /**
-   * @param {!proto.proto.slam.v1.GetLidarSeedRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.slam.v1.GetLidarSeedResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.proto.slam.v1.GetLidarSeedRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.slam.v1.GetLidarSeedResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.slam.v1.GetLidarSeedResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.slam.v1.GetLidarSeedResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -939,7 +730,7 @@ proto.proto.slam.v1.SlamServiceClient.prototype.getLidarSeed =
 /**
  * @param {!proto.proto.slam.v1.GetLidarSeedRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.slam.v1.GetLidarSeedResponse>}
  *     Promise that resolves to the response
@@ -977,30 +768,11 @@ const methodDescriptor_SlamService_SetLidarSeed = new grpc.web.MethodDescriptor(
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.slam.v1.SetLidarSeedRequest,
- *   !proto.proto.slam.v1.SetLidarSeedResponse>}
- */
-const methodInfo_SlamService_SetLidarSeed = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.slam.v1.SetLidarSeedResponse,
-  /**
-   * @param {!proto.proto.slam.v1.SetLidarSeedRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.slam.v1.SetLidarSeedResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.proto.slam.v1.SetLidarSeedRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.slam.v1.SetLidarSeedResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.slam.v1.SetLidarSeedResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.slam.v1.SetLidarSeedResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1019,7 +791,7 @@ proto.proto.slam.v1.SlamServiceClient.prototype.setLidarSeed =
 /**
  * @param {!proto.proto.slam.v1.SetLidarSeedRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.slam.v1.SetLidarSeedResponse>}
  *     Promise that resolves to the response
@@ -1057,30 +829,11 @@ const methodDescriptor_SlamService_SetClientZoom = new grpc.web.MethodDescriptor
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.slam.v1.SetClientZoomRequest,
- *   !proto.proto.slam.v1.SetClientZoomResponse>}
- */
-const methodInfo_SlamService_SetClientZoom = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.slam.v1.SetClientZoomResponse,
-  /**
-   * @param {!proto.proto.slam.v1.SetClientZoomRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.slam.v1.SetClientZoomResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.proto.slam.v1.SetClientZoomRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.slam.v1.SetClientZoomResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.slam.v1.SetClientZoomResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.slam.v1.SetClientZoomResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1099,7 +852,7 @@ proto.proto.slam.v1.SlamServiceClient.prototype.setClientZoom =
 /**
  * @param {!proto.proto.slam.v1.SetClientZoomRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.slam.v1.SetClientZoomResponse>}
  *     Promise that resolves to the response
@@ -1137,30 +890,11 @@ const methodDescriptor_SlamService_SetClientLidarViewMode = new grpc.web.MethodD
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.slam.v1.SetClientLidarViewModeRequest,
- *   !proto.proto.slam.v1.SetClientLidarViewModeResponse>}
- */
-const methodInfo_SlamService_SetClientLidarViewMode = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.slam.v1.SetClientLidarViewModeResponse,
-  /**
-   * @param {!proto.proto.slam.v1.SetClientLidarViewModeRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.slam.v1.SetClientLidarViewModeResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.proto.slam.v1.SetClientLidarViewModeRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.slam.v1.SetClientLidarViewModeResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.slam.v1.SetClientLidarViewModeResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.slam.v1.SetClientLidarViewModeResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1179,7 +913,7 @@ proto.proto.slam.v1.SlamServiceClient.prototype.setClientLidarViewMode =
 /**
  * @param {!proto.proto.slam.v1.SetClientLidarViewModeRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.slam.v1.SetClientLidarViewModeResponse>}
  *     Promise that resolves to the response
@@ -1217,30 +951,11 @@ const methodDescriptor_SlamService_SetClientClickMode = new grpc.web.MethodDescr
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.slam.v1.SetClientClickModeRequest,
- *   !proto.proto.slam.v1.SetClientClickModeResponse>}
- */
-const methodInfo_SlamService_SetClientClickMode = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.slam.v1.SetClientClickModeResponse,
-  /**
-   * @param {!proto.proto.slam.v1.SetClientClickModeRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.slam.v1.SetClientClickModeResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.proto.slam.v1.SetClientClickModeRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.slam.v1.SetClientClickModeResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.slam.v1.SetClientClickModeResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.slam.v1.SetClientClickModeResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1259,7 +974,7 @@ proto.proto.slam.v1.SlamServiceClient.prototype.setClientClickMode =
 /**
  * @param {!proto.proto.slam.v1.SetClientClickModeRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.slam.v1.SetClientClickModeResponse>}
  *     Promise that resolves to the response
