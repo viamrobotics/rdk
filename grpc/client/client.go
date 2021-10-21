@@ -380,7 +380,7 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	}()
 	names, err := metadataClient.Resources(ctx)
 	// only return if it is not unimplemented - means a bigger error came up
-	if grpcstatus.Code(err) != codes.Unimplemented {
+	if err != nil && grpcstatus.Code(err) != codes.Unimplemented {
 		return err
 	}
 	if err == nil {
