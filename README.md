@@ -18,7 +18,6 @@
 * [rpc/examples/echo/server](./rpc/examples/echo/server) - Run a gRPC echo example server
 * [rpc/examples/echo/client](./rpc/examples/echo/client) - Run a gRPC echo example client
 * [sensor/compass/gy511/cmd/client](./sensor/compass/gy511/cmd/client) - Run a GY511 compass
-* [slam/cmd/server](./slam/cmd/server) - Run a SLAM implementation
 
 ### Bespoke
 * [samples/boat1](./samples/boat1) - boat1 work in progress
