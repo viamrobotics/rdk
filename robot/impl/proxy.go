@@ -1006,10 +1006,22 @@ func (p *proxyInputController) replace(newController input.Controller) {
 	p.actual = actual.actual
 }
 
-func (p *proxyInputController) Inputs(ctx context.Context) (map[input.ControlCode]input.Input, error) {
+func (p *proxyInputController) Controls(ctx context.Context) ([]input.Control, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.actual.Inputs(ctx)
+	return p.actual.Controls(ctx)
+}
+
+func (p *proxyInputController) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.LastEvents(ctx)
+}
+
+func (p *proxyInputController) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.RegisterControlCallback(ctx, control, triggers, ctrlFunc)
 }
 
 func (p *proxyInputController) Close() error {

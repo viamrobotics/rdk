@@ -9,23 +9,18 @@ import (
 // Controller is a logical "container" more than an actual device
 // Could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
 type Controller interface {
-	Inputs(ctx context.Context) (map[ControlCode]Input, error)
+	// Controls returns a list of Controls provided by the Controller
+	Controls(ctx context.Context) ([]Control, error)
+
+	// LastEvent returns most recent Event for each input (which should be the current state)
+	LastEvents(ctx context.Context) (map[Control]Event, error)
+
+	// RegisterCallback registers a callback that will fire on given EventTypes for a given Control
+	RegisterControlCallback(ctx context.Context, control Control, triggers []EventType, ctrlFunc ControlFunction) error
 }
 
-// Input represents a single axis or button, defined by its ControlCode
-type Input interface {
-	// Name returns the ControlCode
-	Name(ctx context.Context) ControlCode
-
-	// LastEvent returns most recent Event (which should be the current state)
-	LastEvent(ctx context.Context) (Event, error)
-
-	// RegisterControl registers a callback for the trigger EventType
-	RegisterControl(ctx context.Context, ctrlFunc ControlFunction, trigger EventType) error
-}
-
-// ControlFunction is a callback passed to RegisterControl
-type ControlFunction func(ctx context.Context, inp Input, ev Event)
+// ControlFunction is a callback passed to RegisterControlCallback
+type ControlFunction func(ctx context.Context, ev Event)
 
 // EventType represents the type of input event, and is returned by LastEvent() or passed to ControlFunction callbacks.
 type EventType string
@@ -42,40 +37,40 @@ const (
 	PositionChangeRel EventType = "PositionChangeRel" // Relative position is reported via Value, a la mice, or simulating axes with up/down buttons
 )
 
-// ControlCode identifies the input (specific Axis or Button) of a controller
-type ControlCode string
+// Control identifies the input (specific Axis or Button) of a controller
+type Control string
 
-// ControlCodes, to be expanded as new input devices are developed
+// Controls, to be expanded as new input devices are developed
 const (
 	// Axes
-	AbsoluteX     ControlCode = "AbsoluteX"
-	AbsoluteY     ControlCode = "AbsoluteY"
-	AbsoluteZ     ControlCode = "AbsoluteZ"
-	AbsoluteRX    ControlCode = "AbsoluteRX"
-	AbsoluteRY    ControlCode = "AbsoluteRY"
-	AbsoluteRZ    ControlCode = "AbsoluteRZ"
-	AbsoluteHat0X ControlCode = "AbsoluteHat0X"
-	AbsoluteHat0Y ControlCode = "AbsoluteHat0Y"
+	AbsoluteX     Control = "AbsoluteX"
+	AbsoluteY     Control = "AbsoluteY"
+	AbsoluteZ     Control = "AbsoluteZ"
+	AbsoluteRX    Control = "AbsoluteRX"
+	AbsoluteRY    Control = "AbsoluteRY"
+	AbsoluteRZ    Control = "AbsoluteRZ"
+	AbsoluteHat0X Control = "AbsoluteHat0X"
+	AbsoluteHat0Y Control = "AbsoluteHat0Y"
 
 	// Buttons
-	ButtonSouth  ControlCode = "ButtonSouth"
-	ButtonEast   ControlCode = "ButtonEast"
-	ButtonWest   ControlCode = "ButtonWest"
-	ButtonNorth  ControlCode = "ButtonNorth"
-	ButtonLT     ControlCode = "ButtonLT"
-	ButtonRT     ControlCode = "ButtonRT"
-	ButtonLThumb ControlCode = "ButtonLThumb"
-	ButtonRThumb ControlCode = "ButtonRThumb"
-	ButtonSelect ControlCode = "ButtonSelect"
-	ButtonStart  ControlCode = "ButtonStart"
-	ButtonMenu   ControlCode = "ButtonMenu"
-	ButtonRecord ControlCode = "ButtonRecord"
+	ButtonSouth  Control = "ButtonSouth"
+	ButtonEast   Control = "ButtonEast"
+	ButtonWest   Control = "ButtonWest"
+	ButtonNorth  Control = "ButtonNorth"
+	ButtonLT     Control = "ButtonLT"
+	ButtonRT     Control = "ButtonRT"
+	ButtonLThumb Control = "ButtonLThumb"
+	ButtonRThumb Control = "ButtonRThumb"
+	ButtonSelect Control = "ButtonSelect"
+	ButtonStart  Control = "ButtonStart"
+	ButtonMenu   Control = "ButtonMenu"
+	ButtonRecord Control = "ButtonRecord"
 )
 
 // Event is passed to the registered ControlFunction or returned by State()
 type Event struct {
-	Time  time.Time
-	Event EventType
-	Code  ControlCode // Key or Axis code
-	Value float64     // 0 or 1 for buttons, -1.0 to +1.0 for axes
+	Time    time.Time
+	Event   EventType
+	Control Control // Key or Axis
+	Value   float64 // 0 or 1 for buttons, -1.0 to +1.0 for axes
 }

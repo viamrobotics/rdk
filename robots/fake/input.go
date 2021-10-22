@@ -35,59 +35,38 @@ func init() {
 // NewInputController returns a fake input.Controller
 func NewInputController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
 	c := &InputController{}
-
-	c.inputs = make(map[input.ControlCode]*Input)
-
-	for _, v := range config.ConvertedAttributes.(*Config).inputs {
-		c.inputs[v.controlCode] = v
-	}
-
+	c.controls = config.ConvertedAttributes.(*Config).controls
 	return c, nil
 }
 
 // Config can list input structs (with their states)
 type Config struct {
-	inputs []*Input
+	controls []input.Control
 }
 
 // An InputController fakes an input.Controller
 type InputController struct {
-	Name   string
-	mu     sync.Mutex
-	inputs map[input.ControlCode]*Input
+	Name       string
+	mu         sync.Mutex
+	controls   []input.Control
+	lastEvents map[input.Control]input.Event
 }
 
-// Inputs lists the inputs of the gamepad
-func (c *InputController) Inputs(ctx context.Context) (map[input.ControlCode]input.Input, error) {
+// Controls lists the inputs of the gamepad
+func (c *InputController) Controls(ctx context.Context) ([]input.Control, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	ret := make(map[input.ControlCode]input.Input)
-	for k, v := range c.inputs {
-		ret[k] = v
-	}
-	return ret, nil
+	return c.controls, nil
 }
 
-// Input is a fake input.Input
-type Input struct {
-	controlCode input.ControlCode
-	mu          sync.Mutex
-	lastEvent   input.Event
+// LastEvents returns the last input.Event (the current state) of each control
+func (c *InputController) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.lastEvents, nil
 }
 
-// Name returns the stringified ControlCode of the input
-func (i *Input) Name(ctx context.Context) input.ControlCode {
-	return i.controlCode
-}
-
-// LastEvent returns the last input.Event (the current state)
-func (i *Input) LastEvent(ctx context.Context) (input.Event, error) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	return i.lastEvent, nil
-}
-
-// RegisterControl registers a callback function to be executed on the specified trigger Event
-func (i *Input) RegisterControl(ctx context.Context, ctrlFunc input.ControlFunction, trigger input.EventType) error {
+// RegisterControlCallback registers a callback function to be executed on the specified trigger Event
+func (c *InputController) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
 	return errors.New("unsupported")
 }

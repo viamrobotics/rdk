@@ -57,28 +57,21 @@ type Controller struct {
 	dev                     *evdev.Evdev
 	Model                   string
 	Mapping                 Mapping
-	inputs                  map[input.ControlCode]*Input
+	controls                []input.Control
+	lastEvents              map[input.Control]input.Event
 	logger                  golog.Logger
 	mu                      sync.RWMutex
 	activeBackgroundWorkers sync.WaitGroup
 	cancelFunc              func()
-	callbacks               map[input.ControlCode]map[input.EventType]input.ControlFunction
+	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
 	devFile                 string
 	reconnect               bool
 }
 
-// Mapping represents the evedev code to input.ControlCode mapping for a given gamepad model
+// Mapping represents the evdev code to input.Control mapping for a given gamepad model
 type Mapping struct {
-	Buttons map[evdev.KeyType]input.ControlCode
-	Axes    map[evdev.AbsoluteType]input.ControlCode
-}
-
-// Input is a single input.Input
-type Input struct {
-	pad         *Controller
-	controlCode input.ControlCode
-	mu          sync.RWMutex
-	lastEvent   input.Event
+	Buttons map[evdev.KeyType]input.Control
+	Axes    map[evdev.AbsoluteType]input.Control
 }
 
 func timevaltoTime(timeVal syscall.Timeval) time.Time {
@@ -104,7 +97,7 @@ func (g *Controller) eventDispatcher(ctx context.Context) {
 				continue
 			}
 			// Use debug line below when developing new controller mappings
-			// g.logger.Debugf("%s: Type: %d, Code: %d, Value: %d\n", timevaltoTime(eventIn.Event.Time), eventIn.Event.Type, eventIn.Event.Code, eventIn.Event.Value)
+			// g.logger.Debugf("%s: Type: %d, Code: %d, Value: %d\n", timevaltoTime(eventIn.Event.Time), eventIn.Event.Type, eventIn.Event.Control, eventIn.Event.Value)
 
 			var eventOut input.Event
 			switch eventIn.Event.Type {
@@ -144,10 +137,10 @@ func (g *Controller) eventDispatcher(ctx context.Context) {
 				}
 
 				eventOut = input.Event{
-					Time:  timevaltoTime(eventIn.Event.Time),
-					Event: input.PositionChangeAbs,
-					Code:  thisAxis,
-					Value: scaledPos,
+					Time:    timevaltoTime(eventIn.Event.Time),
+					Event:   input.PositionChangeAbs,
+					Control: thisAxis,
+					Value:   scaledPos,
 				}
 
 			case evdev.EventKey:
@@ -158,10 +151,10 @@ func (g *Controller) eventDispatcher(ctx context.Context) {
 				}
 
 				eventOut = input.Event{
-					Time:  timevaltoTime(eventIn.Event.Time),
-					Event: input.ButtonChange,
-					Code:  thisButton,
-					Value: float64(eventIn.Event.Value),
+					Time:    timevaltoTime(eventIn.Event.Time),
+					Event:   input.ButtonChange,
+					Control: thisButton,
+					Value:   float64(eventIn.Event.Value),
 				}
 
 				if eventIn.Event.Value == 1 {
@@ -180,19 +173,19 @@ func (g *Controller) eventDispatcher(ctx context.Context) {
 }
 
 func (g *Controller) sendConnectionStatus(ctx context.Context, connected bool) {
-	code := input.Disconnect
+	evType := input.Disconnect
 	now := time.Now()
 	if connected {
-		code = input.Connect
+		evType = input.Connect
 	}
 
-	for k, v := range g.inputs {
-		if v.lastEvent.Event != code {
+	for _, control := range g.controls {
+		if g.lastEvents[control].Event != evType {
 			eventOut := input.Event{
-				Time:  now,
-				Event: code,
-				Code:  k,
-				Value: 0,
+				Time:    now,
+				Event:   evType,
+				Control: control,
+				Value:   0,
 			}
 			g.makeCallbacks(ctx, eventOut)
 		}
@@ -200,42 +193,38 @@ func (g *Controller) sendConnectionStatus(ctx context.Context, connected bool) {
 }
 
 func (g *Controller) makeCallbacks(ctx context.Context, eventOut input.Event) {
-	g.inputs[eventOut.Code].mu.Lock()
-	g.inputs[eventOut.Code].lastEvent = eventOut
-	g.inputs[eventOut.Code].mu.Unlock()
+	g.mu.Lock()
+	g.lastEvents[eventOut.Control] = eventOut
+	g.mu.Unlock()
 
 	g.mu.RLock()
-	_, ok := g.callbacks[eventOut.Code]
+	_, ok := g.callbacks[eventOut.Control]
 	g.mu.RUnlock()
 	if !ok {
 		g.mu.Lock()
-		g.callbacks[eventOut.Code] = make(map[input.EventType]input.ControlFunction)
+		g.callbacks[eventOut.Control] = make(map[input.EventType]input.ControlFunction)
 		g.mu.Unlock()
 	}
 	g.mu.RLock()
-	ctrlFunc, ok := g.callbacks[eventOut.Code][eventOut.Event]
+	defer g.mu.RUnlock()
+
+	ctrlFunc, ok := g.callbacks[eventOut.Control][eventOut.Event]
 	if ok {
 		g.activeBackgroundWorkers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer g.activeBackgroundWorkers.Done()
-			ctrlFunc(ctx, g.inputs[eventOut.Code], eventOut)
+			ctrlFunc(ctx, eventOut)
 		})
 	}
 
-	ctrlFuncAll, ok := g.callbacks[eventOut.Code][input.AllEvents]
+	ctrlFuncAll, ok := g.callbacks[eventOut.Control][input.AllEvents]
 	if ok {
 		g.activeBackgroundWorkers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer g.activeBackgroundWorkers.Done()
-			ctrlFuncAll(ctx, g.inputs[eventOut.Code], eventOut)
+			ctrlFuncAll(ctx, eventOut)
 		})
 	}
-	g.mu.RUnlock()
-}
-
-// NewController creates a new gamepad
-func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
-	return createController(ctx, logger, config.ConvertedAttributes.(*Config).DevFile, config.ConvertedAttributes.(*Config).AutoReconnect)
 }
 
 func (g *Controller) connectDev(ctx context.Context) error {
@@ -292,12 +281,11 @@ func (g *Controller) connectDev(ctx context.Context) error {
 		return errors.New("no gamepad found (check /dev/input/eventXX permissions)")
 	}
 
-	g.inputs = make(map[input.ControlCode]*Input)
 	for _, v := range g.Mapping.Axes {
-		g.inputs[v] = &Input{pad: g, controlCode: v}
+		g.controls = append(g.controls, v)
 	}
 	for _, v := range g.Mapping.Buttons {
-		g.inputs[v] = &Input{pad: g, controlCode: v}
+		g.controls = append(g.controls, v)
 	}
 
 	g.mu.Unlock()
@@ -307,40 +295,43 @@ func (g *Controller) connectDev(ctx context.Context) error {
 }
 
 func createController(ctx context.Context, logger golog.Logger, devFile string, reconnect bool) (input.Controller, error) {
-
-	var pad Controller
-	pad.logger = logger
-	pad.reconnect = reconnect
+	var g Controller
+	g.logger = logger
+	g.reconnect = reconnect
 	ctxWithCancel, cancel := context.WithCancel(ctx)
-	pad.cancelFunc = cancel
-	pad.devFile = devFile
-	pad.callbacks = make(map[input.ControlCode]map[input.EventType]input.ControlFunction)
+	g.cancelFunc = cancel
+	g.devFile = devFile
+	g.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
+	g.lastEvents = make(map[input.Control]input.Event)
 
-	pad.activeBackgroundWorkers.Add(1)
+	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer pad.activeBackgroundWorkers.Done()
+		defer g.activeBackgroundWorkers.Done()
 		for {
 			if !utils.SelectContextOrWait(ctxWithCancel, 250*time.Millisecond) {
 				return
 			}
-			err := pad.connectDev(ctxWithCancel)
+			err := g.connectDev(ctxWithCancel)
 			if err != nil {
-				if pad.reconnect {
+				if g.reconnect {
 					if !strings.Contains(err.Error(), "no gamepad found") {
-						pad.logger.Error(err)
+						g.logger.Error(err)
 					}
 					continue
 				} else {
-					pad.logger.Fatal(err)
+					g.logger.Fatal(err)
 					return
 				}
 			}
-			pad.eventDispatcher(ctxWithCancel)
+			g.eventDispatcher(ctxWithCancel)
 		}
 	})
+	return &g, nil
+}
 
-	return &pad, nil
-
+// NewController creates a new gamepad
+func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
+	return createController(ctx, logger, config.ConvertedAttributes.(*Config).DevFile, config.ConvertedAttributes.(*Config).AutoReconnect)
 }
 
 // Close terminates background worker threads
@@ -350,45 +341,38 @@ func (g *Controller) Close() error {
 	return nil
 }
 
-// Inputs lists the inputs of the gamepad
-func (g *Controller) Inputs(ctx context.Context) (map[input.ControlCode]input.Input, error) {
+// Controls lists the inputs of the gamepad
+func (g *Controller) Controls(ctx context.Context) ([]input.Control, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	if g.dev == nil && len(g.inputs) == 0 {
+	if g.dev == nil && len(g.controls) == 0 {
 		return nil, errors.New("no controller connected")
 	}
-	ret := make(map[input.ControlCode]input.Input)
-	for k, v := range g.inputs {
-		ret[k] = v
-	}
-	return ret, nil
+	return g.controls, nil
 }
 
-// Name returns the ControlCode of the input
-func (i *Input) Name(ctx context.Context) input.ControlCode {
-	return i.controlCode
+// LastEvents returns the last input.Event (the current state)
+func (g *Controller) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.lastEvents, nil
 }
 
-// LastEvent returns the last input.Event (the current state)
-func (i *Input) LastEvent(ctx context.Context) (input.Event, error) {
-	i.mu.RLock()
-	defer i.mu.RUnlock()
-	return i.lastEvent, nil
-}
-
-// RegisterControl registers a callback function to be executed on the specified trigger Event
-func (i *Input) RegisterControl(ctx context.Context, ctrlFunc input.ControlFunction, trigger input.EventType) error {
-	i.pad.mu.Lock()
-	defer i.pad.mu.Unlock()
-	if i.pad.callbacks[i.controlCode] == nil {
-		i.pad.callbacks[i.controlCode] = make(map[input.EventType]input.ControlFunction)
+// RegisterControlCallback registers a callback function to be executed on the specified control's trigger Events
+func (g *Controller) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.callbacks[control] == nil {
+		g.callbacks[control] = make(map[input.EventType]input.ControlFunction)
 	}
 
-	if trigger == input.ButtonChange {
-		i.pad.callbacks[i.controlCode][input.ButtonRelease] = ctrlFunc
-		i.pad.callbacks[i.controlCode][input.ButtonPress] = ctrlFunc
-	} else {
-		i.pad.callbacks[i.controlCode][trigger] = ctrlFunc
+	for _, trigger := range triggers {
+		if trigger == input.ButtonChange {
+			g.callbacks[control][input.ButtonRelease] = ctrlFunc
+			g.callbacks[control][input.ButtonPress] = ctrlFunc
+		} else {
+			g.callbacks[control][trigger] = ctrlFunc
+		}
 	}
 	return nil
 }

@@ -2102,7 +2102,7 @@ func TestServer(t *testing.T) {
 			return nil, false
 		}
 
-		_, err := server.InputControllerInputs(context.Background(), &pb.InputControllerInputsRequest{
+		_, err := server.InputControllerControls(context.Background(), &pb.InputControllerControlsRequest{
 			Controller: "inputController1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -2113,100 +2113,113 @@ func TestServer(t *testing.T) {
 
 		device := &inject.InputController{}
 		injectRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
-			return device, true
+			if name == "inputController1" {
+				return device, true
+			}
+
+			return nil, false
 		}
 
-		device.InputsFunc = func(ctx context.Context) (map[input.ControlCode]input.Input, error) {
+		device.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 			return nil, err1
 		}
-		_, err = server.InputControllerInputs(context.Background(), &pb.InputControllerInputsRequest{
+		_, err = server.InputControllerControls(context.Background(), &pb.InputControllerControlsRequest{
 			Controller: "inputController1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
 
-		startInput := &inject.Input{}
-		startInput.NameFunc = func(ctx context.Context) input.ControlCode { return input.ButtonStart }
-		startInput.LastEventFunc = func(ctx context.Context) (input.Event, error) {
-			return input.Event{Time: time.Now(), Event: input.ButtonPress, Code: input.ButtonStart, Value: 1.0}, nil
+		device.LastEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+			eventsOut := make(map[input.Control]input.Event)
+			eventsOut[input.AbsoluteX] = input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
+			eventsOut[input.ButtonStart] = input.Event{Time: time.Now(), Event: input.ButtonPress, Control: input.ButtonStart, Value: 1.0}
+			return eventsOut, nil
 		}
-		startInput.RegisterControlFunc = func(ctx context.Context, ctrlFunc input.ControlFunction, trigger input.EventType) error {
-			outEvent := input.Event{Time: time.Now(), Event: input.ButtonRelease, Code: input.ButtonStart, Value: 0.0}
-			ctrlFunc(context.Background(), startInput, outEvent)
+		device.RegisterControlCallbackFunc = func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+			outEvent := input.Event{Time: time.Now(), Event: triggers[0], Control: input.ButtonStart, Value: 0.0}
+			ctrlFunc(ctx, outEvent)
 			return nil
 		}
-
-		device.InputsFunc = func(ctx context.Context) (map[input.ControlCode]input.Input, error) {
-			return nil, err1
+		device.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+			return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 		}
 
-		_, err = server.InputControllerInputs(context.Background(), &pb.InputControllerInputsRequest{
-			Controller: "inputController1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-
-		device.InputsFunc = func(ctx context.Context) (map[input.ControlCode]input.Input, error) {
-			return map[input.ControlCode]input.Input{input.ButtonStart: startInput}, nil
-		}
-
-		resp, err := server.InputControllerInputs(context.Background(), &pb.InputControllerInputsRequest{
+		resp, err := server.InputControllerControls(context.Background(), &pb.InputControllerControlsRequest{
 			Controller: "inputController1",
 		})
 
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Inputs, test.ShouldResemble, []string{string(input.ButtonStart)})
+		test.That(t, resp.Controls, test.ShouldResemble, []string{"AbsoluteX", "ButtonStart"})
 
-		_, err = server.InputLastEvent(context.Background(), &pb.InputLastEventRequest{
-			Controller: "inputController1",
-			Code:       string(input.ButtonSouth),
-		})
-
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no input")
 		startTime := time.Now()
-		resp2, err := server.InputLastEvent(context.Background(), &pb.InputLastEventRequest{
+		resp2, err := server.InputControllerLastEvents(context.Background(), &pb.InputControllerLastEventsRequest{
 			Controller: "inputController1",
-			Code:       string(input.ButtonStart),
 		})
+
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp2.Code, test.ShouldEqual, string(input.ButtonStart))
-		test.That(t, resp2.Event, test.ShouldEqual, string(input.ButtonPress))
-		test.That(t, resp2.Value, test.ShouldEqual, 1.0)
-		test.That(t, resp2.Time.AsTime().After(startTime), test.ShouldBeTrue)
-		test.That(t, resp2.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
+
+		var absEv, buttonEv *pb.InputControllerEvent
+		if resp2.Events[0].Control == "AbsoluteX" {
+			absEv = resp2.Events[0]
+			buttonEv = resp2.Events[1]
+		} else {
+			absEv = resp2.Events[1]
+			buttonEv = resp2.Events[0]
+		}
+
+		test.That(t, absEv.Event, test.ShouldEqual, input.PositionChangeAbs)
+		test.That(t, absEv.Control, test.ShouldEqual, input.AbsoluteX)
+		test.That(t, absEv.Value, test.ShouldEqual, 0.7)
+		test.That(t, absEv.Time.AsTime().After(startTime), test.ShouldBeTrue)
+		test.That(t, absEv.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
+
+		test.That(t, buttonEv.Event, test.ShouldEqual, input.ButtonPress)
+		test.That(t, buttonEv.Control, test.ShouldEqual, input.ButtonStart)
+		test.That(t, buttonEv.Value, test.ShouldEqual, 1)
+		test.That(t, buttonEv.Time.AsTime().After(startTime), test.ShouldBeTrue)
+		test.That(t, buttonEv.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
 
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		messageCh := make(chan *pb.InputEvent, 1024)
-		streamServer := &robotServiceInputStateStreamServer{
+		messageCh := make(chan *pb.InputControllerEvent, 1024)
+		streamServer := &robotServiceInputControllerEventStreamServer{
 			ctx:       cancelCtx,
 			messageCh: messageCh,
 		}
-		err = server.InputEventStream(&pb.InputEventStreamRequest{
-			Controller: "inputController1",
-			Code:       string(input.ButtonSouth),
-			Events:     []string{string(input.ButtonPress)},
-		}, streamServer)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no input")
 
-		relayFunc := func(ctx context.Context, input input.Input, event input.Event) {
-			messageCh <- &pb.InputEvent{
-				Time:  timestamppb.New(event.Time),
-				Event: string(event.Event),
-				Code:  string(event.Code),
-				Value: event.Value,
+		eventReqList := &pb.InputControllerEventStreamRequest{
+			Controller: "inputController2",
+			Events: []*pb.InputControllerEventStreamRequest_Events{
+
+				{
+					Control: string(input.ButtonStart),
+					Events: []string{
+						string(input.ButtonRelease),
+					},
+				},
+			},
+		}
+
+		err = server.InputControllerEventStream(eventReqList, streamServer)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
+
+		relayFunc := func(ctx context.Context, event input.Event) {
+			messageCh <- &pb.InputControllerEvent{
+				Time:    timestamppb.New(event.Time),
+				Event:   string(event.Event),
+				Control: string(event.Control),
+				Value:   event.Value,
 			}
 		}
 
-		err = startInput.RegisterControl(cancelCtx, relayFunc, input.ButtonPress)
+		err = device.RegisterControlCallback(cancelCtx, input.ButtonStart, []input.EventType{input.ButtonRelease}, relayFunc)
 		test.That(t, err, test.ShouldBeNil)
 
 		streamServer.fail = true
-		err = server.InputEventStream(&pb.InputEventStreamRequest{
-			Controller: "inputController1",
-			Code:       string(input.ButtonStart),
-			Events:     []string{string(input.ButtonPress)},
-		}, streamServer)
+
+		eventReqList.Controller = "inputController1"
+
+		err = server.InputControllerEventStream(eventReqList, streamServer)
 
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "send fail")
@@ -2215,16 +2228,12 @@ func TestServer(t *testing.T) {
 		done := make(chan struct{})
 		streamServer.fail = false
 		go func() {
-			streamErr = server.InputEventStream(&pb.InputEventStreamRequest{
-				Controller: "inputController1",
-				Code:       string(input.ButtonStart),
-				Events:     []string{string(input.ButtonRelease)},
-			}, streamServer)
+			streamErr = server.InputControllerEventStream(eventReqList, streamServer)
 			close(done)
 		}()
 
 		resp3 := <-messageCh
-		test.That(t, resp3.Code, test.ShouldEqual, string(input.ButtonStart))
+		test.That(t, resp3.Control, test.ShouldEqual, string(input.ButtonStart))
 		test.That(t, resp3.Event, test.ShouldEqual, input.ButtonRelease)
 		test.That(t, resp3.Value, test.ShouldEqual, 0)
 		test.That(t, resp3.Time.AsTime().After(startTime), test.ShouldBeTrue)
@@ -2273,18 +2282,18 @@ func TestServer(t *testing.T) {
 
 }
 
-type robotServiceInputStateStreamServer struct {
+type robotServiceInputControllerEventStreamServer struct {
 	grpc.ServerStream // not set
 	ctx               context.Context
-	messageCh         chan<- *pb.InputEvent
+	messageCh         chan<- *pb.InputControllerEvent
 	fail              bool
 }
 
-func (x *robotServiceInputStateStreamServer) Context() context.Context {
+func (x *robotServiceInputControllerEventStreamServer) Context() context.Context {
 	return x.ctx
 }
 
-func (x *robotServiceInputStateStreamServer) Send(m *pb.InputEvent) error {
+func (x *robotServiceInputControllerEventStreamServer) Send(m *pb.InputControllerEvent) error {
 	if x.fail {
 		return errors.New("send fail")
 	}
