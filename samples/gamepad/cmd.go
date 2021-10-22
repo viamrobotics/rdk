@@ -58,8 +58,8 @@ func debugOut(ctx context.Context, r robot.Robot) {
 		return
 	}
 
-	repFunc := func(ctx context.Context, input input.Input, event input.Event) {
-		fmt.Printf("%s:%s: %.4f\n", event.Code, event.Event, event.Value)
+	repFunc := func(ctx context.Context, event input.Event) {
+		fmt.Printf("%s:%s: %.4f\n", event.Control, event.Event, event.Value)
 	}
 
 	// Expects auto_reconnect to be set in the config
@@ -67,17 +67,20 @@ func debugOut(ctx context.Context, r robot.Robot) {
 		if !utils.SelectContextOrWait(ctx, time.Second) {
 			return
 		}
-		inputs, err := g.Inputs(ctx)
+		controls, err := g.Controls(ctx)
 		if err != nil {
 			logger.Error(err)
 			continue
 		}
 
-		for _, v := range inputs {
-			event, _ := v.LastEvent(ctx)
-			fmt.Printf("%s:%s: %.4f\n", event.Code, event.Event, event.Value)
-
-			err = v.RegisterControl(ctx, repFunc, input.AllEvents)
+		lastEvents, err := g.LastEvents(ctx)
+		if err != nil {
+			return
+		}
+		for _, control := range controls {
+			event := lastEvents[control]
+			fmt.Printf("%s:%s: %.4f\n", event.Control, event.Event, event.Value)
+			err = g.RegisterControlCallback(ctx, control, []input.EventType{input.AllEvents}, repFunc)
 			if err != nil {
 				return
 			}

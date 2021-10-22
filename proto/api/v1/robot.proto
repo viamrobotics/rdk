@@ -435,21 +435,21 @@ service RobotService {
     };
   }
 
-  rpc InputControllerInputs(InputControllerInputsRequest) returns (InputControllerInputsResponse) {
+  rpc InputControllerControls(InputControllerControlsRequest) returns (InputControllerControlsResponse) {
     option (google.api.http) = {
-      get: "/api/v1/input/{controller}/inputs"
+      get: "/api/v1/input/{controller}/controls"
     };
   }
 
-  rpc InputLastEvent(InputLastEventRequest) returns (InputEvent) {
+  rpc InputControllerLastEvents(InputControllerLastEventsRequest) returns (InputControllerLastEventsResponse) {
     option (google.api.http) = {
-      get: "/api/v1/input/{controller}/{code}/last_event"
+      get: "/api/v1/input/{controller}/last_events"
     };
   }
 
-  rpc InputEventStream(InputEventStreamRequest) returns (stream InputEvent) {
+  rpc InputControllerEventStream(InputControllerEventStreamRequest) returns (stream InputControllerEvent) {
     option (google.api.http) = {
-      get: "/api/v1/input/{controller}/{code}/event_stream"
+      get: "/api/v1/input/{controller}/event_stream"
     };
   }
 
@@ -1162,30 +1162,36 @@ message NavigationServiceRemoveWaypointRequest {
 message NavigationServiceRemoveWaypointResponse {
 }
 
-message InputControllerInputsRequest {
+message InputControllerControlsRequest {
   string controller = 1;
 }
 
-message InputControllerInputsResponse {
-  repeated string inputs = 1;
+message InputControllerControlsResponse {
+  repeated string controls = 1;
 }
 
-message InputLastEventRequest {
+message InputControllerLastEventsRequest {
   string controller = 1;
-  string code = 2;
 }
 
-message InputEvent {
+message InputControllerLastEventsResponse {
+  repeated InputControllerEvent events = 1;
+}
+
+message InputControllerEvent {
   google.protobuf.Timestamp time = 1;
   string event = 2;
-  string code = 3;
+  string control = 3;
   double value = 4;
 }
 
-message InputEventStreamRequest {
+message InputControllerEventStreamRequest {
+  message Events {
+    string control = 1;
+    repeated string events = 2;
+  }
   string controller = 1;
-  string code = 2;
-  repeated string events = 3;
+  repeated Events events = 2;
 }
 
 // AngularVelocity contains angular velocity in deg/s across x/y/z axes.

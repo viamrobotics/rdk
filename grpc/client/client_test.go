@@ -594,23 +594,25 @@ func TestClient(t *testing.T) {
 		return &spatialmath.EulerAngles{1, 2, 3}, nil
 	}
 
-	injectInputControllerDev := &inject.InputController{}
-	startInput := &inject.Input{}
-	startInput.NameFunc = func(ctx context.Context) input.ControlCode { return input.ButtonStart }
-	startInput.LastEventFunc = func(ctx context.Context) (input.Event, error) {
-		return input.Event{Time: time.Now(), Event: input.ButtonPress, Code: input.ButtonStart, Value: 1.0}, nil
+	injectInputDev := &inject.InputController{}
+	injectInputDev.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
-	startInput.RegisterControlFunc = func(ctx context.Context, ctrlFunc input.ControlFunction, trigger input.EventType) error {
-		outEvent := input.Event{Time: time.Now(), Event: trigger, Code: input.ButtonStart, Value: 0.0}
-		ctrlFunc(context.Background(), startInput, outEvent)
+	injectInputDev.LastEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+		eventsOut := make(map[input.Control]input.Event)
+		eventsOut[input.AbsoluteX] = input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
+		eventsOut[input.ButtonStart] = input.Event{Time: time.Now(), Event: input.ButtonPress, Control: input.ButtonStart, Value: 1.0}
+		return eventsOut, nil
+	}
+	injectInputDev.RegisterControlCallbackFunc = func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+		outEvent := input.Event{Time: time.Now(), Event: triggers[0], Control: input.ButtonStart, Value: 0.0}
+		ctrlFunc(ctx, outEvent)
 		return nil
 	}
-	injectInputControllerDev.InputsFunc = func(ctx context.Context) (map[input.ControlCode]input.Input, error) {
-		return map[input.ControlCode]input.Input{input.ButtonStart: startInput}, nil
-	}
+
 	injectRobot2.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
 		capInputControllerName = name
-		return injectInputControllerDev, true
+		return injectInputDev, true
 	}
 
 	go gServer1.Serve(listener1)
@@ -1095,31 +1097,35 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capLidarName, test.ShouldEqual, "lidar1")
 
-	inputControllerDev, ok := client.InputControllerByName("inputController1")
+	inputDev, ok := client.InputControllerByName("inputController1")
 	test.That(t, ok, test.ShouldBeTrue)
-	inputList, err := inputControllerDev.Inputs(context.Background())
+	controlList, err := inputDev.Controls(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	inputDev, ok := inputList[input.ButtonStart]
-	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
 
 	startTime := time.Now()
-	test.That(t, inputDev.Name(context.Background()), test.ShouldEqual, "ButtonStart")
-	outState, err := inputDev.LastEvent(context.Background())
+	outState, err := inputDev.LastEvents(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, outState.Event, test.ShouldEqual, input.ButtonPress)
-	test.That(t, outState.Code, test.ShouldEqual, input.ButtonStart)
-	test.That(t, outState.Value, test.ShouldEqual, 1)
-	test.That(t, outState.Time.After(startTime), test.ShouldBeTrue)
-	test.That(t, outState.Time.Before(time.Now()), test.ShouldBeTrue)
+	test.That(t, outState[input.ButtonStart].Event, test.ShouldEqual, input.ButtonPress)
+	test.That(t, outState[input.ButtonStart].Control, test.ShouldEqual, input.ButtonStart)
+	test.That(t, outState[input.ButtonStart].Value, test.ShouldEqual, 1)
+	test.That(t, outState[input.ButtonStart].Time.After(startTime), test.ShouldBeTrue)
+	test.That(t, outState[input.ButtonStart].Time.Before(time.Now()), test.ShouldBeTrue)
+
+	test.That(t, outState[input.AbsoluteX].Event, test.ShouldEqual, input.PositionChangeAbs)
+	test.That(t, outState[input.AbsoluteX].Control, test.ShouldEqual, input.AbsoluteX)
+	test.That(t, outState[input.AbsoluteX].Value, test.ShouldEqual, 0.7)
+	test.That(t, outState[input.AbsoluteX].Time.After(startTime), test.ShouldBeTrue)
+	test.That(t, outState[input.AbsoluteX].Time.Before(time.Now()), test.ShouldBeTrue)
 
 	evStream := make(chan input.Event)
-	ctrlFuncIn := func(ctx context.Context, input input.Input, event input.Event) { evStream <- event }
+	ctrlFuncIn := func(ctx context.Context, event input.Event) { evStream <- event }
 	streamCtx, streamCancel := context.WithCancel(context.Background())
-	err = inputDev.RegisterControl(streamCtx, ctrlFuncIn, input.ButtonRelease)
+	err = inputDev.RegisterControlCallback(streamCtx, input.ButtonStart, []input.EventType{input.ButtonRelease}, ctrlFuncIn)
 	test.That(t, err, test.ShouldBeNil)
 	ev := <-evStream
 	test.That(t, ev.Event, test.ShouldEqual, input.ButtonRelease)
-	test.That(t, ev.Code, test.ShouldEqual, input.ButtonStart)
+	test.That(t, ev.Control, test.ShouldEqual, input.ButtonStart)
 	test.That(t, ev.Value, test.ShouldEqual, 0.0)
 	test.That(t, ev.Time.After(startTime), test.ShouldBeTrue)
 	test.That(t, ev.Time.Before(time.Now()), test.ShouldBeTrue)

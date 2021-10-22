@@ -1276,91 +1276,77 @@ func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionCo
 	}, nil
 }
 
-// InputControllerInputs lists the inputs of an input.Controller
-func (s *Server) InputControllerInputs(ctx context.Context, req *pb.InputControllerInputsRequest) (*pb.InputControllerInputsResponse, error) {
+// InputControllerControls lists the inputs of an input.Controller
+func (s *Server) InputControllerControls(ctx context.Context, req *pb.InputControllerControlsRequest) (*pb.InputControllerControlsResponse, error) {
 	controller, ok := s.r.InputControllerByName(req.Controller)
 	if !ok {
 		return nil, errors.Errorf("no input controller with name (%s)", req.Controller)
 	}
 
-	inputList, err := controller.Inputs(ctx)
+	controlList, err := controller.Controls(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &pb.InputControllerInputsResponse{}
+	resp := &pb.InputControllerControlsResponse{}
 
-	for k := range inputList {
-		resp.Inputs = append(resp.Inputs, string(k))
+	for _, control := range controlList {
+		resp.Controls = append(resp.Controls, string(control))
 	}
 
 	return resp, nil
 }
 
-// InputLastEvent returns the last input.Event (current state) of an input.Input
-func (s *Server) InputLastEvent(ctx context.Context, req *pb.InputLastEventRequest) (*pb.InputEvent, error) {
+// InputControllerLastEvents returns the last input.Event (current state) of each control
+func (s *Server) InputControllerLastEvents(ctx context.Context, req *pb.InputControllerLastEventsRequest) (*pb.InputControllerLastEventsResponse, error) {
 	controller, ok := s.r.InputControllerByName(req.Controller)
 	if !ok {
 		return nil, errors.Errorf("no input controller with name (%s)", req.Controller)
 	}
 
-	inputList, err := controller.Inputs(ctx)
+	eventsIn, err := controller.LastEvents(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	inp, ok := inputList[input.ControlCode(req.Code)]
-	if !ok {
-		return nil, errors.Errorf("no input %s on controller (%s)", input.ControlCode(req.Code), req.Controller)
-	}
+	resp := &pb.InputControllerLastEventsResponse{}
 
-	state, err := inp.LastEvent(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	resp := &pb.InputEvent{
-		Time:  timestamppb.New(state.Time),
-		Event: string(state.Event),
-		Code:  string(state.Code),
-		Value: state.Value,
+	for _, eventIn := range eventsIn {
+		resp.Events = append(resp.Events, &pb.InputControllerEvent{
+			Time:    timestamppb.New(eventIn.Time),
+			Event:   string(eventIn.Event),
+			Control: string(eventIn.Control),
+			Value:   eventIn.Value,
+		})
 	}
 
 	return resp, nil
 }
 
-// InputEventStream returns a stream of input.Event from an input.Input
-func (s *Server) InputEventStream(req *pb.InputEventStreamRequest, server pb.RobotService_InputEventStreamServer) error {
-
+// InputControllerEventStream returns a stream of input.Event
+func (s *Server) InputControllerEventStream(req *pb.InputControllerEventStreamRequest, server pb.RobotService_InputControllerEventStreamServer) error {
 	controller, ok := s.r.InputControllerByName(req.Controller)
 	if !ok {
 		return errors.Errorf("no input controller with name (%s)", req.Controller)
 	}
+	eventsChan := make(chan *pb.InputControllerEvent, 1024)
 
-	inputList, err := controller.Inputs(server.Context())
-	if err != nil {
-		return err
-	}
-
-	inp, ok := inputList[input.ControlCode(req.Code)]
-	if !ok {
-		return errors.Errorf("no input %s on controller (%s)", input.ControlCode(req.Code), req.Controller)
-	}
-
-	eventsChan := make(chan *pb.InputEvent, 1024)
-
-	ctrlFunc := func(ctx context.Context, inp input.Input, eventIn input.Event) {
-		resp := &pb.InputEvent{
-			Time:  timestamppb.New(eventIn.Time),
-			Event: string(eventIn.Event),
-			Code:  string(eventIn.Code),
-			Value: eventIn.Value,
+	ctrlFunc := func(ctx context.Context, eventIn input.Event) {
+		resp := &pb.InputControllerEvent{
+			Time:    timestamppb.New(eventIn.Time),
+			Event:   string(eventIn.Event),
+			Control: string(eventIn.Control),
+			Value:   eventIn.Value,
 		}
 		eventsChan <- resp
 	}
 
 	for _, ev := range req.Events {
-		err := inp.RegisterControl(server.Context(), ctrlFunc, input.EventType(ev))
+		var triggers []input.EventType
+		for _, v := range ev.Events {
+			triggers = append(triggers, input.EventType(v))
+		}
+		err := controller.RegisterControlCallback(server.Context(), input.Control(ev.Control), triggers, ctrlFunc)
 		if err != nil {
 			return err
 		}

@@ -506,31 +506,31 @@ RobotService.MotorIsOn = {
   responseType: proto_api_v1_robot_pb.MotorIsOnResponse
 };
 
-RobotService.InputControllerInputs = {
-  methodName: "InputControllerInputs",
+RobotService.InputControllerControls = {
+  methodName: "InputControllerControls",
   service: RobotService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_v1_robot_pb.InputControllerInputsRequest,
-  responseType: proto_api_v1_robot_pb.InputControllerInputsResponse
+  requestType: proto_api_v1_robot_pb.InputControllerControlsRequest,
+  responseType: proto_api_v1_robot_pb.InputControllerControlsResponse
 };
 
-RobotService.InputLastEvent = {
-  methodName: "InputLastEvent",
+RobotService.InputControllerLastEvents = {
+  methodName: "InputControllerLastEvents",
   service: RobotService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_v1_robot_pb.InputLastEventRequest,
-  responseType: proto_api_v1_robot_pb.InputEvent
+  requestType: proto_api_v1_robot_pb.InputControllerLastEventsRequest,
+  responseType: proto_api_v1_robot_pb.InputControllerLastEventsResponse
 };
 
-RobotService.InputEventStream = {
-  methodName: "InputEventStream",
+RobotService.InputControllerEventStream = {
+  methodName: "InputControllerEventStream",
   service: RobotService,
   requestStream: false,
   responseStream: true,
-  requestType: proto_api_v1_robot_pb.InputEventStreamRequest,
-  responseType: proto_api_v1_robot_pb.InputEvent
+  requestType: proto_api_v1_robot_pb.InputControllerEventStreamRequest,
+  responseType: proto_api_v1_robot_pb.InputControllerEvent
 };
 
 RobotService.ResourceRunCommand = {
@@ -2334,11 +2334,11 @@ RobotServiceClient.prototype.motorIsOn = function motorIsOn(requestMessage, meta
   };
 };
 
-RobotServiceClient.prototype.inputControllerInputs = function inputControllerInputs(requestMessage, metadata, callback) {
+RobotServiceClient.prototype.inputControllerControls = function inputControllerControls(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(RobotService.InputControllerInputs, {
+  var client = grpc.unary(RobotService.InputControllerControls, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -2365,11 +2365,11 @@ RobotServiceClient.prototype.inputControllerInputs = function inputControllerInp
   };
 };
 
-RobotServiceClient.prototype.inputLastEvent = function inputLastEvent(requestMessage, metadata, callback) {
+RobotServiceClient.prototype.inputControllerLastEvents = function inputControllerLastEvents(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(RobotService.InputLastEvent, {
+  var client = grpc.unary(RobotService.InputControllerLastEvents, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -2396,13 +2396,13 @@ RobotServiceClient.prototype.inputLastEvent = function inputLastEvent(requestMes
   };
 };
 
-RobotServiceClient.prototype.inputEventStream = function inputEventStream(requestMessage, metadata) {
+RobotServiceClient.prototype.inputControllerEventStream = function inputControllerEventStream(requestMessage, metadata) {
   var listeners = {
     data: [],
     end: [],
     status: []
   };
-  var client = grpc.invoke(RobotService.InputEventStream, {
+  var client = grpc.invoke(RobotService.InputControllerEventStream, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

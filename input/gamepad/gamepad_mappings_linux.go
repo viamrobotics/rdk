@@ -13,7 +13,7 @@ import (
 var GamepadMappings = map[string]Mapping{
 	// Wireless, X-input mode
 	"8BitDo Pro 2": {
-		Axes: map[evdev.AbsoluteType]input.ControlCode{
+		Axes: map[evdev.AbsoluteType]input.Control{
 			0:  input.AbsoluteX,
 			1:  input.AbsoluteY,
 			2:  input.AbsoluteZ,
@@ -23,7 +23,7 @@ var GamepadMappings = map[string]Mapping{
 			16: input.AbsoluteHat0X,
 			17: input.AbsoluteHat0Y,
 		},
-		Buttons: map[evdev.KeyType]input.ControlCode{
+		Buttons: map[evdev.KeyType]input.Control{
 			304: input.ButtonSouth,
 			305: input.ButtonEast,
 			306: input.ButtonWest,
@@ -39,7 +39,7 @@ var GamepadMappings = map[string]Mapping{
 	},
 	// Wired, X-input mode 8BitDo Pro 2
 	"Microsoft X-Box 360 pad": {
-		Axes: map[evdev.AbsoluteType]input.ControlCode{
+		Axes: map[evdev.AbsoluteType]input.Control{
 			0:  input.AbsoluteX,
 			1:  input.AbsoluteY,
 			2:  input.AbsoluteZ,
@@ -49,7 +49,7 @@ var GamepadMappings = map[string]Mapping{
 			16: input.AbsoluteHat0X,
 			17: input.AbsoluteHat0Y,
 		},
-		Buttons: map[evdev.KeyType]input.ControlCode{
+		Buttons: map[evdev.KeyType]input.Control{
 			304: input.ButtonSouth,
 			305: input.ButtonEast,
 			307: input.ButtonWest,
@@ -65,7 +65,7 @@ var GamepadMappings = map[string]Mapping{
 	},
 	// Xbox Series X|S, wireless mode
 	"Xbox Wireless Controller": {
-		Axes: map[evdev.AbsoluteType]input.ControlCode{
+		Axes: map[evdev.AbsoluteType]input.Control{
 			0:  input.AbsoluteX,
 			1:  input.AbsoluteY,
 			10: input.AbsoluteZ,
@@ -75,7 +75,7 @@ var GamepadMappings = map[string]Mapping{
 			16: input.AbsoluteHat0X,
 			17: input.AbsoluteHat0Y,
 		},
-		Buttons: map[evdev.KeyType]input.ControlCode{
+		Buttons: map[evdev.KeyType]input.Control{
 			304: input.ButtonSouth,
 			305: input.ButtonEast,
 			307: input.ButtonWest,
@@ -92,7 +92,7 @@ var GamepadMappings = map[string]Mapping{
 	},
 	// Xbox Series X|S, wired mode
 	"Microsoft Xbox One X pad": {
-		Axes: map[evdev.AbsoluteType]input.ControlCode{
+		Axes: map[evdev.AbsoluteType]input.Control{
 			0:  input.AbsoluteX,
 			1:  input.AbsoluteY,
 			2:  input.AbsoluteZ,
@@ -102,7 +102,7 @@ var GamepadMappings = map[string]Mapping{
 			16: input.AbsoluteHat0X,
 			17: input.AbsoluteHat0Y,
 		},
-		Buttons: map[evdev.KeyType]input.ControlCode{
+		Buttons: map[evdev.KeyType]input.Control{
 			304: input.ButtonSouth,
 			305: input.ButtonEast,
 			307: input.ButtonWest,

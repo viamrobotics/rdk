@@ -500,31 +500,31 @@ type RobotServiceMotorIsOn = {
   readonly responseType: typeof proto_api_v1_robot_pb.MotorIsOnResponse;
 };
 
-type RobotServiceInputControllerInputs = {
+type RobotServiceInputControllerControls = {
   readonly methodName: string;
   readonly service: typeof RobotService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.InputControllerInputsRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.InputControllerInputsResponse;
+  readonly requestType: typeof proto_api_v1_robot_pb.InputControllerControlsRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.InputControllerControlsResponse;
 };
 
-type RobotServiceInputLastEvent = {
+type RobotServiceInputControllerLastEvents = {
   readonly methodName: string;
   readonly service: typeof RobotService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.InputLastEventRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.InputEvent;
+  readonly requestType: typeof proto_api_v1_robot_pb.InputControllerLastEventsRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.InputControllerLastEventsResponse;
 };
 
-type RobotServiceInputEventStream = {
+type RobotServiceInputControllerEventStream = {
   readonly methodName: string;
   readonly service: typeof RobotService;
   readonly requestStream: false;
   readonly responseStream: true;
-  readonly requestType: typeof proto_api_v1_robot_pb.InputEventStreamRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.InputEvent;
+  readonly requestType: typeof proto_api_v1_robot_pb.InputControllerEventStreamRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.InputControllerEvent;
 };
 
 type RobotServiceResourceRunCommand = {
@@ -665,9 +665,9 @@ export class RobotService {
   static readonly MotorPositionSupported: RobotServiceMotorPositionSupported;
   static readonly MotorOff: RobotServiceMotorOff;
   static readonly MotorIsOn: RobotServiceMotorIsOn;
-  static readonly InputControllerInputs: RobotServiceInputControllerInputs;
-  static readonly InputLastEvent: RobotServiceInputLastEvent;
-  static readonly InputEventStream: RobotServiceInputEventStream;
+  static readonly InputControllerControls: RobotServiceInputControllerControls;
+  static readonly InputControllerLastEvents: RobotServiceInputControllerLastEvents;
+  static readonly InputControllerEventStream: RobotServiceInputControllerEventStream;
   static readonly ResourceRunCommand: RobotServiceResourceRunCommand;
   static readonly NavigationServiceMode: RobotServiceNavigationServiceMode;
   static readonly NavigationServiceSetMode: RobotServiceNavigationServiceSetMode;
@@ -1198,25 +1198,25 @@ export class RobotServiceClient {
     requestMessage: proto_api_v1_robot_pb.MotorIsOnRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorIsOnResponse|null) => void
   ): UnaryResponse;
-  inputControllerInputs(
-    requestMessage: proto_api_v1_robot_pb.InputControllerInputsRequest,
+  inputControllerControls(
+    requestMessage: proto_api_v1_robot_pb.InputControllerControlsRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.InputControllerInputsResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.InputControllerControlsResponse|null) => void
   ): UnaryResponse;
-  inputControllerInputs(
-    requestMessage: proto_api_v1_robot_pb.InputControllerInputsRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.InputControllerInputsResponse|null) => void
+  inputControllerControls(
+    requestMessage: proto_api_v1_robot_pb.InputControllerControlsRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.InputControllerControlsResponse|null) => void
   ): UnaryResponse;
-  inputLastEvent(
-    requestMessage: proto_api_v1_robot_pb.InputLastEventRequest,
+  inputControllerLastEvents(
+    requestMessage: proto_api_v1_robot_pb.InputControllerLastEventsRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.InputEvent|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.InputControllerLastEventsResponse|null) => void
   ): UnaryResponse;
-  inputLastEvent(
-    requestMessage: proto_api_v1_robot_pb.InputLastEventRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.InputEvent|null) => void
+  inputControllerLastEvents(
+    requestMessage: proto_api_v1_robot_pb.InputControllerLastEventsRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.InputControllerLastEventsResponse|null) => void
   ): UnaryResponse;
-  inputEventStream(requestMessage: proto_api_v1_robot_pb.InputEventStreamRequest, metadata?: grpc.Metadata): ResponseStream<proto_api_v1_robot_pb.InputEvent>;
+  inputControllerEventStream(requestMessage: proto_api_v1_robot_pb.InputControllerEventStreamRequest, metadata?: grpc.Metadata): ResponseStream<proto_api_v1_robot_pb.InputControllerEvent>;
   resourceRunCommand(
     requestMessage: proto_api_v1_robot_pb.ResourceRunCommandRequest,
     metadata: grpc.Metadata,

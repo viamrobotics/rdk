@@ -518,23 +518,31 @@
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.InputControllerInputsRequest"><span class="badge">M</span>InputControllerInputsRequest</a>
+                  <a href="#proto.api.v1.InputControllerControlsRequest"><span class="badge">M</span>InputControllerControlsRequest</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.InputControllerInputsResponse"><span class="badge">M</span>InputControllerInputsResponse</a>
+                  <a href="#proto.api.v1.InputControllerControlsResponse"><span class="badge">M</span>InputControllerControlsResponse</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.InputEvent"><span class="badge">M</span>InputEvent</a>
+                  <a href="#proto.api.v1.InputControllerEvent"><span class="badge">M</span>InputControllerEvent</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.InputEventStreamRequest"><span class="badge">M</span>InputEventStreamRequest</a>
+                  <a href="#proto.api.v1.InputControllerEventStreamRequest"><span class="badge">M</span>InputControllerEventStreamRequest</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.InputLastEventRequest"><span class="badge">M</span>InputLastEventRequest</a>
+                  <a href="#proto.api.v1.InputControllerEventStreamRequest.Events"><span class="badge">M</span>InputControllerEventStreamRequest.Events</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.InputControllerLastEventsRequest"><span class="badge">M</span>InputControllerLastEventsRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.InputControllerLastEventsResponse"><span class="badge">M</span>InputControllerLastEventsResponse</a>
                 </li>
               
                 <li>
@@ -3247,7 +3255,7 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
-        <h3 id="proto.api.v1.InputControllerInputsRequest">InputControllerInputsRequest</h3>
+        <h3 id="proto.api.v1.InputControllerControlsRequest">InputControllerControlsRequest</h3>
         <p></p>
 
         
@@ -3271,7 +3279,7 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
-        <h3 id="proto.api.v1.InputControllerInputsResponse">InputControllerInputsResponse</h3>
+        <h3 id="proto.api.v1.InputControllerControlsResponse">InputControllerControlsResponse</h3>
         <p></p>
 
         
@@ -3282,7 +3290,7 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
             <tbody>
               
                 <tr>
-                  <td>inputs</td>
+                  <td>controls</td>
                   <td><a href="#string">string</a></td>
                   <td>repeated</td>
                   <td><p> </p></td>
@@ -3295,7 +3303,7 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
-        <h3 id="proto.api.v1.InputEvent">InputEvent</h3>
+        <h3 id="proto.api.v1.InputControllerEvent">InputControllerEvent</h3>
         <p></p>
 
         
@@ -3320,7 +3328,7 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                 </tr>
               
                 <tr>
-                  <td>code</td>
+                  <td>control</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
                   <td><p> </p></td>
@@ -3340,7 +3348,7 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
-        <h3 id="proto.api.v1.InputEventStreamRequest">InputEventStreamRequest</h3>
+        <h3 id="proto.api.v1.InputControllerEventStreamRequest">InputControllerEventStreamRequest</h3>
         <p></p>
 
         
@@ -3358,7 +3366,31 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                 </tr>
               
                 <tr>
-                  <td>code</td>
+                  <td>events</td>
+                  <td><a href="#proto.api.v1.InputControllerEventStreamRequest.Events">InputControllerEventStreamRequest.Events</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.InputControllerEventStreamRequest.Events">InputControllerEventStreamRequest.Events</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>control</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
                   <td><p> </p></td>
@@ -3378,7 +3410,7 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
-        <h3 id="proto.api.v1.InputLastEventRequest">InputLastEventRequest</h3>
+        <h3 id="proto.api.v1.InputControllerLastEventsRequest">InputControllerLastEventsRequest</h3>
         <p></p>
 
         
@@ -3395,10 +3427,27 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                   <td><p> </p></td>
                 </tr>
               
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.InputControllerLastEventsResponse">InputControllerLastEventsResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
                 <tr>
-                  <td>code</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
+                  <td>events</td>
+                  <td><a href="#proto.api.v1.InputControllerEvent">InputControllerEvent</a></td>
+                  <td>repeated</td>
                   <td><p> </p></td>
                 </tr>
               
@@ -6001,23 +6050,23 @@ is reliant on having an encoder.</p></td>
               </tr>
             
               <tr>
-                <td>InputControllerInputs</td>
-                <td><a href="#proto.api.v1.InputControllerInputsRequest">InputControllerInputsRequest</a></td>
-                <td><a href="#proto.api.v1.InputControllerInputsResponse">InputControllerInputsResponse</a></td>
+                <td>InputControllerControls</td>
+                <td><a href="#proto.api.v1.InputControllerControlsRequest">InputControllerControlsRequest</a></td>
+                <td><a href="#proto.api.v1.InputControllerControlsResponse">InputControllerControlsResponse</a></td>
                 <td><p></p></td>
               </tr>
             
               <tr>
-                <td>InputLastEvent</td>
-                <td><a href="#proto.api.v1.InputLastEventRequest">InputLastEventRequest</a></td>
-                <td><a href="#proto.api.v1.InputEvent">InputEvent</a></td>
+                <td>InputControllerLastEvents</td>
+                <td><a href="#proto.api.v1.InputControllerLastEventsRequest">InputControllerLastEventsRequest</a></td>
+                <td><a href="#proto.api.v1.InputControllerLastEventsResponse">InputControllerLastEventsResponse</a></td>
                 <td><p></p></td>
               </tr>
             
               <tr>
-                <td>InputEventStream</td>
-                <td><a href="#proto.api.v1.InputEventStreamRequest">InputEventStreamRequest</a></td>
-                <td><a href="#proto.api.v1.InputEvent">InputEvent</a> stream</td>
+                <td>InputControllerEventStream</td>
+                <td><a href="#proto.api.v1.InputControllerEventStreamRequest">InputControllerEventStreamRequest</a></td>
+                <td><a href="#proto.api.v1.InputControllerEvent">InputControllerEvent</a> stream</td>
                 <td><p></p></td>
               </tr>
             
@@ -6655,9 +6704,9 @@ is reliant on having an encoder.</p></td>
               
               
               <tr>
-                <td>InputControllerInputs</td>
+                <td>InputControllerControls</td>
                 <td>GET</td>
-                <td>/api/v1/input/{controller}/inputs</td>
+                <td>/api/v1/input/{controller}/controls</td>
                 <td></td>
               </tr>
               
@@ -6665,9 +6714,9 @@ is reliant on having an encoder.</p></td>
               
               
               <tr>
-                <td>InputLastEvent</td>
+                <td>InputControllerLastEvents</td>
                 <td>GET</td>
-                <td>/api/v1/input/{controller}/{code}/last_event</td>
+                <td>/api/v1/input/{controller}/last_events</td>
                 <td></td>
               </tr>
               
@@ -6675,9 +6724,9 @@ is reliant on having an encoder.</p></td>
               
               
               <tr>
-                <td>InputEventStream</td>
+                <td>InputControllerEventStream</td>
                 <td>GET</td>
-                <td>/api/v1/input/{controller}/{code}/event_stream</td>
+                <td>/api/v1/input/{controller}/event_stream</td>
                 <td></td>
               </tr>
               
