@@ -250,8 +250,9 @@ github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e h1:K3N0Zm7JySHjvThq
 github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e/go.mod h1:nsP/KxpaFaTriZlxPlULlPKf7F3LS0J4BgoxZN8QJAU=
 github.com/edaniels/gostream v0.0.0-20210615160527-f72cf56079ac/go.mod h1:si4vbQcafm/uxOd+tIJiL73pqqvyrV+/+GYBaAV/3Dw=
 github.com/edaniels/gostream v0.0.0-20210929204829-88d8811577f6/go.mod h1:si4vbQcafm/uxOd+tIJiL73pqqvyrV+/+GYBaAV/3Dw=
-github.com/edaniels/gostream v0.0.0-20211022002149-8c603f718111 h1:g2ro+kuIgfJvBo37IClitBsuC7H3oYCUZ+WVByOAto0=
 github.com/edaniels/gostream v0.0.0-20211022002149-8c603f718111/go.mod h1:5/MYQSU/CEzr4yzJxYcFKi2t9OX+Zj2N6btuUoJuSUA=
+github.com/edaniels/gostream v0.0.0-20211022021553-dcb5ba36518a h1:0nhzCvOZevdHK3iKlgS00BCBPM/zwbVweOHjidVU8MI=
+github.com/edaniels/gostream v0.0.0-20211022021553-dcb5ba36518a/go.mod h1:5/MYQSU/CEzr4yzJxYcFKi2t9OX+Zj2N6btuUoJuSUA=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de h1:JuF74jzC/jNopROh0Ay1d9APtx00FWXqMwtvaXhoE+4=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de/go.mod h1:PUN/9/bIMWq8Ej+fmb+QVoPdIYF/j68ziImrVKxnOw0=
 github.com/edaniels/mediadevices v0.0.0-20211022001911-e8e6d6110b1b h1:Vo1PtnfMv2hPGNOQdFEe0JycexkQq0wPcmoKfe8qrdM=
