@@ -151,7 +151,7 @@
                     })
                   },
                   armByName : function(name) {
-                    return theData.status.armsMap.find(elem => elem.name == name)
+                    return theData.status.armsMap.find(elem => elem.name == name) || {}
                   },
                   armGridInc : function(name, getterSetter, amount) {
                       if (getterSetter[0] == 'o' || getterSetter[0] == 'O') {
@@ -194,7 +194,8 @@
                       req.setTo(newPosition);
                       robotService.armMoveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
-                  armModifyAll : function(name, arm) {
+                  armModifyAll : function(name) {
+                      const arm = theData.rawStatus.getArmsMap().get(name);
                       var n = { name : name, pieces : [] };
 
                       for ( var i=0; i < arm.pieces.length; i++) {
@@ -1056,7 +1057,7 @@
           <tr>
             <th colspan="8">
               <button v-on:click="armHome(arm.name)">Home</button>
-              <button v-on:click="armModifyAll(arm.name, armByName(arm.name))">Modify All</button>
+              <button v-on:click="armModifyAll(arm.name)">Modify All</button>
             </th>
           </tr>
         </table> <!-- end main table -->
