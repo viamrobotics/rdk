@@ -214,7 +214,7 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		remoteWorldName := remoteName + "_" + referenceframe.World
+		remoteWorldName := remoteName + "." + referenceframe.World
 		for _, c := range rc.Components {
 			if c.Frame != nil && c.Frame.Parent == referenceframe.World {
 				c.Frame.Parent = remoteWorldName

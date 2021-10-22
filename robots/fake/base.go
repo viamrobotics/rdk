@@ -7,20 +7,27 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/config"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 )
 
 func init() {
 	registry.RegisterBase(ModelName, registry.Base{Constructor: func(ctx context.Context, r robot.Robot, c config.Component, logger golog.Logger) (base.Base, error) {
-		return &Base{Name: c.Name}, nil
+		return &Base{Name: c.Name, FrameConfig: c.Frame}, nil
 	}})
 }
 
 // Base is a fake base that returns what it was provided in each method.
 type Base struct {
-	Name       string
-	CloseCount int
+	Name        string
+	FrameConfig *config.Frame
+	CloseCount  int
+}
+
+// FrameSystemLink returns the information necessary to put the base in a frame system
+func (b *Base) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
+	return b.FrameConfig, nil
 }
 
 // MoveStraight returns that it moved the given distance.

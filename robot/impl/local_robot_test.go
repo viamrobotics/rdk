@@ -123,6 +123,8 @@ func TestConfigRemote(t *testing.T) {
 				Prefix:  true,
 			},
 			{
+				Name:    "squee",
+				Prefix:  false,
 				Address: addr,
 				Frame: &config.Frame{
 					Parent:      referenceframe.World,
@@ -228,39 +230,32 @@ func TestConfigRemote(t *testing.T) {
 
 	test.That(t, cfg2.FindComponent("pieceArm").Type, test.ShouldEqual, "arm")
 	test.That(t, cfg2.FindComponent("pieceArm").Model, test.ShouldEqual, "fake")
-	test.That(t, cfg2.FindComponent("pieceArm").Frame.Parent, test.ShouldEqual, referenceframe.World)
-	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation.X, test.ShouldAlmostEqual, -400.)
-	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation.Y, test.ShouldAlmostEqual, 700.)
-	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation.Z, test.ShouldAlmostEqual, 1300.)
-	test.That(t, cfg2.FindComponent("pieceArm").Frame.Orientation.AxisAngles().Theta, test.ShouldAlmostEqual, math.Pi/2.)
-	test.That(t, cfg2.FindComponent("pieceArm").Frame.Orientation.AxisAngles().RX, test.ShouldAlmostEqual, 0.)
-	test.That(t, cfg2.FindComponent("pieceArm").Frame.Orientation.AxisAngles().RY, test.ShouldAlmostEqual, 0.)
-	test.That(t, cfg2.FindComponent("pieceArm").Frame.Orientation.AxisAngles().RZ, test.ShouldAlmostEqual, 1.)
+
+	test.That(t, cfg2.FindComponent("pieceArm").Frame.Parent, test.ShouldEqual, "squee.world")
+	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation, test.ShouldResemble, config.Translation{500, 500, 1000})
+	test.That(t, cfg2.FindComponent("pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 	test.That(t, cfg2.FindComponent("lidar1").Frame.Parent, test.ShouldEqual, "cameraOver")
 	test.That(t, cfg2.FindComponent("lidar1").Frame.Translation, test.ShouldResemble, config.Translation{0, 0, 200})
 	test.That(t, cfg2.FindComponent("lidar1").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "foo")
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Translation.X, test.ShouldAlmostEqual, -400.)
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Translation.Y, test.ShouldAlmostEqual, 700.)
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Translation.Z, test.ShouldAlmostEqual, 1300.)
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Orientation.AxisAngles().Theta, test.ShouldAlmostEqual, math.Pi/2.)
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Orientation.AxisAngles().RX, test.ShouldAlmostEqual, 0.)
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Orientation.AxisAngles().RY, test.ShouldAlmostEqual, 0.)
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Orientation.AxisAngles().RZ, test.ShouldAlmostEqual, 1.)
+	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "foo.world")
+	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Translation, test.ShouldResemble, config.Translation{500, 500, 1000})
+	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 	test.That(t, cfg2.FindComponent("foo.lidar1").Frame.Parent, test.ShouldEqual, "foo.cameraOver")
 	test.That(t, cfg2.FindComponent("foo.lidar1").Frame.Translation, test.ShouldResemble, config.Translation{0, 0, 200})
 	test.That(t, cfg2.FindComponent("foo.lidar1").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
-	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Parent, test.ShouldEqual, referenceframe.World)
+	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Parent, test.ShouldEqual, "bar.world")
 	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Translation, test.ShouldResemble, config.Translation{500, 500, 1000})
 	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 	test.That(t, cfg2.FindComponent("bar.lidar1").Frame.Parent, test.ShouldEqual, "bar.cameraOver")
 	test.That(t, cfg2.FindComponent("bar.lidar1").Frame.Translation, test.ShouldResemble, config.Translation{0, 0, 200})
 	test.That(t, cfg2.FindComponent("bar.lidar1").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
-	_, err = r2.FrameSystem(context.Background())
+	fs, err := r2.FrameSystem(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 3)
+	t.Logf("frames: %v\n", fs.FrameNames())
 
 	cancel()
 	<-webDone

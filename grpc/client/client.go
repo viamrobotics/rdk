@@ -239,8 +239,9 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 	var cfg config.Config
 	for _, c := range remoteConfig.Components {
 		cc := config.Component{
-			Name: c.Name,
-			Type: config.ComponentType(c.Type),
+			Name:  c.Name,
+			Type:  config.ComponentType(c.Type),
+			Model: c.Model,
 		}
 		// check if component has frame attribute, leave as nil if it doesn't
 		if c.Parent != "" {

@@ -152,7 +152,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	r, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.FrameSystem(context.Background())
-	test.That(t, err, test.ShouldBeError, errors.New("parent field in component \"cameraOver\" is empty"))
+	test.That(t, err, test.ShouldBeError, errors.New("parent field in frame config for part \"cameraOver\" is empty"))
 }
 
 func pointAlmostEqual(t *testing.T, from, to r3.Vector) {
