@@ -101,7 +101,12 @@ type trackingDialer struct {
 	dialCalled int
 }
 
-func (td *trackingDialer) Dial(ctx context.Context, target string, opts ...grpc.DialOption) (dialer.ClientConn, error) {
+func (td *trackingDialer) DialDirect(ctx context.Context, target string, opts ...grpc.DialOption) (dialer.ClientConn, error) {
 	td.dialCalled++
-	return td.Dialer.Dial(ctx, target, opts...)
+	return td.Dialer.DialDirect(ctx, target, opts...)
+}
+
+func (td *trackingDialer) DialFunc(proto string, target string, f func() (dialer.ClientConn, error)) (dialer.ClientConn, error) {
+	td.dialCalled++
+	return td.Dialer.DialFunc(proto, target, f)
 }
