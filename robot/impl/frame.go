@@ -154,7 +154,7 @@ func createFrameFromPart(part namedPart, children map[string][]ref.Frame, names 
 	if fsl, ok := part.Part.(FrameSystemLinker); ok {
 		frameConfig, modelFrame = fsl.FrameSystemLink()
 	} else {
-		return fmt.Errorf("part %q does not have FrameSystemLink() defined", part.Name)
+		return fmt.Errorf("part %q of type %T does not have FrameSystemLink() defined", part.Name, part.Part)
 	}
 	// if a part has no frame config, skip over it
 	if frameConfig == nil {
