@@ -6,7 +6,9 @@ import (
 
 	"github.com/edaniels/gostream"
 
+	"go.viam.com/core/config"
 	"go.viam.com/core/pointcloud"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/rimage"
 )
 
@@ -19,6 +21,11 @@ type Camera interface {
 // ImageSource implements a Camera with a gostream.ImageSource.
 type ImageSource struct {
 	gostream.ImageSource
+	FrameConfig *config.Frame
+}
+
+func (is *ImageSource) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
+	return is.FrameConfig, nil
 }
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported

@@ -10,6 +10,7 @@ import (
 	ref "go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
 	spatial "go.viam.com/core/spatialmath"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -83,64 +84,64 @@ func collectRobotParts(r robot.Robot) []namedPart {
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name, part})
+		parts = append(parts, namedPart{name, utils.UnwrapProxy(part)})
 	}
 	for _, name := range r.BoardNames() {
 		part, ok := r.BoardByName(name)
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name, part})
+		parts = append(parts, namedPart{name, utils.UnwrapProxy(part)})
 	}
 	for _, name := range r.CameraNames() {
 		part, ok := r.CameraByName(name)
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name, part})
+		parts = append(parts, namedPart{name, utils.UnwrapProxy(part)})
 	}
 	for _, name := range r.GripperNames() {
 		part, ok := r.GripperByName(name)
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name, part})
+		parts = append(parts, namedPart{name, utils.UnwrapProxy(part)})
 	}
 	for _, name := range r.LidarNames() {
 		part, ok := r.LidarByName(name)
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name, part})
+		parts = append(parts, namedPart{name, utils.UnwrapProxy(part)})
 	}
 	for _, name := range r.SensorNames() {
 		part, ok := r.SensorByName(name)
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name, part})
+		parts = append(parts, namedPart{name, utils.UnwrapProxy(part)})
 	}
 	for _, name := range r.ServoNames() {
 		part, ok := r.ServoByName(name)
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name, part})
+		parts = append(parts, namedPart{name, utils.UnwrapProxy(part)})
 	}
 	for _, name := range r.MotorNames() {
 		part, ok := r.MotorByName(name)
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name, part})
+		parts = append(parts, namedPart{name, utils.UnwrapProxy(part)})
 	}
 
 	for _, name := range r.ResourceNames() {
-		part, ok := r.ResourceByName(string(name))
+		part, ok := r.ResourceByName(name)
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name, part})
+		parts = append(parts, namedPart{name.Name, utils.UnwrapProxy(part)})
 	}
 	return parts
 }

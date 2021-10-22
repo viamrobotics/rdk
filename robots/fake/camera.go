@@ -10,6 +10,7 @@ import (
 	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/pointcloud"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
@@ -17,13 +18,14 @@ import (
 
 func init() {
 	registry.RegisterCamera("fake", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
-		return &Camera{Name: config.Name}, nil
+		return &Camera{Name: config.Name, FrameConfig: config.Frame}, nil
 	}})
 }
 
 // Camera is a fake camera that always returns the same image.
 type Camera struct {
-	Name string
+	Name        string
+	FrameConfig *config.Frame
 }
 
 // Next always returns the same image with a red dot in the center.
@@ -42,4 +44,8 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 // Close does nothing.
 func (c *Camera) Close() error {
 	return nil
+}
+
+func (c *Camera) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
+	return c.FrameConfig, nil
 }

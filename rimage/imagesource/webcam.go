@@ -21,7 +21,7 @@ import (
 
 func init() {
 	registry.RegisterCamera("webcam", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
-		return NewWebcamSource(config.Attributes, logger)
+		return NewWebcamSource(config, logger)
 	}})
 
 }
@@ -79,7 +79,8 @@ func makeConstraints(attrs config.AttributeMap, debug bool, logger golog.Logger)
 }
 
 // NewWebcamSource returns a new source based on a webcam discovered from the given attributes.
-func NewWebcamSource(attrs config.AttributeMap, logger golog.Logger) (camera.Camera, error) {
+func NewWebcamSource(cfg config.Component, logger golog.Logger) (camera.Camera, error) {
+	attrs := cfg.Attributes
 	var err error
 
 	debug := attrs.Bool("debug", false)
@@ -87,7 +88,7 @@ func NewWebcamSource(attrs config.AttributeMap, logger golog.Logger) (camera.Cam
 	constraints := makeConstraints(attrs, debug, logger)
 
 	if attrs.Has("path") {
-		return tryWebcamOpen(attrs.String("path"), debug, constraints)
+		return tryWebcamOpen(attrs.String("path"), debug, cfg.Frame, constraints)
 	}
 
 	var pattern *regexp.Regexp
@@ -111,7 +112,7 @@ func NewWebcamSource(attrs config.AttributeMap, logger golog.Logger) (camera.Cam
 			continue
 		}
 
-		s, err := tryWebcamOpen(label, debug, constraints)
+		s, err := tryWebcamOpen(label, debug, cfg.Frame, constraints)
 		if err == nil {
 			if debug {
 				logger.Debug("\t USING")
@@ -127,10 +128,10 @@ func NewWebcamSource(attrs config.AttributeMap, logger golog.Logger) (camera.Cam
 	return nil, errors.New("found no webcams")
 }
 
-func tryWebcamOpen(path string, debug bool, constraints mediadevices.MediaStreamConstraints) (camera.Camera, error) {
+func tryWebcamOpen(path string, debug bool, frameconfig *config.Frame, constraints mediadevices.MediaStreamConstraints) (camera.Camera, error) {
 	reader, err := media.GetNamedVideoReader(filepath.Base(path), constraints)
 	if err != nil {
 		return nil, err
 	}
-	return &camera.ImageSource{reader}, nil
+	return &camera.ImageSource{reader, frameconfig}, nil
 }

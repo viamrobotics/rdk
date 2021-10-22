@@ -27,7 +27,6 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
-	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/status"
 
 	// registration
@@ -46,7 +45,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
-	"github.com/golang/geo/r3"
 )
 
 var _ = robot.LocalRobot(&localRobot{})
@@ -219,7 +217,7 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 		remoteWorldName := remoteName + "_" + referenceframe.World
 		for _, c := range rc.Components {
 			if c.Frame != nil && c.Frame.Parent == referenceframe.World {
-				c.Frame = remoteWorldName
+				c.Frame.Parent = remoteWorldName
 			}
 			cfgCpy.Components = append(cfgCpy.Components, c)
 		}
@@ -258,8 +256,11 @@ func (r *localRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSyste
 		if err != nil {
 			return nil, err
 		}
-		rConf := r.getRemoteConfig(ctx, remoteName)
-		err := MergeFrameSystemsFromConfig(baseFrameSys, remoteFrameSys, rConf.Frame)
+		rConf, err := r.getRemoteConfig(ctx, remoteName)
+		if err != nil {
+			return nil, err
+		}
+		err = MergeFrameSystemsFromConfig(baseFrameSys, remoteFrameSys, rConf.Frame)
 		if err != nil {
 			return nil, err
 		}
@@ -329,7 +330,7 @@ func (r *localRobot) newCamera(ctx context.Context, config config.Component) (ca
 	if err != nil {
 		return nil, err
 	}
-	return &camera.ImageSource{is}, nil
+	return &camera.ImageSource{is, config.Frame}, nil
 }
 
 func (r *localRobot) newLidar(ctx context.Context, config config.Component) (lidar.Lidar, error) {

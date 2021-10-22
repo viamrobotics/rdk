@@ -38,7 +38,7 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		return &camera.ImageSource{source}, nil
+		return &camera.ImageSource{source, config.Frame}, nil
 	}})
 	registry.RegisterCamera("eliot", *registry.CameraLookup("intel"))
 
@@ -58,7 +58,7 @@ func init() {
 			ColorURL:  config.Attributes.String("color"),
 			DepthURL:  config.Attributes.String("depth"),
 			isAligned: aligned,
-		}}, nil
+		}, config.Frame}, nil
 	}})
 
 	registry.RegisterCamera("file", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
@@ -70,7 +70,7 @@ func init() {
 		if !ok {
 			return nil, errors.New("attribute 'aligned' must be a bool")
 		}
-		return &camera.ImageSource{&FileSource{config.Attributes.String("color"), config.Attributes.String("depth"), aligned}}, nil
+		return &camera.ImageSource{&FileSource{config.Attributes.String("color"), config.Attributes.String("depth"), aligned}, config.Frame}, nil
 	}})
 }
 
