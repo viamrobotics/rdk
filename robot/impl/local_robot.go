@@ -35,9 +35,7 @@ import (
 	_ "go.viam.com/SensorExporter/go"
 
 	// registration
-	_ "go.viam.com/core/lidar/client"
 	_ "go.viam.com/core/robots/fake"
-	_ "go.viam.com/core/sensor/compass/client"
 	_ "go.viam.com/core/sensor/compass/gy511"
 	_ "go.viam.com/core/sensor/compass/lidar"
 	_ "go.viam.com/core/sensor/forcematrix"
@@ -434,7 +432,7 @@ func (r *localRobot) Refresh(ctx context.Context) error {
 }
 
 // UpdateMetadata updates metadata service using the currently registered parts of the robot
-func (r *localRobot) UpdateMetadata(svc *service.Service) error {
+func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 	// TODO: Currently just a placeholder implementation, this should be rewritten once robot/parts have more metadata about themselves
 	var resources []resource.Name
 

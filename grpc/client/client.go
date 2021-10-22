@@ -12,11 +12,13 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
+	"go.uber.org/multierr"
 
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
-	rpcclient "go.viam.com/utils/rpc/client"
 	"go.viam.com/utils/rpc/dialer"
+
+	rpcclient "go.viam.com/utils/rpc/client"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -25,6 +27,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc"
+	metadataclient "go.viam.com/core/grpc/metadata/client"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
@@ -43,6 +46,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -52,9 +57,10 @@ var errUnimplemented = errors.New("unimplemented")
 // RobotClient satisfies the robot.Robot interface through a gRPC based
 // client conforming to the robot.proto contract.
 type RobotClient struct {
-	address string
-	conn    dialer.ClientConn
-	client  pb.RobotServiceClient
+	address        string
+	conn           dialer.ClientConn
+	client         pb.RobotServiceClient
+	metadataClient *metadataclient.MetadataServiceClient
 
 	namesMu              *sync.RWMutex
 	baseNames            []string
@@ -89,17 +95,25 @@ type RobotClientOptions struct {
 	// robot. If unset, it will not be refreshed automatically.
 	RefreshEvery time.Duration
 
-	// Insecure determines if the gRPC connection is TLS based.
-	Insecure bool
+	// DialOptions are options using for clients dialing gRPC servers.
+	DialOptions rpcclient.DialOptions
 }
 
 // NewClientWithOptions constructs a new RobotClient that is served at the given address. The given
 // context can be used to cancel the operation. Additionally, construction time options can be given.
 func NewClientWithOptions(ctx context.Context, address string, opts RobotClientOptions, logger golog.Logger) (*RobotClient, error) {
-	ctx, timeoutCancel := context.WithTimeout(ctx, 20*time.Second)
-	defer timeoutCancel()
+	conn, err := grpc.Dial(ctx, address, opts.DialOptions, logger)
+	if err != nil {
+		return nil, err
+	}
 
-	conn, err := rpcclient.Dial(ctx, address, rpcclient.DialOptions{Insecure: opts.Insecure}, logger)
+	metadataClient, err := metadataclient.NewClient(
+		ctx,
+		address,
+		// TODO(https://github.com/viamrobotics/core/issues/237): configurable
+		rpcclient.DialOptions{Insecure: true},
+		logger,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +124,7 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 		address:                 address,
 		conn:                    conn,
 		client:                  client,
+		metadataClient:          metadataClient,
 		sensorTypes:             map[string]sensor.Type{},
 		cancelBackgroundWorkers: cancel,
 		logger:                  logger,
@@ -143,7 +158,12 @@ type boardInfo struct {
 // NewClient constructs a new RobotClient that is served at the given address. The given
 // context can be used to cancel the operation.
 func NewClient(ctx context.Context, address string, logger golog.Logger) (*RobotClient, error) {
-	return NewClientWithOptions(ctx, address, RobotClientOptions{Insecure: true}, logger)
+	return NewClientWithOptions(ctx, address, RobotClientOptions{
+		DialOptions: rpcclient.DialOptions{
+			// TODO(https://github.com/viamrobotics/core/issues/237): configurable
+			Insecure: true,
+		},
+	}, logger)
 }
 
 // Close cleanly closes the underlying connections and stops the refresh goroutine
@@ -151,7 +171,7 @@ func NewClient(ctx context.Context, address string, logger golog.Logger) (*Robot
 func (rc *RobotClient) Close() error {
 	rc.cancelBackgroundWorkers()
 	rc.activeBackgroundWorkers.Wait()
-	return rc.conn.Close()
+	return multierr.Combine(rc.conn.Close(), rc.metadataClient.Close())
 }
 
 // RefreshEvery refreshes the robot on the interval given by every until the
@@ -367,7 +387,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 // TODO(https://github.com/viamrobotics/core/issues/57) - do not use status
 // as we plan on making it a more expensive request with more details than
 // needed for the purposes of this method.
-func (rc *RobotClient) Refresh(ctx context.Context) error {
+func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	status, err := rc.status(ctx)
 	if err != nil {
 		return errors.Errorf("status call failed: %w", err)
@@ -376,13 +396,27 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 	rc.storeStatus(status)
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
+
 	// TODO: placeholder implementation
-	rc.resourceNames = []resource.Name{}
-	if len(status.Arms) != 0 {
-		for name := range status.Arms {
-			rc.resourceNames = append(rc.resourceNames, arm.Named(name))
+	// call metadata service.
+	names, err := rc.metadataClient.Resources(ctx)
+	// only return if it is not unimplemented - means a bigger error came up
+	if err != nil && grpcstatus.Code(err) != codes.Unimplemented {
+		return err
+	}
+	if err == nil {
+		rc.resourceNames = make([]resource.Name, 0, len(names))
+		for _, name := range names {
+			newName := resource.NewName(
+				resource.Namespace(name.Namespace),
+				resource.TypeName(name.Type),
+				resource.SubtypeName(name.Subtype),
+				name.Name,
+			)
+			rc.resourceNames = append(rc.resourceNames, newName)
 		}
 	}
+
 	rc.baseNames = nil
 	if len(status.Bases) != 0 {
 		rc.baseNames = make([]string, 0, len(status.Bases))
