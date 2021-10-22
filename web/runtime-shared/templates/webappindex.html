@@ -601,6 +601,20 @@
               },
           })
 
+          // query metadata service every 0.5s
+          const metadataCallBack = function(err, resp) {
+            grpcCallback(err, resp, false)
+            if (err) {
+              return;
+            }
+            resources = resp.toObject().resourcesList
+            theData.resources = resources
+          }
+          const queryMetadata = async function() {
+            metadataService.resources(new metadataApi.ResourcesRequest(), {}, metadataCallBack);
+            setTimeout(() => queryMetadata(), 500);
+          }
+
           const streamReq = new robotApi.StatusStreamRequest();
           streamReq.setEvery((new proto.google.protobuf.Duration()).setNanos(500000000)); // 500ms
 
@@ -634,6 +648,7 @@
               if (firstData) {
                 firstData = false;
                 checkLastStatus();
+                queryMetadata();
               }
             });
             statusStream.on('status', function(status) {
@@ -647,21 +662,6 @@
             });
           }
           await restartStatusStream();
-
-          // query metadata service every 0.5s
-          const metadataCallBack = function(err, resp) {
-            grpcCallback(err, resp, false)
-            if (err) {
-              return;
-            }
-            resources = resp.toObject().resourcesList
-            theData.resources = resources
-          }
-          const queryMetadata = async function() {
-            metadataService.resources(new metadataApi.ResourcesRequest(), {}, metadataCallBack);
-            setTimeout(() => queryMetadata(), 500);
-          }
-          queryMetadata();
 
           const editor = ace.edit("source");
           editor.setTheme("ace/theme/monokai");
