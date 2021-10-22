@@ -59,6 +59,12 @@ type reconfigurableArm struct {
 	actual Arm
 }
 
+func (r *reconfigurableArm) ProxyFor() interface{} {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual
+}
+
 func (r *reconfigurableArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

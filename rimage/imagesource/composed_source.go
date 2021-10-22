@@ -52,7 +52,7 @@ func newOverlay(r robot.Robot, config config.Component) (camera.Camera, error) {
 	if !ok {
 		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
-	return &camera.ImageSource{&overlaySource{source}}, nil
+	return &camera.ImageSource{&overlaySource{source}, config.Frame}, nil
 
 }
 
@@ -82,5 +82,5 @@ func newDepthToPretty(r robot.Robot, config config.Component) (camera.Camera, er
 	if !ok {
 		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
-	return &camera.ImageSource{&depthToPretty{source}}, nil
+	return &camera.ImageSource{&depthToPretty{source}, config.Frame}, nil
 }

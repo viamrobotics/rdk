@@ -6,6 +6,7 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/core/config"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
@@ -13,17 +14,22 @@ import (
 )
 
 func init() {
-	registry.RegisterSensor(compass.Type, "fake", registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+	registry.RegisterSensor(compass.Type, ModelName, registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 		if config.Attributes.Bool("relative", false) {
-			return &RelativeCompass{&Compass{Name: config.Name}}, nil
+			return &RelativeCompass{&Compass{Name: config.Name, FrameConfig: config.Frame}}, nil
 		}
-		return &Compass{Name: config.Name}, nil
+		return &Compass{Name: config.Name, FrameConfig: config.Frame}, nil
 	}})
 }
 
 // Compass is a fake compass that always returns the same readings.
 type Compass struct {
-	Name string
+	Name        string
+	FrameConfig *config.Frame
+}
+
+func (c *Compass) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
+	return c.FrameConfig, nil
 }
 
 // Readings always returns the same values.

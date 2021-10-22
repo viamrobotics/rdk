@@ -44,7 +44,7 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		return &camera.ImageSource{dc}, nil
+		return &camera.ImageSource{dc, config.Frame}, nil
 	}})
 
 	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "config", func(val interface{}) (interface{}, error) {
