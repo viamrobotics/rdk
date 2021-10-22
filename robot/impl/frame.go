@@ -8,7 +8,6 @@ import (
 
 	"go.viam.com/core/config"
 	ref "go.viam.com/core/referenceframe"
-	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	spatial "go.viam.com/core/spatialmath"
 
@@ -19,7 +18,7 @@ import (
 // FrameSystemLinker has a method that returns all the information needed to add the component
 // to a FrameSystem.
 type FrameSystemLinker interface {
-	FrameSystemLink() (*config.Frame, referenceframe.Frame)
+	FrameSystemLink() (*config.Frame, ref.Frame)
 }
 
 // namedPart is used to collect the various named robot parts that could potentially have frame information
@@ -52,20 +51,24 @@ func CreateRobotFrameSystem(ctx context.Context, r robot.Robot, robotName string
 // will be merged to the world frame of toFS with a 0 offset.
 func MergeFrameSystemsFromConfig(toFS, fromFS ref.FrameSystem, cfg *config.Frame) error {
 	var offsetFrame ref.Frame
+	var err error
 	if cfg == nil { // if nil, the parent is toFS's world, and the offset is 0
 		offsetFrame = ref.NewZeroStaticFrame(fromFS.Name() + "_" + ref.World)
-		err := toFS.AddFrame(offsetFrame, toFS.World())
+		err = toFS.AddFrame(offsetFrame, toFS.World())
 		if err != nil {
 			return err
 		}
 	} else { // attach the world of fromFS, with the given offset, to cfg.Parent found in toFS
-		offsetFrame = makeStaticFrameFromConfig(cfg, fromFS.Name()+"_"+ref.World)
-		err := toFS.AddFrame(offsetFrame, toFS.GetFrame(cfg.Parent))
+		offsetFrame, err = makeStaticFrameFromConfig(cfg, fromFS.Name()+"_"+ref.World)
+		if err != nil {
+			return err
+		}
+		err = toFS.AddFrame(offsetFrame, toFS.GetFrame(cfg.Parent))
 		if err != nil {
 			return err
 		}
 	}
-	err := toFS.MergeFrameSystem(fromFS, offsetFrame)
+	err = toFS.MergeFrameSystem(fromFS, offsetFrame)
 	if err != nil {
 		return err
 	}
@@ -133,7 +136,7 @@ func collectRobotParts(r robot.Robot) []namedPart {
 	}
 
 	for _, name := range r.ResourceNames() {
-		part, ok := r.ResourceByName(name)
+		part, ok := r.ResourceByName(string(name))
 		if !ok {
 			continue
 		}
