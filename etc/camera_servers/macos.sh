@@ -25,7 +25,7 @@ index cc0146a04..a65090cd5 100644
 EOF
 mkdir build && cd build
 sudo xcode-select --reset
-cmake .. -DBUILD_EXAMPLES=true -DBUILD_WITH_OPENMP=false -DHWM_OVER_XU=false -G Xcode
+cmake .. -DBUILD_EXAMPLES=true -DBUILD_WITH_OPENMP=false -DHWM_OVER_XU=false -DCMAKE_MACOSX_RPATH=ON -G Xcode
 xcodebuild -target realsense2
 cp -R ../include/librealsense2 /usr/local/include
 cp Debug/* /usr/local/lib
@@ -35,7 +35,7 @@ prefix=/usr/local
 exec_prefix=${prefix}
 includedir=${prefix}/include
 #TODO: libdir=${exec_prefix}/lib
-libdir= ${prefix}/lib
+libdir=${prefix}/lib
 
 Name:
 Description: Intel(R) RealSense(tm) Cross Platform API

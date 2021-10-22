@@ -9,31 +9,30 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc/dialer"
 
+	"go.viam.com/core/grpc"
 	pb "go.viam.com/core/proto/api/service/v1"
 )
 
 // MetadataServiceClient is a client satisfies the metadata.proto contract.
 type MetadataServiceClient struct {
-	address string
-	conn    dialer.ClientConn
-	client  pb.MetadataServiceClient
+	conn   dialer.ClientConn
+	client pb.MetadataServiceClient
 
 	logger golog.Logger
 }
 
 // NewClient constructs a new MetadataServiceClient that is served at the given address.
-func NewClient(ctx context.Context, address string, logger golog.Logger) (*MetadataServiceClient, error) {
-	conn, err := rpcclient.Dial(ctx, address, rpcclient.DialOptions{Insecure: true}, logger)
+func NewClient(ctx context.Context, address string, opts rpcclient.DialOptions, logger golog.Logger) (*MetadataServiceClient, error) {
+	conn, err := grpc.Dial(ctx, address, opts, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	client := pb.NewMetadataServiceClient(conn)
 	mc := &MetadataServiceClient{
-		address: address,
-		conn:    conn,
-		client:  client,
-		logger:  logger,
+		conn:   conn,
+		client: client,
+		logger: logger,
 	}
 	return mc, nil
 }
