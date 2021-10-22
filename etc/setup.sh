@@ -122,6 +122,9 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
+echo "Brew installed software versions..."
+brew list --version
+
 git config --global --get-regexp url. > /dev/null
 if [ $? -ne 0 ]; then
 	git config --global url.ssh://git@github.com/.insteadOf https://github.com/
