@@ -6,14 +6,7 @@ import "github.com/pion/webrtc/v3"
 var DefaultWebRTCConfiguration = webrtc.Configuration{
 	ICEServers: []webrtc.ICEServer{
 		{
-			URLs: []string{"stun:stun.viam.cloud"},
-		},
-		{
-			URLs: []string{"turn:stun.viam.cloud"},
-			// TODO(https://github.com/viamrobotics/core/issues/101): needs real creds so as to not be abused
-			Username:       "username",
-			Credential:     "password",
-			CredentialType: webrtc.ICECredentialTypePassword,
+			URLs: []string{"stun:global.stun.twilio.com:3478?transport=udp"},
 		},
 	},
 }
