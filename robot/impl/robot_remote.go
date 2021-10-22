@@ -311,8 +311,9 @@ func (rr *remoteRobot) Config(ctx context.Context) (*config.Config, error) {
 	return &cfg, nil
 }
 
+// FrameSystem will not gather remoteRobot's remote components, only its immediate components.
 func (rr *remoteRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
-	return nil, errors.New("remoteRobot FrameSystem not implemented, should it be?")
+	return CreateRobotFrameSystem(ctx, rr, rr.config.Name)
 }
 
 func (rr *remoteRobot) Status(ctx context.Context) (*pb.Status, error) {

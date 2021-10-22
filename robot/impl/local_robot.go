@@ -208,35 +208,18 @@ func (r *localRobot) Close() error {
 // Config returns the config used to construct the robot.
 // This is allowed to be partial or empty.
 func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
-	logger := r.Logger()
 	cfgCpy := *r.config
 	cfgCpy.Components = append([]config.Component{}, cfgCpy.Components...)
 
 	for remoteName, remote := range r.parts.remotes {
-		logger.Debugf("config for remote robot %q", remoteName)
 		rc, err := remote.Config(ctx)
 		if err != nil {
 			return nil, err
 		}
-		rConf, err := r.getRemoteConfig(ctx, remoteName)
-		if err != nil {
-			return nil, err
-		}
-		worldName := referenceframe.World
-		if rConf.Prefix {
-			worldName = rConf.Name + "." + referenceframe.World
-		}
+		remoteWorldName := remoteName + "_" + referenceframe.World
 		for _, c := range rc.Components {
-			logger.Debugf("component %q is type %q and model %q", c.Name, c.Type, c.Model)
-			if c.Frame != nil && c.Frame.Parent == worldName {
-				if rConf.Frame == nil { // world frames of the local and remote robot perfectly overlap
-					c.Frame.Parent = referenceframe.World
-				} else { // attach the frames connected to world node of the remote to the Frame defined in the Remote's config
-					newTranslation, newOrientation := composeFrameOffsets(rConf.Frame, c.Frame)
-					c.Frame.Parent = rConf.Frame.Parent
-					c.Frame.Translation = newTranslation
-					c.Frame.Orientation = newOrientation
-				}
+			if c.Frame != nil && c.Frame.Parent == referenceframe.World {
+				c.Frame = remoteWorldName
 			}
 			cfgCpy.Components = append(cfgCpy.Components, c)
 		}
@@ -255,18 +238,6 @@ func (r *localRobot) getRemoteConfig(ctx context.Context, remoteName string) (*c
 	return nil, fmt.Errorf("cannot find Remote config with name %q", remoteName)
 }
 
-// composeFrameOffsets takes two config Frames and returns the composition of their 6dof poses
-func composeFrameOffsets(a, b *config.Frame) (config.Translation, spatialmath.Orientation) {
-	aTrans := r3.Vector{a.Translation.X, a.Translation.Y, a.Translation.Z}
-	bTrans := r3.Vector{b.Translation.X, b.Translation.Y, b.Translation.Z}
-	aPose := spatialmath.NewPoseFromOrientation(aTrans, a.Orientation)
-	bPose := spatialmath.NewPoseFromOrientation(bTrans, b.Orientation)
-	cPose := spatialmath.Compose(aPose, bPose)
-	translation := config.Translation{cPose.Point().X, cPose.Point().Y, cPose.Point().Z}
-	orientation := cPose.Orientation()
-	return translation, orientation
-}
-
 // Status returns the current status of the robot. Usually you
 // should use the CreateStatus helper instead of directly calling
 // this.
@@ -276,34 +247,24 @@ func (r *localRobot) Status(ctx context.Context) (*pb.Status, error) {
 
 // FrameSystem returns the FrameSystem of the robot
 func (r *localRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
-	// make frame system for each of its remote parts
-	remoteFrameSystems := make(referenceframe.FrameSystem, 0, len(r.parts.remotes))
-	for remoteName, remote := range r.parts.remotes {
-		remoteFrameSys, err := CreateRobotFrameSystem(ctx, remote, remoteName)
-		if err != nil {
-			return nil, err
-		}
-		remoteFrameSystems = append(remoteFrameSystems, remoteFrameSys)
-	}
 	// create the base reference frame system
-	baseFrameSystem, err := CreateRobotFrameSystem(ctx, r, "local_robot")
+	baseFrameSys, err := CreateRobotFrameSystem(ctx, r, "local_robot")
 	if err != nil {
 		return nil, err
 	}
-	// merge all the frame systems together
-	for _, remote := range remoteFrameSystem {
-		rConf := r.getRemoteConfig(ctx, remote.Name())
-		if rConf.Frame == nil {
-			return nil, fmt.Errorf("remote %q has no Frame attribute, cannot merge frame system", rConf.Name)
+	// make frame system for each of its remote parts and merge to base
+	for remoteName, remote := range r.parts.remotes {
+		remoteFrameSys, err := remote.FrameSystem(ctx)
+		if err != nil {
+			return nil, err
 		}
-		// attach the world of the remote frame system, with the given offset, to rConf.Frame.Parent
-		offset := makePoseFromConfig(rConf.Frame)
-		err := baseFrameSystem.MergeFrameSystem(remote, offset, rConf.Frame.Parent)
+		rConf := r.getRemoteConfig(ctx, remoteName)
+		err := MergeFrameSystemsFromConfig(baseFrameSys, remoteFrameSys, rConf.Frame)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return baseFrameSystem, nil
+	return baseFrameSys, nil
 }
 
 // Logger returns the logger the robot is using.

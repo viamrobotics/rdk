@@ -48,6 +48,30 @@ func CreateRobotFrameSystem(ctx context.Context, r robot.Robot, robotName string
 	return buildFrameSystem(robotName, names, children, r.Logger())
 }
 
+// MergeFrameSystemFromConfig will merge fromFS into toFS with an offset frame given by cfg. If cfg is nil, fromFS
+// will be merged to the world frame of toFS with a 0 offset.
+func MergeFrameSystemsFromConfig(toFS, fromFS ref.FrameSystem, cfg *config.Frame) error {
+	var offsetFrame ref.Frame
+	if cfg == nil { // if nil, the parent is toFS's world, and the offset is 0
+		offsetFrame = ref.NewZeroStaticFrame(fromFS.Name() + "_" + ref.World)
+		err := toFS.AddFrame(offsetFrame, toFS.World())
+		if err != nil {
+			return err
+		}
+	} else { // attach the world of fromFS, with the given offset, to cfg.Parent found in toFS
+		offsetFrame = makeStaticFrameFromConfig(cfg, fromFS.Name()+"_"+ref.World)
+		err := toFS.AddFrame(offsetFrame, toFS.GetFrame(cfg.Parent))
+		if err != nil {
+			return err
+		}
+	}
+	err := toFS.MergeFrameSystem(fromFS, offsetFrame)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // collectRobotParts collects the physical parts of the robot that may have frame info (excluding remote robots and services, etc)
 func collectRobotParts(r robot.Robot) []namedPart {
 	parts := []namedPart{}
@@ -142,7 +166,7 @@ func createFrameFromPart(part namedPart, children map[string][]ref.Frame, names 
 	}
 	// static frame defines an offset from the parent part-- if it is empty, a 0 offset frame will be applied.
 	staticName := part.Name + "_offset"
-	staticFrame, err := makeStaticFrame(frameConfig, staticName)
+	staticFrame, err := makeStaticFrameFromConfig(frameConfig, staticName)
 	if err != nil {
 		return err
 	}
@@ -195,15 +219,15 @@ func buildFrameSystem(name string, frameNames map[string]bool, children map[stri
 	return fs, nil
 }
 
+func makeStaticFrameFromConfig(comp *config.Frame, name string) (ref.Frame, error) {
+	pose := makePoseFromConfig(comp)
+	return ref.NewStaticFrame(name, pose)
+}
+
 func makePoseFromConfig(f *config.Frame) spatial.Pose {
 	// get the translation vector. If there is no translation/orientation attribute will default to 0
 	translation := r3.Vector{f.Translation.X, f.Translation.Y, f.Translation.Z}
 	return spatial.NewPoseFromOrientation(translation, f.Orientation)
-}
-
-func makeStaticFrame(comp *config.Frame, name string) (ref.Frame, error) {
-	pose := makePoseFromConfig(comp)
-	return ref.NewStaticFrame(name, pose)
 }
 
 func frameNamesWithDof(sys ref.FrameSystem) []string {
