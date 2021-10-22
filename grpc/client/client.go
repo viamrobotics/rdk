@@ -56,9 +56,10 @@ var errUnimplemented = errors.New("unimplemented")
 // RobotClient satisfies the robot.Robot interface through a gRPC based
 // client conforming to the robot.proto contract.
 type RobotClient struct {
-	address string
-	conn    dialer.ClientConn
-	client  pb.RobotServiceClient
+	address        string
+	conn           dialer.ClientConn
+	client         pb.RobotServiceClient
+	metadataClient *metadataclient.MetadataServiceClient
 
 	namesMu       *sync.RWMutex
 	baseNames     []string
@@ -102,12 +103,24 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 		return nil, err
 	}
 
+	metadataClient, err := metadataclient.NewClient(
+		ctx,
+		address,
+		// TODO(https://github.com/viamrobotics/core/issues/237): configurable
+		rpcclient.DialOptions{Insecure: true},
+		logger,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	client := pb.NewRobotServiceClient(conn)
 	closeCtx, cancel := context.WithCancel(context.Background())
 	rc := &RobotClient{
 		address:                 address,
 		conn:                    conn,
 		client:                  client,
+		metadataClient:          metadataClient,
 		sensorTypes:             map[string]sensor.Type{},
 		cancelBackgroundWorkers: cancel,
 		logger:                  logger,
@@ -142,6 +155,7 @@ type boardInfo struct {
 func NewClient(ctx context.Context, address string, logger golog.Logger) (*RobotClient, error) {
 	return NewClientWithOptions(ctx, address, RobotClientOptions{
 		DialOptions: rpcclient.DialOptions{
+			// TODO(https://github.com/viamrobotics/core/issues/237): configurable
 			Insecure: true,
 		},
 	}, logger)
@@ -152,7 +166,7 @@ func NewClient(ctx context.Context, address string, logger golog.Logger) (*Robot
 func (rc *RobotClient) Close() error {
 	rc.cancelBackgroundWorkers()
 	rc.activeBackgroundWorkers.Wait()
-	return rc.conn.Close()
+	return multierr.Combine(rc.conn.Close(), rc.metadataClient.Close())
 }
 
 // RefreshEvery refreshes the robot on the interval given by every until the
@@ -371,14 +385,7 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 
 	// TODO: placeholder implementation
 	// call metadata service.
-	metadataClient, err := metadataclient.NewClient(ctx, rc.address, rpcclient.DialOptions{Insecure: true}, rc.logger)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = multierr.Combine(err, metadataClient.Close())
-	}()
-	names, err := metadataClient.Resources(ctx)
+	names, err := rc.metadataClient.Resources(ctx)
 	// only return if it is not unimplemented - means a bigger error came up
 	if err != nil && grpcstatus.Code(err) != codes.Unimplemented {
 		return err
