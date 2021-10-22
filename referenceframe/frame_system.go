@@ -22,11 +22,12 @@ type FrameSystem interface {
 	AddFrame(frame, parent Frame) error
 	RemoveFrame(frame Frame)
 	TracebackFrame(frame Frame) ([]Frame, error)
+	Parent(frame Frame) (Frame, error)
 	TransformFrame(positions map[string][]Input, srcFrame, endFrame Frame) (spatial.Pose, error)
 	TransformPoint(positions map[string][]Input, point r3.Vector, srcFrame, endFrame Frame) (r3.Vector, error)
 	TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, endFrame Frame) (spatial.Pose, error)
-	AddIntoFrameSystem(fs1 FrameSystem, offset Frame) error
 	DivideFrameSystem(newRoot Frame) (FrameSystem, error)
+	MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error
 }
 
 // simpleFrameSystem implements FrameSystem. It is a simple tree graph.
@@ -46,6 +47,17 @@ func NewEmptySimpleFrameSystem(name string) FrameSystem {
 // World returns the base world frame
 func (sfs *simpleFrameSystem) World() Frame {
 	return sfs.world
+}
+
+// Parent returns the parent frame of the input frame. nil if input is World.
+func (sfs *simpleFrameSystem) Parent(frame Frame) (Frame, error) {
+	if !sfs.frameExists(frame.Name()) {
+		return nil, fmt.Errorf("frame with name %q not in frame system", frame.Name())
+	}
+	if frame == sfs.world {
+		return nil, nil
+	}
+	return sfs.parents[frame], nil
 }
 
 // frameExists is a helper function to see if a frame with a given name already exists in the system.
@@ -243,80 +255,49 @@ func (sfs *simpleFrameSystem) composeTransforms(frame Frame, positions map[strin
 	return q, errAll
 }
 
-// AddIntoFrameSystem will combine two frame systems together, placing the world of sfs at the given offset from fs1s.
-// The offset frame must already be present within sfs, so should be added before Merge happens.
-// This is necessary when dynamically building systems of robots, or mutating a robot after it has already been initialized.
-// For example, two independent rovers, each with their own frame system, need to now know where they are in relation to each other and
-// need to have their frame systems combined.
-func (sfs *simpleFrameSystem) AddIntoFrameSystem(fs1 FrameSystem, offset Frame) error {
-
-	offsetFrame := fs1.GetFrame(offset.Name())
-	if offsetFrame == nil {
-		return fmt.Errorf("offset frame not in fs1 %s", offset.Name())
-	}
-
-	var traceParent func(Frame, Frame) error
-	traceParent = func(frame, parent Frame) error {
-		delete(sfs.parents, frame)
-
-		// Deleting from a map as we iterate through it is OK and safe to do in Go
-		delete(sfs.parents, frame)
-		if parent.Name() == World {
-			parent = offsetFrame
-		}
-		if fs1.GetFrame(frame.Name()) != nil {
-			return fmt.Errorf("frame systems have conflicting frame name %s", frame.Name())
-		}
-		if fs1.GetFrame(parent.Name()) == nil {
-			// Parent not yet added, need to add in order
-			err := traceParent(parent, sfs.parents[parent])
-			if err != nil {
-				return err
-			}
-		}
-		return fs1.AddFrame(frame, parent)
-	}
-
-	// Go through sfs, and reset the parent of any relevant frames from world to the new offset
-	for frame, parent := range sfs.parents {
-		err := traceParent(frame, parent)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // MergeFrameSystem will combine two frame systems together, placing the world of fs1 at the "attach" frame in sfs.
 // The frame where fs1 will be attached to must already exist within sfs, so should be added before Merge happens.
 // This is necessary when dynamically building systems of robots, or mutating a robot after it has already been initialized.
 // For example, two independent rovers, each with their own frame system, need to now know where they are in relation to each other and
 // need to have their frame systems combined.
-func (sfs *simpleFrameSystem) MergeFrameSystem(fs1 FrameSystem, attach Frame) error {
+func (sfs *simpleFrameSystem) MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error {
 
-	attachFrame := sfs.GetFrame(attach.Name())
+	attachFrame := sfs.GetFrame(attachTo.Name())
 	if attachFrame == nil {
-		return fmt.Errorf("frame to attach %q to not in target frame system %q", attach.Name(), sfs.Name())
+		return fmt.Errorf("frame to attach to, %q, not in target frame system %q", attachTo.Name(), sfs.Name())
 	}
 
 	// make a map where the parent frame is the key and the slice of children frames is the value
-	children := map[Frame][]Frame{}
-	for _, name := range fs1.FrameNames() {
-		child := fs1.GetFrame(name)
-		parent := fs1.TracebackFrame(child)[1] // 0 is always the frame itself
-		children[parent] = append(children[parent], child)
+	childrenMap := map[Frame][]Frame{}
+	for _, name := range systemToMerge.FrameNames() {
+		child := systemToMerge.GetFrame(name)
+		parent, err := systemToMerge.Parent(child)
+		if err != nil {
+			return err
+		}
+		childrenMap[parent] = append(childrenMap[parent], child)
 	}
-
-	queue := []Frame{fs1.World()}
+	// add every frame from systemToMerge to the base frame system.
+	queue := []Frame{systemToMerge.World()}
 	for len(queue) != 0 {
 		parent := queue[0]
 		queue = queue[1:]
-		c := children[parent]
-		if parent == fs1.World() {
-			sfs.AddFrame(frame, parent)
+		children := childrenMap[parent]
+		for _, c := range children {
+			queue = append(queue, c)
+			if parent == systemToMerge.World() {
+				err := sfs.AddFrame(c, attachFrame) // attach c to the attachFrame
+				if err != nil {
+					return err
+				}
+			} else {
+				err := sfs.AddFrame(c, parent)
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
-
 	return nil
 }
 

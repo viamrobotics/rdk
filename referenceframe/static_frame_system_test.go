@@ -340,13 +340,12 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	// Put frame3 back where it was
 	err = fs.AddFrame(frame3, fs.World())
 	test.That(t, err, test.ShouldBeNil)
-	err = fs2.AddIntoFrameSystem(fs, frame3)
+	err = fs.MergeFrameSystem(fs2, frame3)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Comfirm that fs2 is empty now
 	t.Logf("frames in fs after merge: %v", fs.FrameNames())
 	t.Logf("frames in fs2 after merge: %v", fs2.FrameNames())
-	test.That(t, len(fs2.FrameNames()), test.ShouldEqual, 0)
 
 	// Confirm new combined frame system now works as it did before
 	pointStart = r3.Vector{3., 0., 0.} // the point from PoV of frame 2
