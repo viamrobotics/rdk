@@ -4310,7 +4310,8 @@ proto.proto.api.v1.ComponentConfig.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
     type: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    parent: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    model: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    parent: jspb.Message.getFieldWithDefault(msg, 4, ""),
     pose: (f = msg.getPose()) && proto.proto.api.v1.ArmPosition.toObject(includeInstance, f)
   };
 
@@ -4358,9 +4359,13 @@ proto.proto.api.v1.ComponentConfig.deserializeBinaryFromReader = function(msg, r
       break;
     case 3:
       var value = /** @type {string} */ (reader.readString());
-      msg.setParent(value);
+      msg.setModel(value);
       break;
     case 4:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setParent(value);
+      break;
+    case 5:
       var value = new proto.proto.api.v1.ArmPosition;
       reader.readMessage(value,proto.proto.api.v1.ArmPosition.deserializeBinaryFromReader);
       msg.setPose(value);
@@ -4408,17 +4413,24 @@ proto.proto.api.v1.ComponentConfig.serializeBinaryToWriter = function(message, w
       f
     );
   }
-  f = message.getParent();
+  f = message.getModel();
   if (f.length > 0) {
     writer.writeString(
       3,
       f
     );
   }
+  f = message.getParent();
+  if (f.length > 0) {
+    writer.writeString(
+      4,
+      f
+    );
+  }
   f = message.getPose();
   if (f != null) {
     writer.writeMessage(
-      4,
+      5,
       f,
       proto.proto.api.v1.ArmPosition.serializeBinaryToWriter
     );
@@ -4463,10 +4475,10 @@ proto.proto.api.v1.ComponentConfig.prototype.setType = function(value) {
 
 
 /**
- * optional string parent = 3;
+ * optional string model = 3;
  * @return {string}
  */
-proto.proto.api.v1.ComponentConfig.prototype.getParent = function() {
+proto.proto.api.v1.ComponentConfig.prototype.getModel = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
 };
 
@@ -4475,18 +4487,36 @@ proto.proto.api.v1.ComponentConfig.prototype.getParent = function() {
  * @param {string} value
  * @return {!proto.proto.api.v1.ComponentConfig} returns this
  */
-proto.proto.api.v1.ComponentConfig.prototype.setParent = function(value) {
+proto.proto.api.v1.ComponentConfig.prototype.setModel = function(value) {
   return jspb.Message.setProto3StringField(this, 3, value);
 };
 
 
 /**
- * optional ArmPosition pose = 4;
+ * optional string parent = 4;
+ * @return {string}
+ */
+proto.proto.api.v1.ComponentConfig.prototype.getParent = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 4, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.ComponentConfig} returns this
+ */
+proto.proto.api.v1.ComponentConfig.prototype.setParent = function(value) {
+  return jspb.Message.setProto3StringField(this, 4, value);
+};
+
+
+/**
+ * optional ArmPosition pose = 5;
  * @return {?proto.proto.api.v1.ArmPosition}
  */
 proto.proto.api.v1.ComponentConfig.prototype.getPose = function() {
   return /** @type{?proto.proto.api.v1.ArmPosition} */ (
-    jspb.Message.getWrapperField(this, proto.proto.api.v1.ArmPosition, 4));
+    jspb.Message.getWrapperField(this, proto.proto.api.v1.ArmPosition, 5));
 };
 
 
@@ -4495,7 +4525,7 @@ proto.proto.api.v1.ComponentConfig.prototype.getPose = function() {
  * @return {!proto.proto.api.v1.ComponentConfig} returns this
 */
 proto.proto.api.v1.ComponentConfig.prototype.setPose = function(value) {
-  return jspb.Message.setWrapperField(this, 4, value);
+  return jspb.Message.setWrapperField(this, 5, value);
 };
 
 
@@ -4513,7 +4543,7 @@ proto.proto.api.v1.ComponentConfig.prototype.clearPose = function() {
  * @return {boolean}
  */
 proto.proto.api.v1.ComponentConfig.prototype.hasPose = function() {
-  return jspb.Message.getField(this, 4) != null;
+  return jspb.Message.getField(this, 5) != null;
 };
 
 

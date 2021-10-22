@@ -525,8 +525,9 @@ message Status {
 message ComponentConfig {
   string name = 1;
   string type = 2;
-  string parent = 3;
-  ArmPosition pose = 4;
+  string model = 3;
+  string parent = 4;
+  ArmPosition pose = 5;
 }
 
 message ConfigRequest {}

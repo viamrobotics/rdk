@@ -145,6 +145,9 @@ export class ComponentConfig extends jspb.Message {
   getType(): string;
   setType(value: string): void;
 
+  getModel(): string;
+  setModel(value: string): void;
+
   getParent(): string;
   setParent(value: string): void;
 
@@ -167,6 +170,7 @@ export namespace ComponentConfig {
   export type AsObject = {
     name: string,
     type: string,
+    model: string,
     parent: string,
     pose?: ArmPosition.AsObject,
   }
