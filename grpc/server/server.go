@@ -91,8 +91,9 @@ func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigRes
 	resp := &pb.ConfigResponse{}
 	for _, c := range cfg.Components {
 		cc := &pb.ComponentConfig{
-			Name: c.Name,
-			Type: string(c.Type),
+			Name:  c.Name,
+			Type:  string(c.Type),
+			Model: c.Model,
 		}
 		if c.Frame != nil {
 			orientation := c.Frame.Orientation
