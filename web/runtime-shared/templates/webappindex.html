@@ -912,8 +912,11 @@
               setTimeout(updateWaypoints, 1000);
               return;
             }
+            let waypoints = [];
+            if (resp) {
+              waypoints = resp.getWaypointsList();
+            }
             const currentWaypoints = {};
-            var waypoints = resp.getWaypointsList();
             for (var i = 0; i < waypoints.length; i++) {
               const waypoint = waypoints[i];
               const pos = {lat: waypoint.getLocation().getLatitude(), lng: waypoint.getLocation().getLongitude()};
