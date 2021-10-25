@@ -25125,7 +25125,7 @@ proto.proto.api.v1.InputControllerEventStreamRequest.serializeBinaryToWriter = f
  * @private {!Array<number>}
  * @const
  */
-proto.proto.api.v1.InputControllerEventStreamRequest.Events.repeatedFields_ = [2];
+proto.proto.api.v1.InputControllerEventStreamRequest.Events.repeatedFields_ = [2,3];
 
 
 
@@ -25159,7 +25159,8 @@ proto.proto.api.v1.InputControllerEventStreamRequest.Events.prototype.toObject =
 proto.proto.api.v1.InputControllerEventStreamRequest.Events.toObject = function(includeInstance, msg) {
   var f, obj = {
     control: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    eventsList: (f = jspb.Message.getRepeatedField(msg, 2)) == null ? undefined : f
+    eventsList: (f = jspb.Message.getRepeatedField(msg, 2)) == null ? undefined : f,
+    cancelledEventsList: (f = jspb.Message.getRepeatedField(msg, 3)) == null ? undefined : f
   };
 
   if (includeInstance) {
@@ -25204,6 +25205,10 @@ proto.proto.api.v1.InputControllerEventStreamRequest.Events.deserializeBinaryFro
       var value = /** @type {string} */ (reader.readString());
       msg.addEvents(value);
       break;
+    case 3:
+      var value = /** @type {string} */ (reader.readString());
+      msg.addCancelledEvents(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -25244,6 +25249,13 @@ proto.proto.api.v1.InputControllerEventStreamRequest.Events.serializeBinaryToWri
   if (f.length > 0) {
     writer.writeRepeatedString(
       2,
+      f
+    );
+  }
+  f = message.getCancelledEventsList();
+  if (f.length > 0) {
+    writer.writeRepeatedString(
+      3,
       f
     );
   }
@@ -25302,6 +25314,43 @@ proto.proto.api.v1.InputControllerEventStreamRequest.Events.prototype.addEvents 
  */
 proto.proto.api.v1.InputControllerEventStreamRequest.Events.prototype.clearEventsList = function() {
   return this.setEventsList([]);
+};
+
+
+/**
+ * repeated string cancelled_events = 3;
+ * @return {!Array<string>}
+ */
+proto.proto.api.v1.InputControllerEventStreamRequest.Events.prototype.getCancelledEventsList = function() {
+  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 3));
+};
+
+
+/**
+ * @param {!Array<string>} value
+ * @return {!proto.proto.api.v1.InputControllerEventStreamRequest.Events} returns this
+ */
+proto.proto.api.v1.InputControllerEventStreamRequest.Events.prototype.setCancelledEventsList = function(value) {
+  return jspb.Message.setField(this, 3, value || []);
+};
+
+
+/**
+ * @param {string} value
+ * @param {number=} opt_index
+ * @return {!proto.proto.api.v1.InputControllerEventStreamRequest.Events} returns this
+ */
+proto.proto.api.v1.InputControllerEventStreamRequest.Events.prototype.addCancelledEvents = function(value, opt_index) {
+  return jspb.Message.addToRepeatedField(this, 3, value, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.proto.api.v1.InputControllerEventStreamRequest.Events} returns this
+ */
+proto.proto.api.v1.InputControllerEventStreamRequest.Events.prototype.clearCancelledEventsList = function() {
+  return this.setCancelledEventsList([]);
 };
 
 

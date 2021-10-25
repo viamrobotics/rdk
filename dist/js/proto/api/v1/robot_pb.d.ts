@@ -3236,6 +3236,11 @@ export namespace InputControllerEventStreamRequest {
     setEventsList(value: Array<string>): void;
     addEvents(value: string, index?: number): string;
 
+    clearCancelledEventsList(): void;
+    getCancelledEventsList(): Array<string>;
+    setCancelledEventsList(value: Array<string>): void;
+    addCancelledEvents(value: string, index?: number): string;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Events.AsObject;
     static toObject(includeInstance: boolean, msg: Events): Events.AsObject;
@@ -3250,6 +3255,7 @@ export namespace InputControllerEventStreamRequest {
     export type AsObject = {
       control: string,
       eventsList: Array<string>,
+      cancelledEventsList: Array<string>,
     }
   }
 }

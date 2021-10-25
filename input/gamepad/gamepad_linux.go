@@ -209,7 +209,7 @@ func (g *Controller) makeCallbacks(ctx context.Context, eventOut input.Event) {
 	defer g.mu.RUnlock()
 
 	ctrlFunc, ok := g.callbacks[eventOut.Control][eventOut.Event]
-	if ok {
+	if ok && ctrlFunc != nil {
 		g.activeBackgroundWorkers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer g.activeBackgroundWorkers.Done()
@@ -218,7 +218,7 @@ func (g *Controller) makeCallbacks(ctx context.Context, eventOut input.Event) {
 	}
 
 	ctrlFuncAll, ok := g.callbacks[eventOut.Control][input.AllEvents]
-	if ok {
+	if ok && ctrlFuncAll != nil {
 		g.activeBackgroundWorkers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer g.activeBackgroundWorkers.Done()

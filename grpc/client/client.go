@@ -1520,6 +1520,8 @@ func (cc *inputControllerClient) connectStream(ctx context.Context) {
 				if ctrlFunc != nil {
 					haveCallbacks = true
 					outEvent.Events = append(outEvent.Events, string(event))
+				} else {
+					outEvent.CancelledEvents = append(outEvent.CancelledEvents, string(event))
 				}
 			}
 			req.Events = append(req.Events, outEvent)
@@ -1622,7 +1624,7 @@ func (cc *inputControllerClient) execCallback(ctx context.Context, event input.E
 	}
 
 	callback, ok := callbackMap[event.Event]
-	if ok {
+	if ok && callback != nil {
 		cc.callbackWait.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer cc.callbackWait.Done()
@@ -1630,7 +1632,7 @@ func (cc *inputControllerClient) execCallback(ctx context.Context, event input.E
 		})
 	}
 	callbackAll, ok := callbackMap[input.AllEvents]
-	if ok {
+	if ok && callbackAll != nil {
 		cc.callbackWait.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer cc.callbackWait.Done()

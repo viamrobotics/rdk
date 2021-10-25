@@ -1346,9 +1346,22 @@ func (s *Server) InputControllerEventStream(req *pb.InputControllerEventStreamRe
 		for _, v := range ev.Events {
 			triggers = append(triggers, input.EventType(v))
 		}
-		err := controller.RegisterControlCallback(server.Context(), input.Control(ev.Control), triggers, ctrlFunc)
-		if err != nil {
-			return err
+		if len(triggers) > 0 {
+			err := controller.RegisterControlCallback(server.Context(), input.Control(ev.Control), triggers, ctrlFunc)
+			if err != nil {
+				return err
+			}
+		}
+
+		var cancelledTriggers []input.EventType
+		for _, v := range ev.CancelledEvents {
+			cancelledTriggers = append(cancelledTriggers, input.EventType(v))
+		}
+		if len(cancelledTriggers) > 0 {
+			err := controller.RegisterControlCallback(server.Context(), input.Control(ev.Control), cancelledTriggers, nil)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

@@ -1189,6 +1189,7 @@ message InputControllerEventStreamRequest {
   message Events {
     string control = 1;
     repeated string events = 2;
+    repeated string cancelled_events = 3;
   }
   string controller = 1;
   repeated Events events = 2;
