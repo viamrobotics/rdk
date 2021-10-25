@@ -18,6 +18,7 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
+	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
@@ -191,6 +192,12 @@ func (rr *remoteRobot) MotorNames() []string {
 	return rr.prefixNames(rr.parts.MotorNames())
 }
 
+func (rr *remoteRobot) InputControllerNames() []string {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	return rr.prefixNames(rr.parts.InputControllerNames())
+}
+
 func (rr *remoteRobot) FunctionNames() []string {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
@@ -271,6 +278,12 @@ func (rr *remoteRobot) MotorByName(name string) (motor.Motor, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.MotorByName(rr.unprefixName(name))
+}
+
+func (rr *remoteRobot) InputControllerByName(name string) (input.Controller, bool) {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	return rr.parts.InputControllerByName(rr.unprefixName(name))
 }
 
 func (rr *remoteRobot) ServiceByName(name string) (interface{}, bool) {
@@ -376,6 +389,12 @@ func (rr *remoteRobot) Status(ctx context.Context) (*pb.Status, error) {
 			rewrittenStatus.Motors[rr.prefixName(k)] = v
 		}
 	}
+	if len(status.InputControllers) != 0 {
+		rewrittenStatus.InputControllers = make(map[string]bool, len(status.InputControllers))
+		for k, v := range status.InputControllers {
+			rewrittenStatus.InputControllers[rr.prefixName(k)] = v
+		}
+	}
 	if len(status.Services) != 0 {
 		rewrittenStatus.Services = make(map[string]bool, len(status.Services))
 		for k, v := range status.Services {
@@ -462,6 +481,13 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 		}
 		parts.AddMotor(part, config.Component{Name: name})
 	}
+	for _, name := range robot.InputControllerNames() {
+		part, ok := robot.InputControllerByName(name)
+		if !ok {
+			continue
+		}
+		parts.AddInputController(part, config.Component{Name: name})
+	}
 	for _, name := range robot.FunctionNames() {
 		parts.addFunction(name)
 	}
@@ -493,6 +519,7 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	var oldSensorNames map[string]struct{}
 	var oldServoNames map[string]struct{}
 	var oldMotorNames map[string]struct{}
+	var oldInputControllerNames map[string]struct{}
 	var oldFunctionNames map[string]struct{}
 	var oldServiceNames map[string]struct{}
 	var oldResources map[resource.Name]struct{}
@@ -543,6 +570,12 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		oldMotorNames = make(map[string]struct{}, len(parts.motors))
 		for name := range parts.motors {
 			oldMotorNames[name] = struct{}{}
+		}
+	}
+	if len(parts.inputControllers) != 0 {
+		oldInputControllerNames = make(map[string]struct{}, len(parts.inputControllers))
+		for name := range parts.inputControllers {
+			oldInputControllerNames[name] = struct{}{}
 		}
 	}
 	if len(parts.functions) != 0 {
@@ -637,6 +670,15 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		}
 		parts.motors[name] = newPart
 	}
+	for name, newPart := range newParts.inputControllers {
+		oldPart, ok := parts.inputControllers[name]
+		delete(oldInputControllerNames, name)
+		if ok {
+			oldPart.replace(newPart)
+			continue
+		}
+		parts.inputControllers[name] = newPart
+	}
 	for name, newPart := range newParts.functions {
 		_, ok := parts.functions[name]
 		delete(oldFunctionNames, name)
@@ -647,7 +689,7 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	}
 	for name, newPart := range newParts.services {
 		oldPart, ok := parts.services[name]
-		delete(oldMotorNames, name)
+		delete(oldServiceNames, name)
 		if ok {
 			_ = oldPart
 			// TODO(erd): how to handle service replacement?
@@ -699,6 +741,9 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	}
 	for name := range oldMotorNames {
 		delete(parts.motors, name)
+	}
+	for name := range oldInputControllerNames {
+		delete(parts.inputControllers, name)
 	}
 	for name := range oldFunctionNames {
 		delete(parts.functions, name)

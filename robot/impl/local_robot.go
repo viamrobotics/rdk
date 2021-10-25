@@ -17,6 +17,7 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
+	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/metadata/service"
 	"go.viam.com/core/motor"
@@ -121,6 +122,12 @@ func (r *localRobot) MotorByName(name string) (motor.Motor, bool) {
 	return r.parts.MotorByName(name)
 }
 
+// InputControllerByName returns an input.Controller by name. If it does not exist
+// nil is returned.
+func (r *localRobot) InputControllerByName(name string) (input.Controller, bool) {
+	return r.parts.InputControllerByName(name)
+}
+
 func (r *localRobot) ServiceByName(name string) (interface{}, bool) {
 	return r.parts.ServiceByName(name)
 }
@@ -179,6 +186,11 @@ func (r *localRobot) ServoNames() []string {
 // MotorNames returns the name of all known motors.
 func (r *localRobot) MotorNames() []string {
 	return r.parts.MotorNames()
+}
+
+// InputControllerNames returns the name of all known input Controllers.
+func (r *localRobot) InputControllerNames() []string {
+	return r.parts.InputControllerNames()
 }
 
 // FunctionNames returns the name of all known functions.
@@ -374,6 +386,14 @@ func (r *localRobot) newMotor(ctx context.Context, config config.Component) (mot
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
+func (r *localRobot) newInputController(ctx context.Context, config config.Component) (input.Controller, error) {
+	f := registry.InputControllerLookup(config.Model)
+	if f == nil {
+		return nil, errors.Errorf("unknown input controller model: %s", config.Model)
+	}
+	return f.Constructor(ctx, r, config, r.logger)
+}
+
 func (r *localRobot) newBoard(ctx context.Context, config config.Component) (board.Board, error) {
 	f := registry.BoardLookup(config.Model)
 	if f == nil {
@@ -511,6 +531,17 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 		)
 		resources = append(resources, res)
 	}
+
+	for _, name := range r.InputControllerNames() {
+		res := resource.NewName(
+			resource.ResourceNamespaceCore,
+			resource.ResourceTypeComponent,
+			resource.ResourceSubtypeInputController,
+			name,
+		)
+		resources = append(resources, res)
+	}
+
 	resources = append(resources, r.ResourceNames()...)
 	return svc.Replace(resources)
 }
