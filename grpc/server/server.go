@@ -1338,7 +1338,10 @@ func (s *Server) InputControllerEventStream(req *pb.InputControllerEventStreamRe
 			Control: string(eventIn.Control),
 			Value:   eventIn.Value,
 		}
-		eventsChan <- resp
+		select {
+		case eventsChan <- resp:
+		case <-ctx.Done():
+		}
 	}
 
 	for _, ev := range req.Events {

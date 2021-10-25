@@ -1452,7 +1452,7 @@ func (cc *inputControllerClient) RegisterControlCallback(ctx context.Context, co
 	if cc.streamRunning {
 		for !cc.streamReady {
 			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
-				return nil
+				return ctx.Err()
 			}
 		}
 		cc.streamHUP = true
@@ -1473,7 +1473,7 @@ func (cc *inputControllerClient) RegisterControlCallback(ctx context.Context, co
 			ready = cc.streamReady
 			cc.mu.RUnlock()
 			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
-				return nil
+				return ctx.Err()
 			}
 		}
 	}
