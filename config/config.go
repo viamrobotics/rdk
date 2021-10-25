@@ -148,6 +148,9 @@ func (c Config) FindComponent(name string) *Component {
 }
 
 // A Remote describes a remote robot that should be integrated.
+// The Frame field defines how the "world" node of the remote robot should be reconciled with the "world" node of the
+// the current robot. All components of the remote robot who have Parent as "world" will be attached to the parent defined
+// in Frame, and with the given offset as well.
 type Remote struct {
 	Name    string `json:"name"`
 	Address string `json:"address"`
