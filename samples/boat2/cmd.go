@@ -598,7 +598,7 @@ func witIMU(ctx context.Context, r robot.Robot, config config.Component, logger 
 			default:
 			}
 
-			line, err := portReader.ReadString('U')
+			line, err := portReader.ReadString('U') //0x55 (which is 'U') is the start bit for the sensor registers
 			if err != nil {
 				i.lastError = err
 			} else {
@@ -617,15 +617,19 @@ type myIMU struct {
 	lastError       error
 }
 func (i *myIMU) parseWIT(line string) error {
+	// each signal uses two bits, so need to shift and combine them. not sure how memcpy works so I used bitwise operators
+	// Mod math to make sure the range is correct, might be able to set variables as signed and skip this step. 
+	if line[0] == 0x52 { //0x52 signfifies the angular velocity registers
+		// sensor outputs +- 2000 deg/s
 
-	if line[0] == 0x52 {
 		angVel := line
-		i.angularVelocity.X = math.Mod( ( float64(((angVel[2]<<8)|angVel[1])) /32768.0*2000.0+2000.0), 4000.0 ) - 2000.0
+		i.angularVelocity.X = math.Mod( ( float64(((angVel[2]<<8)|angVel[1])) /32768.0*2000.0+2000.0), 4000.0 ) - 2000.0 
 		i.angularVelocity.Y = math.Mod((float64(((angVel[4]<<8)|angVel[3]))/32768.0*2000.0+2000.0), 4000.0) - 2000.0
 		i.angularVelocity.Z = math.Mod((float64(((angVel[6]<<8)|angVel[5]))/32768.0*2000.0+2000.0), 4000.0) - 2000.0
 	}
 	//boatAngs := pcs[2]
 	if line[0] == 0x53 {
+		// sensor output +-180 deg
 		boatAngs := line
 		i.orientation.Roll = math.Mod((float64(((boatAngs[2]<<8)|boatAngs[1]))/32768.0*180.0+180.0), 360.0) - 180.0
 		i.orientation.Pitch = math.Mod((float64(((boatAngs[4]<<8)|boatAngs[3]))/32768.0*180.0+180.0), 360.0) - 180.0
