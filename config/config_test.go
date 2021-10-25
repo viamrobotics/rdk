@@ -91,6 +91,9 @@ func TestConfigLoad1(t *testing.T) {
 
 	c1 := cfg.FindComponent("c1")
 	test.That(t, c1, test.ShouldNotBeNil)
+	test.That(t, c1.Name, test.ShouldEqual, "c1")
+	test.That(t, c1.Type, test.ShouldEqual, "camera")
+	test.That(t, c1.Model, test.ShouldEqual, "intel")
 
 	_, ok := c1.Attributes["matrics"].(string)
 	test.That(t, ok, test.ShouldBeFalse)
@@ -161,16 +164,29 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+
 	invalidComponents.Components[0].Name = "foo"
+	err = invalidComponents.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"type" is required`)
+
+	invalidComponents.Components[0].Type = "arm"
+	err = invalidComponents.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"model" is required`)
+
+	invalidComponents.Components[0].Model = "fake"
 	test.That(t, invalidComponents.Ensure(false), test.ShouldBeNil)
 
-	c1 := config.Component{Name: "c1"}
-	c2 := config.Component{Name: "c2", DependsOn: []string{"c1"}}
-	c3 := config.Component{Name: "c3", DependsOn: []string{"c1", "c2"}}
-	c4 := config.Component{Name: "c4", DependsOn: []string{"c1", "c3"}}
-	c5 := config.Component{Name: "c5", DependsOn: []string{"c2", "c4"}}
-	c6 := config.Component{Name: "c6"}
-	c7 := config.Component{Name: "c7", DependsOn: []string{"c6", "c4"}}
+	c1 := config.Component{Name: "c1", Type: config.ComponentTypeCamera, Model: "fake"}
+	c2 := config.Component{Name: "c2", Type: config.ComponentTypeCamera, Model: "fake", DependsOn: []string{"c1"}}
+	c3 := config.Component{Name: "c3", Type: config.ComponentTypeCamera, Model: "fake", DependsOn: []string{"c1", "c2"}}
+	c4 := config.Component{Name: "c4", Type: config.ComponentTypeCamera, Model: "fake", DependsOn: []string{"c1", "c3"}}
+	c5 := config.Component{Name: "c5", Type: config.ComponentTypeCamera, Model: "fake", DependsOn: []string{"c2", "c4"}}
+	c6 := config.Component{Name: "c6", Type: config.ComponentTypeCamera, Model: "fake"}
+	c7 := config.Component{Name: "c7", Type: config.ComponentTypeCamera, Model: "fake", DependsOn: []string{"c6", "c4"}}
 	unsortedComponents := config.Config{
 		Components: []config.Component{c7, c6, c5, c3, c4, c1, c2},
 	}

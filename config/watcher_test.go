@@ -61,7 +61,9 @@ func TestNewWatcherFile(t *testing.T) {
 	confToWrite := Config{
 		Components: []Component{
 			{
-				Name: "hello",
+				Name:  "hello",
+				Type:  ComponentTypeBase,
+				Model: "fake",
 				Attributes: AttributeMap{
 					"world": 1.0,
 				},
@@ -82,7 +84,9 @@ func TestNewWatcherFile(t *testing.T) {
 	confToWrite = Config{
 		Components: []Component{
 			{
-				Name: "world",
+				Name:  "world",
+				Type:  ComponentTypeBase,
+				Model: "fake",
 				Attributes: AttributeMap{
 					"hello": 1.0,
 				},
@@ -122,7 +126,9 @@ func TestNewWatcherFile(t *testing.T) {
 	confToWrite = Config{
 		Components: []Component{
 			{
-				Name: "woo",
+				Name:  "woo",
+				Type:  ComponentTypeCamera,
+				Model: "fake",
 				Attributes: AttributeMap{
 					"wah": 1.0,
 				},
@@ -206,7 +212,9 @@ func TestNewWatcherCloud(t *testing.T) {
 		Cloud: cloudConf,
 		Components: []Component{
 			{
-				Name: "hello",
+				Name:  "hello",
+				Type:  ComponentTypeBase,
+				Model: "fake",
 				Attributes: AttributeMap{
 					"world": 1.0,
 				},
@@ -230,7 +238,9 @@ func TestNewWatcherCloud(t *testing.T) {
 		Cloud: cloudConf,
 		Components: []Component{
 			{
-				Name: "world",
+				Name:  "world",
+				Type:  ComponentTypeBase,
+				Model: "fake",
 				Attributes: AttributeMap{
 					"hello": 1.0,
 				},
@@ -262,7 +272,9 @@ func TestNewWatcherCloud(t *testing.T) {
 		Cloud: cloudConf,
 		Components: []Component{
 			{
-				Name: "woo",
+				Name:  "woo",
+				Type:  ComponentTypeCamera,
+				Model: "fake",
 				Attributes: AttributeMap{
 					"wah": 1.0,
 				},

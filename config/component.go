@@ -155,5 +155,8 @@ func ParseComponentFlag(flag string) (Component, error) {
 	if string(cmp.Type) == "" {
 		return Component{}, errors.New("component type is required")
 	}
+	if cmp.Model == "" {
+		return Component{}, errors.New("component model is required")
+	}
 	return cmp, nil
 }
