@@ -400,6 +400,15 @@ type (
 
 	// A CreateReconfigurable makes a reconfigurable resource from a given resource.
 	CreateReconfigurable func(resource interface{}) (resource.Reconfigurable, error)
+
+	// A CreateSubtypeService will create the subtype service
+	CreateSubtypeService func(resources map[resource.Name]interface{}) (interface{}, error)
+
+	// A RegisterSubtypeService will register the subtype service to the server
+	RegisterSubtypeService func(subtypeSvc interface{}) error
+
+	// A CreateResourceClient will create the client for the resource
+	CreateResourceClient func(ctx context.Context, address string, name string, logger golog.Logger) (interface{}, error)
 )
 
 // Component stores a resource constructor (mandatory) and a Frame building function (optional)
@@ -410,7 +419,10 @@ type Component struct {
 
 // ComponentSubtype stores a reconfigurable resource creator
 type ComponentSubtype struct {
-	Reconfigurable CreateReconfigurable
+	Reconfigurable  CreateReconfigurable
+	Service         CreateSubtypeService
+	RegisterService RegisterSubtypeService
+	ResourceClient  CreateResourceClient
 }
 
 // all registries
@@ -449,8 +461,8 @@ func RegisterComponentSubtype(subtype resource.Subtype, creator ComponentSubtype
 	if old {
 		panic(errors.Errorf("trying to register two of the same component subtype:%s", subtype))
 	}
-	if creator.Reconfigurable == nil {
-		panic(errors.Errorf("cannot register a nil Reconfigurable constructor for subtype:%s", subtype))
+	if creator.Reconfigurable == nil && creator.Service == nil && creator.RegisterService == nil && creator.ResourceClient == nil {
+		panic(errors.Errorf("cannot register a nil constructor for subtype:%s", subtype))
 	}
 	componentSubtypeRegistry[subtype] = creator
 }
