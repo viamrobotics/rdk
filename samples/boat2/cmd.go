@@ -562,11 +562,77 @@ func newArduinoIMU(ctx context.Context, r robot.Robot, config config.Component, 
 
 	return i, nil
 }
+func witIMU(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+	options := slib.OpenOptions{
+		BaudRate:        9600, //115200, wanted to set higher but windows software was being weird about it
+		DataBits:        8,
+		StopBits:        1,
+		MinimumReadSize: 1,
+	}
 
+	// ds := serial.Search(serial.SearchFilter{serial.TypeArduino})
+	// if len(ds) != 1 {
+	// 	return nil, fmt.Errorf("found %d arduinos", len(ds))
+	// }
+
+	// options.PortName = ds[0].Path
+	options.PortName = "/dev/ttyUSB0" //gotta check which port, unless above method will work
+	// fd = uart_open(fd,"/dev/ttyUSB0");
+	port, err := slib.Open(options)
+	if err != nil {
+		return nil, err
+	}
+
+	portReader := bufio.NewReader(port)
+	// portReader := bufio.NewReaderSize(port,44) //just based off the c code prob dont need
+
+	i := &myIMU{}
+
+	go func() {
+		defer port.Close()
+
+		for {
+			select {
+			case <-ctx.Done(): //not sure what this is?
+				return
+			default:
+			}
+
+			line, err := portReader.ReadString('U')
+			if err != nil {
+				i.lastError = err
+			} else {
+				//strLen := len(line)
+				i.lastError = i.parseWIT(line)
+			}
+
+		}
+	}()
+
+	return i, nil
+}
 type myIMU struct {
 	angularVelocity spatialmath.AngularVelocity
 	orientation     spatialmath.EulerAngles
 	lastError       error
+}
+func (i *myIMU) parseWIT(line string) error {
+
+	if line[0] == 0x52 {
+		angVel := line
+		i.angularVelocity.X = math.Mod( ( float64(((angVel[2]<<8)|angVel[1])) /32768.0*2000.0+2000.0), 4000.0 ) - 2000.0
+		i.angularVelocity.Y = math.Mod((float64(((angVel[4]<<8)|angVel[3]))/32768.0*2000.0+2000.0), 4000.0) - 2000.0
+		i.angularVelocity.Z = math.Mod((float64(((angVel[6]<<8)|angVel[5]))/32768.0*2000.0+2000.0), 4000.0) - 2000.0
+	}
+	//boatAngs := pcs[2]
+	if line[0] == 0x53 {
+		boatAngs := line
+		i.orientation.Roll = math.Mod((float64(((boatAngs[2]<<8)|boatAngs[1]))/32768.0*180.0+180.0), 360.0) - 180.0
+		i.orientation.Pitch = math.Mod((float64(((boatAngs[4]<<8)|boatAngs[3]))/32768.0*180.0+180.0), 360.0) - 180.0
+		i.orientation.Yaw = math.Mod((float64(((boatAngs[6]<<8)|boatAngs[5]))/32768.0*180.0+180.0), 360.0) - 180.0
+	}
+
+	return nil
 }
 
 func (i *myIMU) parse(line string) error {
@@ -642,7 +708,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	// register boat as base properly
 	registry.RegisterBase("viam-boat2", registry.Base{Constructor: newBoat})
 
-	registry.RegisterSensor(imu.Type, "temp-imu", registry.Sensor{Constructor: newArduinoIMU})
+	//registry.RegisterSensor(imu.Type, "temp-imu", registry.Sensor{Constructor: newArduinoIMU})
+	registry.RegisterSensor(imu.Type, "temp-imu", registry.Sensor{Constructor: witIMU})
 
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
