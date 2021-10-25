@@ -118,12 +118,13 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type Temp struct {
-		External               bool
-		WebRTCEnabled          bool
-		WebRTCHost             string
-		WebRTCSignalingAddress string
-		Actions                []string
-		Views                  []View
+		External                   bool
+		WebRTCEnabled              bool
+		WebRTCHost                 string
+		WebRTCSignalingAddress     string
+		WebRTCAdditionalICEServers []map[string]interface{}
+		Actions                    []string
+		Views                      []View
 	}
 
 	temp := Temp{
