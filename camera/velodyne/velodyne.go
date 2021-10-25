@@ -83,12 +83,15 @@ func init() {
 }
 
 type client struct {
-	bind            string
+	bindAddress     string
 	ttlMilliseconds int
 
 	logger golog.Logger
 
-	lock sync.Mutex
+	cancelFunc              func()
+	activeBackgroundWorkers sync.WaitGroup
+
+	mu sync.Mutex
 
 	lastError error
 	product   vlp16.ProductID
@@ -98,29 +101,37 @@ type client struct {
 
 // New creates a connection to a Velodyne lidar and generates pointclouds from it
 func New(ctx context.Context, logger golog.Logger, port int, ttlMilliseconds int) (camera.Camera, error) {
-	bind := fmt.Sprintf("0.0.0.0:%d", port)
-	listener, err := vlp16.ListenUDP(context.Background(), bind)
+	bindAddress := fmt.Sprintf("0.0.0.0:%d", port)
+	listener, err := vlp16.ListenUDP(context.Background(), bindAddress)
 	if err != nil {
 		return nil, err
 	}
 	// Listen for and print packets.
 
 	c := &client{
-		bind:            bind,
+		bindAddress:     bindAddress,
 		ttlMilliseconds: ttlMilliseconds,
 		logger:          logger}
-	go c.run(ctx, listener)
+
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	c.cancelFunc = cancelFunc
+	c.activeBackgroundWorkers.Add(1)
+	gutils.PanicCapturingGo(func() {
+		c.run(cancelCtx, listener)
+	})
+
 	return c, nil
 }
 
 func (c *client) setLastError(err error) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.lastError = err
 }
 
 func (c *client) run(ctx context.Context, listener *vlp16.PacketListener) {
 	defer gutils.UncheckedErrorFunc(listener.Close)
+	defer c.activeBackgroundWorkers.Done()
 
 	for {
 		err := ctx.Err()
@@ -130,11 +141,13 @@ func (c *client) run(ctx context.Context, listener *vlp16.PacketListener) {
 		}
 
 		if listener == nil {
-			listener, err = vlp16.ListenUDP(context.Background(), c.bind)
+			listener, err = vlp16.ListenUDP(context.Background(), c.bindAddress)
 			if err != nil {
 				c.setLastError(err)
 				c.logger.Infof("velodyne connect error: %w", err)
-				time.Sleep(time.Second)
+				if !gutils.SelectContextOrWait(ctx, time.Second) {
+					return
+				}
 				continue
 			}
 		}
@@ -145,10 +158,12 @@ func (c *client) run(ctx context.Context, listener *vlp16.PacketListener) {
 			c.logger.Infof("velodyne client error: %w", err)
 			err = listener.Close()
 			if err != nil {
-				c.logger.Debugf("trying to close connection after error got %w", err)
+				c.logger.Warn("trying to close connection after error got", "error", err)
 			}
 			listener = nil
-			time.Sleep(time.Second)
+			if !gutils.SelectContextOrWait(ctx, time.Second) {
+				return
+			}
 		}
 	}
 }
@@ -161,8 +176,8 @@ func (c *client) runLoop(ctx context.Context, listener *vlp16.PacketListener) er
 
 	p := listener.Packet()
 
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	ipString := listener.SourceIP().String()
 	if c.ip == "" {
@@ -170,7 +185,7 @@ func (c *client) runLoop(ctx context.Context, listener *vlp16.PacketListener) er
 	} else if c.ip != ipString {
 		c.packets = []vlp16.Packet{}
 		c.product = 0
-		err := fmt.Errorf("ip changed from %s -> %s", c.ip, ipString)
+		err := fmt.Errorf("velodyne ip changed from %s -> %s", c.ip, ipString)
 		c.ip = ipString
 		return err
 	}
@@ -179,7 +194,7 @@ func (c *client) runLoop(ctx context.Context, listener *vlp16.PacketListener) er
 		c.product = p.ProductID
 	} else if c.product != p.ProductID {
 		c.packets = []vlp16.Packet{}
-		err := fmt.Errorf("product changed from %s -> %s", c.product, p.ProductID)
+		err := fmt.Errorf("velodyne product changed from %s -> %s", c.product, p.ProductID)
 		c.product = 0
 		return err
 	}
@@ -214,8 +229,8 @@ func pointFrom(yaw, pitch, distance float64, reflectivity uint8) pointcloud.Poin
 }
 
 func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.lastError != nil {
 		return nil, c.lastError
 	}
@@ -299,5 +314,7 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 func (c *client) Close() error {
+	c.cancelFunc()
+	c.activeBackgroundWorkers.Wait()
 	return nil
 }
