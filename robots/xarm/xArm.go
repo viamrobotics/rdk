@@ -107,11 +107,6 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 	return &xA, nil
 }
 
-// Frame returns the intrinsic frame of the arm
-func (x *xArm) Frame() referenceframe.Frame {
-	return x.frame
-}
-
 // FrameSystemLink returns all the information necessary for including the arm in a FrameSystem
 func (x *xArm) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
 	return x.frameconfig, x.frame

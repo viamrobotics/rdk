@@ -25,6 +25,7 @@ import (
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
+	"go.viam.com/core/services/framesystem"
 	"go.viam.com/core/servo"
 
 	"github.com/edaniels/golog"
@@ -313,7 +314,11 @@ func (rr *remoteRobot) Config(ctx context.Context) (*config.Config, error) {
 
 // FrameSystem will not gather remoteRobot's remote components, only its immediate components.
 func (rr *remoteRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
-	return CreateRobotFrameSystem(ctx, rr, rr.conf.Name)
+	service, ok := rr.ServiceByName("frame_system")
+	if !ok {
+		return nil, errors.New("frame system service for remote robot not found")
+	}
+	return service.(framesystem.Service).FrameSystem(ctx)
 }
 
 func (rr *remoteRobot) Status(ctx context.Context) (*pb.Status, error) {

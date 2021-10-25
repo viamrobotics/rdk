@@ -26,6 +26,7 @@ import (
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
+	"go.viam.com/core/services/framesystem"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/status"
 
@@ -245,13 +246,20 @@ func (r *localRobot) Status(ctx context.Context) (*pb.Status, error) {
 
 // FrameSystem returns the FrameSystem of the robot
 func (r *localRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
+	logger := r.Logger()
 	// create the base reference frame system
-	baseFrameSys, err := CreateRobotFrameSystem(ctx, r, "local_robot")
+	service, ok := r.ServiceByName("frame_system")
+	if !ok {
+		return nil, errors.New("frame system service not found")
+	}
+	logger.Debug("getting base frame system from local_robot")
+	baseFrameSys, err := service.(framesystem.Service).FrameSystem(ctx)
 	if err != nil {
 		return nil, err
 	}
 	// make frame system for each of its remote parts and merge to base
 	for remoteName, remote := range r.parts.remotes {
+		logger.Debugf("getting remote frame system  %q from robot", remoteName)
 		remoteFrameSys, err := remote.FrameSystem(ctx)
 		if err != nil {
 			return nil, err
@@ -260,7 +268,8 @@ func (r *localRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSyste
 		if err != nil {
 			return nil, err
 		}
-		err = MergeFrameSystemsFromConfig(baseFrameSys, remoteFrameSys, rConf.Frame)
+		remoteFrameSys.Rename(remoteName)
+		err = config.MergeFrameSystems(baseFrameSys, remoteFrameSys, rConf.Frame)
 		if err != nil {
 			return nil, err
 		}

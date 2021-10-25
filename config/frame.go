@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	ref "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
+
+	"github.com/golang/geo/r3"
 )
 
 // OrientationType defines what orientation representations are known
@@ -119,4 +122,45 @@ func parseOrientation(j json.RawMessage) (spatial.Orientation, error) {
 	default:
 		return nil, fmt.Errorf("orientation type %s not recognized", temp.Type)
 	}
+}
+
+// MergeFrameSystems will merge fromFS into toFS with an offset frame given by cfg. If cfg is nil, fromFS
+// will be merged to the world frame of toFS with a 0 offset.
+func MergeFrameSystems(toFS, fromFS ref.FrameSystem, cfg *Frame) error {
+	var offsetFrame ref.Frame
+	var err error
+	if cfg == nil { // if nil, the parent is toFS's world, and the offset is 0
+		offsetFrame = ref.NewZeroStaticFrame(fromFS.Name() + "_" + ref.World)
+		err = toFS.AddFrame(offsetFrame, toFS.World())
+		if err != nil {
+			return err
+		}
+	} else { // attach the world of fromFS, with the given offset, to cfg.Parent found in toFS
+		offsetFrame, err = MakeStaticFrame(cfg, fromFS.Name()+"_"+ref.World)
+		if err != nil {
+			return err
+		}
+		err = toFS.AddFrame(offsetFrame, toFS.GetFrame(cfg.Parent))
+		if err != nil {
+			return err
+		}
+	}
+	err = toFS.MergeFrameSystem(fromFS, offsetFrame)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// MakeStaticFrame creates a new static frame from a config
+func MakeStaticFrame(cfg *Frame, name string) (ref.Frame, error) {
+	pose := MakePose(cfg)
+	return ref.NewStaticFrame(name, pose)
+}
+
+// MakePose creates a new pose from a config
+func MakePose(cfg *Frame) spatial.Pose {
+	// get the translation vector. If there is no translation/orientation attribute will default to 0
+	translation := r3.Vector{cfg.Translation.X, cfg.Translation.Y, cfg.Translation.Z}
+	return spatial.NewPoseFromOrientation(translation, cfg.Orientation)
 }

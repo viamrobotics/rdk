@@ -106,6 +106,12 @@ func TestConfigRemote(t *testing.T) {
 				},
 			},
 		},
+		Services: []config.Service{
+			{
+				Name: "frame_system",
+				Type: "frame_system",
+			},
+		},
 		Remotes: []config.Remote{
 			{
 				Name:    "foo",
@@ -219,6 +225,9 @@ func TestConfigRemote(t *testing.T) {
 			"func2":     true,
 			"foo.func2": true,
 			"bar.func2": true,
+		},
+		Services: map[string]bool{
+			"frame_system": true,
 		},
 	}
 
