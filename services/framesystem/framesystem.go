@@ -1,41 +1,98 @@
-package robotimpl
+package framesystem
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
-
-	"go.viam.com/core/config"
-	ref "go.viam.com/core/referenceframe"
-	"go.viam.com/core/robot"
-	spatial "go.viam.com/core/spatialmath"
-	"go.viam.com/core/utils"
+	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
+	"github.com/go-errors/errors"
+
+	"go.viam.com/core/config"
+	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/registry"
+	"go.viam.com/core/robot"
+	"go.viam.com/core/utils"
 )
+
+const Type = config.ServiceType("frame_system")
+
+func init() {
+	registry.RegisterService(Type, registry.Service{
+		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
+			return New(ctx, r, c, logger)
+		},
+	},
+	)
+}
+
+// A Service controls the navigation for a robot.
+type Service interface {
+	FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error)
+	Close() error
+}
+
+// New returns a new frame system service for the given robot.
+func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
+	fs, err := createRobotFrameSystem(ctx, r, "robot")
+	if err != nil {
+		return nil, err
+	}
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+
+	fsSvc := &frameSystemService{
+		r:          r,
+		fs:         fs,
+		logger:     logger,
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+	}
+	return fsSvc, nil
+}
+
+type frameSystemService struct {
+	mu sync.RWMutex
+	r  robot.Robot
+	fs referenceframe.FrameSystem
+
+	logger                  golog.Logger
+	cancelCtx               context.Context
+	cancelFunc              func()
+	activeBackgroundWorkers sync.WaitGroup
+}
+
+func (svc *frameSystemService) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.fs, nil
+}
+
+func (svc *frameSystemService) Close() error {
+	svc.cancelFunc()
+	svc.activeBackgroundWorkers.Wait()
+	return nil
+}
 
 // FrameSystemLinker has a method that returns all the information needed to add the component
 // to a FrameSystem.
 type FrameSystemLinker interface {
-	FrameSystemLink() (*config.Frame, ref.Frame)
+	FrameSystemLink() (*config.Frame, referenceframe.Frame)
 }
 
 // namedPart is used to collect the various named robot parts that could potentially have frame information
 type namedPart struct {
 	Name string
-	Part interface{}
+	Part FrameSystemLinker
 }
 
-func CreateRobotFrameSystem(ctx context.Context, r robot.Robot, robotName string) (ref.FrameSystem, error) {
+func createRobotFrameSystem(ctx context.Context, r robot.Robot, robotName string) (referenceframe.FrameSystem, error) {
 	// collect the necessary robot parts (skipping remotes, services, etc)
 	parts := collectRobotParts(r)
-
 	// collect the frame info from each part that will be used to build the system
-	children := map[string][]ref.Frame{}
+	children := map[string][]referenceframe.Frame{}
 	names := map[string]bool{}
-	names[ref.World] = true
+	names[referenceframe.World] = true
 	for _, part := range parts {
 		if part.Name == "" {
 			return nil, errors.New("part name cannot be empty")
@@ -48,92 +105,98 @@ func CreateRobotFrameSystem(ctx context.Context, r robot.Robot, robotName string
 	return buildFrameSystem(robotName, names, children, r.Logger())
 }
 
-// MergeFrameSystemFromConfig will merge fromFS into toFS with an offset frame given by cfg. If cfg is nil, fromFS
-// will be merged to the world frame of toFS with a 0 offset.
-func MergeFrameSystemsFromConfig(toFS, fromFS ref.FrameSystem, cfg *config.Frame) error {
-	var offsetFrame ref.Frame
-	var err error
-	if cfg == nil { // if nil, the parent is toFS's world, and the offset is 0
-		offsetFrame = ref.NewZeroStaticFrame(fromFS.Name() + "_" + ref.World)
-		err = toFS.AddFrame(offsetFrame, toFS.World())
-		if err != nil {
-			return err
-		}
-	} else { // attach the world of fromFS, with the given offset, to cfg.Parent found in toFS
-		offsetFrame, err = makeStaticFrameFromConfig(cfg, fromFS.Name()+"_"+ref.World)
-		if err != nil {
-			return err
-		}
-		err = toFS.AddFrame(offsetFrame, toFS.GetFrame(cfg.Parent))
-		if err != nil {
-			return err
-		}
-	}
-	err = toFS.MergeFrameSystem(fromFS, offsetFrame)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // collectRobotParts collects the physical parts of the robot that may have frame info (excluding remote robots and services, etc)
+// don't collect remote components by checking for *client.clientPart types
 func collectRobotParts(r robot.Robot) []namedPart {
+	logger := r.Logger()
 	parts := []namedPart{}
 	for _, name := range r.BaseNames() {
 		part, ok := r.BaseByName(name)
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name, utils.UnwrapProxy(part)})
+		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+			parts = append(parts, namedPart{name, fsl})
+		} else {
+			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
+		}
 	}
 	for _, name := range r.BoardNames() {
 		part, ok := r.BoardByName(name)
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name, utils.UnwrapProxy(part)})
+		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+			parts = append(parts, namedPart{name, fsl})
+		} else {
+			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
+		}
 	}
 	for _, name := range r.CameraNames() {
 		part, ok := r.CameraByName(name)
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name, utils.UnwrapProxy(part)})
+		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+			parts = append(parts, namedPart{name, fsl})
+		} else {
+			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
+		}
 	}
 	for _, name := range r.GripperNames() {
 		part, ok := r.GripperByName(name)
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name, utils.UnwrapProxy(part)})
+		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+			parts = append(parts, namedPart{name, fsl})
+		} else {
+			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
+		}
 	}
 	for _, name := range r.LidarNames() {
 		part, ok := r.LidarByName(name)
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name, utils.UnwrapProxy(part)})
+		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+			parts = append(parts, namedPart{name, fsl})
+		} else {
+			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
+		}
 	}
 	for _, name := range r.SensorNames() {
 		part, ok := r.SensorByName(name)
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name, utils.UnwrapProxy(part)})
+		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+			parts = append(parts, namedPart{name, fsl})
+		} else {
+			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
+		}
 	}
 	for _, name := range r.ServoNames() {
 		part, ok := r.ServoByName(name)
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name, utils.UnwrapProxy(part)})
+		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+			parts = append(parts, namedPart{name, fsl})
+		} else {
+			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
+		}
 	}
 	for _, name := range r.MotorNames() {
 		part, ok := r.MotorByName(name)
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name, utils.UnwrapProxy(part)})
+		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+			parts = append(parts, namedPart{name, fsl})
+		} else {
+			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
+		}
 	}
 
 	for _, name := range r.ResourceNames() {
@@ -141,21 +204,19 @@ func collectRobotParts(r robot.Robot) []namedPart {
 		if !ok {
 			continue
 		}
-		parts = append(parts, namedPart{name.Name, utils.UnwrapProxy(part)})
+		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+			parts = append(parts, namedPart{name.Name, fsl})
+		} else {
+			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
+		}
 	}
 	return parts
 }
 
 // createFrameFromPart will gather the frame information and build the frames from robot parts that have FrameSystemLink() defined.
-func createFrameFromPart(part namedPart, children map[string][]ref.Frame, names map[string]bool) error {
-	var modelFrame ref.Frame
-	var frameConfig *config.Frame
+func createFrameFromPart(part namedPart, children map[string][]referenceframe.Frame, names map[string]bool) error {
+	frameConfig, modelFrame := part.Part.FrameSystemLink()
 	// part must have FrameSystemLink() defined to be added to a FrameSystem
-	if fsl, ok := part.Part.(FrameSystemLinker); ok {
-		frameConfig, modelFrame = fsl.FrameSystemLink()
-	} else {
-		return fmt.Errorf("part %q of type %T does not have FrameSystemLink() defined", part.Name, part.Part)
-	}
 	// if a part has no frame config, skip over it
 	if frameConfig == nil {
 		return nil
@@ -166,11 +227,11 @@ func createFrameFromPart(part namedPart, children map[string][]ref.Frame, names 
 	}
 	// use identity frame if no model frame defined
 	if modelFrame == nil {
-		modelFrame = ref.NewZeroStaticFrame(part.Name)
+		modelFrame = referenceframe.NewZeroStaticFrame(part.Name)
 	}
 	// static frame defines an offset from the parent part-- if it is empty, a 0 offset frame will be applied.
 	staticName := part.Name + "_offset"
-	staticFrame, err := makeStaticFrameFromConfig(frameConfig, staticName)
+	staticFrame, err := config.MakeStaticFrame(frameConfig, staticName)
 	if err != nil {
 		return err
 	}
@@ -189,17 +250,17 @@ func createFrameFromPart(part namedPart, children map[string][]ref.Frame, names 
 	return nil
 }
 
-func buildFrameSystem(name string, frameNames map[string]bool, children map[string][]ref.Frame, logger golog.Logger) (ref.FrameSystem, error) {
+func buildFrameSystem(name string, frameNames map[string]bool, children map[string][]referenceframe.Frame, logger golog.Logger) (referenceframe.FrameSystem, error) {
 	// use a stack to populate the frame system
 	stack := make([]string, 0)
 	visited := make(map[string]bool)
 	// check to see if world exists, and start with the frames attached to world
-	if _, ok := children[ref.World]; !ok {
+	if _, ok := children[referenceframe.World]; !ok {
 		return nil, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'")
 	}
-	stack = append(stack, ref.World)
+	stack = append(stack, referenceframe.World)
 	// begin adding frames to the frame system
-	fs := ref.NewEmptySimpleFrameSystem(name)
+	fs := referenceframe.NewEmptySimpleFrameSystem(name)
 	for len(stack) != 0 {
 		parent := stack[0] // pop the top element from the stack
 		stack = stack[1:]
@@ -223,18 +284,7 @@ func buildFrameSystem(name string, frameNames map[string]bool, children map[stri
 	return fs, nil
 }
 
-func makeStaticFrameFromConfig(comp *config.Frame, name string) (ref.Frame, error) {
-	pose := makePoseFromConfig(comp)
-	return ref.NewStaticFrame(name, pose)
-}
-
-func makePoseFromConfig(f *config.Frame) spatial.Pose {
-	// get the translation vector. If there is no translation/orientation attribute will default to 0
-	translation := r3.Vector{f.Translation.X, f.Translation.Y, f.Translation.Z}
-	return spatial.NewPoseFromOrientation(translation, f.Orientation)
-}
-
-func frameNamesWithDof(sys ref.FrameSystem) []string {
+func frameNamesWithDof(sys referenceframe.FrameSystem) []string {
 	names := sys.FrameNames()
 	nameDoFs := make([]string, len(names))
 	for i, f := range names {

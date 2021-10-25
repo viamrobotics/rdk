@@ -128,30 +128,22 @@ func TestWrongFrameSystems(t *testing.T) {
 
 	cfg, err := config.Read("data/fake_wrongconfig1.json") // has disconnected components (misspelled parent)
 	test.That(t, err, test.ShouldBeNil)
-	r, err := robotimpl.New(context.Background(), cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = r.FrameSystem(context.Background())
+	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeError, errors.New("the frame system is not fully connected, expected 11 frames but frame system has 9. Expected frames are: [cameraOver cameraOver_offset compass2 compass2_offset lidar1 lidar1_offset pieceArm pieceArm_offset pieceGripper pieceGripper_offset world]. Actual frames are: [cameraOver cameraOver_offset lidar1 lidar1_offset pieceArm pieceArm_offset pieceGripper pieceGripper_offset world]"))
 
 	cfg, err = config.Read("data/fake_wrongconfig2.json") // no world node
 	test.That(t, err, test.ShouldBeNil)
-	r, err = robotimpl.New(context.Background(), cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = r.FrameSystem(context.Background())
+	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeError, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'"))
 
 	cfg, err = config.Read("data/fake_wrongconfig3.json") // one of the nodes was given the name world
 	test.That(t, err, test.ShouldBeNil)
-	r, err = robotimpl.New(context.Background(), cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = r.FrameSystem(context.Background())
+	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeError, errors.New("cannot have more than one frame with name world"))
 
 	cfg, err = config.Read("data/fake_wrongconfig4.json") // the parent field was left empty for a component
 	test.That(t, err, test.ShouldBeNil)
-	r, err = robotimpl.New(context.Background(), cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = r.FrameSystem(context.Background())
+	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeError, errors.New("parent field in frame config for part \"cameraOver\" is empty"))
 }
 

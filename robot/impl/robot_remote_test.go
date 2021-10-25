@@ -260,6 +260,12 @@ func TestRemoteRobot(t *testing.T) {
 
 	confGen := func() *config.Config {
 		return &config.Config{
+			Services: []config.Service{
+				{
+					Name: "frame_system",
+					Type: "frame_system",
+				},
+			},
 			Components: []config.Component{
 				{
 					Name:  "foo",

@@ -16,7 +16,8 @@ const World = "world"
 // FrameSystem represents a tree of frames connected to each other, allowing for transformations between any two frames.
 type FrameSystem interface {
 	Name() string // return the name of this frame system
-	World() Frame // return the base world frame
+	Rename(newName string)
+	World() Frame
 	FrameNames() []string
 	GetFrame(name string) Frame
 	AddFrame(frame, parent Frame) error
@@ -42,6 +43,11 @@ type simpleFrameSystem struct {
 func NewEmptySimpleFrameSystem(name string) FrameSystem {
 	worldFrame := NewZeroStaticFrame(World)
 	return &simpleFrameSystem{name, worldFrame, map[string]Frame{}, map[Frame]Frame{}}
+}
+
+// Rename changes the name of the frame system
+func (sfs *simpleFrameSystem) Rename(newName string) {
+	sfs.name = newName
 }
 
 // World returns the base world frame
