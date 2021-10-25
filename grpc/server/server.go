@@ -20,6 +20,7 @@ import (
 
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/utils"
 
@@ -28,6 +29,7 @@ import (
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/grpc"
+	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
@@ -1274,6 +1276,108 @@ func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionCo
 	}, nil
 }
 
+// InputControllerControls lists the inputs of an input.Controller
+func (s *Server) InputControllerControls(ctx context.Context, req *pb.InputControllerControlsRequest) (*pb.InputControllerControlsResponse, error) {
+	controller, ok := s.r.InputControllerByName(req.Controller)
+	if !ok {
+		return nil, errors.Errorf("no input controller with name (%s)", req.Controller)
+	}
+
+	controlList, err := controller.Controls(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &pb.InputControllerControlsResponse{}
+
+	for _, control := range controlList {
+		resp.Controls = append(resp.Controls, string(control))
+	}
+
+	return resp, nil
+}
+
+// InputControllerLastEvents returns the last input.Event (current state) of each control
+func (s *Server) InputControllerLastEvents(ctx context.Context, req *pb.InputControllerLastEventsRequest) (*pb.InputControllerLastEventsResponse, error) {
+	controller, ok := s.r.InputControllerByName(req.Controller)
+	if !ok {
+		return nil, errors.Errorf("no input controller with name (%s)", req.Controller)
+	}
+
+	eventsIn, err := controller.LastEvents(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &pb.InputControllerLastEventsResponse{}
+
+	for _, eventIn := range eventsIn {
+		resp.Events = append(resp.Events, &pb.InputControllerEvent{
+			Time:    timestamppb.New(eventIn.Time),
+			Event:   string(eventIn.Event),
+			Control: string(eventIn.Control),
+			Value:   eventIn.Value,
+		})
+	}
+
+	return resp, nil
+}
+
+// InputControllerEventStream returns a stream of input.Event
+func (s *Server) InputControllerEventStream(req *pb.InputControllerEventStreamRequest, server pb.RobotService_InputControllerEventStreamServer) error {
+	controller, ok := s.r.InputControllerByName(req.Controller)
+	if !ok {
+		return errors.Errorf("no input controller with name (%s)", req.Controller)
+	}
+	eventsChan := make(chan *pb.InputControllerEvent, 1024)
+
+	ctrlFunc := func(ctx context.Context, eventIn input.Event) {
+		resp := &pb.InputControllerEvent{
+			Time:    timestamppb.New(eventIn.Time),
+			Event:   string(eventIn.Event),
+			Control: string(eventIn.Control),
+			Value:   eventIn.Value,
+		}
+		eventsChan <- resp
+	}
+
+	for _, ev := range req.Events {
+		var triggers []input.EventType
+		for _, v := range ev.Events {
+			triggers = append(triggers, input.EventType(v))
+		}
+		if len(triggers) > 0 {
+			err := controller.RegisterControlCallback(server.Context(), input.Control(ev.Control), triggers, ctrlFunc)
+			if err != nil {
+				return err
+			}
+		}
+
+		var cancelledTriggers []input.EventType
+		for _, v := range ev.CancelledEvents {
+			cancelledTriggers = append(cancelledTriggers, input.EventType(v))
+		}
+		if len(cancelledTriggers) > 0 {
+			err := controller.RegisterControlCallback(server.Context(), input.Control(ev.Control), cancelledTriggers, nil)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	for {
+		select {
+		case <-server.Context().Done():
+			return server.Context().Err()
+		case msg := <-eventsChan:
+			err := server.Send(msg)
+			if err != nil {
+				return err
+			}
+		}
+	}
+}
+
 // matrixToProto is a helper function to convert force matrix values from a 2-dimensional
 // slice into protobuf format.
 func matrixToProto(matrix [][]int) *pb.ForceMatrixMatrixResponse {
@@ -1304,7 +1408,6 @@ func (s *Server) ForceMatrixMatrix(ctx context.Context, req *pb.ForceMatrixMatri
 	if err != nil {
 		return nil, err
 	}
-
 	matrix, err := forceMatrixDevice.Matrix(ctx)
 	if err != nil {
 		return nil, err

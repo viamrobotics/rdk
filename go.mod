@@ -44,6 +44,7 @@ require (
 	github.com/tidwall/gjson v1.9.3 // indirect
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
 	github.com/u2takey/ffmpeg-go v0.3.0
+	github.com/viamrobotics/evdev v0.1.3
 	github.com/wasmerio/wasmer-go v1.0.4
 	go-hep.org/x/hep v0.28.5
 	go.einride.tech/vlp16 v0.7.0

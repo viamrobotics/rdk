@@ -14,6 +14,7 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
+	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/referenceframe"
@@ -50,6 +51,9 @@ type (
 
 	// A CreateMotor creates a motor from a given config.
 	CreateMotor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error)
+
+	// A CreateInputController creates an input.Controller from a given config.
+	CreateInputController func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error)
 
 	// A CreateService creates a servoce from a given config.
 	CreateService func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error)
@@ -103,6 +107,11 @@ type Motor struct {
 	Frame       CreateFrame
 }
 
+// InputController stores an input.Controller constructor (mandatory) and a Frame building function (optional)
+type InputController struct {
+	Constructor CreateInputController
+}
+
 // Service stores a Service constructor (mandatory) and an attribute converter
 type Service struct {
 	Constructor           CreateService
@@ -111,15 +120,16 @@ type Service struct {
 
 // all registries
 var (
-	cameraRegistry  = map[string]Camera{}
-	gripperRegistry = map[string]Gripper{}
-	baseRegistry    = map[string]Base{}
-	lidarRegistry   = map[string]Lidar{}
-	sensorRegistry  = map[sensor.Type]map[string]Sensor{}
-	boardRegistry   = map[string]Board{}
-	servoRegistry   = map[string]Servo{}
-	motorRegistry   = map[string]Motor{}
-	serviceRegistry = map[config.ServiceType]Service{}
+	cameraRegistry          = map[string]Camera{}
+	gripperRegistry         = map[string]Gripper{}
+	baseRegistry            = map[string]Base{}
+	lidarRegistry           = map[string]Lidar{}
+	sensorRegistry          = map[sensor.Type]map[string]Sensor{}
+	boardRegistry           = map[string]Board{}
+	servoRegistry           = map[string]Servo{}
+	motorRegistry           = map[string]Motor{}
+	inputControllerRegistry = map[string]InputController{}
+	serviceRegistry         = map[config.ServiceType]Service{}
 )
 
 // RegisterCamera registers a camera model to a creator.
@@ -219,6 +229,18 @@ func RegisterMotor(model string, creator Motor) {
 		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
 	}
 	motorRegistry[model] = creator
+}
+
+// RegisterInputController registers an input controller model to a creator.
+func RegisterInputController(model string, creator InputController) {
+	_, old := inputControllerRegistry[model]
+	if old {
+		panic(errors.Errorf("trying to register two input controllers with same model %s", model))
+	}
+	if creator.Constructor == nil {
+		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
+	}
+	inputControllerRegistry[model] = creator
 }
 
 // RegisterService registers a service type to a registration.
@@ -374,6 +396,15 @@ func ServoLookup(model string) *Servo {
 // there is no creator registered.
 func MotorLookup(model string) *Motor {
 	if registration, ok := motorRegistry[model]; ok {
+		return &registration
+	}
+	return nil
+}
+
+// InputControllerLookup looks up an input.Controller creator by the given model. nil is returned if
+// there is no creator registered.
+func InputControllerLookup(model string) *InputController {
+	if registration, ok := inputControllerRegistry[model]; ok {
 		return &registration
 	}
 	return nil

@@ -97,3 +97,6 @@ boat2: samples/boat2/cmd.go
 
 resetbox: samples/resetbox/cmd.go
 	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/resetbox samples/resetbox/cmd.go
+
+gamepad: samples/gamepad/cmd.go
+	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/gamepad samples/gamepad/cmd.go

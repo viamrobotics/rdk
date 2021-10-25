@@ -18,15 +18,16 @@ type ComponentType string
 
 // The set of known component types.
 const (
-	ComponentTypeBase    = ComponentType("base")
-	ComponentTypeArm     = ComponentType("arm")
-	ComponentTypeGripper = ComponentType("gripper")
-	ComponentTypeCamera  = ComponentType("camera")
-	ComponentTypeLidar   = ComponentType("lidar")
-	ComponentTypeSensor  = ComponentType("sensor")
-	ComponentTypeBoard   = ComponentType("board")
-	ComponentTypeServo   = ComponentType("servo")
-	ComponentTypeMotor   = ComponentType("motor")
+	ComponentTypeBase            = ComponentType("base")
+	ComponentTypeArm             = ComponentType("arm")
+	ComponentTypeGripper         = ComponentType("gripper")
+	ComponentTypeCamera          = ComponentType("camera")
+	ComponentTypeLidar           = ComponentType("lidar")
+	ComponentTypeSensor          = ComponentType("sensor")
+	ComponentTypeBoard           = ComponentType("board")
+	ComponentTypeServo           = ComponentType("servo")
+	ComponentTypeMotor           = ComponentType("motor")
+	ComponentTypeInputController = ComponentType("input_controller")
 )
 
 // A Component describes the configuration of a component.

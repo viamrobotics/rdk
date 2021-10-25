@@ -28,6 +28,7 @@ import (
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc"
 	metadataclient "go.viam.com/core/grpc/metadata/client"
+	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
@@ -61,18 +62,19 @@ type RobotClient struct {
 	client         pb.RobotServiceClient
 	metadataClient *metadataclient.MetadataServiceClient
 
-	namesMu       *sync.RWMutex
-	baseNames     []string
-	gripperNames  []string
-	boardNames    []boardInfo
-	cameraNames   []string
-	lidarNames    []string
-	sensorNames   []string
-	servoNames    []string
-	motorNames    []string
-	functionNames []string
-	serviceNames  []string
-	resourceNames []resource.Name
+	namesMu              *sync.RWMutex
+	baseNames            []string
+	gripperNames         []string
+	boardNames           []boardInfo
+	cameraNames          []string
+	lidarNames           []string
+	sensorNames          []string
+	servoNames           []string
+	motorNames           []string
+	inputControllerNames []string
+	functionNames        []string
+	serviceNames         []string
+	resourceNames        []resource.Name
 
 	sensorTypes map[string]sensor.Type
 
@@ -83,6 +85,8 @@ type RobotClient struct {
 	cachingStatus  bool
 	cachedStatus   *pb.Status
 	cachedStatusMu *sync.Mutex
+
+	closeContext context.Context
 }
 
 // RobotClientOptions are extra construction time options.
@@ -127,6 +131,7 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 		namesMu:                 &sync.RWMutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		cachedStatusMu:          &sync.Mutex{},
+		closeContext:            closeCtx,
 	}
 	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
@@ -351,6 +356,15 @@ func (rc *RobotClient) MotorByName(name string) (motor.Motor, bool) {
 	}, true
 }
 
+// InputControllerByName returns an input.Controller by name. It is assumed to exist on the
+// other end.
+func (rc *RobotClient) InputControllerByName(name string) (input.Controller, bool) {
+	return &inputControllerClient{
+		rc:   rc,
+		name: name,
+	}, true
+}
+
 // ServiceByName returns a service by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
@@ -473,6 +487,13 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 			rc.motorNames = append(rc.motorNames, name)
 		}
 	}
+	rc.inputControllerNames = nil
+	if len(status.InputControllers) != 0 {
+		rc.inputControllerNames = make([]string, 0, len(status.InputControllers))
+		for name := range status.InputControllers {
+			rc.inputControllerNames = append(rc.inputControllerNames, name)
+		}
+	}
 	rc.functionNames = nil
 	if len(status.Functions) != 0 {
 		rc.functionNames = make([]string, 0, len(status.Functions))
@@ -574,6 +595,13 @@ func (rc *RobotClient) MotorNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.motorNames)
+}
+
+// InputControllerNames returns the names of all known input controllers.
+func (rc *RobotClient) InputControllerNames() []string {
+	rc.namesMu.Lock()
+	defer rc.namesMu.Unlock()
+	return copyStringSlice(rc.inputControllerNames)
 }
 
 // FunctionNames returns the names of all known functions.
@@ -1346,6 +1374,271 @@ func (mc *motorClient) Zero(ctx context.Context, offset float64) error {
 		Offset: offset,
 	})
 	return err
+}
+
+// inputControllerClient satisfies a gRPC based input.Controller. Refer to the interface
+// for descriptions of its methods.
+type inputControllerClient struct {
+	rc            *RobotClient
+	name          string
+	streamCancel  context.CancelFunc
+	streamHUP     bool
+	streamRunning bool
+	streamReady   bool
+	streamMu      sync.Mutex
+	mu            sync.RWMutex
+	callbackWait  sync.WaitGroup
+	callbacks     map[input.Control]map[input.EventType]input.ControlFunction
+}
+
+func (cc *inputControllerClient) Controls(ctx context.Context) ([]input.Control, error) {
+	resp, err := cc.rc.client.InputControllerControls(ctx, &pb.InputControllerControlsRequest{
+		Controller: cc.name,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var controls []input.Control
+	for _, control := range resp.Controls {
+		controls = append(controls, input.Control(control))
+	}
+	return controls, nil
+}
+
+func (cc *inputControllerClient) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+	resp, err := cc.rc.client.InputControllerLastEvents(ctx, &pb.InputControllerLastEventsRequest{
+		Controller: cc.name,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	eventsOut := make(map[input.Control]input.Event)
+	for _, eventIn := range resp.Events {
+		eventsOut[input.Control(eventIn.Control)] = input.Event{
+			Time:    eventIn.Time.AsTime(),
+			Event:   input.EventType(eventIn.Event),
+			Control: input.Control(eventIn.Control),
+			Value:   eventIn.Value,
+		}
+	}
+	return eventsOut, nil
+}
+
+func (cc *inputControllerClient) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+	cc.mu.Lock()
+	if cc.callbacks == nil {
+		cc.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
+	}
+
+	_, ok := cc.callbacks[control]
+	if !ok {
+		cc.callbacks[control] = make(map[input.EventType]input.ControlFunction)
+	}
+
+	for _, trigger := range triggers {
+		if trigger == input.ButtonChange {
+			cc.callbacks[control][input.ButtonRelease] = ctrlFunc
+			cc.callbacks[control][input.ButtonPress] = ctrlFunc
+		} else {
+			cc.callbacks[control][trigger] = ctrlFunc
+		}
+	}
+	cc.mu.Unlock()
+
+	// We want to start one and only one connectStream()
+	cc.streamMu.Lock()
+	defer cc.streamMu.Unlock()
+	if cc.streamRunning {
+		for !cc.streamReady {
+			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
+				return nil
+			}
+		}
+		cc.streamHUP = true
+		cc.streamReady = false
+		cc.streamCancel()
+	} else {
+		cc.streamRunning = true
+		cc.rc.activeBackgroundWorkers.Add(1)
+		utils.PanicCapturingGo(func() {
+			defer cc.rc.activeBackgroundWorkers.Done()
+			cc.connectStream(cc.rc.closeContext)
+		})
+		cc.mu.RLock()
+		ready := cc.streamReady
+		cc.mu.RUnlock()
+		for !ready {
+			cc.mu.RLock()
+			ready = cc.streamReady
+			cc.mu.RUnlock()
+			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
+				return nil
+			}
+		}
+	}
+
+	return nil
+}
+
+func (cc *inputControllerClient) connectStream(ctx context.Context) {
+	defer func() {
+		cc.streamMu.Lock()
+		defer cc.streamMu.Unlock()
+		cc.mu.Lock()
+		defer cc.mu.Unlock()
+		cc.streamCancel = nil
+		cc.streamRunning = false
+		cc.streamHUP = false
+		cc.streamReady = false
+		cc.callbackWait.Wait()
+	}()
+
+	// Will retry on connection errors and disconnects
+	for {
+		cc.mu.Lock()
+		cc.streamReady = false
+		cc.mu.Unlock()
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		var haveCallbacks bool
+		cc.mu.RLock()
+		req := &pb.InputControllerEventStreamRequest{
+			Controller: cc.name,
+		}
+
+		for control, v := range cc.callbacks {
+			outEvent := &pb.InputControllerEventStreamRequest_Events{
+				Control: string(control),
+			}
+
+			for event, ctrlFunc := range v {
+				if ctrlFunc != nil {
+					haveCallbacks = true
+					outEvent.Events = append(outEvent.Events, string(event))
+				} else {
+					outEvent.CancelledEvents = append(outEvent.CancelledEvents, string(event))
+				}
+			}
+			req.Events = append(req.Events, outEvent)
+		}
+		cc.mu.RUnlock()
+
+		if !haveCallbacks {
+			return
+		}
+
+		streamCtx, cancel := context.WithCancel(ctx)
+		cc.streamCancel = cancel
+
+		stream, err := cc.rc.client.InputControllerEventStream(streamCtx, req)
+		if err != nil {
+			cc.rc.logger.Error(err)
+			if utils.SelectContextOrWait(ctx, 3*time.Second) {
+				continue
+			} else {
+				return
+			}
+		}
+
+		cc.mu.RLock()
+		hup := cc.streamHUP
+		cc.mu.RUnlock()
+		if !hup {
+			cc.sendConnectionStatus(ctx, true)
+		}
+
+		// Handle the rest of the stream
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			cc.mu.Lock()
+			cc.streamHUP = false
+			cc.streamReady = true
+			cc.mu.Unlock()
+			eventIn, err := stream.Recv()
+			if err != nil && eventIn == nil {
+				cc.mu.RLock()
+				hup := cc.streamHUP
+				cc.mu.RUnlock()
+				if hup {
+					break
+				}
+				cc.sendConnectionStatus(ctx, false)
+				if utils.SelectContextOrWait(ctx, 3*time.Second) {
+					cc.rc.logger.Error(err)
+					break
+				} else {
+					return
+				}
+			}
+			if err != nil {
+				cc.rc.logger.Error(err)
+			}
+
+			eventOut := input.Event{
+				Time:    eventIn.Time.AsTime(),
+				Event:   input.EventType(eventIn.Event),
+				Control: input.Control(eventIn.Control),
+				Value:   eventIn.Value,
+			}
+			cc.execCallback(ctx, eventOut)
+		}
+	}
+}
+
+func (cc *inputControllerClient) sendConnectionStatus(ctx context.Context, connected bool) {
+	cc.mu.RLock()
+	defer cc.mu.RUnlock()
+	evType := input.Disconnect
+	now := time.Now()
+	if connected {
+		evType = input.Connect
+	}
+
+	for control := range cc.callbacks {
+		eventOut := input.Event{
+			Time:    now,
+			Event:   evType,
+			Control: control,
+			Value:   0,
+		}
+		cc.execCallback(ctx, eventOut)
+	}
+}
+
+func (cc *inputControllerClient) execCallback(ctx context.Context, event input.Event) {
+	cc.mu.RLock()
+	defer cc.mu.RUnlock()
+	callbackMap, ok := cc.callbacks[event.Control]
+	if !ok {
+		return
+	}
+
+	callback, ok := callbackMap[event.Event]
+	if ok && callback != nil {
+		cc.callbackWait.Add(1)
+		utils.PanicCapturingGo(func() {
+			defer cc.callbackWait.Done()
+			callback(ctx, event)
+		})
+	}
+	callbackAll, ok := callbackMap[input.AllEvents]
+	if ok && callbackAll != nil {
+		cc.callbackWait.Add(1)
+		utils.PanicCapturingGo(func() {
+			defer cc.callbackWait.Done()
+			callbackAll(ctx, event)
+		})
+	}
 }
 
 // forcematrixClient satisfies a gRPC based
