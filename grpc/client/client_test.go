@@ -611,9 +611,17 @@ func TestClient(t *testing.T) {
 		eventsOut[input.ButtonStart] = input.Event{Time: time.Now(), Event: input.ButtonPress, Control: input.ButtonStart, Value: 1.0}
 		return eventsOut, nil
 	}
+	evStream := make(chan input.Event)
 	injectInputDev.RegisterControlCallbackFunc = func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
-		outEvent := input.Event{Time: time.Now(), Event: triggers[0], Control: input.ButtonStart, Value: 0.0}
-		ctrlFunc(ctx, outEvent)
+		if ctrlFunc != nil {
+			outEvent := input.Event{Time: time.Now(), Event: triggers[0], Control: input.ButtonStart, Value: 0.0}
+			if control == input.AbsoluteX {
+				outEvent = input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.75}
+			}
+			ctrlFunc(ctx, outEvent)
+		} else {
+			evStream <- input.Event{}
+		}
 		return nil
 	}
 
@@ -1125,10 +1133,8 @@ func TestClient(t *testing.T) {
 	test.That(t, outState[input.AbsoluteX].Time.After(startTime), test.ShouldBeTrue)
 	test.That(t, outState[input.AbsoluteX].Time.Before(time.Now()), test.ShouldBeTrue)
 
-	evStream := make(chan input.Event)
 	ctrlFuncIn := func(ctx context.Context, event input.Event) { evStream <- event }
-	streamCtx, streamCancel := context.WithCancel(context.Background())
-	err = inputDev.RegisterControlCallback(streamCtx, input.ButtonStart, []input.EventType{input.ButtonRelease}, ctrlFuncIn)
+	err = inputDev.RegisterControlCallback(context.Background(), input.ButtonStart, []input.EventType{input.ButtonRelease}, ctrlFuncIn)
 	test.That(t, err, test.ShouldBeNil)
 	ev := <-evStream
 	test.That(t, ev.Event, test.ShouldEqual, input.ButtonRelease)
@@ -1136,7 +1142,57 @@ func TestClient(t *testing.T) {
 	test.That(t, ev.Value, test.ShouldEqual, 0.0)
 	test.That(t, ev.Time.After(startTime), test.ShouldBeTrue)
 	test.That(t, ev.Time.Before(time.Now()), test.ShouldBeTrue)
-	streamCancel()
+	test.That(t, capInputControllerName, test.ShouldEqual, "inputController1")
+
+	err = inputDev.RegisterControlCallback(context.Background(), input.AbsoluteX, []input.EventType{input.PositionChangeAbs}, ctrlFuncIn)
+	test.That(t, err, test.ShouldBeNil)
+	ev1 := <-evStream
+	ev2 := <-evStream
+
+	var btnEv, posEv input.Event
+	if ev1.Control == input.ButtonStart {
+		btnEv = ev1
+		posEv = ev2
+	} else {
+		btnEv = ev2
+		posEv = ev1
+	}
+
+	test.That(t, btnEv.Event, test.ShouldEqual, input.ButtonRelease)
+	test.That(t, btnEv.Control, test.ShouldEqual, input.ButtonStart)
+	test.That(t, btnEv.Value, test.ShouldEqual, 0.0)
+	test.That(t, btnEv.Time.After(startTime), test.ShouldBeTrue)
+	test.That(t, btnEv.Time.Before(time.Now()), test.ShouldBeTrue)
+	test.That(t, capInputControllerName, test.ShouldEqual, "inputController1")
+
+	test.That(t, posEv.Event, test.ShouldEqual, input.PositionChangeAbs)
+	test.That(t, posEv.Control, test.ShouldEqual, input.AbsoluteX)
+	test.That(t, posEv.Value, test.ShouldEqual, 0.75)
+	test.That(t, posEv.Time.After(startTime), test.ShouldBeTrue)
+	test.That(t, posEv.Time.Before(time.Now()), test.ShouldBeTrue)
+	test.That(t, capInputControllerName, test.ShouldEqual, "inputController1")
+
+	err = inputDev.RegisterControlCallback(context.Background(), input.AbsoluteX, []input.EventType{input.PositionChangeAbs}, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	ev1 = <-evStream
+	ev2 = <-evStream
+
+	if ev1.Control == input.ButtonStart {
+		btnEv = ev1
+		posEv = ev2
+	} else {
+		btnEv = ev2
+		posEv = ev1
+	}
+
+	test.That(t, posEv, test.ShouldResemble, input.Event{})
+
+	test.That(t, btnEv.Event, test.ShouldEqual, input.ButtonRelease)
+	test.That(t, btnEv.Control, test.ShouldEqual, input.ButtonStart)
+	test.That(t, btnEv.Value, test.ShouldEqual, 0.0)
+	test.That(t, btnEv.Time.After(startTime), test.ShouldBeTrue)
+	test.That(t, btnEv.Time.Before(time.Now()), test.ShouldBeTrue)
 	test.That(t, capInputControllerName, test.ShouldEqual, "inputController1")
 
 	sensorDev, ok := client.SensorByName("compass1")
