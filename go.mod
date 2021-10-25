@@ -41,6 +41,7 @@ require (
 	github.com/sergi/go-diff v1.2.0
 	github.com/sjwhitworth/golearn v0.0.0-20201127221938-294d65fca392
 	github.com/starship-technologies/gobag v1.0.6
+	github.com/tidwall/gjson v1.9.3 // indirect
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
 	github.com/u2takey/ffmpeg-go v0.3.0
 	github.com/wasmerio/wasmer-go v1.0.4
@@ -64,6 +65,7 @@ require (
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
 	google.golang.org/protobuf v1.26.0
 	howett.net/plist v0.0.0-20201203080718-1454fab16a06
+
 )
 
 replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de
