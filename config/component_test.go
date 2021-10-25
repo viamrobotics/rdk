@@ -143,16 +143,22 @@ func TestComponentFlag(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "required")
 
 	err = utils.ParseFlags([]string{"main", "--comp=type=foo,host=bar,attr=wee:woo"}, &myStruct)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "component model is required")
+
+	err = utils.ParseFlags([]string{"main", "--comp=type=foo,model=fake,host=bar,attr=wee:woo"}, &myStruct)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myStruct.Comp.Type, test.ShouldEqual, ComponentType("foo"))
+	test.That(t, myStruct.Comp.Model, test.ShouldEqual, "fake")
 	test.That(t, myStruct.Comp.Host, test.ShouldEqual, "bar")
 	test.That(t, myStruct.Comp.Attributes, test.ShouldResemble, AttributeMap{
 		"wee": "woo",
 	})
 
-	err = utils.ParseFlags([]string{"main", "type=foo,host=bar,attr=wee:woo"}, &myStruct)
+	err = utils.ParseFlags([]string{"main", "type=foo,model=fake,host=bar,attr=wee:woo"}, &myStruct)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myStruct.Comp2.Type, test.ShouldEqual, ComponentType("foo"))
+	test.That(t, myStruct.Comp2.Model, test.ShouldEqual, "fake")
 	test.That(t, myStruct.Comp2.Host, test.ShouldEqual, "bar")
 	test.That(t, myStruct.Comp2.Attributes, test.ShouldResemble, AttributeMap{
 		"wee": "woo",
@@ -172,19 +178,19 @@ func TestParseComponentFlag(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
 
-	comp, err := ParseComponentFlag("name=baz,type=foo,depends_on=")
+	comp, err := ParseComponentFlag("name=baz,type=foo,model=fake,depends_on=")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.DependsOn, test.ShouldResemble, []string(nil))
 
-	comp, err = ParseComponentFlag("name=baz,type=foo,depends_on=|")
+	comp, err = ParseComponentFlag("name=baz,type=foo,model=fake,depends_on=|")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.DependsOn, test.ShouldResemble, []string(nil))
 
-	comp, err = ParseComponentFlag("name=baz,type=foo,depends_on=foo")
+	comp, err = ParseComponentFlag("name=baz,type=foo,model=fake,depends_on=foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.DependsOn, test.ShouldResemble, []string{"foo"})
 
-	comp, err = ParseComponentFlag("name=baz,type=foo,depends_on=foo|")
+	comp, err = ParseComponentFlag("name=baz,type=foo,model=fake,depends_on=foo|")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.DependsOn, test.ShouldResemble, []string{"foo"})
 
