@@ -12,6 +12,7 @@ import (
 	"go.viam.com/core/robot"
 	spatial "go.viam.com/core/spatialmath"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 )
 
@@ -62,7 +63,7 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 			children[staticFrame.Name()] = append(children[staticFrame.Name()], modelFrame)
 		}
 	}
-	return buildFrameSystem("robot", names, children)
+	return buildFrameSystem("robot", names, children, r.Logger())
 }
 
 func makePoseFromConfig(f *config.Frame) spatial.Pose {
@@ -84,7 +85,7 @@ func makeModelFrame(comp *config.Component) (ref.Frame, error) {
 	return ref.NewZeroStaticFrame(comp.Name), nil
 }
 
-func buildFrameSystem(name string, frameNames map[string]bool, children map[string][]ref.Frame) (ref.FrameSystem, error) {
+func buildFrameSystem(name string, frameNames map[string]bool, children map[string][]ref.Frame, logger golog.Logger) (ref.FrameSystem, error) {
 	// use a stack to populate the frame system
 	stack := make([]string, 0)
 	visited := make(map[string]bool)
@@ -114,6 +115,7 @@ func buildFrameSystem(name string, frameNames map[string]bool, children map[stri
 	if len(visited) != len(frameNames) {
 		return nil, fmt.Errorf("the frame system is not fully connected, expected %d frames but frame system has %d. Expected frames are: %v. Actual frames are: %v", len(frameNames), len(visited), mapKeys(frameNames), mapKeys(visited))
 	}
+	logger.Debugf("frames in robot frame system are: %v", frameNamesWithDof(fs))
 	return fs, nil
 }
 
@@ -126,4 +128,13 @@ func mapKeys(fullmap map[string]bool) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+func frameNamesWithDof(sys ref.FrameSystem) []string {
+	names := sys.FrameNames()
+	nameDoFs := make([]string, len(names))
+	for i, f := range names {
+		fr := sys.GetFrame(f)
+		nameDoFs[i] = fmt.Sprintf("%s(%d)", fr.Name(), len(fr.DoF()))
+	}
+	return nameDoFs
 }
