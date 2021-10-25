@@ -46,8 +46,7 @@
                         "name": "mode",
                         "note": "rc6",
                         "pin": "40",
-                        "type": "servo",
-                        "formula": "(- 2 (/ (- raw 1100) 390))"
+                        "type": "servo"
                     },
                     {
                         "name": "encoder-steering-a",
@@ -110,7 +109,6 @@
                 "board" : "local",
                 "pins":
                 {
-                    "dir": "io12",
                     "pwm": "io27"
                 }
             },
@@ -119,6 +117,43 @@
                 "local"
             ]
         },
+        {
+            "name": "starboard",
+            "type": "motor",
+            "model": "gpio",
+            "attributes":
+            {
+                "board" : "local",
+                "pins":
+                {
+                    "dir" : "io4",
+                    "pwm": "io24"
+                }
+            },
+            "depends_on":
+            [
+                "local"
+            ]
+        },
+        {
+            "name": "port",
+            "type": "motor",
+            "model": "gpio",
+            "attributes":
+            {
+                "board" : "local",
+                "pins":
+                {
+                    "dir": "io12",
+                    "pwm": "io5"
+                }
+            },
+            "depends_on":
+            [
+                "local"
+            ]
+        },
+
         {
             "name": "gps1",
             "type": "sensor",

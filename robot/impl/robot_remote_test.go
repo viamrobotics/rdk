@@ -55,7 +55,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		return []string{fmt.Sprintf("board1%s", suffix), fmt.Sprintf("board2%s", suffix)}
 	}
 	injectRobot.SensorNamesFunc = func() []string {
-		return []string{fmt.Sprintf("sensor1%s", suffix), fmt.Sprintf("sensor2%s", suffix)}
+		return []string{fmt.Sprintf("sensor1%s", suffix), fmt.Sprintf("sensor2%s", suffix), fmt.Sprintf("forcematrix%s", suffix)}
 	}
 	injectRobot.ServoNamesFunc = func() []string {
 		return []string{fmt.Sprintf("servo1%s", suffix), fmt.Sprintf("servo2%s", suffix)}
@@ -137,6 +137,9 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 	injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.SensorNames()...)[name]; !ok {
 			return nil, false
+		}
+		if strings.HasPrefix(name, "forcematrix") {
+			return &fake.ForceMatrix{Name: name}, true
 		}
 		return &fake.Compass{Name: name}, true
 	}
@@ -229,9 +232,9 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, utils.NewStringSet(robot.BoardNames()...), test.ShouldResemble, utils.NewStringSet("one.board1", "one.board2"))
 
 	robot.conf.Prefix = false
-	test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2"))
+	test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix"))
 	robot.conf.Prefix = true
-	test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldResemble, utils.NewStringSet("one.sensor1", "one.sensor2"))
+	test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldResemble, utils.NewStringSet("one.sensor1", "one.sensor2", "one.forcematrix"))
 
 	robot.conf.Prefix = false
 	test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1", "servo2"))
@@ -332,8 +335,9 @@ func TestRemoteRobot(t *testing.T) {
 			"lidar2": true,
 		},
 		Sensors: map[string]*pb.SensorStatus{
-			"sensor1": {},
-			"sensor2": {},
+			"sensor1":     {},
+			"sensor2":     {},
+			"forcematrix": {},
 		},
 		Servos: map[string]*pb.ServoStatus{
 			"servo1": {},
@@ -380,8 +384,9 @@ func TestRemoteRobot(t *testing.T) {
 			"one.lidar2": true,
 		},
 		Sensors: map[string]*pb.SensorStatus{
-			"one.sensor1": {},
-			"one.sensor2": {},
+			"one.sensor1":     {},
+			"one.sensor2":     {},
+			"one.forcematrix": {},
 		},
 		Servos: map[string]*pb.ServoStatus{
 			"one.servo1": {},
@@ -467,6 +472,9 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
 	_, ok = robot.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
+	fsm, ok := robot.SensorByName("forcematrix")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name, test.ShouldEqual, "forcematrix")
 
 	robot.conf.Prefix = false
 	servo1, ok := robot.ServoByName("servo1")

@@ -15,8 +15,9 @@ import (
 
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
-	rpcclient "go.viam.com/utils/rpc/client"
 	"go.viam.com/utils/rpc/dialer"
+
+	rpcclient "go.viam.com/utils/rpc/client"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -35,6 +36,7 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
@@ -84,17 +86,14 @@ type RobotClientOptions struct {
 	// robot. If unset, it will not be refreshed automatically.
 	RefreshEvery time.Duration
 
-	// Insecure determines if the gRPC connection is TLS based.
-	Insecure bool
+	// DialOptions are options using for clients dialing gRPC servers.
+	DialOptions rpcclient.DialOptions
 }
 
 // NewClientWithOptions constructs a new RobotClient that is served at the given address. The given
 // context can be used to cancel the operation. Additionally, construction time options can be given.
 func NewClientWithOptions(ctx context.Context, address string, opts RobotClientOptions, logger golog.Logger) (*RobotClient, error) {
-	ctx, timeoutCancel := context.WithTimeout(ctx, 20*time.Second)
-	defer timeoutCancel()
-
-	conn, err := rpcclient.Dial(ctx, address, rpcclient.DialOptions{Insecure: opts.Insecure}, logger)
+	conn, err := grpc.Dial(ctx, address, opts.DialOptions, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +136,11 @@ type boardInfo struct {
 // NewClient constructs a new RobotClient that is served at the given address. The given
 // context can be used to cancel the operation.
 func NewClient(ctx context.Context, address string, logger golog.Logger) (*RobotClient, error) {
-	return NewClientWithOptions(ctx, address, RobotClientOptions{Insecure: true}, logger)
+	return NewClientWithOptions(ctx, address, RobotClientOptions{
+		DialOptions: rpcclient.DialOptions{
+			Insecure: true,
+		},
+	}, logger)
 }
 
 // Close cleanly closes the underlying connections and stops the refresh goroutine
@@ -250,7 +253,7 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 	panic(errUnimplemented)
 }
 
-// ArmByName returns a arm by name. It is assumed to exist on the
+// ArmByName returns an arm by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) ArmByName(name string) (arm.Arm, bool) {
 	return &armClient{rc: rc, name: name}, true
@@ -305,6 +308,8 @@ func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 		return &relativeCompassClient{&compassClient{sc}}, true
 	case imu.Type:
 		return &imuClient{sc}, true
+	case forcematrix.Type:
+		return &forcematrixClient{sc}, true
 	default:
 		return sc, true
 	}
@@ -1118,7 +1123,7 @@ func (cc *compassClient) Desc() sensor.Description {
 	return sensor.Description{compass.Type, ""}
 }
 
-// relativeCompassClient satisfies a gRPC based compass.RelativeDevice. Refer to the interface
+// relativeCompassClient satisfies a gRPC based compass.RelativeCompass. Refer to the interface
 // for descriptions of its methods.
 type relativeCompassClient struct {
 	*compassClient
@@ -1309,4 +1314,51 @@ func (mc *motorClient) Zero(ctx context.Context, offset float64) error {
 		Offset: offset,
 	})
 	return err
+}
+
+// forcematrixClient satisfies a gRPC based
+// forcematrix.ForceMatrix.
+// Refer to the ForceMatrix interface for descriptions of its methods.
+type forcematrixClient struct {
+	*sensorClient
+}
+
+func (fmc *forcematrixClient) Readings(ctx context.Context) ([]interface{}, error) {
+	matrix, err := fmc.Matrix(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return []interface{}{matrix}, nil
+}
+
+func (fmc *forcematrixClient) Matrix(ctx context.Context) ([][]int, error) {
+	resp, err := fmc.rc.client.ForceMatrixMatrix(ctx,
+		&pb.ForceMatrixMatrixRequest{
+			Name: fmc.name,
+		})
+	if err != nil {
+		return nil, err
+	}
+	return protoToMatrix(resp), nil
+}
+
+func (fmc *forcematrixClient) Desc() sensor.Description {
+	return sensor.Description{forcematrix.Type, ""}
+}
+
+// Ensure implements ForceMatrix
+var _ = forcematrix.ForceMatrix(&forcematrixClient{})
+
+// protoToMatrix is a helper function to convert protobuf matrix values into a 2-dimensional int slice.
+func protoToMatrix(matrixResponse *pb.ForceMatrixMatrixResponse) [][]int {
+	rows := matrixResponse.Matrix.Rows
+	cols := matrixResponse.Matrix.Cols
+	matrix := make([][]int, rows)
+	for r := range matrix {
+		matrix[r] = make([]int, cols)
+		for c := range matrix[r] {
+			matrix[r][c] = int(matrixResponse.Matrix.Data[r*int(cols)+c])
+		}
+	}
+	return matrix
 }

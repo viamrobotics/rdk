@@ -474,6 +474,14 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.ForceMatrixMatrixRequest"><span class="badge">M</span>ForceMatrixMatrixRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.ForceMatrixMatrixResponse"><span class="badge">M</span>ForceMatrixMatrixResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.GeoPoint"><span class="badge">M</span>GeoPoint</a>
                 </li>
               
@@ -571,6 +579,10 @@
               
                 <li>
                   <a href="#proto.api.v1.LidarStopResponse"><span class="badge">M</span>LidarStopResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.Matrix"><span class="badge">M</span>Matrix</a>
                 </li>
               
                 <li>
@@ -2957,6 +2969,54 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.ForceMatrixMatrixRequest">ForceMatrixMatrixRequest</h3>
+        <p>ForceMatrix</p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.ForceMatrixMatrixResponse">ForceMatrixMatrixResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>matrix</td>
+                  <td><a href="#proto.api.v1.Matrix">Matrix</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.GeoPoint">GeoPoint</h3>
         <p></p>
 
@@ -3559,6 +3619,44 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
         <p></p>
 
         
+
+        
+      
+        <h3 id="proto.api.v1.Matrix">Matrix</h3>
+        <p>Matrix</p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>rows</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>cols</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>data</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
 
         
       
@@ -5570,6 +5668,13 @@ A specific MIME type can be requested but may not necessarily be the same one re
               </tr>
             
               <tr>
+                <td>ForceMatrixMatrix</td>
+                <td><a href="#proto.api.v1.ForceMatrixMatrixRequest">ForceMatrixMatrixRequest</a></td>
+                <td><a href="#proto.api.v1.ForceMatrixMatrixResponse">ForceMatrixMatrixResponse</a></td>
+                <td><p>ForceMatrixMatrix returns the matrix of force readings from the force matrix sensor</p></td>
+              </tr>
+            
+              <tr>
                 <td>ExecuteFunction</td>
                 <td><a href="#proto.api.v1.ExecuteFunctionRequest">ExecuteFunctionRequest</a></td>
                 <td><a href="#proto.api.v1.ExecuteFunctionResponse">ExecuteFunctionResponse</a></td>
@@ -6148,6 +6253,16 @@ is reliant on having an encoder.</p></td>
                 <td>CompassMark</td>
                 <td>POST</td>
                 <td>/api/v1/sensors/compass/{name}/mark</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>ForceMatrixMatrix</td>
+                <td>GET</td>
+                <td>/api/v1/sensors/forcematrix/{name}/matrix</td>
                 <td></td>
               </tr>
               

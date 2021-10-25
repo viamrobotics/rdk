@@ -13,7 +13,6 @@ import (
 	"strconv"
 
 	"github.com/go-errors/errors"
-	"github.com/pion/webrtc/v3"
 
 	goutils "go.viam.com/utils"
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
@@ -22,6 +21,7 @@ import (
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 
 	"go.viam.com/core/action"
+	"go.viam.com/core/grpc"
 	grpcmetadata "go.viam.com/core/grpc/metadata/server"
 	grpcserver "go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
@@ -277,20 +277,7 @@ func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 var defaultViewConfig = x264.DefaultViewConfig
 
 func init() {
-	defaultViewConfig.WebRTCConfig = webrtc.Configuration{
-		ICEServers: []webrtc.ICEServer{
-			{
-				URLs: []string{"stun:stun.viam.cloud"},
-			},
-			{
-				URLs: []string{"turn:stun.viam.cloud"},
-				// TODO(https://github.com/viamrobotics/core/issues/101): needs real creds so as to not be abused
-				Username:       "username",
-				Credential:     "password",
-				CredentialType: webrtc.ICECredentialTypePassword,
-			},
-		},
-	}
+	defaultViewConfig.WebRTCConfig = grpc.DefaultWebRTCConfiguration
 }
 
 // installWeb prepares the given mux to be able to serve the UI for the robot. It also starts some goroutines

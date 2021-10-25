@@ -365,6 +365,15 @@ type RobotServiceCompassMark = {
   readonly responseType: typeof proto_api_v1_robot_pb.CompassMarkResponse;
 };
 
+type RobotServiceForceMatrixMatrix = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.ForceMatrixMatrixRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.ForceMatrixMatrixResponse;
+};
+
 type RobotServiceExecuteFunction = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -614,6 +623,7 @@ export class RobotService {
   static readonly CompassStartCalibration: RobotServiceCompassStartCalibration;
   static readonly CompassStopCalibration: RobotServiceCompassStopCalibration;
   static readonly CompassMark: RobotServiceCompassMark;
+  static readonly ForceMatrixMatrix: RobotServiceForceMatrixMatrix;
   static readonly ExecuteFunction: RobotServiceExecuteFunction;
   static readonly ExecuteSource: RobotServiceExecuteSource;
   static readonly ServoMove: RobotServiceServoMove;
@@ -1022,6 +1032,15 @@ export class RobotServiceClient {
   compassMark(
     requestMessage: proto_api_v1_robot_pb.CompassMarkRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.CompassMarkResponse|null) => void
+  ): UnaryResponse;
+  forceMatrixMatrix(
+    requestMessage: proto_api_v1_robot_pb.ForceMatrixMatrixRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ForceMatrixMatrixResponse|null) => void
+  ): UnaryResponse;
+  forceMatrixMatrix(
+    requestMessage: proto_api_v1_robot_pb.ForceMatrixMatrixRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ForceMatrixMatrixResponse|null) => void
   ): UnaryResponse;
   executeFunction(
     requestMessage: proto_api_v1_robot_pb.ExecuteFunctionRequest,

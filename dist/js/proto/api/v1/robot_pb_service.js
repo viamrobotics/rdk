@@ -371,6 +371,15 @@ RobotService.CompassMark = {
   responseType: proto_api_v1_robot_pb.CompassMarkResponse
 };
 
+RobotService.ForceMatrixMatrix = {
+  methodName: "ForceMatrixMatrix",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.ForceMatrixMatrixRequest,
+  responseType: proto_api_v1_robot_pb.ForceMatrixMatrixResponse
+};
+
 RobotService.ExecuteFunction = {
   methodName: "ExecuteFunction",
   service: RobotService,
@@ -1807,6 +1816,37 @@ RobotServiceClient.prototype.compassMark = function compassMark(requestMessage, 
     callback = arguments[1];
   }
   var client = grpc.unary(RobotService.CompassMark, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.forceMatrixMatrix = function forceMatrixMatrix(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.ForceMatrixMatrix, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

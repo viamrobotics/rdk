@@ -3220,6 +3220,78 @@ export namespace IMUOrientationResponse {
   }
 }
 
+export class Matrix extends jspb.Message {
+  getRows(): number;
+  setRows(value: number): void;
+
+  getCols(): number;
+  setCols(value: number): void;
+
+  clearDataList(): void;
+  getDataList(): Array<number>;
+  setDataList(value: Array<number>): void;
+  addData(value: number, index?: number): number;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): Matrix.AsObject;
+  static toObject(includeInstance: boolean, msg: Matrix): Matrix.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: Matrix, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): Matrix;
+  static deserializeBinaryFromReader(message: Matrix, reader: jspb.BinaryReader): Matrix;
+}
+
+export namespace Matrix {
+  export type AsObject = {
+    rows: number,
+    cols: number,
+    dataList: Array<number>,
+  }
+}
+
+export class ForceMatrixMatrixRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): ForceMatrixMatrixRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: ForceMatrixMatrixRequest): ForceMatrixMatrixRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: ForceMatrixMatrixRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ForceMatrixMatrixRequest;
+  static deserializeBinaryFromReader(message: ForceMatrixMatrixRequest, reader: jspb.BinaryReader): ForceMatrixMatrixRequest;
+}
+
+export namespace ForceMatrixMatrixRequest {
+  export type AsObject = {
+    name: string,
+  }
+}
+
+export class ForceMatrixMatrixResponse extends jspb.Message {
+  hasMatrix(): boolean;
+  clearMatrix(): void;
+  getMatrix(): Matrix | undefined;
+  setMatrix(value?: Matrix): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): ForceMatrixMatrixResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: ForceMatrixMatrixResponse): ForceMatrixMatrixResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: ForceMatrixMatrixResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ForceMatrixMatrixResponse;
+  static deserializeBinaryFromReader(message: ForceMatrixMatrixResponse, reader: jspb.BinaryReader): ForceMatrixMatrixResponse;
+}
+
+export namespace ForceMatrixMatrixResponse {
+  export type AsObject = {
+    matrix?: Matrix.AsObject,
+  }
+}
+
 export interface DirectionRelativeMap {
   DIRECTION_RELATIVE_UNSPECIFIED: 0;
   DIRECTION_RELATIVE_FORWARD: 1;
