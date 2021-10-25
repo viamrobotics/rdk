@@ -45,6 +45,7 @@ require (
 	github.com/u2takey/ffmpeg-go v0.3.0
 	github.com/wasmerio/wasmer-go v1.0.4
 	go-hep.org/x/hep v0.28.5
+	go.einride.tech/vlp16 v0.7.0
 	go.mongodb.org/mongo-driver v1.5.3
 	go.opencensus.io v0.23.0
 	go.uber.org/multierr v1.7.0
