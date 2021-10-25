@@ -16,6 +16,7 @@
       window.webrtcEnabled = {{ .WebRTCEnabled }}
       window.webrtcHost = {{ .WebRTCHost }}
       window.webrtcSignalingAddress = {{ .WebRTCSignalingAddress }}
+      window.webrtcAdditionalICEServers = {{ .WebRTCAdditionalICEServers }}
     </script>
     {{ if .External }}
     <script src="/static/core/control.js"></script>
@@ -911,8 +912,11 @@
               setTimeout(updateWaypoints, 1000);
               return;
             }
+            let waypoints = [];
+            if (resp) {
+              waypoints = resp.getWaypointsList();
+            }
             const currentWaypoints = {};
-            var waypoints = resp.getWaypointsList();
             for (var i = 0; i < waypoints.length; i++) {
               const waypoint = waypoints[i];
               const pos = {lat: waypoint.getLocation().getLatitude(), lng: waypoint.getLocation().getLongitude()};
