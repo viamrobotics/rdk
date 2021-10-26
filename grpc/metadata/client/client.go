@@ -15,9 +15,8 @@ import (
 
 // MetadataServiceClient is a client satisfies the metadata.proto contract.
 type MetadataServiceClient struct {
-	address string
-	conn    dialer.ClientConn
-	client  pb.MetadataServiceClient
+	conn   dialer.ClientConn
+	client pb.MetadataServiceClient
 
 	logger golog.Logger
 }
@@ -31,10 +30,9 @@ func NewClient(ctx context.Context, address string, opts rpcclient.DialOptions, 
 
 	client := pb.NewMetadataServiceClient(conn)
 	mc := &MetadataServiceClient{
-		address: address,
-		conn:    conn,
-		client:  client,
-		logger:  logger,
+		conn:   conn,
+		client: client,
+		logger: logger,
 	}
 	return mc, nil
 }

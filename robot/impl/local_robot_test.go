@@ -71,13 +71,17 @@ func TestConfigRemote(t *testing.T) {
 	cfg, err := config.Read("data/fake.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	r, err := robotimpl.New(context.Background(), cfg, logger)
+	metadataSvc, err := service.New()
+	test.That(t, err, test.ShouldBeNil)
+	ctx := service.ContextWithService(context.Background(), metadataSvc)
+
+	r, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r.Close(), test.ShouldBeNil)
 	}()
 
-	cancelCtx, cancel := context.WithCancel(context.Background())
+	cancelCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)

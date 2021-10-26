@@ -1,0 +1,13 @@
+{
+  "components": [
+    {
+      "name": "TestGamepad",
+      "model": "gamepad",
+      "type": "input_controller",
+      "attributes": {
+        "dev_file": "",
+        "auto_reconnect": true
+      }
+    }
+  ]
+}

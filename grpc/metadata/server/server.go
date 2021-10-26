@@ -11,11 +11,11 @@ import (
 // MetadataServer implements the contract from metadata.proto
 type MetadataServer struct {
 	pb.UnimplementedMetadataServiceServer
-	s *service.Service
+	s service.Metadata
 }
 
 // New constructs a gRPC service server.
-func New(s *service.Service) pb.MetadataServiceServer {
+func New(s service.Metadata) pb.MetadataServiceServer {
 	return &MetadataServer{s: s}
 }
 

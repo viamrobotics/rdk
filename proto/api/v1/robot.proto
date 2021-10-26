@@ -6,6 +6,7 @@ package proto.api.v1;
 
 import "google/protobuf/struct.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 import "google/api/annotations.proto";
 import "google/api/httpbody.proto";
 
@@ -434,6 +435,24 @@ service RobotService {
     };
   }
 
+  rpc InputControllerControls(InputControllerControlsRequest) returns (InputControllerControlsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/input/{controller}/controls"
+    };
+  }
+
+  rpc InputControllerLastEvents(InputControllerLastEventsRequest) returns (InputControllerLastEventsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/input/{controller}/last_events"
+    };
+  }
+
+  rpc InputControllerEventStream(InputControllerEventStreamRequest) returns (stream InputControllerEvent) {
+    option (google.api.http) = {
+      get: "/api/v1/input/{controller}/event_stream"
+    };
+  }
+
   // ResourceRunCommand runs an arbitrary command on a resource if it supports it.
   rpc ResourceRunCommand(ResourceRunCommandRequest) returns (ResourceRunCommandResponse) {
     option (google.api.http) = {
@@ -520,6 +539,7 @@ message Status {
   map<string, ServoStatus> servos = 9;
   map<string, MotorStatus> motors = 10;
   map<string, bool> services = 11;
+  map<string, bool> input_controllers = 12;
 }
 
 message ComponentConfig {
@@ -1140,6 +1160,39 @@ message NavigationServiceRemoveWaypointRequest {
 }
 
 message NavigationServiceRemoveWaypointResponse {
+}
+
+message InputControllerControlsRequest {
+  string controller = 1;
+}
+
+message InputControllerControlsResponse {
+  repeated string controls = 1;
+}
+
+message InputControllerLastEventsRequest {
+  string controller = 1;
+}
+
+message InputControllerLastEventsResponse {
+  repeated InputControllerEvent events = 1;
+}
+
+message InputControllerEvent {
+  google.protobuf.Timestamp time = 1;
+  string event = 2;
+  string control = 3;
+  double value = 4;
+}
+
+message InputControllerEventStreamRequest {
+  message Events {
+    string control = 1;
+    repeated string events = 2;
+    repeated string cancelled_events = 3;
+  }
+  string controller = 1;
+  repeated Events events = 2;
 }
 
 // AngularVelocity contains angular velocity in deg/s across x/y/z axes.

@@ -4,6 +4,7 @@
 import * as jspb from "google-protobuf";
 import * as google_protobuf_struct_pb from "google-protobuf/google/protobuf/struct_pb";
 import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/duration_pb";
+import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/timestamp_pb";
 import * as google_api_annotations_pb from "../../../google/api/annotations_pb";
 import * as google_api_httpbody_pb from "../../../google/api/httpbody_pb";
 
@@ -112,6 +113,8 @@ export class Status extends jspb.Message {
   clearMotorsMap(): void;
   getServicesMap(): jspb.Map<string, boolean>;
   clearServicesMap(): void;
+  getInputControllersMap(): jspb.Map<string, boolean>;
+  clearInputControllersMap(): void;
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Status.AsObject;
   static toObject(includeInstance: boolean, msg: Status): Status.AsObject;
@@ -135,6 +138,7 @@ export namespace Status {
     servosMap: Array<[string, ServoStatus.AsObject]>,
     motorsMap: Array<[string, MotorStatus.AsObject]>,
     servicesMap: Array<[string, boolean]>,
+    inputControllersMap: Array<[string, boolean]>,
   }
 }
 
@@ -3077,6 +3081,182 @@ export class NavigationServiceRemoveWaypointResponse extends jspb.Message {
 
 export namespace NavigationServiceRemoveWaypointResponse {
   export type AsObject = {
+  }
+}
+
+export class InputControllerControlsRequest extends jspb.Message {
+  getController(): string;
+  setController(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): InputControllerControlsRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: InputControllerControlsRequest): InputControllerControlsRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: InputControllerControlsRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): InputControllerControlsRequest;
+  static deserializeBinaryFromReader(message: InputControllerControlsRequest, reader: jspb.BinaryReader): InputControllerControlsRequest;
+}
+
+export namespace InputControllerControlsRequest {
+  export type AsObject = {
+    controller: string,
+  }
+}
+
+export class InputControllerControlsResponse extends jspb.Message {
+  clearControlsList(): void;
+  getControlsList(): Array<string>;
+  setControlsList(value: Array<string>): void;
+  addControls(value: string, index?: number): string;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): InputControllerControlsResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: InputControllerControlsResponse): InputControllerControlsResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: InputControllerControlsResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): InputControllerControlsResponse;
+  static deserializeBinaryFromReader(message: InputControllerControlsResponse, reader: jspb.BinaryReader): InputControllerControlsResponse;
+}
+
+export namespace InputControllerControlsResponse {
+  export type AsObject = {
+    controlsList: Array<string>,
+  }
+}
+
+export class InputControllerLastEventsRequest extends jspb.Message {
+  getController(): string;
+  setController(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): InputControllerLastEventsRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: InputControllerLastEventsRequest): InputControllerLastEventsRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: InputControllerLastEventsRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): InputControllerLastEventsRequest;
+  static deserializeBinaryFromReader(message: InputControllerLastEventsRequest, reader: jspb.BinaryReader): InputControllerLastEventsRequest;
+}
+
+export namespace InputControllerLastEventsRequest {
+  export type AsObject = {
+    controller: string,
+  }
+}
+
+export class InputControllerLastEventsResponse extends jspb.Message {
+  clearEventsList(): void;
+  getEventsList(): Array<InputControllerEvent>;
+  setEventsList(value: Array<InputControllerEvent>): void;
+  addEvents(value?: InputControllerEvent, index?: number): InputControllerEvent;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): InputControllerLastEventsResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: InputControllerLastEventsResponse): InputControllerLastEventsResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: InputControllerLastEventsResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): InputControllerLastEventsResponse;
+  static deserializeBinaryFromReader(message: InputControllerLastEventsResponse, reader: jspb.BinaryReader): InputControllerLastEventsResponse;
+}
+
+export namespace InputControllerLastEventsResponse {
+  export type AsObject = {
+    eventsList: Array<InputControllerEvent.AsObject>,
+  }
+}
+
+export class InputControllerEvent extends jspb.Message {
+  hasTime(): boolean;
+  clearTime(): void;
+  getTime(): google_protobuf_timestamp_pb.Timestamp | undefined;
+  setTime(value?: google_protobuf_timestamp_pb.Timestamp): void;
+
+  getEvent(): string;
+  setEvent(value: string): void;
+
+  getControl(): string;
+  setControl(value: string): void;
+
+  getValue(): number;
+  setValue(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): InputControllerEvent.AsObject;
+  static toObject(includeInstance: boolean, msg: InputControllerEvent): InputControllerEvent.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: InputControllerEvent, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): InputControllerEvent;
+  static deserializeBinaryFromReader(message: InputControllerEvent, reader: jspb.BinaryReader): InputControllerEvent;
+}
+
+export namespace InputControllerEvent {
+  export type AsObject = {
+    time?: google_protobuf_timestamp_pb.Timestamp.AsObject,
+    event: string,
+    control: string,
+    value: number,
+  }
+}
+
+export class InputControllerEventStreamRequest extends jspb.Message {
+  getController(): string;
+  setController(value: string): void;
+
+  clearEventsList(): void;
+  getEventsList(): Array<InputControllerEventStreamRequest.Events>;
+  setEventsList(value: Array<InputControllerEventStreamRequest.Events>): void;
+  addEvents(value?: InputControllerEventStreamRequest.Events, index?: number): InputControllerEventStreamRequest.Events;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): InputControllerEventStreamRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: InputControllerEventStreamRequest): InputControllerEventStreamRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: InputControllerEventStreamRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): InputControllerEventStreamRequest;
+  static deserializeBinaryFromReader(message: InputControllerEventStreamRequest, reader: jspb.BinaryReader): InputControllerEventStreamRequest;
+}
+
+export namespace InputControllerEventStreamRequest {
+  export type AsObject = {
+    controller: string,
+    eventsList: Array<InputControllerEventStreamRequest.Events.AsObject>,
+  }
+
+  export class Events extends jspb.Message {
+    getControl(): string;
+    setControl(value: string): void;
+
+    clearEventsList(): void;
+    getEventsList(): Array<string>;
+    setEventsList(value: Array<string>): void;
+    addEvents(value: string, index?: number): string;
+
+    clearCancelledEventsList(): void;
+    getCancelledEventsList(): Array<string>;
+    setCancelledEventsList(value: Array<string>): void;
+    addCancelledEvents(value: string, index?: number): string;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Events.AsObject;
+    static toObject(includeInstance: boolean, msg: Events): Events.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: Events, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Events;
+    static deserializeBinaryFromReader(message: Events, reader: jspb.BinaryReader): Events;
+  }
+
+  export namespace Events {
+    export type AsObject = {
+      control: string,
+      eventsList: Array<string>,
+      cancelledEventsList: Array<string>,
+    }
   }
 }
 

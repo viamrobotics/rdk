@@ -15,6 +15,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/gripper"
+	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
@@ -985,4 +986,46 @@ func (p *proxyMotor) Zero(ctx context.Context, offset float64) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.Zero(ctx, offset)
+}
+
+type proxyInputController struct {
+	mu     sync.RWMutex
+	actual input.Controller
+}
+
+func (p *proxyInputController) replace(newController input.Controller) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	actual, ok := newController.(*proxyInputController)
+	if !ok {
+		panic(fmt.Errorf("expected new input controller to be %T but got %T", actual, newController))
+	}
+	if err := utils.TryClose(p.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	p.actual = actual.actual
+}
+
+func (p *proxyInputController) Controls(ctx context.Context) ([]input.Control, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.Controls(ctx)
+}
+
+func (p *proxyInputController) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.LastEvents(ctx)
+}
+
+func (p *proxyInputController) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.RegisterControlCallback(ctx, control, triggers, ctrlFunc)
+}
+
+func (p *proxyInputController) Close() error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return utils.TryClose(p.actual)
 }
