@@ -10,12 +10,15 @@ window.orbitLib = require("three/examples/jsm/controls/OrbitControls.js")
 window.trackLib = require("three/examples/jsm/controls/TrackballControls.js")
 
 const rtcConfig = {
-	// TODO(https://github.com/viamrobotics/core/issues/236): Add TURN
 	iceServers: [
 		{
 			urls: 'stun:global.stun.twilio.com:3478?transport=udp'
 		}
 	]
+}
+
+if (window.webrtcAdditionalICEServers) {
+	rtcConfig.iceServers = rtcConfig.iceServers.concat(window.webrtcAdditionalICEServers);
 }
 
 let pResolve, pReject;

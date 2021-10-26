@@ -67,6 +67,12 @@ type Point interface {
 	// SetValue sets the given user data value on the point.
 	// Note(erd): we should try to remove this in favor of immutability.
 	SetValue(v int) Point
+
+	// Value returns the intesity value, or 0 if it doesn't exist
+	Intensity() uint16
+
+	// SetIntesnity sets the intensity on the point.
+	SetIntesnity(v uint16) Point
 }
 
 type basicPoint struct {
@@ -77,6 +83,8 @@ type basicPoint struct {
 
 	hasValue bool
 	value    int
+
+	intensity uint16
 }
 
 // NewBasicPoint returns a point that is solely positionally based.
@@ -132,6 +140,15 @@ func (bp *basicPoint) HasValue() bool {
 
 func (bp *basicPoint) Value() int {
 	return bp.value
+}
+
+func (bp *basicPoint) SetIntesnity(v uint16) Point {
+	bp.intensity = v
+	return bp
+}
+
+func (bp *basicPoint) Intensity() uint16 {
+	return bp.intensity
 }
 
 // GetPositions gets the positions of the slice of points

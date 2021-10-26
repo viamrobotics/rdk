@@ -1,0 +1,8 @@
+{
+  "remotes": [
+    {
+      "address": "TestPC.local:8080",
+      "name": "TestPC"
+    }
+  ]
+}

@@ -122,7 +122,7 @@ func (pc *basicPointCloud) WriteToFile(fn string) (err error) {
 			X:         pos.X,
 			Y:         pos.Y,
 			Z:         pos.Z,
-			Intensity: 0,
+			Intensity: p.Intensity(),
 			BitField: lidario.PointBitField{
 				Value: (1) | (1 << 3) | (0 << 6) | (0 << 7),
 			},

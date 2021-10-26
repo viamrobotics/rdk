@@ -12,6 +12,7 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
+	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
@@ -56,6 +57,9 @@ type Robot interface {
 	// MotorByName returns a motor by name.
 	MotorByName(name string) (motor.Motor, bool)
 
+	// InputControllerByName returns a input.Controller by name.
+	InputControllerByName(name string) (input.Controller, bool)
+
 	// ServiceByName returns a service by name.
 	// TODO(erd): refactor to service resource
 	ServiceByName(name string) (interface{}, bool)
@@ -92,6 +96,9 @@ type Robot interface {
 
 	// MotorNames returns the name of all known motors.
 	MotorNames() []string
+
+	// InputControllerNames returns the name of all known input controllers.
+	InputControllerNames() []string
 
 	// FunctionNames returns the name of all known functions.
 	FunctionNames() []string

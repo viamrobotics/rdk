@@ -1,0 +1,378 @@
+//go:build linux
+// +build linux
+
+package gamepad
+
+import (
+	"context"
+	"math"
+	"path/filepath"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
+
+	"go.viam.com/utils"
+
+	"go.viam.com/core/config"
+	"go.viam.com/core/input"
+	"go.viam.com/core/registry"
+	"go.viam.com/core/robot"
+
+	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
+	"github.com/mitchellh/mapstructure"
+	"github.com/viamrobotics/evdev"
+)
+
+const (
+	modelname      = "gamepad"
+	defaultMapping = "Microsoft X-Box 360 pad"
+)
+
+// Config is used for converting config attributes
+type Config struct {
+	DevFile       string `json:"dev_file"`
+	AutoReconnect bool   `json:"auto_reconnect"`
+}
+
+func init() {
+	registry.RegisterInputController(modelname, registry.InputController{Constructor: NewController})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelname, func(attributes config.AttributeMap) (interface{}, error) {
+		var conf Config
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+		if err != nil {
+			return nil, err
+		}
+		if err := decoder.Decode(attributes); err != nil {
+			return nil, err
+		}
+		return &conf, nil
+	})
+}
+
+// Controller is an input.Controller
+type Controller struct {
+	dev                     *evdev.Evdev
+	Model                   string
+	Mapping                 Mapping
+	controls                []input.Control
+	lastEvents              map[input.Control]input.Event
+	logger                  golog.Logger
+	mu                      sync.RWMutex
+	activeBackgroundWorkers sync.WaitGroup
+	cancelFunc              func()
+	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
+	devFile                 string
+	reconnect               bool
+}
+
+// Mapping represents the evdev code to input.Control mapping for a given gamepad model
+type Mapping struct {
+	Buttons map[evdev.KeyType]input.Control
+	Axes    map[evdev.AbsoluteType]input.Control
+}
+
+func timevaltoTime(timeVal syscall.Timeval) time.Time {
+	return time.Unix(timeVal.Sec, timeVal.Usec*1000)
+}
+
+func scaleAxis(x int32, inMin int32, inMax int32, outMin float64, outMax float64) float64 {
+	return float64(x-inMin)*(outMax-outMin)/float64(inMax-inMin) + outMin
+}
+
+func (g *Controller) eventDispatcher(ctx context.Context) {
+	evChan := g.dev.Poll(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			err := g.dev.Close()
+			if err != nil {
+				g.logger.Error(err)
+			}
+			return
+		case eventIn := <-evChan:
+			if eventIn == nil || eventIn.Event.Type == evdev.EventMisc || (eventIn.Event.Type == evdev.EventSync && eventIn.Event.Code == 0) {
+				continue
+			}
+			// Use debug line below when developing new controller mappings
+			// g.logger.Debugf("%s: Type: %d, Code: %d, Value: %d\n", timevaltoTime(eventIn.Event.Time), eventIn.Event.Type, eventIn.Event.Control, eventIn.Event.Value)
+
+			var eventOut input.Event
+			switch eventIn.Event.Type {
+			case evdev.EventSync:
+				if evdev.SyncType(eventIn.Event.Code) == 4 {
+					g.sendConnectionStatus(ctx, false)
+					err := g.dev.Close()
+					if err != nil {
+						g.logger.Error(err)
+					}
+					g.dev = nil
+					return
+				}
+				g.logger.Debugf("unhandled event: %+v", eventIn)
+
+			case evdev.EventAbsolute:
+				thisAxis, ok := g.Mapping.Axes[eventIn.Type.(evdev.AbsoluteType)]
+				if !ok {
+					// Unmapped axis
+					continue
+				}
+
+				info := g.dev.AbsoluteTypes()[eventIn.Type.(evdev.AbsoluteType)]
+
+				var scaledPos float64
+				if thisAxis == input.AbsoluteZ || thisAxis == input.AbsoluteRZ {
+					// Scale triggers 0.0 to 1.0
+					scaledPos = scaleAxis(eventIn.Event.Value, info.Min, info.Max, 0, 1.0)
+				} else {
+					// Scale normal axes -1.0 to 1.0
+					scaledPos = scaleAxis(eventIn.Event.Value, info.Min, info.Max, -1.0, 1.0)
+				}
+
+				// Use evDev provided deadzone
+				if math.Abs(scaledPos) <= float64(info.Flat)/float64(info.Max-info.Min) {
+					scaledPos = 0.0
+				}
+
+				eventOut = input.Event{
+					Time:    timevaltoTime(eventIn.Event.Time),
+					Event:   input.PositionChangeAbs,
+					Control: thisAxis,
+					Value:   scaledPos,
+				}
+
+			case evdev.EventKey:
+				thisButton, ok := g.Mapping.Buttons[eventIn.Type.(evdev.KeyType)]
+				if !ok {
+					// Unmapped button
+					continue
+				}
+
+				eventOut = input.Event{
+					Time:    timevaltoTime(eventIn.Event.Time),
+					Event:   input.ButtonChange,
+					Control: thisButton,
+					Value:   float64(eventIn.Event.Value),
+				}
+
+				if eventIn.Event.Value == 1 {
+					eventOut.Event = input.ButtonPress
+				} else if eventIn.Event.Value == 0 {
+					eventOut.Event = input.ButtonRelease
+				}
+
+			default:
+				g.logger.Debugf("unhandled event: %+v", eventIn)
+			}
+
+			g.makeCallbacks(ctx, eventOut)
+		}
+	}
+}
+
+func (g *Controller) sendConnectionStatus(ctx context.Context, connected bool) {
+	evType := input.Disconnect
+	now := time.Now()
+	if connected {
+		evType = input.Connect
+	}
+
+	for _, control := range g.controls {
+		if g.lastEvents[control].Event != evType {
+			eventOut := input.Event{
+				Time:    now,
+				Event:   evType,
+				Control: control,
+				Value:   0,
+			}
+			g.makeCallbacks(ctx, eventOut)
+		}
+	}
+}
+
+func (g *Controller) makeCallbacks(ctx context.Context, eventOut input.Event) {
+	g.mu.Lock()
+	g.lastEvents[eventOut.Control] = eventOut
+	g.mu.Unlock()
+
+	g.mu.RLock()
+	_, ok := g.callbacks[eventOut.Control]
+	g.mu.RUnlock()
+	if !ok {
+		g.mu.Lock()
+		g.callbacks[eventOut.Control] = make(map[input.EventType]input.ControlFunction)
+		g.mu.Unlock()
+	}
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	ctrlFunc, ok := g.callbacks[eventOut.Control][eventOut.Event]
+	if ok && ctrlFunc != nil {
+		g.activeBackgroundWorkers.Add(1)
+		utils.PanicCapturingGo(func() {
+			defer g.activeBackgroundWorkers.Done()
+			ctrlFunc(ctx, eventOut)
+		})
+	}
+
+	ctrlFuncAll, ok := g.callbacks[eventOut.Control][input.AllEvents]
+	if ok && ctrlFuncAll != nil {
+		g.activeBackgroundWorkers.Add(1)
+		utils.PanicCapturingGo(func() {
+			defer g.activeBackgroundWorkers.Done()
+			ctrlFuncAll(ctx, eventOut)
+		})
+	}
+}
+
+func (g *Controller) connectDev(ctx context.Context) error {
+	g.mu.Lock()
+	var devs []string
+	devs = []string{g.devFile}
+
+	if len(devs) != 1 || devs[0] == "" {
+		var err error
+		devs, err = filepath.Glob("/dev/input/event*")
+		if err != nil {
+			g.mu.Unlock()
+			return err
+		}
+	}
+
+	for _, n := range devs {
+		dev, err := evdev.OpenFile(n)
+		if err != nil {
+			continue
+		}
+		name := dev.Name()
+		g.logger.Infof("found known gamepad: '%s' at %s", name, n)
+		mapping, ok := GamepadMappings[name]
+		if ok {
+			g.dev = dev
+			g.Model = g.dev.Name()
+			g.Mapping = mapping
+			break
+		}
+	}
+
+	// Fallback to a default mapping
+	if g.dev == nil {
+		for _, n := range devs {
+			dev, err := evdev.OpenFile(n)
+			if err != nil {
+				continue
+			}
+			if dev.IsJoystick() {
+				name := dev.Name()
+				g.logger.Infof("found gamepad: '%s' at %s", name, n)
+				g.logger.Infof("no button mapping for '%s', using default: '%s'", name, defaultMapping)
+				g.dev = dev
+				g.Model = g.dev.Name()
+				g.Mapping = GamepadMappings[defaultMapping]
+				break
+			}
+		}
+	}
+
+	if g.dev == nil {
+		g.mu.Unlock()
+		return errors.New("no gamepad found (check /dev/input/eventXX permissions)")
+	}
+
+	for _, v := range g.Mapping.Axes {
+		g.controls = append(g.controls, v)
+	}
+	for _, v := range g.Mapping.Buttons {
+		g.controls = append(g.controls, v)
+	}
+
+	g.mu.Unlock()
+	g.sendConnectionStatus(ctx, true)
+
+	return nil
+}
+
+func createController(ctx context.Context, logger golog.Logger, devFile string, reconnect bool) (input.Controller, error) {
+	var g Controller
+	g.logger = logger
+	g.reconnect = reconnect
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	g.cancelFunc = cancel
+	g.devFile = devFile
+	g.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
+	g.lastEvents = make(map[input.Control]input.Event)
+
+	g.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer g.activeBackgroundWorkers.Done()
+		for {
+			if !utils.SelectContextOrWait(ctxWithCancel, 250*time.Millisecond) {
+				return
+			}
+			err := g.connectDev(ctxWithCancel)
+			if err != nil {
+				if g.reconnect {
+					if !strings.Contains(err.Error(), "no gamepad found") {
+						g.logger.Error(err)
+					}
+					continue
+				} else {
+					g.logger.Fatal(err)
+					return
+				}
+			}
+			g.eventDispatcher(ctxWithCancel)
+		}
+	})
+	return &g, nil
+}
+
+// NewController creates a new gamepad
+func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
+	return createController(ctx, logger, config.ConvertedAttributes.(*Config).DevFile, config.ConvertedAttributes.(*Config).AutoReconnect)
+}
+
+// Close terminates background worker threads
+func (g *Controller) Close() error {
+	g.cancelFunc()
+	g.activeBackgroundWorkers.Wait()
+	return nil
+}
+
+// Controls lists the inputs of the gamepad
+func (g *Controller) Controls(ctx context.Context) ([]input.Control, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	if g.dev == nil && len(g.controls) == 0 {
+		return nil, errors.New("no controller connected")
+	}
+	return g.controls, nil
+}
+
+// LastEvents returns the last input.Event (the current state)
+func (g *Controller) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.lastEvents, nil
+}
+
+// RegisterControlCallback registers a callback function to be executed on the specified control's trigger Events
+func (g *Controller) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.callbacks[control] == nil {
+		g.callbacks[control] = make(map[input.EventType]input.ControlFunction)
+	}
+
+	for _, trigger := range triggers {
+		if trigger == input.ButtonChange {
+			g.callbacks[control][input.ButtonRelease] = ctrlFunc
+			g.callbacks[control][input.ButtonPress] = ctrlFunc
+		} else {
+			g.callbacks[control][trigger] = ctrlFunc
+		}
+	}
+	return nil
+}

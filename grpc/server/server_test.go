@@ -22,6 +22,7 @@ import (
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc/client"
 	grpcserver "go.viam.com/core/grpc/server"
+	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
@@ -36,6 +37,7 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func newServer() (pb.RobotServiceServer, *inject.Robot) {
@@ -78,6 +80,9 @@ var emptyStatus = &pb.StatusResponse{
 		},
 		Motors: map[string]*pb.MotorStatus{
 			"motor1": {},
+		},
+		InputControllers: map[string]bool{
+			"inputController1": true,
 		},
 		Boards: map[string]*pb.BoardStatus{
 			"board1": {
@@ -2089,6 +2094,157 @@ func TestServer(t *testing.T) {
 		test.That(t, isOnResp.IsOn, test.ShouldBeTrue)
 	})
 
+	t.Run("Input", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err := server.InputControllerControls(context.Background(), &pb.InputControllerControlsRequest{
+			Controller: "inputController1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
+		test.That(t, capName, test.ShouldEqual, "inputController1")
+
+		err1 := errors.New("whoops")
+
+		device := &inject.InputController{}
+		injectRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
+			if name == "inputController1" {
+				return device, true
+			}
+
+			return nil, false
+		}
+
+		device.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+			return nil, err1
+		}
+		_, err = server.InputControllerControls(context.Background(), &pb.InputControllerControlsRequest{
+			Controller: "inputController1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+
+		device.LastEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+			eventsOut := make(map[input.Control]input.Event)
+			eventsOut[input.AbsoluteX] = input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
+			eventsOut[input.ButtonStart] = input.Event{Time: time.Now(), Event: input.ButtonPress, Control: input.ButtonStart, Value: 1.0}
+			return eventsOut, nil
+		}
+		device.RegisterControlCallbackFunc = func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+			outEvent := input.Event{Time: time.Now(), Event: triggers[0], Control: input.ButtonStart, Value: 0.0}
+			ctrlFunc(ctx, outEvent)
+			return nil
+		}
+		device.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+			return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
+		}
+
+		resp, err := server.InputControllerControls(context.Background(), &pb.InputControllerControlsRequest{
+			Controller: "inputController1",
+		})
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Controls, test.ShouldResemble, []string{"AbsoluteX", "ButtonStart"})
+
+		startTime := time.Now()
+		resp2, err := server.InputControllerLastEvents(context.Background(), &pb.InputControllerLastEventsRequest{
+			Controller: "inputController1",
+		})
+
+		test.That(t, err, test.ShouldBeNil)
+
+		var absEv, buttonEv *pb.InputControllerEvent
+		if resp2.Events[0].Control == "AbsoluteX" {
+			absEv = resp2.Events[0]
+			buttonEv = resp2.Events[1]
+		} else {
+			absEv = resp2.Events[1]
+			buttonEv = resp2.Events[0]
+		}
+
+		test.That(t, absEv.Event, test.ShouldEqual, input.PositionChangeAbs)
+		test.That(t, absEv.Control, test.ShouldEqual, input.AbsoluteX)
+		test.That(t, absEv.Value, test.ShouldEqual, 0.7)
+		test.That(t, absEv.Time.AsTime().After(startTime), test.ShouldBeTrue)
+		test.That(t, absEv.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
+
+		test.That(t, buttonEv.Event, test.ShouldEqual, input.ButtonPress)
+		test.That(t, buttonEv.Control, test.ShouldEqual, input.ButtonStart)
+		test.That(t, buttonEv.Value, test.ShouldEqual, 1)
+		test.That(t, buttonEv.Time.AsTime().After(startTime), test.ShouldBeTrue)
+		test.That(t, buttonEv.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
+
+		cancelCtx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		messageCh := make(chan *pb.InputControllerEvent, 1024)
+		streamServer := &robotServiceInputControllerEventStreamServer{
+			ctx:       cancelCtx,
+			messageCh: messageCh,
+		}
+
+		eventReqList := &pb.InputControllerEventStreamRequest{
+			Controller: "inputController2",
+			Events: []*pb.InputControllerEventStreamRequest_Events{
+
+				{
+					Control: string(input.ButtonStart),
+					Events: []string{
+						string(input.ButtonRelease),
+					},
+				},
+			},
+		}
+
+		err = server.InputControllerEventStream(eventReqList, streamServer)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
+
+		relayFunc := func(ctx context.Context, event input.Event) {
+			messageCh <- &pb.InputControllerEvent{
+				Time:    timestamppb.New(event.Time),
+				Event:   string(event.Event),
+				Control: string(event.Control),
+				Value:   event.Value,
+			}
+		}
+
+		err = device.RegisterControlCallback(cancelCtx, input.ButtonStart, []input.EventType{input.ButtonRelease}, relayFunc)
+		test.That(t, err, test.ShouldBeNil)
+
+		streamServer.fail = true
+
+		eventReqList.Controller = "inputController1"
+
+		err = server.InputControllerEventStream(eventReqList, streamServer)
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "send fail")
+
+		var streamErr error
+		done := make(chan struct{})
+		streamServer.fail = false
+		go func() {
+			streamErr = server.InputControllerEventStream(eventReqList, streamServer)
+			close(done)
+		}()
+
+		resp3 := <-messageCh
+		test.That(t, resp3.Control, test.ShouldEqual, string(input.ButtonStart))
+		test.That(t, resp3.Event, test.ShouldEqual, input.ButtonRelease)
+		test.That(t, resp3.Value, test.ShouldEqual, 0)
+		test.That(t, resp3.Time.AsTime().After(startTime), test.ShouldBeTrue)
+		test.That(t, resp3.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
+
+		cancel()
+		<-done
+		test.That(t, streamErr, test.ShouldEqual, context.Canceled)
+
+	})
+
 	t.Run("ForceMatrixMatrix", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
@@ -2122,8 +2278,30 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capMatrix, test.ShouldResemble, expectedMatrix)
-
 	})
+
+}
+
+type robotServiceInputControllerEventStreamServer struct {
+	grpc.ServerStream // not set
+	ctx               context.Context
+	messageCh         chan<- *pb.InputControllerEvent
+	fail              bool
+}
+
+func (x *robotServiceInputControllerEventStreamServer) Context() context.Context {
+	return x.ctx
+}
+
+func (x *robotServiceInputControllerEventStreamServer) Send(m *pb.InputControllerEvent) error {
+	if x.fail {
+		return errors.New("send fail")
+	}
+	if x.messageCh == nil {
+		return nil
+	}
+	x.messageCh <- m
+	return nil
 }
 
 type robotServiceStatusStreamServer struct {
