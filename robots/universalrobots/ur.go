@@ -175,11 +175,6 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 	}
 }
 
-// Frame returns the intrinsic frame of the arm
-func (ua *URArm) Frame() referenceframe.Frame {
-	return ua.frame
-}
-
 // FrameSystemLink returns all the information necessary for including the arm in a FrameSystem
 func (ua *URArm) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
 	return ua.frameconfig, ua.frame

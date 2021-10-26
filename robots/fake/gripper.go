@@ -36,11 +36,6 @@ type Gripper struct {
 	frameconfig *config.Frame
 }
 
-// Frame returns the intrinsic frame of the gripper
-func (g *Gripper) Frame() referenceframe.Frame {
-	return g.frame
-}
-
 // FrameSystemLink returns all the information necessary for including the gripper in a FrameSystem
 func (g *Gripper) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
 	return g.frameconfig, g.frame
