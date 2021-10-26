@@ -18,6 +18,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc/client"
+	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/resource"
@@ -32,37 +33,39 @@ import (
 
 // robotParts are the actual parts that make up a robot.
 type robotParts struct {
-	remotes        map[string]*remoteRobot
-	boards         map[string]*proxyBoard
-	grippers       map[string]*proxyGripper
-	cameras        map[string]*proxyCamera
-	lidars         map[string]*proxyLidar
-	bases          map[string]*proxyBase
-	sensors        map[string]sensor.Sensor
-	servos         map[string]*proxyServo
-	motors         map[string]*proxyMotor
-	services       map[string]interface{}
-	functions      map[string]struct{}
-	resources      map[resource.Name]interface{}
-	processManager pexec.ProcessManager
+	remotes          map[string]*remoteRobot
+	boards           map[string]*proxyBoard
+	grippers         map[string]*proxyGripper
+	cameras          map[string]*proxyCamera
+	lidars           map[string]*proxyLidar
+	bases            map[string]*proxyBase
+	sensors          map[string]sensor.Sensor
+	servos           map[string]*proxyServo
+	motors           map[string]*proxyMotor
+	inputControllers map[string]*proxyInputController
+	services         map[string]interface{}
+	functions        map[string]struct{}
+	resources        map[resource.Name]interface{}
+	processManager   pexec.ProcessManager
 }
 
 // newRobotParts returns a properly initialized set of parts.
 func newRobotParts(logger golog.Logger) *robotParts {
 	return &robotParts{
-		remotes:        map[string]*remoteRobot{},
-		boards:         map[string]*proxyBoard{},
-		grippers:       map[string]*proxyGripper{},
-		cameras:        map[string]*proxyCamera{},
-		lidars:         map[string]*proxyLidar{},
-		bases:          map[string]*proxyBase{},
-		sensors:        map[string]sensor.Sensor{},
-		servos:         map[string]*proxyServo{},
-		motors:         map[string]*proxyMotor{},
-		services:       map[string]interface{}{},
-		functions:      map[string]struct{}{},
-		resources:      map[resource.Name]interface{}{},
-		processManager: pexec.NewProcessManager(logger),
+		remotes:          map[string]*remoteRobot{},
+		boards:           map[string]*proxyBoard{},
+		grippers:         map[string]*proxyGripper{},
+		cameras:          map[string]*proxyCamera{},
+		lidars:           map[string]*proxyLidar{},
+		bases:            map[string]*proxyBase{},
+		sensors:          map[string]sensor.Sensor{},
+		servos:           map[string]*proxyServo{},
+		motors:           map[string]*proxyMotor{},
+		inputControllers: map[string]*proxyInputController{},
+		services:         map[string]interface{}{},
+		functions:        map[string]struct{}{},
+		resources:        map[resource.Name]interface{}{},
+		processManager:   pexec.NewProcessManager(logger),
 	}
 }
 
@@ -174,6 +177,15 @@ func (parts *robotParts) AddMotor(m motor.Motor, c config.Component) {
 		m = proxy.actual
 	}
 	parts.motors[c.Name] = &proxyMotor{actual: m}
+}
+
+// AddInputController adds a controller to the parts.
+func (parts *robotParts) AddInputController(ic input.Controller, c config.Component) {
+	c = fixType(c, config.ComponentTypeInputController, len(parts.inputControllers))
+	if proxy, ok := ic.(*proxyInputController); ok {
+		ic = proxy.actual
+	}
+	parts.inputControllers[c.Name] = &proxyInputController{actual: ic}
 }
 
 // AddService adds a service to the parts.
@@ -323,6 +335,15 @@ func (parts *robotParts) MotorNames() []string {
 	return parts.mergeNamesWithRemotes(names, robot.Robot.MotorNames)
 }
 
+// InputControllerNames returns the names of all controllers in the parts.
+func (parts *robotParts) InputControllerNames() []string {
+	names := []string{}
+	for k := range parts.inputControllers {
+		names = append(names, k)
+	}
+	return parts.mergeNamesWithRemotes(names, robot.Robot.InputControllerNames)
+}
+
 // FunctionNames returns the names of all functions in the parts.
 func (parts *robotParts) FunctionNames() []string {
 	names := []string{}
@@ -407,6 +428,12 @@ func (parts *robotParts) Clone() *robotParts {
 			clonedParts.motors[k] = v
 		}
 	}
+	if len(parts.inputControllers) != 0 {
+		clonedParts.inputControllers = make(map[string]*proxyInputController, len(parts.inputControllers))
+		for k, v := range parts.inputControllers {
+			clonedParts.inputControllers[k] = v
+		}
+	}
 	if len(parts.functions) != 0 {
 		clonedParts.functions = make(map[string]struct{}, len(parts.functions))
 		for k, v := range parts.functions {
@@ -489,6 +516,12 @@ func (parts *robotParts) Close() error {
 	for _, x := range parts.motors {
 		if err := utils.TryClose(x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing motor: %w", err))
+		}
+	}
+
+	for _, x := range parts.inputControllers {
+		if err := utils.TryClose(x); err != nil {
+			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing input controller: %w", err))
 		}
 	}
 
@@ -642,6 +675,12 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 				return err
 			}
 			parts.AddMotor(motor, c)
+		case config.ComponentTypeInputController:
+			controller, err := r.newInputController(ctx, c)
+			if err != nil {
+				return err
+			}
+			parts.AddInputController(controller, c)
 		default:
 			r, err := r.newResource(ctx, c)
 			if err != nil {
@@ -832,6 +871,22 @@ func (parts *robotParts) MotorByName(name string) (motor.Motor, bool) {
 	return nil, false
 }
 
+// InputControllerByName returns the given input.Controller by name, if it exists;
+// returns nil otherwise.
+func (parts *robotParts) InputControllerByName(name string) (input.Controller, bool) {
+	part, ok := parts.inputControllers[name]
+	if ok {
+		return part, true
+	}
+	for _, remote := range parts.remotes {
+		part, ok := remote.InputControllerByName(name)
+		if ok {
+			return part, true
+		}
+	}
+	return nil, false
+}
+
 func (parts *robotParts) ServiceByName(name string) (interface{}, bool) {
 	part, ok := parts.services[name]
 	if ok {
@@ -960,6 +1015,15 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 		for k, v := range toAdd.motors {
 			parts.motors[k] = v
+		}
+	}
+
+	if len(toAdd.inputControllers) != 0 {
+		if parts.inputControllers == nil {
+			parts.inputControllers = make(map[string]*proxyInputController, len(toAdd.inputControllers))
+		}
+		for k, v := range toAdd.inputControllers {
+			parts.inputControllers[k] = v
 		}
 	}
 
@@ -1118,6 +1182,17 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 		}
 	}
 
+	if len(toModify.inputControllers) != 0 {
+		for k, v := range toModify.inputControllers {
+			old, ok := parts.inputControllers[k]
+			if !ok {
+				// should not happen
+				continue
+			}
+			old.replace(v)
+		}
+	}
+
 	// TODO(erd): how to handle service replacement?
 
 	if len(toModify.resources) != 0 {
@@ -1198,6 +1273,12 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 	if len(toRemove.motors) != 0 {
 		for k := range toRemove.motors {
 			delete(parts.motors, k)
+		}
+	}
+
+	if len(toRemove.inputControllers) != 0 {
+		for k := range toRemove.inputControllers {
+			delete(parts.inputControllers, k)
 		}
 	}
 
@@ -1299,6 +1380,12 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 				continue
 			}
 			filtered.AddMotor(part, compConf)
+		case config.ComponentTypeInputController:
+			part, ok := parts.InputControllerByName(compConf.Name)
+			if !ok {
+				continue
+			}
+			filtered.AddInputController(part, compConf)
 		default:
 			rName := compConf.ResourceName()
 			resource, ok := parts.ResourceByName(rName)
