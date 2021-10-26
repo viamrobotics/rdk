@@ -118,12 +118,13 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type Temp struct {
-		External               bool
-		WebRTCEnabled          bool
-		WebRTCHost             string
-		WebRTCSignalingAddress string
-		Actions                []string
-		Views                  []View
+		External                   bool
+		WebRTCEnabled              bool
+		WebRTCHost                 string
+		WebRTCSignalingAddress     string
+		WebRTCAdditionalICEServers []map[string]interface{}
+		Actions                    []string
+		Views                      []View
 	}
 
 	temp := Temp{
@@ -382,6 +383,7 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options web.Options, logg
 		Insecure:         options.Insecure,
 		SignalingAddress: options.SignalingAddress,
 		SignalingHost:    options.Name,
+		Config:           &grpc.DefaultWebRTCConfiguration,
 	}}
 	rpcServer, err := rpcserver.NewWithOptions(rpcOpts, logger)
 	if err != nil {

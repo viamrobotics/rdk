@@ -23,10 +23,13 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
+	metadataserver "go.viam.com/core/grpc/metadata/server"
 	"go.viam.com/core/grpc/server"
+	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
+	metadatapb "go.viam.com/core/proto/api/service/v1"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/rimage"
@@ -93,6 +96,9 @@ var emptyStatus = &pb.Status{
 		"motor1": {},
 		"motor2": {},
 	},
+	InputControllers: map[string]bool{
+		"inputController1": true,
+	},
 	Servos: map[string]*pb.ServoStatus{
 		"servo1": {},
 	},
@@ -108,6 +114,8 @@ var emptyStatus = &pb.Status{
 		"board3": {},
 	},
 }
+
+var emptyResources = []resource.Name{arm.Named("arm1")}
 
 var finalStatus = &pb.Status{
 	Arms: map[string]*pb.ArmStatus{
@@ -181,6 +189,10 @@ var finalStatus = &pb.Status{
 		"motor2": {},
 		"motor3": {},
 	},
+	InputControllers: map[string]bool{
+		"inputController2": true,
+		"inputController3": true,
+	},
 	Boards: map[string]*pb.BoardStatus{
 		"board2": {
 			Analogs: map[string]*pb.AnalogStatus{
@@ -202,6 +214,8 @@ var finalStatus = &pb.Status{
 		},
 	},
 }
+
+var finalResources = []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
 
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -246,7 +260,9 @@ func TestClient(t *testing.T) {
 	injectRobot1.MotorByNameFunc = func(name string) (motor.Motor, bool) {
 		return nil, false
 	}
-
+	injectRobot1.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
+		return nil, false
+	}
 	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return emptyStatus, nil
 	}
@@ -256,6 +272,7 @@ func TestClient(t *testing.T) {
 		capGripperName          string
 		capBoardName            string
 		capMotorName            string
+		capInputControllerName  string
 		capServoName            string
 		capAnalogReaderName     string
 		capDigitalInterruptName string
@@ -582,6 +599,35 @@ func TestClient(t *testing.T) {
 	}
 	injectIMUDev.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
 		return &spatialmath.EulerAngles{1, 2, 3}, nil
+	}
+
+	injectInputDev := &inject.InputController{}
+	injectInputDev.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
+	}
+	injectInputDev.LastEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+		eventsOut := make(map[input.Control]input.Event)
+		eventsOut[input.AbsoluteX] = input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
+		eventsOut[input.ButtonStart] = input.Event{Time: time.Now(), Event: input.ButtonPress, Control: input.ButtonStart, Value: 1.0}
+		return eventsOut, nil
+	}
+	evStream := make(chan input.Event)
+	injectInputDev.RegisterControlCallbackFunc = func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+		if ctrlFunc != nil {
+			outEvent := input.Event{Time: time.Now(), Event: triggers[0], Control: input.ButtonStart, Value: 0.0}
+			if control == input.AbsoluteX {
+				outEvent = input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.75}
+			}
+			ctrlFunc(ctx, outEvent)
+		} else {
+			evStream <- input.Event{}
+		}
+		return nil
+	}
+
+	injectRobot2.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
+		capInputControllerName = name
+		return injectInputDev, true
 	}
 
 	go gServer1.Serve(listener1)
@@ -1066,6 +1112,89 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capLidarName, test.ShouldEqual, "lidar1")
 
+	inputDev, ok := client.InputControllerByName("inputController1")
+	test.That(t, ok, test.ShouldBeTrue)
+	controlList, err := inputDev.Controls(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
+
+	startTime := time.Now()
+	outState, err := inputDev.LastEvents(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, outState[input.ButtonStart].Event, test.ShouldEqual, input.ButtonPress)
+	test.That(t, outState[input.ButtonStart].Control, test.ShouldEqual, input.ButtonStart)
+	test.That(t, outState[input.ButtonStart].Value, test.ShouldEqual, 1)
+	test.That(t, outState[input.ButtonStart].Time.After(startTime), test.ShouldBeTrue)
+	test.That(t, outState[input.ButtonStart].Time.Before(time.Now()), test.ShouldBeTrue)
+
+	test.That(t, outState[input.AbsoluteX].Event, test.ShouldEqual, input.PositionChangeAbs)
+	test.That(t, outState[input.AbsoluteX].Control, test.ShouldEqual, input.AbsoluteX)
+	test.That(t, outState[input.AbsoluteX].Value, test.ShouldEqual, 0.7)
+	test.That(t, outState[input.AbsoluteX].Time.After(startTime), test.ShouldBeTrue)
+	test.That(t, outState[input.AbsoluteX].Time.Before(time.Now()), test.ShouldBeTrue)
+
+	ctrlFuncIn := func(ctx context.Context, event input.Event) { evStream <- event }
+	err = inputDev.RegisterControlCallback(context.Background(), input.ButtonStart, []input.EventType{input.ButtonRelease}, ctrlFuncIn)
+	test.That(t, err, test.ShouldBeNil)
+	ev := <-evStream
+	test.That(t, ev.Event, test.ShouldEqual, input.ButtonRelease)
+	test.That(t, ev.Control, test.ShouldEqual, input.ButtonStart)
+	test.That(t, ev.Value, test.ShouldEqual, 0.0)
+	test.That(t, ev.Time.After(startTime), test.ShouldBeTrue)
+	test.That(t, ev.Time.Before(time.Now()), test.ShouldBeTrue)
+	test.That(t, capInputControllerName, test.ShouldEqual, "inputController1")
+
+	err = inputDev.RegisterControlCallback(context.Background(), input.AbsoluteX, []input.EventType{input.PositionChangeAbs}, ctrlFuncIn)
+	test.That(t, err, test.ShouldBeNil)
+	ev1 := <-evStream
+	ev2 := <-evStream
+
+	var btnEv, posEv input.Event
+	if ev1.Control == input.ButtonStart {
+		btnEv = ev1
+		posEv = ev2
+	} else {
+		btnEv = ev2
+		posEv = ev1
+	}
+
+	test.That(t, btnEv.Event, test.ShouldEqual, input.ButtonRelease)
+	test.That(t, btnEv.Control, test.ShouldEqual, input.ButtonStart)
+	test.That(t, btnEv.Value, test.ShouldEqual, 0.0)
+	test.That(t, btnEv.Time.After(startTime), test.ShouldBeTrue)
+	test.That(t, btnEv.Time.Before(time.Now()), test.ShouldBeTrue)
+	test.That(t, capInputControllerName, test.ShouldEqual, "inputController1")
+
+	test.That(t, posEv.Event, test.ShouldEqual, input.PositionChangeAbs)
+	test.That(t, posEv.Control, test.ShouldEqual, input.AbsoluteX)
+	test.That(t, posEv.Value, test.ShouldEqual, 0.75)
+	test.That(t, posEv.Time.After(startTime), test.ShouldBeTrue)
+	test.That(t, posEv.Time.Before(time.Now()), test.ShouldBeTrue)
+	test.That(t, capInputControllerName, test.ShouldEqual, "inputController1")
+
+	err = inputDev.RegisterControlCallback(context.Background(), input.AbsoluteX, []input.EventType{input.PositionChangeAbs}, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	ev1 = <-evStream
+	ev2 = <-evStream
+
+	if ev1.Control == input.ButtonStart {
+		btnEv = ev1
+		posEv = ev2
+	} else {
+		btnEv = ev2
+		posEv = ev1
+	}
+
+	test.That(t, posEv, test.ShouldResemble, input.Event{})
+
+	test.That(t, btnEv.Event, test.ShouldEqual, input.ButtonRelease)
+	test.That(t, btnEv.Control, test.ShouldEqual, input.ButtonStart)
+	test.That(t, btnEv.Value, test.ShouldEqual, 0.0)
+	test.That(t, btnEv.Time.After(startTime), test.ShouldBeTrue)
+	test.That(t, btnEv.Time.Before(time.Now()), test.ShouldBeTrue)
+	test.That(t, capInputControllerName, test.ShouldEqual, "inputController1")
+
 	sensorDev, ok := client.SensorByName("compass1")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, sensorDev, test.ShouldImplement, (*compass.Compass)(nil))
@@ -1174,13 +1303,15 @@ func newResourceNameSet(values ...resource.Name) map[resource.Name]struct{} {
 	return set
 }
 
-func TestClientReferesh(t *testing.T) {
+func TestClientRefresh(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	injectMetadata := &inject.Metadata{}
+	metadatapb.RegisterMetadataServiceServer(gServer, metadataserver.New(injectMetadata))
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
@@ -1201,6 +1332,13 @@ func TestClientReferesh(t *testing.T) {
 			return finalStatus, nil
 		}
 		return emptyStatus, nil
+	}
+
+	injectMetadata.AllFunc = func() []resource.Name {
+		if callCount > 5 {
+			return finalResources
+		}
+		return emptyResources
 	}
 
 	start := time.Now()
@@ -1237,6 +1375,10 @@ func TestClientReferesh(t *testing.T) {
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return emptyStatus, nil
 	}
+
+	injectMetadata.AllFunc = func() []resource.Name {
+		return emptyResources
+	}
 	client, err = NewClientWithOptions(
 		context.Background(),
 		listener.Addr().String(),
@@ -1257,6 +1399,9 @@ func TestClientReferesh(t *testing.T) {
 
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return finalStatus, nil
+	}
+	injectMetadata.AllFunc = func() []resource.Name {
+		return finalResources
 	}
 	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
 
@@ -1281,6 +1426,8 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	injectMetadata := &inject.Metadata{}
+	metadatapb.RegisterMetadataServiceServer(gServer, metadataserver.New(injectMetadata))
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
@@ -1289,13 +1436,17 @@ func TestClientDialerOption(t *testing.T) {
 		return emptyStatus, nil
 	}
 
+	injectMetadata.AllFunc = func() []resource.Name {
+		return emptyResources
+	}
+
 	td := &trackingDialer{Dialer: dialer.NewCachedDialer()}
 	ctx := dialer.ContextWithDialer(context.Background(), td)
 	client1, err := NewClient(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	client2, err := NewClient(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.dialCalled, test.ShouldEqual, 2)
+	test.That(t, td.dialCalled, test.ShouldEqual, 4)
 
 	err = client1.Close()
 	test.That(t, err, test.ShouldBeNil)
@@ -1308,7 +1459,12 @@ type trackingDialer struct {
 	dialCalled int
 }
 
-func (td *trackingDialer) Dial(ctx context.Context, target string, opts ...grpc.DialOption) (dialer.ClientConn, error) {
+func (td *trackingDialer) DialDirect(ctx context.Context, target string, opts ...grpc.DialOption) (dialer.ClientConn, error) {
 	td.dialCalled++
-	return td.Dialer.Dial(ctx, target, opts...)
+	return td.Dialer.DialDirect(ctx, target, opts...)
+}
+
+func (td *trackingDialer) DialFunc(proto string, target string, f func() (dialer.ClientConn, error)) (dialer.ClientConn, error) {
+	td.dialCalled++
+	return td.Dialer.DialFunc(proto, target, f)
 }

@@ -11,6 +11,7 @@ import (
 	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/gripper"
+	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
@@ -55,6 +56,9 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	injectRobot.MotorNamesFunc = func() []string {
 		return []string{"motor1", "motor2"}
 	}
+	injectRobot.InputControllerNamesFunc = func() []string {
+		return []string{"inputController1", "inputController2"}
+	}
 	injectRobot.FunctionNamesFunc = func() []string {
 		return []string{"func1", "func2"}
 	}
@@ -91,6 +95,9 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	}
 	injectRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
 		return &fake.Motor{Name: name}, true
+	}
+	injectRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
+		return &fake.InputController{Name: name}, true
 	}
 
 	if withRemotes {
@@ -176,6 +183,10 @@ func TestCreateStatus(t *testing.T) {
 				"motor1": {},
 				"motor2": {},
 			},
+			InputControllers: map[string]bool{
+				"inputController1": true,
+				"inputController2": true,
+			},
 			Functions: map[string]bool{
 				"func1": true,
 				"func2": true,
@@ -243,6 +254,10 @@ func TestCreateStatus(t *testing.T) {
 			Motors: map[string]*pb.MotorStatus{
 				"motor1": {},
 				"motor2": {},
+			},
+			InputControllers: map[string]bool{
+				"inputController1": true,
+				"inputController2": true,
 			},
 			Functions: map[string]bool{
 				"func1": true,

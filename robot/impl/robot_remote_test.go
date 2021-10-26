@@ -16,6 +16,7 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
+	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
@@ -62,6 +63,9 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 	}
 	injectRobot.MotorNamesFunc = func() []string {
 		return []string{fmt.Sprintf("motor1%s", suffix), fmt.Sprintf("motor2%s", suffix)}
+	}
+	injectRobot.InputControllerNamesFunc = func() []string {
+		return []string{fmt.Sprintf("inputController1%s", suffix), fmt.Sprintf("inputController2%s", suffix)}
 	}
 	injectRobot.FunctionNamesFunc = func() []string {
 		return []string{fmt.Sprintf("func1%s", suffix), fmt.Sprintf("func2%s", suffix)}
@@ -154,6 +158,12 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 			return nil, false
 		}
 		return &fake.Motor{Name: name}, true
+	}
+	injectRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
+		if _, ok := utils.NewStringSet(injectRobot.InputControllerNames()...)[name]; !ok {
+			return nil, false
+		}
+		return &fake.InputController{Name: name}, true
 	}
 	injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.ServiceNames()...)[name]; !ok {

@@ -16,6 +16,7 @@
       window.webrtcEnabled = {{ .WebRTCEnabled }}
       window.webrtcHost = {{ .WebRTCHost }}
       window.webrtcSignalingAddress = {{ .WebRTCSignalingAddress }}
+      window.webrtcAdditionalICEServers = {{ .WebRTCAdditionalICEServers }}
     </script>
     {{ if .External }}
     <script src="/static/core/control.js"></script>
@@ -128,6 +129,7 @@
               rawStatus : null,
               status : {},
               pcdClick : {},
+              resources: [],
               fullcloud: null,
               segments : null,
               segCenters : null,
@@ -144,6 +146,14 @@
               data: theData,
               components: {},
               methods : {
+                  filterResources : function(namespace, type, subtype) {
+                    return theData.resources.filter(elem => {
+                      return elem.namespace == namespace && elem.type == type && elem.subtype == subtype
+                    })
+                  },
+                  armByName : function(name) {
+                    return theData.status.armsMap.find(elem => elem.name == name) || {}
+                  },
                   armGridInc : function(name, getterSetter, amount) {
                       if (getterSetter[0] == 'o' || getterSetter[0] == 'O') {
                           amount /= 100;
@@ -185,7 +195,8 @@
                       req.setTo(newPosition);
                       robotService.armMoveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
-                  armModifyAll : function(name, arm) {
+                  armModifyAll : function(name) {
+                      const arm = theData.rawStatus.getArmsMap().get(name);
                       var n = { name : name, pieces : [] };
 
                       for ( var i=0; i < arm.pieces.length; i++) {
@@ -200,7 +211,7 @@
 
                       theData.armToggle[name] = n;
                   },
-                  armModifyAllCancel : function(name, arm) {
+                  armModifyAllCancel : function(name) {
                       delete theData.armToggle[name];
                   },
                   armModifyAllDoGrid : function(name) {
@@ -592,6 +603,20 @@
               },
           })
 
+          // query metadata service every 0.5s
+          const metadataCallBack = function(err, resp) {
+            grpcCallback(err, resp, false)
+            if (err) {
+              return;
+            }
+            resources = resp.toObject().resourcesList
+            theData.resources = resources
+          }
+          const queryMetadata = async function() {
+            metadataService.resources(new metadataApi.ResourcesRequest(), {}, metadataCallBack);
+            setTimeout(() => queryMetadata(), 500);
+          }
+
           const streamReq = new robotApi.StatusStreamRequest();
           streamReq.setEvery((new proto.google.protobuf.Duration()).setNanos(500000000)); // 500ms
 
@@ -625,6 +650,7 @@
               if (firstData) {
                 firstData = false;
                 checkLastStatus();
+                queryMetadata();
               }
             });
             statusStream.on('status', function(status) {
@@ -886,8 +912,11 @@
               setTimeout(updateWaypoints, 1000);
               return;
             }
+            let waypoints = [];
+            if (resp) {
+              waypoints = resp.getWaypointsList();
+            }
             const currentWaypoints = {};
-            var waypoints = resp.getWaypointsList();
             for (var i = 0; i < waypoints.length; i++) {
               const waypoint = waypoints[i];
               const pos = {lat: waypoint.getLocation().getLatitude(), lng: waypoint.getLocation().getLongitude()};
@@ -983,7 +1012,7 @@
       </div>
 
       <!-- ******* ARM *******  -->
-      <div class="arm" v-for="arm in status.armsMap" :key="arm.name">
+      <div class="arm" v-for="arm in filterResources('core', 'component', 'arm')" :key="arm.name">
         <h3>Arm ${arm.name}</h3>
         <table v-if="armToggle[arm.name]" border="1">
           <tr>
@@ -999,9 +1028,9 @@
           </tr>
           <tr>
             <th colspan="6">
-              <button v-on:click="armModifyAllDoGrid(arm.name, arm)">Go To Grid</button>
-              <button v-on:click="armModifyAllDoJoint(arm.name, arm)">Go To Joints</button>
-              <button v-on:click="armModifyAllCancel(arm.name, arm)">Cancel</button>
+              <button v-on:click="armModifyAllDoGrid(arm.name)">Go To Grid</button>
+              <button v-on:click="armModifyAllDoJoint(arm.name)">Go To Joints</button>
+              <button v-on:click="armModifyAllCancel(arm.name)">Cancel</button>
             </th>
           </tr>
         </table>
@@ -1010,7 +1039,7 @@
             <th colspan="3"><h5>GRID (mms)</h5></th>
             <th colspan="3"><h5>JOINTS (degrees)</h5></th>
           </tr>
-          <tr v-for="aa in arm.pieces" :key="aa.joint">
+          <tr v-for="aa in armByName(arm.name).pieces" :key="aa.joint">
             <th>${aa.grid[0]}</th>
             <td>
               <button v-on:click="armGridInc( arm.name, aa.grid[1], -10 )">--</button>
@@ -1031,8 +1060,8 @@
           </tr>
           <tr>
             <th colspan="8">
-              <button v-on:click="armHome( arm.name)">Home</button>
-              <button v-on:click="armModifyAll(arm.name, arm)">Modify All</button>
+              <button v-on:click="armHome(arm.name)">Home</button>
+              <button v-on:click="armModifyAll(arm.name)">Modify All</button>
             </th>
           </tr>
         </table> <!-- end main table -->
