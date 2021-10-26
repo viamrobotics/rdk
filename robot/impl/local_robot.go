@@ -257,9 +257,9 @@ func (r *localRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSyste
 	if err != nil {
 		return nil, err
 	}
-	// make frame system for each of its remote parts and merge to base
+	// get frame system for each of its remote parts and merge to base
 	for remoteName, remote := range r.parts.remotes {
-		logger.Debugf("getting remote frame system  %q from robot", remoteName)
+		logger.Debugf("getting remote frame system  %q", remoteName)
 		remoteFrameSys, err := remote.FrameSystem(ctx)
 		if err != nil {
 			return nil, err

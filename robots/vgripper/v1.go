@@ -266,11 +266,6 @@ func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	return vg, vg.Open(ctx)
 }
 
-// Frame returns the intrinsic frame of the gripper
-func (vg *GripperV1) Frame() referenceframe.Frame {
-	return vg.frame
-}
-
 // FrameSystemLink returns all the information necessary for including the gripper in a FrameSystem
 func (vg *GripperV1) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
 	return vg.frameconfig, vg.frame

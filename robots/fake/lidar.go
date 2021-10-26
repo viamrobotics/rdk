@@ -65,11 +65,6 @@ func NewLidar(cfg config.Component) *Lidar {
 	return &Lidar{Name: name, mu: &sync.Mutex{}, frame: frame, frameconfig: cfg.Frame}
 }
 
-// Frame returns the intrinsic frame of the lidar
-func (l *Lidar) Frame() referenceframe.Frame {
-	return l.frame
-}
-
 // FrameSystemLink returns all the information necessary for including the lidar in a FrameSystem
 func (l *Lidar) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
 	return l.frameconfig, l.frame

@@ -87,11 +87,6 @@ type ArmIK struct {
 	frameconfig *config.Frame
 }
 
-// Frame returns the intrinsic frame of the arm
-func (a *ArmIK) Frame() frame.Frame {
-	return a.frame
-}
-
 // FrameSystemLink returns all the information necessary for including the arm in a FrameSystem
 func (a *ArmIK) FrameSystemLink() (*config.Frame, frame.Frame) {
 	return a.frameconfig, a.frame

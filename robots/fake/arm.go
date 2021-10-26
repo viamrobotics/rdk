@@ -62,11 +62,6 @@ type Arm struct {
 	frameconfig *config.Frame
 }
 
-// Frame returns the intrinsic frame of the arm
-func (a *Arm) Frame() referenceframe.Frame {
-	return a.frame
-}
-
 // FrameSystemLink returns all the information necessary for including the arm in a FrameSystem
 func (a *Arm) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
 	return a.frameconfig, a.frame

@@ -312,11 +312,6 @@ func (e *eva) apiUnlock(ctx context.Context) {
 	}
 }
 
-// Frame returns the intrinsic frame of the arm
-func (e *eva) Frame() frame.Frame {
-	return e.frame
-}
-
 // FrameSystemLink returns all the information necessary for including the arm in a FrameSystem
 func (e *eva) FrameSystemLink() (*config.Frame, frame.Frame) {
 	return e.frameconfig, e.frame
