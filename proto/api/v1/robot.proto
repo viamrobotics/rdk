@@ -626,6 +626,28 @@ message JointPositions {
   repeated double degrees = 1;
 }
 
+message FrameTransformRequest{
+  string name = 1;
+  JointPositions inputs = 2;
+}
+
+message FrameTransformReponse{
+    ArmPosition pose = 1;
+}
+
+message FrameDoFRequest{
+  string name = 1;
+}
+
+message Limit{
+  double min = 1;
+  double max = 2;
+}
+ 
+message FrameDoFResponse{
+  Limit repeated limits = 1;
+}
+
 message ArmCurrentPositionRequest {
   string name = 1;
 }
