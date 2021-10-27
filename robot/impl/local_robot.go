@@ -32,9 +32,6 @@ import (
 	"go.viam.com/core/status"
 
 	// registration
-	_ "go.viam.com/SensorExporter/go"
-
-	// registration
 	_ "go.viam.com/core/camera/velodyne" // velodyne lidary
 	_ "go.viam.com/core/robots/fake"
 	_ "go.viam.com/core/sensor/compass/gy511"
