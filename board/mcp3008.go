@@ -17,7 +17,7 @@ func (mar *MCP3008AnalogReader) Read(ctx context.Context) (value int, err error)
 	var tx [3]byte
 	tx[0] = 1                            // start bit
 	tx[1] = byte((8 + mar.Channel) << 4) // single-ended
-	tx[2] = 0                            // extra clocks to recieve full 10 bits of data
+	tx[2] = 0                            // extra clocks to receive full 10 bits of data
 
 	bus, err := mar.Bus.OpenHandle()
 	if err != nil {
