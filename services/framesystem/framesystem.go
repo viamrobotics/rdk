@@ -29,7 +29,8 @@ func init() {
 
 // A Service that returns the frame system for a robot.
 type Service interface {
-	FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error)
+	LocalFrameSystem(ctx context.Context) (referenceframe.FrameSystem, error)
+	Frame(ctx context.Context, name string) (referenceframe.Frame, error)
 	Close() error
 }
 
@@ -62,10 +63,22 @@ type frameSystemService struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (svc *frameSystemService) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
+// LocalFrameSystem returns just the local components of the robot (excludes any parts from remote robots)
+func (svc *frameSystemService) LocalFrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.fs, nil
+}
+
+// Frame returns a specific frame from the local frame system
+func (svc *frameSystemService) Frame(ctx context.Context, name string) (referenceframe.Frame, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	frame := svc.fs.GetFrame(name)
+	if frame == nil {
+		return nil, errors.Errorf("frame %q not found in frame system %q", name, svc.fs.Name())
+	}
+	return frame, nil
 }
 
 func (svc *frameSystemService) Close() error {

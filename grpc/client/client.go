@@ -657,6 +657,32 @@ func (rc *RobotClient) Logger() golog.Logger {
 	return rc.logger
 }
 
+// frameClient satisfies a gRPC based referenceframe.Frame. Refer to the interface
+// for desscriptions of its methods.
+type frameClient struct {
+	rc   *RobotClient
+	name string
+}
+
+func (fc *frameClient) Name() string {
+	return fc.name
+}
+
+func (fc *frameClient) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+	in := referenceframe.InputsToJointPos(inputs)
+	resp, err := fc.rc.client.FrameTransform(ctx, &pb.FrameTransformRequest{
+		Name:   fc.name,
+		Inputs: in,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return spatialmath.NewPoseFromArmPos(resp.Pose), nil
+}
+
+func (fc *frameClient) DoF() []referenceframe.Limit {
+}
+
 // baseClient satisfies a gRPC based base.Base. Refer to the interface
 // for descriptions of its methods.
 type baseClient struct {
