@@ -460,13 +460,6 @@ service RobotService {
     };
   }
 
-  // Frame System Service 
-  rpc FrameSystemService(FrameSystemServiceRequest) returns (FrameSystemServiceResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/services/framesystem"
-    };
-  }
-
   // Navigation Service
   rpc NavigationServiceMode(NavigationServiceModeRequest) returns (NavigationServiceModeResponse) {
     option (google.api.http) = {
