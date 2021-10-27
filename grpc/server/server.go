@@ -1073,6 +1073,23 @@ func (s *Server) ResourceRunCommand(ctx context.Context, req *pb.ResourceRunComm
 	return &pb.ResourceRunCommandResponse{Result: resultPb}, nil
 }
 
+// FrameTransform returns the Pose of the frame's Transform function given the inputs
+func (s *Server) FrameTransform(ctx context.Context, req *pb.FrameTransformRequest) (*pb.FrameTransformResponse, error) {
+	fsService, ok := s.r.ServiceByName("frame_system")
+	if !ok {
+		return nil, errors.New("no service with name frame_system")
+	}
+	// get the frame
+	// put in the Inputs and get the output Pose
+
+	return &pb.FrameTransformResponse{}
+}
+
+// FrameDoF
+func (s *Server) FrameTransform(ctx context.Context, req *pb.FrameDoFRequest) (*pb.FrameDoFResponse, error) {
+	return &pb.FrameDoFResponse{}
+}
+
 // NavigationServiceMode returns the mode of the service.
 func (s *Server) NavigationServiceMode(ctx context.Context, req *pb.NavigationServiceModeRequest) (*pb.NavigationServiceModeResponse, error) {
 	svc, ok := s.r.ServiceByName("navigation")
