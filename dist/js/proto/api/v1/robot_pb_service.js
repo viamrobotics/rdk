@@ -542,6 +542,24 @@ RobotService.ResourceRunCommand = {
   responseType: proto_api_v1_robot_pb.ResourceRunCommandResponse
 };
 
+RobotService.FrameTransform = {
+  methodName: "FrameTransform",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.FrameTransformRequest,
+  responseType: proto_api_v1_robot_pb.FrameTransformResponse
+};
+
+RobotService.FrameDoF = {
+  methodName: "FrameDoF",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.FrameDoFRequest,
+  responseType: proto_api_v1_robot_pb.FrameDoFResponse
+};
+
 RobotService.NavigationServiceMode = {
   methodName: "NavigationServiceMode",
   service: RobotService,
@@ -2476,6 +2494,68 @@ RobotServiceClient.prototype.resourceRunCommand = function resourceRunCommand(re
     callback = arguments[1];
   }
   var client = grpc.unary(RobotService.ResourceRunCommand, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.frameTransform = function frameTransform(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.FrameTransform, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.frameDoF = function frameDoF(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.FrameDoF, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

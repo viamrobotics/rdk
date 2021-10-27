@@ -589,9 +589,8 @@ message Status {
 message ComponentConfig {
   string name = 1;
   string type = 2;
-  string model = 3;
-  string parent = 4;
-  ArmPosition pose = 5;
+  string parent = 3;
+  ArmPosition pose = 4;
 }
 
 message ConfigRequest {}
@@ -644,7 +643,7 @@ message FrameTransformRequest{
   JointPositions inputs = 2;
 }
 
-message FrameTransformReponse{
+message FrameTransformResponse{
     ArmPosition pose = 1;
 }
 
@@ -656,9 +655,9 @@ message Limit{
   double min = 1;
   double max = 2;
 }
- 
+
 message FrameDoFResponse{
-  Limit repeated limits = 1;
+  repeated Limit limits = 1;
 }
 
 message ArmCurrentPositionRequest {

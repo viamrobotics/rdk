@@ -149,9 +149,6 @@ export class ComponentConfig extends jspb.Message {
   getType(): string;
   setType(value: string): void;
 
-  getModel(): string;
-  setModel(value: string): void;
-
   getParent(): string;
   setParent(value: string): void;
 
@@ -174,7 +171,6 @@ export namespace ComponentConfig {
   export type AsObject = {
     name: string,
     type: string,
-    model: string,
     parent: string,
     pose?: ArmPosition.AsObject,
   }
@@ -345,6 +341,120 @@ export class JointPositions extends jspb.Message {
 export namespace JointPositions {
   export type AsObject = {
     degreesList: Array<number>,
+  }
+}
+
+export class FrameTransformRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  hasInputs(): boolean;
+  clearInputs(): void;
+  getInputs(): JointPositions | undefined;
+  setInputs(value?: JointPositions): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): FrameTransformRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: FrameTransformRequest): FrameTransformRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: FrameTransformRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): FrameTransformRequest;
+  static deserializeBinaryFromReader(message: FrameTransformRequest, reader: jspb.BinaryReader): FrameTransformRequest;
+}
+
+export namespace FrameTransformRequest {
+  export type AsObject = {
+    name: string,
+    inputs?: JointPositions.AsObject,
+  }
+}
+
+export class FrameTransformResponse extends jspb.Message {
+  hasPose(): boolean;
+  clearPose(): void;
+  getPose(): ArmPosition | undefined;
+  setPose(value?: ArmPosition): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): FrameTransformResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: FrameTransformResponse): FrameTransformResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: FrameTransformResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): FrameTransformResponse;
+  static deserializeBinaryFromReader(message: FrameTransformResponse, reader: jspb.BinaryReader): FrameTransformResponse;
+}
+
+export namespace FrameTransformResponse {
+  export type AsObject = {
+    pose?: ArmPosition.AsObject,
+  }
+}
+
+export class FrameDoFRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): FrameDoFRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: FrameDoFRequest): FrameDoFRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: FrameDoFRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): FrameDoFRequest;
+  static deserializeBinaryFromReader(message: FrameDoFRequest, reader: jspb.BinaryReader): FrameDoFRequest;
+}
+
+export namespace FrameDoFRequest {
+  export type AsObject = {
+    name: string,
+  }
+}
+
+export class Limit extends jspb.Message {
+  getMin(): number;
+  setMin(value: number): void;
+
+  getMax(): number;
+  setMax(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): Limit.AsObject;
+  static toObject(includeInstance: boolean, msg: Limit): Limit.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: Limit, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): Limit;
+  static deserializeBinaryFromReader(message: Limit, reader: jspb.BinaryReader): Limit;
+}
+
+export namespace Limit {
+  export type AsObject = {
+    min: number,
+    max: number,
+  }
+}
+
+export class FrameDoFResponse extends jspb.Message {
+  clearLimitsList(): void;
+  getLimitsList(): Array<Limit>;
+  setLimitsList(value: Array<Limit>): void;
+  addLimits(value?: Limit, index?: number): Limit;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): FrameDoFResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: FrameDoFResponse): FrameDoFResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: FrameDoFResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): FrameDoFResponse;
+  static deserializeBinaryFromReader(message: FrameDoFResponse, reader: jspb.BinaryReader): FrameDoFResponse;
+}
+
+export namespace FrameDoFResponse {
+  export type AsObject = {
+    limitsList: Array<Limit.AsObject>,
   }
 }
 

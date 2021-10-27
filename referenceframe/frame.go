@@ -70,7 +70,7 @@ func PbLimitsToRefLimits(limits []*pb.Limit) []Limit {
 func RefLimitsToPbLimits(limits []Limit) []*pb.Limit {
 	pbLimits := make([]*pb.Limit, len(limits))
 	for i, f := range limits {
-		pbLimits[i] = *pb.Limit{f.Min, f.Max}
+		pbLimits[i] = &pb.Limit{Min: f.Min, Max: f.Max}
 	}
 	return pbLimits
 }

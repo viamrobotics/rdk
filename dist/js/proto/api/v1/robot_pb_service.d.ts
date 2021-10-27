@@ -536,6 +536,24 @@ type RobotServiceResourceRunCommand = {
   readonly responseType: typeof proto_api_v1_robot_pb.ResourceRunCommandResponse;
 };
 
+type RobotServiceFrameTransform = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.FrameTransformRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.FrameTransformResponse;
+};
+
+type RobotServiceFrameDoF = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.FrameDoFRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.FrameDoFResponse;
+};
+
 type RobotServiceNavigationServiceMode = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -705,6 +723,8 @@ export class RobotService {
   static readonly InputControllerLastEvents: RobotServiceInputControllerLastEvents;
   static readonly InputControllerEventStream: RobotServiceInputControllerEventStream;
   static readonly ResourceRunCommand: RobotServiceResourceRunCommand;
+  static readonly FrameTransform: RobotServiceFrameTransform;
+  static readonly FrameDoF: RobotServiceFrameDoF;
   static readonly NavigationServiceMode: RobotServiceNavigationServiceMode;
   static readonly NavigationServiceSetMode: RobotServiceNavigationServiceSetMode;
   static readonly NavigationServiceLocation: RobotServiceNavigationServiceLocation;
@@ -1265,6 +1285,24 @@ export class RobotServiceClient {
   resourceRunCommand(
     requestMessage: proto_api_v1_robot_pb.ResourceRunCommandRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ResourceRunCommandResponse|null) => void
+  ): UnaryResponse;
+  frameTransform(
+    requestMessage: proto_api_v1_robot_pb.FrameTransformRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameTransformResponse|null) => void
+  ): UnaryResponse;
+  frameTransform(
+    requestMessage: proto_api_v1_robot_pb.FrameTransformRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameTransformResponse|null) => void
+  ): UnaryResponse;
+  frameDoF(
+    requestMessage: proto_api_v1_robot_pb.FrameDoFRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameDoFResponse|null) => void
+  ): UnaryResponse;
+  frameDoF(
+    requestMessage: proto_api_v1_robot_pb.FrameDoFRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameDoFResponse|null) => void
   ): UnaryResponse;
   navigationServiceMode(
     requestMessage: proto_api_v1_robot_pb.NavigationServiceModeRequest,

@@ -482,6 +482,22 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.FrameDoFRequest"><span class="badge">M</span>FrameDoFRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.FrameDoFResponse"><span class="badge">M</span>FrameDoFResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.FrameTransformRequest"><span class="badge">M</span>FrameTransformRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.FrameTransformResponse"><span class="badge">M</span>FrameTransformResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.GPSAccuracyRequest"><span class="badge">M</span>GPSAccuracyRequest</a>
                 </li>
               
@@ -639,6 +655,10 @@
               
                 <li>
                   <a href="#proto.api.v1.LidarStopResponse"><span class="badge">M</span>LidarStopResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.Limit"><span class="badge">M</span>Limit</a>
                 </li>
               
                 <li>
@@ -2558,13 +2578,6 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                 </tr>
               
                 <tr>
-                  <td>model</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
                   <td>parent</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
@@ -2922,6 +2935,109 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                 <tr>
                   <td>matrix</td>
                   <td><a href="#proto.api.v1.Matrix">Matrix</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.FrameDoFRequest">FrameDoFRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.FrameDoFResponse">FrameDoFResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>limits</td>
+                  <td><a href="#proto.api.v1.Limit">Limit</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.FrameTransformRequest">FrameTransformRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>inputs</td>
+                  <td><a href="#proto.api.v1.JointPositions">JointPositions</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.FrameTransformResponse">FrameTransformResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>pose</td>
+                  <td><a href="#proto.api.v1.ArmPosition">ArmPosition</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -3944,6 +4060,37 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
         <p></p>
 
         
+
+        
+      
+        <h3 id="proto.api.v1.Limit">Limit</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>min</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>max</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
 
         
       
@@ -6168,10 +6315,24 @@ is reliant on having an encoder.</p></td>
               </tr>
             
               <tr>
+                <td>FrameTransform</td>
+                <td><a href="#proto.api.v1.FrameTransformRequest">FrameTransformRequest</a></td>
+                <td><a href="#proto.api.v1.FrameTransformResponse">FrameTransformResponse</a></td>
+                <td><p>Frame System Service</p></td>
+              </tr>
+            
+              <tr>
+                <td>FrameDoF</td>
+                <td><a href="#proto.api.v1.FrameDoFRequest">FrameDoFRequest</a></td>
+                <td><a href="#proto.api.v1.FrameDoFResponse">FrameDoFResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
                 <td>NavigationServiceMode</td>
                 <td><a href="#proto.api.v1.NavigationServiceModeRequest">NavigationServiceModeRequest</a></td>
                 <td><a href="#proto.api.v1.NavigationServiceModeResponse">NavigationServiceModeResponse</a></td>
-                <td><p></p></td>
+                <td><p>Navigation Service</p></td>
               </tr>
             
               <tr>
@@ -6855,6 +7016,26 @@ is reliant on having an encoder.</p></td>
                 <td>ResourceRunCommand</td>
                 <td>POST</td>
                 <td>/api/v1/resource/{resource_name}/run_command</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>FrameTransform</td>
+                <td>GET</td>
+                <td>/api/v1/services/framesystem/frame/transform</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>FrameDoF</td>
+                <td>GET</td>
+                <td>/api/v1/services/framesystem/frame/dof</td>
                 <td></td>
               </tr>
               
