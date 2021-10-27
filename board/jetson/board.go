@@ -48,11 +48,11 @@ func init() {
 		if len(conf.I2Cs) != 0 {
 			return nil, errors.New("i2c unsupported")
 		}
-		var spis map[string]spiWrapper
+		var spis map[string]*spiBus
 		if len(conf.SPIs) != 0 {
-			spis = make(map[string]spiWrapper, len(conf.SPIs))
+			spis = make(map[string]*spiBus, len(conf.SPIs))
 			for _, spiConf := range conf.SPIs {
-				spis[spiConf.Name] = spiWrapper{spiConf.BusSelect}
+				spis[spiConf.Name] = &spiBus{bus: spiConf.BusSelect}
 			}
 		}
 		var analogs map[string]board.AnalogReader
@@ -84,7 +84,7 @@ func init() {
 
 type jetsonBoard struct {
 	mu      sync.Mutex
-	spis    map[string]spiWrapper
+	spis    map[string]*spiBus
 	analogs map[string]board.AnalogReader
 	pwms    map[string]pwmSetting
 }
@@ -102,20 +102,29 @@ func (b *jetsonBoard) SPIByName(name string) (board.SPI, bool) {
 	return s, true
 }
 
-type spiWrapper struct {
-	bus string
+type spiBus struct {
+	mu         sync.Mutex
+	openHandle *spiHandle
+	bus        string
 }
 
-type spiHandleWrapper struct {
-	bus string
+type spiHandle struct {
+	bus      *spiBus
+	isClosed bool
 }
 
-func (sw spiWrapper) OpenHandle() (board.SPIHandle, error) {
-	return &spiHandleWrapper{sw.bus}, nil
+func (sb *spiBus) OpenHandle() (board.SPIHandle, error) {
+	sb.mu.Lock()
+	sb.openHandle = &spiHandle{bus: sb, isClosed: false}
+	return sb.openHandle, nil
 }
 
-func (sw *spiHandleWrapper) Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) (rx []byte, err error) {
-	port, err := spireg.Open(fmt.Sprintf("SPI%s.%s", sw.bus, chipSelect))
+func (sh *spiHandle) Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) (rx []byte, err error) {
+	if sh.isClosed {
+		return nil, errors.New("can't use Xfer() on an already closed SPIHandle")
+	}
+
+	port, err := spireg.Open(fmt.Sprintf("SPI%s.%s", sh.bus.bus, chipSelect))
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +139,9 @@ func (sw *spiHandleWrapper) Xfer(ctx context.Context, baud uint, chipSelect stri
 	return rx, conn.Tx(tx, rx)
 }
 
-func (sw *spiHandleWrapper) Close() error {
+func (sh *spiHandle) Close() error {
+	sh.isClosed = true
+	sh.bus.mu.Unlock()
 	return nil
 }
 
