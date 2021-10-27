@@ -32,6 +32,14 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 	} else if mc.MinPowerPct > 1.0 {
 		mc.MinPowerPct = 1.0
 	}
+	var pid motor.PID
+	if mc.PID != nil {
+		var err error
+		pid, err = motor.CreatePID(mc.PID)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	m = &Motor{
 		b,
@@ -45,6 +53,7 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 		pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED,
 		mc.MinPowerPct,
 		mc.MaxPowerPct,
+		pid,
 	}
 	return m, nil
 }
@@ -60,6 +69,12 @@ type Motor struct {
 	curDirection       pb.DirectionRelative
 	minPowerPct        float32
 	maxPowerPct        float32
+	pid                motor.PID
+}
+
+// PID return the underlying PID
+func (m *Motor) PID() motor.PID {
+	return m.pid
 }
 
 // Position always returns 0.
