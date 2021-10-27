@@ -225,7 +225,7 @@ func pointFrom(yaw, pitch, distance float64, reflectivity uint8) pointcloud.Poin
 	pose2 := spatialmath.NewPoseFromPoint(r3.Vector{distance, 0, 0})
 	p := spatialmath.Compose(pose1, pose2).Point()
 
-	return pointcloud.NewBasicPoint(p.X, p.Y, p.Z).SetIntesnity(uint16(reflectivity))
+	return pointcloud.NewBasicPoint(p.X*1000, p.Y*1000, p.Z*1000).SetIntesnity(uint16(reflectivity))
 }
 
 func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {

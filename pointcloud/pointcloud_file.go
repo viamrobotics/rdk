@@ -187,6 +187,10 @@ func (pc *basicPointCloud) WriteToFile(fn string) (err error) {
 }
 
 func _colorToPCDInt(pt Point) int {
+	if !pt.HasColor() {
+		return 255 << 16 // TODO(erh): this doesn't feel great
+	}
+
 	r, g, b := pt.RGB255()
 	x := 0
 
