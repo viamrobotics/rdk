@@ -116,6 +116,13 @@ type RobotServiceClient interface {
 	ServoMove(ctx context.Context, in *ServoMoveRequest, opts ...grpc.CallOption) (*ServoMoveResponse, error)
 	// ServoCurrent returns the current set angle (degrees) of the servo of the underlying robot.
 	ServoCurrent(ctx context.Context, in *ServoCurrentRequest, opts ...grpc.CallOption) (*ServoCurrentResponse, error)
+	//Motor
+	// Return the PID configuration for a Motor
+	MotorGetPIDConfig(ctx context.Context, in *MotorGetPIDConfigRequest, opts ...grpc.CallOption) (*MotorGetPIDConfigResponse, error)
+	// Set the PID configuration for a Motor
+	MotorSetPIDConfig(ctx context.Context, in *MotorSetPIDConfigRequest, opts ...grpc.CallOption) (*MotorSetPIDConfigResponse, error)
+	// Perform a step response on a motor
+	MotorPIDStep(ctx context.Context, in *MotorPIDStepRequest, opts ...grpc.CallOption) (RobotService_MotorPIDStepClient, error)
 	// MotorPower requests the motor of a board of the underlying robot to set its power.
 	MotorPower(ctx context.Context, in *MotorPowerRequest, opts ...grpc.CallOption) (*MotorPowerResponse, error)
 	// MotorGo requests the motor of a board of the underlying robot to go.
@@ -600,6 +607,56 @@ func (c *robotServiceClient) ServoCurrent(ctx context.Context, in *ServoCurrentR
 	return out, nil
 }
 
+func (c *robotServiceClient) MotorGetPIDConfig(ctx context.Context, in *MotorGetPIDConfigRequest, opts ...grpc.CallOption) (*MotorGetPIDConfigResponse, error) {
+	out := new(MotorGetPIDConfigResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/MotorGetPIDConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) MotorSetPIDConfig(ctx context.Context, in *MotorSetPIDConfigRequest, opts ...grpc.CallOption) (*MotorSetPIDConfigResponse, error) {
+	out := new(MotorSetPIDConfigResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/MotorSetPIDConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) MotorPIDStep(ctx context.Context, in *MotorPIDStepRequest, opts ...grpc.CallOption) (RobotService_MotorPIDStepClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RobotService_ServiceDesc.Streams[1], "/proto.api.v1.RobotService/MotorPIDStep", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &robotServiceMotorPIDStepClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type RobotService_MotorPIDStepClient interface {
+	Recv() (*MotorPIDStepResponse, error)
+	grpc.ClientStream
+}
+
+type robotServiceMotorPIDStepClient struct {
+	grpc.ClientStream
+}
+
+func (x *robotServiceMotorPIDStepClient) Recv() (*MotorPIDStepResponse, error) {
+	m := new(MotorPIDStepResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *robotServiceClient) MotorPower(ctx context.Context, in *MotorPowerRequest, opts ...grpc.CallOption) (*MotorPowerResponse, error) {
 	out := new(MotorPowerResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/MotorPower", in, out, opts...)
@@ -709,7 +766,7 @@ func (c *robotServiceClient) InputControllerLastEvents(ctx context.Context, in *
 }
 
 func (c *robotServiceClient) InputControllerEventStream(ctx context.Context, in *InputControllerEventStreamRequest, opts ...grpc.CallOption) (RobotService_InputControllerEventStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RobotService_ServiceDesc.Streams[1], "/proto.api.v1.RobotService/InputControllerEventStream", opts...)
+	stream, err := c.cc.NewStream(ctx, &RobotService_ServiceDesc.Streams[2], "/proto.api.v1.RobotService/InputControllerEventStream", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -957,6 +1014,13 @@ type RobotServiceServer interface {
 	ServoMove(context.Context, *ServoMoveRequest) (*ServoMoveResponse, error)
 	// ServoCurrent returns the current set angle (degrees) of the servo of the underlying robot.
 	ServoCurrent(context.Context, *ServoCurrentRequest) (*ServoCurrentResponse, error)
+	//Motor
+	// Return the PID configuration for a Motor
+	MotorGetPIDConfig(context.Context, *MotorGetPIDConfigRequest) (*MotorGetPIDConfigResponse, error)
+	// Set the PID configuration for a Motor
+	MotorSetPIDConfig(context.Context, *MotorSetPIDConfigRequest) (*MotorSetPIDConfigResponse, error)
+	// Perform a step response on a motor
+	MotorPIDStep(*MotorPIDStepRequest, RobotService_MotorPIDStepServer) error
 	// MotorPower requests the motor of a board of the underlying robot to set its power.
 	MotorPower(context.Context, *MotorPowerRequest) (*MotorPowerResponse, error)
 	// MotorGo requests the motor of a board of the underlying robot to go.
@@ -1144,6 +1208,15 @@ func (UnimplementedRobotServiceServer) ServoMove(context.Context, *ServoMoveRequ
 }
 func (UnimplementedRobotServiceServer) ServoCurrent(context.Context, *ServoCurrentRequest) (*ServoCurrentResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ServoCurrent not implemented")
+}
+func (UnimplementedRobotServiceServer) MotorGetPIDConfig(context.Context, *MotorGetPIDConfigRequest) (*MotorGetPIDConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MotorGetPIDConfig not implemented")
+}
+func (UnimplementedRobotServiceServer) MotorSetPIDConfig(context.Context, *MotorSetPIDConfigRequest) (*MotorSetPIDConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MotorSetPIDConfig not implemented")
+}
+func (UnimplementedRobotServiceServer) MotorPIDStep(*MotorPIDStepRequest, RobotService_MotorPIDStepServer) error {
+	return status.Errorf(codes.Unimplemented, "method MotorPIDStep not implemented")
 }
 func (UnimplementedRobotServiceServer) MotorPower(context.Context, *MotorPowerRequest) (*MotorPowerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MotorPower not implemented")
@@ -2049,6 +2122,63 @@ func _RobotService_ServoCurrent_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_MotorGetPIDConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MotorGetPIDConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).MotorGetPIDConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/MotorGetPIDConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).MotorGetPIDConfig(ctx, req.(*MotorGetPIDConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_MotorSetPIDConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MotorSetPIDConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).MotorSetPIDConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/MotorSetPIDConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).MotorSetPIDConfig(ctx, req.(*MotorSetPIDConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_MotorPIDStep_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(MotorPIDStepRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(RobotServiceServer).MotorPIDStep(m, &robotServiceMotorPIDStepServer{stream})
+}
+
+type RobotService_MotorPIDStepServer interface {
+	Send(*MotorPIDStepResponse) error
+	grpc.ServerStream
+}
+
+type robotServiceMotorPIDStepServer struct {
+	grpc.ServerStream
+}
+
+func (x *robotServiceMotorPIDStepServer) Send(m *MotorPIDStepResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 func _RobotService_MotorPower_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MotorPowerRequest)
 	if err := dec(in); err != nil {
@@ -2704,6 +2834,14 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RobotService_ServoCurrent_Handler,
 		},
 		{
+			MethodName: "MotorGetPIDConfig",
+			Handler:    _RobotService_MotorGetPIDConfig_Handler,
+		},
+		{
+			MethodName: "MotorSetPIDConfig",
+			Handler:    _RobotService_MotorSetPIDConfig_Handler,
+		},
+		{
 			MethodName: "MotorPower",
 			Handler:    _RobotService_MotorPower_Handler,
 		},
@@ -2808,6 +2946,11 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "StatusStream",
 			Handler:       _RobotService_StatusStream_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "MotorPIDStep",
+			Handler:       _RobotService_MotorPIDStep_Handler,
 			ServerStreams: true,
 		},
 		{

@@ -646,6 +646,14 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.MotorGetPIDConfigRequest"><span class="badge">M</span>MotorGetPIDConfigRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.MotorGetPIDConfigResponse"><span class="badge">M</span>MotorGetPIDConfigResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.MotorGoForRequest"><span class="badge">M</span>MotorGoForRequest</a>
                 </li>
               
@@ -694,6 +702,14 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.MotorPIDStepRequest"><span class="badge">M</span>MotorPIDStepRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.MotorPIDStepResponse"><span class="badge">M</span>MotorPIDStepResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.MotorPositionRequest"><span class="badge">M</span>MotorPositionRequest</a>
                 </li>
               
@@ -715,6 +731,14 @@
               
                 <li>
                   <a href="#proto.api.v1.MotorPowerResponse"><span class="badge">M</span>MotorPowerResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.MotorSetPIDConfigRequest"><span class="badge">M</span>MotorSetPIDConfigRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.MotorSetPIDConfigResponse"><span class="badge">M</span>MotorSetPIDConfigResponse</a>
                 </li>
               
                 <li>
@@ -3978,6 +4002,54 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.MotorGetPIDConfigRequest">MotorGetPIDConfigRequest</h3>
+        <p>Motor</p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.MotorGetPIDConfigResponse">MotorGetPIDConfigResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>pid_config</td>
+                  <td><a href="#google.protobuf.Struct">google.protobuf.Struct</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.MotorGoForRequest">MotorGoForRequest</h3>
         <p></p>
 
@@ -4244,6 +4316,75 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.MotorPIDStepRequest">MotorPIDStepRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>set_point</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.MotorPIDStepResponse">MotorPIDStepResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>time</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>set_point</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ref_value</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.MotorPositionRequest">MotorPositionRequest</h3>
         <p></p>
 
@@ -4378,6 +4519,44 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.MotorSetPIDConfigRequest">MotorSetPIDConfigRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>pid_config</td>
+                  <td><a href="#google.protobuf.Struct">google.protobuf.Struct</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.MotorSetPIDConfigResponse">MotorSetPIDConfigResponse</h3>
+        <p></p>
+
+        
+
+        
+      
         <h3 id="proto.api.v1.MotorStatus">MotorStatus</h3>
         <p></p>
 
@@ -4406,6 +4585,13 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                   <td>position</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>pid_config</td>
+                  <td><a href="#google.protobuf.Struct">google.protobuf.Struct</a></td>
+                  <td>optional</td>
                   <td><p> </p></td>
                 </tr>
               
@@ -6059,6 +6245,28 @@ A specific MIME type can be requested but may not necessarily be the same one re
               </tr>
             
               <tr>
+                <td>MotorGetPIDConfig</td>
+                <td><a href="#proto.api.v1.MotorGetPIDConfigRequest">MotorGetPIDConfigRequest</a></td>
+                <td><a href="#proto.api.v1.MotorGetPIDConfigResponse">MotorGetPIDConfigResponse</a></td>
+                <td><p>Motor
+Return the PID configuration for a Motor</p></td>
+              </tr>
+            
+              <tr>
+                <td>MotorSetPIDConfig</td>
+                <td><a href="#proto.api.v1.MotorSetPIDConfigRequest">MotorSetPIDConfigRequest</a></td>
+                <td><a href="#proto.api.v1.MotorSetPIDConfigResponse">MotorSetPIDConfigResponse</a></td>
+                <td><p>Set the PID configuration for a Motor</p></td>
+              </tr>
+            
+              <tr>
+                <td>MotorPIDStep</td>
+                <td><a href="#proto.api.v1.MotorPIDStepRequest">MotorPIDStepRequest</a></td>
+                <td><a href="#proto.api.v1.MotorPIDStepResponse">MotorPIDStepResponse</a> stream</td>
+                <td><p>Perform a step response on a motor</p></td>
+              </tr>
+            
+              <tr>
                 <td>MotorPower</td>
                 <td><a href="#proto.api.v1.MotorPowerRequest">MotorPowerRequest</a></td>
                 <td><a href="#proto.api.v1.MotorPowerResponse">MotorPowerResponse</a></td>
@@ -6708,6 +6916,36 @@ is reliant on having an encoder.</p></td>
                 <td>ServoCurrent</td>
                 <td>GET</td>
                 <td>/api/v1/servo/{name}/current</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>MotorGetPIDConfig</td>
+                <td>GET</td>
+                <td>/api/v1/board/motor/{name}/get_pid_config</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>MotorSetPIDConfig</td>
+                <td>PUT</td>
+                <td>/api/v1/board/motor/{name}/set_pid_config</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>MotorPIDStep</td>
+                <td>GET</td>
+                <td>/api/v1/board/motor/{name}/pid_step</td>
                 <td></td>
               </tr>
               
