@@ -26,10 +26,11 @@ var (
 
 // This should test all of the kinematics functions
 func TestCombinedIKinematics(t *testing.T) {
+	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
+	ik, err := CreateCombinedIKSolver(ctx, m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test ability to arrive at another position
@@ -58,18 +59,19 @@ func TestCombinedIKinematics(t *testing.T) {
 }
 
 func BenchCombinedIKinematics(t *testing.B) {
+	ctx := context.Background()
 	logger := golog.NewDevelopmentLogger("combinedBenchmark")
 
 	m, err := ParseJSONFile(utils.ResolveFile("robots/eva/eva_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
+	ik, err := CreateCombinedIKSolver(ctx, m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test we are able to solve random valid positions from other random valid positions
 	// Used for benchmarking solve rate
 	solvedCnt := 0
 	for i := 0; i < toSolve; i++ {
-		randJointPos := m.GenerateRandomJointPositions(seed)
+		randJointPos := m.GenerateRandomJointPositions(ctx, seed)
 		randPos, err := ComputePosition(m, arm.JointPositionsFromRadians(randJointPos))
 		test.That(t, err, test.ShouldBeNil)
 		solution, err := ik.Solve(context.Background(), randPos, home)

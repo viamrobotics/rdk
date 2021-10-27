@@ -667,7 +667,7 @@ func (fc *frameClient) Name() string {
 	return fc.name
 }
 
-func (fc *frameClient) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+func (fc *frameClient) Transform(ctx context.Context, inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	pbIn := referenceframe.InputsToJointPos(inputs)
 	resp, err := fc.rc.client.FrameTransform(ctx, &pb.FrameTransformRequest{
 		Name:   fc.name,
@@ -679,7 +679,7 @@ func (fc *frameClient) Transform(inputs []referenceframe.Input) (spatialmath.Pos
 	return spatialmath.NewPoseFromArmPos(resp.Pose), nil
 }
 
-func (fc *frameClient) DoF() []referenceframe.Limit {
+func (fc *frameClient) DoF(ctx context.Context) []referenceframe.Limit {
 	resp, err := fc.rc.client.FrameDoF(ctx, &pb.FrameDoFRequest{
 		Name: fc.name,
 	})

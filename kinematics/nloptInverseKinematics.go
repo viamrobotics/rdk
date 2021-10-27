@@ -34,7 +34,7 @@ type NloptIK struct {
 }
 
 // CreateNloptIKSolver TODO
-func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK, error) {
+func CreateNloptIKSolver(ctx context.Context, mdl frame.Frame, logger golog.Logger, id int) (*NloptIK, error) {
 	ik := &NloptIK{id: id, logger: logger}
 	ik.randSeed = rand.New(rand.NewSource(1))
 	ik.model = mdl
@@ -44,7 +44,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 	floatEpsilon := math.Nextafter(1, 2) - 1
 	ik.maxIterations = 5000
 	ik.iterations = 0
-	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.DoF())
+	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.DoF(ctx))
 	// How much to adjust joints to determine slope
 	ik.jump = 0.00000001
 
@@ -52,7 +52,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 
 	// May eventually need to be destroyed to prevent memory leaks
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
-	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(ik.model.DoF())))
+	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(ik.model.DoF(ctx))))
 	if err != nil {
 		return nil, fmt.Errorf("nlopt creation error: %w", err)
 	}
@@ -65,7 +65,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 		ik.iterations++
 
 		// TODO(pl): Might need to check if any of x is +/- Inf
-		eePos, err := ik.model.Transform(frame.FloatsToInputs(x))
+		eePos, err := ik.model.Transform(ctx, frame.FloatsToInputs(x))
 		if err != nil && eePos == nil {
 			ik.logger.Errorf("error calculating eePos in nlopt %q", err)
 			err = ik.opt.ForceStop()
@@ -90,7 +90,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 				// Deep copy of our current joint positions
 				xBak := append([]float64{}, x...)
 				xBak[i] += ik.jump
-				eePos, err := ik.model.Transform(frame.FloatsToInputs(xBak))
+				eePos, err := ik.model.Transform(ctx, frame.FloatsToInputs(xBak))
 				if err != nil && eePos == nil {
 					ik.logger.Errorf("error calculating eePos in nlopt %q", err)
 					err = ik.opt.ForceStop()
@@ -163,11 +163,11 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seed []fr
 	// Allow ~160 degrees of swing at most
 	tries := 1
 	ik.iterations = 0
-	startingPos := ik.GenerateRandomPositions()
+	startingPos := ik.GenerateRandomPositions(ctx)
 
 	// Solver with ID 1 seeds off current angles
 	if ik.id == 1 {
-		if len(seed) > len(ik.model.DoF()) {
+		if len(seed) > len(ik.model.DoF(ctx)) {
 			return nil, errors.New("passed in too many joint positions")
 		}
 		startingPos = seed
@@ -212,7 +212,7 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seed []fr
 			solution := frame.FloatsToInputs(solutionRaw)
 			// Return immediately if we have a "natural" solution, i.e. one where the halfway point is on the way
 			// to the end point
-			swing, newErr := calcSwingAmount(seed, solution, ik.model)
+			swing, newErr := calcSwingAmount(ctx, seed, solution, ik.model)
 			if newErr != nil {
 				// out-of-bounds angles. Shouldn't happen, but if it does, record the error and move on without
 				// keeping the invalid solution
@@ -237,11 +237,11 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seed []fr
 			if err != nil {
 				return nil, err
 			}
-			startingPos = ik.GenerateRandomPositions()
+			startingPos = ik.GenerateRandomPositions(ctx)
 		}
 	}
 	if len(solutions) > 0 {
-		solution, _, err := bestSolution(seed, solutions, ik.model)
+		solution, _, err := bestSolution(ctx, seed, solutions, ik.model)
 		return solution, err
 	}
 	return nil, multierr.Combine(errors.New("kinematics could not solve for position"), err)
@@ -253,8 +253,8 @@ func (ik *NloptIK) SetSeed(seed int64) {
 }
 
 // GenerateRandomPositions generates a random set of positions within the limits of this solver.
-func (ik *NloptIK) GenerateRandomPositions() []frame.Input {
-	pos := make([]frame.Input, len(ik.model.DoF()))
+func (ik *NloptIK) GenerateRandomPositions(ctx context.Context) []frame.Input {
+	pos := make([]frame.Input, len(ik.model.DoF(ctx)))
 	for i, l := range ik.lowerBound {
 		u := ik.upperBound[i]
 
