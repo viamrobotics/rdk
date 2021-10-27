@@ -20,6 +20,7 @@ func (s *Sensor) Readings(ctx context.Context) ([]interface{}, error) {
 	return s.ReadingsFunc(ctx)
 }
 
+// Desc returns the description if available.
 func (s *Sensor) Desc() sensor.Description {
 	if s.Sensor == nil {
 		return sensor.Description{}
