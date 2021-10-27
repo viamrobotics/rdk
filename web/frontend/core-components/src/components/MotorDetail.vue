@@ -1,6 +1,10 @@
 <template>
   <div class="component">
-    <div class="chart-area">
+    <div
+      v-if="typeof motorStatus.pidConfig !== 'undefined'"
+      class="chart-area"
+      style="height: 400px; width: 400px"
+    >
       <PIDChart
         ref="PIDChart"
         :labels="['Set Point', 'Reference Value']"
