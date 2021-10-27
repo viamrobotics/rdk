@@ -1079,15 +1079,24 @@ func (s *Server) FrameTransform(ctx context.Context, req *pb.FrameTransformReque
 	if !ok {
 		return nil, errors.New("no service with name frame_system")
 	}
-	// get the frame
+	var pose spatialmath.Pose
+	// get the frame by name (if it is found)
 	// put in the Inputs and get the output Pose
 
-	return &pb.FrameTransformResponse{}
+	return &pb.FrameTransformResponse{spatialmath.PoseToArmPos(pose)}
 }
 
-// FrameDoF
-func (s *Server) FrameTransform(ctx context.Context, req *pb.FrameDoFRequest) (*pb.FrameDoFResponse, error) {
-	return &pb.FrameDoFResponse{}
+// FrameDoF retrieves the slice of the limits of the frame
+func (s *Server) FrameDoF(ctx context.Context, req *pb.FrameDoFRequest) (*pb.FrameDoFResponse, error) {
+	fsService, ok := s.r.ServiceByName("frame_system")
+	if !ok {
+		return nil, errors.New("no service with name frame_system")
+	}
+	var limits []referenceframe.Limit
+	// get the frame by name (if it is found)
+	// get the Limits back from the frame
+
+	return &pb.FrameDoFResponse{referenceframe.RefLimitsToPbLimits(limits)}
 }
 
 // NavigationServiceMode returns the mode of the service.

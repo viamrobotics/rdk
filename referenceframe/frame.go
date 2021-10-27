@@ -57,6 +57,24 @@ func InputsToJointPos(inputs []Input) *pb.JointPositions {
 	return arm.JointPositionsFromRadians(InputsToFloats(inputs))
 }
 
+// PbLimitsToRefLimits will take a pb.Limit and turn it into a ref.Limit
+func PbLimitsToRefLimits(limits []*pb.Limit) []Limit {
+	refLimits := make([]Limit, len(limits))
+	for i, f := range limits {
+		refLimits[i] = Limit{f.Min, f.Max}
+	}
+	return refLimits
+}
+
+// RefLimitsToPbLimits will take a ref.Limit and turn it into a pb.Limit
+func RefLimitsToPbLimits(limits []Limit) []*pb.Limit {
+	pbLimits := make([]*pb.Limit, len(limits))
+	for i, f := range limits {
+		pbLimits[i] = *pb.Limit{f.Min, f.Max}
+	}
+	return pbLimits
+}
+
 // Frame represents a single reference frame, e.g. an arm, a joint, etc.
 // Transform takes FROM current frame TO parent's frame!
 type Frame interface {

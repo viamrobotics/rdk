@@ -681,6 +681,13 @@ func (fc *frameClient) Transform(inputs []referenceframe.Input) (spatialmath.Pos
 }
 
 func (fc *frameClient) DoF() []referenceframe.Limit {
+	resp, err := fc.rc.client.FrameDoF(ctx, &pb.FrameDoFRequest{
+		Name: fc.name,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.PbLimitsToRefLimits(resp.Limits), nil
 }
 
 // baseClient satisfies a gRPC based base.Base. Refer to the interface
