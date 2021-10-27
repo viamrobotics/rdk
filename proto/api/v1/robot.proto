@@ -360,8 +360,25 @@ service RobotService {
     };
   }
 
-  // Motor
-
+  //Motor
+  // Return the PID configuration for a Motor
+  rpc MotorGetPIDConfig(MotorGetPIDConfigRequest) returns (MotorGetPIDConfigResponse){
+    option (google.api.http) = {
+      get: "/api/v1/board/motor/{name}/get_pid_config"
+    };
+  }
+  // Set the PID configuration for a Motor
+  rpc MotorSetPIDConfig(MotorSetPIDConfigRequest) returns (MotorSetPIDConfigResponse){
+    option (google.api.http) = {
+      put: "/api/v1/board/motor/{name}/set_pid_config"
+    };
+  }
+  // Perform a step response on a motor
+  rpc MotorPIDStep(MotorPIDStepRequest) returns (stream MotorPIDStepResponse){
+    option (google.api.http) = {
+      get: "/api/v1/board/motor/{name}/pid_step"
+    };
+  }
   // MotorPower requests the motor of a board of the underlying robot to set its power.
   rpc MotorPower(MotorPowerRequest) returns (MotorPowerResponse) {
     option (google.api.http) = {
@@ -1018,6 +1035,7 @@ message MotorStatus {
   bool on = 1;
   bool position_supported = 2;
   double position = 3;
+  optional google.protobuf.Struct pid_config = 4;
 }
 
 message ServoStatus {
@@ -1042,7 +1060,26 @@ message ServoCurrentResponse {
 }
 
 // Motor
-
+message MotorGetPIDConfigRequest{
+  string name = 1;
+}
+message MotorGetPIDConfigResponse{
+  google.protobuf.Struct pid_config = 1;
+}
+message MotorSetPIDConfigRequest{
+  string name = 1;
+  google.protobuf.Struct pid_config = 2;
+}
+message MotorSetPIDConfigResponse{}
+message MotorPIDStepRequest{
+  string name = 1;
+  double set_point = 2;
+}
+message MotorPIDStepResponse{
+  double time = 1;
+  double set_point = 2;
+  double ref_value = 3;
+}
 message MotorPowerRequest {
   string name = 1;
   float power_pct = 2;

@@ -39,7 +39,7 @@ func getSerialConfig(cfg *board.Config) (slib.OpenOptions, error) {
 
 	options := slib.OpenOptions{
 		PortName:        cfg.Attributes["port"],
-		BaudRate:        9600,
+		BaudRate:        230400,
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,

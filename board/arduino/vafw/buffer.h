@@ -7,7 +7,7 @@
 class Buffer {
    public:
     Buffer(HardwareSerial* s) : _port(s) {
-        _port->begin(9600);
+        _port->begin(230400);
         _pos = 0;
     }
 

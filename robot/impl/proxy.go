@@ -923,7 +923,11 @@ func (p *proxyMotor) replace(newMotor motor.Motor) {
 	}
 	p.actual = actual.actual
 }
-
+func (p *proxyMotor) PID() motor.PID {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.PID()
+}
 func (p *proxyMotor) Power(ctx context.Context, powerPct float32) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

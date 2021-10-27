@@ -410,6 +410,33 @@ type RobotServiceServoCurrent = {
   readonly responseType: typeof proto_api_v1_robot_pb.ServoCurrentResponse;
 };
 
+type RobotServiceMotorGetPIDConfig = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.MotorGetPIDConfigRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.MotorGetPIDConfigResponse;
+};
+
+type RobotServiceMotorSetPIDConfig = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.MotorSetPIDConfigRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.MotorSetPIDConfigResponse;
+};
+
+type RobotServiceMotorPIDStep = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: true;
+  readonly requestType: typeof proto_api_v1_robot_pb.MotorPIDStepRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.MotorPIDStepResponse;
+};
+
 type RobotServiceMotorPower = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -691,6 +718,9 @@ export class RobotService {
   static readonly ExecuteSource: RobotServiceExecuteSource;
   static readonly ServoMove: RobotServiceServoMove;
   static readonly ServoCurrent: RobotServiceServoCurrent;
+  static readonly MotorGetPIDConfig: RobotServiceMotorGetPIDConfig;
+  static readonly MotorSetPIDConfig: RobotServiceMotorSetPIDConfig;
+  static readonly MotorPIDStep: RobotServiceMotorPIDStep;
   static readonly MotorPower: RobotServiceMotorPower;
   static readonly MotorGo: RobotServiceMotorGo;
   static readonly MotorGoFor: RobotServiceMotorGoFor;
@@ -1148,6 +1178,25 @@ export class RobotServiceClient {
     requestMessage: proto_api_v1_robot_pb.ServoCurrentRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoCurrentResponse|null) => void
   ): UnaryResponse;
+  motorGetPIDConfig(
+    requestMessage: proto_api_v1_robot_pb.MotorGetPIDConfigRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorGetPIDConfigResponse|null) => void
+  ): UnaryResponse;
+  motorGetPIDConfig(
+    requestMessage: proto_api_v1_robot_pb.MotorGetPIDConfigRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorGetPIDConfigResponse|null) => void
+  ): UnaryResponse;
+  motorSetPIDConfig(
+    requestMessage: proto_api_v1_robot_pb.MotorSetPIDConfigRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorSetPIDConfigResponse|null) => void
+  ): UnaryResponse;
+  motorSetPIDConfig(
+    requestMessage: proto_api_v1_robot_pb.MotorSetPIDConfigRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorSetPIDConfigResponse|null) => void
+  ): UnaryResponse;
+  motorPIDStep(requestMessage: proto_api_v1_robot_pb.MotorPIDStepRequest, metadata?: grpc.Metadata): ResponseStream<proto_api_v1_robot_pb.MotorPIDStepResponse>;
   motorPower(
     requestMessage: proto_api_v1_robot_pb.MotorPowerRequest,
     metadata: grpc.Metadata,

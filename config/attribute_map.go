@@ -123,7 +123,7 @@ func (am AttributeMap) Float64(name string, def float64) float64 {
 		return v
 	}
 
-	panic(errors.Errorf("wanted an int for (%s) but got (%v) %T", name, x, x))
+	panic(errors.Errorf("wanted a float for (%s) but got (%v) %T", name, x, x))
 }
 
 // Bool attempts to return a boolean present in the map with
