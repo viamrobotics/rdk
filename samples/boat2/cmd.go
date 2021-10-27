@@ -342,6 +342,12 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 		speed = 1.0
 	}
 
+	if true {
+		err := b.SteerAndMove(ctx, 0, speed)
+		utils.SelectContextOrWait(ctx, 10000*time.Millisecond)
+		return 0, err
+	}
+
 	if math.Abs(b.lastSpin) > 90 {
 		speed = 0.1 // this means spin in place
 	}
@@ -416,23 +422,25 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 		return 0, b.Stop(ctx)
 	}
 
-	if false { // try to spin now
+	if true { // try to spin now
 		fmt.Printf("want to turn %v\n", angleDeg)
 		start, err := b.myImu.Orientation(ctx)
 		if err != nil {
 			return 0, err
 		}
-		for i := 0; i < 100; i++ {
-			dir := .1
-			if angleDeg < 0 {
-				dir *= -1
-			}
-			err := b.SteerAndMove(ctx, dir, 0)
-			if err != nil {
-				return 0, err
-			}
+		startAngle := start.EulerAngles().Yaw
 
-			if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+		dir := 1.0
+		if angleDeg < 0 {
+			dir *= -1
+		}
+		err = b.SteerAndMove(ctx, dir, 0)
+		if err != nil {
+			return 0, err
+		}
+
+		for i := 0; i < 1000; i++ {
+			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
 				return 0, nil
 			}
 
@@ -441,9 +449,9 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 				return 0, err
 			}
 
-			left := math.Abs(coreutils.AngleDiffDeg(start.EulerAngles().Roll, now.EulerAngles().Roll) - angleDeg)
-			fmt.Printf("\t left %v\n", left)
-			if left < 5 {
+			left := math.Abs(angleDeg) - coreutils.AngleDiffDeg(startAngle, now.EulerAngles().Yaw)
+			fmt.Printf("\t left %v (%#v %#v)\n", left, startAngle, now.EulerAngles().Yaw)
+			if left < 5 || left > 180 {
 				return 0, b.Stop(ctx)
 			}
 		}
@@ -502,15 +510,15 @@ func runRC(ctx context.Context, myBoat *boat) {
 			}
 
 			if !previousPushMode {
-				pushDirection = now.EulerAngles().Roll
+				pushDirection = now.EulerAngles().Yaw
 			}
 			previousPushMode = true
 
-			delta := pushDirection - now.EulerAngles().Roll
+			delta := pushDirection - now.EulerAngles().Yaw
 
 			steer := .5 * (delta / 180)
 			fmt.Printf("pushDirection: %0.1f now: %0.1f delta: %0.2f steer: %.2f\n",
-				pushDirection, now.EulerAngles().Roll, delta, steer)
+				pushDirection, now.EulerAngles().Yaw, delta, steer)
 
 			err = multierr.Combine(
 				myBoat.SteerAndMove(ctx, steer, 1.0),
@@ -658,7 +666,7 @@ func (i *myIMU) Desc() sensor.Description {
 func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
 	go func() {
 		for {
-			if !utils.SelectContextOrWait(ctx, 1000*time.Millisecond) {
+			if !utils.SelectContextOrWait(ctx, 10*1000*time.Millisecond) {
 				return
 			}
 
@@ -668,7 +676,13 @@ func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
 				continue
 			}
 
-			fmt.Printf("imu readings %#v\n", r)
+			r2, err := myBoat.myImu.Orientation(ctx)
+			if err != nil {
+				fmt.Printf("error from imu %v\n", err)
+				continue
+			}
+
+			fmt.Printf("imu readings %#v\n\t%#v\n", r, r2)
 		}
 	}()
 }
