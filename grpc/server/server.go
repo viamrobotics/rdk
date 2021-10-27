@@ -37,6 +37,7 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/forcematrix"
+	"go.viam.com/core/sensor/gps"
 	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/services/navigation"
 	"go.viam.com/core/spatialmath"
@@ -1242,6 +1243,75 @@ func (s *Server) IMUOrientation(ctx context.Context, req *pb.IMUOrientationReque
 			Pitch: ea.Pitch,
 			Yaw:   ea.Yaw,
 		},
+	}, nil
+}
+
+func (s *Server) gpsByName(name string) (gps.GPS, error) {
+	sensorDevice, ok := s.r.SensorByName(name)
+	if !ok {
+		return nil, errors.Errorf("no sensor with name (%s)", name)
+	}
+	return sensorDevice.(gps.GPS), nil
+}
+
+// GPSLocation returns the most recent location from the given GPS.
+func (s *Server) GPSLocation(ctx context.Context, req *pb.GPSLocationRequest) (*pb.GPSLocationResponse, error) {
+	gpsDevice, err := s.gpsByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	loc, err := gpsDevice.Location(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GPSLocationResponse{
+		Coordinate: &pb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
+	}, nil
+}
+
+// GPSAltitude returns the most recent location from the given GPS.
+func (s *Server) GPSAltitude(ctx context.Context, req *pb.GPSAltitudeRequest) (*pb.GPSAltitudeResponse, error) {
+	gpsDevice, err := s.gpsByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	alt, err := gpsDevice.Altitude(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GPSAltitudeResponse{
+		Altitude: alt,
+	}, nil
+}
+
+// GPSSpeed returns the most recent location from the given GPS.
+func (s *Server) GPSSpeed(ctx context.Context, req *pb.GPSSpeedRequest) (*pb.GPSSpeedResponse, error) {
+	gpsDevice, err := s.gpsByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	speed, err := gpsDevice.Speed(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GPSSpeedResponse{
+		SpeedKph: speed,
+	}, nil
+}
+
+// GPSAccuracy returns the most recent location from the given GPS.
+func (s *Server) GPSAccuracy(ctx context.Context, req *pb.GPSAccuracyRequest) (*pb.GPSAccuracyResponse, error) {
+	gpsDevice, err := s.gpsByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	horz, vert, err := gpsDevice.Accuracy(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GPSAccuracyResponse{
+		HorizontalAccuracy: horz,
+		VerticalAccuracy:   vert,
 	}, nil
 }
 

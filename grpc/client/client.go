@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
+	geo "github.com/kellydunn/golang-geo"
 	"go.uber.org/multierr"
 
 	"go.viam.com/utils"
@@ -40,6 +41,7 @@ import (
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/forcematrix"
+	"go.viam.com/core/sensor/gps"
 	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
@@ -331,6 +333,8 @@ func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 		return &relativeCompassClient{&compassClient{sc}}, true
 	case imu.Type:
 		return &imuClient{sc}, true
+	case gps.Type:
+		return &gpsClient{sc}, true
 	case forcematrix.Type:
 		return &forcematrixClient{sc}, true
 	default:
@@ -1249,6 +1253,80 @@ func (ic *imuClient) Orientation(ctx context.Context) (spatialmath.Orientation, 
 
 func (ic *imuClient) Desc() sensor.Description {
 	return sensor.Description{imu.Type, ""}
+}
+
+// gpsClient satisfies a gRPC based gps.GPS. Refer to the interface
+// for descriptions of its methods.
+type gpsClient struct {
+	*sensorClient
+}
+
+func (gc *gpsClient) Readings(ctx context.Context) ([]interface{}, error) {
+	loc, err := gc.Location(ctx)
+	if err != nil {
+		return nil, err
+	}
+	alt, err := gc.Altitude(ctx)
+	if err != nil {
+		return nil, err
+	}
+	speed, err := gc.Speed(ctx)
+	if err != nil {
+		return nil, err
+	}
+	horzAcc, vertAcc, err := gc.Accuracy(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return []interface{}{loc.Lat(), loc.Lng(), alt, speed, horzAcc, vertAcc}, nil
+}
+
+func (gc *gpsClient) Location(ctx context.Context) (*geo.Point, error) {
+	resp, err := gc.rc.client.GPSLocation(ctx, &pb.GPSLocationRequest{
+		Name: gc.name,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return geo.NewPoint(resp.Coordinate.Latitude, resp.Coordinate.Longitude), nil
+}
+
+func (gc *gpsClient) Altitude(ctx context.Context) (float64, error) {
+	resp, err := gc.rc.client.GPSAltitude(ctx, &pb.GPSAltitudeRequest{
+		Name: gc.name,
+	})
+	if err != nil {
+		return math.NaN(), err
+	}
+	return resp.Altitude, nil
+}
+
+func (gc *gpsClient) Speed(ctx context.Context) (float64, error) {
+	resp, err := gc.rc.client.GPSSpeed(ctx, &pb.GPSSpeedRequest{
+		Name: gc.name,
+	})
+	if err != nil {
+		return math.NaN(), err
+	}
+	return resp.SpeedKph, nil
+}
+
+func (gc *gpsClient) Satellites(ctx context.Context) (int, int, error) {
+	return 0, 0, nil
+}
+
+func (gc *gpsClient) Accuracy(ctx context.Context) (float64, float64, error) {
+	resp, err := gc.rc.client.GPSAccuracy(ctx, &pb.GPSAccuracyRequest{
+		Name: gc.name,
+	})
+	if err != nil {
+		return math.NaN(), math.NaN(), err
+	}
+	return resp.HorizontalAccuracy, resp.VerticalAccuracy, nil
+}
+
+func (gc *gpsClient) Valid(ctx context.Context) (bool, error) {
+	return true, nil
 }
 
 // servoClient satisfies a gRPC based servo.Servo. Refer to the interface
