@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
@@ -75,14 +76,22 @@ func init() {
 		return &jetsonBoard{
 			spis:    spis,
 			analogs: analogs,
+			pwms:    map[string]pwmSetting{},
 		}, nil
 	}})
 	board.RegisterConfigAttributeConverter(modelName)
 }
 
 type jetsonBoard struct {
+	mu      sync.Mutex
 	spis    map[string]spiWrapper
 	analogs map[string]board.AnalogReader
+	pwms    map[string]pwmSetting
+}
+
+type pwmSetting struct {
+	dutyCycle gpio.Duty
+	frequency physic.Frequency
 }
 
 func (b *jetsonBoard) SPIByName(name string) (board.SPI, bool) {
@@ -113,7 +122,7 @@ func (sw *spiHandleWrapper) Xfer(ctx context.Context, baud uint, chipSelect stri
 	defer func() {
 		err = multierr.Combine(err, port.Close())
 	}()
-	conn, err := port.Connect(physic.Frequency(baud*1e6), spi.Mode(mode), 8)
+	conn, err := port.Connect(physic.Hertz*physic.Frequency(baud), spi.Mode(mode), 8)
 	if err != nil {
 		return nil, err
 	}
@@ -165,10 +174,14 @@ func (b *jetsonBoard) DigitalInterruptNames() []string {
 	return nil
 }
 
-func (b *jetsonBoard) getGPIOLine(hwPin int) (gpio.PinIO, error) {
-	mapping, ok := gpioMappings[hwPin]
+func (b *jetsonBoard) getGPIOLine(hwPin string) (gpio.PinIO, error) {
+	pinParsed, err := strconv.ParseInt(hwPin, 10, 32)
+	if err != nil {
+		return nil, err
+	}
+	mapping, ok := gpioMappings[int(pinParsed)]
 	if !ok {
-		return nil, errors.Errorf("invalid pin '%d'", hwPin)
+		return nil, errors.Errorf("invalid pin %q", hwPin)
 	}
 
 	pin := gpioreg.ByName(fmt.Sprintf("%d", mapping.gpioGlobal))
@@ -179,11 +192,7 @@ func (b *jetsonBoard) getGPIOLine(hwPin int) (gpio.PinIO, error) {
 }
 
 func (b *jetsonBoard) GPIOSet(ctx context.Context, pinName string, high bool) error {
-	pinParsed, err := strconv.ParseInt(pinName, 10, 32)
-	if err != nil {
-		return err
-	}
-	pin, err := b.getGPIOLine(int(pinParsed))
+	pin, err := b.getGPIOLine(pinName)
 	if err != nil {
 		return err
 	}
@@ -196,11 +205,7 @@ func (b *jetsonBoard) GPIOSet(ctx context.Context, pinName string, high bool) er
 }
 
 func (b *jetsonBoard) GPIOGet(ctx context.Context, pinName string) (bool, error) {
-	pinParsed, err := strconv.ParseInt(pinName, 10, 32)
-	if err != nil {
-		return false, err
-	}
-	pin, err := b.getGPIOLine(int(pinParsed))
+	pin, err := b.getGPIOLine(pinName)
 	if err != nil {
 		return false, err
 	}
@@ -209,30 +214,45 @@ func (b *jetsonBoard) GPIOGet(ctx context.Context, pinName string) (bool, error)
 }
 
 func (b *jetsonBoard) PWMSet(ctx context.Context, pinName string, dutyCycle byte) error {
-	pinParsed, err := strconv.ParseInt(pinName, 10, 32)
-	if err != nil {
-		return err
-	}
-	pin, err := b.getGPIOLine(int(pinParsed))
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	pin, err := b.getGPIOLine(pinName)
 	if err != nil {
 		return err
 	}
 
-	return pin.PWM(gpio.Duty((float64(dutyCycle)/255)*float64(gpio.DutyMax)), 0)
+	last := b.pwms[pinName]
+	var freq physic.Frequency
+	if last.frequency != 0 {
+		freq = last.frequency
+	}
+	duty := gpio.Duty((float64(dutyCycle) / 255) * float64(gpio.DutyMax))
+	last.dutyCycle = duty
+	b.pwms[pinName] = last
+
+	return pin.PWM(duty, freq)
 }
 
 func (b *jetsonBoard) PWMSetFreq(ctx context.Context, pinName string, freq uint) error {
-	pinParsed, err := strconv.ParseInt(pinName, 10, 32)
-	if err != nil {
-		return err
-	}
-	pin, err := b.getGPIOLine(int(pinParsed))
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	pin, err := b.getGPIOLine(pinName)
 	if err != nil {
 		return err
 	}
 
-	// Use the default PWM that Raspberry Pis use
-	return pin.PWM(gpio.DutyMax, 0)
+	last := b.pwms[pinName]
+	var duty gpio.Duty
+	if last.dutyCycle != 0 {
+		duty = last.dutyCycle
+	}
+	frequency := physic.Hertz * physic.Frequency(freq)
+	last.frequency = frequency
+	b.pwms[pinName] = last
+
+	return pin.PWM(duty, frequency)
 }
 
 func (b *jetsonBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
