@@ -325,10 +325,9 @@ func (rr *remoteRobot) Config(ctx context.Context) (*config.Config, error) {
 	return &cfg, nil
 }
 
-// FrameSystem will not gather remoteRobot's remote components, only its immediate components.
+// FrameSystem will return the frame system from the remote robot's server
 func (rr *remoteRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
-	// TODO (bijan): request the DAG of the remote robot and build a FrameSystem in which all the frames are of type *clientFrame
-	return nil, errUnimplemented
+	return rr.robot.FrameSystem(ctx)
 }
 
 func (rr *remoteRobot) Status(ctx context.Context) (*pb.Status, error) {

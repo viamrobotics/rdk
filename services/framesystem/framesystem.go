@@ -10,6 +10,7 @@ import (
 	"github.com/go-errors/errors"
 
 	"go.viam.com/core/config"
+	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -29,6 +30,7 @@ func init() {
 
 // A Service that returns the frame system for a robot.
 type Service interface {
+	FrameSystemDAG(ctx context.Context) ([]*pb.Node, error)
 	LocalFrameSystem(ctx context.Context) (referenceframe.FrameSystem, error)
 	Frame(ctx context.Context, name string) (referenceframe.Frame, error)
 	Close() error
@@ -61,6 +63,23 @@ type frameSystemService struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+}
+
+// FrameSystemDAG returns a DAG of the parent structure of the frame system
+// The output of this function is to be sent over GRPC to the client, so the client can build the frame system.
+// the slice should be returned topologically sorted, starting with the frames that are connected to the world node, and going up
+func (svc *frameSystemService) FrameSystemDAG(ctx context.Context) ([]*pb.Node, error) {
+	dag := make([]*pb.Node, len(svc.fs.FrameNames()))
+	allFrames := svc.fs.FrameNames()
+	// TODO(bijan): need to topologically sort these frame names!!
+	for i, name := range allFrames {
+		parent, err := svc.fs.Parent(svc.fs.GetFrame(name))
+		if err != nil {
+			return nil, err
+		}
+		dag[i] = &pb.Node{Name: name, Parent: parent.Name()}
+	}
+	return dag, nil
 }
 
 // LocalFrameSystem returns just the local components of the robot (excludes any parts from remote robots)
@@ -115,7 +134,7 @@ func createRobotFrameSystem(ctx context.Context, r robot.Robot, robotName string
 			return nil, err
 		}
 	}
-	return buildFrameSystem(robotName, names, children, r.Logger())
+	return buildFrameSystem(ctx, robotName, names, children, r.Logger())
 }
 
 // collectRobotParts collects the physical parts of the robot that may have frame info (excluding remote robots and services, etc)
@@ -263,7 +282,7 @@ func createFrameFromPart(part namedPart, children map[string][]referenceframe.Fr
 	return nil
 }
 
-func buildFrameSystem(name string, frameNames map[string]bool, children map[string][]referenceframe.Frame, logger golog.Logger) (referenceframe.FrameSystem, error) {
+func buildFrameSystem(ctx context.Context, name string, frameNames map[string]bool, children map[string][]referenceframe.Frame, logger golog.Logger) (referenceframe.FrameSystem, error) {
 	// use a stack to populate the frame system
 	stack := make([]string, 0)
 	visited := make(map[string]bool)
@@ -293,16 +312,16 @@ func buildFrameSystem(name string, frameNames map[string]bool, children map[stri
 	if len(visited) != len(frameNames) {
 		return nil, fmt.Errorf("the frame system is not fully connected, expected %d frames but frame system has %d. Expected frames are: %v. Actual frames are: %v", len(frameNames), len(visited), mapKeys(frameNames), mapKeys(visited))
 	}
-	logger.Debugf("frames in robot frame system are: %v", frameNamesWithDof(fs))
+	logger.Debugf("frames in robot frame system are: %v", frameNamesWithDof(ctx, fs))
 	return fs, nil
 }
 
-func frameNamesWithDof(sys referenceframe.FrameSystem) []string {
+func frameNamesWithDof(ctx context.Context, sys referenceframe.FrameSystem) []string {
 	names := sys.FrameNames()
 	nameDoFs := make([]string, len(names))
 	for i, f := range names {
 		fr := sys.GetFrame(f)
-		nameDoFs[i] = fmt.Sprintf("%s(%d)", fr.Name(), len(fr.DoF()))
+		nameDoFs[i] = fmt.Sprintf("%s(%d)", fr.Name(), len(fr.DoF(ctx)))
 	}
 	return nameDoFs
 }

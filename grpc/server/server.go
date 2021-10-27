@@ -40,6 +40,7 @@ import (
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
 	"go.viam.com/core/sensor/imu"
+	"go.viam.com/core/services/framesystem"
 	"go.viam.com/core/services/navigation"
 	"go.viam.com/core/spatialmath"
 	coreutils "go.viam.com/core/utils"
@@ -1073,27 +1074,44 @@ func (s *Server) ResourceRunCommand(ctx context.Context, req *pb.ResourceRunComm
 	return &pb.ResourceRunCommandResponse{Result: resultPb}, nil
 }
 
+// FrameSystemDAG returns a DAG of the FrameSystem's frame names in the form of (name:string, parent:string) pairs.
+func (s *Server) FrameSystemDAG(ctx context.Context, req *pb.FrameSystemDAGRequest) (*pb.FrameSystemDAGResponse, error) {
+	svc, ok := s.r.ServiceByName("frame_system")
+	if !ok {
+		return nil, errors.New("no frame_system service")
+	}
+	fsSvc, ok := svc.(framesystem.Service)
+	if !ok {
+		return nil, errors.New("service is not a frame_system service")
+	}
+	dag, err := fsSvc.FrameSystemDAG(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.FrameSystemDAGResponse{Nodes: dag}, nil
+}
+
 // FrameTransform returns the Pose of the frame's Transform function given the inputs
 func (s *Server) FrameTransform(ctx context.Context, req *pb.FrameTransformRequest) (*pb.FrameTransformResponse, error) {
 	svc, ok := s.r.ServiceByName("frame_system")
 	if !ok {
 		return nil, errors.New("no frame_system service")
 	}
-	fsSvc, ok := svc.(framesystem.service)
+	fsSvc, ok := svc.(framesystem.Service)
 	if !ok {
-		return nil, errors.new("service is not a frame_system service")
+		return nil, errors.New("service is not a frame_system service")
 	}
 	frame, err := fsSvc.Frame(ctx, req.Name)
 	if err != nil {
 		return nil, err
 	}
 	inputs := referenceframe.JointPosToInputs(req.Inputs)
-	pose, err := frame.Transform(inputs)
+	pose, err := frame.Transform(ctx, inputs)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.FrameTransformResponse{spatialmath.PoseToArmPos(pose)}
+	return &pb.FrameTransformResponse{Pose: spatialmath.PoseToArmPos(pose)}, nil
 }
 
 // FrameDoF retrieves the slice of the limits of the frame
@@ -1102,17 +1120,17 @@ func (s *Server) FrameDoF(ctx context.Context, req *pb.FrameDoFRequest) (*pb.Fra
 	if !ok {
 		return nil, errors.New("no frame_system service")
 	}
-	fsSvc, ok := svc.(framesystem.service)
+	fsSvc, ok := svc.(framesystem.Service)
 	if !ok {
-		return nil, errors.new("service is not a frame_system service")
+		return nil, errors.New("service is not a frame_system service")
 	}
 	frame, err := fsSvc.Frame(ctx, req.Name)
 	if err != nil {
 		return nil, err
 	}
-	limits := frame.DoF()
+	limits := frame.DoF(ctx)
 
-	return &pb.FrameDoFResponse{referenceframe.RefLimitsToPbLimits(limits)}
+	return &pb.FrameDoFResponse{Limits: referenceframe.RefLimitsToPbLimits(limits)}, nil
 }
 
 // NavigationServiceMode returns the mode of the service.

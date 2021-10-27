@@ -645,10 +645,25 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 	return names
 }
 
-// FrameSystem not implemented for remote robots
+// FrameSystem retrieves a DAG of the remote frame names and then builds a FrameSystem using *clientFrames
 func (rc *RobotClient) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
-	debug.PrintStack()
-	return nil, errUnimplemented
+	// request the DAG from the remote robot's frame system service.FrameSystemDAG()
+	resp, err := rc.client.FrameSystemDAG(ctx, &pb.FrameSystemDAGRequest{})
+	if err != nil {
+		return nil, err
+	}
+	// using the DAG, build a FrameSystem using *frameClient frames, the returned dag should already be sorted.
+	dag := resp.Nodes
+	fs := referenceframe.NewEmptySimpleFrameSystem("robot")
+	for _, node := range dag {
+		frame := &frameClient{rc: rc, name: node.Name}
+		err := fs.AddFrame(frame, fs.GetFrame(node.Parent))
+		if err != nil {
+			return nil, err
+		}
+	}
+	// return the built FrameSystem
+	return fs, nil
 }
 
 // Logger returns the logger being used for this robot.
@@ -684,9 +699,9 @@ func (fc *frameClient) DoF(ctx context.Context) []referenceframe.Limit {
 		Name: fc.name,
 	})
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	return referenceframe.PbLimitsToRefLimits(resp.Limits), nil
+	return referenceframe.PbLimitsToRefLimits(resp.Limits)
 }
 
 // baseClient satisfies a gRPC based base.Base. Refer to the interface
