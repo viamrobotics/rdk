@@ -113,7 +113,7 @@ func (sw *spiHandleWrapper) Xfer(ctx context.Context, baud uint, chipSelect stri
 	defer func() {
 		err = multierr.Combine(err, port.Close())
 	}()
-	conn, err := port.Connect(physic.Frequency(baud), spi.Mode(mode), 8)
+	conn, err := port.Connect(physic.Frequency(baud*1e6), spi.Mode(mode), 8)
 	if err != nil {
 		return nil, err
 	}
