@@ -669,10 +669,10 @@ func (fc *frameClient) Name() string {
 }
 
 func (fc *frameClient) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
-	in := referenceframe.InputsToJointPos(inputs)
+	pbIn := referenceframe.InputsToJointPos(inputs)
 	resp, err := fc.rc.client.FrameTransform(ctx, &pb.FrameTransformRequest{
 		Name:   fc.name,
-		Inputs: in,
+		Inputs: pbIn,
 	})
 	if err != nil {
 		return nil, err
