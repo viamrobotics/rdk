@@ -62,13 +62,13 @@ func WeightedSquaredNorm(vec []float64, config SolverDistanceWeights) float64 {
 // the end position, and return the ratio of the two. If the result >1.0, then the halfway point is further from the
 // start position than the end position is, and thus solution searching should continue.
 // Positions passed in should be valid, as should their halfway points, so any error will return an infinite distance
-func calcSwingAmount(from, to []frame.Input, model frame.Frame) (float64, error) {
+func calcSwingAmount(ctx context.Context, from, to []frame.Input, model frame.Frame) (float64, error) {
 
-	startPos, err := model.Transform(from)
+	startPos, err := model.Transform(ctx, from)
 	if err != nil {
 		return math.Inf(1), err
 	}
-	endPos, err := model.Transform(to)
+	endPos, err := model.Transform(ctx, to)
 	if err != nil {
 		return math.Inf(1), err
 	}
@@ -86,7 +86,7 @@ func calcSwingAmount(from, to []frame.Input, model frame.Frame) (float64, error)
 		// waypoint equals 0.2, that will check 0.2 and 0.8.
 		waypoint := 1. / float64(i+2)
 		interp := interpolateValues(from, to, waypoint)
-		pathPos, err := model.Transform(interp)
+		pathPos, err := model.Transform(ctx, interp)
 		if err != nil {
 			// This should never happen unless you have invalid waypoints
 			return math.Inf(1), err
@@ -97,7 +97,7 @@ func calcSwingAmount(from, to []frame.Input, model frame.Frame) (float64, error)
 			// If we're not at the halfway point, check both sides- since joints move towards and away from singularities,
 			// a smooth joint movement won't be symmetrical.
 			interp = interpolateValues(from, to, 1-waypoint)
-			compPos, err = model.Transform(interp)
+			compPos, err = model.Transform(ctx, interp)
 			if err != nil {
 				// This should never happen unless you have invalid waypoints
 				return math.Inf(1), err
@@ -128,11 +128,11 @@ func calcSwingAmount(from, to []frame.Input, model frame.Frame) (float64, error)
 
 // bestSolution will select the best solution from a slice of possible solutions for a given model. "Best" is defined
 // such that the interpolated halfway point of the motion is most in line with the movement from start to end.
-func bestSolution(seedAngles []frame.Input, solutions [][]frame.Input, model frame.Frame) ([]frame.Input, float64, error) {
+func bestSolution(ctx context.Context, seedAngles []frame.Input, solutions [][]frame.Input, model frame.Frame) ([]frame.Input, float64, error) {
 	var best []frame.Input
 	dist := math.Inf(1)
 	for _, solution := range solutions {
-		newDist, err := calcSwingAmount(seedAngles, solution, model)
+		newDist, err := calcSwingAmount(ctx, seedAngles, solution, model)
 		if err != nil {
 			return nil, math.Inf(1), err
 		}

@@ -327,11 +327,8 @@ func (rr *remoteRobot) Config(ctx context.Context) (*config.Config, error) {
 
 // FrameSystem will not gather remoteRobot's remote components, only its immediate components.
 func (rr *remoteRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
-	service, ok := rr.ServiceByName(rr.prefixName("frame_system"))
-	if !ok {
-		return nil, fmt.Errorf("frame system service for remote robot not found. Available services are: %v", rr.ServiceNames())
-	}
-	return service.(framesystem.Service).FrameSystem(ctx)
+	// TODO (bijan): request the DAG of the remote robot and build a FrameSystem in which all the frames are of type *clientFrame
+	return nil, errUnimplemented
 }
 
 func (rr *remoteRobot) Status(ctx context.Context) (*pb.Status, error) {

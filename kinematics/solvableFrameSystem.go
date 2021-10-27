@@ -45,7 +45,7 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 
 	// Create a frame to solve for, and an IK solver with that frame.
 	sf := &solverFrame{fss, frames, solveFrame, goalFrame}
-	solver, err := CreateCombinedIKSolver(sf, fss.logger, runtime.NumCPU()/2)
+	solver, err := CreateCombinedIKSolver(ctx, sf, fss.logger, runtime.NumCPU()/2)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 		return nil, multierr.Combine(err, solver.Close())
 	}
 
-	return sf.sliceToMap(resultSlice), solver.Close()
+	return sf.sliceToMap(ctx, resultSlice), solver.Close()
 }
 
 // solverFrames are meant to be ephemerally created each time a frame system solution is created, and fulfills the
@@ -76,24 +76,24 @@ func (sf *solverFrame) Name() string {
 }
 
 // Transform returns the pose between the two frames of this solver for a given set of inputs.
-func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
-	if len(inputs) != len(sf.DoF()) {
+func (sf *solverFrame) Transform(ctx context.Context, inputs []frame.Input) (spatial.Pose, error) {
+	if len(inputs) != len(sf.DoF(ctx)) {
 		return nil, errors.New("incorrect number of inputs to Transform")
 	}
-	pos := frame.StartPositions(sf.fss)
+	pos := frame.StartPositions(ctx, sf.fss)
 	i := 0
 	for _, frame := range sf.frames {
-		pos[frame.Name()] = inputs[i : i+len(frame.DoF())]
-		i += len(frame.DoF())
+		pos[frame.Name()] = inputs[i : i+len(frame.DoF(ctx))]
+		i += len(frame.DoF(ctx))
 	}
-	return sf.fss.TransformFrame(pos, sf.solveFrame, sf.goalFrame)
+	return sf.fss.TransformFrame(ctx, pos, sf.solveFrame, sf.goalFrame)
 }
 
 // DoF returns the summed DoF of all frames between the two solver frames.
-func (sf *solverFrame) DoF() []frame.Limit {
+func (sf *solverFrame) DoF(ctx context.Context) []frame.Limit {
 	var limits []frame.Limit
 	for _, frame := range sf.frames {
-		limits = append(limits, frame.DoF()...)
+		limits = append(limits, frame.DoF(ctx)...)
 	}
 	return limits
 }
@@ -108,12 +108,12 @@ func (sf *solverFrame) mapToSlice(inputMap map[string][]frame.Input) []frame.Inp
 	return inputs
 }
 
-func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.Input {
+func (sf *solverFrame) sliceToMap(ctx context.Context, inputSlice []frame.Input) map[string][]frame.Input {
 	inputs := map[string][]frame.Input{}
 	i := 0
 	for _, frame := range sf.frames {
-		inputs[frame.Name()] = inputSlice[i : i+len(frame.DoF())]
-		i += len(frame.DoF())
+		inputs[frame.Name()] = inputSlice[i : i+len(frame.DoF(ctx))]
+		i += len(frame.DoF(ctx))
 	}
 	return inputs
 }

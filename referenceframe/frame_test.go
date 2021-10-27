@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"context"
 	"math"
 	"testing"
 
@@ -15,20 +16,21 @@ import (
 )
 
 func TestStaticFrame(t *testing.T) {
+	ctx := context.Background()
 	// define a static transform
 	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{1, 2, 3}, r3.Vector{0, 0, 1}, math.Pi/2)
 	frame := &staticFrame{"test", expPose}
 	// get expected transform back
 	emptyInput := FloatsToInputs([]float64{})
-	pose, err := frame.Transform(emptyInput)
+	pose, err := frame.Transform(ctx, emptyInput)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
 	// if you feed in non-empty input, should get err back
 	nonEmptyInput := FloatsToInputs([]float64{0, 0, 0})
-	_, err = frame.Transform(nonEmptyInput)
+	_, err = frame.Transform(ctx, nonEmptyInput)
 	test.That(t, err, test.ShouldNotBeNil)
 	// check that there are no limits on the static frame
-	limits := frame.DoF()
+	limits := frame.DoF(ctx)
 	test.That(t, limits, test.ShouldResemble, []Limit{})
 
 	errExpect := errors.New("pose is not allowed to be nil")
@@ -38,6 +40,7 @@ func TestStaticFrame(t *testing.T) {
 }
 
 func TestPrismaticFrame(t *testing.T) {
+	ctx := context.Background()
 	// define a prismatic transform
 	limits := []Limit{{-30, 30}}
 	frame, err := NewTranslationalFrame("test", []bool{false, true, false}, limits) // can only move on y axis
@@ -50,29 +53,30 @@ func TestPrismaticFrame(t *testing.T) {
 	expPose := spatial.NewPoseFromPoint(r3.Vector{0, 20, 0})
 	// get expected transform back
 	input := FloatsToInputs([]float64{20})
-	pose, err := frame.Transform(input)
+	pose, err := frame.Transform(ctx, input)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
 	// if you feed in too many inputs, should get an error back
 	input = FloatsToInputs([]float64{0, 20, 0})
-	_, err = frame.Transform(input)
+	_, err = frame.Transform(ctx, input)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// if you feed in empty input, should get an error
 	input = FloatsToInputs([]float64{})
-	_, err = frame.Transform(input)
+	_, err = frame.Transform(ctx, input)
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you try to move beyond set limits, should get an error
 	overLimit := 50.0
 	input = FloatsToInputs([]float64{overLimit})
-	_, err = frame.Transform(input)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of bounds %.5f", overLimit, frame.DoF()[0]))
+	_, err = frame.Transform(ctx, input)
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of bounds %.5f", overLimit, frame.DoF(ctx)[0]))
 	// gets the correct limits back
-	frameLimits := frame.DoF()
+	frameLimits := frame.DoF(ctx)
 	test.That(t, frameLimits, test.ShouldResemble, limits)
 }
 
 func TestRevoluteFrame(t *testing.T) {
+	ctx := context.Background()
 	// define a prismatic transform
 	axis := spatial.R4AA{RX: 1, RY: 0, RZ: 0}                                 // axis of rotation is x axis
 	frame := &rotationalFrame{"test", axis, Limit{-math.Pi / 2, math.Pi / 2}} // limits between -90 and 90 degrees
@@ -80,24 +84,24 @@ func TestRevoluteFrame(t *testing.T) {
 	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{1, 0, 0}, math.Pi/4) // 45 degrees
 	// get expected transform back
 	input := JointPosToInputs(&pb.JointPositions{Degrees: []float64{45}})
-	pose, err := frame.Transform(input)
+	pose, err := frame.Transform(ctx, input)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
 	// if you feed in too many inputs, should get error back
 	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{45, 55}})
-	_, err = frame.Transform(input)
+	_, err = frame.Transform(ctx, input)
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you feed in empty input, should get errr back
 	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{}})
-	_, err = frame.Transform(input)
+	_, err = frame.Transform(ctx, input)
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you try to move beyond set limits, should get an error
 	overLimit := 100.0 // degrees
 	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{overLimit}})
-	_, err = frame.Transform(input)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of rev frame bounds %.5f", utils.DegToRad(overLimit), frame.DoF()[0]))
+	_, err = frame.Transform(ctx, input)
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of rev frame bounds %.5f", utils.DegToRad(overLimit), frame.DoF(ctx)[0]))
 	// gets the correct limits back
-	limit := frame.DoF()
+	limit := frame.DoF(ctx)
 	test.That(t, limit, test.ShouldResemble, []Limit{{-math.Pi / 2, math.Pi / 2}})
 }
 

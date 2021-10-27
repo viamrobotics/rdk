@@ -5,6 +5,7 @@
 package referenceframe
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -79,8 +80,8 @@ func RefLimitsToPbLimits(limits []Limit) []*pb.Limit {
 // Transform takes FROM current frame TO parent's frame!
 type Frame interface {
 	Name() string
-	Transform([]Input) (spatial.Pose, error)
-	DoF() []Limit
+	Transform(context.Context, []Input) (spatial.Pose, error)
+	DoF(context.Context) []Limit
 }
 
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation from the current Frame to the parent Frame
@@ -115,7 +116,7 @@ func (sf *staticFrame) Name() string {
 }
 
 // Transform returns the pose associated with this static frame.
-func (sf *staticFrame) Transform(inp []Input) (spatial.Pose, error) {
+func (sf *staticFrame) Transform(ctx context.Context, inp []Input) (spatial.Pose, error) {
 	if len(inp) != 0 {
 		return nil, fmt.Errorf("given input length %q does not match frame DoF 0", len(inp))
 	}
@@ -123,7 +124,7 @@ func (sf *staticFrame) Transform(inp []Input) (spatial.Pose, error) {
 }
 
 // DoF are the degrees of freedom of the transform. In the staticFrame, it is always 0.
-func (sf *staticFrame) DoF() []Limit {
+func (sf *staticFrame) DoF(ctx context.Context) []Limit {
 	return []Limit{}
 }
 
@@ -150,7 +151,7 @@ func (pf *translationalFrame) Name() string {
 }
 
 // Transform returns a pose translated by the amount specified in the inputs.
-func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
+func (pf *translationalFrame) Transform(ctx context.Context, input []Input) (spatial.Pose, error) {
 	var err error
 	if len(input) != pf.DoFInt() {
 		return nil, fmt.Errorf("given input length %d does not match frame DoF %d", len(input), pf.DoFInt())
@@ -172,7 +173,7 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 }
 
 // DoF are the degrees of freedom of the transform.
-func (pf *translationalFrame) DoF() []Limit {
+func (pf *translationalFrame) DoF(ctx context.Context) []Limit {
 	return pf.limits
 }
 
@@ -208,7 +209,7 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, err
 
 // Transform returns the Pose representing the frame's 6DoF motion in space. Requires a slice
 // of inputs that has length equal to the degrees of freedom of the frame.
-func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
+func (rf *rotationalFrame) Transform(ctx context.Context, input []Input) (spatial.Pose, error) {
 	var err error
 	if len(input) != 1 {
 		return nil, fmt.Errorf("given input length %d does not match frame DoF 1", len(input))
@@ -225,7 +226,7 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 }
 
 // DoF returns the number of degrees of freedom that a joint has. This would be 1 for a standard revolute joint.
-func (rf *rotationalFrame) DoF() []Limit {
+func (rf *rotationalFrame) DoF(ctx context.Context) []Limit {
 	return []Limit{rf.limit}
 }
 
