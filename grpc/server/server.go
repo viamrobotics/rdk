@@ -33,13 +33,13 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
 	"go.viam.com/core/sensor/imu"
-	"go.viam.com/core/services/framesystem"
 	"go.viam.com/core/services/navigation"
 	"go.viam.com/core/spatialmath"
 	coreutils "go.viam.com/core/utils"
@@ -95,9 +95,8 @@ func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigRes
 	resp := &pb.ConfigResponse{}
 	for _, c := range cfg.Components {
 		cc := &pb.ComponentConfig{
-			Name:  c.Name,
-			Type:  string(c.Type),
-			Model: c.Model,
+			Name: c.Name,
+			Type: string(c.Type),
 		}
 		if c.Frame != nil {
 			orientation := c.Frame.Orientation
