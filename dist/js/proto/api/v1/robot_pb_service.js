@@ -614,6 +614,42 @@ RobotService.IMUOrientation = {
   responseType: proto_api_v1_robot_pb.IMUOrientationResponse
 };
 
+RobotService.GPSLocation = {
+  methodName: "GPSLocation",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.GPSLocationRequest,
+  responseType: proto_api_v1_robot_pb.GPSLocationResponse
+};
+
+RobotService.GPSAltitude = {
+  methodName: "GPSAltitude",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.GPSAltitudeRequest,
+  responseType: proto_api_v1_robot_pb.GPSAltitudeResponse
+};
+
+RobotService.GPSSpeed = {
+  methodName: "GPSSpeed",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.GPSSpeedRequest,
+  responseType: proto_api_v1_robot_pb.GPSSpeedResponse
+};
+
+RobotService.GPSAccuracy = {
+  methodName: "GPSAccuracy",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.GPSAccuracyRequest,
+  responseType: proto_api_v1_robot_pb.GPSAccuracyResponse
+};
+
 exports.RobotService = RobotService;
 
 function RobotServiceClient(serviceHost, options) {
@@ -2688,6 +2724,130 @@ RobotServiceClient.prototype.iMUOrientation = function iMUOrientation(requestMes
     callback = arguments[1];
   }
   var client = grpc.unary(RobotService.IMUOrientation, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.gPSLocation = function gPSLocation(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.GPSLocation, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.gPSAltitude = function gPSAltitude(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.GPSAltitude, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.gPSSpeed = function gPSSpeed(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.GPSSpeed, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.gPSAccuracy = function gPSAccuracy(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.GPSAccuracy, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

@@ -608,6 +608,42 @@ type RobotServiceIMUOrientation = {
   readonly responseType: typeof proto_api_v1_robot_pb.IMUOrientationResponse;
 };
 
+type RobotServiceGPSLocation = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.GPSLocationRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.GPSLocationResponse;
+};
+
+type RobotServiceGPSAltitude = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.GPSAltitudeRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.GPSAltitudeResponse;
+};
+
+type RobotServiceGPSSpeed = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.GPSSpeedRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.GPSSpeedResponse;
+};
+
+type RobotServiceGPSAccuracy = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.GPSAccuracyRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.GPSAccuracyResponse;
+};
+
 export class RobotService {
   static readonly serviceName: string;
   static readonly Status: RobotServiceStatus;
@@ -677,6 +713,10 @@ export class RobotService {
   static readonly NavigationServiceRemoveWaypoint: RobotServiceNavigationServiceRemoveWaypoint;
   static readonly IMUAngularVelocity: RobotServiceIMUAngularVelocity;
   static readonly IMUOrientation: RobotServiceIMUOrientation;
+  static readonly GPSLocation: RobotServiceGPSLocation;
+  static readonly GPSAltitude: RobotServiceGPSAltitude;
+  static readonly GPSSpeed: RobotServiceGPSSpeed;
+  static readonly GPSAccuracy: RobotServiceGPSAccuracy;
 }
 
 export type ServiceError = { message: string, code: number; metadata: grpc.Metadata }
@@ -1297,6 +1337,42 @@ export class RobotServiceClient {
   iMUOrientation(
     requestMessage: proto_api_v1_robot_pb.IMUOrientationRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.IMUOrientationResponse|null) => void
+  ): UnaryResponse;
+  gPSLocation(
+    requestMessage: proto_api_v1_robot_pb.GPSLocationRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GPSLocationResponse|null) => void
+  ): UnaryResponse;
+  gPSLocation(
+    requestMessage: proto_api_v1_robot_pb.GPSLocationRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GPSLocationResponse|null) => void
+  ): UnaryResponse;
+  gPSAltitude(
+    requestMessage: proto_api_v1_robot_pb.GPSAltitudeRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GPSAltitudeResponse|null) => void
+  ): UnaryResponse;
+  gPSAltitude(
+    requestMessage: proto_api_v1_robot_pb.GPSAltitudeRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GPSAltitudeResponse|null) => void
+  ): UnaryResponse;
+  gPSSpeed(
+    requestMessage: proto_api_v1_robot_pb.GPSSpeedRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GPSSpeedResponse|null) => void
+  ): UnaryResponse;
+  gPSSpeed(
+    requestMessage: proto_api_v1_robot_pb.GPSSpeedRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GPSSpeedResponse|null) => void
+  ): UnaryResponse;
+  gPSAccuracy(
+    requestMessage: proto_api_v1_robot_pb.GPSAccuracyRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GPSAccuracyResponse|null) => void
+  ): UnaryResponse;
+  gPSAccuracy(
+    requestMessage: proto_api_v1_robot_pb.GPSAccuracyRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GPSAccuracyResponse|null) => void
   ): UnaryResponse;
 }
 

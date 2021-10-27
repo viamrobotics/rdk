@@ -512,6 +512,36 @@ service RobotService {
       get: "/api/v1/sensors/imu/{name}/orientation"
     };
   }
+
+  // GPS
+
+  // GPSLocation returns the most recent location from the given GPS.
+  rpc GPSLocation(GPSLocationRequest) returns (GPSLocationResponse) {
+      option (google.api.http) = {
+      get: "/api/v1/sensors/gps/{name}/location"
+    };
+  }
+
+  // GPSAltitude returns the most recent altitude from the given GPS.
+  rpc GPSAltitude(GPSAltitudeRequest) returns (GPSAltitudeResponse) {
+      option (google.api.http) = {
+      get: "/api/v1/sensors/gps/{name}/altitude"
+    };
+  }
+
+  // GPSSpeed returns the most recent speed from the given GPS.
+  rpc GPSSpeed(GPSSpeedRequest) returns (GPSSpeedResponse) {
+      option (google.api.http) = {
+      get: "/api/v1/sensors/gps/{name}/speed"
+    };
+  }
+
+  // GPSAccuracy returns the most recent location accuracy from the given GPS.
+  rpc GPSAccuracy(GPSAccuracyRequest) returns (GPSAccuracyResponse) {
+      option (google.api.http) = {
+      get: "/api/v1/sensors/gps/{name}/accuracy"
+    };
+  }
 }
 
 message StatusRequest {}
@@ -1227,6 +1257,40 @@ message IMUOrientationRequest {
 message IMUOrientationResponse {
   EulerAngles orientation = 1;
 }
+
+message GPSLocationRequest {
+  string name = 1;
+}
+
+message GPSLocationResponse {
+  GeoPoint coordinate = 1;
+}
+
+message GPSAltitudeRequest {
+  string name = 1;
+}
+
+message GPSAltitudeResponse {
+  double altitude = 1;
+}
+
+message GPSSpeedRequest {
+  string name = 1;
+}
+
+message GPSSpeedResponse {
+  double speed_kph = 1;
+}
+
+message GPSAccuracyRequest {
+  string name = 1;
+}
+
+message GPSAccuracyResponse {
+  double horizontal_accuracy = 1;
+  double vertical_accuracy = 2;
+}
+
 
 // Matrix
 message Matrix {

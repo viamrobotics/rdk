@@ -4159,5 +4159,249 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.iMUOrientation =
 };
 
 
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.GPSLocationRequest,
+ *   !proto.proto.api.v1.GPSLocationResponse>}
+ */
+const methodDescriptor_RobotService_GPSLocation = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/GPSLocation',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.GPSLocationRequest,
+  proto.proto.api.v1.GPSLocationResponse,
+  /**
+   * @param {!proto.proto.api.v1.GPSLocationRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.GPSLocationResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.GPSLocationRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.GPSLocationResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.GPSLocationResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.gPSLocation =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/GPSLocation',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_GPSLocation,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.GPSLocationRequest} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.GPSLocationResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.gPSLocation =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/GPSLocation',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_GPSLocation);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.GPSAltitudeRequest,
+ *   !proto.proto.api.v1.GPSAltitudeResponse>}
+ */
+const methodDescriptor_RobotService_GPSAltitude = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/GPSAltitude',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.GPSAltitudeRequest,
+  proto.proto.api.v1.GPSAltitudeResponse,
+  /**
+   * @param {!proto.proto.api.v1.GPSAltitudeRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.GPSAltitudeResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.GPSAltitudeRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.GPSAltitudeResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.GPSAltitudeResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.gPSAltitude =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/GPSAltitude',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_GPSAltitude,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.GPSAltitudeRequest} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.GPSAltitudeResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.gPSAltitude =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/GPSAltitude',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_GPSAltitude);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.GPSSpeedRequest,
+ *   !proto.proto.api.v1.GPSSpeedResponse>}
+ */
+const methodDescriptor_RobotService_GPSSpeed = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/GPSSpeed',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.GPSSpeedRequest,
+  proto.proto.api.v1.GPSSpeedResponse,
+  /**
+   * @param {!proto.proto.api.v1.GPSSpeedRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.GPSSpeedResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.GPSSpeedRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.GPSSpeedResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.GPSSpeedResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.gPSSpeed =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/GPSSpeed',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_GPSSpeed,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.GPSSpeedRequest} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.GPSSpeedResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.gPSSpeed =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/GPSSpeed',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_GPSSpeed);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.GPSAccuracyRequest,
+ *   !proto.proto.api.v1.GPSAccuracyResponse>}
+ */
+const methodDescriptor_RobotService_GPSAccuracy = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/GPSAccuracy',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.GPSAccuracyRequest,
+  proto.proto.api.v1.GPSAccuracyResponse,
+  /**
+   * @param {!proto.proto.api.v1.GPSAccuracyRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.GPSAccuracyResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.GPSAccuracyRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.GPSAccuracyResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.GPSAccuracyResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.gPSAccuracy =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/GPSAccuracy',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_GPSAccuracy,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.GPSAccuracyRequest} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.GPSAccuracyResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.gPSAccuracy =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/GPSAccuracy',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_GPSAccuracy);
+};
+
+
 module.exports = proto.proto.api.v1;
 

@@ -3404,6 +3404,172 @@ export namespace IMUOrientationResponse {
   }
 }
 
+export class GPSLocationRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GPSLocationRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GPSLocationRequest): GPSLocationRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GPSLocationRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GPSLocationRequest;
+  static deserializeBinaryFromReader(message: GPSLocationRequest, reader: jspb.BinaryReader): GPSLocationRequest;
+}
+
+export namespace GPSLocationRequest {
+  export type AsObject = {
+    name: string,
+  }
+}
+
+export class GPSLocationResponse extends jspb.Message {
+  hasCoordinate(): boolean;
+  clearCoordinate(): void;
+  getCoordinate(): GeoPoint | undefined;
+  setCoordinate(value?: GeoPoint): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GPSLocationResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GPSLocationResponse): GPSLocationResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GPSLocationResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GPSLocationResponse;
+  static deserializeBinaryFromReader(message: GPSLocationResponse, reader: jspb.BinaryReader): GPSLocationResponse;
+}
+
+export namespace GPSLocationResponse {
+  export type AsObject = {
+    coordinate?: GeoPoint.AsObject,
+  }
+}
+
+export class GPSAltitudeRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GPSAltitudeRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GPSAltitudeRequest): GPSAltitudeRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GPSAltitudeRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GPSAltitudeRequest;
+  static deserializeBinaryFromReader(message: GPSAltitudeRequest, reader: jspb.BinaryReader): GPSAltitudeRequest;
+}
+
+export namespace GPSAltitudeRequest {
+  export type AsObject = {
+    name: string,
+  }
+}
+
+export class GPSAltitudeResponse extends jspb.Message {
+  getAltitude(): number;
+  setAltitude(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GPSAltitudeResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GPSAltitudeResponse): GPSAltitudeResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GPSAltitudeResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GPSAltitudeResponse;
+  static deserializeBinaryFromReader(message: GPSAltitudeResponse, reader: jspb.BinaryReader): GPSAltitudeResponse;
+}
+
+export namespace GPSAltitudeResponse {
+  export type AsObject = {
+    altitude: number,
+  }
+}
+
+export class GPSSpeedRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GPSSpeedRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GPSSpeedRequest): GPSSpeedRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GPSSpeedRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GPSSpeedRequest;
+  static deserializeBinaryFromReader(message: GPSSpeedRequest, reader: jspb.BinaryReader): GPSSpeedRequest;
+}
+
+export namespace GPSSpeedRequest {
+  export type AsObject = {
+    name: string,
+  }
+}
+
+export class GPSSpeedResponse extends jspb.Message {
+  getSpeedKph(): number;
+  setSpeedKph(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GPSSpeedResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GPSSpeedResponse): GPSSpeedResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GPSSpeedResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GPSSpeedResponse;
+  static deserializeBinaryFromReader(message: GPSSpeedResponse, reader: jspb.BinaryReader): GPSSpeedResponse;
+}
+
+export namespace GPSSpeedResponse {
+  export type AsObject = {
+    speedKph: number,
+  }
+}
+
+export class GPSAccuracyRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GPSAccuracyRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GPSAccuracyRequest): GPSAccuracyRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GPSAccuracyRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GPSAccuracyRequest;
+  static deserializeBinaryFromReader(message: GPSAccuracyRequest, reader: jspb.BinaryReader): GPSAccuracyRequest;
+}
+
+export namespace GPSAccuracyRequest {
+  export type AsObject = {
+    name: string,
+  }
+}
+
+export class GPSAccuracyResponse extends jspb.Message {
+  getHorizontalAccuracy(): number;
+  setHorizontalAccuracy(value: number): void;
+
+  getVerticalAccuracy(): number;
+  setVerticalAccuracy(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GPSAccuracyResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GPSAccuracyResponse): GPSAccuracyResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GPSAccuracyResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GPSAccuracyResponse;
+  static deserializeBinaryFromReader(message: GPSAccuracyResponse, reader: jspb.BinaryReader): GPSAccuracyResponse;
+}
+
+export namespace GPSAccuracyResponse {
+  export type AsObject = {
+    horizontalAccuracy: number,
+    verticalAccuracy: number,
+  }
+}
+
 export class Matrix extends jspb.Message {
   getRows(): number;
   setRows(value: number): void;
