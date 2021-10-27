@@ -2,14 +2,6 @@
     "components":
     [
         {
-            "model": "iphone",
-            "name": "gps2",
-            "type": "sensor",
-            "subtype": "gps",
-            "host": "192.168.50.149",
-            "port": 3000
-        },
-        {
             "model": "fake",
             "name": "arm1",
             "type": "arm"
