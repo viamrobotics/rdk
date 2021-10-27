@@ -27,7 +27,7 @@ func init() {
 	)
 }
 
-// A Service controls the navigation for a robot.
+// A Service that returns the frame system for a robot.
 type Service interface {
 	FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error)
 	Close() error
