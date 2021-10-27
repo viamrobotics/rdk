@@ -41,6 +41,12 @@ func init() {
 
 	registry.RegisterBoard(modelName, registry.Board{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error) {
 		conf := config.ConvertedAttributes.(*board.Config)
+		if len(conf.DigitalInterrupts) != 0 {
+			return nil, errors.New("digital interrupts unsupported")
+		}
+		if len(conf.I2Cs) != 0 {
+			return nil, errors.New("i2c unsupported")
+		}
 		var spis map[string]spiWrapper
 		if len(conf.SPIs) != 0 {
 			spis = make(map[string]spiWrapper, len(conf.SPIs))
@@ -48,15 +54,35 @@ func init() {
 				spis[spiConf.Name] = spiWrapper{spiConf.BusSelect}
 			}
 		}
+		var analogs map[string]board.AnalogReader
+		if len(conf.Analogs) != 0 {
+			analogs = make(map[string]board.AnalogReader, len(conf.Analogs))
+			for _, analogConf := range conf.Analogs {
+				channel, err := strconv.Atoi(analogConf.Pin)
+				if err != nil {
+					return nil, errors.Errorf("bad analog pin (%s)", analogConf.Pin)
+				}
+
+				bus, ok := spis[analogConf.SPIBus]
+				if !ok {
+					return nil, errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", analogConf.SPIBus)
+				}
+
+				ar := &board.MCP3008AnalogReader{channel, bus, analogConf.ChipSelect}
+				analogs[analogConf.Name] = board.SmoothAnalogReader(ar, analogConf, logger)
+			}
+		}
 		return &jetsonBoard{
-			spis: spis,
+			spis:    spis,
+			analogs: analogs,
 		}, nil
 	}})
 	board.RegisterConfigAttributeConverter(modelName)
 }
 
 type jetsonBoard struct {
-	spis map[string]spiWrapper
+	spis    map[string]spiWrapper
+	analogs map[string]board.AnalogReader
 }
 
 func (b *jetsonBoard) SPIByName(name string) (board.SPI, bool) {
@@ -104,7 +130,8 @@ func (b *jetsonBoard) I2CByName(name string) (board.I2C, bool) {
 }
 
 func (b *jetsonBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
-	return nil, false
+	a, ok := b.analogs[name]
+	return a, ok
 }
 
 func (b *jetsonBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
@@ -112,7 +139,14 @@ func (b *jetsonBoard) DigitalInterruptByName(name string) (board.DigitalInterrup
 }
 
 func (b *jetsonBoard) SPINames() []string {
-	return nil
+	if len(b.spis) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(b.spis))
+	for k := range b.spis {
+		names = append(names, k)
+	}
+	return names
 }
 
 func (b *jetsonBoard) I2CNames() []string {
@@ -120,7 +154,11 @@ func (b *jetsonBoard) I2CNames() []string {
 }
 
 func (b *jetsonBoard) AnalogReaderNames() []string {
-	return nil
+	names := []string{}
+	for k := range b.analogs {
+		names = append(names, k)
+	}
+	return names
 }
 
 func (b *jetsonBoard) DigitalInterruptNames() []string {
