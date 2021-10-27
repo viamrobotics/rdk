@@ -30,7 +30,7 @@ proto.google.api.servicecontrol.v1 = require('./quota_controller_pb.js');
 /**
  * @param {string} hostname
  * @param {?Object} credentials
- * @param {?Object} options
+ * @param {?grpc.web.ClientOptions} options
  * @constructor
  * @struct
  * @final
@@ -38,7 +38,7 @@ proto.google.api.servicecontrol.v1 = require('./quota_controller_pb.js');
 proto.google.api.servicecontrol.v1.QuotaControllerClient =
     function(hostname, credentials, options) {
   if (!options) options = {};
-  options['format'] = 'text';
+  options.format = 'text';
 
   /**
    * @private @const {!grpc.web.GrpcWebClientBase} The client
@@ -56,7 +56,7 @@ proto.google.api.servicecontrol.v1.QuotaControllerClient =
 /**
  * @param {string} hostname
  * @param {?Object} credentials
- * @param {?Object} options
+ * @param {?grpc.web.ClientOptions} options
  * @constructor
  * @struct
  * @final
@@ -64,7 +64,7 @@ proto.google.api.servicecontrol.v1.QuotaControllerClient =
 proto.google.api.servicecontrol.v1.QuotaControllerPromiseClient =
     function(hostname, credentials, options) {
   if (!options) options = {};
-  options['format'] = 'text';
+  options.format = 'text';
 
   /**
    * @private @const {!grpc.web.GrpcWebClientBase} The client
@@ -102,30 +102,11 @@ const methodDescriptor_QuotaController_AllocateQuota = new grpc.web.MethodDescri
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.servicecontrol.v1.AllocateQuotaRequest,
- *   !proto.google.api.servicecontrol.v1.AllocateQuotaResponse>}
- */
-const methodInfo_QuotaController_AllocateQuota = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.google.api.servicecontrol.v1.AllocateQuotaResponse,
-  /**
-   * @param {!proto.google.api.servicecontrol.v1.AllocateQuotaRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.google.api.servicecontrol.v1.AllocateQuotaResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.servicecontrol.v1.AllocateQuotaRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.servicecontrol.v1.AllocateQuotaResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.servicecontrol.v1.AllocateQuotaResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.servicecontrol.v1.AllocateQuotaResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -144,7 +125,7 @@ proto.google.api.servicecontrol.v1.QuotaControllerClient.prototype.allocateQuota
 /**
  * @param {!proto.google.api.servicecontrol.v1.AllocateQuotaRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.servicecontrol.v1.AllocateQuotaResponse>}
  *     Promise that resolves to the response
