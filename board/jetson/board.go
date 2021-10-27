@@ -208,12 +208,31 @@ func (b *jetsonBoard) GPIOGet(ctx context.Context, pinName string) (bool, error)
 	return pin.Read() == gpio.High, nil
 }
 
-func (b *jetsonBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	return errors.New("unsupported")
+func (b *jetsonBoard) PWMSet(ctx context.Context, pinName string, dutyCycle byte) error {
+	pinParsed, err := strconv.ParseInt(pinName, 10, 32)
+	if err != nil {
+		return err
+	}
+	pin, err := b.getGPIOLine(int(pinParsed))
+	if err != nil {
+		return err
+	}
+
+	return pin.PWM(gpio.Duty((float64(dutyCycle)/255)*float64(gpio.DutyMax)), 0)
 }
 
-func (b *jetsonBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	return errors.New("unsupported")
+func (b *jetsonBoard) PWMSetFreq(ctx context.Context, pinName string, freq uint) error {
+	pinParsed, err := strconv.ParseInt(pinName, 10, 32)
+	if err != nil {
+		return err
+	}
+	pin, err := b.getGPIOLine(int(pinParsed))
+	if err != nil {
+		return err
+	}
+
+	// Use the default PWM that Raspberry Pis use
+	return pin.PWM(gpio.DutyMax, 0)
 }
 
 func (b *jetsonBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
