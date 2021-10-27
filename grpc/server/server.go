@@ -17,6 +17,7 @@ import (
 	"github.com/go-errors/errors"
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/multierr"
 
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -31,6 +32,7 @@ import (
 	"go.viam.com/core/grpc"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rimage"
@@ -919,6 +921,109 @@ func (s *Server) ServoMove(ctx context.Context, req *pb.ServoMoveRequest) (*pb.S
 	}
 
 	return &pb.ServoMoveResponse{}, theServo.Move(ctx, uint8(req.AngleDeg))
+}
+
+// MotorGetPIDConfig returns the config of the motor's PID
+func (s *Server) MotorGetPIDConfig(ctx context.Context, req *pb.MotorGetPIDConfigRequest) (*pb.MotorGetPIDConfigResponse, error) {
+	m, ok := s.r.MotorByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no motor (%s) found", req.Name)
+	}
+	pid := m.PID()
+	if pid == nil {
+		return nil, errors.New("no underlying PID for motor configured")
+	}
+	cfg, err := pid.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+	str, err := structpb.NewStruct(cfg.Attributes)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.MotorGetPIDConfigResponse{PidConfig: str}, nil
+}
+
+// MotorSetPIDConfig change the config of the motor's PID
+func (s *Server) MotorSetPIDConfig(ctx context.Context, req *pb.MotorSetPIDConfigRequest) (*pb.MotorSetPIDConfigResponse, error) {
+	m, ok := s.r.MotorByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no motor (%s) found", req.Name)
+	}
+	pid := m.PID()
+	if pid == nil {
+		return nil, errors.New("no underlying PID for motor configured")
+	}
+	cfg := motor.PIDConfig{
+		Name:       "",
+		Type:       "",
+		Attributes: req.PidConfig.AsMap(),
+	}
+	if err := pid.UpdateConfig(ctx, cfg); err != nil {
+		return nil, err
+	}
+	return &pb.MotorSetPIDConfigResponse{}, nil
+}
+
+// MotorPIDStep execute a step response on the PID controller
+func (s *Server) MotorPIDStep(req *pb.MotorPIDStepRequest, server pb.RobotService_MotorPIDStepServer) error {
+	m, ok := s.r.MotorByName(req.Name)
+	if !ok {
+		return errors.Errorf("no motor (%s) found", req.Name)
+	}
+	pid := m.PID()
+	if pid == nil {
+		return errors.New("no underlying PID for motor configured")
+	}
+	setPoint := req.GetSetPoint()
+	if err := m.Off(server.Context()); err != nil {
+		return err
+	}
+	if err := pid.Reset(); err != nil {
+		return err
+	}
+	d := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
+	lastTime := time.Now()
+	lastPos, err := m.Position(server.Context())
+	totalTime := 0.0
+	if err != nil {
+		return err
+	}
+	ticker := time.NewTicker(time.Millisecond * 10)
+	defer ticker.Stop()
+	defer func(m motor.Motor) {
+		if err := m.Off(server.Context()); err != nil {
+			s.r.Logger().Error(err)
+		}
+	}(m)
+	for {
+		select {
+		case <-server.Context().Done():
+			err := m.Off(server.Context())
+			return multierr.Combine(server.Context().Err(), err)
+		default:
+		}
+		<-ticker.C
+		dt := time.Since(lastTime)
+		lastTime = time.Now()
+		currPos, err := m.Position(server.Context())
+		if err != nil {
+			return err
+		}
+		vel := (currPos - lastPos) / dt.Seconds()
+		effort, ok := pid.Output(server.Context(), dt, setPoint, vel)
+		lastPos = currPos
+		if ok {
+			if err = m.Go(server.Context(), d, float32(effort/100)); err != nil {
+				return err
+			}
+		}
+
+		totalTime += dt.Seconds()
+		if err := server.Send(&pb.MotorPIDStepResponse{Time: totalTime, SetPoint: setPoint, RefValue: vel}); err != nil {
+			return err
+		}
+	}
 }
 
 // MotorPower sets the percentage of power the motor of the underlying robot should employ between 0-1.

@@ -49,6 +49,9 @@ type Motor interface {
 
 	// IsOn returns whether or not the motor is currently on.
 	IsOn(ctx context.Context) (bool, error)
+
+	//PID returns underlying PID for the motor
+	PID() PID
 }
 
 // Config describes the configuration of a motor.
@@ -64,6 +67,7 @@ type Config struct {
 	MaxRPM           float64           `json:"max_rpm"`          // RPM
 	MaxAcceleration  float64           `json:"max_acceleration"` // RPM per second
 	PWMFreq          uint              `json:"pwmFreq"`
+	PID              *PIDConfig        `json:"pid,omitempty"`
 }
 
 // RegisterConfigAttributeConverter registers a Config converter.
