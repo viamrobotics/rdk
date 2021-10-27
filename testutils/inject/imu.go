@@ -6,7 +6,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/spatialmath"
 )
@@ -44,9 +43,9 @@ func (i *IMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) 
 	return i.OrientationFunc(ctx)
 }
 
-// Desc calls the injected Desc or the real version.
+// Desc returns that this is an IMU.
 func (i *IMU) Desc() sensor.Description {
-	return sensor.Description{compass.Type, ""}
+	return sensor.Description{imu.Type, ""}
 }
 
 // Close calls the injected Close or the real version.

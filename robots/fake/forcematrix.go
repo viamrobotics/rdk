@@ -42,7 +42,7 @@ func (fsm *ForceMatrix) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{matrix}, nil
 }
 
-// Desc returns that this is a traditional compass.
+// Desc returns that this is a force matrix.
 func (fsm *ForceMatrix) Desc() sensor.Description {
 	return sensor.Description{forcematrix.Type, ""}
 }
