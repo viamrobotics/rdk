@@ -23,6 +23,7 @@ require (
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551
 	github.com/golangci/golangci-lint v1.39.0
 	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82
+	github.com/gonum/integrate v0.0.0-20181209220457-a422b5c0fdf2 // indirect
 	github.com/gonum/stat v0.0.0-20181125101827-41a0da705a5b
 	github.com/google/uuid v1.3.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.5.0
@@ -41,7 +42,6 @@ require (
 	github.com/sergi/go-diff v1.2.0
 	github.com/sjwhitworth/golearn v0.0.0-20201127221938-294d65fca392
 	github.com/starship-technologies/gobag v1.0.6
-	github.com/tidwall/gjson v1.9.3 // indirect
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
 	github.com/u2takey/ffmpeg-go v0.3.0
 	github.com/viamrobotics/evdev v0.1.3
@@ -52,7 +52,7 @@ require (
 	go.opencensus.io v0.23.0
 	go.uber.org/multierr v1.7.0
 	go.uber.org/zap v1.19.1
-	go.viam.com/SensorExporter v0.0.0-20211013205849-ef5a0ac22848
+	go.viam.com/SensorExporter v0.0.0-20211026213554-e3dc14da6a58
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
 	go.viam.com/utils v0.0.2-0.20211022043729-bfbcdc7c186c
