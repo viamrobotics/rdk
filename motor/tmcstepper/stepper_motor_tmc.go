@@ -476,3 +476,8 @@ func (m *Motor) Zero(ctx context.Context, offset float64) error {
 		m.writeReg(ctx, xActual, int32(offset*float64(m.stepsPerRev))),
 	)
 }
+
+// PID Return the underlying PID
+func (m *Motor) PID() motor.PID {
+	return nil
+}

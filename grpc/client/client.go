@@ -1361,6 +1361,9 @@ type motorClient struct {
 	name string
 }
 
+func (mc *motorClient) PID() motor.PID {
+	return nil
+}
 func (mc *motorClient) Power(ctx context.Context, powerPct float32) error {
 	_, err := mc.rc.client.MotorPower(ctx, &pb.MotorPowerRequest{
 		Name:     mc.name,
