@@ -11,8 +11,13 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/action"
+	"go.viam.com/core/kinematics"
+	"go.viam.com/core/motionplan"
 	pb "go.viam.com/core/proto/api/v1"
+	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
+	spatial "go.viam.com/core/spatialmath"
+	u "go.viam.com/core/utils"
 	webserver "go.viam.com/core/web/server"
 
 	_ "go.viam.com/core/board/detector"         // load boards
@@ -51,6 +56,20 @@ func init() {
 		}
 	})
 
+	action.RegisterAction("plan1", func(ctx context.Context, r robot.Robot) {
+		err := plan1(ctx, r)
+		if err != nil {
+			logger.Errorf("error plan: %s", err)
+		}
+	})
+
+	action.RegisterAction("plan2", func(ctx context.Context, r robot.Robot) {
+		err := plan2(ctx, r)
+		if err != nil {
+			logger.Errorf("error plan: %s", err)
+		}
+	})
+
 }
 
 func chrisCirlce(ctx context.Context, r robot.Robot) error {
@@ -81,20 +100,22 @@ func upAndDown(ctx context.Context, r robot.Robot) error {
 		return fmt.Errorf("failed to find arm %q", r.ArmNames()[0])
 	}
 
-	for i := 0; i < 1000; i++ {
+	arm.MoveToPosition(ctx, &pb.ArmPosition{X: 300, Z: 250})
+
+	for i := 0; i < 5; i++ {
 		logger.Debugf("upAndDown loop %d", i)
 		pos, err := arm.CurrentPosition(ctx)
 		if err != nil {
 			return err
 		}
 
-		pos.Z += 100
+		pos.Z += 250
 		err = arm.MoveToPosition(ctx, pos)
 		if err != nil {
 			return err
 		}
 
-		pos.Z -= 100
+		pos.Z -= 250
 		err = arm.MoveToPosition(ctx, pos)
 		if err != nil {
 			return err
@@ -128,6 +149,102 @@ func play(ctx context.Context, r robot.Robot) error {
 
 		if !utils.SelectContextOrWait(ctx, time.Second) {
 			return ctx.Err()
+		}
+	}
+
+	return nil
+}
+
+func plan1(ctx context.Context, r robot.Robot) error {
+	if len(r.ArmNames()) != 1 {
+		return errors.New("need 1 arm name")
+	}
+
+	arm, ok := r.ArmByName(r.ArmNames()[0])
+	if !ok {
+		return fmt.Errorf("failed to find arm %q", r.ArmNames()[0])
+	}
+
+	m, err := kinematics.ParseJSONFile(u.ResolveFile("robots/xarm/xArm7_kinematics.json"))
+	if err != nil {
+		return err
+	}
+	ik, err := kinematics.CreateCombinedIKSolver(m, logger, 8)
+	if err != nil {
+		return err
+	}
+
+	mp := motionplan.NewLinearMotionPlanner(ik, m)
+
+	// Test ability to arrive at another position
+	pos := &pb.ArmPosition{
+		X:  250,
+		Y:  0,
+		Z:  200,
+		OZ: -1,
+	}
+
+	start, err := arm.CurrentJointPositions(ctx)
+	if err != nil {
+		return err
+	}
+	solutions, err := mp.Plan(context.Background(), spatial.NewPoseFromArmPos(pos), frame.JointPosToInputs(start))
+	if err != nil {
+		return err
+	}
+
+	for _, solution := range solutions {
+		err := arm.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func plan2(ctx context.Context, r robot.Robot) error {
+	if len(r.ArmNames()) != 1 {
+		return errors.New("need 1 arm name")
+	}
+
+	arm, ok := r.ArmByName(r.ArmNames()[0])
+	if !ok {
+		return fmt.Errorf("failed to find arm %q", r.ArmNames()[0])
+	}
+
+	m, err := kinematics.ParseJSONFile(u.ResolveFile("robots/xarm/xArm7_kinematics.json"))
+	if err != nil {
+		return err
+	}
+	ik, err := kinematics.CreateCombinedIKSolver(m, logger, 8)
+	if err != nil {
+		return err
+	}
+
+	mp := motionplan.NewLinearMotionPlanner(ik, m)
+
+	// Test ability to arrive at another position
+	pos := &pb.ArmPosition{
+		X:  250,
+		Y:  300,
+		Z:  200,
+		OY: 1,
+	}
+
+	start, err := arm.CurrentJointPositions(ctx)
+	if err != nil {
+		return err
+	}
+	solutions, err := mp.Plan(context.Background(), spatial.NewPoseFromArmPos(pos), frame.JointPosToInputs(start))
+	if err != nil {
+		return err
+	}
+
+	for _, solution := range solutions {
+		err := arm.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
+		if err != nil {
+			return err
 		}
 	}
 

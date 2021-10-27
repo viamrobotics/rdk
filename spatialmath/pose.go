@@ -1,3 +1,8 @@
+// Package spatialmath defines spatial mathematical operations.
+// Poses represent a position in 6 degrees of freedom, i.e. a position and an orientation.
+// Positions are represented as r3 Vectors, while Orientations are an interface able to be represented
+// many different ways. This package provides various Orientation implementations as well as the ability to perform
+// a variety of useful operations on Poses and Orientations.
 package spatialmath
 
 import (
