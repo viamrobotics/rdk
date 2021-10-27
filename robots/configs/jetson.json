@@ -8,13 +8,13 @@
             "attributes": {
                 "analogs": [
                     {
-                        "chip_select": "18",
+                        "chip_select": "0",
                         "name": "current",
                         "pin": "1",
                         "spi_bus": "0"
                     },
                     {
-                        "chip_select": "18",
+                        "chip_select": "0",
                         "name": "pressure",
                         "pin": "0",
                         "spi_bus": "0"
