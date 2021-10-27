@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"math"
+	//~ "fmt"
 	"testing"
 
 	"go.viam.com/test"
@@ -95,4 +96,26 @@ func TestPoseInterpolation(t *testing.T) {
 	p2 = NewPoseFromOrientationVector(r3.Vector{100, 200, 200}, ov)
 	intP = Interpolate(p1, p2, 0.1)
 	ptCompare(t, intP.Point(), r3.Vector{100, 110, 200})
+}
+
+func TestLidarPose(t *testing.T) {
+
+	ea := NewEulerAngles()
+	// 45 degrees above horizon
+	ea.Pitch = math.Pi / 4
+	// Point to the left (at positive Y axis)
+	ea.Yaw = math.Pi / 2
+
+	// lidar sees a point 400mm away
+	dist := 400.
+
+	pose1 := NewPoseFromOrientation(r3.Vector{0, 0, 0}, ea)
+	pose2 := NewPoseFromPoint(r3.Vector{0, 0, dist})
+	seenPoint := Compose(pose1, pose2).Point()
+
+	expectPoint := r3.Vector{0, 282.842712474619, 282.842712474619}
+
+	test.That(t, expectPoint.X, test.ShouldAlmostEqual, seenPoint.X)
+	test.That(t, expectPoint.Y, test.ShouldAlmostEqual, seenPoint.Y)
+	test.That(t, expectPoint.Z, test.ShouldAlmostEqual, seenPoint.Z)
 }
