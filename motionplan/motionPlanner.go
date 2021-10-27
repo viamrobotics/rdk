@@ -11,14 +11,6 @@ import (
 	"go.viam.com/core/utils"
 )
 
-type constraintInput struct {
-	startPos   spatial.Pose
-	endPos     spatial.Pose
-	startInput []frame.Input
-	endInput   []frame.Input
-	frame      frame.Frame
-}
-
 // MotionPlanner defines a struct able to plan motion
 type MotionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
@@ -27,32 +19,6 @@ type MotionPlanner interface {
 	AddConstraint(string, func(constraintInput) bool)
 	RemoveConstraint(string)
 	Constraints() []string
-}
-
-// constraintHandler is a convenient wrapper for constraint handling which is likely to be common among most motion
-// planners. Including a constraint handler as an anonymous struct member allows reuse
-type constraintHandler struct {
-	constraints map[string]func(constraintInput) bool
-}
-
-// AddConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
-// if the given position satisfies the constraint.
-func (c *constraintHandler) AddConstraint(name string, cons func(constraintInput) bool) {
-	c.constraints[name] = cons
-}
-
-// RemoveConstraint will remove the given constraint
-func (c *constraintHandler) RemoveConstraint(name string) {
-	delete(c.constraints, name)
-}
-
-// Constraints will list all constraints by name
-func (c *constraintHandler) Constraints() []string {
-	names := make([]string, 0, len(c.constraints))
-	for name := range c.constraints {
-		names = append(names, name)
-	}
-	return names
 }
 
 // NewLinearMotionPlanner returns a linearMotionPlanner
@@ -65,7 +31,7 @@ type linearMotionPlanner struct {
 	constraintHandler
 	solver  kinematics.InverseKinematics
 	frame   frame.Frame
-	isValid func([]frame.Input) bool
+	validityCheck func([]frame.Input) bool // This can check for env collisions, self collisions, etc
 }
 
 func (mp *linearMotionPlanner) Plan(ctx context.Context, goalPos spatial.Pose, seed []frame.Input) ([][]frame.Input, error) {
@@ -108,9 +74,9 @@ func (mp *linearMotionPlanner) Plan(ctx context.Context, goalPos spatial.Pose, s
 			nTries--
 		}
 
-		if mp.isValid != nil {
-			if !mp.isValid(step) {
-				// Do thing to get around obstruction
+		if mp.validityCheck != nil {
+			if !mp.validityCheck(step) {
+				// TODO: Do thing to get around obstruction
 				return nil, errors.New("path reached invalid state")
 			}
 		}
