@@ -4,7 +4,6 @@ package v1
 
 import (
 	context "context"
-
 	httpbody "google.golang.org/genproto/googleapis/api/httpbody"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
@@ -145,6 +144,7 @@ type RobotServiceClient interface {
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(ctx context.Context, in *ResourceRunCommandRequest, opts ...grpc.CallOption) (*ResourceRunCommandResponse, error)
 	// Frame System Service
+	FrameSystemDAG(ctx context.Context, in *FrameSystemDAGRequest, opts ...grpc.CallOption) (*FrameSystemDAGResponse, error)
 	FrameTransform(ctx context.Context, in *FrameTransformRequest, opts ...grpc.CallOption) (*FrameTransformResponse, error)
 	FrameDoF(ctx context.Context, in *FrameDoFRequest, opts ...grpc.CallOption) (*FrameDoFResponse, error)
 	// Navigation Service
@@ -753,6 +753,15 @@ func (c *robotServiceClient) ResourceRunCommand(ctx context.Context, in *Resourc
 	return out, nil
 }
 
+func (c *robotServiceClient) FrameSystemDAG(ctx context.Context, in *FrameSystemDAGRequest, opts ...grpc.CallOption) (*FrameSystemDAGResponse, error) {
+	out := new(FrameSystemDAGResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/FrameSystemDAG", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *robotServiceClient) FrameTransform(ctx context.Context, in *FrameTransformRequest, opts ...grpc.CallOption) (*FrameTransformResponse, error) {
 	out := new(FrameTransformResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/FrameTransform", in, out, opts...)
@@ -1008,6 +1017,7 @@ type RobotServiceServer interface {
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error)
 	// Frame System Service
+	FrameSystemDAG(context.Context, *FrameSystemDAGRequest) (*FrameSystemDAGResponse, error)
 	FrameTransform(context.Context, *FrameTransformRequest) (*FrameTransformResponse, error)
 	FrameDoF(context.Context, *FrameDoFRequest) (*FrameDoFResponse, error)
 	// Navigation Service
@@ -1212,6 +1222,9 @@ func (UnimplementedRobotServiceServer) InputControllerEventStream(*InputControll
 }
 func (UnimplementedRobotServiceServer) ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResourceRunCommand not implemented")
+}
+func (UnimplementedRobotServiceServer) FrameSystemDAG(context.Context, *FrameSystemDAGRequest) (*FrameSystemDAGResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FrameSystemDAG not implemented")
 }
 func (UnimplementedRobotServiceServer) FrameTransform(context.Context, *FrameTransformRequest) (*FrameTransformResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FrameTransform not implemented")
@@ -2336,6 +2349,24 @@ func _RobotService_ResourceRunCommand_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_FrameSystemDAG_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FrameSystemDAGRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).FrameSystemDAG(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/FrameSystemDAG",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).FrameSystemDAG(ctx, req.(*FrameSystemDAGRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RobotService_FrameTransform_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(FrameTransformRequest)
 	if err := dec(in); err != nil {
@@ -2822,6 +2853,10 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResourceRunCommand",
 			Handler:    _RobotService_ResourceRunCommand_Handler,
+		},
+		{
+			MethodName: "FrameSystemDAG",
+			Handler:    _RobotService_FrameSystemDAG_Handler,
 		},
 		{
 			MethodName: "FrameTransform",

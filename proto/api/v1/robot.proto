@@ -461,6 +461,12 @@ service RobotService {
   }
 
   // Frame System Service
+  rpc FrameSystemDAG(FrameSystemDAGRequest) returns (FrameSystemDAGResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/services/framesystem/dag"
+    };
+  }
+  
   rpc FrameTransform(FrameTransformRequest) returns (FrameTransformResponse) {
     option (google.api.http) = {
       get: "/api/v1/services/framesystem/frame/transform"
@@ -636,6 +642,17 @@ message ArmPosition {
 
 message JointPositions {
   repeated double degrees = 1;
+}
+
+message FrameSystemDAGRequest {}
+
+message Node{
+  string name = 1;
+  string parent = 2; 
+}
+
+message FrameSystemDAGResponse {
+  repeated Node nodes = 1;
 }
 
 message FrameTransformRequest{

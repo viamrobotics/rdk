@@ -4795,6 +4795,86 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.resourceRunCommand =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.FrameSystemDAGRequest,
+ *   !proto.proto.api.v1.FrameSystemDAGResponse>}
+ */
+const methodDescriptor_RobotService_FrameSystemDAG = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/FrameSystemDAG',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.FrameSystemDAGRequest,
+  proto.proto.api.v1.FrameSystemDAGResponse,
+  /**
+   * @param {!proto.proto.api.v1.FrameSystemDAGRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.FrameSystemDAGResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.FrameSystemDAGRequest,
+ *   !proto.proto.api.v1.FrameSystemDAGResponse>}
+ */
+const methodInfo_RobotService_FrameSystemDAG = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.FrameSystemDAGResponse,
+  /**
+   * @param {!proto.proto.api.v1.FrameSystemDAGRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.FrameSystemDAGResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.FrameSystemDAGRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.FrameSystemDAGResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.FrameSystemDAGResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.frameSystemDAG =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/FrameSystemDAG',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_FrameSystemDAG,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.FrameSystemDAGRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.FrameSystemDAGResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.frameSystemDAG =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/FrameSystemDAG',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_FrameSystemDAG);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.v1.FrameTransformRequest,
  *   !proto.proto.api.v1.FrameTransformResponse>}
  */

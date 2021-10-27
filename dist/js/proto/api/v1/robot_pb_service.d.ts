@@ -536,6 +536,15 @@ type RobotServiceResourceRunCommand = {
   readonly responseType: typeof proto_api_v1_robot_pb.ResourceRunCommandResponse;
 };
 
+type RobotServiceFrameSystemDAG = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.FrameSystemDAGRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.FrameSystemDAGResponse;
+};
+
 type RobotServiceFrameTransform = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -723,6 +732,7 @@ export class RobotService {
   static readonly InputControllerLastEvents: RobotServiceInputControllerLastEvents;
   static readonly InputControllerEventStream: RobotServiceInputControllerEventStream;
   static readonly ResourceRunCommand: RobotServiceResourceRunCommand;
+  static readonly FrameSystemDAG: RobotServiceFrameSystemDAG;
   static readonly FrameTransform: RobotServiceFrameTransform;
   static readonly FrameDoF: RobotServiceFrameDoF;
   static readonly NavigationServiceMode: RobotServiceNavigationServiceMode;
@@ -1285,6 +1295,15 @@ export class RobotServiceClient {
   resourceRunCommand(
     requestMessage: proto_api_v1_robot_pb.ResourceRunCommandRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ResourceRunCommandResponse|null) => void
+  ): UnaryResponse;
+  frameSystemDAG(
+    requestMessage: proto_api_v1_robot_pb.FrameSystemDAGRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameSystemDAGResponse|null) => void
+  ): UnaryResponse;
+  frameSystemDAG(
+    requestMessage: proto_api_v1_robot_pb.FrameSystemDAGRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameSystemDAGResponse|null) => void
   ): UnaryResponse;
   frameTransform(
     requestMessage: proto_api_v1_robot_pb.FrameTransformRequest,

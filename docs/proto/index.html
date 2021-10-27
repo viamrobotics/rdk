@@ -490,6 +490,14 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.FrameSystemDAGRequest"><span class="badge">M</span>FrameSystemDAGRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.FrameSystemDAGResponse"><span class="badge">M</span>FrameSystemDAGResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.FrameTransformRequest"><span class="badge">M</span>FrameTransformRequest</a>
                 </li>
               
@@ -799,6 +807,10 @@
               
                 <li>
                   <a href="#proto.api.v1.NavigationServiceWaypointsResponse"><span class="badge">M</span>NavigationServiceWaypointsResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.Node"><span class="badge">M</span>Node</a>
                 </li>
               
                 <li>
@@ -2994,6 +3006,37 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.FrameSystemDAGRequest">FrameSystemDAGRequest</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.FrameSystemDAGResponse">FrameSystemDAGResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>nodes</td>
+                  <td><a href="#proto.api.v1.Node">Node</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.FrameTransformRequest">FrameTransformRequest</h3>
         <p></p>
 
@@ -4825,6 +4868,37 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.Node">Node</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>parent</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.ObjectPointCloudsRequest">ObjectPointCloudsRequest</h3>
         <p></p>
 
@@ -6315,10 +6389,17 @@ is reliant on having an encoder.</p></td>
               </tr>
             
               <tr>
+                <td>FrameSystemDAG</td>
+                <td><a href="#proto.api.v1.FrameSystemDAGRequest">FrameSystemDAGRequest</a></td>
+                <td><a href="#proto.api.v1.FrameSystemDAGResponse">FrameSystemDAGResponse</a></td>
+                <td><p>Frame System Service</p></td>
+              </tr>
+            
+              <tr>
                 <td>FrameTransform</td>
                 <td><a href="#proto.api.v1.FrameTransformRequest">FrameTransformRequest</a></td>
                 <td><a href="#proto.api.v1.FrameTransformResponse">FrameTransformResponse</a></td>
-                <td><p>Frame System Service</p></td>
+                <td><p></p></td>
               </tr>
             
               <tr>
@@ -7016,6 +7097,16 @@ is reliant on having an encoder.</p></td>
                 <td>ResourceRunCommand</td>
                 <td>POST</td>
                 <td>/api/v1/resource/{resource_name}/run_command</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>FrameSystemDAG</td>
+                <td>GET</td>
+                <td>/api/v1/services/framesystem/dag</td>
                 <td></td>
               </tr>
               

@@ -344,6 +344,68 @@ export namespace JointPositions {
   }
 }
 
+export class FrameSystemDAGRequest extends jspb.Message {
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): FrameSystemDAGRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: FrameSystemDAGRequest): FrameSystemDAGRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: FrameSystemDAGRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): FrameSystemDAGRequest;
+  static deserializeBinaryFromReader(message: FrameSystemDAGRequest, reader: jspb.BinaryReader): FrameSystemDAGRequest;
+}
+
+export namespace FrameSystemDAGRequest {
+  export type AsObject = {
+  }
+}
+
+export class Node extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  getParent(): string;
+  setParent(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): Node.AsObject;
+  static toObject(includeInstance: boolean, msg: Node): Node.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: Node, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): Node;
+  static deserializeBinaryFromReader(message: Node, reader: jspb.BinaryReader): Node;
+}
+
+export namespace Node {
+  export type AsObject = {
+    name: string,
+    parent: string,
+  }
+}
+
+export class FrameSystemDAGResponse extends jspb.Message {
+  clearNodesList(): void;
+  getNodesList(): Array<Node>;
+  setNodesList(value: Array<Node>): void;
+  addNodes(value?: Node, index?: number): Node;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): FrameSystemDAGResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: FrameSystemDAGResponse): FrameSystemDAGResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: FrameSystemDAGResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): FrameSystemDAGResponse;
+  static deserializeBinaryFromReader(message: FrameSystemDAGResponse, reader: jspb.BinaryReader): FrameSystemDAGResponse;
+}
+
+export namespace FrameSystemDAGResponse {
+  export type AsObject = {
+    nodesList: Array<Node.AsObject>,
+  }
+}
+
 export class FrameTransformRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;

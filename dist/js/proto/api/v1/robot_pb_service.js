@@ -542,6 +542,15 @@ RobotService.ResourceRunCommand = {
   responseType: proto_api_v1_robot_pb.ResourceRunCommandResponse
 };
 
+RobotService.FrameSystemDAG = {
+  methodName: "FrameSystemDAG",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.FrameSystemDAGRequest,
+  responseType: proto_api_v1_robot_pb.FrameSystemDAGResponse
+};
+
 RobotService.FrameTransform = {
   methodName: "FrameTransform",
   service: RobotService,
@@ -2494,6 +2503,37 @@ RobotServiceClient.prototype.resourceRunCommand = function resourceRunCommand(re
     callback = arguments[1];
   }
   var client = grpc.unary(RobotService.ResourceRunCommand, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.frameSystemDAG = function frameSystemDAG(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.FrameSystemDAG, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
