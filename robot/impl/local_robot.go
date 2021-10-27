@@ -297,7 +297,7 @@ func (r *localRobot) Logger() golog.Logger {
 }
 
 // New returns a new robot with parts sourced from the given config.
-func New(ctx context.Context, config *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
+func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
 	r := &localRobot{
 		parts:  newRobotParts(logger),
 		logger: logger,
@@ -311,9 +311,9 @@ func New(ctx context.Context, config *config.Config, logger golog.Logger) (robot
 			}
 		}
 	}()
-	r.config = config
+	r.config = cfg
 
-	if err := r.parts.processConfig(ctx, config, r, logger); err != nil {
+	if err := r.parts.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
 	}
 
@@ -324,6 +324,17 @@ func New(ctx context.Context, config *config.Config, logger golog.Logger) (robot
 		}
 	}
 
+	// default services
+
+	// create web service here
+	// somewhat hacky, but the web service start up needs to come last
+	// TODO: use web.Type once circular dependency issue is resolved.
+	webConfig := config.Service{Name: "web1", Type: config.ServiceType("web")}
+	web, err := r.newService(ctx, webConfig)
+	if err != nil {
+		return nil, err
+	}
+	r.parts.AddService(web, webConfig)
 	successful = true
 	return r, nil
 }

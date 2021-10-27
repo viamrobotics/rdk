@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"runtime/pprof"
@@ -20,7 +19,7 @@ import (
 	"go.viam.com/core/metadata/service"
 	"go.viam.com/core/rlog"
 	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/web"
+	"go.viam.com/core/services/web"
 
 	// These are the robot pieces we want by default
 	_ "go.viam.com/core/base/impl"
@@ -327,42 +326,6 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		return err
 	}
 	ctx = service.ContextWithService(ctx, metadataSvc)
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
-	if err != nil {
-		return err
-	}
-
-	// watch for and deliver changes to the robot
-	watcher, err := config.NewWatcher(cfg, logger)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = multierr.Combine(err, watcher.Close())
-	}()
-	onWatchDone := make(chan struct{})
-	utils.ManagedGo(func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-			select {
-			case <-ctx.Done():
-				return
-			case config := <-watcher.Config():
-				if err := myRobot.Reconfigure(ctx, config); err != nil {
-					logger.Errorw("error reconfiguring robot", "error", err)
-				}
-			}
-		}
-	}, func() {
-		close(onWatchDone)
-	})
-	defer func() {
-		<-onWatchDone
-	}()
 
 	options := web.NewOptions()
 	options.AutoTile = !argsParsed.NoAutoTile
@@ -380,11 +343,40 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	} else {
 		options.Insecure = true
 	}
+	ctx = web.ContextWithOptions(ctx, options)
 
-	err = RunWeb(ctx, myRobot, options, logger)
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		cancel()
-		return fmt.Errorf("error running web: %w", err)
+		return err
 	}
-	return err
+
+	// watch for and deliver changes to the robot
+	watcher, err := config.NewWatcher(cfg, logger)
+	if err != nil {
+		cancel()
+		return err
+	}
+	defer func() {
+		err = multierr.Combine(err, watcher.Close())
+	}()
+	onWatchDone := make(chan struct{})
+	utils.ManagedGo(func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case config := <-watcher.Config():
+				if err := myRobot.Reconfigure(ctx, config); err != nil {
+					logger.Errorw("error reconfiguring robot", "error", err)
+				}
+			}
+		}
+	}, func() {
+		close(onWatchDone)
+	})
+	defer func() {
+		<-onWatchDone
+	}()
+	return nil
 }

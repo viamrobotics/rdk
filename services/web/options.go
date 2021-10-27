@@ -1,6 +1,8 @@
 // Package web provides gRPC/REST/GUI APIs to control and monitor a robot.
 package web
 
+import "context"
+
 // Options are used for configuring the web server.
 type Options struct {
 	// AutoTitle turns on auto-tiling of any image sources added.
@@ -41,4 +43,24 @@ func NewOptions() Options {
 		Pprof:    false,
 		Port:     8080,
 	}
+}
+
+type ctxOptionsKey int
+
+const (
+	ctxKeyOptions = ctxOptionsKey(iota)
+)
+
+// ContextWithOptions attaches a Options to the given context.
+func ContextWithOptions(ctx context.Context, o Options) context.Context {
+	return context.WithValue(ctx, ctxKeyOptions, o)
+}
+
+// ContextOptions returns a Options struct. If the value was never set, it'll return an empty struct.
+func ContextOptions(ctx context.Context) Options {
+	v := ctx.Value(ctxKeyOptions)
+	if v == nil {
+		return Options{}
+	}
+	return v.(Options)
 }

@@ -1,5 +1,4 @@
-// Package server implements gRPC/REST/GUI APIs to control and monitor a robot.
-package server
+package web
 
 import (
 	"context"
@@ -11,16 +10,23 @@ import (
 	"net/http/pprof"
 	"os"
 	"strconv"
+	"sync"
 
+	"github.com/Masterminds/sprig"
+	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
+	"github.com/edaniels/gostream/codec/x264"
 	"github.com/go-errors/errors"
+	"github.com/golang/geo/r3"
+	"go.uber.org/multierr"
 
 	goutils "go.viam.com/utils"
+	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
 	rpcserver "go.viam.com/utils/rpc/server"
 
-	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
-
 	"go.viam.com/core/action"
+	"go.viam.com/core/config"
 	"go.viam.com/core/grpc"
 	grpcmetadata "go.viam.com/core/grpc/metadata/server"
 	grpcserver "go.viam.com/core/grpc/server"
@@ -28,21 +34,29 @@ import (
 	"go.viam.com/core/metadata/service"
 	metadatapb "go.viam.com/core/proto/api/service/v1"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
+
+	"go.viam.com/core/registry"
+	"go.viam.com/core/robot"
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 	"go.viam.com/core/web"
 
-	"github.com/Masterminds/sprig"
-	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
-	"github.com/edaniels/gostream/codec/x264"
-	"github.com/golang/geo/r3"
-	"go.uber.org/multierr"
 	"goji.io"
 	"goji.io/pat"
 )
+
+// Type is the type of service.
+const Type = config.ServiceType("web")
+
+func init() {
+	registry.RegisterService(Type, registry.Service{
+		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
+			return New(ctx, r, c, logger)
+		},
+	},
+	)
+}
 
 // ResolveSharedDir discovers where the shared assets directory
 // is located depending on how the executable was called.
@@ -69,7 +83,7 @@ type robotWebApp struct {
 	views    []gostream.View
 	theRobot robot.Robot
 	logger   golog.Logger
-	options  web.Options
+	options  Options
 }
 
 // Init does template initialization work.
@@ -207,6 +221,7 @@ type grabAtCameraPositionHandler struct {
 	app *robotWebApp
 }
 
+// TODO: make doGrab a service
 func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, cameraName string, x, y, z float64) (bool, error) {
 	r := h.app.theRobot
 	// get gripper component
@@ -281,9 +296,57 @@ func init() {
 	defaultViewConfig.WebRTCConfig = grpc.DefaultWebRTCConfiguration
 }
 
+// A Service controls the web server for a robot.
+type Service interface {
+	// Update updates the web service when the robot has changed. Not Reconfigure because this should happen at a different point in the
+	// lifecycle.
+	Update() error
+
+	// Close attempts to close the web service gracefully
+	Close() error
+}
+
+// New returns a new web service for the given robot.
+func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
+	// psstd
+	options := ContextOptions(ctx)
+	if err := RunWeb(ctx, r, options, logger); err != nil {
+		return nil, err
+	}
+
+	_, cancelFunc := context.WithCancel(context.Background())
+	webSvc := &webService{
+		r:          r,
+		logger:     logger,
+		cancelFunc: cancelFunc,
+	}
+	return webSvc, nil
+}
+
+type webService struct {
+	mu sync.RWMutex
+	r  robot.Robot
+
+	logger                  golog.Logger
+	cancelFunc              func()
+	activeBackgroundWorkers sync.WaitGroup
+}
+
+func (svc *webService) Update() error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	return nil
+}
+
+func (svc *webService) Close() error {
+	svc.cancelFunc()
+	svc.activeBackgroundWorkers.Wait()
+	return nil
+}
+
 // installWeb prepares the given mux to be able to serve the UI for the robot. It also starts some goroutines
 // for image processing that can be cleaned up with the returned cleanup function.
-func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, options web.Options, logger golog.Logger) (func(), error) {
+func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, options Options, logger golog.Logger) (func(), error) {
 	displaySources, displayNames, err := allSourcesToDisplay(ctx, theRobot)
 	if err != nil {
 		return nil, err
@@ -333,7 +396,6 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, option
 	}
 
 	// start background workers
-
 	if autoCameraTiler != nil {
 		for _, src := range displaySources {
 			autoCameraTiler.AddSource(src)
@@ -360,12 +422,11 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, option
 			view.Stop()
 		}
 	}, nil
-
 }
 
 // RunWeb takes the given robot and options and runs the web server. This function will block
 // until the context is done.
-func RunWeb(ctx context.Context, theRobot robot.Robot, options web.Options, logger golog.Logger) (err error) {
+func RunWeb(ctx context.Context, theRobot robot.Robot, options Options, logger golog.Logger) (err error) {
 	defer func() {
 		if err != nil && goutils.FilterOutError(err, context.Canceled) != nil {
 			logger.Errorw("error running web", "error", err)
@@ -483,9 +544,10 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options web.Options, logg
 	})
 
 	theRobot.Logger().Debugw("serving", "url", fmt.Sprintf("http://%s", listener.Addr().String()))
-	if err := httpServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
-	}
-
+	goutils.PanicCapturingGo(func() {
+		if err := httpServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			theRobot.Logger().Errorw("error serving rpc server", "error", err)
+		}
+	})
 	return nil
 }
