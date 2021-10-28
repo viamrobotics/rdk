@@ -115,6 +115,8 @@ export class Status extends jspb.Message {
   clearServicesMap(): void;
   getInputControllersMap(): jspb.Map<string, boolean>;
   clearInputControllersMap(): void;
+  getGantriesMap(): jspb.Map<string, GantryStatus>;
+  clearGantriesMap(): void;
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Status.AsObject;
   static toObject(includeInstance: boolean, msg: Status): Status.AsObject;
@@ -139,6 +141,7 @@ export namespace Status {
     motorsMap: Array<[string, MotorStatus.AsObject]>,
     servicesMap: Array<[string, boolean]>,
     inputControllersMap: Array<[string, boolean]>,
+    gantriesMap: Array<[string, GantryStatus.AsObject]>,
   }
 }
 
@@ -247,6 +250,34 @@ export class DoActionResponse extends jspb.Message {
 
 export namespace DoActionResponse {
   export type AsObject = {
+  }
+}
+
+export class GantryStatus extends jspb.Message {
+  clearPositionsList(): void;
+  getPositionsList(): Array<number>;
+  setPositionsList(value: Array<number>): void;
+  addPositions(value: number, index?: number): number;
+
+  clearLengthsList(): void;
+  getLengthsList(): Array<number>;
+  setLengthsList(value: Array<number>): void;
+  addLengths(value: number, index?: number): number;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GantryStatus.AsObject;
+  static toObject(includeInstance: boolean, msg: GantryStatus): GantryStatus.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GantryStatus, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GantryStatus;
+  static deserializeBinaryFromReader(message: GantryStatus, reader: jspb.BinaryReader): GantryStatus;
+}
+
+export namespace GantryStatus {
+  export type AsObject = {
+    positionsList: Array<number>,
+    lengthsList: Array<number>,
   }
 }
 
@@ -552,6 +583,90 @@ export class ArmJointMoveDeltaResponse extends jspb.Message {
 }
 
 export namespace ArmJointMoveDeltaResponse {
+  export type AsObject = {
+  }
+}
+
+export class GantryCurrentPositionRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GantryCurrentPositionRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GantryCurrentPositionRequest): GantryCurrentPositionRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GantryCurrentPositionRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GantryCurrentPositionRequest;
+  static deserializeBinaryFromReader(message: GantryCurrentPositionRequest, reader: jspb.BinaryReader): GantryCurrentPositionRequest;
+}
+
+export namespace GantryCurrentPositionRequest {
+  export type AsObject = {
+    name: string,
+  }
+}
+
+export class GantryCurrentPositionResponse extends jspb.Message {
+  clearPositionsList(): void;
+  getPositionsList(): Array<number>;
+  setPositionsList(value: Array<number>): void;
+  addPositions(value: number, index?: number): number;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GantryCurrentPositionResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GantryCurrentPositionResponse): GantryCurrentPositionResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GantryCurrentPositionResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GantryCurrentPositionResponse;
+  static deserializeBinaryFromReader(message: GantryCurrentPositionResponse, reader: jspb.BinaryReader): GantryCurrentPositionResponse;
+}
+
+export namespace GantryCurrentPositionResponse {
+  export type AsObject = {
+    positionsList: Array<number>,
+  }
+}
+
+export class GantryMoveToPositionRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  clearPositionsList(): void;
+  getPositionsList(): Array<number>;
+  setPositionsList(value: Array<number>): void;
+  addPositions(value: number, index?: number): number;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GantryMoveToPositionRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GantryMoveToPositionRequest): GantryMoveToPositionRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GantryMoveToPositionRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GantryMoveToPositionRequest;
+  static deserializeBinaryFromReader(message: GantryMoveToPositionRequest, reader: jspb.BinaryReader): GantryMoveToPositionRequest;
+}
+
+export namespace GantryMoveToPositionRequest {
+  export type AsObject = {
+    name: string,
+    positionsList: Array<number>,
+  }
+}
+
+export class GantryMoveToPositionResponse extends jspb.Message {
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GantryMoveToPositionResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GantryMoveToPositionResponse): GantryMoveToPositionResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GantryMoveToPositionResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GantryMoveToPositionResponse;
+  static deserializeBinaryFromReader(message: GantryMoveToPositionResponse, reader: jspb.BinaryReader): GantryMoveToPositionResponse;
+}
+
+export namespace GantryMoveToPositionResponse {
   export type AsObject = {
   }
 }

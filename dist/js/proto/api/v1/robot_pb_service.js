@@ -47,6 +47,24 @@ RobotService.DoAction = {
   responseType: proto_api_v1_robot_pb.DoActionResponse
 };
 
+RobotService.GantryCurrentPosition = {
+  methodName: "GantryCurrentPosition",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.GantryCurrentPositionRequest,
+  responseType: proto_api_v1_robot_pb.GantryCurrentPositionResponse
+};
+
+RobotService.GantryMoveToPosition = {
+  methodName: "GantryMoveToPosition",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.GantryMoveToPositionRequest,
+  responseType: proto_api_v1_robot_pb.GantryMoveToPositionResponse
+};
+
 RobotService.ArmCurrentPosition = {
   methodName: "ArmCurrentPosition",
   service: RobotService,
@@ -727,6 +745,68 @@ RobotServiceClient.prototype.doAction = function doAction(requestMessage, metada
     callback = arguments[1];
   }
   var client = grpc.unary(RobotService.DoAction, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.gantryCurrentPosition = function gantryCurrentPosition(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.GantryCurrentPosition, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.gantryMoveToPosition = function gantryMoveToPosition(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.GantryMoveToPosition, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

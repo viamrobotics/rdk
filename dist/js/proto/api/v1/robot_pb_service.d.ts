@@ -41,6 +41,24 @@ type RobotServiceDoAction = {
   readonly responseType: typeof proto_api_v1_robot_pb.DoActionResponse;
 };
 
+type RobotServiceGantryCurrentPosition = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.GantryCurrentPositionRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.GantryCurrentPositionResponse;
+};
+
+type RobotServiceGantryMoveToPosition = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.GantryMoveToPositionRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.GantryMoveToPositionResponse;
+};
+
 type RobotServiceArmCurrentPosition = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -614,6 +632,8 @@ export class RobotService {
   static readonly StatusStream: RobotServiceStatusStream;
   static readonly Config: RobotServiceConfig;
   static readonly DoAction: RobotServiceDoAction;
+  static readonly GantryCurrentPosition: RobotServiceGantryCurrentPosition;
+  static readonly GantryMoveToPosition: RobotServiceGantryMoveToPosition;
   static readonly ArmCurrentPosition: RobotServiceArmCurrentPosition;
   static readonly ArmMoveToPosition: RobotServiceArmMoveToPosition;
   static readonly ArmCurrentJointPositions: RobotServiceArmCurrentJointPositions;
@@ -738,6 +758,24 @@ export class RobotServiceClient {
   doAction(
     requestMessage: proto_api_v1_robot_pb.DoActionRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.DoActionResponse|null) => void
+  ): UnaryResponse;
+  gantryCurrentPosition(
+    requestMessage: proto_api_v1_robot_pb.GantryCurrentPositionRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GantryCurrentPositionResponse|null) => void
+  ): UnaryResponse;
+  gantryCurrentPosition(
+    requestMessage: proto_api_v1_robot_pb.GantryCurrentPositionRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GantryCurrentPositionResponse|null) => void
+  ): UnaryResponse;
+  gantryMoveToPosition(
+    requestMessage: proto_api_v1_robot_pb.GantryMoveToPositionRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GantryMoveToPositionResponse|null) => void
+  ): UnaryResponse;
+  gantryMoveToPosition(
+    requestMessage: proto_api_v1_robot_pb.GantryMoveToPositionRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GantryMoveToPositionResponse|null) => void
   ): UnaryResponse;
   armCurrentPosition(
     requestMessage: proto_api_v1_robot_pb.ArmCurrentPositionRequest,

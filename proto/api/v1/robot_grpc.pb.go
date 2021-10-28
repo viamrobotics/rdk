@@ -30,6 +30,10 @@ type RobotServiceClient interface {
 	Config(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error)
+	// GantryCurrentPosition gets the current position of an gantry of the underlying robot.
+	GantryCurrentPosition(ctx context.Context, in *GantryCurrentPositionRequest, opts ...grpc.CallOption) (*GantryCurrentPositionResponse, error)
+	// GantryMoveToPosition moves an gantry of the underlying robot to the requested position.
+	GantryMoveToPosition(ctx context.Context, in *GantryMoveToPositionRequest, opts ...grpc.CallOption) (*GantryMoveToPositionResponse, error)
 	// ArmCurrentPosition gets the current position of an arm of the underlying robot.
 	ArmCurrentPosition(ctx context.Context, in *ArmCurrentPositionRequest, opts ...grpc.CallOption) (*ArmCurrentPositionResponse, error)
 	// ArmMoveToPosition moves an arm of the underlying robot to the requested position.
@@ -217,6 +221,24 @@ func (c *robotServiceClient) Config(ctx context.Context, in *ConfigRequest, opts
 func (c *robotServiceClient) DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error) {
 	out := new(DoActionResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/DoAction", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) GantryCurrentPosition(ctx context.Context, in *GantryCurrentPositionRequest, opts ...grpc.CallOption) (*GantryCurrentPositionResponse, error) {
+	out := new(GantryCurrentPositionResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GantryCurrentPosition", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) GantryMoveToPosition(ctx context.Context, in *GantryMoveToPositionRequest, opts ...grpc.CallOption) (*GantryMoveToPositionResponse, error) {
+	out := new(GantryMoveToPositionResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GantryMoveToPosition", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -827,6 +849,10 @@ type RobotServiceServer interface {
 	Config(context.Context, *ConfigRequest) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error)
+	// GantryCurrentPosition gets the current position of an gantry of the underlying robot.
+	GantryCurrentPosition(context.Context, *GantryCurrentPositionRequest) (*GantryCurrentPositionResponse, error)
+	// GantryMoveToPosition moves an gantry of the underlying robot to the requested position.
+	GantryMoveToPosition(context.Context, *GantryMoveToPositionRequest) (*GantryMoveToPositionResponse, error)
 	// ArmCurrentPosition gets the current position of an arm of the underlying robot.
 	ArmCurrentPosition(context.Context, *ArmCurrentPositionRequest) (*ArmCurrentPositionResponse, error)
 	// ArmMoveToPosition moves an arm of the underlying robot to the requested position.
@@ -969,6 +995,12 @@ func (UnimplementedRobotServiceServer) Config(context.Context, *ConfigRequest) (
 }
 func (UnimplementedRobotServiceServer) DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DoAction not implemented")
+}
+func (UnimplementedRobotServiceServer) GantryCurrentPosition(context.Context, *GantryCurrentPositionRequest) (*GantryCurrentPositionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GantryCurrentPosition not implemented")
+}
+func (UnimplementedRobotServiceServer) GantryMoveToPosition(context.Context, *GantryMoveToPositionRequest) (*GantryMoveToPositionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GantryMoveToPosition not implemented")
 }
 func (UnimplementedRobotServiceServer) ArmCurrentPosition(context.Context, *ArmCurrentPositionRequest) (*ArmCurrentPositionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ArmCurrentPosition not implemented")
@@ -1243,6 +1275,42 @@ func _RobotService_DoAction_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).DoAction(ctx, req.(*DoActionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_GantryCurrentPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GantryCurrentPositionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).GantryCurrentPosition(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/GantryCurrentPosition",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).GantryCurrentPosition(ctx, req.(*GantryCurrentPositionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_GantryMoveToPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GantryMoveToPositionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).GantryMoveToPosition(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/GantryMoveToPosition",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).GantryMoveToPosition(ctx, req.(*GantryMoveToPositionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2402,6 +2470,14 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DoAction",
 			Handler:    _RobotService_DoAction_Handler,
+		},
+		{
+			MethodName: "GantryCurrentPosition",
+			Handler:    _RobotService_GantryCurrentPosition_Handler,
+		},
+		{
+			MethodName: "GantryMoveToPosition",
+			Handler:    _RobotService_GantryMoveToPosition_Handler,
 		},
 		{
 			MethodName: "ArmCurrentPosition",

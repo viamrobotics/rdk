@@ -482,6 +482,26 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.GantryCurrentPositionRequest"><span class="badge">M</span>GantryCurrentPositionRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.GantryCurrentPositionResponse"><span class="badge">M</span>GantryCurrentPositionResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.GantryMoveToPositionRequest"><span class="badge">M</span>GantryMoveToPositionRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.GantryMoveToPositionResponse"><span class="badge">M</span>GantryMoveToPositionResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.GantryStatus"><span class="badge">M</span>GantryStatus</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.GeoPoint"><span class="badge">M</span>GeoPoint</a>
                 </li>
               
@@ -827,6 +847,10 @@
               
                 <li>
                   <a href="#proto.api.v1.Status.FunctionsEntry"><span class="badge">M</span>Status.FunctionsEntry</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.Status.GantriesEntry"><span class="badge">M</span>Status.GantriesEntry</a>
                 </li>
               
                 <li>
@@ -2894,6 +2918,123 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.GantryCurrentPositionRequest">GantryCurrentPositionRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.GantryCurrentPositionResponse">GantryCurrentPositionResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>positions</td>
+                  <td><a href="#double">double</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.GantryMoveToPositionRequest">GantryMoveToPositionRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>positions</td>
+                  <td><a href="#double">double</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.GantryMoveToPositionResponse">GantryMoveToPositionResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.GantryStatus">GantryStatus</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>positions</td>
+                  <td><a href="#double">double</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>lengths</td>
+                  <td><a href="#double">double</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.GeoPoint">GeoPoint</h3>
         <p></p>
 
@@ -4937,6 +5078,13 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                   <td><p> </p></td>
                 </tr>
               
+                <tr>
+                  <td>gantries</td>
+                  <td><a href="#proto.api.v1.Status.GantriesEntry">Status.GantriesEntry</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
             </tbody>
           </table>
 
@@ -5088,6 +5236,37 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                 <tr>
                   <td>value</td>
                   <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.Status.GantriesEntry">Status.GantriesEntry</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>key</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#proto.api.v1.GantryStatus">GantryStatus</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -5533,6 +5712,20 @@ And not the pieces relevant to local configuration (pins, security keys, etc...)
                 <td><a href="#proto.api.v1.DoActionRequest">DoActionRequest</a></td>
                 <td><a href="#proto.api.v1.DoActionResponse">DoActionResponse</a></td>
                 <td><p>DoAction runs an action on the underlying robot.</p></td>
+              </tr>
+            
+              <tr>
+                <td>GantryCurrentPosition</td>
+                <td><a href="#proto.api.v1.GantryCurrentPositionRequest">GantryCurrentPositionRequest</a></td>
+                <td><a href="#proto.api.v1.GantryCurrentPositionResponse">GantryCurrentPositionResponse</a></td>
+                <td><p>GantryCurrentPosition gets the current position of an gantry of the underlying robot.</p></td>
+              </tr>
+            
+              <tr>
+                <td>GantryMoveToPosition</td>
+                <td><a href="#proto.api.v1.GantryMoveToPositionRequest">GantryMoveToPositionRequest</a></td>
+                <td><a href="#proto.api.v1.GantryMoveToPositionResponse">GantryMoveToPositionResponse</a></td>
+                <td><p>GantryMoveToPosition moves an gantry of the underlying robot to the requested position.</p></td>
               </tr>
             
               <tr>
@@ -6039,6 +6232,26 @@ is reliant on having an encoder.</p></td>
                 <td>DoAction</td>
                 <td>POST</td>
                 <td>/api/v1/do_action</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>GantryCurrentPosition</td>
+                <td>GET</td>
+                <td>/api/v1/gantry/{name}/current_position</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>GantryMoveToPosition</td>
+                <td>PUT</td>
+                <td>/api/v1/gantry/{name}/move_to_position</td>
                 <td></td>
               </tr>
               

@@ -1,0 +1,25 @@
+{
+    "components" : [
+        {
+            "name" : "armmover",
+            "type" : "gantry",
+            "model" : "simpleoneaxis",
+            "attributes" : {
+                "motor" : "linear",
+                "limitPins" : [ "io17", "io18"],
+                "limitBoard" : "local",
+                "limitHigh" : false,
+                "lengthMeters" : 2.3,
+                "rpm" : 300
+            }
+        }
+    ],
+    "remotes" : [
+        {
+            "name": "tomato",
+            "address": "local.tomato1.60758fe0f6.viam.cloud:8080",
+            "prefix": false
+        }
+    ]
+}
+    
