@@ -66,6 +66,140 @@ func TestConfigFake(t *testing.T) {
 	test.That(t, r.Close(), test.ShouldBeNil)
 }
 
+func TestSimpleConfigRemote(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read("data/fake.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	metadataSvc, err := service.New()
+	test.That(t, err, test.ShouldBeNil)
+	ctx := service.ContextWithService(context.Background(), metadataSvc)
+
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(), test.ShouldBeNil)
+	}()
+
+	cancelCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	options := web.NewOptions()
+	options.Port = port
+
+	webDone := make(chan struct{})
+	go func() {
+		webserver.RunWeb(cancelCtx, r, options, logger)
+		close(webDone)
+	}()
+
+	addr := fmt.Sprintf("localhost:%d", port)
+	remoteConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Name:  "foo",
+				Type:  config.ComponentTypeBase,
+				Model: "fake",
+				Frame: &config.Frame{
+					Parent: referenceframe.World,
+				},
+			},
+		},
+		Services: []config.Service{
+			{
+				Name: "frame_system",
+				Type: "frame_system",
+			},
+		},
+		Remotes: []config.Remote{
+			{
+				Name:    "foo",
+				Address: addr,
+				Prefix:  true,
+				Frame: &config.Frame{
+					Parent:      "foo",
+					Translation: config.Translation{100, 200, 300},
+					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
+				},
+			},
+		},
+	}
+
+	r2, err := robotimpl.New(context.Background(), remoteConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	status, err := r2.Status(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	expectedStatus := &pb.Status{
+		Bases: map[string]bool{
+			"foo": true,
+		},
+		Arms: map[string]*pb.ArmStatus{
+			"foo.pieceArm": {
+				GridPosition: &pb.ArmPosition{
+					X: 0.0,
+					Y: 0.0,
+					Z: 0.0,
+				},
+				JointPositions: &pb.JointPositions{
+					Degrees: []float64{0, 0, 0, 0, 0, 0},
+				},
+			},
+		},
+		Grippers: map[string]bool{
+			"foo.pieceGripper": true,
+		},
+		Cameras: map[string]bool{
+			"foo.cameraOver": true,
+		},
+		Lidars: map[string]bool{
+			"foo.lidar1": true,
+		},
+		Sensors: map[string]*pb.SensorStatus{
+			"foo.compass1": {
+				Type: "compass",
+			},
+			"foo.compass2": {
+				Type: "relative_compass",
+			},
+		},
+		Functions: map[string]bool{
+			"foo.func1": true,
+			"foo.func2": true,
+		},
+		Services: map[string]bool{
+			"frame_system": true,
+		},
+	}
+
+	test.That(t, status, test.ShouldResemble, expectedStatus)
+
+	cfg2, err := r2.Config(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, 7, test.ShouldEqual, len(cfg2.Components))
+
+	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "foo.world")
+	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Translation, test.ShouldResemble, config.Translation{500, 500, 1000})
+	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
+	test.That(t, cfg2.FindComponent("foo.lidar1").Frame.Parent, test.ShouldEqual, "foo.cameraOver")
+	test.That(t, cfg2.FindComponent("foo.lidar1").Frame.Translation, test.ShouldResemble, config.Translation{0, 0, 200})
+	test.That(t, cfg2.FindComponent("foo.lidar1").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
+
+	fs, err := r2.FrameSystem(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	t.Logf("frames: %v\n", fs.FrameNames())
+	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 13)
+
+	cancel()
+	<-webDone
+
+	test.That(t, r.Close(), test.ShouldBeNil)
+	test.That(t, r2.Close(), test.ShouldBeNil)
+
+}
+
 func TestConfigRemote(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cfg, err := config.Read("data/fake.json")
