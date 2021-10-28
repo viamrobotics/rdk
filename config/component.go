@@ -73,9 +73,6 @@ func (config *Component) Validate(path string) error {
 	if config.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
-	if config.Type == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "type")
-	}
 	for key, value := range config.Attributes {
 		v, ok := value.(validator)
 		if !ok {
