@@ -2341,6 +2341,11 @@ export class MotorStatus extends jspb.Message {
   getPosition(): number;
   setPosition(value: number): void;
 
+  hasPidConfig(): boolean;
+  clearPidConfig(): void;
+  getPidConfig(): google_protobuf_struct_pb.Struct | undefined;
+  setPidConfig(value?: google_protobuf_struct_pb.Struct): void;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): MotorStatus.AsObject;
   static toObject(includeInstance: boolean, msg: MotorStatus): MotorStatus.AsObject;
@@ -2356,6 +2361,7 @@ export namespace MotorStatus {
     on: boolean,
     positionSupported: boolean,
     position: number,
+    pidConfig?: google_protobuf_struct_pb.Struct.AsObject,
   }
 }
 
@@ -2456,6 +2462,142 @@ export class ServoCurrentResponse extends jspb.Message {
 export namespace ServoCurrentResponse {
   export type AsObject = {
     angleDeg: number,
+  }
+}
+
+export class MotorGetPIDConfigRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): MotorGetPIDConfigRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: MotorGetPIDConfigRequest): MotorGetPIDConfigRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: MotorGetPIDConfigRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): MotorGetPIDConfigRequest;
+  static deserializeBinaryFromReader(message: MotorGetPIDConfigRequest, reader: jspb.BinaryReader): MotorGetPIDConfigRequest;
+}
+
+export namespace MotorGetPIDConfigRequest {
+  export type AsObject = {
+    name: string,
+  }
+}
+
+export class MotorGetPIDConfigResponse extends jspb.Message {
+  hasPidConfig(): boolean;
+  clearPidConfig(): void;
+  getPidConfig(): google_protobuf_struct_pb.Struct | undefined;
+  setPidConfig(value?: google_protobuf_struct_pb.Struct): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): MotorGetPIDConfigResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: MotorGetPIDConfigResponse): MotorGetPIDConfigResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: MotorGetPIDConfigResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): MotorGetPIDConfigResponse;
+  static deserializeBinaryFromReader(message: MotorGetPIDConfigResponse, reader: jspb.BinaryReader): MotorGetPIDConfigResponse;
+}
+
+export namespace MotorGetPIDConfigResponse {
+  export type AsObject = {
+    pidConfig?: google_protobuf_struct_pb.Struct.AsObject,
+  }
+}
+
+export class MotorSetPIDConfigRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  hasPidConfig(): boolean;
+  clearPidConfig(): void;
+  getPidConfig(): google_protobuf_struct_pb.Struct | undefined;
+  setPidConfig(value?: google_protobuf_struct_pb.Struct): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): MotorSetPIDConfigRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: MotorSetPIDConfigRequest): MotorSetPIDConfigRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: MotorSetPIDConfigRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): MotorSetPIDConfigRequest;
+  static deserializeBinaryFromReader(message: MotorSetPIDConfigRequest, reader: jspb.BinaryReader): MotorSetPIDConfigRequest;
+}
+
+export namespace MotorSetPIDConfigRequest {
+  export type AsObject = {
+    name: string,
+    pidConfig?: google_protobuf_struct_pb.Struct.AsObject,
+  }
+}
+
+export class MotorSetPIDConfigResponse extends jspb.Message {
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): MotorSetPIDConfigResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: MotorSetPIDConfigResponse): MotorSetPIDConfigResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: MotorSetPIDConfigResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): MotorSetPIDConfigResponse;
+  static deserializeBinaryFromReader(message: MotorSetPIDConfigResponse, reader: jspb.BinaryReader): MotorSetPIDConfigResponse;
+}
+
+export namespace MotorSetPIDConfigResponse {
+  export type AsObject = {
+  }
+}
+
+export class MotorPIDStepRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  getSetPoint(): number;
+  setSetPoint(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): MotorPIDStepRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: MotorPIDStepRequest): MotorPIDStepRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: MotorPIDStepRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): MotorPIDStepRequest;
+  static deserializeBinaryFromReader(message: MotorPIDStepRequest, reader: jspb.BinaryReader): MotorPIDStepRequest;
+}
+
+export namespace MotorPIDStepRequest {
+  export type AsObject = {
+    name: string,
+    setPoint: number,
+  }
+}
+
+export class MotorPIDStepResponse extends jspb.Message {
+  getTime(): number;
+  setTime(value: number): void;
+
+  getSetPoint(): number;
+  setSetPoint(value: number): void;
+
+  getRefValue(): number;
+  setRefValue(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): MotorPIDStepResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: MotorPIDStepResponse): MotorPIDStepResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: MotorPIDStepResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): MotorPIDStepResponse;
+  static deserializeBinaryFromReader(message: MotorPIDStepResponse, reader: jspb.BinaryReader): MotorPIDStepResponse;
+}
+
+export namespace MotorPIDStepResponse {
+  export type AsObject = {
+    time: number,
+    setPoint: number,
+    refValue: number,
   }
 }
 
@@ -3512,6 +3654,172 @@ export class IMUOrientationResponse extends jspb.Message {
 export namespace IMUOrientationResponse {
   export type AsObject = {
     orientation?: EulerAngles.AsObject,
+  }
+}
+
+export class GPSLocationRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GPSLocationRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GPSLocationRequest): GPSLocationRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GPSLocationRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GPSLocationRequest;
+  static deserializeBinaryFromReader(message: GPSLocationRequest, reader: jspb.BinaryReader): GPSLocationRequest;
+}
+
+export namespace GPSLocationRequest {
+  export type AsObject = {
+    name: string,
+  }
+}
+
+export class GPSLocationResponse extends jspb.Message {
+  hasCoordinate(): boolean;
+  clearCoordinate(): void;
+  getCoordinate(): GeoPoint | undefined;
+  setCoordinate(value?: GeoPoint): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GPSLocationResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GPSLocationResponse): GPSLocationResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GPSLocationResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GPSLocationResponse;
+  static deserializeBinaryFromReader(message: GPSLocationResponse, reader: jspb.BinaryReader): GPSLocationResponse;
+}
+
+export namespace GPSLocationResponse {
+  export type AsObject = {
+    coordinate?: GeoPoint.AsObject,
+  }
+}
+
+export class GPSAltitudeRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GPSAltitudeRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GPSAltitudeRequest): GPSAltitudeRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GPSAltitudeRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GPSAltitudeRequest;
+  static deserializeBinaryFromReader(message: GPSAltitudeRequest, reader: jspb.BinaryReader): GPSAltitudeRequest;
+}
+
+export namespace GPSAltitudeRequest {
+  export type AsObject = {
+    name: string,
+  }
+}
+
+export class GPSAltitudeResponse extends jspb.Message {
+  getAltitude(): number;
+  setAltitude(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GPSAltitudeResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GPSAltitudeResponse): GPSAltitudeResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GPSAltitudeResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GPSAltitudeResponse;
+  static deserializeBinaryFromReader(message: GPSAltitudeResponse, reader: jspb.BinaryReader): GPSAltitudeResponse;
+}
+
+export namespace GPSAltitudeResponse {
+  export type AsObject = {
+    altitude: number,
+  }
+}
+
+export class GPSSpeedRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GPSSpeedRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GPSSpeedRequest): GPSSpeedRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GPSSpeedRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GPSSpeedRequest;
+  static deserializeBinaryFromReader(message: GPSSpeedRequest, reader: jspb.BinaryReader): GPSSpeedRequest;
+}
+
+export namespace GPSSpeedRequest {
+  export type AsObject = {
+    name: string,
+  }
+}
+
+export class GPSSpeedResponse extends jspb.Message {
+  getSpeedKph(): number;
+  setSpeedKph(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GPSSpeedResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GPSSpeedResponse): GPSSpeedResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GPSSpeedResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GPSSpeedResponse;
+  static deserializeBinaryFromReader(message: GPSSpeedResponse, reader: jspb.BinaryReader): GPSSpeedResponse;
+}
+
+export namespace GPSSpeedResponse {
+  export type AsObject = {
+    speedKph: number,
+  }
+}
+
+export class GPSAccuracyRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GPSAccuracyRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GPSAccuracyRequest): GPSAccuracyRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GPSAccuracyRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GPSAccuracyRequest;
+  static deserializeBinaryFromReader(message: GPSAccuracyRequest, reader: jspb.BinaryReader): GPSAccuracyRequest;
+}
+
+export namespace GPSAccuracyRequest {
+  export type AsObject = {
+    name: string,
+  }
+}
+
+export class GPSAccuracyResponse extends jspb.Message {
+  getHorizontalAccuracy(): number;
+  setHorizontalAccuracy(value: number): void;
+
+  getVerticalAccuracy(): number;
+  setVerticalAccuracy(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GPSAccuracyResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GPSAccuracyResponse): GPSAccuracyResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: GPSAccuracyResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GPSAccuracyResponse;
+  static deserializeBinaryFromReader(message: GPSAccuracyResponse, reader: jspb.BinaryReader): GPSAccuracyResponse;
+}
+
+export namespace GPSAccuracyResponse {
+  export type AsObject = {
+    horizontalAccuracy: number,
+    verticalAccuracy: number,
   }
 }
 

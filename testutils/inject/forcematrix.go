@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/forcematrix"
 )
 
@@ -18,4 +19,9 @@ func (m *ForceMatrix) Matrix(ctx context.Context) ([][]int, error) {
 		return m.ForceMatrix.Matrix(ctx)
 	}
 	return m.MatrixFunc(ctx)
+}
+
+// Desc returns that this is a force matrix.
+func (m *ForceMatrix) Desc() sensor.Description {
+	return sensor.Description{Type: forcematrix.Type}
 }

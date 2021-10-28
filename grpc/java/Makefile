@@ -10,7 +10,7 @@ endif
 
 buf:
 	cd ../.. && buf generate --template ./grpc/java/buf.gen.yaml
-	cd ../.. && buf generate --template ./grpc/java/buf.gen.yaml buf.build/beta/googleapis
+	cd ../.. && buf generate --template ./grpc/java/buf.gen.yaml buf.build/googleapis/googleapis
 	rm -rf src/main/gen/io
 	rm -rf src/main/gen/google
 	ls src/main/gen/com/google | grep -v api | xargs -I {} rm -rf src/main/gen/com/google/{}

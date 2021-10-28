@@ -4,7 +4,6 @@ package v1
 
 import (
 	context "context"
-
 	httpbody "google.golang.org/genproto/googleapis/api/httpbody"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
@@ -120,6 +119,13 @@ type RobotServiceClient interface {
 	ServoMove(ctx context.Context, in *ServoMoveRequest, opts ...grpc.CallOption) (*ServoMoveResponse, error)
 	// ServoCurrent returns the current set angle (degrees) of the servo of the underlying robot.
 	ServoCurrent(ctx context.Context, in *ServoCurrentRequest, opts ...grpc.CallOption) (*ServoCurrentResponse, error)
+	//Motor
+	// Return the PID configuration for a Motor
+	MotorGetPIDConfig(ctx context.Context, in *MotorGetPIDConfigRequest, opts ...grpc.CallOption) (*MotorGetPIDConfigResponse, error)
+	// Set the PID configuration for a Motor
+	MotorSetPIDConfig(ctx context.Context, in *MotorSetPIDConfigRequest, opts ...grpc.CallOption) (*MotorSetPIDConfigResponse, error)
+	// Perform a step response on a motor
+	MotorPIDStep(ctx context.Context, in *MotorPIDStepRequest, opts ...grpc.CallOption) (RobotService_MotorPIDStepClient, error)
 	// MotorPower requests the motor of a board of the underlying robot to set its power.
 	MotorPower(ctx context.Context, in *MotorPowerRequest, opts ...grpc.CallOption) (*MotorPowerResponse, error)
 	// MotorGo requests the motor of a board of the underlying robot to go.
@@ -158,6 +164,14 @@ type RobotServiceClient interface {
 	IMUAngularVelocity(ctx context.Context, in *IMUAngularVelocityRequest, opts ...grpc.CallOption) (*IMUAngularVelocityResponse, error)
 	// IMUOrientation returns the most recent orientation reading from the given IMU.
 	IMUOrientation(ctx context.Context, in *IMUOrientationRequest, opts ...grpc.CallOption) (*IMUOrientationResponse, error)
+	// GPSLocation returns the most recent location from the given GPS.
+	GPSLocation(ctx context.Context, in *GPSLocationRequest, opts ...grpc.CallOption) (*GPSLocationResponse, error)
+	// GPSAltitude returns the most recent altitude from the given GPS.
+	GPSAltitude(ctx context.Context, in *GPSAltitudeRequest, opts ...grpc.CallOption) (*GPSAltitudeResponse, error)
+	// GPSSpeed returns the most recent speed from the given GPS.
+	GPSSpeed(ctx context.Context, in *GPSSpeedRequest, opts ...grpc.CallOption) (*GPSSpeedResponse, error)
+	// GPSAccuracy returns the most recent location accuracy from the given GPS.
+	GPSAccuracy(ctx context.Context, in *GPSAccuracyRequest, opts ...grpc.CallOption) (*GPSAccuracyResponse, error)
 }
 
 type robotServiceClient struct {
@@ -614,6 +628,56 @@ func (c *robotServiceClient) ServoCurrent(ctx context.Context, in *ServoCurrentR
 	return out, nil
 }
 
+func (c *robotServiceClient) MotorGetPIDConfig(ctx context.Context, in *MotorGetPIDConfigRequest, opts ...grpc.CallOption) (*MotorGetPIDConfigResponse, error) {
+	out := new(MotorGetPIDConfigResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/MotorGetPIDConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) MotorSetPIDConfig(ctx context.Context, in *MotorSetPIDConfigRequest, opts ...grpc.CallOption) (*MotorSetPIDConfigResponse, error) {
+	out := new(MotorSetPIDConfigResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/MotorSetPIDConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) MotorPIDStep(ctx context.Context, in *MotorPIDStepRequest, opts ...grpc.CallOption) (RobotService_MotorPIDStepClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RobotService_ServiceDesc.Streams[1], "/proto.api.v1.RobotService/MotorPIDStep", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &robotServiceMotorPIDStepClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type RobotService_MotorPIDStepClient interface {
+	Recv() (*MotorPIDStepResponse, error)
+	grpc.ClientStream
+}
+
+type robotServiceMotorPIDStepClient struct {
+	grpc.ClientStream
+}
+
+func (x *robotServiceMotorPIDStepClient) Recv() (*MotorPIDStepResponse, error) {
+	m := new(MotorPIDStepResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *robotServiceClient) MotorPower(ctx context.Context, in *MotorPowerRequest, opts ...grpc.CallOption) (*MotorPowerResponse, error) {
 	out := new(MotorPowerResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/MotorPower", in, out, opts...)
@@ -723,7 +787,7 @@ func (c *robotServiceClient) InputControllerLastEvents(ctx context.Context, in *
 }
 
 func (c *robotServiceClient) InputControllerEventStream(ctx context.Context, in *InputControllerEventStreamRequest, opts ...grpc.CallOption) (RobotService_InputControllerEventStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RobotService_ServiceDesc.Streams[1], "/proto.api.v1.RobotService/InputControllerEventStream", opts...)
+	stream, err := c.cc.NewStream(ctx, &RobotService_ServiceDesc.Streams[2], "/proto.api.v1.RobotService/InputControllerEventStream", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -835,6 +899,42 @@ func (c *robotServiceClient) IMUOrientation(ctx context.Context, in *IMUOrientat
 	return out, nil
 }
 
+func (c *robotServiceClient) GPSLocation(ctx context.Context, in *GPSLocationRequest, opts ...grpc.CallOption) (*GPSLocationResponse, error) {
+	out := new(GPSLocationResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GPSLocation", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) GPSAltitude(ctx context.Context, in *GPSAltitudeRequest, opts ...grpc.CallOption) (*GPSAltitudeResponse, error) {
+	out := new(GPSAltitudeResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GPSAltitude", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) GPSSpeed(ctx context.Context, in *GPSSpeedRequest, opts ...grpc.CallOption) (*GPSSpeedResponse, error) {
+	out := new(GPSSpeedResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GPSSpeed", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) GPSAccuracy(ctx context.Context, in *GPSAccuracyRequest, opts ...grpc.CallOption) (*GPSAccuracyResponse, error) {
+	out := new(GPSAccuracyResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GPSAccuracy", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RobotServiceServer is the server API for RobotService service.
 // All implementations must embed UnimplementedRobotServiceServer
 // for forward compatibility
@@ -939,6 +1039,13 @@ type RobotServiceServer interface {
 	ServoMove(context.Context, *ServoMoveRequest) (*ServoMoveResponse, error)
 	// ServoCurrent returns the current set angle (degrees) of the servo of the underlying robot.
 	ServoCurrent(context.Context, *ServoCurrentRequest) (*ServoCurrentResponse, error)
+	//Motor
+	// Return the PID configuration for a Motor
+	MotorGetPIDConfig(context.Context, *MotorGetPIDConfigRequest) (*MotorGetPIDConfigResponse, error)
+	// Set the PID configuration for a Motor
+	MotorSetPIDConfig(context.Context, *MotorSetPIDConfigRequest) (*MotorSetPIDConfigResponse, error)
+	// Perform a step response on a motor
+	MotorPIDStep(*MotorPIDStepRequest, RobotService_MotorPIDStepServer) error
 	// MotorPower requests the motor of a board of the underlying robot to set its power.
 	MotorPower(context.Context, *MotorPowerRequest) (*MotorPowerResponse, error)
 	// MotorGo requests the motor of a board of the underlying robot to go.
@@ -977,6 +1084,14 @@ type RobotServiceServer interface {
 	IMUAngularVelocity(context.Context, *IMUAngularVelocityRequest) (*IMUAngularVelocityResponse, error)
 	// IMUOrientation returns the most recent orientation reading from the given IMU.
 	IMUOrientation(context.Context, *IMUOrientationRequest) (*IMUOrientationResponse, error)
+	// GPSLocation returns the most recent location from the given GPS.
+	GPSLocation(context.Context, *GPSLocationRequest) (*GPSLocationResponse, error)
+	// GPSAltitude returns the most recent altitude from the given GPS.
+	GPSAltitude(context.Context, *GPSAltitudeRequest) (*GPSAltitudeResponse, error)
+	// GPSSpeed returns the most recent speed from the given GPS.
+	GPSSpeed(context.Context, *GPSSpeedRequest) (*GPSSpeedResponse, error)
+	// GPSAccuracy returns the most recent location accuracy from the given GPS.
+	GPSAccuracy(context.Context, *GPSAccuracyRequest) (*GPSAccuracyResponse, error)
 	mustEmbedUnimplementedRobotServiceServer()
 }
 
@@ -1125,6 +1240,15 @@ func (UnimplementedRobotServiceServer) ServoMove(context.Context, *ServoMoveRequ
 func (UnimplementedRobotServiceServer) ServoCurrent(context.Context, *ServoCurrentRequest) (*ServoCurrentResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ServoCurrent not implemented")
 }
+func (UnimplementedRobotServiceServer) MotorGetPIDConfig(context.Context, *MotorGetPIDConfigRequest) (*MotorGetPIDConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MotorGetPIDConfig not implemented")
+}
+func (UnimplementedRobotServiceServer) MotorSetPIDConfig(context.Context, *MotorSetPIDConfigRequest) (*MotorSetPIDConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MotorSetPIDConfig not implemented")
+}
+func (UnimplementedRobotServiceServer) MotorPIDStep(*MotorPIDStepRequest, RobotService_MotorPIDStepServer) error {
+	return status.Errorf(codes.Unimplemented, "method MotorPIDStep not implemented")
+}
 func (UnimplementedRobotServiceServer) MotorPower(context.Context, *MotorPowerRequest) (*MotorPowerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MotorPower not implemented")
 }
@@ -1190,6 +1314,18 @@ func (UnimplementedRobotServiceServer) IMUAngularVelocity(context.Context, *IMUA
 }
 func (UnimplementedRobotServiceServer) IMUOrientation(context.Context, *IMUOrientationRequest) (*IMUOrientationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method IMUOrientation not implemented")
+}
+func (UnimplementedRobotServiceServer) GPSLocation(context.Context, *GPSLocationRequest) (*GPSLocationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GPSLocation not implemented")
+}
+func (UnimplementedRobotServiceServer) GPSAltitude(context.Context, *GPSAltitudeRequest) (*GPSAltitudeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GPSAltitude not implemented")
+}
+func (UnimplementedRobotServiceServer) GPSSpeed(context.Context, *GPSSpeedRequest) (*GPSSpeedResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GPSSpeed not implemented")
+}
+func (UnimplementedRobotServiceServer) GPSAccuracy(context.Context, *GPSAccuracyRequest) (*GPSAccuracyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GPSAccuracy not implemented")
 }
 func (UnimplementedRobotServiceServer) mustEmbedUnimplementedRobotServiceServer() {}
 
@@ -2053,6 +2189,63 @@ func _RobotService_ServoCurrent_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_MotorGetPIDConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MotorGetPIDConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).MotorGetPIDConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/MotorGetPIDConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).MotorGetPIDConfig(ctx, req.(*MotorGetPIDConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_MotorSetPIDConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MotorSetPIDConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).MotorSetPIDConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/MotorSetPIDConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).MotorSetPIDConfig(ctx, req.(*MotorSetPIDConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_MotorPIDStep_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(MotorPIDStepRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(RobotServiceServer).MotorPIDStep(m, &robotServiceMotorPIDStepServer{stream})
+}
+
+type RobotService_MotorPIDStepServer interface {
+	Send(*MotorPIDStepResponse) error
+	grpc.ServerStream
+}
+
+type robotServiceMotorPIDStepServer struct {
+	grpc.ServerStream
+}
+
+func (x *robotServiceMotorPIDStepServer) Send(m *MotorPIDStepResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 func _RobotService_MotorPower_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MotorPowerRequest)
 	if err := dec(in); err != nil {
@@ -2452,6 +2645,78 @@ func _RobotService_IMUOrientation_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_GPSLocation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GPSLocationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).GPSLocation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/GPSLocation",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).GPSLocation(ctx, req.(*GPSLocationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_GPSAltitude_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GPSAltitudeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).GPSAltitude(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/GPSAltitude",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).GPSAltitude(ctx, req.(*GPSAltitudeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_GPSSpeed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GPSSpeedRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).GPSSpeed(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/GPSSpeed",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).GPSSpeed(ctx, req.(*GPSSpeedRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_GPSAccuracy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GPSAccuracyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).GPSAccuracy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/GPSAccuracy",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).GPSAccuracy(ctx, req.(*GPSAccuracyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RobotService_ServiceDesc is the grpc.ServiceDesc for RobotService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2644,6 +2909,14 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RobotService_ServoCurrent_Handler,
 		},
 		{
+			MethodName: "MotorGetPIDConfig",
+			Handler:    _RobotService_MotorGetPIDConfig_Handler,
+		},
+		{
+			MethodName: "MotorSetPIDConfig",
+			Handler:    _RobotService_MotorSetPIDConfig_Handler,
+		},
+		{
 			MethodName: "MotorPower",
 			Handler:    _RobotService_MotorPower_Handler,
 		},
@@ -2727,11 +3000,32 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "IMUOrientation",
 			Handler:    _RobotService_IMUOrientation_Handler,
 		},
+		{
+			MethodName: "GPSLocation",
+			Handler:    _RobotService_GPSLocation_Handler,
+		},
+		{
+			MethodName: "GPSAltitude",
+			Handler:    _RobotService_GPSAltitude_Handler,
+		},
+		{
+			MethodName: "GPSSpeed",
+			Handler:    _RobotService_GPSSpeed_Handler,
+		},
+		{
+			MethodName: "GPSAccuracy",
+			Handler:    _RobotService_GPSAccuracy_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "StatusStream",
 			Handler:       _RobotService_StatusStream_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "MotorPIDStep",
+			Handler:       _RobotService_MotorPIDStep_Handler,
 			ServerStreams: true,
 		},
 		{

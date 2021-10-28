@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.viam.com/core/config"
+	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rlog"
 	robotimpl "go.viam.com/core/robot/impl"
@@ -19,24 +20,28 @@ func TestFourWheelBase1(t *testing.T) {
 		&config.Config{
 			Components: []config.Component{
 				{
-					Name:  "fr-m",
-					Model: "fake",
-					Type:  config.ComponentTypeMotor,
+					Name:                "fr-m",
+					Model:               "fake",
+					Type:                config.ComponentTypeMotor,
+					ConvertedAttributes: &motor.Config{},
 				},
 				{
-					Name:  "fl-m",
-					Model: "fake",
-					Type:  config.ComponentTypeMotor,
+					Name:                "fl-m",
+					Model:               "fake",
+					Type:                config.ComponentTypeMotor,
+					ConvertedAttributes: &motor.Config{},
 				},
 				{
-					Name:  "br-m",
-					Model: "fake",
-					Type:  config.ComponentTypeMotor,
+					Name:                "br-m",
+					Model:               "fake",
+					Type:                config.ComponentTypeMotor,
+					ConvertedAttributes: &motor.Config{},
 				},
 				{
-					Name:  "bl-m",
-					Model: "fake",
-					Type:  config.ComponentTypeMotor,
+					Name:                "bl-m",
+					Model:               "fake",
+					Type:                config.ComponentTypeMotor,
+					ConvertedAttributes: &motor.Config{},
 				},
 			},
 		},

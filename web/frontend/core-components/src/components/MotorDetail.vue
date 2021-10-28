@@ -1,14 +1,25 @@
 <template>
   <div class="component">
+    <div
+      v-if="typeof motorStatus.pidConfig !== 'undefined'"
+      class="chart-area"
+      style="height: 400px; width: 400px"
+    >
+      <PIDChart
+        ref="PIDChart"
+        :labels="['Set Point', 'Reference Value']"
+        :colors="['red', 'blue']"
+      />
+    </div>
     <div class="card">
-      <div class="row" style="margin-right: 0; align-items: center;">
+      <div class="row" style="margin-right: 0; align-items: center">
         <div class="header">
           <h2>{{ motorName }} Motor</h2>
           <span v-if="motorStatus.on" class="pill green">Running</span>
           <span v-else class="pill">Idle</span>
         </div>
         <div class="column" v-if="motorStatus.positionSupported">
-          <h3 style="line-height: 0.65;">{{ motorStatus.position }}</h3>
+          <h3 style="line-height: 0.65">{{ motorStatus.position }}</h3>
           <p class="subtitle">Position</p>
         </div>
         <div
@@ -30,14 +41,16 @@
         </div>
       </div>
 
-      <div class="row" style="justify-content: space-between;">
+      <div class="row" style="justify-content: space-between">
         <div class="row">
           <div class="column">
             <p class="subtitle">Type of Rotation</p>
             <RadioButtons
               :options="['Continuous', 'Discrete']"
               :defaultOption="isContinuous ? 'Continuous' : 'Discrete'"
-              :disabledOptions="motorStatus.positionSupported ? [] : ['Discrete']"
+              :disabledOptions="
+                motorStatus.positionSupported ? [] : ['Discrete']
+              "
               v-on:selectOption="isContinuous = $event === 'Continuous'"
             />
           </div>
@@ -56,7 +69,10 @@
               placeholder="Enter a number"
               min="0"
               :disabled="isContinuous"
-              v-bind:class="['margin-bottom', errors.revolutions ? 'error' : '']"
+              v-bind:class="[
+                'margin-bottom',
+                errors.revolutions ? 'error' : '',
+              ]"
               style="max-width: 128px"
               v-model="numberOfRotations"
             />
@@ -103,6 +119,50 @@
           </div>
         </div>
       </div>
+      <div class="row" style="justify-content: space-between">
+        <div class="row">
+          <div class="column">
+            <tr v-if="typeof motorStatus.pidConfig !== 'undefined'">
+              <td align="right">PID</td>
+              <td>
+                <span
+                  v-for="value in motorStatus.pidConfig.fieldsMap"
+                  :key="value.id"
+                >
+                  <b> {{ value[0] }} : </b>
+                  <input
+                    type="number"
+                    contenteditable="true"
+                    v-once
+                    step="0.01"
+                    precision="4"
+                    size="80px"
+                    v-model.number="value[1].numberValue"
+                    v-on:keyup.enter="
+                      onPidGainUpdate(value[0], $event.target.valueAsNumber)
+                    "
+                  />
+                </span>
+                <b>Speed value : </b>
+                <input
+                  type="number"
+                  v-bind:id="'set_point_' + motorName"
+                  contenteditable="true"
+                  step="0.5"
+                  precision="4"
+                  size="80px"
+                  value="0"
+                  v-model="setpoint"
+                  v-on:keyup.enter="onPIDStepButtonClicked()"
+                />
+                <button v-on:click="onPIDStepButtonClicked()">
+                  Step response
+                </button>
+              </td>
+            </tr>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -115,8 +175,52 @@ import {
   MotorGoRequest,
   MotorGoForRequest,
   MotorGoToRequest,
+  MotorPIDStepRequest,
+  MotorSetPIDConfigRequest,
 } from "proto/robot_pb";
 import RadioButtons from "./RadioButtons.vue";
+import PIDChart from "./PidChart.vue";
+import { Struct } from "google-protobuf/google/protobuf/struct_pb";
+
+enum PIDCommandType {
+  Gain = "gain",
+  Step = "step",
+}
+
+class PIDCommand {
+  type = PIDCommandType.Gain;
+  setPoint = 0;
+  gain = 0;
+  key = "";
+  chart: PIDChart | undefined;
+
+  asObject(): {
+    type: string;
+    request: MotorPIDStepRequest | MotorSetPIDConfigRequest;
+    chart: PIDChart | undefined;
+    setPoint: number;
+  } {
+    let req;
+    let obj;
+    switch (this.type) {
+      case PIDCommandType.Gain:
+        req = new MotorSetPIDConfigRequest();
+        obj = { [this.key]: this.gain };
+        req.setPidConfig(Struct.fromJavaScript(obj));
+        break;
+      case PIDCommandType.Step:
+        req = new MotorPIDStepRequest();
+        req.setSetPoint(this.setPoint);
+        break;
+    }
+    return {
+      type: this.type.toString(),
+      request: req,
+      setPoint: this.setPoint,
+      chart: this.chart,
+    };
+  }
+}
 
 enum MotorCommandType {
   Go = "go",
@@ -234,6 +338,7 @@ class MotorCommand {
 @Component({
   components: {
     RadioButtons,
+    PIDChart,
   },
 })
 export default class MotorDetail extends Vue {
@@ -241,6 +346,7 @@ export default class MotorDetail extends Vue {
   @Prop() motorStatus!: MotorStatus.AsObject;
 
   motorCommand = new MotorCommand();
+  pidCommand = new PIDCommand();
 
   mounted(): void {
     if (this.motorStatus.positionSupported) {
@@ -249,7 +355,19 @@ export default class MotorDetail extends Vue {
       this.motorCommand.revolutions = 1;
     }
   }
-
+  onPidGainUpdate(val: string, gain: number): void {
+    this.pidCommand.type = PIDCommandType.Gain;
+    this.pidCommand.key = val;
+    this.pidCommand.gain = gain;
+    const command = this.pidCommand.asObject();
+    this.$emit("pid", command);
+  }
+  onPIDStepButtonClicked(): void {
+    this.pidCommand.chart = this.$refs.PIDChart as PIDChart;
+    this.pidCommand.type = PIDCommandType.Step;
+    const command = this.pidCommand.asObject();
+    this.$emit("pid", command);
+  }
   get isContinuous(): boolean {
     return this.motorCommand.type === MotorCommandType.Go;
   }
@@ -288,6 +406,12 @@ export default class MotorDetail extends Vue {
   }
   set speed(v: number) {
     this.motorCommand.speed = v;
+  }
+  get setpoint(): number {
+    return this.pidCommand.setPoint;
+  }
+  set setpoint(v: number) {
+    this.pidCommand.setPoint = v;
   }
 
   get numberOfRotations(): number {

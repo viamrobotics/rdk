@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/go-errors/errors"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/gantry"
@@ -182,10 +183,23 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			if err != nil {
 				return nil, err
 			}
+			pid := x.PID()
+			var str *structpb.Struct
+			if pid != nil {
+				pcfg, err := pid.Config(ctx)
+				if err != nil {
+					return nil, err
+				}
+				str, err = structpb.NewStruct(pcfg.Attributes)
+				if err != nil {
+					return nil, err
+				}
+			}
 			status.Motors[name] = &pb.MotorStatus{
 				On:                isOn,
 				Position:          position,
 				PositionSupported: positionSupported,
+				PidConfig:         str,
 			}
 		}
 	}

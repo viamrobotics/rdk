@@ -434,6 +434,33 @@ RobotService.ServoCurrent = {
   responseType: proto_api_v1_robot_pb.ServoCurrentResponse
 };
 
+RobotService.MotorGetPIDConfig = {
+  methodName: "MotorGetPIDConfig",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.MotorGetPIDConfigRequest,
+  responseType: proto_api_v1_robot_pb.MotorGetPIDConfigResponse
+};
+
+RobotService.MotorSetPIDConfig = {
+  methodName: "MotorSetPIDConfig",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.MotorSetPIDConfigRequest,
+  responseType: proto_api_v1_robot_pb.MotorSetPIDConfigResponse
+};
+
+RobotService.MotorPIDStep = {
+  methodName: "MotorPIDStep",
+  service: RobotService,
+  requestStream: false,
+  responseStream: true,
+  requestType: proto_api_v1_robot_pb.MotorPIDStepRequest,
+  responseType: proto_api_v1_robot_pb.MotorPIDStepResponse
+};
+
 RobotService.MotorPower = {
   methodName: "MotorPower",
   service: RobotService,
@@ -630,6 +657,42 @@ RobotService.IMUOrientation = {
   responseStream: false,
   requestType: proto_api_v1_robot_pb.IMUOrientationRequest,
   responseType: proto_api_v1_robot_pb.IMUOrientationResponse
+};
+
+RobotService.GPSLocation = {
+  methodName: "GPSLocation",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.GPSLocationRequest,
+  responseType: proto_api_v1_robot_pb.GPSLocationResponse
+};
+
+RobotService.GPSAltitude = {
+  methodName: "GPSAltitude",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.GPSAltitudeRequest,
+  responseType: proto_api_v1_robot_pb.GPSAltitudeResponse
+};
+
+RobotService.GPSSpeed = {
+  methodName: "GPSSpeed",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.GPSSpeedRequest,
+  responseType: proto_api_v1_robot_pb.GPSSpeedResponse
+};
+
+RobotService.GPSAccuracy = {
+  methodName: "GPSAccuracy",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.GPSAccuracyRequest,
+  responseType: proto_api_v1_robot_pb.GPSAccuracyResponse
 };
 
 exports.RobotService = RobotService;
@@ -2104,6 +2167,107 @@ RobotServiceClient.prototype.servoCurrent = function servoCurrent(requestMessage
   };
 };
 
+RobotServiceClient.prototype.motorGetPIDConfig = function motorGetPIDConfig(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.MotorGetPIDConfig, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.motorSetPIDConfig = function motorSetPIDConfig(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.MotorSetPIDConfig, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.motorPIDStep = function motorPIDStep(requestMessage, metadata) {
+  var listeners = {
+    data: [],
+    end: [],
+    status: []
+  };
+  var client = grpc.invoke(RobotService.MotorPIDStep, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onMessage: function (responseMessage) {
+      listeners.data.forEach(function (handler) {
+        handler(responseMessage);
+      });
+    },
+    onEnd: function (status, statusMessage, trailers) {
+      listeners.status.forEach(function (handler) {
+        handler({ code: status, details: statusMessage, metadata: trailers });
+      });
+      listeners.end.forEach(function (handler) {
+        handler({ code: status, details: statusMessage, metadata: trailers });
+      });
+      listeners = null;
+    }
+  });
+  return {
+    on: function (type, handler) {
+      listeners[type].push(handler);
+      return this;
+    },
+    cancel: function () {
+      listeners = null;
+      client.close();
+    }
+  };
+};
+
 RobotServiceClient.prototype.motorPower = function motorPower(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
@@ -2768,6 +2932,130 @@ RobotServiceClient.prototype.iMUOrientation = function iMUOrientation(requestMes
     callback = arguments[1];
   }
   var client = grpc.unary(RobotService.IMUOrientation, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.gPSLocation = function gPSLocation(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.GPSLocation, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.gPSAltitude = function gPSAltitude(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.GPSAltitude, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.gPSSpeed = function gPSSpeed(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.GPSSpeed, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.gPSAccuracy = function gPSAccuracy(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.GPSAccuracy, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
