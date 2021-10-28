@@ -7,6 +7,8 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/gantry"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robot"
 )
@@ -31,13 +33,21 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.ArmNames(); len(names) != 0 {
-		status.Arms = make(map[string]*pb.ArmStatus, len(names))
-		for _, name := range names {
-			arm, ok := r.ArmByName(name)
-			if !ok {
-				continue
+	for _, name := range r.ResourceNames() {
+		if name.Subtype == arm.Subtype {
+			if status.Arms == nil {
+				status.Arms = make(map[string]*pb.ArmStatus)
 			}
+			raw, ok := r.ResourceByName(name)
+			if !ok {
+				return nil, errors.New("should be impossible")
+			}
+
+			arm, ok := raw.(arm.Arm)
+			if !ok {
+				return nil, errors.New("should be impossible")
+			}
+
 			armStatus := &pb.ArmStatus{}
 
 			armStatus.GridPosition, err = arm.CurrentPosition(ctx)
@@ -49,7 +59,34 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 				return nil, err
 			}
 
-			status.Arms[name] = armStatus
+			status.Arms[name.Name] = armStatus
+		} else if name.Subtype == gantry.Subtype {
+			if status.Gantries == nil {
+				status.Gantries = make(map[string]*pb.GantryStatus)
+			}
+			raw, ok := r.ResourceByName(name)
+			if !ok {
+				return nil, errors.New("should be impossible")
+			}
+
+			g, ok := raw.(gantry.Gantry)
+			if !ok {
+				return nil, errors.New("should be impossible")
+			}
+
+			gantryStatus := &pb.GantryStatus{}
+
+			gantryStatus.Positions, err = g.CurrentPosition(ctx)
+			if err != nil {
+				return nil, err
+			}
+
+			gantryStatus.Lengths, err = g.Lengths(ctx)
+			if err != nil {
+				return nil, err
+			}
+
+			status.Gantries[name.Name] = gantryStatus
 		}
 	}
 
