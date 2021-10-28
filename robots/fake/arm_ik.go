@@ -26,7 +26,7 @@ func init() {
 			if config.Attributes.Bool("fail_new", false) {
 				return nil, errors.New("whoops")
 			}
-			return NewArmIK(config, logger)
+			return NewArmIK(ctx, config, logger)
 		},
 		Frame: func(name string) (frame.Frame, error) {
 			return fakeFrame(name)
@@ -50,14 +50,14 @@ func fakeFrame(name string) (frame.Frame, error) {
 }
 
 // NewArmIK returns a new fake arm.
-func NewArmIK(cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
 	name := cfg.Name
 	model, err := fakeModel()
 	if err != nil {
 		return nil, err
 	}
 
-	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	ik, err := kinematics.CreateCombinedIKSolver(ctx, model, logger, 4)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (a *ArmIK) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(a.ik.Model(), joints)
+	return kinematics.ComputePosition(ctx, a.ik.Model(), joints)
 }
 
 // MoveToPosition sets the position.

@@ -38,26 +38,28 @@ type Service interface {
 
 // New returns a new frame system service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	fs, err := createRobotFrameSystem(ctx, r, "robot")
+	fs, sortedFrameNames, err := createRobotFrameSystem(ctx, r, "robot")
 	if err != nil {
 		return nil, err
 	}
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	fsSvc := &frameSystemService{
-		r:          r,
-		fs:         fs,
-		logger:     logger,
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
+		r:                r,
+		fs:               fs,
+		sortedFrameNames: sortedFrameNames,
+		logger:           logger,
+		cancelCtx:        cancelCtx,
+		cancelFunc:       cancelFunc,
 	}
 	return fsSvc, nil
 }
 
 type frameSystemService struct {
-	mu sync.RWMutex
-	r  robot.Robot
-	fs referenceframe.FrameSystem
+	mu               sync.RWMutex
+	r                robot.Robot
+	fs               referenceframe.FrameSystem
+	sortedFrameNames []string
 
 	logger                  golog.Logger
 	cancelCtx               context.Context
@@ -70,9 +72,7 @@ type frameSystemService struct {
 // the slice should be returned topologically sorted, starting with the frames that are connected to the world node, and going up
 func (svc *frameSystemService) FrameSystemDAG(ctx context.Context) ([]*pb.Node, error) {
 	dag := make([]*pb.Node, len(svc.fs.FrameNames()))
-	allFrames := svc.fs.FrameNames()
-	// TODO(bijan): need to topologically sort these frame names!!
-	for i, name := range allFrames {
+	for i, name := range svc.sortedFrameNames { // the list is topologically sorted already
 		parent, err := svc.fs.Parent(svc.fs.GetFrame(name))
 		if err != nil {
 			return nil, err
@@ -118,7 +118,7 @@ type namedPart struct {
 	Part FrameSystemLinker
 }
 
-func createRobotFrameSystem(ctx context.Context, r robot.Robot, robotName string) (referenceframe.FrameSystem, error) {
+func createRobotFrameSystem(ctx context.Context, r robot.Robot, robotName string) (referenceframe.FrameSystem, []string, error) {
 	// collect the necessary robot parts (skipping remotes, services, etc)
 	parts := collectRobotParts(r)
 	// collect the frame info from each part that will be used to build the system
@@ -127,11 +127,11 @@ func createRobotFrameSystem(ctx context.Context, r robot.Robot, robotName string
 	names[referenceframe.World] = true
 	for _, part := range parts {
 		if part.Name == "" {
-			return nil, errors.New("part name cannot be empty")
+			return nil, nil, errors.New("part name cannot be empty")
 		}
 		err := createFrameFromPart(part, children, names)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	return buildFrameSystem(ctx, robotName, names, children, r.Logger())
@@ -282,13 +282,14 @@ func createFrameFromPart(part namedPart, children map[string][]referenceframe.Fr
 	return nil
 }
 
-func buildFrameSystem(ctx context.Context, name string, frameNames map[string]bool, children map[string][]referenceframe.Frame, logger golog.Logger) (referenceframe.FrameSystem, error) {
+func buildFrameSystem(ctx context.Context, name string, frameNames map[string]bool, children map[string][]referenceframe.Frame, logger golog.Logger) (referenceframe.FrameSystem, []string, error) {
 	// use a stack to populate the frame system
 	stack := make([]string, 0)
+	topoSortedNames := make([]string, 0) // keep track of tree structure
 	visited := make(map[string]bool)
 	// check to see if world exists, and start with the frames attached to world
 	if _, ok := children[referenceframe.World]; !ok {
-		return nil, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'")
+		return nil, nil, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'")
 	}
 	stack = append(stack, referenceframe.World)
 	// begin adding frames to the frame system
@@ -297,23 +298,24 @@ func buildFrameSystem(ctx context.Context, name string, frameNames map[string]bo
 		parent := stack[0] // pop the top element from the stack
 		stack = stack[1:]
 		if _, ok := visited[parent]; ok {
-			return nil, fmt.Errorf("the system contains a cycle, have already visited frame %s", parent)
+			return nil, nil, fmt.Errorf("the system contains a cycle, have already visited frame %s", parent)
 		}
 		visited[parent] = true
 		for _, frame := range children[parent] { // add all the children to the frame system, and to the stack as new parents
 			stack = append(stack, frame.Name())
+			topoSortedNames = append(topoSortedNames, frame.Name())
 			err := fs.AddFrame(frame, fs.GetFrame(parent))
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 	}
 	// ensure that there are no disconnected frames
 	if len(visited) != len(frameNames) {
-		return nil, fmt.Errorf("the frame system is not fully connected, expected %d frames but frame system has %d. Expected frames are: %v. Actual frames are: %v", len(frameNames), len(visited), mapKeys(frameNames), mapKeys(visited))
+		return nil, nil, fmt.Errorf("the frame system is not fully connected, expected %d frames but frame system has %d. Expected frames are: %v. Actual frames are: %v", len(frameNames), len(visited), mapKeys(frameNames), mapKeys(visited))
 	}
 	logger.Debugf("frames in robot frame system are: %v", frameNamesWithDof(ctx, fs))
-	return fs, nil
+	return fs, topoSortedNames, nil
 }
 
 func frameNamesWithDof(ctx context.Context, sys referenceframe.FrameSystem) []string {

@@ -26,7 +26,6 @@ import (
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
-	"go.viam.com/core/services/framesystem"
 	"go.viam.com/core/servo"
 
 	"github.com/edaniels/golog"
@@ -326,8 +325,14 @@ func (rr *remoteRobot) Config(ctx context.Context) (*config.Config, error) {
 }
 
 // FrameSystem will return the frame system from the remote robot's server
+// TODO(bijan) : How to wrap the frame names in the FrameSystem with the remoteRobot's prefix??
 func (rr *remoteRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
-	return rr.robot.FrameSystem(ctx)
+	fs, err := rr.robot.FrameSystem(ctx)
+	if err != nil {
+		return nil, err
+	}
+	fs.Rename(rr.conf.Name)
+	return fs, nil
 }
 
 func (rr *remoteRobot) Status(ctx context.Context) (*pb.Status, error) {

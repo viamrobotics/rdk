@@ -645,6 +645,11 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 	return names
 }
 
+// Logger returns the logger being used for this robot.
+func (rc *RobotClient) Logger() golog.Logger {
+	return rc.logger
+}
+
 // FrameSystem retrieves a DAG of the remote frame names and then builds a FrameSystem using *clientFrames
 func (rc *RobotClient) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
 	// request the DAG from the remote robot's frame system service.FrameSystemDAG()
@@ -659,16 +664,11 @@ func (rc *RobotClient) FrameSystem(ctx context.Context) (referenceframe.FrameSys
 		frame := &frameClient{rc: rc, name: node.Name}
 		err := fs.AddFrame(frame, fs.GetFrame(node.Parent))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("adding clientFrame to remote frame system:  %w", err)
 		}
 	}
 	// return the built FrameSystem
 	return fs, nil
-}
-
-// Logger returns the logger being used for this robot.
-func (rc *RobotClient) Logger() golog.Logger {
-	return rc.logger
 }
 
 // frameClient satisfies a gRPC based referenceframe.Frame. Refer to the interface

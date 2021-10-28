@@ -263,13 +263,18 @@ func (r *localRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSyste
 	// create the base reference frame system
 	service, ok := r.ServiceByName("frame_system")
 	if !ok {
-		return nil, errors.New("frame system service not found")
+		return nil, errors.New("service frame_system not found")
+	}
+	fsService, ok := service.(framesystem.Service)
+	if !ok {
+		return nil, errors.New("service is not a frame_system service")
 	}
 	logger.Debug("getting base frame system from local_robot")
-	baseFrameSys, err := service.(framesystem.Service).FrameSystem(ctx)
+	baseFrameSys, err := fsService.LocalFrameSystem(ctx)
 	if err != nil {
 		return nil, err
 	}
+	logger.Debugf("base frame system has frames %v", baseFrameSys.FrameNames())
 	// get frame system for each of its remote parts and merge to base
 	for remoteName, remote := range r.parts.remotes {
 		logger.Debugf("getting remote frame system  %q", remoteName)
@@ -281,12 +286,13 @@ func (r *localRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSyste
 		if err != nil {
 			return nil, err
 		}
-		remoteFrameSys.Rename(remoteName)
+		logger.Debugf("merging remote frame system  %q with frames %v", remoteFrameSys.Name(), remoteFrameSys.FrameNames())
 		err = config.MergeFrameSystems(baseFrameSys, remoteFrameSys, rConf.Frame)
 		if err != nil {
 			return nil, err
 		}
 	}
+	logger.Debugf("final frame system  %q with frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())
 	return baseFrameSys, nil
 }
 

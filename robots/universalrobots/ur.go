@@ -119,7 +119,7 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 	if err != nil {
 		return nil, err
 	}
-	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	ik, err := kinematics.CreateCombinedIKSolver(ctx, model, logger, 4)
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +223,7 @@ func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(ua.ik.Model(), joints)
+	return kinematics.ComputePosition(ctx, ua.ik.Model(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
