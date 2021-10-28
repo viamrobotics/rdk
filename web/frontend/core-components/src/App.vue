@@ -2,7 +2,18 @@
   <div id="app">
     <MotorDetail
       motorName="MOTOR NAME"
-      :motorStatus="{ on: true, positionSupported: true, position: 33 }"
+      :motorStatus="{
+        on: false,
+        positionSupported: true,
+        position: 0,
+        pidConfig: {
+          fieldsMap: [
+            ['Kd', { numberValue: 0 }],
+            ['Kp', { numberValue: 0.34 }],
+            ['Ki', { numberValue: 0.77 }],
+          ],
+        },
+      }"
     />
   </div>
 </template>

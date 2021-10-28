@@ -16,7 +16,15 @@ import (
 
 func init() {
 	registry.RegisterMotor(modelName, registry.Motor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error) {
-		return &Motor{Name: config.Name}, nil
+		mcfg := config.ConvertedAttributes.(*motor.Config)
+		if mcfg.PID != nil {
+			pid, err := motor.CreatePID(mcfg.PID)
+			if err != nil {
+				return nil, err
+			}
+			return &Motor{Name: config.Name, pid: pid}, nil
+		}
+		return &Motor{Name: config.Name, pid: nil}, nil
 	}})
 	motor.RegisterConfigAttributeConverter(modelName)
 }
@@ -28,6 +36,12 @@ type Motor struct {
 	mu       sync.Mutex
 	powerPct float32
 	d        pb.DirectionRelative
+	pid      motor.PID
+}
+
+// PID Return the underlying PID
+func (m *Motor) PID() motor.PID {
+	return m.pid
 }
 
 // Position always returns 0.

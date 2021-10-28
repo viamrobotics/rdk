@@ -200,7 +200,7 @@ func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (boa
 			return nil, errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", ac.SPIBus)
 		}
 
-		ar := &piPigpioAnalogReader{piInstance, channel, bus, ac.ChipSelect}
+		ar := &board.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
 		piInstance.analogs[ac.Name] = board.SmoothAnalogReader(ar, ac, logger)
 	}
 
@@ -332,7 +332,6 @@ func (pi *piPigpio) PWMSetFreqBcom(bcom int, freq uint) error {
 
 // piPigpioAnalogReader implements a board.AnalogReader using an MCP3008 ADC via SPI.
 type piPigpioAnalogReader struct {
-	pi      *piPigpio
 	channel int
 	bus     board.SPI
 	chip    string

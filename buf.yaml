@@ -21,5 +21,4 @@ breaking:
   use:
     - FILE
 deps:
-  - buf.build/beta/googleapis
-  
+  - buf.build/googleapis/googleapis:c33c435046f2f4db5e8d6db52bd6c662f50f60d8

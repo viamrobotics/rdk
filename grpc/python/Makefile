@@ -3,7 +3,7 @@ clean:
 
 buf:
 	export PATH=${PATH}:$(shell python3 -m site --user-base)/bin && cd ../.. && buf generate --template ./grpc/python/buf.gen.yaml
-	export PATH=${PATH}:$(shell python3 -m site --user-base)/bin && cd ../.. && buf generate --template ./grpc/python/buf.gen.yaml buf.build/beta/googleapis
+	export PATH=${PATH}:$(shell python3 -m site --user-base)/bin && cd ../.. && buf generate --template ./grpc/python/buf.gen.yaml buf.build/googleapis/googleapis
 
 setup:
 	pip3 install grpclib protobuf

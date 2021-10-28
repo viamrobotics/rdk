@@ -3680,6 +3680,184 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.servoCurrent =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.MotorGetPIDConfigRequest,
+ *   !proto.proto.api.v1.MotorGetPIDConfigResponse>}
+ */
+const methodDescriptor_RobotService_MotorGetPIDConfig = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/MotorGetPIDConfig',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.MotorGetPIDConfigRequest,
+  proto.proto.api.v1.MotorGetPIDConfigResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorGetPIDConfigRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorGetPIDConfigResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorGetPIDConfigRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.MotorGetPIDConfigResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorGetPIDConfigResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.motorGetPIDConfig =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorGetPIDConfig',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorGetPIDConfig,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorGetPIDConfigRequest} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.MotorGetPIDConfigResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.motorGetPIDConfig =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorGetPIDConfig',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorGetPIDConfig);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.MotorSetPIDConfigRequest,
+ *   !proto.proto.api.v1.MotorSetPIDConfigResponse>}
+ */
+const methodDescriptor_RobotService_MotorSetPIDConfig = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/MotorSetPIDConfig',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.MotorSetPIDConfigRequest,
+  proto.proto.api.v1.MotorSetPIDConfigResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorSetPIDConfigRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorSetPIDConfigResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorSetPIDConfigRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.MotorSetPIDConfigResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorSetPIDConfigResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.motorSetPIDConfig =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorSetPIDConfig',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorSetPIDConfig,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorSetPIDConfigRequest} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.MotorSetPIDConfigResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.motorSetPIDConfig =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorSetPIDConfig',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorSetPIDConfig);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.MotorPIDStepRequest,
+ *   !proto.proto.api.v1.MotorPIDStepResponse>}
+ */
+const methodDescriptor_RobotService_MotorPIDStep = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/MotorPIDStep',
+  grpc.web.MethodType.SERVER_STREAMING,
+  proto.proto.api.v1.MotorPIDStepRequest,
+  proto.proto.api.v1.MotorPIDStepResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorPIDStepRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorPIDStepResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorPIDStepRequest} request The request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorPIDStepResponse>}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.motorPIDStep =
+    function(request, metadata) {
+  return this.client_.serverStreaming(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorPIDStep',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorPIDStep);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.MotorPIDStepRequest} request The request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorPIDStepResponse>}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.motorPIDStep =
+    function(request, metadata) {
+  return this.client_.serverStreaming(this.hostname_ +
+      '/proto.api.v1.RobotService/MotorPIDStep',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MotorPIDStep);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.v1.MotorPowerRequest,
  *   !proto.proto.api.v1.MotorPowerResponse>}
  */

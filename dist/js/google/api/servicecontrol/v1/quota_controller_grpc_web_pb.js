@@ -20,6 +20,8 @@ var google_api_annotations_pb = require('../../../../google/api/annotations_pb.j
 
 var google_api_servicecontrol_v1_metric_value_pb = require('../../../../google/api/servicecontrol/v1/metric_value_pb.js')
 
+var google_rpc_status_pb = require('../../../../google/rpc/status_pb.js')
+
 var google_api_client_pb = require('../../../../google/api/client_pb.js')
 const proto = {};
 proto.google = {};
