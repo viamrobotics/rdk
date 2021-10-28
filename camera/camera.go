@@ -24,6 +24,7 @@ type ImageSource struct {
 	FrameConfig *config.Frame
 }
 
+// FrameSystemLink contains all the information needed to add a camera to a FrameSystem
 func (is *ImageSource) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
 	return is.FrameConfig, nil
 }

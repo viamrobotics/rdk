@@ -28,6 +28,7 @@ type Compass struct {
 	FrameConfig *config.Frame
 }
 
+// FrameSystemLink contains the information needed to add the compass to a frame system
 func (c *Compass) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
 	return c.FrameConfig, nil
 }

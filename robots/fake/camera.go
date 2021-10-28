@@ -46,6 +46,7 @@ func (c *Camera) Close() error {
 	return nil
 }
 
+// FrameSystemLink has the info needed to add the camera to a frame system
 func (c *Camera) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
 	return c.FrameConfig, nil
 }

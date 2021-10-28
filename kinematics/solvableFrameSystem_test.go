@@ -55,12 +55,13 @@ func makeTestFS(t *testing.T) *SolvableFrameSystem {
 }
 
 func TestFrameSystemSolver(t *testing.T) {
+	ctx := context.Background()
 	solver := makeTestFS(t)
-	positions := frame.StartPositions(solver)
+	positions := frame.StartPositions(ctx, solver)
 
 	pointXarmGripper := r3.Vector{157., -50, -288}
 
-	transformPoint, err := solver.TransformFrame(positions, solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
+	transformPoint, err := solver.TransformFrame(ctx, positions, solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint.Point().X, test.ShouldAlmostEqual, pointXarmGripper.X)
 	test.That(t, transformPoint.Point().Y, test.ShouldAlmostEqual, pointXarmGripper.Y)
@@ -76,9 +77,9 @@ func TestFrameSystemSolver(t *testing.T) {
 		OY:    0,
 		OZ:    -1,
 	}
-	newPos, err := solver.SolvePose(context.Background(), positions, spatial.NewPoseFromArmPos(goal1), solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
+	newPos, err := solver.SolvePose(ctx, positions, spatial.NewPoseFromArmPos(goal1), solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
-	solvedPose, err := solver.TransformFrame(newPos, solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
+	solvedPose, err := solver.TransformFrame(ctx, newPos, solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solvedPose.Point().X, test.ShouldAlmostEqual, goal1.X, 0.01)
 	test.That(t, solvedPose.Point().Y, test.ShouldAlmostEqual, goal1.Y, 0.01)
@@ -94,13 +95,13 @@ func TestFrameSystemSolver(t *testing.T) {
 		OY:    0,
 		OZ:    -1,
 	}
-	newPos, err = solver.SolvePose(context.Background(), positions, spatial.NewPoseFromArmPos(goal2), solver.GetFrame("xArmVgripper"), solver.GetFrame("urCamera"))
+	newPos, err = solver.SolvePose(ctx, positions, spatial.NewPoseFromArmPos(goal2), solver.GetFrame("xArmVgripper"), solver.GetFrame("urCamera"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Both frames should wind up at the goal relative to one another
-	solvedPose, err = solver.TransformFrame(newPos, solver.GetFrame("xArmVgripper"), solver.GetFrame("urCamera"))
+	solvedPose, err = solver.TransformFrame(ctx, newPos, solver.GetFrame("xArmVgripper"), solver.GetFrame("urCamera"))
 	test.That(t, err, test.ShouldBeNil)
-	solvedPose2, err := solver.TransformFrame(newPos, solver.GetFrame("urCamera"), solver.GetFrame("xArmVgripper"))
+	solvedPose2, err := solver.TransformFrame(ctx, newPos, solver.GetFrame("urCamera"), solver.GetFrame("xArmVgripper"))
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, solvedPose.Point().X, test.ShouldAlmostEqual, goal2.X, 0.01)

@@ -1,6 +1,7 @@
 package kinematics
 
 import (
+	"context"
 	"math"
 	"math/rand"
 	"testing"
@@ -13,41 +14,43 @@ import (
 )
 
 func TestModelLoading(t *testing.T) {
+	ctx := context.Background()
 	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, m.OperationalDoF(), test.ShouldEqual, 1)
-	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
+	test.That(t, len(m.DoF(ctx)), test.ShouldEqual, 6)
 
-	isValid := m.AreJointPositionsValid([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
+	isValid := m.AreJointPositionsValid(ctx, []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
 	test.That(t, isValid, test.ShouldBeTrue)
-	isValid = m.AreJointPositionsValid([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 99.1})
+	isValid = m.AreJointPositionsValid(ctx, []float64{0.1, 0.1, 0.1, 0.1, 0.1, 99.1})
 	test.That(t, isValid, test.ShouldBeFalse)
 
 	orig := []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
 	orig[5] += math.Pi * 2
 	orig[4] -= math.Pi * 4
 
-	randpos := m.GenerateRandomJointPositions(rand.New(rand.NewSource(1)))
-	test.That(t, m.AreJointPositionsValid(randpos), test.ShouldBeTrue)
+	randpos := m.GenerateRandomJointPositions(ctx, rand.New(rand.NewSource(1)))
+	test.That(t, m.AreJointPositionsValid(ctx, randpos), test.ShouldBeTrue)
 
 	m.SetName("foo")
 	test.That(t, m.Name(), test.ShouldEqual, "foo")
 }
 
 func TestJoint(t *testing.T) {
+	ctx := context.Background()
 	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	joints := m.Joints()
+	joints := m.Joints(ctx)
 	test.That(t, len(joints), test.ShouldEqual, 6)
-	pose, err := joints[0].Transform([]referenceframe.Input{{0}})
+	pose, err := joints[0].Transform(ctx, []referenceframe.Input{{0}})
 	test.That(t, err, test.ShouldBeNil)
 	firstJov := pose.Orientation().OrientationVectorRadians()
 	firstJovExpect := &spatialmath.OrientationVector{Theta: 0, OX: 0, OY: 0, OZ: 1}
 	test.That(t, firstJov, test.ShouldResemble, firstJovExpect)
 
-	pose, err = joints[0].Transform([]referenceframe.Input{{1.5708}})
+	pose, err = joints[0].Transform(ctx, []referenceframe.Input{{1.5708}})
 	test.That(t, err, test.ShouldBeNil)
 	firstJov = pose.Orientation().OrientationVectorRadians()
 	firstJovExpect = &spatialmath.OrientationVector{Theta: 1.5708, OX: 0, OY: 0, OZ: 1}

@@ -1074,7 +1074,7 @@ func (s *Server) ResourceRunCommand(ctx context.Context, req *pb.ResourceRunComm
 	return &pb.ResourceRunCommandResponse{Result: resultPb}, nil
 }
 
-// FrameSystemDAG returns a DAG of the FrameSystem's frame names in the form of (name:string, parent:string) pairs.
+// FrameSystemDAG returns a DAG of the FrameSystem's frame names in the form of {Name:string, Parent:string} pairs.
 func (s *Server) FrameSystemDAG(ctx context.Context, req *pb.FrameSystemDAGRequest) (*pb.FrameSystemDAGResponse, error) {
 	svc, ok := s.r.ServiceByName("frame_system")
 	if !ok {
