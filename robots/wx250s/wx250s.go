@@ -36,7 +36,7 @@ var wx250smodeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, "wx250s", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewArm(config.Attributes, logger)
+			return NewArm(ctx, config.Attributes, logger)
 		},
 	})
 }
@@ -97,7 +97,7 @@ func getPortMutex(port string) *sync.Mutex {
 }
 
 // NewArm TODO
-func NewArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
+func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
 	usbPort := attributes.String("usbPort")
 	servos, err := findServos(usbPort, attributes.String("baudRate"), attributes.String("armServoCount"))
 	if err != nil {
@@ -108,7 +108,7 @@ func NewArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error
 	if err != nil {
 		return nil, err
 	}
-	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	ik, err := kinematics.CreateCombinedIKSolver(ctx, model, logger, 4)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(a.ik.Model(), joints)
+	return kinematics.ComputePosition(ctx, a.ik.Model(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.

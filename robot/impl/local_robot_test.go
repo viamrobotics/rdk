@@ -237,9 +237,6 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, 19, test.ShouldEqual, len(cfg2.Components))
 
-	test.That(t, cfg2.FindComponent("pieceArm").Type, test.ShouldEqual, "arm")
-	test.That(t, cfg2.FindComponent("pieceArm").Model, test.ShouldEqual, "fake")
-
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Parent, test.ShouldEqual, "squee.world")
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation, test.ShouldResemble, config.Translation{500, 500, 1000})
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})

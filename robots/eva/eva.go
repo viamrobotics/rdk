@@ -97,7 +97,7 @@ func (e *eva) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(e.ik.Model(), joints)
+	return kinematics.ComputePosition(ctx, e.ik.Model(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
@@ -340,7 +340,7 @@ func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm
 	if err != nil {
 		return nil, err
 	}
-	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	ik, err := kinematics.CreateCombinedIKSolver(ctx, model, logger, 4)
 	if err != nil {
 		return nil, err
 	}

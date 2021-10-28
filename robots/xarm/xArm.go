@@ -89,7 +89,7 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 		return nil, err
 	}
 	nCPU := runtime.NumCPU()
-	ik, err := kinematics.CreateCombinedIKSolver(model, logger, nCPU)
+	ik, err := kinematics.CreateCombinedIKSolver(ctx, model, logger, nCPU)
 	if err != nil {
 		return nil, err
 	}
