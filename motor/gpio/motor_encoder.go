@@ -180,6 +180,11 @@ func (m *EncodedMotor) DirectionMoving() pb.DirectionRelative {
 	return m.state.curDirection
 }
 
+// PID returns the motor's underlying PID
+func (m *EncodedMotor) PID() motor.PID {
+	return m.real.PID()
+}
+
 // PositionSupported returns true.
 func (m *EncodedMotor) PositionSupported(ctx context.Context) (bool, error) {
 	return true, nil

@@ -243,8 +243,9 @@ github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19/go.mod h1:i/z
 github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e h1:K3N0Zm7JySHjvThqKBWO294ZnEPUK2W3os647RVTJB8=
 github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e/go.mod h1:nsP/KxpaFaTriZlxPlULlPKf7F3LS0J4BgoxZN8QJAU=
 github.com/edaniels/gostream v0.0.0-20211022002149-8c603f718111/go.mod h1:5/MYQSU/CEzr4yzJxYcFKi2t9OX+Zj2N6btuUoJuSUA=
-github.com/edaniels/gostream v0.0.0-20211022021553-dcb5ba36518a h1:0nhzCvOZevdHK3iKlgS00BCBPM/zwbVweOHjidVU8MI=
 github.com/edaniels/gostream v0.0.0-20211022021553-dcb5ba36518a/go.mod h1:5/MYQSU/CEzr4yzJxYcFKi2t9OX+Zj2N6btuUoJuSUA=
+github.com/edaniels/gostream v0.0.0-20211028002140-c8ce95acf924 h1:LBZAX81X+y/KeEL/FCPZevZFnWikNoKiNKOD3C/75fY=
+github.com/edaniels/gostream v0.0.0-20211028002140-c8ce95acf924/go.mod h1:5/MYQSU/CEzr4yzJxYcFKi2t9OX+Zj2N6btuUoJuSUA=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de h1:JuF74jzC/jNopROh0Ay1d9APtx00FWXqMwtvaXhoE+4=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de/go.mod h1:PUN/9/bIMWq8Ej+fmb+QVoPdIYF/j68ziImrVKxnOw0=
 github.com/edaniels/mediadevices v0.0.0-20211022001911-e8e6d6110b1b h1:Vo1PtnfMv2hPGNOQdFEe0JycexkQq0wPcmoKfe8qrdM=
@@ -676,6 +677,8 @@ github.com/jmoiron/sqlx v1.2.0/go.mod h1:1FEQNm3xlJgrMD+FBdI9+xvCksHtbpVBBw5dYhB
 github.com/joho/godotenv v1.3.0/go.mod h1:7hK45KPybAkOC6peb+G5yklZfMxEjkZhHbwpqxOKXbg=
 github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=
 github.com/jonboulle/clockwork v0.2.0/go.mod h1:Pkfl5aHPm1nk2H9h0bjmnJD/BcgbGXUBGnn1kMkgxc8=
+github.com/jonboulle/clockwork v0.2.2 h1:UOGuzwb1PwsrDAObMuhUnj0p5ULPj8V/xJ7Kx9qUBdQ=
+github.com/jonboulle/clockwork v0.2.2/go.mod h1:Pkfl5aHPm1nk2H9h0bjmnJD/BcgbGXUBGnn1kMkgxc8=
 github.com/jpillora/backoff v0.0.0-20180909062703-3050d21c67d7/go.mod h1:2iMrUgbbvHEiQClaW2NsSzMyGHqN+rDFqY705q49KG0=
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
 github.com/json-iterator/go v1.1.7/go.mod h1:KdQUCv79m/52Kvf8AW2vK1V8akMuk1QjK/uOdHXbAo4=
@@ -1273,8 +1276,9 @@ go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4 h1:YG1xrvr+VkEifpj4tmxp
 go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4/go.mod h1:bVVm3GcP8koFgCYKWJkCU0r+lkOvTQLeLaFcw8AFghE=
 go.viam.com/test v1.1.0 h1:KXf8crEwt0bHn5iMsjmXg0vPio/yzKGrfd20sWhe/t4=
 go.viam.com/test v1.1.0/go.mod h1:iULewngKZCHSB2QJa1xGSR6+0ICZIHbEfTUGqw0blLs=
-go.viam.com/utils v0.0.2-0.20211022043729-bfbcdc7c186c h1:6Bn8K3Xe9olp//l9gJ0PoBXvc7/uGlT3mfhdcJN3mAA=
 go.viam.com/utils v0.0.2-0.20211022043729-bfbcdc7c186c/go.mod h1:ZqieOioJp0XTr4jMAhpBquXaJ+f86NS2guAmRqyo4EM=
+go.viam.com/utils v0.0.2-0.20211028002312-bab53a7384a0 h1:KrJ2NxGaN5Iob6QbtoVTFB1GpkwVJcfT8WxVns7YURs=
+go.viam.com/utils v0.0.2-0.20211028002312-bab53a7384a0/go.mod h1:BIhgq7OTERhzQlx919GNkQcYzEyz5Zn2Rw0wiP/1xBY=
 go4.org v0.0.0-20180809161055-417644f6feb5/go.mod h1:MkTOUMDaeVYJUOUsaDXIhWPZYa1yOyC1qaOBpL57BhE=
 gocloud.dev v0.19.0/go.mod h1:SmKwiR8YwIMMJvQBKLsC3fHNyMwXLw3PMDO+VVteJMI=
 gocv.io/x/gocv v0.25.0/go.mod h1:Rar2PS6DV+T4FL+PM535EImD/h13hGVaHhnCu1xarBs=
@@ -1903,6 +1907,11 @@ mvdan.cc/unparam v0.0.0-20210104141923-aac4ce9116a7/go.mod h1:hBpJkZE8H/sb+VRFvw
 nhooyr.io/websocket v1.8.7 h1:usjR2uOr/zjjkVMy0lW+PPohFok7PCow5sDjLgX4P4g=
 nhooyr.io/websocket v1.8.7/go.mod h1:B70DZP8IakI65RVQ51MsWP/8jndNma26DVA/nFSCgW0=
 pack.ag/amqp v0.11.2/go.mod h1:4/cbmt4EJXSKlG6LCfWHoqmN0uFdy5i/+YFz+fTfhV4=
+periph.io/x/conn/v3 v3.6.9 h1:cSAvXC6IRRYC9pTW/Fzhp0a7zq+aeAxV8+/JZ+oxwZI=
+periph.io/x/conn/v3 v3.6.9/go.mod h1:UqWNaPMosWmNCwtufoTSTTYhB2wXWsMRAJyo1PlxO4Q=
+periph.io/x/d2xx v0.0.4/go.mod h1:38Euaaj+s6l0faIRHh32a+PrjXvxFTFkPBEQI0TKg34=
+periph.io/x/host/v3 v3.7.1 h1:SAe/7IWSOoFsqh2/74+SxbqehzOPny+jAPs25fd/NUI=
+periph.io/x/host/v3 v3.7.1/go.mod h1:kqMB+cJHtIPQCCMqDoiIMwr0pu1p+qQObkrPha3mX6E=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/pdf v0.1.1 h1:k1MczvYDUvJBe93bYd7wrZLLUEcLZAuF824/I4e5Xr4=
 rsc.io/pdf v0.1.1/go.mod h1:n8OzWcQ6Sp37PL01nO98y4iUCRdTGarVfzxY20ICaU4=
