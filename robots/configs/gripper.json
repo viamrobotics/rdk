@@ -5,10 +5,10 @@
             "name": "vg1",
             "type": "gripper",
             "model": "viam",
+            "parent": "",
             "attributes": {
                 "pressureLimit": 750
-            },
-            "parent": ""
+            }
         }
     ]
 }
