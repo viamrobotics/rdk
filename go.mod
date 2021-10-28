@@ -65,7 +65,8 @@ require (
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
 	google.golang.org/protobuf v1.26.0
 	howett.net/plist v0.0.0-20201203080718-1454fab16a06
-
+	periph.io/x/conn/v3 v3.6.9
+	periph.io/x/host/v3 v3.7.1
 )
 
 replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de
