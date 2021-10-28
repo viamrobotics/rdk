@@ -18,9 +18,8 @@ func TestComponentValidate(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 
 	validConfig := Component{
-		Name:  "foo",
-		Type:  "arm",
-		Model: "fake",
+		Name: "foo",
+		Type: "arm",
 	}
 	test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
 }
