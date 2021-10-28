@@ -1,6 +1,7 @@
 package kinematics
 
 import (
+	"context"
 	"math"
 	"testing"
 
@@ -20,13 +21,14 @@ func poseToSlice(p *pb.ArmPosition) []float64 {
 
 // This should test forward kinematics functions
 func TestForwardKinematics(t *testing.T) {
+	ctx := context.Background()
 	// Test fake 5DOF arm to confirm kinematics works with non-6dof arms
 	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 300, 0, 360.25
 	expect := []float64{300, 0, 360.25, 0, 1, 0, 0}
-	pos, err := ComputePosition(m, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0}})
+	pos, err := ComputePosition(ctx, m, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0}})
 	test.That(t, err, test.ShouldBeNil)
 	actual := poseToSlice(pos)
 
@@ -38,26 +40,26 @@ func TestForwardKinematics(t *testing.T) {
 
 	// Confirm end effector starts at 365, 0, 360.25
 	expect = []float64{365, 0, 360.25, 0, 1, 0, 0}
-	pos, err = ComputePosition(m, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}})
+	pos, err = ComputePosition(ctx, m, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}})
 	test.That(t, err, test.ShouldBeNil)
 	actual = poseToSlice(pos)
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
 
 	// Test incorrect joints
-	_, err = ComputePosition(m, &pb.JointPositions{Degrees: []float64{}})
+	_, err = ComputePosition(ctx, m, &pb.JointPositions{Degrees: []float64{}})
 	test.That(t, err, test.ShouldNotBeNil)
-	_, err = ComputePosition(m, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0, 0}})
+	_, err = ComputePosition(ctx, m, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0, 0}})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	newPos := []float64{45, -45, 0, 0, 0, 0}
-	pos, err = ComputePosition(m, &pb.JointPositions{Degrees: newPos})
+	pos, err = ComputePosition(ctx, m, &pb.JointPositions{Degrees: newPos})
 	test.That(t, err, test.ShouldBeNil)
 	actual = poseToSlice(pos)
 	expect = []float64{57.5, 57.5, 545.1208197765168, 0, 0.5, 0.5, 0.707}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
 
 	newPos = []float64{-45, 0, 0, 0, 0, 45}
-	pos, err = ComputePosition(m, &pb.JointPositions{Degrees: newPos})
+	pos, err = ComputePosition(ctx, m, &pb.JointPositions{Degrees: newPos})
 	test.That(t, err, test.ShouldBeNil)
 	actual = poseToSlice(pos)
 	expect = []float64{258.0935, -258.0935, 360.25, utils.RadToDeg(0.7854), 0.707, -0.707, 0}
@@ -65,21 +67,22 @@ func TestForwardKinematics(t *testing.T) {
 
 	// Test out of bounds
 	newPos = []float64{-45, 0, 0, 0, 0, 999}
-	pos, err = ComputePosition(m, &pb.JointPositions{Degrees: newPos})
+	pos, err = ComputePosition(ctx, m, &pb.JointPositions{Degrees: newPos})
 	test.That(t, pos, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func TestSwingEdgeCases(t *testing.T) {
+	ctx := context.Background()
 	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	origin := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0})
 	oob := frame.FloatsToInputs([]float64{0, 0, 0, 0, 999})
-	swing, err := calcSwingAmount(oob, origin, m)
+	swing, err := calcSwingAmount(ctx, oob, origin, m)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, swing, test.ShouldEqual, math.Inf(1))
-	swing, err = calcSwingAmount(origin, oob, m)
+	swing, err = calcSwingAmount(ctx, origin, oob, m)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, swing, test.ShouldEqual, math.Inf(1))
 }
@@ -152,13 +155,14 @@ func TestDeriv(t *testing.T) {
 // Test dynamic frame systems
 // Since kinematics imports reference frame, this needs to be here to avoid circular dependencies
 func TestDynamicFrameSystemXArm(t *testing.T) {
+	ctx := context.Background()
 	fs := frame.NewEmptySimpleFrameSystem("test")
 
 	model, err := ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(model, fs.World())
 
-	positions := frame.StartPositions(fs)
+	positions := frame.StartPositions(ctx, fs)
 
 	// World point of xArm at 0 position
 	pointWorld1 := r3.Vector{207, 0, 112}
@@ -168,7 +172,7 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 	// Note that because the arm is pointing in a different direction, this point is not a direct inverse of pointWorld2
 	pointXarm := r3.Vector{207, 98, -97}
 
-	transformPoint1, err := fs.TransformFrame(positions, fs.GetFrame("xArm6"), fs.GetFrame(frame.World))
+	transformPoint1, err := fs.TransformFrame(ctx, positions, fs.GetFrame("xArm6"), fs.GetFrame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint1.Point().X, test.ShouldAlmostEqual, pointWorld1.X)
 	test.That(t, transformPoint1.Point().Y, test.ShouldAlmostEqual, pointWorld1.Y)
@@ -176,13 +180,13 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 
 	// Test ability to calculate hypothetical out-of-bounds positions for the arm, but still return an error
 	positions["xArm6"] = frame.FloatsToInputs([]float64{math.Pi / 2, -math.Pi / 2, math.Pi / 2, -math.Pi / 2, math.Pi / 2, -math.Pi / 2})
-	transformPoint2, err := fs.TransformFrame(positions, fs.GetFrame("xArm6"), fs.GetFrame(frame.World))
+	transformPoint2, err := fs.TransformFrame(ctx, positions, fs.GetFrame("xArm6"), fs.GetFrame(frame.World))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, transformPoint2.Point().X, test.ShouldAlmostEqual, pointWorld2.X)
 	test.That(t, transformPoint2.Point().Y, test.ShouldAlmostEqual, pointWorld2.Y)
 	test.That(t, transformPoint2.Point().Z, test.ShouldAlmostEqual, pointWorld2.Z)
 
-	transformPoint3, err := fs.TransformFrame(positions, fs.GetFrame(frame.World), fs.GetFrame("xArm6"))
+	transformPoint3, err := fs.TransformFrame(ctx, positions, fs.GetFrame(frame.World), fs.GetFrame("xArm6"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint3.Point().X, test.ShouldAlmostEqual, pointXarm.X)
 	test.That(t, transformPoint3.Point().Y, test.ShouldAlmostEqual, pointXarm.Y)
@@ -193,6 +197,7 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 // gripper on a 3cm stick. We also model a xArm6 which is placed on an XY gantry, which is zeroed at (-50,-50,-200).
 // Ensure that we are able to transform points from the camera frame into world frame, to gantry frame, and to xarm frame.
 func TestComplicatedDynamicFrameSystem(t *testing.T) {
+	ctx := context.Background()
 	fs := frame.NewEmptySimpleFrameSystem("test")
 
 	urOffset, err := frame.NewStaticFrame("urOffset", spatial.NewPoseFromPoint(r3.Vector{100, 100, 200}))
@@ -222,7 +227,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(urCamera, modelUR5e)
 
-	positions := frame.StartPositions(fs)
+	positions := frame.StartPositions(ctx, fs)
 
 	pointUR5e := r3.Vector{-717.2, -132.9, 262.8}
 	// Camera translates by 30, gripper is pointed at -Y
@@ -232,13 +237,13 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	pointXarmFromCam := r3.Vector{874.2, -112.9, -350.8}
 
 	// Check the UR5e and camera default positions
-	transformPoint1, err := fs.TransformFrame(positions, fs.GetFrame("UR5e"), fs.GetFrame(frame.World))
+	transformPoint1, err := fs.TransformFrame(ctx, positions, fs.GetFrame("UR5e"), fs.GetFrame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
-	transformPoint2, err := fs.TransformFrame(positions, fs.GetFrame("urCamera"), fs.GetFrame(frame.World))
+	transformPoint2, err := fs.TransformFrame(ctx, positions, fs.GetFrame("urCamera"), fs.GetFrame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
-	transformPoint3, err := fs.TransformFrame(positions, fs.GetFrame("xArm6"), fs.GetFrame(frame.World))
+	transformPoint3, err := fs.TransformFrame(ctx, positions, fs.GetFrame("xArm6"), fs.GetFrame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
-	transformPoint4, err := fs.TransformFrame(positions, fs.GetFrame("urCamera"), fs.GetFrame("xArm6"))
+	transformPoint4, err := fs.TransformFrame(ctx, positions, fs.GetFrame("urCamera"), fs.GetFrame("xArm6"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint1.Point().X, test.ShouldAlmostEqual, pointUR5e.X)
 	test.That(t, transformPoint1.Point().Y, test.ShouldAlmostEqual, pointUR5e.Y)
@@ -260,21 +265,21 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	// This puts the point in the Z plane of the xArm6
 	targetPoint := r3.Vector{350.8, -50, 200}
 	// Target point in world
-	worldPointLoc, err := fs.TransformPoint(positions, targetPoint, fs.GetFrame("urCamera"), fs.GetFrame(frame.World))
+	worldPointLoc, err := fs.TransformPoint(ctx, positions, targetPoint, fs.GetFrame("urCamera"), fs.GetFrame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Move the XY gantry such that the xArm6 is now at the point specified
 	positions["gantry"] = frame.FloatsToInputs([]float64{worldPointLoc.X - pointXarm.X, worldPointLoc.Y - pointXarm.Y})
 
 	// Confirm the xArm6 is now at the same location as the point
-	newPointXarm, err := fs.TransformFrame(positions, fs.GetFrame("xArm6"), fs.GetFrame(frame.World))
+	newPointXarm, err := fs.TransformFrame(ctx, positions, fs.GetFrame("xArm6"), fs.GetFrame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, newPointXarm.Point().X, test.ShouldAlmostEqual, worldPointLoc.X)
 	test.That(t, newPointXarm.Point().Y, test.ShouldAlmostEqual, worldPointLoc.Y)
 	test.That(t, newPointXarm.Point().Z, test.ShouldAlmostEqual, worldPointLoc.Z)
 
 	// If the above passes, then converting one directly to the other should be (0,0,0)
-	pointCamToXarm, err := fs.TransformPoint(positions, targetPoint, fs.GetFrame("urCamera"), fs.GetFrame("xArm6"))
+	pointCamToXarm, err := fs.TransformPoint(ctx, positions, targetPoint, fs.GetFrame("urCamera"), fs.GetFrame("xArm6"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pointCamToXarm.X, test.ShouldAlmostEqual, 0)
 	test.That(t, pointCamToXarm.Y, test.ShouldAlmostEqual, 0)

@@ -77,12 +77,13 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	if argsParsed.Debug {
 		logger.Debugf("attrs: %v", attrs)
 	}
+	cfg := config.Component{Attributes: attrs}
 
-	return viewCamera(ctx, attrs, int(argsParsed.Port), argsParsed.Debug, logger)
+	return viewCamera(ctx, cfg, int(argsParsed.Port), argsParsed.Debug, logger)
 }
 
-func viewCamera(ctx context.Context, attrs config.AttributeMap, port int, debug bool, logger golog.Logger) error {
-	webcam, err := imagesource.NewWebcamSource(attrs, logger)
+func viewCamera(ctx context.Context, cfg config.Component, port int, debug bool, logger golog.Logger) error {
+	webcam, err := imagesource.NewWebcamSource(cfg, logger)
 	if err != nil {
 		return err
 	}

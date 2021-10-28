@@ -72,7 +72,7 @@ func BenchCombinedIKinematics(t *testing.B) {
 	solvedCnt := 0
 	for i := 0; i < toSolve; i++ {
 		randJointPos := m.GenerateRandomJointPositions(ctx, seed)
-		randPos, err := ComputePosition(m, arm.JointPositionsFromRadians(randJointPos))
+		randPos, err := ComputePosition(ctx, m, arm.JointPositionsFromRadians(randJointPos))
 		test.That(t, err, test.ShouldBeNil)
 		solution, err := ik.Solve(context.Background(), randPos, home)
 		test.That(t, solution, test.ShouldNotBeNil)
@@ -85,26 +85,28 @@ func BenchCombinedIKinematics(t *testing.B) {
 }
 
 func TestUR5NloptIKinematics(t *testing.T) {
+	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
 	m, err := ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"))
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
+	ik, err := CreateCombinedIKSolver(ctx, m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
 
 	goalJP := arm.JointPositionsFromRadians([]float64{-4.128, 2.71, 2.798, 2.3, 1.291, 0.62})
-	goal, err := ComputePosition(m, goalJP)
+	goal, err := ComputePosition(ctx, m, goalJP)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = ik.Solve(context.Background(), goal, home)
 	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestIKTolerances(t *testing.T) {
+	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
 	m, err := ParseJSONFile(utils.ResolveFile("robots/varm/v1_test.json"))
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
+	ik, err := CreateCombinedIKSolver(ctx, m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
@@ -122,7 +124,7 @@ func TestIKTolerances(t *testing.T) {
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
 	m, err = ParseJSONFile(utils.ResolveFile("robots/varm/v1.json"))
 	test.That(t, err, test.ShouldBeNil)
-	ik, err = CreateCombinedIKSolver(m, logger, nCPU)
+	ik, err = CreateCombinedIKSolver(ctx, m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
 	ik.SetSolveWeights(m.SolveWeights)
 
@@ -131,6 +133,7 @@ func TestIKTolerances(t *testing.T) {
 }
 
 func TestSVAvsDH(t *testing.T) {
+	ctx := context.Background()
 	mSVA, err := ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"))
 	test.That(t, err, test.ShouldBeNil)
 	mDH, err := ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e_DH.json"))
@@ -140,11 +143,11 @@ func TestSVAvsDH(t *testing.T) {
 
 	seed := rand.New(rand.NewSource(23))
 	for i := 0; i < numTests; i++ {
-		joints := arm.JointPositionsFromRadians(mSVA.GenerateRandomJointPositions(seed))
+		joints := arm.JointPositionsFromRadians(mSVA.GenerateRandomJointPositions(ctx, seed))
 
-		posSVA, err := ComputePosition(mSVA, joints)
+		posSVA, err := ComputePosition(ctx, mSVA, joints)
 		test.That(t, err, test.ShouldBeNil)
-		posDH, err := ComputePosition(mDH, joints)
+		posDH, err := ComputePosition(ctx, mDH, joints)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, posSVA.X, test.ShouldAlmostEqual, posDH.X, .01)
@@ -159,17 +162,18 @@ func TestSVAvsDH(t *testing.T) {
 }
 
 func BenchNloptSwing(t *testing.B) {
+	ctx := context.Background()
 	logger := golog.NewDevelopmentLogger("testSwing")
 	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
+	ik, err := CreateCombinedIKSolver(ctx, m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test we are able to solve incremental changes without large joint swings
 	for i := 0; i < toSolve; i++ {
-		origRadians := m.GenerateRandomJointPositions(seed)
+		origRadians := m.GenerateRandomJointPositions(ctx, seed)
 		randJointPos := frame.FloatsToInputs(origRadians)
-		randPos, err := ComputePosition(m, arm.JointPositionsFromRadians(origRadians))
+		randPos, err := ComputePosition(ctx, m, arm.JointPositionsFromRadians(origRadians))
 		test.That(t, err, test.ShouldBeNil)
 		randPos.X += 10
 		solution, err := ik.Solve(context.Background(), randPos, randJointPos)

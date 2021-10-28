@@ -17,6 +17,7 @@ import (
 	"go.viam.com/core/utils"
 )
 
+// Type is the name of the type of service
 const Type = config.ServiceType("frame_system")
 
 func init() {
@@ -106,16 +107,16 @@ func (svc *frameSystemService) Close() error {
 	return nil
 }
 
-// FrameSystemLinker has a method that returns all the information needed to add the component
+// Linker has a method that returns all the information needed to add the component
 // to a FrameSystem.
-type FrameSystemLinker interface {
+type Linker interface {
 	FrameSystemLink() (*config.Frame, referenceframe.Frame)
 }
 
 // namedPart is used to collect the various named robot parts that could potentially have frame information
 type namedPart struct {
 	Name string
-	Part FrameSystemLinker
+	Part Linker
 }
 
 func createRobotFrameSystem(ctx context.Context, r robot.Robot, robotName string) (referenceframe.FrameSystem, []string, error) {
@@ -147,7 +148,7 @@ func collectRobotParts(r robot.Robot) []namedPart {
 		if !ok {
 			continue
 		}
-		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+		if fsl, ok := utils.UnwrapProxy(part).(Linker); ok {
 			parts = append(parts, namedPart{name, fsl})
 		} else {
 			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
@@ -158,7 +159,7 @@ func collectRobotParts(r robot.Robot) []namedPart {
 		if !ok {
 			continue
 		}
-		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+		if fsl, ok := utils.UnwrapProxy(part).(Linker); ok {
 			parts = append(parts, namedPart{name, fsl})
 		} else {
 			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
@@ -169,7 +170,7 @@ func collectRobotParts(r robot.Robot) []namedPart {
 		if !ok {
 			continue
 		}
-		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+		if fsl, ok := utils.UnwrapProxy(part).(Linker); ok {
 			parts = append(parts, namedPart{name, fsl})
 		} else {
 			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
@@ -180,7 +181,7 @@ func collectRobotParts(r robot.Robot) []namedPart {
 		if !ok {
 			continue
 		}
-		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+		if fsl, ok := utils.UnwrapProxy(part).(Linker); ok {
 			parts = append(parts, namedPart{name, fsl})
 		} else {
 			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
@@ -191,7 +192,7 @@ func collectRobotParts(r robot.Robot) []namedPart {
 		if !ok {
 			continue
 		}
-		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+		if fsl, ok := utils.UnwrapProxy(part).(Linker); ok {
 			parts = append(parts, namedPart{name, fsl})
 		} else {
 			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
@@ -202,7 +203,7 @@ func collectRobotParts(r robot.Robot) []namedPart {
 		if !ok {
 			continue
 		}
-		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+		if fsl, ok := utils.UnwrapProxy(part).(Linker); ok {
 			parts = append(parts, namedPart{name, fsl})
 		} else {
 			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
@@ -213,7 +214,7 @@ func collectRobotParts(r robot.Robot) []namedPart {
 		if !ok {
 			continue
 		}
-		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+		if fsl, ok := utils.UnwrapProxy(part).(Linker); ok {
 			parts = append(parts, namedPart{name, fsl})
 		} else {
 			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
@@ -224,7 +225,7 @@ func collectRobotParts(r robot.Robot) []namedPart {
 		if !ok {
 			continue
 		}
-		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+		if fsl, ok := utils.UnwrapProxy(part).(Linker); ok {
 			parts = append(parts, namedPart{name, fsl})
 		} else {
 			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
@@ -236,7 +237,7 @@ func collectRobotParts(r robot.Robot) []namedPart {
 		if !ok {
 			continue
 		}
-		if fsl, ok := utils.UnwrapProxy(part).(FrameSystemLinker); ok {
+		if fsl, ok := utils.UnwrapProxy(part).(Linker); ok {
 			parts = append(parts, namedPart{name.Name, fsl})
 		} else {
 			logger.Infof("part %q of type %T does not have FrameSystemLink() defined", name, utils.UnwrapProxy(part))
