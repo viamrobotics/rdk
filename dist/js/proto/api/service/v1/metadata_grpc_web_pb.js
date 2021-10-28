@@ -32,7 +32,7 @@ proto.proto.api.service.v1 = require('./metadata_pb.js');
 /**
  * @param {string} hostname
  * @param {?Object} credentials
- * @param {?grpc.web.ClientOptions} options
+ * @param {?Object} options
  * @constructor
  * @struct
  * @final
@@ -40,7 +40,7 @@ proto.proto.api.service.v1 = require('./metadata_pb.js');
 proto.proto.api.service.v1.MetadataServiceClient =
     function(hostname, credentials, options) {
   if (!options) options = {};
-  options.format = 'text';
+  options['format'] = 'text';
 
   /**
    * @private @const {!grpc.web.GrpcWebClientBase} The client
@@ -58,7 +58,7 @@ proto.proto.api.service.v1.MetadataServiceClient =
 /**
  * @param {string} hostname
  * @param {?Object} credentials
- * @param {?grpc.web.ClientOptions} options
+ * @param {?Object} options
  * @constructor
  * @struct
  * @final
@@ -66,7 +66,7 @@ proto.proto.api.service.v1.MetadataServiceClient =
 proto.proto.api.service.v1.MetadataServicePromiseClient =
     function(hostname, credentials, options) {
   if (!options) options = {};
-  options.format = 'text';
+  options['format'] = 'text';
 
   /**
    * @private @const {!grpc.web.GrpcWebClientBase} The client
@@ -104,11 +104,30 @@ const methodDescriptor_MetadataService_Resources = new grpc.web.MethodDescriptor
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.service.v1.ResourcesRequest,
+ *   !proto.proto.api.service.v1.ResourcesResponse>}
+ */
+const methodInfo_MetadataService_Resources = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.service.v1.ResourcesResponse,
+  /**
+   * @param {!proto.proto.api.service.v1.ResourcesRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.service.v1.ResourcesResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.service.v1.ResourcesRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.service.v1.ResourcesResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.service.v1.ResourcesResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.service.v1.ResourcesResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -127,7 +146,7 @@ proto.proto.api.service.v1.MetadataServiceClient.prototype.resources =
 /**
  * @param {!proto.proto.api.service.v1.ResourcesRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.service.v1.ResourcesResponse>}
  *     Promise that resolves to the response
