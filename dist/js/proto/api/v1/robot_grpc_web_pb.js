@@ -3700,11 +3700,30 @@ const methodDescriptor_RobotService_MotorGetPIDConfig = new grpc.web.MethodDescr
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorGetPIDConfigRequest,
+ *   !proto.proto.api.v1.MotorGetPIDConfigResponse>}
+ */
+const methodInfo_RobotService_MotorGetPIDConfig = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorGetPIDConfigResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorGetPIDConfigRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorGetPIDConfigResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.MotorGetPIDConfigRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.MotorGetPIDConfigResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorGetPIDConfigResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorGetPIDConfigResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3723,7 +3742,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.motorGetPIDConfig =
 /**
  * @param {!proto.proto.api.v1.MotorGetPIDConfigRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.MotorGetPIDConfigResponse>}
  *     Promise that resolves to the response
@@ -3761,11 +3780,30 @@ const methodDescriptor_RobotService_MotorSetPIDConfig = new grpc.web.MethodDescr
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorSetPIDConfigRequest,
+ *   !proto.proto.api.v1.MotorSetPIDConfigResponse>}
+ */
+const methodInfo_RobotService_MotorSetPIDConfig = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorSetPIDConfigResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorSetPIDConfigRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorSetPIDConfigResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.MotorSetPIDConfigRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.MotorSetPIDConfigResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorSetPIDConfigResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorSetPIDConfigResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -3784,7 +3822,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.motorSetPIDConfig =
 /**
  * @param {!proto.proto.api.v1.MotorSetPIDConfigRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.MotorSetPIDConfigResponse>}
  *     Promise that resolves to the response
@@ -3822,8 +3860,27 @@ const methodDescriptor_RobotService_MotorPIDStep = new grpc.web.MethodDescriptor
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.MotorPIDStepRequest,
+ *   !proto.proto.api.v1.MotorPIDStepResponse>}
+ */
+const methodInfo_RobotService_MotorPIDStep = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.MotorPIDStepResponse,
+  /**
+   * @param {!proto.proto.api.v1.MotorPIDStepRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MotorPIDStepResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.MotorPIDStepRequest} request The request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorPIDStepResponse>}
  *     The XHR Node Readable Stream
@@ -3840,7 +3897,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.motorPIDStep =
 
 /**
  * @param {!proto.proto.api.v1.MotorPIDStepRequest} request The request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorPIDStepResponse>}
  *     The XHR Node Readable Stream
