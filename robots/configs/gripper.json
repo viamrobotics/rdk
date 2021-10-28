@@ -1,0 +1,14 @@
+{
+    "components":
+    [
+        {
+            "name": "vg1",
+            "type": "gripper",
+            "model": "viam",
+            "attributes": {
+                "pressureLimit": 750
+            },
+            "parent": ""
+        }
+    ]
+}
