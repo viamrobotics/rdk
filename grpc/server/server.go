@@ -189,7 +189,7 @@ func (s *Server) getGantry(ctx context.Context, name string) (gantry.Gantry, err
 	return nil, errors.Errorf("no gantry named [%s]", name)
 }
 
-// GantryCurrentPosition gets the current position of an arm of the underlying robot.
+// GantryCurrentPosition gets the current position of an gantry of the underlying robot.
 func (s *Server) GantryCurrentPosition(ctx context.Context, req *pb.GantryCurrentPositionRequest) (*pb.GantryCurrentPositionResponse, error) {
 	g, err := s.getGantry(ctx, req.Name)
 	if err != nil {
