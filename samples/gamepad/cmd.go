@@ -6,16 +6,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-errors/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
 	"go.viam.com/core/robot"
+	"go.viam.com/core/services/web"
 
 	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/web"
-	webserver "go.viam.com/core/web/server"
 
 	"github.com/edaniels/golog"
 )
@@ -33,21 +31,16 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
-
+	webOpts := web.NewOptions()
+	webOpts.Insecure = true
+	ctx = web.ContextWithOptions(ctx, webOpts)
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
 	defer myRobot.Close()
 	go debugOut(ctx, myRobot)
-	webOpts := web.NewOptions()
-	webOpts.Insecure = true
-
-	err = webserver.RunWeb(ctx, myRobot, webOpts, logger)
-	if err != nil && !errors.Is(err, context.Canceled) {
-		logger.Errorw("error running web", "error", err)
-		return err
-	}
+	<-ctx.Done()
 
 	return nil
 }

@@ -13,8 +13,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/web"
-	webserver "go.viam.com/core/web/server"
+	"go.viam.com/core/services/web"
 )
 
 const (
@@ -75,14 +74,16 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		if err != nil {
 			return err
 		}
+		webOpts := web.NewOptions()
+		webOpts.Insecure = true
+		ctx := web.ContextWithOptions(ctx, webOpts)
+
 		myRobot, err := robotimpl.New(ctx, cfg, logger)
 		if err != nil {
 			return err
 		}
 		defer myRobot.Close()
-		webOpts := web.NewOptions()
-		webOpts.Insecure = true
-		return webserver.RunWeb(ctx, myRobot, webOpts, logger)
+		<-ctx.Done()
 	}
 
 	return nil
