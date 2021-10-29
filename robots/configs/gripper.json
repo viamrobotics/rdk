@@ -1,14 +1,120 @@
 {
-    "components":
-    [
-        {
-            "name": "vg1",
-            "type": "gripper",
-            "model": "viam",
-            "parent": "",
-            "attributes": {
-                "pressureLimit": 750
+    "components": [
+      {
+        "name": "local",
+        "type": "board",
+        "model": "pi",
+        "attributes": {
+          "analogs": [
+            {
+              "chip_select": "24",
+              "name": "current",
+              "pin": "1",
+              "spi_bus": "main"
+            },
+            {
+              "chip_select": "24",
+              "name": "pressure",
+              "pin": "0",
+              "spi_bus": "main"
             }
+          ],
+          "config": {
+            "analogs": [
+              {
+                "chip_select": "24",
+                "name": "current",
+                "pin": "1",
+                "spi_bus": "main"
+              },
+              {
+                "chip_select": "24",
+                "name": "pressure",
+                "pin": "0",
+                "spi_bus": "main"
+              }
+            ],
+            "digitalInterrupts": [
+              {
+                "name": "encoder",
+                "pin": "15"
+              },
+              {
+                "name": "encoder-b",
+                "pin": "16"
+              }
+            ],
+            "spis": [
+              {
+                "bus_select": "0",
+                "name": "main"
+              }
+            ]
+          },
+          "digitalInterrupts": [
+            {
+              "name": "encoder",
+              "pin": "15"
+            },
+            {
+              "name": "encoder-b",
+              "pin": "16"
+            }
+          ],
+          "spis": [
+            {
+              "bus_select": "0",
+              "name": "main"
+            }
+          ]
         }
+      },
+      {
+        "name": "viam-gripper-v2",
+        "type": "gripper",
+        "model": "viam-v2",
+        "parent": "",
+        "attributes": {
+          "pressureLimit": 750
+        },
+        "depends_on": [
+          "local",
+          "g"
+        ]
+      },
+      {
+        "name": "g",
+        "type": "motor",
+        "model": "pi",
+        "attributes": {
+          "board": "local",
+          "config": {
+            "board": "local",
+            "encoder": "encoder",
+            "encoderB": "encoder-b",
+            "max_power_pct": 0.8,
+            "pins": {
+              "a": "13",
+              "b": "11",
+              "pwm": "18"
+            },
+            "pwmFreq": 8000,
+            "ticksPerRotation": 1960
+          },
+          "encoder": "encoder",
+          "encoderB": "encoder-b",
+          "max_power_pct": 0.8,
+          "pins": {
+            "a": "13",
+            "b": "11",
+            "pwm": "18"
+          },
+          "pwmFreq": 8000,
+          "ticksPerRotation": 1960
+        },
+        "depends_on": [
+          "local"
+        ]
+      }
     ]
-}
+  }
