@@ -18,7 +18,6 @@ import (
 	"github.com/edaniels/gostream/codec/x264"
 	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
-	"go.uber.org/multierr"
 
 	goutils "go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
@@ -34,6 +33,7 @@ import (
 	"go.viam.com/core/metadata/service"
 	metadatapb "go.viam.com/core/proto/api/service/v1"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/resource"
 	robotimpl "go.viam.com/core/robot/impl"
 
 	"go.viam.com/core/registry"
@@ -300,7 +300,7 @@ func init() {
 type Service interface {
 	// Update updates the web service when the robot has changed. Not Reconfigure because this should happen at a different point in the
 	// lifecycle.
-	Update() error
+	Update(resources map[resource.Name]interface{}) error
 
 	// Close attempts to close the web service gracefully
 	Close() error
@@ -308,8 +308,10 @@ type Service interface {
 
 // New returns a new web service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	// psstd
 	options := ContextOptions(ctx)
+	if options == (Options{}) {
+		options = NewOptions()
+	}
 	if err := RunWeb(ctx, r, options, logger); err != nil {
 		return nil, err
 	}
@@ -332,7 +334,8 @@ type webService struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (svc *webService) Update() error {
+func (svc *webService) Update(resources map[resource.Name]interface{}) error {
+	// TODO: update itself properly
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	return nil
@@ -427,13 +430,6 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, option
 // RunWeb takes the given robot and options and runs the web server. This function will block
 // until the context is done.
 func RunWeb(ctx context.Context, theRobot robot.Robot, options Options, logger golog.Logger) (err error) {
-	defer func() {
-		if err != nil && goutils.FilterOutError(err, context.Canceled) != nil {
-			logger.Errorw("error running web", "error", err)
-		}
-		err = multierr.Combine(err, goutils.TryClose(theRobot))
-	}()
-
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", options.Port))
 	if err != nil {
 		return err
@@ -453,9 +449,6 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options Options, logger g
 	if err != nil {
 		return err
 	}
-	defer func() {
-		err = multierr.Combine(err, rpcServer.Stop())
-	}()
 	if options.SignalingAddress == "" {
 		options.SignalingAddress = fmt.Sprintf("localhost:%d", options.Port)
 	}
@@ -483,6 +476,8 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options Options, logger g
 			return err
 		}
 	}
+
+	// TODO: register individual grpc services
 
 	if options.Debug {
 		if err := rpcServer.RegisterServiceServer(
@@ -518,14 +513,7 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options Options, logger g
 	}
 	httpServer.Addr = listener.Addr().String()
 
-	stopped := make(chan struct{})
-	defer func() {
-		<-stopped
-	}()
 	goutils.PanicCapturingGo(func() {
-		defer func() {
-			close(stopped)
-		}()
 		<-ctx.Done()
 		webCloser()
 		defer func() {
@@ -549,5 +537,5 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options Options, logger g
 			theRobot.Logger().Errorw("error serving rpc server", "error", err)
 		}
 	})
-	return nil
+	return err
 }
