@@ -1,4 +1,10 @@
 {
+    "remotes": [
+        {
+            "name": "gripper-force-sensor",
+            "address": "brittany2-1:8080"
+        }
+    ],
     "components": [
       {
         "name": "local",
@@ -75,7 +81,8 @@
         "model": "viam-v2",
         "parent": "",
         "attributes": {
-          "pressureLimit": 750
+          "pressureLimit": 30,
+          "forcematrix": "forcematrixWithMuxOnGripper"
         },
         "depends_on": [
           "local",
