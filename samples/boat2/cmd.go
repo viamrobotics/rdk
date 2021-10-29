@@ -374,52 +374,8 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 	b.lastSpin = angleDeg
 	b.previousSpins = append(b.previousSpins, b.lastSpin)
 
-	if false {
-		steeringDir := angleDeg / 180.0
-		if math.Abs(angleDeg) < 90 {
-			steeringDir *= .5
-		}
-
-		logger.Debugf("steeringDir: %0.2f", steeringDir)
-
-		err := b.SteerAndMove(ctx, steeringDir, .5) // TODO(erh) .5 is totally wrong
-		if err != nil {
-			return 0, err
-		}
-	}
-
 	if angleDeg < 3 && angleDeg > -3 {
 		return 0, nil
-	}
-
-	if false {
-		// dumb spin
-		dir := 1.0
-		if angleDeg < 0 {
-			dir *= -1
-		}
-
-		err := b.SteerAndMove(ctx, dir, 0)
-		if err != nil {
-			return 0, err
-		}
-
-		duration := 5 * time.Millisecond * time.Duration(math.Abs(angleDeg))
-		fmt.Printf("duration: %v\n", duration)
-		if !utils.SelectContextOrWait(ctx, duration) {
-			return 0, nil
-		}
-
-		err = b.SteerAndMove(ctx, dir*-1, 0)
-		if err != nil {
-			return 0, err
-		}
-
-		if !utils.SelectContextOrWait(ctx, 20*time.Millisecond) {
-			return 0, nil
-		}
-
-		return 0, b.Stop(ctx)
 	}
 
 	if true { // try to spin now
@@ -439,6 +395,7 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 			return 0, err
 		}
 
+		// chek how much we've spinned till we've spin the righ amount
 		for i := 0; i < 1000; i++ {
 			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
 				return 0, nil

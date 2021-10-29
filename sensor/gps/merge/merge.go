@@ -16,8 +16,11 @@ import (
 	"go.viam.com/core/sensor/gps"
 )
 
+// ModelName is the name of th merge model for gps
+const ModelName = "merge"
+
 func init() {
-	registry.RegisterSensor(gps.Type, "merge", registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+	registry.RegisterSensor(gps.Type, ModelName, registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 		return newMerge(r, config, logger)
 	}})
 }
@@ -54,93 +57,93 @@ type mergeGPS struct {
 
 // The current latitude and longitude
 func (m *mergeGPS) Location(ctx context.Context) (*geo.Point, error) {
-	var bigError error
+	var allErrors error
 	for _, g := range m.subs {
 		p, err := g.Location(ctx)
 		if err == nil {
 			return p, nil
 		}
-		bigError = multierr.Combine(bigError, err)
+		allErrors = multierr.Combine(allErrors, err)
 	}
-	return nil, bigError
+	return nil, allErrors
 }
 
 // The current altitude in meters
 func (m *mergeGPS) Altitude(ctx context.Context) (float64, error) {
-	var bigError error
+	var allErrors error
 	for _, g := range m.subs {
 		a, err := g.Altitude(ctx)
 		if err == nil {
 			return a, nil
 		}
-		bigError = multierr.Combine(bigError, err)
+		allErrors = multierr.Combine(allErrors, err)
 	}
-	return 0, bigError
+	return 0, allErrors
 }
 
 // Current ground speed in kph
 func (m *mergeGPS) Speed(ctx context.Context) (float64, error) {
-	var bigError error
+	var allErrors error
 	for _, g := range m.subs {
 		s, err := g.Speed(ctx)
 		if err == nil {
 			return s, nil
 		}
-		bigError = multierr.Combine(bigError, err)
+		allErrors = multierr.Combine(allErrors, err)
 	}
-	return 0, bigError
+	return 0, allErrors
 }
 
 // Number of satellites used for fix, and total in view
 func (m *mergeGPS) Satellites(ctx context.Context) (int, int, error) {
-	var bigError error
+	var allErrors error
 	for _, g := range m.subs {
 		a, b, err := g.Satellites(ctx)
 		if err == nil {
 			return a, b, nil
 		}
-		bigError = multierr.Combine(bigError, err)
+		allErrors = multierr.Combine(allErrors, err)
 	}
-	return 0, 0, bigError
+	return 0, 0, allErrors
 }
 
 // Horizontal and vertical position error
 func (m *mergeGPS) Accuracy(ctx context.Context) (float64, float64, error) {
-	var bigError error
+	var allErrors error
 	for _, g := range m.subs {
 		a, b, err := g.Accuracy(ctx)
 		if err == nil {
 			return a, b, nil
 		}
-		bigError = multierr.Combine(bigError, err)
+		allErrors = multierr.Combine(allErrors, err)
 	}
-	return 0, 0, bigError
+	return 0, 0, allErrors
 }
 
 // Whether or not the GPS chip had a valid fix for the most recent dataset
 func (m *mergeGPS) Valid(ctx context.Context) (bool, error) {
-	var bigError error
+	var allErrors error
 	for _, g := range m.subs {
 		v, err := g.Valid(ctx)
 		if err == nil {
 			return v, nil
 		}
-		bigError = multierr.Combine(bigError, err)
+		allErrors = multierr.Combine(allErrors, err)
 	}
-	return false, bigError
+	return false, allErrors
 }
 
 // Readings return data specific to the type of sensor and can be of any type.
 func (m *mergeGPS) Readings(ctx context.Context) ([]interface{}, error) {
-	var bigError error
+	var allErrors error
 	for _, g := range m.subs {
 		r, err := g.Readings(ctx)
 		if err == nil {
 			return r, nil
 		}
-		bigError = multierr.Combine(bigError, err)
+		allErrors = multierr.Combine(allErrors, err)
 	}
-	return nil, bigError
+	return nil, allErrors
 }
 
 // Desc returns a description of this sensor.
