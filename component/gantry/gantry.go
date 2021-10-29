@@ -78,7 +78,7 @@ func (g *reconfigurableGantry) Reconfigure(newGantry resource.Reconfigurable) er
 	defer g.mu.Unlock()
 	actual, ok := newGantry.(*reconfigurableGantry)
 	if !ok {
-		return errors.Errorf("expected new arm to be %T but got %T", g, newGantry)
+		return errors.Errorf("expected new gantry to be %T but got %T", g, newGantry)
 	}
 	if err := viamutils.TryClose(g.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
