@@ -63,7 +63,8 @@ import (
 	_ "go.viam.com/core/robots/varm"                    // for an arm
 	_ "go.viam.com/core/robots/vforcematrixtraditional" // for a traditional force matrix
 	_ "go.viam.com/core/robots/vforcematrixwithmux"     // for a force matrix built using a mux
-	_ "go.viam.com/core/robots/vgripper"                // for a gripper
+	_ "go.viam.com/core/robots/vgripper/v1"             // for a gripper with a single force sensor cell
+	_ "go.viam.com/core/robots/vgripper/v2"             // for a gripper with a force matrix
 	_ "go.viam.com/core/robots/vx300s"                  // for arm and gripper
 	_ "go.viam.com/core/robots/wx250s"                  // for arm and gripper
 	_ "go.viam.com/core/robots/xarm"                    // for an arm
