@@ -183,7 +183,7 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 		return err
 	}
 
-	time.Sleep(time.Microsecond) // TODO(erh): test what's actually correct here
+	time.Sleep(20 * time.Microsecond) // TODO(erh): test what's actually correct here
 
 	if forward {
 		m.stepPosition++
