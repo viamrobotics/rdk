@@ -74,18 +74,21 @@ type GripperV2 struct {
 
 // NewGripperV2 Returns a GripperV2
 func NewGripperV2(ctx context.Context, r robot.Robot, theBoard board.Board, pressureLimit int, logger golog.Logger) (*GripperV2, error) {
+	const motorName = "g"
+	const currentAnalogReaderName = "current"
+	const pressureAnalogReadername = "pressure"
 
-	motor, ok := r.MotorByName("g")
+	motor, ok := r.MotorByName(motorName)
 	if !ok {
-		return nil, errors.New("failed to find motor 'g'")
+		return nil, errors.Errorf("failed to find motor '%v'", motorName)
 	}
-	current, ok := theBoard.AnalogReaderByName("current")
+	current, ok := theBoard.AnalogReaderByName(currentAnalogReaderName)
 	if !ok {
-		return nil, errors.New("failed to find analog reader 'current'")
+		return nil, errors.Errorf("failed to find analog reader '%v'", currentAnalogReaderName)
 	}
-	pressure, ok := theBoard.AnalogReaderByName("pressure")
+	pressure, ok := theBoard.AnalogReaderByName(pressureAnalogReadername)
 	if !ok {
-		return nil, errors.New("failed to find analog reader 'pressure'")
+		return nil, errors.Errorf("failed to find analog reader '%v'", pressureAnalogReadername)
 	}
 
 	vg := &GripperV2{
@@ -98,18 +101,18 @@ func NewGripperV2(ctx context.Context, r robot.Robot, theBoard board.Board, pres
 	}
 
 	if vg.motor == nil {
-		return nil, errors.New("gripper needs a motor named 'g'")
+		return nil, errors.Errorf("gripper needs a motor named '%v'", motorName)
 	}
 	supported, err := vg.motor.PositionSupported(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if !supported {
-		return nil, errors.New("gripper motor needs to support position")
+		return nil, errors.Errorf("gripper motor needs to support position")
 	}
 
 	if vg.current == nil || vg.pressure == nil {
-		return nil, errors.New("gripper needs a current and a pressure reader")
+		return nil, errors.Errorf("gripper needs a current and a pressure reader")
 	}
 
 	// Variables for the overall init process
@@ -218,7 +221,8 @@ func NewGripperV2(ctx context.Context, r robot.Robot, theBoard board.Board, pres
 	}
 
 	if hasPressureA == hasPressureB {
-		return nil, errors.Errorf("init: pressure same open and closed, something is wrong, positions: %f %f, pressures: %t %t", posA, posB, hasPressureA, hasPressureB)
+		return nil, errors.Errorf("init: pressure same open and closed, something is wrong, positions: %f %f, pressures: %t %t",
+			posA, posB, hasPressureA, hasPressureB)
 	}
 
 	if hasPressureA {
@@ -255,7 +259,8 @@ func NewGripperV2(ctx context.Context, r robot.Robot, theBoard board.Board, pres
 	logger.Debugf("init: final openPos: %f, closePos: %f", vg.openPos, vg.closePos)
 	rotationGap := math.Abs(vg.openPos - vg.closePos)
 	if rotationGap < MinRotationGap || rotationGap > MaxRotationGap {
-		return nil, errors.Errorf("init: rotationGap not in expected range got: %v range %v -> %v", rotationGap, MinRotationGap, MaxRotationGap)
+		return nil, errors.Errorf("init: rotationGap not in expected range got: %v range %v -> %v",
+			rotationGap, MinRotationGap, MaxRotationGap)
 	}
 
 	return vg, vg.Open(ctx)
@@ -359,7 +364,8 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 			if err != nil {
 				return false, vg.stopAfterError(ctx, err)
 			}
-			return false, vg.stopAfterError(ctx, errors.Errorf("close timed out, wanted: %f at: %f pressure: %d", vg.closePos, now, pressureRaw))
+			return false, vg.stopAfterError(ctx, errors.Errorf("close timed out, wanted: %f at: %f pressure: %d",
+				vg.closePos, now, pressureRaw))
 		}
 	}
 }
