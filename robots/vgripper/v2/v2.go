@@ -3,6 +3,7 @@ package vgripper
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
+	"go.viam.com/core/sensor/forcematrix"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -30,12 +32,7 @@ const ModelName = "viam-v2"
 func init() {
 	registry.RegisterGripper(ModelName, registry.Gripper{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
-			const BoardName = "local"
-			b, ok := r.BoardByName(BoardName)
-			if !ok {
-				return nil, errors.Errorf("%v gripper requires a board called %v", ModelName, BoardName)
-			}
-			return NewGripperV2(ctx, r, b, config.Attributes.Int("pressureLimit", 800), logger)
+			return NewGripperV2(ctx, r, config, logger)
 		},
 		Frame: func(name string) (referenceframe.Frame, error) {
 			// A viam gripper is 220mm from mount point to center of gripper paddles
@@ -56,9 +53,9 @@ const (
 
 // GripperV2 represents a Viam gripper
 type GripperV2 struct {
-	motor    motor.Motor
-	current  board.AnalogReader
-	pressure board.AnalogReader
+	motor       motor.Motor
+	current     board.AnalogReader
+	forceMatrix forcematrix.ForceMatrix
 
 	openPos, closePos float64
 
@@ -73,30 +70,43 @@ type GripperV2 struct {
 }
 
 // NewGripperV2 Returns a GripperV2
-func NewGripperV2(ctx context.Context, r robot.Robot, theBoard board.Board, pressureLimit int, logger golog.Logger) (*GripperV2, error) {
+func NewGripperV2(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*GripperV2, error) {
+	const boardName = "local"
 	const motorName = "g"
 	const currentAnalogReaderName = "current"
-	const pressureAnalogReadername = "pressure"
 
-	motor, ok := r.MotorByName(motorName)
-	if !ok {
-		return nil, errors.Errorf("failed to find motor '%v'", motorName)
+	board, exists := r.BoardByName(boardName)
+	if !exists {
+		return nil, errors.Errorf("%v gripper requires a board called %v", ModelName, boardName)
 	}
-	current, ok := theBoard.AnalogReaderByName(currentAnalogReaderName)
-	if !ok {
-		return nil, errors.Errorf("failed to find analog reader '%v'", currentAnalogReaderName)
+
+	motor, exists := r.MotorByName(motorName)
+	if !exists {
+		return nil, errors.Errorf("failed to find motor named '%v'", motorName)
 	}
-	pressure, ok := theBoard.AnalogReaderByName(pressureAnalogReadername)
-	if !ok {
-		return nil, errors.Errorf("failed to find analog reader '%v'", pressureAnalogReadername)
+	current, exists := board.AnalogReaderByName(currentAnalogReaderName)
+	if !exists {
+		return nil, errors.Errorf("failed to find analog reader named '%v'", currentAnalogReaderName)
 	}
+
+	forceMatrixName := config.Attributes.String("forcematrix")
+	forceMatrix, exists := r.SensorByName(forceMatrixName)
+	if !exists {
+		return nil, errors.Errorf("failed to find a forcematrix sensor named '%v'", forceMatrixName)
+	}
+	forceMatrixDevice, ok := forceMatrix.(forcematrix.ForceMatrix)
+	if !ok {
+		return nil, errors.Errorf("(%v) is not a forceMatrix device", forceMatrixName)
+	}
+
+	pressureLimit := config.Attributes.Int("pressureLimit", 30)
 
 	vg := &GripperV2{
 		motor:           motor,
 		current:         current,
-		pressure:        pressure,
-		holdingPressure: .5,
+		forceMatrix:     forceMatrixDevice,
 		pressureLimit:   pressureLimit,
+		holdingPressure: .5,
 		logger:          logger,
 	}
 
@@ -111,8 +121,8 @@ func NewGripperV2(ctx context.Context, r robot.Robot, theBoard board.Board, pres
 		return nil, errors.Errorf("gripper motor needs to support position")
 	}
 
-	if vg.current == nil || vg.pressure == nil {
-		return nil, errors.Errorf("gripper needs a current and a pressure reader")
+	if vg.current == nil || vg.forceMatrix == nil {
+		return nil, errors.Errorf("gripper needs a current reader and a forcematrix sensor")
 	}
 
 	// Variables for the overall init process
@@ -139,12 +149,12 @@ func NewGripperV2(ctx context.Context, r robot.Robot, theBoard board.Board, pres
 			logger.Error(err)
 			return true
 		}
-		pressure, err := vg.readPressure(ctx)
+		pressure, err := vg.readAveragePressure(ctx)
 		if err != nil {
 			logger.Error(err)
 			return true
 		}
-		if pressure < 975 {
+		if pressure < pressureLimit {
 			if localTest.nonPressureSeen {
 				localTest.pressureCount++
 			}
@@ -356,7 +366,7 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 
 		total += msPer
 		if total > 5000 {
-			pressureRaw, err := vg.readPressure(ctx)
+			pressureRaw, err := vg.readAveragePressure(ctx)
 			if err != nil {
 				return false, vg.stopAfterError(ctx, err)
 			}
@@ -400,12 +410,26 @@ func (vg *GripperV2) readCurrent(ctx context.Context) (int, error) {
 	return vg.current.Read(ctx)
 }
 
-func (vg *GripperV2) readPressure(ctx context.Context) (int, error) {
-	return vg.pressure.Read(ctx)
+func (vg *GripperV2) readAveragePressure(ctx context.Context) (int, error) {
+	matrix, err := vg.forceMatrix.Matrix(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	sum := 0
+	for r := range matrix {
+		for _, v := range matrix[r] {
+			sum += v
+		}
+	}
+
+	averagePressure := sum / (len(matrix) * len(matrix[0]))
+	fmt.Println(averagePressure)
+	return averagePressure, nil
 }
 
 func (vg *GripperV2) hasPressure(ctx context.Context) (bool, int, error) {
-	p, err := vg.readPressure(ctx)
+	p, err := vg.readAveragePressure(ctx)
 	return p < vg.pressureLimit, p, err
 }
 
