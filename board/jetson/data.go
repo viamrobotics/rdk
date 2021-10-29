@@ -291,6 +291,9 @@ func getGPIOBoardMappings() (map[int]gpioBoardMapping, error) {
 
 	compatiblesRd, err := ioutil.ReadFile(compatiblePath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, errNoJetson
+		}
 		return nil, err
 	}
 	compatibles := utils.NewStringSet(strings.Split(string(compatiblesRd), "\x00")...)
