@@ -13,9 +13,7 @@ binsetup:
 	mkdir -p ${BIN_OUTPUT_PATH}
 
 goformat:
-	go install golang.org/x/tools/cmd/goimports
 	gofmt -s -w .
-	`go env GOPATH`/bin/goimports -w -local=go.viam.com/core `go list -f '{{.Dir}}' ./... | grep -Ev "proto"`
 
 setup:
 	bash etc/setup.sh
