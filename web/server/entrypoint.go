@@ -375,8 +375,6 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	}, func() {
 		close(onWatchDone)
 	})
-	defer func() {
-		<-onWatchDone
-	}()
-	return nil
+	<-onWatchDone
+	return myRobot.Close()
 }
