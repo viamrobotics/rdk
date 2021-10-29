@@ -27,6 +27,7 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/gantry"
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/grpc"
@@ -164,6 +165,52 @@ func (s *Server) DoAction(ctx context.Context, req *pb.DoActionRequest) (*pb.DoA
 		act(s.cancelCtx, s.r)
 	})
 	return &pb.DoActionResponse{}, nil
+}
+
+func (s *Server) getGantry(ctx context.Context, name string) (gantry.Gantry, error) {
+	// TODO(cheuk): what's the long term plan for stuff like this?
+	for _, rn := range s.r.ResourceNames() {
+		if rn.Subtype != gantry.Subtype {
+			continue
+		}
+		if rn.Name != name {
+			continue
+		}
+		r, ok := s.r.ResourceByName(rn)
+		if !ok {
+			return nil, errors.New("impossible")
+		}
+		g, ok := r.(gantry.Gantry)
+		if !ok {
+			return nil, errors.New("impossible")
+		}
+		return g, nil
+	}
+	return nil, errors.Errorf("no gantry named [%s]", name)
+}
+
+// GantryCurrentPosition gets the current position of an gantry of the underlying robot.
+func (s *Server) GantryCurrentPosition(ctx context.Context, req *pb.GantryCurrentPositionRequest) (*pb.GantryCurrentPositionResponse, error) {
+	g, err := s.getGantry(ctx, req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	pos, err := g.CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GantryCurrentPositionResponse{Positions: pos}, nil
+}
+
+// GantryMoveToPosition moves an arm of the underlying robot to the requested position.
+func (s *Server) GantryMoveToPosition(ctx context.Context, req *pb.GantryMoveToPositionRequest) (*pb.GantryMoveToPositionResponse, error) {
+	g, err := s.getGantry(ctx, req.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GantryMoveToPositionResponse{}, g.MoveToPosition(ctx, req.Positions)
 }
 
 // ArmCurrentPosition gets the current position of an arm of the underlying robot.
