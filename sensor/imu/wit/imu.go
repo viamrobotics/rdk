@@ -22,7 +22,7 @@ import (
 	"github.com/edaniels/golog"
 )
 
-var model = "wit"
+const model = "wit"
 
 func init() {
 	registry.RegisterSensor(imu.Type, model, registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
@@ -46,6 +46,7 @@ func (i *myIMU) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocit
 	defer i.mu.Unlock()
 	return i.angularVelocity, i.lastError
 }
+
 func (i *myIMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
@@ -66,7 +67,7 @@ func (i *myIMU) Desc() sensor.Description {
 
 func witIMU(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 	options := slib.OpenOptions{
-		BaudRate:        9600, //115200, wanted to set higher but windows software was being weird about it
+		BaudRate:        9600, // 115200, wanted to set higher but windows software was being weird about it
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
@@ -84,18 +85,17 @@ func witIMU(ctx context.Context, r robot.Robot, config config.Component, logger 
 
 	portReader := bufio.NewReader(port)
 
-	i := &myIMU{}
+	var i myIMU
 
 	ctx, i.cancelFunc = context.WithCancel(context.Background())
 	i.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer utils.UncheckedErrorFunc(port.Close)
+		defer i.activeBackgroundWorkers.Done()
 
 		for {
-			select {
-			case <-ctx.Done():
+			if ctx.Err() != nil {
 				return
-			default:
 			}
 
 			line, err := portReader.ReadString('U')
@@ -114,7 +114,7 @@ func witIMU(ctx context.Context, r robot.Robot, config config.Component, logger 
 		}
 	})
 
-	return i, nil
+	return &i, nil
 }
 
 func scale(a, b byte, r float64) float64 {
