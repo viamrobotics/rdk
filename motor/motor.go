@@ -67,6 +67,7 @@ type Config struct {
 	MaxRPM           float64           `json:"max_rpm"`          // RPM
 	MaxAcceleration  float64           `json:"max_acceleration"` // RPM per second
 	PWMFreq          uint              `json:"pwmFreq"`
+	StepperDelay     uint              `json:"stepperelay"` // When using stepper motors, the time to remain high
 	PID              *PIDConfig        `json:"pid,omitempty"`
 }
 

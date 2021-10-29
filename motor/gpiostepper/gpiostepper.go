@@ -51,6 +51,7 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc motor.Config, logger 
 	m := &gpioStepper{
 		theBoard:         b,
 		stepsPerRotation: mc.TicksPerRotation,
+		stepperDelay:     mc.StepperDelay,
 		enablePinHigh:    mc.Pins["enHigh"],
 		enablePinLow:     mc.Pins["enLow"],
 		stepPin:          mc.Pins["step"],
@@ -71,6 +72,7 @@ type gpioStepper struct {
 	// config
 	theBoard                    board.Board
 	stepsPerRotation            int
+	stepperDelay                uint
 	enablePinHigh, enablePinLow string
 	stepPin, dirPin             string
 	logger                      golog.Logger
@@ -97,6 +99,10 @@ func (m *gpioStepper) Validate() error {
 
 	if m.stepsPerRotation == 0 {
 		m.stepsPerRotation = 200
+	}
+
+	if m.stepperDelay == 0 {
+		m.stepperDelay = 20
 	}
 
 	if m.stepPin == "" {
@@ -183,7 +189,7 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 		return err
 	}
 
-	time.Sleep(20 * time.Microsecond) // TODO(erh): test what's actually correct here
+	time.Sleep(time.Duration(m.stepperDelay) * time.Microsecond)
 
 	if forward {
 		m.stepPosition++
