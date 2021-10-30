@@ -41,6 +41,7 @@ import (
 	_ "go.viam.com/core/sensor/compass/gy511"
 	_ "go.viam.com/core/sensor/compass/lidar"
 	_ "go.viam.com/core/sensor/forcematrix"
+	_ "go.viam.com/core/sensor/gps/merge"
 	_ "go.viam.com/core/sensor/gps/nmea"
 
 	// these are the core image things we always want
