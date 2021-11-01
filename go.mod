@@ -10,7 +10,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
 	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e
-	github.com/edaniels/gostream v0.0.0-20211101155142-5bfb2de65732
+	github.com/edaniels/gostream v0.0.0-20211101162652-c9f6228ca545
 	github.com/erh/egoutil v0.0.10
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
@@ -35,7 +35,7 @@ require (
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
 	github.com/pion/mediadevices v0.3.0
-	github.com/pion/webrtc/v3 v3.1.7-0.20211028155951-0180ee38051d
+	github.com/pion/webrtc/v3 v3.1.7
 	github.com/polyfloyd/go-errorlint v0.0.0-20201127212506-19bd8db6546f
 	github.com/pseudomuto/protoc-gen-doc v1.3.2
 	github.com/sergi/go-diff v1.2.0

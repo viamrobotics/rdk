@@ -252,8 +252,9 @@ github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e/go.mod h1:nsP/KxpaF
 github.com/edaniels/gostream v0.0.0-20210615160527-f72cf56079ac/go.mod h1:si4vbQcafm/uxOd+tIJiL73pqqvyrV+/+GYBaAV/3Dw=
 github.com/edaniels/gostream v0.0.0-20211022002149-8c603f718111/go.mod h1:5/MYQSU/CEzr4yzJxYcFKi2t9OX+Zj2N6btuUoJuSUA=
 github.com/edaniels/gostream v0.0.0-20211022021553-dcb5ba36518a/go.mod h1:5/MYQSU/CEzr4yzJxYcFKi2t9OX+Zj2N6btuUoJuSUA=
-github.com/edaniels/gostream v0.0.0-20211101155142-5bfb2de65732 h1:lUyLOCRZ3Cp7w5Ng39ELeBonCQhO45KLdaLUyGc8vNA=
 github.com/edaniels/gostream v0.0.0-20211101155142-5bfb2de65732/go.mod h1:1L2t22WVExsn/hoNdwPe6NsBzBlBdiOfQ5ebYVzBJK8=
+github.com/edaniels/gostream v0.0.0-20211101162652-c9f6228ca545 h1:Kkl++ZUKda2hKLqg5541puYVNDGWFKAmN2gBRD9XgwE=
+github.com/edaniels/gostream v0.0.0-20211101162652-c9f6228ca545/go.mod h1:DrQOZ8o15W4EJDmYMVtoNWMsnrghFXkIz8/AKaFYxSQ=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de h1:JuF74jzC/jNopROh0Ay1d9APtx00FWXqMwtvaXhoE+4=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de/go.mod h1:PUN/9/bIMWq8Ej+fmb+QVoPdIYF/j68ziImrVKxnOw0=
 github.com/edsrzf/mmap-go v0.0.0-20170320065105-0bce6a688712/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaBNrHW5M=
@@ -1024,8 +1025,9 @@ github.com/pion/webrtc/v3 v3.0.17/go.mod h1:P/aoizAjeMUh61uAH58BRypn97IKjcLtIAm/
 github.com/pion/webrtc/v3 v3.0.29/go.mod h1:XFQeLYBf++bWWA0sJqh6zF1ouWluosxwTOMOoTZGaD0=
 github.com/pion/webrtc/v3 v3.1.5/go.mod h1:fMlPlz03ACPIkjqNq3CGbLaZjVv523u+fZgWfQ8yg6E=
 github.com/pion/webrtc/v3 v3.1.6/go.mod h1:tkwdWNYdZhc200hH/wPx6AtNo/rcTAM6MICA6dg1je8=
-github.com/pion/webrtc/v3 v3.1.7-0.20211028155951-0180ee38051d h1:CkbvjvzLVd6zaEEUe5b6NV3Ae8trxpGnFm80y3FgIdY=
 github.com/pion/webrtc/v3 v3.1.7-0.20211028155951-0180ee38051d/go.mod h1:SQxttydYlKo2rCQjHzkUCJFAfEO/Oh2efMWbKYXLk98=
+github.com/pion/webrtc/v3 v3.1.7 h1:BXkjdVmj+HYiou8eBX6F3Y8xdRkQejg8px5JudTOv0M=
+github.com/pion/webrtc/v3 v3.1.7/go.mod h1:SQxttydYlKo2rCQjHzkUCJFAfEO/Oh2efMWbKYXLk98=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1-0.20171018195549-f15c970de5b7/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
