@@ -187,10 +187,10 @@ func TestSimpleConfigRemote(t *testing.T) {
 	test.That(t, cfg2.FindComponent("foo.lidar1").Frame.Translation, test.ShouldResemble, config.Translation{0, 0, 200})
 	test.That(t, cfg2.FindComponent("foo.lidar1").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
-	fs, err := r2.FrameSystem(context.Background())
+	fs, err := r2.FrameSystem(context.Background(), "")
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("frames: %v\n", fs.FrameNames())
-	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 13)
+	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 13)
 
 	cancel()
 	<-webDone
@@ -392,9 +392,9 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, cfg2.FindComponent("bar.lidar1").Frame.Translation, test.ShouldResemble, config.Translation{0, 0, 200})
 	test.That(t, cfg2.FindComponent("bar.lidar1").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
-	fs, err := r2.FrameSystem(context.Background())
+	fs, err := r2.FrameSystem(context.Background(), "")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 3)
+	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 35)
 	t.Logf("frames: %v\n", fs.FrameNames())
 
 	cancel()

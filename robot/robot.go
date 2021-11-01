@@ -123,7 +123,7 @@ type Robot interface {
 
 	// FrameSystem returns a FrameSystem suitable for doing reference frame lookups
 	// and then computing relative offsets of pieces
-	FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error)
+	FrameSystem(ctx context.Context, prefix string) (referenceframe.FrameSystem, error)
 
 	// Logger returns the logger the robot is using.
 	Logger() golog.Logger

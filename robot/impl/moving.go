@@ -38,7 +38,7 @@ func MoveGripper(ctx context.Context, r robot.Robot, goalPose spatialmath.Pose, 
 	logger.Debugf("using gripper %q", gripperName)
 
 	// get the frame system of the robot
-	frameSys, err := r.FrameSystem(ctx)
+	frameSys, err := r.FrameSystem(ctx, "")
 	if err != nil {
 		return err
 	}
