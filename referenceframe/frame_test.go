@@ -102,7 +102,7 @@ func TestRevoluteFrame(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of rev frame bounds %v", utils.DegToRad(overLimit), frame.DoF(ctx)[0]))
 	// gets the correct limits back
 	limit := frame.DoF(ctx)
-	expLimit := []*pb.Limit{&pb.Limit{Min: -math.Pi / 2, Max: math.Pi / 2}}
+	expLimit := []*pb.Limit{{Min: -math.Pi / 2, Max: math.Pi / 2}}
 	test.That(t, limit, test.ShouldHaveLength, 1)
 	test.That(t, limit[0].String(), test.ShouldResemble, expLimit[0].String())
 }
