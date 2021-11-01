@@ -10,7 +10,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
 	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e
-	github.com/edaniels/gostream v0.0.0-20211028172707-7d9ae98e73eb
+	github.com/edaniels/gostream v0.0.0-20211101155142-5bfb2de65732
 	github.com/erh/egoutil v0.0.10
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
@@ -34,7 +34,7 @@ require (
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
-	github.com/pion/mediadevices v0.2.0
+	github.com/pion/mediadevices v0.3.0
 	github.com/pion/webrtc/v3 v3.1.7-0.20211028155951-0180ee38051d
 	github.com/polyfloyd/go-errorlint v0.0.0-20201127212506-19bd8db6546f
 	github.com/pseudomuto/protoc-gen-doc v1.3.2
@@ -54,9 +54,9 @@ require (
 	go.viam.com/SensorExporter v0.0.0-20211027143105-04553b0d77bc
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
-	go.viam.com/utils v0.0.2-0.20211028172939-ad5382d903eb
+	go.viam.com/utils v0.0.2-0.20211101155329-2afff8f68430
 	goji.io v2.0.2+incompatible
-	golang.org/x/image v0.0.0-20210628002857-a66eb6448b8d
+	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 	golang.org/x/tools v0.1.7
 	gonum.org/v1/gonum v0.8.2
 	gonum.org/v1/plot v0.8.1
@@ -74,5 +74,3 @@ replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210
 replace github.com/starship-technologies/gobag => github.com/kkufieta/gobag v0.0.0-20210528190924-d8b19286f98e
 
 replace github.com/wasmerio/wasmer-go => github.com/meshplus/wasmer-go v0.0.0-20210817103436-19ec68f8bfe2
-
-replace github.com/pion/mediadevices => github.com/edaniels/mediadevices v0.0.0-20211022001911-e8e6d6110b1b
