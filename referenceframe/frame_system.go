@@ -262,11 +262,11 @@ func (sfs *simpleFrameSystem) composeTransforms(ctx context.Context, frame Frame
 	return q, errAll
 }
 
-// MergeFrameSystem will combine two frame systems together, placing the world of fs1 at the "attach" frame in sfs.
-// The frame where fs1 will be attached to must already exist within sfs, so should be added before Merge happens.
-// This is necessary when dynamically building systems of robots, or mutating a robot after it has already been initialized.
-// For example, two independent rovers, each with their own frame system, need to now know where they are in relation to each other and
-// need to have their frame systems combined.
+// MergeFrameSystem will combine two frame systems together, placing the world of systemToMerge at the "attachTo" frame in sfs.
+// The frame where systemToMerge will be attached to must already exist within sfs, so should be added before Merge happens.
+// Merging is necessary when including remote robots, dynamically building systems of robots, or mutating a robot after it
+// has already been initialized. For example, two independent rovers, each with their own frame system, need to now know where
+// they are in relation to each other and need to have their frame systems combined.
 func (sfs *simpleFrameSystem) MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error {
 
 	attachFrame := sfs.GetFrame(attachTo.Name())
