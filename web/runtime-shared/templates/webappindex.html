@@ -89,6 +89,26 @@
           return n;
       }
 
+      function fixGantries(old) {
+          var n = [];
+          for (var i=0; i<old.length; i++) {
+              var o = { name : old[i][0], parts : [] };
+
+              var x = old[i][1];
+              
+              if (x.positionsList.length != x.lengthsList.length) {
+                  throw "gantry lists different lengths";
+              }
+              
+              for ( var i=0; i < x.positionsList.length; i++) {
+                  o.parts.push( { axis : i, pos : x.positionsList[i], length : x.lengthsList[i] } );
+              }
+
+              n.push(o);
+          }
+          return n;
+      }
+
       firstResult = false;
 
       async function updateStatus(rawStatus) {
@@ -102,6 +122,7 @@
           // make vue friendly
           status.armsMap = rawSatusObj.armsMap;
           status.basesMap = rawSatusObj.basesMap;
+          status.gantriesMap = rawSatusObj.gantriesMap;
           status.grippersMap = rawSatusObj.grippersMap;
           status.boardsMap = rawSatusObj.boardsMap;
           status.camerasMap = rawSatusObj.camerasMap;
@@ -112,6 +133,7 @@
           status.servicesMap = rawSatusObj.servicesMap;
 
           status.armsMap = fixArms(status.armsMap);
+          status.gantriesMap = fixGantries(status.gantriesMap);
 
           if (!firstResult) {
             console.log(rawSatusObj);
@@ -156,6 +178,22 @@
                   },
                   armByName : function(name) {
                     return theData.status.armsMap.find(elem => elem.name == name) || {}
+                  },
+                  gantryByName : function(name) {
+                      return theData.status.gantriesMap.find(elem => elem.name == name) || {}
+                  },
+                  gantryInc : function(name, axis, amount) {
+                      var g = theData.status.gantriesMap.find(elem => elem.name == name);
+                      var pos = [];
+                      for ( var i=0; i < g.parts.length; i++) {
+                          pos[i] = g.parts[i].pos;
+                      }
+                      pos[axis] += amount;
+                      
+                      const req = new robotApi.GantryMoveToPositionRequest();
+                      req.setName(name);
+                      req.setPositionsList(pos);
+                      robotService.gantryMoveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   armGridInc : function(name, getterSetter, amount) {
                       if (getterSetter[0] == 'o' || getterSetter[0] == 'O') {
@@ -1052,6 +1090,29 @@
         Distances (mm): <input id="distance" name="speed" value="500"/><br>
       </div>
 
+      <!-- ******* GANTRY *******  -->
+      <div class="gantry" v-for="gantry in filterResources('core', 'component', 'gantry')" :key="gantry.name">
+        <h3>Gantry ${gantry.name}</h3>
+        <table>
+          <tr>
+            <th>axis</th>
+            <th>position</th>
+            <th>length</th>
+          </tr>
+          <tr v-for="pp in gantryByName(gantry.name).parts" :key="pp.axis">
+            <th>${pp.axis}</th>
+            <td>
+              <button v-on:click="gantryInc( gantry.name, pp.axis, -.1 )">--</button>
+              <button v-on:click="gantryInc( gantry.name, pp.axis, -.01 )">-</button>
+              <button v-on:click="gantryInc( gantry.name, pp.axis, .01 )">+</button>
+              <button v-on:click="gantryInc( gantry.name, pp.axis, .1 )">++</button>
+            </td>
+            <td>${pp.pos}</td>
+            <td>${pp.length}</td>
+          </tr>
+        </table>
+      </div>
+      
       <!-- ******* ARM *******  -->
       <div class="arm" v-for="arm in filterResources('core', 'component', 'arm')" :key="arm.name">
         <h3>Arm ${arm.name}</h3>

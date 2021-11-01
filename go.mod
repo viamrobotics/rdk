@@ -10,7 +10,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
 	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e
-	github.com/edaniels/gostream v0.0.0-20211028002140-c8ce95acf924
+	github.com/edaniels/gostream v0.0.0-20211028172707-7d9ae98e73eb
 	github.com/erh/egoutil v0.0.10
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
@@ -35,7 +35,7 @@ require (
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
 	github.com/pion/mediadevices v0.2.0
-	github.com/pion/webrtc/v3 v3.1.5
+	github.com/pion/webrtc/v3 v3.1.7-0.20211028155951-0180ee38051d
 	github.com/polyfloyd/go-errorlint v0.0.0-20201127212506-19bd8db6546f
 	github.com/pseudomuto/protoc-gen-doc v1.3.2
 	github.com/sergi/go-diff v1.2.0
@@ -51,10 +51,10 @@ require (
 	go.opencensus.io v0.23.0
 	go.uber.org/multierr v1.7.0
 	go.uber.org/zap v1.19.1
-	go.viam.com/SensorExporter v0.0.0-20211027034858-48b194596afb
+	go.viam.com/SensorExporter v0.0.0-20211027143105-04553b0d77bc
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
-	go.viam.com/utils v0.0.2-0.20211028002312-bab53a7384a0
+	go.viam.com/utils v0.0.2-0.20211028172939-ad5382d903eb
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20210628002857-a66eb6448b8d
 	golang.org/x/tools v0.1.7
