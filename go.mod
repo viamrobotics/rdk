@@ -54,7 +54,7 @@ require (
 	go.viam.com/SensorExporter v0.0.0-20211027143105-04553b0d77bc
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
-	go.viam.com/utils v0.0.2-0.20211101175647-7aeef75e1e21
+	go.viam.com/utils v0.0.2-0.20211101184317-7397cad8fd56
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 	golang.org/x/tools v0.1.7
