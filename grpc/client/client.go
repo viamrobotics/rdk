@@ -653,7 +653,7 @@ func (rc *RobotClient) Logger() golog.Logger {
 // FrameSystem retrieves a DAG of the remote frame names and then builds a FrameSystem using *clientFrames
 func (rc *RobotClient) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
 	// request the DAG from the remote robot's frame system service.FrameSystemDAG()
-	resp, err := rc.client.FrameSystemDAG(ctx, &pb.FrameSystemDAGRequest{})
+	resp, err := rc.client.FrameServiceDAG(ctx, &pb.FrameServiceDAGRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -684,7 +684,7 @@ func (fc *frameClient) Name() string {
 
 func (fc *frameClient) Transform(ctx context.Context, inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	pbIn := referenceframe.InputsToJointPos(inputs)
-	resp, err := fc.rc.client.FrameTransform(ctx, &pb.FrameTransformRequest{
+	resp, err := fc.rc.client.FrameServiceTransform(ctx, &pb.FrameServiceTransformRequest{
 		Name:   fc.name,
 		Inputs: pbIn,
 	})
@@ -694,14 +694,14 @@ func (fc *frameClient) Transform(ctx context.Context, inputs []referenceframe.In
 	return spatialmath.NewPoseFromArmPos(resp.Pose), nil
 }
 
-func (fc *frameClient) DoF(ctx context.Context) []referenceframe.Limit {
-	resp, err := fc.rc.client.FrameDoF(ctx, &pb.FrameDoFRequest{
+func (fc *frameClient) DoF(ctx context.Context) []*pb.Limit {
+	resp, err := fc.rc.client.FrameServiceKinematicLimits(ctx, &pb.FrameServiceKinematicLimitsRequest{
 		Name: fc.name,
 	})
 	if err != nil {
 		panic(err)
 	}
-	return referenceframe.PbLimitsToRefLimits(resp.Limits)
+	return resp.Limits
 }
 
 // baseClient satisfies a gRPC based base.Base. Refer to the interface

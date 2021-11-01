@@ -31,7 +31,7 @@ func TestStaticFrame(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	// check that there are no limits on the static frame
 	limits := frame.DoF(ctx)
-	test.That(t, limits, test.ShouldResemble, []Limit{})
+	test.That(t, limits, test.ShouldResemble, []*pb.Limit{})
 
 	errExpect := errors.New("pose is not allowed to be nil")
 	f, err := NewStaticFrame("test2", nil)
@@ -42,11 +42,11 @@ func TestStaticFrame(t *testing.T) {
 func TestPrismaticFrame(t *testing.T) {
 	ctx := context.Background()
 	// define a prismatic transform
-	limits := []Limit{{-30, 30}}
+	limits := []*pb.Limit{{Min: -30, Max: 30}}
 	frame, err := NewTranslationalFrame("test", []bool{false, true, false}, limits) // can only move on y axis
 	test.That(t, err, test.ShouldBeNil)
 	// this should return an error
-	badLimits := []Limit{{0, 0}, {-30, 30}, {0, 0}}
+	badLimits := []*pb.Limit{{Min: 0, Max: 0}, {Min: -30, Max: 30}, {Min: 0, Max: 0}}
 	_, err = NewTranslationalFrame("test", []bool{false, true, false}, badLimits) // can only move on y axis
 	test.That(t, err, test.ShouldBeError, errors.New("given number of limits 3 does not match number of axes 1"))
 	// expected output
@@ -69,7 +69,7 @@ func TestPrismaticFrame(t *testing.T) {
 	overLimit := 50.0
 	input = FloatsToInputs([]float64{overLimit})
 	_, err = frame.Transform(ctx, input)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of bounds %.5f", overLimit, frame.DoF(ctx)[0]))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of bounds %v", overLimit, frame.DoF(ctx)[0]))
 	// gets the correct limits back
 	frameLimits := frame.DoF(ctx)
 	test.That(t, frameLimits, test.ShouldResemble, limits)
@@ -78,8 +78,8 @@ func TestPrismaticFrame(t *testing.T) {
 func TestRevoluteFrame(t *testing.T) {
 	ctx := context.Background()
 	// define a prismatic transform
-	axis := spatial.R4AA{RX: 1, RY: 0, RZ: 0}                                 // axis of rotation is x axis
-	frame := &rotationalFrame{"test", axis, Limit{-math.Pi / 2, math.Pi / 2}} // limits between -90 and 90 degrees
+	axis := spatial.R4AA{RX: 1, RY: 0, RZ: 0}                                               // axis of rotation is x axis
+	frame := &rotationalFrame{"test", axis, &pb.Limit{Min: -math.Pi / 2, Max: math.Pi / 2}} // limits between -90 and 90 degrees
 	// expected output
 	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{1, 0, 0}, math.Pi/4) // 45 degrees
 	// get expected transform back
@@ -99,10 +99,12 @@ func TestRevoluteFrame(t *testing.T) {
 	overLimit := 100.0 // degrees
 	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{overLimit}})
 	_, err = frame.Transform(ctx, input)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of rev frame bounds %.5f", utils.DegToRad(overLimit), frame.DoF(ctx)[0]))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of rev frame bounds %v", utils.DegToRad(overLimit), frame.DoF(ctx)[0]))
 	// gets the correct limits back
 	limit := frame.DoF(ctx)
-	test.That(t, limit, test.ShouldResemble, []Limit{{-math.Pi / 2, math.Pi / 2}})
+	expLimit := []*pb.Limit{&pb.Limit{Min: -math.Pi / 2, Max: math.Pi / 2}}
+	test.That(t, limit, test.ShouldHaveLength, 1)
+	test.That(t, limit[0].String(), test.ShouldResemble, expLimit[0].String())
 }
 
 func TestBasicConversions(t *testing.T) {

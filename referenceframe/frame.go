@@ -23,12 +23,6 @@ type Input struct {
 	Value float64
 }
 
-// Limit describes a minimum and maximum limit for the DoF of the frame.
-// If limits are exceeded, an error will be retuned, but the math will still be performed and an answer given.
-type Limit struct {
-	Min, Max float64
-}
-
 // FloatsToInputs wraps a slice of floats in Inputs
 func FloatsToInputs(floats []float64) []Input {
 	inputs := make([]Input, len(floats))
@@ -58,30 +52,12 @@ func InputsToJointPos(inputs []Input) *pb.JointPositions {
 	return arm.JointPositionsFromRadians(InputsToFloats(inputs))
 }
 
-// PbLimitsToRefLimits will take a pb.Limit and turn it into a ref.Limit
-func PbLimitsToRefLimits(limits []*pb.Limit) []Limit {
-	refLimits := make([]Limit, len(limits))
-	for i, f := range limits {
-		refLimits[i] = Limit{f.Min, f.Max}
-	}
-	return refLimits
-}
-
-// RefLimitsToPbLimits will take a ref.Limit and turn it into a pb.Limit
-func RefLimitsToPbLimits(limits []Limit) []*pb.Limit {
-	pbLimits := make([]*pb.Limit, len(limits))
-	for i, f := range limits {
-		pbLimits[i] = &pb.Limit{Min: f.Min, Max: f.Max}
-	}
-	return pbLimits
-}
-
 // Frame represents a single reference frame, e.g. an arm, a joint, etc.
 // Transform takes FROM current frame TO parent's frame!
 type Frame interface {
 	Name() string
 	Transform(context.Context, []Input) (spatial.Pose, error)
-	DoF(context.Context) []Limit
+	DoF(context.Context) []*pb.Limit
 }
 
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation from the current Frame to the parent Frame
@@ -124,19 +100,19 @@ func (sf *staticFrame) Transform(ctx context.Context, inp []Input) (spatial.Pose
 }
 
 // DoF are the degrees of freedom of the transform. In the staticFrame, it is always 0.
-func (sf *staticFrame) DoF(ctx context.Context) []Limit {
-	return []Limit{}
+func (sf *staticFrame) DoF(ctx context.Context) []*pb.Limit {
+	return []*pb.Limit{}
 }
 
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions
 type translationalFrame struct {
 	name   string
 	axes   []bool
-	limits []Limit
+	limits []*pb.Limit
 }
 
 // NewTranslationalFrame creates a frame given a name and the axes in which to translate
-func NewTranslationalFrame(name string, axes []bool, limits []Limit) (Frame, error) {
+func NewTranslationalFrame(name string, axes []bool, limits []*pb.Limit) (Frame, error) {
 	pf := &translationalFrame{name: name, axes: axes}
 	if len(limits) != pf.DoFInt() {
 		return nil, fmt.Errorf("given number of limits %d does not match number of axes %d", len(limits), pf.DoFInt())
@@ -162,7 +138,7 @@ func (pf *translationalFrame) Transform(ctx context.Context, input []Input) (spa
 		if v {
 			// We allow out-of-bounds calculations, but will return a non-nil error
 			if input[tIdx].Value < pf.limits[tIdx].Min || input[tIdx].Value > pf.limits[tIdx].Max {
-				err = fmt.Errorf("%.5f input out of bounds %.5f", input[tIdx].Value, pf.limits[tIdx])
+				err = fmt.Errorf("%.5f input out of bounds %v", input[tIdx].Value, pf.limits[tIdx])
 			}
 			translation[i] = input[tIdx].Value
 			tIdx++
@@ -173,7 +149,7 @@ func (pf *translationalFrame) Transform(ctx context.Context, input []Input) (spa
 }
 
 // DoF are the degrees of freedom of the transform.
-func (pf *translationalFrame) DoF(ctx context.Context) []Limit {
+func (pf *translationalFrame) DoF(ctx context.Context) []*pb.Limit {
 	return pf.limits
 }
 
@@ -191,12 +167,12 @@ func (pf *translationalFrame) DoFInt() int {
 type rotationalFrame struct {
 	name    string
 	rotAxis spatial.R4AA
-	limit   Limit
+	limit   *pb.Limit
 }
 
 // NewRotationalFrame creates a new rotationalFrame struct.
 // A standard revolute joint will have 1 DoF
-func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, error) {
+func NewRotationalFrame(name string, axis spatial.R4AA, limit *pb.Limit) (Frame, error) {
 	rf := rotationalFrame{
 		name:    name,
 		rotAxis: axis,
@@ -216,7 +192,7 @@ func (rf *rotationalFrame) Transform(ctx context.Context, input []Input) (spatia
 	}
 	// We allow out-of-bounds calculations, but will return a non-nil error
 	if input[0].Value < rf.limit.Min || input[0].Value > rf.limit.Max {
-		err = fmt.Errorf("%.5f input out of rev frame bounds %.5f", input[0].Value, rf.limit)
+		err = fmt.Errorf("%.5f input out of rev frame bounds %v", input[0].Value, rf.limit)
 	}
 	// Create a copy of the r4aa for thread safety
 
@@ -226,8 +202,8 @@ func (rf *rotationalFrame) Transform(ctx context.Context, input []Input) (spatia
 }
 
 // DoF returns the number of degrees of freedom that a joint has. This would be 1 for a standard revolute joint.
-func (rf *rotationalFrame) DoF(ctx context.Context) []Limit {
-	return []Limit{rf.limit}
+func (rf *rotationalFrame) DoF(ctx context.Context) []*pb.Limit {
+	return []*pb.Limit{rf.limit}
 }
 
 // Name returns the name of the frame

@@ -9,6 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/core/config"
+	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
@@ -110,7 +111,7 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 			if joint.Type == "revolute" {
 				aa := spatialmath.R4AA{RX: joint.Axis.X, RY: joint.Axis.Y, RZ: joint.Axis.Z}
 
-				rev, err := frame.NewRotationalFrame(joint.ID, aa, frame.Limit{joint.Min * math.Pi / 180, joint.Max * math.Pi / 180})
+				rev, err := frame.NewRotationalFrame(joint.ID, aa, &pb.Limit{Min: joint.Min * math.Pi / 180, Max: joint.Max * math.Pi / 180})
 				if err != nil {
 					return nil, err
 				}
@@ -127,7 +128,7 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 			// Joint part of DH param
 			jointID := dh.ID + "_j"
 			parentMap[jointID] = dh.Parent
-			j, err := frame.NewRotationalFrame(jointID, spatialmath.R4AA{RX: 0, RY: 0, RZ: 1}, frame.Limit{dh.Min * math.Pi / 180, dh.Max * math.Pi / 180})
+			j, err := frame.NewRotationalFrame(jointID, spatialmath.R4AA{RX: 0, RY: 0, RZ: 1}, &pb.Limit{Min: dh.Min * math.Pi / 180, Max: dh.Max * math.Pi / 180})
 			if err != nil {
 				return nil, err
 			}

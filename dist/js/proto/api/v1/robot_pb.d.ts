@@ -375,18 +375,18 @@ export namespace JointPositions {
   }
 }
 
-export class FrameSystemDAGRequest extends jspb.Message {
+export class FrameServiceDAGRequest extends jspb.Message {
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): FrameSystemDAGRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: FrameSystemDAGRequest): FrameSystemDAGRequest.AsObject;
+  toObject(includeInstance?: boolean): FrameServiceDAGRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: FrameServiceDAGRequest): FrameServiceDAGRequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: FrameSystemDAGRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): FrameSystemDAGRequest;
-  static deserializeBinaryFromReader(message: FrameSystemDAGRequest, reader: jspb.BinaryReader): FrameSystemDAGRequest;
+  static serializeBinaryToWriter(message: FrameServiceDAGRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): FrameServiceDAGRequest;
+  static deserializeBinaryFromReader(message: FrameServiceDAGRequest, reader: jspb.BinaryReader): FrameServiceDAGRequest;
 }
 
-export namespace FrameSystemDAGRequest {
+export namespace FrameServiceDAGRequest {
   export type AsObject = {
   }
 }
@@ -415,29 +415,29 @@ export namespace Node {
   }
 }
 
-export class FrameSystemDAGResponse extends jspb.Message {
+export class FrameServiceDAGResponse extends jspb.Message {
   clearNodesList(): void;
   getNodesList(): Array<Node>;
   setNodesList(value: Array<Node>): void;
   addNodes(value?: Node, index?: number): Node;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): FrameSystemDAGResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: FrameSystemDAGResponse): FrameSystemDAGResponse.AsObject;
+  toObject(includeInstance?: boolean): FrameServiceDAGResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: FrameServiceDAGResponse): FrameServiceDAGResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: FrameSystemDAGResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): FrameSystemDAGResponse;
-  static deserializeBinaryFromReader(message: FrameSystemDAGResponse, reader: jspb.BinaryReader): FrameSystemDAGResponse;
+  static serializeBinaryToWriter(message: FrameServiceDAGResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): FrameServiceDAGResponse;
+  static deserializeBinaryFromReader(message: FrameServiceDAGResponse, reader: jspb.BinaryReader): FrameServiceDAGResponse;
 }
 
-export namespace FrameSystemDAGResponse {
+export namespace FrameServiceDAGResponse {
   export type AsObject = {
     nodesList: Array<Node.AsObject>,
   }
 }
 
-export class FrameTransformRequest extends jspb.Message {
+export class FrameServiceTransformRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
@@ -447,59 +447,59 @@ export class FrameTransformRequest extends jspb.Message {
   setInputs(value?: JointPositions): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): FrameTransformRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: FrameTransformRequest): FrameTransformRequest.AsObject;
+  toObject(includeInstance?: boolean): FrameServiceTransformRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: FrameServiceTransformRequest): FrameServiceTransformRequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: FrameTransformRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): FrameTransformRequest;
-  static deserializeBinaryFromReader(message: FrameTransformRequest, reader: jspb.BinaryReader): FrameTransformRequest;
+  static serializeBinaryToWriter(message: FrameServiceTransformRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): FrameServiceTransformRequest;
+  static deserializeBinaryFromReader(message: FrameServiceTransformRequest, reader: jspb.BinaryReader): FrameServiceTransformRequest;
 }
 
-export namespace FrameTransformRequest {
+export namespace FrameServiceTransformRequest {
   export type AsObject = {
     name: string,
     inputs?: JointPositions.AsObject,
   }
 }
 
-export class FrameTransformResponse extends jspb.Message {
+export class FrameServiceTransformResponse extends jspb.Message {
   hasPose(): boolean;
   clearPose(): void;
   getPose(): ArmPosition | undefined;
   setPose(value?: ArmPosition): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): FrameTransformResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: FrameTransformResponse): FrameTransformResponse.AsObject;
+  toObject(includeInstance?: boolean): FrameServiceTransformResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: FrameServiceTransformResponse): FrameServiceTransformResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: FrameTransformResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): FrameTransformResponse;
-  static deserializeBinaryFromReader(message: FrameTransformResponse, reader: jspb.BinaryReader): FrameTransformResponse;
+  static serializeBinaryToWriter(message: FrameServiceTransformResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): FrameServiceTransformResponse;
+  static deserializeBinaryFromReader(message: FrameServiceTransformResponse, reader: jspb.BinaryReader): FrameServiceTransformResponse;
 }
 
-export namespace FrameTransformResponse {
+export namespace FrameServiceTransformResponse {
   export type AsObject = {
     pose?: ArmPosition.AsObject,
   }
 }
 
-export class FrameDoFRequest extends jspb.Message {
+export class FrameServiceKinematicLimitsRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): FrameDoFRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: FrameDoFRequest): FrameDoFRequest.AsObject;
+  toObject(includeInstance?: boolean): FrameServiceKinematicLimitsRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: FrameServiceKinematicLimitsRequest): FrameServiceKinematicLimitsRequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: FrameDoFRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): FrameDoFRequest;
-  static deserializeBinaryFromReader(message: FrameDoFRequest, reader: jspb.BinaryReader): FrameDoFRequest;
+  static serializeBinaryToWriter(message: FrameServiceKinematicLimitsRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): FrameServiceKinematicLimitsRequest;
+  static deserializeBinaryFromReader(message: FrameServiceKinematicLimitsRequest, reader: jspb.BinaryReader): FrameServiceKinematicLimitsRequest;
 }
 
-export namespace FrameDoFRequest {
+export namespace FrameServiceKinematicLimitsRequest {
   export type AsObject = {
     name: string,
   }
@@ -529,23 +529,23 @@ export namespace Limit {
   }
 }
 
-export class FrameDoFResponse extends jspb.Message {
+export class FrameServiceKinematicLimitsResponse extends jspb.Message {
   clearLimitsList(): void;
   getLimitsList(): Array<Limit>;
   setLimitsList(value: Array<Limit>): void;
   addLimits(value?: Limit, index?: number): Limit;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): FrameDoFResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: FrameDoFResponse): FrameDoFResponse.AsObject;
+  toObject(includeInstance?: boolean): FrameServiceKinematicLimitsResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: FrameServiceKinematicLimitsResponse): FrameServiceKinematicLimitsResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: FrameDoFResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): FrameDoFResponse;
-  static deserializeBinaryFromReader(message: FrameDoFResponse, reader: jspb.BinaryReader): FrameDoFResponse;
+  static serializeBinaryToWriter(message: FrameServiceKinematicLimitsResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): FrameServiceKinematicLimitsResponse;
+  static deserializeBinaryFromReader(message: FrameServiceKinematicLimitsResponse, reader: jspb.BinaryReader): FrameServiceKinematicLimitsResponse;
 }
 
-export namespace FrameDoFResponse {
+export namespace FrameServiceKinematicLimitsResponse {
   export type AsObject = {
     limitsList: Array<Limit.AsObject>,
   }

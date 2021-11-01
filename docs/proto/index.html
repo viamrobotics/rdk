@@ -482,27 +482,27 @@
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.FrameDoFRequest"><span class="badge">M</span>FrameDoFRequest</a>
+                  <a href="#proto.api.v1.FrameServiceDAGRequest"><span class="badge">M</span>FrameServiceDAGRequest</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.FrameDoFResponse"><span class="badge">M</span>FrameDoFResponse</a>
+                  <a href="#proto.api.v1.FrameServiceDAGResponse"><span class="badge">M</span>FrameServiceDAGResponse</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.FrameSystemDAGRequest"><span class="badge">M</span>FrameSystemDAGRequest</a>
+                  <a href="#proto.api.v1.FrameServiceKinematicLimitsRequest"><span class="badge">M</span>FrameServiceKinematicLimitsRequest</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.FrameSystemDAGResponse"><span class="badge">M</span>FrameSystemDAGResponse</a>
+                  <a href="#proto.api.v1.FrameServiceKinematicLimitsResponse"><span class="badge">M</span>FrameServiceKinematicLimitsResponse</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.FrameTransformRequest"><span class="badge">M</span>FrameTransformRequest</a>
+                  <a href="#proto.api.v1.FrameServiceTransformRequest"><span class="badge">M</span>FrameServiceTransformRequest</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.FrameTransformResponse"><span class="badge">M</span>FrameTransformResponse</a>
+                  <a href="#proto.api.v1.FrameServiceTransformResponse"><span class="badge">M</span>FrameServiceTransformResponse</a>
                 </li>
               
                 <li>
@@ -3006,62 +3006,14 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
-        <h3 id="proto.api.v1.FrameDoFRequest">FrameDoFRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>name</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.FrameDoFResponse">FrameDoFResponse</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>limits</td>
-                  <td><a href="#proto.api.v1.Limit">Limit</a></td>
-                  <td>repeated</td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.FrameSystemDAGRequest">FrameSystemDAGRequest</h3>
+        <h3 id="proto.api.v1.FrameServiceDAGRequest">FrameServiceDAGRequest</h3>
         <p></p>
 
         
 
         
       
-        <h3 id="proto.api.v1.FrameSystemDAGResponse">FrameSystemDAGResponse</h3>
+        <h3 id="proto.api.v1.FrameServiceDAGResponse">FrameServiceDAGResponse</h3>
         <p></p>
 
         
@@ -3085,7 +3037,55 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
-        <h3 id="proto.api.v1.FrameTransformRequest">FrameTransformRequest</h3>
+        <h3 id="proto.api.v1.FrameServiceKinematicLimitsRequest">FrameServiceKinematicLimitsRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.FrameServiceKinematicLimitsResponse">FrameServiceKinematicLimitsResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>limits</td>
+                  <td><a href="#proto.api.v1.Limit">Limit</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.FrameServiceTransformRequest">FrameServiceTransformRequest</h3>
         <p></p>
 
         
@@ -3116,7 +3116,7 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
-        <h3 id="proto.api.v1.FrameTransformResponse">FrameTransformResponse</h3>
+        <h3 id="proto.api.v1.FrameServiceTransformResponse">FrameServiceTransformResponse</h3>
         <p></p>
 
         
@@ -6790,23 +6790,23 @@ is reliant on having an encoder.</p></td>
               </tr>
             
               <tr>
-                <td>FrameSystemDAG</td>
-                <td><a href="#proto.api.v1.FrameSystemDAGRequest">FrameSystemDAGRequest</a></td>
-                <td><a href="#proto.api.v1.FrameSystemDAGResponse">FrameSystemDAGResponse</a></td>
+                <td>FrameServiceDAG</td>
+                <td><a href="#proto.api.v1.FrameServiceDAGRequest">FrameServiceDAGRequest</a></td>
+                <td><a href="#proto.api.v1.FrameServiceDAGResponse">FrameServiceDAGResponse</a></td>
                 <td><p>Frame System Service</p></td>
               </tr>
             
               <tr>
-                <td>FrameTransform</td>
-                <td><a href="#proto.api.v1.FrameTransformRequest">FrameTransformRequest</a></td>
-                <td><a href="#proto.api.v1.FrameTransformResponse">FrameTransformResponse</a></td>
+                <td>FrameServiceTransform</td>
+                <td><a href="#proto.api.v1.FrameServiceTransformRequest">FrameServiceTransformRequest</a></td>
+                <td><a href="#proto.api.v1.FrameServiceTransformResponse">FrameServiceTransformResponse</a></td>
                 <td><p></p></td>
               </tr>
             
               <tr>
-                <td>FrameDoF</td>
-                <td><a href="#proto.api.v1.FrameDoFRequest">FrameDoFRequest</a></td>
-                <td><a href="#proto.api.v1.FrameDoFResponse">FrameDoFResponse</a></td>
+                <td>FrameServiceKinematicLimits</td>
+                <td><a href="#proto.api.v1.FrameServiceKinematicLimitsRequest">FrameServiceKinematicLimitsRequest</a></td>
+                <td><a href="#proto.api.v1.FrameServiceKinematicLimitsResponse">FrameServiceKinematicLimitsResponse</a></td>
                 <td><p></p></td>
               </tr>
             
@@ -7555,9 +7555,9 @@ is reliant on having an encoder.</p></td>
               
               
               <tr>
-                <td>FrameSystemDAG</td>
+                <td>FrameServiceDAG</td>
                 <td>GET</td>
-                <td>/api/v1/services/framesystem/dag</td>
+                <td>/api/v1/services/frame_system/dag</td>
                 <td></td>
               </tr>
               
@@ -7565,9 +7565,9 @@ is reliant on having an encoder.</p></td>
               
               
               <tr>
-                <td>FrameTransform</td>
+                <td>FrameServiceTransform</td>
                 <td>GET</td>
-                <td>/api/v1/services/framesystem/frame/transform</td>
+                <td>/api/v1/services/frame_system/frame/transform</td>
                 <td></td>
               </tr>
               
@@ -7575,9 +7575,9 @@ is reliant on having an encoder.</p></td>
               
               
               <tr>
-                <td>FrameDoF</td>
+                <td>FrameServiceKinematicLimits</td>
                 <td>GET</td>
-                <td>/api/v1/services/framesystem/frame/dof</td>
+                <td>/api/v1/services/frame_system/frame/limits</td>
                 <td></td>
               </tr>
               

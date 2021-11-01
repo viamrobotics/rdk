@@ -494,21 +494,21 @@ service RobotService {
   }
 
   // Frame System Service
-  rpc FrameSystemDAG(FrameSystemDAGRequest) returns (FrameSystemDAGResponse) {
+  rpc FrameServiceDAG(FrameServiceDAGRequest) returns (FrameServiceDAGResponse) {
     option (google.api.http) = {
-      get: "/api/v1/services/framesystem/dag"
+      get: "/api/v1/services/frame_system/dag"
     };
   }
   
-  rpc FrameTransform(FrameTransformRequest) returns (FrameTransformResponse) {
+  rpc FrameServiceTransform(FrameServiceTransformRequest) returns (FrameServiceTransformResponse) {
     option (google.api.http) = {
-      get: "/api/v1/services/framesystem/frame/transform"
+      get: "/api/v1/services/frame_system/frame/transform"
     };
   }
 
-  rpc FrameDoF(FrameDoFRequest) returns (FrameDoFResponse) {
+  rpc FrameServiceKinematicLimits(FrameServiceKinematicLimitsRequest) returns (FrameServiceKinematicLimitsResponse) {
     option (google.api.http) = {
-      get: "/api/v1/services/framesystem/frame/dof"
+      get: "/api/v1/services/frame_system/frame/limits"
     };
   }
 
@@ -683,27 +683,27 @@ message JointPositions {
   repeated double degrees = 1;
 }
 
-message FrameSystemDAGRequest {}
+message FrameServiceDAGRequest {}
 
 message Node{
   string name = 1;
   string parent = 2; 
 }
 
-message FrameSystemDAGResponse {
+message FrameServiceDAGResponse {
   repeated Node nodes = 1;
 }
 
-message FrameTransformRequest{
+message FrameServiceTransformRequest{
   string name = 1;
   JointPositions inputs = 2;
 }
 
-message FrameTransformResponse{
+message FrameServiceTransformResponse{
     ArmPosition pose = 1;
 }
 
-message FrameDoFRequest{
+message FrameServiceKinematicLimitsRequest{
   string name = 1;
 }
 
@@ -712,7 +712,7 @@ message Limit{
   double max = 2;
 }
 
-message FrameDoFResponse{
+message FrameServiceKinematicLimitsResponse{
   repeated Limit limits = 1;
 }
 

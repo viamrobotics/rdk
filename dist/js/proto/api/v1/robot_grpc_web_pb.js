@@ -420,11 +420,30 @@ const methodDescriptor_RobotService_GantryCurrentPosition = new grpc.web.MethodD
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.GantryCurrentPositionRequest,
+ *   !proto.proto.api.v1.GantryCurrentPositionResponse>}
+ */
+const methodInfo_RobotService_GantryCurrentPosition = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.GantryCurrentPositionResponse,
+  /**
+   * @param {!proto.proto.api.v1.GantryCurrentPositionRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.GantryCurrentPositionResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.GantryCurrentPositionRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.GantryCurrentPositionResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.GantryCurrentPositionResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.GantryCurrentPositionResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -443,7 +462,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.gantryCurrentPosition =
 /**
  * @param {!proto.proto.api.v1.GantryCurrentPositionRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.GantryCurrentPositionResponse>}
  *     Promise that resolves to the response
@@ -481,11 +500,30 @@ const methodDescriptor_RobotService_GantryMoveToPosition = new grpc.web.MethodDe
 
 
 /**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.GantryMoveToPositionRequest,
+ *   !proto.proto.api.v1.GantryMoveToPositionResponse>}
+ */
+const methodInfo_RobotService_GantryMoveToPosition = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.GantryMoveToPositionResponse,
+  /**
+   * @param {!proto.proto.api.v1.GantryMoveToPositionRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.GantryMoveToPositionResponse.deserializeBinary
+);
+
+
+/**
  * @param {!proto.proto.api.v1.GantryMoveToPositionRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.GantryMoveToPositionResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.GantryMoveToPositionResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.GantryMoveToPositionResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -504,7 +542,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.gantryMoveToPosition =
 /**
  * @param {!proto.proto.api.v1.GantryMoveToPositionRequest} request The
  *     request proto
- * @param {?Object<string, string>=} metadata User defined
+ * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.proto.api.v1.GantryMoveToPositionResponse>}
  *     Promise that resolves to the response
@@ -5152,240 +5190,240 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.resourceRunCommand =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.FrameSystemDAGRequest,
- *   !proto.proto.api.v1.FrameSystemDAGResponse>}
+ *   !proto.proto.api.v1.FrameServiceDAGRequest,
+ *   !proto.proto.api.v1.FrameServiceDAGResponse>}
  */
-const methodDescriptor_RobotService_FrameSystemDAG = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/FrameSystemDAG',
+const methodDescriptor_RobotService_FrameServiceDAG = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/FrameServiceDAG',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.FrameSystemDAGRequest,
-  proto.proto.api.v1.FrameSystemDAGResponse,
+  proto.proto.api.v1.FrameServiceDAGRequest,
+  proto.proto.api.v1.FrameServiceDAGResponse,
   /**
-   * @param {!proto.proto.api.v1.FrameSystemDAGRequest} request
+   * @param {!proto.proto.api.v1.FrameServiceDAGRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.FrameSystemDAGResponse.deserializeBinary
+  proto.proto.api.v1.FrameServiceDAGResponse.deserializeBinary
 );
 
 
 /**
  * @const
  * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.FrameSystemDAGRequest,
- *   !proto.proto.api.v1.FrameSystemDAGResponse>}
+ *   !proto.proto.api.v1.FrameServiceDAGRequest,
+ *   !proto.proto.api.v1.FrameServiceDAGResponse>}
  */
-const methodInfo_RobotService_FrameSystemDAG = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.FrameSystemDAGResponse,
+const methodInfo_RobotService_FrameServiceDAG = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.FrameServiceDAGResponse,
   /**
-   * @param {!proto.proto.api.v1.FrameSystemDAGRequest} request
+   * @param {!proto.proto.api.v1.FrameServiceDAGRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.FrameSystemDAGResponse.deserializeBinary
+  proto.proto.api.v1.FrameServiceDAGResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.v1.FrameSystemDAGRequest} request The
+ * @param {!proto.proto.api.v1.FrameServiceDAGRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.FrameSystemDAGResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.FrameServiceDAGResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.FrameSystemDAGResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.FrameServiceDAGResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.v1.RobotServiceClient.prototype.frameSystemDAG =
+proto.proto.api.v1.RobotServiceClient.prototype.frameServiceDAG =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/FrameSystemDAG',
+      '/proto.api.v1.RobotService/FrameServiceDAG',
       request,
       metadata || {},
-      methodDescriptor_RobotService_FrameSystemDAG,
+      methodDescriptor_RobotService_FrameServiceDAG,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.v1.FrameSystemDAGRequest} request The
+ * @param {!proto.proto.api.v1.FrameServiceDAGRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.v1.FrameSystemDAGResponse>}
+ * @return {!Promise<!proto.proto.api.v1.FrameServiceDAGResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.frameSystemDAG =
+proto.proto.api.v1.RobotServicePromiseClient.prototype.frameServiceDAG =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/FrameSystemDAG',
+      '/proto.api.v1.RobotService/FrameServiceDAG',
       request,
       metadata || {},
-      methodDescriptor_RobotService_FrameSystemDAG);
+      methodDescriptor_RobotService_FrameServiceDAG);
 };
 
 
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.FrameTransformRequest,
- *   !proto.proto.api.v1.FrameTransformResponse>}
+ *   !proto.proto.api.v1.FrameServiceTransformRequest,
+ *   !proto.proto.api.v1.FrameServiceTransformResponse>}
  */
-const methodDescriptor_RobotService_FrameTransform = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/FrameTransform',
+const methodDescriptor_RobotService_FrameServiceTransform = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/FrameServiceTransform',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.FrameTransformRequest,
-  proto.proto.api.v1.FrameTransformResponse,
+  proto.proto.api.v1.FrameServiceTransformRequest,
+  proto.proto.api.v1.FrameServiceTransformResponse,
   /**
-   * @param {!proto.proto.api.v1.FrameTransformRequest} request
+   * @param {!proto.proto.api.v1.FrameServiceTransformRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.FrameTransformResponse.deserializeBinary
+  proto.proto.api.v1.FrameServiceTransformResponse.deserializeBinary
 );
 
 
 /**
  * @const
  * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.FrameTransformRequest,
- *   !proto.proto.api.v1.FrameTransformResponse>}
+ *   !proto.proto.api.v1.FrameServiceTransformRequest,
+ *   !proto.proto.api.v1.FrameServiceTransformResponse>}
  */
-const methodInfo_RobotService_FrameTransform = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.FrameTransformResponse,
+const methodInfo_RobotService_FrameServiceTransform = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.FrameServiceTransformResponse,
   /**
-   * @param {!proto.proto.api.v1.FrameTransformRequest} request
+   * @param {!proto.proto.api.v1.FrameServiceTransformRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.FrameTransformResponse.deserializeBinary
+  proto.proto.api.v1.FrameServiceTransformResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.v1.FrameTransformRequest} request The
+ * @param {!proto.proto.api.v1.FrameServiceTransformRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.FrameTransformResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.FrameServiceTransformResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.FrameTransformResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.FrameServiceTransformResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.v1.RobotServiceClient.prototype.frameTransform =
+proto.proto.api.v1.RobotServiceClient.prototype.frameServiceTransform =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/FrameTransform',
+      '/proto.api.v1.RobotService/FrameServiceTransform',
       request,
       metadata || {},
-      methodDescriptor_RobotService_FrameTransform,
+      methodDescriptor_RobotService_FrameServiceTransform,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.v1.FrameTransformRequest} request The
+ * @param {!proto.proto.api.v1.FrameServiceTransformRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.v1.FrameTransformResponse>}
+ * @return {!Promise<!proto.proto.api.v1.FrameServiceTransformResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.frameTransform =
+proto.proto.api.v1.RobotServicePromiseClient.prototype.frameServiceTransform =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/FrameTransform',
+      '/proto.api.v1.RobotService/FrameServiceTransform',
       request,
       metadata || {},
-      methodDescriptor_RobotService_FrameTransform);
+      methodDescriptor_RobotService_FrameServiceTransform);
 };
 
 
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.FrameDoFRequest,
- *   !proto.proto.api.v1.FrameDoFResponse>}
+ *   !proto.proto.api.v1.FrameServiceKinematicLimitsRequest,
+ *   !proto.proto.api.v1.FrameServiceKinematicLimitsResponse>}
  */
-const methodDescriptor_RobotService_FrameDoF = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/FrameDoF',
+const methodDescriptor_RobotService_FrameServiceKinematicLimits = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/FrameServiceKinematicLimits',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.FrameDoFRequest,
-  proto.proto.api.v1.FrameDoFResponse,
+  proto.proto.api.v1.FrameServiceKinematicLimitsRequest,
+  proto.proto.api.v1.FrameServiceKinematicLimitsResponse,
   /**
-   * @param {!proto.proto.api.v1.FrameDoFRequest} request
+   * @param {!proto.proto.api.v1.FrameServiceKinematicLimitsRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.FrameDoFResponse.deserializeBinary
+  proto.proto.api.v1.FrameServiceKinematicLimitsResponse.deserializeBinary
 );
 
 
 /**
  * @const
  * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.FrameDoFRequest,
- *   !proto.proto.api.v1.FrameDoFResponse>}
+ *   !proto.proto.api.v1.FrameServiceKinematicLimitsRequest,
+ *   !proto.proto.api.v1.FrameServiceKinematicLimitsResponse>}
  */
-const methodInfo_RobotService_FrameDoF = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.FrameDoFResponse,
+const methodInfo_RobotService_FrameServiceKinematicLimits = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.FrameServiceKinematicLimitsResponse,
   /**
-   * @param {!proto.proto.api.v1.FrameDoFRequest} request
+   * @param {!proto.proto.api.v1.FrameServiceKinematicLimitsRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.FrameDoFResponse.deserializeBinary
+  proto.proto.api.v1.FrameServiceKinematicLimitsResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.v1.FrameDoFRequest} request The
+ * @param {!proto.proto.api.v1.FrameServiceKinematicLimitsRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.FrameDoFResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.FrameServiceKinematicLimitsResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.FrameDoFResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.FrameServiceKinematicLimitsResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.v1.RobotServiceClient.prototype.frameDoF =
+proto.proto.api.v1.RobotServiceClient.prototype.frameServiceKinematicLimits =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/FrameDoF',
+      '/proto.api.v1.RobotService/FrameServiceKinematicLimits',
       request,
       metadata || {},
-      methodDescriptor_RobotService_FrameDoF,
+      methodDescriptor_RobotService_FrameServiceKinematicLimits,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.v1.FrameDoFRequest} request The
+ * @param {!proto.proto.api.v1.FrameServiceKinematicLimitsRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.v1.FrameDoFResponse>}
+ * @return {!Promise<!proto.proto.api.v1.FrameServiceKinematicLimitsResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.frameDoF =
+proto.proto.api.v1.RobotServicePromiseClient.prototype.frameServiceKinematicLimits =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/FrameDoF',
+      '/proto.api.v1.RobotService/FrameServiceKinematicLimits',
       request,
       metadata || {},
-      methodDescriptor_RobotService_FrameDoF);
+      methodDescriptor_RobotService_FrameServiceKinematicLimits);
 };
 
 

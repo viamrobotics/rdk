@@ -587,31 +587,31 @@ RobotService.ResourceRunCommand = {
   responseType: proto_api_v1_robot_pb.ResourceRunCommandResponse
 };
 
-RobotService.FrameSystemDAG = {
-  methodName: "FrameSystemDAG",
+RobotService.FrameServiceDAG = {
+  methodName: "FrameServiceDAG",
   service: RobotService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_v1_robot_pb.FrameSystemDAGRequest,
-  responseType: proto_api_v1_robot_pb.FrameSystemDAGResponse
+  requestType: proto_api_v1_robot_pb.FrameServiceDAGRequest,
+  responseType: proto_api_v1_robot_pb.FrameServiceDAGResponse
 };
 
-RobotService.FrameTransform = {
-  methodName: "FrameTransform",
+RobotService.FrameServiceTransform = {
+  methodName: "FrameServiceTransform",
   service: RobotService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_v1_robot_pb.FrameTransformRequest,
-  responseType: proto_api_v1_robot_pb.FrameTransformResponse
+  requestType: proto_api_v1_robot_pb.FrameServiceTransformRequest,
+  responseType: proto_api_v1_robot_pb.FrameServiceTransformResponse
 };
 
-RobotService.FrameDoF = {
-  methodName: "FrameDoF",
+RobotService.FrameServiceKinematicLimits = {
+  methodName: "FrameServiceKinematicLimits",
   service: RobotService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_v1_robot_pb.FrameDoFRequest,
-  responseType: proto_api_v1_robot_pb.FrameDoFResponse
+  requestType: proto_api_v1_robot_pb.FrameServiceKinematicLimitsRequest,
+  responseType: proto_api_v1_robot_pb.FrameServiceKinematicLimitsResponse
 };
 
 RobotService.NavigationServiceMode = {
@@ -2737,11 +2737,11 @@ RobotServiceClient.prototype.resourceRunCommand = function resourceRunCommand(re
   };
 };
 
-RobotServiceClient.prototype.frameSystemDAG = function frameSystemDAG(requestMessage, metadata, callback) {
+RobotServiceClient.prototype.frameServiceDAG = function frameServiceDAG(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(RobotService.FrameSystemDAG, {
+  var client = grpc.unary(RobotService.FrameServiceDAG, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -2768,11 +2768,11 @@ RobotServiceClient.prototype.frameSystemDAG = function frameSystemDAG(requestMes
   };
 };
 
-RobotServiceClient.prototype.frameTransform = function frameTransform(requestMessage, metadata, callback) {
+RobotServiceClient.prototype.frameServiceTransform = function frameServiceTransform(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(RobotService.FrameTransform, {
+  var client = grpc.unary(RobotService.FrameServiceTransform, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -2799,11 +2799,11 @@ RobotServiceClient.prototype.frameTransform = function frameTransform(requestMes
   };
 };
 
-RobotServiceClient.prototype.frameDoF = function frameDoF(requestMessage, metadata, callback) {
+RobotServiceClient.prototype.frameServiceKinematicLimits = function frameServiceKinematicLimits(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(RobotService.FrameDoF, {
+  var client = grpc.unary(RobotService.FrameServiceKinematicLimits, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

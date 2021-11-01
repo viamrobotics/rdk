@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	pb "go.viam.com/core/proto/api/v1"
 	spatial "go.viam.com/core/spatialmath"
 
 	"github.com/golang/geo/r3"
@@ -16,7 +17,7 @@ func TestSimpleRotationalFrame(t *testing.T) {
 	ctx := context.Background()
 
 	// Revolute joint around X axis
-	joint, err := NewRotationalFrame("joint", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-math.Pi * 2, math.Pi * 2})
+	joint, err := NewRotationalFrame("joint", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, &pb.Limit{Min: -math.Pi * 2, Max: math.Pi * 2})
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(joint, fs.World())
 
@@ -56,7 +57,7 @@ func TestSimpleTranslationalFrame(t *testing.T) {
 	ctx := context.Background()
 
 	// 1D gantry that slides in X
-	gantry, err := NewTranslationalFrame("gantry", []bool{true, false, false}, []Limit{{math.Inf(-1), math.Inf(1)}})
+	gantry, err := NewTranslationalFrame("gantry", []bool{true, false, false}, []*pb.Limit{{Min: math.Inf(-1), Max: math.Inf(1)}})
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantry, fs.World())
 

@@ -263,23 +263,23 @@ func createFrameFromPart(part namedPart, children map[string][]referenceframe.Fr
 		modelFrame = referenceframe.NewZeroStaticFrame(part.Name)
 	}
 	// static frame defines an offset from the parent part-- if it is empty, a 0 offset frame will be applied.
-	staticName := part.Name + "_offset"
-	staticFrame, err := config.MakeStaticFrame(frameConfig, staticName)
+	staticOffsetName := part.Name + "_offset"
+	staticOffsetFrame, err := config.MakeStaticFrame(frameConfig, staticOffsetName)
 	if err != nil {
 		return err
 	}
 	// check to see if there are no repeated names
-	if _, ok := names[staticFrame.Name()]; ok {
-		return fmt.Errorf("cannot have more than one frame with name %s", staticFrame.Name())
+	if _, ok := names[staticOffsetFrame.Name()]; ok {
+		return fmt.Errorf("cannot have more than one frame with name %s", staticOffsetFrame.Name())
 	}
-	names[staticFrame.Name()] = true
+	names[staticOffsetFrame.Name()] = true
 	if _, ok := names[modelFrame.Name()]; ok {
 		return fmt.Errorf("cannot have more than one frame with name %s", modelFrame.Name())
 	}
 	names[modelFrame.Name()] = true
 	// attach the static frame to the parent, then the model frame to the static frame
-	children[frameConfig.Parent] = append(children[frameConfig.Parent], staticFrame)
-	children[staticFrame.Name()] = append(children[staticFrame.Name()], modelFrame)
+	children[frameConfig.Parent] = append(children[frameConfig.Parent], staticOffsetFrame)
+	children[staticOffsetFrame.Name()] = append(children[staticOffsetFrame.Name()], modelFrame)
 	return nil
 }
 
