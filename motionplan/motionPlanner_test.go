@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	//~ "math"
+	//~ "math/rand"
 
 	"runtime"
 	"testing"
@@ -15,6 +16,7 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
+	"github.com/golang/geo/r3"
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 )
@@ -29,10 +31,9 @@ func TestSimpleMotion(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	m, err := kinematics.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := kinematics.CreateCombinedIKSolver(m, logger, nCPU)
-	test.That(t, err, test.ShouldBeNil)
 
-	mp := &linearMotionPlanner{solver: ik, frame: m}
+	mp, err := NewLinearMotionPlanner(m, logger, nCPU)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Test ability to arrive at another position
 	pos := &pb.ArmPosition{
@@ -41,8 +42,15 @@ func TestSimpleMotion(t *testing.T) {
 		Z:  200,
 		OZ: -1,
 	}
-	solution, err := mp.Plan(context.Background(), spatial.NewPoseFromArmPos(pos), home)
+	solution, err := mp.Plan(context.Background(), pos, home)
 	test.That(t, err, test.ShouldBeNil)
 
 	fmt.Println(solution)
+}
+
+func TestStep(t *testing.T) {
+	tries := getNextPosTries(spatial.NewZeroPose(), spatial.NewPoseFromPoint(r3.Vector{1,1,50}))
+	for _, try := range tries {
+		fmt.Println(spatial.PoseToArmPos(try))
+	}
 }

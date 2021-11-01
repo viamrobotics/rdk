@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"go.viam.com/core/kinematics"
+	"go.viam.com/core/motionplan"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/spatialmath"
@@ -38,7 +38,7 @@ func MoveGripper(ctx context.Context, r robot.Robot, goalPose spatialmath.Pose, 
 	if err != nil {
 		return err
 	}
-	solver := kinematics.NewSolvableFrameSystem(frameSys, r.Logger())
+	solver := motionplan.NewSolvableFrameSystem(frameSys, r.Logger())
 	// get the initial inputs
 	input := referenceframe.StartPositions(solver)
 	pos, err := arm.CurrentJointPositions(ctx)
@@ -61,11 +61,18 @@ func MoveGripper(ctx context.Context, r robot.Robot, goalPose spatialmath.Pose, 
 
 	// the goal is to move the gripper to newGoalPose (which is given in coord of frame goalFrameName).
 	gripFrame := frameSys.GetFrame(gripperName)
-	output, err := solver.SolvePose(ctx, input, newGoalPose, gripFrame, solver.World())
+	path, err := solver.SolvePose(ctx, input, newGoalPose, gripFrame, solver.World())
 	if err != nil {
 		return err
 	}
+	
+	for _, output := range path {
+		err = arm.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(output[armName]))
+		if err != nil {
+			return err
+		}
+	}
 
-	return arm.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(output[armName]))
+	return nil
 
 }

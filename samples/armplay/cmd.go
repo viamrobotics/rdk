@@ -16,7 +16,6 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
-	spatial "go.viam.com/core/spatialmath"
 	u "go.viam.com/core/utils"
 	webserver "go.viam.com/core/web/server"
 
@@ -169,26 +168,49 @@ func plan1(ctx context.Context, r robot.Robot) error {
 	if err != nil {
 		return err
 	}
-	ik, err := kinematics.CreateCombinedIKSolver(m, logger, 8)
+	mp, err := motionplan.NewLinearMotionPlanner(m, logger, 8)
 	if err != nil {
 		return err
 	}
 
-	mp := motionplan.NewLinearMotionPlanner(ik, m)
-
 	// Test ability to arrive at another position
 	pos := &pb.ArmPosition{
-		X:  250,
-		Y:  0,
-		Z:  200,
-		OZ: -1,
+		X:  100,
+		Y:  200,
+		Z:  500,
+		OX: -1,
 	}
 
 	start, err := arm.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
 	}
-	solutions, err := mp.Plan(context.Background(), spatial.NewPoseFromArmPos(pos), frame.JointPosToInputs(start))
+	solutions, err := mp.Plan(context.Background(), pos, frame.JointPosToInputs(start))
+	if err != nil {
+		return err
+	}
+
+	for _, solution := range solutions {
+		err := arm.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
+		if err != nil {
+			return err
+		}
+	}
+	
+	
+	// Test ability to arrive at another position
+	pos = &pb.ArmPosition{
+		X:  -400,
+		Y:  0,
+		Z:  200,
+		OX: -1,
+	}
+
+	start, err = arm.CurrentJointPositions(ctx)
+	if err != nil {
+		return err
+	}
+	solutions, err = mp.Plan(context.Background(), pos, frame.JointPosToInputs(start))
 	if err != nil {
 		return err
 	}
@@ -217,12 +239,10 @@ func plan2(ctx context.Context, r robot.Robot) error {
 	if err != nil {
 		return err
 	}
-	ik, err := kinematics.CreateCombinedIKSolver(m, logger, 8)
+	mp, err := motionplan.NewLinearMotionPlanner(m, logger, 8)
 	if err != nil {
 		return err
 	}
-
-	mp := motionplan.NewLinearMotionPlanner(ik, m)
 
 	// Test ability to arrive at another position
 	pos := &pb.ArmPosition{
@@ -236,7 +256,7 @@ func plan2(ctx context.Context, r robot.Robot) error {
 	if err != nil {
 		return err
 	}
-	solutions, err := mp.Plan(context.Background(), spatial.NewPoseFromArmPos(pos), frame.JointPosToInputs(start))
+	solutions, err := mp.Plan(context.Background(), pos, frame.JointPosToInputs(start))
 	if err != nil {
 		return err
 	}

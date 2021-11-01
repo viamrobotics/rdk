@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
+	"go.viam.com/core/motionplan"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
@@ -56,7 +57,7 @@ func NewArmIK(name string, logger golog.Logger) (arm.Arm, error) {
 		return nil, err
 	}
 
-	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	mp, err := motionplan.NewLinearMotionPlanner(model, logger, 4)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +66,7 @@ func NewArmIK(name string, logger golog.Logger) (arm.Arm, error) {
 		Name:     name,
 		position: &pb.ArmPosition{},
 		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
-		ik:       ik,
+		mp:       mp,
 	}, nil
 }
 
@@ -74,7 +75,7 @@ type ArmIK struct {
 	Name       string
 	position   *pb.ArmPosition
 	joints     *pb.JointPositions
-	ik         kinematics.InverseKinematics
+	mp         motionplan.MotionPlanner
 	CloseCount int
 }
 
@@ -84,20 +85,26 @@ func (a *ArmIK) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(a.ik.Model(), joints)
+	return kinematics.ComputePosition(a.mp.Frame(), joints)
 }
 
-// MoveToPosition sets the position.
+// MoveToPosition moves the arm to the specified cartesian position.
 func (a *ArmIK) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
 	}
-	solution, err := a.ik.Solve(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := a.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
-	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
+	for _, step := range solution {
+		err = a.MoveToJointPositions(ctx, frame.InputsToJointPos(step))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // MoveToJointPositions sets the joints.

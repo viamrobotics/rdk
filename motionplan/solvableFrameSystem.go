@@ -1,4 +1,4 @@
-package kinematics
+package motionplan
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"runtime"
 
 	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
 
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
@@ -26,11 +25,11 @@ func NewSolvableFrameSystem(fs frame.FrameSystem, logger golog.Logger) *Solvable
 }
 
 // SolvePose will take a set of starting positions, a goal frame, a frame to solve for, and a pose. The function will
-// then try to solve the full frame system such that the solveFrame has the goal pose from the perspective of the goalFrame.
+// then try to path plan the full frame system such that the solveFrame has the goal pose from the perspective of the goalFrame.
 // For example, if a world system has a gripper attached to an arm attached to a gantry, and the system was being solved
 // to place the gripper at a particular pose in the world, the solveFrame would be the gripper and the goalFrame would be
 // the world frame.
-func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[string][]frame.Input, goal spatial.Pose, solveFrame, goalFrame frame.Frame) (map[string][]frame.Input, error) {
+func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[string][]frame.Input, goal spatial.Pose, solveFrame, goalFrame frame.Frame) ([]map[string][]frame.Input, error) {
 
 	// Get parentage of both frames. This will also verify the frames are in the frame system
 	sFrames, err := fss.TracebackFrame(solveFrame)
@@ -45,7 +44,7 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 
 	// Create a frame to solve for, and an IK solver with that frame.
 	sf := &solverFrame{fss, frames, solveFrame, goalFrame}
-	solver, err := CreateCombinedIKSolver(sf, fss.logger, runtime.NumCPU()/2)
+	planner, err := NewLinearMotionPlanner(sf, fss.logger, runtime.NumCPU()/2)
 	if err != nil {
 		return nil, err
 	}
@@ -53,12 +52,16 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 	seed := sf.mapToSlice(seedMap)
 
 	// Solve for the goal position
-	resultSlice, err := solver.Solve(ctx, spatial.PoseToArmPos(goal), seed)
+	resultSlices, err := planner.Plan(ctx, spatial.PoseToArmPos(goal), seed)
 	if err != nil {
-		return nil, multierr.Combine(err, solver.Close())
+		return nil, err
+	}
+	steps := make([]map[string][]frame.Input, 0, len(resultSlices))
+	for _, resultSlice := range resultSlices {
+		steps = append(steps, sf.sliceToMap(resultSlice))
 	}
 
-	return sf.sliceToMap(resultSlice), solver.Close()
+	return steps, nil
 }
 
 // solverFrames are meant to be ephemerally created each time a frame system solution is created, and fulfills the
