@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 
+	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
 
@@ -166,15 +167,15 @@ func (m *Model) OperationalDoF() int {
 }
 
 // DoF returns the number of degrees of freedom within an arm.
-func (m *Model) DoF(ctx context.Context) []referenceframe.Limit {
-	limits := []referenceframe.Limit{}
+func (m *Model) DoF(ctx context.Context) []*pb.Limit {
+	limits := []*pb.Limit{}
 	for _, joint := range m.Joints(ctx) {
 		limits = append(limits, joint.DoF(ctx)...)
 	}
 	return limits
 }
 
-func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
+func limitsToArrays(limits []*pb.Limit) ([]float64, []float64) {
 	var min, max []float64
 	for _, limit := range limits {
 		min = append(min, limit.Min)

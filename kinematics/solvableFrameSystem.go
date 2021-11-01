@@ -9,6 +9,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 
+	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
 )
@@ -90,8 +91,8 @@ func (sf *solverFrame) Transform(ctx context.Context, inputs []frame.Input) (spa
 }
 
 // DoF returns the summed DoF of all frames between the two solver frames.
-func (sf *solverFrame) DoF(ctx context.Context) []frame.Limit {
-	var limits []frame.Limit
+func (sf *solverFrame) DoF(ctx context.Context) []*pb.Limit {
+	var limits []*pb.Limit
 	for _, frame := range sf.frames {
 		limits = append(limits, frame.DoF(ctx)...)
 	}
