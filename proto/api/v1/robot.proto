@@ -43,8 +43,24 @@ service RobotService {
     };  
   }
 
-  // Arm
+  // Gantry
 
+  // GantryCurrentPosition gets the current position of an gantry of the underlying robot.
+  rpc GantryCurrentPosition(GantryCurrentPositionRequest) returns (GantryCurrentPositionResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/gantry/{name}/current_position"
+    };  
+  }
+
+  // GantryMoveToPosition moves an gantry of the underlying robot to the requested position.
+  rpc GantryMoveToPosition(GantryMoveToPositionRequest) returns (GantryMoveToPositionResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/gantry/{name}/move_to_position"
+    };  
+  }
+
+  // Arm
+  
   // ArmCurrentPosition gets the current position of an arm of the underlying robot.
   rpc ArmCurrentPosition(ArmCurrentPositionRequest) returns (ArmCurrentPositionResponse) {
     option (google.api.http) = {
@@ -607,6 +623,7 @@ message Status {
   map<string, MotorStatus> motors = 10;
   map<string, bool> services = 11;
   map<string, bool> input_controllers = 12;
+  map<string, GantryStatus> gantries = 13;
 }
 
 message ComponentConfig {
@@ -627,6 +644,11 @@ message DoActionRequest {
 }
 
 message DoActionResponse {}
+
+message GantryStatus {
+  repeated double positions = 1;
+  repeated double lengths = 2;
+}
 
 // Arm
 
@@ -731,6 +753,24 @@ message ArmJointMoveDeltaRequest {
 }
 
 message ArmJointMoveDeltaResponse {}
+
+// Gantry
+
+message GantryCurrentPositionRequest {
+  string name = 1;
+}
+
+message GantryCurrentPositionResponse {
+  repeated double positions = 1;
+}
+
+message GantryMoveToPositionRequest {
+  string name = 1;
+  repeated double positions = 2;
+}
+
+message GantryMoveToPositionResponse {}
+
 
 // Base
 

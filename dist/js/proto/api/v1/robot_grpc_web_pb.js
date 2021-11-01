@@ -400,6 +400,128 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.doAction =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.GantryCurrentPositionRequest,
+ *   !proto.proto.api.v1.GantryCurrentPositionResponse>}
+ */
+const methodDescriptor_RobotService_GantryCurrentPosition = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/GantryCurrentPosition',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.GantryCurrentPositionRequest,
+  proto.proto.api.v1.GantryCurrentPositionResponse,
+  /**
+   * @param {!proto.proto.api.v1.GantryCurrentPositionRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.GantryCurrentPositionResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.GantryCurrentPositionRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.GantryCurrentPositionResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.GantryCurrentPositionResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.gantryCurrentPosition =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/GantryCurrentPosition',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_GantryCurrentPosition,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.GantryCurrentPositionRequest} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.GantryCurrentPositionResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.gantryCurrentPosition =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/GantryCurrentPosition',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_GantryCurrentPosition);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.GantryMoveToPositionRequest,
+ *   !proto.proto.api.v1.GantryMoveToPositionResponse>}
+ */
+const methodDescriptor_RobotService_GantryMoveToPosition = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/GantryMoveToPosition',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.GantryMoveToPositionRequest,
+  proto.proto.api.v1.GantryMoveToPositionResponse,
+  /**
+   * @param {!proto.proto.api.v1.GantryMoveToPositionRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.GantryMoveToPositionResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.GantryMoveToPositionRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.GantryMoveToPositionResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.GantryMoveToPositionResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.gantryMoveToPosition =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/GantryMoveToPosition',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_GantryMoveToPosition,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.GantryMoveToPositionRequest} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.GantryMoveToPositionResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.gantryMoveToPosition =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/GantryMoveToPosition',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_GantryMoveToPosition);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.v1.ArmCurrentPositionRequest,
  *   !proto.proto.api.v1.ArmCurrentPositionResponse>}
  */

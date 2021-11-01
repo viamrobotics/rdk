@@ -68,6 +68,10 @@ func WrapMotorWithEncoder(ctx context.Context, b board.Board, c config.Component
 		if err != nil {
 			return nil, err
 		}
+
+		// Adds encoded motor to encoder
+		encoder.AttachDirectionalAwareness(mm)
+
 	} else {
 		b, ok := b.DigitalInterruptByName(mc.EncoderB)
 		if !ok {
@@ -427,7 +431,7 @@ func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime in
 	}
 }
 
-func (m EncodedMotor) computeRamp(oldPower, newPower float32) float32 {
+func (m *EncodedMotor) computeRamp(oldPower, newPower float32) float32 {
 	if newPower > 1.0 {
 		newPower = 1.0
 	}

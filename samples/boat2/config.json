@@ -155,7 +155,7 @@
         },
 
         {
-            "name": "gps1",
+            "name": "gps",
             "type": "sensor",
             "subtype": "gps",
             "model": "nmea-serial",
@@ -168,7 +168,10 @@
             "name" : "imu",
             "type" : "sensor",
             "subtype" : "imu",
-            "model" : "temp-imu"
+            "model" : "wit",
+            "attributes" : {
+                "port" : "/dev/ttyUSB1"
+            }
         },
         {
             "name" : "base1",
@@ -188,7 +191,7 @@
                         "uri": "mongodb://localhost:27017"
                     }
                 },
-                "gps": "gps1",
+                "gps": "gps",
                 "base": "base1"
             }
         }
