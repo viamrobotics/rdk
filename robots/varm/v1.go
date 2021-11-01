@@ -14,6 +14,7 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
+	"go.viam.com/core/motionplan"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
@@ -52,11 +53,11 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+			mp, err := motionplan.NewLinearMotionPlanner(model, logger, 4)
 			if err != nil {
 				return nil, err
 			}
-			raw, err := NewArmV1(ctx, r, logger, ik)
+			raw, err := NewArmV1(ctx, r, logger, mp)
 			if err != nil {
 				return nil, err
 			}
@@ -168,9 +169,9 @@ func testJointLimit(ctx context.Context, m motor.Motor, dir pb.DirectionRelative
 }
 
 // NewArmV1 TODO
-func NewArmV1(ctx context.Context, r robot.Robot, logger golog.Logger, ik kinematics.InverseKinematics) (arm.Arm, error) {
+func NewArmV1(ctx context.Context, r robot.Robot, logger golog.Logger, mp motionplan.MotionPlanner) (arm.Arm, error) {
 	var err error
-	newArm := &ArmV1{}
+	newArm := &ArmV1{mp: mp}
 
 	newArm.j0.degMin = -135.0
 	newArm.j0.degMax = 75.0
@@ -220,7 +221,7 @@ type ArmV1 struct {
 	j0Motor, j1Motor motor.Motor
 
 	j0, j1 joint
-	ik     kinematics.InverseKinematics
+	mp     motionplan.MotionPlanner
 }
 
 // CurrentPosition computes and returns the current cartesian position.
@@ -229,7 +230,7 @@ func (a *ArmV1) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(a.ik.Model(), joints)
+	return kinematics.ComputePosition(a.mp.Frame(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
@@ -238,11 +239,17 @@ func (a *ArmV1) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	if err != nil {
 		return err
 	}
-	solution, err := a.ik.Solve(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := a.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
-	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
+	for _, step := range solution {
+		err = a.MoveToJointPositions(ctx, frame.InputsToJointPos(step))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a *ArmV1) moveJointToDegrees(ctx context.Context, m motor.Motor, j joint, curDegrees, gotoDegrees float64) error {

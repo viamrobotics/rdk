@@ -4,7 +4,6 @@ import (
 	"context"
 	"math"
 
-	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
 )
@@ -22,13 +21,11 @@ type goal struct {
 	EffectorID    int
 }
 
-// InverseKinematics TODO
+// InverseKinematics defines an interface which, provided with a goal position and seed inputs, will output all found
+// solutions to the provided channel until cancelled or otherwise completes
 type InverseKinematics interface {
-	// Solve receives a context, the goal arm position, and current joint angles.
-	// It will return a boolean which will be true if it solved successfully, and the joint positions which
-	// will yield that goal position.
-	Solve(context.Context, *pb.ArmPosition, []frame.Input) ([]frame.Input, error)
-	Model() frame.Frame
+	// Solve receives a context, the goal position, and current frame inputs.
+	Solve(context.Context, chan []frame.Input, spatial.Pose, []frame.Input) error
 	SetSolveWeights(SolverDistanceWeights)
 	Close() error
 }
@@ -85,7 +82,7 @@ func calcSwingAmount(from, to []frame.Input, model frame.Frame) (float64, error)
 		// Note: Each waypoint (except 0.5) will check that distance from both ends of the path. For example, if
 		// waypoint equals 0.2, that will check 0.2 and 0.8.
 		waypoint := 1. / float64(i+2)
-		interp := InterpolateValues(from, to, waypoint)
+		interp := frame.InterpolateInputs(from, to, waypoint)
 		pathPos, err := model.Transform(interp)
 		if err != nil {
 			// This should never happen unless you have invalid waypoints
@@ -96,7 +93,7 @@ func calcSwingAmount(from, to []frame.Input, model frame.Frame) (float64, error)
 		if waypoint != 0.5 {
 			// If we're not at the halfway point, check both sides- since joints move towards and away from singularities,
 			// a smooth joint movement won't be symmetrical.
-			interp = InterpolateValues(from, to, 1-waypoint)
+			interp = frame.InterpolateInputs(from, to, 1-waypoint)
 			compPos, err = model.Transform(interp)
 			if err != nil {
 				// This should never happen unless you have invalid waypoints
@@ -141,15 +138,4 @@ func bestSolution(seedAngles []frame.Input, solutions [][]frame.Input, model fra
 		}
 	}
 	return best, dist, nil
-}
-
-// InterpolateValues will return a set of joint positions that are the specified percent between the two given sets of
-// positions. For example, setting by to 0.5 will return the joint positions halfway between the inputs, and 0.25 would
-// return one quarter of the way from "from" to "to"
-func InterpolateValues(from, to []frame.Input, by float64) []frame.Input {
-	var newVals []frame.Input
-	for i, j1 := range from {
-		newVals = append(newVals, frame.Input{j1.Value + ((to[i].Value - j1.Value) * by)})
-	}
-	return newVals
 }

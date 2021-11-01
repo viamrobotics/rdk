@@ -24,6 +24,7 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
+	"go.viam.com/core/motionplan"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
@@ -66,7 +67,7 @@ type Arm struct {
 	Joints   map[string][]*servo.Servo
 	moveLock *sync.Mutex
 	logger   golog.Logger
-	ik       kinematics.InverseKinematics
+	mp       motionplan.MotionPlanner
 }
 
 // servoPosToDegrees takes a 360 degree 0-4096 servo position, centered at 2048,
@@ -108,7 +109,7 @@ func NewArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error
 	if err != nil {
 		return nil, err
 	}
-	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	mp, err := motionplan.NewLinearMotionPlanner(model, logger, 4)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +125,7 @@ func NewArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error
 		},
 		moveLock: getPortMutex(usbPort),
 		logger:   logger,
-		ik:       ik,
+		mp:       mp,
 	}, nil
 }
 
@@ -134,7 +135,7 @@ func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(a.ik.Model(), joints)
+	return kinematics.ComputePosition(a.mp.Frame(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
@@ -143,11 +144,17 @@ func (a *Arm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	if err != nil {
 		return err
 	}
-	solution, err := a.ik.Solve(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := a.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
-	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
+	for _, step := range solution {
+		err = a.MoveToJointPositions(ctx, frame.InputsToJointPos(step))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position.

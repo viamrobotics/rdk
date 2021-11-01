@@ -11,7 +11,6 @@ import (
 	"github.com/go-nlopt/nlopt"
 	"go.uber.org/multierr"
 
-	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
 )
@@ -135,10 +134,9 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 }
 
 // addGoal adds a nlopt IK goal
-func (ik *NloptIK) addGoal(newGoal *pb.ArmPosition, effectorID int) {
+func (ik *NloptIK) addGoal(newGoal spatial.Pose, effectorID int) {
 
-	goalQuat := spatial.NewPoseFromArmPos(newGoal)
-	ik.goals = append(ik.goals, goal{goalQuat, effectorID})
+	ik.goals = append(ik.goals, goal{newGoal, effectorID})
 }
 
 // clearGoals clears all goals for the Ik object
@@ -157,25 +155,26 @@ func (ik *NloptIK) SetSolveWeights(weights SolverDistanceWeights) {
 }
 
 // Solve runs the actual solver and returns a list of all
-func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seed []frame.Input) ([]frame.Input, error) {
+func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spatial.Pose, seed []frame.Input) error {
 	var err error
 
 	// Allow ~160 degrees of swing at most
 	tries := 1
 	ik.iterations = 0
+	solutionsFound := 0
 	startingPos := ik.GenerateRandomPositions()
 
 	// Solver with ID 1 seeds off current angles
 	if ik.id == 1 {
 		if len(seed) > len(ik.model.DoF()) {
-			return nil, errors.New("passed in too many joint positions")
+			return errors.New("passed in too many joint positions")
 		}
 		startingPos = seed
 
 		// Set initial restrictions on joints for more intuitive movement
 		err = ik.updateBounds(startingPos, tries)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	} else {
 		//~ // Solvers whose ID is not 1 should skip ahead directly to trying random seeds
@@ -187,17 +186,15 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seed []fr
 	select {
 	case <-ctx.Done():
 		ik.logger.Info("solver halted before solving start; possibly solving twice in a row?")
-		return nil, err
+		return err
 	default:
 	}
-
-	var solutions [][]frame.Input
 
 	for ik.iterations < ik.maxIterations {
 		retrySeed := false
 		select {
 		case <-ctx.Done():
-			return nil, err
+			return err
 		default:
 		}
 		ik.iterations++
@@ -209,25 +206,18 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seed []fr
 		}
 
 		if result < ik.epsilon*ik.epsilon {
-			solution := frame.FloatsToInputs(solutionRaw)
-			// Return immediately if we have a "natural" solution, i.e. one where the halfway point is on the way
-			// to the end point
-			swing, newErr := calcSwingAmount(seed, solution, ik.model)
-			if newErr != nil {
-				// out-of-bounds angles. Shouldn't happen, but if it does, record the error and move on without
-				// keeping the invalid solution
-				err = multierr.Combine(err, newErr)
-			} else if swing < goodSwingAmt {
-				return solution, err
-			} else {
-				solutions = append(solutions, solution)
+			select {
+			case <-ctx.Done():
+				return err
+			case c <- frame.FloatsToInputs(solutionRaw):
 			}
+			solutionsFound++
 		}
 		tries++
 		if tries < 30 {
 			err = ik.updateBounds(seed, tries)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		} else if !retrySeed {
 			err = multierr.Combine(
@@ -235,16 +225,15 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seed []fr
 				ik.opt.SetUpperBounds(ik.upperBound),
 			)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			startingPos = ik.GenerateRandomPositions()
 		}
 	}
-	if len(solutions) > 0 {
-		solution, _, err := bestSolution(seed, solutions, ik.model)
-		return solution, err
+	if solutionsFound > 0 {
+		return nil
 	}
-	return nil, multierr.Combine(errors.New("kinematics could not solve for position"), err)
+	return multierr.Combine(errors.New("kinematics could not solve for position"), err)
 }
 
 // SetSeed sets the random seed of this solver

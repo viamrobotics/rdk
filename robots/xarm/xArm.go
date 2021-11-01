@@ -11,6 +11,7 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
+	"go.viam.com/core/motionplan"
 
 	"go.viam.com/core/referenceframe"
 
@@ -27,7 +28,7 @@ type xArm struct {
 	speed    float32 //speed=20*π/180rad/s
 	accel    float32 //acceleration=500*π/180rad/s^2
 	moveLock *sync.Mutex
-	ik       kinematics.InverseKinematics
+	mp       motionplan.MotionPlanner
 }
 
 //go:embed xArm6_kinematics.json
@@ -82,7 +83,7 @@ func NewxArm(ctx context.Context, host string, logger golog.Logger, dof int) (ar
 		return &xArm{}, err
 	}
 	nCPU := runtime.NumCPU()
-	ik, err := kinematics.CreateCombinedIKSolver(model, logger, nCPU)
+	mp, err := motionplan.NewLinearMotionPlanner(model, logger, nCPU)
 	if err != nil {
 		return &xArm{}, err
 	}
@@ -90,7 +91,7 @@ func NewxArm(ctx context.Context, host string, logger golog.Logger, dof int) (ar
 	mutex := &sync.Mutex{}
 	// Start with default speed/acceleration parameters
 	// TODO(pl): add settable speed
-	xA := xArm{dof, 0, conn, 0.35, 8.7, mutex, ik}
+	xA := xArm{dof, 0, conn, 0.35, 8.7, mutex, mp}
 
 	err = xA.start()
 	if err != nil {

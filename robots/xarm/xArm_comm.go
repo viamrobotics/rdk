@@ -377,7 +377,7 @@ func (x *xArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(x.ik.Model(), joints)
+	return kinematics.ComputePosition(x.mp.Frame(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
@@ -386,11 +386,17 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	if err != nil {
 		return err
 	}
-	solution, err := x.ik.Solve(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := x.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
-	return x.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
+	for _, step := range solution {
+		err = x.MoveToJointPositions(ctx, frame.InputsToJointPos(step))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // CurrentJointPositions returns the current positions of all joints.
