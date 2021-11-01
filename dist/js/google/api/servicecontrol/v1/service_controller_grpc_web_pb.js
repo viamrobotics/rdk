@@ -18,6 +18,8 @@ grpc.web = require('grpc-web');
 
 var google_api_annotations_pb = require('../../../../google/api/annotations_pb.js')
 
+var google_api_client_pb = require('../../../../google/api/client_pb.js')
+
 var google_api_servicecontrol_v1_check_error_pb = require('../../../../google/api/servicecontrol/v1/check_error_pb.js')
 
 var google_api_servicecontrol_v1_operation_pb = require('../../../../google/api/servicecontrol/v1/operation_pb.js')
@@ -25,8 +27,6 @@ var google_api_servicecontrol_v1_operation_pb = require('../../../../google/api/
 var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/timestamp_pb.js')
 
 var google_rpc_status_pb = require('../../../../google/rpc/status_pb.js')
-
-var google_api_client_pb = require('../../../../google/api/client_pb.js')
 const proto = {};
 proto.google = {};
 proto.google.api = {};

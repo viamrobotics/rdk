@@ -360,6 +360,7 @@ void motorInt20() { motorEncoder(20); }
 void motorInt21() { motorEncoder(21); }
 
 bool setupInterruptForMotor(PinNumber pin) {
+    pinMode(pin, INPUT_PULLUP);
     switch (pin) {
         case 2:
             setupInterruptBasic(pin, motorInt2, CHANGE);

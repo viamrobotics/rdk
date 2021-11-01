@@ -8,7 +8,6 @@ window.THREE = require("three/build/three.module.js")
 window.pcdLib = require("three/examples/jsm/loaders/PCDLoader.js")
 window.orbitLib = require("three/examples/jsm/controls/OrbitControls.js")
 window.trackLib = require("three/examples/jsm/controls/TrackballControls.js")
-
 const rtcConfig = {
 	iceServers: [
 		{

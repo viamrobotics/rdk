@@ -25,21 +25,19 @@ make -j
 sudo make install
 popd
 
-if [ "$(uname)" == "Darwin" ]; then
-  pushd third_party/protobuf
-  git checkout 909a0f36a10075c4b4bc70fdee2c7e32dd612a72 # 3.17.3
-  popd
-  pushd third_party/abseil-cpp
-  git checkout e1d388e7e74803050423d035e4374131b9b57919 # apple clang fix 
-  popd
-  mkdir -p third_party/abseil-cpp/cmake/build
-  pushd third_party/abseil-cpp/cmake/build
-  cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR \
-        -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE \
-        -DCMAKE_CXX_STANDARD=20 \
-        ../..
-  make -j
-  sudo make install
-fi
+pushd third_party/protobuf
+git checkout 909a0f36a10075c4b4bc70fdee2c7e32dd612a72 # 3.17.3
+popd
+pushd third_party/abseil-cpp
+git checkout e1d388e7e74803050423d035e4374131b9b57919 # apple clang fix 
+popd
+mkdir -p third_party/abseil-cpp/cmake/build
+pushd third_party/abseil-cpp/cmake/build
+cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR \
+      -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE \
+      -DCMAKE_CXX_STANDARD=20 \
+      ../..
+make -j
+sudo make install
 
 sudo ln -s `which grpc_cpp_plugin` /usr/local/bin/protoc-gen-grpc-cpp

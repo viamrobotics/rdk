@@ -27,6 +27,7 @@ import (
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/imu"
+	_ "go.viam.com/core/sensor/imu/wit"
 	"go.viam.com/core/serial"
 	"go.viam.com/core/services/navigation"
 	"go.viam.com/core/spatialmath"
@@ -88,8 +89,9 @@ type boat struct {
 
 	navService navigation.Service
 
-	lastDir  float64
-	lastSpin float64
+	lastDir       float64
+	lastSpin      float64
+	previousSpins []float64
 }
 
 func (b *boat) Stop(ctx context.Context) error {
@@ -123,6 +125,20 @@ func (b *boat) steerColumn(ctx context.Context, dir float64) error {
 	return b.steering.GoTo(ctx, rpm, dir)
 }
 
+func max32(a, b float32) float32 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func min32(a, b float32) float32 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func (b *boat) SteerAndMoveHelp(ctx context.Context,
 	thrustDir pb.DirectionRelative,
 	thrustSpeed float32,
@@ -130,6 +146,22 @@ func (b *boat) SteerAndMoveHelp(ctx context.Context,
 	portSpeed float32,
 	starboardDir pb.DirectionRelative,
 	starboardSpeed float32) error {
+
+	thrustSpeed = max32(0, thrustSpeed)
+
+	if portSpeed < 0 {
+		portSpeed *= -1
+		portDir = board.FlipDirection(portDir)
+	}
+	if starboardSpeed < 0 {
+		starboardSpeed *= -1
+		starboardDir = board.FlipDirection(starboardDir)
+	}
+
+	thrustSpeed = min32(1, thrustSpeed)
+	portSpeed = min32(1, portSpeed)
+	starboardSpeed = min32(1, starboardSpeed)
+
 	if false {
 		fmt.Printf("SteerAndMoveHelp %v %0.2f %v %0.2f %v %0.2f\n",
 			thrustDir,
@@ -163,14 +195,14 @@ func (b *boat) SteerAndMove(ctx context.Context, dir, speed float64) error {
 
 		if dir > 0 {
 			return b.SteerAndMoveHelp(ctx,
+				pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(speed-dir/3),
 				pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(speed),
-				pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(speed),
-				pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(math.Max(0, speed-dir)))
+				pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(math.Max(0, speed-dir*1.5)))
 		}
 		dir *= -1
 		return b.SteerAndMoveHelp(ctx,
-			pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(speed),
-			pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(math.Max(0, speed-dir)),
+			pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(speed-dir/3),
+			pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(math.Max(0, speed-dir*1.5)),
 			pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(speed),
 		)
 	}
@@ -230,23 +262,6 @@ func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golo
 	b.myImu, ok = tempIMU.(imu.IMU)
 	if !ok {
 		return nil, fmt.Errorf("wanted an imu but got an %T %#v", tempIMU, tempIMU)
-	}
-
-	if true {
-		go func() {
-			for {
-				if !utils.SelectContextOrWait(ctx, 1000*time.Millisecond) {
-					return
-				}
-
-				r, err := b.myImu.Readings(ctx)
-				if err != nil {
-					fmt.Println(err)
-					continue
-				}
-				fmt.Printf("%#v\n", r)
-			}
-		}()
 	}
 
 	// get all motors
@@ -327,14 +342,28 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 		speed = 1.0
 	}
 
-	dir := 0.0
 	if true {
-		dir = b.lastSpin / 180.0
-		if math.Abs(b.lastSpin) > 90 {
-			speed = 0.45
+		err := b.SteerAndMove(ctx, 0, speed)
+		utils.SelectContextOrWait(ctx, 10000*time.Millisecond)
+		return 0, err
+	}
+
+	if math.Abs(b.lastSpin) > 90 {
+		speed = 0.1 // this means spin in place
+	}
+
+	dir := b.lastSpin / 180.0
+
+	// if we're not making progress turning towrads are goal, turn more
+	last := len(b.previousSpins) - 1
+	for i := 0; i < 5; i++ {
+		if last-1-i < 0 {
+			break
 		}
 
-		dir *= .2 // trying more aggresssive and it'll go back and forth
+		if b.previousSpins[last-i] >= b.previousSpins[last-1-i] {
+			dir *= 1.2 // magic number
+		}
 	}
 
 	//fmt.Printf("MoveStraight steeringDir: %0.2f speed: %v distanceMillis: %v lastSpin: %v\n", steeringDir, speed, distanceMillis, b.lastSpin)
@@ -343,72 +372,32 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 
 func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 	b.lastSpin = angleDeg
-
-	if false {
-		steeringDir := angleDeg / 180.0
-		if math.Abs(angleDeg) < 90 {
-			steeringDir *= .5
-		}
-
-		logger.Debugf("steeringDir: %0.2f", steeringDir)
-
-		err := b.SteerAndMove(ctx, steeringDir, .5) // TODO(erh) .5 is totally wrong
-		if err != nil {
-			return 0, err
-		}
-	}
+	b.previousSpins = append(b.previousSpins, b.lastSpin)
 
 	if angleDeg < 3 && angleDeg > -3 {
 		return 0, nil
 	}
 
-	if false {
-		// dumb spin
-		dir := 1.0
-		if angleDeg < 0 {
-			dir *= -1
-		}
-
-		err := b.SteerAndMove(ctx, dir, 0)
-		if err != nil {
-			return 0, err
-		}
-
-		duration := 5 * time.Millisecond * time.Duration(math.Abs(angleDeg))
-		fmt.Printf("duration: %v\n", duration)
-		if !utils.SelectContextOrWait(ctx, duration) {
-			return 0, nil
-		}
-
-		err = b.SteerAndMove(ctx, dir*-1, 0)
-		if err != nil {
-			return 0, err
-		}
-
-		if !utils.SelectContextOrWait(ctx, 20*time.Millisecond) {
-			return 0, nil
-		}
-
-		return 0, b.Stop(ctx)
-	}
-
-	if false { // try to spin now
+	if true { // try to spin now
 		fmt.Printf("want to turn %v\n", angleDeg)
 		start, err := b.myImu.Orientation(ctx)
 		if err != nil {
 			return 0, err
 		}
-		for i := 0; i < 100; i++ {
-			dir := .1
-			if angleDeg < 0 {
-				dir *= -1
-			}
-			err := b.SteerAndMove(ctx, dir, 0)
-			if err != nil {
-				return 0, err
-			}
+		startAngle := start.EulerAngles().Yaw
 
-			if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+		dir := 1.0
+		if angleDeg < 0 {
+			dir *= -1
+		}
+		err = b.SteerAndMove(ctx, dir, 0)
+		if err != nil {
+			return 0, err
+		}
+
+		// chek how much we've spinned till we've spin the righ amount
+		for i := 0; i < 1000; i++ {
+			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
 				return 0, nil
 			}
 
@@ -417,9 +406,9 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 				return 0, err
 			}
 
-			left := math.Abs(coreutils.AngleDiffDeg(start.EulerAngles().Roll, now.EulerAngles().Roll) - angleDeg)
-			fmt.Printf("\t left %v\n", left)
-			if left < 5 {
+			left := math.Abs(angleDeg) - coreutils.AngleDiffDeg(startAngle, now.EulerAngles().Yaw)
+			fmt.Printf("\t left %v (%#v %#v)\n", left, startAngle, now.EulerAngles().Yaw)
+			if left < 5 || left > 180 {
 				return 0, b.Stop(ctx)
 			}
 		}
@@ -478,15 +467,15 @@ func runRC(ctx context.Context, myBoat *boat) {
 			}
 
 			if !previousPushMode {
-				pushDirection = now.EulerAngles().Roll
+				pushDirection = now.EulerAngles().Yaw
 			}
 			previousPushMode = true
 
-			delta := pushDirection - now.EulerAngles().Roll
+			delta := pushDirection - now.EulerAngles().Yaw
 
 			steer := .5 * (delta / 180)
 			fmt.Printf("pushDirection: %0.1f now: %0.1f delta: %0.2f steer: %.2f\n",
-				pushDirection, now.EulerAngles().Roll, delta, steer)
+				pushDirection, now.EulerAngles().Yaw, delta, steer)
 
 			err = multierr.Combine(
 				myBoat.SteerAndMove(ctx, steer, 1.0),
@@ -631,6 +620,30 @@ func (i *myIMU) Desc() sensor.Description {
 	return sensor.Description{imu.Type, ""}
 }
 
+func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
+	go func() {
+		for {
+			if !utils.SelectContextOrWait(ctx, 10*1000*time.Millisecond) {
+				return
+			}
+
+			r, err := myBoat.myImu.AngularVelocity(ctx)
+			if err != nil {
+				fmt.Printf("error from imu %v\n", err)
+				continue
+			}
+
+			r2, err := myBoat.myImu.Orientation(ctx)
+			if err != nil {
+				fmt.Printf("error from imu %v\n", err)
+				continue
+			}
+
+			fmt.Printf("imu readings %#v\n\t%#v\n", r, r2)
+		}
+	}()
+}
+
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
@@ -669,7 +682,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 
 	go runRC(ctx, myB)
-	//go runAngularVelocityKeeper(ctx, myB)
+	go runAngularVelocityKeeper(ctx, myB)
 
 	if err := webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger); err != nil && !errors.Is(err, context.Canceled) {
 		logger.Errorw("error running web", "error", err)

@@ -302,6 +302,7 @@ proto.google.api.expr.v1alpha1.CheckedExpr.toObject = function(includeInstance, 
     referenceMapMap: (f = msg.getReferenceMapMap()) ? f.toObject(includeInstance, proto.google.api.expr.v1alpha1.Reference.toObject) : [],
     typeMapMap: (f = msg.getTypeMapMap()) ? f.toObject(includeInstance, proto.google.api.expr.v1alpha1.Type.toObject) : [],
     sourceInfo: (f = msg.getSourceInfo()) && google_api_expr_v1alpha1_syntax_pb.SourceInfo.toObject(includeInstance, f),
+    exprVersion: jspb.Message.getFieldWithDefault(msg, 6, ""),
     expr: (f = msg.getExpr()) && google_api_expr_v1alpha1_syntax_pb.Expr.toObject(includeInstance, f)
   };
 
@@ -356,6 +357,10 @@ proto.google.api.expr.v1alpha1.CheckedExpr.deserializeBinaryFromReader = functio
       reader.readMessage(value,google_api_expr_v1alpha1_syntax_pb.SourceInfo.deserializeBinaryFromReader);
       msg.setSourceInfo(value);
       break;
+    case 6:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setExprVersion(value);
+      break;
     case 4:
       var value = new google_api_expr_v1alpha1_syntax_pb.Expr;
       reader.readMessage(value,google_api_expr_v1alpha1_syntax_pb.Expr.deserializeBinaryFromReader);
@@ -404,6 +409,13 @@ proto.google.api.expr.v1alpha1.CheckedExpr.serializeBinaryToWriter = function(me
       5,
       f,
       google_api_expr_v1alpha1_syntax_pb.SourceInfo.serializeBinaryToWriter
+    );
+  }
+  f = message.getExprVersion();
+  if (f.length > 0) {
+    writer.writeString(
+      6,
+      f
     );
   }
   f = message.getExpr();
@@ -495,6 +507,24 @@ proto.google.api.expr.v1alpha1.CheckedExpr.prototype.clearSourceInfo = function(
  */
 proto.google.api.expr.v1alpha1.CheckedExpr.prototype.hasSourceInfo = function() {
   return jspb.Message.getField(this, 5) != null;
+};
+
+
+/**
+ * optional string expr_version = 6;
+ * @return {string}
+ */
+proto.google.api.expr.v1alpha1.CheckedExpr.prototype.getExprVersion = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 6, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.google.api.expr.v1alpha1.CheckedExpr} returns this
+ */
+proto.google.api.expr.v1alpha1.CheckedExpr.prototype.setExprVersion = function(value) {
+  return jspb.Message.setProto3StringField(this, 6, value);
 };
 
 

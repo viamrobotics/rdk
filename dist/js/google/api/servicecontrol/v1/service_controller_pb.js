@@ -17,6 +17,8 @@ var global = Function('return this')();
 
 var google_api_annotations_pb = require('../../../../google/api/annotations_pb.js');
 goog.object.extend(proto, google_api_annotations_pb);
+var google_api_client_pb = require('../../../../google/api/client_pb.js');
+goog.object.extend(proto, google_api_client_pb);
 var google_api_servicecontrol_v1_check_error_pb = require('../../../../google/api/servicecontrol/v1/check_error_pb.js');
 goog.object.extend(proto, google_api_servicecontrol_v1_check_error_pb);
 var google_api_servicecontrol_v1_operation_pb = require('../../../../google/api/servicecontrol/v1/operation_pb.js');
@@ -25,8 +27,6 @@ var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/time
 goog.object.extend(proto, google_protobuf_timestamp_pb);
 var google_rpc_status_pb = require('../../../../google/rpc/status_pb.js');
 goog.object.extend(proto, google_rpc_status_pb);
-var google_api_client_pb = require('../../../../google/api/client_pb.js');
-goog.object.extend(proto, google_api_client_pb);
 goog.exportSymbol('proto.google.api.servicecontrol.v1.CheckRequest', null, global);
 goog.exportSymbol('proto.google.api.servicecontrol.v1.CheckResponse', null, global);
 goog.exportSymbol('proto.google.api.servicecontrol.v1.CheckResponse.CheckInfo', null, global);

@@ -164,9 +164,14 @@ type DirectionAware interface {
 	DirectionMoving() pb.DirectionRelative
 }
 
-// NewSingleEncoder creates a new SingleEncoder
+// NewSingleEncoder creates a new SingleEncoder (da begins as nil)
 func NewSingleEncoder(i DigitalInterrupt, da DirectionAware) *SingleEncoder {
 	return &SingleEncoder{i: i, m: da}
+}
+
+// AttachDirectionalAwareness to pre-created encoder
+func (e *SingleEncoder) AttachDirectionalAwareness(da DirectionAware) {
+	e.m = da
 }
 
 // SingleEncoder is a single interrupt based encoder.

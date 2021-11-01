@@ -19,6 +19,8 @@ var google_api_annotations_pb = require('../../../../google/api/annotations_pb.j
 goog.object.extend(proto, google_api_annotations_pb);
 var google_api_servicecontrol_v1_metric_value_pb = require('../../../../google/api/servicecontrol/v1/metric_value_pb.js');
 goog.object.extend(proto, google_api_servicecontrol_v1_metric_value_pb);
+var google_rpc_status_pb = require('../../../../google/rpc/status_pb.js');
+goog.object.extend(proto, google_rpc_status_pb);
 var google_api_client_pb = require('../../../../google/api/client_pb.js');
 goog.object.extend(proto, google_api_client_pb);
 goog.exportSymbol('proto.google.api.servicecontrol.v1.AllocateQuotaRequest', null, global);
@@ -954,7 +956,8 @@ proto.google.api.servicecontrol.v1.QuotaError.toObject = function(includeInstanc
   var f, obj = {
     code: jspb.Message.getFieldWithDefault(msg, 1, 0),
     subject: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    description: jspb.Message.getFieldWithDefault(msg, 3, "")
+    description: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    status: (f = msg.getStatus()) && google_rpc_status_pb.Status.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -1002,6 +1005,11 @@ proto.google.api.servicecontrol.v1.QuotaError.deserializeBinaryFromReader = func
     case 3:
       var value = /** @type {string} */ (reader.readString());
       msg.setDescription(value);
+      break;
+    case 4:
+      var value = new google_rpc_status_pb.Status;
+      reader.readMessage(value,google_rpc_status_pb.Status.deserializeBinaryFromReader);
+      msg.setStatus(value);
       break;
     default:
       reader.skipField();
@@ -1051,6 +1059,14 @@ proto.google.api.servicecontrol.v1.QuotaError.serializeBinaryToWriter = function
     writer.writeString(
       3,
       f
+    );
+  }
+  f = message.getStatus();
+  if (f != null) {
+    writer.writeMessage(
+      4,
+      f,
+      google_rpc_status_pb.Status.serializeBinaryToWriter
     );
   }
 };
@@ -1119,6 +1135,43 @@ proto.google.api.servicecontrol.v1.QuotaError.prototype.getDescription = functio
  */
 proto.google.api.servicecontrol.v1.QuotaError.prototype.setDescription = function(value) {
   return jspb.Message.setProto3StringField(this, 3, value);
+};
+
+
+/**
+ * optional google.rpc.Status status = 4;
+ * @return {?proto.google.rpc.Status}
+ */
+proto.google.api.servicecontrol.v1.QuotaError.prototype.getStatus = function() {
+  return /** @type{?proto.google.rpc.Status} */ (
+    jspb.Message.getWrapperField(this, google_rpc_status_pb.Status, 4));
+};
+
+
+/**
+ * @param {?proto.google.rpc.Status|undefined} value
+ * @return {!proto.google.api.servicecontrol.v1.QuotaError} returns this
+*/
+proto.google.api.servicecontrol.v1.QuotaError.prototype.setStatus = function(value) {
+  return jspb.Message.setWrapperField(this, 4, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.google.api.servicecontrol.v1.QuotaError} returns this
+ */
+proto.google.api.servicecontrol.v1.QuotaError.prototype.clearStatus = function() {
+  return this.setStatus(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.google.api.servicecontrol.v1.QuotaError.prototype.hasStatus = function() {
+  return jspb.Message.getField(this, 4) != null;
 };
 
 

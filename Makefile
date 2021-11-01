@@ -32,7 +32,9 @@ build-web:
 buf:
 	buf lint
 	buf generate
-	buf generate --template ./etc/buf.web.gen.yaml buf.build/beta/googleapis:1c473ad9220a49bca9320f4cc690eba5
+	buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
+	go install golang.org/x/tools/cmd/goimports
+	`go env GOPATH`/bin/goimports -w -local=go.viam.com/core proto
 
 lint: goformat
 	buf lint

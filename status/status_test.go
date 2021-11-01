@@ -15,6 +15,7 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/sensor"
@@ -29,6 +30,9 @@ import (
 func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRemote bool) *inject.Robot {
 	injectRobot := &inject.Robot{}
 
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
+	}
 	injectRobot.ArmNamesFunc = func() []string {
 		return []string{"arm1", "arm2"}
 	}
@@ -69,6 +73,9 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return logger
 	}
 
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		return &fake.Arm{Name: name.Name}, true
+	}
 	injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
 		return &fake.Arm{Name: name}, true
 	}

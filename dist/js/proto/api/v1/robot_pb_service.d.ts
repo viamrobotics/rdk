@@ -41,6 +41,24 @@ type RobotServiceDoAction = {
   readonly responseType: typeof proto_api_v1_robot_pb.DoActionResponse;
 };
 
+type RobotServiceGantryCurrentPosition = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.GantryCurrentPositionRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.GantryCurrentPositionResponse;
+};
+
+type RobotServiceGantryMoveToPosition = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.GantryMoveToPositionRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.GantryMoveToPositionResponse;
+};
+
 type RobotServiceArmCurrentPosition = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -410,6 +428,33 @@ type RobotServiceServoCurrent = {
   readonly responseType: typeof proto_api_v1_robot_pb.ServoCurrentResponse;
 };
 
+type RobotServiceMotorGetPIDConfig = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.MotorGetPIDConfigRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.MotorGetPIDConfigResponse;
+};
+
+type RobotServiceMotorSetPIDConfig = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.MotorSetPIDConfigRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.MotorSetPIDConfigResponse;
+};
+
+type RobotServiceMotorPIDStep = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: true;
+  readonly requestType: typeof proto_api_v1_robot_pb.MotorPIDStepRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.MotorPIDStepResponse;
+};
+
 type RobotServiceMotorPower = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -608,12 +653,50 @@ type RobotServiceIMUOrientation = {
   readonly responseType: typeof proto_api_v1_robot_pb.IMUOrientationResponse;
 };
 
+type RobotServiceGPSLocation = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.GPSLocationRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.GPSLocationResponse;
+};
+
+type RobotServiceGPSAltitude = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.GPSAltitudeRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.GPSAltitudeResponse;
+};
+
+type RobotServiceGPSSpeed = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.GPSSpeedRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.GPSSpeedResponse;
+};
+
+type RobotServiceGPSAccuracy = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.GPSAccuracyRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.GPSAccuracyResponse;
+};
+
 export class RobotService {
   static readonly serviceName: string;
   static readonly Status: RobotServiceStatus;
   static readonly StatusStream: RobotServiceStatusStream;
   static readonly Config: RobotServiceConfig;
   static readonly DoAction: RobotServiceDoAction;
+  static readonly GantryCurrentPosition: RobotServiceGantryCurrentPosition;
+  static readonly GantryMoveToPosition: RobotServiceGantryMoveToPosition;
   static readonly ArmCurrentPosition: RobotServiceArmCurrentPosition;
   static readonly ArmMoveToPosition: RobotServiceArmMoveToPosition;
   static readonly ArmCurrentJointPositions: RobotServiceArmCurrentJointPositions;
@@ -655,6 +738,9 @@ export class RobotService {
   static readonly ExecuteSource: RobotServiceExecuteSource;
   static readonly ServoMove: RobotServiceServoMove;
   static readonly ServoCurrent: RobotServiceServoCurrent;
+  static readonly MotorGetPIDConfig: RobotServiceMotorGetPIDConfig;
+  static readonly MotorSetPIDConfig: RobotServiceMotorSetPIDConfig;
+  static readonly MotorPIDStep: RobotServiceMotorPIDStep;
   static readonly MotorPower: RobotServiceMotorPower;
   static readonly MotorGo: RobotServiceMotorGo;
   static readonly MotorGoFor: RobotServiceMotorGoFor;
@@ -677,6 +763,10 @@ export class RobotService {
   static readonly NavigationServiceRemoveWaypoint: RobotServiceNavigationServiceRemoveWaypoint;
   static readonly IMUAngularVelocity: RobotServiceIMUAngularVelocity;
   static readonly IMUOrientation: RobotServiceIMUOrientation;
+  static readonly GPSLocation: RobotServiceGPSLocation;
+  static readonly GPSAltitude: RobotServiceGPSAltitude;
+  static readonly GPSSpeed: RobotServiceGPSSpeed;
+  static readonly GPSAccuracy: RobotServiceGPSAccuracy;
 }
 
 export type ServiceError = { message: string, code: number; metadata: grpc.Metadata }
@@ -739,6 +829,24 @@ export class RobotServiceClient {
     requestMessage: proto_api_v1_robot_pb.DoActionRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.DoActionResponse|null) => void
   ): UnaryResponse;
+  gantryCurrentPosition(
+    requestMessage: proto_api_v1_robot_pb.GantryCurrentPositionRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GantryCurrentPositionResponse|null) => void
+  ): UnaryResponse;
+  gantryCurrentPosition(
+    requestMessage: proto_api_v1_robot_pb.GantryCurrentPositionRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GantryCurrentPositionResponse|null) => void
+  ): UnaryResponse;
+  gantryMoveToPosition(
+    requestMessage: proto_api_v1_robot_pb.GantryMoveToPositionRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GantryMoveToPositionResponse|null) => void
+  ): UnaryResponse;
+  gantryMoveToPosition(
+    requestMessage: proto_api_v1_robot_pb.GantryMoveToPositionRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GantryMoveToPositionResponse|null) => void
+  ): UnaryResponse;
   armCurrentPosition(
     requestMessage: proto_api_v1_robot_pb.ArmCurrentPositionRequest,
     metadata: grpc.Metadata,
@@ -1108,6 +1216,25 @@ export class RobotServiceClient {
     requestMessage: proto_api_v1_robot_pb.ServoCurrentRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoCurrentResponse|null) => void
   ): UnaryResponse;
+  motorGetPIDConfig(
+    requestMessage: proto_api_v1_robot_pb.MotorGetPIDConfigRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorGetPIDConfigResponse|null) => void
+  ): UnaryResponse;
+  motorGetPIDConfig(
+    requestMessage: proto_api_v1_robot_pb.MotorGetPIDConfigRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorGetPIDConfigResponse|null) => void
+  ): UnaryResponse;
+  motorSetPIDConfig(
+    requestMessage: proto_api_v1_robot_pb.MotorSetPIDConfigRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorSetPIDConfigResponse|null) => void
+  ): UnaryResponse;
+  motorSetPIDConfig(
+    requestMessage: proto_api_v1_robot_pb.MotorSetPIDConfigRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorSetPIDConfigResponse|null) => void
+  ): UnaryResponse;
+  motorPIDStep(requestMessage: proto_api_v1_robot_pb.MotorPIDStepRequest, metadata?: grpc.Metadata): ResponseStream<proto_api_v1_robot_pb.MotorPIDStepResponse>;
   motorPower(
     requestMessage: proto_api_v1_robot_pb.MotorPowerRequest,
     metadata: grpc.Metadata,
@@ -1297,6 +1424,42 @@ export class RobotServiceClient {
   iMUOrientation(
     requestMessage: proto_api_v1_robot_pb.IMUOrientationRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.IMUOrientationResponse|null) => void
+  ): UnaryResponse;
+  gPSLocation(
+    requestMessage: proto_api_v1_robot_pb.GPSLocationRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GPSLocationResponse|null) => void
+  ): UnaryResponse;
+  gPSLocation(
+    requestMessage: proto_api_v1_robot_pb.GPSLocationRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GPSLocationResponse|null) => void
+  ): UnaryResponse;
+  gPSAltitude(
+    requestMessage: proto_api_v1_robot_pb.GPSAltitudeRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GPSAltitudeResponse|null) => void
+  ): UnaryResponse;
+  gPSAltitude(
+    requestMessage: proto_api_v1_robot_pb.GPSAltitudeRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GPSAltitudeResponse|null) => void
+  ): UnaryResponse;
+  gPSSpeed(
+    requestMessage: proto_api_v1_robot_pb.GPSSpeedRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GPSSpeedResponse|null) => void
+  ): UnaryResponse;
+  gPSSpeed(
+    requestMessage: proto_api_v1_robot_pb.GPSSpeedRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GPSSpeedResponse|null) => void
+  ): UnaryResponse;
+  gPSAccuracy(
+    requestMessage: proto_api_v1_robot_pb.GPSAccuracyRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GPSAccuracyResponse|null) => void
+  ): UnaryResponse;
+  gPSAccuracy(
+    requestMessage: proto_api_v1_robot_pb.GPSAccuracyRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GPSAccuracyResponse|null) => void
   ): UnaryResponse;
 }
 

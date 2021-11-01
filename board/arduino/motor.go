@@ -76,8 +76,14 @@ func (b *arduinoBoard) configureMotor(config config.Component, motorConfig *moto
 	if res != "ok" {
 		return nil, fmt.Errorf("got unknown response when configureMotor %s", res)
 	}
-
-	m, err := gpio.NewEncodedMotor(config, *motorConfig, &arduinoMotor{b, *motorConfig, config.Name}, &encoder{b, *motorConfig, config.Name}, b.logger)
+	var pid motor.PID
+	if motorConfig.PID != nil {
+		pid, err = motor.CreatePID(motorConfig.PID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	m, err := gpio.NewEncodedMotor(config, *motorConfig, &arduinoMotor{b, *motorConfig, config.Name, pid}, &encoder{b, *motorConfig, config.Name}, b.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -107,6 +113,11 @@ type arduinoMotor struct {
 	b    *arduinoBoard
 	cfg  motor.Config
 	name string
+	pid  motor.PID
+}
+
+func (m *arduinoMotor) PID() motor.PID {
+	return m.pid
 }
 
 // Power sets the percentage of power the motor should employ between 0-1.
