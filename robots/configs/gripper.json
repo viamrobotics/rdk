@@ -81,7 +81,7 @@
         "model": "viam-v2",
         "parent": "",
         "attributes": {
-          "pressureLimit": 30,
+          "pressureLimit": 15,
           "forcematrix": "forcematrixWithMuxOnGripper"
         },
         "depends_on": [
