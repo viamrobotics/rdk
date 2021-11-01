@@ -48,6 +48,7 @@ func TestFourWheelBase1(t *testing.T) {
 		rlog.Logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
+	defer test.That(t, r.Close(), test.ShouldBeNil)
 
 	_, err = CreateFourWheelBase(context.Background(), r, config.Component{}, rlog.Logger)
 	test.That(t, err, test.ShouldNotBeNil)

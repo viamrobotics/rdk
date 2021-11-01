@@ -26,6 +26,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
+	defer r.Close()
 
 	// use fake registrations to have a FrameSystem return
 	fs, err := r.FrameSystem(context.Background())
@@ -132,6 +133,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.FrameSystem(context.Background())
 	test.That(t, err, test.ShouldBeError, errors.New("the frame system is not fully connected, expected 11 frames but frame system has 9. Expected frames are: [cameraOver cameraOver_offset compass2 compass2_offset lidar1 lidar1_offset pieceArm pieceArm_offset pieceGripper pieceGripper_offset world]. Actual frames are: [cameraOver cameraOver_offset lidar1 lidar1_offset pieceArm pieceArm_offset pieceGripper pieceGripper_offset world]"))
+	test.That(t, r.Close(), test.ShouldBeNil)
 
 	cfg, err = config.Read("data/fake_wrongconfig2.json") // no world node
 	test.That(t, err, test.ShouldBeNil)
@@ -139,6 +141,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.FrameSystem(context.Background())
 	test.That(t, err, test.ShouldBeError, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'"))
+	test.That(t, r.Close(), test.ShouldBeNil)
 
 	cfg, err = config.Read("data/fake_wrongconfig3.json") // one of the nodes was given the name world
 	test.That(t, err, test.ShouldBeNil)
@@ -146,6 +149,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.FrameSystem(context.Background())
 	test.That(t, err, test.ShouldBeError, errors.New("cannot have more than one frame with name world"))
+	test.That(t, r.Close(), test.ShouldBeNil)
 
 	cfg, err = config.Read("data/fake_wrongconfig4.json") // the parent field was left empty for a component
 	test.That(t, err, test.ShouldBeNil)
@@ -153,6 +157,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.FrameSystem(context.Background())
 	test.That(t, err, test.ShouldBeError, errors.New("parent field in component \"cameraOver\" is empty"))
+	test.That(t, r.Close(), test.ShouldBeNil)
 }
 
 func pointAlmostEqual(t *testing.T, from, to r3.Vector) {
