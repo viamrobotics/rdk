@@ -325,9 +325,12 @@ func (rr *remoteRobot) Config(ctx context.Context) (*config.Config, error) {
 }
 
 // FrameSystem will return the frame system from the remote robot's server
-// TODO(bijan) : How to wrap the frame names in the FrameSystem with the remoteRobot's prefix??
-func (rr *remoteRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
-	fs, err := rr.robot.FrameSystem(ctx)
+// if prefix is empty, remote robot will use the prefix as specified by the config file.
+func (rr *remoteRobot) FrameSystem(ctx context.Context, prefix string) (referenceframe.FrameSystem, error) {
+	if prefix == "" && rr.conf.Prefix {
+		prefix = rr.prefixName(prefix)
+	}
+	fs, err := rr.robot.FrameSystem(ctx, prefix)
 	if err != nil {
 		return nil, err
 	}

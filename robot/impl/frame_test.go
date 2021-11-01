@@ -29,7 +29,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// use fake registrations to have a FrameSystem return
-	fs, err := r.FrameSystem(context.Background())
+	fs, err := r.FrameSystem(context.Background(), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 10) // 5 frames defined, 10 frames when including the offset
 

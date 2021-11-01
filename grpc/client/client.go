@@ -651,7 +651,7 @@ func (rc *RobotClient) Logger() golog.Logger {
 }
 
 // FrameSystem retrieves a DAG of the remote frame names and then builds a FrameSystem using *clientFrames
-func (rc *RobotClient) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
+func (rc *RobotClient) FrameSystem(ctx context.Context, prefix string) (referenceframe.FrameSystem, error) {
 	// request the DAG from the remote robot's frame system service.FrameSystemDAG()
 	resp, err := rc.client.FrameServiceDAG(ctx, &pb.FrameServiceDAGRequest{})
 	if err != nil {
@@ -661,8 +661,12 @@ func (rc *RobotClient) FrameSystem(ctx context.Context) (referenceframe.FrameSys
 	dag := resp.Nodes
 	fs := referenceframe.NewEmptySimpleFrameSystem("robot")
 	for _, node := range dag {
-		frame := &frameClient{rc: rc, name: node.Name}
-		err := fs.AddFrame(frame, fs.GetFrame(node.Parent))
+		frame := &frameClient{rc: rc, name: node.Name, prefixedName: prefix + node.Name}
+		parentName := node.Parent
+		if parentName != referenceframe.World {
+			parentName = prefix + parentName
+		}
+		err := fs.AddFrame(frame, fs.GetFrame(parentName))
 		if err != nil {
 			return nil, fmt.Errorf("adding clientFrame to remote frame system:  %w", err)
 		}
@@ -672,14 +676,17 @@ func (rc *RobotClient) FrameSystem(ctx context.Context) (referenceframe.FrameSys
 }
 
 // frameClient satisfies a gRPC based referenceframe.Frame. Refer to the interface
-// for desscriptions of its methods.
+// for descriptions of its methods. "name" refers to the name of the frame as known by the service,
+// and "prefixName" refers to the name of the frame as its known by the local robot, which may have added
+// a prefix to the robot part.
 type frameClient struct {
-	rc   *RobotClient
-	name string
+	rc           *RobotClient
+	name         string
+	prefixedName string
 }
 
 func (fc *frameClient) Name() string {
-	return fc.name
+	return fc.prefixedName
 }
 
 func (fc *frameClient) Transform(ctx context.Context, inputs []referenceframe.Input) (spatialmath.Pose, error) {
