@@ -325,9 +325,9 @@ func (rr *remoteRobot) Config(ctx context.Context) (*config.Config, error) {
 }
 
 // FrameSystem will return the frame system from the remote robot's server
-// if prefix is empty, remote robot will use the prefix as specified by the config file.
+// remoteRobot may add on its own prefix if specified by the config file.
 func (rr *remoteRobot) FrameSystem(ctx context.Context, prefix string) (referenceframe.FrameSystem, error) {
-	if prefix == "" && rr.conf.Prefix {
+	if rr.conf.Prefix {
 		prefix = rr.prefixName(prefix)
 	}
 	fs, err := rr.robot.FrameSystem(ctx, prefix)

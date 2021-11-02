@@ -218,7 +218,7 @@ func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions,
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	joints, err := ua.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -227,7 +227,7 @@ func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 	joints, err := ua.CurrentJointPositions(ctx)
 	if err != nil {
 		return err

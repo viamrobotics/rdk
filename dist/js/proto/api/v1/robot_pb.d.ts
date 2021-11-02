@@ -157,8 +157,8 @@ export class ComponentConfig extends jspb.Message {
 
   hasPose(): boolean;
   clearPose(): void;
-  getPose(): ArmPosition | undefined;
-  setPose(value?: ArmPosition): void;
+  getPose(): Pose | undefined;
+  setPose(value?: Pose): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ComponentConfig.AsObject;
@@ -175,7 +175,7 @@ export namespace ComponentConfig {
     name: string,
     type: string,
     parent: string,
-    pose?: ArmPosition.AsObject,
+    pose?: Pose.AsObject,
   }
 }
 
@@ -284,8 +284,8 @@ export namespace GantryStatus {
 export class ArmStatus extends jspb.Message {
   hasGridPosition(): boolean;
   clearGridPosition(): void;
-  getGridPosition(): ArmPosition | undefined;
-  setGridPosition(value?: ArmPosition): void;
+  getGridPosition(): Pose | undefined;
+  setGridPosition(value?: Pose): void;
 
   hasJointPositions(): boolean;
   clearJointPositions(): void;
@@ -304,12 +304,12 @@ export class ArmStatus extends jspb.Message {
 
 export namespace ArmStatus {
   export type AsObject = {
-    gridPosition?: ArmPosition.AsObject,
+    gridPosition?: Pose.AsObject,
     jointPositions?: JointPositions.AsObject,
   }
 }
 
-export class ArmPosition extends jspb.Message {
+export class Pose extends jspb.Message {
   getX(): number;
   setX(value: number): void;
 
@@ -332,16 +332,16 @@ export class ArmPosition extends jspb.Message {
   setTheta(value: number): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): ArmPosition.AsObject;
-  static toObject(includeInstance: boolean, msg: ArmPosition): ArmPosition.AsObject;
+  toObject(includeInstance?: boolean): Pose.AsObject;
+  static toObject(includeInstance: boolean, msg: Pose): Pose.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: ArmPosition, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): ArmPosition;
-  static deserializeBinaryFromReader(message: ArmPosition, reader: jspb.BinaryReader): ArmPosition;
+  static serializeBinaryToWriter(message: Pose, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): Pose;
+  static deserializeBinaryFromReader(message: Pose, reader: jspb.BinaryReader): Pose;
 }
 
-export namespace ArmPosition {
+export namespace Pose {
   export type AsObject = {
     x: number,
     y: number,
@@ -441,10 +441,10 @@ export class FrameServiceTransformRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
-  hasInputs(): boolean;
-  clearInputs(): void;
-  getInputs(): JointPositions | undefined;
-  setInputs(value?: JointPositions): void;
+  clearInputsList(): void;
+  getInputsList(): Array<number>;
+  setInputsList(value: Array<number>): void;
+  addInputs(value: number, index?: number): number;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): FrameServiceTransformRequest.AsObject;
@@ -459,15 +459,15 @@ export class FrameServiceTransformRequest extends jspb.Message {
 export namespace FrameServiceTransformRequest {
   export type AsObject = {
     name: string,
-    inputs?: JointPositions.AsObject,
+    inputsList: Array<number>,
   }
 }
 
 export class FrameServiceTransformResponse extends jspb.Message {
   hasPose(): boolean;
   clearPose(): void;
-  getPose(): ArmPosition | undefined;
-  setPose(value?: ArmPosition): void;
+  getPose(): Pose | undefined;
+  setPose(value?: Pose): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): FrameServiceTransformResponse.AsObject;
@@ -481,7 +481,7 @@ export class FrameServiceTransformResponse extends jspb.Message {
 
 export namespace FrameServiceTransformResponse {
   export type AsObject = {
-    pose?: ArmPosition.AsObject,
+    pose?: Pose.AsObject,
   }
 }
 
@@ -574,8 +574,8 @@ export namespace ArmCurrentPositionRequest {
 export class ArmCurrentPositionResponse extends jspb.Message {
   hasPosition(): boolean;
   clearPosition(): void;
-  getPosition(): ArmPosition | undefined;
-  setPosition(value?: ArmPosition): void;
+  getPosition(): Pose | undefined;
+  setPosition(value?: Pose): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ArmCurrentPositionResponse.AsObject;
@@ -589,7 +589,7 @@ export class ArmCurrentPositionResponse extends jspb.Message {
 
 export namespace ArmCurrentPositionResponse {
   export type AsObject = {
-    position?: ArmPosition.AsObject,
+    position?: Pose.AsObject,
   }
 }
 
@@ -641,8 +641,8 @@ export class ArmMoveToPositionRequest extends jspb.Message {
 
   hasTo(): boolean;
   clearTo(): void;
-  getTo(): ArmPosition | undefined;
-  setTo(value?: ArmPosition): void;
+  getTo(): Pose | undefined;
+  setTo(value?: Pose): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ArmMoveToPositionRequest.AsObject;
@@ -657,7 +657,7 @@ export class ArmMoveToPositionRequest extends jspb.Message {
 export namespace ArmMoveToPositionRequest {
   export type AsObject = {
     name: string,
-    to?: ArmPosition.AsObject,
+    to?: Pose.AsObject,
   }
 }
 

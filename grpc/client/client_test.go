@@ -49,7 +49,7 @@ import (
 var emptyStatus = &pb.Status{
 	Arms: map[string]*pb.ArmStatus{
 		"arm1": {
-			GridPosition: &pb.ArmPosition{
+			GridPosition: &pb.Pose{
 				X:     0.0,
 				Y:     0.0,
 				Z:     0.0,
@@ -120,7 +120,7 @@ var emptyResources = []resource.Name{arm.Named("arm1")}
 var finalStatus = &pb.Status{
 	Arms: map[string]*pb.ArmStatus{
 		"arm2": {
-			GridPosition: &pb.ArmPosition{
+			GridPosition: &pb.Pose{
 				X:     0.0,
 				Y:     0.0,
 				Z:     0.0,
@@ -134,7 +134,7 @@ var finalStatus = &pb.Status{
 			},
 		},
 		"arm3": {
-			GridPosition: &pb.ArmPosition{
+			GridPosition: &pb.Pose{
 				X:     0.0,
 				Y:     0.0,
 				Z:     0.0,
@@ -304,14 +304,14 @@ func TestClient(t *testing.T) {
 		return injectBase, true
 	}
 	injectArm := &inject.Arm{}
-	var capArmPos *pb.ArmPosition
-	injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.ArmPosition, error) {
+	var capArmPos *pb.Pose
+	injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.Pose, error) {
 		return emptyStatus.Arms["arm1"].GridPosition, nil
 	}
 	injectArm.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
 		return emptyStatus.Arms["arm1"].JointPositions, nil
 	}
-	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.ArmPosition) error {
+	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.Pose) error {
 		capArmPos = ap
 		return nil
 	}
@@ -715,7 +715,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = arm1.MoveToPosition(context.Background(), &pb.ArmPosition{X: 1})
+	err = arm1.MoveToPosition(context.Background(), &pb.Pose{X: 1})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -841,7 +841,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = resource1.(*armClient).MoveToPosition(context.Background(), &pb.ArmPosition{X: 1})
+	err = resource1.(*armClient).MoveToPosition(context.Background(), &pb.Pose{X: 1})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -904,7 +904,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, jp.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].JointPositions.String())
 
-	pos = &pb.ArmPosition{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
+	pos = &pb.Pose{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
 	err = arm1.MoveToPosition(context.Background(), pos)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capArmPos.String(), test.ShouldResemble, pos.String())
@@ -1257,7 +1257,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, jp.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].JointPositions.String())
 
-	pos = &pb.ArmPosition{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
+	pos = &pb.Pose{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
 	err = resource1.(*armClient).MoveToPosition(context.Background(), pos)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capArmPos.String(), test.ShouldResemble, pos.String())

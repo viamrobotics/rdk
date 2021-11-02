@@ -372,7 +372,7 @@ func (x *xArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (x *xArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (x *xArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	joints, err := x.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -381,7 +381,7 @@ func (x *xArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (x *xArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+func (x *xArm) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 	joints, err := x.CurrentJointPositions(ctx)
 	if err != nil {
 		return err

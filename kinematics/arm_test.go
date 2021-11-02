@@ -34,7 +34,7 @@ func TestCombinedIKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test ability to arrive at another position
-	pos := &pb.ArmPosition{
+	pos := &pb.Pose{
 		X:  -46,
 		Y:  -133,
 		Z:  372,
@@ -46,7 +46,7 @@ func TestCombinedIKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test moving forward 20 in X direction from previous position
-	pos = &pb.ArmPosition{
+	pos = &pb.Pose{
 		X:  -66,
 		Y:  -133,
 		Z:  372,
@@ -110,7 +110,7 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
-	pos := &pb.ArmPosition{
+	pos := &pb.Pose{
 		X:  -46,
 		Y:  0,
 		Z:  372,

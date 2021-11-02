@@ -92,7 +92,7 @@ func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, er
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (e *eva) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (e *eva) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	joints, err := e.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func (e *eva) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (e *eva) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+func (e *eva) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 	joints, err := e.CurrentJointPositions(ctx)
 	if err != nil {
 		return err

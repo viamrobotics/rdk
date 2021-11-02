@@ -129,7 +129,7 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (a *Arm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -138,7 +138,7 @@ func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (a *Arm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+func (a *Arm) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err

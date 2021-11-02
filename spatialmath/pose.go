@@ -62,9 +62,9 @@ func NewPoseFromPoint(point r3.Vector) Pose {
 	return quat
 }
 
-// NewPoseFromArmPos creates a new pose from an arm position
-func NewPoseFromArmPos(pos *pb.ArmPosition) Pose {
-	return newdualQuaternionFromArmPos(pos)
+// NewPoseFromProtobuf creates a new pose from a protobuf pose
+func NewPoseFromProtobuf(pos *pb.Pose) Pose {
+	return newdualQuaternionFromProtobuf(pos)
 }
 
 // NewPoseFromDH creates a new pose from denavit hartenberg parameters.
@@ -114,9 +114,9 @@ func PoseDelta(a, b Pose) []float64 {
 	return ret
 }
 
-// PoseToArmPos converts a pose to an arm position
-func PoseToArmPos(p Pose) *pb.ArmPosition {
-	final := &pb.ArmPosition{}
+// PoseToProtobuf converts a pose to the pose format protobuf expects (which is as OrientationVectorDegrees)
+func PoseToProtobuf(p Pose) *pb.Pose {
+	final := &pb.Pose{}
 	pt := p.Point()
 	final.X = pt.X
 	final.Y = pt.Y
