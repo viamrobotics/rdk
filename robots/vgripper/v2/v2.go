@@ -121,7 +121,7 @@ func NewGripperV2(ctx context.Context, r robot.Robot, config config.Component, l
 		logger:          logger,
 	}
 
-	err = vg.calibrate_v2(ctx, logger)
+	err = vg.calibrate(ctx, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -129,9 +129,9 @@ func NewGripperV2(ctx context.Context, r robot.Robot, config config.Component, l
 	return vg, vg.Open(ctx)
 }
 
-// calibrate_v2 finds the open and close position, as well as which motor direction
+// calibrate finds the open and close position, as well as which motor direction
 // corresponds to opening and closing the gripper.
-func (vg *GripperV2) calibrate_v2(ctx context.Context, logger golog.Logger) error {
+func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 	var pressureOpen, pressureClosed float64
 
 	// This will be passed to GoTillStop
@@ -156,7 +156,7 @@ func (vg *GripperV2) calibrate_v2(ctx context.Context, logger golog.Logger) erro
 	if err != nil {
 		return err
 	}
-	pressure, err := vg.readAveragePressure(ctx)
+	pressure, err := vg.readRobustAveragePressure(ctx, numMeasurements)
 	if err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func (vg *GripperV2) calibrate_v2(ctx context.Context, logger golog.Logger) erro
 	if err != nil {
 		return err
 	}
-	pressure, err = vg.readAveragePressure(ctx)
+	pressure, err = vg.readRobustAveragePressure(ctx, numMeasurements)
 	if err != nil {
 		return err
 	}
@@ -200,52 +200,17 @@ func (vg *GripperV2) calibrate_v2(ctx context.Context, logger golog.Logger) erro
 
 	// Sanity check; if the pressure difference between open & closed position is too small,
 	// something went wrong
+	// TODO: I think this has to be improved; think more about it
 	if math.Abs(float64(pressureOpen-pressureClosed)) < vg.pressureLimit/2 {
 		return errors.Errorf("init: pressure same open and closed, something is wrong, positions (closed, open): %f %f, pressures (closed, open): %t %t",
 			vg.closePos, vg.openPos, pressureClosed, pressureOpen)
 	}
 
-	// var noPressureCount int
-	// // This will be passed to GoTillStop
-	// stopFuncNoPressure := func(ctx context.Context) bool {
-	// 	if stopFuncHighCurrent(ctx) {
-	// 		return true
-	// 	}
-	// 	pressure, err := vg.readAveragePressure(ctx)
-	// 	if err != nil {
-	// 		logger.Error(err)
-	// 		return true
-	// 	}
-	// 	if pressure < vg.pressureLimit {
-	// 		if noPressureCount > 3 {
-	// 			return true
-	// 		} else {
-	// 			noPressureCount++
-	// 		}
-	// 	}
-	// 	return false
-	// }
-
-	// var pressureCount int
-	// // This will be passed to GoTillStop
-	// stopFuncPressure := func(ctx context.Context) bool {
-	// 	if stopFuncHighCurrent(ctx) {
-	// 		return true
-	// 	}
-	// 	pressure, err := vg.readAveragePressure(ctx)
-	// 	if err != nil {
-	// 		logger.Error(err)
-	// 		return true
-	// 	}
-	// 	if pressure >= vg.pressureLimit {
-	// 		if pressureCount > 3 {
-	// 			return true
-	// 		} else {
-	// 			pressureCount++
-	// 		}
-	// 	}
-	// 	return false
-	// }
+	if math.Signbit(vg.openPos - vg.closePos) {
+		vg.openPos += OpenPosOffset
+	} else {
+		vg.openPos -= OpenPosOffset
+	}
 
 	return nil
 }
@@ -273,6 +238,8 @@ func (vg *GripperV2) Open(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		// TODO: shouldn't this also check if the gripper is in the correct "open" position?
+		// First: Understand the positions & dimensions of them
 		if !isOn {
 			return nil
 		}
@@ -287,8 +254,8 @@ func (vg *GripperV2) Open(ctx context.Context) error {
 
 		total += msPer
 		if total > 5000 {
-			now, err := vg.motor.Position(ctx)
-			return vg.stopAfterError(ctx, multierr.Combine(errors.Errorf("open timed out, wanted: %f at: %f", vg.openPos, now), err))
+			measuredPos, err := vg.motor.Position(ctx)
+			return vg.stopAfterError(ctx, multierr.Combine(errors.Errorf("open timed out, wanted: %f at: %f", vg.openPos, measuredPos), err))
 		}
 	}
 }
@@ -316,6 +283,9 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 		if err != nil {
 			return false, vg.stopAfterError(ctx, err)
 		}
+
+		// TODO: Isn't this supposed to check if the motor actually is near the closed position?
+		// Instead of just checking if the motor is off?
 		if !isOn {
 			return false, nil
 		}
@@ -387,26 +357,37 @@ func (vg *GripperV2) readCurrent(ctx context.Context) (int, error) {
 	return vg.current.Read(ctx)
 }
 
-// readAveragePressure reads the pressure multiple times and returns the average over
-// all matrix cells and number of measurements
-func (vg *GripperV2) readAveragePressure(ctx context.Context) (float64, error) {
+// readRobustAveragePressure reads the pressure multiple times and returns the average over
+// all matrix cells and number of measurements.
+func (vg *GripperV2) readRobustAveragePressure(ctx context.Context, numMeasurements int) (float64, error) {
 	var averagePressure float64
 	for i := 0; i < numMeasurements; i++ {
-		matrix, err := vg.forceMatrix.Matrix(ctx)
+		avgPressure, err := vg.readAveragePressure(ctx)
 		if err != nil {
 			return 0, err
 		}
-
-		sum := 0
-		for r := range matrix {
-			for _, v := range matrix[r] {
-				sum += v
-			}
-		}
-		averagePressure += float64(sum / (len(matrix) * len(matrix[0])))
+		averagePressure += avgPressure
 	}
 	averagePressure /= float64(numMeasurements)
 	fmt.Println(averagePressure)
+	return averagePressure, nil
+}
+
+// readAveragePressure reads the ForceMatrix sensors and returns the average over
+// all matrix cells.
+func (vg *GripperV2) readAveragePressure(ctx context.Context) (float64, error) {
+	matrix, err := vg.forceMatrix.Matrix(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	sum := 0
+	for r := range matrix {
+		for _, v := range matrix[r] {
+			sum += v
+		}
+	}
+	averagePressure := float64(sum / (len(matrix) * len(matrix[0])))
 	return averagePressure, nil
 }
 
@@ -417,16 +398,18 @@ func (vg *GripperV2) hasPressure(ctx context.Context) (bool, float64, error) {
 	return p > float64(vg.pressureLimit), p, err
 }
 
-func (vg *GripperV2) analogs(ctx context.Context) (hasPressure bool, pressure float64, current int, err error) {
-	hasPressure, pressure, err = vg.hasPressure(ctx)
+// analogs returns analog measurements such as the average pressure from the ForceMatrix, current, and
+// a boolean that indicates if the average pressure is above the pressure limit.
+func (vg *GripperV2) analogs(ctx context.Context) (bool, float64, int, error) {
+	hasPressure, pressure, err := vg.hasPressure(ctx)
 	if err != nil {
-		return
+		return false, 0, 0, err
 	}
 
-	current, err = vg.readCurrent(ctx)
+	current, err := vg.readCurrent(ctx)
 	if err != nil {
-		return
+		return false, 0, 0, err
 	}
 
-	return
+	return hasPressure, pressure, current, nil
 }
