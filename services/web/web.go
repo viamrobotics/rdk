@@ -325,11 +325,10 @@ type webService struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// Start starts the web server, will log an error and return if server is already up
+// Start starts the web server, will return an error if server is already up
 func (svc *webService) Start(ctx context.Context, o Options) error {
 	if svc.cancelFunc != nil {
-		svc.logger.Debug("Server already started. Returning")
-		return nil
+		return errors.New("web server already started")
 	}
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	svc.cancelFunc = cancelFunc
