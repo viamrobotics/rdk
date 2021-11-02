@@ -327,34 +327,14 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	}
 	ctx = service.ContextWithService(ctx, metadataSvc)
 
-	options := web.NewOptions()
-	options.AutoTile = !argsParsed.NoAutoTile
-	options.Pprof = argsParsed.WebProfile
-	options.Port = int(argsParsed.Port)
-	options.SharedDir = argsParsed.SharedDir
-	options.Debug = argsParsed.Debug
-	options.WebRTC = argsParsed.WebRTC
-	if cfg.Cloud != nil {
-		options.Name = cfg.Cloud.Self
-		options.SignalingAddress = cfg.Cloud.SignalingAddress
-		if argsParsed.LocalCloud {
-			options.Insecure = true
-		}
-	} else {
-		options.Insecure = true
-	}
-	ctx = web.ContextWithOptions(ctx, options)
-
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
-		cancel()
 		return err
 	}
 
 	// watch for and deliver changes to the robot
 	watcher, err := config.NewWatcher(cfg, logger)
 	if err != nil {
-		cancel()
 		return err
 	}
 	defer func() {
@@ -375,6 +355,31 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	}, func() {
 		close(onWatchDone)
 	})
+
+	options := web.NewOptions()
+	options.AutoTile = !argsParsed.NoAutoTile
+	options.Pprof = argsParsed.WebProfile
+	options.Port = int(argsParsed.Port)
+	options.SharedDir = argsParsed.SharedDir
+	options.Debug = argsParsed.Debug
+	options.WebRTC = argsParsed.WebRTC
+	if cfg.Cloud != nil {
+		options.Name = cfg.Cloud.Self
+		options.SignalingAddress = cfg.Cloud.SignalingAddress
+		if argsParsed.LocalCloud {
+			options.Insecure = true
+		}
+	} else {
+		options.Insecure = true
+	}
+	svc, ok := myRobot.ServiceByName("web1")
+	if !ok {
+		return errors.New("robot has no web service")
+	}
+	if err := svc.(web.Service).Start(ctx, options); err != nil {
+		cancel()
+		return err
+	}
 	<-onWatchDone
 	return myRobot.Close()
 }
