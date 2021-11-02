@@ -326,7 +326,6 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		return err
 	}
 	ctx = service.ContextWithService(ctx, metadataSvc)
-
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
