@@ -41,7 +41,7 @@ func init() {
 	})
 }
 
-// TODO
+// Parameters for calibration & operating the gripper
 const (
 	TargetRPM               = 200
 	MaxCurrent              = 300
@@ -49,6 +49,7 @@ const (
 	MinRotationGap          = 4.0
 	MaxRotationGap          = 5.0
 	OpenPosOffset           = 0.4 // Reduce maximum opening width, keeps out of mechanical binding region
+	numMeasurements         = 10  // Number of measurements at each end position taken when calibrating the gripper
 )
 
 // GripperV2 represents a Viam gripper
@@ -61,7 +62,7 @@ type GripperV2 struct {
 
 	holdingPressure float32
 
-	pressureLimit int
+	pressureLimit float64
 
 	closeDirection, openDirection pb.DirectionRelative
 	logger                        golog.Logger
@@ -109,7 +110,7 @@ func NewGripperV2(ctx context.Context, r robot.Robot, config config.Component, l
 		return nil, errors.Errorf("(%v) is not a forceMatrix device", forceMatrixName)
 	}
 
-	pressureLimit := config.Attributes.Int("pressureLimit", 30)
+	pressureLimit := config.Attributes.Float64("pressureLimit", 30)
 
 	vg := &GripperV2{
 		motor:           motor,
@@ -131,7 +132,7 @@ func NewGripperV2(ctx context.Context, r robot.Robot, config config.Component, l
 // calibrate_v2 finds the open and close position, as well as which motor direction
 // corresponds to opening and closing the gripper.
 func (vg *GripperV2) calibrate_v2(ctx context.Context, logger golog.Logger) error {
-	var pressureOpen, pressureClosed int
+	var pressureOpen, pressureClosed float64
 
 	// This will be passed to GoTillStop
 	stopFuncHighCurrent := func(ctx context.Context) bool {
@@ -199,7 +200,7 @@ func (vg *GripperV2) calibrate_v2(ctx context.Context, logger golog.Logger) erro
 
 	// Sanity check; if the pressure difference between open & closed position is too small,
 	// something went wrong
-	if math.Abs(float64(pressureOpen-pressureClosed)) < float64(vg.pressureLimit)/2 {
+	if math.Abs(float64(pressureOpen-pressureClosed)) < vg.pressureLimit/2 {
 		return errors.Errorf("init: pressure same open and closed, something is wrong, positions (closed, open): %f %f, pressures (closed, open): %t %t",
 			vg.closePos, vg.openPos, pressureClosed, pressureOpen)
 	}
@@ -281,7 +282,7 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 			logger.Error(err)
 			return true
 		}
-		if pressure > vg.pressureLimit {
+		if pressure > float64(vg.pressureLimit) {
 			if localTest.nonPressureSeen {
 				localTest.pressureCount++
 			}
@@ -536,30 +537,33 @@ func (vg *GripperV2) readCurrent(ctx context.Context) (int, error) {
 	return vg.current.Read(ctx)
 }
 
-func (vg *GripperV2) readAveragePressure(ctx context.Context) (int, error) {
-	matrix, err := vg.forceMatrix.Matrix(ctx)
-	if err != nil {
-		return 0, err
-	}
-
-	sum := 0
-	for r := range matrix {
-		for _, v := range matrix[r] {
-			sum += v
+func (vg *GripperV2) readAveragePressure(ctx context.Context) (float64, error) {
+	var averagePressure float64
+	for i := 0; i < numMeasurements; i++ {
+		matrix, err := vg.forceMatrix.Matrix(ctx)
+		if err != nil {
+			return 0, err
 		}
-	}
 
-	averagePressure := sum / (len(matrix) * len(matrix[0]))
+		sum := 0
+		for r := range matrix {
+			for _, v := range matrix[r] {
+				sum += v
+			}
+		}
+		averagePressure += float64(sum / (len(matrix) * len(matrix[0])))
+	}
+	averagePressure /= float64(numMeasurements)
 	fmt.Println(averagePressure)
 	return averagePressure, nil
 }
 
-func (vg *GripperV2) hasPressure(ctx context.Context) (bool, int, error) {
+func (vg *GripperV2) hasPressure(ctx context.Context) (bool, float64, error) {
 	p, err := vg.readAveragePressure(ctx)
-	return p > vg.pressureLimit, p, err
+	return p > float64(vg.pressureLimit), p, err
 }
 
-func (vg *GripperV2) analogs(ctx context.Context) (hasPressure bool, pressure, current int, err error) {
+func (vg *GripperV2) analogs(ctx context.Context) (hasPressure bool, pressure float64, current int, err error) {
 	hasPressure, pressure, err = vg.hasPressure(ctx)
 	if err != nil {
 		return
