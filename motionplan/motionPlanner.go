@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
@@ -33,7 +34,8 @@ func NewLinearMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (M
 	if err != nil {
 		return nil, err
 	}
-	mp := &linearMotionPlanner{solver: ik, frame: frame, idealMovementScore: 0.3, logger: logger}
+	mp := &linearMotionPlanner{solver: ik, frame: frame, idealMovementScore: 0.3, logger: logger, validityCheck: testValidity}
+	mp.visited = map[r3.Vector]bool{}
 	mp.AddConstraint("interpolationConstraint", NewInterpolatingConstraint())
 	mp.AddConstraint("jointSwingScorer", NewJointScorer())
 	return mp, nil
@@ -44,9 +46,10 @@ type linearMotionPlanner struct {
 	constraintHandler
 	solver kinematics.InverseKinematics
 	frame   frame.Frame
-	validityCheck func([]frame.Input) bool // This can check for env collisions, self collisions, etc
+	validityCheck func([]frame.Input, spatial.Pose, frame.Frame) bool // This can check for env collisions, self collisions, etc
 	logger        golog.Logger
 	idealMovementScore float64
+	visited  map[r3.Vector]bool
 }
 
 func (mp *linearMotionPlanner) Frame() frame.Frame {
@@ -124,7 +127,7 @@ func (mp *linearMotionPlanner) stepLinearPlan(ctx context.Context, goal *pb.ArmP
 					// collision check if supported
 					// TODO: do a thing to get around the obstruction
 					if mp.validityCheck != nil {
-						if !mp.validityCheck(step) {
+						if !mp.validityCheck(step, nil, mp.frame) {
 							continue
 						}
 					}
@@ -265,4 +268,34 @@ func fixOvIncrement(pos, seed *pb.ArmPosition) *pb.ArmPosition {
 		OY:    pos.OY,
 		OZ:    pos.OZ,
 	}
+}
+
+// Simulates an obstacle
+func testValidity(step []frame.Input, goalPos spatial.Pose, f frame.Frame) bool {
+	checkPt := func(pose spatial.Pose) bool {
+		pt := pose.Point()
+		if pt.X > 275 && pt.X < 350 {
+			if pt.Y < 50 && pt.Y > -50 {
+				if pt.Z > 70 && pt.Z < 170 {
+					return false
+				}
+			}
+		}
+		return true
+	}
+	if step != nil {
+		seedPos, err := f.Transform(step)
+		if err != nil {
+			return false
+		}
+		if !checkPt(seedPos) {
+			return false
+		}
+	}
+	if goalPos != nil {
+		if !checkPt(goalPos) {
+			return false
+		}
+	}
+	return true 
 }

@@ -30,13 +30,13 @@ func getNextPosTries(seedPos, goalPos spatial.Pose) []spatial.Pose {
 	ovPt := goalPos.Point().Sub(seedPos.Point())
 	ov := &spatial.OrientationVector{OX:ovPt.X, OY: ovPt.Y, OZ:ovPt.Z}
 	movementOV := spatial.NewPoseFromOrientationVector(r3.Vector{}, ov)
-	step := spatial.NewPoseFromPoint(r3.Vector{3,0,1})
+	step := spatial.NewPoseFromPoint(r3.Vector{10,0,1})
 	toTry = append(toTry, spatial.Compose(seedPos, spatial.NewPoseFromPoint(spatial.Compose(movementOV, step).Point())))
-	step = spatial.NewPoseFromPoint(r3.Vector{-3,0,1})
+	step = spatial.NewPoseFromPoint(r3.Vector{0,10,1})
 	toTry = append(toTry, spatial.Compose(seedPos, spatial.NewPoseFromPoint(spatial.Compose(movementOV, step).Point())))
-	step = spatial.NewPoseFromPoint(r3.Vector{0,3,1})
+	step = spatial.NewPoseFromPoint(r3.Vector{-10,0,1})
 	toTry = append(toTry, spatial.Compose(seedPos, spatial.NewPoseFromPoint(spatial.Compose(movementOV, step).Point())))
-	step = spatial.NewPoseFromPoint(r3.Vector{0,-3,1})
+	step = spatial.NewPoseFromPoint(r3.Vector{0,-10,1})
 	toTry = append(toTry, spatial.Compose(seedPos, spatial.NewPoseFromPoint(spatial.Compose(movementOV, step).Point())))
 
 	return toTry
@@ -92,7 +92,7 @@ func (mp *linearMotionPlanner) tryDepthSolve(ctx context.Context, seed []frame.I
 				// collision check if supported
 				// TODO: do a thing to get around the obstruction
 				if mp.validityCheck != nil {
-					if !mp.validityCheck(step) {
+					if !mp.validityCheck(step, nil, mp.frame) {
 						continue
 					}
 				}
@@ -146,11 +146,24 @@ func (mp *linearMotionPlanner) tryDepthSolve(ctx context.Context, seed []frame.I
 		toTry := getNextPosTries(seedPos, goalPos)
 		
 		for i, attemptPos := range toTry {
+			
+			// check goal is valid
+			if !mp.validityCheck(nil, attemptPos, mp.frame) {
+				continue
+			}
+			
+			voxelPt := attemptPos.Point()
+			voxel := r3.Vector{float64(int(voxelPt.X)), float64(int(voxelPt.Y)), float64(int(voxelPt.Z))}
+			if mp.visited[voxel] {
+				continue
+			}
+			mp.visited[voxel] = true
+			
 			// Do not recurse if splitting
 			if len(toTry) < 5 || i > 1 {
 				fmt.Println("trying split", i)
 				fmt.Println(spatial.PoseToArmPos(attemptPos))
-				recurse = false
+				//~ recurse = false
 			}
 			steps, err := mp.tryDepthSolve(ctx, seed, attemptPos, recurse)
 			if err != nil {
