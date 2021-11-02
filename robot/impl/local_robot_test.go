@@ -74,16 +74,20 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ctx := service.ContextWithService(context.Background(), metadataSvc)
 
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	options := web.NewOptions()
-	options.Port = port
-	ctx = web.ContextWithOptions(ctx, options)
 	r, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r.Close(), test.ShouldBeNil)
 	}()
+
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	options := web.NewOptions()
+	options.Port = port
+	svc, ok := r.ServiceByName("web1")
+	test.That(t, ok, test.ShouldBeTrue)
+	err = svc.(web.Service).Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
 
 	addr := fmt.Sprintf("localhost:%d", port)
 	remoteConfig := &config.Config{

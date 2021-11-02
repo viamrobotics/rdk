@@ -298,9 +298,8 @@ func init() {
 
 // A Service controls the web server for a robot.
 type Service interface {
-	// Update updates the web service when the robot has changed. Not Reconfigure because this should happen at a different point in the
-	// lifecycle.
-	Update(resources map[resource.Name]interface{}) error
+	// Start starts the web server
+	Start(context.Context, Options) error
 
 	// Close attempts to close the web service gracefully
 	Close() error
@@ -308,27 +307,17 @@ type Service interface {
 
 // New returns a new web service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	options := ContextOptions(ctx)
-	if options == (Options{}) {
-		options = NewOptions()
-	}
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
-
 	webSvc := &webService{
-		logger:     logger,
-		cancelFunc: cancelFunc,
+		r:      r,
+		logger: logger,
 	}
-
-	if err := webSvc.runWeb(cancelCtx, r, options); err != nil {
-		return nil, err
-	}
-
 	return webSvc, nil
 }
 
 type webService struct {
 	mu sync.RWMutex
-	// TODO: use services
+	r  robot.Robot
+	// place holder for future
 	// services map[resource.Subtype]interface{}
 
 	logger                  golog.Logger
@@ -336,6 +325,20 @@ type webService struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
+// Start starts the web server, will log an error and return if server is already up
+func (svc *webService) Start(ctx context.Context, o Options) error {
+	if svc.cancelFunc != nil {
+		svc.logger.Debug("Server already started. Returning")
+		return nil
+	}
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	svc.cancelFunc = cancelFunc
+
+	return svc.runWeb(cancelCtx, o)
+}
+
+// Update updates the web service when the robot has changed. Not Reconfigure because this should happen at a different point in the
+// lifecycle.
 func (svc *webService) Update(resources map[resource.Name]interface{}) error {
 	// TODO: update itself properly
 	svc.mu.Lock()
@@ -344,7 +347,10 @@ func (svc *webService) Update(resources map[resource.Name]interface{}) error {
 }
 
 func (svc *webService) Close() error {
-	svc.cancelFunc()
+	if svc.cancelFunc != nil {
+		svc.cancelFunc()
+		svc.cancelFunc = nil
+	}
 	svc.activeBackgroundWorkers.Wait()
 	return nil
 }
@@ -435,7 +441,7 @@ func (svc *webService) installWeb(ctx context.Context, mux *goji.Mux, theRobot r
 
 // RunWeb takes the given robot and options and runs the web server. This function will block
 // until the context is done.
-func (svc *webService) runWeb(ctx context.Context, theRobot robot.Robot, options Options) (err error) {
+func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", options.Port))
 	if err != nil {
 		return err
@@ -465,7 +471,7 @@ func (svc *webService) runWeb(ctx context.Context, theRobot robot.Robot, options
 	if err := rpcServer.RegisterServiceServer(
 		ctx,
 		&pb.RobotService_ServiceDesc,
-		grpcserver.New(theRobot),
+		grpcserver.New(svc.r),
 		pb.RegisterRobotServiceHandlerFromEndpoint,
 	); err != nil {
 		return err
@@ -497,7 +503,7 @@ func (svc *webService) runWeb(ctx context.Context, theRobot robot.Robot, options
 	}
 
 	mux := goji.NewMux()
-	webCloser, err := svc.installWeb(ctx, mux, theRobot, options)
+	webCloser, err := svc.installWeb(ctx, mux, svc.r, options)
 	if err != nil {
 		return err
 	}
@@ -526,27 +532,27 @@ func (svc *webService) runWeb(ctx context.Context, theRobot robot.Robot, options
 		webCloser()
 		defer func() {
 			if err := httpServer.Shutdown(context.Background()); err != nil {
-				theRobot.Logger().Errorw("error shutting down", "error", err)
+				svc.logger.Errorw("error shutting down", "error", err)
 			}
 		}()
 		if err := rpcServer.Stop(); err != nil {
-			theRobot.Logger().Errorw("error stopping rpc server", "error", err)
+			svc.logger.Errorw("error stopping rpc server", "error", err)
 		}
 	})
 	svc.activeBackgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		if err := rpcServer.Start(); err != nil {
-			theRobot.Logger().Errorw("error starting rpc server", "error", err)
+			svc.logger.Errorw("error starting rpc server", "error", err)
 		}
 	})
 
-	theRobot.Logger().Debugw("serving", "url", fmt.Sprintf("http://%s", listener.Addr().String()))
+	svc.logger.Debugw("serving", "url", fmt.Sprintf("http://%s", listener.Addr().String()))
 	svc.activeBackgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		if err := httpServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			theRobot.Logger().Errorw("error serving rpc server", "error", err)
+			svc.logger.Errorw("error serving rpc server", "error", err)
 		}
 	})
 	return err
