@@ -262,7 +262,7 @@
                       robotService.armMoveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   armModifyAll : function(name) {
-                      const arm = theData.rawStatus.getArmsMap().get(name);
+                      const arm = theApp.armByName(name);
                       var n = { name : name, pieces : [] };
 
                       for ( var i=0; i < arm.pieces.length; i++) {
