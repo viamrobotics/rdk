@@ -690,15 +690,15 @@ func (fc *frameClient) Name() string {
 }
 
 func (fc *frameClient) Transform(ctx context.Context, inputs []referenceframe.Input) (spatialmath.Pose, error) {
-	pbIn := referenceframe.InputsToJointPos(inputs)
+	inp := referenceframe.InputsToFloats(inputs)
 	resp, err := fc.rc.client.FrameServiceTransform(ctx, &pb.FrameServiceTransformRequest{
 		Name:   fc.name,
-		Inputs: pbIn,
+		Inputs: inp,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return spatialmath.NewPoseFromArmPos(resp.Pose), nil
+	return spatialmath.NewPoseFromProtobuf(resp.Pose), nil
 }
 
 func (fc *frameClient) DoF(ctx context.Context) []*pb.Limit {
@@ -774,7 +774,7 @@ type armClient struct {
 	name string
 }
 
-func (ac *armClient) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (ac *armClient) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	resp, err := ac.rc.client.ArmCurrentPosition(ctx, &pb.ArmCurrentPositionRequest{
 		Name: ac.name,
 	})
@@ -784,7 +784,7 @@ func (ac *armClient) CurrentPosition(ctx context.Context) (*pb.ArmPosition, erro
 	return resp.Position, nil
 }
 
-func (ac *armClient) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
+func (ac *armClient) MoveToPosition(ctx context.Context, c *pb.Pose) error {
 	_, err := ac.rc.client.ArmMoveToPosition(ctx, &pb.ArmMoveToPositionRequest{
 		Name: ac.name,
 		To:   c,

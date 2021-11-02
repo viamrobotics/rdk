@@ -15,7 +15,7 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
-func poseToSlice(p *pb.ArmPosition) []float64 {
+func poseToSlice(p *pb.Pose) []float64 {
 	return []float64{p.X, p.Y, p.Z, p.Theta, p.OX, p.OY, p.OZ}
 }
 
@@ -287,7 +287,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 }
 
 func TestFixOvIncrement(t *testing.T) {
-	pos1 := &pb.ArmPosition{
+	pos1 := &pb.Pose{
 		X:     -66,
 		Y:     -133,
 		Z:     372,
@@ -296,7 +296,7 @@ func TestFixOvIncrement(t *testing.T) {
 		OY:    1,
 		OZ:    0,
 	}
-	pos2 := &pb.ArmPosition{
+	pos2 := &pb.Pose{
 		X:     -66,
 		Y:     -133,
 		Z:     372,

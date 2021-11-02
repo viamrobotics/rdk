@@ -49,7 +49,7 @@ var emptyStatus = &pb.StatusResponse{
 	Status: &pb.Status{
 		Arms: map[string]*pb.ArmStatus{
 			"arm1": {
-				GridPosition: &pb.ArmPosition{
+				GridPosition: &pb.Pose{
 					X:     0.0,
 					Y:     0.0,
 					Z:     0.0,
@@ -398,8 +398,8 @@ func TestServer(t *testing.T) {
 		}
 
 		err1 := errors.New("whoops")
-		pos := &pb.ArmPosition{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
-		injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.ArmPosition, error) {
+		pos := &pb.Pose{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
+		injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.Pose, error) {
 			return nil, err1
 		}
 
@@ -408,7 +408,7 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldEqual, err1)
 
-		injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.ArmPosition, error) {
+		injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.Pose, error) {
 			return pos, nil
 		}
 		resp, err := server.ArmCurrentPosition(context.Background(), &pb.ArmCurrentPositionRequest{
@@ -480,13 +480,13 @@ func TestServer(t *testing.T) {
 		}
 
 		err1 := errors.New("whoops")
-		var capAP *pb.ArmPosition
-		injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.ArmPosition) error {
+		var capAP *pb.Pose
+		injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.Pose) error {
 			capAP = ap
 			return err1
 		}
 
-		pos := &pb.ArmPosition{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
+		pos := &pb.Pose{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
 		_, err = server.ArmMoveToPosition(context.Background(), &pb.ArmMoveToPositionRequest{
 			Name: "arm1",
 			To:   pos,
@@ -494,7 +494,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldEqual, err1)
 		test.That(t, capAP, test.ShouldEqual, pos)
 
-		injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.ArmPosition) error {
+		injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.Pose) error {
 			return nil
 		}
 		_, err = server.ArmMoveToPosition(context.Background(), &pb.ArmMoveToPositionRequest{

@@ -54,7 +54,7 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 	seed := sf.mapToSlice(seedMap)
 
 	// Solve for the goal position
-	resultSlice, err := solver.Solve(ctx, spatial.PoseToArmPos(goal), seed)
+	resultSlice, err := solver.Solve(ctx, spatial.PoseToProtobuf(goal), seed)
 	if err != nil {
 		return nil, multierr.Combine(err, solver.Close())
 	}

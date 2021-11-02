@@ -138,7 +138,7 @@ func TestSimpleConfigRemote(t *testing.T) {
 		},
 		Arms: map[string]*pb.ArmStatus{
 			"foo.pieceArm": {
-				GridPosition: &pb.ArmPosition{
+				GridPosition: &pb.Pose{
 					X: 0.0,
 					Y: 0.0,
 					Z: 0.0,
@@ -287,7 +287,7 @@ func TestConfigRemote(t *testing.T) {
 		},
 		Arms: map[string]*pb.ArmStatus{
 			"pieceArm": {
-				GridPosition: &pb.ArmPosition{
+				GridPosition: &pb.Pose{
 					X: 0.0,
 					Y: 0.0,
 					Z: 0.0,
@@ -297,7 +297,7 @@ func TestConfigRemote(t *testing.T) {
 				},
 			},
 			"foo.pieceArm": {
-				GridPosition: &pb.ArmPosition{
+				GridPosition: &pb.Pose{
 					X: 0.0,
 					Y: 0.0,
 					Z: 0.0,
@@ -307,7 +307,7 @@ func TestConfigRemote(t *testing.T) {
 				},
 			},
 			"bar.pieceArm": {
-				GridPosition: &pb.ArmPosition{
+				GridPosition: &pb.Pose{
 					X: 0.0,
 					Y: 0.0,
 					Z: 0.0,

@@ -68,7 +68,7 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 
 	return &ArmIK{
 		Name:        name,
-		position:    &pb.ArmPosition{},
+		position:    &pb.Pose{},
 		joints:      &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
 		ik:          ik,
 		frame:       fr,
@@ -79,7 +79,7 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 // ArmIK is a fake arm that can simply read and set properties.
 type ArmIK struct {
 	Name        string
-	position    *pb.ArmPosition
+	position    *pb.Pose
 	joints      *pb.JointPositions
 	ik          kinematics.InverseKinematics
 	CloseCount  int
@@ -93,7 +93,7 @@ func (a *ArmIK) FrameSystemLink() (*config.Frame, frame.Frame) {
 }
 
 // CurrentPosition returns the set position.
-func (a *ArmIK) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (a *ArmIK) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -102,7 +102,7 @@ func (a *ArmIK) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 }
 
 // MoveToPosition sets the position.
-func (a *ArmIK) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+func (a *ArmIK) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err

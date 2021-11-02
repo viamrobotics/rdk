@@ -16,8 +16,8 @@ import (
 )
 
 // ComputePosition takes a model and a protobuf JointPositions in degrees and returns the cartesian position of the
-// end effector as a protobuf ArmPosition. This is performed statelessly without changing any data.
-func ComputePosition(ctx context.Context, model frame.Frame, joints *pb.JointPositions) (*pb.ArmPosition, error) {
+// end effector as a protobuf Pose. This is performed statelessly without changing any data.
+func ComputePosition(ctx context.Context, model frame.Frame, joints *pb.JointPositions) (*pb.Pose, error) {
 
 	if len(joints.Degrees) != len(model.DoF(ctx)) {
 		return nil, errors.Errorf("incorrect number of joints passed to ComputePosition. Want: %d, got: %d", len(model.DoF(ctx)), len(joints.Degrees))
@@ -28,7 +28,7 @@ func ComputePosition(ctx context.Context, model frame.Frame, joints *pb.JointPos
 		return nil, err
 	}
 
-	return spatialmath.PoseToArmPos(pose), nil
+	return spatialmath.PoseToProtobuf(pose), nil
 }
 
 // deriv will compute D(q), the derivative of q = e^w with respect to w

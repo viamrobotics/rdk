@@ -5,7 +5,6 @@ import (
 	"math"
 
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/utils"
 
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/golang/geo/r3"
@@ -14,7 +13,6 @@ import (
 )
 
 const radToDeg = 180 / math.Pi
-const degToRad = math.Pi / 180
 
 // If two angles differ by less than this amount, we consider them the same for the purpose of doing
 // math around the poles of orientation.
@@ -38,9 +36,9 @@ func newdualQuaternion() *dualQuaternion {
 	}}
 }
 
-// newdualQuaternionFromRotation returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided
-// orientation vector.
-func newdualQuaternionFromRotation(ov *OrientationVector) *dualQuaternion {
+// newdualQuaternionFromRotation returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided orientation.
+func newdualQuaternionFromRotation(o Orientation) *dualQuaternion {
+	ov := o.OrientationVectorRadians()
 	// Handle the zero case
 	if ov.OX == 0 && ov.OY == 0 && ov.OZ == 0 {
 		ov.OZ = 1
@@ -70,10 +68,10 @@ func newdualQuaternionFromDH(a, d, alpha float64) *dualQuaternion {
 	return q
 }
 
-// newdualQuaternionFromArmPos returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided
-// arm position.
-func newdualQuaternionFromArmPos(pos *pb.ArmPosition) *dualQuaternion {
-	q := newdualQuaternionFromRotation(&OrientationVector{pos.Theta * degToRad, pos.OX, pos.OY, pos.OZ})
+// newdualQuaternionFromProtobuf returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided
+// protobuf pose.
+func newdualQuaternionFromProtobuf(pos *pb.Pose) *dualQuaternion {
+	q := newdualQuaternionFromRotation(&OrientationVectorDegrees{pos.Theta, pos.OX, pos.OY, pos.OZ})
 	q.SetTranslation(pos.X, pos.Y, pos.Z)
 	return q
 }
@@ -84,24 +82,24 @@ func newdualQuaternionFromPose(p Pose) *dualQuaternion {
 	if q, ok := p.(*dualQuaternion); ok {
 		return q.Clone()
 	}
-	q := newdualQuaternionFromRotation(p.Orientation().OrientationVectorRadians())
+	q := newdualQuaternionFromRotation(p.Orientation())
 	pt := p.Point()
 	q.SetTranslation(pt.X, pt.Y, pt.Z)
 	return q
 }
 
-// ToArmPos converts a dualQuaternion to an arm position
-func (q *dualQuaternion) ToArmPos() *pb.ArmPosition {
-	final := &pb.ArmPosition{}
+// ToProtobuf converts a dualQuaternion to a protobuf pose
+func (q *dualQuaternion) ToProtobuf() *pb.Pose {
+	final := &pb.Pose{}
 	cartQuat := dualquat.Mul(q.Number, dualquat.Conj(q.Number))
 	final.X = cartQuat.Dual.Imag
 	final.Y = cartQuat.Dual.Jmag
 	final.Z = cartQuat.Dual.Kmag
-	poseOV := QuatToOV(q.Real)
-	final.Theta = utils.RadToDeg(poseOV.Theta)
-	final.OX = poseOV.OX
-	final.OY = poseOV.OY
-	final.OZ = poseOV.OZ
+	poseOVD := QuatToOVD(q.Real)
+	final.Theta = poseOVD.Theta
+	final.OX = poseOVD.OX
+	final.OY = poseOVD.OY
+	final.OZ = poseOVD.OZ
 	return final
 }
 
@@ -207,10 +205,10 @@ func AlmostEqual(a, b quat.Number, tol float64) bool {
 }
 
 // OffsetBy takes two offsets and computes the final position.
-func OffsetBy(a, b *pb.ArmPosition) *pb.ArmPosition {
-	q1 := newdualQuaternionFromArmPos(a)
-	q2 := newdualQuaternionFromArmPos(b)
+func OffsetBy(a, b *pb.Pose) *pb.Pose {
+	q1 := newdualQuaternionFromProtobuf(a)
+	q2 := newdualQuaternionFromProtobuf(b)
 	q3 := &dualQuaternion{q1.Transformation(q2.Number)}
 
-	return q3.ToArmPos()
+	return q3.ToProtobuf()
 }

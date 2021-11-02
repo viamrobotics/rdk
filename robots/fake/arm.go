@@ -45,7 +45,7 @@ func NewArm(cfg config.Component) (arm.Arm, error) {
 	}
 	return &Arm{
 		Name:        name,
-		position:    &pb.ArmPosition{},
+		position:    &pb.Pose{},
 		joints:      &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
 		frame:       frame,
 		frameconfig: cfg.Frame,
@@ -55,7 +55,7 @@ func NewArm(cfg config.Component) (arm.Arm, error) {
 // Arm is a fake arm that can simply read and set properties.
 type Arm struct {
 	Name        string
-	position    *pb.ArmPosition
+	position    *pb.Pose
 	joints      *pb.JointPositions
 	CloseCount  int
 	frame       referenceframe.Frame
@@ -68,12 +68,12 @@ func (a *Arm) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
 }
 
 // CurrentPosition returns the set position.
-func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (a *Arm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	return a.position, nil
 }
 
 // MoveToPosition sets the position.
-func (a *Arm) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
+func (a *Arm) MoveToPosition(ctx context.Context, c *pb.Pose) error {
 	a.position = c
 	return nil
 }

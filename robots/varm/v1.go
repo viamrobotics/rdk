@@ -224,7 +224,7 @@ type ArmV1 struct {
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (a *ArmV1) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (a *ArmV1) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -233,7 +233,7 @@ func (a *ArmV1) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (a *ArmV1) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+func (a *ArmV1) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err

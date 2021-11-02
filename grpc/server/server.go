@@ -108,7 +108,7 @@ func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigRes
 				orientation = spatialmath.NewZeroOrientation()
 			}
 			cc.Parent = c.Frame.Parent
-			cc.Pose = &pb.ArmPosition{
+			cc.Pose = &pb.Pose{
 				X:     c.Frame.Translation.X,
 				Y:     c.Frame.Translation.Y,
 				Z:     c.Frame.Translation.Z,
@@ -1259,13 +1259,13 @@ func (s *Server) FrameServiceTransform(ctx context.Context, req *pb.FrameService
 	if err != nil {
 		return nil, err
 	}
-	inputs := referenceframe.JointPosToInputs(req.Inputs)
+	inputs := referenceframe.FloatsToInputs(req.Inputs)
 	pose, err := frame.Transform(ctx, inputs)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.FrameServiceTransformResponse{Pose: spatialmath.PoseToArmPos(pose)}, nil
+	return &pb.FrameServiceTransformResponse{Pose: spatialmath.PoseToProtobuf(pose)}, nil
 }
 
 // FrameServiceKinematicLimits retrieves the slice of the limits of the given frame
