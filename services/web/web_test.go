@@ -6,6 +6,9 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
+	"go.viam.com/utils"
+
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/client"
@@ -14,8 +17,6 @@ import (
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/testutils/inject"
-	"go.viam.com/test"
-	"go.viam.com/utils"
 )
 
 func TestWebStart(t *testing.T) {
