@@ -28,6 +28,8 @@ import (
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/serial"
+	"go.viam.com/core/web"
+	webserver "go.viam.com/core/web/server"
 
 	_ "go.viam.com/core/board/detector"
 
@@ -428,6 +430,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		recordDepthWorker(ctx, depth1)
 	}, activeBackgroundWorkers.Done)
 
-	<-ctx.Done()
+	if err := webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger); err != nil && !errors.Is(err, context.Canceled) {
+		logger.Errorw("error running web", "error", err)
+		cancel()
+		return err
+	}
 	return nil
 }

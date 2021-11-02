@@ -32,6 +32,8 @@ import (
 	"go.viam.com/core/services/navigation"
 	"go.viam.com/core/spatialmath"
 	coreutils "go.viam.com/core/utils"
+	"go.viam.com/core/web"
+	webserver "go.viam.com/core/web/server"
 
 	_ "go.viam.com/core/board/detector"
 
@@ -682,6 +684,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	go runRC(ctx, myB)
 	go runAngularVelocityKeeper(ctx, myB)
 
-	<-ctx.Done()
+	if err := webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger); err != nil && !errors.Is(err, context.Canceled) {
+		logger.Errorw("error running web", "error", err)
+		cancel()
+		return err
+	}
 	return nil
 }

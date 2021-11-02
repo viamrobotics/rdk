@@ -16,7 +16,6 @@ import (
 	"go.viam.com/core/action"
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/motor"
-	"go.viam.com/core/services/web"
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
@@ -24,6 +23,9 @@ import (
 
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
+
+	"go.viam.com/core/web"
+	webserver "go.viam.com/core/web/server"
 
 	_ "go.viam.com/core/motor/tmcstepper"
 	_ "go.viam.com/core/robots/xarm"
@@ -285,10 +287,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
-	webOpts := web.NewOptions()
-	webOpts.Insecure = true
-	ctx = web.ContextWithOptions(ctx, webOpts)
-
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
@@ -331,7 +329,16 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	action.RegisterAction("DropC1", box.doDropC1)
 	action.RegisterAction("DropC2", box.doDropC2)
 
-	<-ctx.Done()
+	webOpts := web.NewOptions()
+	webOpts.Insecure = true
+
+	err = webserver.RunWeb(ctx, myRobot, webOpts, logger)
+	if err != nil && !errors.Is(err, context.Canceled) {
+		logger.Errorw("error running web", "error", err)
+		cancel()
+		return err
+	}
+
 	return nil
 }
 

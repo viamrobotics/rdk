@@ -20,9 +20,10 @@ import (
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/services/web"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/vision/segmentation"
+	"go.viam.com/core/web"
+	webserver "go.viam.com/core/web/server"
 
 	_ "go.viam.com/core/base/impl"
 	_ "go.viam.com/core/board/detector"
@@ -344,10 +345,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
-	options := web.NewOptions()
-	options.AutoTile = false
-	options.Pprof = true
-	ctx = web.ContextWithOptions(ctx, options)
+
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
@@ -366,6 +364,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
-	<-ctx.Done()
-	return nil
+
+	options := web.NewOptions()
+	options.AutoTile = false
+	options.Pprof = true
+	return webserver.RunWeb(ctx, myRobot, options, logger)
 }

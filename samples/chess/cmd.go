@@ -29,6 +29,8 @@ import (
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/utils"
 	"go.viam.com/core/vision/chess"
+	"go.viam.com/core/web"
+	webserver "go.viam.com/core/web/server"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -655,6 +657,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 			}()
 		}
 	})
-	<-ctx.Done()
-	return nil
+
+	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
 }
