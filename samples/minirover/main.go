@@ -20,10 +20,9 @@ import (
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
+	"go.viam.com/core/services/web"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/vision/segmentation"
-	"go.viam.com/core/web"
-	webserver "go.viam.com/core/web/server"
 
 	_ "go.viam.com/core/base/impl"
 	_ "go.viam.com/core/board/detector"
@@ -368,5 +367,13 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	options := web.NewOptions()
 	options.AutoTile = false
 	options.Pprof = true
-	return webserver.RunWeb(ctx, myRobot, options, logger)
+	svc, ok := myRobot.ServiceByName("web1")
+	if !ok {
+		return errors.New("robot has no web service")
+	}
+	if err := svc.(web.Service).Start(ctx, options); err != nil {
+		return err
+	}
+	<-ctx.Done()
+	return nil
 }

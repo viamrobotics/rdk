@@ -30,10 +30,9 @@ import (
 	_ "go.viam.com/core/sensor/imu/wit"
 	"go.viam.com/core/serial"
 	"go.viam.com/core/services/navigation"
+	"go.viam.com/core/services/web"
 	"go.viam.com/core/spatialmath"
 	coreutils "go.viam.com/core/utils"
-	"go.viam.com/core/web"
-	webserver "go.viam.com/core/web/server"
 
 	_ "go.viam.com/core/board/detector"
 
@@ -684,10 +683,14 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	go runRC(ctx, myB)
 	go runAngularVelocityKeeper(ctx, myB)
 
-	if err := webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger); err != nil && !errors.Is(err, context.Canceled) {
-		logger.Errorw("error running web", "error", err)
+	svc, ok := myRobot.ServiceByName("web1")
+	if !ok {
+		return errors.New("robot has no web service")
+	}
+	if err := svc.(web.Service).Start(ctx, web.NewOptions()); err != nil {
 		cancel()
 		return err
 	}
+	<-ctx.Done()
 	return nil
 }

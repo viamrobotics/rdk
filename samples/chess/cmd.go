@@ -27,10 +27,9 @@ import (
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
+	"go.viam.com/core/services/web"
 	"go.viam.com/core/utils"
 	"go.viam.com/core/vision/chess"
-	"go.viam.com/core/web"
-	webserver "go.viam.com/core/web/server"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -657,6 +656,13 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 			}()
 		}
 	})
-
-	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
+	svc, ok := myRobot.ServiceByName("web1")
+	if !ok {
+		return errors.New("robot has no web service")
+	}
+	if err := svc.(web.Service).Start(ctx, web.NewOptions()); err != nil {
+		return err
+	}
+	<-ctx.Done()
+	return nil
 }
