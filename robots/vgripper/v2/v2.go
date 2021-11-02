@@ -58,7 +58,7 @@ type GripperV2 struct {
 	current     board.AnalogReader
 	forceMatrix forcematrix.ForceMatrix
 
-	openPos, closePos float64
+	openPos, closedPos float64
 
 	holdingPressure float32
 
@@ -165,7 +165,7 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 		return err
 	}
 	if pressure > vg.pressureLimit {
-		vg.closePos = position
+		vg.closedPos = position
 		vg.closeDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 		pressureClosed = pressure
 	} else {
@@ -189,7 +189,7 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 		return err
 	}
 	if pressure > vg.pressureLimit {
-		vg.closePos = position
+		vg.closedPos = position
 		vg.closeDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
 		pressureClosed = pressure
 	} else {
@@ -203,10 +203,10 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 	// TODO: I think this has to be improved; think more about it
 	if math.Abs(float64(pressureOpen-pressureClosed)) < vg.pressureLimit/2 {
 		return errors.Errorf("init: pressure same open and closed, something is wrong, positions (closed, open): %f %f, pressures (closed, open): %t %t",
-			vg.closePos, vg.openPos, pressureClosed, pressureOpen)
+			vg.closedPos, vg.openPos, pressureClosed, pressureOpen)
 	}
 
-	if math.Signbit(vg.openPos - vg.closePos) {
+	if math.Signbit(vg.openPos - vg.closedPos) {
 		vg.openPos += OpenPosOffset
 	} else {
 		vg.openPos -= OpenPosOffset
@@ -238,8 +238,6 @@ func (vg *GripperV2) Open(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		// TODO: shouldn't this also check if the gripper is in the correct "open" position?
-		// First: Understand the positions & dimensions of them
 		if !isOn {
 			return nil
 		}
@@ -267,7 +265,7 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	err = vg.motor.GoTo(ctx, TargetRPM, vg.closePos)
+	err = vg.motor.GoTo(ctx, TargetRPM, vg.closedPos)
 	if err != nil {
 		return false, err
 	}
@@ -284,8 +282,6 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 			return false, vg.stopAfterError(ctx, err)
 		}
 
-		// TODO: Isn't this supposed to check if the motor actually is near the closed position?
-		// Instead of just checking if the motor is off?
 		if !isOn {
 			return false, nil
 		}
@@ -304,7 +300,7 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 			if err != nil {
 				return false, err
 			}
-			vg.logger.Debugf("i think i grabbed something, have pressure, pos: %f closePos: %v", now, vg.closePos)
+			vg.logger.Debugf("i think i grabbed something, have pressure, pos: %f closedPos: %v", now, vg.closedPos)
 			err = vg.motor.Go(ctx, vg.closeDirection, vg.holdingPressure)
 			return true, err
 		}
@@ -320,7 +316,7 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 				return false, vg.stopAfterError(ctx, err)
 			}
 			return false, vg.stopAfterError(ctx, errors.Errorf("close timed out, wanted: %f at: %f pressure: %d",
-				vg.closePos, now, pressureRaw))
+				vg.closedPos, now, pressureRaw))
 		}
 	}
 }
