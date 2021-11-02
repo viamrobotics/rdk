@@ -1,10 +1,3 @@
-/*
- * ReadDepthFrame.cpp
- *
- *  Created on: 2018. 10. 15.
- *      Author: erato
- */
-
 #include <tuple>
 #include <mutex>
 #include <thread>
@@ -23,7 +16,9 @@
 #include "CubeEyeSink.h"
 #include "CubeEyeCamera.h"
 #include "CubeEyeBasicFrame.h"
+
 #include "cameraserver.h"
+#define DEBUG(x)
 using namespace std;
 using namespace meere;
 
@@ -72,9 +67,10 @@ public:
 	virtual void onCubeEyeCameraPrepared(const meere::sensor::ptr_camera camera) {
 		printf("%s:%d source(%s)\n", __FUNCTION__, __LINE__, camera->source()->uri().c_str());
 	}
-
+/////////////// this guy is where we get camera data /////////////////////////
 public:
 	static void ReadFrameProc(MyListener* thiz) {
+		std::shared_ptr<CameraOutput> output(new CameraOutput());
 		while (thiz->mReadFrameThreadStart) {
 			if (thiz->mFrameListQueue.empty()) {
 				std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -92,60 +88,97 @@ public:
 				_frame_cnt = 0;
 
 				for (auto it : (*_frames)) {
-					printf("frame : %d, "
-							"frameWidth = %d "
-							"frameHeight = %d "
-							"frameDataType = %d "
-							"timestamp = %lu \n",
-							it->frameType(),
-							it->frameWidth(),
-							it->frameHeight(),
-							it->frameDataType(),
-							it->timestamp());
 
 					int _frame_index = 0;
 					auto _center_x = it->frameWidth() / 2;
 					auto _center_y = it->frameHeight() / 2;
-
-					// Depth frame
+					
 					if (it->frameType() == meere::sensor::CubeEyeFrame::FrameType_Depth) {
+						 // setting min/max based off exp values. didnt like the idea of constantly changing upper and lower bound
+						float max = 2200;
+						float min = 140;
 						// 16bits data type
 						if (it->frameDataType() == meere::sensor::CubeEyeData::DataType_16U) {
 							// casting 16bits basic frame 
 							auto _sptr_basic_frame = meere::sensor::frame_cast_basic16u(it);
 							auto _sptr_frame_data = _sptr_basic_frame->frameData();	// depth data array
+							
+							//frame data
+							output->width = _sptr_basic_frame->frameWidth();
+            				output->height = _sptr_basic_frame->frameHeight();
 
+							{
+							std::stringbuf buffer;
+							std::ostream os(&buffer);
+							os << "VERSIONX\n";
+							os << "2\n";
+							os << "1\n";
+							os << output->width << "\n";
+							os << output->height << "\n";
 							for (int y = 0 ; y < _sptr_basic_frame->frameHeight(); y++) {
 								for (int x = 0 ; x < _sptr_basic_frame->frameWidth(); x++) {
 									_frame_index = y * _sptr_basic_frame->frameWidth() + x;
-									if (_center_x == x && _center_y == y) {
-										printf("depth(%d,%d) data : %d\n", _center_x, _center_y, (*_sptr_frame_data)[_frame_index]);
+									// depth values appear to be in mm(based off hand measurements)
+									short s =  (*_sptr_frame_data)[_frame_index]; 
+									// set an upper bound for useful data
+									if (s >max)
+									s = max;
+	
+									buffer.sputn((const char*)&s, 2);
+
+								}
+							}
+							output->depth = buffer.str();
+							}
+							
+        					
+						}
+						{
+						std::stringbuf buffer;
+						std::ostream os(&buffer);
+						auto _sptr_basic_frame = meere::sensor::frame_cast_basic16u(it);
+						auto _sptr_frame_data = _sptr_basic_frame->frameData();	// depth data array
+						os << "P6\n" << output->width << " " << output->height << "\n255\n";
+						output->ppmdata = buffer.str();
+						
+						float span = max - min; 
+						for (int y = 0; y < output->height; y++) {
+							for (int x = 0; x < output->width; x++) {
+								_frame_index = y * _sptr_basic_frame->frameWidth() + x;
+								auto val =  (*_sptr_frame_data)[_frame_index];
+								if (val >2200)
+									val = 2200;
+
+								char clr = 0;
+								//scale depth measurement between ~0-255(ish)(assuming)
+								if (val > 0) {
+									auto ratio = (val - min) / span;
+									clr = (char)(60 + (int)(ratio * 192));//need to calibrate?
+									// force bounds(just in case)
+									if (clr > 255)
+									clr = 255; 
+									if (clr < 0)
+									clr = 0;
+								}
+
+								os << (char)clr;
+								os << (char)clr;
+								os << (char)clr;
+								if (_center_x == x && _center_y == y) {
+										DEBUG("depth("_center_x","_center_y") data : "(*_sptr_frame_data)[_frame_index]" \n");
 										
 									}
-								}
 							}
 						}
-					}
-					// Amplitude frame
-					else if (it->frameType() == meere::sensor::CubeEyeFrame::FrameType_Amplitude) {
-						// 16bits data type
-						if (it->frameDataType() == meere::sensor::CubeEyeData::DataType_16U) {
-							// casting 16bits basic frame 
-							auto _sptr_basic_frame = meere::sensor::frame_cast_basic16u(it);
-							auto _sptr_frame_data = _sptr_basic_frame->frameData();	// amplitude data array
+						output->ppmdata = buffer.str();
 
-							for (int y = 0 ; y < _sptr_basic_frame->frameHeight(); y++) {
-								for (int x = 0 ; x < _sptr_basic_frame->frameWidth(); x++) {
-									_frame_index = y * _sptr_basic_frame->frameWidth() + x;
-									if (_center_x == x && _center_y == y) {
-										printf("amplitude(%d,%d) data : %d\n", _center_x, _center_y, (*_sptr_frame_data)[_frame_index]);
-									}
-								}
-							}
 						}
+						
 					}
+
 				}
-
+				CameraState::get()->cameras[0] = output;
+				CameraState::get()->ready = 1;
 			}
 		}
 	}
@@ -183,6 +216,7 @@ void getLensInfo(meere::sensor::sptr_camera camera, meere::sensor::result _rt){
 			}
 		}
 
+
 }
 
 
@@ -200,7 +234,6 @@ protected:
 
 int main(int argc, char* argv[])
 {
-	// not sure how webserver works/could not get the install to work?
 	 int port = 8181;
 
       httpserver::webserver ws = httpserver::create_webserver(port);
@@ -210,7 +243,6 @@ int main(int argc, char* argv[])
 	MyListener listener;
 	meere::sensor::add_prepared_listener(&listener);
 
-	// select camera to use
 	// search ToF camera source
 	int _selected_source = -1;
 	meere::sensor::sptr_source_list _source_list = meere::sensor::search_camera_source();
@@ -223,36 +255,20 @@ int main(int argc, char* argv[])
 					", serialNumber : " << it->serialNumber() << \
 					", uri : " << it->uri() << std::endl;
 		}
-	}
-
-	if (nullptr != _source_list && 0 < _source_list->size()) {
-		if (1 < _source_list->size()) {
-			std::cout << "Please enter the desired source number." << std::endl;
-			scanf("%d", &_selected_source);
-			getchar();
-		}
-		else {
-			_selected_source = 0;
-		}
-	}
-	else {
+		_selected_source = 0;
+	}else {
 		std::cout << "no search device!" << std::endl;
 		return -1;
 	}
 
-	if (0 > _selected_source) {
-		std::cout << "invalid selected source number!" << std::endl;
-		return -1;
-	}
 	
+	CameraState::get()->cameras.push_back(0);
 
 	// create ToF camera
 	meere::sensor::result _rt;
 	meere::sensor::sptr_camera _camera = meere::sensor::create_camera(_source_list->at(_selected_source));
 	if (nullptr != _camera) {
 		_camera->addSink(&listener);
-
-		//listener.getLensInfo( _camera ,_rt);
 
 		_rt = _camera->prepare();
 		assert(meere::sensor::success == _rt);
@@ -263,7 +279,7 @@ int main(int argc, char* argv[])
 		}
 
 		// set wanted frame type : depth & amplitude
-		int _wantedFrame = meere::sensor::CubeEyeFrame::FrameType_Depth;// | meere::sensor::CubeEyeFrame::FrameType_Amplitude;
+		int _wantedFrame = meere::sensor::CubeEyeFrame::FrameType_Depth;
 
 		_rt = _camera->run(_wantedFrame);
 		assert(meere::sensor::success == _rt);
@@ -273,18 +289,8 @@ int main(int argc, char* argv[])
 			return -1;
 		}
 
+		ws.start(true);
 
-		// std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-		// char exitKey = 0; //press any key to stop
-		// while(exitKey == 0){
-		// 	exitKey = getchar();
-		// }
-
-		// _camera->stop();
-		// _camera->release();
-		// meere::sensor::destroy_camera(_camera);
-		// _camera.reset();
-		//}
 	}
 	return 0;
 }
