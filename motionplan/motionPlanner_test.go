@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	//~ "math"
-	//~ "math/rand"
+	"math"
+	"math/rand"
 
 	"runtime"
 	"testing"
@@ -31,9 +31,10 @@ func TestSimpleMotion(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	m, err := kinematics.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
-
-	mp, err := NewLinearMotionPlanner(m, logger, nCPU)
+	ik, err := kinematics.CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
+
+	mp := &linearMotionPlanner{solver: ik, frame: m}
 
 	// Test ability to arrive at another position
 	pos := &pb.ArmPosition{
@@ -48,9 +49,33 @@ func TestSimpleMotion(t *testing.T) {
 	fmt.Println(solution)
 }
 
-func TestStep(t *testing.T) {
-	tries := getNextPosTries(spatial.NewZeroPose(), spatial.NewPoseFromPoint(r3.Vector{1,1,50}))
-	for _, try := range tries {
-		fmt.Println(spatial.PoseToArmPos(try))
+// This should test a simple linear motion
+func TestSample(t *testing.T) {
+	rnd := rand.New(rand.NewSource(1))
+	m, err := kinematics.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// goal orientation of no rotation
+	//~ goalOrient := spatial.NewZeroPose()
+	ov := &spatial.OrientationVector{math.Pi / 2, 0, 0, 1}
+	ov.Normalize()
+	goalOrient := spatial.NewPoseFromOrientationVector(r3.Vector{100, 100, 200}, ov)
+	
+	match := 0
+	nSamp := 1000000
+	for i := 0; i < nSamp; i++ {
+		inputs := randPos(m, rnd)
+		rPos, _ := m.Transform(inputs)
+		dist := spatial.PoseDelta(goalOrient, rPos)
+		//~ fmt.Println(dist)
+		if (dist[3]*dist[3]) + (dist[4]*dist[4]) + (dist[5]*dist[5]) < 0.01 {
+			match++
+		}
+		if i % 10000 == 0 {
+			fmt.Println(match, " / ", i)
+		}
 	}
+	fmt.Println(match, " / ", nSamp)
 }
+
+
