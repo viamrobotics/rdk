@@ -7,6 +7,9 @@ package referenceframe
 import (
 	"errors"
 	"fmt"
+	"math"
+	"math/rand"
+	"time"
 
 	"go.viam.com/core/component/arm"
 	pb "go.viam.com/core/proto/api/v1"
@@ -66,6 +69,30 @@ func JointPosToInputs(jp *pb.JointPositions) []Input {
 // InputsToJointPos will take a slice of Inputs which are all joint position radians, and return a JointPositions struct.
 func InputsToJointPos(inputs []Input) *pb.JointPositions {
 	return arm.JointPositionsFromRadians(InputsToFloats(inputs))
+}
+
+// RandomFrameInputs will produce a list of valid, in-bounds inputs for the frame
+func RandomFrameInputs(m Frame, seed *rand.Rand) []Input {
+	if seed == nil {
+		seed = rand.New(rand.NewSource(time.Now().UTC().UnixNano()))
+	}
+	dof := m.DoF()
+	pos := make([]Input, len(dof))
+	for i, lim := range dof {
+		l, u := lim.Min, lim.Max
+
+		// Default to [-999,999] as range if limits are infinite
+		if l == math.Inf(-1) {
+			l = -999
+		}
+		if u == math.Inf(1) {
+			u = 999
+		}
+
+		jRange := math.Abs(u - l)
+		pos[i] = Input{seed.Float64()*jRange + l}
+	}
+	return pos
 }
 
 // Frame represents a single reference frame, e.g. an arm, a joint, etc.
