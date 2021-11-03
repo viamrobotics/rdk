@@ -512,11 +512,15 @@
                     const timeInterval = 10; // in milliseconds
                     // Loop through grabbing data & visualizing it
                     setTimeout(function getDataAndVisualizeIt(name, id) {
-                      var req = new robotApi.ForceMatrixMatrixRequest();
+                      let req = new robotApi.ForceMatrixMatrixRequest();
                       req.setName(name);
+
+                      let slipReq = new robotApi.ForceMatrixSlipDetectionRequest();
+                      slipReq.setName(name);
 
                       if (type === "forcematrix") {
                         robotService.forceMatrixMatrix(req, {}, (err, resp) => animateForceMatrix(err, resp, animation_stuff_2D, animation_stuff_3D));
+                        robotService.forceMatrixSlipDetection(req, {}, (err, resp) => updateSlipDetectionResult(err, resp, id));
                       } else {
                         console.log("error: unknown force matrix type");
                       }
@@ -960,6 +964,21 @@
           }
       }
 
+      function updateSlipDetectionResult (err, resp, id) {
+        grpcCallback(err, resp);
+        if (err) {
+          console.log("error getting slip detection readings: ", err);
+          return;
+        }
+        let isSlipping = resp.getIsSlipping()
+        let dispEl = document.getElementById("force-is-slipping-" + id);
+        if (isSlipping) {
+          dispEl.innerText = "SLIPPING";
+        } else {
+          dispEl.innerText = "NOT SLIPPING";
+        }
+      }
+
       async function waitForClientAndStart() {
         console.debug("waiting for robot service to be ready");
         await window.robotServiceReady;
@@ -1275,6 +1294,7 @@
               <!-- canvas element is resized later upon arrival of sensor data (see animateForceMatrix)  -->
               <canvas :id="'force-2d-id-' + x" width="1000" height="300" style="margin-top: 20px;"></canvas>
               <div :id="'force-3d-id-' + x"></div>
+              <div :id="'force-is-slipping-' + x">NO VALUE</div>
             </template>
             <button v-else v-on:click="doSensorReadings(sensor[0])">Get Readings</button>
           </td>
