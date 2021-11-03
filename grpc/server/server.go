@@ -1228,8 +1228,8 @@ func (s *Server) ResourceRunCommand(ctx context.Context, req *pb.ResourceRunComm
 
 const frameService = "frame_system"
 
-// FrameServiceDAG returns a DAG of the FrameSystem's frame names in the form of {Name:string, Parent:string} pairs.
-func (s *Server) FrameServiceDAG(ctx context.Context, req *pb.FrameServiceDAGRequest) (*pb.FrameServiceDAGResponse, error) {
+// FrameServiceConfig returns all the information needed to recreate the frame system for a robot.
+func (s *Server) FrameServiceConfig(ctx context.Context, req *pb.FrameServiceConfigRequest) (*pb.FrameServiceConfigResponse, error) {
 	svc, ok := s.r.ServiceByName(frameService)
 	if !ok {
 		return nil, errors.Errorf("no service named %q", frameService)
@@ -1238,15 +1238,19 @@ func (s *Server) FrameServiceDAG(ctx context.Context, req *pb.FrameServiceDAGReq
 	if !ok {
 		return nil, errors.New("service is not a framesystem.Service")
 	}
-	dag, err := fsSvc.FrameSystemDAG(ctx)
+	sortedParts, err := fsSvc.FrameSystemConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.FrameServiceDAGResponse{Nodes: dag}, nil
+	configs := make([]*pb.FrameSystemConfig, len(sortedParts))
+	for i, part := range sortedParts {
+		configs[i] = config.FrameSystemPartToProtobuf(part)
+	}
+	return &pb.FrameServiceConfigResponse{Configs: configs}, nil
 }
 
-// FrameServiceTransform returns the Pose of the frame's Transform function given the inputs
-func (s *Server) FrameServiceTransform(ctx context.Context, req *pb.FrameServiceTransformRequest) (*pb.FrameServiceTransformResponse, error) {
+// FrameServiceModel returns the dyanmic model frame of the named robot part. Returns nil if robot part does not have a model frame.
+func (s *Server) FrameServiceModel(ctx context.Context, req *pb.FrameServiceModelRequest) (*pb.FrameServiceModelResponse, error) {
 	svc, ok := s.r.ServiceByName(frameService)
 	if !ok {
 		return nil, errors.Errorf("no service named %q", frameService)
@@ -1255,36 +1259,12 @@ func (s *Server) FrameServiceTransform(ctx context.Context, req *pb.FrameService
 	if !ok {
 		return nil, errors.New("service is not a framesystem.Service")
 	}
-	frame, err := fsSvc.Frame(ctx, req.Name)
-	if err != nil {
-		return nil, err
-	}
-	inputs := referenceframe.FloatsToInputs(req.Inputs)
-	pose, err := frame.Transform(ctx, inputs)
+	modelJSON, err := fsSvc.ModelFrame(ctx, req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.FrameServiceTransformResponse{Pose: spatialmath.PoseToProtobuf(pose)}, nil
-}
-
-// FrameServiceKinematicLimits retrieves the slice of the limits of the given frame
-func (s *Server) FrameServiceKinematicLimits(ctx context.Context, req *pb.FrameServiceKinematicLimitsRequest) (*pb.FrameServiceKinematicLimitsResponse, error) {
-	svc, ok := s.r.ServiceByName(frameService)
-	if !ok {
-		return nil, errors.Errorf("no service named %q", frameService)
-	}
-	fsSvc, ok := svc.(framesystem.Service)
-	if !ok {
-		return nil, errors.New("service is not a framesystem.Service")
-	}
-	frame, err := fsSvc.Frame(ctx, req.Name)
-	if err != nil {
-		return nil, err
-	}
-	limits := frame.DoF(ctx)
-
-	return &pb.FrameServiceKinematicLimitsResponse{Limits: limits}, nil
+	return &pb.FrameServiceModelResponse{ModelJson: modelJSON}, nil
 }
 
 // NavigationServiceMode returns the mode of the service.
