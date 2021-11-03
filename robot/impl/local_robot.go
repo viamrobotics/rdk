@@ -75,7 +75,10 @@ import (
 	_ "go.viam.com/core/vision" // this is for interesting camera types, depth, etc...
 )
 
-var _ = robot.LocalRobot(&localRobot{})
+var (
+	_          = robot.LocalRobot(&localRobot{})
+	WebSvcName = "web1"
+)
 
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its parts.
@@ -351,7 +354,7 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 	// create web service here
 	// somewhat hacky, but the web service start up needs to come last
 	// TODO: use web.Type as part of #253.
-	webConfig := config.Service{Name: "web1", Type: config.ServiceType("web")}
+	webConfig := config.Service{Name: WebSvcName, Type: config.ServiceType("web")}
 	web, err := r.newService(ctx, webConfig)
 	if err != nil {
 		return nil, err

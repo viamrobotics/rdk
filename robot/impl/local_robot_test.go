@@ -82,7 +82,7 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	options := web.NewOptions()
 	options.Port = port
-	svc, ok := r.ServiceByName("web1")
+	svc, ok := r.ServiceByName(robotimpl.WebSvcName)
 	test.That(t, ok, test.ShouldBeTrue)
 	err = svc.(web.Service).Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)

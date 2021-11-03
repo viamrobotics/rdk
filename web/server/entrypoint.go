@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"runtime/pprof"
@@ -18,6 +19,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/metadata/service"
 	"go.viam.com/core/rlog"
+	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/services/web"
 
@@ -308,6 +310,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	if err != nil {
 		return err
 	}
+	defer myRobot.Close()
 
 	// watch for and deliver changes to the robot
 	watcher, err := config.NewWatcher(cfg, logger)
@@ -357,14 +360,28 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	} else {
 		options.Insecure = true
 	}
-	svc, ok := myRobot.ServiceByName("web1")
+	return RunWeb(ctx, myRobot, options, logger)
+}
+
+// RunWeb starts the web server on the web service and blocks until we close it
+func RunWeb(ctx context.Context, r robot.Robot, o web.Options, logger golog.Logger) (err error) {
+	defer func() {
+		fmt.Printf("err: %v\n", err)
+		if err != nil {
+			err = utils.FilterOutError(err, context.Canceled)
+			if err != nil {
+				logger.Errorw("error running web", "error", err)
+			}
+		}
+		err = multierr.Combine(err, utils.TryClose(r))
+	}()
+	svc, ok := r.ServiceByName(robotimpl.WebSvcName)
 	if !ok {
 		return errors.New("robot has no web service")
 	}
-	if err := svc.(web.Service).Start(ctx, options); err != nil {
-		cancel()
+	if err := svc.(web.Service).Start(ctx, o); err != nil {
 		return err
 	}
 	<-ctx.Done()
-	return myRobot.Close()
+	return ctx.Err()
 }
