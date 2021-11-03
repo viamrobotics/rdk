@@ -494,21 +494,15 @@ service RobotService {
   }
 
   // Frame System Service
-  rpc FrameServiceDAG(FrameServiceDAGRequest) returns (FrameServiceDAGResponse) {
+  rpc FrameServiceConfig(FrameServiceDAGRequest) returns (FrameServiceConfigResponse) {
     option (google.api.http) = {
-      get: "/api/v1/services/frame_system/dag"
+      get: "/api/v1/services/frame_system/config"
     };
   }
   
-  rpc FrameServiceTransform(FrameServiceTransformRequest) returns (FrameServiceTransformResponse) {
+  rpc FrameServiceModel(FrameServiceModelRequest) returns (FrameServiceModelResponse) {
     option (google.api.http) = {
-      get: "/api/v1/services/frame_system/frame/transform"
-    };
-  }
-
-  rpc FrameServiceKinematicLimits(FrameServiceKinematicLimitsRequest) returns (FrameServiceKinematicLimitsResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/services/frame_system/frame/limits"
+      get: "/api/v1/services/frame_system/frame/model"
     };
   }
 
@@ -683,37 +677,29 @@ message JointPositions {
   repeated double degrees = 1;
 }
 
-message FrameServiceDAGRequest {}
+message FrameConfig{
+  string parent = 1;
+  Pose  pose = 2;
+}
 
-message Node{
+message FrameSystemConfig {
   string name = 1;
-  string parent = 2; 
+  FrameConfig frame_config = 2;
+  bytes model_json = 3; 
 }
 
-message FrameServiceDAGResponse {
-  repeated Node nodes = 1;
+message FrameServiceConfigRequest {}
+
+message FrameServiceConfigResponse {
+  repeated FrameSystemConfig configs = 1;
 }
 
-message FrameServiceTransformRequest{
-  string name = 1;
-  repeated double inputs = 2;
-}
-
-message FrameServiceTransformResponse{
-    Pose pose = 1;
-}
-
-message FrameServiceKinematicLimitsRequest{
+message FrameServiceModelRequest {
   string name = 1;
 }
 
-message Limit{
-  double min = 1;
-  double max = 2;
-}
-
-message FrameServiceKinematicLimitsResponse{
-  repeated Limit limits = 1;
+message FrameServiceModelResponse{
+    bytes model_json = 1;
 }
 
 message ArmCurrentPositionRequest {

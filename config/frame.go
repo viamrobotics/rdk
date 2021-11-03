@@ -48,6 +48,11 @@ type Frame struct {
 	Orientation spatial.Orientation `json:"orientation"`
 }
 
+// Pose combines Translation and Orientation in a Pose
+func (f *Frame) Pose() spatial.Pose {
+	return MakePose(f)
+}
+
 // rawOrientation holds the underlying type of orientation, and the value.
 type rawOrientation struct {
 	Type  string          `json:"type"`
@@ -160,6 +165,9 @@ func MakeStaticFrame(cfg *Frame, name string) (ref.Frame, error) {
 
 // MakePose creates a new pose from a config
 func MakePose(cfg *Frame) spatial.Pose {
+	if cfg == nil {
+		return nil
+	}
 	// get the translation vector. If there is no translation/orientation attribute will default to 0
 	translation := r3.Vector{cfg.Translation.X, cfg.Translation.Y, cfg.Translation.Z}
 	return spatial.NewPoseFromOrientation(translation, cfg.Orientation)

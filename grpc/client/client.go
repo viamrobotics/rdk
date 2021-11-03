@@ -650,65 +650,30 @@ func (rc *RobotClient) Logger() golog.Logger {
 	return rc.logger
 }
 
-// FrameSystem retrieves a DAG of the remote frame names and then builds a FrameSystem using *clientFrames
+// FrameSystem retrieves an ordered slice of the remote frame configs and then builds a FrameSystem from the configs
 func (rc *RobotClient) FrameSystem(ctx context.Context, prefix string) (referenceframe.FrameSystem, error) {
-	// request the DAG from the remote robot's frame system service.FrameSystemDAG()
-	resp, err := rc.client.FrameServiceDAG(ctx, &pb.FrameServiceDAGRequest{})
+	fs := referenceframe.NewEmptySimpleFrameSystem("robot")
+	// request the full config from the remote robot's frame system service.FrameSystemConfig()
+	resp, err := rc.client.FrameServiceConfig(ctx, &pb.FrameServiceConfigRequest{})
 	if err != nil {
 		return nil, err
 	}
-	// using the DAG, build a FrameSystem using *frameClient frames, the returned dag should already be sorted.
-	dag := resp.Nodes
-	fs := referenceframe.NewEmptySimpleFrameSystem("robot")
-	for _, node := range dag {
-		frame := &frameClient{rc: rc, name: node.Name, prefixedName: prefix + node.Name}
-		parentName := node.Parent
+	configs := resp.Configs
+	// using the configs, build a FrameSystem using model frames and static offset frames, the configs slice should already be sorted.
+	for _, conf := range configs {
+		part := config.ProtobufToFrameSystemPart(conf)
+		modelFrame, staticOffsetFrame, err := config.CreateFramesFromPart(part)
+		if err != nil {
+			return nil, err
+		}
+		parentName := part.Parent
 		if parentName != referenceframe.World {
 			parentName = prefix + parentName
 		}
-		err := fs.AddFrame(frame, fs.GetFrame(parentName))
-		if err != nil {
-			return nil, fmt.Errorf("adding clientFrame to remote frame system:  %w", err)
-		}
 	}
+
 	// return the built FrameSystem
 	return fs, nil
-}
-
-// frameClient satisfies a gRPC based referenceframe.Frame. Refer to the interface
-// for descriptions of its methods. "name" refers to the name of the frame as known by the service,
-// and "prefixName" refers to the name of the frame as its known by the local robot, which may have added
-// a prefix to the robot part.
-type frameClient struct {
-	rc           *RobotClient
-	name         string
-	prefixedName string
-}
-
-func (fc *frameClient) Name() string {
-	return fc.prefixedName
-}
-
-func (fc *frameClient) Transform(ctx context.Context, inputs []referenceframe.Input) (spatialmath.Pose, error) {
-	inp := referenceframe.InputsToFloats(inputs)
-	resp, err := fc.rc.client.FrameServiceTransform(ctx, &pb.FrameServiceTransformRequest{
-		Name:   fc.name,
-		Inputs: inp,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return spatialmath.NewPoseFromProtobuf(resp.Pose), nil
-}
-
-func (fc *frameClient) DoF(ctx context.Context) []*pb.Limit {
-	resp, err := fc.rc.client.FrameServiceKinematicLimits(ctx, &pb.FrameServiceKinematicLimitsRequest{
-		Name: fc.name,
-	})
-	if err != nil {
-		panic(err)
-	}
-	return resp.Limits
 }
 
 // baseClient satisfies a gRPC based base.Base. Refer to the interface
