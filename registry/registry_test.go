@@ -76,9 +76,9 @@ func TestRegistry(t *testing.T) {
 	test.That(t, func() { RegisterInputController("x", InputController{}) }, test.ShouldPanic)
 
 	// test register
-	RegisterCamera("x", Camera{cf, ff})
+	RegisterCamera("x", Camera{Constructor: cf, Frame: ff})
 	RegisterBase("x", Base{Constructor: bf, Frame: ff})
-	RegisterGripper("x", Gripper{gf, ff})
+	RegisterGripper("x", Gripper{Constructor: gf, Frame: ff})
 	RegisterLidar("x", Lidar{Constructor: lf})
 	RegisterSensor(sensor.Type("x"), "y", Sensor{Constructor: sf, Frame: ff})
 	RegisterBoard("x", Board{Constructor: bbf, Frame: ff})
