@@ -30,8 +30,6 @@ import (
 	"go.viam.com/core/serial"
 	"go.viam.com/core/services/web"
 
-	_ "go.viam.com/core/board/detector"
-
 	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"

@@ -24,10 +24,6 @@ import (
 	"go.viam.com/core/servo"
 	"go.viam.com/core/vision/segmentation"
 
-	_ "go.viam.com/core/base/impl"
-	_ "go.viam.com/core/board/detector"
-	_ "go.viam.com/core/rimage/imagesource"
-
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/erh/egoutil"

@@ -34,8 +34,6 @@ import (
 	"go.viam.com/core/spatialmath"
 	coreutils "go.viam.com/core/utils"
 
-	_ "go.viam.com/core/board/detector"
-
 	"github.com/edaniels/golog"
 )
 

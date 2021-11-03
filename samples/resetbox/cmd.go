@@ -25,9 +25,6 @@ import (
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
 
-	_ "go.viam.com/core/motor/tmcstepper"
-	_ "go.viam.com/core/robots/xarm"
-
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 )

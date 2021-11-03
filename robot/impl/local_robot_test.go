@@ -26,8 +26,6 @@ import (
 	"go.viam.com/core/services/web"
 	"go.viam.com/core/spatialmath"
 
-	_ "go.viam.com/core/rimage/imagesource"
-
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 )
