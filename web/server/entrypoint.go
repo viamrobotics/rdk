@@ -22,28 +22,6 @@ import (
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/web"
 
-	// These are the robot pieces we want by default
-	_ "go.viam.com/core/base/impl"
-	_ "go.viam.com/core/board/arduino"
-	_ "go.viam.com/core/board/detector"
-	_ "go.viam.com/core/board/jetson"
-	_ "go.viam.com/core/input/gamepad" // xbox controller and similar
-	_ "go.viam.com/core/motor/gpio"
-	_ "go.viam.com/core/motor/gpiostepper"
-	_ "go.viam.com/core/rimage/imagesource"
-	_ "go.viam.com/core/robots/eva"                     // for eva
-	_ "go.viam.com/core/robots/gopro"                   // for a camera
-	_ "go.viam.com/core/robots/robotiq"                 // for a gripper
-	_ "go.viam.com/core/robots/softrobotics"            // for a gripper
-	_ "go.viam.com/core/robots/universalrobots"         // for an arm
-	_ "go.viam.com/core/robots/varm"                    // for an arm
-	_ "go.viam.com/core/robots/vforcematrixtraditional" // for a traditional force matrix
-	_ "go.viam.com/core/robots/vforcematrixwithmux"     // for a force matrix built using a mux
-	_ "go.viam.com/core/robots/vgripper"                // for a gripper
-	_ "go.viam.com/core/robots/vx300s"                  // for arm and gripper
-	_ "go.viam.com/core/robots/wx250s"                  // for arm and gripper
-	_ "go.viam.com/core/robots/xarm"                    // for an arm
-
 	"github.com/edaniels/golog"
 	"github.com/erh/egoutil"
 	"github.com/go-errors/errors"
