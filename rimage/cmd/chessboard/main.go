@@ -52,7 +52,7 @@ func main() {
 	logger.Info(img.Bounds().Max)
 	// convert to mat
 	im := rimage.ConvertColorImageToLuminanceFloat(*imgCopy)
-	ih, iw := im.Dims()
+	//ih, iw := im.Dims()
 	saddleMap, saddlePoints, err := chessboard.GetSaddleMapPoints(im, &cfg.Saddle)
 	if err != nil {
 		logger.Error(err)
@@ -85,17 +85,13 @@ func main() {
 	_ = rimage.DrawContours(edges, contours, "contours16.png")
 	// Approximate contours with polygons
 	contoursSimplified := rimage.SimplifyContours(contours)
-	err = rimage.DrawContoursSimplified(edges, contoursSimplified, "contours_polygons.png")
-	if err != nil {
-		logger.Error(err)
-	}
 	// select only contours that correspond to convex quadrilateral
 	prunedContours := chessboard.PruneContours(contoursSimplified, hierarchy, saddleMap, cfg.Contours.WinSize)
-	err = rimage.DrawContoursSimplified(edges, prunedContours, "pruned_contours.png")
-	if err != nil {
-		logger.Error(err)
-	}
-	chessboard.PlotSaddleMap(saddlePoints, prunedContours, "polygonsWithSaddles.png", ih, iw)
+	//err = rimage.DrawContoursSimplified(edges, prunedContours, "pruned_contours.png")
+	//if err != nil {
+	//	logger.Error(err)
+	//}
+	//chessboard.PlotSaddleMap(saddlePoints, prunedContours, "polygonsWithSaddles.png", ih, iw)
 
 	// greedy iterations to find the best homography
 	//TODO(louise): fix homography iteration issue
