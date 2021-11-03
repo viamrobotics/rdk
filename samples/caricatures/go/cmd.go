@@ -14,6 +14,7 @@ import (
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/services/web"
+	webserver "go.viam.com/core/web/server"
 )
 
 const (
@@ -81,16 +82,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		defer myRobot.Close()
 		webOpts := web.NewOptions()
 		webOpts.Insecure = true
-		svc, ok := myRobot.ServiceByName("web1")
-		if !ok {
-			return errors.New("robot has no web service")
-		}
-		if err := svc.(web.Service).Start(ctx, webOpts); err != nil {
-			return err
-		}
-		<-ctx.Done()
-		return nil
+		return webserver.RunWeb(ctx, myRobot, webOpts, logger)
 	}
-
 	return nil
 }

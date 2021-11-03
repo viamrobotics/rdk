@@ -24,6 +24,7 @@ import (
 
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
+	webserver "go.viam.com/core/web/server"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
@@ -326,15 +327,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 
 	webOpts := web.NewOptions()
 	webOpts.Insecure = true
-
-	svc, ok := myRobot.ServiceByName("web1")
-	if !ok {
-		return errors.New("robot has no web service")
-	}
-	err = svc.(web.Service).Start(ctx, webOpts)
-
-	<-ctx.Done()
-	return nil
+	return webserver.RunWeb(ctx, myRobot, webOpts, logger)
 }
 
 func (b *ResetBox) doGrab1(ctx context.Context, r robot.Robot) {

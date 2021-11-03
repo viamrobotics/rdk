@@ -29,6 +29,7 @@ import (
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/serial"
 	"go.viam.com/core/services/web"
+	webserver "go.viam.com/core/web/server"
 
 	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
@@ -427,14 +428,5 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		recordDepthWorker(ctx, depth1)
 	}, activeBackgroundWorkers.Done)
 
-	svc, ok := myRobot.ServiceByName("web1")
-	if !ok {
-		return errors.New("robot has no web service")
-	}
-	if err := svc.(web.Service).Start(ctx, web.NewOptions()); err != nil {
-		cancel()
-		return err
-	}
-	<-ctx.Done()
-	return nil
+	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
 }
