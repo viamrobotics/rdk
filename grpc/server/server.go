@@ -46,9 +46,6 @@ import (
 	"go.viam.com/core/spatialmath"
 	coreutils "go.viam.com/core/utils"
 	"go.viam.com/core/vision/segmentation"
-
-	// Engines
-	_ "go.viam.com/core/function/vm/engines/javascript"
 )
 
 // Server implements the contract from robot.proto that ultimately satisfies
