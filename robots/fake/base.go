@@ -14,20 +14,14 @@ import (
 
 func init() {
 	registry.RegisterBase(ModelName, registry.Base{Constructor: func(ctx context.Context, r robot.Robot, c config.Component, logger golog.Logger) (base.Base, error) {
-		return &Base{Name: c.Name, FrameConfig: c.Frame}, nil
+		return &Base{Name: c.Name}, nil
 	}})
 }
 
 // Base is a fake base that returns what it was provided in each method.
 type Base struct {
-	Name        string
-	FrameConfig *config.Frame
-	CloseCount  int
-}
-
-// FrameSystemLink returns the information necessary to put the base in a frame system
-func (b *Base) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
-	return b.FrameConfig, nil
+	Name       string
+	CloseCount int
 }
 
 // MoveStraight returns that it moved the given distance.

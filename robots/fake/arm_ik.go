@@ -18,7 +18,7 @@ import (
 )
 
 //go:embed arm_model.json
-var armModelJSON string
+var armModelJSON []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "fake_ik", registry.Component{
@@ -28,25 +28,12 @@ func init() {
 			}
 			return NewArmIK(ctx, config, logger)
 		},
-		Frame: func(name string) (frame.Frame, error) {
-			return fakeFrame(name)
-		},
 	})
 }
 
 // fakeModel returns the kinematics model
 func fakeModel() (*kinematics.Model, error) {
-	return kinematics.ParseJSON([]byte(armModelJSON))
-}
-
-// fakeFrame returns the reference frame of the fake arm
-func fakeFrame(name string) (frame.Frame, error) {
-	f, err := fakeModel()
-	if err != nil {
-		return nil, err
-	}
-	f.SetName(name)
-	return f, nil
+	return kinematics.ParseJSON(armModelJSON)
 }
 
 // NewArmIK returns a new fake arm.
@@ -61,35 +48,29 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 	if err != nil {
 		return nil, err
 	}
-	fr, err := fakeFrame(name)
-	if err != nil {
-		return nil, err
-	}
 
 	return &ArmIK{
-		Name:        name,
-		position:    &pb.Pose{},
-		joints:      &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
-		ik:          ik,
-		frame:       fr,
-		frameconfig: cfg.Frame,
+		Name:      name,
+		position:  &pb.Pose{},
+		joints:    &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		ik:        ik,
+		frameJSON: armModelJSON,
 	}, nil
 }
 
 // ArmIK is a fake arm that can simply read and set properties.
 type ArmIK struct {
-	Name        string
-	position    *pb.Pose
-	joints      *pb.JointPositions
-	ik          kinematics.InverseKinematics
-	CloseCount  int
-	frame       frame.Frame
-	frameconfig *config.Frame
+	Name       string
+	position   *pb.Pose
+	joints     *pb.JointPositions
+	ik         kinematics.InverseKinematics
+	CloseCount int
+	frameJSON  []byte
 }
 
-// FrameSystemLink returns all the information necessary for including the arm in a FrameSystem
-func (a *ArmIK) FrameSystemLink() (*config.Frame, frame.Frame) {
-	return a.frameconfig, a.frame
+// ModelFrame returns the json bytes that describe the dynamic frame of the model
+func (a *ArmIK) ModelFrame() []byte {
+	return a.frameJSON
 }
 
 // CurrentPosition returns the set position.

@@ -16,21 +16,15 @@ import (
 func init() {
 	registry.RegisterSensor(compass.Type, ModelName, registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 		if config.Attributes.Bool("relative", false) {
-			return &RelativeCompass{&Compass{Name: config.Name, FrameConfig: config.Frame}}, nil
+			return &RelativeCompass{&Compass{Name: config.Name}}, nil
 		}
-		return &Compass{Name: config.Name, FrameConfig: config.Frame}, nil
+		return &Compass{Name: config.Name}, nil
 	}})
 }
 
 // Compass is a fake compass that always returns the same readings.
 type Compass struct {
-	Name        string
-	FrameConfig *config.Frame
-}
-
-// FrameSystemLink contains the information needed to add the compass to a frame system
-func (c *Compass) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
-	return c.FrameConfig, nil
+	Name string
 }
 
 // Readings always returns the same values.

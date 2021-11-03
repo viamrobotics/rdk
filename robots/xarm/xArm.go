@@ -21,15 +21,14 @@ import (
 )
 
 type xArm struct {
-	dof         int
-	tid         uint16
-	conn        net.Conn
-	speed       float32 //speed=20*π/180rad/s
-	accel       float32 //acceleration=500*π/180rad/s^2
-	moveLock    *sync.Mutex
-	ik          kinematics.InverseKinematics
-	frame       referenceframe.Frame
-	frameconfig *config.Frame
+	dof       int
+	tid       uint16
+	conn      net.Conn
+	speed     float32 //speed=20*π/180rad/s
+	accel     float32 //acceleration=500*π/180rad/s^2
+	moveLock  *sync.Mutex
+	ik        kinematics.InverseKinematics
+	frameJSON []byte
 }
 
 //go:embed xArm6_kinematics.json
@@ -43,13 +42,11 @@ func init() {
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewxArm(ctx, config, logger, 6)
 		},
-		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name, 6) },
 	})
 	registry.RegisterComponent(arm.Subtype, "xArm7", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewxArm(ctx, config, logger, 7)
 		},
-		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name, 7) },
 	})
 }
 
@@ -63,16 +60,6 @@ func xArmModel(dof int) (*kinematics.Model, error) {
 	return nil, errors.New("no kinematics model for xarm with specified degrees of freedom")
 }
 
-// xArmFrame returns the reference frame of the arm with the given name.
-func xArmFrame(name string, dof int) (referenceframe.Frame, error) {
-	frame, err := xArmModel(dof)
-	if err != nil {
-		return nil, err
-	}
-	frame.SetName(name)
-	return frame, nil
-}
-
 // NewxArm returns a new xArm with the specified dof
 func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof int) (arm.Arm, error) {
 	host := cfg.Host
@@ -84,9 +71,11 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 	if err != nil {
 		return nil, err
 	}
-	frame, err := xArmFrame(cfg.Name, dof)
-	if err != nil {
-		return nil, err
+	var frame []byte
+	if dof == 6 {
+		frame = xArm6modeljson
+	} else if dof == 7 {
+		frame = xArm7modeljson
 	}
 	nCPU := runtime.NumCPU()
 	ik, err := kinematics.CreateCombinedIKSolver(ctx, model, logger, nCPU)
@@ -97,7 +86,7 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 	mutex := &sync.Mutex{}
 	// Start with default speed/acceleration parameters
 	// TODO(pl): add settable speed
-	xA := xArm{dof, 0, conn, 0.35, 8.7, mutex, ik, frame, cfg.Frame}
+	xA := xArm{dof, 0, conn, 0.35, 8.7, mutex, ik, frame}
 
 	err = xA.start()
 	if err != nil {
@@ -107,7 +96,7 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 	return &xA, nil
 }
 
-// FrameSystemLink returns all the information necessary for including the arm in a FrameSystem
-func (x *xArm) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
-	return x.frameconfig, x.frame
+// ModelFrame returns the json bytes that describe the dynamic frame of the model
+func (x *xArm) ModelFrame() []byte {
+	return x.frameJSON
 }

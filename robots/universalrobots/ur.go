@@ -41,7 +41,6 @@ func init() {
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return URArmConnect(ctx, config, logger)
 		},
-		Frame: func(name string) (referenceframe.Frame, error) { return ur5eFrame(name) },
 	})
 }
 
@@ -73,8 +72,7 @@ type URArm struct {
 	cancel                  func()
 	activeBackgroundWorkers *sync.WaitGroup
 	ik                      kinematics.InverseKinematics
-	frame                   referenceframe.Frame
-	frameconfig             *config.Frame
+	frameJSON               []byte
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -123,10 +121,6 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 	if err != nil {
 		return nil, err
 	}
-	frame, err := ur5eFrame(cfg.Name)
-	if err != nil {
-		return nil, err
-	}
 
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", host+":30001")
@@ -145,8 +139,7 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 		logger:                  logger,
 		cancel:                  cancel,
 		ik:                      ik,
-		frame:                   frame,
-		frameconfig:             cfg.Frame,
+		frameJSON:               ur5modeljson,
 	}
 
 	onData := make(chan struct{})
@@ -175,9 +168,9 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 	}
 }
 
-// FrameSystemLink returns all the information necessary for including the arm in a FrameSystem
-func (ua *URArm) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
-	return ua.frameconfig, ua.frame
+// ModelFrame returns all the information necessary for including the arm in a FrameSystem
+func (ua *URArm) ModelFrame() []byte {
+	return ua.frameJSON
 }
 
 func (ua *URArm) setRuntimeError(re error) {

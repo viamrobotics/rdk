@@ -33,10 +33,6 @@ func init() {
 			}
 			return NewGripperV1(ctx, r, b, config, logger)
 		},
-		Frame: func(name string) (referenceframe.Frame, error) {
-			// A viam gripper is 220mm from mount point to center of gripper paddles
-			return referenceframe.FrameFromPoint(name, r3.Vector{0, 0, 220})
-		},
 	})
 }
 
@@ -66,9 +62,6 @@ type GripperV1 struct {
 	logger                        golog.Logger
 
 	numBadCurrentReadings int
-
-	frame       referenceframe.Frame
-	frameconfig *config.Frame
 }
 
 // NewGripperV1 Returns a GripperV1
@@ -98,8 +91,6 @@ func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 		holdingPressure: .5,
 		pressureLimit:   pressureLimit,
 		logger:          logger,
-		frame:           frame,
-		frameconfig:     cfg.Frame,
 	}
 
 	if vg.motor == nil {
@@ -264,11 +255,6 @@ func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	}
 
 	return vg, vg.Open(ctx)
-}
-
-// FrameSystemLink returns all the information necessary for including the gripper in a FrameSystem
-func (vg *GripperV1) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
-	return vg.frameconfig, vg.frame
 }
 
 // Open opens the jaws
