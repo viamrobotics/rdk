@@ -323,6 +323,11 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 			select {
 			case <-ctx.Done():
 				return
+			default:
+			}
+			select {
+			case <-ctx.Done():
+				return
 			case config := <-watcher.Config():
 				if err := myRobot.Reconfigure(ctx, config); err != nil {
 					logger.Errorw("error reconfiguring robot", "error", err)
@@ -332,6 +337,9 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	}, func() {
 		close(onWatchDone)
 	})
+	defer func() {
+		<-onWatchDone
+	}()
 
 	options := web.NewOptions()
 	options.AutoTile = !argsParsed.NoAutoTile
@@ -357,6 +365,6 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		cancel()
 		return err
 	}
-	<-onWatchDone
+	<-ctx.Done()
 	return myRobot.Close()
 }
