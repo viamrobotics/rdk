@@ -347,6 +347,12 @@ service RobotService {
     };
   }
 
+  rpc ForceMatrixSlipDetection(ForceMatrixSlipDetectionRequest) returns (ForceMatrixSlipDetectionResponse) {
+    option (google.api.http) = {
+      get : "/api/v1/sensors/forcematrix/{name}/slip_detection"
+    };
+  }
+
   // TODO(erd): refactor to functions service
   rpc ExecuteFunction(ExecuteFunctionRequest) returns (ExecuteFunctionResponse) {
     option (google.api.http) = {
@@ -1381,4 +1387,12 @@ message ForceMatrixMatrixRequest {
 
 message ForceMatrixMatrixResponse {
 	Matrix matrix = 1;
+}
+
+message ForceMatrixSlipDetectionRequest {
+  string name = 1;
+}
+
+message ForceMatrixSlipDetectionResponse {
+  bool is_slipping = 1;
 }

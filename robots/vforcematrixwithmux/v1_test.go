@@ -70,6 +70,7 @@ func TestNew(t *testing.T) {
 		"mux_gpio_pins_s2_to_s0":         []interface{}{"s2", "s1", "s0"},
 		"io_pins_top_to_bottom":          []interface{}{0, 2, 6, 7},
 		"analog_reader":                  "fake",
+		"slip_detection_resolution":      2,
 	}
 	component := config.Component{Attributes: fakeAttrMap}
 	mux, _ = NewMux(context.Background(), fakeRobot, component, logger)
@@ -80,4 +81,11 @@ func TestNew(t *testing.T) {
 	matrix, err := mux.Matrix(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, matrix, test.ShouldResemble, expectedMatrix)
+
+	mux.Matrix(context.Background())
+	mux.Matrix(context.Background())
+	mux.Matrix(context.Background())
+	isSlipping, err := mux.IsSlipping(context.Background())
+	test.That(t, isSlipping, test.ShouldBeFalse)
+	test.That(t, err, test.ShouldBeNil)
 }

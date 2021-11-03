@@ -2703,6 +2703,67 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.forceMatrixMatrix =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.ForceMatrixSlipDetectionRequest,
+ *   !proto.proto.api.v1.ForceMatrixSlipDetectionResponse>}
+ */
+const methodDescriptor_RobotService_ForceMatrixSlipDetection = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/ForceMatrixSlipDetection',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.ForceMatrixSlipDetectionRequest,
+  proto.proto.api.v1.ForceMatrixSlipDetectionResponse,
+  /**
+   * @param {!proto.proto.api.v1.ForceMatrixSlipDetectionRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ForceMatrixSlipDetectionResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.ForceMatrixSlipDetectionRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.ForceMatrixSlipDetectionResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ForceMatrixSlipDetectionResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.forceMatrixSlipDetection =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ForceMatrixSlipDetection',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ForceMatrixSlipDetection,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.ForceMatrixSlipDetectionRequest} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.ForceMatrixSlipDetectionResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.forceMatrixSlipDetection =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ForceMatrixSlipDetection',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ForceMatrixSlipDetection);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.v1.ExecuteFunctionRequest,
  *   !proto.proto.api.v1.ExecuteFunctionResponse>}
  */

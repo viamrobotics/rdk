@@ -3895,6 +3895,46 @@ export namespace ForceMatrixMatrixResponse {
   }
 }
 
+export class ForceMatrixSlipDetectionRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): ForceMatrixSlipDetectionRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: ForceMatrixSlipDetectionRequest): ForceMatrixSlipDetectionRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: ForceMatrixSlipDetectionRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ForceMatrixSlipDetectionRequest;
+  static deserializeBinaryFromReader(message: ForceMatrixSlipDetectionRequest, reader: jspb.BinaryReader): ForceMatrixSlipDetectionRequest;
+}
+
+export namespace ForceMatrixSlipDetectionRequest {
+  export type AsObject = {
+    name: string,
+  }
+}
+
+export class ForceMatrixSlipDetectionResponse extends jspb.Message {
+  getIsSlipping(): boolean;
+  setIsSlipping(value: boolean): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): ForceMatrixSlipDetectionResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: ForceMatrixSlipDetectionResponse): ForceMatrixSlipDetectionResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: ForceMatrixSlipDetectionResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ForceMatrixSlipDetectionResponse;
+  static deserializeBinaryFromReader(message: ForceMatrixSlipDetectionResponse, reader: jspb.BinaryReader): ForceMatrixSlipDetectionResponse;
+}
+
+export namespace ForceMatrixSlipDetectionResponse {
+  export type AsObject = {
+    isSlipping: boolean,
+  }
+}
+
 export interface DirectionRelativeMap {
   DIRECTION_RELATIVE_UNSPECIFIED: 0;
   DIRECTION_RELATIVE_FORWARD: 1;
