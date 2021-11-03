@@ -26,11 +26,6 @@ func init() {
 			}
 			return NewArm(config)
 		},
-		Frame: func(name string) (referenceframe.Frame, error) {
-			point := r3.Vector{500, 0, 300}
-			pose := spatialmath.NewPoseFromAxisAngle(point, r3.Vector{0, 1, 0}, math.Pi/2.)
-			return referenceframe.NewStaticFrame(name, pose)
-		},
 	})
 }
 
@@ -39,32 +34,19 @@ func NewArm(cfg config.Component) (arm.Arm, error) {
 	name := cfg.Name
 	point := r3.Vector{500, 0, 300}
 	pose := spatialmath.NewPoseFromAxisAngle(point, r3.Vector{0, 1, 0}, math.Pi/2.)
-	frame, err := referenceframe.NewStaticFrame(name, pose)
-	if err != nil {
-		return nil, err
-	}
 	return &Arm{
-		Name:        name,
-		position:    &pb.Pose{},
-		joints:      &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
-		frame:       frame,
-		frameconfig: cfg.Frame,
+		Name:     name,
+		position: &pb.Pose{},
+		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
 	}, nil
 }
 
 // Arm is a fake arm that can simply read and set properties.
 type Arm struct {
-	Name        string
-	position    *pb.Pose
-	joints      *pb.JointPositions
-	CloseCount  int
-	frame       referenceframe.Frame
-	frameconfig *config.Frame
-}
-
-// FrameSystemLink returns all the information necessary for including the arm in a FrameSystem
-func (a *Arm) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
-	return a.frameconfig, a.frame
+	Name       string
+	position   *pb.Pose
+	joints     *pb.JointPositions
+	CloseCount int
 }
 
 // CurrentPosition returns the set position.

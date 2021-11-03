@@ -18,14 +18,13 @@ import (
 
 func init() {
 	registry.RegisterCamera("fake", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
-		return &Camera{Name: config.Name, FrameConfig: config.Frame}, nil
+		return &Camera{Name: config.Name}, nil
 	}})
 }
 
 // Camera is a fake camera that always returns the same image.
 type Camera struct {
-	Name        string
-	FrameConfig *config.Frame
+	Name string
 }
 
 // Next always returns the same image with a red dot in the center.
@@ -44,9 +43,4 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 // Close does nothing.
 func (c *Camera) Close() error {
 	return nil
-}
-
-// FrameSystemLink has the info needed to add the camera to a frame system
-func (c *Camera) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
-	return c.FrameConfig, nil
 }

@@ -39,7 +39,6 @@ func init() {
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewEva(ctx, config, logger)
 		},
-		Frame: func(name string) (frame.Frame, error) { return evaFrame(name) },
 	})
 }
 
@@ -79,8 +78,8 @@ type eva struct {
 	logger   golog.Logger
 	ik       kinematics.InverseKinematics
 
-	frame       frame.Frame
-	frameconfig *config.Frame
+	frameJSON []byte
+	frameconfig
 }
 
 func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
@@ -312,24 +311,14 @@ func (e *eva) apiUnlock(ctx context.Context) {
 	}
 }
 
-// FrameSystemLink returns all the information necessary for including the arm in a FrameSystem
-func (e *eva) FrameSystemLink() (*config.Frame, frame.Frame) {
-	return e.frameconfig, e.frame
+// ModelFrame returns all the information necessary for including the arm in a FrameSystem
+func (e *eva) ModelFrame() []byte {
+	return e.frameJSON
 }
 
 // EvaModel() returns the kinematics model of the Eva, also has all Frame information.
 func evaModel() (*kinematics.Model, error) {
 	return kinematics.ParseJSON(evamodeljson)
-}
-
-// EvaFrame() returns the reference frame of the Eva, also
-func evaFrame(name string) (frame.Frame, error) {
-	frame, err := evaModel()
-	if err != nil {
-		return nil, err
-	}
-	frame.SetName(name)
-	return frame, nil
 }
 
 // NewEva TODO
@@ -344,20 +333,15 @@ func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm
 	if err != nil {
 		return nil, err
 	}
-	fr, err := evaFrame(cfg.Name)
-	if err != nil {
-		return nil, err
-	}
 
 	e := &eva{
-		host:        host,
-		version:     "v1",
-		token:       attrs.String("token"),
-		logger:      logger,
-		moveLock:    &sync.Mutex{},
-		ik:          ik,
-		frame:       fr,
-		frameconfig: cfg.Frame,
+		host:      host,
+		version:   "v1",
+		token:     attrs.String("token"),
+		logger:    logger,
+		moveLock:  &sync.Mutex{},
+		ik:        ik,
+		frameJSON: evamodeljson,
 	}
 
 	name, err := e.apiName(ctx)

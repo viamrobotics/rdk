@@ -2,6 +2,7 @@ package fake
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"hash/fnv"
 	"math/rand"
@@ -19,6 +20,9 @@ import (
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 )
+
+//go:embed lidar_model.json
+var lidarmodel []byte
 
 // LidarType uses the fake model name.
 const LidarType = ModelName
@@ -38,36 +42,28 @@ func init() {
 			device.SetSeed(seed)
 			return device, nil
 		},
-		Frame: func(name string) (referenceframe.Frame, error) {
-			return referenceframe.FrameFromPoint(name, r3.Vector{50, 0, 0})
-		},
 	})
 }
 
 // A Lidar outputs noisy scans based on its current position and seed.
 type Lidar struct {
-	Name        string
-	mu          *sync.Mutex
-	posX, posY  float64
-	started     bool
-	seed        int64
-	frame       referenceframe.Frame
-	frameconfig *config.Frame
+	Name       string
+	mu         *sync.Mutex
+	posX, posY float64
+	started    bool
+	seed       int64
+	frameJSON  []byte
 }
 
 // NewLidar returns a new fake lidar.
 func NewLidar(cfg config.Component) *Lidar {
 	name := cfg.Name
-	frame, err := referenceframe.FrameFromPoint(name, r3.Vector{50, 0, 0})
-	if err != nil {
-		panic("this fake lidar frame does not work for some reason")
-	}
-	return &Lidar{Name: name, mu: &sync.Mutex{}, frame: frame, frameconfig: cfg.Frame}
+	return &Lidar{Name: name, mu: &sync.Mutex{}, frameJSON: lidarmodel}
 }
 
-// FrameSystemLink returns all the information necessary for including the lidar in a FrameSystem
-func (l *Lidar) FrameSystemLink() (*config.Frame, referenceframe.Frame) {
-	return l.frameconfig, l.frame
+// ModelFrame returns the json bytes that describe the dynamic frame of the model
+func (l *Lidar) ModelFrame() []byte {
+	return l.frameJSON
 }
 
 // SetPosition sets the given position.
