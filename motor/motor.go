@@ -84,5 +84,5 @@ func RegisterConfigAttributeConverter(model string) {
 			return nil, err
 		}
 		return &conf, nil
-	})
+	}, &Config{})
 }

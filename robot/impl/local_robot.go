@@ -73,6 +73,9 @@ import (
 	_ "go.viam.com/core/sensor/gps/merge"
 	_ "go.viam.com/core/sensor/gps/nmea"
 	_ "go.viam.com/core/vision" // this is for interesting camera types, depth, etc...
+
+	// These are the services we want by default
+	_ "go.viam.com/core/services/navigation"
 )
 
 var _ = robot.LocalRobot(&localRobot{})
