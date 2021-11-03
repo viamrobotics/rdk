@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"runtime/pprof"
@@ -310,7 +309,9 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	if err != nil {
 		return err
 	}
-	defer myRobot.Close()
+	defer func() {
+		err = multierr.Combine(err, myRobot.Close())
+	}()
 
 	// watch for and deliver changes to the robot
 	watcher, err := config.NewWatcher(cfg, logger)
@@ -366,7 +367,6 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 // RunWeb starts the web server on the web service and blocks until we close it
 func RunWeb(ctx context.Context, r robot.Robot, o web.Options, logger golog.Logger) (err error) {
 	defer func() {
-		fmt.Printf("err: %v\n", err)
 		if err != nil {
 			err = utils.FilterOutError(err, context.Canceled)
 			if err != nil {
