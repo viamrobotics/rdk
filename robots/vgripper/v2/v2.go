@@ -3,7 +3,6 @@ package vgripper
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"time"
 
@@ -32,7 +31,7 @@ const ModelName = "viam-v2"
 func init() {
 	registry.RegisterGripper(ModelName, registry.Gripper{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
-			return NewGripperV2(ctx, r, config, logger)
+			return New(ctx, r, config, logger)
 		},
 		Frame: func(name string) (referenceframe.Frame, error) {
 			// A viam gripper is 220mm from mount point to center of gripper paddles
@@ -64,14 +63,14 @@ type GripperV2 struct {
 
 	pressureLimit float64
 
-	closeDirection, openDirection pb.DirectionRelative
-	logger                        golog.Logger
+	closedDirection, openDirection pb.DirectionRelative
+	logger                         golog.Logger
 
 	numBadCurrentReadings int
 }
 
-// NewGripperV2 returns a GripperV2.
-func NewGripperV2(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*GripperV2, error) {
+// New returns a GripperV2.
+func New(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*GripperV2, error) {
 	const boardName = "local"
 	const motorName = "g"
 	const currentAnalogReaderName = "current"
@@ -126,6 +125,16 @@ func NewGripperV2(ctx context.Context, r robot.Robot, config config.Component, l
 		return nil, err
 	}
 
+	if vg.closedDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
+		return nil, errors.Errorf("vg.closedDirection has not been specified successfully")
+	}
+	if vg.openDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
+		return nil, errors.Errorf("vg.openDirection has not been specified successfully")
+	}
+	if vg.openDirection == vg.closedDirection {
+		return nil, errors.Errorf("vg.openDirection and vg.closedDirection have to be opposed")
+	}
+
 	return vg, vg.Open(ctx)
 }
 
@@ -166,7 +175,7 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 	}
 	if pressure > vg.pressureLimit {
 		vg.closedPos = position
-		vg.closeDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
+		vg.closedDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 		pressureClosed = pressure
 	} else {
 		vg.openPos = position
@@ -190,7 +199,7 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 	}
 	if pressure > vg.pressureLimit {
 		vg.closedPos = position
-		vg.closeDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
+		vg.closedDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
 		pressureClosed = pressure
 	} else {
 		vg.openPos = position
@@ -201,8 +210,8 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 	// Sanity check; if the pressure difference between open & closed position is too small,
 	// something went wrong
 	// TODO: I think this has to be improved; think more about it
-	if math.Abs(float64(pressureOpen-pressureClosed)) < vg.pressureLimit/2 {
-		return errors.Errorf("init: pressure same open and closed, something is wrong, positions (closed, open): %f %f, pressures (closed, open): %t %t",
+	if math.Abs(pressureOpen-pressureClosed) < vg.pressureLimit/2 {
+		return errors.Errorf("init: pressure same open and closed, something is wrong, positions (closed, open): %f %f, pressures (closed, open): %f %f",
 			vg.closedPos, vg.openPos, pressureClosed, pressureOpen)
 	}
 
@@ -301,7 +310,7 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 				return false, err
 			}
 			vg.logger.Debugf("i think i grabbed something, have pressure, pos: %f closedPos: %v", now, vg.closedPos)
-			err = vg.motor.Go(ctx, vg.closeDirection, vg.holdingPressure)
+			err = vg.motor.Go(ctx, vg.closedDirection, vg.holdingPressure)
 			return true, err
 		}
 
@@ -315,7 +324,7 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 			if err != nil {
 				return false, vg.stopAfterError(ctx, err)
 			}
-			return false, vg.stopAfterError(ctx, errors.Errorf("close timed out, wanted: %f at: %f pressure: %d",
+			return false, vg.stopAfterError(ctx, errors.Errorf("close timed out, wanted: %f at: %f pressure: %f",
 				vg.closedPos, now, pressureRaw))
 		}
 	}
@@ -365,7 +374,6 @@ func (vg *GripperV2) readRobustAveragePressure(ctx context.Context, numMeasureme
 		averagePressure += avgPressure
 	}
 	averagePressure /= float64(numMeasurements)
-	fmt.Println(averagePressure)
 	return averagePressure, nil
 }
 
