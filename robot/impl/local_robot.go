@@ -75,10 +75,10 @@ import (
 	_ "go.viam.com/core/vision" // this is for interesting camera types, depth, etc...
 )
 
-var (
-	_          = robot.LocalRobot(&localRobot{})
-	WebSvcName = "web1"
-)
+var _ = robot.LocalRobot(&localRobot{})
+
+// WebSvcName defines the name of the web service
+const WebSvcName = "web1"
 
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its parts.
