@@ -482,6 +482,14 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.ForceMatrixSlipDetectionRequest"><span class="badge">M</span>ForceMatrixSlipDetectionRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.ForceMatrixSlipDetectionResponse"><span class="badge">M</span>ForceMatrixSlipDetectionResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.GPSAccuracyRequest"><span class="badge">M</span>GPSAccuracyRequest</a>
                 </li>
               
@@ -2963,6 +2971,54 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                 <tr>
                   <td>matrix</td>
                   <td><a href="#proto.api.v1.Matrix">Matrix</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.ForceMatrixSlipDetectionRequest">ForceMatrixSlipDetectionRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.ForceMatrixSlipDetectionResponse">ForceMatrixSlipDetectionResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>is_slipping</td>
+                  <td><a href="#bool">bool</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -6410,6 +6466,13 @@ A specific MIME type can be requested but may not necessarily be the same one re
               </tr>
             
               <tr>
+                <td>ForceMatrixSlipDetection</td>
+                <td><a href="#proto.api.v1.ForceMatrixSlipDetectionRequest">ForceMatrixSlipDetectionRequest</a></td>
+                <td><a href="#proto.api.v1.ForceMatrixSlipDetectionResponse">ForceMatrixSlipDetectionResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
                 <td>ExecuteFunction</td>
                 <td><a href="#proto.api.v1.ExecuteFunctionRequest">ExecuteFunctionRequest</a></td>
                 <td><a href="#proto.api.v1.ExecuteFunctionResponse">ExecuteFunctionResponse</a></td>
@@ -7089,6 +7152,16 @@ is reliant on having an encoder.</p></td>
                 <td>ForceMatrixMatrix</td>
                 <td>GET</td>
                 <td>/api/v1/sensors/forcematrix/{name}/matrix</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>ForceMatrixSlipDetection</td>
+                <td>GET</td>
+                <td>/api/v1/sensors/forcematrix/{name}/slip_detection</td>
                 <td></td>
               </tr>
               

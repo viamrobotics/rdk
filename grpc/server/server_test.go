@@ -2280,6 +2280,34 @@ func TestServer(t *testing.T) {
 		test.That(t, capMatrix, test.ShouldResemble, expectedMatrix)
 	})
 
+	t.Run("ForceMatrixSlipDetection", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+			capName = name
+			return nil, false
+		}
+		_, err := server.ForceMatrixSlipDetection(context.Background(), &pb.ForceMatrixSlipDetectionRequest{
+			Name: "fsm1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, capName, test.ShouldEqual, "fsm1")
+
+		injectFsm := &inject.ForceMatrix{}
+		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+			return injectFsm, true
+		}
+		injectFsm.IsSlippingFunc = func(ctx context.Context) (bool, error) {
+			return true, nil
+		}
+		resp, err := server.ForceMatrixSlipDetection(context.Background(), &pb.ForceMatrixSlipDetectionRequest{
+			Name: "fsm1",
+		})
+		test.That(t, resp.IsSlipping, test.ShouldBeTrue)
+		test.That(t, err, test.ShouldBeNil)
+
+	})
+
 }
 
 type robotServiceInputControllerEventStreamServer struct {

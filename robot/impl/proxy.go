@@ -471,6 +471,12 @@ func (p *proxyForceMatrix) Matrix(ctx context.Context) ([][]int, error) {
 	return p.actual.Matrix(ctx)
 }
 
+func (p *proxyForceMatrix) IsSlipping(ctx context.Context) (bool, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.IsSlipping(ctx)
+}
+
 func (p *proxyForceMatrix) replace(newSensor sensor.Sensor) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

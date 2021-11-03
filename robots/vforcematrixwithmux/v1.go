@@ -2,6 +2,7 @@ package vforcematrixwithmux
 
 import (
 	"context"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
@@ -12,6 +13,7 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/forcematrix"
+	"go.viam.com/core/slipdetection"
 )
 
 // ModelName is used to register the sensor to a model name
@@ -27,13 +29,18 @@ func init() {
 
 // ForceMatrixWithMux represents a force matrix that's wired up with a mux.
 type ForceMatrixWithMux struct {
-	columnGpioPins []string
-	muxGpioPins    []string // which GPIO pins are S2, S1, S0 connected to?
-	ioPins         []int    // integers that indicate which Y pin we're connected to (Y0-Y7)
-	analogChannel  string   // analog channel that the mux is connected to
+	columnGpioPins          []string
+	muxGpioPins             []string  // which GPIO pins are S2, S1, S0 connected to?
+	ioPins                  []int     // integers that indicate which Y pin we're connected to (Y0-Y7)
+	analogChannel           string    // analog channel that the mux is connected to
+	previousMatrices        [][][]int // a history queue of previous matrix readings
+	mu                      sync.Mutex
+	slipDetectionResolution int // how far back in history queue to take readings
+	// for slip detection
 
 	analogReader board.AnalogReader
 	board        board.Board
+	logger       golog.Logger
 }
 
 // NewMux returns a new ForceMatrixWithMux given column gpio pins, mux gpio pins, io pins, and
@@ -50,17 +57,23 @@ func NewMux(ctx context.Context, r robot.Robot, config config.Component, logger 
 	ioPins := config.Attributes.IntSlice("io_pins_top_to_bottom")
 	analogChannel := config.Attributes.String("analog_channel")
 	reader, exists := b.AnalogReaderByName(analogChannel)
+	slipDetectionResolution := config.Attributes.Int("slip_detection_resolution", forcematrix.MatrixStorageSize)
+	previousMatrices := make([][][]int, 0)
 
 	if exists {
 		return &ForceMatrixWithMux{
-			columnGpioPins: columnGpioPins,
-			muxGpioPins:    muxGpioPins,
-			ioPins:         ioPins,
-			analogChannel:  analogChannel,
-			analogReader:   reader,
-			board:          b,
+			columnGpioPins:          columnGpioPins,
+			muxGpioPins:             muxGpioPins,
+			ioPins:                  ioPins,
+			analogChannel:           analogChannel,
+			analogReader:            reader,
+			board:                   b,
+			previousMatrices:        previousMatrices,
+			logger:                  logger,
+			slipDetectionResolution: slipDetectionResolution,
 		}, nil
 	}
+
 	return nil, errors.Errorf("expected to find analog reader called %q", reader)
 }
 
@@ -99,6 +112,14 @@ func (fmsm *ForceMatrixWithMux) setMuxGpioPins(ctx context.Context, ioPin int) e
 	return nil
 }
 
+// addToPreviousMatrixQueue adds a matrix reading to the readings history queue
+func (fmsm *ForceMatrixWithMux) addToPreviousMatrixQueue(matrix [][]int) {
+	if len(fmsm.previousMatrices) > forcematrix.MatrixStorageSize {
+		fmsm.previousMatrices = fmsm.previousMatrices[1:]
+	}
+	fmsm.previousMatrices = append(fmsm.previousMatrices, matrix)
+}
+
 // Matrix returns a matrix of measurements from the force sensor.
 func (fmsm *ForceMatrixWithMux) Matrix(ctx context.Context) ([][]int, error) {
 	matrix := make([][]int, len(fmsm.columnGpioPins))
@@ -128,7 +149,7 @@ func (fmsm *ForceMatrixWithMux) Matrix(ctx context.Context) ([][]int, error) {
 
 		}
 	}
-
+	fmsm.addToPreviousMatrixQueue(matrix)
 	return matrix, nil
 }
 
@@ -145,6 +166,19 @@ func (fmsm *ForceMatrixWithMux) Readings(ctx context.Context) ([]interface{}, er
 		}
 	}
 	return readings, nil
+}
+
+// GetPreviousMatrices is an accessor for the history of matrix readings stored
+// on the sensor required for slip detection (see slipdetector.SlipDetector)
+func (fmsm *ForceMatrixWithMux) GetPreviousMatrices() [][][]int {
+	return fmsm.previousMatrices
+}
+
+// IsSlipping examines is used to determine whether the object in contact
+// with the sensor matrix is slipping
+func (fmsm *ForceMatrixWithMux) IsSlipping(ctx context.Context) (bool, error) {
+	return slipdetection.DetectSlip(fmsm, &fmsm.mu, 0, fmsm.slipDetectionResolution)
+
 }
 
 // Desc returns that this is a forcematrix mux sensor type.

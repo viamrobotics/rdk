@@ -102,7 +102,8 @@
           4,
           5
         ],
-        "analog_channel": "a6"
+        "analog_channel": "a6",
+        "slip_detection_resolution": 50
       }
     }
   ]

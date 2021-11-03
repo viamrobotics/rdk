@@ -1748,6 +1748,18 @@ func (fmc *forcematrixClient) Matrix(ctx context.Context) ([][]int, error) {
 	return protoToMatrix(resp), nil
 }
 
+func (fmc *forcematrixClient) IsSlipping(ctx context.Context) (bool, error) {
+	resp, err := fmc.rc.client.ForceMatrixSlipDetection(ctx,
+		&pb.ForceMatrixSlipDetectionRequest{
+			Name: fmc.name,
+		})
+	if err != nil {
+		return false, err
+	}
+
+	return resp.GetIsSlipping(), nil
+}
+
 func (fmc *forcematrixClient) Desc() sensor.Description {
 	return sensor.Description{forcematrix.Type, ""}
 }
