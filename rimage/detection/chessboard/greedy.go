@@ -113,6 +113,19 @@ func getIdentityGrid(n, offset int) []r2.Point {
 	return outPoints
 }
 
+func getMinSaddleDistance(saddlePoints []r2.Point, pt r2.Point) (r2.Point, float64){
+	minDist := math.MaxFloat64
+	minPt := r2.Point{0,0}
+	for _, ptSaddle := range saddlePoints {
+		d := ptSaddle.Sub(pt).Norm()
+		if d < minDist {
+			minDist = d
+			minPt = ptSaddle
+		}
+	}
+	return minPt, minDist
+}
+
 // makeChessGrid returns an identity Grid and its transformation with homography H
 func makeChessGrid(H rimage.Matrix, n int) ([]r2.Point, []r2.Point) {
 	grid := transform.ApplyHomography(H, idealGrid)
