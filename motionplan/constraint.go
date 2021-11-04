@@ -196,9 +196,9 @@ func fakeObstacle(ci constraintInput) (bool, float64) {
 		pt := pose.Point()
 		
 		// cardboard box
-		if pt.X > 275 && pt.X < 515 {
-			if pt.Y < 310 && pt.Y > -230 {
-				if pt.Z < 240 {
+		if pt.X > 275 && pt.X < 420 {
+			if pt.Y < 310 && pt.Y > -310 {
+				if pt.Z < 275 {
 					return false
 				}
 			}

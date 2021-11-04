@@ -29,7 +29,7 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (M
 	}
 	// nlopt should try only once
 	nlopt.SetMaxIter(1)
-	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: 0.001}
+	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: 0.01}
 	
 	// Max individual step of 0.5% of full range of motion
 	mp.qstep = getFrameSteps(frame, 0.015)
@@ -68,7 +68,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, s
 	}
 	
 	// How many of the top solutions to try
-	nSolutions := 5
+	nSolutions := 50
 
 	seedPos, err := mp.frame.Transform(seed)
 	if err != nil {
@@ -159,9 +159,10 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, s
 	mp.logger.Debug("making RRT map")
 	
 	// Alternate to which map our random sample is added
-	// for the first iteration, we attempt to reach the seed from each goal
+	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
 	addSeed := true
 	
+	current = &solution{frame.InterpolateInputs(seed, solutions[keys[0]], 0.5)}
 	
 	for i < mp.iter {
 		select {
@@ -210,10 +211,9 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, s
 		}
 		mp.fastGradDescent.SetDistFunc(constantOrient(500))
 		current = &solution{frame.RandomFrameInputs(mp.frame, nil)}
-		// Guarantee random sample meets constraints
+		//~ // Guarantee random sample meets constraints
 		current.inputs = mp.constrainNear(current.inputs, current.inputs)
 		for len(current.inputs) == 0 {
-			//~ fmt.Println("random")
 			select {
 			case <-ctx.Done():
 				return nil, errors.New("context Done signal")
@@ -222,7 +222,6 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, s
 			current = &solution{frame.RandomFrameInputs(mp.frame, nil)}
 			current.inputs = mp.constrainNear(current.inputs, current.inputs)
 		}
-		//~ fmt.Println(current)
 		mp.fastGradDescent.SetDistFunc(constantOrient(5))
 		addSeed = !addSeed
 	}
@@ -356,7 +355,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(seedInputs, target []frame.Input) [
 func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps [][]frame.Input, iter int) [][]frame.Input {
 	fmt.Println("smoothing path of len", len(inputSteps), iter)
 	
-	iter = int(math.Max(float64(mp.iter - len(inputSteps)*len(inputSteps)), float64(mp.iter - 500)))
+	iter = int(math.Max(float64(mp.iter - len(inputSteps)*len(inputSteps)), float64(mp.iter - 3*iter)))
 	
 	for iter < mp.iter && len(inputSteps) > 2 {
 		//~ fmt.Println(iter)
@@ -379,7 +378,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps [][]fr
 		
 		// extend backwards for convenience later
 		reached := mp.constrainedExtend(shortcut, jSol, iSol)
-		if inputDist(inputSteps[i], reached.inputs) < mp.solDist && len(shortcut) < j - i {
+		if inputDist(inputSteps[i], reached.inputs) < mp.solDist && len(shortcut) <= j - i {
 			newInputSteps := inputSteps[:i + 1]
 			for reached != nil {
 				newInputSteps = append(newInputSteps, reached.inputs)
@@ -388,6 +387,8 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps [][]fr
 			newInputSteps = append(newInputSteps, inputSteps[j+1:]...)
 			inputSteps = newInputSteps
 			fmt.Println("smoothed to", len(inputSteps))
+		//~ }else if inputDist(inputSteps[i], reached.inputs) < mp.solDist{
+			//~ fmt.Println(len(shortcut), ">", j - i)
 		}
 	}
 	//~ fmt.Println("final", len(inputSteps), iter, inputSteps)
