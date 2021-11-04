@@ -16,6 +16,7 @@ import (
 	"go.viam.com/core/utils"
 )
 
+// BuildFrameSystem uses a map of frames that describes the tree structure of the frame system to build a completed frame system
 func BuildFrameSystem(ctx context.Context, name string, children map[string][]referenceframe.Frame, logger golog.Logger) (referenceframe.FrameSystem, error) {
 	// use a stack to populate the frame system
 	stack := make([]string, 0)
@@ -170,9 +171,8 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		}
 		if framer, ok := utils.UnwrapProxy(part).(ModelFramer); ok {
 			return framer.ModelFrame(), nil
-		} else {
-			return nil, nil
 		}
+		return nil, nil
 	case config.ComponentTypeGripper:
 		part, ok := r.GripperByName(name)
 		if !ok {
@@ -180,9 +180,8 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		}
 		if framer, ok := utils.UnwrapProxy(part).(ModelFramer); ok {
 			return framer.ModelFrame(), nil
-		} else {
-			return nil, nil
 		}
+		return nil, nil
 	case config.ComponentTypeCamera:
 		part, ok := r.CameraByName(name)
 		if !ok {
@@ -190,9 +189,8 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		}
 		if framer, ok := utils.UnwrapProxy(part).(ModelFramer); ok {
 			return framer.ModelFrame(), nil
-		} else {
-			return nil, nil
 		}
+		return nil, nil
 	case config.ComponentTypeLidar:
 		part, ok := r.LidarByName(name)
 		if !ok {
@@ -200,9 +198,8 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		}
 		if framer, ok := utils.UnwrapProxy(part).(ModelFramer); ok {
 			return framer.ModelFrame(), nil
-		} else {
-			return nil, nil
 		}
+		return nil, nil
 	case config.ComponentTypeSensor:
 		part, ok := r.SensorByName(name)
 		if !ok {
@@ -210,9 +207,8 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		}
 		if framer, ok := utils.UnwrapProxy(part).(ModelFramer); ok {
 			return framer.ModelFrame(), nil
-		} else {
-			return nil, nil
 		}
+		return nil, nil
 	case config.ComponentTypeBoard:
 		part, ok := r.BoardByName(name)
 		if !ok {
@@ -220,9 +216,8 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		}
 		if framer, ok := utils.UnwrapProxy(part).(ModelFramer); ok {
 			return framer.ModelFrame(), nil
-		} else {
-			return nil, nil
 		}
+		return nil, nil
 	case config.ComponentTypeServo:
 		part, ok := r.ServoByName(name)
 		if !ok {
@@ -230,9 +225,8 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		}
 		if framer, ok := utils.UnwrapProxy(part).(ModelFramer); ok {
 			return framer.ModelFrame(), nil
-		} else {
-			return nil, nil
 		}
+		return nil, nil
 	case config.ComponentTypeMotor:
 		part, ok := r.MotorByName(name)
 		if !ok {
@@ -240,9 +234,8 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		}
 		if framer, ok := utils.UnwrapProxy(part).(ModelFramer); ok {
 			return framer.ModelFrame(), nil
-		} else {
-			return nil, nil
 		}
+		return nil, nil
 	case config.ComponentTypeArm:
 		part, ok := r.ResourceByName(arm.Named(name))
 		if !ok {
@@ -250,9 +243,8 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		}
 		if framer, ok := utils.UnwrapProxy(part).(ModelFramer); ok {
 			return framer.ModelFrame(), nil
-		} else {
-			return nil, nil
 		}
+		return nil, nil
 	default:
 		return nil, errors.Errorf("do not recognize component type %v for model frame extraction", compType)
 	}

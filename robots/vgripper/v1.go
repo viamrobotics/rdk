@@ -3,7 +3,7 @@ package vgripper
 
 import (
 	"context"
-	_ "embed"
+	_ "embed" // used to import model frame
 	"math"
 	"time"
 
