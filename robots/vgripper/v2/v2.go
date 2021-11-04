@@ -48,7 +48,8 @@ const (
 	MinRotationGap          = 4.0
 	MaxRotationGap          = 5.0
 	OpenPosOffset           = 0.4 // Reduce maximum opening width, keeps out of mechanical binding region
-	numMeasurements         = 10  // Number of measurements at each end position taken when calibrating the gripper
+	NumMeasurements         = 10  // Number of measurements at each end position taken when calibrating the gripper
+	PositionTolerance       = 1   // Tolerance for motor position when reaching the open or closed position
 )
 
 // GripperV2 represents a Viam gripper.
@@ -165,7 +166,7 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 	if err != nil {
 		return err
 	}
-	pressure, err := vg.readRobustAveragePressure(ctx, numMeasurements)
+	pressure, err := vg.readRobustAveragePressure(ctx, NumMeasurements)
 	if err != nil {
 		return err
 	}
@@ -189,7 +190,7 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 	if err != nil {
 		return err
 	}
-	pressure, err = vg.readRobustAveragePressure(ctx, numMeasurements)
+	pressure, err = vg.readRobustAveragePressure(ctx, NumMeasurements)
 	if err != nil {
 		return err
 	}
@@ -248,6 +249,14 @@ func (vg *GripperV2) Open(ctx context.Context) error {
 			return err
 		}
 		if !isOn {
+			measuredPos, err := vg.motor.Position(ctx)
+			if err != nil {
+				return err
+			}
+			if math.Abs(measuredPos-vg.openPos) > PositionTolerance {
+				return errors.Errorf("didn't reach open position, wanted: %f +/- %v, am at: %f", vg.openPos, PositionTolerance, measuredPos)
+
+			}
 			return nil
 		}
 		current, err := vg.readCurrent(ctx)
@@ -292,6 +301,14 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 		}
 
 		if !isOn {
+			measuredPos, err := vg.motor.Position(ctx)
+			if err != nil {
+				return false, err
+			}
+			if math.Abs(measuredPos-vg.closedPos) > PositionTolerance {
+				return false, errors.Errorf("didn't reach closed position, wanted: %f +/- %v, am at: %f", vg.closedPos, PositionTolerance, measuredPos)
+
+			}
 			return false, nil
 		}
 
