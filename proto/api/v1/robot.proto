@@ -494,7 +494,7 @@ service RobotService {
   }
 
   // Frame System Service
-  rpc FrameServiceConfig(FrameServiceDAGRequest) returns (FrameServiceConfigResponse) {
+  rpc FrameServiceConfig(FrameServiceConfigRequest) returns (FrameServiceConfigResponse) {
     option (google.api.http) = {
       get: "/api/v1/services/frame_system/config"
     };

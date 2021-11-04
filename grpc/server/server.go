@@ -36,7 +36,6 @@ import (
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor/compass"

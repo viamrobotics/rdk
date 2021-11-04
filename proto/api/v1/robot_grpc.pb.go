@@ -156,9 +156,8 @@ type RobotServiceClient interface {
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(ctx context.Context, in *ResourceRunCommandRequest, opts ...grpc.CallOption) (*ResourceRunCommandResponse, error)
 	// Frame System Service
-	FrameServiceDAG(ctx context.Context, in *FrameServiceDAGRequest, opts ...grpc.CallOption) (*FrameServiceDAGResponse, error)
-	FrameServiceTransform(ctx context.Context, in *FrameServiceTransformRequest, opts ...grpc.CallOption) (*FrameServiceTransformResponse, error)
-	FrameServiceKinematicLimits(ctx context.Context, in *FrameServiceKinematicLimitsRequest, opts ...grpc.CallOption) (*FrameServiceKinematicLimitsResponse, error)
+	FrameServiceConfig(ctx context.Context, in *FrameServiceConfigRequest, opts ...grpc.CallOption) (*FrameServiceConfigResponse, error)
+	FrameServiceModel(ctx context.Context, in *FrameServiceModelRequest, opts ...grpc.CallOption) (*FrameServiceModelResponse, error)
 	// Navigation Service
 	NavigationServiceMode(ctx context.Context, in *NavigationServiceModeRequest, opts ...grpc.CallOption) (*NavigationServiceModeResponse, error)
 	NavigationServiceSetMode(ctx context.Context, in *NavigationServiceSetModeRequest, opts ...grpc.CallOption) (*NavigationServiceSetModeResponse, error)
@@ -833,27 +832,18 @@ func (c *robotServiceClient) ResourceRunCommand(ctx context.Context, in *Resourc
 	return out, nil
 }
 
-func (c *robotServiceClient) FrameServiceDAG(ctx context.Context, in *FrameServiceDAGRequest, opts ...grpc.CallOption) (*FrameServiceDAGResponse, error) {
-	out := new(FrameServiceDAGResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/FrameServiceDAG", in, out, opts...)
+func (c *robotServiceClient) FrameServiceConfig(ctx context.Context, in *FrameServiceConfigRequest, opts ...grpc.CallOption) (*FrameServiceConfigResponse, error) {
+	out := new(FrameServiceConfigResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/FrameServiceConfig", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *robotServiceClient) FrameServiceTransform(ctx context.Context, in *FrameServiceTransformRequest, opts ...grpc.CallOption) (*FrameServiceTransformResponse, error) {
-	out := new(FrameServiceTransformResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/FrameServiceTransform", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) FrameServiceKinematicLimits(ctx context.Context, in *FrameServiceKinematicLimitsRequest, opts ...grpc.CallOption) (*FrameServiceKinematicLimitsResponse, error) {
-	out := new(FrameServiceKinematicLimitsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/FrameServiceKinematicLimits", in, out, opts...)
+func (c *robotServiceClient) FrameServiceModel(ctx context.Context, in *FrameServiceModelRequest, opts ...grpc.CallOption) (*FrameServiceModelResponse, error) {
+	out := new(FrameServiceModelResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/FrameServiceModel", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1108,9 +1098,8 @@ type RobotServiceServer interface {
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error)
 	// Frame System Service
-	FrameServiceDAG(context.Context, *FrameServiceDAGRequest) (*FrameServiceDAGResponse, error)
-	FrameServiceTransform(context.Context, *FrameServiceTransformRequest) (*FrameServiceTransformResponse, error)
-	FrameServiceKinematicLimits(context.Context, *FrameServiceKinematicLimitsRequest) (*FrameServiceKinematicLimitsResponse, error)
+	FrameServiceConfig(context.Context, *FrameServiceConfigRequest) (*FrameServiceConfigResponse, error)
+	FrameServiceModel(context.Context, *FrameServiceModelRequest) (*FrameServiceModelResponse, error)
 	// Navigation Service
 	NavigationServiceMode(context.Context, *NavigationServiceModeRequest) (*NavigationServiceModeResponse, error)
 	NavigationServiceSetMode(context.Context, *NavigationServiceSetModeRequest) (*NavigationServiceSetModeResponse, error)
@@ -1329,14 +1318,11 @@ func (UnimplementedRobotServiceServer) InputControllerEventStream(*InputControll
 func (UnimplementedRobotServiceServer) ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResourceRunCommand not implemented")
 }
-func (UnimplementedRobotServiceServer) FrameServiceDAG(context.Context, *FrameServiceDAGRequest) (*FrameServiceDAGResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method FrameServiceDAG not implemented")
+func (UnimplementedRobotServiceServer) FrameServiceConfig(context.Context, *FrameServiceConfigRequest) (*FrameServiceConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FrameServiceConfig not implemented")
 }
-func (UnimplementedRobotServiceServer) FrameServiceTransform(context.Context, *FrameServiceTransformRequest) (*FrameServiceTransformResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method FrameServiceTransform not implemented")
-}
-func (UnimplementedRobotServiceServer) FrameServiceKinematicLimits(context.Context, *FrameServiceKinematicLimitsRequest) (*FrameServiceKinematicLimitsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method FrameServiceKinematicLimits not implemented")
+func (UnimplementedRobotServiceServer) FrameServiceModel(context.Context, *FrameServiceModelRequest) (*FrameServiceModelResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FrameServiceModel not implemented")
 }
 func (UnimplementedRobotServiceServer) NavigationServiceMode(context.Context, *NavigationServiceModeRequest) (*NavigationServiceModeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NavigationServiceMode not implemented")
@@ -2548,56 +2534,38 @@ func _RobotService_ResourceRunCommand_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_FrameServiceDAG_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FrameServiceDAGRequest)
+func _RobotService_FrameServiceConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FrameServiceConfigRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RobotServiceServer).FrameServiceDAG(ctx, in)
+		return srv.(RobotServiceServer).FrameServiceConfig(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/FrameServiceDAG",
+		FullMethod: "/proto.api.v1.RobotService/FrameServiceConfig",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).FrameServiceDAG(ctx, req.(*FrameServiceDAGRequest))
+		return srv.(RobotServiceServer).FrameServiceConfig(ctx, req.(*FrameServiceConfigRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_FrameServiceTransform_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FrameServiceTransformRequest)
+func _RobotService_FrameServiceModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FrameServiceModelRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RobotServiceServer).FrameServiceTransform(ctx, in)
+		return srv.(RobotServiceServer).FrameServiceModel(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/FrameServiceTransform",
+		FullMethod: "/proto.api.v1.RobotService/FrameServiceModel",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).FrameServiceTransform(ctx, req.(*FrameServiceTransformRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_FrameServiceKinematicLimits_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FrameServiceKinematicLimitsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).FrameServiceKinematicLimits(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/FrameServiceKinematicLimits",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).FrameServiceKinematicLimits(ctx, req.(*FrameServiceKinematicLimitsRequest))
+		return srv.(RobotServiceServer).FrameServiceModel(ctx, req.(*FrameServiceModelRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3070,16 +3038,12 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RobotService_ResourceRunCommand_Handler,
 		},
 		{
-			MethodName: "FrameServiceDAG",
-			Handler:    _RobotService_FrameServiceDAG_Handler,
+			MethodName: "FrameServiceConfig",
+			Handler:    _RobotService_FrameServiceConfig_Handler,
 		},
 		{
-			MethodName: "FrameServiceTransform",
-			Handler:    _RobotService_FrameServiceTransform_Handler,
-		},
-		{
-			MethodName: "FrameServiceKinematicLimits",
-			Handler:    _RobotService_FrameServiceKinematicLimits_Handler,
+			MethodName: "FrameServiceModel",
+			Handler:    _RobotService_FrameServiceModel_Handler,
 		},
 		{
 			MethodName: "NavigationServiceMode",

@@ -6,9 +6,7 @@ import (
 
 	"github.com/edaniels/gostream"
 
-	"go.viam.com/core/config"
 	"go.viam.com/core/pointcloud"
-	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/rimage"
 )
 

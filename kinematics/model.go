@@ -90,7 +90,7 @@ func (m *Model) Name() string {
 }
 
 // Clone creates a copy of the Frame with a new name, or the same name if the string is empty
-func (m *model) Clone(name string) referenceframe.Frame {
+func (m *Model) Clone(name string) referenceframe.Frame {
 	if name == "" {
 		name = m.Name()
 	}

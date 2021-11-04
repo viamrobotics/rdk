@@ -3,6 +3,7 @@ package vgripper
 
 import (
 	"context"
+	_ "embed"
 	"math"
 	"time"
 
@@ -15,14 +16,15 @@ import (
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 )
+
+//go:embed vgripper_model.json
+var vgripperjson []byte
 
 func init() {
 	registry.RegisterGripper("viam", registry.Gripper{
@@ -61,6 +63,7 @@ type GripperV1 struct {
 	closeDirection, openDirection pb.DirectionRelative
 	logger                        golog.Logger
 
+	frameJSON             []byte
 	numBadCurrentReadings int
 }
 
@@ -79,11 +82,6 @@ func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	if !ok {
 		return nil, errors.New("failed to find analog reader 'pressure'")
 	}
-	frame, err := referenceframe.FrameFromPoint(cfg.Name, r3.Vector{0, 0, 220})
-	if err != nil {
-		return nil, err
-	}
-
 	vg := &GripperV1{
 		motor:           motor,
 		current:         current,
@@ -91,6 +89,7 @@ func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 		holdingPressure: .5,
 		pressureLimit:   pressureLimit,
 		logger:          logger,
+		frameJSON:       vgripperjson,
 	}
 
 	if vg.motor == nil {
@@ -255,6 +254,11 @@ func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	}
 
 	return vg, vg.Open(ctx)
+}
+
+// ModelFrame returns the json bytes that describe the dynamic frame of the model
+func (vg *GripperV1) ModelFrame() []byte {
+	return vg.frameJSON
 }
 
 // Open opens the jaws

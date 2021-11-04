@@ -581,31 +581,22 @@ type RobotServiceResourceRunCommand = {
   readonly responseType: typeof proto_api_v1_robot_pb.ResourceRunCommandResponse;
 };
 
-type RobotServiceFrameServiceDAG = {
+type RobotServiceFrameServiceConfig = {
   readonly methodName: string;
   readonly service: typeof RobotService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.FrameServiceDAGRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.FrameServiceDAGResponse;
+  readonly requestType: typeof proto_api_v1_robot_pb.FrameServiceConfigRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.FrameServiceConfigResponse;
 };
 
-type RobotServiceFrameServiceTransform = {
+type RobotServiceFrameServiceModel = {
   readonly methodName: string;
   readonly service: typeof RobotService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.FrameServiceTransformRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.FrameServiceTransformResponse;
-};
-
-type RobotServiceFrameServiceKinematicLimits = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.FrameServiceKinematicLimitsRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.FrameServiceKinematicLimitsResponse;
+  readonly requestType: typeof proto_api_v1_robot_pb.FrameServiceModelRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.FrameServiceModelResponse;
 };
 
 type RobotServiceNavigationServiceMode = {
@@ -782,9 +773,8 @@ export class RobotService {
   static readonly InputControllerLastEvents: RobotServiceInputControllerLastEvents;
   static readonly InputControllerEventStream: RobotServiceInputControllerEventStream;
   static readonly ResourceRunCommand: RobotServiceResourceRunCommand;
-  static readonly FrameServiceDAG: RobotServiceFrameServiceDAG;
-  static readonly FrameServiceTransform: RobotServiceFrameServiceTransform;
-  static readonly FrameServiceKinematicLimits: RobotServiceFrameServiceKinematicLimits;
+  static readonly FrameServiceConfig: RobotServiceFrameServiceConfig;
+  static readonly FrameServiceModel: RobotServiceFrameServiceModel;
   static readonly NavigationServiceMode: RobotServiceNavigationServiceMode;
   static readonly NavigationServiceSetMode: RobotServiceNavigationServiceSetMode;
   static readonly NavigationServiceLocation: RobotServiceNavigationServiceLocation;
@@ -1383,32 +1373,23 @@ export class RobotServiceClient {
     requestMessage: proto_api_v1_robot_pb.ResourceRunCommandRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ResourceRunCommandResponse|null) => void
   ): UnaryResponse;
-  frameServiceDAG(
-    requestMessage: proto_api_v1_robot_pb.FrameServiceDAGRequest,
+  frameServiceConfig(
+    requestMessage: proto_api_v1_robot_pb.FrameServiceConfigRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameServiceDAGResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameServiceConfigResponse|null) => void
   ): UnaryResponse;
-  frameServiceDAG(
-    requestMessage: proto_api_v1_robot_pb.FrameServiceDAGRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameServiceDAGResponse|null) => void
+  frameServiceConfig(
+    requestMessage: proto_api_v1_robot_pb.FrameServiceConfigRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameServiceConfigResponse|null) => void
   ): UnaryResponse;
-  frameServiceTransform(
-    requestMessage: proto_api_v1_robot_pb.FrameServiceTransformRequest,
+  frameServiceModel(
+    requestMessage: proto_api_v1_robot_pb.FrameServiceModelRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameServiceTransformResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameServiceModelResponse|null) => void
   ): UnaryResponse;
-  frameServiceTransform(
-    requestMessage: proto_api_v1_robot_pb.FrameServiceTransformRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameServiceTransformResponse|null) => void
-  ): UnaryResponse;
-  frameServiceKinematicLimits(
-    requestMessage: proto_api_v1_robot_pb.FrameServiceKinematicLimitsRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameServiceKinematicLimitsResponse|null) => void
-  ): UnaryResponse;
-  frameServiceKinematicLimits(
-    requestMessage: proto_api_v1_robot_pb.FrameServiceKinematicLimitsRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameServiceKinematicLimitsResponse|null) => void
+  frameServiceModel(
+    requestMessage: proto_api_v1_robot_pb.FrameServiceModelRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameServiceModelResponse|null) => void
   ): UnaryResponse;
   navigationServiceMode(
     requestMessage: proto_api_v1_robot_pb.NavigationServiceModeRequest,

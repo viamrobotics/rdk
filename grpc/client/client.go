@@ -43,6 +43,7 @@ import (
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
 	"go.viam.com/core/sensor/imu"
+	"go.viam.com/core/services/framesystem"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
 
@@ -668,7 +669,7 @@ func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (re
 			part.FrameConfig.Parent = prefix + part.FrameConfig.Parent
 		}
 		// make the frames from the configs
-		modelFrame, staticOffsetFrame, err := config.CreateFramesFromPart(part)
+		modelFrame, staticOffsetFrame, err := framesystem.CreateFramesFromPart(part)
 		if err != nil {
 			return nil, err
 		}

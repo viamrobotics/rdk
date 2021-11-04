@@ -478,27 +478,27 @@
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.FrameServiceDAGRequest"><span class="badge">M</span>FrameServiceDAGRequest</a>
+                  <a href="#proto.api.v1.FrameConfig"><span class="badge">M</span>FrameConfig</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.FrameServiceDAGResponse"><span class="badge">M</span>FrameServiceDAGResponse</a>
+                  <a href="#proto.api.v1.FrameServiceConfigRequest"><span class="badge">M</span>FrameServiceConfigRequest</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.FrameServiceKinematicLimitsRequest"><span class="badge">M</span>FrameServiceKinematicLimitsRequest</a>
+                  <a href="#proto.api.v1.FrameServiceConfigResponse"><span class="badge">M</span>FrameServiceConfigResponse</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.FrameServiceKinematicLimitsResponse"><span class="badge">M</span>FrameServiceKinematicLimitsResponse</a>
+                  <a href="#proto.api.v1.FrameServiceModelRequest"><span class="badge">M</span>FrameServiceModelRequest</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.FrameServiceTransformRequest"><span class="badge">M</span>FrameServiceTransformRequest</a>
+                  <a href="#proto.api.v1.FrameServiceModelResponse"><span class="badge">M</span>FrameServiceModelResponse</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.FrameServiceTransformResponse"><span class="badge">M</span>FrameServiceTransformResponse</a>
+                  <a href="#proto.api.v1.FrameSystemConfig"><span class="badge">M</span>FrameSystemConfig</a>
                 </li>
               
                 <li>
@@ -682,10 +682,6 @@
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.Limit"><span class="badge">M</span>Limit</a>
-                </li>
-              
-                <li>
                   <a href="#proto.api.v1.Matrix"><span class="badge">M</span>Matrix</a>
                 </li>
               
@@ -847,10 +843,6 @@
               
                 <li>
                   <a href="#proto.api.v1.NavigationServiceWaypointsResponse"><span class="badge">M</span>NavigationServiceWaypointsResponse</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.Node"><span class="badge">M</span>Node</a>
                 </li>
               
                 <li>
@@ -2931,14 +2923,7 @@
 
         
       
-        <h3 id="proto.api.v1.FrameServiceDAGRequest">FrameServiceDAGRequest</h3>
-        <p></p>
-
-        
-
-        
-      
-        <h3 id="proto.api.v1.FrameServiceDAGResponse">FrameServiceDAGResponse</h3>
+        <h3 id="proto.api.v1.FrameConfig">FrameConfig</h3>
         <p></p>
 
         
@@ -2949,111 +2934,132 @@
             <tbody>
               
                 <tr>
-                  <td>nodes</td>
-                  <td><a href="#proto.api.v1.Node">Node</a></td>
-                  <td>repeated</td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.FrameServiceKinematicLimitsRequest">FrameServiceKinematicLimitsRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>name</td>
+                  <td>parent</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.FrameServiceKinematicLimitsResponse">FrameServiceKinematicLimitsResponse</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>limits</td>
-                  <td><a href="#proto.api.v1.Limit">Limit</a></td>
-                  <td>repeated</td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.FrameServiceTransformRequest">FrameServiceTransformRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>name</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>inputs</td>
-                  <td><a href="#double">double</a></td>
-                  <td>repeated</td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.FrameServiceTransformResponse">FrameServiceTransformResponse</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
               
                 <tr>
                   <td>pose</td>
                   <td><a href="#proto.api.v1.Pose">Pose</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.FrameServiceConfigRequest">FrameServiceConfigRequest</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.FrameServiceConfigResponse">FrameServiceConfigResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>frame_system_configs</td>
+                  <td><a href="#proto.api.v1.FrameSystemConfig">FrameSystemConfig</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.FrameServiceModelRequest">FrameServiceModelRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.FrameServiceModelResponse">FrameServiceModelResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>model_json</td>
+                  <td><a href="#bytes">bytes</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.FrameSystemConfig">FrameSystemConfig</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>frame_config</td>
+                  <td><a href="#proto.api.v1.FrameConfig">FrameConfig</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>model_json</td>
+                  <td><a href="#bytes">bytes</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -4196,37 +4202,6 @@
 
         
       
-        <h3 id="proto.api.v1.Limit">Limit</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>min</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>max</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
         <h3 id="proto.api.v1.Matrix">Matrix</h3>
         <p>Matrix</p>
 
@@ -5110,37 +5085,6 @@
                   <td>waypoints</td>
                   <td><a href="#proto.api.v1.NavigationServiceWaypoint">NavigationServiceWaypoint</a></td>
                   <td>repeated</td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.Node">Node</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>name</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>parent</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
                   <td><p> </p></td>
                 </tr>
               
@@ -6790,23 +6734,16 @@ is reliant on having an encoder.</p></td>
               </tr>
             
               <tr>
-                <td>FrameServiceDAG</td>
-                <td><a href="#proto.api.v1.FrameServiceDAGRequest">FrameServiceDAGRequest</a></td>
-                <td><a href="#proto.api.v1.FrameServiceDAGResponse">FrameServiceDAGResponse</a></td>
+                <td>FrameServiceConfig</td>
+                <td><a href="#proto.api.v1.FrameServiceConfigRequest">FrameServiceConfigRequest</a></td>
+                <td><a href="#proto.api.v1.FrameServiceConfigResponse">FrameServiceConfigResponse</a></td>
                 <td><p>Frame System Service</p></td>
               </tr>
             
               <tr>
-                <td>FrameServiceTransform</td>
-                <td><a href="#proto.api.v1.FrameServiceTransformRequest">FrameServiceTransformRequest</a></td>
-                <td><a href="#proto.api.v1.FrameServiceTransformResponse">FrameServiceTransformResponse</a></td>
-                <td><p></p></td>
-              </tr>
-            
-              <tr>
-                <td>FrameServiceKinematicLimits</td>
-                <td><a href="#proto.api.v1.FrameServiceKinematicLimitsRequest">FrameServiceKinematicLimitsRequest</a></td>
-                <td><a href="#proto.api.v1.FrameServiceKinematicLimitsResponse">FrameServiceKinematicLimitsResponse</a></td>
+                <td>FrameServiceModel</td>
+                <td><a href="#proto.api.v1.FrameServiceModelRequest">FrameServiceModelRequest</a></td>
+                <td><a href="#proto.api.v1.FrameServiceModelResponse">FrameServiceModelResponse</a></td>
                 <td><p></p></td>
               </tr>
             
@@ -7555,9 +7492,9 @@ is reliant on having an encoder.</p></td>
               
               
               <tr>
-                <td>FrameServiceDAG</td>
+                <td>FrameServiceConfig</td>
                 <td>GET</td>
-                <td>/api/v1/services/frame_system/dag</td>
+                <td>/api/v1/services/frame_system/config</td>
                 <td></td>
               </tr>
               
@@ -7565,19 +7502,9 @@ is reliant on having an encoder.</p></td>
               
               
               <tr>
-                <td>FrameServiceTransform</td>
+                <td>FrameServiceModel</td>
                 <td>GET</td>
-                <td>/api/v1/services/frame_system/frame/transform</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>FrameServiceKinematicLimits</td>
-                <td>GET</td>
-                <td>/api/v1/services/frame_system/frame/limits</td>
+                <td>/api/v1/services/frame_system/frame/model</td>
                 <td></td>
               </tr>
               

@@ -77,7 +77,7 @@ func (sf *solverFrame) Name() string {
 }
 
 // Clone creates a copy of the Frame with a new name, or the same name if the string is empty
-func (sf *solverFrame) Clone(name string) Frame {
+func (sf *solverFrame) Clone(name string) frame.Frame {
 	if name == "" {
 		name = sf.Name()
 	}

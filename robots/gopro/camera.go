@@ -33,7 +33,7 @@ func init() {
 				return nil, err
 			}
 			gCam.start()
-			return &camera.ImageSource{gCam, config.Frame}, nil
+			return &camera.ImageSource{gCam}, nil
 		}})
 }
 
