@@ -12,13 +12,11 @@ import (
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/lidar"
-	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
-	"github.com/golang/geo/r3"
 )
 
 //go:embed lidar_model.json

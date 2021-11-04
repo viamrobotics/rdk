@@ -44,7 +44,7 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 		return nil, err
 	}
 
-	ik, err := kinematics.CreateCombinedIKSolver(ctx, model, logger, 4)
+	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (a *ArmIK) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(ctx, a.ik.Model(), joints)
+	return kinematics.ComputePosition(a.ik.Model(), joints)
 }
 
 // MoveToPosition sets the position.

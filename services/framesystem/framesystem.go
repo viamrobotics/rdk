@@ -2,19 +2,15 @@ package framesystem
 
 import (
 	"context"
-	"fmt"
-	"sort"
 	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 
 	"go.viam.com/core/config"
-	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
-	"go.viam.com/core/utils"
 )
 
 // Type is the name of the type of service
@@ -32,7 +28,7 @@ func init() {
 // A Service that returns the frame system for a robot.
 type Service interface {
 	FrameSystemConfig(ctx context.Context) ([]*config.FrameSystemPart, error)
-	LocalFrameSystem(ctx context.Context) (referenceframe.FrameSystem, error)
+	LocalFrameSystem(ctx context.Context, name string) (referenceframe.FrameSystem, error)
 	ModelFrame(ctx context.Context, name string) ([]byte, error)
 	Close() error
 }
@@ -40,7 +36,7 @@ type Service interface {
 // New returns a new frame system service for the given robot.
 func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Logger) (Service, error) {
 	// collect the necessary robot parts (skipping remotes, services, etc)
-	parts, err := config.CollectFrameSystemParts(ctx, r)
+	parts, err := CollectFrameSystemParts(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +59,6 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 
 	fsSvc := &frameSystemService{
 		r:                r,
-		fs:               frameSystem,
 		fsParts:          parts,
 		sortedFrameNames: sortedFrameNames,
 		childrenMap:      children,
@@ -72,40 +67,6 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 		cancelFunc:       cancelFunc,
 	}
 	return fsSvc, nil
-}
-
-func BuildFrameSystem(ctx context.Context, name string, frameNames []string, children map[string][]Frame, logger golog.Logger) (referenceframe.FrameSystem, error) {
-	// use a stack to populate the frame system
-	stack := make([]string, 0)
-	visited := make(map[string]bool)
-	// check to see if world exists, and start with the frames attached to world
-	if _, ok := children[referenceframe.World]; !ok {
-		return nil, nil, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'")
-	}
-	stack = append(stack, referenceframe.World)
-	// begin adding frames to the frame system
-	fs := referenceframe.NewEmptySimpleFrameSystem(name)
-	for len(stack) != 0 {
-		parent := stack[0] // pop the top element from the stack
-		stack = stack[1:]
-		if _, ok := visited[parent]; ok {
-			return nil, nil, errors.Errorf("the system contains a cycle, have already visited frame %s", parent)
-		}
-		visited[parent] = true
-		for _, frame := range children[parent] { // add all the children to the frame system, and to the stack as new parents
-			stack = append(stack, frame.Name())
-			err := fs.AddFrame(frame, fs.GetFrame(parent))
-			if err != nil {
-				return nil, nil, err
-			}
-		}
-	}
-	// ensure that there are no disconnected frames
-	if len(visited) != len(frameNames) {
-		return nil, nil, errors.Errorf("the frame system is not fully connected, expected %d frames but frame system has %d. Expected frames are: %v. Actual frames are: %v", len(frameNames), len(visited), frameNames, mapKeys(visited))
-	}
-	logger.Debugf("frames in robot frame system are: %v", frameNamesWithDof(ctx, fs))
-	return fs, nil
 }
 
 type frameSystemService struct {
@@ -166,79 +127,4 @@ func (svc *frameSystemService) Close() error {
 	svc.cancelFunc()
 	svc.activeBackgroundWorkers.Wait()
 	return nil
-}
-
-// processPart will gather the frame information and build the frames from the given robot part
-func processPart(part *config.FrameSystemPart, children map[string][]referenceframe.Frame, names map[string]bool) error {
-	// if a part is empty or has no frame config, skip over it
-	if part == nil || part.FrameConfig == nil {
-		return nil
-	}
-	// parent field is a necessary attribute
-	if part.FrameConfig.Parent == "" {
-		return fmt.Errorf("parent field in frame config for part %q is empty", part.Name)
-	}
-	// build the frames from the part config
-	modelFrame, staticOffsetFrame, err := config.CreateFramesFromPart(part)
-	if err != nil {
-		return err
-	}
-	// check to see if there are no repeated names
-	if _, ok := names[staticOffsetFrame.Name()]; ok {
-		return fmt.Errorf("cannot have more than one frame with name %s", staticOffsetFrame.Name())
-	}
-	names[staticOffsetFrame.Name()] = true
-	if _, ok := names[modelFrame.Name()]; ok {
-		return fmt.Errorf("cannot have more than one frame with name %s", modelFrame.Name())
-	}
-	names[modelFrame.Name()] = true
-	// attach the static frame to the parent, then the model frame to the static frame
-	children[frameConfig.Parent] = append(children[frameConfig.Parent], staticOffsetFrame)
-	children[staticOffsetFrame.Name()] = append(children[staticOffsetFrame.Name()], modelFrame)
-	return nil
-}
-
-func topologicallySortFrameNames(ctx context.Context, children map[string][]referenceframe.Frame) ([]string, error) {
-	topoSortedNames := []string{referenceframe.World} // keep track of tree structure
-	stack := make([]string, 0)
-	visited := make(map[string]bool)
-	if _, ok := children[referenceframe.World]; !ok {
-		return nil, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'")
-	}
-	stack = append(stack, referenceframe.World)
-	// begin adding frames to the frame system
-	for len(stack) != 0 {
-		parent := stack[0] // pop the top element from the stack
-		stack = stack[1:]
-		if _, ok := visited[parent]; ok {
-			return nil, fmt.Errorf("the system contains a cycle, have already visited frame %s", parent)
-		}
-		visited[parent] = true
-		for _, frame := range children[parent] { // add all the children to the frame system, and to the stack as new parents
-			stack = append(stack, frame.Name())
-			topoSortedNames = append(topoSortedNames, frame.Name())
-		}
-	}
-	return topoSortedNames, nil
-}
-
-func frameNamesWithDof(ctx context.Context, sys FrameSystem) []string {
-	names := sys.FrameNames()
-	nameDoFs := make([]string, len(names))
-	for i, f := range names {
-		fr := sys.GetFrame(f)
-		nameDoFs[i] = fmt.Sprintf("%s(%d)", fr.Name(), len(fr.DoF(ctx)))
-	}
-	return nameDoFs
-}
-
-func mapKeys(fullmap map[string]bool) []string {
-	keys := make([]string, len(fullmap))
-	i := 0
-	for k := range fullmap {
-		keys[i] = k
-		i++
-	}
-	sort.Strings(keys)
-	return keys
 }

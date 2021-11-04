@@ -12,8 +12,6 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 
-	"go.viam.com/core/referenceframe"
-
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -78,7 +76,7 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 		frame = xArm7modeljson
 	}
 	nCPU := runtime.NumCPU()
-	ik, err := kinematics.CreateCombinedIKSolver(ctx, model, logger, nCPU)
+	ik, err := kinematics.CreateCombinedIKSolver(model, logger, nCPU)
 	if err != nil {
 		return nil, err
 	}

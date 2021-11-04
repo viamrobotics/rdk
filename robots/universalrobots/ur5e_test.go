@@ -23,7 +23,6 @@ import (
 )
 
 func TestUR5eForwardKinementsSVAvsDH(t *testing.T) {
-	ctx := context.Background()
 	numTests := 10000
 
 	mSVA, err := kinematics.ParseJSON(ur5modeljson)
@@ -33,11 +32,11 @@ func TestUR5eForwardKinementsSVAvsDH(t *testing.T) {
 
 	seed := rand.New(rand.NewSource(23))
 	for i := 0; i < numTests; i++ {
-		joints := arm.JointPositionsFromRadians(mSVA.GenerateRandomJointPositions(ctx, seed))
+		joints := arm.JointPositionsFromRadians(mSVA.GenerateRandomJointPositions(seed))
 
-		posSVA, err := kinematics.ComputePosition(ctx, mSVA, joints)
+		posSVA, err := kinematics.ComputePosition(mSVA, joints)
 		test.That(t, err, test.ShouldBeNil)
-		posDH, err := kinematics.ComputePosition(ctx, mDH, joints)
+		posDH, err := kinematics.ComputePosition(mDH, joints)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, posSVA.X, test.ShouldAlmostEqual, posDH.X, .01)
@@ -52,11 +51,10 @@ func TestUR5eForwardKinementsSVAvsDH(t *testing.T) {
 }
 
 func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *pb.Pose) {
-	ctx := context.Background()
 	m, err := kinematics.ParseJSON(ur5modeljson)
 	test.That(t, err, test.ShouldBeNil)
 
-	pos, err := kinematics.ComputePosition(ctx, m, arm.JointPositionsFromRadians(jointRadians))
+	pos, err := kinematics.ComputePosition(m, arm.JointPositionsFromRadians(jointRadians))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.X, test.ShouldAlmostEqual, correct.X, .01)
 	test.That(t, pos.Y, test.ShouldAlmostEqual, correct.Y, .01)
@@ -80,7 +78,7 @@ func testUR5eInverseKinements(t *testing.T, pos *pb.Pose) {
 
 	m, err := kinematics.ParseJSON(ur5modeljson)
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := kinematics.CreateCombinedIKSolver(ctx, m, logger, 4)
+	ik, err := kinematics.CreateCombinedIKSolver(m, logger, 4)
 	test.That(t, err, test.ShouldBeNil)
 
 	solution, err := ik.Solve(ctx, pos, frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}))

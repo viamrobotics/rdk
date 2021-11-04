@@ -8,11 +8,8 @@ import (
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
-	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
-
-	"github.com/golang/geo/r3"
 )
 
 //go:embed gripper_model.json
@@ -21,10 +18,6 @@ var gripperjson []byte
 func init() {
 	registry.RegisterGripper(ModelName, registry.Gripper{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
-			frame, err := referenceframe.FrameFromPoint(config.Name, r3.Vector{0, 0, 200})
-			if err != nil {
-				return nil, err
-			}
 			return &Gripper{Name: config.Name, frameJSON: gripperjson}, nil
 		},
 	})

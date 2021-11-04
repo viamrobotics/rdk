@@ -108,7 +108,7 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 	if err != nil {
 		return nil, err
 	}
-	ik, err := kinematics.CreateCombinedIKSolver(ctx, model, logger, 4)
+	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func (a *Arm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(ctx, a.ik.Model(), joints)
+	return kinematics.ComputePosition(a.ik.Model(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.

@@ -1,11 +1,9 @@
 package referenceframe
 
 import (
-	"context"
 	"math"
 	"testing"
 
-	pb "go.viam.com/core/proto/api/v1"
 	spatial "go.viam.com/core/spatialmath"
 
 	"github.com/golang/geo/r3"
@@ -14,22 +12,21 @@ import (
 
 func TestSimpleRotationalFrame(t *testing.T) {
 	fs := NewEmptySimpleFrameSystem("test")
-	ctx := context.Background()
 
 	// Revolute joint around X axis
-	joint, err := NewRotationalFrame("joint", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, &pb.Limit{Min: -math.Pi * 2, Max: math.Pi * 2})
+	joint, err := NewRotationalFrame("joint", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{Min: -math.Pi * 2, Max: math.Pi * 2})
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(joint, fs.World())
 
 	// Displace (2,2,10) from the joint
 	point := r3.Vector{2., 2., 10.}
-	positions := StartPositions(ctx, fs)
+	positions := StartPositions(fs)
 
 	expectP1 := r3.Vector{2., 2., 10.}
 	expectP2 := r3.Vector{2., -10., 2.}
 	expectP3 := r3.Vector{2., 10., -2.}
 
-	transformPoint1, err := fs.TransformPoint(ctx, positions, point, fs.GetFrame("joint"), fs.World())
+	transformPoint1, err := fs.TransformPoint(positions, point, fs.GetFrame("joint"), fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint1.X, test.ShouldAlmostEqual, expectP1.X)
 	test.That(t, transformPoint1.Y, test.ShouldAlmostEqual, expectP1.Y)
@@ -37,7 +34,7 @@ func TestSimpleRotationalFrame(t *testing.T) {
 
 	// Rotate 90 degrees one way
 	positions["joint"] = []Input{{math.Pi / 2}}
-	transformPoint2, err := fs.TransformPoint(ctx, positions, point, fs.GetFrame("joint"), fs.World())
+	transformPoint2, err := fs.TransformPoint(positions, point, fs.GetFrame("joint"), fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint2.X, test.ShouldAlmostEqual, expectP2.X)
 	test.That(t, transformPoint2.Y, test.ShouldAlmostEqual, expectP2.Y)
@@ -45,7 +42,7 @@ func TestSimpleRotationalFrame(t *testing.T) {
 
 	// Rotate 90 degrees the other way
 	positions["joint"] = []Input{{-math.Pi / 2}}
-	transformPoint3, err := fs.TransformPoint(ctx, positions, point, fs.GetFrame("joint"), fs.World())
+	transformPoint3, err := fs.TransformPoint(positions, point, fs.GetFrame("joint"), fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint3.X, test.ShouldAlmostEqual, expectP3.X)
 	test.That(t, transformPoint3.Y, test.ShouldAlmostEqual, expectP3.Y)
@@ -54,20 +51,19 @@ func TestSimpleRotationalFrame(t *testing.T) {
 
 func TestSimpleTranslationalFrame(t *testing.T) {
 	fs := NewEmptySimpleFrameSystem("test")
-	ctx := context.Background()
 
 	// 1D gantry that slides in X
-	gantry, err := NewTranslationalFrame("gantry", []bool{true, false, false}, []*pb.Limit{{Min: math.Inf(-1), Max: math.Inf(1)}})
+	gantry, err := NewTranslationalFrame("gantry", []bool{true, false, false}, []Limit{{Min: math.Inf(-1), Max: math.Inf(1)}})
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantry, fs.World())
 
-	positions := StartPositions(ctx, fs)
+	positions := StartPositions(fs)
 
 	startPoint := r3.Vector{0., 0., 0.}
 	endPoint := r3.Vector{45., 0., 0.}
 
 	// Confirm we start at origin
-	transformPoint1, err := fs.TransformPoint(ctx, positions, startPoint, fs.GetFrame("gantry"), fs.World())
+	transformPoint1, err := fs.TransformPoint(positions, startPoint, fs.GetFrame("gantry"), fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint1.X, test.ShouldAlmostEqual, 0)
 	test.That(t, transformPoint1.Y, test.ShouldAlmostEqual, 0)
@@ -75,7 +71,7 @@ func TestSimpleTranslationalFrame(t *testing.T) {
 
 	// Slide gantry by 45
 	positions["gantry"] = []Input{{45.}}
-	transformPoint2, err := fs.TransformPoint(ctx, positions, startPoint, fs.GetFrame("gantry"), fs.World())
+	transformPoint2, err := fs.TransformPoint(positions, startPoint, fs.GetFrame("gantry"), fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint2.X, test.ShouldAlmostEqual, endPoint.X)
 	test.That(t, transformPoint2.Y, test.ShouldAlmostEqual, endPoint.Y)
