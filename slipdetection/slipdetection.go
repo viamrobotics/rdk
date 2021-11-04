@@ -14,7 +14,7 @@ type SlipDetector interface {
 }
 
 // TODO: should be made dynamic according to sensitivity?
-const readingThreshold = 100.0
+const readingThreshold = 40.0
 
 // DetectSlip detects whether a slip has occurred. The version parameter determines
 // which algorithm version to use
