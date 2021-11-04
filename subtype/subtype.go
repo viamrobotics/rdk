@@ -5,9 +5,11 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+
 	"go.viam.com/core/resource"
 )
 
+// Service defines an service that holds and replaces resources
 type Service interface {
 	Resource(name string) interface{}
 	Replace(resources map[resource.Name]interface{}) error
@@ -36,6 +38,7 @@ func (s *subtypeSvc) Resource(name string) interface{} {
 	return nil
 }
 
+// Replace replaces all resources with r
 func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
