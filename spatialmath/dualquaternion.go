@@ -88,6 +88,18 @@ func newdualQuaternionFromPose(p Pose) *dualQuaternion {
 	return q
 }
 
+// newdualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so, otherwise creates a
+// new one.
+func dualQuaternionFromPose(p Pose) *dualQuaternion {
+	if q, ok := p.(*dualQuaternion); ok {
+		return q
+	}
+	q := newdualQuaternionFromRotation(p.Orientation().OrientationVectorRadians())
+	pt := p.Point()
+	q.SetTranslation(pt.X, pt.Y, pt.Z)
+	return q
+}
+
 // ToProtobuf converts a dualQuaternion to a protobuf pose
 func (q *dualQuaternion) ToProtobuf() *pb.Pose {
 	final := &pb.Pose{}
