@@ -20,7 +20,6 @@ import (
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
-	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
@@ -60,9 +59,6 @@ type (
 	// A CreateSensor creates a sensor from a given config.
 	CreateSensor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error)
 
-	// A CreateFrame creates a frame from a given config.
-	CreateFrame func(name string) (referenceframe.Frame, error)
-
 	// A CreateBoard creates a board from a given config.
 	CreateBoard func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error)
 
@@ -85,63 +81,55 @@ type RegDebugInfo struct {
 	RegistrarLoc string
 }
 
-// Camera stores a Camera constructor (mandatory) and a Frame building function (optional)
+// Camera stores a Camera constructor function (mandatory)
 type Camera struct {
 	RegDebugInfo
 	Constructor CreateCamera
-	Frame       CreateFrame
 }
 
-// Gripper stores a Gripper constructor (mandatory) and a Frame building function (optional)
+// Gripper stores a Gripper constructor function (mandatory)
 type Gripper struct {
 	RegDebugInfo
 	Constructor CreateGripper
-	Frame       CreateFrame
 }
 
-// Base stores a Base constructor (mandatory) and a Frame building function (optional)
+// Base stores a Base constructor function (mandatory)
 type Base struct {
 	RegDebugInfo
 	Constructor CreateBase
-	Frame       CreateFrame
 }
 
-// Lidar stores a Lidar constructor (mandatory) and a Frame building function (optional)
+// Lidar stores a Lidar constructor function (mandatory)
 type Lidar struct {
 	RegDebugInfo
 	Constructor CreateLidar
-	Frame       CreateFrame
 }
 
-// Sensor stores a Sensor constructor (mandatory) and a Frame building function (optional)
+// Sensor stores a Sensor constructor function (mandatory)
 type Sensor struct {
 	RegDebugInfo
 	Constructor CreateSensor
-	Frame       CreateFrame
 }
 
-// Board stores a Board constructor (mandatory) and a Frame building function (optional)
+// Board stores a Board constructor function (mandatory)
 type Board struct {
 	RegDebugInfo
 	Constructor CreateBoard
-	Frame       CreateFrame
 }
 
-// Servo stores a Servo constructor (mandatory) and a Frame building function (optional)
+// Servo stores a Servo constructor function (mandatory)
 type Servo struct {
 	RegDebugInfo
 	Constructor CreateServo
-	Frame       CreateFrame
 }
 
-// Motor stores a Motor constructor (mandatory) and a Frame building function (optional)
+// Motor stores a Motor constructor function (mandatory)
 type Motor struct {
 	RegDebugInfo
 	Constructor CreateMotor
-	Frame       CreateFrame
 }
 
-// InputController stores an input.Controller constructor (mandatory) and a Frame building function (optional)
+// InputController stores an input.Controller constructor (mandatory)
 type InputController struct {
 	RegDebugInfo
 	Constructor CreateInputController
@@ -359,73 +347,6 @@ func SensorLookup(sensorType sensor.Type, model string) *Sensor {
 	return nil
 }
 
-// FrameLookup returns the FrameCreate function and a true bool if a frame is registered for the given component.
-// Otherwise it returns nil and false.
-func FrameLookup(comp *config.Component) (CreateFrame, bool) {
-	switch comp.Type {
-	case config.ComponentTypeBase:
-		registration := BaseLookup(comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return nil, false
-		}
-		return registration.Frame, true
-	case config.ComponentTypeArm:
-		rName := comp.ResourceName()
-		registration := ComponentLookup(rName.Subtype, comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return nil, false
-		}
-		return registration.Frame, true
-	case config.ComponentTypeGripper:
-		registration := GripperLookup(comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return nil, false
-		}
-		return registration.Frame, true
-	case config.ComponentTypeCamera:
-		registration := CameraLookup(comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return nil, false
-		}
-		return registration.Frame, true
-	case config.ComponentTypeLidar:
-		registration := LidarLookup(comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return nil, false
-		}
-		return registration.Frame, true
-	case config.ComponentTypeSensor:
-		if comp.SubType == "" {
-			return nil, false
-		}
-		registration := SensorLookup(sensor.Type(comp.SubType), comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return nil, false
-		}
-		return registration.Frame, true
-	case config.ComponentTypeBoard:
-		registration := BoardLookup(comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return nil, false
-		}
-		return registration.Frame, true
-	case config.ComponentTypeServo:
-		registration := ServoLookup(comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return nil, false
-		}
-		return registration.Frame, true
-	case config.ComponentTypeMotor:
-		registration := MotorLookup(comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return nil, false
-		}
-		return registration.Frame, true
-	default:
-		return nil, false
-	}
-}
-
 // BoardLookup looks up a board creator by the given model. nil is returned if
 // there is no creator registered.
 func BoardLookup(model string) *Board {
@@ -485,7 +406,6 @@ type (
 type Component struct {
 	RegDebugInfo
 	Constructor CreateComponent
-	Frame       CreateFrame
 }
 
 // ComponentSubtype stores a reconfigurable resource creator
