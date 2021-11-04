@@ -5,7 +5,6 @@
 package referenceframe
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -52,12 +51,19 @@ func InputsToJointPos(inputs []Input) *pb.JointPositions {
 	return arm.JointPositionsFromRadians(InputsToFloats(inputs))
 }
 
+// Limit represents the limits of motion for a frame
+type Limit struct {
+	Min float64
+	Max float64
+}
+
 // Frame represents a single reference frame, e.g. an arm, a joint, etc.
 // Transform takes FROM current frame TO parent's frame!
 type Frame interface {
 	Name() string
-	Transform(context.Context, []Input) (spatial.Pose, error)
-	DoF(context.Context) []*pb.Limit
+	Transform([]Input) (spatial.Pose, error)
+	DoF() []Limit
+	Clone(string) Frame
 }
 
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation from the current Frame to the parent Frame
@@ -92,7 +98,7 @@ func (sf *staticFrame) Name() string {
 }
 
 // Transform returns the pose associated with this static frame.
-func (sf *staticFrame) Transform(ctx context.Context, inp []Input) (spatial.Pose, error) {
+func (sf *staticFrame) Transform(inp []Input) (spatial.Pose, error) {
 	if len(inp) != 0 {
 		return nil, fmt.Errorf("given input length %q does not match frame DoF 0", len(inp))
 	}
@@ -100,19 +106,27 @@ func (sf *staticFrame) Transform(ctx context.Context, inp []Input) (spatial.Pose
 }
 
 // DoF are the degrees of freedom of the transform. In the staticFrame, it is always 0.
-func (sf *staticFrame) DoF(ctx context.Context) []*pb.Limit {
-	return []*pb.Limit{}
+func (sf *staticFrame) DoF() []Limit {
+	return []Limit{}
+}
+
+// Clone creates a copy of the Frame with a new name, or the same name if the string is empty
+func (sf *staticFrame) Clone(name string) Frame {
+	if name == "" {
+		name = sf.Name()
+	}
+	return &staticFrame{name, sf.transform}
 }
 
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions
 type translationalFrame struct {
 	name   string
 	axes   []bool
-	limits []*pb.Limit
+	limits []Limit
 }
 
 // NewTranslationalFrame creates a frame given a name and the axes in which to translate
-func NewTranslationalFrame(name string, axes []bool, limits []*pb.Limit) (Frame, error) {
+func NewTranslationalFrame(name string, axes []bool, limits []Limit) (Frame, error) {
 	pf := &translationalFrame{name: name, axes: axes}
 	if len(limits) != pf.DoFInt() {
 		return nil, fmt.Errorf("given number of limits %d does not match number of axes %d", len(limits), pf.DoFInt())
@@ -127,7 +141,7 @@ func (pf *translationalFrame) Name() string {
 }
 
 // Transform returns a pose translated by the amount specified in the inputs.
-func (pf *translationalFrame) Transform(ctx context.Context, input []Input) (spatial.Pose, error) {
+func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	var err error
 	if len(input) != pf.DoFInt() {
 		return nil, fmt.Errorf("given input length %d does not match frame DoF %d", len(input), pf.DoFInt())
@@ -149,8 +163,16 @@ func (pf *translationalFrame) Transform(ctx context.Context, input []Input) (spa
 }
 
 // DoF are the degrees of freedom of the transform.
-func (pf *translationalFrame) DoF(ctx context.Context) []*pb.Limit {
+func (pf *translationalFrame) DoF() []Limit {
 	return pf.limits
+}
+
+// Clone creates a copy of the Frame with a new name, or the same name if the string is empty
+func (pf *translationalFrame) Clone(name string) Frame {
+	if name == "" {
+		name = pf.Name()
+	}
+	return &translationalFrame{name, pf.axes, pf.limits}
 }
 
 // DoFInt returns the quantity of axes in which this frame can translate
@@ -167,12 +189,12 @@ func (pf *translationalFrame) DoFInt() int {
 type rotationalFrame struct {
 	name    string
 	rotAxis spatial.R4AA
-	limit   *pb.Limit
+	limit   Limit
 }
 
 // NewRotationalFrame creates a new rotationalFrame struct.
 // A standard revolute joint will have 1 DoF
-func NewRotationalFrame(name string, axis spatial.R4AA, limit *pb.Limit) (Frame, error) {
+func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, error) {
 	rf := rotationalFrame{
 		name:    name,
 		rotAxis: axis,
@@ -185,7 +207,7 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit *pb.Limit) (Frame,
 
 // Transform returns the Pose representing the frame's 6DoF motion in space. Requires a slice
 // of inputs that has length equal to the degrees of freedom of the frame.
-func (rf *rotationalFrame) Transform(ctx context.Context, input []Input) (spatial.Pose, error) {
+func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	var err error
 	if len(input) != 1 {
 		return nil, fmt.Errorf("given input length %d does not match frame DoF 1", len(input))
@@ -202,11 +224,19 @@ func (rf *rotationalFrame) Transform(ctx context.Context, input []Input) (spatia
 }
 
 // DoF returns the number of degrees of freedom that a joint has. This would be 1 for a standard revolute joint.
-func (rf *rotationalFrame) DoF(ctx context.Context) []*pb.Limit {
-	return []*pb.Limit{rf.limit}
+func (rf *rotationalFrame) DoF() []Limit {
+	return []Limit{rf.limit}
 }
 
 // Name returns the name of the frame
 func (rf *rotationalFrame) Name() string {
 	return rf.name
+}
+
+// Clone creates a copy of the Frame with a new name, or the same name if the string is empty
+func (rf *rotationalFrame) Clone(name string) Frame {
+	if name == "" {
+		name = rf.Name()
+	}
+	return &rotationalFrame{name, rf.rotAxis, rf.limit}
 }

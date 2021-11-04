@@ -19,19 +19,23 @@ type FrameSystemPart struct {
 }
 
 // FrameSystemPartToProtobuf turns all the interfaces into serializable types
-func FrameSystemPartToProtobuf(fsp FrameSystemPart) *pb.FrameSystemConfig {
+func (part *FrameSystemPart) ToProtobuf() *pb.FrameSystemConfig {
+	if part.FrameConfig == nil {
+		return nil
+	}
 	pose := part.FrameConfig.Pose()
 	frameConfig := &pb.FrameConfig{Parent: part.FrameConfig.Parent, Pose: spatialmath.PoseToProtobuf(pose)}
 	return &pb.FrameSystemConfig{
 		Name:        part.Name,
 		FrameConfig: frameConfig,
-		ModelJson:   part.ModelFrameConfig}
+		ModelJson:   part.ModelFrameConfig,
+	}
 }
 
 // ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart
-func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) FrameSystemPart {
+func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) *FrameSystemPart {
 	pose := spatialmath.NewPoseFromProtobuf(fsc.FrameConfig.Pose)
-	return FrameSystemPart{
+	return &FrameSystemPart{
 		Name: fsc.Name,
 		FrameConfig: &Frame{
 			Parent:      fsc.FrameConfig.Parent,
@@ -43,18 +47,20 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) FrameSystemPart {
 }
 
 // CreateFramesFromPart will gather the frame information and build the frames from the given robot part
-func CreateFramesFromPart(part FrameSystemPart) (referenceframe.Frame, referenceframe.Frame, error) {
+func CreateFramesFromPart(part *FrameSystemPart) (referenceframe.Frame, referenceframe.Frame, error) {
+	if part == nil {
+		return nil, nil, errors.New("config for FrameSystemPart is nil")
+	}
 	var modelFrame referenceframe.Frame
-	var err error
 	// use identity frame if no model frame defined
 	if part.ModelFrameConfig == nil {
 		modelFrame = referenceframe.NewZeroStaticFrame(part.Name)
 	} else {
-		modelFrame, err = kinematics.ParseJSON(part.ModelFrameConfig)
+		model, err := kinematics.ParseJSON(part.ModelFrameConfig)
 		if err != nil {
 			return nil, nil, err
 		}
-		modelFrame.SetName(part.Name)
+		modelFrame = model.Clone(part.Name)
 	}
 	// static frame defines an offset from the parent part-- if it is empty, a 0 offset frame will be applied.
 	staticOffsetName := part.Name + "_offset"
@@ -67,9 +73,9 @@ func CreateFramesFromPart(part FrameSystemPart) (referenceframe.Frame, reference
 
 // CollectFrameSystemParts collects the physical parts of the robot that may have frame info (excluding remote robots and services, etc)
 // don't collect remote components, even though the Config lists them.
-func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]FrameSystemPart, error) {
+func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*FrameSystemPart, error) {
 	logger := r.Logger()
-	parts := make(map[string]FrameSystemPart)
+	parts := make(map[string]*FrameSystemPart)
 	seen := make(map[string]bool)
 	cfg, err := r.Config(ctx) // Eventually there will be another function that gathers the frame system config
 	if err != nil {
@@ -87,7 +93,7 @@ func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]Fra
 		if err != nil {
 			return nil, err
 		}
-		parts[c.Name] = FrameSystemPart{Name: c.Name, FrameConfig: c.Frame, ModelFrameConfig: modelJSON}
+		parts[c.Name] = &FrameSystemPart{Name: c.Name, FrameConfig: c.Frame, ModelFrameConfig: modelJSON}
 	}
 	return parts
 }

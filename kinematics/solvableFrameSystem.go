@@ -31,7 +31,7 @@ func NewSolvableFrameSystem(fs frame.FrameSystem, logger golog.Logger) *Solvable
 // For example, if a world system has a gripper attached to an arm attached to a gantry, and the system was being solved
 // to place the gripper at a particular pose in the world, the solveFrame would be the gripper and the goalFrame would be
 // the world frame.
-func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[string][]frame.Input, goal spatial.Pose, solveFrame, goalFrame frame.Frame) (map[string][]frame.Input, error) {
+func (fss *SolvableFrameSystem) SolvePose(seedMap map[string][]frame.Input, goal spatial.Pose, solveFrame, goalFrame frame.Frame) (map[string][]frame.Input, error) {
 
 	// Get parentage of both frames. This will also verify the frames are in the frame system
 	sFrames, err := fss.TracebackFrame(solveFrame)
@@ -45,8 +45,8 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 	frames := uniqInPlaceSlice(append(sFrames, gFrames...))
 
 	// Create a frame to solve for, and an IK solver with that frame.
-	sf := &solverFrame{fss, frames, solveFrame, goalFrame}
-	solver, err := CreateCombinedIKSolver(ctx, sf, fss.logger, runtime.NumCPU()/2)
+	sf := &solverFrame{solveFrame.Name() + "_" + goalFrame.Name(), fss, frames, solveFrame, goalFrame}
+	solver, err := CreateCombinedIKSolver(sf, fss.logger, runtime.NumCPU()/2)
 	if err != nil {
 		return nil, err
 	}
@@ -54,47 +54,56 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 	seed := sf.mapToSlice(seedMap)
 
 	// Solve for the goal position
-	resultSlice, err := solver.Solve(ctx, spatial.PoseToProtobuf(goal), seed)
+	resultSlice, err := solver.Solve(spatial.PoseToProtobuf(goal), seed)
 	if err != nil {
 		return nil, multierr.Combine(err, solver.Close())
 	}
 
-	return sf.sliceToMap(ctx, resultSlice), solver.Close()
+	return sf.sliceToMap(resultSlice), solver.Close()
 }
 
 // solverFrames are meant to be ephemerally created each time a frame system solution is created, and fulfills the
 // Frame interface so that it can be passed to inverse kinematics.
 type solverFrame struct {
+	name       string
 	fss        *SolvableFrameSystem
 	frames     []frame.Frame
 	solveFrame frame.Frame
 	goalFrame  frame.Frame
 }
 
-// Name returns the name of the solver frame, which is the name of the two frames being solved for.
+// Name returns the name of the solver frame
 func (sf *solverFrame) Name() string {
-	return sf.solveFrame.Name() + "_" + sf.goalFrame.Name()
+	return sf.name
+}
+
+// Clone creates a copy of the Frame with a new name, or the same name if the string is empty
+func (sf *solverFrame) Clone(name string) Frame {
+	if name == "" {
+		name = sf.Name()
+	}
+	return &solverFrame{name, sf.fss, sf.frames, sf.solveFrame, sf.goalFrame}
 }
 
 // Transform returns the pose between the two frames of this solver for a given set of inputs.
-func (sf *solverFrame) Transform(ctx context.Context, inputs []frame.Input) (spatial.Pose, error) {
-	if len(inputs) != len(sf.DoF(ctx)) {
+func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
+	if len(inputs) != len(sf.DoF()) {
 		return nil, errors.New("incorrect number of inputs to Transform")
 	}
-	pos := frame.StartPositions(ctx, sf.fss)
+	pos := frame.StartPositions(sf.fss)
 	i := 0
 	for _, frame := range sf.frames {
-		pos[frame.Name()] = inputs[i : i+len(frame.DoF(ctx))]
-		i += len(frame.DoF(ctx))
+		pos[frame.Name()] = inputs[i : i+len(frame.DoF())]
+		i += len(frame.DoF())
 	}
-	return sf.fss.TransformFrame(ctx, pos, sf.solveFrame, sf.goalFrame)
+	return sf.fss.TransformFrame(pos, sf.solveFrame, sf.goalFrame)
 }
 
 // DoF returns the summed DoF of all frames between the two solver frames.
-func (sf *solverFrame) DoF(ctx context.Context) []*pb.Limit {
-	var limits []*pb.Limit
+func (sf *solverFrame) DoF() []frame.Limit {
+	var limits []frame.Limit
 	for _, frame := range sf.frames {
-		limits = append(limits, frame.DoF(ctx)...)
+		limits = append(limits, frame.DoF()...)
 	}
 	return limits
 }
@@ -109,12 +118,12 @@ func (sf *solverFrame) mapToSlice(inputMap map[string][]frame.Input) []frame.Inp
 	return inputs
 }
 
-func (sf *solverFrame) sliceToMap(ctx context.Context, inputSlice []frame.Input) map[string][]frame.Input {
+func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.Input {
 	inputs := map[string][]frame.Input{}
 	i := 0
 	for _, frame := range sf.frames {
-		inputs[frame.Name()] = inputSlice[i : i+len(frame.DoF(ctx))]
-		i += len(frame.DoF(ctx))
+		inputs[frame.Name()] = inputSlice[i : i+len(frame.DoF())]
+		i += len(frame.DoF())
 	}
 	return inputs
 }

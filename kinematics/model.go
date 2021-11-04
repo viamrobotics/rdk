@@ -5,7 +5,6 @@ import (
 	"math"
 	"math/rand"
 
-	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
 
@@ -59,8 +58,8 @@ func NewModel() *Model {
 }
 
 // GenerateRandomJointPositions generates a list of radian joint positions that are random but valid for each joint.
-func (m *Model) GenerateRandomJointPositions(ctx context.Context, randSeed *rand.Rand) []float64 {
-	limits := m.DoF(ctx)
+func (m *Model) GenerateRandomJointPositions(randSeed *rand.Rand) []float64 {
+	limits := m.DoF()
 	jointPos := make([]float64, 0, len(limits))
 
 	for i := 0; i < len(limits); i++ {
@@ -74,12 +73,12 @@ func (m *Model) GenerateRandomJointPositions(ctx context.Context, randSeed *rand
 }
 
 // Joints returns an array of all settable frames in the model, from the base outwards.
-func (m *Model) Joints(ctx context.Context) []referenceframe.Frame {
+func (m *Model) Joints() []referenceframe.Frame {
 	joints := make([]referenceframe.Frame, 0, len(m.OrdTransforms)-1)
 	// OrdTransforms is ordered from end effector -> base, so we reverse the list to get joints from the base outwards.
 	for i := len(m.OrdTransforms) - 1; i >= 0; i-- {
 		transform := m.OrdTransforms[i]
-		if len(transform.DoF(ctx)) > 0 {
+		if len(transform.DoF()) > 0 {
 			joints = append(joints, transform)
 		}
 	}
@@ -91,25 +90,28 @@ func (m *Model) Name() string {
 	return m.name
 }
 
-// SetName changes the name of this model
-func (m *Model) SetName(name string) {
-	m.name = name
+// Clone creates a copy of the Frame with a new name, or the same name if the string is empty
+func (m *model) Clone(name string) referenceframe.Frame {
+	if name == "" {
+		name = m.Name()
+	}
+	return &Model{m.manufacturer, name, m.OrdTransforms, m.SolveWeights}
 }
 
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
-func (m *Model) Transform(ctx context.Context, inputs []referenceframe.Input) (spatialmath.Pose, error) {
+func (m *Model) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	pos := make([]float64, len(inputs))
 	for i, input := range inputs {
 		pos[i] = input.Value
 	}
-	return m.JointRadToQuat(ctx, pos)
+	return m.JointRadToQuat(pos)
 }
 
 // JointRadToQuat takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
-func (m *Model) JointRadToQuat(ctx context.Context, radAngles []float64) (spatialmath.Pose, error) {
-	poses, err := m.GetPoses(ctx, radAngles)
+func (m *Model) JointRadToQuat(radAngles []float64) (spatialmath.Pose, error) {
+	poses, err := m.GetPoses(radAngles)
 	if err != nil && poses == nil {
 		return nil, err
 	}
@@ -123,7 +125,7 @@ func (m *Model) JointRadToQuat(ctx context.Context, radAngles []float64) (spatia
 
 // GetPoses returns the list of Poses which, when multiplied together in order, will yield the
 // Pose representing the 6d cartesian position of the end effector.
-func (m *Model) GetPoses(ctx context.Context, pos []float64) ([]spatialmath.Pose, error) {
+func (m *Model) GetPoses(pos []float64) ([]spatialmath.Pose, error) {
 	var quats []spatialmath.Pose
 	var errAll error
 	posIdx := 0
@@ -132,13 +134,13 @@ func (m *Model) GetPoses(ctx context.Context, pos []float64) ([]spatialmath.Pose
 		transform := m.OrdTransforms[i]
 
 		var input []referenceframe.Input
-		dof := len(transform.DoF(ctx))
+		dof := len(transform.DoF())
 		for j := 0; j < dof; j++ {
 			input = append(input, referenceframe.Input{pos[posIdx]})
 			posIdx++
 		}
 
-		quat, err := transform.Transform(ctx, input)
+		quat, err := transform.Transform(input)
 		// Fail if inputs are incorrect and pose is nil, but allow querying out-of-bounds positions
 		if err != nil && quat == nil {
 			return nil, err
@@ -151,8 +153,8 @@ func (m *Model) GetPoses(ctx context.Context, pos []float64) ([]spatialmath.Pose
 }
 
 // AreJointPositionsValid checks whether the given array of joint positions violates any joint limits.
-func (m *Model) AreJointPositionsValid(ctx context.Context, pos []float64) bool {
-	limits := m.DoF(ctx)
+func (m *Model) AreJointPositionsValid(pos []float64) bool {
+	limits := m.DoF()
 	for i := 0; i < len(limits); i++ {
 		if pos[i] < limits[i].Min || pos[i] > limits[i].Max {
 			return false
@@ -167,15 +169,15 @@ func (m *Model) OperationalDoF() int {
 }
 
 // DoF returns the number of degrees of freedom within an arm.
-func (m *Model) DoF(ctx context.Context) []*pb.Limit {
-	limits := []*pb.Limit{}
-	for _, joint := range m.Joints(ctx) {
-		limits = append(limits, joint.DoF(ctx)...)
+func (m *Model) DoF() []referenceframe.Limit {
+	limits := []referenceframe.Limit{}
+	for _, joint := range m.Joints() {
+		limits = append(limits, joint.DoF()...)
 	}
 	return limits
 }
 
-func limitsToArrays(limits []*pb.Limit) ([]float64, []float64) {
+func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
 	var min, max []float64
 	for _, limit := range limits {
 		min = append(min, limit.Min)

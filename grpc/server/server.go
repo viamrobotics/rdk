@@ -1244,9 +1244,9 @@ func (s *Server) FrameServiceConfig(ctx context.Context, req *pb.FrameServiceCon
 	}
 	configs := make([]*pb.FrameSystemConfig, len(sortedParts))
 	for i, part := range sortedParts {
-		configs[i] = config.FrameSystemPartToProtobuf(part)
+		configs[i] = part.ToProtobuf()
 	}
-	return &pb.FrameServiceConfigResponse{Configs: configs}, nil
+	return &pb.FrameServiceConfigResponse{FrameSystemConfigs: configs}, nil
 }
 
 // FrameServiceModel returns the dyanmic model frame of the named robot part. Returns nil if robot part does not have a model frame.

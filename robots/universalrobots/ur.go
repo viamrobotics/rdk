@@ -49,16 +49,6 @@ func ur5eModel() (*kinematics.Model, error) {
 	return kinematics.ParseJSON(ur5modeljson)
 }
 
-// Ur5eFrame() returns the reference frame of the arm with the given name.
-func ur5eFrame(name string) (referenceframe.Frame, error) {
-	frame, err := ur5eModel()
-	if err != nil {
-		return nil, err
-	}
-	frame.SetName(name)
-	return frame, nil
-}
-
 // URArm TODO
 type URArm struct {
 	mu                      *sync.Mutex
