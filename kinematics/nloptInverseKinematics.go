@@ -30,6 +30,7 @@ type NloptIK struct {
 	jump          float64
 	randSeed      *rand.Rand
 	SolveWeights  SolverDistanceWeights
+	parallelSetup bool
 }
 
 // CreateNloptIKSolver TODO
@@ -149,9 +150,19 @@ func (ik *NloptIK) getGoals() []goal {
 	return ik.goals
 }
 
-// SetSolveWeights sets the slve weights
+// SetSolveWeights sets the solve weights
 func (ik *NloptIK) SetSolveWeights(weights SolverDistanceWeights) {
 	ik.SolveWeights = weights
+}
+
+// SetNloptMinFunc sets the function to minimize
+func (ik *NloptIK) SetNloptMinFunc(f func(x, gradient []float64) float64) error{
+	return ik.opt.SetMinObjective(f)
+}
+
+// SetMaxIter sets the number of times to 
+func (ik *NloptIK) SetMaxIter(i int) {
+	ik.maxIterations = i
 }
 
 // Solve runs the actual solver and returns a list of all
@@ -162,23 +173,26 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 	tries := 1
 	ik.iterations = 0
 	solutionsFound := 0
-	startingPos := ik.GenerateRandomPositions()
+	startingPos := seed
+	if ik.parallelSetup {
 
-	// Solver with ID 1 seeds off current angles
-	if ik.id == 1 {
-		if len(seed) > len(ik.model.DoF()) {
-			return errors.New("passed in too many joint positions")
-		}
-		startingPos = seed
+		// Solver with ID 1 seeds off current angles
+		if ik.id == 1 {
+			if len(seed) > len(ik.model.DoF()) {
+				return errors.New("passed in too many joint positions")
+			}
+			startingPos = seed
 
-		// Set initial restrictions on joints for more intuitive movement
-		err = ik.updateBounds(startingPos, tries)
-		if err != nil {
-			return err
+			// Set initial restrictions on joints for more intuitive movement
+			err = ik.updateBounds(startingPos, tries)
+			if err != nil {
+				return err
+			}
+		} else {
+			//~ // Solvers whose ID is not 1 should skip ahead directly to trying random seeds
+			startingPos = ik.GenerateRandomPositions()
+			tries = 30
 		}
-	} else {
-		//~ // Solvers whose ID is not 1 should skip ahead directly to trying random seeds
-		tries = 30
 	}
 	ik.addGoal(newGoal, 0)
 	defer ik.clearGoals()
@@ -191,7 +205,6 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 	}
 
 	for ik.iterations < ik.maxIterations {
-		retrySeed := false
 		select {
 		case <-ctx.Done():
 			return err
@@ -214,12 +227,12 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 			solutionsFound++
 		}
 		tries++
-		if tries < 30 {
+		if ik.parallelSetup && tries < 30 {
 			err = ik.updateBounds(seed, tries)
 			if err != nil {
 				return err
 			}
-		} else if !retrySeed {
+		} else {
 			err = multierr.Combine(
 				ik.opt.SetLowerBounds(ik.lowerBound),
 				ik.opt.SetUpperBounds(ik.upperBound),

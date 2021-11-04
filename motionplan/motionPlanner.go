@@ -34,7 +34,7 @@ func NewLinearMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (M
 	if err != nil {
 		return nil, err
 	}
-	mp := &linearMotionPlanner{solver: ik, frame: frame, idealMovementScore: 0.3, logger: logger, validityCheck: testValidity}
+	mp := &linearMotionPlanner{solver: ik, frame: frame, idealMovementScore: 0.3, logger: logger}
 	mp.visited = map[r3.Vector]bool{}
 	mp.AddConstraint("interpolationConstraint", NewInterpolatingConstraint())
 	mp.AddConstraint("jointSwingScorer", NewJointScorer())
@@ -46,7 +46,6 @@ type linearMotionPlanner struct {
 	constraintHandler
 	solver kinematics.InverseKinematics
 	frame   frame.Frame
-	validityCheck func([]frame.Input, spatial.Pose, frame.Frame) bool // This can check for env collisions, self collisions, etc
 	logger        golog.Logger
 	idealMovementScore float64
 	visited  map[r3.Vector]bool
@@ -115,7 +114,7 @@ func (mp *linearMotionPlanner) stepLinearPlan(ctx context.Context, goal *pb.ArmP
 				done = true
 				break
 			case step = <- solutionGen:
-				cPass, cScore := mp.checkConstraints(constraintInput{
+				cPass, cScore := mp.CheckConstraints(constraintInput{
 					lastPos,
 					intPos,
 					seed,
@@ -126,11 +125,6 @@ func (mp *linearMotionPlanner) stepLinearPlan(ctx context.Context, goal *pb.ArmP
 				if cPass {
 					// collision check if supported
 					// TODO: do a thing to get around the obstruction
-					if mp.validityCheck != nil {
-						if !mp.validityCheck(step, nil, mp.frame) {
-							continue
-						}
-					}
 					if cScore < mp.idealMovementScore {
 						// If the movement scores SO well, we will perform that movement immediately rather than
 						// trying for a better one
@@ -166,8 +160,7 @@ func (mp *linearMotionPlanner) stepLinearPlan(ctx context.Context, goal *pb.ArmP
 		mp.logger.Debug("done, cancelling")
 		activeSolver.Wait()
 		if len(solutions) == 0 {
-			
-			return nil, errors.New("could not solve path within constraints")
+			return nil, errors.New("could not solve position within constraints")
 		}
 		if err != nil {
 			mp.logger.Debug("got solution but IK returned ignorable error ", err)
@@ -188,18 +181,6 @@ func (mp *linearMotionPlanner) stepLinearPlan(ctx context.Context, goal *pb.ArmP
 	}
 
 	return inputSteps, nil
-}
-
-func (mp *linearMotionPlanner) checkConstraints(cInput constraintInput) (bool, float64) {
-	score := 0.
-	for _, cFunc := range mp.constraints {
-		pass, cScore := cFunc(cInput)
-		if !pass {
-			return false, math.Inf(1)
-		}
-		score += cScore
-	}
-	return true, score
 }
 
 // getSteps will determine the number of steps which should be used to get from the seed to the goal.
@@ -268,34 +249,4 @@ func fixOvIncrement(pos, seed *pb.ArmPosition) *pb.ArmPosition {
 		OY:    pos.OY,
 		OZ:    pos.OZ,
 	}
-}
-
-// Simulates an obstacle
-func testValidity(step []frame.Input, goalPos spatial.Pose, f frame.Frame) bool {
-	checkPt := func(pose spatial.Pose) bool {
-		pt := pose.Point()
-		if pt.X > 275 && pt.X < 350 {
-			if pt.Y < 50 && pt.Y > -50 {
-				if pt.Z > 70 && pt.Z < 170 {
-					return false
-				}
-			}
-		}
-		return true
-	}
-	if step != nil {
-		seedPos, err := f.Transform(step)
-		if err != nil {
-			return false
-		}
-		if !checkPt(seedPos) {
-			return false
-		}
-	}
-	if goalPos != nil {
-		if !checkPt(goalPos) {
-			return false
-		}
-	}
-	return true 
 }

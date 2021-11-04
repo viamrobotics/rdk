@@ -32,6 +32,7 @@ func CreateCombinedIKSolver(model frame.Frame, logger golog.Logger, nCPU int) (*
 			return nil, err
 		}
 		nlopt.SetSeed(int64(i * 1000))
+		nlopt.parallelSetup = true
 		ik.solvers = append(ik.solvers, nlopt)
 	}
 	ik.logger = logger
