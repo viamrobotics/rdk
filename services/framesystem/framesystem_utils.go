@@ -47,7 +47,7 @@ func BuildFrameSystem(ctx context.Context, name string, children map[string][]re
 }
 
 // CreateFramesFromPart will gather the frame information and build the frames from the given robot part
-func CreateFramesFromPart(part *config.FrameSystemPart) (referenceframe.Frame, referenceframe.Frame, error) {
+func CreateFramesFromPart(part *config.FrameSystemPart, logger golog.Logger) (referenceframe.Frame, referenceframe.Frame, error) {
 	if part == nil {
 		return nil, nil, errors.New("config for FrameSystemPart is nil")
 	}
@@ -98,7 +98,7 @@ func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*co
 }
 
 // processPart will gather the frame information and build the frames from the given robot part
-func processPart(part *config.FrameSystemPart, children map[string][]referenceframe.Frame, names map[string]bool) error {
+func processPart(part *config.FrameSystemPart, children map[string][]referenceframe.Frame, names map[string]bool, logger golog.Logger) error {
 	// if a part is empty or has no frame config, skip over it
 	if part == nil || part.FrameConfig == nil {
 		return nil
@@ -108,7 +108,7 @@ func processPart(part *config.FrameSystemPart, children map[string][]referencefr
 		return fmt.Errorf("parent field in frame config for part %q is empty", part.Name)
 	}
 	// build the frames from the part config
-	modelFrame, staticOffsetFrame, err := CreateFramesFromPart(part)
+	modelFrame, staticOffsetFrame, err := CreateFramesFromPart(part, logger)
 	if err != nil {
 		return err
 	}

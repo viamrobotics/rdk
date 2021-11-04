@@ -669,7 +669,7 @@ func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (re
 			part.FrameConfig.Parent = prefix + part.FrameConfig.Parent
 		}
 		// make the frames from the configs
-		modelFrame, staticOffsetFrame, err := framesystem.CreateFramesFromPart(part)
+		modelFrame, staticOffsetFrame, err := framesystem.CreateFramesFromPart(part, rc.logger)
 		if err != nil {
 			return nil, err
 		}

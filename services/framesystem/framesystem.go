@@ -46,7 +46,7 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 	seen := make(map[string]bool)
 	seen[referenceframe.World] = true
 	for _, part := range parts {
-		err := processPart(part, children, seen)
+		err := processPart(part, children, seen, logger)
 		if err != nil {
 			return nil, err
 		}
