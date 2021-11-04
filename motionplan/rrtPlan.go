@@ -32,7 +32,6 @@ type rrtMotionPlanner struct {
 	constraintHandler
 	solver kinematics.InverseKinematics
 	frame   frame.Frame
-	validityCheck func([]frame.Input, spatial.Pose, frame.Frame) bool // This can check for env collisions, self collisions, etc
 	logger        golog.Logger
 }
 
@@ -77,7 +76,7 @@ func (mp *rrtMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, seed
 		case <-ctx.Done():
 			return nil, errors.New("context Done signal")
 		case step := <- solutionGen:
-			cPass, cScore := mp.checkConstraints(constraintInput{
+			cPass, cScore := mp.CheckConstraints(constraintInput{
 				seedPos,
 				goalPos,
 				seed,
@@ -86,13 +85,6 @@ func (mp *rrtMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, seed
 			
 			//~ fmt.Println(cPass, cScore)
 			if cPass {
-				// collision check if supported
-				// TODO: do a thing to get around the obstruction
-				if mp.validityCheck != nil {
-					if !mp.validityCheck(step, nil, mp.frame) {
-						continue IK
-					}
-				}
 				solutions[cScore] = step
 			}
 			// Skip the return check below until we have nothing left to read from solutionGen
@@ -193,18 +185,6 @@ func (mp *rrtMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, seed
 	return inputSteps, nil
 }
 
-func (mp *rrtMotionPlanner) checkConstraints(cInput constraintInput) (bool, float64) {
-	score := 0.
-	for _, cFunc := range mp.constraints {
-		pass, cScore := cFunc(cInput)
-		if !pass {
-			return false, math.Inf(1)
-		}
-		score += cScore
-	}
-	return true, score
-}
-
 // return index of valid solution, -1 otherwise
 func checkValid(seed []frame.Input, valid [][]frame.Input, thresh float64) int {
 	for i, to := range valid {
@@ -218,7 +198,7 @@ func checkValid(seed []frame.Input, valid [][]frame.Input, thresh float64) int {
 func inputDist(from, to []frame.Input) float64 {
 	dist := 0.
 	for i, f := range from {
-		dist += math.Abs(to[i].Value - f.Value)
+		dist += math.Pow(to[i].Value - f.Value, 2)
 	}
 	return dist
 }

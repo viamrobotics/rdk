@@ -80,7 +80,7 @@ func (mp *linearMotionPlanner) tryDepthSolve(ctx context.Context, seed []frame.I
 		case <-ctx.Done():
 			return nil, errors.New("context Done signal")
 		case step = <- solutionGen:
-			cPass, cScore := mp.checkConstraints(constraintInput{
+			cPass, cScore := mp.CheckConstraints(constraintInput{
 				seedPos,
 				goalPos,
 				seed,
@@ -90,12 +90,6 @@ func (mp *linearMotionPlanner) tryDepthSolve(ctx context.Context, seed []frame.I
 			
 			if cPass {
 				// collision check if supported
-				// TODO: do a thing to get around the obstruction
-				if mp.validityCheck != nil {
-					if !mp.validityCheck(step, nil, mp.frame) {
-						continue
-					}
-				}
 				if cScore < mp.idealMovementScore {
 					// If the movement scores SO well, we will perform that movement immediately rather than
 					// trying for a better one
@@ -148,9 +142,9 @@ func (mp *linearMotionPlanner) tryDepthSolve(ctx context.Context, seed []frame.I
 		for i, attemptPos := range toTry {
 			
 			// check goal is valid
-			if !mp.validityCheck(nil, attemptPos, mp.frame) {
-				continue
-			}
+			//~ if !mp.validityCheck(nil, attemptPos, mp.frame) {
+				//~ continue
+			//~ }
 			
 			voxelPt := attemptPos.Point()
 			voxel := r3.Vector{float64(int(voxelPt.X)), float64(int(voxelPt.Y)), float64(int(voxelPt.Z))}
