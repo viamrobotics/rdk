@@ -53,6 +53,10 @@ If libvpx is not available on your distro, run the following:
 1. Delete any non-release branches ASAP when done, or use a personal fork
 1. Prefer metric SI prefixes where possible (e.g. millis) https://www.nist.gov/pml/weights-and-measures/metric-si-prefixes. The type of measurement (e.g. meters) is not necessary if it is implied (e.g. rulerLengthMillis).
 
+### Resources
+
+All resources implemented within core follow the pattern of registering themselves within an `func init()` block. This requires the package they are implemented in be imported, but typically not explicitly used. The place where we put blank imports (`_ "pkgpath"`) is in [robot/impl/local_robot.go](./robot/impl/local_robot.go).
+
 ### Protocol Buffers/gRPC
 
 For API intercommunication, we use Protocol Buffers to serialize data and gRPC to communicate it. For more information on both technologies, see https://developers.google.com/protocol-buffers and https://grpc.io/.

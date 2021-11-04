@@ -162,3 +162,9 @@ type Reconfigurable interface {
 	// Reconfigure reconfigures the resource
 	Reconfigure(newResource Reconfigurable) error
 }
+
+// Updateable is implemented when component/service of a robot should be updated after the robot reconfiguration process is done.
+type Updateable interface {
+	// Update updates the resource
+	Update(resources map[Name]interface{}) error
+}

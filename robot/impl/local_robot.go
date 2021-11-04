@@ -31,29 +31,54 @@ import (
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/status"
 
-	// registration
+	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
+	"github.com/golang/geo/r3"
+
+	// Engines
+	_ "go.viam.com/core/function/vm/engines/javascript"
+
+	// These are the robot pieces we want by default
 	_ "go.viam.com/SensorExporter/go"
 
-	// registration
+	// These are the robot pieces we want by default
+	_ "go.viam.com/core/base/impl"
+	_ "go.viam.com/core/board/arduino"
+	_ "go.viam.com/core/board/detector"
+	_ "go.viam.com/core/board/jetson"
 	_ "go.viam.com/core/camera/velodyne" // velodyne lidary
 	_ "go.viam.com/core/component/gantry/simple"
+	_ "go.viam.com/core/input/gamepad" // xbox controller and similar
+	_ "go.viam.com/core/motor/gpio"
+	_ "go.viam.com/core/motor/gpiostepper"
+	_ "go.viam.com/core/motor/tmcstepper"
+	_ "go.viam.com/core/rimage" // this is for the core camera types
+	_ "go.viam.com/core/rimage/imagesource"
+	_ "go.viam.com/core/robots/eva" // for eva
 	_ "go.viam.com/core/robots/fake"
+	_ "go.viam.com/core/robots/gopro"                   // for a camera
+	_ "go.viam.com/core/robots/robotiq"                 // for a gripper
+	_ "go.viam.com/core/robots/softrobotics"            // for a gripper
+	_ "go.viam.com/core/robots/universalrobots"         // for an arm
+	_ "go.viam.com/core/robots/varm"                    // for an arm
+	_ "go.viam.com/core/robots/vforcematrixtraditional" // for a traditional force matrix
+	_ "go.viam.com/core/robots/vforcematrixwithmux"     // for a force matrix built using a mux
+	_ "go.viam.com/core/robots/vgripper"                // for a gripper
+	_ "go.viam.com/core/robots/vx300s"                  // for arm and gripper
+	_ "go.viam.com/core/robots/wx250s"                  // for arm and gripper
+	_ "go.viam.com/core/robots/xarm"                    // for an arm
 	_ "go.viam.com/core/sensor/compass/gy511"
 	_ "go.viam.com/core/sensor/compass/lidar"
 	_ "go.viam.com/core/sensor/forcematrix"
 	_ "go.viam.com/core/sensor/gps/merge"
 	_ "go.viam.com/core/sensor/gps/nmea"
-
-	// these are the core image things we always want
-	_ "go.viam.com/core/rimage" // this is for the core camera types
 	_ "go.viam.com/core/vision" // this is for interesting camera types, depth, etc...
-
-	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
-	"github.com/golang/geo/r3"
 )
 
 var _ = robot.LocalRobot(&localRobot{})
+
+// WebSvcName defines the name of the web service
+const WebSvcName = "web1"
 
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its parts.
@@ -297,7 +322,7 @@ func (r *localRobot) Logger() golog.Logger {
 }
 
 // New returns a new robot with parts sourced from the given config.
-func New(ctx context.Context, config *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
+func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
 	r := &localRobot{
 		parts:  newRobotParts(logger),
 		logger: logger,
@@ -311,9 +336,9 @@ func New(ctx context.Context, config *config.Config, logger golog.Logger) (robot
 			}
 		}
 	}()
-	r.config = config
+	r.config = cfg
 
-	if err := r.parts.processConfig(ctx, config, r, logger); err != nil {
+	if err := r.parts.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
 	}
 
@@ -324,6 +349,17 @@ func New(ctx context.Context, config *config.Config, logger golog.Logger) (robot
 		}
 	}
 
+	// default services
+
+	// create web service here
+	// somewhat hacky, but the web service start up needs to come last
+	// TODO: use web.Type as part of #253.
+	webConfig := config.Service{Name: WebSvcName, Type: config.ServiceType("web")}
+	web, err := r.newService(ctx, webConfig)
+	if err != nil {
+		return nil, err
+	}
+	r.parts.AddService(web, webConfig)
 	successful = true
 	return r, nil
 }

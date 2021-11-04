@@ -21,6 +21,7 @@ func TestGripperThatDoesntMove(t *testing.T) {
 
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r.Close(), test.ShouldBeNil)
 
 	test.That(t, len(r.CameraNames()), test.ShouldEqual, 1)
 	cameraName := r.CameraNames()[0]
@@ -36,6 +37,7 @@ func TestMoveInGripperFrame(t *testing.T) {
 
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r.Close(), test.ShouldBeNil)
 
 	gripperName := r.GripperNames()[0]
 
@@ -52,6 +54,7 @@ func TestMovingGripper(t *testing.T) {
 
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r.Close(), test.ShouldBeNil)
 
 	// don't move at all
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 200}) // gripper has implicit 200 z offset
