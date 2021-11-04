@@ -3,7 +3,6 @@
 package kinematics
 
 import (
-	"context"
 	"math"
 
 	pb "go.viam.com/core/proto/api/v1"
@@ -17,13 +16,13 @@ import (
 
 // ComputePosition takes a model and a protobuf JointPositions in degrees and returns the cartesian position of the
 // end effector as a protobuf Pose. This is performed statelessly without changing any data.
-func ComputePosition(ctx context.Context, model frame.Frame, joints *pb.JointPositions) (*pb.Pose, error) {
+func ComputePosition(model frame.Frame, joints *pb.JointPositions) (*pb.Pose, error) {
 
-	if len(joints.Degrees) != len(model.DoF(ctx)) {
-		return nil, errors.Errorf("incorrect number of joints passed to ComputePosition. Want: %d, got: %d", len(model.DoF(ctx)), len(joints.Degrees))
+	if len(joints.Degrees) != len(model.DoF()) {
+		return nil, errors.Errorf("incorrect number of joints passed to ComputePosition. Want: %d, got: %d", len(model.DoF()), len(joints.Degrees))
 	}
 
-	pose, err := model.Transform(ctx, frame.JointPosToInputs(joints))
+	pose, err := model.Transform(frame.JointPosToInputs(joints))
 	if err != nil {
 		return nil, err
 	}
