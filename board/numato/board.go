@@ -129,16 +129,20 @@ func (b *numatoBoard) fixPin(pin string) string {
 	return fixPin(b.pins, pin)
 }
 
+func (b *numatoBoard) doSendLocked(ctx context.Context, msg string) error {
+	_, err := b.port.Write(([]byte)(msg + "\n"))
+
+	utils.SelectContextOrWait(ctx, 50*time.Microsecond)
+	return err
+}
+
 func (b *numatoBoard) doSend(ctx context.Context, msg string) error {
 	b.addToSent(msg)
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	_, err := b.port.Write(([]byte)(msg + "\n"))
-
-	utils.SelectContextOrWait(ctx, 100*time.Millisecond)
-	return err
+	return b.doSendLocked(ctx, msg)
 }
 
 func (b *numatoBoard) doSendReceive(ctx context.Context, msg string) (string, error) {
@@ -147,12 +151,10 @@ func (b *numatoBoard) doSendReceive(ctx context.Context, msg string) (string, er
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	_, err := b.port.Write(([]byte)(msg + "\n"))
+	err := b.doSendLocked(ctx, msg)
 	if err != nil {
 		return "", err
 	}
-
-	utils.SelectContextOrWait(ctx, 100*time.Millisecond)
 
 	select {
 	case res := <-b.lines:
