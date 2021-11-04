@@ -172,7 +172,7 @@ func (pf *translationalFrame) DoFInt() int {
 type rotationalFrame struct {
 	name    string
 	rotAxis spatial.R4AA
-	limit   Limit
+	limit   []Limit
 }
 
 // NewRotationalFrame creates a new rotationalFrame struct.
@@ -181,7 +181,7 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, err
 	rf := rotationalFrame{
 		name:    name,
 		rotAxis: axis,
-		limit:   limit,
+		limit:   []Limit{limit},
 	}
 	rf.rotAxis.Normalize()
 
@@ -196,8 +196,8 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 		return nil, fmt.Errorf("given input length %d does not match frame DoF 1", len(input))
 	}
 	// We allow out-of-bounds calculations, but will return a non-nil error
-	if input[0].Value < rf.limit.Min || input[0].Value > rf.limit.Max {
-		err = fmt.Errorf("%.5f input out of rev frame bounds %.5f", input[0].Value, rf.limit)
+	if input[0].Value < rf.limit[0].Min || input[0].Value > rf.limit[0].Max {
+		err = fmt.Errorf("%.5f input out of rev frame bounds %.5f", input[0].Value, rf.limit[0])
 	}
 	// Create a copy of the r4aa for thread safety
 
@@ -208,7 +208,7 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 
 // DoF returns the number of degrees of freedom that a joint has. This would be 1 for a standard revolute joint.
 func (rf *rotationalFrame) DoF() []Limit {
-	return []Limit{rf.limit}
+	return rf.limit
 }
 
 // Name returns the name of the frame

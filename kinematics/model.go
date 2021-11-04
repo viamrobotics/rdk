@@ -122,17 +122,17 @@ func (m *Model) JointRadToQuat(radAngles []float64) (spatialmath.Pose, error) {
 // GetPoses returns the list of Poses which, when multiplied together in order, will yield the
 // Pose representing the 6d cartesian position of the end effector.
 func (m *Model) GetPoses(pos []float64) ([]spatialmath.Pose, error) {
-	var quats []spatialmath.Pose
+	quats := make([]spatialmath.Pose, len(m.OrdTransforms))
 	var errAll error
 	posIdx := 0
 	// OrdTransforms is ordered from end effector -> base, so we reverse the list to get quaternions from the base outwards.
 	for i := len(m.OrdTransforms) - 1; i >= 0; i-- {
 		transform := m.OrdTransforms[i]
 
-		var input []referenceframe.Input
 		dof := len(transform.DoF())
+		input := make([]referenceframe.Input, dof)
 		for j := 0; j < dof; j++ {
-			input = append(input, referenceframe.Input{pos[posIdx]})
+			input[j] = referenceframe.Input{pos[posIdx]}
 			posIdx++
 		}
 
@@ -142,7 +142,7 @@ func (m *Model) GetPoses(pos []float64) ([]spatialmath.Pose, error) {
 			return nil, err
 		}
 		multierr.AppendInto(&errAll, err)
-		quats = append(quats, quat)
+		quats[len(quats)-i-1] = quat
 
 	}
 	return quats, errAll
