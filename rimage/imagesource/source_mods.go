@@ -25,7 +25,7 @@ func init() {
 			return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
 		}
 
-		return &camera.ImageSource{&RotateImageDepthSource{source}, config.Frame}, nil
+		return &camera.ImageSource{&RotateImageDepthSource{source}}, nil
 	}})
 
 	registry.RegisterCamera("resize", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
@@ -38,7 +38,7 @@ func init() {
 		width := config.Attributes.Int("width", 800)
 		height := config.Attributes.Int("height", 640)
 
-		return &camera.ImageSource{gostream.ResizeImageSource{source, width, height}, config.Frame}, nil
+		return &camera.ImageSource{gostream.ResizeImageSource{source, width, height}}, nil
 	}})
 
 }
