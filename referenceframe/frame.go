@@ -173,6 +173,7 @@ type rotationalFrame struct {
 	name    string
 	rotAxis spatial.R4AA
 	limit   Limit
+	dof     []Limit
 }
 
 // NewRotationalFrame creates a new rotationalFrame struct.
@@ -182,6 +183,7 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, err
 		name:    name,
 		rotAxis: axis,
 		limit:   limit,
+		dof:     []Limit{limit},
 	}
 	rf.rotAxis.Normalize()
 
@@ -208,7 +210,7 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 
 // DoF returns the number of degrees of freedom that a joint has. This would be 1 for a standard revolute joint.
 func (rf *rotationalFrame) DoF() []Limit {
-	return []Limit{rf.limit}
+	return rf.dof
 }
 
 // Name returns the name of the frame
