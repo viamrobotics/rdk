@@ -126,6 +126,7 @@
           status.grippersMap = rawSatusObj.grippersMap;
           status.boardsMap = rawSatusObj.boardsMap;
           status.camerasMap = rawSatusObj.camerasMap;
+          status.inputControllersMap = rawSatusObj.inputControllersMap;
           status.sensorsMap = rawSatusObj.sensorsMap;
           status.servosMap = rawSatusObj.servosMap;
           status.motorsMap = rawSatusObj.motorsMap;
@@ -1225,6 +1226,16 @@
         style="max-width: 1080px;">
       </motor-detail>
 
+      <!-- ******* GAMEPAD *******  -->
+      <gamepad
+        v-for="controller in status.inputControllersMap"
+        :key="'new-' + controller[0]"
+        style="max-width: 1080px;">
+      >
+      </gamepad>
+
+
+      <!-- ******* CAMERAS *******  -->
       <table>
         <tr>
           <td><img id="i0" src=""/></td>
