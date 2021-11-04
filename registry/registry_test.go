@@ -17,6 +17,7 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
+	"go.viam.com/core/subtype"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -145,8 +146,35 @@ func TestComponentSubtypeRegistry(t *testing.T) {
 	RegisterComponentSubtype(newSubtype, ComponentSubtype{rf})
 	creator := ComponentSubtypeLookup(newSubtype)
 	test.That(t, creator, test.ShouldNotBeNil)
+	test.That(t, creator.Reconfigurable, test.ShouldEqual, rf)
 
 	subtype2 := resource.NewSubtype(resource.Namespace("acme2"), resource.ResourceTypeComponent, arm.SubtypeName)
 	test.That(t, ComponentSubtypeLookup(subtype2), test.ShouldBeNil)
-	test.That(t, creator.Reconfigurable, test.ShouldEqual, rf)
+}
+
+func TestSubtypeGrpcRegistry(t *testing.T) {
+	rf := func(subtypeSvc subtype.Service) error {
+		return nil
+	}
+	cf := func(ctx context.Context, address string, name string, logger golog.Logger) (interface{}, error) {
+		return nil, nil
+	}
+	newSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, arm.SubtypeName)
+	test.That(t, func() { RegisterSubtypeGrpc(newSubtype, SubtypeGrpc{}) }, test.ShouldPanic)
+
+	RegisterSubtypeGrpc(newSubtype, SubtypeGrpc{RegisterService: rf})
+	creator := SubtypeGrpcLookup(newSubtype)
+	test.That(t, creator, test.ShouldNotBeNil)
+	test.That(t, creator.RegisterService, test.ShouldEqual, rf)
+	test.That(t, creator.ResourceClient, test.ShouldBeNil)
+
+	subtype2 := resource.NewSubtype(resource.Namespace("acme2"), resource.ResourceTypeComponent, arm.SubtypeName)
+	test.That(t, SubtypeGrpcLookup(subtype2), test.ShouldBeNil)
+
+	RegisterSubtypeGrpc(subtype2, SubtypeGrpc{RegisterService: rf, ResourceClient: cf})
+	creator = SubtypeGrpcLookup(subtype2)
+	test.That(t, creator, test.ShouldNotBeNil)
+	test.That(t, creator.RegisterService, test.ShouldEqual, rf)
+	test.That(t, creator.ResourceClient, test.ShouldEqual, cf)
+
 }

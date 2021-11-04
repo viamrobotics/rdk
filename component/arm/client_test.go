@@ -1,4 +1,4 @@
-package client_test
+package arm_test
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	rpcclient "go.viam.com/utils/rpc/client"
 	"go.viam.com/utils/rpc/dialer"
 
-	"go.viam.com/core/component/arm"
 	"go.viam.com/core/grpc/metadata/client"
 	"go.viam.com/core/grpc/metadata/server"
 	pb "go.viam.com/core/proto/api/service/v1"
@@ -19,23 +18,6 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 )
-
-var newResource = resource.NewName(
-	resource.ResourceNamespaceCore,
-	resource.ResourceTypeComponent,
-	arm.SubtypeName,
-	"",
-)
-
-var oneResourceResponse = []*pb.ResourceName{
-	{
-		Uuid:      newResource.UUID,
-		Namespace: string(newResource.Namespace),
-		Type:      string(newResource.ResourceType),
-		Subtype:   string(newResource.ResourceSubtype),
-		Name:      newResource.Name,
-	},
-}
 
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -61,11 +43,11 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMetadata.AllFunc = func() []resource.Name {
-		return []resource.Name{newResource}
+		return []resource.Name{}
 	}
 	resource, err := client.Resources(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resource, test.ShouldResemble, oneResourceResponse)
+	test.That(t, resource, test.ShouldResemble, nil)
 
 	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)

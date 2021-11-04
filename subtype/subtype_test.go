@@ -3,9 +3,10 @@ package subtype_test
 import (
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/core/resource"
 	"go.viam.com/core/subtype"
-	"go.viam.com/test"
 )
 
 func TestSubtypeService(t *testing.T) {
