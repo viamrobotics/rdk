@@ -33,7 +33,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
-	"github.com/golang/geo/r3"
 
 	// Engines
 	_ "go.viam.com/core/function/vm/engines/javascript"
