@@ -23,9 +23,8 @@ import (
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
+	"go.viam.com/core/services/web"
 	"go.viam.com/core/spatialmath"
-	"go.viam.com/core/web"
-	webserver "go.viam.com/core/web/server"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -79,18 +78,14 @@ func TestConfigRemote(t *testing.T) {
 		test.That(t, r.Close(), test.ShouldBeNil)
 	}()
 
-	cancelCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	options := web.NewOptions()
 	options.Port = port
-
-	webDone := make(chan struct{})
-	go func() {
-		webserver.RunWeb(cancelCtx, r, options, logger)
-		close(webDone)
-	}()
+	svc, ok := r.ServiceByName(robotimpl.WebSvcName)
+	test.That(t, ok, test.ShouldBeTrue)
+	err = svc.(web.Service).Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
 
 	addr := fmt.Sprintf("localhost:%d", port)
 	remoteConfig := &config.Config{
@@ -216,6 +211,7 @@ func TestConfigRemote(t *testing.T) {
 			"foo.func2": true,
 			"bar.func2": true,
 		},
+		Services: map[string]bool{"web1": true},
 	}
 
 	test.That(t, status, test.ShouldResemble, expectedStatus)
@@ -257,9 +253,6 @@ func TestConfigRemote(t *testing.T) {
 
 	_, err = r2.FrameSystem(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-
-	cancel()
-	<-webDone
 
 	test.That(t, r.Close(), test.ShouldBeNil)
 	test.That(t, r2.Close(), test.ShouldBeNil)
