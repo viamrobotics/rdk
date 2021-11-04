@@ -4,9 +4,11 @@ package registry
 import (
 	"context"
 	"fmt"
+	"runtime"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
+	"github.com/mitchellh/copystructure"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -24,6 +26,23 @@ import (
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
 )
+
+// TODO: currently here because of import cycles. get rid of this block at conclusion of Core v2 migration.
+//these registrations should happen in the subtype's go package instead.
+func init() {
+	RegisterComponentSubtype(arm.Subtype, ComponentSubtype{
+		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
+			return arm.WrapWithReconfigurable(r)
+		},
+	})
+
+	RegisterComponentSubtype(gantry.Subtype, ComponentSubtype{
+		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
+			return gantry.WrapWithReconfigurable(r)
+		},
+	})
+
+}
 
 type (
 	// A CreateCamera creates a camera from a given config.
@@ -60,61 +79,77 @@ type (
 	CreateService func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error)
 )
 
+// RegDebugInfo represents some runtime information about the registration used
+// for debugging purposes.
+type RegDebugInfo struct {
+	RegistrarLoc string
+}
+
 // Camera stores a Camera constructor (mandatory) and a Frame building function (optional)
 type Camera struct {
+	RegDebugInfo
 	Constructor CreateCamera
 	Frame       CreateFrame
 }
 
 // Gripper stores a Gripper constructor (mandatory) and a Frame building function (optional)
 type Gripper struct {
+	RegDebugInfo
 	Constructor CreateGripper
 	Frame       CreateFrame
 }
 
 // Base stores a Base constructor (mandatory) and a Frame building function (optional)
 type Base struct {
+	RegDebugInfo
 	Constructor CreateBase
 	Frame       CreateFrame
 }
 
 // Lidar stores a Lidar constructor (mandatory) and a Frame building function (optional)
 type Lidar struct {
+	RegDebugInfo
 	Constructor CreateLidar
 	Frame       CreateFrame
 }
 
 // Sensor stores a Sensor constructor (mandatory) and a Frame building function (optional)
 type Sensor struct {
+	RegDebugInfo
 	Constructor CreateSensor
 	Frame       CreateFrame
 }
 
 // Board stores a Board constructor (mandatory) and a Frame building function (optional)
 type Board struct {
+	RegDebugInfo
 	Constructor CreateBoard
 	Frame       CreateFrame
 }
 
 // Servo stores a Servo constructor (mandatory) and a Frame building function (optional)
 type Servo struct {
+	RegDebugInfo
 	Constructor CreateServo
 	Frame       CreateFrame
 }
 
 // Motor stores a Motor constructor (mandatory) and a Frame building function (optional)
 type Motor struct {
+	RegDebugInfo
 	Constructor CreateMotor
 	Frame       CreateFrame
 }
 
 // InputController stores an input.Controller constructor (mandatory) and a Frame building function (optional)
 type InputController struct {
+	RegDebugInfo
 	Constructor CreateInputController
 }
 
 // Service stores a Service constructor (mandatory) and an attribute converter
 type Service struct {
+	RegDebugInfo
 	Constructor           CreateService
 	AttributeMapConverter config.AttributeMapConverter
 }
@@ -133,8 +168,18 @@ var (
 	serviceRegistry         = map[config.ServiceType]Service{}
 )
 
+func getCallerName() string {
+	pc, _, _, ok := runtime.Caller(2)
+	details := runtime.FuncForPC(pc)
+	if ok && details != nil {
+		return details.Name()
+	}
+	return "unknown"
+}
+
 // RegisterCamera registers a camera model to a creator.
 func RegisterCamera(model string, creator Camera) {
+	creator.RegistrarLoc = getCallerName()
 	_, old := cameraRegistry[model]
 	if old {
 		panic(errors.Errorf("trying to register two cameras with same model %s", model))
@@ -147,6 +192,7 @@ func RegisterCamera(model string, creator Camera) {
 
 // RegisterGripper registers a gripper model to a creator.
 func RegisterGripper(model string, creator Gripper) {
+	creator.RegistrarLoc = getCallerName()
 	_, old := gripperRegistry[model]
 	if old {
 		panic(errors.Errorf("trying to register two grippers with same model %s", model))
@@ -159,6 +205,7 @@ func RegisterGripper(model string, creator Gripper) {
 
 // RegisterBase registers a base model to a creator.
 func RegisterBase(model string, creator Base) {
+	creator.RegistrarLoc = getCallerName()
 	_, old := baseRegistry[model]
 	if old {
 		panic(errors.Errorf("trying to register two bases with same model %s", model))
@@ -171,6 +218,7 @@ func RegisterBase(model string, creator Base) {
 
 // RegisterLidar registers a lidar model to a creator.
 func RegisterLidar(model string, creator Lidar) {
+	creator.RegistrarLoc = getCallerName()
 	_, old := lidarRegistry[model]
 	if old {
 		panic(errors.Errorf("trying to register two lidars with same model %s", model))
@@ -183,6 +231,7 @@ func RegisterLidar(model string, creator Lidar) {
 
 // RegisterSensor registers a sensor type and model to a creator.
 func RegisterSensor(sensorType sensor.Type, model string, creator Sensor) {
+	creator.RegistrarLoc = getCallerName()
 	if _, ok := sensorRegistry[sensorType]; !ok {
 		sensorRegistry[sensorType] = make(map[string]Sensor)
 	}
@@ -198,6 +247,7 @@ func RegisterSensor(sensorType sensor.Type, model string, creator Sensor) {
 
 // RegisterBoard registers a board model to a creator.
 func RegisterBoard(model string, creator Board) {
+	creator.RegistrarLoc = getCallerName()
 	_, old := boardRegistry[model]
 	if old {
 		panic(errors.Errorf("trying to register two boards with same model %s", model))
@@ -210,6 +260,7 @@ func RegisterBoard(model string, creator Board) {
 
 // RegisterServo registers a servo model to a creator.
 func RegisterServo(model string, creator Servo) {
+	creator.RegistrarLoc = getCallerName()
 	_, old := servoRegistry[model]
 	if old {
 		panic(errors.Errorf("trying to register two servos with same model %s", model))
@@ -222,6 +273,7 @@ func RegisterServo(model string, creator Servo) {
 
 // RegisterMotor registers a motor model to a creator.
 func RegisterMotor(model string, creator Motor) {
+	creator.RegistrarLoc = getCallerName()
 	_, old := motorRegistry[model]
 	if old {
 		panic(errors.Errorf("trying to register two motors with same model %s", model))
@@ -234,6 +286,7 @@ func RegisterMotor(model string, creator Motor) {
 
 // RegisterInputController registers an input controller model to a creator.
 func RegisterInputController(model string, creator InputController) {
+	creator.RegistrarLoc = getCallerName()
 	_, old := inputControllerRegistry[model]
 	if old {
 		panic(errors.Errorf("trying to register two input controllers with same model %s", model))
@@ -246,15 +299,13 @@ func RegisterInputController(model string, creator InputController) {
 
 // RegisterService registers a service type to a registration.
 func RegisterService(typeName config.ServiceType, registration Service) {
+	registration.RegistrarLoc = getCallerName()
 	_, old := serviceRegistry[typeName]
 	if old {
 		panic(errors.Errorf("trying to register two sevices with same type %s", typeName))
 	}
 	if registration.Constructor == nil {
 		panic(errors.Errorf("cannot register a nil constructor for service %s", typeName))
-	}
-	if registration.AttributeMapConverter != nil {
-		config.RegisterServiceAttributeMapConverter(typeName, registration.AttributeMapConverter)
 	}
 	serviceRegistry[typeName] = registration
 }
@@ -432,6 +483,7 @@ type (
 
 // Component stores a resource constructor (mandatory) and a Frame building function (optional)
 type Component struct {
+	RegDebugInfo
 	Constructor CreateComponent
 	Frame       CreateFrame
 }
@@ -449,6 +501,7 @@ var (
 
 // RegisterComponent register a creator to its corresponding component and model.
 func RegisterComponent(subtype resource.Subtype, model string, creator Component) {
+	creator.RegistrarLoc = getCallerName()
 	qName := fmt.Sprintf("%s/%s", subtype, model)
 	_, old := componentRegistry[qName]
 	if old {
@@ -491,19 +544,101 @@ func ComponentSubtypeLookup(subtype resource.Subtype) *ComponentSubtype {
 	return nil
 }
 
-// TODO: currently here because of import cycles. get rid of this block at conclusion of Core v2 migration.
-//these registrations should happen in the subtype's go package instead.
-func init() {
-	RegisterComponentSubtype(arm.Subtype, ComponentSubtype{
-		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
-			return arm.WrapWithReconfigurable(r)
-		},
-	})
+// RegisteredCameras returns a copy of the registered cameras.
+func RegisteredCameras() map[string]Camera {
+	copied, err := copystructure.Copy(cameraRegistry)
+	if err != nil {
+		panic(err)
+	}
+	return copied.(map[string]Camera)
+}
 
-	RegisterComponentSubtype(gantry.Subtype, ComponentSubtype{
-		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
-			return gantry.WrapWithReconfigurable(r)
-		},
-	})
+// RegisteredGrippers returns a copy of the registered grippers.
+func RegisteredGrippers() map[string]Gripper {
+	copied, err := copystructure.Copy(gripperRegistry)
+	if err != nil {
+		panic(err)
+	}
+	return copied.(map[string]Gripper)
+}
 
+// RegisteredBases returns a copy of the registered bases.
+func RegisteredBases() map[string]Base {
+	copied, err := copystructure.Copy(baseRegistry)
+	if err != nil {
+		panic(err)
+	}
+	return copied.(map[string]Base)
+}
+
+// RegisteredLidars returns a copy of the registered lidars.
+func RegisteredLidars() map[string]Lidar {
+	copied, err := copystructure.Copy(lidarRegistry)
+	if err != nil {
+		panic(err)
+	}
+	return copied.(map[string]Lidar)
+}
+
+// RegisteredSensors returns a copy of the registered sensors.
+func RegisteredSensors() map[sensor.Type]map[string]Sensor {
+	copied, err := copystructure.Copy(sensorRegistry)
+	if err != nil {
+		panic(err)
+	}
+	return copied.(map[sensor.Type]map[string]Sensor)
+}
+
+// RegisteredBoards returns a copy of the registered boards.
+func RegisteredBoards() map[string]Board {
+	copied, err := copystructure.Copy(boardRegistry)
+	if err != nil {
+		panic(err)
+	}
+	return copied.(map[string]Board)
+}
+
+// RegisteredServos returns a copy of the registered servos.
+func RegisteredServos() map[string]Servo {
+	copied, err := copystructure.Copy(servoRegistry)
+	if err != nil {
+		panic(err)
+	}
+	return copied.(map[string]Servo)
+}
+
+// RegisteredMotors returns a copy of the registered motors.
+func RegisteredMotors() map[string]Motor {
+	copied, err := copystructure.Copy(motorRegistry)
+	if err != nil {
+		panic(err)
+	}
+	return copied.(map[string]Motor)
+}
+
+// RegisteredInputControllers returns a copy of the registered input controllers.
+func RegisteredInputControllers() map[string]InputController {
+	copied, err := copystructure.Copy(inputControllerRegistry)
+	if err != nil {
+		panic(err)
+	}
+	return copied.(map[string]InputController)
+}
+
+// RegisteredServices returns a copy of the registered services.
+func RegisteredServices() map[config.ServiceType]Service {
+	copied, err := copystructure.Copy(serviceRegistry)
+	if err != nil {
+		panic(err)
+	}
+	return copied.(map[config.ServiceType]Service)
+}
+
+// RegisteredComponents returns a copy of the registered components.
+func RegisteredComponents() map[string]Component {
+	copied, err := copystructure.Copy(componentRegistry)
+	if err != nil {
+		panic(err)
+	}
+	return copied.(map[string]Component)
 }

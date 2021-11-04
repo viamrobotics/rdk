@@ -15,6 +15,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
+	"github.com/mitchellh/copystructure"
 
 	"go.viam.com/utils"
 )
@@ -27,59 +28,94 @@ type AttributeConverter func(val interface{}) (interface{}, error)
 // different representation.
 type AttributeMapConverter func(attributes AttributeMap) (interface{}, error)
 
-type componentAttributeConverterRegistration struct {
-	compType ComponentType
-	model    string
-	attr     string
-	conv     AttributeConverter
+// A ComponentAttributeConverterRegistration describes how to convert a specific attribute
+// for a model of a type of component.
+type ComponentAttributeConverterRegistration struct {
+	CompType ComponentType
+	Model    string
+	Attr     string
+	Conv     AttributeConverter
 }
 
-type componentAttributeMapConverterRegistration struct {
-	compType ComponentType
-	model    string
-	conv     AttributeMapConverter
+// A ComponentAttributeMapConverterRegistration describes how to convert all attributes
+// for a model of a type of component.
+type ComponentAttributeMapConverterRegistration struct {
+	CompType ComponentType
+	Model    string
+	Conv     AttributeMapConverter
+	RetType  interface{} // the shape of what is converted to
 }
 
-type serviceAttributeMapConverterRegistration struct {
-	svcType ServiceType
-	conv    AttributeMapConverter
+// A ServiceAttributeMapConverterRegistration describes how to convert all attributes
+// for a model of a type of service.
+type ServiceAttributeMapConverterRegistration struct {
+	SvcType ServiceType
+	Conv    AttributeMapConverter
+	RetType interface{} // the shape of what is converted to
 }
 
 var (
-	componentAttributeConverters    = []componentAttributeConverterRegistration{}
-	componentAttributeMapConverters = []componentAttributeMapConverterRegistration{}
-	serviceAttributeMapConverters   = []serviceAttributeMapConverterRegistration{}
+	componentAttributeConverters    = []ComponentAttributeConverterRegistration{}
+	componentAttributeMapConverters = []ComponentAttributeMapConverterRegistration{}
+	serviceAttributeMapConverters   = []ServiceAttributeMapConverterRegistration{}
 )
 
 // RegisterComponentAttributeConverter associates a component type and model with a way to convert a
 // particular attribute name.
-func RegisterComponentAttributeConverter(compType ComponentType, model, attr string, conv AttributeConverter) {
-	componentAttributeConverters = append(componentAttributeConverters, componentAttributeConverterRegistration{compType, model, attr, conv})
+func RegisterComponentAttributeConverter(CompType ComponentType, model, attr string, conv AttributeConverter) {
+	componentAttributeConverters = append(componentAttributeConverters, ComponentAttributeConverterRegistration{CompType, model, attr, conv})
 }
 
 // RegisterComponentAttributeMapConverter associates a component type and model with a way to convert all attributes.
-func RegisterComponentAttributeMapConverter(compType ComponentType, model string, conv AttributeMapConverter) {
-	componentAttributeMapConverters = append(componentAttributeMapConverters, componentAttributeMapConverterRegistration{compType, model, conv})
+func RegisterComponentAttributeMapConverter(compType ComponentType, model string, conv AttributeMapConverter, retType interface{}) {
+	componentAttributeMapConverters = append(componentAttributeMapConverters, ComponentAttributeMapConverterRegistration{compType, model, conv, retType})
 }
 
 // RegisterServiceAttributeMapConverter associates a service type with a way to convert all attributes.
-func RegisterServiceAttributeMapConverter(svcType ServiceType, conv AttributeMapConverter) {
-	serviceAttributeMapConverters = append(serviceAttributeMapConverters, serviceAttributeMapConverterRegistration{svcType, conv})
+func RegisterServiceAttributeMapConverter(svcType ServiceType, conv AttributeMapConverter, retType interface{}) {
+	serviceAttributeMapConverters = append(serviceAttributeMapConverters, ServiceAttributeMapConverterRegistration{svcType, conv, retType})
+}
+
+// RegisteredComponentAttributeConverters returns a copy of the registered component attribute converters.
+func RegisteredComponentAttributeConverters() []ComponentAttributeConverterRegistration {
+	copied, err := copystructure.Copy(componentAttributeConverters)
+	if err != nil {
+		panic(err)
+	}
+	return copied.([]ComponentAttributeConverterRegistration)
+}
+
+// RegisteredComponentAttributeMapConverters returns a copy of the registered component attribute converters.
+func RegisteredComponentAttributeMapConverters() []ComponentAttributeMapConverterRegistration {
+	copied, err := copystructure.Copy(componentAttributeMapConverters)
+	if err != nil {
+		panic(err)
+	}
+	return copied.([]ComponentAttributeMapConverterRegistration)
+}
+
+// RegisteredServiceAttributeMapConverters returns a copy of the registered component attribute converters.
+func RegisteredServiceAttributeMapConverters() []ServiceAttributeMapConverterRegistration {
+	copied, err := copystructure.Copy(serviceAttributeMapConverters)
+	if err != nil {
+		panic(err)
+	}
+	return copied.([]ServiceAttributeMapConverterRegistration)
 }
 
 func findConverter(compType ComponentType, model, attr string) AttributeConverter {
 	for _, r := range componentAttributeConverters {
-		if r.compType == compType && r.model == model && r.attr == attr {
-			return r.conv
+		if r.CompType == compType && r.Model == model && r.Attr == attr {
+			return r.Conv
 		}
 	}
 	return nil
 }
 
-func findMapConverter(compType ComponentType, model string) AttributeMapConverter {
+func findMapConverter(CompType ComponentType, model string) AttributeMapConverter {
 	for _, r := range componentAttributeMapConverters {
-		if r.compType == compType && r.model == model {
-			return r.conv
+		if r.CompType == CompType && r.Model == model {
+			return r.Conv
 		}
 	}
 	return nil
@@ -87,8 +123,8 @@ func findMapConverter(compType ComponentType, model string) AttributeMapConverte
 
 func findServiceMapConverter(svcType ServiceType) AttributeMapConverter {
 	for _, r := range serviceAttributeMapConverters {
-		if r.svcType == svcType {
-			return r.conv
+		if r.SvcType == svcType {
+			return r.Conv
 		}
 	}
 	return nil

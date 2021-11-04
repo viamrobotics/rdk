@@ -26,17 +26,18 @@ func init() {
 	registry.RegisterBase("four-wheel", registry.Base{Constructor: CreateFourWheelBase})
 }
 
-type fourWheelBase struct {
+// FourWheelBase implements a four wheeled base
+type FourWheelBase struct {
 	widthMillis              int
 	wheelCircumferenceMillis int
 	spinSlipFactor           float64
 
 	frontLeft, frontRight, backRight, backLeft motor.Motor
-	allMotors                                  []motor.Motor
+	AllMotors                                  []motor.Motor
 }
 
-// return direction, rpm, rotations
-func (base *fourWheelBase) straightDistanceToMotorInfo(distanceMillis int, millisPerSec float64) (pb.DirectionRelative, float64, float64) {
+// StraightDistanceToMotorInfo returns direction, rpm, rotations
+func (base *FourWheelBase) StraightDistanceToMotorInfo(distanceMillis int, millisPerSec float64) (pb.DirectionRelative, float64, float64) {
 	var d pb.DirectionRelative = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 	if millisPerSec < 0 {
 		d = board.FlipDirection(d)
@@ -56,14 +57,16 @@ func (base *fourWheelBase) straightDistanceToMotorInfo(distanceMillis int, milli
 	return d, rpm, rotations
 }
 
-func (base *fourWheelBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+// MoveStraight moves the robot straight a given distance at a given speed. The method
+// can be requested to block until the move is complete.
+func (base *FourWheelBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
 	if distanceMillis == 0 && block {
 		return 0, errors.New("cannot block unless you have a distance")
 	}
 
-	d, rpm, rotations := base.straightDistanceToMotorInfo(distanceMillis, millisPerSec)
+	d, rpm, rotations := base.StraightDistanceToMotorInfo(distanceMillis, millisPerSec)
 
-	for _, m := range base.allMotors {
+	for _, m := range base.AllMotors {
 		err := m.GoFor(ctx, d, rpm, rotations)
 		if err != nil {
 			// TODO(erh): return how much it actually moved
@@ -77,11 +80,11 @@ func (base *fourWheelBase) MoveStraight(ctx context.Context, distanceMillis int,
 	}
 
 	// TODO(erh): return how much it actually moved
-	return distanceMillis, base.waitForMotorsToStop(ctx)
+	return distanceMillis, base.WaitForMotorsToStop(ctx)
 }
 
-// return left direction, rpm, revolutions
-func (base *fourWheelBase) spinMath(angleDeg float64, degsPerSec float64) (pb.DirectionRelative, float64, float64) {
+// SpinMath returns left direction, rpm, revolutions
+func (base *FourWheelBase) SpinMath(angleDeg float64, degsPerSec float64) (pb.DirectionRelative, float64, float64) {
 	leftDirection := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 	if angleDeg < 0 {
 		leftDirection = board.FlipDirection(leftDirection)
@@ -97,8 +100,10 @@ func (base *fourWheelBase) spinMath(angleDeg float64, degsPerSec float64) (pb.Di
 	return leftDirection, rpm, revolutions
 }
 
-func (base *fourWheelBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
-	leftDirection, rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
+// Spin spins the robot by a given angle in degrees at a given speed. The method
+// can be requested to block until the move is complete.
+func (base *FourWheelBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+	leftDirection, rpm, revolutions := base.SpinMath(angleDeg, degsPerSec)
 	rightDirection := board.FlipDirection(leftDirection)
 
 	err := multierr.Combine(
@@ -118,10 +123,11 @@ func (base *fourWheelBase) Spin(ctx context.Context, angleDeg float64, degsPerSe
 	}
 
 	// TODO(erh): return how much it actually spun
-	return angleDeg, base.waitForMotorsToStop(ctx)
+	return angleDeg, base.WaitForMotorsToStop(ctx)
 }
 
-func (base *fourWheelBase) waitForMotorsToStop(ctx context.Context) error {
+// WaitForMotorsToStop waits for all motors to stop.
+func (base *FourWheelBase) WaitForMotorsToStop(ctx context.Context) error {
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return ctx.Err()
@@ -130,7 +136,7 @@ func (base *fourWheelBase) waitForMotorsToStop(ctx context.Context) error {
 		anyOn := false
 		anyOff := false
 
-		for _, m := range base.allMotors {
+		for _, m := range base.AllMotors {
 			isOn, err := m.IsOn(ctx)
 			if err != nil {
 				return err
@@ -153,7 +159,8 @@ func (base *fourWheelBase) waitForMotorsToStop(ctx context.Context) error {
 	}
 }
 
-func (base *fourWheelBase) Stop(ctx context.Context) error {
+// Stop stops the base. It is assumed the base stops immediately.
+func (base *FourWheelBase) Stop(ctx context.Context) error {
 	return multierr.Combine(
 		base.frontLeft.Off(ctx),
 		base.frontRight.Off(ctx),
@@ -162,11 +169,13 @@ func (base *fourWheelBase) Stop(ctx context.Context) error {
 	)
 }
 
-func (base *fourWheelBase) Close() error {
+// Close stops the base.
+func (base *FourWheelBase) Close() error {
 	return base.Stop(context.Background())
 }
 
-func (base *fourWheelBase) WidthMillis(ctx context.Context) (int, error) {
+// WidthMillis returns the width of the base.
+func (base *FourWheelBase) WidthMillis(ctx context.Context) (int, error) {
 	return base.widthMillis, nil
 }
 
@@ -189,7 +198,7 @@ func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Compo
 		return nil, errors.New("backRight motor not found")
 	}
 
-	base := &fourWheelBase{
+	base := &FourWheelBase{
 		widthMillis:              config.Attributes.Int("widthMillis", 0),
 		wheelCircumferenceMillis: config.Attributes.Int("wheelCircumferenceMillis", 0),
 		spinSlipFactor:           config.Attributes.Float64("spinSlipFactor", 1.0),
@@ -211,10 +220,10 @@ func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Compo
 		return nil, errors.New("need valid motors for frontLeft, frontRight, backLeft, backRight")
 	}
 
-	base.allMotors = append(base.allMotors, base.frontLeft)
-	base.allMotors = append(base.allMotors, base.frontRight)
-	base.allMotors = append(base.allMotors, base.backLeft)
-	base.allMotors = append(base.allMotors, base.backRight)
+	base.AllMotors = append(base.AllMotors, base.frontLeft)
+	base.AllMotors = append(base.AllMotors, base.frontRight)
+	base.AllMotors = append(base.AllMotors, base.backLeft)
+	base.AllMotors = append(base.AllMotors, base.backRight)
 
 	return base, nil
 }
