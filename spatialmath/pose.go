@@ -76,8 +76,8 @@ func NewPoseFromDH(a, d, alpha float64) Pose {
 // It converts the poses to dual quaternions and multiplies them together, normalizes the transformm and returns a new Pose.
 // Composition does not commute in general, i.e. you cannot guarantee ABx == BAx
 func Compose(a, b Pose) Pose {
-	aq := newdualQuaternionFromPose(a)
-	bq := newdualQuaternionFromPose(b)
+	aq := dualQuaternionFromPose(a)
+	bq := dualQuaternionFromPose(b)
 	result := newdualQuaternion()
 	result.Number = aq.Transformation(bq.Number)
 
