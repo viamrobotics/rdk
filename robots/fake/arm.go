@@ -2,6 +2,7 @@ package fake
 
 import (
 	"context"
+	_ "embed"
 
 	"github.com/go-errors/errors"
 
@@ -13,6 +14,9 @@ import (
 
 	"github.com/edaniels/golog"
 )
+
+//go:embed static_arm_model.json
+var armModelJSON []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
@@ -29,9 +33,10 @@ func init() {
 func NewArm(cfg config.Component) (arm.Arm, error) {
 	name := cfg.Name
 	return &Arm{
-		Name:     name,
-		position: &pb.Pose{},
-		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		Name:      name,
+		position:  &pb.Pose{},
+		joints:    &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		frameJSON: armModelJSON,
 	}, nil
 }
 
@@ -41,6 +46,12 @@ type Arm struct {
 	position   *pb.Pose
 	joints     *pb.JointPositions
 	CloseCount int
+	frameJSON  []byte
+}
+
+// ModelFrame returns the json bytes that describe the dynamic frame of the model
+func (a *Arm) ModelFrame() []byte {
+	return a.frameJSON
 }
 
 // CurrentPosition returns the set position.

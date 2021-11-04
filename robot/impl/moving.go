@@ -38,13 +38,13 @@ func MoveGripper(ctx context.Context, r robot.Robot, goalPose spatialmath.Pose, 
 	logger.Debugf("using gripper %q", gripperName)
 
 	// get the frame system of the robot
-	frameSys, err := r.FrameSystem(ctx, "")
+	frameSys, err := r.FrameSystem(ctx, "move_gripper", "")
 	if err != nil {
 		return err
 	}
 	solver := kinematics.NewSolvableFrameSystem(frameSys, r.Logger())
 	// get the initial inputs
-	input := referenceframe.StartPositions(ctx, solver)
+	input := referenceframe.StartPositions(solver)
 	pos, err := arm.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -52,13 +52,13 @@ func MoveGripper(ctx context.Context, r robot.Robot, goalPose spatialmath.Pose, 
 	input[armName] = referenceframe.JointPosToInputs(pos)
 	logger.Debugf("frame system inputs: %v", input)
 
-	worldGoalPose, err := solver.TransformPose(ctx, input, goalPose, solver.GetFrame(goalFrameName), solver.World())
+	worldGoalPose, err := solver.TransformPose(input, goalPose, solver.GetFrame(goalFrameName), solver.World())
 	if err != nil {
 		return err
 	}
 
 	// update the goal orientation to match the current orientation, keep the point from goalPose
-	armPose, err := solver.TransformFrame(ctx, input, solver.GetFrame(gripperName), solver.World())
+	armPose, err := solver.TransformFrame(input, solver.GetFrame(gripperName), solver.World())
 	if err != nil {
 		return err
 	}

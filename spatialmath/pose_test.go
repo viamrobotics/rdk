@@ -1,6 +1,7 @@
 package spatialmath
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
@@ -41,7 +42,7 @@ func TestBasicPoseConstruction(t *testing.T) {
 
 	p2 = NewPoseFromOrientationVector(r3.Vector{2, 2, 4}, ov)
 	delta := PoseDelta(p1, p2)
-	test.That(t, delta, test.ShouldResemble, []float64{1., 0., 1., 0., 0., 0.})
+	test.That(t, fmt.Sprintf("%.2f, %.2f, %.2f, %.2f, %.2f, %.2f", delta[0], delta[1], delta[2], delta[3], delta[4], delta[5]), test.ShouldResemble, "1.00, 0.00, 1.00, 0.00, 0.00, 0.00")
 
 	p = NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{4, 5, 6}, 0)
 	test.That(t, p.Orientation().OrientationVectorRadians(), test.ShouldResemble, &OrientationVector{0, 0, 0, 1})

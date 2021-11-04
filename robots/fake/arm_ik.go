@@ -18,7 +18,7 @@ import (
 )
 
 //go:embed arm_model.json
-var armModelJSON []byte
+var armikModelJSON []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "fake_ik", registry.Component{
@@ -54,7 +54,7 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 		position:  &pb.Pose{},
 		joints:    &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
 		ik:        ik,
-		frameJSON: armModelJSON,
+		frameJSON: armikModelJSON,
 	}, nil
 }
 
