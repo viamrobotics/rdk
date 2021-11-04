@@ -77,6 +77,6 @@ func newColorSegmentsSource(r robot.Robot, config config.Component) (camera.Came
 	segmentSize := config.Attributes.Int("segment_size", 5)
 	clusterRadius := config.Attributes.Float64("cluster_radius", 5.0)
 	cfg := segmentation.ObjectConfig{planeSize, segmentSize, clusterRadius}
-	return &camera.ImageSource{&ColorSegmentsSource{source, cfg}, config.Frame}, nil
+	return &camera.ImageSource{&ColorSegmentsSource{source, cfg}}, nil
 
 }

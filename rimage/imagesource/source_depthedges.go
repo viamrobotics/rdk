@@ -58,6 +58,6 @@ func newDepthEdgesSource(r robot.Robot, config config.Component) (camera.Camera,
 		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
-	return &camera.ImageSource{&DepthEdgesSource{source, canny, 3.0}, config.Frame}, nil
+	return &camera.ImageSource{&DepthEdgesSource{source, canny, 3.0}}, nil
 
 }

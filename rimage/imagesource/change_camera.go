@@ -78,5 +78,5 @@ func newChangeCameraSystem(r robot.Robot, config config.Component) (camera.Camer
 	if err != nil {
 		return nil, err
 	}
-	return &camera.ImageSource{&CameraSystemChanger{source, cam}, config.Frame}, nil
+	return &camera.ImageSource{&CameraSystemChanger{source, cam}}, nil
 }
