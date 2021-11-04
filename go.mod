@@ -31,6 +31,7 @@ require (
 	github.com/kellydunn/golang-geo v0.7.0
 	github.com/lmittmann/ppm v1.0.0
 	github.com/lucasb-eyer/go-colorful v1.2.0
+	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
@@ -54,7 +55,7 @@ require (
 	go.viam.com/SensorExporter v0.0.0-20211027143105-04553b0d77bc
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
-	go.viam.com/utils v0.0.2-0.20211101184317-7397cad8fd56
+	go.viam.com/utils v0.0.2-0.20211104212758-c47b341af85e
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 	golang.org/x/tools v0.1.7
@@ -186,7 +187,6 @@ require (
 	github.com/mbilski/exhaustivestruct v1.2.0 // indirect
 	github.com/mgechev/dots v0.0.0-20190921121421-c36f7dcfbb81 // indirect
 	github.com/mgechev/revive v1.0.5 // indirect
-	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
 	github.com/moricho/tparallel v0.2.1 // indirect

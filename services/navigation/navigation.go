@@ -26,19 +26,20 @@ func init() {
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
 		},
-		AttributeMapConverter: func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		},
 	},
 	)
+
+	config.RegisterServiceAttributeMapConverter(Type, func(attributes config.AttributeMap) (interface{}, error) {
+		var conf Config
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+		if err != nil {
+			return nil, err
+		}
+		if err := decoder.Decode(attributes); err != nil {
+			return nil, err
+		}
+		return &conf, nil
+	}, &Config{})
 }
 
 // Mode describes what mode to operate the service in.
