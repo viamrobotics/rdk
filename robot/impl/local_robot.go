@@ -358,7 +358,7 @@ func (r *localRobot) newCamera(ctx context.Context, config config.Component) (ca
 	if err != nil {
 		return nil, err
 	}
-	return &camera.ImageSource{is, config.Frame}, nil
+	return &camera.ImageSource{is}, nil
 }
 
 func (r *localRobot) newLidar(ctx context.Context, config config.Component) (lidar.Lidar, error) {

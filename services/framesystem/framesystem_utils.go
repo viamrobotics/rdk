@@ -16,7 +16,7 @@ import (
 	"go.viam.com/core/utils"
 )
 
-func BuildFrameSystem(ctx context.Context, name string, frameNames []string, children map[string][]referenceframe.Frame, logger golog.Logger) (referenceframe.FrameSystem, error) {
+func BuildFrameSystem(ctx context.Context, name string, children map[string][]referenceframe.Frame, logger golog.Logger) (referenceframe.FrameSystem, error) {
 	// use a stack to populate the frame system
 	stack := make([]string, 0)
 	visited := make(map[string]bool)
@@ -41,10 +41,6 @@ func BuildFrameSystem(ctx context.Context, name string, frameNames []string, chi
 				return nil, err
 			}
 		}
-	}
-	// ensure that there are no disconnected frames
-	if len(visited) != len(frameNames) {
-		return nil, errors.Errorf("the frame system is not fully connected, expected %d frames but frame system has %d. Expected frames are: %v. Actual frames are: %v", len(frameNames), len(visited), frameNames, mapKeys(visited))
 	}
 	logger.Debugf("frames in robot frame system are: %v", frameNamesWithDof(fs))
 	return fs, nil
@@ -147,6 +143,9 @@ func topologicallySortFrameNames(ctx context.Context, children map[string][]refe
 			return nil, fmt.Errorf("the system contains a cycle, have already visited frame %s", parent)
 		}
 		visited[parent] = true
+		sort.Slice(children[parent], func(i, j int) bool {
+			return children[parent][i].Name() < children[parent][j].Name()
+		}) // sort alphabetically within the topological sort
 		for _, frame := range children[parent] { // add all the children to the frame system, and to the stack as new parents
 			stack = append(stack, frame.Name())
 			topoSortedNames = append(topoSortedNames, frame.Name())

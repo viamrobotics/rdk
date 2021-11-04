@@ -18,7 +18,6 @@ import (
 var blankPos map[string][]referenceframe.Input
 
 func TestFrameSystemFromConfig(t *testing.T) {
-	ctx := context.Background()
 	// use impl/data/fake.json as config input
 	emptyIn := []referenceframe.Input{}
 	logger := golog.NewTestLogger(t)
@@ -27,96 +26,108 @@ func TestFrameSystemFromConfig(t *testing.T) {
 
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
+	defer r.Close()
 
 	// use fake registrations to have a FrameSystem return
-	fs, err := r.FrameSystem(context.Background(), "")
+	fs, err := r.FrameSystem(context.Background(), "test", "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 10) // 5 frames defined, 10 frames when including the offset
 
 	// see if all frames are present and if their frames are correct
 	test.That(t, fs.GetFrame("world"), test.ShouldNotBeNil)
 
+	t.Log("pieceArm")
 	test.That(t, fs.GetFrame("pieceArm"), test.ShouldNotBeNil)
-	pose, err := fs.GetFrame("pieceArm").Transform(ctx, emptyIn)
+	pose, err := fs.GetFrame("pieceArm").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{500, 0, 300})
 
+	t.Log("pieceArm_offset")
 	test.That(t, fs.GetFrame("pieceArm_offset"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("pieceArm_offset").Transform(ctx, emptyIn)
+	pose, err = fs.GetFrame("pieceArm_offset").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{500, 500, 1000})
 
+	t.Log("pieceGripper")
 	test.That(t, fs.GetFrame("pieceGripper"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("pieceGripper").Transform(ctx, emptyIn)
+	pose, err = fs.GetFrame("pieceGripper").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 200})
 
+	t.Log("pieceGripper_offset")
 	test.That(t, fs.GetFrame("pieceGripper_offset"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("pieceGripper_offset").Transform(ctx, emptyIn)
+	pose, err = fs.GetFrame("pieceGripper_offset").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
+	t.Log("compass2")
 	test.That(t, fs.GetFrame("compass2"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("compass2").Transform(ctx, emptyIn)
+	pose, err = fs.GetFrame("compass2").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
+	t.Log("compass2_offset")
 	test.That(t, fs.GetFrame("compass2_offset"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("compass2_offset").Transform(ctx, emptyIn)
+	pose, err = fs.GetFrame("compass2_offset").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
+	t.Log("cameraOver")
 	test.That(t, fs.GetFrame("cameraOver"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("cameraOver").Transform(ctx, emptyIn)
+	pose, err = fs.GetFrame("cameraOver").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
+	t.Log("cameraOver_offset")
 	test.That(t, fs.GetFrame("cameraOver_offset"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("cameraOver_offset").Transform(ctx, emptyIn)
+	pose, err = fs.GetFrame("cameraOver_offset").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{2000, 500, 1300})
 
+	t.Log("lidar1")
 	test.That(t, fs.GetFrame("lidar1"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("lidar1").Transform(ctx, emptyIn)
+	pose, err = fs.GetFrame("lidar1").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{50, 0, 0})
 
+	t.Log("lidar1_offset")
 	test.That(t, fs.GetFrame("lidar1_offset"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("lidar1_offset").Transform(ctx, emptyIn)
+	pose, err = fs.GetFrame("lidar1_offset").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 200})
 
+	t.Log("compass1")
 	test.That(t, fs.GetFrame("compass1"), test.ShouldBeNil) // compass1 is not registered
 
 	// There is a point at (1500, 500, 1300) in the world frame. See if it transforms correctly in each frame.
 	worldPt := r3.Vector{1500, 500, 1300}
 	armPt := r3.Vector{0, 0, 500}
-	transformPoint, err := fs.TransformPoint(ctx, blankPos, worldPt, fs.World(), fs.GetFrame("pieceArm"))
+	transformPoint, err := fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("pieceArm"))
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, transformPoint, armPt)
 
 	sensorPt := r3.Vector{0, 0, 500}
-	transformPoint, err = fs.TransformPoint(ctx, blankPos, worldPt, fs.World(), fs.GetFrame("compass2"))
+	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("compass2"))
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, transformPoint, sensorPt)
 
 	gripperPt := r3.Vector{0, 0, 300}
-	transformPoint, err = fs.TransformPoint(ctx, blankPos, worldPt, fs.World(), fs.GetFrame("pieceGripper"))
+	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("pieceGripper"))
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, transformPoint, gripperPt)
 
 	cameraPt := r3.Vector{500, 0, 0}
-	transformPoint, err = fs.TransformPoint(ctx, blankPos, worldPt, fs.World(), fs.GetFrame("cameraOver"))
+	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("cameraOver"))
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, transformPoint, cameraPt)
 
 	lidarPt := r3.Vector{450, 0, -200}
-	transformPoint, err = fs.TransformPoint(ctx, blankPos, worldPt, fs.World(), fs.GetFrame("lidar1"))
+	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("lidar1"))
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, transformPoint, lidarPt)
 
 	// go from camera point to gripper point
-	transformPoint, err = fs.TransformPoint(ctx, blankPos, cameraPt, fs.GetFrame("cameraOver"), fs.GetFrame("pieceGripper"))
+	transformPoint, err = fs.TransformPoint(blankPos, cameraPt, fs.GetFrame("cameraOver"), fs.GetFrame("pieceGripper"))
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, transformPoint, gripperPt)
 
@@ -126,11 +137,11 @@ func TestFrameSystemFromConfig(t *testing.T) {
 func TestWrongFrameSystems(t *testing.T) {
 	// use impl/data/fake_wrongconfig*.json as config input
 	logger := golog.NewTestLogger(t)
-
-	cfg, err := config.Read("data/fake_wrongconfig1.json") // has disconnected components (misspelled parent)
+	// has disconnected components (compass2 misspelled parent as gripperPiece, rather than pieceGripper)
+	cfg, err := config.Read("data/fake_wrongconfig1.json")
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
-	test.That(t, err, test.ShouldBeError, errors.New("the frame system is not fully connected, expected 11 frames but frame system has 9. Expected frames are: [cameraOver cameraOver_offset compass2 compass2_offset lidar1 lidar1_offset pieceArm pieceArm_offset pieceGripper pieceGripper_offset world]. Actual frames are: [cameraOver cameraOver_offset lidar1 lidar1_offset pieceArm pieceArm_offset pieceGripper pieceGripper_offset world]"))
+	test.That(t, err, test.ShouldBeError, errors.New("the frame system is not fully connected, expected 11 frames but frame system has 9. Expected frames are: [cameraOver cameraOver_offset compass2 compass2_offset lidar1 lidar1_offset pieceArm pieceArm_offset pieceGripper pieceGripper_offset world]. Actual frames are: [world cameraOver_offset pieceArm_offset cameraOver pieceArm lidar1_offset pieceGripper_offset lidar1 pieceGripper]"))
 
 	cfg, err = config.Read("data/fake_wrongconfig2.json") // no world node
 	test.That(t, err, test.ShouldBeNil)

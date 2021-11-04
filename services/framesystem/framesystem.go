@@ -2,6 +2,7 @@ package framesystem
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -54,6 +55,14 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 	if err != nil {
 		return nil, err
 	}
+	// ensure that there are no disconnected frames
+	if len(sortedFrameNames) != len(seen) {
+		return nil, errors.Errorf("the frame system is not fully connected, expected %d frames but frame system has %d. Expected frames are: %v. Actual frames are: %v", len(seen), len(sortedFrameNames), mapKeys(seen), sortedFrameNames)
+	}
+	// ensure that at least one frame connects to world if the frame system is not empty
+	if len(parts) != 0 && len(children[referenceframe.World]) == 0 {
+		return nil, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'")
+	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
@@ -89,12 +98,15 @@ func (svc *frameSystemService) FrameSystemConfig(ctx context.Context) ([]*config
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	sortedFrameNames := svc.sortedFrameNames[1:] // skip the world frame at the beginning
-	fsConfig := make([]*config.FrameSystemPart, len(sortedFrameNames))
-	for i, name := range sortedFrameNames { // the list is topologically sorted already
+	fsConfig := []*config.FrameSystemPart{}
+	for _, name := range sortedFrameNames { // the list is topologically sorted already
+		if strings.Contains(name, "_offset") { // skip offset frames, they will created again from the part config
+			continue
+		}
 		if part, ok := svc.fsParts[name]; ok {
-			fsConfig[i] = part
+			fsConfig = append(fsConfig, part)
 		} else {
-			return nil, errors.Errorf("part %q not found in fsParts in the frame system service", name)
+			return nil, errors.Errorf("part %q not found in map of robot parts in the frame system service", name)
 		}
 	}
 	return fsConfig, nil
@@ -104,7 +116,7 @@ func (svc *frameSystemService) FrameSystemConfig(ctx context.Context) ([]*config
 func (svc *frameSystemService) LocalFrameSystem(ctx context.Context, name string) (referenceframe.FrameSystem, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	fs, err := BuildFrameSystem(ctx, name, svc.sortedFrameNames, svc.childrenMap, svc.logger)
+	fs, err := BuildFrameSystem(ctx, name, svc.childrenMap, svc.logger)
 	if err != nil {
 		return nil, err
 	}
