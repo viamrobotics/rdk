@@ -33,7 +33,7 @@ func TestModelLoading(t *testing.T) {
 
 	mm := m.Clone("foo")
 	test.That(t, mm.Name(), test.ShouldEqual, "foo")
-	test.That(t, m.Name(), test.ShouldEqual, "")
+	test.That(t, m.Name(), test.ShouldEqual, "wx250s")
 }
 
 func TestJoint(t *testing.T) {
