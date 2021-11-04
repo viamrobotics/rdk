@@ -33,9 +33,9 @@ type ForceMatrixTraditional struct {
 	analogChannels          []string
 	analogReaders           []board.AnalogReader
 	board                   board.Board
-	previousMatrices        [][][]int // a history queue of previous matrix readings
+	previousMatrices        [][][]int // a window of previous matrix readings
 	mu                      sync.Mutex
-	slipDetectionResolution int // how far back in history queue to take readings
+	slipDetectionResolution int // how far back in the window of previous readings to look
 	// for slip detection
 }
 

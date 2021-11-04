@@ -7,8 +7,7 @@ import (
 	"go.viam.com/core/sensor/forcematrix"
 )
 
-// SlipDetector represents a matrix sensor that supports slip
-// detection
+// SlipDetector represents a matrix sensor that supports slip detection
 type SlipDetector interface {
 	GetPreviousMatrices() [][][]int // an accessor for a history of matrix readings
 }
@@ -18,13 +17,14 @@ const readingThreshold = 40.0
 
 // DetectSlip detects whether a slip has occurred. The version parameter determines
 // which algorithm version to use
-func DetectSlip(fmsm SlipDetector, mu *sync.Mutex, version int, framesToUse int) (bool, error) {
+func DetectSlip(sd SlipDetector, mu *sync.Mutex, version int, framesToUse int) (bool, error) {
 	var slipDetector func(SlipDetector, *sync.Mutex, int) (bool, error)
-	if version == 0 {
+	switch version {
+	case 0:
 		slipDetector = DetectSlipV0
 	}
 	if slipDetector != nil {
-		return slipDetector(fmsm, mu, framesToUse)
+		return slipDetector(sd, mu, framesToUse)
 	}
 	return false, errors.New("version unsupported")
 }
@@ -90,11 +90,11 @@ func isEmptyState(matrix [][]int) bool {
 }
 
 // DetectSlipV0 implements version 0 of a slip detection algorithm
-func DetectSlipV0(fmsm SlipDetector, mu *sync.Mutex, framesToUse int) (bool, error) {
+func DetectSlipV0(sd SlipDetector, mu *sync.Mutex, framesToUse int) (bool, error) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	matrices := fmsm.GetPreviousMatrices()
+	matrices := sd.GetPreviousMatrices()
 	numRecordedMatrices := len(matrices)
 
 	if numRecordedMatrices < framesToUse {

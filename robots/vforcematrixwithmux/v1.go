@@ -33,9 +33,9 @@ type ForceMatrixWithMux struct {
 	muxGpioPins             []string  // which GPIO pins are S2, S1, S0 connected to?
 	ioPins                  []int     // integers that indicate which Y pin we're connected to (Y0-Y7)
 	analogChannel           string    // analog channel that the mux is connected to
-	previousMatrices        [][][]int // a history queue of previous matrix readings
+	previousMatrices        [][][]int // a window of previous matrix readings
 	mu                      sync.Mutex
-	slipDetectionResolution int // how far back in history queue to take readings
+	slipDetectionResolution int // how far back in the window of previous readings to look
 	// for slip detection
 
 	analogReader board.AnalogReader
