@@ -691,7 +691,7 @@ message FrameSystemConfig {
 message FrameServiceConfigRequest {}
 
 message FrameServiceConfigResponse {
-  repeated FrameSystemConfig configs = 1;
+  repeated FrameSystemConfig frame_system_configs = 1;
 }
 
 message FrameServiceModelRequest {
