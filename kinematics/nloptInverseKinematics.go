@@ -24,13 +24,14 @@ type NloptIK struct {
 	iterations    int
 	maxIterations int
 	epsilon       float64
-	goals         []goal
+	goal          goal
 	opt           *nlopt.NLopt
 	logger        golog.Logger
 	jump          float64
 	randSeed      *rand.Rand
 	SolveWeights  SolverDistanceWeights
 	parallelSetup bool
+	distFunc      func(spatial.Pose, spatial.Pose) float64
 }
 
 // CreateNloptIKSolver TODO
@@ -57,6 +58,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 		return nil, fmt.Errorf("nlopt creation error: %w", err)
 	}
 	ik.opt = opt
+	ik.distFunc = ik.defaultDistFunc
 
 	// x is our joint positions
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
@@ -71,20 +73,9 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 			err = ik.opt.ForceStop()
 			ik.logger.Errorf("forcestop error %q", err)
 		}
-		dx := make([]float64, 6)
-
-		// Update dx with the delta to the desired position
-		for _, nextGoal := range ik.getGoals() {
-			dxDelta := spatial.PoseDelta(eePos, nextGoal.GoalTransform)
-
-			dxIdx := nextGoal.EffectorID * len(dxDelta)
-			for i, delta := range dxDelta {
-				dx[dxIdx+i] = delta
-			}
-		}
-
-		dist := WeightedSquaredNorm(dx, ik.SolveWeights)
-
+		
+		dist := ik.distFunc(eePos, ik.goal.GoalTransform)
+		
 		if len(gradient) > 0 {
 			for i := range gradient {
 				// Deep copy of our current joint positions
@@ -96,15 +87,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 					err = ik.opt.ForceStop()
 					ik.logger.Errorf("forcestop error %q", err)
 				}
-				dx2 := make([]float64, 6)
-				for _, nextGoal := range ik.getGoals() {
-					dxDelta := spatial.PoseDelta(eePos, nextGoal.GoalTransform)
-					dxIdx := nextGoal.EffectorID * len(dxDelta)
-					for i, delta := range dxDelta {
-						dx2[dxIdx+i] = delta
-					}
-				}
-				dist2 := WeightedSquaredNorm(dx2, ik.SolveWeights)
+				dist2 := ik.distFunc(eePos, ik.goal.GoalTransform)
 
 				gradient[i] = (dist2 - dist) / (2 * ik.jump)
 			}
@@ -137,17 +120,12 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 // addGoal adds a nlopt IK goal
 func (ik *NloptIK) addGoal(newGoal spatial.Pose, effectorID int) {
 
-	ik.goals = append(ik.goals, goal{newGoal, effectorID})
+	ik.goal = goal{newGoal, effectorID}
 }
 
 // clearGoals clears all goals for the Ik object
-func (ik *NloptIK) clearGoals() {
-	ik.goals = []goal{}
-}
-
-// GetGoals returns the list of all current goal positions
-func (ik *NloptIK) getGoals() []goal {
-	return ik.goals
+func (ik *NloptIK) clearGoal() {
+	ik.goal = goal{}
 }
 
 // SetSolveWeights sets the solve weights
@@ -158,6 +136,11 @@ func (ik *NloptIK) SetSolveWeights(weights SolverDistanceWeights) {
 // SetNloptMinFunc sets the function to minimize
 func (ik *NloptIK) SetNloptMinFunc(f func(x, gradient []float64) float64) error{
 	return ik.opt.SetMinObjective(f)
+}
+
+// SetDistFunc sets the function for distance between two poses
+func (ik *NloptIK) SetDistFunc(f func(spatial.Pose, spatial.Pose) float64) {
+	ik.distFunc = f
 }
 
 // SetMaxIter sets the number of times to 
@@ -195,7 +178,7 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 		}
 	}
 	ik.addGoal(newGoal, 0)
-	defer ik.clearGoals()
+	defer ik.clearGoal()
 
 	select {
 	case <-ctx.Done():
@@ -246,6 +229,7 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 	if solutionsFound > 0 {
 		return nil
 	}
+	//~ fmt.Println("no solve")
 	return multierr.Combine(errors.New("kinematics could not solve for position"), err)
 }
 
@@ -286,6 +270,28 @@ func (ik *NloptIK) Close() error {
 	err := ik.opt.ForceStop()
 	ik.opt.Destroy()
 	return err
+}
+
+// UpdateBounds updates teh lower/upper bounds
+func (ik *NloptIK) UpdateBounds(lower, upper []float64) error {
+	return multierr.Combine(
+		ik.opt.SetLowerBounds(lower),
+		ik.opt.SetUpperBounds(upper),
+	)
+}
+
+// defaultDistFunc 
+func (ik *NloptIK) defaultDistFunc(from, to spatial.Pose) float64 {
+	dx := make([]float64, 6)
+
+	// Update dx with the delta to the desired position
+	dxDelta := spatial.PoseDelta(from, to)
+
+	for i, delta := range dxDelta {
+		dx[i] = delta
+	}
+
+	return WeightedSquaredNorm(dx, ik.SolveWeights)
 }
 
 // updateBounds will set the allowable maximum/minimum joint angles to disincentivise large swings before small swings

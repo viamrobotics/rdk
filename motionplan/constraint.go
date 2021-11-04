@@ -4,6 +4,7 @@ import (
 	"math"
 	"fmt"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/core/kinematics"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
@@ -155,6 +156,29 @@ func NewInterpolatingConstraint() func(constraintInput) (bool, float64) {
 	}
 }
 
+// NewPoseConstraint enforces a constant pose
+func NewPoseConstraint() func(constraintInput) (bool, float64) {
+	return func(cInput constraintInput) (bool, float64){
+		if cInput.startPos != nil {
+			oDiff := spatial.OrientationBetween(cInput.startPos.Orientation(), &spatial.OrientationVector{OZ:-1})
+			r4 := oDiff.AxisAngles()
+			dist := r3.Vector{r4.RX * r4.Theta, r4.RY * r4.Theta, r4.RZ * r4.Theta}.Norm()
+			if dist > 0.01 {
+				return false, dist
+			}
+		}
+		if cInput.endPos != nil {
+			oDiff := spatial.OrientationBetween(cInput.endPos.Orientation(), &spatial.OrientationVector{OZ:-1})
+			r4 := oDiff.AxisAngles()
+			dist := r3.Vector{r4.RX * r4.Theta, r4.RY * r4.Theta, r4.RZ * r4.Theta}.Norm()
+			if dist > 0.01 {
+				return false, dist
+			}
+		}
+		return true, 0
+	}
+}
+
 // NewJointScorer returns a function which will sum the differences in each input from start to end
 func NewJointScorer() func(constraintInput) (bool, float64) {
 	return func(cInput constraintInput) (bool, float64){
@@ -220,4 +244,22 @@ func fakeObstacle(ci constraintInput) (bool, float64) {
 		}
 	}
 	return true , 0
+}
+
+// force OV of OZ=-1
+func constantOrient(d float64) func(spatial.Pose, spatial.Pose) float64 {
+	
+	return func(from, to spatial.Pose) float64{
+		// allow 5mm deviation from `to` to allow orientation better
+		dist := from.Point().Distance(to.Point())
+		if dist < d {
+			dist = 0
+		}
+		
+		oDiff := spatial.OrientationBetween(from.Orientation(), &spatial.OrientationVector{OZ:-1})
+		r4 := oDiff.AxisAngles()
+		dist += r3.Vector{r4.RX * r4.Theta, r4.RY * r4.Theta, r4.RZ * r4.Theta}.Norm()
+		
+		return dist
+	}
 }
