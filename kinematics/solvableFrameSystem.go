@@ -9,7 +9,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 
-	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
 )
