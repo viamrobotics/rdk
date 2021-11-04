@@ -170,9 +170,11 @@ func NewJointScorer() func(constraintInput) (bool, float64) {
 func fakeObstacle(ci constraintInput) (bool, float64) {
 	checkPt := func(pose spatial.Pose) bool {
 		pt := pose.Point()
-		if pt.X > 275 && pt.X < 350 {
-			if pt.Y < 50 && pt.Y > -50 {
-				if pt.Z > 70 && pt.Z < 170 {
+		
+		// cardboard box
+		if pt.X > 275 && pt.X < 515 {
+			if pt.Y < 310 && pt.Y > -230 {
+				if pt.Z < 240 {
 					return false
 				}
 			}
