@@ -147,13 +147,11 @@ func TestWrongFrameSystems(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeError, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'"))
-	test.That(t, r.Close(), test.ShouldBeNil)
 
 	cfg, err = config.Read("data/fake_wrongconfig3.json") // one of the nodes was given the name world
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeError, errors.New("cannot have more than one frame with name world"))
-	test.That(t, r.Close(), test.ShouldBeNil)
 
 	cfg, err = config.Read("data/fake_wrongconfig4.json") // the parent field was left empty for a component
 	test.That(t, err, test.ShouldBeNil)
