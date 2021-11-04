@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/metadata/service"
+	"go.viam.com/core/resource"
 )
 
 // Reconfigure will safely reconfigure a robot based on the given config. It will make
@@ -34,6 +35,18 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 			return err
 		}
 	}
+
+	// update web service
+	webSvc, ok := r.ServiceByName(WebSvcName)
+	if ok {
+		updateable, ok := webSvc.(resource.Updateable)
+		if ok {
+			if err := updateable.Update(r.parts.resources); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 

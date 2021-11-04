@@ -533,6 +533,8 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	_, ok = robot.SensorByName("one.sensor1")
 	test.That(t, ok, test.ShouldBeFalse)
+	test.That(t, robot.Close(), test.ShouldBeNil)
+	test.That(t, wrapped.Robot.Close(), test.ShouldBeNil)
 }
 
 type dummyRemoteRobotWrapper struct {
