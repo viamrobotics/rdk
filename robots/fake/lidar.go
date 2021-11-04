@@ -2,7 +2,7 @@ package fake
 
 import (
 	"context"
-	_ "embed"
+	_ "embed" // used to import model frame
 	"fmt"
 	"hash/fnv"
 	"math/rand"

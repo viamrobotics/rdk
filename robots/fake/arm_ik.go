@@ -33,7 +33,7 @@ func init() {
 
 // fakeModel returns the kinematics model
 func fakeModel() (*kinematics.Model, error) {
-	return kinematics.ParseJSON(armModelJSON)
+	return kinematics.ParseJSON(armikModelJSON)
 }
 
 // NewArmIK returns a new fake arm.
@@ -43,7 +43,6 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 	if err != nil {
 		return nil, err
 	}
-	logger.Infof("arm model has these DoF %v", model.DoF())
 	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
 	if err != nil {
 		return nil, err

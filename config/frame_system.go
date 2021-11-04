@@ -14,7 +14,7 @@ type FrameSystemPart struct {
 	ModelFrameConfig []byte
 }
 
-// FrameSystemPartToProtobuf turns all the interfaces into serializable types
+// ToProtobuf turns all the interfaces into serializable types
 func (part *FrameSystemPart) ToProtobuf() *pb.FrameSystemConfig {
 	if part.FrameConfig == nil {
 		return nil

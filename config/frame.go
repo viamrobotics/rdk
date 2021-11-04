@@ -53,14 +53,8 @@ func (f *Frame) Pose() spatial.Pose {
 	return MakePose(f)
 }
 
-// rawOrientation holds the underlying type of orientation, and the value.
-type rawOrientation struct {
-	Type  string          `json:"type"`
-	Value json.RawMessage `json:"value"`
-}
-
 // UnmarshalJSON will parse the Orientation field into a spatial.Orientation object from a json.rawMessage
-func (fc *Frame) UnmarshalJSON(b []byte) error {
+func (f *Frame) UnmarshalJSON(b []byte) error {
 	temp := struct {
 		Parent      string          `json:"parent"`
 		Translation Translation     `json:"translation"`
@@ -75,10 +69,16 @@ func (fc *Frame) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
-	fc.Parent = temp.Parent
-	fc.Translation = temp.Translation
-	fc.Orientation = orientation
+	f.Parent = temp.Parent
+	f.Translation = temp.Translation
+	f.Orientation = orientation
 	return nil
+}
+
+// rawOrientation holds the underlying type of orientation, and the value.
+type rawOrientation struct {
+	Type  string          `json:"type"`
+	Value json.RawMessage `json:"value"`
 }
 
 // parseOrientation will use the Type in rawOrientation to unmarshal the Value into the correct struct that implements Orientation.
