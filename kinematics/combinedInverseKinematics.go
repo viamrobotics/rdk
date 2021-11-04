@@ -32,11 +32,11 @@ type ReturnTest struct {
 // CreateCombinedIKSolver creates a combined parallel IK solver with a number of nlopt solvers equal to the nCPU
 // passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
 // and the first valid found solution will be returned.
-func CreateCombinedIKSolver(ctx context.Context, model referenceframe.Frame, logger golog.Logger, nCPU int) (*CombinedIK, error) {
+func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCPU int) (*CombinedIK, error) {
 	ik := &CombinedIK{}
 	ik.model = model
 	for i := 1; i <= nCPU; i++ {
-		nlopt, err := CreateNloptIKSolver(ctx, model, logger, i)
+		nlopt, err := CreateNloptIKSolver(model, logger, i)
 		if err != nil {
 			return nil, err
 		}
@@ -59,15 +59,15 @@ func runSolver(ctx context.Context, solver InverseKinematics, c chan ReturnTest,
 // positions. If unable to solve, the returned error will be non-nil
 func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.Pose, seed []referenceframe.Input) ([]referenceframe.Input, error) {
 	ik.logger.Debugf("starting joint positions: %v", seed)
-	startPos, err := ik.model.Transform(ctx, seed)
+	startPos, err := ik.model.Transform(seed)
 	if err != nil {
 		return nil, err
 	}
-	ik.logger.Debugf("starting 6d position: %v", spatialmath.PoseToProtobuf(startPos))
+	ik.logger.Debugf("starting 6d position: %v", spatialmath.PoseToArmPos(startPos))
 	ik.logger.Debugf("goal 6d position: %v", pos)
 
 	// This will adjust the goal position to make movements more intuitive when using incrementation near poles
-	pos = fixOvIncrement(pos, spatialmath.PoseToProtobuf(startPos))
+	pos = fixOvIncrement(pos, spatialmath.PoseToArmPos(startPos))
 	ik.logger.Debugf("postfix goal 6d position: %v", pos)
 	c := make(chan ReturnTest)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
@@ -96,7 +96,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.Pose, seed []referencef
 		returned++
 		if myRT.Err == nil {
 
-			dist, err := calcSwingAmount(ctx, seed, myRT.Result, ik.model)
+			dist, err := calcSwingAmount(seed, myRT.Result, ik.model)
 			// non-nil err means out of bounds joint solution, ignore and move on
 			if err == nil {
 				if dist < goodSwingAmt {
@@ -112,10 +112,10 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.Pose, seed []referencef
 	close(noMoreSolutions)
 	activeSolvers.Wait()
 	if len(solutions) > 0 {
-		myRT.Result, _, myRT.Err = bestSolution(ctx, seed, solutions, ik.model)
+		myRT.Result, _, myRT.Err = bestSolution(seed, solutions, ik.model)
 		ik.logger.Debugf("solved joint positions: %v", myRT.Result)
-		solvePos, err := ik.model.Transform(ctx, myRT.Result)
-		ik.logger.Debugf("solved 6d position: %v %v", spatialmath.PoseToProtobuf(solvePos), err)
+		solvePos, err := ik.model.Transform(myRT.Result)
+		ik.logger.Debugf("solved 6d position: %v %v", spatialmath.PoseToArmPos(solvePos), err)
 	}
 	return myRT.Result, myRT.Err
 }
