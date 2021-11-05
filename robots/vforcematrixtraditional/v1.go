@@ -132,7 +132,7 @@ func (fsm *ForceMatrixTraditional) GetPreviousMatrices() [][][]int {
 // IsSlipping examines is used to determine whether the object in contact
 // with the sensor matrix is slipping
 func (fsm *ForceMatrixTraditional) IsSlipping(ctx context.Context) (bool, error) {
-	return slipdetection.DetectSlip(fsm, &fsm.mu, 0, fsm.slipDetectionResolution)
+	return slipdetection.DetectSlip(fsm, &fsm.mu, 0, 40.0, fsm.slipDetectionResolution)
 
 }
 
