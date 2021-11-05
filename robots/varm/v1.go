@@ -48,7 +48,7 @@ var v1modeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, "varm1", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			model, err := kinematics.ParseJSON(v1modeljson)
+			model, err := kinematics.ParseJSON(v1modeljson, "")
 			if err != nil {
 				return nil, err
 			}

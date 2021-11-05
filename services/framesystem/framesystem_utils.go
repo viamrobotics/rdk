@@ -57,15 +57,14 @@ func CreateFramesFromPart(part *config.FrameSystemPart, logger golog.Logger) (re
 	if part.ModelFrameConfig == nil {
 		modelFrame = referenceframe.NewZeroStaticFrame(part.Name)
 	} else {
-		model, err := kinematics.ParseJSON(part.ModelFrameConfig)
+		modelFrame, err := kinematics.ParseJSON(part.ModelFrameConfig, part.Name)
 		if err != nil {
 			return nil, nil, err
 		}
-		modelFrame = model.Clone(part.Name)
 	}
 	// static frame defines an offset from the parent part-- if it is empty, a 0 offset frame will be applied.
 	staticOffsetName := part.Name + "_offset"
-	staticOffsetFrame, err := config.MakeStaticFrame(part.FrameConfig, staticOffsetName)
+	staticOffsetFrame, err := part.FrameConfig.StaticFrame(staticOffsetName)
 	if err != nil {
 		return nil, nil, err
 	}

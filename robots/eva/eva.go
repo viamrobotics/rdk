@@ -317,7 +317,7 @@ func (e *eva) ModelFrame() []byte {
 
 // EvaModel() returns the kinematics model of the Eva, also has all Frame information.
 func evaModel() (*kinematics.Model, error) {
-	return kinematics.ParseJSON(evamodeljson)
+	return kinematics.ParseJSON(evamodeljson, "")
 }
 
 // NewEva TODO

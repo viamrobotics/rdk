@@ -26,18 +26,18 @@ type dualQuaternion struct {
 	dualquat.Number
 }
 
-// newdualQuaternion returns a pointer to a new dualQuaternion object whose Quaternion is an identity Quaternion.
+// newDualQuaternion returns a pointer to a new dualQuaternion object whose Quaternion is an identity Quaternion.
 // Since the real part of a qual quaternion should be a unit quaternion, not all zeroes, this should be used
 // instead of &dualQuaternion{}.
-func newdualQuaternion() *dualQuaternion {
+func newDualQuaternion() *dualQuaternion {
 	return &dualQuaternion{dualquat.Number{
 		Real: quat.Number{Real: 1},
 		Dual: quat.Number{},
 	}}
 }
 
-// newdualQuaternionFromRotation returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided orientation.
-func newdualQuaternionFromRotation(o Orientation) *dualQuaternion {
+// newDualQuaternionFromRotation returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided orientation.
+func newDualQuaternionFromRotation(o Orientation) *dualQuaternion {
 	ov := o.OrientationVectorRadians()
 	// Handle the zero case
 	if ov.OX == 0 && ov.OY == 0 && ov.OZ == 0 {
@@ -50,8 +50,8 @@ func newdualQuaternionFromRotation(o Orientation) *dualQuaternion {
 	}}
 }
 
-// newdualQuaternionFromDH returns a pointer to a new dualQuaternion object created from a DH parameter
-func newdualQuaternionFromDH(a, d, alpha float64) *dualQuaternion {
+// newDualQuaternionFromDH returns a pointer to a new dualQuaternion object created from a DH parameter
+func newDualQuaternionFromDH(a, d, alpha float64) *dualQuaternion {
 	m := mgl64.Ident4()
 
 	m.Set(1, 1, math.Cos(alpha))
@@ -62,39 +62,39 @@ func newdualQuaternionFromDH(a, d, alpha float64) *dualQuaternion {
 	m.Set(2, 2, math.Cos(alpha))
 
 	qRot := mgl64.Mat4ToQuat(m)
-	q := newdualQuaternion()
+	q := newDualQuaternion()
 	q.Real = quat.Number{qRot.W, qRot.X(), qRot.Y(), qRot.Z()}
 	q.SetTranslation(a, 0, d)
 	return q
 }
 
-// newdualQuaternionFromProtobuf returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided
+// newDualQuaternionFromProtobuf returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided
 // protobuf pose.
-func newdualQuaternionFromProtobuf(pos *pb.Pose) *dualQuaternion {
-	q := newdualQuaternionFromRotation(&OrientationVectorDegrees{pos.Theta, pos.OX, pos.OY, pos.OZ})
+func newDualQuaternionFromProtobuf(pos *pb.Pose) *dualQuaternion {
+	q := newDualQuaternionFromRotation(&OrientationVectorDegrees{pos.Theta, pos.OX, pos.OY, pos.OZ})
 	q.SetTranslation(pos.X, pos.Y, pos.Z)
 	return q
 }
 
-// newdualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so, otherwise creates a
+// newDualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so, otherwise creates a
 // new one.
-func newdualQuaternionFromPose(p Pose) *dualQuaternion {
+func newDualQuaternionFromPose(p Pose) *dualQuaternion {
 	if q, ok := p.(*dualQuaternion); ok {
 		return q.Clone()
 	}
-	q := newdualQuaternionFromRotation(p.Orientation())
+	q := newDualQuaternionFromRotation(p.Orientation())
 	pt := p.Point()
 	q.SetTranslation(pt.X, pt.Y, pt.Z)
 	return q
 }
 
-// newdualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so, otherwise creates a
+// newDualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so, otherwise creates a
 // new one.
 func dualQuaternionFromPose(p Pose) *dualQuaternion {
 	if q, ok := p.(*dualQuaternion); ok {
 		return q
 	}
-	q := newdualQuaternionFromRotation(p.Orientation().OrientationVectorRadians())
+	q := newDualQuaternionFromRotation(p.Orientation().OrientationVectorRadians())
 	pt := p.Point()
 	q.SetTranslation(pt.X, pt.Y, pt.Z)
 	return q
@@ -218,8 +218,8 @@ func AlmostEqual(a, b quat.Number, tol float64) bool {
 
 // OffsetBy takes two offsets and computes the final position.
 func OffsetBy(a, b *pb.Pose) *pb.Pose {
-	q1 := newdualQuaternionFromProtobuf(a)
-	q2 := newdualQuaternionFromProtobuf(b)
+	q1 := newDualQuaternionFromProtobuf(a)
+	q2 := newDualQuaternionFromProtobuf(b)
 	q3 := &dualQuaternion{q1.Transformation(q2.Number)}
 
 	return q3.ToProtobuf()

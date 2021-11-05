@@ -63,7 +63,6 @@ type Frame interface {
 	Name() string
 	Transform([]Input) (spatial.Pose, error)
 	DoF() []Limit
-	Clone(string) Frame
 }
 
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation from the current Frame to the parent Frame
@@ -108,14 +107,6 @@ func (sf *staticFrame) Transform(inp []Input) (spatial.Pose, error) {
 // DoF are the degrees of freedom of the transform. In the staticFrame, it is always 0.
 func (sf *staticFrame) DoF() []Limit {
 	return []Limit{}
-}
-
-// Clone creates a copy of the Frame with a new name, or the same name if the string is empty
-func (sf *staticFrame) Clone(name string) Frame {
-	if name == "" {
-		name = sf.Name()
-	}
-	return &staticFrame{name, sf.transform}
 }
 
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions
@@ -165,14 +156,6 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 // DoF are the degrees of freedom of the transform.
 func (pf *translationalFrame) DoF() []Limit {
 	return pf.limits
-}
-
-// Clone creates a copy of the Frame with a new name, or the same name if the string is empty
-func (pf *translationalFrame) Clone(name string) Frame {
-	if name == "" {
-		name = pf.Name()
-	}
-	return &translationalFrame{name, pf.axes, pf.limits}
 }
 
 // DoFInt returns the quantity of axes in which this frame can translate
@@ -231,12 +214,4 @@ func (rf *rotationalFrame) DoF() []Limit {
 // Name returns the name of the frame
 func (rf *rotationalFrame) Name() string {
 	return rf.name
-}
-
-// Clone creates a copy of the Frame with a new name, or the same name if the string is empty
-func (rf *rotationalFrame) Clone(name string) Frame {
-	if name == "" {
-		name = rf.Name()
-	}
-	return &rotationalFrame{name, rf.rotAxis, rf.limit}
 }

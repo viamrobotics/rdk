@@ -45,7 +45,7 @@ func init() {
 
 // Ur5eModel() returns the kinematics model of the xArm, also has all Frame information.
 func ur5eModel() (*kinematics.Model, error) {
-	return kinematics.ParseJSON(ur5modeljson)
+	return kinematics.ParseJSON(ur5modeljson, "")
 }
 
 // URArm TODO

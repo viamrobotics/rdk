@@ -1225,6 +1225,8 @@ func (s *Server) ResourceRunCommand(ctx context.Context, req *pb.ResourceRunComm
 const frameService = "frame_system"
 
 // FrameServiceConfig returns all the information needed to recreate the frame system for a robot.
+// That is: the directed acyclic graph of the frame system parent structure, the static offset poses between frames,
+// and the kinematic/model frames for any robot parts that move or have intrinsic frame properties.
 func (s *Server) FrameServiceConfig(ctx context.Context, req *pb.FrameServiceConfigRequest) (*pb.FrameServiceConfigResponse, error) {
 	svc, ok := s.r.ServiceByName(frameService)
 	if !ok {
@@ -1245,7 +1247,7 @@ func (s *Server) FrameServiceConfig(ctx context.Context, req *pb.FrameServiceCon
 	return &pb.FrameServiceConfigResponse{FrameSystemConfigs: configs}, nil
 }
 
-// FrameServiceModel returns the dyanmic model frame of the named robot part. Returns nil if robot part does not have a model frame.
+// FrameServiceModel returns the dynamic model frame of the named robot part. Returns nil if robot part does not have a model frame.
 func (s *Server) FrameServiceModel(ctx context.Context, req *pb.FrameServiceModelRequest) (*pb.FrameServiceModelResponse, error) {
 	svc, ok := s.r.ServiceByName(frameService)
 	if !ok {

@@ -51,9 +51,9 @@ func init() {
 // XArmModel returns the kinematics model of the xArm, also has all Frame information.
 func xArmModel(dof int) (*kinematics.Model, error) {
 	if dof == 6 {
-		return kinematics.ParseJSON(xArm6modeljson)
+		return kinematics.ParseJSON(xArm6modeljson, "")
 	} else if dof == 7 {
-		return kinematics.ParseJSON(xArm7modeljson)
+		return kinematics.ParseJSON(xArm7modeljson, "")
 	}
 	return nil, errors.New("no kinematics model for xarm with specified degrees of freedom")
 }

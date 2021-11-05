@@ -33,7 +33,7 @@ func init() {
 
 // fakeModel returns the kinematics model
 func fakeModel() (*kinematics.Model, error) {
-	return kinematics.ParseJSON(armikModelJSON)
+	return kinematics.ParseJSON(armikModelJSON, "")
 }
 
 // NewArmIK returns a new fake arm.

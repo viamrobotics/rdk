@@ -50,7 +50,13 @@ type Frame struct {
 
 // Pose combines Translation and Orientation in a Pose
 func (f *Frame) Pose() spatial.Pose {
-	return MakePose(f)
+	return makePose(f)
+}
+
+// StaticFrame creates a new static frame from a config
+func (f *Frame) StaticFrame(name string) (ref.Frame, error) {
+	pose := makePose(f)
+	return ref.NewStaticFrame(name, pose)
 }
 
 // UnmarshalJSON will parse the Orientation field into a spatial.Orientation object from a json.rawMessage
@@ -141,7 +147,7 @@ func MergeFrameSystems(toFS, fromFS ref.FrameSystem, cfg *Frame) error {
 			return err
 		}
 	} else { // attach the world of fromFS, with the given offset, to cfg.Parent found in toFS
-		offsetFrame, err = MakeStaticFrame(cfg, fromFS.Name()+"_"+ref.World)
+		offsetFrame, err = cfg.StaticFrame(fromFS.Name() + "_" + ref.World)
 		if err != nil {
 			return err
 		}
@@ -157,14 +163,8 @@ func MergeFrameSystems(toFS, fromFS ref.FrameSystem, cfg *Frame) error {
 	return nil
 }
 
-// MakeStaticFrame creates a new static frame from a config
-func MakeStaticFrame(cfg *Frame, name string) (ref.Frame, error) {
-	pose := MakePose(cfg)
-	return ref.NewStaticFrame(name, pose)
-}
-
-// MakePose creates a new pose from a config
-func MakePose(cfg *Frame) spatial.Pose {
+// makePose creates a new pose from a config
+func makePose(cfg *Frame) spatial.Pose {
 	if cfg == nil {
 		return nil
 	}

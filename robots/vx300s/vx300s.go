@@ -104,7 +104,7 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 		return nil, err
 	}
 
-	model, err := kinematics.ParseJSON(vx300smodeljson)
+	model, err := kinematics.ParseJSON(vx300smodeljson, "")
 	if err != nil {
 		return nil, err
 	}
