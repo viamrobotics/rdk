@@ -305,6 +305,13 @@ int main(int argc, char* argv[])
             meere::sensor::destroy_camera(_camera);
             return -1;
         }
+        std::string _key("");
+		meere::sensor::sptr_property _prop;
+		meere::sensor::result_property _rt_prop;
+        _key = "framerate";
+        _prop = meere::sensor::make_property_8u(_key, 30);
+        _rt = _camera->setProperty(_prop);
+        // printResult(_key, _rt);
 
         ws.start(true);
 
