@@ -399,7 +399,7 @@ func (rr *remoteRobot) Status(ctx context.Context) (*pb.Status, error) {
 		}
 	}
 	if len(status.InputControllers) != 0 {
-		rewrittenStatus.InputControllers = make(map[string]bool, len(status.InputControllers))
+		rewrittenStatus.InputControllers = make(map[string]*pb.InputControllerStatus, len(status.InputControllers))
 		for k, v := range status.InputControllers {
 			rewrittenStatus.InputControllers[rr.prefixName(k)] = v
 		}

@@ -5,26 +5,26 @@
 
       <div class="row" style="margin-right: 0; align-items: center;">
         <div class="header">
-          <h2>{{ gamepadName }}</h2>
-          <span v-if="gamepad" class="pill green">Connected</span>
+          <h2>{{ deviceName }}</h2>
+          <span v-if="self.connected" class="pill green">Connected</span>
           <span v-else class="pill">Disconnected</span>
         </div>
 
         <div class="row" style="justify-content: flex-end; flex-grow: 1; margin-right: 0">
-          <button class="red" style="align-self: flex-end">
-            <i class="far fa-times-circle"></i>
-            STOP
-          </button>
-          <button class="green" style="align-self: flex-end">
-            <i class="fas fa-play"></i>
-            RUN
-          </button>
+          <div class="column">
+            <label class="subtitle">Gamepad Connection</label>
+            <RadioButtons
+              :options="['Direct', 'Web']"
+              defaultOption="Direct"
+              v-on:selectOption="self.useWeb = $event === 'Web'"
+            />
+          </div>
         </div>
       </div>
 
 
       <div class="row" style="justify-content: space-between">
-        <div class="row" v-if="gamepad">
+        <div class="row" v-if="self.connected">
           <div v-for="axis in axes" :key="axis" class="column axis">
             <p class="subtitle">{{ axis }}</p>
             {{ self[axis].toFixed(4) }}
@@ -43,6 +43,13 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from "vue-property-decorator";
+
+import {
+  InputControllerInjectEventRequest,
+  InputControllerEvent,
+  InputControllerStatus,
+} from "proto/robot_pb";
+
 import RadioButtons from "./RadioButtons.vue";
 
 @Component({
@@ -51,41 +58,90 @@ import RadioButtons from "./RadioButtons.vue";
   },
 })
 export default class Gamepad extends Vue {
-  gamepad = navigator.getGamepads()[0]
-  gamepadName = "Waiting for gamepad"
+  @Prop() controllerName!: string;
+  @Prop() controllerStatus!: InputControllerStatus.AsObject;
 
-  self = this
+  gamepad = navigator.getGamepads()[0];
+  gamepadName = "Waiting for gamepad...";
+  gamepadConnected = false;
+  useWebBool = true;
+  self = this;
 
-  axes = ["X", "Y", "RX", "RY", "Z", "RZ", "HatX", "HatY"]
-  buttons = ["South", "East", "West", "North", "LT", "RT", "LThumb", "RThumb", "Select", "Start", "Menu"]
+  axes = ["X", "Y", "RX", "RY", "Z", "RZ", "HatX", "HatY"];
+  buttons = ["South", "East", "West", "North", "LT", "RT", "LThumb", "RThumb", "Select", "Start", "Menu"];
 
   mounted(): void {
     this.tick()
   }
 
-  tick(): void{
-    this.gamepad = null;
-    const pads = navigator.getGamepads();
-    for (const g of pads) {
-      if (g != null) {
-        this.gamepad = g;
-        break;
-      }
-    }
-    if (this.gamepad === null) {
-      this.gamepadName = "Waiting for gamepad...";
-      window.requestAnimationFrame(() => this.tick());
+
+  // sendEvent(): void{
+  //   newEvent = new InputControllerEvent();
+  //   req = new InputControllerInjectEventRequest();
+  //   req.setController(this.controller);
+  //   req.setEvent(newEvent);
+  // }
+
+  tick(): void {
+    if (!this.useWeb) {
+      console.log("SMURFX");
       return;
     }
-    if (this.gamepad.mapping === "standard"){
-      this.gamepadName = this.gamepad.id.replace(/ \(STANDARD .*\)/i, "");
-    }else{
-      this.gamepadName = this.gamepad.id
+    console.log("SMURF2" + this.gamepad);
+    if (this.gamepad && this.gamepad.connected) {
+      this.gamepadConnected = true;
+    } else {
+      this.gamepad = null;
+      this.gamepadConnected = false;
+      const pads = navigator.getGamepads();
+      for (const g of pads) {
+        if (g != null) {
+          this.gamepad = g;
+          this.gamepadName = "Waiting for gamepad...";
+          this.gamepadConnected = true;
+          if (this.gamepad.mapping === "standard"){
+            this.gamepadName = this.gamepad.id.replace(/ \(STANDARD .*\)/i, "");
+          }else{
+            this.gamepadName = this.gamepad.id
+          }
+          break;
+        }
+      }
     }
     window.requestAnimationFrame(() => this.tick());
   }
 
 
+
+  set useWeb (opt: boolean) {
+    var prev = this.useWebBool;
+    this.useWebBool = opt;
+    if (opt && !prev) {
+      //this.sendConnectionStatus(true);
+      this.tick();
+    }else if (!opt && prev){
+      //this.sendConnectionStatus(false);
+    }
+  }
+
+  get useWeb (): boolean {
+    return this.useWebBool;
+  }
+
+  get connected (): boolean {
+    if (this.useWebBool === true) {
+      return this.gamepadConnected;
+    }
+    if (this.controllerStatus.eventsList[0] && this.controllerStatus.eventsList[0].event != "Disconnect") {
+      return true
+    }else{
+      return false
+    }
+  }
+
+  get deviceName (): string {
+    return this.useWeb ? this.gamepadName : this.controllerName;
+  }
 
   // Mappings
   private getAxis(axis: number): number {
@@ -102,32 +158,44 @@ export default class Gamepad extends Vue {
     return NaN
   }
 
+  private getRemoteValue(ctrl: string): number {
+    for (const stat of this.controllerStatus.eventsList) {
+      if (stat.control === ctrl) {
+        return stat.value;
+      }
+    }
+    return NaN;
+  }
+
   // Axes
   get X (): number {
-    return this.getAxis(0);
+    return this.useWeb ? this.getAxis(0) : this.getRemoteValue("AbsoluteX");
   }
 
   get Y (): number {
-    return this.getAxis(1);
+    return this.useWeb ? this.getAxis(1): this.getRemoteValue("AbsoluteY"); 
   }
 
   get RX (): number {
-    return this.getAxis(2);
+    return this.useWeb ? this.getAxis(2): this.getRemoteValue("AbsoluteRX"); 
   }
 
   get RY (): number {
-    return this.getAxis(3);
+    return this.useWeb ? this.getAxis(3): this.getRemoteValue("AbsoluteRY"); 
   }
 
   get Z (): number {
-    return this.getBtn(6);
+    return this.useWeb ? this.getBtn(6): this.getRemoteValue("AbsoluteZ"); 
   }
 
   get RZ (): number {
-    return this.getBtn(7);
+    return this.useWeb ? this.getBtn(7): this.getRemoteValue("AbsoluteRZ"); 
   }
 
   get HatX (): number {
+    if (this.useWeb === false) {
+      return this.getRemoteValue("AbsoluteHat0X");
+    }
     var ret = 0
     this.getBtn(14) === 1 ? ret = -1 : ret;
     this.getBtn(15) === 1 ? ret = 1 : ret;
@@ -135,6 +203,9 @@ export default class Gamepad extends Vue {
   }
 
   get HatY (): number {
+    if (this.useWeb === false) {
+      return this.getRemoteValue("AbsoluteHat0Y");
+    }
     var ret = 0
     this.getBtn(12) === 1 ? ret = -1 : ret;
     this.getBtn(13) === 1 ? ret = 1 : ret;
@@ -144,47 +215,47 @@ export default class Gamepad extends Vue {
 
   // Buttons
   get South (): number {
-    return this.getBtn(0);
+    return this.useWeb ? this.getBtn(0): this.getRemoteValue("ButtonSouth");
   }
 
   get East (): number {
-    return this.getBtn(1);
+    return this.useWeb ? this.getBtn(1): this.getRemoteValue("ButtonEast");
   }
 
   get West (): number {
-    return this.getBtn(2);
+    return this.useWeb ? this.getBtn(2): this.getRemoteValue("ButtonWest");
   }
 
   get North (): number {
-    return this.getBtn(3);
+    return this.useWeb ? this.getBtn(3): this.getRemoteValue("ButtonNorth");
   }
 
   get LT (): number {
-    return this.getBtn(4);
+    return this.useWeb ? this.getBtn(4): this.getRemoteValue("ButtonLT");
   }
 
   get RT (): number {
-    return this.getBtn(5);
+    return this.useWeb ? this.getBtn(5): this.getRemoteValue("ButtonRT");
   }
 
   get Select (): number {
-    return this.getBtn(8);
+    return this.useWeb ? this.getBtn(8): this.getRemoteValue("ButtonSelect");
   }
 
   get Start (): number {
-    return this.getBtn(9);
+    return this.useWeb ? this.getBtn(9): this.getRemoteValue("ButtonStart");
   }
 
   get LThumb (): number {
-    return this.getBtn(10);
+    return this.useWeb ? this.getBtn(10): this.getRemoteValue("ButtonLThumb");
   }
 
   get RThumb (): number {
-    return this.getBtn(11);
+    return this.useWeb ? this.getBtn(11): this.getRemoteValue("ButtonRThumb");
   }
 
   get Menu (): number {
-    return this.getBtn(16);
+    return this.useWeb ? this.getBtn(16): this.getRemoteValue("ButtonMenu");
   }
 
 

@@ -587,6 +587,15 @@ RobotService.InputControllerEventStream = {
   responseType: proto_api_v1_robot_pb.InputControllerEvent
 };
 
+RobotService.InputControllerInjectEvent = {
+  methodName: "InputControllerInjectEvent",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.InputControllerInjectEventRequest,
+  responseType: proto_api_v1_robot_pb.InputControllerInjectEventResponse
+};
+
 RobotService.ResourceRunCommand = {
   methodName: "ResourceRunCommand",
   service: RobotService,
@@ -2723,6 +2732,37 @@ RobotServiceClient.prototype.inputControllerEventStream = function inputControll
     },
     cancel: function () {
       listeners = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.inputControllerInjectEvent = function inputControllerInjectEvent(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.InputControllerInjectEvent, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
       client.close();
     }
   };
