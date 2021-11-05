@@ -1230,6 +1230,8 @@
       <gamepad
         v-for="controller in status.inputControllersMap"
         :key="'new-' + controller[0]"
+        v-bind:controller-name="controller[0]"
+        v-bind:controller-status="controller[1]"
         style="max-width: 1080px;">
       >
       </gamepad>

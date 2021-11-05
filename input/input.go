@@ -17,6 +17,9 @@ type Controller interface {
 
 	// RegisterCallback registers a callback that will fire on given EventTypes for a given Control
 	RegisterControlCallback(ctx context.Context, control Control, triggers []EventType, ctrlFunc ControlFunction) error
+
+	// InjectEvent allows directly sending an Event (such as a button press) from external code
+	InjectEvent(ctx context.Context, event Event) error
 }
 
 // ControlFunction is a callback passed to RegisterControlCallback
