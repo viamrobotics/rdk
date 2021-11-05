@@ -2,6 +2,7 @@ package slipdetection
 
 import (
 	"errors"
+	"math"
 	"sync"
 
 	"go.viam.com/core/sensor/forcematrix"
@@ -14,14 +15,14 @@ type ReadingsHistoryProvider interface {
 
 // DetectSlip detects whether a slip has occurred. The version parameter determines
 // which algorithm version to use
-func DetectSlip(rhp ReadingsHistoryProvider, mu *sync.Mutex, version int, readingThreshold float64, framesToUse int) (bool, error) {
+func DetectSlip(rhp ReadingsHistoryProvider, mu *sync.Mutex, version int, slipThreshold float64, framesToUse int) (bool, error) {
 	var slipDetector func(ReadingsHistoryProvider, *sync.Mutex, float64, int) (bool, error)
 	switch version {
 	case 0:
 		slipDetector = DetectSlipV0
 	}
 	if slipDetector != nil {
-		return slipDetector(rhp, mu, readingThreshold, framesToUse)
+		return slipDetector(rhp, mu, slipThreshold, framesToUse)
 	}
 	return false, errors.New("version unsupported")
 }
@@ -35,14 +36,14 @@ func makeEmptyMatrix(iDim int, jDim int) [][]float64 {
 	return resultMatrix
 }
 
-func getMatrixStateDiff(matrixA [][]float64, matrixB [][]float64, readingThreshold float64) [][]int {
+func getMatrixStateDiff(matrixA [][]float64, matrixB [][]float64, slipThreshold float64) [][]int {
 	result := make([][]int, 0)
 	for i := 0; i < len(matrixA); i++ {
 		row := make([]int, len(matrixA[i]))
 		for j := 0; j < len(matrixA[i]); j++ {
 			rawVal := matrixB[i][j] - matrixA[i][j]
 			var val int
-			if (rawVal > readingThreshold) || ((-1 * rawVal) > readingThreshold) {
+			if math.Abs(rawVal) > slipThreshold {
 				val = 1
 			} else {
 				val = 0
@@ -87,7 +88,7 @@ func isEmptyState(matrix [][]int) bool {
 }
 
 // DetectSlipV0 implements version 0 of a slip detection algorithm
-func DetectSlipV0(rhp ReadingsHistoryProvider, mu *sync.Mutex, readingThreshold float64, framesToUse int) (bool, error) {
+func DetectSlipV0(rhp ReadingsHistoryProvider, mu *sync.Mutex, slipThreshold float64, framesToUse int) (bool, error) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -106,6 +107,6 @@ func DetectSlipV0(rhp ReadingsHistoryProvider, mu *sync.Mutex, readingThreshold 
 
 	previousFrame := getAverageValues(matrices[0:(numMatrices / 2)])
 	currentFrame := getAverageValues(matrices[numMatrices/2 : numMatrices])
-	diff := getMatrixStateDiff(previousFrame, currentFrame, readingThreshold)
+	diff := getMatrixStateDiff(previousFrame, currentFrame, slipThreshold)
 	return !isEmptyState(diff), nil
 }
