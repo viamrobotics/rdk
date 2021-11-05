@@ -124,7 +124,7 @@ func (fsm *ForceMatrixTraditional) Readings(ctx context.Context) ([]interface{},
 }
 
 // GetPreviousMatrices is an accessor for the history of matrix readings stored
-// on the sensor required for slip detection (see slipdetector.SlipDetector)
+// on the sensor required for slip detection (see slipdetector.ReadingsHistoryProvider)
 func (fsm *ForceMatrixTraditional) GetPreviousMatrices() [][][]int {
 	return fsm.previousMatrices
 }

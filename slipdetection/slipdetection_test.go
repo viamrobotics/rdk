@@ -7,9 +7,9 @@ import (
 	"go.viam.com/test"
 )
 
-type mockSlipDetectorAlwaysSlipping struct{}
+type mockReadingsHistoryProviderAlwaysSlipping struct{}
 
-func (mockSD *mockSlipDetectorAlwaysSlipping) GetPreviousMatrices() [][][]int {
+func (mockRHP *mockReadingsHistoryProviderAlwaysSlipping) GetPreviousMatrices() [][][]int {
 	result := make([][][]int, 0)
 	expectedMatrix1 := [][]int{
 		{62, 62, 0},
@@ -34,9 +34,9 @@ func (mockSD *mockSlipDetectorAlwaysSlipping) GetPreviousMatrices() [][][]int {
 	return result
 }
 
-type mockSlipDetectorNeverSlipping struct{}
+type mockReadingsHistoryProviderNeverSlipping struct{}
 
-func (mockSD *mockSlipDetectorNeverSlipping) GetPreviousMatrices() [][][]int {
+func (mockRHP *mockReadingsHistoryProviderNeverSlipping) GetPreviousMatrices() [][][]int {
 	result := make([][][]int, 0)
 	expectedMatrix1 := [][]int{
 		{2, 2, 0},
@@ -62,7 +62,7 @@ func (mockSD *mockSlipDetectorNeverSlipping) GetPreviousMatrices() [][][]int {
 }
 
 func TestDetectSlip(t *testing.T) {
-	slipDetector := mockSlipDetectorNeverSlipping{}
+	slipDetector := mockReadingsHistoryProviderNeverSlipping{}
 
 	// bad version test
 	_, err := DetectSlip(&slipDetector, &sync.Mutex{}, 1, 2)
@@ -78,7 +78,7 @@ func TestDetectSlip(t *testing.T) {
 	test.That(t, isSlipping, test.ShouldBeFalse)
 	test.That(t, err, test.ShouldBeNil)
 
-	alwaysSlippingDetector := mockSlipDetectorAlwaysSlipping{}
+	alwaysSlippingDetector := mockReadingsHistoryProviderAlwaysSlipping{}
 
 	isSlipping, err = DetectSlip(&alwaysSlippingDetector, &sync.Mutex{}, 0, 4)
 	test.That(t, isSlipping, test.ShouldBeTrue)
