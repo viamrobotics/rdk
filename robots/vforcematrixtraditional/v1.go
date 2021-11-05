@@ -29,14 +29,15 @@ func init() {
 
 // ForceMatrixTraditional represents a force matrix without a mux.
 type ForceMatrixTraditional struct {
-	gpioPins                []string
-	analogChannels          []string
-	analogReaders           []board.AnalogReader
-	board                   board.Board
-	previousMatrices        [][][]int // a window of previous matrix readings
-	mu                      sync.Mutex
-	slipDetectionResolution int // how far back in the window of previous readings to look
+	gpioPins            []string
+	analogChannels      []string
+	analogReaders       []board.AnalogReader
+	board               board.Board
+	previousMatrices    [][][]int // a window of previous matrix readings
+	mu                  sync.Mutex
+	slipDetectionWindow int // how far back in the window of previous readings to look
 	// for slip detection
+	noiseThreshold float64 // sensitivity threshold for determining noise
 }
 
 // New returns a new ForceMatrixTraditional given gpio pins and analog channels.
@@ -58,16 +59,18 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		}
 		analogReaders = append(analogReaders, reader)
 	}
-	slipDetectionResolution := config.Attributes.Int("slip_detection_resolution", forcematrix.MatrixStorageSize)
+	noiseThreshold := config.Attributes.Float64("noise_threshold", 0)
+	slipDetectionWindow := config.Attributes.Int("slip_detection_window", forcematrix.MatrixStorageSize)
 	previousMatrices := make([][][]int, 0)
 
 	return &ForceMatrixTraditional{
-		gpioPins:                gpioPins,
-		analogChannels:          analogChannels,
-		analogReaders:           analogReaders,
-		board:                   b,
-		previousMatrices:        previousMatrices,
-		slipDetectionResolution: slipDetectionResolution,
+		gpioPins:            gpioPins,
+		analogChannels:      analogChannels,
+		analogReaders:       analogReaders,
+		board:               b,
+		previousMatrices:    previousMatrices,
+		slipDetectionWindow: slipDetectionWindow,
+		noiseThreshold:      noiseThreshold,
 	}, nil
 }
 
@@ -132,7 +135,7 @@ func (fsm *ForceMatrixTraditional) GetPreviousMatrices() [][][]int {
 // IsSlipping examines is used to determine whether the object in contact
 // with the sensor matrix is slipping
 func (fsm *ForceMatrixTraditional) IsSlipping(ctx context.Context) (bool, error) {
-	return slipdetection.DetectSlip(fsm, &fsm.mu, 0, 40.0, fsm.slipDetectionResolution)
+	return slipdetection.DetectSlip(fsm, &(fsm.mu), 0, fsm.noiseThreshold, fsm.slipDetectionWindow)
 
 }
 
