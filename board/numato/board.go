@@ -1,4 +1,4 @@
-// Package numato is for numato IO boards, but is not yet working
+// Package numato is for numato IO boards.
 package numato
 
 import (
@@ -67,8 +67,8 @@ func newMask(bits int) mask {
 	return m
 }
 
-func (m *mask) hex() string {
-	return hex.EncodeToString(*m)
+func (m mask) hex() string {
+	return hex.EncodeToString(m)
 }
 
 func (m *mask) set(bit int) {
@@ -82,9 +82,10 @@ type numatoBoard struct {
 	pins    int
 	analogs map[string]board.AnalogReader
 
-	port   io.ReadWriteCloser
-	closed int32
-	logger golog.Logger
+	port                    io.ReadWriteCloser
+	closed                  int32
+	activeBackgroundWorkers sync.WaitGroup
+	logger                  golog.Logger
 
 	lines chan string
 	mu    sync.Mutex
@@ -157,6 +158,8 @@ func (b *numatoBoard) doSendReceive(ctx context.Context, msg string) (string, er
 	}
 
 	select {
+	case <-ctx.Done():
+		return "", errors.New("context ended")
 	case res := <-b.lines:
 		return res, nil
 	case <-time.After(1 * time.Second):
@@ -165,6 +168,8 @@ func (b *numatoBoard) doSendReceive(ctx context.Context, msg string) (string, er
 }
 
 func (b *numatoBoard) readThread() {
+	defer b.activeBackgroundWorkers.Done()
+
 	debug := false
 
 	in := bufio.NewReader(b.port)
@@ -174,20 +179,16 @@ func (b *numatoBoard) readThread() {
 			if atomic.LoadInt32(&b.closed) == 1 {
 				return
 			}
-			b.logger.Warnf("error reading %s", err)
+			b.logger.Warnw("error reading", err)
 			break // TODO: restart connection
 		}
 		line = strings.TrimSpace(line)
 
 		if debug {
-			b.logger.Debugf("got line [%s]", line)
+			b.logger.Debugw("got line", line)
 		}
 
-		if len(line) == 0 {
-			continue
-		}
-
-		if line[0] == '>' {
+		if len(line) == 0 || line[0] == '>' {
 			continue
 		}
 
@@ -196,7 +197,7 @@ func (b *numatoBoard) readThread() {
 		}
 
 		if debug {
-			b.logger.Debugf("    sending line [%s]", line)
+			b.logger.Debugw("    sending line", line)
 		}
 		b.lines <- line
 	}
@@ -290,7 +291,12 @@ func (b *numatoBoard) ModelAttributes() board.ModelAttributes {
 
 func (b *numatoBoard) Close() error {
 	atomic.AddInt32(&b.closed, 1)
-	return b.port.Close()
+	err := b.port.Close()
+	if err != nil {
+		return err
+	}
+	b.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 type analogReader struct {
@@ -348,13 +354,14 @@ func connect(ctx context.Context, conf *board.Config, logger golog.Logger) (*num
 	}
 
 	b.lines = make(chan string)
+	b.activeBackgroundWorkers.Add(1)
 	go b.readThread()
 
 	ver, err := b.doSendReceive(ctx, "ver")
 	if err != nil {
 		return nil, multierr.Combine(b.Close(), err)
 	}
-	b.logger.Debugf("numato version %s", ver)
+	b.logger.Debugw("numato version", ver)
 
 	return b, nil
 }
