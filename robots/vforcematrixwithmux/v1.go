@@ -29,14 +29,15 @@ func init() {
 
 // ForceMatrixWithMux represents a force matrix that's wired up with a mux.
 type ForceMatrixWithMux struct {
-	columnGpioPins          []string
-	muxGpioPins             []string  // which GPIO pins are S2, S1, S0 connected to?
-	ioPins                  []int     // integers that indicate which Y pin we're connected to (Y0-Y7)
-	analogChannel           string    // analog channel that the mux is connected to
-	previousMatrices        [][][]int // a window of previous matrix readings
-	mu                      sync.Mutex
-	slipDetectionResolution int // how far back in the window of previous readings to look
+	columnGpioPins      []string
+	muxGpioPins         []string  // which GPIO pins are S2, S1, S0 connected to?
+	ioPins              []int     // integers that indicate which Y pin we're connected to (Y0-Y7)
+	analogChannel       string    // analog channel that the mux is connected to
+	previousMatrices    [][][]int // a window of previous matrix readings
+	mu                  sync.Mutex
+	slipDetectionWindow int // how far back in the window of previous readings to look
 	// for slip detection
+	noiseThreshold float64 // sensitivity threshold for determining noise
 
 	analogReader board.AnalogReader
 	board        board.Board
@@ -57,20 +58,22 @@ func NewMux(ctx context.Context, r robot.Robot, config config.Component, logger 
 	ioPins := config.Attributes.IntSlice("io_pins_top_to_bottom")
 	analogChannel := config.Attributes.String("analog_channel")
 	reader, exists := b.AnalogReaderByName(analogChannel)
-	slipDetectionResolution := config.Attributes.Int("slip_detection_resolution", forcematrix.MatrixStorageSize)
+	noiseThreshold := config.Attributes.Float64("noise_threshold", 0)
+	slipDetectionWindow := config.Attributes.Int("slip_detection_window", forcematrix.MatrixStorageSize)
 	previousMatrices := make([][][]int, 0)
 
 	if exists {
 		return &ForceMatrixWithMux{
-			columnGpioPins:          columnGpioPins,
-			muxGpioPins:             muxGpioPins,
-			ioPins:                  ioPins,
-			analogChannel:           analogChannel,
-			analogReader:            reader,
-			board:                   b,
-			previousMatrices:        previousMatrices,
-			logger:                  logger,
-			slipDetectionResolution: slipDetectionResolution,
+			columnGpioPins:      columnGpioPins,
+			muxGpioPins:         muxGpioPins,
+			ioPins:              ioPins,
+			analogChannel:       analogChannel,
+			analogReader:        reader,
+			board:               b,
+			previousMatrices:    previousMatrices,
+			logger:              logger,
+			slipDetectionWindow: slipDetectionWindow,
+			noiseThreshold:      noiseThreshold,
 		}, nil
 	}
 
@@ -177,7 +180,7 @@ func (fmsm *ForceMatrixWithMux) GetPreviousMatrices() [][][]int {
 // IsSlipping examines is used to determine whether the object in contact
 // with the sensor matrix is slipping
 func (fmsm *ForceMatrixWithMux) IsSlipping(ctx context.Context) (bool, error) {
-	return slipdetection.DetectSlip(fmsm, &fmsm.mu, 0, 40.0, fmsm.slipDetectionResolution)
+	return slipdetection.DetectSlip(fmsm, &(fmsm.mu), 0, fmsm.noiseThreshold, fmsm.slipDetectionWindow)
 
 }
 

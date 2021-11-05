@@ -70,7 +70,7 @@ func TestNew(t *testing.T) {
 		"mux_gpio_pins_s2_to_s0":         []interface{}{"s2", "s1", "s0"},
 		"io_pins_top_to_bottom":          []interface{}{0, 2, 6, 7},
 		"analog_reader":                  "fake",
-		"slip_detection_resolution":      2,
+		"slip_detection_window":          2,
 	}
 	component := config.Component{Attributes: fakeAttrMap}
 	mux, _ = NewMux(context.Background(), fakeRobot, component, logger)
