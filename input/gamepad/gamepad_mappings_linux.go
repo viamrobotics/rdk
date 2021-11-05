@@ -116,4 +116,24 @@ var GamepadMappings = map[string]Mapping{
 			316: input.ButtonMenu,
 		},
 	},
+	// Wireless industrial controller
+	"FORT Robotics nVSC Application": {
+		Axes: map[evdev.AbsoluteType]input.Control{
+			0:  input.AbsoluteX,
+			1:  input.AbsoluteY,
+			2:  input.AbsoluteZ,
+			3:  input.AbsoluteRX,
+			4:  input.AbsoluteRY,
+			5:  input.AbsoluteRZ,
+			16: input.AbsoluteHat0X,
+			17: input.AbsoluteHat0Y,
+		},
+		Buttons: map[evdev.KeyType]input.Control{
+			288: input.ButtonSouth,
+			289: input.ButtonEast,
+			291: input.ButtonWest,
+			290: input.ButtonNorth,
+			292: input.ButtonEStop,
+		},
+	},
 }

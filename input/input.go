@@ -68,6 +68,7 @@ const (
 	ButtonStart  Control = "ButtonStart"
 	ButtonMenu   Control = "ButtonMenu"
 	ButtonRecord Control = "ButtonRecord"
+	ButtonEStop  Control = "ButtonEStop"
 )
 
 // Event is passed to the registered ControlFunction or returned by State()

@@ -247,9 +247,9 @@ func (g *Controller) connectDev(ctx context.Context) error {
 			continue
 		}
 		name := dev.Name()
-		g.logger.Infof("found known gamepad: '%s' at %s", name, n)
 		mapping, ok := GamepadMappings[name]
 		if ok {
+			g.logger.Infof("found known gamepad: '%s' at %s", name, n)
 			g.dev = dev
 			g.Model = g.dev.Name()
 			g.Mapping = mapping
