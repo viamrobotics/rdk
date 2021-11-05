@@ -250,3 +250,65 @@ func fixOvIncrement(pos, seed *pb.ArmPosition) *pb.ArmPosition {
 		OZ:    pos.OZ,
 	}
 }
+
+
+func getSolutions(ctx context.Context, f frame.Frame, solver kinematics.InverseKinematics, goal *pb.ArmPosition, seed []frame.Input, mp constraintHandler) (map[float64][]frame.Input, error) {
+	
+	
+	seedPos, err := f.Transform(seed)
+	if err != nil {
+		return nil, err
+	}
+	goalPos := spatial.NewPoseFromArmPos(fixOvIncrement(goal, spatial.PoseToArmPos(seedPos)))
+	
+	solutionGen := make(chan []frame.Input)
+	ikErr := make(chan error)
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	
+	// Spawn the IK solver to generate solutions until done
+	go func(){
+		defer close(ikErr)
+		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goalPos, seed)
+	}()
+	
+	solutions := map[float64][]frame.Input{}
+	
+	// Solve the IK solver
+	IK:
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, errors.New("context Done signal")
+		case step := <- solutionGen:
+			cPass, cScore := mp.CheckConstraints(constraintInput{
+				seedPos,
+				goalPos,
+				seed,
+				step,
+				f})
+			
+			if cPass {
+				// collision check if supported
+				// TODO: do a thing to get around the obstruction
+				solutions[cScore] = step
+			}
+			// Skip the return check below until we have nothing left to read from solutionGen
+			continue IK
+		default:
+		}
+		
+		select{
+		case err = <- ikErr:
+			// If we have a return from the IK solver, there are no more solutions, so we finish processing above
+			// until we've drained the channel
+			break IK
+		default:
+		}
+	}
+	cancel()
+	if len(solutions) == 0 {
+		return nil, errors.New("unable to solve for position")
+	}
+	
+	return solutions, nil
+}
