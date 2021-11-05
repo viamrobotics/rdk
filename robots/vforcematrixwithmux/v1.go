@@ -115,8 +115,8 @@ func (fmsm *ForceMatrixWithMux) setMuxGpioPins(ctx context.Context, ioPin int) e
 	return nil
 }
 
-// addToPreviousMatrixQueue adds a matrix reading to the readings history queue
-func (fmsm *ForceMatrixWithMux) addToPreviousMatrixQueue(matrix [][]int) {
+// addToPreviousMatricesWindow adds a matrix reading to the readings history queue
+func (fmsm *ForceMatrixWithMux) addToPreviousMatricesWindow(matrix [][]int) {
 	if len(fmsm.previousMatrices) > forcematrix.MatrixStorageSize {
 		fmsm.previousMatrices = fmsm.previousMatrices[1:]
 	}
@@ -152,7 +152,7 @@ func (fmsm *ForceMatrixWithMux) Matrix(ctx context.Context) ([][]int, error) {
 
 		}
 	}
-	fmsm.addToPreviousMatrixQueue(matrix)
+	fmsm.addToPreviousMatricesWindow(matrix)
 	return matrix, nil
 }
 
@@ -177,7 +177,7 @@ func (fmsm *ForceMatrixWithMux) GetPreviousMatrices() [][][]int {
 	return fmsm.previousMatrices
 }
 
-// IsSlipping examines is used to determine whether the object in contact
+// IsSlipping is used to determine whether the object in contact
 // with the sensor matrix is slipping
 func (fmsm *ForceMatrixWithMux) IsSlipping(ctx context.Context) (bool, error) {
 	return slipdetection.DetectSlip(fmsm, &(fmsm.mu), 0, fmsm.noiseThreshold, fmsm.slipDetectionWindow)

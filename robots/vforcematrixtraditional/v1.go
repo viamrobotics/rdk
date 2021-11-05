@@ -74,8 +74,8 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 	}, nil
 }
 
-// addToPreviousMatrixQueue adds a matrix reading to the readings history queue
-func (fsm *ForceMatrixTraditional) addToPreviousMatrixQueue(matrix [][]int) {
+// addToPreviousMatricesWindow adds a matrix reading to the readings history queue
+func (fsm *ForceMatrixTraditional) addToPreviousMatricesWindow(matrix [][]int) {
 	if len(fsm.previousMatrices) > forcematrix.MatrixStorageSize {
 		fsm.previousMatrices = fsm.previousMatrices[1:]
 	}
@@ -107,7 +107,7 @@ func (fsm *ForceMatrixTraditional) Matrix(ctx context.Context) ([][]int, error) 
 			matrix[i] = append(matrix[i], val)
 		}
 	}
-	fsm.addToPreviousMatrixQueue(matrix)
+	fsm.addToPreviousMatricesWindow(matrix)
 	return matrix, nil
 }
 
@@ -132,7 +132,7 @@ func (fsm *ForceMatrixTraditional) GetPreviousMatrices() [][][]int {
 	return fsm.previousMatrices
 }
 
-// IsSlipping examines is used to determine whether the object in contact
+// IsSlipping is used to determine whether the object in contact
 // with the sensor matrix is slipping
 func (fsm *ForceMatrixTraditional) IsSlipping(ctx context.Context) (bool, error) {
 	return slipdetection.DetectSlip(fsm, &(fsm.mu), 0, fsm.noiseThreshold, fsm.slipDetectionWindow)
