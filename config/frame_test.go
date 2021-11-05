@@ -7,12 +7,15 @@ import (
 	"testing"
 
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	"github.com/go-errors/errors"
-	"go.viam.com/utils"
 	"gonum.org/v1/gonum/num/quat"
 
+	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
+	coreutils "go.viam.com/core/utils"
 )
 
 func TestOrientation(t *testing.T) {
@@ -40,6 +43,12 @@ func TestOrientation(t *testing.T) {
 	test.That(t, frame.Parent, test.ShouldEqual, "")
 	test.That(t, frame.Translation, test.ShouldResemble, Translation{0, 0, 0})
 	test.That(t, frame.Orientation.Quaternion(), test.ShouldResemble, quat.Number{1, 0, 0, 0})
+
+	pose := frame.Pose()
+	test.That(t, pose, test.ShouldResemble, spatial.NewZeroPose())
+	staticFrame, err := frame.StaticFrame("test")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, staticFrame, test.ShouldResemble, referenceframe.NewZeroStaticFrame("test"))
 
 	// Mostly Empty Config
 	frame = Frame{}
@@ -80,4 +89,43 @@ func TestOrientation(t *testing.T) {
 	test.That(t, frame.Parent, test.ShouldEqual, "d")
 	test.That(t, frame.Translation, test.ShouldResemble, Translation{0, 0, 0})
 	test.That(t, frame.Orientation.AxisAngles(), test.ShouldResemble, &spatial.R4AA{0.78539816, 1, 0, 0})
+}
+
+func TestFrameModelPart(t *testing.T) {
+	jsonData, err := ioutil.ReadFile(coreutils.ResolveFile("config/data/model_frame.json"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// minimally specified part
+	part := &FrameSystemPart{
+		Name:             "test",
+		FrameConfig:      nil,
+		ModelFrameConfig: nil,
+	}
+	result := part.ToProtobuf()
+	test.That(t, result, test.ShouldBeNil)
+
+	// slightly specified part
+	part = &FrameSystemPart{
+		Name:             "test",
+		FrameConfig:      &Frame{Parent: "world"},
+		ModelFrameConfig: nil,
+	}
+	result = part.ToProtobuf()
+	pose := &pb.Pose{OZ: 1, Theta: 0} // zero pose
+	exp := &pb.FrameSystemConfig{Name: "test", FrameConfig: &pb.FrameConfig{Parent: "world", Pose: pose}}
+	test.That(t, result.String(), test.ShouldResemble, exp.String())
+
+	// fully specified part
+	part = &FrameSystemPart{
+		Name:             "test",
+		FrameConfig:      &Frame{Parent: "world", Translation: Translation{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
+		ModelFrameConfig: jsonData,
+	}
+	result = part.ToProtobuf()
+	pose = &pb.Pose{X: 1, Y: 2, Z: 3, OZ: 1, Theta: 0}
+	exp = &pb.FrameSystemConfig{Name: "test", FrameConfig: &pb.FrameConfig{Parent: "world", Pose: pose}, ModelJson: jsonData}
+	test.That(t, result.String(), test.ShouldResemble, exp.String())
+}
+
+func TestMergeFrameSystems(t *testing.T) {
 }

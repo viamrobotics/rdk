@@ -49,6 +49,13 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	test.That(t, len(f1Parents), test.ShouldEqual, 3)
 	test.That(t, frameNames(f1Parents), test.ShouldResemble, []string{"frame1", "frame3", "world"})
 
+	parent, err := fs.Parent(fs.GetFrame("frame1"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, parent, test.ShouldResemble, fs.GetFrame("frame3"))
+
+	parent, err = fs.Parent(fs.GetFrame("frame3"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, parent, test.ShouldResemble, fs.World())
 	// Pruning frame3 should also remove frame1
 	fs.RemoveFrame(fs.GetFrame("frame3"))
 	frames = fs.FrameNames()

@@ -165,9 +165,6 @@ func MergeFrameSystems(toFS, fromFS ref.FrameSystem, cfg *Frame) error {
 
 // makePose creates a new pose from a config
 func makePose(cfg *Frame) spatial.Pose {
-	if cfg == nil {
-		return nil
-	}
 	// get the translation vector. If there is no translation/orientation attribute will default to 0
 	translation := r3.Vector{cfg.Translation.X, cfg.Translation.Y, cfg.Translation.Z}
 	return spatial.NewPoseFromOrientation(translation, cfg.Orientation)
