@@ -34,10 +34,10 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (M
 	// Max individual step of 0.5% of full range of motion
 	mp.qstep = getFrameSteps(frame, 0.015)
 	mp.iter = 2000
+	//~ mp.iter = 1
 	
 	mp.AddConstraint("jointSwingScorer", NewJointScorer())
-	mp.AddConstraint("obstacle", fakeObstacle)
-	mp.AddConstraint("orientation", NewPoseConstraint())
+	//~ mp.AddConstraint("obstacle", fakeObstacle)
 	
 	
 	return mp, nil
@@ -161,7 +161,6 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, s
 	// Alternate to which map our random sample is added
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
 	addSeed := true
-	
 	current = &solution{frame.InterpolateInputs(seed, solutions[keys[0]], 0.5)}
 	
 	for i < mp.iter {
@@ -181,6 +180,8 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, s
 		if addSeed {
 			nearest := nearestNeighbor(current, seedMap)
 			seedReached, goalReached = mp.constrainedExtendWrapper(seedMap, goalMap, current, nearest)
+			//~ fmt.Println("current, reached", current, seedReached, goalReached)
+			//~ fmt.Println("i:", i, len(seedMap), len(goalMap))
 		}else{
 			nearest := nearestNeighbor(current, goalMap)
 			goalReached, seedReached = mp.constrainedExtendWrapper(goalMap, seedMap, current, nearest)
