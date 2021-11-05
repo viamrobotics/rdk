@@ -53,11 +53,12 @@ func CreateFramesFromPart(part *config.FrameSystemPart, logger golog.Logger) (re
 		return nil, nil, errors.New("config for FrameSystemPart is nil")
 	}
 	var modelFrame referenceframe.Frame
+	var err error
 	// use identity frame if no model frame defined
 	if part.ModelFrameConfig == nil {
 		modelFrame = referenceframe.NewZeroStaticFrame(part.Name)
 	} else {
-		modelFrame, err := kinematics.ParseJSON(part.ModelFrameConfig, part.Name)
+		modelFrame, err = kinematics.ParseJSON(part.ModelFrameConfig, part.Name)
 		if err != nil {
 			return nil, nil, err
 		}
