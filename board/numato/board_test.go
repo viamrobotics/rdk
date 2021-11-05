@@ -56,6 +56,8 @@ func TestNumato1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer b.Close()
 
+	// For this to work 0 has be plugged into 1
+
 	// set to low
 	err = b.GPIOSet(ctx, "0", false)
 	test.That(t, err, test.ShouldBeNil)
