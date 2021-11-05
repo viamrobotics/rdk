@@ -38,7 +38,7 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (*
 	
 	mp.AddConstraint("jointSwingScorer", NewJointScorer())
 	mp.AddConstraint("obstacle", fakeObstacle)
-	
+	mp.AddConstraint("orientation", NewPoseConstraint())
 	
 	return mp, nil
 }
@@ -68,7 +68,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, s
 	}
 	
 	// How many of the top solutions to try
-	nSolutions := 50
+	nSolutions := 5
 
 	solutions, err := getSolutions(ctx, mp.frame, mp.solver, goal, seed, mp.constraintHandler)
 	if err != nil {
@@ -96,10 +96,6 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, s
 	
 	seedMap := make(map[*solution]*solution)
 	seedMap[&solution{seed}] = nil
-
-	//~ orig := &solution{seed}
-	
-	i := 0
 	
 	mp.logger.Debug("making RRT map")
 	
@@ -108,13 +104,13 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, s
 	addSeed := true
 	target := &solution{frame.InterpolateInputs(seed, solutions[keys[0]], 0.5)}
 	
-	for i < mp.iter {
+	
+	for i := 0; i < mp.iter; i++ {
 		select {
 		case <-ctx.Done():
 			return nil, errors.New("context Done signal")
 		default:
 		}
-		i++
 		if i % 10 == 0 {
 			fmt.Println("i:", i, len(seedMap), len(goalMap))
 		}
@@ -123,24 +119,21 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, s
 		
 		// Alternate which tree we extend
 		if addSeed {
+			// extend seed tree first
 			nearest := nearestNeighbor(target, seedMap)
 			seedReached, goalReached = mp.constrainedExtendWrapper(seedMap, goalMap, nearest, target)
-			fmt.Println("target, reached", target, seedReached, goalReached)
-			fmt.Println("i:", i, len(seedMap), len(goalMap))
 		}else{
+			// extend goal tree first
 			nearest := nearestNeighbor(target, goalMap)
 			goalReached, seedReached = mp.constrainedExtendWrapper(goalMap, seedMap, nearest, target)
 		}
 		
 		if inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist {
-			//~ fmt.Println("got path!")
 			// extract the path to the seed
 			for seedReached != nil {
 				inputSteps = append(inputSteps, seedReached.inputs)
 				seedReached = seedMap[seedReached]
 			}
-			//~ fmt.Println("path1", inputSteps)
-			inputSteps = append(inputSteps, seedCopy)
 			// reverse the slice
 			for i, j := 0, len(inputSteps)-1; i < j; i, j = i+1, j-1 {
 				inputSteps[i], inputSteps[j] = inputSteps[j], inputSteps[i]
@@ -150,24 +143,23 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, s
 				inputSteps = append(inputSteps, goalReached.inputs)
 				goalReached = goalMap[goalReached]
 			}
-			//~ fmt.Println("path", inputSteps)
-			inputSteps = mp.smoothPath(ctx, inputSteps, i)
+			inputSteps = mp.smoothPath(ctx, inputSteps)
 			mp.logger.Debug("got path!")
 			return inputSteps, nil
 		}
-		mp.fastGradDescent.SetDistFunc(constantOrient(500))
+		//~ mp.fastGradDescent.SetDistFunc(constantOrient(500))
 		target = &solution{frame.RandomFrameInputs(mp.frame, nil)}
 		//~ // Guarantee random sample meets constraints
-		target.inputs = mp.constrainNear(target.inputs, target.inputs)
-		for len(target.inputs) == 0 {
-			select {
-			case <-ctx.Done():
-				return nil, errors.New("context Done signal")
-			default:
-			}
-			target = &solution{frame.RandomFrameInputs(mp.frame, nil)}
-			target.inputs = mp.constrainNear(target.inputs, target.inputs)
-		}
+		//~ target.inputs = mp.constrainNear(target.inputs, target.inputs)
+		//~ for len(target.inputs) == 0 {
+			//~ select {
+			//~ case <-ctx.Done():
+				//~ return nil, errors.New("context Done signal")
+			//~ default:
+			//~ }
+			//~ target = &solution{frame.RandomFrameInputs(mp.frame, nil)}
+			//~ target.inputs = mp.constrainNear(target.inputs, target.inputs)
+		//~ }
 		mp.fastGradDescent.SetDistFunc(constantOrient(5))
 		addSeed = !addSeed
 	}
@@ -197,18 +189,12 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(rrtMap map[*solution]*solution,
 	// How close to get to the solution
 	i := 0
 	for {
-		//~ fmt.Println("iter", i, oldNear, target)
 		i++
 		if inputDist(near.inputs, target.inputs) < mp.solDist {
-			//~ fmt.Println("success!")
 			return near
 		} else if inputDist(near.inputs, target.inputs) > inputDist(oldNear.inputs, target.inputs) {
-			//~ fmt.Println("moved away")
-			//~ fmt.Println("too far", oldNear, "\n", near, "\n", target)
 			return oldNear
 		} else if i > 2 && inputDist(near.inputs, oldNear.inputs) < mp.solDist*mp.solDist*mp.solDist {
-			//~ fmt.Println("repeating", oldNear, "\n", near, "\n", target)
-			//~ fmt.Println("repeating")
 			return oldNear
 		}
 		
@@ -216,7 +202,6 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(rrtMap map[*solution]*solution,
 		
 		newNear := make([]frame.Input, 0, len(near.inputs))
 		
-		//~ fmt.Println("altering", near.inputs)
 		// alter near to be closer to target
 		for i, nearInput := range near.inputs {
 			if nearInput.Value == target.inputs[i].Value {
@@ -229,34 +214,28 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(rrtMap map[*solution]*solution,
 				newNear = append(newNear, frame.Input{nearInput.Value + newVal})
 			}
 		}
-		//~ fmt.Println("altered to", newNear)
-		//~ fmt.Println("nearing")
+		// if we are not meeting a constraint, gradient descend to the constraint
 		newNear = mp.constrainNear(oldNear.inputs, newNear)
-		//~ fmt.Println("neared to", newNear)
-		//~ fmt.Println("target", target.inputs)
 		if newNear != nil {
-			//~ fmt.Println("checking")
+			// ensure path between oldNear and newNear satisfys constraints along the way
 			ok := mp.CheckConstraintPath(constraintInput{startInput: oldNear.inputs, endInput: newNear, frame: mp.frame})
-			//~ fmt.Println("checked", ok)
 			if ok {
 				near = &solution{newNear}
 				if oldNear == nil {
-					//~ fmt.Println("BAD", near)
 				}
 				rrtMap[near] = oldNear
 			}else{
-				//~ fmt.Println("not ok")
 				return oldNear
 			}
 		}else{
-			//~ fmt.Println("nil")
 			return oldNear
 		}
 	}
 }
 
+// constrainNear will do a IK gradient descent from seedInputs to target. If a gradient descent distance function has
+// been specified, this will 
 func (mp *cBiRRTMotionPlanner) constrainNear(seedInputs, target []frame.Input) []frame.Input {
-	//~ fmt.Println("constraining near")
 	seedPos, err := mp.frame.Transform(seedInputs)
 	if err != nil{
 		return nil
@@ -294,17 +273,18 @@ func (mp *cBiRRTMotionPlanner) constrainNear(seedInputs, target []frame.Input) [
 	if err != nil {
 		return nil
 	}
-	//~ fmt.Println("solved constrain")
 	return solved
 }
 
-func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps [][]frame.Input, iter int) [][]frame.Input {
-	fmt.Println("smoothing path of len", len(inputSteps), iter)
+func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps [][]frame.Input) [][]frame.Input {
+	fmt.Println("smoothing path of len", len(inputSteps))
 	
-	iter = int(math.Max(float64(mp.iter - len(inputSteps)*len(inputSteps)), float64(mp.iter - 500)))
+	iter := int(math.Max(float64(mp.iter - len(inputSteps)*len(inputSteps)), float64(mp.iter - 500)))
+	
+	//~ iter = mp.iter - 8
 	
 	for iter < mp.iter && len(inputSteps) > 2 {
-		//~ fmt.Println(iter)
+		//~ fmt.Println("before", inputSteps)
 		iter++
 		select {
 		case <-ctx.Done():
@@ -322,10 +302,10 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps [][]fr
 		jSol := &solution{inputSteps[j]}
 		shortcut[jSol] = nil
 		
-		// extend backwards for convenience later
+		// extend backwards for convenience later. Should work equally well in both directions
 		reached := mp.constrainedExtend(shortcut, jSol, iSol)
 		if inputDist(inputSteps[i], reached.inputs) < mp.solDist && len(shortcut) <= j - i {
-			newInputSteps := inputSteps[:i + 1]
+			newInputSteps := inputSteps[:i]
 			for reached != nil {
 				newInputSteps = append(newInputSteps, reached.inputs)
 				reached = shortcut[reached]
@@ -333,8 +313,6 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps [][]fr
 			newInputSteps = append(newInputSteps, inputSteps[j+1:]...)
 			inputSteps = newInputSteps
 			fmt.Println("smoothed to", len(inputSteps))
-		//~ }else if inputDist(inputSteps[i], reached.inputs) < mp.solDist{
-			//~ fmt.Println(len(shortcut), ">", j - i)
 		}
 	}
 	//~ fmt.Println("final", len(inputSteps), iter, inputSteps)
