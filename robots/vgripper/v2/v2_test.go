@@ -60,110 +60,8 @@ func createWorkingMotor() *inject.Motor {
 	return fakeMotor
 }
 
-func TestNew(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-
-	// Return error when not able to find board.
-	fakeRobot := &inject.Robot{}
-	fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return nil, false
-	}
-	_, err := New(context.Background(), fakeRobot, config.Component{}, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	// Return error when not able to find motor.
-	fakeRobot = &inject.Robot{}
-	fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return &inject.Board{}, true
-	}
-	fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		return nil, false
-	}
-
-	_, err = New(context.Background(), fakeRobot, config.Component{}, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	// Expect the motor to support position measurements.
-	fakeRobot = &inject.Robot{}
-	fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return &inject.Board{}, true
-	}
-	fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		fakeMotor := &inject.Motor{}
-		fakeMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
-			return false, nil
-		}
-		return fakeMotor, true
-	}
-
-	_, err = New(context.Background(), fakeRobot, config.Component{}, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	// Return error when not able to find current analog reader.
-	fakeRobot = &inject.Robot{}
+func createWorkingBoard() *inject.Board {
 	fakeBoard := &inject.Board{}
-	fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return fakeBoard, true
-	}
-	fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		fakeMotor := &inject.Motor{}
-		fakeMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
-			return true, nil
-		}
-		return fakeMotor, true
-	}
-	fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-		return nil, false
-	}
-
-	_, err = New(context.Background(), fakeRobot, config.Component{}, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	// Return error when not able to find forcematrix.
-	fakeRobot = &inject.Robot{}
-	fakeBoard = &inject.Board{}
-	fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return fakeBoard, true
-	}
-	fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		fakeMotor := createWorkingMotor()
-		return fakeMotor, true
-	}
-	fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-		return &inject.AnalogReader{}, true
-	}
-	fakeRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-		return nil, false
-	}
-
-	_, err = New(context.Background(), fakeRobot, config.Component{}, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	// Return error when returned sensor is not a forcematrix.
-	fakeRobot = &inject.Robot{}
-	fakeBoard = &inject.Board{}
-	fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return fakeBoard, true
-	}
-	fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		fakeMotor := createWorkingMotor()
-		return fakeMotor, true
-	}
-	fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-		return &inject.AnalogReader{}, true
-	}
-	fakeRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-		return &inject.Sensor{}, true
-	}
-
-	_, err = New(context.Background(), fakeRobot, config.Component{}, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	// Test after calling the calibrate function:
-	// Expect vg.closedDirection and vg.openDirection to be specified successfully
-	fakeRobot = &inject.Robot{}
-
-	fakeBoard = &inject.Board{}
 	fakeAnalogReader := &inject.AnalogReader{}
 	fakeAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
 		return 0, nil
@@ -172,7 +70,13 @@ func TestNew(t *testing.T) {
 	fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 		return fakeAnalogReader, true
 	}
+	return fakeBoard
+}
 
+func createWorkingRobotWithoutForceMatrix() *inject.Robot {
+	fakeRobot := &inject.Robot{}
+
+	fakeBoard := createWorkingBoard()
 	fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 		return fakeBoard, true
 	}
@@ -188,65 +92,184 @@ func TestNew(t *testing.T) {
 	fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
 		return fakeMotor, true
 	}
+	return fakeRobot
 
-	// Error when pressure is same for open and closed position
-	forceMatrix := &inject.ForceMatrix{}
-	forceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
-		return [][]int{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}, nil
-	}
-	fakeRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-		return forceMatrix, true
-	}
+}
 
-	_, err = New(context.Background(), fakeRobot, config.Component{}, logger)
-	test.That(t, err, test.ShouldNotBeNil)
+func TestNew(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 
-	// Test if configuration is successful:
-	rand.Seed(time.Now().UnixNano())
-
-	// Error when open or closed directions are not successfully specified because
-	// the pressureLimit doesn't divide them distinctly.
-	forceMatrix = &inject.ForceMatrix{}
-	pressureLimit := 500.
-	numIterations := 0
-	forceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
-		rows, cols := 3, 4
-		matrix := make([][]int, rows)
-		if numIterations < NumMeasurements {
-			for row := 0; row < rows; row++ {
-				matrix[row] = make([]int, cols)
-				for col := 0; col < cols; col++ {
-					matrix[row][col] = rand.Intn(500) + 501
-				}
-			}
-		} else {
-			for row := 0; row < rows; row++ {
-				matrix[row] = make([]int, cols)
-				for col := 0; col < cols; col++ {
-					matrix[row][col] = rand.Intn(500) + 501
-				}
-			}
+	t.Run("return error when not able to find board", func(t *testing.T) {
+		fakeRobot := &inject.Robot{}
+		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return nil, false
 		}
-		numIterations++
-		return matrix, nil
-	}
-	fakeRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-		return forceMatrix, true
-	}
+		_, err := New(context.Background(), fakeRobot, config.Component{}, logger)
+		test.That(t, err, test.ShouldNotBeNil)
 
-	_, err = New(context.Background(), fakeRobot, config.Component{Attributes: config.AttributeMap{"pressureLimit": pressureLimit}}, logger)
-	test.That(t, err, test.ShouldNotBeNil)
+	})
 
-	// No error when open and closed directions are correctly defined
-	forceMatrix = createWorkingForceMatrix()
-	pressureLimit = 500.
-	fakeRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-		return forceMatrix, true
-	}
+	t.Run("return error when not able to find motor", func(t *testing.T) {
+		fakeRobot := &inject.Robot{}
+		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return &inject.Board{}, true
+		}
+		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
+			return nil, false
+		}
 
-	fakeGripper, err := New(context.Background(), fakeRobot, config.Component{Attributes: config.AttributeMap{"pressureLimit": pressureLimit}}, logger)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeGripper.closedDirection != fakeGripper.openDirection, test.ShouldBeTrue)
+		_, err := New(context.Background(), fakeRobot, config.Component{}, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("expect the motor to support position measurements", func(t *testing.T) {
+		fakeRobot := &inject.Robot{}
+		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return &inject.Board{}, true
+		}
+		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
+			fakeMotor := &inject.Motor{}
+			fakeMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
+				return false, nil
+			}
+			return fakeMotor, true
+		}
+
+		_, err := New(context.Background(), fakeRobot, config.Component{}, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+
+	})
+
+	t.Run("return error when not able to find current analog reader", func(t *testing.T) {
+		fakeRobot := &inject.Robot{}
+		fakeBoard := &inject.Board{}
+		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return fakeBoard, true
+		}
+		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
+			fakeMotor := &inject.Motor{}
+			fakeMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
+				return true, nil
+			}
+			return fakeMotor, true
+		}
+		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
+			return nil, false
+		}
+
+		_, err := New(context.Background(), fakeRobot, config.Component{}, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("return error when not able to find forcematrix", func(t *testing.T) {
+		fakeRobot := &inject.Robot{}
+		fakeBoard := &inject.Board{}
+		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return fakeBoard, true
+		}
+		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
+			fakeMotor := createWorkingMotor()
+			return fakeMotor, true
+		}
+		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
+			return &inject.AnalogReader{}, true
+		}
+		fakeRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+			return nil, false
+		}
+
+		_, err := New(context.Background(), fakeRobot, config.Component{}, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("return error when returned sensor is not a forcematrix", func(t *testing.T) {
+		fakeRobot := &inject.Robot{}
+		fakeBoard := &inject.Board{}
+		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return fakeBoard, true
+		}
+		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
+			fakeMotor := createWorkingMotor()
+			return fakeMotor, true
+		}
+		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
+			return &inject.AnalogReader{}, true
+		}
+		fakeRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+			return &inject.Sensor{}, true
+		}
+
+		_, err := New(context.Background(), fakeRobot, config.Component{}, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("test calibrate function", func(t *testing.T) {
+		rand.Seed(time.Now().UnixNano())
+
+		t.Run("return error when pressure is the same for the open and closed position", func(t *testing.T) {
+			fakeRobot := createWorkingRobotWithoutForceMatrix()
+			forceMatrix := &inject.ForceMatrix{}
+			forceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+				return [][]int{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}, nil
+			}
+			fakeRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+				return forceMatrix, true
+			}
+
+			_, err := New(context.Background(), fakeRobot, config.Component{}, logger)
+			test.That(t, err, test.ShouldNotBeNil)
+		})
+
+		t.Run("return error when open or closed directions are not successfully specified because"+
+			"the pressureLimit doesn't divide them distinctly", func(t *testing.T) {
+			fakeRobot := createWorkingRobotWithoutForceMatrix()
+			forceMatrix := &inject.ForceMatrix{}
+			pressureLimit := 500
+			numIterations := 0
+			forceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+				rows, cols := 3, 4
+				matrix := make([][]int, rows)
+				if numIterations < NumMeasurements {
+					for row := 0; row < rows; row++ {
+						matrix[row] = make([]int, cols)
+						for col := 0; col < cols; col++ {
+							matrix[row][col] = rand.Intn(pressureLimit) + 501
+						}
+					}
+				} else {
+					for row := 0; row < rows; row++ {
+						matrix[row] = make([]int, cols)
+						for col := 0; col < cols; col++ {
+							matrix[row][col] = rand.Intn(pressureLimit) + 501
+						}
+					}
+				}
+				numIterations++
+				return matrix, nil
+			}
+			fakeRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+				return forceMatrix, true
+			}
+
+			_, err := New(context.Background(), fakeRobot,
+				config.Component{Attributes: config.AttributeMap{"pressureLimit": float64(pressureLimit)}}, logger)
+			test.That(t, err, test.ShouldNotBeNil)
+		})
+
+		t.Run("expect no error when open and closed directions are correctly defined", func(t *testing.T) {
+			fakeRobot := createWorkingRobotWithoutForceMatrix()
+			forceMatrix := createWorkingForceMatrix()
+			pressureLimit := 500
+			fakeRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+				return forceMatrix, true
+			}
+
+			fakeGripper, err := New(context.Background(), fakeRobot,
+				config.Component{Attributes: config.AttributeMap{"pressureLimit": float64(pressureLimit)}}, logger)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, fakeGripper.closedDirection != fakeGripper.openDirection, test.ShouldBeTrue)
+		})
+	})
 }
 
 func TestOpen(t *testing.T) {
@@ -257,14 +280,7 @@ func TestOpen(t *testing.T) {
 
 	// Test Open
 	fakeRobot := &inject.Robot{}
-	fakeBoard := &inject.Board{}
-	fakeAnalogReader := &inject.AnalogReader{}
-	fakeAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
-		return 0, nil
-	}
-	fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-		return fakeAnalogReader, true
-	}
+	fakeBoard := createWorkingBoard()
 	fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 		return fakeBoard, true
 	}
@@ -300,14 +316,7 @@ func TestOpen(t *testing.T) {
 
 	// Return error when the open position isn't reached before the timeout
 	fakeRobot = &inject.Robot{}
-	fakeBoard = &inject.Board{}
-	fakeAnalogReader = &inject.AnalogReader{}
-	fakeAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
-		return 0, nil
-	}
-	fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-		return fakeAnalogReader, true
-	}
+	fakeBoard = createWorkingBoard()
 	fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 		return fakeBoard, true
 	}
