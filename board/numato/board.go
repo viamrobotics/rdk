@@ -82,10 +82,9 @@ type numatoBoard struct {
 	pins    int
 	analogs map[string]board.AnalogReader
 
-	port                    io.ReadWriteCloser
-	closed                  int32
-	activeBackgroundWorkers sync.WaitGroup
-	logger                  golog.Logger
+	port   io.ReadWriteCloser
+	closed int32
+	logger golog.Logger
 
 	lines chan string
 	mu    sync.Mutex
@@ -133,7 +132,7 @@ func (b *numatoBoard) fixPin(pin string) string {
 func (b *numatoBoard) doSendLocked(ctx context.Context, msg string) error {
 	_, err := b.port.Write(([]byte)(msg + "\n"))
 
-	utils.SelectContextOrWait(ctx, 50*time.Microsecond)
+	utils.SelectContextOrWait(ctx, 100*time.Microsecond)
 	return err
 }
 
@@ -168,9 +167,7 @@ func (b *numatoBoard) doSendReceive(ctx context.Context, msg string) (string, er
 }
 
 func (b *numatoBoard) readThread() {
-	defer b.activeBackgroundWorkers.Done()
-
-	debug := false
+	debug := true
 
 	in := bufio.NewReader(b.port)
 	for {
@@ -179,13 +176,13 @@ func (b *numatoBoard) readThread() {
 			if atomic.LoadInt32(&b.closed) == 1 {
 				return
 			}
-			b.logger.Warnw("error reading", err)
+			b.logger.Warnw("error reading", "err", err)
 			break // TODO: restart connection
 		}
 		line = strings.TrimSpace(line)
 
 		if debug {
-			b.logger.Debugw("got line", line)
+			b.logger.Debugf("got line %s", line)
 		}
 
 		if len(line) == 0 || line[0] == '>' {
@@ -197,7 +194,7 @@ func (b *numatoBoard) readThread() {
 		}
 
 		if debug {
-			b.logger.Debugw("    sending line", line)
+			b.logger.Debugf("    sending line %s", line)
 		}
 		b.lines <- line
 	}
@@ -295,7 +292,6 @@ func (b *numatoBoard) Close() error {
 	if err != nil {
 		return err
 	}
-	b.activeBackgroundWorkers.Wait()
 	return nil
 }
 
@@ -354,14 +350,13 @@ func connect(ctx context.Context, conf *board.Config, logger golog.Logger) (*num
 	}
 
 	b.lines = make(chan string)
-	b.activeBackgroundWorkers.Add(1)
 	go b.readThread()
 
 	ver, err := b.doSendReceive(ctx, "ver")
 	if err != nil {
 		return nil, multierr.Combine(b.Close(), err)
 	}
-	b.logger.Debugw("numato version", ver)
+	b.logger.Debugw("numato startup", "version", ver)
 
 	return b, nil
 }
