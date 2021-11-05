@@ -37,8 +37,32 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (*
 	//~ mp.iter = 1
 	
 	mp.AddConstraint("jointSwingScorer", NewJointScorer())
+	
+	return mp, nil
+}
+
+func NewCBiRRTMotionPlanner_petertest(frame frame.Frame, logger golog.Logger, nCPU int) (*cBiRRTMotionPlanner, error) {
+	ik, err := kinematics.CreateCombinedIKSolver(frame, logger, nCPU)
+	if err != nil {
+		return nil, err
+	}
+	nlopt, err := kinematics.CreateNloptIKSolver(frame, logger, 1)
+	if err != nil {
+		return nil, err
+	}
+	// nlopt should try only once
+	nlopt.SetMaxIter(1)
+	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: 0.01}
+	
+	// Max individual step of 0.5% of full range of motion
+	mp.qstep = getFrameSteps(frame, 0.015)
+	mp.iter = 2000
+	//~ mp.iter = 1
+	
+	mp.AddConstraint("jointSwingScorer", NewJointScorer())
 	mp.AddConstraint("obstacle", fakeObstacle)
 	mp.AddConstraint("orientation", NewPoseConstraint())
+	mp.fastGradDescent.SetDistFunc(constantOrient(5))
 	
 	return mp, nil
 }
@@ -147,7 +171,6 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, s
 			mp.logger.Debug("got path!")
 			return inputSteps, nil
 		}
-		//~ mp.fastGradDescent.SetDistFunc(constantOrient(500))
 		target = &solution{frame.RandomFrameInputs(mp.frame, nil)}
 		//~ // Guarantee random sample meets constraints
 		//~ target.inputs = mp.constrainNear(target.inputs, target.inputs)
@@ -160,7 +183,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, s
 			//~ target = &solution{frame.RandomFrameInputs(mp.frame, nil)}
 			//~ target.inputs = mp.constrainNear(target.inputs, target.inputs)
 		//~ }
-		mp.fastGradDescent.SetDistFunc(constantOrient(5))
+		
 		addSeed = !addSeed
 	}
 	

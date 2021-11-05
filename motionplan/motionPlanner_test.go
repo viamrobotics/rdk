@@ -28,7 +28,7 @@ func TestSimpleMotion(t *testing.T) {
 	m, err := kinematics.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
 	
-	mp, err := NewCBiRRTMotionPlanner(m, logger, 4)
+	mp, err := NewCBiRRTMotionPlanner_petertest(m, logger, 4)
 	test.That(t, err, test.ShouldBeNil)
 	//~ mp.AddConstraint("orientation", NewPoseConstraint())
 
