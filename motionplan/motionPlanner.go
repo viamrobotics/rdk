@@ -252,6 +252,8 @@ func fixOvIncrement(pos, seed *pb.ArmPosition) *pb.ArmPosition {
 }
 
 
+// getSolutions will initiate an IK solver for the given position and seed, collect ALL solutions, and return them scored by constraints.
+// TODO: currently at least one constraint is necessary, and there's no way to short-circuit the solving.
 func getSolutions(ctx context.Context, f frame.Frame, solver kinematics.InverseKinematics, goal *pb.ArmPosition, seed []frame.Input, mp constraintHandler) (map[float64][]frame.Input, error) {
 	
 	

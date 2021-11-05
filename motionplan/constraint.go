@@ -72,7 +72,8 @@ func (c *constraintHandler) CheckConstraints(cInput constraintInput) (bool, floa
 	return true, score
 }
 
-// CheckConstraintPath will interpolate between two joint inputs and check that `true` is returned for all
+// CheckConstraintPath will interpolate between two joint inputs and check that `true` is returned for all constraints
+// in all intermediate positions
 func (c *constraintHandler) CheckConstraintPath(ci constraintInput) bool {
 	
 	var seedPos, goalPos spatial.Pose
