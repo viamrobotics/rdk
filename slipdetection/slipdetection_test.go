@@ -65,22 +65,22 @@ func TestDetectSlip(t *testing.T) {
 	slipDetector := mockReadingsHistoryProviderNeverSlipping{}
 
 	// bad version test
-	_, err := DetectSlip(&slipDetector, &sync.Mutex{}, 1, 2)
+	_, err := DetectSlip(&slipDetector, &sync.Mutex{}, 1, 40.0, 2)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// DetectSlipV0: asking for more frames than exist yet should return false
-	isSlipping, err := DetectSlip(&slipDetector, &sync.Mutex{}, 0, 5)
+	isSlipping, err := DetectSlip(&slipDetector, &sync.Mutex{}, 0, 40.0, 5)
 	test.That(t, isSlipping, test.ShouldBeFalse)
 	test.That(t, err, test.ShouldBeNil)
 
 	// DetectSlipV0: no slip case
-	isSlipping, err = DetectSlip(&slipDetector, &sync.Mutex{}, 0, 2)
+	isSlipping, err = DetectSlip(&slipDetector, &sync.Mutex{}, 0, 40.0, 2)
 	test.That(t, isSlipping, test.ShouldBeFalse)
 	test.That(t, err, test.ShouldBeNil)
 
 	alwaysSlippingDetector := mockReadingsHistoryProviderAlwaysSlipping{}
 
-	isSlipping, err = DetectSlip(&alwaysSlippingDetector, &sync.Mutex{}, 0, 4)
+	isSlipping, err = DetectSlip(&alwaysSlippingDetector, &sync.Mutex{}, 0, 40.0, 4)
 	test.That(t, isSlipping, test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
 }
