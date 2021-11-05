@@ -1247,24 +1247,6 @@ func (s *Server) FrameServiceConfig(ctx context.Context, req *pb.FrameServiceCon
 	return &pb.FrameServiceConfigResponse{FrameSystemConfigs: configs}, nil
 }
 
-// FrameServiceModel returns the dynamic model frame of the named robot part. Returns nil if robot part does not have a model frame.
-func (s *Server) FrameServiceModel(ctx context.Context, req *pb.FrameServiceModelRequest) (*pb.FrameServiceModelResponse, error) {
-	svc, ok := s.r.ServiceByName(frameService)
-	if !ok {
-		return nil, errors.Errorf("no service named %q", frameService)
-	}
-	fsSvc, ok := svc.(framesystem.Service)
-	if !ok {
-		return nil, errors.New("service is not a framesystem.Service")
-	}
-	modelJSON, err := fsSvc.ModelFrame(ctx, req.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.FrameServiceModelResponse{ModelJson: modelJSON}, nil
-}
-
 // NavigationServiceMode returns the mode of the service.
 func (s *Server) NavigationServiceMode(ctx context.Context, req *pb.NavigationServiceModeRequest) (*pb.NavigationServiceModeResponse, error) {
 	svc, ok := s.r.ServiceByName("navigation")

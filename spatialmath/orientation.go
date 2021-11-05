@@ -141,7 +141,10 @@ func QuatToOV(q quat.Number) *OrientationVector {
 			ov.Theta = -math.Atan2(newX.Jmag, newX.Imag)
 		}
 	}
-
+	// convert instances of -0 to +0
+	if ov.Theta == -0. {
+		ov.Theta = 0.
+	}
 	return ov
 }
 

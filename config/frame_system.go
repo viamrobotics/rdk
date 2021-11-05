@@ -30,6 +30,9 @@ func (part *FrameSystemPart) ToProtobuf() *pb.FrameSystemConfig {
 
 // ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart
 func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) *FrameSystemPart {
+	if fsc == nil {
+		return nil
+	}
 	pose := spatialmath.NewPoseFromProtobuf(fsc.FrameConfig.Pose)
 	point := pose.Point()
 	translation := Translation{X: point.X, Y: point.Y, Z: point.Z}
