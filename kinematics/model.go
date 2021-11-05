@@ -89,14 +89,6 @@ func (m *Model) Name() string {
 	return m.name
 }
 
-// Clone creates a copy of the Frame with a new name, or the same name if the string is empty
-func (m *Model) Clone(name string) referenceframe.Frame {
-	if name == "" {
-		name = m.Name()
-	}
-	return &Model{m.manufacturer, name, m.OrdTransforms, m.SolveWeights}
-}
-
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
 func (m *Model) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {

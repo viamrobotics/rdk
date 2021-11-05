@@ -76,14 +76,6 @@ func (sf *solverFrame) Name() string {
 	return sf.name
 }
 
-// Clone creates a copy of the Frame with a new name, or the same name if the string is empty
-func (sf *solverFrame) Clone(name string) frame.Frame {
-	if name == "" {
-		name = sf.Name()
-	}
-	return &solverFrame{name, sf.fss, sf.frames, sf.solveFrame, sf.goalFrame}
-}
-
 // Transform returns the pose between the two frames of this solver for a given set of inputs.
 func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if len(inputs) != len(sf.DoF()) {

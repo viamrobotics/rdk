@@ -62,14 +62,14 @@ func TestDualQuatTransform(t *testing.T) {
 
 	trAA := NewPoseFromAxisAngle(r3.Vector{4., 2., 6.}, r3.Vector{1, 0, 0}, math.Pi) // same transformation from axis angle
 	// ensure transformation is the same between both definitions
-	test.That(t, tr.Real.Real, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Real.Real)
-	test.That(t, tr.Real.Imag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Real.Imag)
-	test.That(t, tr.Real.Jmag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Real.Jmag)
-	test.That(t, tr.Real.Kmag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Real.Kmag)
-	test.That(t, tr.Dual.Real, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Dual.Real)
-	test.That(t, tr.Dual.Imag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Dual.Imag)
-	test.That(t, tr.Dual.Jmag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Dual.Jmag)
-	test.That(t, tr.Dual.Kmag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Dual.Kmag)
+	test.That(t, tr.Real.Real, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Real.Real)
+	test.That(t, tr.Real.Imag, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Real.Imag)
+	test.That(t, tr.Real.Jmag, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Real.Jmag)
+	test.That(t, tr.Real.Kmag, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Real.Kmag)
+	test.That(t, tr.Dual.Real, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Dual.Real)
+	test.That(t, tr.Dual.Imag, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Dual.Imag)
+	test.That(t, tr.Dual.Jmag, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Dual.Jmag)
+	test.That(t, tr.Dual.Kmag, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Dual.Kmag)
 
 	expectedPose := NewPoseFromPoint(r3.Vector{7., -2., 1.})
 	expectedPoint := expectedPose.Point()
