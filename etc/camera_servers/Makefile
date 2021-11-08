@@ -6,11 +6,12 @@ endif
 
 LIB_FILES = cameraserver.cpp
 
+
 setupmacos: macos.sh
 	./macos.sh
                       
 cubeeyeserver: cubeeyeserver.cpp $(LIB_FILES)
-	g++ -g -std=c++11 cubeeyeserver.cpp $(LIB_FILES) `pkg-config --cflags --libs libhttpserver` -I./include/CubeEye -lpthread -L./lib -lCubeEye -o cubeeyeserver
+	g++ -g -std=c++11 cubeeyeserver.cpp $(LIB_FILES) `pkg-config --cflags --libs libhttpserver` -I../../../S100Dcam/include/CubeEye -lpthread -L../../../S100Dcam/lib -lCubeEye -o cubeeyeserver
 
 intelrealserver: intelrealserver.cpp $(LIB_FILES)
 	g++ -g -std=c++17 intelrealserver.cpp $(LIB_FILES) `pkg-config --cflags --libs realsense2 libhttpserver` $(special) -o intelrealserver
