@@ -8,6 +8,7 @@ import (
 	"go.viam.com/core/services/framesystem"
 )
 
+// FrameSystemService is an injected FrameSystem service
 type FrameSystemService struct {
 	framesystem.Service
 	FrameSystemConfigFunc func(ctx context.Context) ([]*config.FrameSystemPart, error)

@@ -5,6 +5,7 @@ import (
 	"context"
 	"image"
 	"image/jpeg"
+	"math"
 	"net"
 	"testing"
 	"time"
@@ -31,6 +32,7 @@ import (
 	"go.viam.com/core/pointcloud"
 	metadatapb "go.viam.com/core/proto/api/service/v1"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/sensor"
@@ -672,6 +674,34 @@ func TestClient(t *testing.T) {
 		return &cfg, nil
 	}
 
+	fsConfigs := []*config.FrameSystemPart{
+		{
+			Name: "frame1",
+			FrameConfig: &config.Frame{
+				Parent:      referenceframe.World,
+				Translation: config.Translation{1, 2, 3},
+				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
+			},
+		},
+		{
+			Name: "frame2",
+			FrameConfig: &config.Frame{
+				Parent:      "frame1",
+				Translation: config.Translation{4, 5, 6},
+			},
+		},
+	}
+	fss := &inject.FrameSystemService{}
+	fss.FrameSystemConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
+		return fsConfigs, nil
+	}
+	injectRobot1.ServiceByNameFunc = func(name string) (interface{}, bool) {
+		services := make(map[string]interface{})
+		services["frame_system"] = fss
+		service, ok := services[name]
+		return service, ok
+	}
+
 	client, err := NewClient(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -681,6 +711,28 @@ func TestClient(t *testing.T) {
 	test.That(t, newCfg.Components[1], test.ShouldResemble, cfg.Components[1])
 	test.That(t, newCfg.Components[1].Frame, test.ShouldBeNil)
 
+	// test robot frame system
+	frameSys, err := client.FrameSystem(context.Background(), "", "")
+	test.That(t, err, test.ShouldBeNil)
+	frame1 := frameSys.GetFrame("frame1")
+	frame1Offset := frameSys.GetFrame("frame1_offset")
+	frame2 := frameSys.GetFrame("frame2")
+	frame2Offset := frameSys.GetFrame("frame2_offset")
+
+	resFrame, err := frameSys.Parent(frame2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resFrame, test.ShouldResemble, frame2Offset)
+	resFrame, err = frameSys.Parent(frame2Offset)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resFrame, test.ShouldResemble, frame1)
+	resFrame, err = frameSys.Parent(frame1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resFrame, test.ShouldResemble, frame1Offset)
+	resFrame, err = frameSys.Parent(frame1Offset)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resFrame, test.ShouldResemble, frameSys.World())
+
+	// test status
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return nil, errors.New("whoops")
 	}
