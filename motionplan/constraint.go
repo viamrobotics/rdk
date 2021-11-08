@@ -64,6 +64,7 @@ func (c *constraintHandler) CheckConstraints(cInput constraintInput) (bool, floa
 	score := 0.
 	for _, cFunc := range c.constraints {
 		pass, cScore := cFunc(cInput)
+		//~ fmt.Println(name, pass)
 		if !pass {
 			return false, math.Inf(1)
 		}
@@ -196,10 +197,18 @@ func fakeObstacle(ci constraintInput) (bool, float64) {
 	checkPt := func(pose spatial.Pose) bool {
 		pt := pose.Point()
 		
-		// cardboard box
-		if pt.X > 275 && pt.X < 420 {
-			if pt.Y < 310 && pt.Y > -310 {
-				if pt.Z < 275 {
+		//~ // cardboard box
+		//~ if pt.X > 275 && pt.X < 420 {
+			//~ if pt.Y < 310 && pt.Y > -310 {
+				//~ if pt.Z < 275 {
+					//~ return false
+				//~ }
+			//~ }
+		//~ }
+		// wood panel box
+		if pt.X > -290 && pt.X < 510 {
+			if pt.Y < 500 && pt.Y > 200 {
+				if pt.Z < 260 {
 					return false
 				}
 			}
@@ -251,16 +260,20 @@ func fakeObstacle(ci constraintInput) (bool, float64) {
 func constantOrient(d float64) func(spatial.Pose, spatial.Pose) float64 {
 	
 	return func(from, to spatial.Pose) float64{
-		// allow 5mm deviation from `to` to allow orientation better
+		// allow `d` mm deviation from `to` to allow orientation better
 		dist := from.Point().Distance(to.Point())
 		if dist < d {
 			dist = 0
 		}
 		
-		oDiff := spatial.OrientationBetween(from.Orientation(), &spatial.OrientationVector{OZ:-1})
-		r4 := oDiff.AxisAngles()
-		dist += r3.Vector{r4.RX * r4.Theta, r4.RY * r4.Theta, r4.RZ * r4.Theta}.Norm()
+		toGoal := spatial.NewPoseFromOrientation(to.Point(), &spatial.OrientationVector{OZ:-1})
 		
-		return dist
+		return kinematics.SquaredNorm(spatial.PoseDelta(from, toGoal))
+		
+		//~ oDiff := spatial.OrientationBetween(from.Orientation(), &spatial.OrientationVector{OZ:-1})
+		//~ r4 := oDiff.AxisAngles()
+		//~ dist += r3.Vector{r4.RX * r4.Theta, r4.RY * r4.Theta, r4.RZ * r4.Theta}.Norm()
+		//~ fmt.Println(dist)
+		//~ return dist
 	}
 }

@@ -7,11 +7,14 @@ import (
 
 	//~ "runtime"
 	"testing"
+	"time"
 
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/utils"
+
+	//~ "go.viam.com/core/robots/xarm"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -37,7 +40,7 @@ func TestExtend(t *testing.T) {
 	pos := &pb.ArmPosition{
 		X:  206,
 		Y:  100,
-		Z:  120,
+		Z:  120.5,
 		OZ: -1,
 	}
 	
@@ -70,13 +73,15 @@ func TestExtend(t *testing.T) {
 
 	seedReached, goalReached := mp.constrainedExtendWrapper(seedMap, goalMap, near1, target)
 	
-	//~ fmt.Println(target)
-	//~ fmt.Println("seedR", seedReached)
-	//~ fmt.Println("goalR", goalReached)
+	fmt.Println(target)
+	fmt.Println("seedR", seedReached)
+	fmt.Println("goalR", goalReached)
 	//~ fmt.Println("seedMap")
 	//~ printMap(seedMap)
 	//~ fmt.Println("goalMap")
 	//~ printMap(goalMap)
+	
+	test.That(t, inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist, test.ShouldBeTrue)
 	
 	if inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist {
 		fmt.Println("got path!")
