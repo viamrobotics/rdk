@@ -30,6 +30,7 @@ type Translation struct {
 
 /*
 Frame contains the information of the pose and parent of the frame that will be created.
+When using the pose as a transformation, the rotation is applied first, and then the translation.
 The Orientation field is an interface. When writing a config file, the orientation field should be of the form
 {
 	"orientation" : {
