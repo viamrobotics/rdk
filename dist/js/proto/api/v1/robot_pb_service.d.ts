@@ -590,15 +590,6 @@ type RobotServiceFrameServiceConfig = {
   readonly responseType: typeof proto_api_v1_robot_pb.FrameServiceConfigResponse;
 };
 
-type RobotServiceFrameServiceModel = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.FrameServiceModelRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.FrameServiceModelResponse;
-};
-
 type RobotServiceNavigationServiceMode = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -774,7 +765,6 @@ export class RobotService {
   static readonly InputControllerEventStream: RobotServiceInputControllerEventStream;
   static readonly ResourceRunCommand: RobotServiceResourceRunCommand;
   static readonly FrameServiceConfig: RobotServiceFrameServiceConfig;
-  static readonly FrameServiceModel: RobotServiceFrameServiceModel;
   static readonly NavigationServiceMode: RobotServiceNavigationServiceMode;
   static readonly NavigationServiceSetMode: RobotServiceNavigationServiceSetMode;
   static readonly NavigationServiceLocation: RobotServiceNavigationServiceLocation;
@@ -1381,15 +1371,6 @@ export class RobotServiceClient {
   frameServiceConfig(
     requestMessage: proto_api_v1_robot_pb.FrameServiceConfigRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameServiceConfigResponse|null) => void
-  ): UnaryResponse;
-  frameServiceModel(
-    requestMessage: proto_api_v1_robot_pb.FrameServiceModelRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameServiceModelResponse|null) => void
-  ): UnaryResponse;
-  frameServiceModel(
-    requestMessage: proto_api_v1_robot_pb.FrameServiceModelRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameServiceModelResponse|null) => void
   ): UnaryResponse;
   navigationServiceMode(
     requestMessage: proto_api_v1_robot_pb.NavigationServiceModeRequest,

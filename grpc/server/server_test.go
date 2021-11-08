@@ -172,6 +172,24 @@ func TestServer(t *testing.T) {
 		fss.FrameSystemConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
 			return fsConfigs, nil
 		}
+		// set up the robot without a frame system service
+		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
+			services := make(map[string]interface{})
+			service, ok := services[name]
+			return service, ok
+		}
+		_, err := server.FrameServiceConfig(context.Background(), &pb.FrameServiceConfigRequest{})
+		test.That(t, err, test.ShouldBeError, errors.New("no service named \"frame_system\""))
+
+		// set up the robot with something that is not a framesystem service
+		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
+			services := make(map[string]interface{})
+			services["frame_system"] = nil
+			service, ok := services[name]
+			return service, ok
+		}
+		_, err = server.FrameServiceConfig(context.Background(), &pb.FrameServiceConfigRequest{})
+		test.That(t, err, test.ShouldBeError, errors.New("service is not a framesystem.Service"))
 
 		// set up the robot with the frame system
 		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {

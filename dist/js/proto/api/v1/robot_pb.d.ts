@@ -471,48 +471,6 @@ export namespace FrameServiceConfigResponse {
   }
 }
 
-export class FrameServiceModelRequest extends jspb.Message {
-  getName(): string;
-  setName(value: string): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): FrameServiceModelRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: FrameServiceModelRequest): FrameServiceModelRequest.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: FrameServiceModelRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): FrameServiceModelRequest;
-  static deserializeBinaryFromReader(message: FrameServiceModelRequest, reader: jspb.BinaryReader): FrameServiceModelRequest;
-}
-
-export namespace FrameServiceModelRequest {
-  export type AsObject = {
-    name: string,
-  }
-}
-
-export class FrameServiceModelResponse extends jspb.Message {
-  getModelJson(): Uint8Array | string;
-  getModelJson_asU8(): Uint8Array;
-  getModelJson_asB64(): string;
-  setModelJson(value: Uint8Array | string): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): FrameServiceModelResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: FrameServiceModelResponse): FrameServiceModelResponse.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: FrameServiceModelResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): FrameServiceModelResponse;
-  static deserializeBinaryFromReader(message: FrameServiceModelResponse, reader: jspb.BinaryReader): FrameServiceModelResponse;
-}
-
-export namespace FrameServiceModelResponse {
-  export type AsObject = {
-    modelJson: Uint8Array | string,
-  }
-}
-
 export class ArmCurrentPositionRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
