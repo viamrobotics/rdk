@@ -19,7 +19,8 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	pb "go.viam.com/core/proto/api/component/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -195,7 +196,7 @@ func (ua *URArm) State() (RobotState, error) {
 }
 
 // CurrentJointPositions TODO
-func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	radians := []float64{}
 	state, err := ua.State()
 	if err != nil {
@@ -208,7 +209,7 @@ func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions,
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
+func (ua *URArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := ua.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -217,7 +218,7 @@ func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
+func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	joints, err := ua.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -256,7 +257,7 @@ func (ua *URArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 }
 
 // MoveToJointPositions TODO
-func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
+func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.ArmJointPositions) error {
 	return ua.MoveToJointPositionRadians(ctx, frame.JointPositionsToRadians(joints))
 }
 

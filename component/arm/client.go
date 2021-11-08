@@ -3,6 +3,7 @@ package arm
 
 import (
 	"context"
+	"errors"
 
 	rpcclient "go.viam.com/utils/rpc/client"
 
@@ -10,6 +11,8 @@ import (
 	"go.viam.com/utils/rpc/dialer"
 
 	"go.viam.com/core/grpc"
+	"go.viam.com/core/kinematics"
+	commonpb "go.viam.com/core/proto/api/common/v1"
 	pb "go.viam.com/core/proto/api/component/v1"
 )
 
@@ -55,7 +58,7 @@ func NewClient(ctx context.Context, name string, address string, opts rpcclient.
 		return nil, err
 	}
 
-	ac, err := NewClientFromSubtypeClient(name, sc)
+	ac, err := NewClientFromSubtypeClient(sc, name)
 	if err != nil {
 		return nil, err
 	}
@@ -63,13 +66,17 @@ func NewClient(ctx context.Context, name string, address string, opts rpcclient.
 }
 
 // NewClientFromSubtypeClient constructs a new Client from subtype client.
-func NewClientFromSubtypeClient(name string, sc *SubtypeClient) (Arm, error) {
-	ac := &client{sc, name}
+func NewClientFromSubtypeClient(sc interface{}, name string) (Arm, error) {
+	newSc, ok := sc.(*SubtypeClient)
+	if !ok {
+		return nil, errors.New("not an arm subtype client")
+	}
+	ac := &client{newSc, name}
 	return ac, nil
 }
 
-func (ac *client) CurrentPosition(ctx context.Context) (*pb.Position, error) {
-	resp, err := ac.sc.client.CurrentPosition(ctx, &pb.CurrentPositionRequest{
+func (ac *client) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
+	resp, err := ac.sc.client.CurrentPosition(ctx, &pb.ArmSubtypeServiceCurrentPositionRequest{
 		Name: ac.name,
 	})
 	if err != nil {
@@ -78,24 +85,24 @@ func (ac *client) CurrentPosition(ctx context.Context) (*pb.Position, error) {
 	return resp.Position, nil
 }
 
-func (ac *client) MoveToPosition(ctx context.Context, c *pb.Position) error {
-	_, err := ac.sc.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
+func (ac *client) MoveToPosition(ctx context.Context, c *commonpb.Pose) error {
+	_, err := ac.sc.client.MoveToPosition(ctx, &pb.ArmSubtypeServiceMoveToPositionRequest{
 		Name: ac.name,
 		To:   c,
 	})
 	return err
 }
 
-func (ac *client) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
-	_, err := ac.sc.client.MoveToJointPositions(ctx, &pb.MoveToJointPositionsRequest{
+func (ac *client) MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPositions) error {
+	_, err := ac.sc.client.MoveToJointPositions(ctx, &pb.ArmSubtypeServiceMoveToJointPositionsRequest{
 		Name: ac.name,
 		To:   pos,
 	})
 	return err
 }
 
-func (ac *client) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
-	resp, err := ac.sc.client.CurrentJointPositions(ctx, &pb.CurrentJointPositionsRequest{
+func (ac *client) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+	resp, err := ac.sc.client.CurrentJointPositions(ctx, &pb.ArmSubtypeServiceCurrentJointPositionsRequest{
 		Name: ac.name,
 	})
 	if err != nil {
@@ -105,10 +112,15 @@ func (ac *client) CurrentJointPositions(ctx context.Context) (*pb.JointPositions
 }
 
 func (ac *client) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	_, err := ac.sc.client.JointMoveDelta(ctx, &pb.JointMoveDeltaRequest{
+	_, err := ac.sc.client.JointMoveDelta(ctx, &pb.ArmSubtypeServiceJointMoveDeltaRequest{
 		Name:       ac.name,
 		Joint:      int32(joint),
 		AmountDegs: amountDegs,
 	})
 	return err
+}
+
+func (ac *client) ModelFrame() *kinematics.Model {
+	// TODO(erh): this feels wrong
+	return nil
 }

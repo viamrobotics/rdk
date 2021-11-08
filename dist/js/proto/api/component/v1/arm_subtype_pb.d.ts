@@ -6,50 +6,7 @@ import * as google_protobuf_struct_pb from "google-protobuf/google/protobuf/stru
 import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/duration_pb";
 import * as google_api_annotations_pb from "../../../../google/api/annotations_pb";
 import * as google_api_httpbody_pb from "../../../../google/api/httpbody_pb";
-
-export class ArmPosition extends jspb.Message {
-  getX(): number;
-  setX(value: number): void;
-
-  getY(): number;
-  setY(value: number): void;
-
-  getZ(): number;
-  setZ(value: number): void;
-
-  getOX(): number;
-  setOX(value: number): void;
-
-  getOY(): number;
-  setOY(value: number): void;
-
-  getOZ(): number;
-  setOZ(value: number): void;
-
-  getTheta(): number;
-  setTheta(value: number): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): ArmPosition.AsObject;
-  static toObject(includeInstance: boolean, msg: ArmPosition): ArmPosition.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: ArmPosition, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): ArmPosition;
-  static deserializeBinaryFromReader(message: ArmPosition, reader: jspb.BinaryReader): ArmPosition;
-}
-
-export namespace ArmPosition {
-  export type AsObject = {
-    x: number,
-    y: number,
-    z: number,
-    oX: number,
-    oY: number,
-    oZ: number,
-    theta: number,
-  }
-}
+import * as proto_api_common_v1_common_pb from "../../../../proto/api/common/v1/common_pb";
 
 export class ArmJointPositions extends jspb.Message {
   clearDegreesList(): void;
@@ -96,8 +53,8 @@ export namespace ArmSubtypeServiceCurrentPositionRequest {
 export class ArmSubtypeServiceCurrentPositionResponse extends jspb.Message {
   hasPosition(): boolean;
   clearPosition(): void;
-  getPosition(): ArmPosition | undefined;
-  setPosition(value?: ArmPosition): void;
+  getPosition(): proto_api_common_v1_common_pb.Pose | undefined;
+  setPosition(value?: proto_api_common_v1_common_pb.Pose): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ArmSubtypeServiceCurrentPositionResponse.AsObject;
@@ -111,7 +68,7 @@ export class ArmSubtypeServiceCurrentPositionResponse extends jspb.Message {
 
 export namespace ArmSubtypeServiceCurrentPositionResponse {
   export type AsObject = {
-    position?: ArmPosition.AsObject,
+    position?: proto_api_common_v1_common_pb.Pose.AsObject,
   }
 }
 
@@ -163,8 +120,8 @@ export class ArmSubtypeServiceMoveToPositionRequest extends jspb.Message {
 
   hasTo(): boolean;
   clearTo(): void;
-  getTo(): ArmPosition | undefined;
-  setTo(value?: ArmPosition): void;
+  getTo(): proto_api_common_v1_common_pb.Pose | undefined;
+  setTo(value?: proto_api_common_v1_common_pb.Pose): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ArmSubtypeServiceMoveToPositionRequest.AsObject;
@@ -179,7 +136,7 @@ export class ArmSubtypeServiceMoveToPositionRequest extends jspb.Message {
 export namespace ArmSubtypeServiceMoveToPositionRequest {
   export type AsObject = {
     name: string,
-    to?: ArmPosition.AsObject,
+    to?: proto_api_common_v1_common_pb.Pose.AsObject,
   }
 }
 

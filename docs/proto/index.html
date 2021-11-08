@@ -175,15 +175,26 @@
         
           
           <li>
+            <a href="#proto%2fapi%2fcommon%2fv1%2fcommon.proto">proto/api/common/v1/common.proto</a>
+            <ul>
+              
+                <li>
+                  <a href="#proto.api.common.v1.Pose"><span class="badge">M</span>Pose</a>
+                </li>
+              
+              
+              
+              
+            </ul>
+          </li>
+        
+          
+          <li>
             <a href="#proto%2fapi%2fcomponent%2fv1%2farm_subtype.proto">proto/api/component/v1/arm_subtype.proto</a>
             <ul>
               
                 <li>
                   <a href="#proto.api.component.v1.ArmJointPositions"><span class="badge">M</span>ArmJointPositions</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.component.v1.ArmPosition"><span class="badge">M</span>ArmPosition</a>
                 </li>
               
                 <li>
@@ -1077,36 +1088,12 @@
     
       
       <div class="file-heading">
-        <h2 id="proto/api/component/v1/arm_subtype.proto">proto/api/component/v1/arm_subtype.proto</h2><a href="#title">Top</a>
+        <h2 id="proto/api/common/v1/common.proto">proto/api/common/v1/common.proto</h2><a href="#title">Top</a>
       </div>
-      <p></p>
+      <p>common.proto should hold messages that are used across multiple resource subtypes</p>
 
       
-        <h3 id="proto.api.component.v1.ArmJointPositions">ArmJointPositions</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>degrees</td>
-                  <td><a href="#double">double</a></td>
-                  <td>repeated</td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.component.v1.ArmPosition">ArmPosition</h3>
+        <h3 id="proto.api.common.v1.Pose">Pose</h3>
         <p></p>
 
         
@@ -1150,7 +1137,7 @@ theta will perform an in-line rotation of the end effector.
 Theta is defined as rotation between two planes: the plane defined by the origin, the point (0,0,1), and the rx,ry,rz
 point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at
 zero as the north/south pole is circled, the Roll will correct itself to remain in-line.
-Theta in pb.ArmPosition should be degrees. It will be converted to radians in the internal OrientationVec. </p></td>
+Theta in pb.Pose should be degrees. It will be converted to radians in the internal OrientationVec. </p></td>
                 </tr>
               
                 <tr>
@@ -1171,6 +1158,44 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                   <td>theta</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+
+      
+
+      
+
+      
+    
+      
+      <div class="file-heading">
+        <h2 id="proto/api/component/v1/arm_subtype.proto">proto/api/component/v1/arm_subtype.proto</h2><a href="#title">Top</a>
+      </div>
+      <p></p>
+
+      
+        <h3 id="proto.api.component.v1.ArmJointPositions">ArmJointPositions</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>degrees</td>
+                  <td><a href="#double">double</a></td>
+                  <td>repeated</td>
                   <td><p> </p></td>
                 </tr>
               
@@ -1265,7 +1290,7 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
               
                 <tr>
                   <td>position</td>
-                  <td><a href="#proto.api.component.v1.ArmPosition">ArmPosition</a></td>
+                  <td><a href="#proto.api.common.v1.Pose">proto.api.common.v1.Pose</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -1379,7 +1404,7 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
               
                 <tr>
                   <td>to</td>
-                  <td><a href="#proto.api.component.v1.ArmPosition">ArmPosition</a></td>
+                  <td><a href="#proto.api.common.v1.Pose">proto.api.common.v1.Pose</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>

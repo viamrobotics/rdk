@@ -20,6 +20,7 @@ type subtypeSvc struct {
 	resources map[string]interface{}
 }
 
+// New creates a new subtype service, which holds and replaces resources belonging to that subtype
 func New(r map[resource.Name]interface{}) (Service, error) {
 	s := &subtypeSvc{}
 	if err := s.Replace(r); err != nil {

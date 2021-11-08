@@ -32,6 +32,7 @@ import (
 	metadatapb "go.viam.com/core/proto/api/service/v1"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/resource"
+	"go.viam.com/core/subtype"
 
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -230,17 +231,19 @@ type Service interface {
 // New returns a new web service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
 	webSvc := &webService{
-		r:      r,
-		logger: logger,
+		r:        r,
+		logger:   logger,
+		server:   nil,
+		services: make(map[resource.Subtype]subtype.Service),
 	}
 	return webSvc, nil
 }
 
 type webService struct {
-	mu sync.RWMutex
-	r  robot.Robot
-	// place holder for future
-	// services map[resource.Subtype]interface{}
+	mu       sync.Mutex
+	r        robot.Robot
+	server   rpcserver.Server
+	services map[resource.Subtype]subtype.Service
 
 	logger                  golog.Logger
 	cancelFunc              func()
@@ -249,6 +252,8 @@ type webService struct {
 
 // Start starts the web server, will return an error if server is already up
 func (svc *webService) Start(ctx context.Context, o Options) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
 	if svc.cancelFunc != nil {
 		return errors.New("web server already started")
 	}
@@ -260,14 +265,51 @@ func (svc *webService) Start(ctx context.Context, o Options) error {
 
 // Update updates the web service when the robot has changed. Not Reconfigure because this should happen at a different point in the
 // lifecycle.
-func (svc *webService) Update(resources map[resource.Name]interface{}) error {
-	// TODO: update itself properly
+func (svc *webService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
+	return svc.update(ctx, resources)
+}
+
+func (svc *webService) update(ctx context.Context, resources map[resource.Name]interface{}) error {
+	// so group resources by subtype
+	groupedResources := make(map[resource.Subtype]map[resource.Name]interface{})
+	for n, v := range resources {
+		r, ok := groupedResources[n.Subtype]
+		if !ok {
+			r = make(map[resource.Name]interface{})
+		}
+		r[n] = v
+		groupedResources[n.Subtype] = r
+	}
+
+	// for each subtype, check if subtype svc exist. if it does, do a replace
+	// otherwise, create a new one
+	for s, v := range groupedResources {
+		subtypeSvc, ok := svc.services[s]
+		if ok {
+			return subtypeSvc.Replace(v)
+		}
+		subtypeSvc, err := subtype.New(v)
+		if err != nil {
+			return nil
+		}
+		c := registry.ResourceSubtypeLookup(s)
+		if c == nil || c.RegisterService == nil || svc.server == nil {
+			// registration doesn't exist or server not yet started
+			continue
+		}
+		if err := c.RegisterService(ctx, svc.server, subtypeSvc); err != nil {
+			return err
+		}
+		svc.services[s] = subtypeSvc
+	}
 	return nil
 }
 
 func (svc *webService) Close() error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
 	if svc.cancelFunc != nil {
 		svc.cancelFunc()
 		svc.cancelFunc = nil
@@ -381,6 +423,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	if err != nil {
 		return err
 	}
+	svc.server = rpcServer
 	if options.SignalingAddress == "" {
 		options.SignalingAddress = fmt.Sprintf("localhost:%d", options.Port)
 	}
@@ -408,8 +451,17 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 			return err
 		}
 	}
-
-	// TODO: register individual grpc services
+	resources := make(map[resource.Name]interface{})
+	for _, name := range svc.r.ResourceNames() {
+		resource, ok := svc.r.ResourceByName(name)
+		if !ok {
+			continue
+		}
+		resources[name] = resource
+	}
+	if err := svc.update(ctx, resources); err != nil {
+		return err
+	}
 
 	if options.Debug {
 		if err := rpcServer.RegisterServiceServer(

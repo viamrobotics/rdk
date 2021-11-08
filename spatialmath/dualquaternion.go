@@ -4,12 +4,12 @@ package spatialmath
 import (
 	"math"
 
-	pb "go.viam.com/core/proto/api/v1"
-
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
+
+	commonpb "go.viam.com/core/proto/api/common/v1"
 )
 
 const radToDeg = 180 / math.Pi
@@ -70,7 +70,7 @@ func newDualQuaternionFromDH(a, d, alpha float64) *dualQuaternion {
 
 // newDualQuaternionFromProtobuf returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided
 // protobuf pose.
-func newDualQuaternionFromProtobuf(pos *pb.Pose) *dualQuaternion {
+func newDualQuaternionFromProtobuf(pos *commonpb.Pose) *dualQuaternion {
 	q := newDualQuaternionFromRotation(&OrientationVectorDegrees{pos.Theta, pos.OX, pos.OY, pos.OZ})
 	q.SetTranslation(pos.X, pos.Y, pos.Z)
 	return q
@@ -101,8 +101,8 @@ func dualQuaternionFromPose(p Pose) *dualQuaternion {
 }
 
 // ToProtobuf converts a dualQuaternion to a protobuf pose
-func (q *dualQuaternion) ToProtobuf() *pb.Pose {
-	final := &pb.Pose{}
+func (q *dualQuaternion) ToProtobuf() *commonpb.Pose {
+	final := &commonpb.Pose{}
 	cartQuat := dualquat.Mul(q.Number, dualquat.Conj(q.Number))
 	final.X = cartQuat.Dual.Imag
 	final.Y = cartQuat.Dual.Jmag
@@ -217,7 +217,7 @@ func AlmostEqual(a, b quat.Number, tol float64) bool {
 }
 
 // OffsetBy takes two offsets and computes the final position.
-func OffsetBy(a, b *pb.Pose) *pb.Pose {
+func OffsetBy(a, b *commonpb.Pose) *commonpb.Pose {
 	q1 := newDualQuaternionFromProtobuf(a)
 	q2 := newDualQuaternionFromProtobuf(b)
 	q3 := &dualQuaternion{q1.Transformation(q2.Number)}
