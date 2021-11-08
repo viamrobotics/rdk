@@ -415,7 +415,7 @@ func (vg *GripperV2) readAveragePressure(ctx context.Context) (float64, error) {
 			sum += v
 		}
 	}
-	averagePressure := float64(sum / (len(matrix) * len(matrix[0])))
+	averagePressure := float64(sum) / float64((len(matrix) * len(matrix[0])))
 	return averagePressure, nil
 }
 
@@ -423,6 +423,9 @@ func (vg *GripperV2) readAveragePressure(ctx context.Context) (float64, error) {
 // pressureLimit threshold or not.
 func (vg *GripperV2) hasPressure(ctx context.Context) (bool, float64, error) {
 	p, err := vg.readAveragePressure(ctx)
+	if err != nil {
+		return false, 0, err
+	}
 	return p > float64(vg.pressureLimit), p, err
 }
 
