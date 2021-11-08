@@ -2,11 +2,10 @@ package vgripper
 
 import (
 	"context"
-	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
@@ -15,34 +14,6 @@ import (
 	"go.viam.com/core/testutils/inject"
 	"go.viam.com/test"
 )
-
-func createWorkingForceMatrix(pressureLimit int) *inject.ForceMatrix {
-	rand.Seed(time.Now().UnixNano())
-	forceMatrix := &inject.ForceMatrix{}
-	numIterations := 0
-	forceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
-		rows, cols := 3, 4
-		matrix := make([][]int, rows)
-		if numIterations < NumMeasurementsCalib {
-			for row := 0; row < rows; row++ {
-				matrix[row] = make([]int, cols)
-				for col := 0; col < cols; col++ {
-					matrix[row][col] = rand.Intn(1024-pressureLimit) + pressureLimit
-				}
-			}
-		} else {
-			for row := 0; row < rows; row++ {
-				matrix[row] = make([]int, cols)
-				for col := 0; col < cols; col++ {
-					matrix[row][col] = rand.Intn(pressureLimit)
-				}
-			}
-		}
-		numIterations++
-		return matrix, nil
-	}
-	return forceMatrix
-}
 
 func createWorkingMotor() *inject.Motor {
 	fakeMotor := &inject.Motor{}
@@ -59,42 +30,6 @@ func createWorkingMotor() *inject.Motor {
 		return nil
 	}
 	return fakeMotor
-}
-
-func createWorkingBoard() *inject.Board {
-	fakeBoard := &inject.Board{}
-	fakeAnalogReader := &inject.AnalogReader{}
-	fakeAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
-		return 0, nil
-	}
-
-	fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-		return fakeAnalogReader, true
-	}
-	return fakeBoard
-}
-
-func createWorkingRobotWithoutForceMatrix() *inject.Robot {
-	fakeRobot := &inject.Robot{}
-
-	fakeBoard := createWorkingBoard()
-	fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return fakeBoard, true
-	}
-
-	fakeMotor := createWorkingMotor()
-	fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
-		return 0, nil
-	}
-	fakeMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
-		return false, nil
-	}
-
-	fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		return fakeMotor, true
-	}
-	return fakeRobot
-
 }
 
 func TestNew(t *testing.T) {
@@ -276,160 +211,563 @@ func TestCalibrate(t *testing.T) {
 func TestOpen(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	actualPosition := 5.
-	failedPosition := actualPosition + 2*PositionTolerance
-	successfulPosition := actualPosition + 1/2*PositionTolerance
+	openPosition := 5.
+	failedPosition := openPosition + 2*PositionTolerance
+	successfulPosition := openPosition + 0.5*PositionTolerance
 
-	t.Run("test position accuracy ensurance", func(t *testing.T) {
-		// Setup
-		fakeRobot := &inject.Robot{}
-		fakeBoard := createWorkingBoard()
-		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return fakeBoard, true
+	t.Run("no error when position of fingers is within the allowed tolerance", func(t *testing.T) {
+		fakeMotor := &inject.Motor{}
+		fakeMotor.OffFunc = func(ctx context.Context) error {
+			return nil
 		}
-
-		fakeMotor := createWorkingMotor()
-		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
-			return actualPosition, nil
+		fakeMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
+			return nil
 		}
 		fakeMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
 			return false, nil
 		}
-		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-			return fakeMotor, true
+		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+			return successfulPosition, nil
 		}
-		pressureLimit := 500
-		fakeForceMatrix := createWorkingForceMatrix(pressureLimit)
-		fakeRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-			return fakeForceMatrix, true
+		injectedGripper := &GripperV2{
+			motor:                 fakeMotor,
+			logger:                logger,
+			numBadCurrentReadings: 0,
+			openPos:               openPosition,
 		}
-
-		fakeGripper, err := New(context.Background(), fakeRobot,
-			config.Component{Attributes: config.AttributeMap{"pressureLimit": float64(pressureLimit)}}, logger)
-
-		// Tests
+		err := injectedGripper.Open(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		t.Run("return error when the position of the fingers isn't within the allowed tolerance"+
-			" close to the open position", func(t *testing.T) {
-			fakeGripper.openPos = failedPosition
-			err = fakeGripper.Open(context.Background())
-			test.That(t, err, test.ShouldNotBeNil)
-		})
+	})
 
-		t.Run("expect the position of the fingers to be within the tolerance close to the openPosition",
-			func(t *testing.T) {
-				fakeGripper.openPos = successfulPosition
-				err = fakeGripper.Open(context.Background())
-				test.That(t, err, test.ShouldBeNil)
-			})
+	t.Run("return error when position of fingers is not within the allowed tolerance", func(t *testing.T) {
+		fakeMotor := &inject.Motor{}
+		fakeMotor.OffFunc = func(ctx context.Context) error {
+			return nil
+		}
+		fakeMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
+			return nil
+		}
+		fakeMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
+			return false, nil
+		}
+		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+			return failedPosition, nil
+		}
+		injectedGripper := &GripperV2{
+			motor:                 fakeMotor,
+			logger:                logger,
+			numBadCurrentReadings: 0,
+			openPos:               openPosition,
+		}
+		err := injectedGripper.Open(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
 
 	})
 
 	t.Run("return error when the open position isn't reached before the timeout", func(t *testing.T) {
-		fakeMotor := createWorkingMotor()
-		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
-			return actualPosition, nil
+		fakeMotor := &inject.Motor{}
+		fakeMotor.OffFunc = func(ctx context.Context) error {
+			return nil
 		}
+		fakeMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
+			return nil
+		}
+		// The motor will always be running, until the function hits the timeout
 		fakeMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
 			return true, nil
 		}
-		fakeForceMatrix := &inject.ForceMatrix{}
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
-			return [][]int{{0, 0, 0}, {0, 0, 0}, {0, 0, 0}}, nil
+		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+			return 0, nil
 		}
 		fakeCurrent := &inject.AnalogReader{}
 		fakeCurrent.ReadFunc = func(ctx context.Context) (int, error) {
 			return 0, nil
 		}
-
-		injectedGripper := GripperV2{
+		injectedGripper := &GripperV2{
 			motor:                 fakeMotor,
 			current:               fakeCurrent,
-			forceMatrix:           fakeForceMatrix,
-			openPos:               actualPosition,
-			openDirection:         pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
 			logger:                logger,
 			numBadCurrentReadings: 0,
 		}
-
 		err := injectedGripper.Open(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
-
+		// Make sure the motor is off
+		err = injectedGripper.motor.Off(context.Background())
+		test.That(t, err, test.ShouldBeNil)
 	})
 }
 
 func TestGrab(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	actualPosition := 5.
-	failedPosition := actualPosition + 2*PositionTolerance
-	// successfulPosition := actualPosition + 1/2*PositionTolerance
+	closedPosition := 5.
+	failedPosition := closedPosition + 2*PositionTolerance
+	successfulPosition := closedPosition + 0.5*PositionTolerance
 
 	// Expect the position of the fingers to be close to the position of the closedPosition
 	// or to have pressure on them
 	// 1. not on + no pressure + not closed ==> error (why did motor stop in mid air?)
-	t.Run("return error when gripper motor stops mid-air while gripping", func(t *testing.T) {
-		fakeRobot := &inject.Robot{}
-		fakeBoard := createWorkingBoard()
-		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return fakeBoard, true
+	t.Run("return error when motor stops mid-air while closing the gripper", func(t *testing.T) {
+		fakeMotor := &inject.Motor{}
+		fakeMotor.OffFunc = func(ctx context.Context) error {
+			return nil
 		}
-
-		fakeMotor := createWorkingMotor()
-		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
-			return actualPosition, nil
+		fakeMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
+			return nil
 		}
-		// The gripper is not on
+		// The motor stopped
 		fakeMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
 			return false, nil
 		}
-		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-			return fakeMotor, true
+		// Gripper didn't reach the closed position
+		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+			return failedPosition, nil
 		}
-		pressureLimit := 500
-		fakeForceMatrix := createWorkingForceMatrix(pressureLimit)
-		fakeRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-			return fakeForceMatrix, true
+		fakeCurrent := &inject.AnalogReader{}
+		fakeCurrent.ReadFunc = func(ctx context.Context) (int, error) {
+			return 0, nil
 		}
 
-		fakeGripper, _ := New(context.Background(), fakeRobot,
-			config.Component{Attributes: config.AttributeMap{"pressureLimit": float64(pressureLimit)}}, logger)
-
-		// The gripper is not closed
-		fakeGripper.closedPos = failedPosition
-
+		// There is no pressure detected
+		measuredPressure := 0
+		pressureLimit := 500.
+		fakeForceMatrix := &inject.ForceMatrix{}
+		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+			return [][]int{{measuredPressure}}, nil
+		}
+		injectedGripper := &GripperV2{
+			motor:                 fakeMotor,
+			forceMatrix:           fakeForceMatrix,
+			current:               fakeCurrent,
+			logger:                logger,
+			numBadCurrentReadings: 0,
+			pressureLimit:         pressureLimit,
+		}
+		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, grabbedSuccessfully, test.ShouldBeFalse)
 	})
 	// 2. not on --> didn't grab anything & closed all the way: false, nil
+	t.Run("return false but no error when gripper closed completely without grabbing anything", func(t *testing.T) {
+		fakeMotor := &inject.Motor{}
+		fakeMotor.OffFunc = func(ctx context.Context) error {
+			return nil
+		}
+		fakeMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
+			return nil
+		}
+		// The motor stopped
+		fakeMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
+			return false, nil
+		}
+		// Gripper didn't reach the closed position
+		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+			return successfulPosition, nil
+		}
+		fakeCurrent := &inject.AnalogReader{}
+		fakeCurrent.ReadFunc = func(ctx context.Context) (int, error) {
+			return 0, nil
+		}
+
+		// Doesn't matter if pressure is detected, cause it's not reliable right now
+		// so let's assume it's not detected even though the gripper is closed.
+		// (Since this depends on the actual physical system design).
+		measuredPressure := 0
+		pressureLimit := 500.
+		fakeForceMatrix := &inject.ForceMatrix{}
+		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+			return [][]int{{measuredPressure}}, nil
+		}
+		injectedGripper := &GripperV2{
+			motor:                 fakeMotor,
+			forceMatrix:           fakeForceMatrix,
+			current:               fakeCurrent,
+			logger:                logger,
+			numBadCurrentReadings: 0,
+			closedPos:             closedPosition,
+			pressureLimit:         pressureLimit,
+		}
+		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, grabbedSuccessfully, test.ShouldBeFalse)
+	})
 
 	// Test successful grabbing if gripper detects pressure
-	// 3. on + pressure --> true, error depends on motor.Go; i can set it to nil or true; test for both!
+	// 3. on + pressure --> true, error depends on motor.Go; let's test a successful grab
+	t.Run("return (true, nil) when something is successfully grabbed", func(t *testing.T) {
+		fakeMotor := &inject.Motor{}
+		fakeMotor.OffFunc = func(ctx context.Context) error {
+			return nil
+		}
+		fakeMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
+			return nil
+		}
+		fakeMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+			return nil
+		}
+		// The motor is still running
+		fakeMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
+			return true, nil
+		}
+		// Gripper didn't reach the closed position since it now holds an object
+		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+			return failedPosition, nil
+		}
+		fakeCurrent := &inject.AnalogReader{}
+		fakeCurrent.ReadFunc = func(ctx context.Context) (int, error) {
+			return 0, nil
+		}
 
-	// Make sure that the motor is still on after it detected pressure & is holding the object
-	// 4. after testing the above, proof this
+		// There is pressure detected, since the gripper holds an object
+		measuredPressure := 1000
+		pressureLimit := 500.
+		fakeForceMatrix := &inject.ForceMatrix{}
+		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+			return [][]int{{measuredPressure}}, nil
+		}
+		injectedGripper := &GripperV2{
+			motor:                 fakeMotor,
+			forceMatrix:           fakeForceMatrix,
+			current:               fakeCurrent,
+			logger:                logger,
+			numBadCurrentReadings: 0,
+			closedPos:             closedPosition,
+			pressureLimit:         pressureLimit,
+		}
+		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, grabbedSuccessfully, test.ShouldBeTrue)
+		// Make sure that the motor is still on after it detected pressure & is holding the object
+		motorIsOn, err := injectedGripper.motor.IsOn(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, motorIsOn, test.ShouldBeTrue)
+	})
 
 	// Test timeout
-
+	t.Run("return error when grabbing or closing wasn't successful before the timeout", func(t *testing.T) {
+		fakeMotor := &inject.Motor{}
+		fakeMotor.OffFunc = func(ctx context.Context) error {
+			return nil
+		}
+		fakeMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
+			return nil
+		}
+		// The motor will always be running, until the function hits the timeout
+		fakeMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
+			return true, nil
+		}
+		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+			return 0, nil
+		}
+		fakeCurrent := &inject.AnalogReader{}
+		fakeCurrent.ReadFunc = func(ctx context.Context) (int, error) {
+			return 0, nil
+		}
+		// There is no pressure detected
+		measuredPressure := 0
+		pressureLimit := 500.
+		fakeForceMatrix := &inject.ForceMatrix{}
+		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+			return [][]int{{measuredPressure}}, nil
+		}
+		injectedGripper := &GripperV2{
+			motor:                 fakeMotor,
+			forceMatrix:           fakeForceMatrix,
+			current:               fakeCurrent,
+			logger:                logger,
+			numBadCurrentReadings: 0,
+			closedPos:             closedPosition,
+			pressureLimit:         pressureLimit,
+		}
+		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, grabbedSuccessfully, test.ShouldBeFalse)
+		// Make sure the motor is off
+		err = injectedGripper.motor.Off(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+	})
 }
 
 func TestProcessCurrentReading(t *testing.T) {
-	// Test processCurrentReading
-	// ? Can I change current & MaxCurrent and thus test for the correct response?
+	// MaxCurrent = 300
+	// CurrentBadReadingCounts = 50
+	t.Run("when current is too high but not too often yet", func(t *testing.T) {
+		current := MaxCurrent + 10
+		injectedGripper := &GripperV2{
+			numBadCurrentReadings: CurrentBadReadingCounts - 2,
+		}
+		err := injectedGripper.processCurrentReading(context.Background(), current, "testing")
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("return error when the current is too high for too long", func(t *testing.T) {
+		current := MaxCurrent + 10
+		injectedGripper := &GripperV2{
+			numBadCurrentReadings: CurrentBadReadingCounts - 1,
+		}
+		err := injectedGripper.processCurrentReading(context.Background(), current, "testing")
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("reset numBadCurrentReadings when current is in the healthy range", func(t *testing.T) {
+		current := 0
+		injectedGripper := &GripperV2{
+			numBadCurrentReadings: CurrentBadReadingCounts - 5,
+		}
+		err := injectedGripper.processCurrentReading(context.Background(), current, "testing")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, injectedGripper.numBadCurrentReadings, test.ShouldEqual, 0)
+	})
 }
 
 func TestClose(t *testing.T) {
+	t.Run("make sure calling Close shuts down the motor", func(t *testing.T) {
+		fakeMotor := &inject.Motor{}
+		counter := 0
+		fakeMotor.OffFunc = func(ctx context.Context) error {
+			counter++
+			return nil
+		}
+		injectedGripper := &GripperV2{
+			motor: fakeMotor,
+		}
+		err := injectedGripper.Close()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, counter, test.ShouldEqual, 1)
 
+	})
 }
 
 func TestStop(t *testing.T) {
+	t.Run("make sure calling Stops shuts down the motor", func(t *testing.T) {
+		fakeMotor := &inject.Motor{}
+		counter := 0
+		fakeMotor.OffFunc = func(ctx context.Context) error {
+			counter++
+			return nil
+		}
+		injectedGripper := &GripperV2{
+			motor: fakeMotor,
+		}
+		err := injectedGripper.Stop(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, counter, test.ShouldEqual, 1)
 
+	})
 }
 
-// Test readCurrent
+func TestReadCurrent(t *testing.T) {
+	measuredCurrent := 10
+	fakeCurrent := &inject.AnalogReader{}
+	fakeCurrent.ReadFunc = func(ctx context.Context) (int, error) {
+		return measuredCurrent, nil
+	}
+	injectedGripper := &GripperV2{
+		current: fakeCurrent,
+	}
+	current, err := injectedGripper.readCurrent(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, current, test.ShouldEqual, measuredCurrent)
+}
 
-// Test readRobustAveragePressure
+func TestReadRobustAveragePressure(t *testing.T) {
+	t.Run("successfully read the average pressure", func(t *testing.T) {
+		fakeForceMatrix := &inject.ForceMatrix{}
+		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+			return [][]int{{1, 2}, {3, 4}}, nil
+		}
+		injectedGripper := &GripperV2{
+			forceMatrix: fakeForceMatrix,
+		}
+		// All 5 measurements the same
+		averagePressure, err := injectedGripper.readRobustAveragePressure(context.Background(), 5)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, averagePressure, test.ShouldAlmostEqual, 2.5)
 
-// Test readAveragePressure
+		// Let's add more variation to the measurements
+		counter := 0
+		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+			counter++
+			switch counter {
+			case 1:
+				// sum: 10; average: 2.5
+				return [][]int{{1, 2}, {3, 4}}, nil
+			case 2:
+				// sum: 28; average: 7
+				return [][]int{{5, 6}, {9, 8}}, nil
+			case 3:
+				// sum: 4; average: 1
+				return [][]int{{1, 1}, {1, 1}}, nil
+			case 4:
+				// sum: 196; average: 49
+				return [][]int{{101, 3}, {15, 77}}, nil
+			default:
+				return [][]int{{0, 0}, {0, 0}}, errors.Errorf("I did something wrong")
+			}
+		}
+		injectedGripper = &GripperV2{
+			forceMatrix: fakeForceMatrix,
+		}
+		averagePressure, err = injectedGripper.readRobustAveragePressure(context.Background(), 4)
+		test.That(t, err, test.ShouldBeNil)
+		// (2.5 + 7 + 1 + 49)/4 = 14.875
+		test.That(t, averagePressure, test.ShouldAlmostEqual, 14.875)
 
-// Test hasPressure
+	})
 
-// Test analogs
+	t.Run("return error when reading the matrix went wrong", func(t *testing.T) {
+		fakeForceMatrix := &inject.ForceMatrix{}
+		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+			return [][]int{{}}, errors.Errorf("matrix reading failed")
+		}
+		injectedGripper := &GripperV2{
+			forceMatrix: fakeForceMatrix,
+		}
+		averagePressure, err := injectedGripper.readRobustAveragePressure(context.Background(), 4)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, averagePressure, test.ShouldAlmostEqual, 0)
+	})
+}
+func TestReadAveragePressure(t *testing.T) {
+	t.Run("successfully read the average pressure", func(t *testing.T) {
+		fakeForceMatrix := &inject.ForceMatrix{}
+		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+			return [][]int{{1, 2}, {3, 4}}, nil
+		}
+		injectedGripper := &GripperV2{
+			forceMatrix: fakeForceMatrix,
+		}
+		averagePressure, err := injectedGripper.readAveragePressure(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, averagePressure, test.ShouldAlmostEqual, 2.5)
+	})
+
+	t.Run("return error when reading the matrix went wrong", func(t *testing.T) {
+		fakeForceMatrix := &inject.ForceMatrix{}
+		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+			return [][]int{{}}, errors.Errorf("matrix reading failed")
+		}
+		injectedGripper := &GripperV2{
+			forceMatrix: fakeForceMatrix,
+		}
+		averagePressure, err := injectedGripper.readAveragePressure(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, averagePressure, test.ShouldAlmostEqual, 0)
+	})
+}
+
+func TestHasPressure(t *testing.T) {
+	t.Run("detect pressure", func(t *testing.T) {
+		pressureLimit := 1.
+		fakeForceMatrix := &inject.ForceMatrix{}
+		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+			return [][]int{{1, 2}, {3, 4}}, nil
+		}
+		injectedGripper := &GripperV2{
+			forceMatrix:   fakeForceMatrix,
+			pressureLimit: pressureLimit,
+		}
+		hasPressure, pressure, err := injectedGripper.hasPressure(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, hasPressure, test.ShouldBeTrue)
+		test.That(t, pressure, test.ShouldAlmostEqual, 2.5)
+	})
+
+	t.Run("don't detect pressure", func(t *testing.T) {
+		pressureLimit := 10.
+		fakeForceMatrix := &inject.ForceMatrix{}
+		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+			return [][]int{{4, 10}, {6, 4}}, nil
+		}
+		injectedGripper := &GripperV2{
+			forceMatrix:   fakeForceMatrix,
+			pressureLimit: pressureLimit,
+		}
+		hasPressure, pressure, err := injectedGripper.hasPressure(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, hasPressure, test.ShouldBeFalse)
+		test.That(t, pressure, test.ShouldAlmostEqual, 6)
+	})
+
+	t.Run("return error when reading the matrix went wrong", func(t *testing.T) {
+		fakeForceMatrix := &inject.ForceMatrix{}
+		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+			return [][]int{{}}, errors.Errorf("matrix reading failed")
+		}
+		injectedGripper := &GripperV2{
+			forceMatrix: fakeForceMatrix,
+		}
+		hasPressure, pressure, err := injectedGripper.hasPressure(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, hasPressure, test.ShouldBeFalse)
+		test.That(t, pressure, test.ShouldAlmostEqual, 0)
+	})
+}
+
+func TestAnalogs(t *testing.T) {
+	t.Run("no error when everything reads successfully", func(t *testing.T) {
+		fakeCurrent := &inject.AnalogReader{}
+		fakeCurrent.ReadFunc = func(ctx context.Context) (int, error) {
+			return 10, nil
+		}
+		pressureLimit := 4.
+		fakeForceMatrix := &inject.ForceMatrix{}
+		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+			return [][]int{{1, 5}, {6, 8}}, nil
+		}
+		injectedGripper := &GripperV2{
+			current:       fakeCurrent,
+			forceMatrix:   fakeForceMatrix,
+			pressureLimit: pressureLimit,
+		}
+		hasPressure, pressure, current, err := injectedGripper.analogs(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, hasPressure, test.ShouldBeTrue)
+		test.That(t, pressure, test.ShouldAlmostEqual, 5)
+		test.That(t, current, test.ShouldAlmostEqual, 10)
+	})
+
+	t.Run("return error when reading the pressure went wrong", func(t *testing.T) {
+		fakeCurrent := &inject.AnalogReader{}
+		fakeCurrent.ReadFunc = func(ctx context.Context) (int, error) {
+			return 10, nil
+		}
+		pressureLimit := 4.
+		fakeForceMatrix := &inject.ForceMatrix{}
+		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+			return [][]int{{}}, errors.Errorf("matrix reading went wrong")
+		}
+		injectedGripper := &GripperV2{
+			current:       fakeCurrent,
+			forceMatrix:   fakeForceMatrix,
+			pressureLimit: pressureLimit,
+		}
+		hasPressure, pressure, current, err := injectedGripper.analogs(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, hasPressure, test.ShouldBeFalse)
+		test.That(t, pressure, test.ShouldAlmostEqual, 0)
+		test.That(t, current, test.ShouldAlmostEqual, 0)
+	})
+
+	t.Run("return error when reading the current went wrong", func(t *testing.T) {
+		fakeCurrent := &inject.AnalogReader{}
+		fakeCurrent.ReadFunc = func(ctx context.Context) (int, error) {
+			return 0, errors.Errorf("current reading went wrong")
+		}
+		pressureLimit := 4.
+		fakeForceMatrix := &inject.ForceMatrix{}
+		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+			return [][]int{{1, 5}, {6, 8}}, nil
+		}
+		injectedGripper := &GripperV2{
+			current:       fakeCurrent,
+			forceMatrix:   fakeForceMatrix,
+			pressureLimit: pressureLimit,
+		}
+		hasPressure, pressure, current, err := injectedGripper.analogs(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, hasPressure, test.ShouldBeFalse)
+		test.That(t, pressure, test.ShouldAlmostEqual, 0)
+		test.That(t, current, test.ShouldAlmostEqual, 0)
+	})
+}
