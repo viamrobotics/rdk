@@ -177,9 +177,10 @@ func TestMergeFrameSystems(t *testing.T) {
 	offsetConfig := &Frame{Parent: "frame1", Translation: Translation{1, 2, 3}, Orientation: &spatial.R4AA{Theta: math.Pi / 2, RZ: 1.}}
 	err = MergeFrameSystems(fs1, fs2, offsetConfig)
 	test.That(t, err, test.ShouldBeNil)
-	// from frame 1 to test2_world
+	// the frame of test2_world is rotated around z by 90 degrees, then displaced by (1,2,3) in the frame of frame1,
+	// so the origin of frame1 from the perspective of test2_frame should be (-2, 1, -3)
 	pointStart = r3.Vector{0, 0, 0} // PoV from frame 1
-	pointEnd = r3.Vector{-2, 1, -3} // PoV from the world of test_2
+	pointEnd = r3.Vector{-2, 1, -3} // PoV from the world of test2
 	transformPoint, err = fs1.TransformPoint(blankPos, pointStart, fs1.GetFrame("frame1"), fs1.GetFrame("test2_world"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointEnd.X)
