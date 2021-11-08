@@ -254,10 +254,6 @@
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.ArmPosition"><span class="badge">M</span>ArmPosition</a>
-                </li>
-              
-                <li>
                   <a href="#proto.api.v1.ArmStatus"><span class="badge">M</span>ArmStatus</a>
                 </li>
               
@@ -487,6 +483,22 @@
               
                 <li>
                   <a href="#proto.api.v1.ForceMatrixSlipDetectionResponse"><span class="badge">M</span>ForceMatrixSlipDetectionResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.FrameConfig"><span class="badge">M</span>FrameConfig</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.FrameServiceConfigRequest"><span class="badge">M</span>FrameServiceConfigRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.FrameServiceConfigResponse"><span class="badge">M</span>FrameServiceConfigResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.FrameSystemConfig"><span class="badge">M</span>FrameSystemConfig</a>
                 </li>
               
                 <li>
@@ -847,6 +859,10 @@
               
                 <li>
                   <a href="#proto.api.v1.PointCloudResponse"><span class="badge">M</span>PointCloudResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.Pose"><span class="badge">M</span>Pose</a>
                 </li>
               
                 <li>
@@ -1285,7 +1301,7 @@
               
                 <tr>
                   <td>position</td>
-                  <td><a href="#proto.api.v1.ArmPosition">ArmPosition</a></td>
+                  <td><a href="#proto.api.v1.Pose">Pose</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -1399,7 +1415,7 @@
               
                 <tr>
                   <td>to</td>
-                  <td><a href="#proto.api.v1.ArmPosition">ArmPosition</a></td>
+                  <td><a href="#proto.api.v1.Pose">Pose</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -1418,81 +1434,6 @@
 
         
       
-        <h3 id="proto.api.v1.ArmPosition">ArmPosition</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>x</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p>millimeters of the end effector from the base </p></td>
-                </tr>
-              
-                <tr>
-                  <td>y</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>z</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>o_x</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p>ox, oy, oz, theta represents an orientation vector
-Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
-with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation
-such that the ox/oy/oz components represent the point on the cartesian unit sphere at which your end effector is pointing
-from the origin, and that unit vector forms an axis around which theta rotates. This means that incrementing/decrementing
-theta will perform an in-line rotation of the end effector.
-Theta is defined as rotation between two planes: the plane defined by the origin, the point (0,0,1), and the rx,ry,rz
-point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at
-zero as the north/south pole is circled, the Roll will correct itself to remain in-line.
-Theta in pb.ArmPosition should be degrees. It will be converted to radians in the internal OrientationVec. </p></td>
-                </tr>
-              
-                <tr>
-                  <td>o_y</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>o_z</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>theta</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
         <h3 id="proto.api.v1.ArmStatus">ArmStatus</h3>
         <p></p>
 
@@ -1505,7 +1446,7 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
               
                 <tr>
                   <td>grid_position</td>
-                  <td><a href="#proto.api.v1.ArmPosition">ArmPosition</a></td>
+                  <td><a href="#proto.api.v1.Pose">Pose</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -2622,7 +2563,7 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
               
                 <tr>
                   <td>pose</td>
-                  <td><a href="#proto.api.v1.ArmPosition">ArmPosition</a></td>
+                  <td><a href="#proto.api.v1.Pose">Pose</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -3019,6 +2960,106 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                 <tr>
                   <td>is_slipping</td>
                   <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.FrameConfig">FrameConfig</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>parent</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>pose</td>
+                  <td><a href="#proto.api.v1.Pose">Pose</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.FrameServiceConfigRequest">FrameServiceConfigRequest</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.FrameServiceConfigResponse">FrameServiceConfigResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>frame_system_configs</td>
+                  <td><a href="#proto.api.v1.FrameSystemConfig">FrameSystemConfig</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.FrameSystemConfig">FrameSystemConfig</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>frame_config</td>
+                  <td><a href="#proto.api.v1.FrameConfig">FrameConfig</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>model_json</td>
+                  <td><a href="#bytes">bytes</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -5213,6 +5254,81 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.Pose">Pose</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>x</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p>millimeters of the end effector from the base </p></td>
+                </tr>
+              
+                <tr>
+                  <td>y</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>z</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>o_x</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p>ox, oy, oz, theta represents an orientation vector
+Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
+with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation
+such that the ox/oy/oz components represent the point on the cartesian unit sphere at which your end effector is pointing
+from the origin, and that unit vector forms an axis around which theta rotates. This means that incrementing/decrementing
+theta will perform an in-line rotation of the end effector.
+Theta is defined as rotation between two planes: the plane defined by the origin, the point (0,0,1), and the rx,ry,rz
+point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at
+zero as the north/south pole is circled, the Roll will correct itself to remain in-line.
+Theta in pb.Pose should be degrees. It will be converted to radians in the internal OrientationVec. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>o_y</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>o_z</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>theta</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.ResourceRunCommandRequest">ResourceRunCommandRequest</h3>
         <p></p>
 
@@ -6625,10 +6741,17 @@ is reliant on having an encoder.</p></td>
               </tr>
             
               <tr>
+                <td>FrameServiceConfig</td>
+                <td><a href="#proto.api.v1.FrameServiceConfigRequest">FrameServiceConfigRequest</a></td>
+                <td><a href="#proto.api.v1.FrameServiceConfigResponse">FrameServiceConfigResponse</a></td>
+                <td><p>Frame System Service</p></td>
+              </tr>
+            
+              <tr>
                 <td>NavigationServiceMode</td>
                 <td><a href="#proto.api.v1.NavigationServiceModeRequest">NavigationServiceModeRequest</a></td>
                 <td><a href="#proto.api.v1.NavigationServiceModeResponse">NavigationServiceModeResponse</a></td>
-                <td><p></p></td>
+                <td><p>Navigation Service</p></td>
               </tr>
             
               <tr>
@@ -7372,6 +7495,16 @@ is reliant on having an encoder.</p></td>
                 <td>ResourceRunCommand</td>
                 <td>POST</td>
                 <td>/api/v1/resource/{resource_name}/run_command</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>FrameServiceConfig</td>
+                <td>GET</td>
+                <td>/api/v1/services/frame_system/config</td>
                 <td></td>
               </tr>
               
