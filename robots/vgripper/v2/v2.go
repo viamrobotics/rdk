@@ -91,7 +91,7 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		return nil, err
 	}
 	if !supported {
-		return nil, errors.Errorf("gripper motor needs to support position")
+		return nil, errors.New("gripper motor needs to support position")
 	}
 
 	current, exists := board.AnalogReaderByName(currentAnalogReaderName)
@@ -127,13 +127,13 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 	}
 
 	if vg.closedDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
-		return nil, errors.Errorf("vg.closedDirection has not been specified successfully")
+		return nil, errors.New("vg.closedDirection has not been specified successfully")
 	}
 	if vg.openDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
-		return nil, errors.Errorf("vg.openDirection has not been specified successfully")
+		return nil, errors.New("vg.openDirection has not been specified successfully")
 	}
 	if vg.openDirection == vg.closedDirection {
-		return nil, errors.Errorf("vg.openDirection and vg.closedDirection have to be opposed")
+		return nil, errors.New("vg.openDirection and vg.closedDirection have to be opposed")
 	}
 
 	return vg, vg.Open(ctx)
@@ -216,7 +216,7 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 	if math.Abs(pressureOpen-pressureClosed) < vg.pressureLimit/2 ||
 		vg.closedDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED ||
 		vg.openDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
-		return errors.Errorf("init: open and closed positions can't be distinguised: "+
+		return errors.Errorf("init: open and closed positions can't be distinguished: "+
 			"positions (closed, open): %f %f, pressures (closed, open): %f %f, "+
 			"open direction: %v, closed direction: %v",
 			vg.closedPos, vg.openPos, pressureClosed, pressureOpen, vg.openDirection, vg.closedDirection)
@@ -426,7 +426,7 @@ func (vg *GripperV2) hasPressure(ctx context.Context) (bool, float64, error) {
 	if err != nil {
 		return false, 0, err
 	}
-	return p > float64(vg.pressureLimit), p, err
+	return p > vg.pressureLimit, p, err
 }
 
 // analogs returns measurements such as: boolean that indicates if the average
