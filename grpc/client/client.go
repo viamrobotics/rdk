@@ -30,12 +30,12 @@ import (
 	"go.viam.com/core/grpc"
 	metadataclient "go.viam.com/core/grpc/metadata/client"
 	"go.viam.com/core/input"
-	"go.viam.com/core/kinematics"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/registry"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
@@ -86,9 +86,11 @@ type RobotClient struct {
 	cancelBackgroundWorkers func()
 	logger                  golog.Logger
 
-	cachingStatus  bool
-	cachedStatus   *pb.Status
-	cachedStatusMu *sync.Mutex
+	cachingStatus         bool
+	cachedStatus          *pb.Status
+	cachedStatusMu        *sync.Mutex
+	cachedSubtypeClientMu *sync.Mutex
+	cachedSubtypeClients  map[resource.Subtype]interface{}
 
 	closeContext context.Context
 }
@@ -135,6 +137,8 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 		namesMu:                 &sync.RWMutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		cachedStatusMu:          &sync.Mutex{},
+		cachedSubtypeClientMu:   &sync.Mutex{},
+		cachedSubtypeClients:    map[resource.Subtype]interface{}{},
 		closeContext:            closeCtx,
 	}
 	// refresh once to hydrate the robot.
@@ -175,7 +179,12 @@ func NewClient(ctx context.Context, address string, logger golog.Logger) (*Robot
 func (rc *RobotClient) Close() error {
 	rc.cancelBackgroundWorkers()
 	rc.activeBackgroundWorkers.Wait()
-	return multierr.Combine(rc.conn.Close(), rc.metadataClient.Close())
+
+	var err error = nil
+	for _, v := range rc.cachedSubtypeClients {
+		err = multierr.Combine(err, utils.TryClose(v))
+	}
+	return multierr.Combine(err, rc.conn.Close(), rc.metadataClient.Close())
 }
 
 // RefreshEvery refreshes the robot on the interval given by every until the
@@ -283,7 +292,15 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 // ArmByName returns an arm by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) ArmByName(name string) (arm.Arm, bool) {
-	return &armClient{rc: rc, name: name}, true
+	resource, ok := rc.ResourceByName(arm.Named(name))
+	if !ok {
+		return nil, false
+	}
+	actualArm, ok := resource.(arm.Arm)
+	if !ok {
+		return nil, false
+	}
+	return actualArm, true
 }
 
 // BaseByName returns a base by name. It is assumed to exist on the
@@ -380,12 +397,29 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
-	switch name.Subtype {
-	case arm.Subtype:
-		return &armClient{rc: rc, name: name.Name}, true
-	default:
+	rc.cachedSubtypeClientMu.Lock()
+	defer rc.cachedSubtypeClientMu.Unlock()
+	c := registry.ResourceSubtypeLookup(name.Subtype)
+	if c == nil || c.SubtypeClient == nil || c.ResourceClient == nil {
+		// registration doesn't exist
 		return nil, false
 	}
+	subtypeClient, ok := rc.cachedSubtypeClients[name.Subtype]
+
+	if !ok {
+		newClient, err := c.SubtypeClient(rc.closeContext, rc.address, name.Name, rc.Logger())
+		if err != nil {
+			return nil, false
+		}
+		rc.cachedSubtypeClients[name.Subtype] = newClient
+		subtypeClient = newClient
+	}
+	resourceClient, err := c.ResourceClient(subtypeClient, name.Name)
+	if err != nil {
+		return nil, false
+	}
+
+	return resourceClient, true
 }
 
 // Refresh manually updates the underlying parts of the robot based
@@ -741,63 +775,6 @@ func (bc *baseClient) WidthMillis(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	return int(resp.WidthMillis), nil
-}
-
-// armClient satisfies a gRPC based arm.Arm. Refer to the interface
-// for descriptions of its methods.
-type armClient struct {
-	rc   *RobotClient
-	name string
-}
-
-func (ac *armClient) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
-	resp, err := ac.rc.client.ArmCurrentPosition(ctx, &pb.ArmCurrentPositionRequest{
-		Name: ac.name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Position, nil
-}
-
-func (ac *armClient) MoveToPosition(ctx context.Context, c *pb.Pose) error {
-	_, err := ac.rc.client.ArmMoveToPosition(ctx, &pb.ArmMoveToPositionRequest{
-		Name: ac.name,
-		To:   c,
-	})
-	return err
-}
-
-func (ac *armClient) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
-	_, err := ac.rc.client.ArmMoveToJointPositions(ctx, &pb.ArmMoveToJointPositionsRequest{
-		Name: ac.name,
-		To:   pos,
-	})
-	return err
-}
-
-func (ac *armClient) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
-	resp, err := ac.rc.client.ArmCurrentJointPositions(ctx, &pb.ArmCurrentJointPositionsRequest{
-		Name: ac.name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Positions, nil
-}
-
-func (ac *armClient) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	_, err := ac.rc.client.ArmJointMoveDelta(ctx, &pb.ArmJointMoveDeltaRequest{
-		Name:       ac.name,
-		Joint:      int32(joint),
-		AmountDegs: amountDegs,
-	})
-	return err
-}
-
-func (ac *armClient) ModelFrame() *kinematics.Model {
-	// TODO(erh): this feels wrong
-	return nil
 }
 
 // gripperClient satisfies a gRPC based gripper.Gripper. Refer to the interface

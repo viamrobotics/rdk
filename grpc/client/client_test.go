@@ -30,6 +30,8 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	componentpb "go.viam.com/core/proto/api/component/v1"
 	metadatapb "go.viam.com/core/proto/api/service/v1"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
@@ -307,19 +309,23 @@ func TestClient(t *testing.T) {
 		return injectBase, true
 	}
 	injectArm := &inject.Arm{}
-	var capArmPos *pb.Pose
-	injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.Pose, error) {
-		return emptyStatus.Arms["arm1"].GridPosition, nil
+	var capArmPos *commonpb.Pose
+	injectArm.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+		pos := emptyStatus.Arms["arm1"].GridPosition
+		convertedPos := &commonpb.Pose{
+			X: pos.X, Y: pos.Y, Z: pos.Z, OX: pos.OX, OY: pos.OY, OZ: pos.OZ, Theta: pos.Theta,
+		}
+		return convertedPos, nil
 	}
-	injectArm.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
-		return emptyStatus.Arms["arm1"].JointPositions, nil
+	injectArm.CurrentJointPositionsFunc = func(ctx context.Context) (*componentpb.ArmJointPositions, error) {
+		return &componentpb.ArmJointPositions{Degrees: emptyStatus.Arms["arm1"].JointPositions.Degrees}, nil
 	}
-	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.Pose) error {
+	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
 		capArmPos = ap
 		return nil
 	}
-	var capArmJointPos *pb.JointPositions
-	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions) error {
+	var capArmJointPos *componentpb.ArmJointPositions
+	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.ArmJointPositions) error {
 		capArmJointPos = jp
 		return nil
 	}
@@ -774,11 +780,11 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = arm1.MoveToPosition(context.Background(), &pb.Pose{X: 1})
+	err = arm1.MoveToPosition(context.Background(), &commonpb.Pose{X: 1})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = arm1.MoveToJointPositions(context.Background(), &pb.JointPositions{Degrees: []float64{1}})
+	err = arm1.MoveToJointPositions(context.Background(), &componentpb.ArmJointPositions{Degrees: []float64{1}})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -892,23 +898,23 @@ func TestClient(t *testing.T) {
 
 	resource1, ok := client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err = resource1.(*armClient).CurrentPosition(context.Background())
+	_, err = resource1.(arm.Arm).CurrentPosition(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	_, err = resource1.(*armClient).CurrentJointPositions(context.Background())
+	_, err = resource1.(arm.Arm).CurrentJointPositions(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = resource1.(*armClient).MoveToPosition(context.Background(), &pb.Pose{X: 1})
+	err = resource1.(arm.Arm).MoveToPosition(context.Background(), &commonpb.Pose{X: 1})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = resource1.(*armClient).MoveToJointPositions(context.Background(), &pb.JointPositions{Degrees: []float64{1}})
+	err = resource1.(arm.Arm).MoveToJointPositions(context.Background(), &componentpb.ArmJointPositions{Degrees: []float64{1}})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = resource1.(*armClient).JointMoveDelta(context.Background(), 0, 0)
+	err = resource1.(arm.Arm).JointMoveDelta(context.Background(), 0, 0)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -963,7 +969,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, jp.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].JointPositions.String())
 
-	pos = &pb.Pose{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
+	pos = &commonpb.Pose{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
 	err = arm1.MoveToPosition(context.Background(), pos)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capArmPos.String(), test.ShouldResemble, pos.String())
@@ -971,7 +977,7 @@ func TestClient(t *testing.T) {
 
 	arm2, ok := client.ArmByName("arm2")
 	test.That(t, ok, test.ShouldBeTrue)
-	jointPos := &pb.JointPositions{Degrees: []float64{1.2, 3.4}}
+	jointPos := &componentpb.ArmJointPositions{Degrees: []float64{1.2, 3.4}}
 	err = arm2.MoveToJointPositions(context.Background(), jointPos)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos.String())
@@ -1308,29 +1314,29 @@ func TestClient(t *testing.T) {
 
 	resource1, ok = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
-	pos, err = resource1.(*armClient).CurrentPosition(context.Background())
+	pos, err = resource1.(arm.Arm).CurrentPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
 
-	jp, err = resource1.(*armClient).CurrentJointPositions(context.Background())
+	jp, err = resource1.(arm.Arm).CurrentJointPositions(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, jp.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].JointPositions.String())
 
-	pos = &pb.Pose{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
-	err = resource1.(*armClient).MoveToPosition(context.Background(), pos)
+	pos = &commonpb.Pose{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
+	err = resource1.(arm.Arm).MoveToPosition(context.Background(), pos)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capArmPos.String(), test.ShouldResemble, pos.String())
 	test.That(t, capArmName, test.ShouldEqual, "arm1")
 
 	resource2, ok := client.ResourceByName(arm.Named("arm2"))
 	test.That(t, ok, test.ShouldBeTrue)
-	jointPos = &pb.JointPositions{Degrees: []float64{1.2, 3.4}}
-	err = resource2.(*armClient).MoveToJointPositions(context.Background(), jointPos)
+	jointPos = &componentpb.ArmJointPositions{Degrees: []float64{1.2, 3.4}}
+	err = resource2.(arm.Arm).MoveToJointPositions(context.Background(), jointPos)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos.String())
 	test.That(t, capArmName, test.ShouldEqual, "arm2")
 
-	err = resource2.(*armClient).JointMoveDelta(context.Background(), 2, 28)
+	err = resource2.(arm.Arm).JointMoveDelta(context.Background(), 2, 28)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capArmJoint, test.ShouldEqual, 2)
 	test.That(t, capArmJointAngleDeg, test.ShouldEqual, 28)

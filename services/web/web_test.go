@@ -86,6 +86,7 @@ func setupRobotCtx() (context.Context, robot.Robot) {
 	injectRobot.CameraNamesFunc = func() []string { return []string{} }
 	injectRobot.LidarNamesFunc = func() []string { return []string{} }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) { return name, true }
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) { return &pb.Status{}, nil }
 
 	injectMetadata := &inject.Metadata{}

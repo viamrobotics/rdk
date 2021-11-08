@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	rpcserver "go.viam.com/utils/rpc/server"
+
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
@@ -136,45 +138,44 @@ func TestComponentRegistry(t *testing.T) {
 
 }
 
-func TestComponentSubtypeRegistry(t *testing.T) {
+func TestResourceSubtypeRegistry(t *testing.T) {
 	rf := func(r interface{}) (resource.Reconfigurable, error) {
 		return nil, nil
 	}
-	newSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, arm.SubtypeName)
-	test.That(t, func() { RegisterComponentSubtype(newSubtype, ComponentSubtype{}) }, test.ShouldPanic)
-
-	RegisterComponentSubtype(newSubtype, ComponentSubtype{rf})
-	creator := ComponentSubtypeLookup(newSubtype)
-	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, creator.Reconfigurable, test.ShouldEqual, rf)
-
-	subtype2 := resource.NewSubtype(resource.Namespace("acme2"), resource.ResourceTypeComponent, arm.SubtypeName)
-	test.That(t, ComponentSubtypeLookup(subtype2), test.ShouldBeNil)
-}
-
-func TestSubtypeGrpcRegistry(t *testing.T) {
-	rf := func(subtypeSvc subtype.Service) error {
+	sf := func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
 		return nil
 	}
-	cf := func(ctx context.Context, address string, name string, logger golog.Logger) (interface{}, error) {
+	scf := func(ctx context.Context, address string, name string, logger golog.Logger) (interface{}, error) {
+		return nil, nil
+	}
+	rcf := func(subtypeClient interface{}, name string) (interface{}, error) {
 		return nil, nil
 	}
 	newSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, arm.SubtypeName)
-	test.That(t, func() { RegisterSubtypeGrpc(newSubtype, SubtypeGrpc{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterResourceSubtype(newSubtype, ResourceSubtype{}) }, test.ShouldPanic)
 
-	RegisterSubtypeGrpc(newSubtype, SubtypeGrpc{RegisterService: rf})
-	creator := SubtypeGrpcLookup(newSubtype)
+	RegisterResourceSubtype(newSubtype, ResourceSubtype{Reconfigurable: rf, RegisterService: sf})
+	creator := ResourceSubtypeLookup(newSubtype)
 	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, creator.RegisterService, test.ShouldEqual, rf)
+	test.That(t, creator.Reconfigurable, test.ShouldEqual, rf)
+	test.That(t, creator.RegisterService, test.ShouldEqual, sf)
 	test.That(t, creator.ResourceClient, test.ShouldBeNil)
 
 	subtype2 := resource.NewSubtype(resource.Namespace("acme2"), resource.ResourceTypeComponent, arm.SubtypeName)
-	test.That(t, SubtypeGrpcLookup(subtype2), test.ShouldBeNil)
+	test.That(t, ResourceSubtypeLookup(subtype2), test.ShouldBeNil)
 
-	RegisterSubtypeGrpc(subtype2, SubtypeGrpc{RegisterService: rf, ResourceClient: cf})
-	creator = SubtypeGrpcLookup(subtype2)
+	RegisterResourceSubtype(subtype2, ResourceSubtype{RegisterService: sf, ResourceClient: rcf})
+	creator = ResourceSubtypeLookup(subtype2)
 	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, creator.RegisterService, test.ShouldEqual, rf)
-	test.That(t, creator.ResourceClient, test.ShouldEqual, cf)
+	test.That(t, creator.RegisterService, test.ShouldEqual, sf)
+	test.That(t, creator.ResourceClient, test.ShouldEqual, rcf)
 
+	subtype3 := resource.NewSubtype(resource.Namespace("acme3"), resource.ResourceTypeComponent, arm.SubtypeName)
+	test.That(t, ResourceSubtypeLookup(subtype3), test.ShouldBeNil)
+
+	RegisterResourceSubtype(subtype3, ResourceSubtype{SubtypeClient: scf, ResourceClient: rcf})
+	creator = ResourceSubtypeLookup(subtype3)
+	test.That(t, creator, test.ShouldNotBeNil)
+	test.That(t, creator.SubtypeClient, test.ShouldEqual, scf)
+	test.That(t, creator.ResourceClient, test.ShouldEqual, rcf)
 }
