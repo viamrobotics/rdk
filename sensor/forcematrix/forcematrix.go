@@ -14,9 +14,13 @@ const (
 	Type = "forcematrix"
 )
 
+// MatrixStorageSize determines how many matrices to store in history queue
+const MatrixStorageSize = 200
+
 // A ForceMatrix represents a force sensor that outputs a 2-dimensional array
 // with integers that correlate to the forces applied to the sensor.
 type ForceMatrix interface {
 	sensor.Sensor
 	Matrix(ctx context.Context) ([][]int, error)
+	IsSlipping(ctx context.Context) (bool, error)
 }
