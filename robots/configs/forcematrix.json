@@ -102,7 +102,9 @@
           4,
           5
         ],
-        "analog_channel": "a6"
+        "analog_channel": "a6",
+        "slip_detection_window": 50,
+        "noise_threshold": 40.0
       }
     }
   ]
