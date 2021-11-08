@@ -36,7 +36,7 @@ require (
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
 	github.com/pion/mediadevices v0.3.0
-	github.com/pion/webrtc/v3 v3.1.8-0.20211108211535-18c40a3068d3
+	github.com/pion/webrtc/v3 v3.1.8-0.20211108212420-6bcc54713d62
 	github.com/polyfloyd/go-errorlint v0.0.0-20201127212506-19bd8db6546f
 	github.com/pseudomuto/protoc-gen-doc v1.3.2
 	github.com/sergi/go-diff v1.2.0
@@ -199,7 +199,7 @@ require (
 	github.com/pelletier/go-toml v1.7.0 // indirect
 	github.com/phayes/checkstyle v0.0.0-20170904204023-bfd46e6a821d // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
-	github.com/pion/datachannel v1.5.1-0.20211108211312-8ae5d2d6698e // indirect
+	github.com/pion/datachannel v1.5.1-0.20211108212344-bb912440b8c3 // indirect
 	github.com/pion/dtls/v2 v2.0.10 // indirect
 	github.com/pion/ice/v2 v2.1.13 // indirect
 	github.com/pion/interceptor v0.1.0 // indirect
