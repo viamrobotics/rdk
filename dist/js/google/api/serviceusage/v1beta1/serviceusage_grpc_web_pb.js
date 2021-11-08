@@ -36,7 +36,7 @@ proto.google.api.serviceusage.v1beta1 = require('./serviceusage_pb.js');
 /**
  * @param {string} hostname
  * @param {?Object} credentials
- * @param {?Object} options
+ * @param {?grpc.web.ClientOptions} options
  * @constructor
  * @struct
  * @final
@@ -44,7 +44,7 @@ proto.google.api.serviceusage.v1beta1 = require('./serviceusage_pb.js');
 proto.google.api.serviceusage.v1beta1.ServiceUsageClient =
     function(hostname, credentials, options) {
   if (!options) options = {};
-  options['format'] = 'text';
+  options.format = 'text';
 
   /**
    * @private @const {!grpc.web.GrpcWebClientBase} The client
@@ -62,7 +62,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient =
 /**
  * @param {string} hostname
  * @param {?Object} credentials
- * @param {?Object} options
+ * @param {?grpc.web.ClientOptions} options
  * @constructor
  * @struct
  * @final
@@ -70,7 +70,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient =
 proto.google.api.serviceusage.v1beta1.ServiceUsagePromiseClient =
     function(hostname, credentials, options) {
   if (!options) options = {};
-  options['format'] = 'text';
+  options.format = 'text';
 
   /**
    * @private @const {!grpc.web.GrpcWebClientBase} The client
@@ -108,30 +108,11 @@ const methodDescriptor_ServiceUsage_EnableService = new grpc.web.MethodDescripto
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.EnableServiceRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceUsage_EnableService = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.EnableServiceRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.EnableServiceRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -150,7 +131,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.enableService
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.EnableServiceRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response
@@ -188,30 +169,11 @@ const methodDescriptor_ServiceUsage_DisableService = new grpc.web.MethodDescript
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.DisableServiceRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceUsage_DisableService = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.DisableServiceRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.DisableServiceRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -230,7 +192,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.disableServic
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.DisableServiceRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response
@@ -268,30 +230,11 @@ const methodDescriptor_ServiceUsage_GetService = new grpc.web.MethodDescriptor(
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.GetServiceRequest,
- *   !proto.google.api.serviceusage.v1beta1.Service>}
- */
-const methodInfo_ServiceUsage_GetService = new grpc.web.AbstractClientBase.MethodInfo(
-  google_api_serviceusage_v1beta1_resources_pb.Service,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.GetServiceRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_api_serviceusage_v1beta1_resources_pb.Service.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.GetServiceRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.serviceusage.v1beta1.Service)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.serviceusage.v1beta1.Service)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.serviceusage.v1beta1.Service>|undefined}
  *     The XHR Node Readable Stream
@@ -310,7 +253,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.getService =
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.GetServiceRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.serviceusage.v1beta1.Service>}
  *     Promise that resolves to the response
@@ -348,30 +291,11 @@ const methodDescriptor_ServiceUsage_ListServices = new grpc.web.MethodDescriptor
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.ListServicesRequest,
- *   !proto.google.api.serviceusage.v1beta1.ListServicesResponse>}
- */
-const methodInfo_ServiceUsage_ListServices = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.google.api.serviceusage.v1beta1.ListServicesResponse,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.ListServicesRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.google.api.serviceusage.v1beta1.ListServicesResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.ListServicesRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.serviceusage.v1beta1.ListServicesResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.serviceusage.v1beta1.ListServicesResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.serviceusage.v1beta1.ListServicesResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -390,7 +314,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.listServices 
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.ListServicesRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.serviceusage.v1beta1.ListServicesResponse>}
  *     Promise that resolves to the response
@@ -428,30 +352,11 @@ const methodDescriptor_ServiceUsage_BatchEnableServices = new grpc.web.MethodDes
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.BatchEnableServicesRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceUsage_BatchEnableServices = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.BatchEnableServicesRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.BatchEnableServicesRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -470,7 +375,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.batchEnableSe
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.BatchEnableServicesRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response
@@ -508,30 +413,11 @@ const methodDescriptor_ServiceUsage_ListConsumerQuotaMetrics = new grpc.web.Meth
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.ListConsumerQuotaMetricsRequest,
- *   !proto.google.api.serviceusage.v1beta1.ListConsumerQuotaMetricsResponse>}
- */
-const methodInfo_ServiceUsage_ListConsumerQuotaMetrics = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.google.api.serviceusage.v1beta1.ListConsumerQuotaMetricsResponse,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.ListConsumerQuotaMetricsRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.google.api.serviceusage.v1beta1.ListConsumerQuotaMetricsResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.ListConsumerQuotaMetricsRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.serviceusage.v1beta1.ListConsumerQuotaMetricsResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.serviceusage.v1beta1.ListConsumerQuotaMetricsResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.serviceusage.v1beta1.ListConsumerQuotaMetricsResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -550,7 +436,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.listConsumerQ
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.ListConsumerQuotaMetricsRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.serviceusage.v1beta1.ListConsumerQuotaMetricsResponse>}
  *     Promise that resolves to the response
@@ -588,30 +474,11 @@ const methodDescriptor_ServiceUsage_GetConsumerQuotaMetric = new grpc.web.Method
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.GetConsumerQuotaMetricRequest,
- *   !proto.google.api.serviceusage.v1beta1.ConsumerQuotaMetric>}
- */
-const methodInfo_ServiceUsage_GetConsumerQuotaMetric = new grpc.web.AbstractClientBase.MethodInfo(
-  google_api_serviceusage_v1beta1_resources_pb.ConsumerQuotaMetric,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.GetConsumerQuotaMetricRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_api_serviceusage_v1beta1_resources_pb.ConsumerQuotaMetric.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.GetConsumerQuotaMetricRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.serviceusage.v1beta1.ConsumerQuotaMetric)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.serviceusage.v1beta1.ConsumerQuotaMetric)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.serviceusage.v1beta1.ConsumerQuotaMetric>|undefined}
  *     The XHR Node Readable Stream
@@ -630,7 +497,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.getConsumerQu
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.GetConsumerQuotaMetricRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.serviceusage.v1beta1.ConsumerQuotaMetric>}
  *     Promise that resolves to the response
@@ -668,30 +535,11 @@ const methodDescriptor_ServiceUsage_GetConsumerQuotaLimit = new grpc.web.MethodD
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.GetConsumerQuotaLimitRequest,
- *   !proto.google.api.serviceusage.v1beta1.ConsumerQuotaLimit>}
- */
-const methodInfo_ServiceUsage_GetConsumerQuotaLimit = new grpc.web.AbstractClientBase.MethodInfo(
-  google_api_serviceusage_v1beta1_resources_pb.ConsumerQuotaLimit,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.GetConsumerQuotaLimitRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_api_serviceusage_v1beta1_resources_pb.ConsumerQuotaLimit.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.GetConsumerQuotaLimitRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.serviceusage.v1beta1.ConsumerQuotaLimit)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.serviceusage.v1beta1.ConsumerQuotaLimit)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.serviceusage.v1beta1.ConsumerQuotaLimit>|undefined}
  *     The XHR Node Readable Stream
@@ -710,7 +558,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.getConsumerQu
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.GetConsumerQuotaLimitRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.serviceusage.v1beta1.ConsumerQuotaLimit>}
  *     Promise that resolves to the response
@@ -748,30 +596,11 @@ const methodDescriptor_ServiceUsage_CreateAdminOverride = new grpc.web.MethodDes
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.CreateAdminOverrideRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceUsage_CreateAdminOverride = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.CreateAdminOverrideRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.CreateAdminOverrideRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -790,7 +619,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.createAdminOv
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.CreateAdminOverrideRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response
@@ -828,30 +657,11 @@ const methodDescriptor_ServiceUsage_UpdateAdminOverride = new grpc.web.MethodDes
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.UpdateAdminOverrideRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceUsage_UpdateAdminOverride = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.UpdateAdminOverrideRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.UpdateAdminOverrideRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -870,7 +680,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.updateAdminOv
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.UpdateAdminOverrideRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response
@@ -908,30 +718,11 @@ const methodDescriptor_ServiceUsage_DeleteAdminOverride = new grpc.web.MethodDes
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.DeleteAdminOverrideRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceUsage_DeleteAdminOverride = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.DeleteAdminOverrideRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.DeleteAdminOverrideRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -950,7 +741,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.deleteAdminOv
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.DeleteAdminOverrideRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response
@@ -988,30 +779,11 @@ const methodDescriptor_ServiceUsage_ListAdminOverrides = new grpc.web.MethodDesc
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.ListAdminOverridesRequest,
- *   !proto.google.api.serviceusage.v1beta1.ListAdminOverridesResponse>}
- */
-const methodInfo_ServiceUsage_ListAdminOverrides = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.google.api.serviceusage.v1beta1.ListAdminOverridesResponse,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.ListAdminOverridesRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.google.api.serviceusage.v1beta1.ListAdminOverridesResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.ListAdminOverridesRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.serviceusage.v1beta1.ListAdminOverridesResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.serviceusage.v1beta1.ListAdminOverridesResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.serviceusage.v1beta1.ListAdminOverridesResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1030,7 +802,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.listAdminOver
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.ListAdminOverridesRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.serviceusage.v1beta1.ListAdminOverridesResponse>}
  *     Promise that resolves to the response
@@ -1068,30 +840,11 @@ const methodDescriptor_ServiceUsage_ImportAdminOverrides = new grpc.web.MethodDe
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.ImportAdminOverridesRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceUsage_ImportAdminOverrides = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.ImportAdminOverridesRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.ImportAdminOverridesRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -1110,7 +863,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.importAdminOv
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.ImportAdminOverridesRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response
@@ -1148,30 +901,11 @@ const methodDescriptor_ServiceUsage_CreateConsumerOverride = new grpc.web.Method
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.CreateConsumerOverrideRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceUsage_CreateConsumerOverride = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.CreateConsumerOverrideRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.CreateConsumerOverrideRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -1190,7 +924,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.createConsume
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.CreateConsumerOverrideRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response
@@ -1228,30 +962,11 @@ const methodDescriptor_ServiceUsage_UpdateConsumerOverride = new grpc.web.Method
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.UpdateConsumerOverrideRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceUsage_UpdateConsumerOverride = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.UpdateConsumerOverrideRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.UpdateConsumerOverrideRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -1270,7 +985,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.updateConsume
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.UpdateConsumerOverrideRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response
@@ -1308,30 +1023,11 @@ const methodDescriptor_ServiceUsage_DeleteConsumerOverride = new grpc.web.Method
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.DeleteConsumerOverrideRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceUsage_DeleteConsumerOverride = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.DeleteConsumerOverrideRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.DeleteConsumerOverrideRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -1350,7 +1046,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.deleteConsume
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.DeleteConsumerOverrideRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response
@@ -1388,30 +1084,11 @@ const methodDescriptor_ServiceUsage_ListConsumerOverrides = new grpc.web.MethodD
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.ListConsumerOverridesRequest,
- *   !proto.google.api.serviceusage.v1beta1.ListConsumerOverridesResponse>}
- */
-const methodInfo_ServiceUsage_ListConsumerOverrides = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.google.api.serviceusage.v1beta1.ListConsumerOverridesResponse,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.ListConsumerOverridesRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.google.api.serviceusage.v1beta1.ListConsumerOverridesResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.ListConsumerOverridesRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.serviceusage.v1beta1.ListConsumerOverridesResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.serviceusage.v1beta1.ListConsumerOverridesResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.serviceusage.v1beta1.ListConsumerOverridesResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1430,7 +1107,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.listConsumerO
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.ListConsumerOverridesRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.serviceusage.v1beta1.ListConsumerOverridesResponse>}
  *     Promise that resolves to the response
@@ -1468,30 +1145,11 @@ const methodDescriptor_ServiceUsage_ImportConsumerOverrides = new grpc.web.Metho
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.ImportConsumerOverridesRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceUsage_ImportConsumerOverrides = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.ImportConsumerOverridesRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.ImportConsumerOverridesRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -1510,7 +1168,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.importConsume
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.ImportConsumerOverridesRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response
@@ -1548,30 +1206,11 @@ const methodDescriptor_ServiceUsage_GenerateServiceIdentity = new grpc.web.Metho
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.serviceusage.v1beta1.GenerateServiceIdentityRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceUsage_GenerateServiceIdentity = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.serviceusage.v1beta1.GenerateServiceIdentityRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.serviceusage.v1beta1.GenerateServiceIdentityRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -1590,7 +1229,7 @@ proto.google.api.serviceusage.v1beta1.ServiceUsageClient.prototype.generateServi
 /**
  * @param {!proto.google.api.serviceusage.v1beta1.GenerateServiceIdentityRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response

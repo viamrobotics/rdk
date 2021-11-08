@@ -42,7 +42,7 @@ proto.google.api.servicemanagement.v1 = require('./servicemanager_pb.js');
 /**
  * @param {string} hostname
  * @param {?Object} credentials
- * @param {?Object} options
+ * @param {?grpc.web.ClientOptions} options
  * @constructor
  * @struct
  * @final
@@ -50,7 +50,7 @@ proto.google.api.servicemanagement.v1 = require('./servicemanager_pb.js');
 proto.google.api.servicemanagement.v1.ServiceManagerClient =
     function(hostname, credentials, options) {
   if (!options) options = {};
-  options['format'] = 'text';
+  options.format = 'text';
 
   /**
    * @private @const {!grpc.web.GrpcWebClientBase} The client
@@ -68,7 +68,7 @@ proto.google.api.servicemanagement.v1.ServiceManagerClient =
 /**
  * @param {string} hostname
  * @param {?Object} credentials
- * @param {?Object} options
+ * @param {?grpc.web.ClientOptions} options
  * @constructor
  * @struct
  * @final
@@ -76,7 +76,7 @@ proto.google.api.servicemanagement.v1.ServiceManagerClient =
 proto.google.api.servicemanagement.v1.ServiceManagerPromiseClient =
     function(hostname, credentials, options) {
   if (!options) options = {};
-  options['format'] = 'text';
+  options.format = 'text';
 
   /**
    * @private @const {!grpc.web.GrpcWebClientBase} The client
@@ -114,30 +114,11 @@ const methodDescriptor_ServiceManager_ListServices = new grpc.web.MethodDescript
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.servicemanagement.v1.ListServicesRequest,
- *   !proto.google.api.servicemanagement.v1.ListServicesResponse>}
- */
-const methodInfo_ServiceManager_ListServices = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.google.api.servicemanagement.v1.ListServicesResponse,
-  /**
-   * @param {!proto.google.api.servicemanagement.v1.ListServicesRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.google.api.servicemanagement.v1.ListServicesResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.servicemanagement.v1.ListServicesRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.servicemanagement.v1.ListServicesResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.servicemanagement.v1.ListServicesResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.servicemanagement.v1.ListServicesResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -156,7 +137,7 @@ proto.google.api.servicemanagement.v1.ServiceManagerClient.prototype.listService
 /**
  * @param {!proto.google.api.servicemanagement.v1.ListServicesRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.servicemanagement.v1.ListServicesResponse>}
  *     Promise that resolves to the response
@@ -194,30 +175,11 @@ const methodDescriptor_ServiceManager_GetService = new grpc.web.MethodDescriptor
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.servicemanagement.v1.GetServiceRequest,
- *   !proto.google.api.servicemanagement.v1.ManagedService>}
- */
-const methodInfo_ServiceManager_GetService = new grpc.web.AbstractClientBase.MethodInfo(
-  google_api_servicemanagement_v1_resources_pb.ManagedService,
-  /**
-   * @param {!proto.google.api.servicemanagement.v1.GetServiceRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_api_servicemanagement_v1_resources_pb.ManagedService.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.servicemanagement.v1.GetServiceRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.servicemanagement.v1.ManagedService)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.servicemanagement.v1.ManagedService)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.servicemanagement.v1.ManagedService>|undefined}
  *     The XHR Node Readable Stream
@@ -236,7 +198,7 @@ proto.google.api.servicemanagement.v1.ServiceManagerClient.prototype.getService 
 /**
  * @param {!proto.google.api.servicemanagement.v1.GetServiceRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.servicemanagement.v1.ManagedService>}
  *     Promise that resolves to the response
@@ -274,30 +236,11 @@ const methodDescriptor_ServiceManager_CreateService = new grpc.web.MethodDescrip
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.servicemanagement.v1.CreateServiceRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceManager_CreateService = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.servicemanagement.v1.CreateServiceRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.servicemanagement.v1.CreateServiceRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -316,7 +259,7 @@ proto.google.api.servicemanagement.v1.ServiceManagerClient.prototype.createServi
 /**
  * @param {!proto.google.api.servicemanagement.v1.CreateServiceRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response
@@ -354,30 +297,11 @@ const methodDescriptor_ServiceManager_DeleteService = new grpc.web.MethodDescrip
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.servicemanagement.v1.DeleteServiceRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceManager_DeleteService = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.servicemanagement.v1.DeleteServiceRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.servicemanagement.v1.DeleteServiceRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -396,7 +320,7 @@ proto.google.api.servicemanagement.v1.ServiceManagerClient.prototype.deleteServi
 /**
  * @param {!proto.google.api.servicemanagement.v1.DeleteServiceRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response
@@ -434,30 +358,11 @@ const methodDescriptor_ServiceManager_UndeleteService = new grpc.web.MethodDescr
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.servicemanagement.v1.UndeleteServiceRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceManager_UndeleteService = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.servicemanagement.v1.UndeleteServiceRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.servicemanagement.v1.UndeleteServiceRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -476,7 +381,7 @@ proto.google.api.servicemanagement.v1.ServiceManagerClient.prototype.undeleteSer
 /**
  * @param {!proto.google.api.servicemanagement.v1.UndeleteServiceRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response
@@ -514,30 +419,11 @@ const methodDescriptor_ServiceManager_ListServiceConfigs = new grpc.web.MethodDe
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.servicemanagement.v1.ListServiceConfigsRequest,
- *   !proto.google.api.servicemanagement.v1.ListServiceConfigsResponse>}
- */
-const methodInfo_ServiceManager_ListServiceConfigs = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.google.api.servicemanagement.v1.ListServiceConfigsResponse,
-  /**
-   * @param {!proto.google.api.servicemanagement.v1.ListServiceConfigsRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.google.api.servicemanagement.v1.ListServiceConfigsResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.servicemanagement.v1.ListServiceConfigsRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.servicemanagement.v1.ListServiceConfigsResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.servicemanagement.v1.ListServiceConfigsResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.servicemanagement.v1.ListServiceConfigsResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -556,7 +442,7 @@ proto.google.api.servicemanagement.v1.ServiceManagerClient.prototype.listService
 /**
  * @param {!proto.google.api.servicemanagement.v1.ListServiceConfigsRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.servicemanagement.v1.ListServiceConfigsResponse>}
  *     Promise that resolves to the response
@@ -594,30 +480,11 @@ const methodDescriptor_ServiceManager_GetServiceConfig = new grpc.web.MethodDesc
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.servicemanagement.v1.GetServiceConfigRequest,
- *   !proto.google.api.Service>}
- */
-const methodInfo_ServiceManager_GetServiceConfig = new grpc.web.AbstractClientBase.MethodInfo(
-  google_api_service_pb.Service,
-  /**
-   * @param {!proto.google.api.servicemanagement.v1.GetServiceConfigRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_api_service_pb.Service.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.servicemanagement.v1.GetServiceConfigRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.Service)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.Service)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.Service>|undefined}
  *     The XHR Node Readable Stream
@@ -636,7 +503,7 @@ proto.google.api.servicemanagement.v1.ServiceManagerClient.prototype.getServiceC
 /**
  * @param {!proto.google.api.servicemanagement.v1.GetServiceConfigRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.Service>}
  *     Promise that resolves to the response
@@ -674,30 +541,11 @@ const methodDescriptor_ServiceManager_CreateServiceConfig = new grpc.web.MethodD
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.servicemanagement.v1.CreateServiceConfigRequest,
- *   !proto.google.api.Service>}
- */
-const methodInfo_ServiceManager_CreateServiceConfig = new grpc.web.AbstractClientBase.MethodInfo(
-  google_api_service_pb.Service,
-  /**
-   * @param {!proto.google.api.servicemanagement.v1.CreateServiceConfigRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_api_service_pb.Service.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.servicemanagement.v1.CreateServiceConfigRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.Service)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.Service)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.Service>|undefined}
  *     The XHR Node Readable Stream
@@ -716,7 +564,7 @@ proto.google.api.servicemanagement.v1.ServiceManagerClient.prototype.createServi
 /**
  * @param {!proto.google.api.servicemanagement.v1.CreateServiceConfigRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.Service>}
  *     Promise that resolves to the response
@@ -754,30 +602,11 @@ const methodDescriptor_ServiceManager_SubmitConfigSource = new grpc.web.MethodDe
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.servicemanagement.v1.SubmitConfigSourceRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceManager_SubmitConfigSource = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.servicemanagement.v1.SubmitConfigSourceRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.servicemanagement.v1.SubmitConfigSourceRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -796,7 +625,7 @@ proto.google.api.servicemanagement.v1.ServiceManagerClient.prototype.submitConfi
 /**
  * @param {!proto.google.api.servicemanagement.v1.SubmitConfigSourceRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response
@@ -834,30 +663,11 @@ const methodDescriptor_ServiceManager_ListServiceRollouts = new grpc.web.MethodD
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.servicemanagement.v1.ListServiceRolloutsRequest,
- *   !proto.google.api.servicemanagement.v1.ListServiceRolloutsResponse>}
- */
-const methodInfo_ServiceManager_ListServiceRollouts = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.google.api.servicemanagement.v1.ListServiceRolloutsResponse,
-  /**
-   * @param {!proto.google.api.servicemanagement.v1.ListServiceRolloutsRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.google.api.servicemanagement.v1.ListServiceRolloutsResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.servicemanagement.v1.ListServiceRolloutsRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.servicemanagement.v1.ListServiceRolloutsResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.servicemanagement.v1.ListServiceRolloutsResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.servicemanagement.v1.ListServiceRolloutsResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -876,7 +686,7 @@ proto.google.api.servicemanagement.v1.ServiceManagerClient.prototype.listService
 /**
  * @param {!proto.google.api.servicemanagement.v1.ListServiceRolloutsRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.servicemanagement.v1.ListServiceRolloutsResponse>}
  *     Promise that resolves to the response
@@ -914,30 +724,11 @@ const methodDescriptor_ServiceManager_GetServiceRollout = new grpc.web.MethodDes
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.servicemanagement.v1.GetServiceRolloutRequest,
- *   !proto.google.api.servicemanagement.v1.Rollout>}
- */
-const methodInfo_ServiceManager_GetServiceRollout = new grpc.web.AbstractClientBase.MethodInfo(
-  google_api_servicemanagement_v1_resources_pb.Rollout,
-  /**
-   * @param {!proto.google.api.servicemanagement.v1.GetServiceRolloutRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_api_servicemanagement_v1_resources_pb.Rollout.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.servicemanagement.v1.GetServiceRolloutRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.servicemanagement.v1.Rollout)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.servicemanagement.v1.Rollout)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.servicemanagement.v1.Rollout>|undefined}
  *     The XHR Node Readable Stream
@@ -956,7 +747,7 @@ proto.google.api.servicemanagement.v1.ServiceManagerClient.prototype.getServiceR
 /**
  * @param {!proto.google.api.servicemanagement.v1.GetServiceRolloutRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.servicemanagement.v1.Rollout>}
  *     Promise that resolves to the response
@@ -994,30 +785,11 @@ const methodDescriptor_ServiceManager_CreateServiceRollout = new grpc.web.Method
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.servicemanagement.v1.CreateServiceRolloutRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceManager_CreateServiceRollout = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.servicemanagement.v1.CreateServiceRolloutRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.servicemanagement.v1.CreateServiceRolloutRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -1036,7 +808,7 @@ proto.google.api.servicemanagement.v1.ServiceManagerClient.prototype.createServi
 /**
  * @param {!proto.google.api.servicemanagement.v1.CreateServiceRolloutRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response
@@ -1074,30 +846,11 @@ const methodDescriptor_ServiceManager_GenerateConfigReport = new grpc.web.Method
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.servicemanagement.v1.GenerateConfigReportRequest,
- *   !proto.google.api.servicemanagement.v1.GenerateConfigReportResponse>}
- */
-const methodInfo_ServiceManager_GenerateConfigReport = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.google.api.servicemanagement.v1.GenerateConfigReportResponse,
-  /**
-   * @param {!proto.google.api.servicemanagement.v1.GenerateConfigReportRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.google.api.servicemanagement.v1.GenerateConfigReportResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.servicemanagement.v1.GenerateConfigReportRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.servicemanagement.v1.GenerateConfigReportResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.servicemanagement.v1.GenerateConfigReportResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.servicemanagement.v1.GenerateConfigReportResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -1116,7 +869,7 @@ proto.google.api.servicemanagement.v1.ServiceManagerClient.prototype.generateCon
 /**
  * @param {!proto.google.api.servicemanagement.v1.GenerateConfigReportRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.servicemanagement.v1.GenerateConfigReportResponse>}
  *     Promise that resolves to the response
@@ -1154,30 +907,11 @@ const methodDescriptor_ServiceManager_EnableService = new grpc.web.MethodDescrip
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.servicemanagement.v1.EnableServiceRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceManager_EnableService = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.servicemanagement.v1.EnableServiceRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.servicemanagement.v1.EnableServiceRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -1196,7 +930,7 @@ proto.google.api.servicemanagement.v1.ServiceManagerClient.prototype.enableServi
 /**
  * @param {!proto.google.api.servicemanagement.v1.EnableServiceRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response
@@ -1234,30 +968,11 @@ const methodDescriptor_ServiceManager_DisableService = new grpc.web.MethodDescri
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.servicemanagement.v1.DisableServiceRequest,
- *   !proto.google.longrunning.Operation>}
- */
-const methodInfo_ServiceManager_DisableService = new grpc.web.AbstractClientBase.MethodInfo(
-  google_longrunning_operations_pb.Operation,
-  /**
-   * @param {!proto.google.api.servicemanagement.v1.DisableServiceRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  google_longrunning_operations_pb.Operation.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.servicemanagement.v1.DisableServiceRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.longrunning.Operation)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.longrunning.Operation)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.longrunning.Operation>|undefined}
  *     The XHR Node Readable Stream
@@ -1276,7 +991,7 @@ proto.google.api.servicemanagement.v1.ServiceManagerClient.prototype.disableServ
 /**
  * @param {!proto.google.api.servicemanagement.v1.DisableServiceRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.longrunning.Operation>}
  *     Promise that resolves to the response

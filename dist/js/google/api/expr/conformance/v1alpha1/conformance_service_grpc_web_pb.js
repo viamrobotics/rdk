@@ -35,7 +35,7 @@ proto.google.api.expr.conformance.v1alpha1 = require('./conformance_service_pb.j
 /**
  * @param {string} hostname
  * @param {?Object} credentials
- * @param {?Object} options
+ * @param {?grpc.web.ClientOptions} options
  * @constructor
  * @struct
  * @final
@@ -43,7 +43,7 @@ proto.google.api.expr.conformance.v1alpha1 = require('./conformance_service_pb.j
 proto.google.api.expr.conformance.v1alpha1.ConformanceServiceClient =
     function(hostname, credentials, options) {
   if (!options) options = {};
-  options['format'] = 'text';
+  options.format = 'text';
 
   /**
    * @private @const {!grpc.web.GrpcWebClientBase} The client
@@ -61,7 +61,7 @@ proto.google.api.expr.conformance.v1alpha1.ConformanceServiceClient =
 /**
  * @param {string} hostname
  * @param {?Object} credentials
- * @param {?Object} options
+ * @param {?grpc.web.ClientOptions} options
  * @constructor
  * @struct
  * @final
@@ -69,7 +69,7 @@ proto.google.api.expr.conformance.v1alpha1.ConformanceServiceClient =
 proto.google.api.expr.conformance.v1alpha1.ConformanceServicePromiseClient =
     function(hostname, credentials, options) {
   if (!options) options = {};
-  options['format'] = 'text';
+  options.format = 'text';
 
   /**
    * @private @const {!grpc.web.GrpcWebClientBase} The client
@@ -107,30 +107,11 @@ const methodDescriptor_ConformanceService_Parse = new grpc.web.MethodDescriptor(
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.expr.conformance.v1alpha1.ParseRequest,
- *   !proto.google.api.expr.conformance.v1alpha1.ParseResponse>}
- */
-const methodInfo_ConformanceService_Parse = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.google.api.expr.conformance.v1alpha1.ParseResponse,
-  /**
-   * @param {!proto.google.api.expr.conformance.v1alpha1.ParseRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.google.api.expr.conformance.v1alpha1.ParseResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.expr.conformance.v1alpha1.ParseRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.expr.conformance.v1alpha1.ParseResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.expr.conformance.v1alpha1.ParseResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.expr.conformance.v1alpha1.ParseResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -149,7 +130,7 @@ proto.google.api.expr.conformance.v1alpha1.ConformanceServiceClient.prototype.pa
 /**
  * @param {!proto.google.api.expr.conformance.v1alpha1.ParseRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.expr.conformance.v1alpha1.ParseResponse>}
  *     Promise that resolves to the response
@@ -187,30 +168,11 @@ const methodDescriptor_ConformanceService_Check = new grpc.web.MethodDescriptor(
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.expr.conformance.v1alpha1.CheckRequest,
- *   !proto.google.api.expr.conformance.v1alpha1.CheckResponse>}
- */
-const methodInfo_ConformanceService_Check = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.google.api.expr.conformance.v1alpha1.CheckResponse,
-  /**
-   * @param {!proto.google.api.expr.conformance.v1alpha1.CheckRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.google.api.expr.conformance.v1alpha1.CheckResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.expr.conformance.v1alpha1.CheckRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.expr.conformance.v1alpha1.CheckResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.expr.conformance.v1alpha1.CheckResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.expr.conformance.v1alpha1.CheckResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -229,7 +191,7 @@ proto.google.api.expr.conformance.v1alpha1.ConformanceServiceClient.prototype.ch
 /**
  * @param {!proto.google.api.expr.conformance.v1alpha1.CheckRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.expr.conformance.v1alpha1.CheckResponse>}
  *     Promise that resolves to the response
@@ -267,30 +229,11 @@ const methodDescriptor_ConformanceService_Eval = new grpc.web.MethodDescriptor(
 
 
 /**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.google.api.expr.conformance.v1alpha1.EvalRequest,
- *   !proto.google.api.expr.conformance.v1alpha1.EvalResponse>}
- */
-const methodInfo_ConformanceService_Eval = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.google.api.expr.conformance.v1alpha1.EvalResponse,
-  /**
-   * @param {!proto.google.api.expr.conformance.v1alpha1.EvalRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.google.api.expr.conformance.v1alpha1.EvalResponse.deserializeBinary
-);
-
-
-/**
  * @param {!proto.google.api.expr.conformance.v1alpha1.EvalRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.google.api.expr.conformance.v1alpha1.EvalResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.google.api.expr.conformance.v1alpha1.EvalResponse)}
  *     callback The callback function(error, response)
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.expr.conformance.v1alpha1.EvalResponse>|undefined}
  *     The XHR Node Readable Stream
@@ -309,7 +252,7 @@ proto.google.api.expr.conformance.v1alpha1.ConformanceServiceClient.prototype.ev
 /**
  * @param {!proto.google.api.expr.conformance.v1alpha1.EvalRequest} request The
  *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.expr.conformance.v1alpha1.EvalResponse>}
  *     Promise that resolves to the response
