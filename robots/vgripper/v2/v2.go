@@ -52,7 +52,7 @@ const (
 	PositionTolerance       = 1   // Tolerance for motor position when reaching the open or closed position
 )
 
-// GripperV2 represents a Viam gripper.
+// GripperV2 represents a Viam gripper which operates with a ForceMatrix.
 type GripperV2 struct {
 	motor       motor.Motor
 	current     board.AnalogReader
@@ -70,7 +70,7 @@ type GripperV2 struct {
 	numBadCurrentReadings int
 }
 
-// New returns a GripperV2.
+// New returns a GripperV2 which operates with a ForceMatrix.
 func New(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*GripperV2, error) {
 	const boardName = "local"
 	const motorName = "g"
@@ -367,21 +367,22 @@ func (vg *GripperV2) processCurrentReading(ctx context.Context, current int, whe
 	return errors.Errorf("current too high for too long, currently %d during %s", current, where)
 }
 
-// Close stops the motors
+// Close stops the motors.
 func (vg *GripperV2) Close() error {
 	return vg.Stop(context.Background())
 }
 
+// stopAfterError stops the motor and returns the combined errors.
 func (vg *GripperV2) stopAfterError(ctx context.Context, other error) error {
 	return multierr.Combine(other, vg.motor.Off(ctx))
 }
 
-// Stop stops the motors
+// Stop stops the motors.
 func (vg *GripperV2) Stop(ctx context.Context) error {
 	return vg.motor.Off(ctx)
 }
 
-// readCurrent reads the current
+// readCurrent reads the current.
 func (vg *GripperV2) readCurrent(ctx context.Context) (int, error) {
 	return vg.current.Read(ctx)
 }
