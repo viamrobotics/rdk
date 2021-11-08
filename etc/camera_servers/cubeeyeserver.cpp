@@ -30,17 +30,25 @@ using namespace meere;
 public:
 
     virtual std::string name() const {
-        return std::string("MyListener");
+        return std::string("CubeEyeServer");
     }
 
     virtual void onCubeEyeCameraState(const meere::sensor::ptr_source source, meere::sensor::State state) {
-        printf("%s:%d source(%s) state = %d\n", __FUNCTION__, __LINE__, source->uri().c_str(), state);
-        
+        //printf("%s:%d source(%s) state = %d\n", __FUNCTION__, __LINE__, source->uri().c_str(), state);
+        std::cout << "Camera State = " << state << std::endl;
         if (meere::sensor::State::Running == state) {
+            std::cout << " Running" << std::endl;
             mReadFrameThreadStart = true;
             mReadFrameThread = std::thread(MyListener::ReadFrameProc, this);
         }
+        else if (meere::sensor::State::Released == state) {
+            std::cout << " Released" << std::endl;
+        }
+        else if (meere::sensor::State::Prepared == state) {
+            std::cout << " Prepared" << std::endl;
+        }
         else if (meere::sensor::State::Stopped == state) {
+            std::cout << " Stopped" << std::endl;
             mReadFrameThreadStart = false;
             if (mReadFrameThread.joinable()) {
                 mReadFrameThread.join();
@@ -49,7 +57,9 @@ public:
     }
 
     virtual void onCubeEyeCameraError(const meere::sensor::ptr_source source, meere::sensor::Error error) {
-        printf("%s:%d source(%s) error = %d\n", __FUNCTION__, __LINE__, source->uri().c_str(), error);
+        // printf("%s:%d source(%s) error = %d\n", __FUNCTION__, __LINE__, source->uri().c_str(), error);
+        std::cerr << "Error with the camera device, error string : "
+             << error << endl;
     }
 
     virtual void onCubeEyeFrameList(const meere::sensor::ptr_source source , const meere::sensor::sptr_frame_list& frames) {
@@ -69,6 +79,7 @@ public:
         printf("%s:%d source(%s)\n", __FUNCTION__, __LINE__, camera->source()->uri().c_str());
     }
 /////////////// this guy is where we get camera data /////////////////////////
+
 public:
     static void ReadFrameProc(MyListener* thiz) {
         
@@ -97,8 +108,8 @@ public:
                     
                     if (it->frameType() == meere::sensor::CubeEyeFrame::FrameType_Depth) {
                         // setting min/max based off exp values. didnt like the idea of constantly changing upper and lower bound
-                        float max = 2200;// 100000;//
-                        float min = 120;// 0;//
+                        float max = 2200;// 0;//
+                        float min = 120;// 100000;//
                         // 16bits data type
                         if (it->frameDataType() == meere::sensor::CubeEyeData::DataType_16U) {
                             // casting 16bits basic frame
@@ -269,12 +280,12 @@ int main(int argc, char* argv[])
         }
     }
     else {
-        std::cout << "no search device!" << std::endl;
+        std::cerr << "no search device!" << std::endl;
         return -1;
     }
 
     if (0 > _selected_source) {
-        std::cout << "invalid selected source number!" << std::endl;
+        std::cerr << "invalid selected source number!" << std::endl;
         return -1;
     }
 
@@ -290,7 +301,7 @@ int main(int argc, char* argv[])
         _rt = _camera->prepare();
         assert(meere::sensor::success == _rt);
         if (meere::sensor::success != _rt) {
-            std::cout << "_camera->prepare() failed." << std::endl;
+            std::cerr << "_camera->prepare() failed." << std::endl;
             meere::sensor::destroy_camera(_camera);
             return -1;
         }
@@ -301,7 +312,7 @@ int main(int argc, char* argv[])
         _rt = _camera->run(_wantedFrame);
         assert(meere::sensor::success == _rt);
         if (meere::sensor::success != _rt) {
-            std::cout << "_camera->run() failed." << std::endl;
+            std::cerr << "_camera->run() failed." << std::endl;
             meere::sensor::destroy_camera(_camera);
             return -1;
         }
