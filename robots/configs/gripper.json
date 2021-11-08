@@ -17,12 +17,6 @@
               "name": "current",
               "pin": "1",
               "spi_bus": "main"
-            },
-            {
-              "chip_select": "24",
-              "name": "pressure",
-              "pin": "0",
-              "spi_bus": "main"
             }
           ],
           "config": {
@@ -31,12 +25,6 @@
                 "chip_select": "24",
                 "name": "current",
                 "pin": "1",
-                "spi_bus": "main"
-              },
-              {
-                "chip_select": "24",
-                "name": "pressure",
-                "pin": "0",
                 "spi_bus": "main"
               }
             ],
