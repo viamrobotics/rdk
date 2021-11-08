@@ -1291,7 +1291,7 @@ func TestClient(t *testing.T) {
 	test.That(t, readings[0], test.ShouldResemble, expectedMatrix)
 	isSlipping, err := sensorDev.(forcematrix.ForceMatrix).IsSlipping(context.Background())
 	test.That(t, isSlipping, test.ShouldBeTrue)
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
 
 	sensorDev, ok = client.SensorByName("fsm2")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -1301,7 +1301,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "bad matrix")
 	isSlipping, err = sensorDev.(forcematrix.ForceMatrix).IsSlipping(context.Background())
 	test.That(t, isSlipping, test.ShouldBeFalse)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
 
 	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)
