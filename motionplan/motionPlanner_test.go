@@ -59,7 +59,7 @@ func TestSimpleMotionUR5(t *testing.T) {
 
 	// Test ability to arrive at another position
 	pos := &pb.ArmPosition{
-		X:  -400,
+		X:  -750,
 		Y:  -250,
 		Z:  200,
 		OZ: -1,
