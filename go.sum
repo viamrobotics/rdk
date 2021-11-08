@@ -960,6 +960,8 @@ github.com/pion/datachannel v1.4.22-0.20210420230629-6daf0fdcfcc0/go.mod h1:TVbg
 github.com/pion/datachannel v1.5.0/go.mod h1:TVbgWP+PVM9TlwL1IkG3JqXXfjGxLvsu9QUeFdpTegI=
 github.com/pion/datachannel v1.5.1-0.20211108211312-8ae5d2d6698e h1:/QQ0NJYNFmSQSY5PlY0gCH1ZMzvrxH2ZzFvBHfxciE0=
 github.com/pion/datachannel v1.5.1-0.20211108211312-8ae5d2d6698e/go.mod h1:1Pb/EauJpJv6XvhlbCUa6uUY+nonZM1s3Gaf4C4n8YI=
+github.com/pion/datachannel v1.5.1-0.20211108212344-bb912440b8c3 h1:6B3IGdwqgLeAgQWRu4PqUcgK5Q4X+vB19zXqdY8b4sI=
+github.com/pion/datachannel v1.5.1-0.20211108212344-bb912440b8c3/go.mod h1:1Pb/EauJpJv6XvhlbCUa6uUY+nonZM1s3Gaf4C4n8YI=
 github.com/pion/dtls/v2 v2.0.4/go.mod h1:qAkFscX0ZHoI1E07RfYPoRw3manThveu+mlTDdOxoGI=
 github.com/pion/dtls/v2 v2.0.7/go.mod h1:QuDII+8FVvk9Dp5t5vYIMTo7hh7uBkra+8QIm7QGm10=
 github.com/pion/dtls/v2 v2.0.8/go.mod h1:QuDII+8FVvk9Dp5t5vYIMTo7hh7uBkra+8QIm7QGm10=
@@ -1029,6 +1031,8 @@ github.com/pion/webrtc/v3 v3.1.6/go.mod h1:tkwdWNYdZhc200hH/wPx6AtNo/rcTAM6MICA6
 github.com/pion/webrtc/v3 v3.1.7/go.mod h1:SQxttydYlKo2rCQjHzkUCJFAfEO/Oh2efMWbKYXLk98=
 github.com/pion/webrtc/v3 v3.1.8-0.20211108211535-18c40a3068d3 h1:jl9S2Yq2WniSkex2dUrNBOaOOT8WSboA2SOjOhCV7MA=
 github.com/pion/webrtc/v3 v3.1.8-0.20211108211535-18c40a3068d3/go.mod h1:S5nTC9vJwcG7aTuHvun2zOqAmIyCJNORFrBSo1RDZt8=
+github.com/pion/webrtc/v3 v3.1.8-0.20211108212420-6bcc54713d62 h1:ZOeIOnoFBGh+HQiEZ4vPmp4Hfm66fq9/INsk2QAIa2M=
+github.com/pion/webrtc/v3 v3.1.8-0.20211108212420-6bcc54713d62/go.mod h1:CAZppSfuXR1r3M1bMiOtQkJwP0YX69Kodn7tfC5gBIA=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1-0.20171018195549-f15c970de5b7/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
