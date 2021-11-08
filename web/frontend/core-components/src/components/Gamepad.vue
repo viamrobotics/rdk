@@ -64,7 +64,7 @@ export default class Gamepad extends Vue {
   gamepad = navigator.getGamepads()[0];
   gamepadName = "Waiting for gamepad...";
   gamepadConnected = false;
-  useWebBool = true;
+  useWebBool = false;
   self = this;
 
   axes = ["X", "Y", "RX", "RY", "Z", "RZ", "HatX", "HatY"];
@@ -84,7 +84,6 @@ export default class Gamepad extends Vue {
 
   tick(instance: Gamepad): void {
     if (!instance.useWeb) {
-      console.log("SMURFX");
       return;
     }
     var found = false;
@@ -117,7 +116,7 @@ export default class Gamepad extends Vue {
     this.useWebBool = opt;
     if (opt && !prev) {
       //this.sendConnectionStatus(true);
-      window.requestAnimationFrame(() => this.tick(this));
+      this.tick(this);
     }else if (!opt && prev){
       //this.sendConnectionStatus(false);
     }
@@ -131,7 +130,6 @@ export default class Gamepad extends Vue {
     if (this.useWebBool === true) {
       return this.gamepad ? this.gamepad.connected : false;
     }
-    console.log(this.controllerStatus);
     if (this.controllerStatus.eventsList[0] && this.controllerStatus.eventsList[0].event != "Disconnect") {
       return true
     }else{
