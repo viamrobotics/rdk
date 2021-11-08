@@ -15,8 +15,8 @@ ArmSubtypeService.CurrentPosition = {
   service: ArmSubtypeService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_component_v1_arm_subtype_pb.CurrentPositionRequest,
-  responseType: proto_api_component_v1_arm_subtype_pb.CurrentPositionResponse
+  requestType: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceCurrentPositionRequest,
+  responseType: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceCurrentPositionResponse
 };
 
 ArmSubtypeService.MoveToPosition = {
@@ -24,8 +24,8 @@ ArmSubtypeService.MoveToPosition = {
   service: ArmSubtypeService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_component_v1_arm_subtype_pb.MoveToPositionRequest,
-  responseType: proto_api_component_v1_arm_subtype_pb.MoveToPositionResponse
+  requestType: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceMoveToPositionRequest,
+  responseType: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceMoveToPositionResponse
 };
 
 ArmSubtypeService.CurrentJointPositions = {
@@ -33,8 +33,8 @@ ArmSubtypeService.CurrentJointPositions = {
   service: ArmSubtypeService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_component_v1_arm_subtype_pb.CurrentJointPositionsRequest,
-  responseType: proto_api_component_v1_arm_subtype_pb.CurrentJointPositionsResponse
+  requestType: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceCurrentJointPositionsRequest,
+  responseType: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceCurrentJointPositionsResponse
 };
 
 ArmSubtypeService.MoveToJointPositions = {
@@ -42,8 +42,8 @@ ArmSubtypeService.MoveToJointPositions = {
   service: ArmSubtypeService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_component_v1_arm_subtype_pb.MoveToJointPositionsRequest,
-  responseType: proto_api_component_v1_arm_subtype_pb.MoveToJointPositionsResponse
+  requestType: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceMoveToJointPositionsRequest,
+  responseType: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceMoveToJointPositionsResponse
 };
 
 ArmSubtypeService.JointMoveDelta = {
@@ -51,8 +51,8 @@ ArmSubtypeService.JointMoveDelta = {
   service: ArmSubtypeService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_component_v1_arm_subtype_pb.JointMoveDeltaRequest,
-  responseType: proto_api_component_v1_arm_subtype_pb.JointMoveDeltaResponse
+  requestType: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceJointMoveDeltaRequest,
+  responseType: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceJointMoveDeltaResponse
 };
 
 exports.ArmSubtypeService = ArmSubtypeService;

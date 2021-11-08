@@ -20,15 +20,15 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ArmSubtypeServiceClient interface {
 	// CurrentPosition gets the current position of an arm of the underlying robot.
-	CurrentPosition(ctx context.Context, in *CurrentPositionRequest, opts ...grpc.CallOption) (*CurrentPositionResponse, error)
+	CurrentPosition(ctx context.Context, in *ArmSubtypeServiceCurrentPositionRequest, opts ...grpc.CallOption) (*ArmSubtypeServiceCurrentPositionResponse, error)
 	// MoveToPosition moves an arm of the underlying robot to the requested position.
-	MoveToPosition(ctx context.Context, in *MoveToPositionRequest, opts ...grpc.CallOption) (*MoveToPositionResponse, error)
+	MoveToPosition(ctx context.Context, in *ArmSubtypeServiceMoveToPositionRequest, opts ...grpc.CallOption) (*ArmSubtypeServiceMoveToPositionResponse, error)
 	// CurrentJointPositions gets the current joint position of an arm of the underlying robot.
-	CurrentJointPositions(ctx context.Context, in *CurrentJointPositionsRequest, opts ...grpc.CallOption) (*CurrentJointPositionsResponse, error)
+	CurrentJointPositions(ctx context.Context, in *ArmSubtypeServiceCurrentJointPositionsRequest, opts ...grpc.CallOption) (*ArmSubtypeServiceCurrentJointPositionsResponse, error)
 	// MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
-	MoveToJointPositions(ctx context.Context, in *MoveToJointPositionsRequest, opts ...grpc.CallOption) (*MoveToJointPositionsResponse, error)
+	MoveToJointPositions(ctx context.Context, in *ArmSubtypeServiceMoveToJointPositionsRequest, opts ...grpc.CallOption) (*ArmSubtypeServiceMoveToJointPositionsResponse, error)
 	// JointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.
-	JointMoveDelta(ctx context.Context, in *JointMoveDeltaRequest, opts ...grpc.CallOption) (*JointMoveDeltaResponse, error)
+	JointMoveDelta(ctx context.Context, in *ArmSubtypeServiceJointMoveDeltaRequest, opts ...grpc.CallOption) (*ArmSubtypeServiceJointMoveDeltaResponse, error)
 }
 
 type armSubtypeServiceClient struct {
@@ -39,8 +39,8 @@ func NewArmSubtypeServiceClient(cc grpc.ClientConnInterface) ArmSubtypeServiceCl
 	return &armSubtypeServiceClient{cc}
 }
 
-func (c *armSubtypeServiceClient) CurrentPosition(ctx context.Context, in *CurrentPositionRequest, opts ...grpc.CallOption) (*CurrentPositionResponse, error) {
-	out := new(CurrentPositionResponse)
+func (c *armSubtypeServiceClient) CurrentPosition(ctx context.Context, in *ArmSubtypeServiceCurrentPositionRequest, opts ...grpc.CallOption) (*ArmSubtypeServiceCurrentPositionResponse, error) {
+	out := new(ArmSubtypeServiceCurrentPositionResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ArmSubtypeService/CurrentPosition", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -48,8 +48,8 @@ func (c *armSubtypeServiceClient) CurrentPosition(ctx context.Context, in *Curre
 	return out, nil
 }
 
-func (c *armSubtypeServiceClient) MoveToPosition(ctx context.Context, in *MoveToPositionRequest, opts ...grpc.CallOption) (*MoveToPositionResponse, error) {
-	out := new(MoveToPositionResponse)
+func (c *armSubtypeServiceClient) MoveToPosition(ctx context.Context, in *ArmSubtypeServiceMoveToPositionRequest, opts ...grpc.CallOption) (*ArmSubtypeServiceMoveToPositionResponse, error) {
+	out := new(ArmSubtypeServiceMoveToPositionResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ArmSubtypeService/MoveToPosition", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -57,8 +57,8 @@ func (c *armSubtypeServiceClient) MoveToPosition(ctx context.Context, in *MoveTo
 	return out, nil
 }
 
-func (c *armSubtypeServiceClient) CurrentJointPositions(ctx context.Context, in *CurrentJointPositionsRequest, opts ...grpc.CallOption) (*CurrentJointPositionsResponse, error) {
-	out := new(CurrentJointPositionsResponse)
+func (c *armSubtypeServiceClient) CurrentJointPositions(ctx context.Context, in *ArmSubtypeServiceCurrentJointPositionsRequest, opts ...grpc.CallOption) (*ArmSubtypeServiceCurrentJointPositionsResponse, error) {
+	out := new(ArmSubtypeServiceCurrentJointPositionsResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ArmSubtypeService/CurrentJointPositions", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -66,8 +66,8 @@ func (c *armSubtypeServiceClient) CurrentJointPositions(ctx context.Context, in 
 	return out, nil
 }
 
-func (c *armSubtypeServiceClient) MoveToJointPositions(ctx context.Context, in *MoveToJointPositionsRequest, opts ...grpc.CallOption) (*MoveToJointPositionsResponse, error) {
-	out := new(MoveToJointPositionsResponse)
+func (c *armSubtypeServiceClient) MoveToJointPositions(ctx context.Context, in *ArmSubtypeServiceMoveToJointPositionsRequest, opts ...grpc.CallOption) (*ArmSubtypeServiceMoveToJointPositionsResponse, error) {
+	out := new(ArmSubtypeServiceMoveToJointPositionsResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ArmSubtypeService/MoveToJointPositions", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -75,8 +75,8 @@ func (c *armSubtypeServiceClient) MoveToJointPositions(ctx context.Context, in *
 	return out, nil
 }
 
-func (c *armSubtypeServiceClient) JointMoveDelta(ctx context.Context, in *JointMoveDeltaRequest, opts ...grpc.CallOption) (*JointMoveDeltaResponse, error) {
-	out := new(JointMoveDeltaResponse)
+func (c *armSubtypeServiceClient) JointMoveDelta(ctx context.Context, in *ArmSubtypeServiceJointMoveDeltaRequest, opts ...grpc.CallOption) (*ArmSubtypeServiceJointMoveDeltaResponse, error) {
+	out := new(ArmSubtypeServiceJointMoveDeltaResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ArmSubtypeService/JointMoveDelta", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -89,15 +89,15 @@ func (c *armSubtypeServiceClient) JointMoveDelta(ctx context.Context, in *JointM
 // for forward compatibility
 type ArmSubtypeServiceServer interface {
 	// CurrentPosition gets the current position of an arm of the underlying robot.
-	CurrentPosition(context.Context, *CurrentPositionRequest) (*CurrentPositionResponse, error)
+	CurrentPosition(context.Context, *ArmSubtypeServiceCurrentPositionRequest) (*ArmSubtypeServiceCurrentPositionResponse, error)
 	// MoveToPosition moves an arm of the underlying robot to the requested position.
-	MoveToPosition(context.Context, *MoveToPositionRequest) (*MoveToPositionResponse, error)
+	MoveToPosition(context.Context, *ArmSubtypeServiceMoveToPositionRequest) (*ArmSubtypeServiceMoveToPositionResponse, error)
 	// CurrentJointPositions gets the current joint position of an arm of the underlying robot.
-	CurrentJointPositions(context.Context, *CurrentJointPositionsRequest) (*CurrentJointPositionsResponse, error)
+	CurrentJointPositions(context.Context, *ArmSubtypeServiceCurrentJointPositionsRequest) (*ArmSubtypeServiceCurrentJointPositionsResponse, error)
 	// MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
-	MoveToJointPositions(context.Context, *MoveToJointPositionsRequest) (*MoveToJointPositionsResponse, error)
+	MoveToJointPositions(context.Context, *ArmSubtypeServiceMoveToJointPositionsRequest) (*ArmSubtypeServiceMoveToJointPositionsResponse, error)
 	// JointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.
-	JointMoveDelta(context.Context, *JointMoveDeltaRequest) (*JointMoveDeltaResponse, error)
+	JointMoveDelta(context.Context, *ArmSubtypeServiceJointMoveDeltaRequest) (*ArmSubtypeServiceJointMoveDeltaResponse, error)
 	mustEmbedUnimplementedArmSubtypeServiceServer()
 }
 
@@ -105,19 +105,19 @@ type ArmSubtypeServiceServer interface {
 type UnimplementedArmSubtypeServiceServer struct {
 }
 
-func (UnimplementedArmSubtypeServiceServer) CurrentPosition(context.Context, *CurrentPositionRequest) (*CurrentPositionResponse, error) {
+func (UnimplementedArmSubtypeServiceServer) CurrentPosition(context.Context, *ArmSubtypeServiceCurrentPositionRequest) (*ArmSubtypeServiceCurrentPositionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CurrentPosition not implemented")
 }
-func (UnimplementedArmSubtypeServiceServer) MoveToPosition(context.Context, *MoveToPositionRequest) (*MoveToPositionResponse, error) {
+func (UnimplementedArmSubtypeServiceServer) MoveToPosition(context.Context, *ArmSubtypeServiceMoveToPositionRequest) (*ArmSubtypeServiceMoveToPositionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MoveToPosition not implemented")
 }
-func (UnimplementedArmSubtypeServiceServer) CurrentJointPositions(context.Context, *CurrentJointPositionsRequest) (*CurrentJointPositionsResponse, error) {
+func (UnimplementedArmSubtypeServiceServer) CurrentJointPositions(context.Context, *ArmSubtypeServiceCurrentJointPositionsRequest) (*ArmSubtypeServiceCurrentJointPositionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CurrentJointPositions not implemented")
 }
-func (UnimplementedArmSubtypeServiceServer) MoveToJointPositions(context.Context, *MoveToJointPositionsRequest) (*MoveToJointPositionsResponse, error) {
+func (UnimplementedArmSubtypeServiceServer) MoveToJointPositions(context.Context, *ArmSubtypeServiceMoveToJointPositionsRequest) (*ArmSubtypeServiceMoveToJointPositionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MoveToJointPositions not implemented")
 }
-func (UnimplementedArmSubtypeServiceServer) JointMoveDelta(context.Context, *JointMoveDeltaRequest) (*JointMoveDeltaResponse, error) {
+func (UnimplementedArmSubtypeServiceServer) JointMoveDelta(context.Context, *ArmSubtypeServiceJointMoveDeltaRequest) (*ArmSubtypeServiceJointMoveDeltaResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method JointMoveDelta not implemented")
 }
 func (UnimplementedArmSubtypeServiceServer) mustEmbedUnimplementedArmSubtypeServiceServer() {}
@@ -134,7 +134,7 @@ func RegisterArmSubtypeServiceServer(s grpc.ServiceRegistrar, srv ArmSubtypeServ
 }
 
 func _ArmSubtypeService_CurrentPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CurrentPositionRequest)
+	in := new(ArmSubtypeServiceCurrentPositionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -146,13 +146,13 @@ func _ArmSubtypeService_CurrentPosition_Handler(srv interface{}, ctx context.Con
 		FullMethod: "/proto.api.component.v1.ArmSubtypeService/CurrentPosition",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ArmSubtypeServiceServer).CurrentPosition(ctx, req.(*CurrentPositionRequest))
+		return srv.(ArmSubtypeServiceServer).CurrentPosition(ctx, req.(*ArmSubtypeServiceCurrentPositionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ArmSubtypeService_MoveToPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MoveToPositionRequest)
+	in := new(ArmSubtypeServiceMoveToPositionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -164,13 +164,13 @@ func _ArmSubtypeService_MoveToPosition_Handler(srv interface{}, ctx context.Cont
 		FullMethod: "/proto.api.component.v1.ArmSubtypeService/MoveToPosition",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ArmSubtypeServiceServer).MoveToPosition(ctx, req.(*MoveToPositionRequest))
+		return srv.(ArmSubtypeServiceServer).MoveToPosition(ctx, req.(*ArmSubtypeServiceMoveToPositionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ArmSubtypeService_CurrentJointPositions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CurrentJointPositionsRequest)
+	in := new(ArmSubtypeServiceCurrentJointPositionsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -182,13 +182,13 @@ func _ArmSubtypeService_CurrentJointPositions_Handler(srv interface{}, ctx conte
 		FullMethod: "/proto.api.component.v1.ArmSubtypeService/CurrentJointPositions",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ArmSubtypeServiceServer).CurrentJointPositions(ctx, req.(*CurrentJointPositionsRequest))
+		return srv.(ArmSubtypeServiceServer).CurrentJointPositions(ctx, req.(*ArmSubtypeServiceCurrentJointPositionsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ArmSubtypeService_MoveToJointPositions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MoveToJointPositionsRequest)
+	in := new(ArmSubtypeServiceMoveToJointPositionsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -200,13 +200,13 @@ func _ArmSubtypeService_MoveToJointPositions_Handler(srv interface{}, ctx contex
 		FullMethod: "/proto.api.component.v1.ArmSubtypeService/MoveToJointPositions",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ArmSubtypeServiceServer).MoveToJointPositions(ctx, req.(*MoveToJointPositionsRequest))
+		return srv.(ArmSubtypeServiceServer).MoveToJointPositions(ctx, req.(*ArmSubtypeServiceMoveToJointPositionsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ArmSubtypeService_JointMoveDelta_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(JointMoveDeltaRequest)
+	in := new(ArmSubtypeServiceJointMoveDeltaRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -218,7 +218,7 @@ func _ArmSubtypeService_JointMoveDelta_Handler(srv interface{}, ctx context.Cont
 		FullMethod: "/proto.api.component.v1.ArmSubtypeService/JointMoveDelta",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ArmSubtypeServiceServer).JointMoveDelta(ctx, req.(*JointMoveDeltaRequest))
+		return srv.(ArmSubtypeServiceServer).JointMoveDelta(ctx, req.(*ArmSubtypeServiceJointMoveDeltaRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

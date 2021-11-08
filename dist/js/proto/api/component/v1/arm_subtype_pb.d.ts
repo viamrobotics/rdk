@@ -7,7 +7,7 @@ import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/du
 import * as google_api_annotations_pb from "../../../../google/api/annotations_pb";
 import * as google_api_httpbody_pb from "../../../../google/api/httpbody_pb";
 
-export class Position extends jspb.Message {
+export class ArmPosition extends jspb.Message {
   getX(): number;
   setX(value: number): void;
 
@@ -30,16 +30,16 @@ export class Position extends jspb.Message {
   setTheta(value: number): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): Position.AsObject;
-  static toObject(includeInstance: boolean, msg: Position): Position.AsObject;
+  toObject(includeInstance?: boolean): ArmPosition.AsObject;
+  static toObject(includeInstance: boolean, msg: ArmPosition): ArmPosition.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: Position, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): Position;
-  static deserializeBinaryFromReader(message: Position, reader: jspb.BinaryReader): Position;
+  static serializeBinaryToWriter(message: ArmPosition, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ArmPosition;
+  static deserializeBinaryFromReader(message: ArmPosition, reader: jspb.BinaryReader): ArmPosition;
 }
 
-export namespace Position {
+export namespace ArmPosition {
   export type AsObject = {
     x: number,
     y: number,
@@ -51,197 +51,197 @@ export namespace Position {
   }
 }
 
-export class JointPositions extends jspb.Message {
+export class ArmJointPositions extends jspb.Message {
   clearDegreesList(): void;
   getDegreesList(): Array<number>;
   setDegreesList(value: Array<number>): void;
   addDegrees(value: number, index?: number): number;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): JointPositions.AsObject;
-  static toObject(includeInstance: boolean, msg: JointPositions): JointPositions.AsObject;
+  toObject(includeInstance?: boolean): ArmJointPositions.AsObject;
+  static toObject(includeInstance: boolean, msg: ArmJointPositions): ArmJointPositions.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: JointPositions, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): JointPositions;
-  static deserializeBinaryFromReader(message: JointPositions, reader: jspb.BinaryReader): JointPositions;
+  static serializeBinaryToWriter(message: ArmJointPositions, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ArmJointPositions;
+  static deserializeBinaryFromReader(message: ArmJointPositions, reader: jspb.BinaryReader): ArmJointPositions;
 }
 
-export namespace JointPositions {
+export namespace ArmJointPositions {
   export type AsObject = {
     degreesList: Array<number>,
   }
 }
 
-export class CurrentPositionRequest extends jspb.Message {
+export class ArmSubtypeServiceCurrentPositionRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): CurrentPositionRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: CurrentPositionRequest): CurrentPositionRequest.AsObject;
+  toObject(includeInstance?: boolean): ArmSubtypeServiceCurrentPositionRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: ArmSubtypeServiceCurrentPositionRequest): ArmSubtypeServiceCurrentPositionRequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: CurrentPositionRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): CurrentPositionRequest;
-  static deserializeBinaryFromReader(message: CurrentPositionRequest, reader: jspb.BinaryReader): CurrentPositionRequest;
+  static serializeBinaryToWriter(message: ArmSubtypeServiceCurrentPositionRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ArmSubtypeServiceCurrentPositionRequest;
+  static deserializeBinaryFromReader(message: ArmSubtypeServiceCurrentPositionRequest, reader: jspb.BinaryReader): ArmSubtypeServiceCurrentPositionRequest;
 }
 
-export namespace CurrentPositionRequest {
+export namespace ArmSubtypeServiceCurrentPositionRequest {
   export type AsObject = {
     name: string,
   }
 }
 
-export class CurrentPositionResponse extends jspb.Message {
+export class ArmSubtypeServiceCurrentPositionResponse extends jspb.Message {
   hasPosition(): boolean;
   clearPosition(): void;
-  getPosition(): Position | undefined;
-  setPosition(value?: Position): void;
+  getPosition(): ArmPosition | undefined;
+  setPosition(value?: ArmPosition): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): CurrentPositionResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: CurrentPositionResponse): CurrentPositionResponse.AsObject;
+  toObject(includeInstance?: boolean): ArmSubtypeServiceCurrentPositionResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: ArmSubtypeServiceCurrentPositionResponse): ArmSubtypeServiceCurrentPositionResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: CurrentPositionResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): CurrentPositionResponse;
-  static deserializeBinaryFromReader(message: CurrentPositionResponse, reader: jspb.BinaryReader): CurrentPositionResponse;
+  static serializeBinaryToWriter(message: ArmSubtypeServiceCurrentPositionResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ArmSubtypeServiceCurrentPositionResponse;
+  static deserializeBinaryFromReader(message: ArmSubtypeServiceCurrentPositionResponse, reader: jspb.BinaryReader): ArmSubtypeServiceCurrentPositionResponse;
 }
 
-export namespace CurrentPositionResponse {
+export namespace ArmSubtypeServiceCurrentPositionResponse {
   export type AsObject = {
-    position?: Position.AsObject,
+    position?: ArmPosition.AsObject,
   }
 }
 
-export class CurrentJointPositionsRequest extends jspb.Message {
+export class ArmSubtypeServiceCurrentJointPositionsRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): CurrentJointPositionsRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: CurrentJointPositionsRequest): CurrentJointPositionsRequest.AsObject;
+  toObject(includeInstance?: boolean): ArmSubtypeServiceCurrentJointPositionsRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: ArmSubtypeServiceCurrentJointPositionsRequest): ArmSubtypeServiceCurrentJointPositionsRequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: CurrentJointPositionsRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): CurrentJointPositionsRequest;
-  static deserializeBinaryFromReader(message: CurrentJointPositionsRequest, reader: jspb.BinaryReader): CurrentJointPositionsRequest;
+  static serializeBinaryToWriter(message: ArmSubtypeServiceCurrentJointPositionsRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ArmSubtypeServiceCurrentJointPositionsRequest;
+  static deserializeBinaryFromReader(message: ArmSubtypeServiceCurrentJointPositionsRequest, reader: jspb.BinaryReader): ArmSubtypeServiceCurrentJointPositionsRequest;
 }
 
-export namespace CurrentJointPositionsRequest {
+export namespace ArmSubtypeServiceCurrentJointPositionsRequest {
   export type AsObject = {
     name: string,
   }
 }
 
-export class CurrentJointPositionsResponse extends jspb.Message {
+export class ArmSubtypeServiceCurrentJointPositionsResponse extends jspb.Message {
   hasPositions(): boolean;
   clearPositions(): void;
-  getPositions(): JointPositions | undefined;
-  setPositions(value?: JointPositions): void;
+  getPositions(): ArmJointPositions | undefined;
+  setPositions(value?: ArmJointPositions): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): CurrentJointPositionsResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: CurrentJointPositionsResponse): CurrentJointPositionsResponse.AsObject;
+  toObject(includeInstance?: boolean): ArmSubtypeServiceCurrentJointPositionsResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: ArmSubtypeServiceCurrentJointPositionsResponse): ArmSubtypeServiceCurrentJointPositionsResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: CurrentJointPositionsResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): CurrentJointPositionsResponse;
-  static deserializeBinaryFromReader(message: CurrentJointPositionsResponse, reader: jspb.BinaryReader): CurrentJointPositionsResponse;
+  static serializeBinaryToWriter(message: ArmSubtypeServiceCurrentJointPositionsResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ArmSubtypeServiceCurrentJointPositionsResponse;
+  static deserializeBinaryFromReader(message: ArmSubtypeServiceCurrentJointPositionsResponse, reader: jspb.BinaryReader): ArmSubtypeServiceCurrentJointPositionsResponse;
 }
 
-export namespace CurrentJointPositionsResponse {
+export namespace ArmSubtypeServiceCurrentJointPositionsResponse {
   export type AsObject = {
-    positions?: JointPositions.AsObject,
+    positions?: ArmJointPositions.AsObject,
   }
 }
 
-export class MoveToPositionRequest extends jspb.Message {
+export class ArmSubtypeServiceMoveToPositionRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
   hasTo(): boolean;
   clearTo(): void;
-  getTo(): Position | undefined;
-  setTo(value?: Position): void;
+  getTo(): ArmPosition | undefined;
+  setTo(value?: ArmPosition): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): MoveToPositionRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: MoveToPositionRequest): MoveToPositionRequest.AsObject;
+  toObject(includeInstance?: boolean): ArmSubtypeServiceMoveToPositionRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: ArmSubtypeServiceMoveToPositionRequest): ArmSubtypeServiceMoveToPositionRequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: MoveToPositionRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): MoveToPositionRequest;
-  static deserializeBinaryFromReader(message: MoveToPositionRequest, reader: jspb.BinaryReader): MoveToPositionRequest;
+  static serializeBinaryToWriter(message: ArmSubtypeServiceMoveToPositionRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ArmSubtypeServiceMoveToPositionRequest;
+  static deserializeBinaryFromReader(message: ArmSubtypeServiceMoveToPositionRequest, reader: jspb.BinaryReader): ArmSubtypeServiceMoveToPositionRequest;
 }
 
-export namespace MoveToPositionRequest {
+export namespace ArmSubtypeServiceMoveToPositionRequest {
   export type AsObject = {
     name: string,
-    to?: Position.AsObject,
+    to?: ArmPosition.AsObject,
   }
 }
 
-export class MoveToPositionResponse extends jspb.Message {
+export class ArmSubtypeServiceMoveToPositionResponse extends jspb.Message {
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): MoveToPositionResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: MoveToPositionResponse): MoveToPositionResponse.AsObject;
+  toObject(includeInstance?: boolean): ArmSubtypeServiceMoveToPositionResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: ArmSubtypeServiceMoveToPositionResponse): ArmSubtypeServiceMoveToPositionResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: MoveToPositionResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): MoveToPositionResponse;
-  static deserializeBinaryFromReader(message: MoveToPositionResponse, reader: jspb.BinaryReader): MoveToPositionResponse;
+  static serializeBinaryToWriter(message: ArmSubtypeServiceMoveToPositionResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ArmSubtypeServiceMoveToPositionResponse;
+  static deserializeBinaryFromReader(message: ArmSubtypeServiceMoveToPositionResponse, reader: jspb.BinaryReader): ArmSubtypeServiceMoveToPositionResponse;
 }
 
-export namespace MoveToPositionResponse {
+export namespace ArmSubtypeServiceMoveToPositionResponse {
   export type AsObject = {
   }
 }
 
-export class MoveToJointPositionsRequest extends jspb.Message {
+export class ArmSubtypeServiceMoveToJointPositionsRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
   hasTo(): boolean;
   clearTo(): void;
-  getTo(): JointPositions | undefined;
-  setTo(value?: JointPositions): void;
+  getTo(): ArmJointPositions | undefined;
+  setTo(value?: ArmJointPositions): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): MoveToJointPositionsRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: MoveToJointPositionsRequest): MoveToJointPositionsRequest.AsObject;
+  toObject(includeInstance?: boolean): ArmSubtypeServiceMoveToJointPositionsRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: ArmSubtypeServiceMoveToJointPositionsRequest): ArmSubtypeServiceMoveToJointPositionsRequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: MoveToJointPositionsRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): MoveToJointPositionsRequest;
-  static deserializeBinaryFromReader(message: MoveToJointPositionsRequest, reader: jspb.BinaryReader): MoveToJointPositionsRequest;
+  static serializeBinaryToWriter(message: ArmSubtypeServiceMoveToJointPositionsRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ArmSubtypeServiceMoveToJointPositionsRequest;
+  static deserializeBinaryFromReader(message: ArmSubtypeServiceMoveToJointPositionsRequest, reader: jspb.BinaryReader): ArmSubtypeServiceMoveToJointPositionsRequest;
 }
 
-export namespace MoveToJointPositionsRequest {
+export namespace ArmSubtypeServiceMoveToJointPositionsRequest {
   export type AsObject = {
     name: string,
-    to?: JointPositions.AsObject,
+    to?: ArmJointPositions.AsObject,
   }
 }
 
-export class MoveToJointPositionsResponse extends jspb.Message {
+export class ArmSubtypeServiceMoveToJointPositionsResponse extends jspb.Message {
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): MoveToJointPositionsResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: MoveToJointPositionsResponse): MoveToJointPositionsResponse.AsObject;
+  toObject(includeInstance?: boolean): ArmSubtypeServiceMoveToJointPositionsResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: ArmSubtypeServiceMoveToJointPositionsResponse): ArmSubtypeServiceMoveToJointPositionsResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: MoveToJointPositionsResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): MoveToJointPositionsResponse;
-  static deserializeBinaryFromReader(message: MoveToJointPositionsResponse, reader: jspb.BinaryReader): MoveToJointPositionsResponse;
+  static serializeBinaryToWriter(message: ArmSubtypeServiceMoveToJointPositionsResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ArmSubtypeServiceMoveToJointPositionsResponse;
+  static deserializeBinaryFromReader(message: ArmSubtypeServiceMoveToJointPositionsResponse, reader: jspb.BinaryReader): ArmSubtypeServiceMoveToJointPositionsResponse;
 }
 
-export namespace MoveToJointPositionsResponse {
+export namespace ArmSubtypeServiceMoveToJointPositionsResponse {
   export type AsObject = {
   }
 }
 
-export class JointMoveDeltaRequest extends jspb.Message {
+export class ArmSubtypeServiceJointMoveDeltaRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
@@ -252,16 +252,16 @@ export class JointMoveDeltaRequest extends jspb.Message {
   setAmountDegs(value: number): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): JointMoveDeltaRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: JointMoveDeltaRequest): JointMoveDeltaRequest.AsObject;
+  toObject(includeInstance?: boolean): ArmSubtypeServiceJointMoveDeltaRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: ArmSubtypeServiceJointMoveDeltaRequest): ArmSubtypeServiceJointMoveDeltaRequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: JointMoveDeltaRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): JointMoveDeltaRequest;
-  static deserializeBinaryFromReader(message: JointMoveDeltaRequest, reader: jspb.BinaryReader): JointMoveDeltaRequest;
+  static serializeBinaryToWriter(message: ArmSubtypeServiceJointMoveDeltaRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ArmSubtypeServiceJointMoveDeltaRequest;
+  static deserializeBinaryFromReader(message: ArmSubtypeServiceJointMoveDeltaRequest, reader: jspb.BinaryReader): ArmSubtypeServiceJointMoveDeltaRequest;
 }
 
-export namespace JointMoveDeltaRequest {
+export namespace ArmSubtypeServiceJointMoveDeltaRequest {
   export type AsObject = {
     name: string,
     joint: number,
@@ -269,18 +269,18 @@ export namespace JointMoveDeltaRequest {
   }
 }
 
-export class JointMoveDeltaResponse extends jspb.Message {
+export class ArmSubtypeServiceJointMoveDeltaResponse extends jspb.Message {
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): JointMoveDeltaResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: JointMoveDeltaResponse): JointMoveDeltaResponse.AsObject;
+  toObject(includeInstance?: boolean): ArmSubtypeServiceJointMoveDeltaResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: ArmSubtypeServiceJointMoveDeltaResponse): ArmSubtypeServiceJointMoveDeltaResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: JointMoveDeltaResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): JointMoveDeltaResponse;
-  static deserializeBinaryFromReader(message: JointMoveDeltaResponse, reader: jspb.BinaryReader): JointMoveDeltaResponse;
+  static serializeBinaryToWriter(message: ArmSubtypeServiceJointMoveDeltaResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ArmSubtypeServiceJointMoveDeltaResponse;
+  static deserializeBinaryFromReader(message: ArmSubtypeServiceJointMoveDeltaResponse, reader: jspb.BinaryReader): ArmSubtypeServiceJointMoveDeltaResponse;
 }
 
-export namespace JointMoveDeltaResponse {
+export namespace ArmSubtypeServiceJointMoveDeltaResponse {
   export type AsObject = {
   }
 }

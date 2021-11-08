@@ -32,7 +32,7 @@ var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
 func request_ArmSubtypeService_CurrentPosition_0(ctx context.Context, marshaler runtime.Marshaler, client ArmSubtypeServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CurrentPositionRequest
+	var protoReq ArmSubtypeServiceCurrentPositionRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -58,7 +58,7 @@ func request_ArmSubtypeService_CurrentPosition_0(ctx context.Context, marshaler 
 }
 
 func local_request_ArmSubtypeService_CurrentPosition_0(ctx context.Context, marshaler runtime.Marshaler, server ArmSubtypeServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CurrentPositionRequest
+	var protoReq ArmSubtypeServiceCurrentPositionRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -88,7 +88,7 @@ var (
 )
 
 func request_ArmSubtypeService_MoveToPosition_0(ctx context.Context, marshaler runtime.Marshaler, client ArmSubtypeServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq MoveToPositionRequest
+	var protoReq ArmSubtypeServiceMoveToPositionRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -121,7 +121,7 @@ func request_ArmSubtypeService_MoveToPosition_0(ctx context.Context, marshaler r
 }
 
 func local_request_ArmSubtypeService_MoveToPosition_0(ctx context.Context, marshaler runtime.Marshaler, server ArmSubtypeServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq MoveToPositionRequest
+	var protoReq ArmSubtypeServiceMoveToPositionRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -154,7 +154,7 @@ func local_request_ArmSubtypeService_MoveToPosition_0(ctx context.Context, marsh
 }
 
 func request_ArmSubtypeService_CurrentJointPositions_0(ctx context.Context, marshaler runtime.Marshaler, client ArmSubtypeServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CurrentJointPositionsRequest
+	var protoReq ArmSubtypeServiceCurrentJointPositionsRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -180,7 +180,7 @@ func request_ArmSubtypeService_CurrentJointPositions_0(ctx context.Context, mars
 }
 
 func local_request_ArmSubtypeService_CurrentJointPositions_0(ctx context.Context, marshaler runtime.Marshaler, server ArmSubtypeServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CurrentJointPositionsRequest
+	var protoReq ArmSubtypeServiceCurrentJointPositionsRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -210,7 +210,7 @@ var (
 )
 
 func request_ArmSubtypeService_MoveToJointPositions_0(ctx context.Context, marshaler runtime.Marshaler, client ArmSubtypeServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq MoveToJointPositionsRequest
+	var protoReq ArmSubtypeServiceMoveToJointPositionsRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -243,7 +243,7 @@ func request_ArmSubtypeService_MoveToJointPositions_0(ctx context.Context, marsh
 }
 
 func local_request_ArmSubtypeService_MoveToJointPositions_0(ctx context.Context, marshaler runtime.Marshaler, server ArmSubtypeServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq MoveToJointPositionsRequest
+	var protoReq ArmSubtypeServiceMoveToJointPositionsRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -280,7 +280,7 @@ var (
 )
 
 func request_ArmSubtypeService_JointMoveDelta_0(ctx context.Context, marshaler runtime.Marshaler, client ArmSubtypeServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq JointMoveDeltaRequest
+	var protoReq ArmSubtypeServiceJointMoveDeltaRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -313,7 +313,7 @@ func request_ArmSubtypeService_JointMoveDelta_0(ctx context.Context, marshaler r
 }
 
 func local_request_ArmSubtypeService_JointMoveDelta_0(ctx context.Context, marshaler runtime.Marshaler, server ArmSubtypeServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq JointMoveDeltaRequest
+	var protoReq ArmSubtypeServiceJointMoveDeltaRequest
 	var metadata runtime.ServerMetadata
 
 	var (
