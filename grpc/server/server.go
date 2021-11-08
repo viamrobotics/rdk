@@ -1637,6 +1637,19 @@ func (s *Server) ForceMatrixMatrix(ctx context.Context, req *pb.ForceMatrixMatri
 	return matrixToProto(matrix), nil
 }
 
+// ForceMatrixSlipDetection returns a boolean representing whether a slip has been detected
+func (s *Server) ForceMatrixSlipDetection(ctx context.Context, req *pb.ForceMatrixSlipDetectionRequest) (*pb.ForceMatrixSlipDetectionResponse, error) {
+	forceMatrixDevice, err := s.forceMatrixByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	isSlipping, err := forceMatrixDevice.IsSlipping(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.ForceMatrixSlipDetectionResponse{IsSlipping: isSlipping}, nil
+}
+
 func (s *Server) forceMatrixByName(name string) (forcematrix.ForceMatrix, error) {
 	sensorDevice, ok := s.r.SensorByName(name)
 	if !ok {

@@ -539,10 +539,16 @@ func TestClient(t *testing.T) {
 	injectFsm.MatrixFunc = func(ctx context.Context) ([][]int, error) {
 		return expectedMatrix, nil
 	}
+	injectFsm.IsSlippingFunc = func(ctx context.Context) (bool, error) {
+		return true, nil
+	}
 
 	injectFsm2 := &inject.ForceMatrix{}
 	injectFsm2.MatrixFunc = func(ctx context.Context) ([][]int, error) {
 		return nil, errors.New("bad matrix")
+	}
+	injectFsm2.IsSlippingFunc = func(ctx context.Context) (bool, error) {
+		return false, errors.New("slip detection error")
 	}
 
 	injectCompassDev := &inject.Compass{}
@@ -1283,6 +1289,9 @@ func TestClient(t *testing.T) {
 	readings, err = sensorDev.Readings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings[0], test.ShouldResemble, expectedMatrix)
+	isSlipping, err := sensorDev.(forcematrix.ForceMatrix).IsSlipping(context.Background())
+	test.That(t, isSlipping, test.ShouldBeTrue)
+	test.That(t, err, test.ShouldBeNil)
 
 	sensorDev, ok = client.SensorByName("fsm2")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -1290,6 +1299,9 @@ func TestClient(t *testing.T) {
 	_, err = sensorDev.Readings(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "bad matrix")
+	isSlipping, err = sensorDev.(forcematrix.ForceMatrix).IsSlipping(context.Background())
+	test.That(t, isSlipping, test.ShouldBeFalse)
+	test.That(t, err, test.ShouldNotBeNil)
 
 	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)
