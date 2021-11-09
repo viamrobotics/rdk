@@ -33,7 +33,7 @@ func TestDofBotIK(t *testing.T) {
 	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
 	test.That(t, err, test.ShouldBeNil)
 
-	goal := pb.ArmPosition{X: 206.59, Y: -1.57, Z: 253.05, Theta: -180, OX: -.53, OY: 0, OZ: .85}
+	goal := pb.Pose{X: 206.59, Y: -1.57, Z: 253.05, Theta: -180, OX: -.53, OY: 0, OZ: .85}
 	_, err = ik.Solve(ctx, &goal, referenceframe.JointPosToInputs(&pb.JointPositions{Degrees: make([]float64, 5)}))
 	test.That(t, err, test.ShouldBeNil)
 }
