@@ -13,11 +13,15 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
+	"go.viam.com/core/gripper"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
+	"go.viam.com/core/utils"
+
+	gutils "go.viam.com/utils"
 
 	"github.com/edaniels/golog"
 )
@@ -40,6 +44,7 @@ var joints = []jointConfig{
 	{2200, 180, 100, 158},
 	{2200, 180, 100, 150},
 	{2200, 180, 100, 110},
+	{2200, 180, 100, 0},
 }
 
 func (jc jointConfig) toDegrees(n int) float64 {
@@ -52,7 +57,7 @@ func (jc jointConfig) toDegrees(n int) float64 {
 func (jc jointConfig) toHw(degrees float64) int {
 	degrees = math.Max(-270, degrees)
 	degrees = math.Min(270, degrees)
-	hw := int((jc.x * ((degrees+jc.offset) / jc.y)) + jc.z)
+	hw := int((jc.x * ((degrees + jc.offset) / jc.y)) + jc.z)
 	if hw < 0 {
 		hw = 0
 	}
@@ -65,6 +70,27 @@ func init() {
 			return newDofBot(ctx, r, config, logger)
 		},
 	})
+
+	registry.RegisterGripper("yahboom-dofbot", registry.Gripper{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
+			armName := config.Attributes.String("arm")
+			if armName == "" {
+				return nil, errors.New("yahboom-dofbot gripper needs an arm")
+			}
+			myArm, ok := r.ArmByName(armName)
+			if !ok {
+				return nil, errors.New("yahboom-dofbot gripper can't find arm")
+			}
+
+			goodArm, ok := utils.UnwrapProxy(myArm).(*dofBot)
+			if !ok {
+				return nil, fmt.Errorf("yahboom-dofbot gripper got not a dofbot arm, got %T", myArm)
+			}
+
+			return goodArm, nil
+		},
+	})
+
 }
 
 type dofBot struct {
@@ -215,6 +241,51 @@ func (a *dofBot) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem
 func (a *dofBot) ModelFrame() []byte {
 	return modeljson
+}
+
+// Open opens the gripper.
+func (a *dofBot) Open(ctx context.Context) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.moveJointInLock(ctx, 6, 0)
+}
+
+// Grab makes the gripper grab.
+func (a *dofBot) Grab(ctx context.Context) (bool, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	err := a.moveJointInLock(ctx, 6, 360)
+	if err != nil {
+		return false, err
+	}
+
+	// wait a moment to get moving
+	if !gutils.SelectContextOrWait(ctx, 200*time.Millisecond) {
+		return false, errors.New("timeout while grabbing")
+	}
+
+	// wait till we stop moving
+	last := -1.0
+
+	for i := 0; i < 100; i++ {
+
+		if !gutils.SelectContextOrWait(ctx, 50*time.Millisecond) {
+			return false, errors.New("timeout while grabbing")
+		}
+
+		current, err := a.readJointInLock(ctx, 6)
+		if err != nil {
+			return false, err
+		}
+
+		if last == current {
+			break
+		}
+
+		last = current
+	}
+
+	return last < 255, nil
 }
 
 func (a *dofBot) Close() error {
