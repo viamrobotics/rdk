@@ -5,6 +5,7 @@ import (
 	"context"
 	"image"
 	"image/jpeg"
+	"math"
 	"net"
 	"testing"
 	"time"
@@ -31,6 +32,7 @@ import (
 	"go.viam.com/core/pointcloud"
 	metadatapb "go.viam.com/core/proto/api/service/v1"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/sensor"
@@ -49,7 +51,7 @@ import (
 var emptyStatus = &pb.Status{
 	Arms: map[string]*pb.ArmStatus{
 		"arm1": {
-			GridPosition: &pb.ArmPosition{
+			GridPosition: &pb.Pose{
 				X:     0.0,
 				Y:     0.0,
 				Z:     0.0,
@@ -120,7 +122,7 @@ var emptyResources = []resource.Name{arm.Named("arm1")}
 var finalStatus = &pb.Status{
 	Arms: map[string]*pb.ArmStatus{
 		"arm2": {
-			GridPosition: &pb.ArmPosition{
+			GridPosition: &pb.Pose{
 				X:     0.0,
 				Y:     0.0,
 				Z:     0.0,
@@ -134,7 +136,7 @@ var finalStatus = &pb.Status{
 			},
 		},
 		"arm3": {
-			GridPosition: &pb.ArmPosition{
+			GridPosition: &pb.Pose{
 				X:     0.0,
 				Y:     0.0,
 				Z:     0.0,
@@ -304,14 +306,14 @@ func TestClient(t *testing.T) {
 		return injectBase, true
 	}
 	injectArm := &inject.Arm{}
-	var capArmPos *pb.ArmPosition
-	injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.ArmPosition, error) {
+	var capArmPos *pb.Pose
+	injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.Pose, error) {
 		return emptyStatus.Arms["arm1"].GridPosition, nil
 	}
 	injectArm.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
 		return emptyStatus.Arms["arm1"].JointPositions, nil
 	}
-	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.ArmPosition) error {
+	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.Pose) error {
 		capArmPos = ap
 		return nil
 	}
@@ -678,6 +680,34 @@ func TestClient(t *testing.T) {
 		return &cfg, nil
 	}
 
+	fsConfigs := []*config.FrameSystemPart{
+		{
+			Name: "frame1",
+			FrameConfig: &config.Frame{
+				Parent:      referenceframe.World,
+				Translation: config.Translation{1, 2, 3},
+				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
+			},
+		},
+		{
+			Name: "frame2",
+			FrameConfig: &config.Frame{
+				Parent:      "frame1",
+				Translation: config.Translation{4, 5, 6},
+			},
+		},
+	}
+	fss := &inject.FrameSystemService{}
+	fss.FrameSystemConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
+		return fsConfigs, nil
+	}
+	injectRobot1.ServiceByNameFunc = func(name string) (interface{}, bool) {
+		services := make(map[string]interface{})
+		services["frame_system"] = fss
+		service, ok := services[name]
+		return service, ok
+	}
+
 	client, err := NewClient(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -687,6 +717,28 @@ func TestClient(t *testing.T) {
 	test.That(t, newCfg.Components[1], test.ShouldResemble, cfg.Components[1])
 	test.That(t, newCfg.Components[1].Frame, test.ShouldBeNil)
 
+	// test robot frame system
+	frameSys, err := client.FrameSystem(context.Background(), "", "")
+	test.That(t, err, test.ShouldBeNil)
+	frame1 := frameSys.GetFrame("frame1")
+	frame1Offset := frameSys.GetFrame("frame1_offset")
+	frame2 := frameSys.GetFrame("frame2")
+	frame2Offset := frameSys.GetFrame("frame2_offset")
+
+	resFrame, err := frameSys.Parent(frame2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resFrame, test.ShouldResemble, frame2Offset)
+	resFrame, err = frameSys.Parent(frame2Offset)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resFrame, test.ShouldResemble, frame1)
+	resFrame, err = frameSys.Parent(frame1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resFrame, test.ShouldResemble, frame1Offset)
+	resFrame, err = frameSys.Parent(frame1Offset)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resFrame, test.ShouldResemble, frameSys.World())
+
+	// test status
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return nil, errors.New("whoops")
 	}
@@ -721,7 +773,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = arm1.MoveToPosition(context.Background(), &pb.ArmPosition{X: 1})
+	err = arm1.MoveToPosition(context.Background(), &pb.Pose{X: 1})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -847,7 +899,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = resource1.(*armClient).MoveToPosition(context.Background(), &pb.ArmPosition{X: 1})
+	err = resource1.(*armClient).MoveToPosition(context.Background(), &pb.Pose{X: 1})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -910,7 +962,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, jp.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].JointPositions.String())
 
-	pos = &pb.ArmPosition{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
+	pos = &pb.Pose{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
 	err = arm1.MoveToPosition(context.Background(), pos)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capArmPos.String(), test.ShouldResemble, pos.String())
@@ -1263,7 +1315,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, jp.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].JointPositions.String())
 
-	pos = &pb.ArmPosition{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
+	pos = &pb.Pose{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
 	err = resource1.(*armClient).MoveToPosition(context.Background(), pos)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capArmPos.String(), test.ShouldResemble, pos.String())

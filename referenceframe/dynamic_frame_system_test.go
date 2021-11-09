@@ -14,7 +14,7 @@ func TestSimpleRotationalFrame(t *testing.T) {
 	fs := NewEmptySimpleFrameSystem("test")
 
 	// Revolute joint around X axis
-	joint, err := NewRotationalFrame("joint", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-math.Pi * 2, math.Pi * 2})
+	joint, err := NewRotationalFrame("joint", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{Min: -math.Pi * 2, Max: math.Pi * 2})
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(joint, fs.World())
 
@@ -53,7 +53,7 @@ func TestSimpleTranslationalFrame(t *testing.T) {
 	fs := NewEmptySimpleFrameSystem("test")
 
 	// 1D gantry that slides in X
-	gantry, err := NewTranslationalFrame("gantry", []bool{true, false, false}, []Limit{{math.Inf(-1), math.Inf(1)}})
+	gantry, err := NewTranslationalFrame("gantry", []bool{true, false, false}, []Limit{{Min: math.Inf(-1), Max: math.Inf(1)}})
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantry, fs.World())
 

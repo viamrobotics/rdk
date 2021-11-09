@@ -89,6 +89,12 @@ type proxyGripper struct {
 	actual gripper.Gripper
 }
 
+func (p *proxyGripper) ProxyFor() interface{} {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual
+}
+
 func (p *proxyGripper) Open(ctx context.Context) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -125,6 +131,12 @@ type proxyCamera struct {
 	actual camera.Camera
 }
 
+func (p *proxyCamera) ProxyFor() interface{} {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual
+}
+
 func (p *proxyCamera) Next(ctx context.Context) (image.Image, func(), error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -159,6 +171,12 @@ func (p *proxyCamera) replace(newCamera camera.Camera) {
 type proxyLidar struct {
 	mu     sync.RWMutex
 	actual lidar.Lidar
+}
+
+func (p *proxyLidar) ProxyFor() interface{} {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual
 }
 
 func (p *proxyLidar) Info(ctx context.Context) (map[string]interface{}, error) {
@@ -227,6 +245,12 @@ type proxySensor struct {
 	actual sensor.Sensor
 }
 
+func (p *proxySensor) ProxyFor() interface{} {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual
+}
+
 func (p *proxySensor) Readings(ctx context.Context) ([]interface{}, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -262,6 +286,12 @@ type proxyCompass struct {
 	*proxySensor
 	mu     sync.RWMutex
 	actual compass.Compass
+}
+
+func (p *proxyCompass) ProxyFor() interface{} {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual
 }
 
 func newProxyCompass(actual compass.Compass) *proxyCompass {
@@ -304,6 +334,12 @@ type proxyRelativeCompass struct {
 	*proxyCompass
 	mu     sync.RWMutex
 	actual compass.RelativeCompass
+}
+
+func (p *proxyRelativeCompass) ProxyFor() interface{} {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual
 }
 
 func newProxyRelativeCompass(actual compass.RelativeCompass) *proxyRelativeCompass {
@@ -459,6 +495,12 @@ type proxyForceMatrix struct {
 	*proxySensor
 	mu     sync.RWMutex
 	actual forcematrix.ForceMatrix
+}
+
+func (p *proxyForceMatrix) ProxyFor() interface{} {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual
 }
 
 func newProxyForceMatrix(actual forcematrix.ForceMatrix) *proxyForceMatrix {
@@ -779,6 +821,12 @@ type proxyBoardI2C struct {
 	actual board.I2C
 }
 
+func (p *proxyBoardI2C) ProxyFor() interface{} {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual
+}
+
 func (p *proxyBoardI2C) replace(newI2C board.I2C) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -820,6 +868,12 @@ func (p *proxyBoardAnalogReader) Read(ctx context.Context) (int, error) {
 	return p.actual.Read(ctx)
 }
 
+func (p *proxyBoardAnalogReader) ProxyFor() interface{} {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual
+}
+
 func (p *proxyBoardAnalogReader) Close() error {
 	return utils.TryClose(p.actual)
 }
@@ -827,6 +881,12 @@ func (p *proxyBoardAnalogReader) Close() error {
 type proxyBoardDigitalInterrupt struct {
 	mu     sync.RWMutex
 	actual board.DigitalInterrupt
+}
+
+func (p *proxyBoardDigitalInterrupt) ProxyFor() interface{} {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual
 }
 
 func (p *proxyBoardDigitalInterrupt) replace(newDigitalInterrupt board.DigitalInterrupt) {
@@ -883,6 +943,12 @@ type proxyServo struct {
 	actual servo.Servo
 }
 
+func (p *proxyServo) ProxyFor() interface{} {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual
+}
+
 func (p *proxyServo) replace(newServo servo.Servo) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -915,6 +981,12 @@ func (p *proxyServo) Close() error {
 type proxyMotor struct {
 	mu     sync.RWMutex
 	actual motor.Motor
+}
+
+func (p *proxyMotor) ProxyFor() interface{} {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual
 }
 
 func (p *proxyMotor) replace(newMotor motor.Motor) {

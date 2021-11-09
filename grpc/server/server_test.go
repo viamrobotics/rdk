@@ -27,6 +27,7 @@ import (
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
@@ -49,7 +50,7 @@ var emptyStatus = &pb.StatusResponse{
 	Status: &pb.Status{
 		Arms: map[string]*pb.ArmStatus{
 			"arm1": {
-				GridPosition: &pb.ArmPosition{
+				GridPosition: &pb.Pose{
 					X:     0.0,
 					Y:     0.0,
 					Z:     0.0,
@@ -144,6 +145,73 @@ func TestServer(t *testing.T) {
 		test.That(t, statusResp.Components[0].Name, test.ShouldEqual, cfg.Components[0].Name)
 		test.That(t, statusResp.Components[0].Parent, test.ShouldEqual, cfg.Components[0].Frame.Parent)
 		test.That(t, statusResp.Components[0].Type, test.ShouldResemble, string(cfg.Components[0].Type))
+	})
+
+	t.Run("FrameServiceConfig", func(t *testing.T) {
+		server, injectRobot := newServer()
+
+		// create a basic frame system
+		fsConfigs := []*config.FrameSystemPart{
+			{
+				Name: "frame1",
+				FrameConfig: &config.Frame{
+					Parent:      referenceframe.World,
+					Translation: config.Translation{1, 2, 3},
+					Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
+				},
+			},
+			{
+				Name: "frame2",
+				FrameConfig: &config.Frame{
+					Parent:      "frame1",
+					Translation: config.Translation{1, 2, 3},
+				},
+			},
+		}
+		fss := &inject.FrameSystemService{}
+		fss.FrameSystemConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
+			return fsConfigs, nil
+		}
+		// set up the robot without a frame system service
+		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
+			services := make(map[string]interface{})
+			service, ok := services[name]
+			return service, ok
+		}
+		_, err := server.FrameServiceConfig(context.Background(), &pb.FrameServiceConfigRequest{})
+		test.That(t, err, test.ShouldBeError, errors.New("no service named \"frame_system\""))
+
+		// set up the robot with something that is not a framesystem service
+		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
+			services := make(map[string]interface{})
+			services["frame_system"] = nil
+			service, ok := services[name]
+			return service, ok
+		}
+		_, err = server.FrameServiceConfig(context.Background(), &pb.FrameServiceConfigRequest{})
+		test.That(t, err, test.ShouldBeError, errors.New("service is not a framesystem.Service"))
+
+		// set up the robot with the frame system
+		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
+			services := make(map[string]interface{})
+			services["frame_system"] = fss
+			service, ok := services[name]
+			return service, ok
+		}
+
+		fssResp, err := server.FrameServiceConfig(context.Background(), &pb.FrameServiceConfigRequest{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(fssResp.FrameSystemConfigs), test.ShouldEqual, len(fsConfigs))
+		test.That(t, fssResp.FrameSystemConfigs[0].Name, test.ShouldEqual, fsConfigs[0].Name)
+		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Parent, test.ShouldEqual, fsConfigs[0].FrameConfig.Parent)
+		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.X, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Translation.X)
+		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.Y, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Translation.Y)
+		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.Z, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Translation.Z)
+		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.OX, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OX)
+		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.OY, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OY)
+		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.OZ, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OZ)
+		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.Theta, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().Theta)
+		test.That(t, fssResp.FrameSystemConfigs[0].ModelJson, test.ShouldEqual, fsConfigs[0].ModelFrameConfig)
 	})
 
 	t.Run("StatusStream", func(t *testing.T) {
@@ -398,8 +466,8 @@ func TestServer(t *testing.T) {
 		}
 
 		err1 := errors.New("whoops")
-		pos := &pb.ArmPosition{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
-		injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.ArmPosition, error) {
+		pos := &pb.Pose{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
+		injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.Pose, error) {
 			return nil, err1
 		}
 
@@ -408,7 +476,7 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldEqual, err1)
 
-		injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.ArmPosition, error) {
+		injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.Pose, error) {
 			return pos, nil
 		}
 		resp, err := server.ArmCurrentPosition(context.Background(), &pb.ArmCurrentPositionRequest{
@@ -480,13 +548,13 @@ func TestServer(t *testing.T) {
 		}
 
 		err1 := errors.New("whoops")
-		var capAP *pb.ArmPosition
-		injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.ArmPosition) error {
+		var capAP *pb.Pose
+		injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.Pose) error {
 			capAP = ap
 			return err1
 		}
 
-		pos := &pb.ArmPosition{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
+		pos := &pb.Pose{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
 		_, err = server.ArmMoveToPosition(context.Background(), &pb.ArmMoveToPositionRequest{
 			Name: "arm1",
 			To:   pos,
@@ -494,7 +562,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldEqual, err1)
 		test.That(t, capAP, test.ShouldEqual, pos)
 
-		injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.ArmPosition) error {
+		injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.Pose) error {
 			return nil
 		}
 		_, err = server.ArmMoveToPosition(context.Background(), &pb.ArmMoveToPositionRequest{
