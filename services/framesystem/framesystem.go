@@ -31,7 +31,6 @@ type Service interface {
 	FrameSystemConfig(ctx context.Context) ([]*config.FrameSystemPart, error)
 	LocalFrameSystem(ctx context.Context, name string) (referenceframe.FrameSystem, error)
 	ModelFrame(ctx context.Context, name string) ([]byte, error)
-	Close() error
 }
 
 // New returns a new frame system service for the given robot.
@@ -64,16 +63,12 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 		return nil, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'")
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-
 	fsSvc := &frameSystemService{
 		r:                r,
 		fsParts:          parts,
 		sortedFrameNames: sortedFrameNames,
 		childrenMap:      children,
 		logger:           logger,
-		cancelCtx:        cancelCtx,
-		cancelFunc:       cancelFunc,
 	}
 	return fsSvc, nil
 }
@@ -84,11 +79,7 @@ type frameSystemService struct {
 	fsParts          map[string]*config.FrameSystemPart
 	sortedFrameNames []string // topologically sorted frame names in the frame system, includes world frame
 	childrenMap      map[string][]referenceframe.Frame
-
-	logger                  golog.Logger
-	cancelCtx               context.Context
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
+	logger           golog.Logger
 }
 
 // FrameSystemConfig returns a directed acyclic graph of the structure of the frame system
@@ -132,11 +123,4 @@ func (svc *frameSystemService) ModelFrame(ctx context.Context, name string) ([]b
 		return part.ModelFrameConfig, nil
 	}
 	return nil, errors.Errorf("no part with name %q in frame system", name)
-}
-
-// Close closes the robot service
-func (svc *frameSystemService) Close() error {
-	svc.cancelFunc()
-	svc.activeBackgroundWorkers.Wait()
-	return nil
 }
