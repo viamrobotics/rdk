@@ -136,7 +136,7 @@ func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 			logger.Error(err)
 			return true
 		}
-		if pressure < 975 {
+		if pressure < pressureLimit {
 			if localTest.nonPressureSeen {
 				localTest.pressureCount++
 			}
