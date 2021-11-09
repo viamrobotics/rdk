@@ -81,6 +81,19 @@ type dofBot struct {
 	mu     sync.Mutex
 }
 
+func createDofBotSolver(logger golog.Logger) (kinematics.InverseKinematics, error) {
+	model, err := dofbotModel()
+	if err != nil {
+		return nil, err
+	}
+	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	if err != nil {
+		return nil, err
+	}
+	ik.SetSolveWeights(model.SolveWeights)
+	return ik, nil
+}
+
 func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 	var err error
 
@@ -101,15 +114,10 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 		return nil, err
 	}
 
-	model, err := dofbotModel()
+	a.ik, err = createDofBotSolver(logger)
 	if err != nil {
 		return nil, err
 	}
-	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
-	if err != nil {
-		return nil, err
-	}
-	a.ik = ik
 
 	return &a, nil
 }
