@@ -794,6 +794,14 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.MoveAndGrabServiceDoGrabRequest"><span class="badge">M</span>MoveAndGrabServiceDoGrabRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.MoveAndGrabServiceDoGrabResponse"><span class="badge">M</span>MoveAndGrabServiceDoGrabResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.NavigationServiceAddWaypointRequest"><span class="badge">M</span>NavigationServiceAddWaypointRequest</a>
                 </li>
               
@@ -4878,6 +4886,61 @@
 
         
       
+        <h3 id="proto.api.v1.MoveAndGrabServiceDoGrabRequest">MoveAndGrabServiceDoGrabRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>camera_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>camera_point</td>
+                  <td><a href="#proto.api.v1.Vector3">Vector3</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.MoveAndGrabServiceDoGrabResponse">MoveAndGrabServiceDoGrabResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>has_grabbed</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.NavigationServiceAddWaypointRequest">NavigationServiceAddWaypointRequest</h3>
         <p></p>
 
@@ -6790,6 +6853,13 @@ is reliant on having an encoder.</p></td>
               </tr>
             
               <tr>
+                <td>MoveAndGrabServiceDoGrab</td>
+                <td><a href="#proto.api.v1.MoveAndGrabServiceDoGrabRequest">MoveAndGrabServiceDoGrabRequest</a></td>
+                <td><a href="#proto.api.v1.MoveAndGrabServiceDoGrabResponse">MoveAndGrabServiceDoGrabResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
                 <td>IMUAngularVelocity</td>
                 <td><a href="#proto.api.v1.IMUAngularVelocityRequest">IMUAngularVelocityRequest</a></td>
                 <td><a href="#proto.api.v1.IMUAngularVelocityResponse">IMUAngularVelocityResponse</a></td>
@@ -7565,6 +7635,16 @@ is reliant on having an encoder.</p></td>
                 <td>NavigationServiceRemoveWaypoint</td>
                 <td>DELETE</td>
                 <td>/api/v1/services/navigation/waypoints/{id}</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>MoveAndGrabServiceDoGrab</td>
+                <td>POST</td>
+                <td>/api/v1/services/moveandgrab/dograb</td>
                 <td></td>
               </tr>
               

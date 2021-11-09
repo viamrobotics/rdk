@@ -543,6 +543,14 @@ service RobotService {
     };
   }
 
+  // Move and Grab Service
+
+  rpc MoveAndGrabServiceDoGrab(MoveAndGrabServiceDoGrabRequest) returns (MoveAndGrabServiceDoGrabResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/services/moveandgrab/dograb"
+    };
+  }
+
   // IMU
 
   // IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
@@ -1299,6 +1307,19 @@ message NavigationServiceRemoveWaypointRequest {
 
 message NavigationServiceRemoveWaypointResponse {
 }
+
+// Move and grab service
+
+message MoveAndGrabServiceDoGrabRequest {
+  string camera_name = 1;
+  Vector3 camera_point = 2;
+}
+
+message MoveAndGrabServiceDoGrabResponse {
+  bool has_grabbed = 1;
+}
+
+// End Move and grab service
 
 message InputControllerControlsRequest {
   string controller = 1;

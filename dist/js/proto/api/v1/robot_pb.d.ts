@@ -3437,6 +3437,52 @@ export namespace NavigationServiceRemoveWaypointResponse {
   }
 }
 
+export class MoveAndGrabServiceDoGrabRequest extends jspb.Message {
+  getCameraName(): string;
+  setCameraName(value: string): void;
+
+  hasCameraPoint(): boolean;
+  clearCameraPoint(): void;
+  getCameraPoint(): Vector3 | undefined;
+  setCameraPoint(value?: Vector3): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): MoveAndGrabServiceDoGrabRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: MoveAndGrabServiceDoGrabRequest): MoveAndGrabServiceDoGrabRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: MoveAndGrabServiceDoGrabRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): MoveAndGrabServiceDoGrabRequest;
+  static deserializeBinaryFromReader(message: MoveAndGrabServiceDoGrabRequest, reader: jspb.BinaryReader): MoveAndGrabServiceDoGrabRequest;
+}
+
+export namespace MoveAndGrabServiceDoGrabRequest {
+  export type AsObject = {
+    cameraName: string,
+    cameraPoint?: Vector3.AsObject,
+  }
+}
+
+export class MoveAndGrabServiceDoGrabResponse extends jspb.Message {
+  getHasGrabbed(): boolean;
+  setHasGrabbed(value: boolean): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): MoveAndGrabServiceDoGrabResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: MoveAndGrabServiceDoGrabResponse): MoveAndGrabServiceDoGrabResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: MoveAndGrabServiceDoGrabResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): MoveAndGrabServiceDoGrabResponse;
+  static deserializeBinaryFromReader(message: MoveAndGrabServiceDoGrabResponse, reader: jspb.BinaryReader): MoveAndGrabServiceDoGrabResponse;
+}
+
+export namespace MoveAndGrabServiceDoGrabResponse {
+  export type AsObject = {
+    hasGrabbed: boolean,
+  }
+}
+
 export class InputControllerControlsRequest extends jspb.Message {
   getController(): string;
   setController(value: string): void;

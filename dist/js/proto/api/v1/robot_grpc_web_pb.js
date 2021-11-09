@@ -4462,6 +4462,67 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.navigationServiceRemoveWa
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.MoveAndGrabServiceDoGrabRequest,
+ *   !proto.proto.api.v1.MoveAndGrabServiceDoGrabResponse>}
+ */
+const methodDescriptor_RobotService_MoveAndGrabServiceDoGrab = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/MoveAndGrabServiceDoGrab',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.MoveAndGrabServiceDoGrabRequest,
+  proto.proto.api.v1.MoveAndGrabServiceDoGrabResponse,
+  /**
+   * @param {!proto.proto.api.v1.MoveAndGrabServiceDoGrabRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.MoveAndGrabServiceDoGrabResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.MoveAndGrabServiceDoGrabRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.MoveAndGrabServiceDoGrabResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MoveAndGrabServiceDoGrabResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.moveAndGrabServiceDoGrab =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MoveAndGrabServiceDoGrab',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MoveAndGrabServiceDoGrab,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.MoveAndGrabServiceDoGrabRequest} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.MoveAndGrabServiceDoGrabResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.moveAndGrabServiceDoGrab =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/MoveAndGrabServiceDoGrab',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_MoveAndGrabServiceDoGrab);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.v1.IMUAngularVelocityRequest,
  *   !proto.proto.api.v1.IMUAngularVelocityResponse>}
  */
