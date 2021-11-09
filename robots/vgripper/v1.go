@@ -41,7 +41,7 @@ func init() {
 // TODO
 const (
 	TargetRPM               = 200
-	MaxCurrent              = 300
+	MaxCurrent              = 500
 	CurrentBadReadingCounts = 50
 	MinRotationGap          = 4.0
 	MaxRotationGap          = 5.0
