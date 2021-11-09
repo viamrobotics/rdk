@@ -39,11 +39,11 @@ func TestStaticFrame(t *testing.T) {
 
 func TestPrismaticFrame(t *testing.T) {
 	// define a prismatic transform
-	limits := []Limit{{-30, 30}}
+	limits := []Limit{{Min: -30, Max: 30}}
 	frame, err := NewTranslationalFrame("test", []bool{false, true, false}, limits) // can only move on y axis
 	test.That(t, err, test.ShouldBeNil)
 	// this should return an error
-	badLimits := []Limit{{0, 0}, {-30, 30}, {0, 0}}
+	badLimits := []Limit{{Min: 0, Max: 0}, {Min: -30, Max: 30}, {Min: 0, Max: 0}}
 	_, err = NewTranslationalFrame("test", []bool{false, true, false}, badLimits) // can only move on y axis
 	test.That(t, err, test.ShouldBeError, errors.New("given number of limits 3 does not match number of axes 1"))
 	// expected output
@@ -66,7 +66,7 @@ func TestPrismaticFrame(t *testing.T) {
 	overLimit := 50.0
 	input = FloatsToInputs([]float64{overLimit})
 	_, err = frame.Transform(input)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of bounds %.5f", overLimit, frame.DoF()[0]))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of bounds %v", overLimit, frame.DoF()[0]))
 	// gets the correct limits back
 	frameLimits := frame.DoF()
 	test.That(t, frameLimits, test.ShouldResemble, limits)
@@ -98,7 +98,9 @@ func TestRevoluteFrame(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of rev frame bounds %.5f", utils.DegToRad(overLimit), frame.DoF()[0]))
 	// gets the correct limits back
 	limit := frame.DoF()
-	test.That(t, limit, test.ShouldResemble, []Limit{{-math.Pi / 2, math.Pi / 2}})
+	expLimit := []Limit{{Min: -math.Pi / 2, Max: math.Pi / 2}}
+	test.That(t, limit, test.ShouldHaveLength, 1)
+	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
 }
 
 func TestBasicConversions(t *testing.T) {

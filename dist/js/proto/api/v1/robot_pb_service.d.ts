@@ -392,6 +392,15 @@ type RobotServiceForceMatrixMatrix = {
   readonly responseType: typeof proto_api_v1_robot_pb.ForceMatrixMatrixResponse;
 };
 
+type RobotServiceForceMatrixSlipDetection = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.ForceMatrixSlipDetectionRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.ForceMatrixSlipDetectionResponse;
+};
+
 type RobotServiceExecuteFunction = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -581,6 +590,15 @@ type RobotServiceResourceRunCommand = {
   readonly responseType: typeof proto_api_v1_robot_pb.ResourceRunCommandResponse;
 };
 
+type RobotServiceFrameServiceConfig = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.FrameServiceConfigRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.FrameServiceConfigResponse;
+};
+
 type RobotServiceNavigationServiceMode = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -734,6 +752,7 @@ export class RobotService {
   static readonly CompassStopCalibration: RobotServiceCompassStopCalibration;
   static readonly CompassMark: RobotServiceCompassMark;
   static readonly ForceMatrixMatrix: RobotServiceForceMatrixMatrix;
+  static readonly ForceMatrixSlipDetection: RobotServiceForceMatrixSlipDetection;
   static readonly ExecuteFunction: RobotServiceExecuteFunction;
   static readonly ExecuteSource: RobotServiceExecuteSource;
   static readonly ServoMove: RobotServiceServoMove;
@@ -755,6 +774,7 @@ export class RobotService {
   static readonly InputControllerLastEvents: RobotServiceInputControllerLastEvents;
   static readonly InputControllerEventStream: RobotServiceInputControllerEventStream;
   static readonly ResourceRunCommand: RobotServiceResourceRunCommand;
+  static readonly FrameServiceConfig: RobotServiceFrameServiceConfig;
   static readonly NavigationServiceMode: RobotServiceNavigationServiceMode;
   static readonly NavigationServiceSetMode: RobotServiceNavigationServiceSetMode;
   static readonly NavigationServiceLocation: RobotServiceNavigationServiceLocation;
@@ -1180,6 +1200,15 @@ export class RobotServiceClient {
     requestMessage: proto_api_v1_robot_pb.ForceMatrixMatrixRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ForceMatrixMatrixResponse|null) => void
   ): UnaryResponse;
+  forceMatrixSlipDetection(
+    requestMessage: proto_api_v1_robot_pb.ForceMatrixSlipDetectionRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ForceMatrixSlipDetectionResponse|null) => void
+  ): UnaryResponse;
+  forceMatrixSlipDetection(
+    requestMessage: proto_api_v1_robot_pb.ForceMatrixSlipDetectionRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ForceMatrixSlipDetectionResponse|null) => void
+  ): UnaryResponse;
   executeFunction(
     requestMessage: proto_api_v1_robot_pb.ExecuteFunctionRequest,
     metadata: grpc.Metadata,
@@ -1352,6 +1381,15 @@ export class RobotServiceClient {
   resourceRunCommand(
     requestMessage: proto_api_v1_robot_pb.ResourceRunCommandRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ResourceRunCommandResponse|null) => void
+  ): UnaryResponse;
+  frameServiceConfig(
+    requestMessage: proto_api_v1_robot_pb.FrameServiceConfigRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameServiceConfigResponse|null) => void
+  ): UnaryResponse;
+  frameServiceConfig(
+    requestMessage: proto_api_v1_robot_pb.FrameServiceConfigRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameServiceConfigResponse|null) => void
   ): UnaryResponse;
   navigationServiceMode(
     requestMessage: proto_api_v1_robot_pb.NavigationServiceModeRequest,

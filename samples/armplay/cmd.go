@@ -56,10 +56,10 @@ func chrisCirlce(ctx context.Context, r robot.Robot) error {
 	}
 
 	return multierr.Combine(
-		arm.MoveToPosition(ctx, &pb.ArmPosition{X: -600, Z: 480}),
-		arm.MoveToPosition(ctx, &pb.ArmPosition{X: -200, Z: 480}),
-		arm.MoveToPosition(ctx, &pb.ArmPosition{X: -200, Z: 300}),
-		arm.MoveToPosition(ctx, &pb.ArmPosition{X: -600, Z: 300}),
+		arm.MoveToPosition(ctx, &pb.Pose{X: -600, Z: 480}),
+		arm.MoveToPosition(ctx, &pb.Pose{X: -200, Z: 480}),
+		arm.MoveToPosition(ctx, &pb.Pose{X: -200, Z: 300}),
+		arm.MoveToPosition(ctx, &pb.Pose{X: -600, Z: 300}),
 	)
 }
 

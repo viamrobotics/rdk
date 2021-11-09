@@ -19,6 +19,7 @@ func TestComponentValidate(t *testing.T) {
 
 	validConfig := Component{
 		Name: "foo",
+		Type: "arm",
 	}
 	test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
 }

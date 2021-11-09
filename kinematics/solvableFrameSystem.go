@@ -44,7 +44,7 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 	frames := uniqInPlaceSlice(append(sFrames, gFrames...))
 
 	// Create a frame to solve for, and an IK solver with that frame.
-	sf := &solverFrame{fss, frames, solveFrame, goalFrame}
+	sf := &solverFrame{solveFrame.Name() + "_" + goalFrame.Name(), fss, frames, solveFrame, goalFrame}
 	solver, err := CreateCombinedIKSolver(sf, fss.logger, runtime.NumCPU()/2)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 	seed := sf.mapToSlice(seedMap)
 
 	// Solve for the goal position
-	resultSlice, err := solver.Solve(ctx, spatial.PoseToArmPos(goal), seed)
+	resultSlice, err := solver.Solve(ctx, spatial.PoseToProtobuf(goal), seed)
 	if err != nil {
 		return nil, multierr.Combine(err, solver.Close())
 	}
@@ -64,15 +64,16 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 // solverFrames are meant to be ephemerally created each time a frame system solution is created, and fulfills the
 // Frame interface so that it can be passed to inverse kinematics.
 type solverFrame struct {
+	name       string
 	fss        *SolvableFrameSystem
 	frames     []frame.Frame
 	solveFrame frame.Frame
 	goalFrame  frame.Frame
 }
 
-// Name returns the name of the solver frame, which is the name of the two frames being solved for.
+// Name returns the name of the solver frame
 func (sf *solverFrame) Name() string {
-	return sf.solveFrame.Name() + "_" + sf.goalFrame.Name()
+	return sf.name
 }
 
 // Transform returns the pose between the two frames of this solver for a given set of inputs.

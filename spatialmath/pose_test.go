@@ -1,6 +1,7 @@
 package spatialmath
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
@@ -41,7 +42,7 @@ func TestBasicPoseConstruction(t *testing.T) {
 
 	p2 = NewPoseFromOrientationVector(r3.Vector{2, 2, 4}, ov)
 	delta := PoseDelta(p1, p2)
-	test.That(t, delta, test.ShouldResemble, []float64{1., 0., 1., 0., 0., 0.})
+	test.That(t, fmt.Sprintf("%.2f, %.2f, %.2f, %.2f, %.2f, %.2f", delta[0], delta[1], delta[2], delta[3], delta[4], delta[5]), test.ShouldResemble, "1.00, 0.00, 1.00, 0.00, 0.00, 0.00")
 
 	p = NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{4, 5, 6}, 0)
 	test.That(t, p.Orientation().OrientationVectorRadians(), test.ShouldResemble, &OrientationVector{0, 0, 0, 1})
@@ -61,14 +62,14 @@ func TestDualQuatTransform(t *testing.T) {
 
 	trAA := NewPoseFromAxisAngle(r3.Vector{4., 2., 6.}, r3.Vector{1, 0, 0}, math.Pi) // same transformation from axis angle
 	// ensure transformation is the same between both definitions
-	test.That(t, tr.Real.Real, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Real.Real)
-	test.That(t, tr.Real.Imag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Real.Imag)
-	test.That(t, tr.Real.Jmag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Real.Jmag)
-	test.That(t, tr.Real.Kmag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Real.Kmag)
-	test.That(t, tr.Dual.Real, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Dual.Real)
-	test.That(t, tr.Dual.Imag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Dual.Imag)
-	test.That(t, tr.Dual.Jmag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Dual.Jmag)
-	test.That(t, tr.Dual.Kmag, test.ShouldAlmostEqual, newdualQuaternionFromPose(trAA).Dual.Kmag)
+	test.That(t, tr.Real.Real, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Real.Real)
+	test.That(t, tr.Real.Imag, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Real.Imag)
+	test.That(t, tr.Real.Jmag, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Real.Jmag)
+	test.That(t, tr.Real.Kmag, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Real.Kmag)
+	test.That(t, tr.Dual.Real, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Dual.Real)
+	test.That(t, tr.Dual.Imag, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Dual.Imag)
+	test.That(t, tr.Dual.Jmag, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Dual.Jmag)
+	test.That(t, tr.Dual.Kmag, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Dual.Kmag)
 
 	expectedPose := NewPoseFromPoint(r3.Vector{7., -2., 1.})
 	expectedPoint := expectedPose.Point()

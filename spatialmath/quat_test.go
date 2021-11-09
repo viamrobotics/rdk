@@ -55,15 +55,15 @@ func TestFlip(t *testing.T) {
 func TestDHConversion(t *testing.T) {
 	// Test conversion of a DH param to a dual quaternion
 	dhParam := []float64{-0.425, 0.1333, math.Pi / 2}
-	dq1 := newdualQuaternionFromDH(dhParam[0], dhParam[1], dhParam[2])
-	dq2 := newdualQuaternionFromArmPos(&pb.ArmPosition{X: -0.425, Y: 0, Z: 0.1333, OY: -1, Theta: 90})
+	dq1 := newDualQuaternionFromDH(dhParam[0], dhParam[1], dhParam[2])
+	dq2 := newDualQuaternionFromProtobuf(&pb.Pose{X: -0.425, Y: 0, Z: 0.1333, OY: -1, Theta: 90})
 	quatCompare(t, dq1.Real, dq2.Real)
 	quatCompare(t, dq1.Dual, dq2.Dual)
 }
 
 func TestQuatDefault(t *testing.T) {
-	q1 := newdualQuaternionFromRotation(&OrientationVector{})
-	q2 := newdualQuaternionFromRotation(&OrientationVector{OZ: 1})
+	q1 := newDualQuaternionFromRotation(&OrientationVector{})
+	q2 := newDualQuaternionFromRotation(&OrientationVector{OZ: 1})
 	quatCompare(t, q1.Real, q2.Real)
 }
 

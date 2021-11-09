@@ -32,11 +32,11 @@ func makeTestFS(t *testing.T) *SolvableFrameSystem {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantry, gantryOffset)
 
-	modelXarm, err := ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"))
+	modelXarm, err := ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelXarm, gantry)
 
-	modelUR5e, err := ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"))
+	modelUR5e, err := ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelUR5e, urOffset)
 
@@ -67,7 +67,7 @@ func TestFrameSystemSolver(t *testing.T) {
 	test.That(t, transformPoint.Point().Z, test.ShouldAlmostEqual, pointXarmGripper.Z)
 
 	// Set a goal such that the gantry and arm must both be used to solve
-	goal1 := &pb.ArmPosition{
+	goal1 := &pb.Pose{
 		X:     257,
 		Y:     2100,
 		Z:     -300,
@@ -76,7 +76,7 @@ func TestFrameSystemSolver(t *testing.T) {
 		OY:    0,
 		OZ:    -1,
 	}
-	newPos, err := solver.SolvePose(context.Background(), positions, spatial.NewPoseFromArmPos(goal1), solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
+	newPos, err := solver.SolvePose(context.Background(), positions, spatial.NewPoseFromProtobuf(goal1), solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose, err := solver.TransformFrame(newPos, solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
@@ -85,7 +85,7 @@ func TestFrameSystemSolver(t *testing.T) {
 	test.That(t, solvedPose.Point().Z, test.ShouldAlmostEqual, goal1.Z, 0.01)
 
 	// Solve such that the ur5 and xArm are pointing at each other, 60mm from gripper to camera
-	goal2 := &pb.ArmPosition{
+	goal2 := &pb.Pose{
 		X:     0,
 		Y:     0,
 		Z:     60,
@@ -94,7 +94,7 @@ func TestFrameSystemSolver(t *testing.T) {
 		OY:    0,
 		OZ:    -1,
 	}
-	newPos, err = solver.SolvePose(context.Background(), positions, spatial.NewPoseFromArmPos(goal2), solver.GetFrame("xArmVgripper"), solver.GetFrame("urCamera"))
+	newPos, err = solver.SolvePose(context.Background(), positions, spatial.NewPoseFromProtobuf(goal2), solver.GetFrame("xArmVgripper"), solver.GetFrame("urCamera"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Both frames should wind up at the goal relative to one another

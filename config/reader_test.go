@@ -31,13 +31,14 @@ func TestFromReaderValidate(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 
-	conf, err = FromReader("somepath", strings.NewReader(`{"components": [{"name": "foo"}]}`))
+	conf, err = FromReader("somepath", strings.NewReader(`{"components": [{"name": "foo", "type": "arm"}]}`))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conf, test.ShouldResemble, &Config{
 		ConfigFilePath: "somepath",
 		Components: []Component{
 			{
 				Name: "foo",
+				Type: ComponentTypeArm,
 			},
 		},
 	})

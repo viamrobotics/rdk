@@ -159,3 +159,20 @@ func TestSlerp(t *testing.T) {
 	test.That(t, s2.Jmag, test.ShouldAlmostEqual, expect2.Jmag)
 	test.That(t, s2.Kmag, test.ShouldAlmostEqual, expect2.Kmag)
 }
+
+func TestOrientationTransform(t *testing.T) {
+	aa := &R4AA{Theta: math.Pi / 2., RX: 0., RY: 1., RZ: 0.}
+	ovd := &OrientationVectorDegrees{Theta: 0.0, OX: 1., OY: 0.0, OZ: 0.0}
+	ovdResult := aa.OrientationVectorDegrees()
+	aaResult := ovd.AxisAngles()
+	t.Logf("result as orientation vector: Theta: %.2f, X: %.2f, Y: %.2f, Z: %.2f", ovdResult.Theta, ovdResult.OX, ovdResult.OY, ovdResult.OZ)
+	test.That(t, ovdResult.Theta, test.ShouldAlmostEqual, ovd.Theta)
+	test.That(t, ovdResult.OX, test.ShouldAlmostEqual, ovd.OX)
+	test.That(t, ovdResult.OY, test.ShouldAlmostEqual, ovd.OY)
+	test.That(t, ovdResult.OZ, test.ShouldAlmostEqual, ovd.OZ)
+	t.Logf("result as axis angle: Theta: %.2f, X: %.2f, Y: %.2f, Z: %.2f", aaResult.Theta, aaResult.RX, aaResult.RY, aaResult.RZ)
+	test.That(t, aaResult.Theta, test.ShouldAlmostEqual, aa.Theta)
+	test.That(t, aaResult.RX, test.ShouldAlmostEqual, aa.RX)
+	test.That(t, aaResult.RY, test.ShouldAlmostEqual, aa.RY)
+	test.That(t, aaResult.RZ, test.ShouldAlmostEqual, aa.RZ)
+}

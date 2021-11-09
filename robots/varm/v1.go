@@ -48,7 +48,7 @@ var v1modeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, "varm1", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			model, err := kinematics.ParseJSON(v1modeljson)
+			model, err := kinematics.ParseJSON(v1modeljson, "")
 			if err != nil {
 				return nil, err
 			}
@@ -224,7 +224,7 @@ type ArmV1 struct {
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (a *ArmV1) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (a *ArmV1) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -233,7 +233,7 @@ func (a *ArmV1) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (a *ArmV1) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+func (a *ArmV1) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err

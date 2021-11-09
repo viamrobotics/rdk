@@ -34,10 +34,10 @@ func Named(name string) resource.Name {
 type Arm interface {
 
 	// CurrentPosition returns the current position of the arm.
-	CurrentPosition(ctx context.Context) (*pb.ArmPosition, error)
+	CurrentPosition(ctx context.Context) (*pb.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
-	MoveToPosition(ctx context.Context, c *pb.ArmPosition) error
+	MoveToPosition(ctx context.Context, c *pb.Pose) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
 	MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error
@@ -59,13 +59,19 @@ type reconfigurableArm struct {
 	actual Arm
 }
 
-func (r *reconfigurableArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (r *reconfigurableArm) ProxyFor() interface{} {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual
+}
+
+func (r *reconfigurableArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.CurrentPosition(ctx)
 }
 
-func (r *reconfigurableArm) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
+func (r *reconfigurableArm) MoveToPosition(ctx context.Context, c *pb.Pose) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.MoveToPosition(ctx, c)
@@ -125,8 +131,8 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 // NewPositionFromMetersAndOV returns a three-dimensional arm position
 // defined by a point in space in meters and an orientation defined as an OrientationVector.
 // See robot.proto for a math explanation
-func NewPositionFromMetersAndOV(x, y, z, th, ox, oy, oz float64) *pb.ArmPosition {
-	return &pb.ArmPosition{
+func NewPositionFromMetersAndOV(x, y, z, th, ox, oy, oz float64) *pb.Pose {
+	return &pb.Pose{
 		X:     x * 1000,
 		Y:     y * 1000,
 		Z:     z * 1000,
@@ -159,7 +165,7 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 
 // PositionGridDiff returns the euclidean distance between
 // two arm positions in millimeters.
-func PositionGridDiff(a, b *pb.ArmPosition) float64 {
+func PositionGridDiff(a, b *pb.Pose) float64 {
 	diff := utils.Square(a.X-b.X) +
 		utils.Square(a.Y-b.Y) +
 		utils.Square(a.Z-b.Z)
@@ -170,7 +176,7 @@ func PositionGridDiff(a, b *pb.ArmPosition) float64 {
 }
 
 // PositionRotationDiff returns the sum of the squared differences between the angle axis components of two positions
-func PositionRotationDiff(a, b *pb.ArmPosition) float64 {
+func PositionRotationDiff(a, b *pb.Pose) float64 {
 	return utils.Square(a.Theta-b.Theta) +
 		utils.Square(a.OX-b.OX) +
 		utils.Square(a.OY-b.OY) +

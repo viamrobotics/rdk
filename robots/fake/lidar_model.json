@@ -1,0 +1,17 @@
+{
+   "model": {
+      "manufacturer": "Fake Robotics",
+      "name": "fake_lidar",
+      "links": [
+         {
+            "id": "base_link",
+            "parent": "world",
+            "translation": {
+               "x": 50.0,
+               "y": 0.0,
+               "z": 0.0
+            }
+         }
+      ]
+   }
+}

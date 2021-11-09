@@ -27,7 +27,7 @@ type OrientationVector struct {
 }
 
 // OrientationVectorDegrees is the orientation vector between two objects, but expressed in degrees rather than radians.
-// Because ArmPosition is in degrees, this is necessary.
+// Because protobuf Pose is in degrees, this is necessary.
 type OrientationVectorDegrees struct {
 	Theta float64 `json:"th"`
 	OX    float64 `json:"x"`
