@@ -1226,16 +1226,20 @@
         style="max-width: 1080px;">
       </motor-detail>
 
-      <!-- ******* GAMEPAD *******  -->
-      <gamepad
+      <!-- ******* INPUT VIEW *******  -->
+      <input-controller
         v-for="controller in status.inputControllersMap"
         :key="'new-' + controller[0]"
         v-bind:controller-name="controller[0]"
         v-bind:controller-status="controller[1]"
         style="max-width: 1080px;">
-      >
-      </gamepad>
+      </input-controller>
 
+      <!-- ******* WEB CONTROLS *******  -->
+      <web-gamepad
+        v-bind:controller-name="'SMURF'"
+        style="max-width: 1080px;">
+      </web-gamepad>
 
       <!-- ******* CAMERAS *******  -->
       <table>
