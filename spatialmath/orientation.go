@@ -143,6 +143,7 @@ func QuatToOV(q quat.Number) *OrientationVector {
 	}
 	// the IEEE 754 Standard for Floating-Points allows both negative and positive zero representations.
     // If one of the above conditions casts ov.Theta to -0, transform it to +0 for consistency. 
+    // String comparisons of floating point numbers may fail otherwise.
 	if ov.Theta == -0. {
 		ov.Theta = 0.
 	}
