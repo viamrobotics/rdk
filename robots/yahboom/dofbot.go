@@ -31,36 +31,28 @@ func dofbotModel() (*kinematics.Model, error) {
 
 type jointConfig struct {
 	x, y, z float64
-	flip180 bool // TODO(erh): use
 	offset  float64
 }
 
 var joints = []jointConfig{
-	{2200, 180, 100, false, 150},
-	{2200, 180, 100, false, 240},
-	{2200, 180, 100, false, 158},
-	{2200, 180, 100, false, 150},
-	{2200, 180, 100, false, 110},
-}
-
-func (jc jointConfig) flip(degrees float64) float64 {
-	if jc.flip180 {
-		return 180 - degrees
-	}
-	return degrees
+	{2200, 180, 100, 150},
+	{2200, 180, 100, 240},
+	{2200, 180, 100, 158},
+	{2200, 180, 100, 150},
+	{2200, 180, 100, 110},
 }
 
 func (jc jointConfig) toDegrees(n int) float64 {
 	d := float64(n) - jc.z
 	d /= jc.x
 	d *= jc.y
-	return jc.flip(d) - jc.offset
+	return d - jc.offset
 }
 
 func (jc jointConfig) toHw(degrees float64) int {
 	degrees = math.Max(-270, degrees)
 	degrees = math.Min(270, degrees)
-	hw := int((jc.x * (jc.flip(degrees+jc.offset) / jc.y)) + jc.z)
+	hw := int((jc.x * ((degrees+jc.offset) / jc.y)) + jc.z)
 	if hw < 0 {
 		hw = 0
 	}
