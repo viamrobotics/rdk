@@ -14,7 +14,6 @@ type FrameSystemService struct {
 	FrameSystemConfigFunc func(ctx context.Context) ([]*config.FrameSystemPart, error)
 	LocalFrameSystemFunc  func(ctx context.Context, name string) (referenceframe.FrameSystem, error)
 	ModelFrameFunc        func(ctx context.Context, name string) ([]byte, error)
-	CloseFunc             func() error
 }
 
 // FrameSystemConfig calls the injected FrameSystemConfig or the real version.
@@ -39,12 +38,4 @@ func (fss *FrameSystemService) ModelFrame(ctx context.Context, name string) ([]b
 		return fss.ModelFrame(ctx, name)
 	}
 	return fss.ModelFrameFunc(ctx, name)
-}
-
-// Close calls the injected Close or the real version.
-func (fss *FrameSystemService) Close() error {
-	if fss.CloseFunc == nil {
-		return fss.Close()
-	}
-	return fss.CloseFunc()
 }
