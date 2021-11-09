@@ -141,7 +141,8 @@ func QuatToOV(q quat.Number) *OrientationVector {
 			ov.Theta = -math.Atan2(newX.Jmag, newX.Imag)
 		}
 	}
-	// convert instances of -0 to +0
+	// the IEEE 754 Standard for Floating-Points allows both negative and positive zero representations.
+    // If one of the above conditions casts ov.Theta to -0, transform it to +0 for consistency. 
 	if ov.Theta == -0. {
 		ov.Theta = 0.
 	}
