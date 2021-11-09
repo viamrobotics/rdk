@@ -22,12 +22,6 @@ type Input struct {
 	Value float64
 }
 
-// Limit describes a minimum and maximum limit for the DoF of the frame.
-// If limits are exceeded, an error will be retuned, but the math will still be performed and an answer given.
-type Limit struct {
-	Min, Max float64
-}
-
 // FloatsToInputs wraps a slice of floats in Inputs
 func FloatsToInputs(floats []float64) []Input {
 	inputs := make([]Input, len(floats))
@@ -55,6 +49,12 @@ func JointPosToInputs(jp *pb.JointPositions) []Input {
 // InputsToJointPos will take a slice of Inputs which are all joint position radians, and return a JointPositions struct.
 func InputsToJointPos(inputs []Input) *pb.JointPositions {
 	return arm.JointPositionsFromRadians(InputsToFloats(inputs))
+}
+
+// Limit represents the limits of motion for a frame
+type Limit struct {
+	Min float64
+	Max float64
 }
 
 // Frame represents a single reference frame, e.g. an arm, a joint, etc.
@@ -143,7 +143,7 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 		if v {
 			// We allow out-of-bounds calculations, but will return a non-nil error
 			if input[tIdx].Value < pf.limits[tIdx].Min || input[tIdx].Value > pf.limits[tIdx].Max {
-				err = fmt.Errorf("%.5f input out of bounds %.5f", input[tIdx].Value, pf.limits[tIdx])
+				err = fmt.Errorf("%.5f input out of bounds %v", input[tIdx].Value, pf.limits[tIdx])
 			}
 			translation[i] = input[tIdx].Value
 			tIdx++

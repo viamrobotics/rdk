@@ -43,6 +43,7 @@ import (
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
 	"go.viam.com/core/sensor/imu"
+	"go.viam.com/core/services/framesystem"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
 
@@ -645,15 +646,44 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 	return names
 }
 
-// FrameSystem not implemented for remote robots
-func (rc *RobotClient) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
-	debug.PrintStack()
-	return nil, errUnimplemented
-}
-
 // Logger returns the logger being used for this robot.
 func (rc *RobotClient) Logger() golog.Logger {
 	return rc.logger
+}
+
+// FrameSystem retrieves an ordered slice of the frame configs and then builds a FrameSystem from the configs
+func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
+	fs := referenceframe.NewEmptySimpleFrameSystem(name)
+	// request the full config from the remote robot's frame system service.FrameSystemConfig()
+	resp, err := rc.client.FrameServiceConfig(ctx, &pb.FrameServiceConfigRequest{})
+	if err != nil {
+		return nil, err
+	}
+	configs := resp.FrameSystemConfigs
+	// using the configs, build a FrameSystem using model frames and static offset frames, the configs slice should already be sorted.
+	for _, conf := range configs {
+		part := config.ProtobufToFrameSystemPart(conf)
+		// rename everything with prefixes
+		part.Name = prefix + part.Name
+		if part.FrameConfig.Parent != referenceframe.World {
+			part.FrameConfig.Parent = prefix + part.FrameConfig.Parent
+		}
+		// make the frames from the configs
+		modelFrame, staticOffsetFrame, err := framesystem.CreateFramesFromPart(part, rc.logger)
+		if err != nil {
+			return nil, err
+		}
+		// attach static offset frame to parent, attach model frame to static offset frame
+		err = fs.AddFrame(staticOffsetFrame, fs.GetFrame(part.FrameConfig.Parent))
+		if err != nil {
+			return nil, err
+		}
+		err = fs.AddFrame(modelFrame, staticOffsetFrame)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return fs, nil
 }
 
 // baseClient satisfies a gRPC based base.Base. Refer to the interface
@@ -719,7 +749,7 @@ type armClient struct {
 	name string
 }
 
-func (ac *armClient) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (ac *armClient) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	resp, err := ac.rc.client.ArmCurrentPosition(ctx, &pb.ArmCurrentPositionRequest{
 		Name: ac.name,
 	})
@@ -729,7 +759,7 @@ func (ac *armClient) CurrentPosition(ctx context.Context) (*pb.ArmPosition, erro
 	return resp.Position, nil
 }
 
-func (ac *armClient) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
+func (ac *armClient) MoveToPosition(ctx context.Context, c *pb.Pose) error {
 	_, err := ac.rc.client.ArmMoveToPosition(ctx, &pb.ArmMoveToPositionRequest{
 		Name: ac.name,
 		To:   c,

@@ -27,13 +27,12 @@ import (
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
+	"go.viam.com/core/services/framesystem"
 	"go.viam.com/core/servo"
-	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/status"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
-	"github.com/golang/geo/r3"
 
 	// Engines
 	_ "go.viam.com/core/function/vm/engines/javascript"
@@ -257,28 +256,13 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 
 	for remoteName, remote := range r.parts.remotes {
 		rc, err := remote.Config(ctx)
-		rcCopy := *rc
 		if err != nil {
 			return nil, err
 		}
-		rConf, err := r.getRemoteConfig(ctx, remoteName)
-		if err != nil {
-			return nil, err
-		}
-		worldName := referenceframe.World
-		if rConf.Prefix {
-			worldName = rConf.Name + "." + referenceframe.World
-		}
-		for _, c := range rcCopy.Components {
-			if c.Frame != nil && c.Frame.Parent == worldName {
-				if rConf.Frame == nil { // world frames of the local and remote robot perfectly overlap
-					c.Frame.Parent = referenceframe.World
-				} else { // attach the frames connected to world node of the remote to the Frame defined in the Remote's config
-					newTranslation, newOrientation := composeFrameOffsets(rConf.Frame, c.Frame)
-					c.Frame.Parent = rConf.Frame.Parent
-					c.Frame.Translation = newTranslation
-					c.Frame.Orientation = newOrientation
-				}
+		remoteWorldName := remoteName + "." + referenceframe.World
+		for _, c := range rc.Components {
+			if c.Frame != nil && c.Frame.Parent == referenceframe.World {
+				c.Frame.Parent = remoteWorldName
 			}
 			cfgCpy.Components = append(cfgCpy.Components, c)
 		}
@@ -297,18 +281,6 @@ func (r *localRobot) getRemoteConfig(ctx context.Context, remoteName string) (*c
 	return nil, fmt.Errorf("cannot find Remote config with name %q", remoteName)
 }
 
-// composeFrameOffsets takes two config Frames and returns the composition of their 6dof poses
-func composeFrameOffsets(a, b *config.Frame) (config.Translation, spatialmath.Orientation) {
-	aTrans := r3.Vector{a.Translation.X, a.Translation.Y, a.Translation.Z}
-	bTrans := r3.Vector{b.Translation.X, b.Translation.Y, b.Translation.Z}
-	aPose := spatialmath.NewPoseFromOrientation(aTrans, a.Orientation)
-	bPose := spatialmath.NewPoseFromOrientation(bTrans, b.Orientation)
-	cPose := spatialmath.Compose(aPose, bPose)
-	translation := config.Translation{cPose.Point().X, cPose.Point().Y, cPose.Point().Z}
-	orientation := cPose.Orientation()
-	return translation, orientation
-}
-
 // Status returns the current status of the robot. Usually you
 // should use the CreateStatus helper instead of directly calling
 // this.
@@ -316,8 +288,41 @@ func (r *localRobot) Status(ctx context.Context) (*pb.Status, error) {
 	return status.Create(ctx, r)
 }
 
-func (r *localRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
-	return CreateReferenceFrameSystem(ctx, r)
+// FrameSystem returns the FrameSystem of the robot
+func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
+	logger := r.Logger()
+	// create the base reference frame system
+	service, ok := r.ServiceByName("frame_system")
+	if !ok {
+		return nil, errors.New("service frame_system not found")
+	}
+	fsService, ok := service.(framesystem.Service)
+	if !ok {
+		return nil, errors.New("service is not a frame_system service")
+	}
+	baseFrameSys, err := fsService.LocalFrameSystem(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("base frame system %q has frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())
+	// get frame system for each of its remote parts and merge to base
+	for remoteName, remote := range r.parts.remotes {
+		remoteFrameSys, err := remote.FrameSystem(ctx, remoteName, prefix)
+		if err != nil {
+			return nil, err
+		}
+		rConf, err := r.getRemoteConfig(ctx, remoteName)
+		if err != nil {
+			return nil, err
+		}
+		logger.Debugf("merging remote frame system  %q with frames %v", remoteFrameSys.Name(), remoteFrameSys.FrameNames())
+		err = config.MergeFrameSystems(baseFrameSys, remoteFrameSys, rConf.Frame)
+		if err != nil {
+			return nil, err
+		}
+	}
+	logger.Debugf("final frame system  %q has frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())
+	return baseFrameSys, nil
 }
 
 // Logger returns the logger the robot is using.

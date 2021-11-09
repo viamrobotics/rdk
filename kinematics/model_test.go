@@ -13,8 +13,9 @@ import (
 )
 
 func TestModelLoading(t *testing.T) {
-	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
+	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, m.Name(), test.ShouldEqual, "wx250s")
 
 	test.That(t, m.OperationalDoF(), test.ShouldEqual, 1)
 	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
@@ -31,12 +32,13 @@ func TestModelLoading(t *testing.T) {
 	randpos := m.GenerateRandomJointPositions(rand.New(rand.NewSource(1)))
 	test.That(t, m.AreJointPositionsValid(randpos), test.ShouldBeTrue)
 
-	m.SetName("foo")
+	m, err = ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "foo")
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "foo")
 }
 
 func TestJoint(t *testing.T) {
-	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
+	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	joints := m.Joints()

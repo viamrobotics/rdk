@@ -42,6 +42,7 @@ import (
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
 	"go.viam.com/core/sensor/imu"
+	"go.viam.com/core/services/framesystem"
 	"go.viam.com/core/services/navigation"
 	"go.viam.com/core/spatialmath"
 	coreutils "go.viam.com/core/utils"
@@ -103,7 +104,7 @@ func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigRes
 				orientation = spatialmath.NewZeroOrientation()
 			}
 			cc.Parent = c.Frame.Parent
-			cc.Pose = &pb.ArmPosition{
+			cc.Pose = &pb.Pose{
 				X:     c.Frame.Translation.X,
 				Y:     c.Frame.Translation.Y,
 				Z:     c.Frame.Translation.Z,
@@ -1219,6 +1220,31 @@ func (s *Server) ResourceRunCommand(ctx context.Context, req *pb.ResourceRunComm
 	}
 
 	return &pb.ResourceRunCommandResponse{Result: resultPb}, nil
+}
+
+const frameService = "frame_system"
+
+// FrameServiceConfig returns all the information needed to recreate the frame system for a robot.
+// That is: the directed acyclic graph of the frame system parent structure, the static offset poses between frames,
+// and the kinematic/model frames for any robot parts that move or have intrinsic frame properties.
+func (s *Server) FrameServiceConfig(ctx context.Context, req *pb.FrameServiceConfigRequest) (*pb.FrameServiceConfigResponse, error) {
+	svc, ok := s.r.ServiceByName(frameService)
+	if !ok {
+		return nil, errors.Errorf("no service named %q", frameService)
+	}
+	fsSvc, ok := svc.(framesystem.Service)
+	if !ok {
+		return nil, errors.New("service is not a framesystem.Service")
+	}
+	sortedParts, err := fsSvc.FrameSystemConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	configs := make([]*pb.FrameSystemConfig, len(sortedParts))
+	for i, part := range sortedParts {
+		configs[i] = part.ToProtobuf()
+	}
+	return &pb.FrameServiceConfigResponse{FrameSystemConfigs: configs}, nil
 }
 
 // NavigationServiceMode returns the mode of the service.
