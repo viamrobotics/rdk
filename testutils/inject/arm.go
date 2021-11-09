@@ -12,8 +12,8 @@ import (
 // Arm is an injected arm.
 type Arm struct {
 	arm.Arm
-	CurrentPositionFunc       func(ctx context.Context) (*pb.ArmPosition, error)
-	MoveToPositionFunc        func(ctx context.Context, c *pb.ArmPosition) error
+	CurrentPositionFunc       func(ctx context.Context) (*pb.Pose, error)
+	MoveToPositionFunc        func(ctx context.Context, c *pb.Pose) error
 	MoveToJointPositionsFunc  func(ctx context.Context, pos *pb.JointPositions) error
 	CurrentJointPositionsFunc func(ctx context.Context) (*pb.JointPositions, error)
 	JointMoveDeltaFunc        func(ctx context.Context, joint int, amount float64) error
@@ -21,7 +21,7 @@ type Arm struct {
 }
 
 // CurrentPosition calls the injected CurrentPosition or the real version.
-func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (a *Arm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	if a.CurrentPositionFunc == nil {
 		return a.Arm.CurrentPosition(ctx)
 	}
@@ -29,7 +29,7 @@ func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 }
 
 // MoveToPosition calls the injected MoveToPosition or the real version.
-func (a *Arm) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
+func (a *Arm) MoveToPosition(ctx context.Context, c *pb.Pose) error {
 	if a.MoveToPositionFunc == nil {
 		return a.Arm.MoveToPosition(ctx, c)
 	}

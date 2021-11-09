@@ -135,9 +135,9 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 }
 
 // addGoal adds a nlopt IK goal
-func (ik *NloptIK) addGoal(newGoal *pb.ArmPosition, effectorID int) {
+func (ik *NloptIK) addGoal(newGoal *pb.Pose, effectorID int) {
 
-	goalQuat := spatial.NewPoseFromArmPos(newGoal)
+	goalQuat := spatial.NewPoseFromProtobuf(newGoal)
 	ik.goals = append(ik.goals, goal{goalQuat, effectorID})
 }
 
@@ -157,7 +157,7 @@ func (ik *NloptIK) SetSolveWeights(weights SolverDistanceWeights) {
 }
 
 // Solve runs the actual solver and returns a list of all
-func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seed []frame.Input) ([]frame.Input, error) {
+func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.Pose, seed []frame.Input) ([]frame.Input, error) {
 	var err error
 
 	// Allow ~160 degrees of swing at most

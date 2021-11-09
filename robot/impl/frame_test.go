@@ -29,63 +29,74 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	defer r.Close()
 
 	// use fake registrations to have a FrameSystem return
-	fs, err := r.FrameSystem(context.Background())
+	fs, err := r.FrameSystem(context.Background(), "test", "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 10) // 5 frames defined, 10 frames when including the offset
 
 	// see if all frames are present and if their frames are correct
 	test.That(t, fs.GetFrame("world"), test.ShouldNotBeNil)
 
+	t.Log("pieceArm")
 	test.That(t, fs.GetFrame("pieceArm"), test.ShouldNotBeNil)
 	pose, err := fs.GetFrame("pieceArm").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{500, 0, 300})
 
+	t.Log("pieceArm_offset")
 	test.That(t, fs.GetFrame("pieceArm_offset"), test.ShouldNotBeNil)
 	pose, err = fs.GetFrame("pieceArm_offset").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{500, 500, 1000})
 
+	t.Log("pieceGripper")
 	test.That(t, fs.GetFrame("pieceGripper"), test.ShouldNotBeNil)
 	pose, err = fs.GetFrame("pieceGripper").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 200})
 
+	t.Log("pieceGripper_offset")
 	test.That(t, fs.GetFrame("pieceGripper_offset"), test.ShouldNotBeNil)
 	pose, err = fs.GetFrame("pieceGripper_offset").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
+	t.Log("compass2")
 	test.That(t, fs.GetFrame("compass2"), test.ShouldNotBeNil)
 	pose, err = fs.GetFrame("compass2").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
+	t.Log("compass2_offset")
 	test.That(t, fs.GetFrame("compass2_offset"), test.ShouldNotBeNil)
 	pose, err = fs.GetFrame("compass2_offset").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
+	t.Log("cameraOver")
 	test.That(t, fs.GetFrame("cameraOver"), test.ShouldNotBeNil)
 	pose, err = fs.GetFrame("cameraOver").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
+	t.Log("cameraOver_offset")
 	test.That(t, fs.GetFrame("cameraOver_offset"), test.ShouldNotBeNil)
 	pose, err = fs.GetFrame("cameraOver_offset").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{2000, 500, 1300})
 
+	t.Log("lidar1")
 	test.That(t, fs.GetFrame("lidar1"), test.ShouldNotBeNil)
 	pose, err = fs.GetFrame("lidar1").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{50, 0, 0})
 
+	t.Log("lidar1_offset")
 	test.That(t, fs.GetFrame("lidar1_offset"), test.ShouldNotBeNil)
 	pose, err = fs.GetFrame("lidar1_offset").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 200})
 
+	t.Log("compass1")
 	test.That(t, fs.GetFrame("compass1"), test.ShouldBeNil) // compass1 is not registered
 
 	// There is a point at (1500, 500, 1300) in the world frame. See if it transforms correctly in each frame.
@@ -126,38 +137,26 @@ func TestFrameSystemFromConfig(t *testing.T) {
 func TestWrongFrameSystems(t *testing.T) {
 	// use impl/data/fake_wrongconfig*.json as config input
 	logger := golog.NewTestLogger(t)
-
-	cfg, err := config.Read("data/fake_wrongconfig1.json") // has disconnected components (misspelled parent)
+	// has disconnected components (compass2 misspelled parent as gripperPiece, rather than pieceGripper)
+	cfg, err := config.Read("data/fake_wrongconfig1.json")
 	test.That(t, err, test.ShouldBeNil)
-	r, err := robotimpl.New(context.Background(), cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = r.FrameSystem(context.Background())
-	test.That(t, err, test.ShouldBeError, errors.New("the frame system is not fully connected, expected 11 frames but frame system has 9. Expected frames are: [cameraOver cameraOver_offset compass2 compass2_offset lidar1 lidar1_offset pieceArm pieceArm_offset pieceGripper pieceGripper_offset world]. Actual frames are: [cameraOver cameraOver_offset lidar1 lidar1_offset pieceArm pieceArm_offset pieceGripper pieceGripper_offset world]"))
-	test.That(t, r.Close(), test.ShouldBeNil)
+	_, err = robotimpl.New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeError, errors.New("the frame system is not fully connected, expected 11 frames but frame system has 9. Expected frames are: [cameraOver cameraOver_offset compass2 compass2_offset lidar1 lidar1_offset pieceArm pieceArm_offset pieceGripper pieceGripper_offset world]. Actual frames are: [world cameraOver_offset pieceArm_offset cameraOver pieceArm lidar1_offset pieceGripper_offset lidar1 pieceGripper]"))
 
 	cfg, err = config.Read("data/fake_wrongconfig2.json") // no world node
 	test.That(t, err, test.ShouldBeNil)
-	r, err = robotimpl.New(context.Background(), cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = r.FrameSystem(context.Background())
+	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeError, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'"))
-	test.That(t, r.Close(), test.ShouldBeNil)
 
 	cfg, err = config.Read("data/fake_wrongconfig3.json") // one of the nodes was given the name world
 	test.That(t, err, test.ShouldBeNil)
-	r, err = robotimpl.New(context.Background(), cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = r.FrameSystem(context.Background())
+	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeError, errors.New("cannot have more than one frame with name world"))
-	test.That(t, r.Close(), test.ShouldBeNil)
 
 	cfg, err = config.Read("data/fake_wrongconfig4.json") // the parent field was left empty for a component
 	test.That(t, err, test.ShouldBeNil)
-	r, err = robotimpl.New(context.Background(), cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = r.FrameSystem(context.Background())
-	test.That(t, err, test.ShouldBeError, errors.New("parent field in component \"cameraOver\" is empty"))
-	test.That(t, r.Close(), test.ShouldBeNil)
+	_, err = robotimpl.New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeError, errors.New("parent field in frame config for part \"cameraOver\" is empty"))
 }
 
 func pointAlmostEqual(t *testing.T, from, to r3.Vector) {

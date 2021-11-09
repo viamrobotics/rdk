@@ -14,6 +14,8 @@ import (
 
 // MoveGripper needs a robot with exactly one arm and one gripper and will move the gripper position to the goalPose in the reference frame specified by goalFrameName
 func MoveGripper(ctx context.Context, r robot.Robot, goalPose spatialmath.Pose, goalFrameName string) error {
+	logger := r.Logger()
+	logger.Debugf("goal given in frame of %q", goalFrameName)
 	if len(r.ArmNames()) != 1 {
 		return errors.New("robot needs exactly 1 arm for MoveGripper")
 	}
@@ -27,14 +29,16 @@ func MoveGripper(ctx context.Context, r robot.Robot, goalPose spatialmath.Pose, 
 	if !ok {
 		return fmt.Errorf("failed to find arm %q", armName)
 	}
+	logger.Debugf("using arm %q", armName)
 
 	gripperName := r.GripperNames()[0]
 	if goalFrameName == gripperName {
 		return errors.New("cannot move gripper with respect to gripper frame, gripper will always be at its own origin")
 	}
+	logger.Debugf("using gripper %q", gripperName)
 
 	// get the frame system of the robot
-	frameSys, err := r.FrameSystem(ctx)
+	frameSys, err := r.FrameSystem(ctx, "move_gripper", "")
 	if err != nil {
 		return err
 	}
@@ -46,6 +50,7 @@ func MoveGripper(ctx context.Context, r robot.Robot, goalPose spatialmath.Pose, 
 		return err
 	}
 	input[armName] = referenceframe.JointPosToInputs(pos)
+	logger.Debugf("frame system inputs: %v", input)
 
 	worldGoalPose, err := solver.TransformPose(input, goalPose, solver.GetFrame(goalFrameName), solver.World())
 	if err != nil {
@@ -60,8 +65,7 @@ func MoveGripper(ctx context.Context, r robot.Robot, goalPose spatialmath.Pose, 
 	newGoalPose := spatialmath.NewPoseFromOrientation(worldGoalPose.Point(), armPose.Orientation())
 
 	// the goal is to move the gripper to newGoalPose (which is given in coord of frame goalFrameName).
-	gripFrame := frameSys.GetFrame(gripperName)
-	output, err := solver.SolvePose(ctx, input, newGoalPose, gripFrame, solver.World())
+	output, err := solver.SolvePose(ctx, input, newGoalPose, solver.GetFrame(gripperName), solver.World())
 	if err != nil {
 		return err
 	}
