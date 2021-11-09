@@ -52,9 +52,9 @@
         ],
         "tolerances": {
             "translation": {
-                "x": 0.8,
-                "y": 0.8,
-                "z": 0.8
+                "x": 1,
+                "y": 1,
+                "z": 1
             },
             "orientation": {
                 "x": 0.0,
