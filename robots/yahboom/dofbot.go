@@ -164,22 +164,58 @@ func (a *dofBot) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 
 // MoveToJointPositions moves the arm's joints to the given positions.
 func (a *dofBot) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
 	if len(pos.Degrees) > 5 {
 		return fmt.Errorf("yahboom wrong number of degrees got %d, need at most 5", len(pos.Degrees))
 	}
 
-	for i, d := range pos.Degrees {
-		err := a.moveJointInLock(ctx, i+1, d)
+	for j := 0; j < 100; j++ {
+		success, err := func() (bool, error) {
+			a.mu.Lock()
+			defer a.mu.Unlock()
+
+			current, err := a.currentJointPositionsInLock(ctx)
+			if err != nil {
+				return false, err
+			}
+
+			movedAny := false
+
+			for i, d := range pos.Degrees {
+				delta := math.Abs(current.Degrees[i] - d)
+
+				if delta < .5 {
+					continue
+				}
+
+				if j > 5 && delta < 2 {
+					// good enough
+					continue
+				}
+
+				movedAny = true
+
+				err := a.moveJointInLock(ctx, i+1, d)
+				if err != nil {
+					return false, fmt.Errorf("error moving joint %d: %w", i+1, err)
+				}
+				sleepFor := time.Duration(4+int(delta)) * time.Millisecond
+
+				time.Sleep(sleepFor)
+			}
+
+			return !movedAny, nil
+		}()
+
 		if err != nil {
-			return fmt.Errorf("error moving joint %d: %w", i+1, err)
+			return err
 		}
-		time.Sleep(3 * time.Millisecond)
+
+		if success {
+			return nil
+		}
 	}
 
-	return nil
+	return errors.New("dofbot MoveToJointPositions timed out")
 }
 
 func (a *dofBot) moveJointInLock(ctx context.Context, joint int, degrees float64) error {
@@ -203,6 +239,10 @@ func (a *dofBot) CurrentJointPositions(ctx context.Context) (*pb.JointPositions,
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	return a.currentJointPositionsInLock(ctx)
+}
+
+func (a *dofBot) currentJointPositionsInLock(ctx context.Context) (*pb.JointPositions, error) {
 	pos := pb.JointPositions{}
 	for i := 1; i <= 5; i++ {
 		x, err := a.readJointInLock(ctx, i)
@@ -229,6 +269,8 @@ func (a *dofBot) readJointInLock(ctx context.Context, joint int) (float64, error
 		return 0, err
 	}
 
+	time.Sleep(3 * time.Millisecond)
+
 	res = (res >> 8 & 0xff) | (res << 8 & 0xff00)
 	return joints[joint-1].toDegrees(int(res)), nil
 }
@@ -247,11 +289,14 @@ func (a *dofBot) ModelFrame() []byte {
 func (a *dofBot) Open(ctx context.Context) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return a.moveJointInLock(ctx, 6, 0)
+	return a.moveJointInLock(ctx, 6, 100)
 }
+
+const grabAngle = 240.0
 
 // Grab makes the gripper grab.
 func (a *dofBot) Grab(ctx context.Context) (bool, error) {
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	err := a.moveJointInLock(ctx, 6, 360)
@@ -267,7 +312,7 @@ func (a *dofBot) Grab(ctx context.Context) (bool, error) {
 	// wait till we stop moving
 	last := -1.0
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 
 		if !gutils.SelectContextOrWait(ctx, 50*time.Millisecond) {
 			return false, errors.New("timeout while grabbing")
@@ -278,14 +323,14 @@ func (a *dofBot) Grab(ctx context.Context) (bool, error) {
 			return false, err
 		}
 
-		if last == current {
+		if math.Abs(last-current) < 5 || current > grabAngle {
 			break
 		}
 
 		last = current
 	}
 
-	return last < 255, nil
+	return last < grabAngle, a.moveJointInLock(ctx, 6, last+20) // squeeze a tiny bit
 }
 
 func (a *dofBot) Close() error {
