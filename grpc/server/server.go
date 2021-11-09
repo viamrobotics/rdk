@@ -43,6 +43,7 @@ import (
 	"go.viam.com/core/sensor/gps"
 	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/services/framesystem"
+	moveandgrab "go.viam.com/core/services/move_and_grab"
 	"go.viam.com/core/services/navigation"
 	"go.viam.com/core/spatialmath"
 	coreutils "go.viam.com/core/utils"
@@ -1372,6 +1373,25 @@ func (s *Server) NavigationServiceRemoveWaypoint(ctx context.Context, req *pb.Na
 		return nil, err
 	}
 	return &pb.NavigationServiceRemoveWaypointResponse{}, navSvc.RemoveWaypoint(ctx, id)
+}
+
+// MoveAndGrabServiceDoGrab commands a gripper to move and grab
+// an object at the passed camera point
+func (s *Server) MoveAndGrabServiceDoGrab(ctx context.Context, req *pb.MoveAndGrabServiceDoGrabRequest) (*pb.MoveAndGrabServiceDoGrabResponse, error) {
+	svc, ok := s.r.ServiceByName("moveandgrab")
+	if !ok {
+		return nil, errors.New("no moveandgrab service")
+	}
+	mgbSvc, ok := svc.(moveandgrab.Service)
+	if !ok {
+		return nil, errors.New("service is not a moveandgrab service")
+	}
+	cameraPoint := req.GetCameraPoint()
+	hasGrabbed, err := mgbSvc.DoGrab(ctx, req.GetCameraName(), cameraPoint.X, cameraPoint.Y, cameraPoint.Z)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.MoveAndGrabServiceDoGrabResponse{HasGrabbed: hasGrabbed}, nil
 }
 
 func (s *Server) imuByName(name string) (imu.IMU, error) {

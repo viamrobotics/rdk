@@ -578,8 +578,23 @@
 
                   },
                   doPCDGrab : function(){
-                      console.log(theData.pcdClick.path);
-                      fetch(theData.pcdClick.path).then(console.log);
+                      let cameraName = pcdGlobal.cameraName;
+                      let cameraPointX = theData.pcdClick.x;
+                      let cameraPointY = theData.pcdClick.y;
+                      let cameraPointZ = theData.pcdClick.z;
+
+                      let req = new robotApi.MoveAndGrabServiceDoGrabRequest();
+                      let cameraPoint = new robotApi.Vector3();
+                      cameraPoint.setX(cameraPointX);
+                      cameraPoint.setY(cameraPointY);
+                      cameraPoint.setZ(cameraPointZ);
+
+                      req.setCameraName(cameraName);
+                      req.setCameraPoint(cameraPoint);
+
+                      robotService.moveAndGrabServiceDoGrab(req, {}, (err, resp) => grpcCallback(err, resp));
+
+                      // fetch(theData.pcdClick.path).then(console.log);
                   },
                   findSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
                       theData.pcdClick.calculatingSegments = true;
@@ -842,14 +857,9 @@
       }
 
       function setPoint(point) {
-          var path = "/grab_at_camera_position/"
-              + pcdGlobal.cameraName + "/"
-              + r(point.x) + "/" + r(point.y) + "/" + r(point.z);
-
           theData.pcdClick.x = r(point.x);
           theData.pcdClick.y = r(point.y);
           theData.pcdClick.z = r(point.z);
-          theData.pcdClick.path = path;
           pcdGlobal.sphere.position.copy(point);
       }
 
