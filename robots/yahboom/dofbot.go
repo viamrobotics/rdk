@@ -26,16 +26,7 @@ import (
 var modeljson []byte
 
 func dofbotModel() (*kinematics.Model, error) {
-	return kinematics.ParseJSON(modeljson)
-}
-
-func dofbotFrame(name string) (frame.Frame, error) {
-	frame, err := dofbotModel()
-	if err != nil {
-		return nil, err
-	}
-	frame.SetName(name)
-	return frame, nil
+	return kinematics.ParseJSON(modeljson, "yahboom-dofbot")
 }
 
 type jointConfig struct {
@@ -81,7 +72,6 @@ func init() {
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newDofBot(ctx, r, config, logger)
 		},
-		Frame: dofbotFrame,
 	})
 }
 
@@ -125,7 +115,7 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 }
 
 // CurrentPosition returns the current position of the arm.
-func (a *dofBot) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (a *dofBot) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -134,7 +124,7 @@ func (a *dofBot) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 }
 
 // MoveToPosition moves the arm to the given absolute position.
-func (a *dofBot) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+func (a *dofBot) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -220,6 +210,11 @@ func (a *dofBot) readJointInLock(ctx context.Context, joint int) (float64, error
 // JointMoveDelta moves a specific joint of the arm by the given amount.
 func (a *dofBot) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	return errors.New("yahboom dofBot doesn't support JointMoveDelta")
+}
+
+// ModelFrame returns all the information necessary for including the arm in a FrameSystem
+func (a *dofBot) ModelFrame() []byte {
+	return modeljson
 }
 
 func (a *dofBot) Close() error {
