@@ -21,12 +21,14 @@
 <script lang="ts">
 import { Component, Vue } from "vue-property-decorator";
 import MotorDetail from "./components/MotorDetail.vue";
-import Gamepad from "./components/Gamepad.vue";
+import InputController from "./components/InputController.vue";
+import WebGamepad from "./components/WebGamepad.vue";
 
 @Component({
   components: {
     MotorDetail,
-    Gamepad,
+    InputController,
+    WebGamepad,
   },
 })
 export default class App extends Vue {}

@@ -5,34 +5,32 @@
 
       <div class="row" style="margin-right: 0; align-items: center;">
         <div class="header">
-          <h2>{{ self.deviceName }}</h2>
-          <span v-if="self.connected" class="pill green">Connected</span>
-          <span v-else class="pill">Disconnected</span>
+          <h2>{{ deviceName }} WebGamepad</h2>
+<!--           <span v-if="connected" class="pill green">Connected</span>
+          <span v-else class="pill">Disconnected</span> -->
         </div>
 
         <div class="row" style="justify-content: flex-end; flex-grow: 1; margin-right: 0">
           <div class="column">
             <label class="subtitle">Gamepad Connection</label>
             <RadioButtons
-              :options="['Direct', 'Web']"
-              defaultOption="Direct"
-              v-on:selectOption="self.useWeb = $event === 'Web'"
+              :options="['Disable', 'Enable']"
+              defaultOption="Disable"
+              v-on:selectOption="self.enabled = $event === 'Enable'"
             />
           </div>
         </div>
       </div>
 
 
-      <div class="row" style="justify-content: space-between">
-        <div class="row" v-if="self.connected">
-          <div v-for="axis in axes" :key="axis" class="column axis">
-            <p class="subtitle">{{ axis }}</p>
-            {{ self[axis].toFixed(4) }}
-          </div>
-          <div v-for="button in buttons" :key="button" class="column button">
-            <p class="subtitle">{{ button }}</p>
-            {{ self[button].toFixed(0) }}
-          </div>
+      <div class="row" v-if="connected">
+        <div v-for="axis in axes" :key="axis" class="column axis">
+          <p class="subtitle">{{ axis }}</p>
+          {{ self[axis].toFixed(4) }}
+        </div>
+        <div v-for="button in buttons" :key="button" class="column button">
+          <p class="subtitle">{{ button }}</p>
+          {{ self[button].toFixed(0) }}
         </div>
       </div>
 
@@ -57,14 +55,14 @@ import RadioButtons from "./RadioButtons.vue";
     RadioButtons,
   },
 })
-export default class Gamepad extends Vue {
+export default class WebGamepad extends Vue {
   @Prop() controllerName!: string;
-  @Prop() controllerStatus!: InputControllerStatus.AsObject;
+  @Prop() controllerStatus!: number;
 
   gamepad = navigator.getGamepads()[0];
   gamepadName = "Waiting for gamepad...";
   gamepadConnected = false;
-  useWebBool = false;
+  enabledBool = false;
   self = this;
 
   axes = ["X", "Y", "RX", "RY", "Z", "RZ", "HatX", "HatY"];
@@ -82,8 +80,8 @@ export default class Gamepad extends Vue {
   //   req.setEvent(newEvent);
   // }
 
-  tick(instance: Gamepad): void {
-    if (!instance.useWeb) {
+  tick(instance: WebGamepad): void {
+    if (!instance.enabled) {
       return;
     }
     var found = false;
@@ -110,10 +108,23 @@ export default class Gamepad extends Vue {
   }
 
 
+  // get controls(): string[][] {
+  //   const controlOrder = ["AbsoluteX", "AbsoluteY", "AbsoluteRX", "AbsoluteRY", "AbsoluteZ", "AbsoluteRZ", "AbsoluteHat0X", "AbsoluteHat0Y", "ButtonSouth", "ButtonEast", "ButtonWest", "ButtonNorth", "ButtonLT", "ButtonRT", "ButtonLThumb", "ButtonRThumb", "ButtonSelect", "ButtonStart", "ButtonMenu", "ButtonEStop"];
+  //   var controls = [];
+  //   for (const ctrl of controlOrder) {
+  //     var value = this.getValue(ctrl);
+  //     if (value != "") {
+  //       controls.push([ctrl.replace("Absolute", "").replace("Button", ""), value]);
+  //     }
+  //   }
+  //   return controls;
+  // }
 
-  set useWeb (opt: boolean) {
-    var prev = this.useWebBool;
-    this.useWebBool = opt;
+
+  set enabled (opt: boolean) {
+    console.log("SMURF10: " + opt);
+    var prev = this.enabledBool;
+    this.enabledBool = opt;
     if (opt && !prev) {
       //this.sendConnectionStatus(true);
       this.tick(this);
@@ -122,78 +133,65 @@ export default class Gamepad extends Vue {
     }
   }
 
-  get useWeb (): boolean {
-    return this.useWebBool;
+  get enabled (): boolean {
+    return this.enabledBool;
   }
 
   get connected (): boolean {
-    if (this.useWebBool === true) {
-      return this.gamepad ? this.gamepad.connected : false;
-    }
-    if (this.controllerStatus.eventsList[0] && this.controllerStatus.eventsList[0].event != "Disconnect") {
-      return true
-    }else{
-      return false
-    }
+    return true;
+    // if (this.enabled === true && this.gamepad != null) {
+    //   console.log("SMURF1");
+    //   return this.gamepad.connected;
+    // }
+    // console.log("SMURF2");
+    // return false;
   }
 
   get deviceName (): string {
-    return this.useWeb ? this.gamepadName : this.controllerName;
+    return this.gamepadName;
   }
 
   // Mappings
-  getAxis(instance: Gamepad, axis: number): number {
+  getAxis(instance: WebGamepad, axis: number): number {
     if (instance.gamepad) {
       return instance.gamepad.axes[axis]
     }
     return NaN
   }
 
-  getBtn(instance: Gamepad, btn: number): number {
+  getBtn(instance: WebGamepad, btn: number): number {
     if (instance.gamepad) {
       return instance.gamepad.buttons[btn].value
     }
     return NaN
   }
 
-  getRemoteValue(instance: Gamepad, ctrl: string): number {
-    for (const stat of instance.controllerStatus.eventsList) {
-      if (stat.control === ctrl) {
-        return stat.value;
-      }
-    }
-    return NaN;
-  }
-
   // Axes
   get X (): number {
-    return this.useWeb ? this.getAxis(this, 0) : this.getRemoteValue(this, "AbsoluteX");
+    return this.getAxis(this, 0);
   }
 
   get Y (): number {
-    return this.useWeb ? this.getAxis(this, 1): this.getRemoteValue(this, "AbsoluteY"); 
+    return this.getAxis(this, 1); 
   }
 
   get RX (): number {
-    return this.useWeb ? this.getAxis(this, 2): this.getRemoteValue(this, "AbsoluteRX"); 
+    return this.getAxis(this, 2); 
   }
 
   get RY (): number {
-    return this.useWeb ? this.getAxis(this, 3): this.getRemoteValue(this, "AbsoluteRY"); 
+    return this.getAxis(this, 3); 
   }
 
   get Z (): number {
-    return this.useWeb ? this.getBtn(this, 6): this.getRemoteValue(this, "AbsoluteZ"); 
+    return this.getBtn(this, 6); 
   }
 
   get RZ (): number {
-    return this.useWeb ? this.getBtn(this, 7): this.getRemoteValue(this, "AbsoluteRZ"); 
+    return this.getBtn(this, 7); 
   }
 
   get HatX (): number {
-    if (this.useWeb === false) {
-      return this.getRemoteValue(this, "AbsoluteHat0X");
-    }
     var ret = 0
     this.getBtn(this, 14) === 1 ? ret = -1 : ret;
     this.getBtn(this, 15) === 1 ? ret = 1 : ret;
@@ -201,59 +199,55 @@ export default class Gamepad extends Vue {
   }
 
   get HatY (): number {
-    if (this.useWeb === false) {
-      return this.getRemoteValue(this, "AbsoluteHat0Y");
-    }
     var ret = 0
     this.getBtn(this, 12) === 1 ? ret = -1 : ret;
     this.getBtn(this, 13) === 1 ? ret = 1 : ret;
     return ret
   }
-  
 
   // Buttons
   get South (): number {
-    return this.useWeb ? this.getBtn(this, 0): this.getRemoteValue(this, "ButtonSouth");
+    return this.getBtn(this, 0);
   }
 
   get East (): number {
-    return this.useWeb ? this.getBtn(this, 1): this.getRemoteValue(this, "ButtonEast");
+    return this.getBtn(this, 1);
   }
 
   get West (): number {
-    return this.useWeb ? this.getBtn(this, 2): this.getRemoteValue(this, "ButtonWest");
+    return this.getBtn(this, 2);
   }
 
   get North (): number {
-    return this.useWeb ? this.getBtn(this, 3): this.getRemoteValue(this, "ButtonNorth");
+    return this.getBtn(this, 3);
   }
 
   get LT (): number {
-    return this.useWeb ? this.getBtn(this, 4): this.getRemoteValue(this, "ButtonLT");
+    return this.getBtn(this, 4);
   }
 
   get RT (): number {
-    return this.useWeb ? this.getBtn(this, 5): this.getRemoteValue(this, "ButtonRT");
+    return this.getBtn(this, 5);
   }
 
   get Select (): number {
-    return this.useWeb ? this.getBtn(this, 8): this.getRemoteValue(this, "ButtonSelect");
+    return this.getBtn(this, 8);
   }
 
   get Start (): number {
-    return this.useWeb ? this.getBtn(this, 9): this.getRemoteValue(this, "ButtonStart");
+    return this.getBtn(this, 9);
   }
 
   get LThumb (): number {
-    return this.useWeb ? this.getBtn(this, 10): this.getRemoteValue(this, "ButtonLThumb");
+    return this.getBtn(this, 10);
   }
 
   get RThumb (): number {
-    return this.useWeb ? this.getBtn(this, 11): this.getRemoteValue(this, "ButtonRThumb");
+    return this.getBtn(this, 11);
   }
 
   get Menu (): number {
-    return this.useWeb ? this.getBtn(this, 16): this.getRemoteValue(this, "ButtonMenu");
+    return this.getBtn(this, 16);
   }
 
 
