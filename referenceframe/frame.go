@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"time"
 
 	"go.viam.com/core/component/arm"
 	pb "go.viam.com/core/proto/api/v1"
@@ -71,10 +70,35 @@ func InputsToJointPos(inputs []Input) *pb.JointPositions {
 	return arm.JointPositionsFromRadians(InputsToFloats(inputs))
 }
 
+// RestrictedRandomFrameInputs will produce a list of valid, in-bounds inputs for the frame, restricting the range to
+// `lim` percent of the limits
+func RestrictedRandomFrameInputs(m Frame, seed *rand.Rand, lim float64) []Input {
+	if seed == nil {
+		rand.New(rand.NewSource(42))
+	}
+	dof := m.DoF()
+	pos := make([]Input, len(dof))
+	for i, limit := range dof {
+		l, u := limit.Min, limit.Max
+
+		// Default to [-999,999] as range if limits are infinite
+		if l == math.Inf(-1) {
+			l = -999
+		}
+		if u == math.Inf(1) {
+			u = 999
+		}
+
+		jRange := math.Abs(u - l)
+		pos[i] = Input{lim*(seed.Float64()*jRange + l)}
+	}
+	return pos
+}
+
 // RandomFrameInputs will produce a list of valid, in-bounds inputs for the frame
 func RandomFrameInputs(m Frame, seed *rand.Rand) []Input {
 	if seed == nil {
-		seed = rand.New(rand.NewSource(time.Now().UTC().UnixNano()))
+		rand.New(rand.NewSource(42))
 	}
 	dof := m.DoF()
 	pos := make([]Input, len(dof))

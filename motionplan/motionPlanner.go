@@ -56,7 +56,7 @@ func (mp *linearMotionPlanner) Frame() frame.Frame {
 }
 
 func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, seed []frame.Input) ([][]frame.Input, error) {
-	return mp.splittingLinearPlan(ctx, goal, seed)
+	return mp.stepLinearPlan(ctx, goal, seed)
 }
 
 
@@ -145,7 +145,7 @@ func (mp *linearMotionPlanner) stepLinearPlan(ctx context.Context, goal *pb.ArmP
 			case err = <- ikErr:
 				// If we have a return from the IK solver, there are no more solutions, so we finish processing above
 				// until we've drained the channel
-				mp.logger.Debug("got IK return")
+				mp.logger.Debug("got IK return", err)
 				done = true
 				solverReturned = true
 			default:

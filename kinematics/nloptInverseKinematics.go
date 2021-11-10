@@ -272,7 +272,7 @@ func (ik *NloptIK) Close() error {
 	return err
 }
 
-// UpdateBounds updates teh lower/upper bounds
+// UpdateBounds updates the lower/upper bounds
 func (ik *NloptIK) UpdateBounds(lower, upper []float64) error {
 	return multierr.Combine(
 		ik.opt.SetLowerBounds(lower),

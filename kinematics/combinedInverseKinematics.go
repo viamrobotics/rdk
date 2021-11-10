@@ -3,6 +3,7 @@ package kinematics
 import (
 	"context"
 	"sync"
+	"fmt"
 
 	"go.viam.com/utils"
 
@@ -47,6 +48,7 @@ func runSolver(ctx context.Context, solver InverseKinematics, c chan []frame.Inp
 // positions. If unable to solve, the returned error will be non-nil
 func (ik *CombinedIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spatialmath.Pose, seed []frame.Input) error {
 	ik.logger.Debugf("starting joint positions: %v", seed)
+	fmt.Println(ik.solvers)
 	startPos, err := ik.model.Transform(seed)
 	if err != nil {
 		return err
@@ -63,6 +65,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, c chan []frame.Input, newGoal s
 	
 	for _, solver := range ik.solvers {
 		thisSolver := solver
+		
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 			errChan <- runSolver(ctxWithCancel, thisSolver, c, newGoal, seed)
@@ -76,6 +79,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, c chan []frame.Input, newGoal s
 
 	// Wait until either 1) we have a success or 2) all solvers have returned false
 	for !done {
+		//~ fmt.Println(returned)
 		select {
 		case <-ctx.Done():
 			done = true
