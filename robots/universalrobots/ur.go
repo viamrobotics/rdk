@@ -51,6 +51,7 @@ func ur5eModel() (*kinematics.Model, error) {
 // URArm TODO
 type URArm struct {
 	mu                      *sync.Mutex
+	muMove                  sync.Mutex
 	conn                    net.Conn
 	speed                   float64
 	state                   RobotState
@@ -183,16 +184,23 @@ func (ua *URArm) setState(state RobotState) {
 }
 
 // State TODO
-func (ua *URArm) State() RobotState {
+func (ua *URArm) State() (RobotState, error) {
 	ua.mu.Lock()
 	defer ua.mu.Unlock()
-	return ua.state
+	age := time.Since(ua.state.creationTime)
+	if age > time.Second {
+		return ua.state, fmt.Errorf("ur status is too old %v from: %v", age, ua.state.creationTime)
+	}
+	return ua.state, nil
 }
 
 // CurrentJointPositions TODO
 func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	radians := []float64{}
-	state := ua.State()
+	state, err := ua.State()
+	if err != nil {
+		return nil, err
+	}
 	for _, j := range state.Joints {
 		radians = append(radians, j.Qactual)
 	}
@@ -214,9 +222,15 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 	if err != nil {
 		return err
 	}
+	start := time.Now()
 	solution, err := ua.ik.Solve(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
+	}
+	timeToSolve := time.Since(start)
+	if timeToSolve > time.Second {
+		ua.logger.Debugf("ur took too long to solve position %v", timeToSolve)
+		return fmt.Errorf("ur took too long to solve position %v", timeToSolve)
 	}
 	return ua.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
 }
@@ -228,7 +242,10 @@ func (ua *URArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 	}
 
 	radians := []float64{}
-	state := ua.State()
+	state, err := ua.State()
+	if err != nil {
+		return err
+	}
 	for _, j := range state.Joints {
 		radians = append(radians, j.Qactual)
 	}
@@ -245,6 +262,9 @@ func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosit
 
 // MoveToJointPositionRadians TODO
 func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float64) error {
+	ua.muMove.Lock()
+	defer ua.muMove.Unlock()
+
 	if len(radians) != 6 {
 		return errors.New("need 6 joints")
 	}
@@ -269,7 +289,10 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 	slept := 0
 	for {
 		good := true
-		state := ua.State()
+		state, err := ua.State()
+		if err != nil {
+			return err
+		}
 		for idx, r := range radians {
 			if math.Round(r*100) != math.Round(state.Joints[idx].Qactual*100) {
 				good = false

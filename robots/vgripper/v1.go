@@ -41,7 +41,7 @@ func init() {
 // TODO
 const (
 	TargetRPM               = 200
-	MaxCurrent              = 300
+	MaxCurrent              = 500
 	CurrentBadReadingCounts = 50
 	MinRotationGap          = 4.0
 	MaxRotationGap          = 5.0
@@ -136,7 +136,7 @@ func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 			logger.Error(err)
 			return true
 		}
-		if pressure < 975 {
+		if pressure < pressureLimit {
 			if localTest.nonPressureSeen {
 				localTest.pressureCount++
 			}
