@@ -1,4 +1,4 @@
-package moveandgrab
+package objectmanipulation
 
 import (
 	"context"
@@ -24,38 +24,31 @@ func init() {
 	})
 }
 
-// A Service controls the move and grab flow for a robot's gripper.
+// A Service controls the flow of manipulating other objects with a robot's gripper.
 type Service interface {
-	DoGrab(ctx context.Context, cameraName string, x, y, z float64) (bool, error)
-	MoveGripper(ctx context.Context, goalPose spatialmath.Pose, goalFrameName string) error
+	DoGrab(ctx context.Context, gripperName, armName, cameraName string, x, y, z float64) (bool, error)
 }
 
 // Type is the type of service.
-const Type = config.ServiceType("moveandgrab")
+const Type = config.ServiceType("object_manipulation")
 
 // New returns a new move and grab service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	return &MGService{
+	return &objectMService{
 		r:      r,
 		logger: logger,
 	}, nil
 }
 
-// MGService is an implementation of a move and grab service
-// as defined above
-type MGService struct {
+type objectMService struct {
 	r      robot.Robot
 	logger golog.Logger
 }
 
 // DoGrab takes a camera point of an object's location and both moves the gripper
 // to that location and commands it to grab the object
-func (mgs MGService) DoGrab(ctx context.Context, cameraName string, x, y, z float64) (bool, error) {
+func (mgs objectMService) DoGrab(ctx context.Context, gripperName, armName, cameraName string, x, y, z float64) (bool, error) {
 	// get gripper component
-	if len(mgs.r.GripperNames()) != 1 {
-		return false, errors.New("robot needs exactly 1 arm for doGrab")
-	}
-	gripperName := mgs.r.GripperNames()[0]
 	gripper, ok := mgs.r.GripperByName(gripperName)
 	if !ok {
 		return false, fmt.Errorf("failed to find gripper %q", gripperName)
@@ -67,34 +60,26 @@ func (mgs MGService) DoGrab(ctx context.Context, cameraName string, x, y, z floa
 	}
 	cameraPoint := r3.Vector{x, y, z}
 	cameraPose := spatialmath.NewPoseFromPoint(cameraPoint)
-	err = mgs.MoveGripper(ctx, cameraPose, cameraName)
+	err = mgs.moveGripper(ctx, gripperName, armName, cameraPose, cameraName)
 	if err != nil {
 		return false, err
 	}
 	return gripper.Grab(ctx)
 }
 
-// MoveGripper needs a robot with exactly one arm and one gripper and will move the gripper position to the goalPose in the reference frame specified by goalFrameName
-func (mgs MGService) MoveGripper(ctx context.Context, goalPose spatialmath.Pose, goalFrameName string) error {
+// moveGripper needs a robot with exactly one arm and one gripper and will move the gripper position to the goalPose in the reference frame specified by goalFrameName
+func (mgs objectMService) moveGripper(ctx context.Context, gripperName, armName string, goalPose spatialmath.Pose, goalFrameName string) error {
 	r := mgs.r
 	logger := r.Logger()
 	logger.Debugf("goal given in frame of %q", goalFrameName)
-	if len(r.ArmNames()) != 1 {
-		return errors.New("robot needs exactly 1 arm for MoveGripper")
-	}
-	if len(r.GripperNames()) != 1 {
-		return errors.New("robot needs exactly 1 gripper for MoveGripper")
-	}
 
 	// get all necessary parameters
-	armName := r.ArmNames()[0]
 	arm, ok := r.ArmByName(armName)
 	if !ok {
 		return fmt.Errorf("failed to find arm %q", armName)
 	}
 	logger.Debugf("using arm %q", armName)
 
-	gripperName := r.GripperNames()[0]
 	if goalFrameName == gripperName {
 		return errors.New("cannot move gripper with respect to gripper frame, gripper will always be at its own origin")
 	}

@@ -579,14 +579,15 @@ func TestPartsAdd(t *testing.T) {
 	parts.AddInputController(inputController1, config.Component{Name: "inputController1"})
 	test.That(t, inputController1.(*proxyInputController).actual, test.ShouldEqual, injectInputController)
 
-	injectMoveAndGrabService := &inject.MoveAndGrabService{}
-	injectMoveAndGrabService.DoGrabFunc = func(ctx context.Context, cameraName string, x, y, z float64) (bool, error) {
+	injectObjectManipulationService := &inject.ObjectManipulationService{}
+	injectObjectManipulationService.DoGrabFunc = func(ctx context.Context, cameraName string, x, y, z float64) (bool, error) {
 		return false, nil
 	}
-	parts.AddService(injectMoveAndGrabService, config.Service{Name: "moveandgrab"})
-	moveAndGrabService, ok := parts.ServiceByName("moveandgrab")
+	const objectMServiceName = "object_manipulation"
+	parts.AddService(injectObjectManipulationService, config.Service{Name: objectMServiceName})
+	objectManipulationService, ok := parts.ServiceByName(objectMServiceName)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, moveAndGrabService, test.ShouldEqual, injectMoveAndGrabService)
+	test.That(t, objectManipulationService, test.ShouldEqual, injectObjectManipulationService)
 
 	injectArm := &inject.Arm{}
 	cfg := &config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
