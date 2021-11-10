@@ -57,8 +57,12 @@ type Limit struct {
 	Max float64
 }
 
-// Frame represents a single reference frame, e.g. an arm, a joint, etc.
-// Transform takes FROM current frame TO parent's frame!
+// Frame represents a single reference frame, e.g. an arm, a joint, a gripper, a board, etc.
+// Name returns the name of the frame.
+// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's frame.
+// DoF will return a slice with length equal to the number of joints/degrees of freedom.
+// Each element describes the min and max movement limit of that joint/degree of freedom.
+// For robot parts that don't move, it returns an empty slice.
 type Frame interface {
 	Name() string
 	Transform([]Input) (spatial.Pose, error)

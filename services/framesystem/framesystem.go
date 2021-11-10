@@ -20,7 +20,7 @@ const Type = config.ServiceType("frame_system")
 func init() {
 	registry.RegisterService(Type, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return New(ctx, r, c, logger)
+			return New(ctx, r, logger)
 		},
 	},
 	)
@@ -34,7 +34,7 @@ type Service interface {
 }
 
 // New returns a new frame system service for the given robot.
-func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Logger) (Service, error) {
+func New(ctx context.Context, r robot.Robot, logger golog.Logger) (Service, error) {
 	// collect the necessary robot parts (skipping remotes, services, etc)
 	parts, err := CollectFrameSystemParts(ctx, r)
 	if err != nil {
@@ -60,7 +60,7 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 	}
 	// ensure that at least one frame connects to world if the frame system is not empty
 	if len(parts) != 0 && len(children[referenceframe.World]) == 0 {
-		return nil, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'")
+		return nil, errors.New("there are no robot parts that connect to a 'world' node. Root node must be named 'world'")
 	}
 
 	fsSvc := &frameSystemService{
