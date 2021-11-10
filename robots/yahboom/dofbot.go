@@ -97,6 +97,7 @@ type dofBot struct {
 	handle board.I2CHandle
 	ik     kinematics.InverseKinematics
 	mu     sync.Mutex
+	muMove sync.Mutex
 }
 
 func createDofBotSolver(logger golog.Logger) (kinematics.InverseKinematics, error) {
@@ -164,6 +165,8 @@ func (a *dofBot) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 
 // MoveToJointPositions moves the arm's joints to the given positions.
 func (a *dofBot) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
+	a.muMove.Lock()
+	defer a.muMove.Unlock()
 	if len(pos.Degrees) > 5 {
 		return fmt.Errorf("yahboom wrong number of degrees got %d, need at most 5", len(pos.Degrees))
 	}
