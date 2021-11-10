@@ -3,6 +3,7 @@ package vgripper
 
 import (
 	"context"
+	_ "embed" // used to import model frame
 	"math"
 	"time"
 
@@ -346,7 +347,7 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 			}
 			vg.logger.Debugf("i think i grabbed something, have pressure, pos: %f closedPos: %v", now, vg.closedPos)
 			err = vg.motor.Go(ctx, vg.closedDirection, vg.holdingPressure)
-			return err != nil, err
+			return err == nil, err
 		}
 
 		total += msPer
