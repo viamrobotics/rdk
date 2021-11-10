@@ -201,7 +201,7 @@
                       }
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getGridPosition();
-                      var newPosition = Object.assign(Object.create(robotApi.ArmPosition.prototype), old);
+                      var newPosition = Object.assign(Object.create(robotApi.Pose.prototype), old);
                       const getter = `get${getterSetter}`;
                       const setter = `set${getterSetter}`;
                       newPosition[setter](newPosition[getter]() + amount);
@@ -284,7 +284,7 @@
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getGridPosition();
 
-                      var newPosition = Object.assign(Object.create(robotApi.ArmPosition.prototype), old);
+                      var newPosition = Object.assign(Object.create(robotApi.Pose.prototype), old);
                       var newPieces = theData.armToggle[name].pieces;
 
                       for (var i=0; i < newPieces.length; i++) {
