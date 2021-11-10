@@ -216,11 +216,7 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 		return errors.New("openDirection and vg.closedDirection have to be opposed")
 	}
 
-	if math.Signbit(vg.openPos - vg.closedPos) {
-		vg.openPos += openPosOffset
-	} else {
-		vg.openPos -= openPosOffset
-	}
+	vg.openPos += math.Copysign(openPosOffset, (vg.closedPos - vg.openPos))
 
 	return nil
 }
