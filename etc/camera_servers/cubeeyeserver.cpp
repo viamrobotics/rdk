@@ -13,15 +13,21 @@
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 
-#include "CubeEyeSink.h"
-#include "CubeEyeCamera.h"
-#include "CubeEyeBasicFrame.h"
+#include <CubeEye/CubeEyeSink.h>
+#include <CubeEye/CubeEyeCamera.h>
+#include <CubeEye/CubeEyeBasicFrame.h>
 
 #include "cameraserver.h"
 #define DEBUG(x)
 using namespace std;
 using namespace meere;
+
+
+
+std::atomic<bool> TOFdone{false};
+bool TOFerror = false;
 
  class MyListener : public meere::sensor::sink
  , public meere::sensor::prepared_listener
@@ -57,9 +63,11 @@ public:
     }
 
     virtual void onCubeEyeCameraError(const meere::sensor::ptr_source source, meere::sensor::Error error) {
-        // printf("%s:%d source(%s) error = %d\n", __FUNCTION__, __LINE__, source->uri().c_str(), error);
-        std::cerr << "Error with the camera device, error string : "
-             << error << endl;
+        // CubeEye.h has list of errors
+        std::cerr << "Error with the camera device, error string : " << error << endl;
+        if(!TOFerror){
+            TOFerror = true;
+        }
     }
 
     virtual void onCubeEyeFrameList(const meere::sensor::ptr_source source , const meere::sensor::sptr_frame_list& frames) {
@@ -83,7 +91,7 @@ public:
 public:
     static void ReadFrameProc(MyListener* thiz) {
         
-        while (thiz->mReadFrameThreadStart) {
+        while ((thiz->mReadFrameThreadStart)) {
             if (thiz->mFrameListQueue.empty()) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 continue;
@@ -194,6 +202,7 @@ public:
                 CameraState::get()->ready = 1;
             }
         }
+        
     }
 
 void getLensInfo(meere::sensor::sptr_camera camera, meere::sensor::result _rt){
@@ -244,13 +253,20 @@ protected:
 };
 
 
+      
+
+void signal_callback_handler(int signum) {
+//    cout << "Caught signal " << signum << endl;
+   // Terminate program
+    TOFdone = true;
+}
+
 
 int main(int argc, char* argv[])
 {
-     int port = 8181;
-
-      httpserver::webserver ws = httpserver::create_webserver(port);
-      installWebHandlers(&ws);
+    int port = 8181;
+    httpserver::webserver webServerTOF = httpserver::create_webserver(port);
+    installWebHandlers(&webServerTOF);
 
     //setup listener threadl
     MyListener listener;
@@ -316,16 +332,40 @@ int main(int argc, char* argv[])
             meere::sensor::destroy_camera(_camera);
             return -1;
         }
+        // change camera framerate to 30 fps
         std::string _key("");
 		meere::sensor::sptr_property _prop;
 		meere::sensor::result_property _rt_prop;
         _key = "framerate";
         _prop = meere::sensor::make_property_8u(_key, 30);
         _rt = _camera->setProperty(_prop);
-        // printResult(_key, _rt);
 
-        ws.start(true);
+        if (!TOFdone.is_lock_free()) return 10; // make sure we can actually use signal
+        signal(SIGTERM, signal_callback_handler);// if we kill, dont break the camera by safely turning stuff off
+        signal(SIGINT, signal_callback_handler);// in this case exiting the while loop below
+        signal(SIGQUIT, signal_callback_handler);
 
+        webServerTOF.start(false);//start the webserver without using blocking
+        while(!TOFdone){//keep going until we stop
+
+            // if an error in the camera occurs(sometimes timeout error on startup)
+            // restart the camera
+            if(TOFerror){
+                std::cerr << "this error thing " << TOFerror << endl;
+                std::cerr << "Try to Fix " << TOFerror << endl;
+                _camera->stop();
+
+                _rt = _camera->run(_wantedFrame);
+                TOFerror = false;
+            }
+            
+        }
+        // turn stuff off
+        webServerTOF.stop();
+        _camera->stop();
+        _camera->release();
+        meere::sensor::destroy_camera(_camera);
+        _camera.reset();
     }
     return 0;
 }
