@@ -15,27 +15,24 @@ import (
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor/forcematrix"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 )
 
 // modelName is used to register the gripper to a model name.
 const modelName = "viam-v2"
 
+//go:embed vgripper_model.json
+var vgripperjson []byte
+
 func init() {
 	registry.RegisterGripper(modelName, registry.Gripper{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 			return New(ctx, r, config, logger)
-		},
-		Frame: func(name string) (referenceframe.Frame, error) {
-			// A viam gripper is 220mm from mount point to center of gripper paddles
-			return referenceframe.FrameFromPoint(name, r3.Vector{0, 0, 220})
 		},
 	})
 }
@@ -67,6 +64,7 @@ type GripperV2 struct {
 	closedDirection, openDirection pb.DirectionRelative
 	logger                         golog.Logger
 
+	frameJSON             []byte
 	numBadCurrentReadings int
 }
 
@@ -119,6 +117,7 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		pressureLimit:   pressureLimit,
 		holdingPressure: .5,
 		logger:          logger,
+		frameJSON:       vgripperjson,
 	}
 
 	err = vg.calibrate(ctx, logger)
@@ -229,6 +228,11 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 	}
 
 	return nil
+}
+
+// ModelFrame returns the json bytes that describe the dynamic frame of the model
+func (vg *GripperV2) ModelFrame() []byte {
+	return vg.frameJSON
 }
 
 // Open opens the jaws.
