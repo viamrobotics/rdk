@@ -14,6 +14,9 @@ jobs:
     container:
       image: ubuntu:20.04
     steps:
+    - name: base setup
+      run: |
+        apt install curl sudo
     - uses: docker-practice/actions-setup-docker@master
     - name: Login to DockerHub
       uses: docker/login-action@v1 
