@@ -18,6 +18,10 @@ import (
 
 // BuildFrameSystem uses a map of frames that describes the tree structure of the frame system to build a completed frame system
 func BuildFrameSystem(ctx context.Context, name string, children map[string][]referenceframe.Frame, logger golog.Logger) (referenceframe.FrameSystem, error) {
+	// If there are no frames, build an empty frame system with only a world node and return.
+	if len(children) == 0 {
+		return referenceframe.NewEmptySimpleFrameSystem(name), nil
+	}
 	// use a stack to populate the frame system
 	stack := make([]string, 0)
 	visited := make(map[string]bool)
@@ -130,6 +134,10 @@ func processPart(part *config.FrameSystemPart, children map[string][]referencefr
 
 func topologicallySortFrameNames(ctx context.Context, children map[string][]referenceframe.Frame) ([]string, error) {
 	topoSortedNames := []string{referenceframe.World} // keep track of tree structure
+	// If there are no frames, return only the world node in the list
+	if len(children) == 0 {
+		return topoSortedNames, nil
+	}
 	stack := make([]string, 0)
 	visited := make(map[string]bool)
 	if _, ok := children[referenceframe.World]; !ok {
