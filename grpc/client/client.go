@@ -61,7 +61,7 @@ var errUnimplemented = errors.New("unimplemented")
 // RobotClient satisfies the robot.Robot interface through a gRPC based
 // client conforming to the robot.proto contract.
 type RobotClient struct {
-	address        string
+	grpc.Info
 	conn           dialer.ClientConn
 	client         pb.RobotServiceClient
 	metadataClient *metadataclient.MetadataServiceClient
@@ -84,7 +84,6 @@ type RobotClient struct {
 
 	activeBackgroundWorkers *sync.WaitGroup
 	cancelBackgroundWorkers func()
-	logger                  golog.Logger
 
 	cachingStatus         bool
 	cachedStatus          *pb.Status
@@ -127,13 +126,12 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 	client := pb.NewRobotServiceClient(conn)
 	closeCtx, cancel := context.WithCancel(context.Background())
 	rc := &RobotClient{
-		address:                 address,
+		Info:                    grpc.Info{Address: address, DialOptions: opts.DialOptions, Logger: logger},
 		conn:                    conn,
 		client:                  client,
 		metadataClient:          metadataClient,
 		sensorTypes:             map[string]sensor.Type{},
 		cancelBackgroundWorkers: cancel,
-		logger:                  logger,
 		namesMu:                 &sync.RWMutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		cachedStatusMu:          &sync.Mutex{},
@@ -200,7 +198,7 @@ func (rc *RobotClient) RefreshEvery(ctx context.Context, every time.Duration) {
 		if err := rc.Refresh(ctx); err != nil {
 			// we want to keep refreshing and hopefully the ticker is not
 			// too fast so that we do not thrash.
-			rc.logger.Errorw("failed to refresh status", "error", err)
+			rc.Logger().Errorw("failed to refresh status", "error", err)
 		}
 	}
 }
@@ -407,7 +405,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	subtypeClient, ok := rc.cachedSubtypeClients[name.Subtype]
 
 	if !ok {
-		newClient, err := c.SubtypeClient(rc.closeContext, rc.address, name.Name, rc.Logger())
+		newClient, err := c.SubtypeClient(rc.closeContext, rc.Address, name.Name, rc.Logger())
 		if err != nil {
 			return nil, false
 		}
@@ -683,7 +681,7 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 
 // Logger returns the logger being used for this robot.
 func (rc *RobotClient) Logger() golog.Logger {
-	return rc.logger
+	return rc.Info.Logger
 }
 
 // FrameSystem retrieves an ordered slice of the frame configs and then builds a FrameSystem from the configs
@@ -704,7 +702,7 @@ func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (re
 			part.FrameConfig.Parent = prefix + part.FrameConfig.Parent
 		}
 		// make the frames from the configs
-		modelFrame, staticOffsetFrame, err := framesystem.CreateFramesFromPart(part, rc.logger)
+		modelFrame, staticOffsetFrame, err := framesystem.CreateFramesFromPart(part, rc.Logger())
 		if err != nil {
 			return nil, err
 		}
@@ -1631,7 +1629,7 @@ func (cc *inputControllerClient) connectStream(ctx context.Context) {
 
 		stream, err := cc.rc.client.InputControllerEventStream(streamCtx, req)
 		if err != nil {
-			cc.rc.logger.Error(err)
+			cc.rc.Logger().Error(err)
 			if utils.SelectContextOrWait(ctx, 3*time.Second) {
 				continue
 			} else {
@@ -1668,14 +1666,14 @@ func (cc *inputControllerClient) connectStream(ctx context.Context) {
 				}
 				cc.sendConnectionStatus(ctx, false)
 				if utils.SelectContextOrWait(ctx, 3*time.Second) {
-					cc.rc.logger.Error(err)
+					cc.rc.Logger().Error(err)
 					break
 				} else {
 					return
 				}
 			}
 			if err != nil {
-				cc.rc.logger.Error(err)
+				cc.rc.Logger().Error(err)
 			}
 
 			eventOut := input.Event{
