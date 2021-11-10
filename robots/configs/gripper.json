@@ -107,6 +107,7 @@
           "motor": "gripper-motor",
           "current": "current",
           "pressureLimit": 15,
+          "calibrationNoiseThreshold": 7,
           "forcematrix": "forcematrixWithMuxOnGripper"
         },
         "depends_on": [

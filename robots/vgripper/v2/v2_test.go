@@ -204,7 +204,6 @@ func TestCalibrate(t *testing.T) {
 		err := injectedGripper.calibrate(context.Background(), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
-
 }
 
 func TestOpen(t *testing.T) {
