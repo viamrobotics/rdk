@@ -16,7 +16,7 @@ jobs:
     steps:
     - name: base setup
       run: |
-        apt install curl sudo
+        apt update && apt install -y curl sudo
     - uses: docker-practice/actions-setup-docker@master
     - name: Login to DockerHub
       uses: docker/login-action@v1 
