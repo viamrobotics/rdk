@@ -578,21 +578,25 @@
 
                   },
                   doPCDGrab : function(){
+                      let gripperName = Object.keys(theData.status.grippersMap)[0];
+                      let armName = Object.keys(theData.status.armsMap)[0];
                       let cameraName = pcdGlobal.cameraName;
                       let cameraPointX = theData.pcdClick.x;
                       let cameraPointY = theData.pcdClick.y;
                       let cameraPointZ = theData.pcdClick.z;
 
-                      let req = new robotApi.MoveAndGrabServiceDoGrabRequest();
+                      let req = new robotApi.ObjectManipulationServiceDoGrabRequest();
                       let cameraPoint = new robotApi.Vector3();
                       cameraPoint.setX(cameraPointX);
                       cameraPoint.setY(cameraPointY);
                       cameraPoint.setZ(cameraPointZ);
 
+                      req.setArmName(armName);
                       req.setCameraName(cameraName);
                       req.setCameraPoint(cameraPoint);
+                      req.setGripperName(gripperName);
 
-                      robotService.moveAndGrabServiceDoGrab(req, {}, (err, resp) => grpcCallback(err, resp));
+                      robotService.objectManipulationServiceDoGrab(req, {}, (err, resp) => grpcCallback(err, resp));
 
                       // fetch(theData.pcdClick.path).then(console.log);
                   },

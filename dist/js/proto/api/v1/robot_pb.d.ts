@@ -3437,7 +3437,7 @@ export namespace NavigationServiceRemoveWaypointResponse {
   }
 }
 
-export class MoveAndGrabServiceDoGrabRequest extends jspb.Message {
+export class ObjectManipulationServiceDoGrabRequest extends jspb.Message {
   getCameraName(): string;
   setCameraName(value: string): void;
 
@@ -3446,38 +3446,46 @@ export class MoveAndGrabServiceDoGrabRequest extends jspb.Message {
   getCameraPoint(): Vector3 | undefined;
   setCameraPoint(value?: Vector3): void;
 
+  getGripperName(): string;
+  setGripperName(value: string): void;
+
+  getArmName(): string;
+  setArmName(value: string): void;
+
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): MoveAndGrabServiceDoGrabRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: MoveAndGrabServiceDoGrabRequest): MoveAndGrabServiceDoGrabRequest.AsObject;
+  toObject(includeInstance?: boolean): ObjectManipulationServiceDoGrabRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: ObjectManipulationServiceDoGrabRequest): ObjectManipulationServiceDoGrabRequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: MoveAndGrabServiceDoGrabRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): MoveAndGrabServiceDoGrabRequest;
-  static deserializeBinaryFromReader(message: MoveAndGrabServiceDoGrabRequest, reader: jspb.BinaryReader): MoveAndGrabServiceDoGrabRequest;
+  static serializeBinaryToWriter(message: ObjectManipulationServiceDoGrabRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ObjectManipulationServiceDoGrabRequest;
+  static deserializeBinaryFromReader(message: ObjectManipulationServiceDoGrabRequest, reader: jspb.BinaryReader): ObjectManipulationServiceDoGrabRequest;
 }
 
-export namespace MoveAndGrabServiceDoGrabRequest {
+export namespace ObjectManipulationServiceDoGrabRequest {
   export type AsObject = {
     cameraName: string,
     cameraPoint?: Vector3.AsObject,
+    gripperName: string,
+    armName: string,
   }
 }
 
-export class MoveAndGrabServiceDoGrabResponse extends jspb.Message {
+export class ObjectManipulationServiceDoGrabResponse extends jspb.Message {
   getHasGrabbed(): boolean;
   setHasGrabbed(value: boolean): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): MoveAndGrabServiceDoGrabResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: MoveAndGrabServiceDoGrabResponse): MoveAndGrabServiceDoGrabResponse.AsObject;
+  toObject(includeInstance?: boolean): ObjectManipulationServiceDoGrabResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: ObjectManipulationServiceDoGrabResponse): ObjectManipulationServiceDoGrabResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: MoveAndGrabServiceDoGrabResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): MoveAndGrabServiceDoGrabResponse;
-  static deserializeBinaryFromReader(message: MoveAndGrabServiceDoGrabResponse, reader: jspb.BinaryReader): MoveAndGrabServiceDoGrabResponse;
+  static serializeBinaryToWriter(message: ObjectManipulationServiceDoGrabResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ObjectManipulationServiceDoGrabResponse;
+  static deserializeBinaryFromReader(message: ObjectManipulationServiceDoGrabResponse, reader: jspb.BinaryReader): ObjectManipulationServiceDoGrabResponse;
 }
 
-export namespace MoveAndGrabServiceDoGrabResponse {
+export namespace ObjectManipulationServiceDoGrabResponse {
   export type AsObject = {
     hasGrabbed: boolean,
   }

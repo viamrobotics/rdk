@@ -17,6 +17,7 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
@@ -54,6 +55,7 @@ type Robot struct {
 	InputControllerNamesFunc  func() []string
 	FunctionNamesFunc         func() []string
 	ServiceNamesFunc          func() []string
+	FrameSystemFunc           func(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error)
 	ResourceNamesFunc         func() []resource.Name
 	ProcessManagerFunc        func() pexec.ProcessManager
 	ConfigFunc                func(ctx context.Context) (*config.Config, error)
@@ -269,6 +271,14 @@ func (r *Robot) ServiceNames() []string {
 		return r.Robot.ServiceNames()
 	}
 	return r.ServiceNamesFunc()
+}
+
+// FrameSystem calls the injected FrameSystemFunc or the real version.
+func (r *Robot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
+	if r.FrameSystemFunc == nil {
+		return r.Robot.FrameSystem(ctx, name, prefix)
+	}
+	return r.FrameSystemFunc(ctx, name, prefix)
 }
 
 // ResourceNames calls the injected ResourceNames or the real version.

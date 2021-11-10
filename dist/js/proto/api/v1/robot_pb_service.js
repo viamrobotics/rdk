@@ -659,13 +659,13 @@ RobotService.NavigationServiceRemoveWaypoint = {
   responseType: proto_api_v1_robot_pb.NavigationServiceRemoveWaypointResponse
 };
 
-RobotService.MoveAndGrabServiceDoGrab = {
-  methodName: "MoveAndGrabServiceDoGrab",
+RobotService.ObjectManipulationServiceDoGrab = {
+  methodName: "ObjectManipulationServiceDoGrab",
   service: RobotService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_v1_robot_pb.MoveAndGrabServiceDoGrabRequest,
-  responseType: proto_api_v1_robot_pb.MoveAndGrabServiceDoGrabResponse
+  requestType: proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabRequest,
+  responseType: proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabResponse
 };
 
 RobotService.IMUAngularVelocity = {
@@ -2985,11 +2985,11 @@ RobotServiceClient.prototype.navigationServiceRemoveWaypoint = function navigati
   };
 };
 
-RobotServiceClient.prototype.moveAndGrabServiceDoGrab = function moveAndGrabServiceDoGrab(requestMessage, metadata, callback) {
+RobotServiceClient.prototype.objectManipulationServiceDoGrab = function objectManipulationServiceDoGrab(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(RobotService.MoveAndGrabServiceDoGrab, {
+  var client = grpc.unary(RobotService.ObjectManipulationServiceDoGrab, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

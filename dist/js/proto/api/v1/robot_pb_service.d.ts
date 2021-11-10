@@ -653,13 +653,13 @@ type RobotServiceNavigationServiceRemoveWaypoint = {
   readonly responseType: typeof proto_api_v1_robot_pb.NavigationServiceRemoveWaypointResponse;
 };
 
-type RobotServiceMoveAndGrabServiceDoGrab = {
+type RobotServiceObjectManipulationServiceDoGrab = {
   readonly methodName: string;
   readonly service: typeof RobotService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.MoveAndGrabServiceDoGrabRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.MoveAndGrabServiceDoGrabResponse;
+  readonly requestType: typeof proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabResponse;
 };
 
 type RobotServiceIMUAngularVelocity = {
@@ -790,7 +790,7 @@ export class RobotService {
   static readonly NavigationServiceWaypoints: RobotServiceNavigationServiceWaypoints;
   static readonly NavigationServiceAddWaypoint: RobotServiceNavigationServiceAddWaypoint;
   static readonly NavigationServiceRemoveWaypoint: RobotServiceNavigationServiceRemoveWaypoint;
-  static readonly MoveAndGrabServiceDoGrab: RobotServiceMoveAndGrabServiceDoGrab;
+  static readonly ObjectManipulationServiceDoGrab: RobotServiceObjectManipulationServiceDoGrab;
   static readonly IMUAngularVelocity: RobotServiceIMUAngularVelocity;
   static readonly IMUOrientation: RobotServiceIMUOrientation;
   static readonly GPSLocation: RobotServiceGPSLocation;
@@ -1455,14 +1455,14 @@ export class RobotServiceClient {
     requestMessage: proto_api_v1_robot_pb.NavigationServiceRemoveWaypointRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.NavigationServiceRemoveWaypointResponse|null) => void
   ): UnaryResponse;
-  moveAndGrabServiceDoGrab(
-    requestMessage: proto_api_v1_robot_pb.MoveAndGrabServiceDoGrabRequest,
+  objectManipulationServiceDoGrab(
+    requestMessage: proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MoveAndGrabServiceDoGrabResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabResponse|null) => void
   ): UnaryResponse;
-  moveAndGrabServiceDoGrab(
-    requestMessage: proto_api_v1_robot_pb.MoveAndGrabServiceDoGrabRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MoveAndGrabServiceDoGrabResponse|null) => void
+  objectManipulationServiceDoGrab(
+    requestMessage: proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabResponse|null) => void
   ): UnaryResponse;
   iMUAngularVelocity(
     requestMessage: proto_api_v1_robot_pb.IMUAngularVelocityRequest,

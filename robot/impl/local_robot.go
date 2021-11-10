@@ -363,7 +363,6 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 
 	// create web service here
 	// somewhat hacky, but the web service start up needs to come last
-	// TODO: use web.Type as part of #253.
 	webConfig := config.Service{Name: WebSvcName, Type: web.Type}
 	web, err := r.newService(ctx, webConfig)
 	if err != nil {

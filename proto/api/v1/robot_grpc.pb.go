@@ -165,7 +165,7 @@ type RobotServiceClient interface {
 	NavigationServiceWaypoints(ctx context.Context, in *NavigationServiceWaypointsRequest, opts ...grpc.CallOption) (*NavigationServiceWaypointsResponse, error)
 	NavigationServiceAddWaypoint(ctx context.Context, in *NavigationServiceAddWaypointRequest, opts ...grpc.CallOption) (*NavigationServiceAddWaypointResponse, error)
 	NavigationServiceRemoveWaypoint(ctx context.Context, in *NavigationServiceRemoveWaypointRequest, opts ...grpc.CallOption) (*NavigationServiceRemoveWaypointResponse, error)
-	MoveAndGrabServiceDoGrab(ctx context.Context, in *MoveAndGrabServiceDoGrabRequest, opts ...grpc.CallOption) (*MoveAndGrabServiceDoGrabResponse, error)
+	ObjectManipulationServiceDoGrab(ctx context.Context, in *ObjectManipulationServiceDoGrabRequest, opts ...grpc.CallOption) (*ObjectManipulationServiceDoGrabResponse, error)
 	// IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
 	IMUAngularVelocity(ctx context.Context, in *IMUAngularVelocityRequest, opts ...grpc.CallOption) (*IMUAngularVelocityResponse, error)
 	// IMUOrientation returns the most recent orientation reading from the given IMU.
@@ -905,9 +905,9 @@ func (c *robotServiceClient) NavigationServiceRemoveWaypoint(ctx context.Context
 	return out, nil
 }
 
-func (c *robotServiceClient) MoveAndGrabServiceDoGrab(ctx context.Context, in *MoveAndGrabServiceDoGrabRequest, opts ...grpc.CallOption) (*MoveAndGrabServiceDoGrabResponse, error) {
-	out := new(MoveAndGrabServiceDoGrabResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/MoveAndGrabServiceDoGrab", in, out, opts...)
+func (c *robotServiceClient) ObjectManipulationServiceDoGrab(ctx context.Context, in *ObjectManipulationServiceDoGrabRequest, opts ...grpc.CallOption) (*ObjectManipulationServiceDoGrabResponse, error) {
+	out := new(ObjectManipulationServiceDoGrabResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ObjectManipulationServiceDoGrab", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1117,7 +1117,7 @@ type RobotServiceServer interface {
 	NavigationServiceWaypoints(context.Context, *NavigationServiceWaypointsRequest) (*NavigationServiceWaypointsResponse, error)
 	NavigationServiceAddWaypoint(context.Context, *NavigationServiceAddWaypointRequest) (*NavigationServiceAddWaypointResponse, error)
 	NavigationServiceRemoveWaypoint(context.Context, *NavigationServiceRemoveWaypointRequest) (*NavigationServiceRemoveWaypointResponse, error)
-	MoveAndGrabServiceDoGrab(context.Context, *MoveAndGrabServiceDoGrabRequest) (*MoveAndGrabServiceDoGrabResponse, error)
+	ObjectManipulationServiceDoGrab(context.Context, *ObjectManipulationServiceDoGrabRequest) (*ObjectManipulationServiceDoGrabResponse, error)
 	// IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
 	IMUAngularVelocity(context.Context, *IMUAngularVelocityRequest) (*IMUAngularVelocityResponse, error)
 	// IMUOrientation returns the most recent orientation reading from the given IMU.
@@ -1353,8 +1353,8 @@ func (UnimplementedRobotServiceServer) NavigationServiceAddWaypoint(context.Cont
 func (UnimplementedRobotServiceServer) NavigationServiceRemoveWaypoint(context.Context, *NavigationServiceRemoveWaypointRequest) (*NavigationServiceRemoveWaypointResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NavigationServiceRemoveWaypoint not implemented")
 }
-func (UnimplementedRobotServiceServer) MoveAndGrabServiceDoGrab(context.Context, *MoveAndGrabServiceDoGrabRequest) (*MoveAndGrabServiceDoGrabResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method MoveAndGrabServiceDoGrab not implemented")
+func (UnimplementedRobotServiceServer) ObjectManipulationServiceDoGrab(context.Context, *ObjectManipulationServiceDoGrabRequest) (*ObjectManipulationServiceDoGrabResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ObjectManipulationServiceDoGrab not implemented")
 }
 func (UnimplementedRobotServiceServer) IMUAngularVelocity(context.Context, *IMUAngularVelocityRequest) (*IMUAngularVelocityResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method IMUAngularVelocity not implemented")
@@ -2692,20 +2692,20 @@ func _RobotService_NavigationServiceRemoveWaypoint_Handler(srv interface{}, ctx 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_MoveAndGrabServiceDoGrab_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MoveAndGrabServiceDoGrabRequest)
+func _RobotService_ObjectManipulationServiceDoGrab_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ObjectManipulationServiceDoGrabRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RobotServiceServer).MoveAndGrabServiceDoGrab(ctx, in)
+		return srv.(RobotServiceServer).ObjectManipulationServiceDoGrab(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/MoveAndGrabServiceDoGrab",
+		FullMethod: "/proto.api.v1.RobotService/ObjectManipulationServiceDoGrab",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).MoveAndGrabServiceDoGrab(ctx, req.(*MoveAndGrabServiceDoGrabRequest))
+		return srv.(RobotServiceServer).ObjectManipulationServiceDoGrab(ctx, req.(*ObjectManipulationServiceDoGrabRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3102,8 +3102,8 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RobotService_NavigationServiceRemoveWaypoint_Handler,
 		},
 		{
-			MethodName: "MoveAndGrabServiceDoGrab",
-			Handler:    _RobotService_MoveAndGrabServiceDoGrab_Handler,
+			MethodName: "ObjectManipulationServiceDoGrab",
+			Handler:    _RobotService_ObjectManipulationServiceDoGrab_Handler,
 		},
 		{
 			MethodName: "IMUAngularVelocity",

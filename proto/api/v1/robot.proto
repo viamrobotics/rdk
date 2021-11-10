@@ -543,11 +543,11 @@ service RobotService {
     };
   }
 
-  // Move and Grab Service
+  // Object Manipulation Service
 
-  rpc MoveAndGrabServiceDoGrab(MoveAndGrabServiceDoGrabRequest) returns (MoveAndGrabServiceDoGrabResponse) {
+  rpc ObjectManipulationServiceDoGrab(ObjectManipulationServiceDoGrabRequest) returns (ObjectManipulationServiceDoGrabResponse) {
     option (google.api.http) = {
-      post: "/api/v1/services/moveandgrab/dograb"
+      post: "/api/v1/services/objectmanipulation/dograb"
     };
   }
 
@@ -1308,18 +1308,20 @@ message NavigationServiceRemoveWaypointRequest {
 message NavigationServiceRemoveWaypointResponse {
 }
 
-// Move and grab service
+// Object Manipulation Service
 
-message MoveAndGrabServiceDoGrabRequest {
+message ObjectManipulationServiceDoGrabRequest {
   string camera_name = 1;
   Vector3 camera_point = 2;
+  string gripper_name = 3;
+  string arm_name = 4;
 }
 
-message MoveAndGrabServiceDoGrabResponse {
+message ObjectManipulationServiceDoGrabResponse {
   bool has_grabbed = 1;
 }
 
-// End Move and grab service
+// End Object Manipulation Service
 
 message InputControllerControlsRequest {
   string controller = 1;
