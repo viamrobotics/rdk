@@ -16,7 +16,7 @@ jobs:
     steps:
     - name: base setup
       run: |
-        apt update && apt install -y curl sudo gpg
+        apt update && apt install -y curl sudo gpg lsb-release
     - uses: docker-practice/actions-setup-docker@master
     - name: Login to DockerHub
       uses: docker/login-action@v1 
