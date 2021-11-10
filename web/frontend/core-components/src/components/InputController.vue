@@ -111,7 +111,7 @@ h3 {
 }
 
 .control {
-  width: 8ex;
+  width: 7ex;
 }
 
 .margin-bottom {
