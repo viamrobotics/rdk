@@ -42,7 +42,7 @@ func init() {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&componentpb.ArmSubtypeService_ServiceDesc,
-				arm.New(subtypeSvc),
+				arm.NewServer(subtypeSvc),
 				componentpb.RegisterArmSubtypeServiceHandlerFromEndpoint,
 			)
 		},
@@ -457,8 +457,8 @@ type SubtypeGrpc struct {
 
 // all registries
 var (
-	componentRegistry        = map[string]Component{}
-	componentSubtypeRegistry = map[resource.Subtype]ResourceSubtype{}
+	componentRegistry = map[string]Component{}
+	subtypeRegistry   = map[resource.Subtype]ResourceSubtype{}
 )
 
 // RegisterComponent register a creator to its corresponding component and model.
@@ -487,20 +487,20 @@ func ComponentLookup(subtype resource.Subtype, model string) *Component {
 
 // RegisterResourceSubtype register a ResourceSubtype to its corresponding component subtype.
 func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) {
-	_, old := componentSubtypeRegistry[subtype]
+	_, old := subtypeRegistry[subtype]
 	if old {
 		panic(errors.Errorf("trying to register two of the same component subtype:%s", subtype))
 	}
 	if creator.Reconfigurable == nil && creator.RegisterService == nil && creator.SubtypeClient == nil && creator.ResourceClient == nil {
 		panic(errors.Errorf("cannot register a nil constructor for subtype:%s", subtype))
 	}
-	componentSubtypeRegistry[subtype] = creator
+	subtypeRegistry[subtype] = creator
 }
 
 // ResourceSubtypeLookup looks up a ResourceSubtype by the given subtype. nil is returned if
 // there is None.
 func ResourceSubtypeLookup(subtype resource.Subtype) *ResourceSubtype {
-	if registration, ok := componentSubtypeRegistry[subtype]; ok {
+	if registration, ok := subtypeRegistry[subtype]; ok {
 		return &registration
 	}
 	return nil
@@ -603,4 +603,13 @@ func RegisteredComponents() map[string]Component {
 		panic(err)
 	}
 	return copied.(map[string]Component)
+}
+
+// RegisteredResourceSubtypes returns a copy of the registered resource subtypes.
+func RegisteredResourceSubtypes() map[resource.Subtype]ResourceSubtype {
+	copied, err := copystructure.Copy(subtypeRegistry)
+	if err != nil {
+		panic(err)
+	}
+	return copied.(map[resource.Subtype]ResourceSubtype)
 }

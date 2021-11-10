@@ -16,39 +16,47 @@ import (
 	pb "go.viam.com/core/proto/api/component/v1"
 )
 
-// SubtypeClient is a client satisfies the arm_subtype.proto contract.
-type SubtypeClient struct {
+// subtypeClient is a client satisfies the arm_subtype.proto contract.
+type subtypeClient struct {
+	grpc.Info
 	conn   dialer.ClientConn
 	client pb.ArmSubtypeServiceClient
-
-	logger golog.Logger
 }
 
-// NewSubtypeClient constructs a new SubtypeClient that is served at the given address.
-func NewSubtypeClient(ctx context.Context, address string, opts rpcclient.DialOptions, logger golog.Logger) (*SubtypeClient, error) {
+// NewSubtypeClient constructs a new subtypeClient that is served at the given address.
+func NewSubtypeClient(ctx context.Context, address string, opts rpcclient.DialOptions, logger golog.Logger) (*subtypeClient, error) {
 	conn, err := grpc.Dial(ctx, address, opts, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	client := pb.NewArmSubtypeServiceClient(conn)
-	ac := &SubtypeClient{
+	sc := &subtypeClient{
+		Info:   grpc.Info{Address: address, DialOptions: opts, Logger: logger},
 		conn:   conn,
 		client: client,
-		logger: logger,
 	}
-	return ac, nil
+	return sc, nil
 }
 
 // Close cleanly closes the underlying connections
-func (ac *SubtypeClient) Close() error {
-	return ac.conn.Close()
+func (sc *subtypeClient) Close() error {
+	return sc.conn.Close()
 }
 
 // client is an arm client
 type client struct {
-	sc   *SubtypeClient
+	*subtypeClient
 	name string
+}
+
+func NewFromClient(ctx context.Context, client interface{}, name string) (Arm, error) {
+	c, ok := client.(grpc.DialInfoGetter)
+	if !ok {
+		return nil, errors.New("client passed in does not contain DialInfo")
+	}
+	info := c.DialInfo()
+	return NewClient(ctx, name, info.Address, info.DialOptions, info.Logger)
 }
 
 // NewClient constructs a new client that is served at the given address.
@@ -58,26 +66,26 @@ func NewClient(ctx context.Context, name string, address string, opts rpcclient.
 		return nil, err
 	}
 
-	ac, err := NewClientFromSubtypeClient(sc, name)
+	c, err := NewClientFromSubtypeClient(sc, name)
 	if err != nil {
 		return nil, err
 	}
-	return ac, nil
+	return c, nil
 }
 
 // NewClientFromSubtypeClient constructs a new Client from subtype client.
 func NewClientFromSubtypeClient(sc interface{}, name string) (Arm, error) {
-	newSc, ok := sc.(*SubtypeClient)
+	newSc, ok := sc.(*subtypeClient)
 	if !ok {
 		return nil, errors.New("not an arm subtype client")
 	}
-	ac := &client{newSc, name}
-	return ac, nil
+	c := &client{newSc, name}
+	return c, nil
 }
 
-func (ac *client) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
-	resp, err := ac.sc.client.CurrentPosition(ctx, &pb.ArmSubtypeServiceCurrentPositionRequest{
-		Name: ac.name,
+func (c *client) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
+	resp, err := c.client.CurrentPosition(ctx, &pb.ArmSubtypeServiceCurrentPositionRequest{
+		Name: c.name,
 	})
 	if err != nil {
 		return nil, err
@@ -85,25 +93,25 @@ func (ac *client) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	return resp.Position, nil
 }
 
-func (ac *client) MoveToPosition(ctx context.Context, c *commonpb.Pose) error {
-	_, err := ac.sc.client.MoveToPosition(ctx, &pb.ArmSubtypeServiceMoveToPositionRequest{
-		Name: ac.name,
-		To:   c,
-	})
-	return err
-}
-
-func (ac *client) MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPositions) error {
-	_, err := ac.sc.client.MoveToJointPositions(ctx, &pb.ArmSubtypeServiceMoveToJointPositionsRequest{
-		Name: ac.name,
+func (c *client) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
+	_, err := c.client.MoveToPosition(ctx, &pb.ArmSubtypeServiceMoveToPositionRequest{
+		Name: c.name,
 		To:   pos,
 	})
 	return err
 }
 
-func (ac *client) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
-	resp, err := ac.sc.client.CurrentJointPositions(ctx, &pb.ArmSubtypeServiceCurrentJointPositionsRequest{
-		Name: ac.name,
+func (c *client) MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPositions) error {
+	_, err := c.client.MoveToJointPositions(ctx, &pb.ArmSubtypeServiceMoveToJointPositionsRequest{
+		Name: c.name,
+		To:   pos,
+	})
+	return err
+}
+
+func (c *client) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+	resp, err := c.client.CurrentJointPositions(ctx, &pb.ArmSubtypeServiceCurrentJointPositionsRequest{
+		Name: c.name,
 	})
 	if err != nil {
 		return nil, err
@@ -111,9 +119,9 @@ func (ac *client) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositi
 	return resp.Positions, nil
 }
 
-func (ac *client) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	_, err := ac.sc.client.JointMoveDelta(ctx, &pb.ArmSubtypeServiceJointMoveDeltaRequest{
-		Name:       ac.name,
+func (c *client) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
+	_, err := c.client.JointMoveDelta(ctx, &pb.ArmSubtypeServiceJointMoveDeltaRequest{
+		Name:       c.name,
 		Joint:      int32(joint),
 		AmountDegs: amountDegs,
 	})
@@ -123,4 +131,9 @@ func (ac *client) JointMoveDelta(ctx context.Context, joint int, amountDegs floa
 func (ac *client) ModelFrame() *kinematics.Model {
 	// TODO(erh): this feels wrong
 	return nil
+}
+
+// Close cleanly closes the underlying connections
+func (c *client) Close() error {
+	return c.conn.Close()
 }

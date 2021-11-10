@@ -18,7 +18,7 @@ type SubtypeServer struct {
 }
 
 // New constructs a gRPC service server.
-func New(s subtype.Service) pb.ArmSubtypeServiceServer {
+func NewServer(s subtype.Service) pb.ArmSubtypeServiceServer {
 	return &SubtypeServer{s: s}
 }
 
