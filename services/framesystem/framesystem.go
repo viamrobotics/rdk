@@ -70,6 +70,7 @@ func New(ctx context.Context, r robot.Robot, logger golog.Logger) (Service, erro
 		childrenMap:      children,
 		logger:           logger,
 	}
+	logger.Debugf("frame system for robot: %v", sortedFrameNames)
 	return fsSvc, nil
 }
 
