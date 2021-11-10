@@ -13,15 +13,16 @@ import (
 )
 
 // SolvableFrameSystem wraps a FrameSystem to allow solving between frames of the frame system.
-// Note that this needs to live in kinematics, not referenceframe, to avoid circular dependencies
+// Note that this needs to live in motionplan, not referenceframe, to avoid circular dependencies
 type SolvableFrameSystem struct {
 	frame.FrameSystem
 	logger golog.Logger
+	mpFunc func(frame.Frame, golog.Logger, int) (MotionPlanner, error)
 }
 
 // NewSolvableFrameSystem will create a new solver for a frame system
 func NewSolvableFrameSystem(fs frame.FrameSystem, logger golog.Logger) *SolvableFrameSystem {
-	return &SolvableFrameSystem{fs, logger}
+	return &SolvableFrameSystem{FrameSystem: fs, logger: logger}
 }
 
 // SolvePose will take a set of starting positions, a goal frame, a frame to solve for, and a pose. The function will
@@ -44,7 +45,12 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 
 	// Create a frame to solve for, and an IK solver with that frame.
 	sf := &solverFrame{fss, frames, solveFrame, goalFrame}
-	planner, err := NewLinearMotionPlanner(sf, fss.logger, runtime.NumCPU()/2)
+	var planner MotionPlanner
+	if fss.mpFunc != nil {
+		planner, err = fss.mpFunc(sf, fss.logger, runtime.NumCPU()/2)
+	}else{
+		planner, err = NewCBiRRTMotionPlanner(sf, fss.logger, runtime.NumCPU()/2)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -62,6 +68,10 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 	}
 
 	return steps, nil
+}
+
+func (fss *SolvableFrameSystem) SetPlannerGen(mpFunc func(frame.Frame, golog.Logger, int) (MotionPlanner, error)){
+	fss.mpFunc = mpFunc
 }
 
 // solverFrames are meant to be ephemerally created each time a frame system solution is created, and fulfills the
