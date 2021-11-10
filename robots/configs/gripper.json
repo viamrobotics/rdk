@@ -7,7 +7,7 @@
     ],
     "components": [
       {
-        "name": "local",
+        "name": "gripper-board",
         "type": "board",
         "model": "pi",
         "attributes": {
@@ -73,7 +73,7 @@
           "forcematrix": "forcematrixWithMuxOnGripper"
         },
         "depends_on": [
-          "local",
+          "gripper-board",
           "g"
         ]
       },
@@ -82,9 +82,9 @@
         "type": "motor",
         "model": "pi",
         "attributes": {
-          "board": "local",
+          "board": "gripper-board",
           "config": {
-            "board": "local",
+            "board": "gripper-board",
             "encoder": "encoder",
             "encoderB": "encoder-b",
             "max_power_pct": 0.8,
@@ -108,7 +108,7 @@
           "ticksPerRotation": 1960
         },
         "depends_on": [
-          "local"
+          "gripper-board"
         ]
       }
     ]
