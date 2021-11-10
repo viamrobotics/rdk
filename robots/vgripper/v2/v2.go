@@ -58,7 +58,8 @@ type GripperV2 struct {
 
 	holdingPressure float32
 
-	pressureLimit float64
+	pressureLimit             float64
+	calibrationNoiseThreshold float64
 
 	closedDirection, openDirection pb.DirectionRelative
 	logger                         golog.Logger
@@ -107,29 +108,33 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 	}
 
 	pressureLimit := config.Attributes.Float64("pressureLimit", 30)
+	calibrationNoiseThreshold := config.Attributes.Float64("calibrationNoiseThreshold", 7)
 
 	vg := &GripperV2{
-		motor:           motor,
-		current:         current,
-		forceMatrix:     forceMatrixDevice,
-		pressureLimit:   pressureLimit,
-		holdingPressure: .5,
-		logger:          logger,
-		frameJSON:       vgripperjson,
+		motor:                     motor,
+		current:                   current,
+		forceMatrix:               forceMatrixDevice,
+		pressureLimit:             pressureLimit,
+		calibrationNoiseThreshold: calibrationNoiseThreshold,
+		holdingPressure:           .5,
+		logger:                    logger,
+		frameJSON:                 vgripperjson,
 	}
 
 	if err := vg.calibrate(ctx, logger); err != nil {
 		return nil, err
 	}
 
-	return vg, vg.Open(ctx)
+	if err := vg.Open(ctx); err != nil {
+		return nil, err
+	}
+
+	return vg, nil
 }
 
 // calibrate finds the open and close position, as well as which motor direction
 // corresponds to opening and closing the gripper.
 func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
-	var pressureOpen, pressureClosed float64
-
 	// This will be passed to GoTillStop
 	stopFuncHighCurrent := func(ctx context.Context) bool {
 		current, err := vg.readCurrent(ctx)
@@ -160,6 +165,8 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 	if err != nil {
 		return err
 	}
+
+	var pressureOpen, pressureClosed float64
 	if pressure > vg.pressureLimit {
 		vg.closedPos = position
 		vg.closedDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
@@ -193,13 +200,10 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 		vg.openDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
 		pressureOpen = pressure
 	}
-	logger.Debug(vg.closedPos, vg.closedDirection, pressureClosed)
-	logger.Debug(vg.openPos, vg.openDirection, pressureOpen)
 
 	// Sanity check; if the pressure difference between open & closed position is too small,
 	// something went wrong
-	// TODO: I think this has to be improved; think more about it
-	if math.Abs(pressureOpen-pressureClosed) < vg.pressureLimit/2 ||
+	if math.Abs(pressureOpen-pressureClosed) < vg.calibrationNoiseThreshold ||
 		vg.closedDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED ||
 		vg.openDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
 		return errors.Errorf("init: open and closed positions can't be distinguished: "+
