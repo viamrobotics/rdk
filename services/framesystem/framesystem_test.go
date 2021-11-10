@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/core/config"
 	"go.viam.com/core/services/framesystem"
 	"go.viam.com/core/testutils/inject"
-	"go.viam.com/test"
 
 	"github.com/edaniels/golog"
 )
