@@ -188,7 +188,7 @@ func TestCalibrate(t *testing.T) {
 		called := -1
 		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
 			called++
-			if called < NumMeasurementsCalib {
+			if called < numMeasurementsCalib {
 				return [][]int{{openPressure}}, nil
 			}
 			return [][]int{{closedPressure}}, nil
@@ -211,8 +211,8 @@ func TestOpen(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	openPosition := 5.
-	failedPosition := openPosition + 2*PositionTolerance
-	successfulPosition := openPosition + 0.5*PositionTolerance
+	failedPosition := openPosition + 2*positionTolerance
+	successfulPosition := openPosition + 0.5*positionTolerance
 
 	t.Run("no error when position of fingers is within the allowed tolerance", func(t *testing.T) {
 		fakeMotor := &inject.Motor{}
@@ -300,8 +300,8 @@ func TestGrab(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	closedPosition := 5.
-	failedPosition := closedPosition + 2*PositionTolerance
-	successfulPosition := closedPosition + 0.5*PositionTolerance
+	failedPosition := closedPosition + 2*positionTolerance
+	successfulPosition := closedPosition + 0.5*positionTolerance
 
 	// Expect the position of the fingers to be close to the position of the closedPosition
 	// or to have pressure on them
@@ -491,18 +491,18 @@ func TestProcessCurrentReading(t *testing.T) {
 	// MaxCurrent = 300
 	// CurrentBadReadingCounts = 50
 	t.Run("when current is too high but not too often yet", func(t *testing.T) {
-		current := MaxCurrent + 10
+		current := maxCurrent + 10
 		injectedGripper := &GripperV2{
-			numBadCurrentReadings: CurrentBadReadingCounts - 2,
+			numBadCurrentReadings: currentBadReadingCounts - 2,
 		}
 		err := injectedGripper.processCurrentReading(context.Background(), current, "testing")
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("return error when the current is too high for too long", func(t *testing.T) {
-		current := MaxCurrent + 10
+		current := maxCurrent + 10
 		injectedGripper := &GripperV2{
-			numBadCurrentReadings: CurrentBadReadingCounts - 1,
+			numBadCurrentReadings: currentBadReadingCounts - 1,
 		}
 		err := injectedGripper.processCurrentReading(context.Background(), current, "testing")
 		test.That(t, err, test.ShouldNotBeNil)
@@ -511,7 +511,7 @@ func TestProcessCurrentReading(t *testing.T) {
 	t.Run("reset numBadCurrentReadings when current is in the healthy range", func(t *testing.T) {
 		current := 0
 		injectedGripper := &GripperV2{
-			numBadCurrentReadings: CurrentBadReadingCounts - 5,
+			numBadCurrentReadings: currentBadReadingCounts - 5,
 		}
 		err := injectedGripper.processCurrentReading(context.Background(), current, "testing")
 		test.That(t, err, test.ShouldBeNil)

@@ -64,21 +64,7 @@
         }
       },
       {
-        "name": "viam-gripper-v2",
-        "type": "gripper",
-        "model": "viam-v2",
-        "parent": "",
-        "attributes": {
-          "pressureLimit": 15,
-          "forcematrix": "forcematrixWithMuxOnGripper"
-        },
-        "depends_on": [
-          "gripper-board",
-          "g"
-        ]
-      },
-      {
-        "name": "g",
+        "name": "gripper-motor",
         "type": "motor",
         "model": "pi",
         "attributes": {
@@ -109,6 +95,23 @@
         },
         "depends_on": [
           "gripper-board"
+        ]
+      },
+      {
+        "name": "viam-gripper-v2",
+        "type": "gripper",
+        "model": "viam-v2",
+        "parent": "",
+        "attributes": {
+          "board": "gripper-board",
+          "motor": "gripper-motor",
+          "current": "current",
+          "pressureLimit": 15,
+          "forcematrix": "forcematrixWithMuxOnGripper"
+        },
+        "depends_on": [
+          "gripper-board",
+          "gripper-motor"
         ]
       }
     ]

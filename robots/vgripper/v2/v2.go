@@ -40,14 +40,12 @@ func init() {
 
 // Parameters for calibration & operating the gripper.
 const (
-	TargetRPM               = 200
-	MaxCurrent              = 300
-	CurrentBadReadingCounts = 50
-	MinRotationGap          = 4.0
-	MaxRotationGap          = 5.0
-	OpenPosOffset           = 0.4 // Reduce maximum opening width, keeps out of mechanical binding region
-	NumMeasurementsCalib    = 10  // Number of measurements at each end position taken when calibrating the gripper
-	PositionTolerance       = 1   // Tolerance for motor position when reaching the open or closed position
+	targetRPM               = 200
+	maxCurrent              = 300
+	currentBadReadingCounts = 50
+	openPosOffset           = 0.4 // Reduce maximum opening width, keeps out of mechanical binding region
+	numMeasurementsCalib    = 10  // Number of measurements at each end position taken when calibrating the gripper
+	positionTolerance       = 1   // Tolerance for motor position when reaching the open or closed position
 )
 
 // GripperV2 represents a Viam gripper which operates with a ForceMatrix.
@@ -71,15 +69,13 @@ type GripperV2 struct {
 
 // New returns a GripperV2 which operates with a ForceMatrix.
 func New(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*GripperV2, error) {
-	const boardName = "local"
-	const motorName = "g"
-	const currentAnalogReaderName = "current"
-
+	boardName := config.Attributes.String("board")
 	board, exists := r.BoardByName(boardName)
 	if !exists {
 		return nil, errors.Errorf("%v gripper requires a board called %v", modelName, boardName)
 	}
 
+	motorName := config.Attributes.String("motor")
 	motor, exists := r.MotorByName(motorName)
 	if !exists {
 		return nil, errors.Errorf("failed to find motor named '%v'", motorName)
@@ -93,6 +89,7 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		return nil, errors.New("gripper motor needs to support position")
 	}
 
+	currentAnalogReaderName := config.Attributes.String("current")
 	current, exists := board.AnalogReaderByName(currentAnalogReaderName)
 	if !exists {
 		return nil, errors.Errorf("failed to find analog reader named '%v'", currentAnalogReaderName)
@@ -106,7 +103,7 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 
 	forceMatrixDevice, ok := forceMatrix.(forcematrix.ForceMatrix)
 	if !ok {
-		return nil, errors.Errorf("(%v) is not a forceMatrix device", forceMatrixName)
+		return nil, errors.Errorf("(%v) is not a ForceMatrix device", forceMatrixName)
 	}
 
 	pressureLimit := config.Attributes.Float64("pressureLimit", 30)
@@ -121,19 +118,8 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		frameJSON:       vgripperjson,
 	}
 
-	err = vg.calibrate(ctx, logger)
-	if err != nil {
+	if err := vg.calibrate(ctx, logger); err != nil {
 		return nil, err
-	}
-
-	if vg.closedDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
-		return nil, errors.New("vg.closedDirection has not been specified successfully")
-	}
-	if vg.openDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
-		return nil, errors.New("vg.openDirection has not been specified successfully")
-	}
-	if vg.openDirection == vg.closedDirection {
-		return nil, errors.New("vg.openDirection and vg.closedDirection have to be opposed")
 	}
 
 	return vg, vg.Open(ctx)
@@ -162,11 +148,11 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 
 	// Test forward motion for pressure/endpoint
 	logger.Debug("init: moving forward")
-	err := vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, TargetRPM/2, stopFuncHighCurrent)
+	err := vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, targetRPM/2, stopFuncHighCurrent)
 	if err != nil {
 		return err
 	}
-	pressure, err := vg.readRobustAveragePressure(ctx, NumMeasurementsCalib)
+	pressure, err := vg.readRobustAveragePressure(ctx, numMeasurementsCalib)
 	if err != nil {
 		return err
 	}
@@ -186,11 +172,11 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 
 	// Test backward motion for pressure/endpoint
 	logger.Debug("init: moving backward")
-	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, TargetRPM/2, stopFuncHighCurrent)
+	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, targetRPM/2, stopFuncHighCurrent)
 	if err != nil {
 		return err
 	}
-	pressure, err = vg.readRobustAveragePressure(ctx, NumMeasurementsCalib)
+	pressure, err = vg.readRobustAveragePressure(ctx, numMeasurementsCalib)
 	if err != nil {
 		return err
 	}
@@ -222,10 +208,14 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 			vg.closedPos, vg.openPos, pressureClosed, pressureOpen, vg.openDirection, vg.closedDirection)
 	}
 
+	if vg.openDirection == vg.closedDirection {
+		return errors.New("openDirection and vg.closedDirection have to be opposed")
+	}
+
 	if math.Signbit(vg.openPos - vg.closedPos) {
-		vg.openPos += OpenPosOffset
+		vg.openPos += openPosOffset
 	} else {
-		vg.openPos -= OpenPosOffset
+		vg.openPos -= openPosOffset
 	}
 
 	return nil
@@ -242,7 +232,7 @@ func (vg *GripperV2) Open(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	err = vg.motor.GoTo(ctx, TargetRPM, vg.openPos)
+	err = vg.motor.GoTo(ctx, targetRPM, vg.openPos)
 	if err != nil {
 		return err
 	}
@@ -263,8 +253,8 @@ func (vg *GripperV2) Open(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			if math.Abs(measuredPos-vg.openPos) > PositionTolerance {
-				return errors.Errorf("didn't reach open position, wanted: %f +/- %v, am at: %f", vg.openPos, PositionTolerance, measuredPos)
+			if math.Abs(measuredPos-vg.openPos) > positionTolerance {
+				return errors.Errorf("didn't reach open position, wanted: %f +/- %v, am at: %f", vg.openPos, positionTolerance, measuredPos)
 
 			}
 			return nil
@@ -286,13 +276,6 @@ func (vg *GripperV2) Open(ctx context.Context) error {
 	}
 }
 
-// holdItem adaptively changes the holding pressure based on whether or not slip is detected.
-func (vg *GripperV2) holdItem(ctx context.Context, startingPressure float32) error {
-	err := vg.motor.Go(ctx, vg.closedDirection, vg.holdingPressure)
-
-	return err
-}
-
 // Grab closes the jaws until pressure is sensed and returns true,
 // or until closed position is reached, and returns false.
 func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
@@ -300,7 +283,7 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	err = vg.motor.GoTo(ctx, TargetRPM, vg.closedPos)
+	err = vg.motor.GoTo(ctx, targetRPM, vg.closedPos)
 	if err != nil {
 		return false, err
 	}
@@ -327,9 +310,9 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 			if err != nil {
 				return false, err
 			}
-			if !pressure && math.Abs(measuredPos-vg.closedPos) > PositionTolerance {
+			if !pressure && math.Abs(measuredPos-vg.closedPos) > positionTolerance {
 				return false, errors.Errorf("didn't reach closed position and am not holding an object,"+
-					"closed position: %f +/- %v tolerance, actual position: %f", vg.closedPos, PositionTolerance, measuredPos)
+					"closed position: %f +/- %v tolerance, actual position: %f", vg.closedPos, positionTolerance, measuredPos)
 
 			}
 			return false, nil
@@ -368,12 +351,12 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 
 // processCurrentReading checks if the current is within a healthy range or not.
 func (vg *GripperV2) processCurrentReading(ctx context.Context, current int, where string) error {
-	if current < MaxCurrent {
+	if current < maxCurrent {
 		vg.numBadCurrentReadings = 0
 		return nil
 	}
 	vg.numBadCurrentReadings++
-	if vg.numBadCurrentReadings < CurrentBadReadingCounts {
+	if vg.numBadCurrentReadings < currentBadReadingCounts {
 		return nil
 	}
 	return errors.Errorf("current too high for too long, currently %d during %s", current, where)
