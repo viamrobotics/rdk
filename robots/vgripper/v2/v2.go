@@ -25,11 +25,11 @@ import (
 	"go.uber.org/multierr"
 )
 
-// ModelName is used to register the gripper to a model name.
-const ModelName = "viam-v2"
+// modelName is used to register the gripper to a model name.
+const modelName = "viam-v2"
 
 func init() {
-	registry.RegisterGripper(ModelName, registry.Gripper{
+	registry.RegisterGripper(modelName, registry.Gripper{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 			return New(ctx, r, config, logger)
 		},
@@ -78,7 +78,7 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 
 	board, exists := r.BoardByName(boardName)
 	if !exists {
-		return nil, errors.Errorf("%v gripper requires a board called %v", ModelName, boardName)
+		return nil, errors.Errorf("%v gripper requires a board called %v", modelName, boardName)
 	}
 
 	motor, exists := r.MotorByName(motorName)
@@ -281,6 +281,13 @@ func (vg *GripperV2) Open(ctx context.Context) error {
 	}
 }
 
+// holdItem adaptively changes the holding pressure based on whether or not slip is detected.
+func (vg *GripperV2) holdItem(ctx context.Context, startingPressure float32) error {
+	err := vg.motor.Go(ctx, vg.closedDirection, vg.holdingPressure)
+
+	return err
+}
+
 // Grab closes the jaws until pressure is sensed and returns true,
 // or until closed position is reached, and returns false.
 func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
@@ -335,7 +342,7 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 			}
 			vg.logger.Debugf("i think i grabbed something, have pressure, pos: %f closedPos: %v", now, vg.closedPos)
 			err = vg.motor.Go(ctx, vg.closedDirection, vg.holdingPressure)
-			return true, err
+			return err != nil, err
 		}
 
 		total += msPer

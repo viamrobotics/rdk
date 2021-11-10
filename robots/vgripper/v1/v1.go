@@ -26,16 +26,16 @@ import (
 //go:embed vgripper_model.json
 var vgripperjson []byte
 
-// ModelName is used to register the gripper to a model name.
-const ModelName = "viam-v1"
+// modelName is used to register the gripper to a model name.
+const modelName = "viam-v1"
 
 func init() {
-	registry.RegisterGripper(ModelName, registry.Gripper{
+	registry.RegisterGripper(modelName, registry.Gripper{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
-			const BoardName = "local"
-			b, ok := r.BoardByName(BoardName)
+			const boardName = "local"
+			b, ok := r.BoardByName(boardName)
 			if !ok {
-				return nil, errors.Errorf("%v gripper requires a board called %v", ModelName, BoardName)
+				return nil, errors.Errorf("%v gripper requires a board called %v", modelName, boardName)
 			}
 			return NewGripperV1(ctx, r, b, config, logger)
 		},
