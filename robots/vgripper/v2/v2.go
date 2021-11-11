@@ -28,7 +28,7 @@ import (
 const modelName = "viam-v2"
 
 //go:embed vgripper_model.json
-var vgripperjson []byte
+var vgripperv2json []byte
 
 func init() {
 	registry.RegisterGripper(modelName, registry.Gripper{
@@ -120,7 +120,7 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		calibrationNoiseThreshold: calibrationNoiseThreshold,
 		holdingPressure:           .5,
 		logger:                    logger,
-		frameJSON:                 vgripperjson,
+		frameJSON:                 vgripperv2json,
 	}
 
 	if err := vg.calibrate(ctx, logger); err != nil {
