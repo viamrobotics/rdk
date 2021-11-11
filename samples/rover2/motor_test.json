@@ -1,0 +1,67 @@
+{
+    "components":
+    [
+        {
+            "name": "local",
+            "model": "pi",
+            "type": "board",
+            "attributes":
+            {
+                "digitalInterrupts": [
+                    {
+                        "name": "j1-a",
+                        "pin": "32"
+                    },
+                    {
+                        "name": "j1-b",
+                        "pin": "31"
+                    },
+                    {
+                        "name": "a1-a",
+                        "pin": "22"
+                    },
+                    {
+                        "name": "a1-b",
+                        "pin": "29"
+                    }
+                ]                 
+            }
+        },
+        {
+            "name": "m-j1",
+            "type": "motor",
+            "model": "pi",
+            "attributes":
+            {
+                "board": "local",
+                "encoder": "j1-a",
+                "encoderB": "j1-b",
+                "pins": {
+                    "a": "38",
+                    "b": "40",
+                    "pwm": "36"
+                },
+                "pwmFreq": 8000,
+                "ticksPerRotation": 304
+            }
+        },
+        {
+            "name": "m-a1",
+            "type": "motor",
+            "model": "pi",
+            "attributes":
+            {
+                "board": "local",
+                "encoder": "a1-a",
+                "encoderB": "a1-b",
+                "pins": {
+                    "a": "37",
+                    "b": "35",
+                    "pwm": "33"
+                },
+                "pwmFreq": 8000,
+                "ticksPerRotation": 304
+            }
+        }
+    ]
+}
