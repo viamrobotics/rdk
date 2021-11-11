@@ -580,7 +580,7 @@ func TestPartsAdd(t *testing.T) {
 	test.That(t, inputController1.(*proxyInputController).actual, test.ShouldEqual, injectInputController)
 
 	injectObjectManipulationService := &inject.ObjectManipulationService{}
-	injectObjectManipulationService.DoGrabFunc = func(ctx context.Context, cameraName string, x, y, z float64) (bool, error) {
+	injectObjectManipulationService.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, x, y, z float64) (bool, error) {
 		return false, nil
 	}
 	const objectMServiceName = "object_manipulation"
