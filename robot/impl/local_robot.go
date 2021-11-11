@@ -50,6 +50,7 @@ import (
 	_ "go.viam.com/core/component/gantry/simple"
 	_ "go.viam.com/core/input/gamepad"    // xbox controller and similar
 	_ "go.viam.com/core/input/webgamepad" // gamepads via webbrowser
+	_ "go.viam.com/core/input/mux"
 	_ "go.viam.com/core/motor/gpio"
 	_ "go.viam.com/core/motor/gpiostepper"
 	_ "go.viam.com/core/motor/tmcstepper"
