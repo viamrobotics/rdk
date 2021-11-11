@@ -97,24 +97,38 @@ func (m *Model) SetName(name string) {
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
 func (m *Model) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+	poses, err := m.MultiTransform(inputs)
+	if err != nil && poses == nil {
+		return nil, err
+	}
+	return poses[len(poses)-1], err
+}
+
+// MultiTransform takes a model and a list of joint angles in radians and computes the dual quaterions representing the
+// cartesian positions of each of the links up to and including the end effector.  This is useful for when conversions
+// between quaternions and OV are not needed.
+func (m *Model) MultiTransform(inputs []referenceframe.Input) ([]spatialmath.Pose, error) {
 	pos := make([]float64, len(inputs))
 	for i, input := range inputs {
 		pos[i] = input.Value
 	}
-	return m.JointRadToQuat(pos)
+	return m.JointRadToQuats(pos)
 }
 
-// JointRadToQuat takes a model and a list of joint angles in radians and computes the dual quaternion representing the
-// cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
-func (m *Model) JointRadToQuat(radAngles []float64) (spatialmath.Pose, error) {
+// JointRadToQuats takes a model and a list of joint angles in radians and computes the dual quaternion representing the
+// cartesian position of each of the links up to and including the end effector. This is useful for when conversions
+// between quaternions and OV are not needed.
+func (m *Model) JointRadToQuats(radAngles []float64) ([]spatialmath.Pose, error) {
 	poses, err := m.GetPoses(radAngles)
 	if err != nil && poses == nil {
 		return nil, err
 	}
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
-	transformations := spatialmath.NewZeroPose()
+	composedTransformation := spatialmath.NewZeroPose()
+	var transformations []spatialmath.Pose
 	for _, pose := range poses {
-		transformations = spatialmath.Compose(transformations, pose)
+		composedTransformation = spatialmath.Compose(composedTransformation, pose)
+		transformations = append(transformations, composedTransformation)
 	}
 	return transformations, err
 }

@@ -48,7 +48,7 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 	var planner MotionPlanner
 	if fss.mpFunc != nil {
 		planner, err = fss.mpFunc(sf, fss.logger, runtime.NumCPU()/2)
-	}else{
+	} else {
 		planner, err = NewCBiRRTMotionPlanner(sf, fss.logger, runtime.NumCPU()/2)
 	}
 	if err != nil {
@@ -70,12 +70,12 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 	return steps, nil
 }
 
-func (fss *SolvableFrameSystem) SetPlannerGen(mpFunc func(frame.Frame, golog.Logger, int) (MotionPlanner, error)){
+func (fss *SolvableFrameSystem) SetPlannerGen(mpFunc func(frame.Frame, golog.Logger, int) (MotionPlanner, error)) {
 	fss.mpFunc = mpFunc
 }
 
 // solverFrames are meant to be ephemerally created each time a frame system solution is created, and fulfills the
-// Frame interface so that it can be passed to inverse kinematics.
+// Frame and MultiFrame interfaces so that it can be passed to inverse kinematics.
 type solverFrame struct {
 	fss        *SolvableFrameSystem
 	frames     []frame.Frame
@@ -102,6 +102,12 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	return sf.fss.TransformFrame(pos, sf.solveFrame, sf.goalFrame)
 }
 
+// func (sf *solverFrame) MultiTransform(inputs []frame.Input) (spatial.Pose, error) {
+// 	if len(inputs) != len(sf.DoF()) {
+// 		return nil, errors.New("incorrect number of inputs to MultiTransform")
+// 	}
+// }
+
 // DoF returns the summed DoF of all frames between the two solver frames.
 func (sf *solverFrame) DoF() []frame.Limit {
 	var limits []frame.Limit
@@ -122,7 +128,7 @@ func (sf *solverFrame) mapToSlice(inputMap map[string][]frame.Input) []frame.Inp
 }
 
 func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.Input {
-	inputs := map[string][]frame.Input{}
+	inputs := frame.StartPositions(sf.fss)
 	i := 0
 	for _, frame := range sf.frames {
 		inputs[frame.Name()] = inputSlice[i : i+len(frame.DoF())]
