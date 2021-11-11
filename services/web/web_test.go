@@ -13,11 +13,14 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/client"
 	"go.viam.com/core/metadata/service"
+	commonpb "go.viam.com/core/proto/api/common/v1"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/testutils/inject"
 )
+
+var resources = []resource.Name{resource.NewName(resource.Namespace("acme"), resource.ResourceTypeComponent, arm.SubtypeName, "arm1")}
 
 func TestWebStart(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -35,14 +38,14 @@ func TestWebStart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	client, err := client.NewClient(context.Background(), "localhost:8080", logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, client.ArmNames(), test.ShouldResemble, []string{"arm1"})
+	test.That(t, client.ResourceNames(), test.ShouldResemble, resources)
 
 	// try to start another server
 	err = svc.Start(context.Background(), NewOptions())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "already started")
 
-	// try to close to server
+	// try to close server
 	err = svc.Close()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc.(*webService).cancelFunc, test.ShouldBeNil)
@@ -71,22 +74,112 @@ func TestWebStartOptions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	client, err := client.NewClient(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, client.ArmNames(), test.ShouldResemble, []string{"arm1"})
+	test.That(t, client.ResourceNames(), test.ShouldResemble, resources)
 
-	// try to close to server
+	// try to close server
 	err = svc.Close()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc.(*webService).cancelFunc, test.ShouldBeNil)
 }
 
+func TestWebUpdate(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx, robot := setupRobotCtx()
+
+	svc, err := New(ctx, robot, config.Service{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, svc.(*webService).cancelFunc, test.ShouldBeNil)
+
+	err = svc.Start(ctx, NewOptions())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, svc.(*webService).cancelFunc, test.ShouldNotBeNil)
+
+	// make sure we get something back
+	addr := "localhost:8080"
+	arm1 := "arm1"
+	c, err := client.NewClient(context.Background(), addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
+
+	// add arm to robot and then update
+	injectArm := &inject.Arm{}
+	pos := &commonpb.Pose{X: 1, Y: 2, Z: 3}
+	injectArm.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+		return pos, nil
+	}
+	rs := map[resource.Name]interface{}{arm.Named(arm1): injectArm}
+	updateable := svc.(resource.Updateable)
+	err = updateable.Update(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+
+	aClient, err := arm.NewFromClient(context.Background(), c, arm1)
+	test.That(t, err, test.ShouldBeNil)
+	position, err := aClient.CurrentPosition(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, position, test.ShouldResemble, pos)
+
+	// try to close server
+	err = svc.Close()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, svc.(*webService).cancelFunc, test.ShouldBeNil)
+
+	// now start it with the arm already in it
+	ctx, robot2 := setupRobotCtx()
+	robot2.(*inject.Robot).ResourceNamesFunc = func() []resource.Name { return append(resources, arm.Named(arm1)) }
+	robot2.(*inject.Robot).ResourceByNameFunc = func(name resource.Name) (interface{}, bool) { return injectArm, true }
+
+	svc2, err := New(ctx, robot2, config.Service{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, svc2.(*webService).cancelFunc, test.ShouldBeNil)
+
+	err = svc2.Start(ctx, NewOptions())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, svc2.(*webService).cancelFunc, test.ShouldNotBeNil)
+
+	c2, err := client.NewClient(context.Background(), addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, c2.ResourceNames(), test.ShouldResemble, resources)
+	aClient2, err := arm.NewFromClient(context.Background(), c2, arm1)
+	test.That(t, err, test.ShouldBeNil)
+	position, err = aClient2.CurrentPosition(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, position, test.ShouldResemble, pos)
+
+	// add a second arm
+	arm2 := "arm2"
+	injectArm2 := &inject.Arm{}
+	pos2 := &commonpb.Pose{X: 2, Y: 3, Z: 4}
+	injectArm2.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+		return pos2, nil
+	}
+	rs[arm.Named(arm2)] = injectArm2
+	updateable = svc2.(resource.Updateable)
+	err = updateable.Update(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+
+	position, err = aClient2.CurrentPosition(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, position, test.ShouldResemble, pos)
+
+	aClient3, err := arm.NewFromClient(context.Background(), c2, arm2)
+	test.That(t, err, test.ShouldBeNil)
+	position, err = aClient3.CurrentPosition(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, position, test.ShouldResemble, pos2)
+
+	// try to close server
+	err = svc2.Close()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, svc2.(*webService).cancelFunc, test.ShouldBeNil)
+}
+
 func setupRobotCtx() (context.Context, robot.Robot) {
-	var resources = []resource.Name{arm.Named("arm1")}
 	injectRobot := &inject.Robot{}
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return nil, nil }
 	injectRobot.CameraNamesFunc = func() []string { return []string{} }
 	injectRobot.LidarNamesFunc = func() []string { return []string{} }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
-	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) { return name, true }
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) { return name, false }
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) { return &pb.Status{}, nil }
 
 	injectMetadata := &inject.Metadata{}
