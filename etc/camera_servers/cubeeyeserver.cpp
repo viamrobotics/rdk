@@ -40,7 +40,6 @@ public:
     }
 
     virtual void onCubeEyeCameraState(const meere::sensor::ptr_source source, meere::sensor::State state) {
-        //printf("%s:%d source(%s) state = %d\n", __FUNCTION__, __LINE__, source->uri().c_str(), state);
         std::cout << "Camera State = " << state << std::endl;
         if (meere::sensor::State::Running == state) {
             std::cout << " Running" << std::endl;
@@ -64,9 +63,9 @@ public:
 
     virtual void onCubeEyeCameraError(const meere::sensor::ptr_source source, meere::sensor::Error error) {
         // CubeEye.h has list of errors
-        std::cerr << "Error with the camera device, error string : " << error << endl;
         if(!TOFerror){
-            TOFerror = true;
+            std::cerr << "Error with the camera device, error string : " << error << endl;
+            TOFerror = true; //flag to try turning it off and on again
         }
     }
 
@@ -84,7 +83,7 @@ public:
 
 public:
     virtual void onCubeEyeCameraPrepared(const meere::sensor::ptr_camera camera) {
-        printf("%s:%d source(%s)\n", __FUNCTION__, __LINE__, camera->source()->uri().c_str());
+        std::cout << __FUNCTION__ << ":" << __LINE__ << " source(" << camera->source()->uri().c_str() << ")" << std::endl; 
     }
 /////////////// this guy is where we get camera data /////////////////////////
 
@@ -268,12 +267,12 @@ int main(int argc, char* argv[])
     httpserver::webserver webServerTOF = httpserver::create_webserver(port);
     installWebHandlers(&webServerTOF);
 
-    //setup listener threadl
+    //setup listener thread
     MyListener listener;
     meere::sensor::add_prepared_listener(&listener);
 
     // search ToF camera source
-    int _selected_source = -1;
+    int selected_source = -1;
     meere::sensor::sptr_source_list _source_list = meere::sensor::search_camera_source();
 
     if (nullptr != _source_list) {
@@ -288,11 +287,11 @@ int main(int argc, char* argv[])
     if (nullptr != _source_list && 0 < _source_list->size()) {
         if (1 < _source_list->size()) {
             std::cout << "Please enter the desired source number." << std::endl;
-            scanf("%d", &_selected_source);
+            scanf("%d", &selected_source);
             getchar();
         }
         else {
-            _selected_source = 0;
+            selected_source = 0;
         }
     }
     else {
@@ -300,7 +299,7 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    if (0 > _selected_source) {
+    if (0 > selected_source) {
         std::cerr << "invalid selected source number!" << std::endl;
         return -1;
     }
@@ -310,7 +309,7 @@ int main(int argc, char* argv[])
 
     // create ToF camera
     meere::sensor::result _rt;
-    meere::sensor::sptr_camera _camera = meere::sensor::create_camera(_source_list->at(_selected_source));
+    meere::sensor::sptr_camera _camera = meere::sensor::create_camera(_source_list->at(selected_source));
     if (nullptr != _camera) {
         _camera->addSink(&listener);
 
@@ -323,9 +322,9 @@ int main(int argc, char* argv[])
         }
 
         // set wanted frame type : depth
-        int _wantedFrame = meere::sensor::CubeEyeFrame::FrameType_Depth;
+        int wantedFrame = meere::sensor::CubeEyeFrame::FrameType_Depth;
 
-        _rt = _camera->run(_wantedFrame);
+        _rt = _camera->run(wantedFrame);
         assert(meere::sensor::success == _rt);
         if (meere::sensor::success != _rt) {
             std::cerr << "_camera->run() failed." << std::endl;
@@ -333,11 +332,11 @@ int main(int argc, char* argv[])
             return -1;
         }
         // change camera framerate to 30 fps
-        std::string _key("");
+        std::string key("");
 		meere::sensor::sptr_property _prop;
 		meere::sensor::result_property _rt_prop;
-        _key = "framerate";
-        _prop = meere::sensor::make_property_8u(_key, 30);
+        key = "framerate";
+        _prop = meere::sensor::make_property_8u(key, 30);
         _rt = _camera->setProperty(_prop);
 
         if (!TOFdone.is_lock_free()) return 10; // make sure we can actually use signal
@@ -347,18 +346,16 @@ int main(int argc, char* argv[])
 
         webServerTOF.start(false);//start the webserver without using blocking
         while(!TOFdone){//keep going until we stop
-
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
             // if an error in the camera occurs(sometimes timeout error on startup)
             // restart the camera
             if(TOFerror){
-                std::cerr << "this error thing " << TOFerror << endl;
-                std::cerr << "Try to Fix " << TOFerror << endl;
+                std::cerr << "Restarting Camera to Fix " << endl;
                 _camera->stop();
 
-                _rt = _camera->run(_wantedFrame);
+                _rt = _camera->run(wantedFrame);
                 TOFerror = false;
-            }
-            
+            } 
         }
         // turn stuff off
         webServerTOF.stop();
