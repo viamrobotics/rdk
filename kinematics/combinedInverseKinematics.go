@@ -3,7 +3,6 @@ package kinematics
 import (
 	"context"
 	"sync"
-	"fmt"
 
 	"go.viam.com/utils"
 
@@ -48,7 +47,6 @@ func runSolver(ctx context.Context, solver InverseKinematics, c chan []frame.Inp
 // positions. If unable to solve, the returned error will be non-nil
 func (ik *CombinedIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spatialmath.Pose, seed []frame.Input) error {
 	ik.logger.Debugf("starting joint positions: %v", seed)
-	fmt.Println(ik.solvers)
 	startPos, err := ik.model.Transform(seed)
 	if err != nil {
 		return err
@@ -126,5 +124,12 @@ func (ik *CombinedIK) Close() error {
 func (ik *CombinedIK) SetSolveWeights(weights SolverDistanceWeights) {
 	for _, solver := range ik.solvers {
 		solver.SetSolveWeights(weights)
+	}
+}
+
+// SetDistFunc sets the function for distance between two poses
+func (ik *CombinedIK) SetDistFunc(f func(spatialmath.Pose, spatialmath.Pose) float64) {
+	for _, solver := range ik.solvers {
+		solver.SetDistFunc(f)
 	}
 }

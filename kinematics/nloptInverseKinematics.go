@@ -133,11 +133,6 @@ func (ik *NloptIK) SetSolveWeights(weights SolverDistanceWeights) {
 	ik.SolveWeights = weights
 }
 
-// SetNloptMinFunc sets the function to minimize
-func (ik *NloptIK) SetNloptMinFunc(f func(x, gradient []float64) float64) error{
-	return ik.opt.SetMinObjective(f)
-}
-
 // SetDistFunc sets the function for distance between two poses
 func (ik *NloptIK) SetDistFunc(f func(spatial.Pose, spatial.Pose) float64) {
 	ik.distFunc = f

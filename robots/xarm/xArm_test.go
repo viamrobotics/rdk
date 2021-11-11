@@ -62,7 +62,7 @@ func TestSmooth(t *testing.T){
 	//~ time.Sleep(1 * time.Millisecond)
 }
 
-var wbY = -490.
+var wbY = -480.
 
 func TestWrite1(t *testing.T){
 	
@@ -111,6 +111,7 @@ func TestWrite1(t *testing.T){
 	
 	jPos, err := arm.CurrentJointPositions(ctx)
 	seedMap[m.Name()] = frame.JointPosToInputs(jPos)
+	curPos, _ := fs.TransformFrame(seedMap, markerFrame, fs.World())
 	
 	steps, err := fss.SolvePose(ctx, seedMap, goal, markerFrame, fs.World())
 	test.That(t, err, test.ShouldBeNil)
@@ -121,19 +122,25 @@ func TestWrite1(t *testing.T){
 	}
 	
 	validOV := &spatial.OrientationVector{OX:0, OY:-1, OZ:0}
-	oldGoal := goal
 	
 	goToGoal := func(goal spatial.Pose){
-		//~ validFunc, gradFunc := motionplan.NewLineConstraintAndGradient(oldGoal.Point(), goal.Point(), validOV)
-		motionplan.NewLineConstraintAndGradient(oldGoal.Point(), goal.Point(), validOV)
+		
+		jPos, err = arm.CurrentJointPositions(ctx)
+		seedMap[m.Name()] = frame.JointPosToInputs(jPos)
+		curPos, _ = fs.TransformFrame(seedMap, markerFrame, fs.World())
+		
+		validFunc, gradFunc := motionplan.NewLineConstraintAndGradient(curPos.Point(), goal.Point(), validOV)
+		destGrad := motionplan.NewPoseFlexOVGradient(goal, 0.3)
+		//~ motionplan.NewLineConstraintAndGradient(oldGoal.Point(), goal.Point(), validOV)
 		
 		// update constraints
 		mpFunc = func(f frame.Frame, logger golog.Logger, ncpu int) (motionplan.MotionPlanner, error) {
 			// just in case frame changed
-			mp, err := motionplan.NewLinearMotionPlanner(f, logger, 4)
-			//~ mp, err := motionplan.NewCBiRRTMotionPlanner_petertest(f, logger, 4)
-			//~ mp.SetDistFunc(gradFunc)
-			//~ mp.AddConstraint("whiteboard", validFunc)
+			//~ mp, err := motionplan.NewLinearMotionPlanner(f, logger, 4)
+			mp, err := motionplan.NewCBiRRTMotionPlanner_petertest(f, logger, 4)
+			mp.SetPathDistFunc(gradFunc)
+			mp.SetGoalDistFunc(destGrad)
+			mp.AddConstraint("whiteboard", validFunc)
 			
 			return mp, err
 		}
@@ -148,66 +155,11 @@ func TestWrite1(t *testing.T){
 			//~ fmt.Println(i, smooth)
 			arm.MoveToJointPositions(ctx, frame.InputsToJointPos(step[m.Name()]))
 		}
-		oldGoal = goal
 	}
 	
 	for _, goal = range viamPoints{
+		fmt.Println("going to goal", spatial.PoseToArmPos(goal))
 		goToGoal(goal)
-	}
-}
-
-func TestWrite2(t *testing.T){
-	
-	fs := frame.NewEmptySimpleFrameSystem("test")
-	
-	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
-	m, err := kinematics.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"))
-	test.That(t, err, test.ShouldBeNil)
-	
-	err = fs.AddFrame(m, fs.World())
-	test.That(t, err, test.ShouldBeNil)
-	
-	markerFrame, err := frame.NewStaticFrame("marker", spatial.NewPoseFromPoint(r3.Vector{0,0,135}))
-	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(markerFrame, m)
-	test.That(t, err, test.ShouldBeNil)
-	
-	validFunc, gradFunc := motionplan.NewPlaneConstraintAndGradient(r3.Vector{0,1,0}, r3.Vector{0,wbY,0})
-	
-	// update constraints
-	mpFunc := func(f frame.Frame, logger golog.Logger, ncpu int) (motionplan.MotionPlanner, error) {
-		// just in case frame changed
-		mp, err := motionplan.NewCBiRRTMotionPlanner_petertest(f, logger, 4)
-		mp.SetDistFunc(gradFunc)
-		mp.AddConstraint("whiteboard", validFunc)
-		
-		return mp, err
-	}
-	fss := motionplan.NewSolvableFrameSystem(fs, logger)
-	
-	fss.SetPlannerGen(mpFunc)
-	
-	arm, err := NewxArm(ctx, "10.0.0.98", logger, 7)
-	
-	goal := &pb.ArmPosition{
-		X:  320,
-		Y:  wbY,
-		Z:  500,
-		OY: -1,
-	}
-	
-	seedMap := map[string][]frame.Input{}
-	
-	jPos, err := arm.CurrentJointPositions(ctx)
-	seedMap[m.Name()] = frame.JointPosToInputs(jPos)
-	
-	steps, err := fss.SolvePose(ctx, seedMap, spatial.NewPoseFromArmPos(goal), markerFrame, fs.World())
-	test.That(t, err, test.ShouldBeNil)
-	
-	for _, step := range steps {
-		//~ fmt.Println(i, smooth)
-		arm.MoveToJointPositions(ctx, frame.InputsToJointPos(step[m.Name()]))
 	}
 }
 
@@ -217,28 +169,28 @@ func TestWrite2(t *testing.T){
 
 var viamPoints = []spatial.Pose{
 spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  440,Y:  wbY,Z:  500,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  400,Y:  wbY,Z:  600,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  400,Y:  wbY+10,Z:  600,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  380,Y:  wbY+10,Z:  600,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  380,Y:  wbY,Z:  600,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  380,Y:  wbY,Z:  500,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  380,Y:  wbY+10,Z:  500,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  360,Y:  wbY+10,Z:  500,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  360,Y:  wbY,Z:  500,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  320,Y:  wbY,Z:  600,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  280,Y:  wbY,Z:  500,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  280,Y:  wbY+10,Z:  500,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  340,Y:  wbY+10,Z:  500,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  340,Y:  wbY+10,Z:  550,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  340,Y:  wbY,Z:  550,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  300,Y:  wbY,Z:  550,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  300,Y:  wbY+10,Z:  550,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  260,Y:  wbY+10,Z:  500,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  260,Y:  wbY,Z:  500,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  260,Y:  wbY,Z:  600,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  230,Y:  wbY,Z:  500,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  200,Y:  wbY,Z:  600,OY: -1,}),
-spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  170,Y:  wbY,Z:  500,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  400,Y:  wbY,Z:  600,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  400,Y:  wbY+10,Z:  600,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  380,Y:  wbY+10,Z:  600,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  380,Y:  wbY,Z:  600,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  380,Y:  wbY,Z:  500,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  380,Y:  wbY+10,Z:  500,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  360,Y:  wbY+10,Z:  500,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  360,Y:  wbY,Z:  500,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  320,Y:  wbY,Z:  600,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  280,Y:  wbY,Z:  500,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  280,Y:  wbY+10,Z:  500,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  340,Y:  wbY+10,Z:  500,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  340,Y:  wbY+10,Z:  550,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  340,Y:  wbY,Z:  550,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  300,Y:  wbY,Z:  550,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  300,Y:  wbY+10,Z:  550,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  260,Y:  wbY+10,Z:  500,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  260,Y:  wbY,Z:  500,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  260,Y:  wbY,Z:  600,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  230,Y:  wbY,Z:  500,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  200,Y:  wbY,Z:  600,OY: -1,}),
+//~ spatial.NewPoseFromArmPos(&pb.ArmPosition{X:  170,Y:  wbY,Z:  500,OY: -1,}),
 }
 
 
