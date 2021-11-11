@@ -17,20 +17,23 @@ import (
 )
 
 func createWorkingMotor() *inject.Motor {
-	fakeMotor := &inject.Motor{}
-	fakeMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
+	injectMotor := &inject.Motor{}
+	injectMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
 		return true, nil
 	}
-	fakeMotor.GoTillStopFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+	injectMotor.GoTillStopFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
 		return nil
 	}
-	fakeMotor.OffFunc = func(ctx context.Context) error {
+	injectMotor.OffFunc = func(ctx context.Context) error {
 		return nil
 	}
-	fakeMotor.GoToFunc = func(ctx context.Context, rpm float64, position float64) error {
+	injectMotor.GoToFunc = func(ctx context.Context, rpm float64, position float64) error {
 		return nil
 	}
-	return fakeMotor
+	injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+		return nil
+	}
+	return injectMotor
 }
 
 func TestNew(t *testing.T) {
@@ -43,7 +46,6 @@ func TestNew(t *testing.T) {
 		}
 		_, err := New(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
-
 	})
 
 	t.Run("return error when not able to find motor", func(t *testing.T) {
@@ -145,10 +147,7 @@ func TestCalibrate(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	t.Run("return error when pressure is the same for the open and closed position", func(t *testing.T) {
-		fakeMotor := &inject.Motor{}
-		fakeMotor.GoTillStopFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
-			return nil
-		}
+		fakeMotor := createWorkingMotor()
 		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
 			return 0, nil
 		}
@@ -172,10 +171,7 @@ func TestCalibrate(t *testing.T) {
 	})
 
 	t.Run("expect no error when open and closed directions are correctly defined", func(t *testing.T) {
-		fakeMotor := &inject.Motor{}
-		fakeMotor.GoTillStopFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
-			return nil
-		}
+		fakeMotor := createWorkingMotor()
 		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
 			return 0, nil
 		}
@@ -214,13 +210,7 @@ func TestOpen(t *testing.T) {
 	successfulPosition := openPosition + 0.5*positionTolerance
 
 	t.Run("no error when position of fingers is within the allowed tolerance", func(t *testing.T) {
-		fakeMotor := &inject.Motor{}
-		fakeMotor.OffFunc = func(ctx context.Context) error {
-			return nil
-		}
-		fakeMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
-			return nil
-		}
+		fakeMotor := createWorkingMotor()
 		fakeMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
 			return false, nil
 		}
@@ -238,13 +228,7 @@ func TestOpen(t *testing.T) {
 	})
 
 	t.Run("return error when position of fingers is not within the allowed tolerance", func(t *testing.T) {
-		fakeMotor := &inject.Motor{}
-		fakeMotor.OffFunc = func(ctx context.Context) error {
-			return nil
-		}
-		fakeMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
-			return nil
-		}
+		fakeMotor := createWorkingMotor()
 		fakeMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
 			return false, nil
 		}
@@ -263,13 +247,7 @@ func TestOpen(t *testing.T) {
 	})
 
 	t.Run("return error when the open position isn't reached before the timeout", func(t *testing.T) {
-		fakeMotor := &inject.Motor{}
-		fakeMotor.OffFunc = func(ctx context.Context) error {
-			return nil
-		}
-		fakeMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
-			return nil
-		}
+		fakeMotor := createWorkingMotor()
 		// The motor will always be running, until the function hits the timeout
 		fakeMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
 			return true, nil
@@ -306,13 +284,7 @@ func TestGrab(t *testing.T) {
 	// or to have pressure on them
 	// 1. not on + no pressure + not closed ==> error (why did motor stop in mid air?)
 	t.Run("return error when motor stops mid-air while closing the gripper", func(t *testing.T) {
-		fakeMotor := &inject.Motor{}
-		fakeMotor.OffFunc = func(ctx context.Context) error {
-			return nil
-		}
-		fakeMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
-			return nil
-		}
+		fakeMotor := createWorkingMotor()
 		// The motor stopped
 		fakeMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
 			return false, nil
@@ -345,15 +317,10 @@ func TestGrab(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, grabbedSuccessfully, test.ShouldBeFalse)
 	})
+
 	// 2. not on --> didn't grab anything & closed all the way: false, nil
 	t.Run("return false but no error when gripper closed completely without grabbing anything", func(t *testing.T) {
-		fakeMotor := &inject.Motor{}
-		fakeMotor.OffFunc = func(ctx context.Context) error {
-			return nil
-		}
-		fakeMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
-			return nil
-		}
+		fakeMotor := createWorkingMotor()
 		// The motor stopped
 		fakeMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
 			return false, nil
@@ -393,16 +360,7 @@ func TestGrab(t *testing.T) {
 	// Test successful grabbing if gripper detects pressure
 	// 3. on + pressure --> true, error depends on motor.Go; let's test a successful grab
 	t.Run("return (true, nil) when something is successfully grabbed", func(t *testing.T) {
-		fakeMotor := &inject.Motor{}
-		fakeMotor.OffFunc = func(ctx context.Context) error {
-			return nil
-		}
-		fakeMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
-			return nil
-		}
-		fakeMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-			return nil
-		}
+		fakeMotor := createWorkingMotor()
 		// The motor is still running
 		fakeMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
 			return true, nil
@@ -441,15 +399,8 @@ func TestGrab(t *testing.T) {
 		test.That(t, motorIsOn, test.ShouldBeTrue)
 	})
 
-	// Test timeout
 	t.Run("return error when grabbing or closing wasn't successful before the timeout", func(t *testing.T) {
-		fakeMotor := &inject.Motor{}
-		fakeMotor.OffFunc = func(ctx context.Context) error {
-			return nil
-		}
-		fakeMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
-			return nil
-		}
+		fakeMotor := createWorkingMotor()
 		// The motor will always be running, until the function hits the timeout
 		fakeMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
 			return true, nil
@@ -494,7 +445,7 @@ func TestProcessCurrentReading(t *testing.T) {
 		injectedGripper := &GripperV2{
 			numBadCurrentReadings: currentBadReadingCounts - 2,
 		}
-		err := injectedGripper.processCurrentReading(context.Background(), current, "testing")
+		err := injectedGripper.checkCurrentInAcceptableRange(context.Background(), current, "testing")
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -503,7 +454,7 @@ func TestProcessCurrentReading(t *testing.T) {
 		injectedGripper := &GripperV2{
 			numBadCurrentReadings: currentBadReadingCounts - 1,
 		}
-		err := injectedGripper.processCurrentReading(context.Background(), current, "testing")
+		err := injectedGripper.checkCurrentInAcceptableRange(context.Background(), current, "testing")
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -512,7 +463,7 @@ func TestProcessCurrentReading(t *testing.T) {
 		injectedGripper := &GripperV2{
 			numBadCurrentReadings: currentBadReadingCounts - 5,
 		}
-		err := injectedGripper.processCurrentReading(context.Background(), current, "testing")
+		err := injectedGripper.checkCurrentInAcceptableRange(context.Background(), current, "testing")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectedGripper.numBadCurrentReadings, test.ShouldEqual, 0)
 	})
