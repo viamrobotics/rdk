@@ -214,6 +214,56 @@ func TestServer(t *testing.T) {
 		test.That(t, fssResp.FrameSystemConfigs[0].ModelJson, test.ShouldEqual, fsConfigs[0].ModelFrameConfig)
 	})
 
+	t.Run("ObjectManipulation", func(t *testing.T) {
+		server, injectRobot := newServer()
+
+		// set up the robot without an objectmanipulation service
+		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
+			services := make(map[string]interface{})
+			service, ok := services[name]
+			return service, ok
+		}
+		_, err := server.ObjectManipulationServiceDoGrab(context.Background(), &pb.ObjectManipulationServiceDoGrabRequest{})
+		test.That(t, err, test.ShouldBeError, errors.New("no objectmanipulation service"))
+
+		// set up the robot with something that is not an objectmanipulation service
+		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
+			services := make(map[string]interface{})
+			services["object_manipulation"] = nil
+			service, ok := services[name]
+			return service, ok
+		}
+		_, err = server.ObjectManipulationServiceDoGrab(context.Background(), &pb.ObjectManipulationServiceDoGrabRequest{})
+		test.That(t, err, test.ShouldBeError, errors.New("service is not a objectmanipulation service"))
+
+		// pass on dograb error
+		passedErr := errors.New("fake dograb error")
+		omSvc := &inject.ObjectManipulationService{}
+		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
+			return omSvc, true
+		}
+		omSvc.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, x, y, z float64) (bool, error) {
+			return false, passedErr
+		}
+		req := &pb.ObjectManipulationServiceDoGrabRequest{
+			CameraName:  "fakeC",
+			GripperName: "fakeG",
+			ArmName:     "fakeA",
+			CameraPoint: &pb.Vector3{X: 0, Y: 0, Z: 0},
+		}
+		_, err = server.ObjectManipulationServiceDoGrab(context.Background(), req)
+		test.That(t, err, test.ShouldBeError, passedErr)
+
+		// returns response
+		omSvc.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, x, y, z float64) (bool, error) {
+			return true, nil
+		}
+		resp, err := server.ObjectManipulationServiceDoGrab(context.Background(), req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.GetHasGrabbed(), test.ShouldBeTrue)
+
+	})
+
 	t.Run("StatusStream", func(t *testing.T) {
 		server, injectRobot := newServer()
 		err1 := errors.New("whoops")
