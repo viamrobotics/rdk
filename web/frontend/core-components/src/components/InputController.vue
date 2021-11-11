@@ -72,14 +72,12 @@ export default class InputController extends Vue {
   }
 
   get connected(): boolean {
-    if (
-      this.controllerStatus.eventsList[0] &&
-      this.controllerStatus.eventsList[0].event != "Disconnect"
-    ) {
-      return true;
-    } else {
-      return false;
+    for (let ev of this.controllerStatus.eventsList) {
+      if (ev.event != "Disconnect") {
+        return true;
+      }
     }
+    return false;
   }
 
   getValue(control: string): string {

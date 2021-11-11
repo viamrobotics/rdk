@@ -115,29 +115,38 @@
           theData.rawStatus = rawStatus;
           window.rawStatus = rawStatus;
           // toObject gives annoying suffixes; see https://github.com/protocolbuffers/protobuf/issues/6773
-          const rawSatusObj = rawStatus.toObject();
+          const rawStatusObj = rawStatus.toObject();
 
           var status = {}
 
           // make vue friendly
-          status.armsMap = rawSatusObj.armsMap;
-          status.basesMap = rawSatusObj.basesMap;
-          status.gantriesMap = rawSatusObj.gantriesMap;
-          status.grippersMap = rawSatusObj.grippersMap;
-          status.boardsMap = rawSatusObj.boardsMap;
-          status.camerasMap = rawSatusObj.camerasMap;
-          status.inputControllersMap = rawSatusObj.inputControllersMap;
-          status.sensorsMap = rawSatusObj.sensorsMap;
-          status.servosMap = rawSatusObj.servosMap;
-          status.motorsMap = rawSatusObj.motorsMap;
-          status.functionsMap = rawSatusObj.functionsMap;
-          status.servicesMap = rawSatusObj.servicesMap;
+          status.armsMap = rawStatusObj.armsMap;
+          status.basesMap = rawStatusObj.basesMap;
+          status.gantriesMap = rawStatusObj.gantriesMap;
+          status.grippersMap = rawStatusObj.grippersMap;
+          status.boardsMap = rawStatusObj.boardsMap;
+          status.camerasMap = rawStatusObj.camerasMap;
+          status.sensorsMap = rawStatusObj.sensorsMap;
+          status.servosMap = rawStatusObj.servosMap;
+          status.motorsMap = rawStatusObj.motorsMap;
+          status.functionsMap = rawStatusObj.functionsMap;
+          status.servicesMap = rawStatusObj.servicesMap;
 
           status.armsMap = fixArms(status.armsMap);
           status.gantriesMap = fixGantries(status.gantriesMap);
 
+          status.inputControllersMap = [];
+          status.webGamepad = false;
+          for (let i of rawStatusObj.inputControllersMap) {
+            if (i[0] === "WebGamepad") {
+              status.webGamepad = true;
+            }else{
+              status.inputControllersMap.push(i);
+            }
+          }
+
           if (!firstResult) {
-            console.log(rawSatusObj);
+            console.log(rawStatusObj);
             console.log(status);
             firstResult = true;
           }
@@ -1238,6 +1247,7 @@
 
       <!-- ******* WEB CONTROLS *******  -->
       <web-gamepad
+        v-if="status.webGamepad"
         style="max-width: 1080px;">
       </web-gamepad>
 
