@@ -43,9 +43,11 @@ const (
 	targetRPM               = 200
 	maxCurrent              = 300
 	currentBadReadingCounts = 50
-	openPosOffset           = 0.4 // Reduce maximum opening width, keeps out of mechanical binding region
-	numMeasurementsCalib    = 10  // Number of measurements at each end position taken when calibrating the gripper
-	positionTolerance       = 1   // Tolerance for motor position when reaching the open or closed position
+	openPosOffset           = 0.4  // Reduce maximum opening width, keeps out of mechanical binding region
+	numMeasurementsCalib    = 10   // Number of measurements at each end position taken when calibrating the gripper
+	positionTolerance       = 1    // Tolerance for motor position when reaching the open or closed position
+	openTimeout             = 5000 // in ms
+	grabTimeout             = 5000 // in ms
 )
 
 // GripperV2 represents a Viam gripper which operates with a ForceMatrix.
@@ -143,7 +145,7 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 			return true
 		}
 
-		err = vg.processCurrentReading(ctx, current, "init")
+		err = vg.checkCurrentInAcceptableRange(ctx, current, "init")
 		if err != nil {
 			logger.Error(err)
 			return true
@@ -240,7 +242,8 @@ func (vg *GripperV2) Open(ctx context.Context) error {
 	msPer := 10
 	total := 0
 	for {
-		if !utils.SelectContextOrWait(ctx, time.Duration(msPer)*time.Millisecond) {
+		wait := utils.SelectContextOrWait(ctx, time.Duration(msPer)*time.Millisecond)
+		if !wait {
 			return vg.stopAfterError(ctx, ctx.Err())
 		}
 		// If motor went all the way to open
@@ -263,13 +266,13 @@ func (vg *GripperV2) Open(ctx context.Context) error {
 		if err != nil {
 			return vg.stopAfterError(ctx, err)
 		}
-		err = vg.processCurrentReading(ctx, current, "opening")
+		err = vg.checkCurrentInAcceptableRange(ctx, current, "opening")
 		if err != nil {
 			return vg.stopAfterError(ctx, err)
 		}
 
 		total += msPer
-		if total > 5000 {
+		if total > openTimeout {
 			measuredPos, err := vg.motor.Position(ctx)
 			return vg.stopAfterError(ctx, multierr.Combine(errors.Errorf("open timed out, wanted: %f at: %f", vg.openPos, measuredPos), err))
 		}
@@ -291,7 +294,8 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 	msPer := 10
 	total := 0
 	for {
-		if !utils.SelectContextOrWait(ctx, time.Duration(msPer)*time.Millisecond) {
+		wait := utils.SelectContextOrWait(ctx, time.Duration(msPer)*time.Millisecond)
+		if !wait {
 			return false, vg.stopAfterError(ctx, ctx.Err())
 		}
 		// If motor went all the way to closed
@@ -318,7 +322,7 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 			return false, nil
 		}
 
-		err = vg.processCurrentReading(ctx, current, "grabbing")
+		err = vg.checkCurrentInAcceptableRange(ctx, current, "grabbing")
 		if err != nil {
 			return false, vg.stopAfterError(ctx, err)
 		}
@@ -334,7 +338,7 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 		}
 
 		total += msPer
-		if total > 5000 {
+		if total > grabTimeout {
 			pressureRaw, err := vg.readAveragePressure(ctx)
 			if err != nil {
 				return false, vg.stopAfterError(ctx, err)
@@ -349,8 +353,8 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 	}
 }
 
-// processCurrentReading checks if the current is within a healthy range or not.
-func (vg *GripperV2) processCurrentReading(ctx context.Context, current int, where string) error {
+// checkCurrentInAcceptableRange checks if the current is within a healthy range or not.
+func (vg *GripperV2) checkCurrentInAcceptableRange(ctx context.Context, current int, where string) error {
 	if current < maxCurrent {
 		vg.numBadCurrentReadings = 0
 		return nil
@@ -429,15 +433,11 @@ func (vg *GripperV2) hasPressure(ctx context.Context) (bool, float64, error) {
 // pressure is above the pressure limit, the average pressure from the ForceMatrix,
 // and the current in the motor.
 func (vg *GripperV2) analogs(ctx context.Context) (bool, float64, int, error) {
-	hasPressure, pressure, err := vg.hasPressure(ctx)
+	hasPressure, pressure, errP := vg.hasPressure(ctx)
+	current, errC := vg.readCurrent(ctx)
+	err := multierr.Combine(errP, errC)
 	if err != nil {
 		return false, 0, 0, err
 	}
-
-	current, err := vg.readCurrent(ctx)
-	if err != nil {
-		return false, 0, 0, err
-	}
-
 	return hasPressure, pressure, current, nil
 }
