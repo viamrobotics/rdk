@@ -36,7 +36,7 @@ var wx250smodeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, "wx250s", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewArm(ctx, config.Attributes, logger)
+			return NewArm(config.Attributes, logger)
 		},
 	})
 }
@@ -97,14 +97,14 @@ func getPortMutex(port string) *sync.Mutex {
 }
 
 // NewArm TODO
-func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
+func NewArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
 	usbPort := attributes.String("usbPort")
 	servos, err := findServos(usbPort, attributes.String("baudRate"), attributes.String("armServoCount"))
 	if err != nil {
 		return nil, err
 	}
 
-	model, err := kinematics.ParseJSON(wx250smodeljson, "")
+	model, err := kinematics.ParseJSON(wx250smodeljson)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (a *Arm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
+func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -138,7 +138,7 @@ func (a *Arm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (a *Arm) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
+func (a *Arm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err

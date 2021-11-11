@@ -1,8 +1,10 @@
 {
-    "name": "UR5e",
-    "kinematic_param_type": "DH",
-    "dhParams": [
-        {
+   "model": {
+      "manufacturer": "Universal Robotics",
+      "name": "UR5e",
+      "kinematic_param_type": "DH",
+      "dhParams": [
+         {
             "id": "base",
             "parent": "world",
             "a": 0,
@@ -10,8 +12,8 @@
             "alpha": 1.57079632679,
             "max": 360,
             "min": -360
-        },
-        {
+         },
+         {
             "id": "shoulder",
             "parent": "base",
             "a": -425,
@@ -19,8 +21,8 @@
             "alpha": 0,
             "max": 360,
             "min": -360
-        },
-        {
+         },
+         {
             "id": "elbow",
             "parent": "shoulder",
             "a": -392.2,
@@ -28,8 +30,8 @@
             "alpha": 0,
             "max": 180,
             "min": -180
-        },
-        {
+         },
+         {
             "id": "wrist_1",
             "parent": "elbow",
             "a": 0,
@@ -37,8 +39,8 @@
             "alpha": 1.57079632679,
             "max": 360,
             "min": -360
-        },
-        {
+         },
+         {
             "id": "wrist_2",
             "parent": "wrist_1",
             "a": 0,
@@ -46,8 +48,8 @@
             "alpha": -1.57079632679,
             "max": 360,
             "min": -360
-        },
-        {
+         },
+         {
             "id": "wrist_3",
             "parent": "wrist_2",
             "a": 0,
@@ -55,6 +57,7 @@
             "alpha": 0,
             "max": 360,
             "min": -360
-        }
-    ]
+         }
+      ]
+   }
 }

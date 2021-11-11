@@ -20,6 +20,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -38,20 +39,30 @@ var ur5DHmodeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, "ur", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return URArmConnect(ctx, config, logger)
+			return URArmConnect(ctx, config.Host, config.Attributes.Float64("speed", .1), logger)
 		},
+		Frame: func(name string) (referenceframe.Frame, error) { return ur5eFrame(name) },
 	})
 }
 
 // Ur5eModel() returns the kinematics model of the xArm, also has all Frame information.
 func ur5eModel() (*kinematics.Model, error) {
-	return kinematics.ParseJSON(ur5modeljson, "")
+	return kinematics.ParseJSON(ur5modeljson)
+}
+
+// Ur5eFrame() returns the reference frame of the arm with the given name.
+func ur5eFrame(name string) (referenceframe.Frame, error) {
+	frame, err := ur5eModel()
+	if err != nil {
+		return nil, err
+	}
+	frame.SetName(name)
+	return frame, nil
 }
 
 // URArm TODO
 type URArm struct {
 	mu                      *sync.Mutex
-	muMove                  sync.Mutex
 	conn                    net.Conn
 	speed                   float64
 	state                   RobotState
@@ -62,7 +73,6 @@ type URArm struct {
 	cancel                  func()
 	activeBackgroundWorkers *sync.WaitGroup
 	ik                      kinematics.InverseKinematics
-	frameJSON               []byte
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -96,9 +106,7 @@ func (ua *URArm) Close() error {
 }
 
 // URArmConnect TODO
-func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
-	speed := cfg.Attributes.Float64("speed", .1)
-	host := cfg.Host
+func URArmConnect(ctx context.Context, host string, speed float64, logger golog.Logger) (arm.Arm, error) {
 	if speed > 1 || speed < .1 {
 		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
 	}
@@ -129,7 +137,6 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 		logger:                  logger,
 		cancel:                  cancel,
 		ik:                      ik,
-		frameJSON:               ur5modeljson,
 	}
 
 	onData := make(chan struct{})
@@ -158,11 +165,6 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 	}
 }
 
-// ModelFrame returns all the information necessary for including the arm in a FrameSystem
-func (ua *URArm) ModelFrame() []byte {
-	return ua.frameJSON
-}
-
 func (ua *URArm) setRuntimeError(re error) {
 	ua.mu.Lock()
 	ua.runtimeError = re
@@ -184,23 +186,16 @@ func (ua *URArm) setState(state RobotState) {
 }
 
 // State TODO
-func (ua *URArm) State() (RobotState, error) {
+func (ua *URArm) State() RobotState {
 	ua.mu.Lock()
 	defer ua.mu.Unlock()
-	age := time.Since(ua.state.creationTime)
-	if age > time.Second {
-		return ua.state, fmt.Errorf("ur status is too old %v from: %v", age, ua.state.creationTime)
-	}
-	return ua.state, nil
+	return ua.state
 }
 
 // CurrentJointPositions TODO
 func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	radians := []float64{}
-	state, err := ua.State()
-	if err != nil {
-		return nil, err
-	}
+	state := ua.State()
 	for _, j := range state.Joints {
 		radians = append(radians, j.Qactual)
 	}
@@ -208,7 +203,7 @@ func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions,
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
+func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	joints, err := ua.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -217,20 +212,14 @@ func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
+func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	joints, err := ua.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
 	}
-	start := time.Now()
 	solution, err := ua.ik.Solve(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
-	}
-	timeToSolve := time.Since(start)
-	if timeToSolve > time.Second {
-		ua.logger.Debugf("ur took too long to solve position %v", timeToSolve)
-		return fmt.Errorf("ur took too long to solve position %v", timeToSolve)
 	}
 	return ua.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
 }
@@ -242,10 +231,7 @@ func (ua *URArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 	}
 
 	radians := []float64{}
-	state, err := ua.State()
-	if err != nil {
-		return err
-	}
+	state := ua.State()
 	for _, j := range state.Joints {
 		radians = append(radians, j.Qactual)
 	}
@@ -262,9 +248,6 @@ func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosit
 
 // MoveToJointPositionRadians TODO
 func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float64) error {
-	ua.muMove.Lock()
-	defer ua.muMove.Unlock()
-
 	if len(radians) != 6 {
 		return errors.New("need 6 joints")
 	}
@@ -289,10 +272,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 	slept := 0
 	for {
 		good := true
-		state, err := ua.State()
-		if err != nil {
-			return err
-		}
+		state := ua.State()
 		for idx, r := range radians {
 			if math.Round(r*100) != math.Round(state.Joints[idx].Qactual*100) {
 				good = false
