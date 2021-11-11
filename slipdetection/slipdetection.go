@@ -105,8 +105,8 @@ func DetectSlipV0(rhp ReadingsHistoryProvider, mu *sync.Mutex, slipThreshold flo
 	matrices = matrices[(numRecordedMatrices - framesToUse):]
 	numMatrices := len(matrices)
 
-	previousFrame := getAverageValues(matrices[0:(numMatrices / 2)])
-	currentFrame := getAverageValues(matrices[numMatrices/2 : numMatrices])
+	previousFrame := getAverageValues(matrices[:(numMatrices / 2)])
+	currentFrame := getAverageValues(matrices[numMatrices/2:])
 	diff := getMatrixStateDiff(previousFrame, currentFrame, slipThreshold)
 	return !isEmptyState(diff), nil
 }
