@@ -42,8 +42,7 @@ type SolverDistanceWeights struct {
 // And a Fixed will attach a Frame to a Body
 // Exceptions are the head of the tree where we are just starting the robot from World
 type Model struct {
-	manufacturer string
-	name         string // the name of the arm
+	name string // the name of the arm
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	OrdTransforms []referenceframe.Frame
 	SolveWeights  SolverDistanceWeights

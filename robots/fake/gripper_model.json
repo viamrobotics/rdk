@@ -1,17 +1,14 @@
 {
-   "model": {
-      "manufacturer": "Fake Robotics",
-      "name": "fake_gripper",
-      "links": [
-         {
+    "name": "fake_gripper",
+    "links": [
+        {
             "id": "base_link",
             "parent": "world",
             "translation": {
-               "x": 0,
-               "y": 0,
-               "z": 200.0
+                "x": 0,
+                "y": 0,
+                "z": 200.0
             }
-         }
-      ]
-   }
+        }
+    ]
 }
