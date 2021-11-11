@@ -24,7 +24,7 @@ import (
 )
 
 //go:embed vgripper_model.json
-var vgripperjson []byte
+var vgripperv1json []byte
 
 // modelName is used to register the gripper to a model name.
 const modelName = "viam-v1"
@@ -93,7 +93,7 @@ func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 		holdingPressure: .5,
 		pressureLimit:   pressureLimit,
 		logger:          logger,
-		frameJSON:       vgripperjson,
+		frameJSON:       vgripperv1json,
 	}
 
 	if vg.motor == nil {
