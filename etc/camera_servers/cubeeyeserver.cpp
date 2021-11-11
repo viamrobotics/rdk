@@ -359,10 +359,8 @@ int main(int argc, char* argv[])
         }
         // turn stuff off
         webServerTOF.stop();
-        _camera->stop();
-        _camera->release();
         meere::sensor::destroy_camera(_camera);
-        _camera.reset();
+        // _camera.reset();
     }
     return 0;
 }
