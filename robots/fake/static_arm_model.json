@@ -1,15 +1,13 @@
 {
-   "model": {
-      "manufacturer": "Fake Robotics",
-      "name": "fake_arm",
-      "links": [
-         {
+    "name": "fake_arm",
+    "link≈s": [
+        {
             "id": "base_link",
             "parent": "world",
             "translation": {
-               "x": 500.0,
-               "y": 0,
-               "z": 300.0
+                "x": 500.0,
+                "y": 0,
+                "z": 300.0
             },
             "orientation": {
                 "x": 1.0,
@@ -17,7 +15,7 @@
                 "z": 0.0,
                 "th": 0.0
             }
-         }
-      ]
-   }
+        }
+    ]
 }
+
