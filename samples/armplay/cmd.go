@@ -15,6 +15,14 @@ import (
 	"go.viam.com/core/robot"
 	webserver "go.viam.com/core/web/server"
 
+	_ "go.viam.com/core/board/detector"         // load boards
+	_ "go.viam.com/core/robots/eva"             // load arm
+	_ "go.viam.com/core/robots/universalrobots" // load arm
+	_ "go.viam.com/core/robots/varm"            // load arm
+	_ "go.viam.com/core/robots/vx300s"          // load arm
+	_ "go.viam.com/core/robots/wx250s"          // load arm
+	_ "go.viam.com/core/robots/xarm"
+
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 )
@@ -56,10 +64,10 @@ func chrisCirlce(ctx context.Context, r robot.Robot) error {
 	}
 
 	return multierr.Combine(
-		arm.MoveToPosition(ctx, &pb.Pose{X: -600, Z: 480}),
-		arm.MoveToPosition(ctx, &pb.Pose{X: -200, Z: 480}),
-		arm.MoveToPosition(ctx, &pb.Pose{X: -200, Z: 300}),
-		arm.MoveToPosition(ctx, &pb.Pose{X: -600, Z: 300}),
+		arm.MoveToPosition(ctx, &pb.ArmPosition{X: -600, Z: 480}),
+		arm.MoveToPosition(ctx, &pb.ArmPosition{X: -200, Z: 480}),
+		arm.MoveToPosition(ctx, &pb.ArmPosition{X: -200, Z: 300}),
+		arm.MoveToPosition(ctx, &pb.ArmPosition{X: -600, Z: 300}),
 	)
 }
 

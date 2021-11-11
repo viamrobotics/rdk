@@ -46,6 +46,8 @@ type RobotServiceClient interface {
 	ArmJointMoveDelta(ctx context.Context, in *ArmJointMoveDeltaRequest, opts ...grpc.CallOption) (*ArmJointMoveDeltaResponse, error)
 	// BaseMoveStraight moves a base of the underlying robot straight.
 	BaseMoveStraight(ctx context.Context, in *BaseMoveStraightRequest, opts ...grpc.CallOption) (*BaseMoveStraightResponse, error)
+	// BaseMoveArc moves a base of the underlying robot in an arc.
+	BaseMoveArc(ctx context.Context, in *BaseMoveArcRequest, opts ...grpc.CallOption) (*BaseMoveArcResponse, error)
 	// BaseSpin spins a base of the underlying robot.
 	BaseSpin(ctx context.Context, in *BaseSpinRequest, opts ...grpc.CallOption) (*BaseSpinResponse, error)
 	// BaseSpin stops a base of the underlying robot.
@@ -113,7 +115,6 @@ type RobotServiceClient interface {
 	CompassMark(ctx context.Context, in *CompassMarkRequest, opts ...grpc.CallOption) (*CompassMarkResponse, error)
 	// ForceMatrixMatrix returns the matrix of force readings from the force matrix sensor
 	ForceMatrixMatrix(ctx context.Context, in *ForceMatrixMatrixRequest, opts ...grpc.CallOption) (*ForceMatrixMatrixResponse, error)
-	ForceMatrixSlipDetection(ctx context.Context, in *ForceMatrixSlipDetectionRequest, opts ...grpc.CallOption) (*ForceMatrixSlipDetectionResponse, error)
 	// TODO(erd): refactor to functions service
 	ExecuteFunction(ctx context.Context, in *ExecuteFunctionRequest, opts ...grpc.CallOption) (*ExecuteFunctionResponse, error)
 	ExecuteSource(ctx context.Context, in *ExecuteSourceRequest, opts ...grpc.CallOption) (*ExecuteSourceResponse, error)
@@ -156,9 +157,6 @@ type RobotServiceClient interface {
 	InputControllerEventStream(ctx context.Context, in *InputControllerEventStreamRequest, opts ...grpc.CallOption) (RobotService_InputControllerEventStreamClient, error)
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(ctx context.Context, in *ResourceRunCommandRequest, opts ...grpc.CallOption) (*ResourceRunCommandResponse, error)
-	// Frame System Service
-	FrameServiceConfig(ctx context.Context, in *FrameServiceConfigRequest, opts ...grpc.CallOption) (*FrameServiceConfigResponse, error)
-	// Navigation Service
 	NavigationServiceMode(ctx context.Context, in *NavigationServiceModeRequest, opts ...grpc.CallOption) (*NavigationServiceModeResponse, error)
 	NavigationServiceSetMode(ctx context.Context, in *NavigationServiceSetModeRequest, opts ...grpc.CallOption) (*NavigationServiceSetModeResponse, error)
 	NavigationServiceLocation(ctx context.Context, in *NavigationServiceLocationRequest, opts ...grpc.CallOption) (*NavigationServiceLocationResponse, error)
@@ -312,6 +310,15 @@ func (c *robotServiceClient) ArmJointMoveDelta(ctx context.Context, in *ArmJoint
 func (c *robotServiceClient) BaseMoveStraight(ctx context.Context, in *BaseMoveStraightRequest, opts ...grpc.CallOption) (*BaseMoveStraightResponse, error) {
 	out := new(BaseMoveStraightResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseMoveStraight", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) BaseMoveArc(ctx context.Context, in *BaseMoveArcRequest, opts ...grpc.CallOption) (*BaseMoveArcResponse, error) {
+	out := new(BaseMoveArcResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseMoveArc", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -597,15 +604,6 @@ func (c *robotServiceClient) ForceMatrixMatrix(ctx context.Context, in *ForceMat
 	return out, nil
 }
 
-func (c *robotServiceClient) ForceMatrixSlipDetection(ctx context.Context, in *ForceMatrixSlipDetectionRequest, opts ...grpc.CallOption) (*ForceMatrixSlipDetectionResponse, error) {
-	out := new(ForceMatrixSlipDetectionResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ForceMatrixSlipDetection", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *robotServiceClient) ExecuteFunction(ctx context.Context, in *ExecuteFunctionRequest, opts ...grpc.CallOption) (*ExecuteFunctionResponse, error) {
 	out := new(ExecuteFunctionResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ExecuteFunction", in, out, opts...)
@@ -841,15 +839,6 @@ func (c *robotServiceClient) ResourceRunCommand(ctx context.Context, in *Resourc
 	return out, nil
 }
 
-func (c *robotServiceClient) FrameServiceConfig(ctx context.Context, in *FrameServiceConfigRequest, opts ...grpc.CallOption) (*FrameServiceConfigResponse, error) {
-	out := new(FrameServiceConfigResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/FrameServiceConfig", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *robotServiceClient) NavigationServiceMode(ctx context.Context, in *NavigationServiceModeRequest, opts ...grpc.CallOption) (*NavigationServiceModeResponse, error) {
 	out := new(NavigationServiceModeResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/NavigationServiceMode", in, out, opts...)
@@ -988,6 +977,8 @@ type RobotServiceServer interface {
 	ArmJointMoveDelta(context.Context, *ArmJointMoveDeltaRequest) (*ArmJointMoveDeltaResponse, error)
 	// BaseMoveStraight moves a base of the underlying robot straight.
 	BaseMoveStraight(context.Context, *BaseMoveStraightRequest) (*BaseMoveStraightResponse, error)
+	// BaseMoveArc moves a base of the underlying robot in an arc.
+	BaseMoveArc(context.Context, *BaseMoveArcRequest) (*BaseMoveArcResponse, error)
 	// BaseSpin spins a base of the underlying robot.
 	BaseSpin(context.Context, *BaseSpinRequest) (*BaseSpinResponse, error)
 	// BaseSpin stops a base of the underlying robot.
@@ -1055,7 +1046,6 @@ type RobotServiceServer interface {
 	CompassMark(context.Context, *CompassMarkRequest) (*CompassMarkResponse, error)
 	// ForceMatrixMatrix returns the matrix of force readings from the force matrix sensor
 	ForceMatrixMatrix(context.Context, *ForceMatrixMatrixRequest) (*ForceMatrixMatrixResponse, error)
-	ForceMatrixSlipDetection(context.Context, *ForceMatrixSlipDetectionRequest) (*ForceMatrixSlipDetectionResponse, error)
 	// TODO(erd): refactor to functions service
 	ExecuteFunction(context.Context, *ExecuteFunctionRequest) (*ExecuteFunctionResponse, error)
 	ExecuteSource(context.Context, *ExecuteSourceRequest) (*ExecuteSourceResponse, error)
@@ -1098,9 +1088,6 @@ type RobotServiceServer interface {
 	InputControllerEventStream(*InputControllerEventStreamRequest, RobotService_InputControllerEventStreamServer) error
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error)
-	// Frame System Service
-	FrameServiceConfig(context.Context, *FrameServiceConfigRequest) (*FrameServiceConfigResponse, error)
-	// Navigation Service
 	NavigationServiceMode(context.Context, *NavigationServiceModeRequest) (*NavigationServiceModeResponse, error)
 	NavigationServiceSetMode(context.Context, *NavigationServiceSetModeRequest) (*NavigationServiceSetModeResponse, error)
 	NavigationServiceLocation(context.Context, *NavigationServiceLocationRequest) (*NavigationServiceLocationResponse, error)
@@ -1161,6 +1148,9 @@ func (UnimplementedRobotServiceServer) ArmJointMoveDelta(context.Context, *ArmJo
 }
 func (UnimplementedRobotServiceServer) BaseMoveStraight(context.Context, *BaseMoveStraightRequest) (*BaseMoveStraightResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BaseMoveStraight not implemented")
+}
+func (UnimplementedRobotServiceServer) BaseMoveArc(context.Context, *BaseMoveArcRequest) (*BaseMoveArcResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BaseMoveArc not implemented")
 }
 func (UnimplementedRobotServiceServer) BaseSpin(context.Context, *BaseSpinRequest) (*BaseSpinResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BaseSpin not implemented")
@@ -1255,9 +1245,6 @@ func (UnimplementedRobotServiceServer) CompassMark(context.Context, *CompassMark
 func (UnimplementedRobotServiceServer) ForceMatrixMatrix(context.Context, *ForceMatrixMatrixRequest) (*ForceMatrixMatrixResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ForceMatrixMatrix not implemented")
 }
-func (UnimplementedRobotServiceServer) ForceMatrixSlipDetection(context.Context, *ForceMatrixSlipDetectionRequest) (*ForceMatrixSlipDetectionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ForceMatrixSlipDetection not implemented")
-}
 func (UnimplementedRobotServiceServer) ExecuteFunction(context.Context, *ExecuteFunctionRequest) (*ExecuteFunctionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecuteFunction not implemented")
 }
@@ -1320,9 +1307,6 @@ func (UnimplementedRobotServiceServer) InputControllerEventStream(*InputControll
 }
 func (UnimplementedRobotServiceServer) ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResourceRunCommand not implemented")
-}
-func (UnimplementedRobotServiceServer) FrameServiceConfig(context.Context, *FrameServiceConfigRequest) (*FrameServiceConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method FrameServiceConfig not implemented")
 }
 func (UnimplementedRobotServiceServer) NavigationServiceMode(context.Context, *NavigationServiceModeRequest) (*NavigationServiceModeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NavigationServiceMode not implemented")
@@ -1588,6 +1572,24 @@ func _RobotService_BaseMoveStraight_Handler(srv interface{}, ctx context.Context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).BaseMoveStraight(ctx, req.(*BaseMoveStraightRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_BaseMoveArc_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BaseMoveArcRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BaseMoveArc(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BaseMoveArc",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BaseMoveArc(ctx, req.(*BaseMoveArcRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2150,24 +2152,6 @@ func _RobotService_ForceMatrixMatrix_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_ForceMatrixSlipDetection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ForceMatrixSlipDetectionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).ForceMatrixSlipDetection(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/ForceMatrixSlipDetection",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).ForceMatrixSlipDetection(ctx, req.(*ForceMatrixSlipDetectionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _RobotService_ExecuteFunction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ExecuteFunctionRequest)
 	if err := dec(in); err != nil {
@@ -2552,24 +2536,6 @@ func _RobotService_ResourceRunCommand_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_FrameServiceConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FrameServiceConfigRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).FrameServiceConfig(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/FrameServiceConfig",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).FrameServiceConfig(ctx, req.(*FrameServiceConfigRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _RobotService_NavigationServiceMode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(NavigationServiceModeRequest)
 	if err := dec(in); err != nil {
@@ -2838,6 +2804,10 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RobotService_BaseMoveStraight_Handler,
 		},
 		{
+			MethodName: "BaseMoveArc",
+			Handler:    _RobotService_BaseMoveArc_Handler,
+		},
+		{
 			MethodName: "BaseSpin",
 			Handler:    _RobotService_BaseSpin_Handler,
 		},
@@ -2962,10 +2932,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RobotService_ForceMatrixMatrix_Handler,
 		},
 		{
-			MethodName: "ForceMatrixSlipDetection",
-			Handler:    _RobotService_ForceMatrixSlipDetection_Handler,
-		},
-		{
 			MethodName: "ExecuteFunction",
 			Handler:    _RobotService_ExecuteFunction_Handler,
 		},
@@ -3040,10 +3006,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResourceRunCommand",
 			Handler:    _RobotService_ResourceRunCommand_Handler,
-		},
-		{
-			MethodName: "FrameServiceConfig",
-			Handler:    _RobotService_FrameServiceConfig_Handler,
 		},
 		{
 			MethodName: "NavigationServiceMode",

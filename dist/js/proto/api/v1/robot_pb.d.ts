@@ -157,8 +157,8 @@ export class ComponentConfig extends jspb.Message {
 
   hasPose(): boolean;
   clearPose(): void;
-  getPose(): Pose | undefined;
-  setPose(value?: Pose): void;
+  getPose(): ArmPosition | undefined;
+  setPose(value?: ArmPosition): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ComponentConfig.AsObject;
@@ -175,7 +175,7 @@ export namespace ComponentConfig {
     name: string,
     type: string,
     parent: string,
-    pose?: Pose.AsObject,
+    pose?: ArmPosition.AsObject,
   }
 }
 
@@ -284,8 +284,8 @@ export namespace GantryStatus {
 export class ArmStatus extends jspb.Message {
   hasGridPosition(): boolean;
   clearGridPosition(): void;
-  getGridPosition(): Pose | undefined;
-  setGridPosition(value?: Pose): void;
+  getGridPosition(): ArmPosition | undefined;
+  setGridPosition(value?: ArmPosition): void;
 
   hasJointPositions(): boolean;
   clearJointPositions(): void;
@@ -304,12 +304,12 @@ export class ArmStatus extends jspb.Message {
 
 export namespace ArmStatus {
   export type AsObject = {
-    gridPosition?: Pose.AsObject,
+    gridPosition?: ArmPosition.AsObject,
     jointPositions?: JointPositions.AsObject,
   }
 }
 
-export class Pose extends jspb.Message {
+export class ArmPosition extends jspb.Message {
   getX(): number;
   setX(value: number): void;
 
@@ -332,16 +332,16 @@ export class Pose extends jspb.Message {
   setTheta(value: number): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): Pose.AsObject;
-  static toObject(includeInstance: boolean, msg: Pose): Pose.AsObject;
+  toObject(includeInstance?: boolean): ArmPosition.AsObject;
+  static toObject(includeInstance: boolean, msg: ArmPosition): ArmPosition.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: Pose, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): Pose;
-  static deserializeBinaryFromReader(message: Pose, reader: jspb.BinaryReader): Pose;
+  static serializeBinaryToWriter(message: ArmPosition, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ArmPosition;
+  static deserializeBinaryFromReader(message: ArmPosition, reader: jspb.BinaryReader): ArmPosition;
 }
 
-export namespace Pose {
+export namespace ArmPosition {
   export type AsObject = {
     x: number,
     y: number,
@@ -375,102 +375,6 @@ export namespace JointPositions {
   }
 }
 
-export class FrameConfig extends jspb.Message {
-  getParent(): string;
-  setParent(value: string): void;
-
-  hasPose(): boolean;
-  clearPose(): void;
-  getPose(): Pose | undefined;
-  setPose(value?: Pose): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): FrameConfig.AsObject;
-  static toObject(includeInstance: boolean, msg: FrameConfig): FrameConfig.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: FrameConfig, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): FrameConfig;
-  static deserializeBinaryFromReader(message: FrameConfig, reader: jspb.BinaryReader): FrameConfig;
-}
-
-export namespace FrameConfig {
-  export type AsObject = {
-    parent: string,
-    pose?: Pose.AsObject,
-  }
-}
-
-export class FrameSystemConfig extends jspb.Message {
-  getName(): string;
-  setName(value: string): void;
-
-  hasFrameConfig(): boolean;
-  clearFrameConfig(): void;
-  getFrameConfig(): FrameConfig | undefined;
-  setFrameConfig(value?: FrameConfig): void;
-
-  getModelJson(): Uint8Array | string;
-  getModelJson_asU8(): Uint8Array;
-  getModelJson_asB64(): string;
-  setModelJson(value: Uint8Array | string): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): FrameSystemConfig.AsObject;
-  static toObject(includeInstance: boolean, msg: FrameSystemConfig): FrameSystemConfig.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: FrameSystemConfig, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): FrameSystemConfig;
-  static deserializeBinaryFromReader(message: FrameSystemConfig, reader: jspb.BinaryReader): FrameSystemConfig;
-}
-
-export namespace FrameSystemConfig {
-  export type AsObject = {
-    name: string,
-    frameConfig?: FrameConfig.AsObject,
-    modelJson: Uint8Array | string,
-  }
-}
-
-export class FrameServiceConfigRequest extends jspb.Message {
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): FrameServiceConfigRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: FrameServiceConfigRequest): FrameServiceConfigRequest.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: FrameServiceConfigRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): FrameServiceConfigRequest;
-  static deserializeBinaryFromReader(message: FrameServiceConfigRequest, reader: jspb.BinaryReader): FrameServiceConfigRequest;
-}
-
-export namespace FrameServiceConfigRequest {
-  export type AsObject = {
-  }
-}
-
-export class FrameServiceConfigResponse extends jspb.Message {
-  clearFrameSystemConfigsList(): void;
-  getFrameSystemConfigsList(): Array<FrameSystemConfig>;
-  setFrameSystemConfigsList(value: Array<FrameSystemConfig>): void;
-  addFrameSystemConfigs(value?: FrameSystemConfig, index?: number): FrameSystemConfig;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): FrameServiceConfigResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: FrameServiceConfigResponse): FrameServiceConfigResponse.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: FrameServiceConfigResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): FrameServiceConfigResponse;
-  static deserializeBinaryFromReader(message: FrameServiceConfigResponse, reader: jspb.BinaryReader): FrameServiceConfigResponse;
-}
-
-export namespace FrameServiceConfigResponse {
-  export type AsObject = {
-    frameSystemConfigsList: Array<FrameSystemConfig.AsObject>,
-  }
-}
-
 export class ArmCurrentPositionRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
@@ -494,8 +398,8 @@ export namespace ArmCurrentPositionRequest {
 export class ArmCurrentPositionResponse extends jspb.Message {
   hasPosition(): boolean;
   clearPosition(): void;
-  getPosition(): Pose | undefined;
-  setPosition(value?: Pose): void;
+  getPosition(): ArmPosition | undefined;
+  setPosition(value?: ArmPosition): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ArmCurrentPositionResponse.AsObject;
@@ -509,7 +413,7 @@ export class ArmCurrentPositionResponse extends jspb.Message {
 
 export namespace ArmCurrentPositionResponse {
   export type AsObject = {
-    position?: Pose.AsObject,
+    position?: ArmPosition.AsObject,
   }
 }
 
@@ -561,8 +465,8 @@ export class ArmMoveToPositionRequest extends jspb.Message {
 
   hasTo(): boolean;
   clearTo(): void;
-  getTo(): Pose | undefined;
-  setTo(value?: Pose): void;
+  getTo(): ArmPosition | undefined;
+  setTo(value?: ArmPosition): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ArmMoveToPositionRequest.AsObject;
@@ -577,7 +481,7 @@ export class ArmMoveToPositionRequest extends jspb.Message {
 export namespace ArmMoveToPositionRequest {
   export type AsObject = {
     name: string,
-    to?: Pose.AsObject,
+    to?: ArmPosition.AsObject,
   }
 }
 
@@ -816,6 +720,66 @@ export class BaseMoveStraightResponse extends jspb.Message {
 }
 
 export namespace BaseMoveStraightResponse {
+  export type AsObject = {
+    success: boolean,
+    error: string,
+    distanceMillis: number,
+  }
+}
+
+export class BaseMoveArcRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  getDistanceMillis(): number;
+  setDistanceMillis(value: number): void;
+
+  getMillisPerSec(): number;
+  setMillisPerSec(value: number): void;
+
+  getAngleDeg(): number;
+  setAngleDeg(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BaseMoveArcRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: BaseMoveArcRequest): BaseMoveArcRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BaseMoveArcRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BaseMoveArcRequest;
+  static deserializeBinaryFromReader(message: BaseMoveArcRequest, reader: jspb.BinaryReader): BaseMoveArcRequest;
+}
+
+export namespace BaseMoveArcRequest {
+  export type AsObject = {
+    name: string,
+    distanceMillis: number,
+    millisPerSec: number,
+    angleDeg: number,
+  }
+}
+
+export class BaseMoveArcResponse extends jspb.Message {
+  getSuccess(): boolean;
+  setSuccess(value: boolean): void;
+
+  getError(): string;
+  setError(value: string): void;
+
+  getDistanceMillis(): number;
+  setDistanceMillis(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BaseMoveArcResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BaseMoveArcResponse): BaseMoveArcResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BaseMoveArcResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BaseMoveArcResponse;
+  static deserializeBinaryFromReader(message: BaseMoveArcResponse, reader: jspb.BinaryReader): BaseMoveArcResponse;
+}
+
+export namespace BaseMoveArcResponse {
   export type AsObject = {
     success: boolean,
     error: string,
@@ -3988,46 +3952,6 @@ export class ForceMatrixMatrixResponse extends jspb.Message {
 export namespace ForceMatrixMatrixResponse {
   export type AsObject = {
     matrix?: Matrix.AsObject,
-  }
-}
-
-export class ForceMatrixSlipDetectionRequest extends jspb.Message {
-  getName(): string;
-  setName(value: string): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): ForceMatrixSlipDetectionRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: ForceMatrixSlipDetectionRequest): ForceMatrixSlipDetectionRequest.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: ForceMatrixSlipDetectionRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): ForceMatrixSlipDetectionRequest;
-  static deserializeBinaryFromReader(message: ForceMatrixSlipDetectionRequest, reader: jspb.BinaryReader): ForceMatrixSlipDetectionRequest;
-}
-
-export namespace ForceMatrixSlipDetectionRequest {
-  export type AsObject = {
-    name: string,
-  }
-}
-
-export class ForceMatrixSlipDetectionResponse extends jspb.Message {
-  getIsSlipping(): boolean;
-  setIsSlipping(value: boolean): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): ForceMatrixSlipDetectionResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: ForceMatrixSlipDetectionResponse): ForceMatrixSlipDetectionResponse.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: ForceMatrixSlipDetectionResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): ForceMatrixSlipDetectionResponse;
-  static deserializeBinaryFromReader(message: ForceMatrixSlipDetectionResponse, reader: jspb.BinaryReader): ForceMatrixSlipDetectionResponse;
-}
-
-export namespace ForceMatrixSlipDetectionResponse {
-  export type AsObject = {
-    isSlipping: boolean,
   }
 }
 

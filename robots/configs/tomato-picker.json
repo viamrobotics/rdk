@@ -1,0 +1,9 @@
+{
+    "components" : [
+        { "name" : "tomato-picker",
+          "type": "arm",
+          "model": "ur",
+          "host" : "10.237.115.66"
+        }
+    ]
+}

@@ -30,10 +30,12 @@ import (
 	_ "go.viam.com/core/sensor/imu/wit"
 	"go.viam.com/core/serial"
 	"go.viam.com/core/services/navigation"
-	"go.viam.com/core/services/web"
 	"go.viam.com/core/spatialmath"
 	coreutils "go.viam.com/core/utils"
+	"go.viam.com/core/web"
 	webserver "go.viam.com/core/web/server"
+
+	_ "go.viam.com/core/board/detector"
 
 	"github.com/edaniels/golog"
 )
@@ -368,6 +370,10 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 	return 0, b.SteerAndMove(ctx, dir, speed)
 }
 
+func (b *boat) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) (int, error) {
+	return 1, nil
+}
+
 func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 	b.lastSpin = angleDeg
 	b.previousSpins = append(b.previousSpins, b.lastSpin)
@@ -682,5 +688,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	go runRC(ctx, myB)
 	go runAngularVelocityKeeper(ctx, myB)
 
-	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
+	if err := webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger); err != nil && !errors.Is(err, context.Canceled) {
+		logger.Errorw("error running web", "error", err)
+		cancel()
+		return err
+	}
+	return nil
 }

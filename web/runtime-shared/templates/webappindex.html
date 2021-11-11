@@ -201,7 +201,7 @@
                       }
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getGridPosition();
-                      var newPosition = Object.assign(Object.create(robotApi.Pose.prototype), old);
+                      var newPosition = Object.assign(Object.create(robotApi.ArmPosition.prototype), old);
                       const getter = `get${getterSetter}`;
                       const setter = `set${getterSetter}`;
                       newPosition[setter](newPosition[getter]() + amount);
@@ -284,7 +284,7 @@
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getGridPosition();
 
-                      var newPosition = Object.assign(Object.create(robotApi.Pose.prototype), old);
+                      var newPosition = Object.assign(Object.create(robotApi.ArmPosition.prototype), old);
                       var newPieces = theData.armToggle[name].pieces;
 
                       for (var i=0; i < newPieces.length; i++) {
@@ -389,11 +389,19 @@
                           req.setDistanceMillis(document.getElementById("distance").value * amount);
                           robotService.baseMoveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
+                        case 'arc':
+                          req = new robotApi.BaseMoveArcRequest();
+                          req.setName(name);
+                          req.setMillisPerSec(document.getElementById("speed").value)
+                          req.setDistanceMillis(document.getElementById("distance").value * amount);
+                          req.setAngleDeg(document.getElementById("angle").value);
+                          robotService.baseMoveArc(req, {}, (err, resp) => grpcCallback(err, resp));
+                          break;
                         case 'angle':
                           req = new robotApi.BaseSpinRequest();
                           req.setName(name);
                           req.setDegsPerSec(document.getElementById("speed").value)
-                          req.setAngleDeg(amount);
+                          req.setAngleDeg(document.getElementById("angle").value * amount);
                           robotService.baseSpin(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
                       }
@@ -512,15 +520,11 @@
                     const timeInterval = 10; // in milliseconds
                     // Loop through grabbing data & visualizing it
                     setTimeout(function getDataAndVisualizeIt(name, id) {
-                      let req = new robotApi.ForceMatrixMatrixRequest();
+                      var req = new robotApi.ForceMatrixMatrixRequest();
                       req.setName(name);
-
-                      let slipReq = new robotApi.ForceMatrixSlipDetectionRequest();
-                      slipReq.setName(name);
 
                       if (type === "forcematrix") {
                         robotService.forceMatrixMatrix(req, {}, (err, resp) => animateForceMatrix(err, resp, animation_stuff_2D, animation_stuff_3D));
-                        robotService.forceMatrixSlipDetection(req, {}, (err, resp) => updateSlipDetectionResult(err, resp, id));
                       } else {
                         console.log("error: unknown force matrix type");
                       }
@@ -964,21 +968,6 @@
           }
       }
 
-      function updateSlipDetectionResult (err, resp, id) {
-        grpcCallback(err, resp);
-        if (err) {
-          console.log("error getting slip detection readings: ", err);
-          return;
-        }
-        let isSlipping = resp.getIsSlipping()
-        let dispEl = document.getElementById("force-is-slipping-" + id);
-        if (isSlipping) {
-          dispEl.innerText = "SLIPPING";
-        } else {
-          dispEl.innerText = "NOT SLIPPING";
-        }
-      }
-
       async function waitForClientAndStart() {
         console.debug("waiting for robot service to be ready");
         await window.robotServiceReady;
@@ -1101,12 +1090,15 @@
         <ul>
           <li><button v-on:click="baseAction(base[0], 'straight', 1)">Forward</button></li>
           <li><button v-on:click="baseAction(base[0], 'straight', -1)">Backward</button></li>
-          <li><button v-on:click="baseAction(base[0], 'angle', 15)">Spin Clockwise</button></li>
-          <li><button v-on:click="baseAction(base[0], 'angle', -15)">Spin Counterclockwise</button></li>
+          <li><button v-on:click="baseAction(base[0], 'arc', 1)">Arc Forward</button></li>
+          <li><button v-on:click="baseAction(base[0], 'arc', -1)">Arc Backward</button></li>
+          <li><button v-on:click="baseAction(base[0], 'angle', 1)">Spin Clockwise</button></li>
+          <li><button v-on:click="baseAction(base[0], 'angle', -1)">Spin Counterclockwise</button></li>
         </ul>
 
         Speed (mm per sec): <input id="speed" name="speed" value="300"/><br>
-        Distances (mm): <input id="distance" name="speed" value="500"/><br>
+        Distances (mm): <input id="distance" name="distance" value="500"/><br>
+        Angle (degree): <input id="angle" name="angle" value="0"/><br>
       </div>
 
       <!-- ******* GANTRY *******  -->
@@ -1294,7 +1286,6 @@
               <!-- canvas element is resized later upon arrival of sensor data (see animateForceMatrix)  -->
               <canvas :id="'force-2d-id-' + x" width="1000" height="300" style="margin-top: 20px;"></canvas>
               <div :id="'force-3d-id-' + x"></div>
-              <div :id="'force-is-slipping-' + x">NO VALUE</div>
             </template>
             <button v-else v-on:click="doSensorReadings(sensor[0])">Get Readings</button>
           </td>

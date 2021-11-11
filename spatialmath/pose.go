@@ -18,7 +18,7 @@ type Pose interface {
 
 // NewZeroPose returns a pose at (0,0,0) with same orientation as whatever frame it is placed in.
 func NewZeroPose() Pose {
-	return newDualQuaternion()
+	return newdualQuaternion()
 }
 
 // NewPoseFromOrientation takes in a position and orientation and returns a Pose.
@@ -31,9 +31,9 @@ func NewPoseFromOrientation(point r3.Vector, o Orientation) Pose {
 
 // NewPoseFromOrientationVector takes in a position and orientation vector and returns a Pose.
 func NewPoseFromOrientationVector(point r3.Vector, ov *OrientationVector) Pose {
-	quat := newDualQuaternion()
+	quat := newdualQuaternion()
 	if ov != nil {
-		quat = newDualQuaternionFromRotation(ov)
+		quat = newdualQuaternionFromRotation(ov)
 	}
 	quat.SetTranslation(point.X, point.Y, point.Z)
 	return quat
@@ -44,11 +44,11 @@ func NewPoseFromOrientationVector(point r3.Vector, ov *OrientationVector) Pose {
 func NewPoseFromAxisAngle(point, rotationAxis r3.Vector, angle float64) Pose {
 	emptyVec := r3.Vector{0, 0, 0}
 	if rotationAxis == emptyVec || angle == 0 {
-		return newDualQuaternion()
+		return newdualQuaternion()
 	}
 	aa := R4AA{Theta: angle, RX: rotationAxis.X, RY: rotationAxis.Y, RZ: rotationAxis.Z}
 
-	quat := newDualQuaternion()
+	quat := newdualQuaternion()
 	quat.Real = aa.ToQuat()
 	quat.SetTranslation(point.X, point.Y, point.Z)
 	return quat
@@ -57,28 +57,28 @@ func NewPoseFromAxisAngle(point, rotationAxis r3.Vector, angle float64) Pose {
 // NewPoseFromPoint takes in a cartesian (x,y,z) and stores it as a vector.
 // It will have the same orientation as the frame it is in.
 func NewPoseFromPoint(point r3.Vector) Pose {
-	quat := newDualQuaternion()
+	quat := newdualQuaternion()
 	quat.SetTranslation(point.X, point.Y, point.Z)
 	return quat
 }
 
-// NewPoseFromProtobuf creates a new pose from a protobuf pose
-func NewPoseFromProtobuf(pos *pb.Pose) Pose {
-	return newDualQuaternionFromProtobuf(pos)
+// NewPoseFromArmPos creates a new pose from an arm position
+func NewPoseFromArmPos(pos *pb.ArmPosition) Pose {
+	return newdualQuaternionFromArmPos(pos)
 }
 
 // NewPoseFromDH creates a new pose from denavit hartenberg parameters.
 func NewPoseFromDH(a, d, alpha float64) Pose {
-	return newDualQuaternionFromDH(a, d, alpha)
+	return newdualQuaternionFromDH(a, d, alpha)
 }
 
 // Compose treats Poses as functions A(x) and B(x), and produces a new function C(x) = A(B(x)).
 // It converts the poses to dual quaternions and multiplies them together, normalizes the transformm and returns a new Pose.
 // Composition does not commute in general, i.e. you cannot guarantee ABx == BAx
 func Compose(a, b Pose) Pose {
-	aq := dualQuaternionFromPose(a)
-	bq := dualQuaternionFromPose(b)
-	result := newDualQuaternion()
+	aq := newdualQuaternionFromPose(a)
+	bq := newdualQuaternionFromPose(b)
+	result := newdualQuaternion()
 	result.Number = aq.Transformation(bq.Number)
 
 	// Normalization
@@ -114,9 +114,9 @@ func PoseDelta(a, b Pose) []float64 {
 	return ret
 }
 
-// PoseToProtobuf converts a pose to the pose format protobuf expects (which is as OrientationVectorDegrees)
-func PoseToProtobuf(p Pose) *pb.Pose {
-	final := &pb.Pose{}
+// PoseToArmPos converts a pose to an arm position
+func PoseToArmPos(p Pose) *pb.ArmPosition {
+	final := &pb.ArmPosition{}
 	pt := p.Point()
 	final.X = pt.X
 	final.Y = pt.Y
@@ -132,7 +132,7 @@ func PoseToProtobuf(p Pose) *pb.Pose {
 // Invert will return the inverse of a pose. So if a given pose p is the pose of A relative to B, Invert(p) will give
 // the pose of B relative to A
 func Invert(p Pose) Pose {
-	return newDualQuaternionFromPose(p).Invert()
+	return newdualQuaternionFromPose(p).Invert()
 }
 
 // Interpolate will return a new Pose that has been interpolated the set amount between two poses.
@@ -141,7 +141,7 @@ func Invert(p Pose) Pose {
 // p1 and p2 are the two poses to interpolate between, by is a float representing the amount to interpolate between them.
 // by == 0 will return p1, by == 1 will return p2, and by == 0.5 will return the pose halfway between them.
 func Interpolate(p1, p2 Pose, by float64) Pose {
-	intQ := newDualQuaternion()
+	intQ := newdualQuaternion()
 	intQ.Real = slerp(p1.Orientation().Quaternion(), p2.Orientation().Quaternion(), by)
 
 	intQ.SetTranslation((p1.Point().X + (p2.Point().X-p1.Point().X)*by),

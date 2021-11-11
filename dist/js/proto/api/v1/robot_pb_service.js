@@ -119,6 +119,15 @@ RobotService.BaseMoveStraight = {
   responseType: proto_api_v1_robot_pb.BaseMoveStraightResponse
 };
 
+RobotService.BaseMoveArc = {
+  methodName: "BaseMoveArc",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.BaseMoveArcRequest,
+  responseType: proto_api_v1_robot_pb.BaseMoveArcResponse
+};
+
 RobotService.BaseSpin = {
   methodName: "BaseSpin",
   service: RobotService,
@@ -398,15 +407,6 @@ RobotService.ForceMatrixMatrix = {
   responseType: proto_api_v1_robot_pb.ForceMatrixMatrixResponse
 };
 
-RobotService.ForceMatrixSlipDetection = {
-  methodName: "ForceMatrixSlipDetection",
-  service: RobotService,
-  requestStream: false,
-  responseStream: false,
-  requestType: proto_api_v1_robot_pb.ForceMatrixSlipDetectionRequest,
-  responseType: proto_api_v1_robot_pb.ForceMatrixSlipDetectionResponse
-};
-
 RobotService.ExecuteFunction = {
   methodName: "ExecuteFunction",
   service: RobotService,
@@ -594,15 +594,6 @@ RobotService.ResourceRunCommand = {
   responseStream: false,
   requestType: proto_api_v1_robot_pb.ResourceRunCommandRequest,
   responseType: proto_api_v1_robot_pb.ResourceRunCommandResponse
-};
-
-RobotService.FrameServiceConfig = {
-  methodName: "FrameServiceConfig",
-  service: RobotService,
-  requestStream: false,
-  responseStream: false,
-  requestType: proto_api_v1_robot_pb.FrameServiceConfigRequest,
-  responseType: proto_api_v1_robot_pb.FrameServiceConfigResponse
 };
 
 RobotService.NavigationServiceMode = {
@@ -1074,6 +1065,37 @@ RobotServiceClient.prototype.baseMoveStraight = function baseMoveStraight(reques
     callback = arguments[1];
   }
   var client = grpc.unary(RobotService.BaseMoveStraight, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.baseMoveArc = function baseMoveArc(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.BaseMoveArc, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -2061,37 +2083,6 @@ RobotServiceClient.prototype.forceMatrixMatrix = function forceMatrixMatrix(requ
   };
 };
 
-RobotServiceClient.prototype.forceMatrixSlipDetection = function forceMatrixSlipDetection(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(RobotService.ForceMatrixSlipDetection, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
 RobotServiceClient.prototype.executeFunction = function executeFunction(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
@@ -2733,37 +2724,6 @@ RobotServiceClient.prototype.resourceRunCommand = function resourceRunCommand(re
     callback = arguments[1];
   }
   var client = grpc.unary(RobotService.ResourceRunCommand, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-RobotServiceClient.prototype.frameServiceConfig = function frameServiceConfig(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(RobotService.FrameServiceConfig, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

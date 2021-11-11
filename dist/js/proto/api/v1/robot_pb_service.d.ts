@@ -113,6 +113,15 @@ type RobotServiceBaseMoveStraight = {
   readonly responseType: typeof proto_api_v1_robot_pb.BaseMoveStraightResponse;
 };
 
+type RobotServiceBaseMoveArc = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.BaseMoveArcRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.BaseMoveArcResponse;
+};
+
 type RobotServiceBaseSpin = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -392,15 +401,6 @@ type RobotServiceForceMatrixMatrix = {
   readonly responseType: typeof proto_api_v1_robot_pb.ForceMatrixMatrixResponse;
 };
 
-type RobotServiceForceMatrixSlipDetection = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.ForceMatrixSlipDetectionRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.ForceMatrixSlipDetectionResponse;
-};
-
 type RobotServiceExecuteFunction = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -590,15 +590,6 @@ type RobotServiceResourceRunCommand = {
   readonly responseType: typeof proto_api_v1_robot_pb.ResourceRunCommandResponse;
 };
 
-type RobotServiceFrameServiceConfig = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.FrameServiceConfigRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.FrameServiceConfigResponse;
-};
-
 type RobotServiceNavigationServiceMode = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -721,6 +712,7 @@ export class RobotService {
   static readonly ArmMoveToJointPositions: RobotServiceArmMoveToJointPositions;
   static readonly ArmJointMoveDelta: RobotServiceArmJointMoveDelta;
   static readonly BaseMoveStraight: RobotServiceBaseMoveStraight;
+  static readonly BaseMoveArc: RobotServiceBaseMoveArc;
   static readonly BaseSpin: RobotServiceBaseSpin;
   static readonly BaseStop: RobotServiceBaseStop;
   static readonly BaseWidthMillis: RobotServiceBaseWidthMillis;
@@ -752,7 +744,6 @@ export class RobotService {
   static readonly CompassStopCalibration: RobotServiceCompassStopCalibration;
   static readonly CompassMark: RobotServiceCompassMark;
   static readonly ForceMatrixMatrix: RobotServiceForceMatrixMatrix;
-  static readonly ForceMatrixSlipDetection: RobotServiceForceMatrixSlipDetection;
   static readonly ExecuteFunction: RobotServiceExecuteFunction;
   static readonly ExecuteSource: RobotServiceExecuteSource;
   static readonly ServoMove: RobotServiceServoMove;
@@ -774,7 +765,6 @@ export class RobotService {
   static readonly InputControllerLastEvents: RobotServiceInputControllerLastEvents;
   static readonly InputControllerEventStream: RobotServiceInputControllerEventStream;
   static readonly ResourceRunCommand: RobotServiceResourceRunCommand;
-  static readonly FrameServiceConfig: RobotServiceFrameServiceConfig;
   static readonly NavigationServiceMode: RobotServiceNavigationServiceMode;
   static readonly NavigationServiceSetMode: RobotServiceNavigationServiceSetMode;
   static readonly NavigationServiceLocation: RobotServiceNavigationServiceLocation;
@@ -921,6 +911,15 @@ export class RobotServiceClient {
     requestMessage: proto_api_v1_robot_pb.BaseMoveStraightRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BaseMoveStraightResponse|null) => void
   ): UnaryResponse;
+  baseMoveArc(
+    requestMessage: proto_api_v1_robot_pb.BaseMoveArcRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BaseMoveArcResponse|null) => void
+  ): UnaryResponse;
+  baseMoveArc(
+    requestMessage: proto_api_v1_robot_pb.BaseMoveArcRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BaseMoveArcResponse|null) => void
+  ): UnaryResponse;
   baseSpin(
     requestMessage: proto_api_v1_robot_pb.BaseSpinRequest,
     metadata: grpc.Metadata,
@@ -1199,15 +1198,6 @@ export class RobotServiceClient {
   forceMatrixMatrix(
     requestMessage: proto_api_v1_robot_pb.ForceMatrixMatrixRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ForceMatrixMatrixResponse|null) => void
-  ): UnaryResponse;
-  forceMatrixSlipDetection(
-    requestMessage: proto_api_v1_robot_pb.ForceMatrixSlipDetectionRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ForceMatrixSlipDetectionResponse|null) => void
-  ): UnaryResponse;
-  forceMatrixSlipDetection(
-    requestMessage: proto_api_v1_robot_pb.ForceMatrixSlipDetectionRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ForceMatrixSlipDetectionResponse|null) => void
   ): UnaryResponse;
   executeFunction(
     requestMessage: proto_api_v1_robot_pb.ExecuteFunctionRequest,
@@ -1381,15 +1371,6 @@ export class RobotServiceClient {
   resourceRunCommand(
     requestMessage: proto_api_v1_robot_pb.ResourceRunCommandRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ResourceRunCommandResponse|null) => void
-  ): UnaryResponse;
-  frameServiceConfig(
-    requestMessage: proto_api_v1_robot_pb.FrameServiceConfigRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameServiceConfigResponse|null) => void
-  ): UnaryResponse;
-  frameServiceConfig(
-    requestMessage: proto_api_v1_robot_pb.FrameServiceConfigRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.FrameServiceConfigResponse|null) => void
   ): UnaryResponse;
   navigationServiceMode(
     requestMessage: proto_api_v1_robot_pb.NavigationServiceModeRequest,

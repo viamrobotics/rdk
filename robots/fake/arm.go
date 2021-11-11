@@ -2,65 +2,62 @@ package fake
 
 import (
 	"context"
-	_ "embed" // used to import model frame
+	"math"
 
 	"github.com/go-errors/errors"
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
+	"go.viam.com/core/spatialmath"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 )
 
-//go:embed static_arm_model.json
-var armModelJSON []byte
-
 func init() {
-	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
+	registry.RegisterComponent(arm.Subtype, "fake", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			if config.Attributes.Bool("fail_new", false) {
 				return nil, errors.New("whoops")
 			}
-			return NewArm(config)
+			return NewArm(config.Name), nil
+		},
+		Frame: func(name string) (referenceframe.Frame, error) {
+			point := r3.Vector{500, 0, 300}
+			pose := spatialmath.NewPoseFromAxisAngle(point, r3.Vector{0, 1, 0}, math.Pi/2.)
+			return referenceframe.NewStaticFrame(name, pose)
 		},
 	})
 }
 
 // NewArm returns a new fake arm.
-func NewArm(cfg config.Component) (arm.Arm, error) {
-	name := cfg.Name
+func NewArm(name string) arm.Arm {
 	return &Arm{
-		Name:      name,
-		position:  &pb.Pose{},
-		joints:    &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
-		frameJSON: armModelJSON,
-	}, nil
+		Name:     name,
+		position: &pb.ArmPosition{},
+		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+	}
 }
 
 // Arm is a fake arm that can simply read and set properties.
 type Arm struct {
 	Name       string
-	position   *pb.Pose
+	position   *pb.ArmPosition
 	joints     *pb.JointPositions
 	CloseCount int
-	frameJSON  []byte
-}
-
-// ModelFrame returns the json bytes that describe the dynamic frame of the model
-func (a *Arm) ModelFrame() []byte {
-	return a.frameJSON
 }
 
 // CurrentPosition returns the set position.
-func (a *Arm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
+func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	return a.position, nil
 }
 
 // MoveToPosition sets the position.
-func (a *Arm) MoveToPosition(ctx context.Context, c *pb.Pose) error {
+func (a *Arm) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
 	a.position = c
 	return nil
 }

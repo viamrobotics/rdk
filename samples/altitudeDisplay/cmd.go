@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/utils"
 
+	_ "go.viam.com/core/board/detector"
 	"go.viam.com/core/config"
 	"go.viam.com/core/sensor/gps"
 

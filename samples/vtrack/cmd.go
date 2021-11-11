@@ -12,6 +12,8 @@ import (
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/vision/segmentation"
 
+	_ "go.viam.com/core/rimage/imagesource"
+
 	"github.com/edaniels/golog"
 )
 

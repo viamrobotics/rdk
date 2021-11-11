@@ -812,6 +812,67 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.baseMoveStraight =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.BaseMoveArcRequest,
+ *   !proto.proto.api.v1.BaseMoveArcResponse>}
+ */
+const methodDescriptor_RobotService_BaseMoveArc = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/BaseMoveArc',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.BaseMoveArcRequest,
+  proto.proto.api.v1.BaseMoveArcResponse,
+  /**
+   * @param {!proto.proto.api.v1.BaseMoveArcRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BaseMoveArcResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.BaseMoveArcRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.BaseMoveArcResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BaseMoveArcResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.baseMoveArc =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/BaseMoveArc',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_BaseMoveArc,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.BaseMoveArcRequest} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.BaseMoveArcResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.baseMoveArc =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/BaseMoveArc',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_BaseMoveArc);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.v1.BaseSpinRequest,
  *   !proto.proto.api.v1.BaseSpinResponse>}
  */
@@ -2703,67 +2764,6 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.forceMatrixMatrix =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.ForceMatrixSlipDetectionRequest,
- *   !proto.proto.api.v1.ForceMatrixSlipDetectionResponse>}
- */
-const methodDescriptor_RobotService_ForceMatrixSlipDetection = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/ForceMatrixSlipDetection',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.ForceMatrixSlipDetectionRequest,
-  proto.proto.api.v1.ForceMatrixSlipDetectionResponse,
-  /**
-   * @param {!proto.proto.api.v1.ForceMatrixSlipDetectionRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.ForceMatrixSlipDetectionResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.v1.ForceMatrixSlipDetectionRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.ForceMatrixSlipDetectionResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ForceMatrixSlipDetectionResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.v1.RobotServiceClient.prototype.forceMatrixSlipDetection =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/ForceMatrixSlipDetection',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_ForceMatrixSlipDetection,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.v1.ForceMatrixSlipDetectionRequest} request The
- *     request proto
- * @param {?Object<string, string>=} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.v1.ForceMatrixSlipDetectionResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.forceMatrixSlipDetection =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/ForceMatrixSlipDetection',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_ForceMatrixSlipDetection);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.v1.ExecuteFunctionRequest,
  *   !proto.proto.api.v1.ExecuteFunctionResponse>}
  */
@@ -4029,67 +4029,6 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.resourceRunCommand =
       request,
       metadata || {},
       methodDescriptor_RobotService_ResourceRunCommand);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.FrameServiceConfigRequest,
- *   !proto.proto.api.v1.FrameServiceConfigResponse>}
- */
-const methodDescriptor_RobotService_FrameServiceConfig = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/FrameServiceConfig',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.FrameServiceConfigRequest,
-  proto.proto.api.v1.FrameServiceConfigResponse,
-  /**
-   * @param {!proto.proto.api.v1.FrameServiceConfigRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.FrameServiceConfigResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.v1.FrameServiceConfigRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.FrameServiceConfigResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.FrameServiceConfigResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.v1.RobotServiceClient.prototype.frameServiceConfig =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/FrameServiceConfig',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_FrameServiceConfig,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.v1.FrameServiceConfigRequest} request The
- *     request proto
- * @param {?Object<string, string>=} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.v1.FrameServiceConfigResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.frameServiceConfig =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/FrameServiceConfig',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_FrameServiceConfig);
 };
 
 

@@ -13,7 +13,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/services/web"
+	"go.viam.com/core/web"
 	webserver "go.viam.com/core/web/server"
 )
 
@@ -84,5 +84,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		webOpts.Insecure = true
 		return webserver.RunWeb(ctx, myRobot, webOpts, logger)
 	}
+
 	return nil
 }

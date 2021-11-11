@@ -105,6 +105,13 @@ service RobotService {
     };  
   }
 
+  // BaseMoveArc moves a base of the underlying robot in an arc.
+  rpc BaseMoveArc(BaseMoveArcRequest) returns (BaseMoveArcResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/base/{name}/move_arc"
+    };  
+  }
+
   // BaseSpin spins a base of the underlying robot.
   rpc BaseSpin(BaseSpinRequest) returns (BaseSpinResponse) {
     option (google.api.http) = {
@@ -347,12 +354,6 @@ service RobotService {
     };
   }
 
-  rpc ForceMatrixSlipDetection(ForceMatrixSlipDetectionRequest) returns (ForceMatrixSlipDetectionResponse) {
-    option (google.api.http) = {
-      get : "/api/v1/sensors/forcematrix/{name}/slip_detection"
-    };
-  }
-
   // TODO(erd): refactor to functions service
   rpc ExecuteFunction(ExecuteFunctionRequest) returns (ExecuteFunctionResponse) {
     option (google.api.http) = {
@@ -499,14 +500,6 @@ service RobotService {
     };
   }
 
-  // Frame System Service
-  rpc FrameServiceConfig(FrameServiceConfigRequest) returns (FrameServiceConfigResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/services/frame_system/config"
-    };
-  }
-  
-  // Navigation Service
   rpc NavigationServiceMode(NavigationServiceModeRequest) returns (NavigationServiceModeResponse) {
     option (google.api.http) = {
       get: "/api/v1/services/navigation/mode"
@@ -624,7 +617,7 @@ message ComponentConfig {
   string name = 1;
   string type = 2;
   string parent = 3;
-  Pose pose = 4;
+  ArmPosition pose = 4;
 }
 
 message ConfigRequest {}
@@ -647,11 +640,11 @@ message GantryStatus {
 // Arm
 
 message ArmStatus {
-  Pose   grid_position = 1;
+  ArmPosition   grid_position = 1;
   JointPositions joint_positions = 2;
 }
 
-message Pose {
+message ArmPosition {
   // millimeters of the end effector from the base
   double x = 1;
   double y = 2;
@@ -666,7 +659,7 @@ message Pose {
   // Theta is defined as rotation between two planes: the plane defined by the origin, the point (0,0,1), and the rx,ry,rz
   // point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at
   // zero as the north/south pole is circled, the Roll will correct itself to remain in-line.
-  // Theta in pb.Pose should be degrees. It will be converted to radians in the internal OrientationVec.
+  // Theta in pb.ArmPosition should be degrees. It will be converted to radians in the internal OrientationVec.
   double o_x = 4;
   double o_y = 5;
   double o_z = 6;
@@ -677,29 +670,12 @@ message JointPositions {
   repeated double degrees = 1;
 }
 
-message FrameConfig{
-  string parent = 1;
-  Pose  pose = 2;
-}
-
-message FrameSystemConfig {
-  string name = 1;
-  FrameConfig frame_config = 2;
-  bytes model_json = 3; 
-}
-
-message FrameServiceConfigRequest {}
-
-message FrameServiceConfigResponse {
-  repeated FrameSystemConfig frame_system_configs = 1;
-}
-
 message ArmCurrentPositionRequest {
   string name = 1;
 }
 
 message ArmCurrentPositionResponse {
-  Pose position = 1;
+  ArmPosition position = 1;
 }
 
 message ArmCurrentJointPositionsRequest {
@@ -712,7 +688,7 @@ message ArmCurrentJointPositionsResponse {
 
 message ArmMoveToPositionRequest {
   string name = 1;
-  Pose to = 2;
+  ArmPosition to = 2;
 }
 
 message ArmMoveToPositionResponse {}
@@ -759,6 +735,19 @@ message BaseMoveStraightRequest {
 }
 
 message BaseMoveStraightResponse {
+  bool success = 1;
+  string error = 2;
+  int64 distance_millis = 3;
+}
+
+message BaseMoveArcRequest {
+  string name = 1;
+  int64 distance_millis = 2;
+  double millis_per_sec = 3;
+  double angle_deg = 4;
+}
+
+message BaseMoveArcResponse {
   bool success = 1;
   string error = 2;
   int64 distance_millis = 3;
@@ -1412,12 +1401,4 @@ message ForceMatrixMatrixRequest {
 
 message ForceMatrixMatrixResponse {
 	Matrix matrix = 1;
-}
-
-message ForceMatrixSlipDetectionRequest {
-  string name = 1;
-}
-
-message ForceMatrixSlipDetectionResponse {
-  bool is_slipping = 1;
 }

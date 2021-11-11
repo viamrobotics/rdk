@@ -28,8 +28,10 @@ import (
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/serial"
-	"go.viam.com/core/services/web"
+	"go.viam.com/core/web"
 	webserver "go.viam.com/core/web/server"
+
+	_ "go.viam.com/core/board/detector"
 
 	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
@@ -77,6 +79,11 @@ func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 		b.port.GoFor(ctx, dir, speed, rotations),
 	)
 
+}
+
+// MoveArc TODO
+func (b *Boat) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) (int, error) {
+	return 1, nil
 }
 
 // Spin TODO
@@ -428,5 +435,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		recordDepthWorker(ctx, depth1)
 	}, activeBackgroundWorkers.Done)
 
-	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
+	if err := webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger); err != nil && !errors.Is(err, context.Canceled) {
+		logger.Errorw("error running web", "error", err)
+		cancel()
+		return err
+	}
+	return nil
 }

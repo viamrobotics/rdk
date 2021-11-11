@@ -173,6 +173,20 @@ func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMillis i
 	return moved, err
 }
 
+func (b *interceptingGPSBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) (int, error) {
+	loc, err := b.g.Location(ctx)
+	if err != nil {
+		return 0, err
+	}
+	moved, err := b.b.MoveArc(ctx, distanceMillis, millisPerSec, angleDeg, true)
+	distKilos := float64(moved) / 1000 / 1000
+	newLoc := loc.PointAtDistanceAndBearing(distKilos, b.bearing)
+	// set new location to be where we "perfectly" move to based on bearing
+	b.g.Latitude = newLoc.Lat()
+	b.g.Longitude = newLoc.Lng()
+	return moved, err
+}
+
 func (b *interceptingGPSBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 	spun, err := b.b.Spin(ctx, angleDeg, degsPerSec, true)
 	b.bearing = utils.ModAngDeg(b.bearing + spun)

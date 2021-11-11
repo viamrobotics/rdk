@@ -18,7 +18,7 @@ import (
 )
 
 //go:embed arm_model.json
-var armikModelJSON []byte
+var armModelJSON string
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "fake_ik", registry.Component{
@@ -26,54 +26,60 @@ func init() {
 			if config.Attributes.Bool("fail_new", false) {
 				return nil, errors.New("whoops")
 			}
-			return NewArmIK(ctx, config, logger)
+			return NewArmIK(config.Name, logger)
+		},
+		Frame: func(name string) (frame.Frame, error) {
+			return fakeFrame(name)
 		},
 	})
 }
 
 // fakeModel returns the kinematics model
 func fakeModel() (*kinematics.Model, error) {
-	return kinematics.ParseJSON(armikModelJSON, "")
+	return kinematics.ParseJSON([]byte(armModelJSON))
+}
+
+// fakeFrame returns the reference frame of the fake arm
+func fakeFrame(name string) (frame.Frame, error) {
+	f, err := fakeModel()
+	if err != nil {
+		return nil, err
+	}
+	f.SetName(name)
+	return f, nil
 }
 
 // NewArmIK returns a new fake arm.
-func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
-	name := cfg.Name
+func NewArmIK(name string, logger golog.Logger) (arm.Arm, error) {
 	model, err := fakeModel()
 	if err != nil {
 		return nil, err
 	}
+
 	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
 	if err != nil {
 		return nil, err
 	}
 
 	return &ArmIK{
-		Name:      name,
-		position:  &pb.Pose{},
-		joints:    &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
-		ik:        ik,
-		frameJSON: armikModelJSON,
+		Name:     name,
+		position: &pb.ArmPosition{},
+		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		ik:       ik,
 	}, nil
 }
 
 // ArmIK is a fake arm that can simply read and set properties.
 type ArmIK struct {
 	Name       string
-	position   *pb.Pose
+	position   *pb.ArmPosition
 	joints     *pb.JointPositions
 	ik         kinematics.InverseKinematics
 	CloseCount int
-	frameJSON  []byte
-}
-
-// ModelFrame returns the json bytes that describe the dynamic frame of the model
-func (a *ArmIK) ModelFrame() []byte {
-	return a.frameJSON
 }
 
 // CurrentPosition returns the set position.
-func (a *ArmIK) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
+func (a *ArmIK) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -82,7 +88,7 @@ func (a *ArmIK) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 }
 
 // MoveToPosition sets the position.
-func (a *ArmIK) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
+func (a *ArmIK) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err

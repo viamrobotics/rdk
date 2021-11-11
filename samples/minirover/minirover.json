@@ -1,0 +1,136 @@
+{
+    "components":
+    [
+        {
+            "name": "pierre",
+            "model": "four-wheel",
+            "type": "base",
+            "attributes":
+            {
+                "board": "local",
+                "widthMillis": 600,
+                "wheelCircumferenceMillis": 470,
+                "spinSlipFactor": 2.0,
+                "frontRight": "fr-m",
+                "frontLeft": "fl-m",
+                "backLeft": "bl-m",
+                "backRight": "br-m"
+            },
+            "depends_on":
+            [
+                "local", "fl-m", "fr-m","bl-m","br-m"
+            ]
+        },
+        {
+            "name": "local",
+            "model": "pi",
+            "type": "board",
+            "attributes":
+            {
+                "digitalInterrupts":
+                [
+                    {
+                        "name": "fl-e",
+                        "pin": "36"
+                    },
+                    {
+                        "name": "fr-e",
+                        "pin": "18"
+                    },
+                    {
+                        "name": "bl-e",
+                        "pin": "31"
+                    },
+                    {
+                        "name": "br-e",
+                        "pin": "10"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "fl-m",
+            "type": "motor",
+            "model": "pi",
+            "attributes":
+            {
+                "board": "local",
+                "pins":
+                {
+                    "a": "38",
+                    "b": "40",
+                    "pwm": "11"
+                },
+                "encoder": "fl-e",
+                "ticksPerRotation": 1000
+            },
+            "depends_on":
+            [
+                "local"
+            ]
+        },
+        {
+            "name": "fr-m",
+            "type": "motor",
+            "model": "pi",
+            "attributes":
+            {
+                "board": "local",
+                "pins":
+                {
+                    "a": "22",
+                    "b": "32",
+                    "pwm": "7"
+                },
+                "encoder": "fr-e",
+                "ticksPerRotation": 1000
+            },
+            "depends_on":
+            [
+                "local"
+            ]
+        },
+        {
+            "name": "bl-m",
+            "type": "motor",
+            "model": "pi",
+            "attributes":
+            {
+                "board": "local",
+                "pins":
+                {
+                    "a": "37",
+                    "b": "33",
+                    "pwm": "13"
+                },
+                "encoder": "bl-e",
+                "ticksPerRotation": 1000
+            },
+            "depends_on":
+            [
+                "local"
+            ]
+        },
+        {
+            "name": "br-m",
+            "type": "motor",
+            "model": "pi",
+            "attributes":
+            {
+                "board": "local",
+                "pins":
+                {
+                    "a": "29",
+                    "b": "35",
+                    "pwm": "15"
+                },
+                "encoder": "br-e",
+                "ticksPerRotation": 1000
+            },
+            "depends_on":
+            [
+                "local"
+            ]
+        }
+    ]
+}

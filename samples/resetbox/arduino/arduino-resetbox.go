@@ -13,9 +13,13 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/action"
+	_ "go.viam.com/core/board"
+	_ "go.viam.com/core/board/detector"
+	_ "go.viam.com/core/robots/xarm"
 	webserver "go.viam.com/core/web/server"
 
 	pb "go.viam.com/core/proto/api/v1"
+	_ "go.viam.com/core/rimage/imagesource"
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"

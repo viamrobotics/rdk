@@ -27,9 +27,9 @@ import (
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/services/web"
 	"go.viam.com/core/utils"
 	"go.viam.com/core/vision/chess"
+	"go.viam.com/core/web"
 	webserver "go.viam.com/core/web/server"
 
 	"github.com/edaniels/golog"
@@ -232,7 +232,7 @@ func moveOutOfWay(ctx context.Context, myArm arm.Arm) error {
 
 func initArm(ctx context.Context, myArm arm.Arm) error {
 	foo := getCoord("a1")
-	err := myArm.MoveToPosition(ctx, &pb.Pose{
+	err := myArm.MoveToPosition(ctx, &pb.ArmPosition{
 		X:     float64(foo.x),
 		Y:     float64(foo.y),
 		Z:     SafeMoveHeight,
@@ -657,5 +657,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 			}()
 		}
 	})
+
 	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
 }
