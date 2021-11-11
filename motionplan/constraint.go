@@ -68,8 +68,9 @@ func (c *constraintHandler) CheckConstraints(cInput constraintInput) (bool, floa
 	
 	for name, cFunc := range c.constraints {
 		pass, cScore := cFunc(cInput)
-		fmt.Println(name, pass)
+		//~ fmt.Println(name, pass)
 		if !pass {
+			fmt.Println(name, "failed, off by", cScore)
 			return false, math.Inf(1)
 		}
 		score += cScore
@@ -107,6 +108,8 @@ func (c *constraintHandler) CheckConstraintPath(ci constraintInput) bool {
 		return false
 	}
 	steps := getSteps(seedPos, goalPos)
+	
+	fmt.Println("steps:", steps, "from", spatial.PoseToArmPos(seedPos), "to", spatial.PoseToArmPos(goalPos))
 	
 	for i := 0; i < steps; i++ {
 		interp := float64(i)/float64(steps)
@@ -210,7 +213,8 @@ func dontHitPetersWall(ci constraintInput) (bool, float64) {
 		
 		// wall in Peter's office
 		// this has some buffer- whiteboard at precisely -506
-		if pt.Y < -490.8 {
+		if pt.Y < -495.8 {
+			fmt.Println(spatial.PoseToArmPos(pose))
 			return false
 		}
 		if pt.X < -600 {
@@ -331,6 +335,19 @@ func orientDistToRegion(goal spatial.Orientation, alpha float64) func(spatial.Or
 	}
 }
 
+
+func NewPoseFlexOVGradient(goal spatial.Pose, alpha float64) func(spatial.Pose, spatial.Pose) float64 {
+	
+	oDistFunc := orientDistToRegion(goal.Orientation(), alpha)
+	
+	return func(from, to spatial.Pose) float64 {
+		pDist := from.Point().Distance(to.Point())
+		oDist := oDistFunc(from.Orientation())
+		// pDist is already squared
+		return pDist*pDist + oDist*oDist
+	}
+}
+
 // NewPlaneConstraintAndGradient is used to define a constraint space for a plane, and will return 1) a constraint
 // function which will determine whether a point is on the plane and in a valid orientation, and 2) a gradient function
 // which will bring a pose into the valid constraint space. The plane normal is assumed to point towards the valid area
@@ -386,7 +403,7 @@ func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, ov *spatial.OrientationVec
 	
 	// arc length from plane-perpendicular vector allowable for writing
 	writingAngle := 0.4
-	epsilon := 1.
+	epsilon := 0.3
 	
 	// invert the normal to get the valid AOA OV
 	ov.Normalize()
@@ -434,7 +451,7 @@ func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, ov *spatial.OrientationVec
 			//~ fmt.Println(dist)
 			return true, 0
 		}
-		return false, 0
+		return false, dist
 	}
 	
 	return validFunc, gradFunc

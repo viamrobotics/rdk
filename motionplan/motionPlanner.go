@@ -314,3 +314,11 @@ func getSolutions(ctx context.Context, f frame.Frame, solver kinematics.InverseK
 	
 	return solutions, nil
 }
+
+func inputDist(from, to []frame.Input) float64 {
+	dist := 0.
+	for i, f := range from {
+		dist += math.Abs(to[i].Value - f.Value)
+	}
+	return dist
+}

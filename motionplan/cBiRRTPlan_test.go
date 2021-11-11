@@ -7,14 +7,11 @@ import (
 
 	//~ "runtime"
 	"testing"
-	"time"
 
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/utils"
-
-	//~ "go.viam.com/core/robots/xarm"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -101,7 +98,7 @@ func TestExtend(t *testing.T) {
 			goalReached = goalMap[goalReached]
 		}
 		//~ fmt.Println("path", inputSteps)
-		inputSteps = mp.smoothPath(ctx, inputSteps)
+		inputSteps = mp.SmoothPath(ctx, inputSteps)
 		//~ fmt.Println(inputSteps)
 	}
 }

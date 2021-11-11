@@ -19,6 +19,11 @@ import (
 	//~ "go.viam.com/core/utils"
 )
 
+// needed to wrap slices so we can use them as map keys
+type solution struct {
+	inputs []frame.Input
+}
+
 func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (*cBiRRTMotionPlanner, error) {
 	ik, err := kinematics.CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
@@ -30,7 +35,7 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (*
 	}
 	// nlopt should try only once
 	nlopt.SetMaxIter(1)
-	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: 0.01}
+	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: 0.001}
 	
 	// Max individual step of 0.5% of full range of motion
 	mp.qstep = getFrameSteps(frame, 0.015)
@@ -57,8 +62,8 @@ func NewCBiRRTMotionPlanner_petertest(frame frame.Frame, logger golog.Logger, nC
 	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: 0.01}
 	
 	// Max individual step of 0.15% of full range of motion
-	mp.qstep = getFrameSteps(frame, 0.015)
-	fmt.Println(mp.qstep)
+	mp.qstep = getFrameSteps(frame, 0.00001)
+	fmt.Println("qstep", mp.qstep)
 	mp.iter = 2000
 	mp.seed = rand.New(rand.NewSource(42))
 	//~ mp.iter = 1
@@ -86,7 +91,11 @@ type cBiRRTMotionPlanner struct {
 	seed       *rand.Rand
 }
 
-func (mp *cBiRRTMotionPlanner) SetDistFunc(f func(spatial.Pose, spatial.Pose) float64) {
+func (mp *cBiRRTMotionPlanner) SetGoalDistFunc(f func(spatial.Pose, spatial.Pose) float64) {
+	mp.solver.SetDistFunc(f)
+}
+
+func (mp *cBiRRTMotionPlanner) SetPathDistFunc(f func(spatial.Pose, spatial.Pose) float64) {
 	mp.fastGradDescent.SetDistFunc(f)
 }
 
@@ -113,7 +122,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, s
 		return nil, err
 	}
 	
-	fmt.Println("got solutions")
+	fmt.Println("got solutions", len(solutions))
 
 	mp.logger.Debug("getting best")
 	// Get the N best solutions
@@ -169,6 +178,8 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, s
 		
 		if inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist {
 			
+			fmt.Println(seedReached, goalReached, inputDist(seedReached.inputs, goalReached.inputs))
+			
 			// extract the path to the seed
 			for seedReached != nil {
 				inputSteps = append(inputSteps, seedReached.inputs)
@@ -184,14 +195,10 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, s
 				inputSteps = append(inputSteps, goalReached.inputs)
 				goalReached = goalMap[goalReached]
 			}
+			//~ fmt.Println("presmooth path", inputSteps)
 			inputSteps = mp.SmoothPath(ctx, inputSteps)
 			mp.logger.Debug("got path!")
-			fmt.Println(inputSteps)
-			for j := 0; j < len(inputSteps) - 1; j++ {
-				step := inputSteps[j]
-				fmt.Println(j, step)
-				fmt.Println(mp.CheckConstraintPath(constraintInput{startInput: step, endInput: inputSteps[j+1], frame: mp.frame}))
-			}
+			//~ fmt.Println("postsmooth path", inputSteps)
 			
 			
 			return inputSteps, nil
@@ -268,7 +275,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(rrtMap map[*solution]*solution,
 				//~ fmt.Println("adding", near, "\n at ", oldNear)
 				rrtMap[near] = oldNear
 			}else{
-				//~ fmt.Println("no ok path")
+				fmt.Println("no ok path")
 				return oldNear
 			}
 		}else{
@@ -303,7 +310,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(seedInputs, target []frame.Input) [
 		return target
 	}
 	
-	//~ fmt.Println("solving")
+	fmt.Println("solving")
 	solutionGen := make(chan []frame.Input, 1)
 	// This should run very fast and does not need to be cancelled. A cancellation will be caught above in Plan()
 	ctx := context.Background()
@@ -316,7 +323,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(seedInputs, target []frame.Input) [
 		default:
 	}
 	close(solutionGen)
-	//~ fmt.Println(solved, err)
+	fmt.Println(solved, err)
 	if err != nil {
 		return nil
 	}
