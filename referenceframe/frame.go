@@ -90,7 +90,7 @@ func RestrictedRandomFrameInputs(m Frame, seed *rand.Rand, lim float64) []Input 
 		}
 
 		jRange := math.Abs(u - l)
-		pos[i] = Input{lim*(seed.Float64()*jRange + l)}
+		pos[i] = Input{lim * (seed.Float64()*jRange + l)}
 	}
 	return pos
 }
@@ -125,6 +125,13 @@ type Frame interface {
 	Name() string
 	Transform([]Input) (spatial.Pose, error)
 	DoF() []Limit
+}
+
+// MultiFrame represents a series of reference frames, e.g. each link in an arm
+// MultiTransform takes FROM current frame TO each of the intermediate frames' parent
+type MultiFrame interface {
+	Frame
+	MultiTransform([]Input) ([]spatial.Pose, error)
 }
 
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation from the current Frame to the parent Frame
