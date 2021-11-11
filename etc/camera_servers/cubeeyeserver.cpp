@@ -255,8 +255,8 @@ protected:
       
 
 void signal_callback_handler(int signum) {
-//    cout << "Caught signal " << signum << endl;
-   // Terminate program
+    // On kill signal turn flag to allow main to finish executing
+    // Which closes the webserver and camera
     TOFdone = true;
 }
 
@@ -267,7 +267,7 @@ int main(int argc, char* argv[])
     httpserver::webserver webServerTOF = httpserver::create_webserver(port);
     installWebHandlers(&webServerTOF);
 
-    //setup listener thread
+    // setup listener thread
     MyListener listener;
     meere::sensor::add_prepared_listener(&listener);
 
