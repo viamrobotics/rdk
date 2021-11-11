@@ -597,19 +597,15 @@
                       req.setGripperName(gripperName);
                       console.log("making grab attempt");
                       console.log(gripperName);
-                      // debugger;
 
                       robotService.objectManipulationServiceDoGrab(req, {}, 
                         (err, resp) => {
-                          // debugger
                           grpcCallback(err, resp);
                           if (err) {
                             return Promise.reject(err);
                           }
-                          return Promise.resolve(resp);
+                          return Promise.resolve(resp).then(console.log);
                       })
-
-                      // fetch(theData.pcdClick.path).then(console.log);
                   },
                   findSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
                       theData.pcdClick.calculatingSegments = true;
