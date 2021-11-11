@@ -2,7 +2,7 @@
     "name": "fake_arm",
     "link≈s": [
         {
-            ≈    "id": "base_link",
+            "id": "base_link",
             "parent": "world",
             "translation": {
                 "x": 500.0,
