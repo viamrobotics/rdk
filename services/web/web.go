@@ -283,26 +283,20 @@ func (svc *webService) update(ctx context.Context, resources map[resource.Name]i
 		groupedResources[n.Subtype] = r
 	}
 
-	// for each subtype, check if subtype svc exist. if it does, do a replace
-	// otherwise, create a new one
 	for s, v := range groupedResources {
 		subtypeSvc, ok := svc.services[s]
-		if ok {
-			return subtypeSvc.Replace(v)
+		// TODO: as part of #272, register new service if it doesn't currently exist
+		if !ok {
+			subtypeSvc, err := subtype.New(v)
+			if err != nil {
+				return err
+			}
+			svc.services[s] = subtypeSvc
+		} else {
+			if err := subtypeSvc.Replace(v); err != nil {
+				return err
+			}
 		}
-		subtypeSvc, err := subtype.New(v)
-		if err != nil {
-			return nil
-		}
-		c := registry.ResourceSubtypeLookup(s)
-		if c == nil || c.RegisterService == nil || svc.server == nil {
-			// registration doesn't exist or server not yet started
-			continue
-		}
-		if err := c.RegisterService(ctx, svc.server, subtypeSvc); err != nil {
-			return err
-		}
-		svc.services[s] = subtypeSvc
 	}
 	return nil
 }
@@ -451,6 +445,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 			return err
 		}
 	}
+
 	resources := make(map[resource.Name]interface{})
 	for _, name := range svc.r.ResourceNames() {
 		resource, ok := svc.r.ResourceByName(name)
@@ -461,6 +456,27 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	}
 	if err := svc.update(ctx, resources); err != nil {
 		return err
+	}
+
+	// register every subtype resource grpc service here
+	// TODO: only register necessary services (#272)
+	subtypeConstructors := registry.RegisteredResourceSubtypes()
+	for s, rs := range subtypeConstructors {
+		if rs.RegisterService == nil {
+			continue
+		}
+		subtypeSvc, ok := svc.services[s]
+		if !ok {
+			newSvc, err := subtype.New(make(map[resource.Name]interface{}))
+			if err != nil {
+				return err
+			}
+			subtypeSvc = newSvc
+			svc.services[s] = newSvc
+		}
+		if err := rs.RegisterService(ctx, rpcServer, subtypeSvc); err != nil {
+			return err
+		}
 	}
 
 	if options.Debug {
