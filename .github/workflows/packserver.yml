@@ -25,10 +25,8 @@ jobs:
         fetch-depth: 2
 
     - name: Configure git for private modules
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        git config --global url."https://${GITHUB_TOKEN}@github.com".insteadOf "https://github.com"
+        git config --global url."https://${{ secrets.GIT_ACCESS_TOKEN }}@github.com".insteadOf "https://github.com"
 
     - name: Build server package
       env:

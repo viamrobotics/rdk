@@ -27,7 +27,7 @@ jobs:
         apt-get install -y docker-ce docker-ce-cli containerd.io
     - name: Login to GHCR
       run: |
-        echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u viambot --password-stdin
+        echo ${{ secrets.GIT_ACCESS_TOKEN }} | docker login ghcr.io -u viambot --password-stdin
     - name: Check out code
       uses: actions/checkout@v2
     - name: Build and push
@@ -37,4 +37,4 @@ jobs:
       uses: benc-uk/workflow-dispatch@v1
       with:
         workflow: Go
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.GIT_ACCESS_TOKEN }}
