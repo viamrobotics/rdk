@@ -578,8 +578,8 @@
 
                   },
                   doPCDGrab : function(){
-                      let gripperName = Object.keys(theData.status.grippersMap)[0];
-                      let armName = Object.keys(theData.status.armsMap)[0];
+                      let gripperName = theData.status.grippersMap[0][0];
+                      let armName = theData.status.armsMap[0].name;
                       let cameraName = pcdGlobal.cameraName;
                       let cameraPointX = theData.pcdClick.x;
                       let cameraPointY = theData.pcdClick.y;
@@ -595,8 +595,15 @@
                       req.setCameraName(cameraName);
                       req.setCameraPoint(cameraPoint);
                       req.setGripperName(gripperName);
+                      console.log("making grab attempt");
+                      console.log(gripperName);
+                      // debugger;
 
-                      robotService.objectManipulationServiceDoGrab(req, {}, (err, resp) => grpcCallback(err, resp));
+                      robotService.objectManipulationServiceDoGrab(req, {}, 
+                        (err, resp) => {
+                          // debugger
+                          grpcCallback(err, resp);
+                        })
 
                       // fetch(theData.pcdClick.path).then(console.log);
                   },
