@@ -46,7 +46,6 @@ import { Timestamp } from "google-protobuf/google/protobuf/timestamp_pb";
 import {
   InputControllerInjectEventRequest,
   InputControllerEvent,
-  InputControllerStatus,
 } from "proto/robot_pb";
 
 import RadioButtons from "./RadioButtons.vue";
@@ -173,22 +172,31 @@ export default class WebGamepad extends Vue {
 
   sendEvent(newEvent: InputControllerEvent): void {
     if (this.enabled) {
-      console.log(
-        newEvent.getControl() +
-          ": " +
-          newEvent.getEvent() +
-          " " +
-          newEvent.getValue()
+      let req = new InputControllerInjectEventRequest();
+      req.setController("WebGamepad");
+      req.setEvent(newEvent);
+
+      this.$root.$robotService.inputControllerInjectEvent(
+        req,
+        {},
+        (err: Error) => this.grpcCallback(err)
       );
+
+      // console.log(
+      //   newEvent.getControl() +
+      //     ": " +
+      //     newEvent.getEvent() +
+      //     " " +
+      //     newEvent.getValue()
+      // );
     }
   }
 
-  // sendEvent(): void{
-  //   newEvent = new InputControllerEvent();
-  //   req = new InputControllerInjectEventRequest();
-  //   req.setController(this.controller);
-  //   req.setEvent(newEvent);
-  // }
+  grpcCallback(err: Error): void {
+    if (err != null) {
+      console.log(err);
+    }
+  }
 
   tick(): void {
     var gamepadFound = false;

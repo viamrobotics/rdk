@@ -26,7 +26,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from "vue-property-decorator";
 
-import { InputControllerEvent, InputControllerStatus } from "proto/robot_pb";
+import { InputControllerStatus } from "proto/robot_pb";
 
 @Component
 export default class InputController extends Vue {
