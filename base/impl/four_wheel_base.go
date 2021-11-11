@@ -26,6 +26,7 @@ func init() {
 	registry.RegisterBase("four-wheel", registry.Base{Constructor: CreateFourWheelBase})
 }
 
+// FourWheelBase implements a four wheeled base
 type FourWheelBase struct {
 	widthMillis              int
 	wheelCircumferenceMillis int
