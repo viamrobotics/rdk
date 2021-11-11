@@ -47,6 +47,12 @@ func (p *proxyBase) MoveStraight(ctx context.Context, distanceMillis int, millis
 	return p.actual.MoveStraight(ctx, distanceMillis, millisPerSec, block)
 }
 
+func (p *proxyBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) (int, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.MoveArc(ctx, distanceMillis, millisPerSec, degsPerSec, block)
+}
+
 func (p *proxyBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
