@@ -603,7 +603,11 @@
                         (err, resp) => {
                           // debugger
                           grpcCallback(err, resp);
-                        })
+                          if (err) {
+                            return Promise.reject(err);
+                          }
+                          return Promise.resolve(resp);
+                      })
 
                       // fetch(theData.pcdClick.path).then(console.log);
                   },
@@ -1361,9 +1365,6 @@
                 <tr>
                   <th>Z</th>
                   <td>${pcdClick.z}</td>
-                </tr>
-                <tr>
-                  <td colspan=2>${pcdClick.path}</td>
                 </tr>
                 <tr>
                   <td colspan=2>
