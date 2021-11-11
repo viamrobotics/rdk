@@ -26,12 +26,16 @@ import (
 //go:embed vgripper_model.json
 var vgripperjson []byte
 
+// modelName is used to register the gripper to a model name.
+const modelName = "viam-v1"
+
 func init() {
-	registry.RegisterGripper("viam", registry.Gripper{
+	registry.RegisterGripper(modelName, registry.Gripper{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
-			b, ok := r.BoardByName("local")
+			const boardName = "local"
+			b, ok := r.BoardByName(boardName)
 			if !ok {
-				return nil, errors.New("viam gripper requires a board called local")
+				return nil, errors.Errorf("%v gripper requires a board called %v", modelName, boardName)
 			}
 			return NewGripperV1(ctx, r, b, config, logger)
 		},
@@ -48,7 +52,7 @@ const (
 	OpenPosOffset           = 0.4 // Reduce maximum opening width, keeps out of mechanical binding region
 )
 
-// GripperV1 represents a Viam gripper
+// GripperV1 represents a Viam gripper with a single force sensor cell
 type GripperV1 struct {
 	motor    motor.Motor
 	current  board.AnalogReader
