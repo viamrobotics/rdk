@@ -1,9 +1,7 @@
 <template>
   <div class="component">
     <div class="card">
-
-
-      <div class="row" style="margin-right: 0; align-items: center;">
+      <div class="row" style="margin-right: 0; align-items: center">
         <div class="header">
           <h2>{{ controllerName }} Input</h2>
           <span v-if="connected" class="pill green">Connected</span>
@@ -12,13 +10,15 @@
       </div>
 
       <div class="row" v-if="connected">
-        <div v-for="control in controls" :key="control[0]" class="column control">
+        <div
+          v-for="control in controls"
+          :key="control[0]"
+          class="column control"
+        >
           <p class="subtitle">{{ control[0] }}</p>
           {{ control[1] }}
         </div>
       </div>
-
-
     </div>
   </div>
 </template>
@@ -26,11 +26,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from "vue-property-decorator";
 
-import {
-  InputControllerEvent,
-  InputControllerStatus,
-} from "proto/robot_pb";
-
+import { InputControllerEvent, InputControllerStatus } from "proto/robot_pb";
 
 @Component
 export default class InputController extends Vue {
@@ -40,27 +36,53 @@ export default class InputController extends Vue {
   self = this;
 
   get controls(): string[][] {
-    const controlOrder = ["AbsoluteX", "AbsoluteY", "AbsoluteRX", "AbsoluteRY", "AbsoluteZ", "AbsoluteRZ", "AbsoluteHat0X", "AbsoluteHat0Y", "ButtonSouth", "ButtonEast", "ButtonWest", "ButtonNorth", "ButtonLT", "ButtonRT", "ButtonLThumb", "ButtonRThumb", "ButtonSelect", "ButtonStart", "ButtonMenu", "ButtonEStop"];
+    const controlOrder = [
+      "AbsoluteX",
+      "AbsoluteY",
+      "AbsoluteRX",
+      "AbsoluteRY",
+      "AbsoluteZ",
+      "AbsoluteRZ",
+      "AbsoluteHat0X",
+      "AbsoluteHat0Y",
+      "ButtonSouth",
+      "ButtonEast",
+      "ButtonWest",
+      "ButtonNorth",
+      "ButtonLT",
+      "ButtonRT",
+      "ButtonLThumb",
+      "ButtonRThumb",
+      "ButtonSelect",
+      "ButtonStart",
+      "ButtonMenu",
+      "ButtonEStop",
+    ];
     var controls = [];
     for (const ctrl of controlOrder) {
       var value = this.getValue(ctrl);
       if (value != "") {
-        controls.push([ctrl.replace("Absolute", "").replace("Button", ""), value]);
+        controls.push([
+          ctrl.replace("Absolute", "").replace("Button", ""),
+          value,
+        ]);
       }
     }
     return controls;
   }
 
-  get connected (): boolean {
-    if (this.controllerStatus.eventsList[0] && this.controllerStatus.eventsList[0].event != "Disconnect") {
+  get connected(): boolean {
+    if (
+      this.controllerStatus.eventsList[0] &&
+      this.controllerStatus.eventsList[0].event != "Disconnect"
+    ) {
       return true;
-    }else{
+    } else {
       return false;
     }
   }
 
-
-  getValue (control: string): string {
+  getValue(control: string): string {
     for (const iEvent of this.controllerStatus.eventsList) {
       if (iEvent.control === control) {
         if (control.includes("Absolute")) {
@@ -72,9 +94,7 @@ export default class InputController extends Vue {
     }
     return "";
   }
-
 }
-
 </script>
 
 <style scoped>
@@ -111,7 +131,7 @@ h3 {
 }
 
 .control {
-  width: 7ex;
+  width: 8ex;
 }
 
 .margin-bottom {
