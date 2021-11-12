@@ -13,9 +13,12 @@ import (
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robots/fake"
+
+	"go.viam.com/core/services"
 	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 )
 
@@ -578,6 +581,15 @@ func TestPartsAdd(t *testing.T) {
 	test.That(t, inputController1.(*proxyInputController).actual, test.ShouldEqual, injectInputController)
 	parts.AddInputController(inputController1, config.Component{Name: "inputController1"})
 	test.That(t, inputController1.(*proxyInputController).actual, test.ShouldEqual, injectInputController)
+
+	injectObjectManipulationService := &inject.ObjectManipulationService{}
+	injectObjectManipulationService.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
+		return false, nil
+	}
+	parts.AddService(injectObjectManipulationService, config.Service{Name: services.ObjectManipulationServiceName})
+	objectManipulationService, ok := parts.ServiceByName(services.ObjectManipulationServiceName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, objectManipulationService, test.ShouldEqual, injectObjectManipulationService)
 
 	injectArm := &inject.Arm{}
 	cfg := &config.Component{Type: config.ComponentTypeArm, Name: "arm1"}

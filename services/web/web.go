@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
-	"strconv"
 	"sync"
 
 	"github.com/Masterminds/sprig"
@@ -17,7 +16,6 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
 	"github.com/go-errors/errors"
-	"github.com/golang/geo/r3"
 
 	goutils "go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
@@ -34,11 +32,9 @@ import (
 	metadatapb "go.viam.com/core/proto/api/service/v1"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/resource"
-	robotimpl "go.viam.com/core/robot/impl"
 
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
-	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 	"go.viam.com/core/web"
 
@@ -216,80 +212,6 @@ func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.
 	return sources, names, nil
 }
 
-// grabAtCameraPositionHandler moves a gripper towards an object
-type grabAtCameraPositionHandler struct {
-	app *robotWebApp
-}
-
-// TODO: make doGrab a service
-func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, cameraName string, x, y, z float64) (bool, error) {
-	r := h.app.theRobot
-	// get gripper component
-	if len(r.GripperNames()) != 1 {
-		return false, errors.New("robot needs exactly 1 arm for doGrab")
-	}
-	gripperName := r.GripperNames()[0]
-	gripper, ok := r.GripperByName(gripperName)
-	if !ok {
-		return false, fmt.Errorf("failed to find gripper %q", gripperName)
-	}
-	// do gripper movement
-	err := gripper.Open(ctx)
-	if err != nil {
-		return false, err
-	}
-	cameraPoint := r3.Vector{x, y, z}
-	cameraPose := spatialmath.NewPoseFromPoint(cameraPoint)
-	err = robotimpl.MoveGripper(ctx, r, cameraPose, cameraName)
-	if err != nil {
-		return false, err
-	}
-	return gripper.Grab(ctx)
-}
-
-func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
-
-	cameraName := pat.Param(r, "camera")
-
-	xString := pat.Param(r, "x")
-	yString := pat.Param(r, "y")
-	zString := pat.Param(r, "z")
-	if xString == "" || yString == "" || zString == "" {
-		http.NotFound(w, r)
-		return
-	}
-
-	x, err := strconv.ParseFloat(xString, 64)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("error parsing x (%s): %s", xString, err), http.StatusBadRequest)
-		return
-	}
-
-	y, err := strconv.ParseFloat(yString, 64)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("error parsing y (%s): %s", yString, err), http.StatusBadRequest)
-		return
-	}
-
-	z, err := strconv.ParseFloat(zString, 64)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("error parsing z (%s): %s", zString, err), http.StatusBadRequest)
-		return
-	}
-
-	didGrab, err := h.doGrab(ctx, cameraName, x, y, z)
-	if err != nil {
-		h.app.logger.Errorf("error grabbing: %s", err)
-		http.Error(w, fmt.Sprintf("error grabbing: %s", err), http.StatusInternalServerError)
-		return
-	}
-	if !didGrab {
-		h.app.logger.Error("failed to grab anything")
-	}
-
-}
-
 var defaultViewConfig = x264.DefaultViewConfig
 
 func init() {
@@ -396,7 +318,6 @@ func (svc *webService) installWeb(ctx context.Context, mux *goji.Mux, theRobot r
 		return nil, err
 	}
 
-	mux.Handle(pat.Get("/grab_at_camera_position/:camera/:x/:y/:z"), &grabAtCameraPositionHandler{app})
 	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(http.Dir(ResolveSharedDir(app.options.SharedDir)+"/static"))))
 	mux.Handle(pat.New("/"), app)
 
