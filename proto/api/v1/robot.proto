@@ -547,7 +547,7 @@ service RobotService {
 
   rpc ObjectManipulationServiceDoGrab(ObjectManipulationServiceDoGrabRequest) returns (ObjectManipulationServiceDoGrabResponse) {
     option (google.api.http) = {
-      post: "/api/v1/services/objectmanipulation/dograb"
+      post: "/api/v1/services/objectmanipulation/do_grab"
     };
   }
 

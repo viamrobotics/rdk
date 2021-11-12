@@ -27,6 +27,7 @@ import (
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
+	"go.viam.com/core/services"
 	"go.viam.com/core/services/framesystem"
 	"go.viam.com/core/services/web"
 	"go.viam.com/core/servo"
@@ -293,7 +294,7 @@ func (r *localRobot) Status(ctx context.Context) (*pb.Status, error) {
 func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
 	logger := r.Logger()
 	// create the base reference frame system
-	service, ok := r.ServiceByName("frame_system")
+	service, ok := r.ServiceByName(services.FrameSystemName)
 	if !ok {
 		return nil, errors.New("service frame_system not found")
 	}

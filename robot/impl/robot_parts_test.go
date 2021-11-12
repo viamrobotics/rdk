@@ -13,6 +13,7 @@ import (
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robots/fake"
+	"go.viam.com/core/services"
 	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"
@@ -583,9 +584,8 @@ func TestPartsAdd(t *testing.T) {
 	injectObjectManipulationService.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, x, y, z float64) (bool, error) {
 		return false, nil
 	}
-	const objectMServiceName = "object_manipulation"
-	parts.AddService(injectObjectManipulationService, config.Service{Name: objectMServiceName})
-	objectManipulationService, ok := parts.ServiceByName(objectMServiceName)
+	parts.AddService(injectObjectManipulationService, config.Service{Name: services.ObjectManipulationServiceName})
+	objectManipulationService, ok := parts.ServiceByName(services.ObjectManipulationServiceName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, objectManipulationService, test.ShouldEqual, injectObjectManipulationService)
 

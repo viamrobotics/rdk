@@ -30,6 +30,7 @@ import (
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
+	servicepkg "go.viam.com/core/services"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/testutils/inject"
@@ -184,7 +185,7 @@ func TestServer(t *testing.T) {
 		// set up the robot with something that is not a framesystem service
 		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
 			services := make(map[string]interface{})
-			services["frame_system"] = nil
+			services[servicepkg.FrameSystemName] = nil
 			service, ok := services[name]
 			return service, ok
 		}
@@ -194,7 +195,7 @@ func TestServer(t *testing.T) {
 		// set up the robot with the frame system
 		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
 			services := make(map[string]interface{})
-			services["frame_system"] = fss
+			services[servicepkg.FrameSystemName] = fss
 			service, ok := services[name]
 			return service, ok
 		}
@@ -229,7 +230,7 @@ func TestServer(t *testing.T) {
 		// set up the robot with something that is not an objectmanipulation service
 		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
 			services := make(map[string]interface{})
-			services["object_manipulation"] = nil
+			services[servicepkg.ObjectManipulationServiceName] = nil
 			service, ok := services[name]
 			return service, ok
 		}

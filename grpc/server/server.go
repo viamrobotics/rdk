@@ -42,6 +42,7 @@ import (
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
 	"go.viam.com/core/sensor/imu"
+	"go.viam.com/core/services"
 	"go.viam.com/core/services/framesystem"
 	"go.viam.com/core/services/navigation"
 	"go.viam.com/core/services/objectmanipulation"
@@ -49,12 +50,6 @@ import (
 	coreutils "go.viam.com/core/utils"
 	"go.viam.com/core/vision/segmentation"
 )
-
-// Service Names
-
-const frameServiceName = "frame_system"
-const navigationServiceName = "navigation"
-const objectManipulationServiceName = "object_manipulation"
 
 // Server implements the contract from robot.proto that ultimately satisfies
 // an robot.Robot as a gRPC server.
@@ -1233,9 +1228,9 @@ func (s *Server) ResourceRunCommand(ctx context.Context, req *pb.ResourceRunComm
 // That is: the directed acyclic graph of the frame system parent structure, the static offset poses between frames,
 // and the kinematic/model frames for any robot parts that move or have intrinsic frame properties.
 func (s *Server) FrameServiceConfig(ctx context.Context, req *pb.FrameServiceConfigRequest) (*pb.FrameServiceConfigResponse, error) {
-	svc, ok := s.r.ServiceByName(frameServiceName)
+	svc, ok := s.r.ServiceByName(services.FrameSystemName)
 	if !ok {
-		return nil, errors.Errorf("no service named %q", frameServiceName)
+		return nil, errors.Errorf("no service named %q", services.FrameSystemName)
 	}
 	fsSvc, ok := svc.(framesystem.Service)
 	if !ok {
@@ -1254,7 +1249,7 @@ func (s *Server) FrameServiceConfig(ctx context.Context, req *pb.FrameServiceCon
 
 // NavigationServiceMode returns the mode of the service.
 func (s *Server) NavigationServiceMode(ctx context.Context, req *pb.NavigationServiceModeRequest) (*pb.NavigationServiceModeResponse, error) {
-	svc, ok := s.r.ServiceByName(navigationServiceName)
+	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -1280,7 +1275,7 @@ func (s *Server) NavigationServiceMode(ctx context.Context, req *pb.NavigationSe
 
 // NavigationServiceSetMode sets the mode of the service.
 func (s *Server) NavigationServiceSetMode(ctx context.Context, req *pb.NavigationServiceSetModeRequest) (*pb.NavigationServiceSetModeResponse, error) {
-	svc, ok := s.r.ServiceByName(navigationServiceName)
+	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -1305,7 +1300,7 @@ func (s *Server) NavigationServiceSetMode(ctx context.Context, req *pb.Navigatio
 
 // NavigationServiceLocation returns the location of the robot.
 func (s *Server) NavigationServiceLocation(ctx context.Context, req *pb.NavigationServiceLocationRequest) (*pb.NavigationServiceLocationResponse, error) {
-	svc, ok := s.r.ServiceByName(navigationServiceName)
+	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -1324,7 +1319,7 @@ func (s *Server) NavigationServiceLocation(ctx context.Context, req *pb.Navigati
 
 // NavigationServiceWaypoints returns the navigation waypoints of the robot.
 func (s *Server) NavigationServiceWaypoints(ctx context.Context, req *pb.NavigationServiceWaypointsRequest) (*pb.NavigationServiceWaypointsResponse, error) {
-	svc, ok := s.r.ServiceByName(navigationServiceName)
+	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -1350,7 +1345,7 @@ func (s *Server) NavigationServiceWaypoints(ctx context.Context, req *pb.Navigat
 
 // NavigationServiceAddWaypoint adds a new navigation waypoint.
 func (s *Server) NavigationServiceAddWaypoint(ctx context.Context, req *pb.NavigationServiceAddWaypointRequest) (*pb.NavigationServiceAddWaypointResponse, error) {
-	svc, ok := s.r.ServiceByName(navigationServiceName)
+	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -1364,7 +1359,7 @@ func (s *Server) NavigationServiceAddWaypoint(ctx context.Context, req *pb.Navig
 
 // NavigationServiceRemoveWaypoint removes a navigation waypoint.
 func (s *Server) NavigationServiceRemoveWaypoint(ctx context.Context, req *pb.NavigationServiceRemoveWaypointRequest) (*pb.NavigationServiceRemoveWaypointResponse, error) {
-	svc, ok := s.r.ServiceByName(navigationServiceName)
+	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -1382,7 +1377,7 @@ func (s *Server) NavigationServiceRemoveWaypoint(ctx context.Context, req *pb.Na
 // ObjectManipulationServiceDoGrab commands a gripper to move and grab
 // an object at the passed camera point
 func (s *Server) ObjectManipulationServiceDoGrab(ctx context.Context, req *pb.ObjectManipulationServiceDoGrabRequest) (*pb.ObjectManipulationServiceDoGrabResponse, error) {
-	svc, ok := s.r.ServiceByName(objectManipulationServiceName)
+	svc, ok := s.r.ServiceByName(services.ObjectManipulationServiceName)
 	if !ok {
 		return nil, errors.New("no objectmanipulation service")
 	}
