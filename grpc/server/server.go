@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/multierr"
@@ -1385,8 +1386,13 @@ func (s *Server) ObjectManipulationServiceDoGrab(ctx context.Context, req *pb.Ob
 	if !ok {
 		return nil, errors.New("service is not a objectmanipulation service")
 	}
-	cameraPoint := req.GetCameraPoint()
-	hasGrabbed, err := omSvc.DoGrab(ctx, req.GetGripperName(), req.GetArmName(), req.GetCameraName(), cameraPoint.X, cameraPoint.Y, cameraPoint.Z)
+	cameraPointProto := req.GetCameraPoint()
+	cameraPoint := &r3.Vector{
+		X: cameraPointProto.X,
+		Y: cameraPointProto.Y,
+		Z: cameraPointProto.Z,
+	}
+	hasGrabbed, err := omSvc.DoGrab(ctx, req.GetGripperName(), req.GetArmName(), req.GetCameraName(), cameraPoint)
 	if err != nil {
 		return nil, err
 	}
