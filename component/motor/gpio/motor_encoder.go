@@ -209,11 +209,6 @@ func (m *EncodedMotor) directionMovingInLock() int64 {
 	return -1
 }
 
-// PID returns the motor's underlying PID.
-func (m *EncodedMotor) PID() motor.PID {
-	return m.real.PID()
-}
-
 // PositionSupported returns true.
 func (m *EncodedMotor) PositionSupported(ctx context.Context) (bool, error) {
 	return true, nil
