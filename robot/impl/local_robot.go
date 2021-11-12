@@ -27,7 +27,9 @@ import (
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
+	"go.viam.com/core/services"
 	"go.viam.com/core/services/framesystem"
+	"go.viam.com/core/services/web"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/status"
 
@@ -294,7 +296,7 @@ func (r *localRobot) Status(ctx context.Context) (*pb.Status, error) {
 func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
 	logger := r.Logger()
 	// create the base reference frame system
-	service, ok := r.ServiceByName("frame_system")
+	service, ok := r.ServiceByName(services.FrameSystemName)
 	if !ok {
 		return nil, errors.New("service frame_system not found")
 	}
@@ -364,8 +366,7 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 
 	// create web service here
 	// somewhat hacky, but the web service start up needs to come last
-	// TODO: use web.Type as part of #253.
-	webConfig := config.Service{Name: WebSvcName, Type: config.ServiceType("web")}
+	webConfig := config.Service{Name: WebSvcName, Type: web.Type}
 	web, err := r.newService(ctx, webConfig)
 	if err != nil {
 		return nil, err

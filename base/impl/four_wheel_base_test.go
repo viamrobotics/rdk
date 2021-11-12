@@ -13,10 +13,6 @@ import (
 	robotimpl "go.viam.com/core/robot/impl"
 
 	"go.viam.com/test"
-
-	// necessary hack because robotimpl is imported in web
-	// TODO: remove as part of #253
-	_ "go.viam.com/core/services/web"
 )
 
 func TestFourWheelBase1(t *testing.T) {
