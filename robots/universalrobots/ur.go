@@ -61,8 +61,8 @@ type URArm struct {
 	logger                  golog.Logger
 	cancel                  func()
 	activeBackgroundWorkers *sync.WaitGroup
+	model                   *kinematics.Model
 	ik                      kinematics.InverseKinematics
-	frameJSON               []byte
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -128,8 +128,8 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 		haveData:                false,
 		logger:                  logger,
 		cancel:                  cancel,
+		model:                   model,
 		ik:                      ik,
-		frameJSON:               ur5modeljson,
 	}
 
 	onData := make(chan struct{})
@@ -159,8 +159,8 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 }
 
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem
-func (ua *URArm) ModelFrame() []byte {
-	return ua.frameJSON
+func (ua *URArm) ModelFrame() *kinematics.Model {
+	return ua.model
 }
 
 func (ua *URArm) setRuntimeError(re error) {
@@ -204,7 +204,7 @@ func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions,
 	for _, j := range state.Joints {
 		radians = append(radians, j.Qactual)
 	}
-	return arm.JointPositionsFromRadians(radians), nil
+	return frame.JointPositionsFromRadians(radians), nil
 }
 
 // CurrentPosition computes and returns the current cartesian position.
@@ -257,7 +257,7 @@ func (ua *URArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 
 // MoveToJointPositions TODO
 func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
-	return ua.MoveToJointPositionRadians(ctx, arm.JointPositionsToRadians(joints))
+	return ua.MoveToJointPositionRadians(ctx, frame.JointPositionsToRadians(joints))
 }
 
 // MoveToJointPositionRadians TODO

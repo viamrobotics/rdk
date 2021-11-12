@@ -7,7 +7,6 @@ import (
 	"runtime"
 	"testing"
 
-	"go.viam.com/core/component/arm"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/utils"
@@ -60,7 +59,7 @@ func TestCombinedIKinematics(t *testing.T) {
 func BenchCombinedIKinematics(t *testing.B) {
 	logger := golog.NewDevelopmentLogger("combinedBenchmark")
 
-	m, err := ParseJSONFile(utils.ResolveFile("robots/eva/eva_kinematics.json"), "")
+	m, err := ParseJSONFile(utils.ResolveFile("robots/eva/eva_json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
@@ -70,7 +69,7 @@ func BenchCombinedIKinematics(t *testing.B) {
 	solvedCnt := 0
 	for i := 0; i < toSolve; i++ {
 		randJointPos := m.GenerateRandomJointPositions(seed)
-		randPos, err := ComputePosition(m, arm.JointPositionsFromRadians(randJointPos))
+		randPos, err := ComputePosition(m, frame.JointPositionsFromRadians(randJointPos))
 		test.That(t, err, test.ShouldBeNil)
 		solution, err := ik.Solve(context.Background(), randPos, home)
 		test.That(t, solution, test.ShouldNotBeNil)
@@ -90,7 +89,7 @@ func TestUR5NloptIKinematics(t *testing.T) {
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
 
-	goalJP := arm.JointPositionsFromRadians([]float64{-4.128, 2.71, 2.798, 2.3, 1.291, 0.62})
+	goalJP := frame.JointPositionsFromRadians([]float64{-4.128, 2.71, 2.798, 2.3, 1.291, 0.62})
 	goal, err := ComputePosition(m, goalJP)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = ik.Solve(context.Background(), goal, home)
@@ -138,7 +137,7 @@ func TestSVAvsDH(t *testing.T) {
 
 	seed := rand.New(rand.NewSource(23))
 	for i := 0; i < numTests; i++ {
-		joints := arm.JointPositionsFromRadians(mSVA.GenerateRandomJointPositions(seed))
+		joints := frame.JointPositionsFromRadians(mSVA.GenerateRandomJointPositions(seed))
 
 		posSVA, err := ComputePosition(mSVA, joints)
 		test.That(t, err, test.ShouldBeNil)
@@ -158,7 +157,7 @@ func TestSVAvsDH(t *testing.T) {
 
 func BenchNloptSwing(t *testing.B) {
 	logger := golog.NewDevelopmentLogger("testSwing")
-	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
+	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
@@ -167,7 +166,7 @@ func BenchNloptSwing(t *testing.B) {
 	for i := 0; i < toSolve; i++ {
 		origRadians := m.GenerateRandomJointPositions(seed)
 		randJointPos := frame.FloatsToInputs(origRadians)
-		randPos, err := ComputePosition(m, arm.JointPositionsFromRadians(origRadians))
+		randPos, err := ComputePosition(m, frame.JointPositionsFromRadians(origRadians))
 		test.That(t, err, test.ShouldBeNil)
 		randPos.X += 10
 		solution, err := ik.Solve(context.Background(), randPos, randJointPos)

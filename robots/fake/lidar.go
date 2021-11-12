@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"go.viam.com/core/config"
+	"go.viam.com/core/kinematics"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -36,7 +37,10 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			device := NewLidar(config)
+			device, err := NewLidar(config)
+			if err != nil {
+				return nil, err
+			}
 			device.SetSeed(seed)
 			return device, nil
 		},
@@ -50,18 +54,22 @@ type Lidar struct {
 	posX, posY float64
 	started    bool
 	seed       int64
-	frameJSON  []byte
+	model      *kinematics.Model
 }
 
 // NewLidar returns a new fake lidar.
-func NewLidar(cfg config.Component) *Lidar {
+func NewLidar(cfg config.Component) (*Lidar, error) {
+	model, err := kinematics.ParseJSON(lidarmodel, "")
+	if err != nil {
+		return nil, err
+	}
 	name := cfg.Name
-	return &Lidar{Name: name, mu: &sync.Mutex{}, frameJSON: lidarmodel}
+	return &Lidar{Name: name, mu: &sync.Mutex{}, model: model}, nil
 }
 
-// ModelFrame returns the json bytes that describe the dynamic frame of the model
-func (l *Lidar) ModelFrame() []byte {
-	return l.frameJSON
+// ModelFrame returns the dynamic frame of the model
+func (l *Lidar) ModelFrame() *kinematics.Model {
+	return l.model
 }
 
 // SetPosition sets the given position.

@@ -45,7 +45,8 @@ type ModelJSON struct {
 		Max    float64 `json:"max"`
 		Min    float64 `json:"min"`
 	} `json:"dhParams"`
-	Tolerances *SolverDistanceWeights `json:"tolerances"`
+	RawFrames  []map[string]interface{} `json:"frames"`
+	Tolerances *SolverDistanceWeights   `json:"tolerances"`
 }
 
 // ParseJSONFile will read a given file and then parse the contained JSON data.
@@ -73,6 +74,12 @@ func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
 	} else {
 		model.name = modelName
 	}
+
+	// do this early in case we bail early
+	if m.Tolerances != nil {
+		model.SolveWeights = *m.Tolerances
+	}
+
 	transforms := map[string]frame.Frame{}
 
 	// Make a map of parents for each element for post-process, to allow items to be processed out of order
@@ -144,6 +151,16 @@ func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
 			}
 			parentMap[linkID] = jointID
 		}
+	} else if m.KinParamType == "frames" {
+		for _, x := range m.RawFrames {
+			f, err := frame.UnmarshalFrameMap(x)
+			if err != nil {
+				return nil, err
+			}
+			model.OrdTransforms = append(model.OrdTransforms, f)
+		}
+
+		return model, nil
 	} else {
 		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", m.KinParamType)
 	}
@@ -191,10 +208,6 @@ func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
 		orderedTransforms = append(orderedTransforms, nextTransform)
 	}
 	model.OrdTransforms = orderedTransforms
-
-	if m.Tolerances != nil {
-		model.SolveWeights = *m.Tolerances
-	}
 
 	return model, err
 }

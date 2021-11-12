@@ -93,9 +93,17 @@ func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*co
 			return nil, errors.Errorf("more than one component with name %q in config file", c.Name)
 		}
 		seen[c.Name] = true
-		modelJSON, err := extractModelFrameJSON(ctx, r, c.Name, c.Type)
+		model, err := extractModelFrameJSON(ctx, r, c.Name, c.Type)
 		if err != nil {
 			return nil, err
+		}
+		var modelJSON []byte
+		if model != nil {
+			// TODO(erh,bijan): this is silly
+			modelJSON, err = model.MarshalJSON()
+			if err != nil {
+				return nil, err
+			}
 		}
 		parts[c.Name] = &config.FrameSystemPart{Name: c.Name, FrameConfig: c.Frame, ModelFrameConfig: modelJSON}
 	}
@@ -165,12 +173,12 @@ func topologicallySortFrameNames(ctx context.Context, children map[string][]refe
 
 // ModelFramer has a method that returns the kinematics information needed to build a dynamic frame.
 type ModelFramer interface {
-	ModelFrame() []byte
+	ModelFrame() *kinematics.Model
 }
 
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
 // JSON []byte if it does, or nil if it doesn't.
-func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, compType config.ComponentType) ([]byte, error) {
+func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, compType config.ComponentType) (*kinematics.Model, error) {
 	switch compType {
 	case config.ComponentTypeBase:
 		part, ok := r.BaseByName(name)
@@ -252,7 +260,7 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		if framer, ok := utils.UnwrapProxy(part).(ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
-		return nil, nil
+		return nil, errors.Errorf("got an arm of type %T that is not a ModelFrame", utils.UnwrapProxy(part))
 	default:
 		return nil, errors.Errorf("do not recognize component type %v for model frame extraction", compType)
 	}

@@ -1,6 +1,7 @@
 package kinematics
 
 import (
+	"encoding/json"
 	"math"
 	"math/rand"
 
@@ -165,6 +166,44 @@ func (m *Model) DoF() []referenceframe.Limit {
 		limits = append(limits, joint.DoF()...)
 	}
 	return limits
+}
+
+// MarshalJSON serializes a Model
+func (m *Model) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"name":                 m.name,
+		"kinematic_param_type": "frames",
+		"frames":               m.OrdTransforms,
+		"tolerances":           m.SolveWeights,
+	})
+}
+
+// AlmostEquals returns true if the only difference between this model and another is floating point inprecision
+func (m *Model) AlmostEquals(otherFrame referenceframe.Frame) bool {
+	other, ok := otherFrame.(*Model)
+	if !ok {
+		return false
+	}
+
+	if m.name != other.name {
+		return false
+	}
+
+	if m.SolveWeights != other.SolveWeights {
+		return false
+	}
+
+	if len(m.OrdTransforms) != len(other.OrdTransforms) {
+		return false
+	}
+
+	for idx, f := range m.OrdTransforms {
+		if !f.AlmostEquals(other.OrdTransforms[idx]) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {

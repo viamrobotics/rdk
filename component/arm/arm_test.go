@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/resource"
 
@@ -83,14 +84,6 @@ func TestArmPosition(t *testing.T) {
 	test.That(t, p.Theta, test.ShouldEqual, math.Pi/2)
 }
 
-func TestJointPositions(t *testing.T) {
-	in := []float64{0, math.Pi}
-	j := JointPositionsFromRadians(in)
-	test.That(t, j.Degrees[0], test.ShouldEqual, 0.0)
-	test.That(t, j.Degrees[1], test.ShouldEqual, 180.0)
-	test.That(t, JointPositionsToRadians(j), test.ShouldResemble, in)
-}
-
 func TestArmPositionDiff(t *testing.T) {
 	test.That(t, PositionGridDiff(&pb.Pose{}, &pb.Pose{}), test.ShouldAlmostEqual, 0)
 	test.That(t, PositionGridDiff(&pb.Pose{X: 1}, &pb.Pose{}), test.ShouldAlmostEqual, 1)
@@ -121,6 +114,10 @@ func (m *mockArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions
 }
 
 func (m *mockArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
+	return nil
+}
+
+func (m *mockArm) ModelFrame() *kinematics.Model {
 	return nil
 }
 

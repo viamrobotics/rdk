@@ -1,6 +1,7 @@
 package kinematics
 
 import (
+	"fmt"
 	"testing"
 
 	"go.viam.com/test"
@@ -13,25 +14,42 @@ import (
 // since that will be caught by tests to the actual kinematics
 // So we'll just check that we read in the right number of joints
 func TestParseJSONFile(t *testing.T) {
-	_, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
-	test.That(t, err, test.ShouldBeNil)
+	goodFiles := []string{
+		"robots/wx250s/wx250s_kinematics.json",
+		"robots/wx250s/wx250s_test.json",
+		"robots/universalrobots/ur5e_DH.json",
+		"robots/varm/v1.json",
+	}
 
-	_, err = ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"), "")
-	test.That(t, err, test.ShouldBeNil)
+	badFiles := []string{
+		"kinematics/testjson/kinematicsloop.json",
+		"kinematics/testjson/worldjoint.json",
+		"kinematics/testjson/worldlink.json",
+		"kinematics/testjson/worldDH.json",
+	}
 
-	_, err = ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e_DH.json"), "")
-	test.That(t, err, test.ShouldBeNil)
+	for _, f := range goodFiles {
+		t.Run(f, func(tt *testing.T) {
+			model, err := ParseJSONFile(utils.ResolveFile(f), "")
+			test.That(t, err, test.ShouldBeNil)
 
-	_, err = ParseJSONFile(utils.ResolveFile("kinematics/testjson/kinematicsloop.json"), "")
-	test.That(t, err, test.ShouldNotBeNil)
+			data, err := model.MarshalJSON()
+			test.That(t, err, test.ShouldBeNil)
 
-	_, err = ParseJSONFile(utils.ResolveFile("kinematics/testjson/worldjoint.json"), "")
-	test.That(t, err, test.ShouldNotBeNil)
+			model2, err := ParseJSON(data, "")
+			test.That(t, err, test.ShouldBeNil)
 
-	_, err = ParseJSONFile(utils.ResolveFile("kinematics/testjson/worldlink.json"), "")
-	test.That(t, err, test.ShouldNotBeNil)
+			fmt.Printf("%#v\n%#v\n", model, model2)
 
-	_, err = ParseJSONFile(utils.ResolveFile("kinematics/testjson/worldDH.json"), "")
-	test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, model.AlmostEquals(model2), test.ShouldBeTrue)
+		})
+	}
+
+	for _, f := range badFiles {
+		t.Run(f, func(tt *testing.T) {
+			_, err := ParseJSONFile(utils.ResolveFile(f), "")
+			test.That(t, err, test.ShouldNotBeNil)
+		})
+	}
 
 }
