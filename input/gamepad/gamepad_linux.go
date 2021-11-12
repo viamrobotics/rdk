@@ -49,7 +49,7 @@ func init() {
 			return nil, err
 		}
 		return &conf, nil
-	})
+	}, &Config{})
 }
 
 // Controller is an input.Controller

@@ -94,7 +94,21 @@ type netLogger struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
+func (nl *netLogger) queueSize() int {
+	nl.toLogMutex.Lock()
+	defer nl.toLogMutex.Unlock()
+	return len(nl.toLog)
+}
+
 func (nl *netLogger) Close() error {
+	// try for up to 10 seconds for log queue to clear before cancelling it
+	for i := 0; i < 1000; i++ {
+		if nl.queueSize() == 0 {
+			break
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
 	nl.cancel()
 	nl.activeBackgroundWorkers.Wait()
 	return nil

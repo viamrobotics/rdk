@@ -6,7 +6,7 @@ RUN useradd -m testbot
 RUN echo 'testbot ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 COPY etc/setup.sh /tmp/setup.sh
-RUN sudo -u testbot bash -l /tmp/setup.sh && rm -rf /home/testbot/.cache && apt clean
+RUN chown testbot /tmp/setup.sh && sudo -u testbot bash -l /tmp/setup.sh && rm -rf /home/testbot/.cache && apt clean
 
 RUN cp /home/testbot/.bashrc /home/testbot/.bash_profile /home/testbot/.viamdevrc /root/
 

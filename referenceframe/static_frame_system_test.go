@@ -14,6 +14,14 @@ import (
 
 var blankPos map[string][]Input
 
+func frameNames(frames []Frame) []string {
+	names := make([]string, len(frames))
+	for i, f := range frames {
+		names[i] = f.Name()
+	}
+	return names
+}
+
 func TestSimpleFrameSystemFunctions(t *testing.T) {
 	// build the system
 	fs := NewEmptySimpleFrameSystem("test")
@@ -39,7 +47,15 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	f1Parents, err := fs.TracebackFrame(f1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(f1Parents), test.ShouldEqual, 3)
+	test.That(t, frameNames(f1Parents), test.ShouldResemble, []string{"frame1", "frame3", "world"})
 
+	parent, err := fs.Parent(fs.GetFrame("frame1"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, parent, test.ShouldResemble, fs.GetFrame("frame3"))
+
+	parent, err = fs.Parent(fs.GetFrame("frame3"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, parent, test.ShouldResemble, fs.World())
 	// Pruning frame3 should also remove frame1
 	fs.RemoveFrame(fs.GetFrame("frame3"))
 	frames = fs.FrameNames()
@@ -298,9 +314,14 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	err = fs.AddFrame(frame4, fs.GetFrame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
 
+	// complete fs
+	t.Logf("frames in fs: %v", fs.FrameNames())
+
 	// This should remove frames 3 and 4 from fs
 	fs2, err := fs.DivideFrameSystem(frame3)
 	test.That(t, err, test.ShouldBeNil)
+	t.Logf("frames in fs after divide: %v", fs.FrameNames())
+	t.Logf("frames in fs2 after divide: %v", fs2.FrameNames())
 
 	f4 := fs.GetFrame("frame4")
 	test.That(t, f4, test.ShouldBeNil)
@@ -326,8 +347,12 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	// Put frame3 back where it was
 	err = fs.AddFrame(frame3, fs.World())
 	test.That(t, err, test.ShouldBeNil)
-	err = fs2.AddIntoFrameSystem(fs, frame3)
+	err = fs.MergeFrameSystem(fs2, frame3)
 	test.That(t, err, test.ShouldBeNil)
+
+	// Comfirm that fs2 is empty now
+	t.Logf("frames in fs after merge: %v", fs.FrameNames())
+	t.Logf("frames in fs2 after merge: %v", fs2.FrameNames())
 
 	// Confirm new combined frame system now works as it did before
 	pointStart = r3.Vector{3., 0., 0.} // the point from PoV of frame 2

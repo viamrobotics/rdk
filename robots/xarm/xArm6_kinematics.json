@@ -1,143 +1,140 @@
 {
-   "model": {
-      "manufacturer": "uFactory",
-      "name": "xArm6",
-      "links": [
-         {
+    "name": "xArm6",
+    "links": [
+        {
             "id": "base",
             "parent": "world",
             "translation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
+                "x": 0,
+                "y": 0,
+                "z": 0
             }
-         },
-         {
+        },
+        {
             "id": "base_top",
             "parent": "waist",
             "translation": {
-               "x": 0,
-               "y": 0,
-               "z": 267
+                "x": 0,
+                "y": 0,
+                "z": 267
             }
-         },
-         {
+        },
+        {
             "id": "upper_arm",
             "parent": "shoulder",
             "translation": {
-               "x": 53.5,
-               "y": 0,
-               "z": 284.5
+                "x": 53.5,
+                "y": 0,
+                "z": 284.5
             }
-         },
-         {
+        },
+        {
             "id": "upper_forearm",
             "parent": "elbow",
             "translation": {
-               "x": 77.5,
-               "y": 0,
-               "z": -342.5
+                "x": 77.5,
+                "y": 0,
+                "z": -342.5
             }
-         },
-         {
+        },
+        {
             "id": "lower_forearm",
             "parent": "wrist",
             "translation": {
-               "x": 76,
-               "y": 0,
-               "z": -97
+                "x": 76,
+                "y": 0,
+                "z": -97
             }
-         },
-         {
+        },
+        {
             "id": "gripper_mount",
             "parent": "gripper_rot",
             "translation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
+                "x": 0,
+                "y": 0,
+                "z": 0
             },
             "setorientation": true,
             "orientation": {
-               "x": 0,
-               "y": 0,
-               "z": -1,
-               "th": 0
+                "x": 0,
+                "y": 0,
+                "z": -1,
+                "th": 0
             }
-         }
-      ],
-      "joints": [
-         {
+        }
+    ],
+    "joints": [
+        {
             "id": "waist",
             "type": "revolute",
             "parent": "base",
             "axis": {
-               "x": 0,
-               "y": 0,
-               "z": 1
+                "x": 0,
+                "y": 0,
+                "z": 1
             },
             "max": 359,
             "min": -359
-         },
-         {
+        },
+        {
             "id": "shoulder",
             "type": "revolute",
             "parent": "base_top",
             "axis": {
-               "x": 0,
-               "y": 1,
-               "z": 0
+                "x": 0,
+                "y": 1,
+                "z": 0
             },
             "max": 120,
             "min": -118
-         },
-         {
+        },
+        {
             "id": "elbow",
             "type": "revolute",
             "parent": "upper_arm",
             "axis": {
-               "x": 0,
-               "y": 1,
-               "z": 0
+                "x": 0,
+                "y": 1,
+                "z": 0
             },
             "max": 10,
             "min": -225
-         },
-         {
+        },
+        {
             "id": "forearm_rot",
             "type": "revolute",
             "parent": "upper_forearm",
             "axis": {
-               "x": 0,
-               "y": 0,
-               "z": -1
+                "x": 0,
+                "y": 0,
+                "z": -1
             },
             "max": 359,
             "min": -359
-         },
-         {
+        },
+        {
             "id": "wrist",
             "type": "revolute",
             "parent": "forearm_rot",
             "axis": {
-               "x": 0,
-               "y": 1,
-               "z": 0
+                "x": 0,
+                "y": 1,
+                "z": 0
             },
             "max": 179,
             "min": -97
-         },
-         {
+        },
+        {
             "id": "gripper_rot",
             "type": "revolute",
             "parent": "lower_forearm",
             "axis": {
-               "x": 0,
-               "y": 0,
-               "z": -1
+                "x": 0,
+                "y": 0,
+                "z": -1
             },
             "max": 359,
             "min": -359
-         }
-      ]
-   }
+        }
+    ]
 }

@@ -51,19 +51,19 @@ func (ik *CombinedIK) Solve(ctx context.Context, c chan []frame.Input, newGoal s
 	if err != nil {
 		return err
 	}
-	ik.logger.Debugf("starting 6d position: %v", spatialmath.PoseToArmPos(startPos))
-	ik.logger.Debugf("goal 6d position: %v", spatialmath.PoseToArmPos(newGoal))
-
 	// This will adjust the goal position to make movements more intuitive when using incrementation near poles
+	ik.logger.Debugf("starting 6d position: %v", spatialmath.PoseToProtobuf(startPos))
+	ik.logger.Debugf("goal 6d position: %v", spatialmath.PoseToProtobuf(newGoal))
+
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 
 	errChan := make(chan error)
 	var activeSolvers sync.WaitGroup
 	activeSolvers.Add(len(ik.solvers))
-	
+
 	for _, solver := range ik.solvers {
 		thisSolver := solver
-		
+
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 			errChan <- runSolver(ctxWithCancel, thisSolver, c, newGoal, seed)

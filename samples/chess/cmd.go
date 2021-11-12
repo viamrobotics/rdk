@@ -232,7 +232,7 @@ func moveOutOfWay(ctx context.Context, myArm arm.Arm) error {
 
 func initArm(ctx context.Context, myArm arm.Arm) error {
 	foo := getCoord("a1")
-	err := myArm.MoveToPosition(ctx, &pb.ArmPosition{
+	err := myArm.MoveToPosition(ctx, &pb.Pose{
 		X:     float64(foo.x),
 		Y:     float64(foo.y),
 		Z:     SafeMoveHeight,

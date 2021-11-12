@@ -2,6 +2,7 @@ package fake
 
 import (
 	"context"
+	_ "embed" // used to import model frame
 	"fmt"
 	"hash/fnv"
 	"math/rand"
@@ -10,15 +11,17 @@ import (
 	"sync"
 
 	"go.viam.com/core/config"
+	"go.viam.com/core/kinematics"
 	"go.viam.com/core/lidar"
-	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
-	"github.com/golang/geo/r3"
 )
+
+//go:embed lidar_model.json
+var lidarmodel []byte
 
 // LidarType uses the fake model name.
 const LidarType = ModelName
@@ -34,12 +37,12 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			device := NewLidar(config.Name)
+			device, err := NewLidar(config)
+			if err != nil {
+				return nil, err
+			}
 			device.SetSeed(seed)
 			return device, nil
-		},
-		Frame: func(name string) (referenceframe.Frame, error) {
-			return referenceframe.FrameFromPoint(name, r3.Vector{50, 0, 0})
 		},
 	})
 }
@@ -51,11 +54,22 @@ type Lidar struct {
 	posX, posY float64
 	started    bool
 	seed       int64
+	model      *kinematics.Model
 }
 
 // NewLidar returns a new fake lidar.
-func NewLidar(name string) *Lidar {
-	return &Lidar{Name: name, mu: &sync.Mutex{}}
+func NewLidar(cfg config.Component) (*Lidar, error) {
+	model, err := kinematics.ParseJSON(lidarmodel, "")
+	if err != nil {
+		return nil, err
+	}
+	name := cfg.Name
+	return &Lidar{Name: name, mu: &sync.Mutex{}, model: model}, nil
+}
+
+// ModelFrame returns the dynamic frame of the model
+func (l *Lidar) ModelFrame() *kinematics.Model {
+	return l.model
 }
 
 // SetPosition sets the given position.

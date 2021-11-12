@@ -10,20 +10,19 @@
 * [Development](#development)
 
 ## Programs
-* [lidar/cmd/view](./lidar/cmd/view) - Visualize a LIDAR device
 * [rimage/cmd/both](./rimage/cmd/both) - Read color/depth data and write to an overlayed image file
 * [rimage/cmd/depth](./rimage/cmd/depth) - Read depth (or color/depth) data and write pretty version to a file
 * [rimage/cmd/stream_camera](./rimage/cmd/stream_camera) - Stream a local camera
 * [web/cmd/server](./web/cmd/server) - Run a robot server
-* [rpc/examples/echo/server](./rpc/examples/echo/server) - Run a gRPC echo example server
-* [rpc/examples/echo/client](./rpc/examples/echo/client) - Run a gRPC echo example client
 * [sensor/compass/gy511/cmd/client](./sensor/compass/gy511/cmd/client) - Run a GY511 compass
 
 ### Bespoke
 * [samples/boat1](./samples/boat1) - boat1 work in progress
 * [samples/chess](./samples/chess) - Play chess!
-* [samples/gripper1](./samples/gripper1) - gripper1 work in progress
 * [samples/vision](./samples/vision) - Utilities for working with images to test out vision library code
+
+### API Documentation & more devices
+To see more examples, check out the [Wiki](https://github.com/viamrobotics/core/wiki)
 
 ## Dependencies
 
@@ -42,16 +41,17 @@ If libvpx is not available on your distro, run the following:
 ## Development
 
 ### Conventions
-1. Always run `make lint` and test before pushing.
 1. Write tests!
-1. Usually merge and squash your PRs and more rarely do merge commits with each commit being a logical unit of work.
-1. If you add a new package, please add it to this README.
-1. If you add a new sample or command, please add it to this README.
-1. Experiments should go in samples or any subdirectory with /samples/ in it. As "good" pieces get abstracted, put into a real package command directory.
-1. Use imperative mood for commits (see [Git Documenation](https://git.kernel.org/pub/scm/git/git.git/tree/Documentation/SubmittingPatches?id=a5828ae6b52137b913b978e16cd2334482eb4c1f#n136)).
-1. Try to avoid large merges unless you're really doing a big merge. Try to rebase (e.g. `git pull --rebase`).
-1. Delete any non-release branches ASAP when done, or use a personal fork
-1. Prefer metric SI prefixes where possible (e.g. millis) https://www.nist.gov/pml/weights-and-measures/metric-si-prefixes. The type of measurement (e.g. meters) is not necessary if it is implied (e.g. rulerLengthMillis).
+2. Follow this [Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md)
+3. Always run `make setup build lint` and test before pushing.
+4. Usually merge and squash your PRs and more rarely do merge commits with each commit being a logical unit of work.
+5. If you add a new package, please add it to this README.
+6. If you add a new sample or command, please add it to this README.
+7. Experiments should go in samples or any subdirectory with /samples/ in it. As "good" pieces get abstracted, put into a real package command directory.
+8. Use imperative mood for commits (see [Git Documenation](https://git.kernel.org/pub/scm/git/git.git/tree/Documentation/SubmittingPatches?id=a5828ae6b52137b913b978e16cd2334482eb4c1f#n136)).
+9. Try to avoid large merges unless you're really doing a big merge. Try to rebase (e.g. `git pull --rebase`).
+10. Delete any non-release branches ASAP when done, or use a personal fork
+11. Prefer metric SI prefixes where possible (e.g. millis) https://www.nist.gov/pml/weights-and-measures/metric-si-prefixes. The type of measurement (e.g. meters) is not necessary if it is implied (e.g. rulerLengthMillis).
 
 ### Resources
 
@@ -64,7 +64,6 @@ For API intercommunication, we use Protocol Buffers to serialize data and gRPC t
 Some guidelines on using these:
 1. Follow the [Protobuf style guide](https://docs.buf.build/style-guide/).
 1. After making changes to a `.proto` file, make sure to run `make buf` to generate new files. Make sure `protoc-gen-go-grpc` and `protoc-gen-go`, usually located in `~/go/bin`, are in your `$PATH`.
-1. See [rpc/examples/echo](./rpc/examples/echo) for example usage.
 
 #### gRPC Language Samples
 

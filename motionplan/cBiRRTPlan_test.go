@@ -18,7 +18,6 @@ import (
 )
 
 var (
-	
 	interp = frame.FloatsToInputs([]float64{0.22034293025523666, 0.023301860367034785, 0.0035938741832804775, 0.03706780636626979, -0.006010542176591475, 0.013764993693680328, 0.22994099248696265})
 )
 
@@ -30,27 +29,25 @@ func TestExtend(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	m, err := kinematics.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
-	
-	mp, err := NewCBiRRTMotionPlanner_petertest (m, logger, 4)
+
+	mp, err := NewCBiRRTMotionPlanner_petertest(m, logger, 4)
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	pos := &pb.ArmPosition{
 		X:  206,
 		Y:  100,
 		Z:  120.5,
 		OZ: -1,
 	}
-	
+
 	solutions, err := getSolutions(ctx, mp.frame, mp.solver, pos, home7, mp.constraintHandler)
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	near1 := &solution{home7}
 	seedMap := make(map[*solution]*solution)
 	seedMap[near1] = nil
 	target := &solution{interp}
 
-	
-	
 	keys := make([]float64, 0, len(solutions))
 	for k := range solutions {
 		keys = append(keys, k)
@@ -69,7 +66,7 @@ func TestExtend(t *testing.T) {
 	}
 
 	seedReached, goalReached := mp.constrainedExtendWrapper(seedMap, goalMap, near1, target)
-	
+
 	fmt.Println(target)
 	fmt.Println("seedR", seedReached)
 	fmt.Println("goalR", goalReached)
@@ -77,9 +74,9 @@ func TestExtend(t *testing.T) {
 	//~ printMap(seedMap)
 	//~ fmt.Println("goalMap")
 	//~ printMap(goalMap)
-	
+
 	test.That(t, inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist, test.ShouldBeTrue)
-	
+
 	if inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist {
 		fmt.Println("got path!")
 		// extract the path to the seed
@@ -103,7 +100,7 @@ func TestExtend(t *testing.T) {
 	}
 }
 
-func printMap(m map[*solution]*solution){
+func printMap(m map[*solution]*solution) {
 	for k, v := range m {
 		fmt.Println(k)
 		fmt.Println("  -> ", v)

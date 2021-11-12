@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/go-errors/errors"
 
@@ -142,10 +143,13 @@ type RobotState struct {
 	CartesianInfo
 	Kinematics []KinematicInfo
 	ForceModeData
+	creationTime time.Time
 }
 
 func readRobotStateMessage(buf []byte, logger golog.Logger) (RobotState, error) {
-	state := RobotState{}
+	state := RobotState{
+		creationTime: time.Now(),
+	}
 
 	for len(buf) > 0 {
 		sz := binary.BigEndian.Uint32(buf)

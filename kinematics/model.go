@@ -1,6 +1,7 @@
 package kinematics
 
 import (
+	"encoding/json"
 	"math"
 	"math/rand"
 
@@ -42,8 +43,7 @@ type SolverDistanceWeights struct {
 // And a Fixed will attach a Frame to a Body
 // Exceptions are the head of the tree where we are just starting the robot from World
 type Model struct {
-	manufacturer string
-	name         string // the name of the arm
+	name string // the name of the arm
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	OrdTransforms []referenceframe.Frame
 	SolveWeights  SolverDistanceWeights
@@ -89,11 +89,6 @@ func (m *Model) Name() string {
 	return m.name
 }
 
-// SetName changes the name of this model
-func (m *Model) SetName(name string) {
-	m.name = name
-}
-
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
 func (m *Model) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
@@ -136,17 +131,17 @@ func (m *Model) JointRadToQuats(radAngles []float64) ([]spatialmath.Pose, error)
 // GetPoses returns the list of Poses which, when multiplied together in order, will yield the
 // Pose representing the 6d cartesian position of the end effector.
 func (m *Model) GetPoses(pos []float64) ([]spatialmath.Pose, error) {
-	var quats []spatialmath.Pose
+	quats := make([]spatialmath.Pose, len(m.OrdTransforms))
 	var errAll error
 	posIdx := 0
 	// OrdTransforms is ordered from end effector -> base, so we reverse the list to get quaternions from the base outwards.
 	for i := len(m.OrdTransforms) - 1; i >= 0; i-- {
 		transform := m.OrdTransforms[i]
 
-		var input []referenceframe.Input
 		dof := len(transform.DoF())
+		input := make([]referenceframe.Input, dof)
 		for j := 0; j < dof; j++ {
-			input = append(input, referenceframe.Input{pos[posIdx]})
+			input[j] = referenceframe.Input{pos[posIdx]}
 			posIdx++
 		}
 
@@ -156,7 +151,7 @@ func (m *Model) GetPoses(pos []float64) ([]spatialmath.Pose, error) {
 			return nil, err
 		}
 		multierr.AppendInto(&errAll, err)
-		quats = append(quats, quat)
+		quats[len(quats)-i-1] = quat
 
 	}
 	return quats, errAll
@@ -185,6 +180,44 @@ func (m *Model) DoF() []referenceframe.Limit {
 		limits = append(limits, joint.DoF()...)
 	}
 	return limits
+}
+
+// MarshalJSON serializes a Model
+func (m *Model) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"name":                 m.name,
+		"kinematic_param_type": "frames",
+		"frames":               m.OrdTransforms,
+		"tolerances":           m.SolveWeights,
+	})
+}
+
+// AlmostEquals returns true if the only difference between this model and another is floating point inprecision
+func (m *Model) AlmostEquals(otherFrame referenceframe.Frame) bool {
+	other, ok := otherFrame.(*Model)
+	if !ok {
+		return false
+	}
+
+	if m.name != other.name {
+		return false
+	}
+
+	if m.SolveWeights != other.SolveWeights {
+		return false
+	}
+
+	if len(m.OrdTransforms) != len(other.OrdTransforms) {
+		return false
+	}
+
+	for idx, f := range m.OrdTransforms {
+		if !f.AlmostEquals(other.OrdTransforms[idx]) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {

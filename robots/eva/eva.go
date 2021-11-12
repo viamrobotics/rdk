@@ -22,8 +22,8 @@ import (
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motionplan"
 	"go.viam.com/core/kinematics"
+	"go.viam.com/core/motionplan"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
@@ -38,9 +38,8 @@ var evamodeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, "eva", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewEva(ctx, config.Host, config.Attributes, logger)
+			return NewEva(ctx, config, logger)
 		},
-		Frame: func(name string) (frame.Frame, error) { return evaFrame(name) },
 	})
 }
 
@@ -79,6 +78,9 @@ type eva struct {
 	moveLock *sync.Mutex
 	logger   golog.Logger
 	mp       motionplan.MotionPlanner
+	model    *kinematics.Model
+
+	frameJSON []byte
 }
 
 func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
@@ -86,11 +88,11 @@ func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, er
 	if err != nil {
 		return &pb.JointPositions{}, err
 	}
-	return arm.JointPositionsFromRadians(data.ServosPosition), nil
+	return frame.JointPositionsFromRadians(data.ServosPosition), nil
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (e *eva) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (e *eva) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	joints, err := e.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -99,7 +101,7 @@ func (e *eva) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (e *eva) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+func (e *eva) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 	joints, err := e.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -118,7 +120,7 @@ func (e *eva) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
-	radians := arm.JointPositionsToRadians(newPositions)
+	radians := frame.JointPositionsToRadians(newPositions)
 
 	err := e.doMoveJoints(ctx, radians)
 	if err == nil {
@@ -316,40 +318,38 @@ func (e *eva) apiUnlock(ctx context.Context) {
 	}
 }
 
-// EvaModel() returns the kinematics model of the Eva, also has all Frame information.
-func evaModel() (*kinematics.Model, error) {
-	return kinematics.ParseJSON(evamodeljson)
+// ModelFrame returns all the information necessary for including the arm in a FrameSystem
+func (e *eva) ModelFrame() *kinematics.Model {
+	return e.model
 }
 
-// EvaFrame() returns the reference frame of the Eva, also
-func evaFrame(name string) (frame.Frame, error) {
-	frame, err := evaModel()
-	if err != nil {
-		return nil, err
-	}
-	frame.SetName(name)
-	return frame, nil
+// EvaModel() returns the kinematics model of the Eva, also has all Frame information.
+func evaModel() (*kinematics.Model, error) {
+	return kinematics.ParseJSON(evamodeljson, "")
 }
 
 // NewEva TODO
-func NewEva(ctx context.Context, host string, attrs config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
-
+func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+	attrs := cfg.Attributes
+	host := cfg.Host
 	model, err := evaModel()
 	if err != nil {
 		return nil, err
 	}
-	mp, err := motionplan.NewLinearMotionPlanner(model, logger, 4)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, logger, 4)
 	if err != nil {
 		return nil, err
 	}
 
 	e := &eva{
-		host:     host,
-		version:  "v1",
-		token:    attrs.String("token"),
-		logger:   logger,
-		moveLock: &sync.Mutex{},
-		mp:       mp,
+		host:      host,
+		version:   "v1",
+		token:     attrs.String("token"),
+		logger:    logger,
+		moveLock:  &sync.Mutex{},
+		model:     model,
+		mp:        mp,
+		frameJSON: evamodeljson,
 	}
 
 	name, err := e.apiName(ctx)
