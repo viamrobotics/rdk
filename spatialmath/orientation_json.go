@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/go-errors/errors"
 )
@@ -42,6 +43,7 @@ type RawOrientation struct {
 
 // ParseOrientation will use the Type in RawOrientation to unmarshal the Value into the correct struct that implements Orientation.
 func ParseOrientation(ro RawOrientation) (Orientation, error) {
+	var err error
 	// use the type to unmarshal the value
 	switch OrientationType(ro.Type) {
 	case NoOrientationType:

@@ -9,7 +9,6 @@ import (
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/core/spatialmath"
-	"go.viam.com/core/utils"
 )
 
 // ModelJSON represents all supported fields in a kinematics JSON file.
@@ -47,25 +46,9 @@ type ModelJSON struct {
 	Tolerances *SolverDistanceWeights   `json:"tolerances"`
 }
 
-// ParseJSONFile will read a given file and then parse the contained JSON data.
-func ParseJSONFile(filename, modelName string) (*Model, error) {
-	jsonData, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, errors.Errorf("failed to read json file: %w", err)
-	}
-	return ParseJSON(jsonData, modelName)
-}
-
-// ParseJSON will parse the given JSON data into a kinematics model. modelName sets the name of the model,
-// will use the name from the JSON if string is empty.
-func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
+// Model turns the ModelJSON struct into a full Model with the name modelName
+func (m *ModelJSON) Model(modelName string) (*Model, error) {
 	model := NewModel()
-	m := ModelJSON{}
-
-	err := json.Unmarshal(jsonData, &m)
-	if err != nil {
-		return nil, errors.Errorf("failed to unmarshall json file %w", err)
-	}
 
 	if modelName == "" {
 		model.name = m.Name
@@ -210,5 +193,28 @@ func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
 	}
 	model.OrdTransforms = orderedTransforms
 
-	return model, err
+	return model, nil
+}
+
+// ParseJSONFile will read a given file and then parse the contained JSON data.
+func ParseJSONFile(filename, modelName string) (*Model, error) {
+	jsonData, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, errors.Errorf("failed to read json file: %w", err)
+	}
+	return ParseJSON(jsonData, modelName)
+}
+
+// ParseJSON will parse the given JSON data into a kinematics model. modelName sets the name of the model,
+// will use the name from the JSON if string is empty.
+func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
+	var m *ModelJSON
+
+	err := json.Unmarshal(jsonData, m)
+	if err != nil {
+		return nil, errors.Errorf("failed to unmarshall json file %w", err)
+	}
+
+	return m.Model(modelName)
+
 }

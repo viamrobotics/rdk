@@ -2,7 +2,6 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
 
 	ref "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"

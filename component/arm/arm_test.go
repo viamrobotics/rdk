@@ -5,8 +5,8 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"
 
 	"go.viam.com/test"
@@ -117,7 +117,7 @@ func (m *mockArm) JointMoveDelta(ctx context.Context, joint int, amountDegs floa
 	return nil
 }
 
-func (m *mockArm) ModelFrame() *kinematics.Model {
+func (m *mockArm) ModelFrame() *referenceframe.Model {
 	return nil
 }
 

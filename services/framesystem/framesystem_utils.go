@@ -10,7 +10,6 @@ import (
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
-	"go.viam.com/core/kinematics"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/utils"
@@ -59,13 +58,10 @@ func CreateFramesFromPart(part *config.FrameSystemPart, logger golog.Logger) (re
 	var modelFrame referenceframe.Frame
 	var err error
 	// use identity frame if no model frame defined
-	if part.ModelFrameConfig == nil {
+	if part.ModelFrame == nil {
 		modelFrame = referenceframe.NewZeroStaticFrame(part.Name)
 	} else {
-		modelFrame, err = kinematics.ParseJSON(part.ModelFrameConfig, part.Name)
-		if err != nil {
-			return nil, nil, err
-		}
+		modelFrame = part.ModelFrame
 	}
 	// static frame defines an offset from the parent part-- if it is empty, a 0 offset frame will be applied.
 	staticOffsetName := part.Name + "_offset"
@@ -97,15 +93,7 @@ func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*co
 		if err != nil {
 			return nil, err
 		}
-		var modelJSON []byte
-		if model != nil {
-			// TODO(erh,bijan): this is silly
-			modelJSON, err = model.MarshalJSON()
-			if err != nil {
-				return nil, err
-			}
-		}
-		parts[c.Name] = &config.FrameSystemPart{Name: c.Name, FrameConfig: c.Frame, ModelFrameConfig: modelJSON}
+		parts[c.Name] = &config.FrameSystemPart{Name: c.Name, FrameConfig: c.Frame, ModelFrame: model}
 	}
 	return parts, nil
 }
@@ -173,12 +161,12 @@ func topologicallySortFrameNames(ctx context.Context, children map[string][]refe
 
 // ModelFramer has a method that returns the kinematics information needed to build a dynamic frame.
 type ModelFramer interface {
-	ModelFrame() *kinematics.Model
+	ModelFrame() *referenceframe.Model
 }
 
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
 // JSON []byte if it does, or nil if it doesn't.
-func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, compType config.ComponentType) (*kinematics.Model, error) {
+func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, compType config.ComponentType) (*referenceframe.Model, error) {
 	switch compType {
 	case config.ComponentTypeBase:
 		part, ok := r.BaseByName(name)
