@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/golang/geo/r3"
+
 	"go.viam.com/core/services/objectmanipulation"
 )
 
