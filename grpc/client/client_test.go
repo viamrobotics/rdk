@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"go.viam.com/core/sensor/forcematrix"
+	"go.viam.com/core/subtype"
 
 	"github.com/go-errors/errors"
 
@@ -273,7 +274,6 @@ func TestClient(t *testing.T) {
 	}
 	var (
 		capBaseName             string
-		capArmName              string
 		capGripperName          string
 		capBoardName            string
 		capMotorName            string
@@ -309,36 +309,12 @@ func TestClient(t *testing.T) {
 		return injectBase, true
 	}
 	injectArm := &inject.Arm{}
-	var capArmPos *commonpb.Pose
 	injectArm.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		pos := emptyStatus.Arms["arm1"].GridPosition
 		convertedPos := &commonpb.Pose{
 			X: pos.X, Y: pos.Y, Z: pos.Z, OX: pos.OX, OY: pos.OY, OZ: pos.OZ, Theta: pos.Theta,
 		}
 		return convertedPos, nil
-	}
-	injectArm.CurrentJointPositionsFunc = func(ctx context.Context) (*componentpb.ArmJointPositions, error) {
-		return &componentpb.ArmJointPositions{Degrees: emptyStatus.Arms["arm1"].JointPositions.Degrees}, nil
-	}
-	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
-		capArmPos = ap
-		return nil
-	}
-	var capArmJointPos *componentpb.ArmJointPositions
-	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.ArmJointPositions) error {
-		capArmJointPos = jp
-		return nil
-	}
-	var capArmJoint int
-	var capArmJointAngleDeg float64
-	injectArm.JointMoveDeltaFunc = func(ctx context.Context, joint int, amountDegs float64) error {
-		capArmJoint = joint
-		capArmJointAngleDeg = amountDegs
-		return nil
-	}
-	injectRobot2.ArmByNameFunc = func(name string) (arm.Arm, bool) {
-		capArmName = name
-		return injectArm, true
 	}
 	injectGripper := &inject.Gripper{}
 	var gripperOpenCalled bool
@@ -644,6 +620,15 @@ func TestClient(t *testing.T) {
 		capInputControllerName = name
 		return injectInputDev, true
 	}
+
+	// for these, just need to double check type (main tests should be in the respective grpc client and server files)
+	armSvc1, err := subtype.New((map[resource.Name]interface{}{}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterArmSubtypeServiceServer(gServer1, arm.NewServer(armSvc1))
+
+	armSvc2, err := subtype.New((map[resource.Name]interface{}{arm.Named("arm1"): injectArm}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterArmSubtypeServiceServer(gServer2, arm.NewServer(armSvc2))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -964,30 +949,6 @@ func TestClient(t *testing.T) {
 	pos, err := arm1.CurrentPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
-
-	jp, err := arm1.CurrentJointPositions(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, jp.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].JointPositions.String())
-
-	pos = &commonpb.Pose{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
-	err = arm1.MoveToPosition(context.Background(), pos)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capArmPos.String(), test.ShouldResemble, pos.String())
-	test.That(t, capArmName, test.ShouldEqual, "arm1")
-
-	arm2, ok := client.ArmByName("arm2")
-	test.That(t, ok, test.ShouldBeTrue)
-	jointPos := &componentpb.ArmJointPositions{Degrees: []float64{1.2, 3.4}}
-	err = arm2.MoveToJointPositions(context.Background(), jointPos)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos.String())
-	test.That(t, capArmName, test.ShouldEqual, "arm2")
-
-	err = arm2.JointMoveDelta(context.Background(), 2, 28)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capArmJoint, test.ShouldEqual, 2)
-	test.That(t, capArmJointAngleDeg, test.ShouldEqual, 28)
-	test.That(t, capArmName, test.ShouldEqual, "arm2")
 
 	gripper1, ok = client.GripperByName("gripper1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -1317,30 +1278,6 @@ func TestClient(t *testing.T) {
 	pos, err = resource1.(arm.Arm).CurrentPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
-
-	jp, err = resource1.(arm.Arm).CurrentJointPositions(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, jp.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].JointPositions.String())
-
-	pos = &commonpb.Pose{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
-	err = resource1.(arm.Arm).MoveToPosition(context.Background(), pos)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capArmPos.String(), test.ShouldResemble, pos.String())
-	test.That(t, capArmName, test.ShouldEqual, "arm1")
-
-	resource2, ok := client.ResourceByName(arm.Named("arm2"))
-	test.That(t, ok, test.ShouldBeTrue)
-	jointPos = &componentpb.ArmJointPositions{Degrees: []float64{1.2, 3.4}}
-	err = resource2.(arm.Arm).MoveToJointPositions(context.Background(), jointPos)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos.String())
-	test.That(t, capArmName, test.ShouldEqual, "arm2")
-
-	err = resource2.(arm.Arm).JointMoveDelta(context.Background(), 2, 28)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capArmJoint, test.ShouldEqual, 2)
-	test.That(t, capArmJointAngleDeg, test.ShouldEqual, 28)
-	test.That(t, capArmName, test.ShouldEqual, "arm2")
 
 	sensorDev, ok = client.SensorByName("fsm1")
 	test.That(t, ok, test.ShouldBeTrue)
