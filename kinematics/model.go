@@ -1,6 +1,7 @@
 package kinematics
 
 import (
+	"encoding/json"
 	"math"
 	"math/rand"
 
@@ -165,6 +166,15 @@ func (m *Model) DoF() []referenceframe.Limit {
 		limits = append(limits, joint.DoF()...)
 	}
 	return limits
+}
+
+// MarshalJSON serializes a Model
+func (m *Model) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"name":    m.name,
+		"frames":  m.OrdTransforms,
+		"weights": m.SolveWeights,
+	})
 }
 
 func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
