@@ -29,7 +29,7 @@ import (
 const modelName = "viam-v2"
 
 //go:embed vgripper_model.json
-var vgripperjson []byte
+var vgripperv2json []byte
 
 func init() {
 	registry.RegisterGripper(modelName, registry.Gripper{
@@ -113,7 +113,7 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 	pressureLimit := config.Attributes.Float64("pressureLimit", 30)
 	calibrationNoiseThreshold := config.Attributes.Float64("calibrationNoiseThreshold", 7)
 
-	model, err := kinematics.ParseJSON(vgripperjson, "")
+	model, err := kinematics.ParseJSON(vgripperv2json, "")
 	if err != nil {
 		return nil, err
 	}
