@@ -3,7 +3,7 @@
     <div class="card">
       <div class="row" style="margin-right: 0; align-items: center">
         <div class="header">
-          <h2>{{ ControllerName }} {{ gamepadName }}</h2>
+          <h2>{{ ControllerName }} WebGamepad</h2>
           <span v-if="gamepadConnected && enabled" class="pill green"
             >Connected</span
           >
@@ -56,8 +56,6 @@ import RadioButtons from "./RadioButtons.vue";
   },
 })
 export default class WebGamepad extends Vue {
-  @Prop() controllerName!: string;
-
   gamepad = navigator.getGamepads()[0];
   gamepadState = null;
   gamepadName = "Waiting for gamepad...";
@@ -180,22 +178,7 @@ export default class WebGamepad extends Vue {
       let req = new InputControllerInjectEventRequest();
       req.setController("WebGamepad");
       req.setEvent(newEvent);
-
       this.$emit("execute", req);
-
-      // this.$root.$robotService.inputControllerInjectEvent(
-      //   req,
-      //   {},
-      //   (err: Error) => this.grpcCallback(err)
-      // );
-
-      // console.log(
-      //   newEvent.getControl() +
-      //     ": " +
-      //     newEvent.getEvent() +
-      //     " " +
-      //     newEvent.getValue()
-      // );
     }
   }
 

@@ -45,7 +45,6 @@ type Config struct {
 // Controller is an input.Controller
 type Controller struct {
 	sources                 []input.Controller
-	logger                  golog.Logger
 	mu                      sync.RWMutex
 	activeBackgroundWorkers sync.WaitGroup
 	ctxWithCancel           context.Context
@@ -85,10 +84,9 @@ func (g *Controller) makeCallbacks(ctx context.Context, eventOut input.Event) {
 	}
 }
 
-// NewController creates a new gamepad
+// NewController returns a new multiplexed input.Controller
 func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
 	var g Controller
-	g.logger = logger
 	g.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	g.cancelFunc = cancel
