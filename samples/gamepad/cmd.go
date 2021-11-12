@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
+	"go.viam.com/core/metadata/service"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/services/web"
 
@@ -33,6 +34,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
+	metadataSvc, err := service.New()
+	if err != nil {
+		return err
+	}
+	ctx = service.ContextWithService(ctx, metadataSvc)
+
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
@@ -46,7 +53,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 }
 
 func debugOut(ctx context.Context, r robot.Robot) {
-	g, ok := r.InputControllerByName("TestGamepad")
+	g, ok := r.InputControllerByName("Mux")
 	if !ok {
 		return
 	}

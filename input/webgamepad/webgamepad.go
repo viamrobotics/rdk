@@ -26,7 +26,6 @@ func init() {
 type Controller struct {
 	controls                []input.Control
 	lastEvents              map[input.Control]input.Event
-	logger                  golog.Logger
 	mu                      sync.RWMutex
 	activeBackgroundWorkers sync.WaitGroup
 	ctxWithCancel           context.Context
@@ -96,14 +95,19 @@ func (g *Controller) Close() error {
 
 // Controls lists the inputs of the gamepad
 func (g *Controller) Controls(ctx context.Context) ([]input.Control, error) {
-	return g.controls, nil
+	out := append([]input.Control(nil), g.controls...)
+	return out, nil
 }
 
 // LastEvents returns the last input.Event (the current state)
 func (g *Controller) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.lastEvents, nil
+	out := make(map[input.Control]input.Event)
+	for key, value := range g.lastEvents {
+		out[key] = value
+	}
+	return out, nil
 }
 
 // RegisterControlCallback registers a callback function to be executed on the specified control's trigger Events

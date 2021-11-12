@@ -115,10 +115,12 @@ export default class WebGamepad extends Vue {
       }
       if (this.gamepadConnectedPrev === true) {
         this.connectEvent(false);
+        this.gamepadConnectedPrev = false;
       }
       return;
     } else if (this.gamepadConnectedPrev === false) {
       this.connectEvent(true);
+      this.gamepadConnectedPrev = true;
     }
 
     for (const ctrl in this.curStates) {
@@ -152,7 +154,10 @@ export default class WebGamepad extends Vue {
   }
 
   connectEvent(con: boolean): void {
-    if (con === true && this.gamepadConnected === false) {
+    if (
+      (con === true && this.gamepadConnected === false) ||
+      (con === false && this.gamepadConnectedPrev === false)
+    ) {
       return;
     }
 
@@ -176,11 +181,13 @@ export default class WebGamepad extends Vue {
       req.setController("WebGamepad");
       req.setEvent(newEvent);
 
-      this.$root.$robotService.inputControllerInjectEvent(
-        req,
-        {},
-        (err: Error) => this.grpcCallback(err)
-      );
+      this.$emit("execute", req);
+
+      // this.$root.$robotService.inputControllerInjectEvent(
+      //   req,
+      //   {},
+      //   (err: Error) => this.grpcCallback(err)
+      // );
 
       // console.log(
       //   newEvent.getControl() +
@@ -221,7 +228,7 @@ export default class WebGamepad extends Vue {
         this.gamepadName = this.gamepad.id;
       }
 
-      this.gamepadConnectedPrev = this.gamepadConnected;
+      //this.gamepadConnectedPrev = this.gamepadConnected;
       this.prevStates = Object.assign(this.prevStates, this.curStates);
 
       this.gamepadConnected = this.gamepad.connected;

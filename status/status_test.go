@@ -190,9 +190,9 @@ func TestCreateStatus(t *testing.T) {
 				"motor1": {},
 				"motor2": {},
 			},
-			InputControllers: map[string]bool{
-				"inputController1": true,
-				"inputController2": true,
+			InputControllers: map[string]*pb.InputControllerStatus{
+				"inputController1": {},
+				"inputController2": {},
 			},
 			Functions: map[string]bool{
 				"func1": true,
@@ -262,9 +262,9 @@ func TestCreateStatus(t *testing.T) {
 				"motor1": {},
 				"motor2": {},
 			},
-			InputControllers: map[string]bool{
-				"inputController1": true,
-				"inputController2": true,
+			InputControllers: map[string]*pb.InputControllerStatus{
+				"inputController1": {},
+				"inputController2": {},
 			},
 			Functions: map[string]bool{
 				"func1": true,
