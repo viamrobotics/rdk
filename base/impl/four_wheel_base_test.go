@@ -80,7 +80,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, temp, test.ShouldEqual, 100)
 	})
 
-	t.Run("math", func(t *testing.T) {
+	t.Run("math_straight", func(t *testing.T) {
 		d, rpm, rotations := base.StraightDistanceToMotorInfo(1000, 1000)
 		test.That(t, d, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 		test.That(t, rpm, test.ShouldEqual, 60.0)
@@ -213,6 +213,62 @@ func TestFourWheelBase1(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
+
+	})
+
+	t.Run("arc math", func(t *testing.T) {
+
+		directions, rpms, rotations := base.ArcMath(10, 1000, 1000)
+		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		test.That(t, rpms[0], test.ShouldAlmostEqual, 60.524, 0.01)
+		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.008, .01)
+		test.That(t, directions[1], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		test.That(t, rpms[1], test.ShouldAlmostEqual, 59.476, 0.01)
+		test.That(t, rotations[1], test.ShouldAlmostEqual, 0.9913, .01)
+
+		directions, _, rotations = base.ArcMath(10, -10000, 1000)
+		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+		test.That(t, rpms[0], test.ShouldAlmostEqual, 60.524, 0.01)
+		test.That(t, rotations[0], test.ShouldAlmostEqual, 0.999, .01)
+		test.That(t, directions[1], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+		test.That(t, rpms[1], test.ShouldAlmostEqual, 59.476, 0.01)
+		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.001, .01)
+
+	})
+
+	t.Run("arc math zero speed", func(t *testing.T) {
+
+		directions, _, rotations := base.ArcMath(10, 0, 90)
+		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		test.That(t, rotations[0], test.ShouldAlmostEqual, .0785, .001)
+		test.That(t, directions[1], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+		test.That(t, rotations[1], test.ShouldAlmostEqual, .0785, .001)
+
+		directions, _, rotations = base.ArcMath(10, 0, -90)
+		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+		test.That(t, rotations[0], test.ShouldAlmostEqual, .0785, .001)
+		test.That(t, directions[1], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		test.That(t, rotations[1], test.ShouldAlmostEqual, .0785, .001)
+
+	})
+
+	t.Run("arc math zero angle", func(t *testing.T) {
+
+		directions, rpms, rotations := base.ArcMath(0, 1000, 1000)
+		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		test.That(t, rpms[0], test.ShouldEqual, 60.0)
+		test.That(t, rotations[0], test.ShouldEqual, 1.0)
+		test.That(t, directions[1], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		test.That(t, rpms[1], test.ShouldEqual, 60.0)
+		test.That(t, rotations[1], test.ShouldEqual, 1.0)
+
+		directions, rpms, rotations = base.ArcMath(0, -1000, 1000)
+		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+		test.That(t, rpms[0], test.ShouldEqual, 60.0)
+		test.That(t, rotations[0], test.ShouldEqual, 1.0)
+		test.That(t, directions[1], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+		test.That(t, rpms[1], test.ShouldEqual, 60.0)
+		test.That(t, rotations[1], test.ShouldEqual, 1.0)
 
 	})
 
