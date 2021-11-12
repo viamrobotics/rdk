@@ -40,7 +40,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
+import { Component, Vue } from "vue-property-decorator";
 import { Timestamp } from "google-protobuf/google/protobuf/timestamp_pb";
 
 import {
@@ -211,9 +211,7 @@ export default class WebGamepad extends Vue {
         this.gamepadName = this.gamepad.id;
       }
 
-      //this.gamepadConnectedPrev = this.gamepadConnected;
       this.prevStates = Object.assign(this.prevStates, this.curStates);
-
       this.gamepadConnected = this.gamepad.connected;
 
       this.curStates["X"] = this.gamepad.axes[0];
@@ -238,6 +236,7 @@ export default class WebGamepad extends Vue {
       this.curStates["RThumb"] = this.gamepad.buttons[11].value;
       this.curStates["Menu"] = this.gamepad.buttons[16].value;
     }
+
     this.processEvents();
     window.requestAnimationFrame(() => this.tick());
   }
