@@ -97,10 +97,13 @@ func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*co
 		if err != nil {
 			return nil, err
 		}
-		// TODO(erh,bijan): this is silly
-		modelJSON, err := model.MarshalJSON()
-		if err != nil {
-			return nil, err
+		var modelJSON []byte
+		if model != nil {
+			// TODO(erh,bijan): this is silly
+			modelJSON, err = model.MarshalJSON()
+			if err != nil {
+				return nil, err
+			}
 		}
 		parts[c.Name] = &config.FrameSystemPart{Name: c.Name, FrameConfig: c.Frame, ModelFrameConfig: modelJSON}
 	}
