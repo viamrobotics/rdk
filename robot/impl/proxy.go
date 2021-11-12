@@ -840,8 +840,8 @@ func (p *proxyBoardI2C) replace(newI2C board.I2C) {
 	p.actual = actual.actual
 }
 
-func (p *proxyBoardI2C) OpenHandle() (board.I2CHandle, error) {
-	return p.actual.OpenHandle()
+func (p *proxyBoardI2C) OpenHandle(addr byte) (board.I2CHandle, error) {
+	return p.actual.OpenHandle(addr)
 }
 
 type proxyBoardAnalogReader struct {
