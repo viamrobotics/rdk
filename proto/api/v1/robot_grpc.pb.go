@@ -46,6 +46,7 @@ type RobotServiceClient interface {
 	ArmJointMoveDelta(ctx context.Context, in *ArmJointMoveDeltaRequest, opts ...grpc.CallOption) (*ArmJointMoveDeltaResponse, error)
 	// BaseMoveStraight moves a base of the underlying robot straight.
 	BaseMoveStraight(ctx context.Context, in *BaseMoveStraightRequest, opts ...grpc.CallOption) (*BaseMoveStraightResponse, error)
+	BaseMoveArc(ctx context.Context, in *BaseMoveArcRequest, opts ...grpc.CallOption) (*BaseMoveArcResponse, error)
 	// BaseSpin spins a base of the underlying robot.
 	BaseSpin(ctx context.Context, in *BaseSpinRequest, opts ...grpc.CallOption) (*BaseSpinResponse, error)
 	// BaseSpin stops a base of the underlying robot.
@@ -312,6 +313,15 @@ func (c *robotServiceClient) ArmJointMoveDelta(ctx context.Context, in *ArmJoint
 func (c *robotServiceClient) BaseMoveStraight(ctx context.Context, in *BaseMoveStraightRequest, opts ...grpc.CallOption) (*BaseMoveStraightResponse, error) {
 	out := new(BaseMoveStraightResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseMoveStraight", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) BaseMoveArc(ctx context.Context, in *BaseMoveArcRequest, opts ...grpc.CallOption) (*BaseMoveArcResponse, error) {
+	out := new(BaseMoveArcResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseMoveArc", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -988,6 +998,7 @@ type RobotServiceServer interface {
 	ArmJointMoveDelta(context.Context, *ArmJointMoveDeltaRequest) (*ArmJointMoveDeltaResponse, error)
 	// BaseMoveStraight moves a base of the underlying robot straight.
 	BaseMoveStraight(context.Context, *BaseMoveStraightRequest) (*BaseMoveStraightResponse, error)
+	BaseMoveArc(context.Context, *BaseMoveArcRequest) (*BaseMoveArcResponse, error)
 	// BaseSpin spins a base of the underlying robot.
 	BaseSpin(context.Context, *BaseSpinRequest) (*BaseSpinResponse, error)
 	// BaseSpin stops a base of the underlying robot.
@@ -1161,6 +1172,9 @@ func (UnimplementedRobotServiceServer) ArmJointMoveDelta(context.Context, *ArmJo
 }
 func (UnimplementedRobotServiceServer) BaseMoveStraight(context.Context, *BaseMoveStraightRequest) (*BaseMoveStraightResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BaseMoveStraight not implemented")
+}
+func (UnimplementedRobotServiceServer) BaseMoveArc(context.Context, *BaseMoveArcRequest) (*BaseMoveArcResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BaseMoveArc not implemented")
 }
 func (UnimplementedRobotServiceServer) BaseSpin(context.Context, *BaseSpinRequest) (*BaseSpinResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BaseSpin not implemented")
@@ -1588,6 +1602,24 @@ func _RobotService_BaseMoveStraight_Handler(srv interface{}, ctx context.Context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).BaseMoveStraight(ctx, req.(*BaseMoveStraightRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_BaseMoveArc_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BaseMoveArcRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BaseMoveArc(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BaseMoveArc",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BaseMoveArc(ctx, req.(*BaseMoveArcRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2836,6 +2868,10 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BaseMoveStraight",
 			Handler:    _RobotService_BaseMoveStraight_Handler,
+		},
+		{
+			MethodName: "BaseMoveArc",
+			Handler:    _RobotService_BaseMoveArc_Handler,
 		},
 		{
 			MethodName: "BaseSpin",

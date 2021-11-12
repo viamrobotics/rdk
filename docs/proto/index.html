@@ -258,6 +258,14 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.BaseMoveArcRequest"><span class="badge">M</span>BaseMoveArcRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BaseMoveArcResponse"><span class="badge">M</span>BaseMoveArcResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.BaseMoveStraightRequest"><span class="badge">M</span>BaseMoveStraightRequest</a>
                 </li>
               
@@ -1454,6 +1462,89 @@
                 <tr>
                   <td>joint_positions</td>
                   <td><a href="#proto.api.v1.JointPositions">JointPositions</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BaseMoveArcRequest">BaseMoveArcRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>distance_millis</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>millis_per_sec</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>angle_deg</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BaseMoveArcResponse">BaseMoveArcResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>success</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>error</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>distance_millis</td>
+                  <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -6360,6 +6451,13 @@ And not the pieces relevant to local configuration (pins, security keys, etc...)
               </tr>
             
               <tr>
+                <td>BaseMoveArc</td>
+                <td><a href="#proto.api.v1.BaseMoveArcRequest">BaseMoveArcRequest</a></td>
+                <td><a href="#proto.api.v1.BaseMoveArcResponse">BaseMoveArcResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
                 <td>BaseSpin</td>
                 <td><a href="#proto.api.v1.BaseSpinRequest">BaseSpinRequest</a></td>
                 <td><a href="#proto.api.v1.BaseSpinResponse">BaseSpinResponse</a></td>
@@ -6965,6 +7063,16 @@ is reliant on having an encoder.</p></td>
                 <td>BaseMoveStraight</td>
                 <td>POST</td>
                 <td>/api/v1/base/{name}/move_straight</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>BaseMoveArc</td>
+                <td>POST</td>
+                <td>/api/v1/base/{name}/move_arc</td>
                 <td></td>
               </tr>
               
