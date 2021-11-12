@@ -131,7 +131,14 @@ func TestFrameModelPart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pose = &pb.Pose{X: 1, Y: 2, Z: 3, OZ: 1, Theta: 0}
 	exp = &pb.FrameSystemConfig{Name: "test", FrameConfig: &pb.FrameConfig{Parent: "world", Pose: pose}, ModelJson: jsonData}
-	test.That(t, result.String(), test.ShouldResemble, exp.String())
+	test.That(t, result.Name, test.ShouldEqual, exp.Name)
+	test.That(t, result.FrameConfig, test.ShouldResemble, exp.FrameConfig)
+	resultParsed, err := referenceframe.ParseJSON(result.ModelJson, "")
+	test.That(t, err, test.ShouldBeNil)
+	expParsed, err := referenceframe.ParseJSON(exp.ModelJson, "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resultParsed, test.ShouldResemble, expParsed)
+
 }
 
 func TestMergeFrameSystems(t *testing.T) {

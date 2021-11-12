@@ -88,6 +88,11 @@ func (m *Model) Name() string {
 	return m.name
 }
 
+// ChangeName changes the name of this model - necessary for building frame systems
+func (m *Model) ChangeName(name string) {
+	m.name = name
+}
+
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
 func (m *Model) Transform(inputs []Input) (spatialmath.Pose, error) {

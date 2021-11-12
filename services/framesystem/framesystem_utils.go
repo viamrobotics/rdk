@@ -61,6 +61,7 @@ func CreateFramesFromPart(part *config.FrameSystemPart, logger golog.Logger) (re
 	if part.ModelFrame == nil {
 		modelFrame = referenceframe.NewZeroStaticFrame(part.Name)
 	} else {
+		part.ModelFrame.ChangeName(part.Name)
 		modelFrame = part.ModelFrame
 	}
 	// static frame defines an offset from the parent part-- if it is empty, a 0 offset frame will be applied.

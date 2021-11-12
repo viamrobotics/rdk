@@ -208,7 +208,12 @@ func ParseJSONFile(filename, modelName string) (*Model, error) {
 // ParseJSON will parse the given JSON data into a kinematics model. modelName sets the name of the model,
 // will use the name from the JSON if string is empty.
 func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
-	var m *ModelJSON
+	m := &ModelJSON{}
+
+	// empty data probably means that the robot component has no model information
+	if len(jsonData) == 0 {
+		return nil, nil
+	}
 
 	err := json.Unmarshal(jsonData, m)
 	if err != nil {
