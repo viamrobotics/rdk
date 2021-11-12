@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
-	"go.viam.com/core/kinematics"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 )
@@ -19,7 +19,7 @@ var gripperjson []byte
 func init() {
 	registry.RegisterGripper(ModelName, registry.Gripper{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
-			model, err := kinematics.ParseJSON(gripperjson, "")
+			model, err := referenceframe.ParseJSON(gripperjson, "")
 			if err != nil {
 				return nil, err
 			}
@@ -32,11 +32,11 @@ func init() {
 // Gripper is a fake gripper that can simply read and set properties.
 type Gripper struct {
 	Name  string
-	model *kinematics.Model
+	model *referenceframe.Model
 }
 
 // ModelFrame returns the dynamic frame of the model
-func (g *Gripper) ModelFrame() *kinematics.Model {
+func (g *Gripper) ModelFrame() *referenceframe.Model {
 	return g.model
 }
 

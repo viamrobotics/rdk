@@ -163,7 +163,7 @@ func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.Arm,
 	var err error
 	newArm := &armV1{}
 
-	newArm.model, err = kinematics.ParseJSON(v1modeljson, "")
+	newArm.model, err = frame.ParseJSON(v1modeljson, "")
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +219,7 @@ type armV1 struct {
 	j0Motor, j1Motor motor.Motor
 
 	j0, j1 joint
-	model  *kinematics.Model
+	model  *frame.Model
 	ik     kinematics.InverseKinematics
 }
 
@@ -340,7 +340,7 @@ func (a *armV1) JointMoveDelta(ctx context.Context, joint int, amountDegs float6
 	return a.MoveToJointPositions(ctx, joints)
 }
 
-func (a *armV1) ModelFrame() *kinematics.Model {
+func (a *armV1) ModelFrame() *frame.Model {
 	return a.model
 }
 
