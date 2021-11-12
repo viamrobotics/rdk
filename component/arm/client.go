@@ -128,7 +128,7 @@ func (c *client) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 	return err
 }
 
-func (ac *client) ModelFrame() *kinematics.Model {
+func (c *client) ModelFrame() *kinematics.Model {
 	// TODO(erh): this feels wrong
 	return nil
 }
