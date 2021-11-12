@@ -9,8 +9,8 @@ import (
 	"github.com/go-errors/errors"
 	viamutils "go.viam.com/utils"
 
-	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/utils"
@@ -50,7 +50,7 @@ type Arm interface {
 	JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error
 
 	// ModelFrame returns the kinematics model of the arm
-	ModelFrame() *kinematics.Model
+	ModelFrame() *referenceframe.Model
 }
 
 var (
@@ -99,7 +99,7 @@ func (r *reconfigurableArm) JointMoveDelta(ctx context.Context, joint int, amoun
 	return r.actual.JointMoveDelta(ctx, joint, amountDegs)
 }
 
-func (r *reconfigurableArm) ModelFrame() *kinematics.Model {
+func (r *reconfigurableArm) ModelFrame() *referenceframe.Model {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.ModelFrame()

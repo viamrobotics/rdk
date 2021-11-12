@@ -21,7 +21,7 @@ func poseToSlice(p *pb.Pose) []float64 {
 // This should test forward kinematics functions
 func TestForwardKinematics(t *testing.T) {
 	// Test fake 5DOF arm to confirm kinematics works with non-6dof arms
-	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"), "")
+	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 300, 0, 360.25
@@ -33,7 +33,7 @@ func TestForwardKinematics(t *testing.T) {
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
 
 	// Test the 6dof arm we actually have
-	m, err = ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
+	m, err = frame.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 365, 0, 360.25
@@ -71,7 +71,7 @@ func TestForwardKinematics(t *testing.T) {
 }
 
 func TestSwingEdgeCases(t *testing.T) {
-	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"), "")
+	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	origin := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0})
@@ -154,7 +154,7 @@ func TestDeriv(t *testing.T) {
 func TestDynamicFrameSystemXArm(t *testing.T) {
 	fs := frame.NewEmptySimpleFrameSystem("test")
 
-	model, err := ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
+	model, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(model, fs.World())
 
@@ -208,11 +208,11 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantry, gantryOffset)
 
-	modelXarm, err := ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
+	modelXarm, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelXarm, gantry)
 
-	modelUR5e, err := ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
+	modelUR5e, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelUR5e, urOffset)
 

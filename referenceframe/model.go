@@ -204,12 +204,3 @@ func (m *Model) AlmostEquals(otherFrame Frame) bool {
 
 	return true
 }
-
-func limitsToArrays(limits []Limit) ([]float64, []float64) {
-	var min, max []float64
-	for _, limit := range limits {
-		min = append(min, limit.Min)
-		max = append(max, limit.Max)
-	}
-	return min, max
-}

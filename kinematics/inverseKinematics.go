@@ -29,13 +29,13 @@ type InverseKinematics interface {
 	// will yield that goal position.
 	Solve(context.Context, *pb.Pose, []frame.Input) ([]frame.Input, error)
 	Model() frame.Frame
-	SetSolveWeights(SolverDistanceWeights)
+	SetSolveWeights(frame.SolverDistanceWeights)
 	Close() error
 }
 
-// toArray returns the SolverDistanceWeights as a slice with the components in the same order as the array returned from
+// toArray returns the frame.SolverDistanceWeights as a slice with the components in the same order as the array returned from
 // pose ToDelta. Note that orientation components are multiplied by 100 since they are usually small to avoid drift.
-func (dc *SolverDistanceWeights) toArray() []float64 {
+func toArray(dc frame.SolverDistanceWeights) []float64 {
 	return []float64{dc.Trans.X, dc.Trans.Y, dc.Trans.Z, 100 * dc.Orient.TH * dc.Orient.X, 100 * dc.Orient.TH * dc.Orient.Y, 100 * dc.Orient.TH * dc.Orient.Z}
 }
 
@@ -49,8 +49,8 @@ func SquaredNorm(vec []float64) float64 {
 }
 
 // WeightedSquaredNorm returns the dot product of a vector with itself, applying the given weights to each piece.
-func WeightedSquaredNorm(vec []float64, config SolverDistanceWeights) float64 {
-	configArr := config.toArray()
+func WeightedSquaredNorm(vec []float64, config frame.SolverDistanceWeights) float64 {
+	configArr := toArray(config)
 	norm := 0.0
 	for i, v := range vec {
 		norm += v * v * configArr[i]
@@ -76,7 +76,7 @@ func calcSwingAmount(from, to []frame.Input, model frame.Frame) (float64, error)
 	fullDist := SquaredNorm(spatial.PoseDelta(startPos, endPos))
 
 	dist := 0.
-	orientWeights := SolverDistanceWeights{Orient: XYZTHWeights{1, 1, 1, 1}}
+	orientWeights := frame.SolverDistanceWeights{Orient: frame.XYZTHWeights{1, 1, 1, 1}}
 	for i := 0; i < waypoints; i++ {
 		// waypoint will be a sequence of fractions: 1/2, 1/3, 1/4, 1/5...
 		// This represents how far down the path of motion to interpolate.
@@ -153,4 +153,13 @@ func interpolateValues(from, to []frame.Input, by float64) []frame.Input {
 		newVals = append(newVals, frame.Input{j1.Value + ((to[i].Value - j1.Value) * by)})
 	}
 	return newVals
+}
+
+func limitsToArrays(limits []frame.Limit) ([]float64, []float64) {
+	var min, max []float64
+	for _, limit := range limits {
+		min = append(min, limit.Min)
+		max = append(max, limit.Max)
+	}
+	return min, max
 }
