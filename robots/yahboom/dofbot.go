@@ -95,22 +95,23 @@ func init() {
 
 type dofBot struct {
 	handle board.I2CHandle
+	model  *kinematics.Model
 	ik     kinematics.InverseKinematics
 	mu     sync.Mutex
 	muMove sync.Mutex
 }
 
-func createDofBotSolver(logger golog.Logger) (kinematics.InverseKinematics, error) {
+func createDofBotSolver(logger golog.Logger) (*kinematics.Model, kinematics.InverseKinematics, error) {
 	model, err := dofbotModel()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	ik.SetSolveWeights(model.SolveWeights)
-	return ik, nil
+	return model, ik, nil
 }
 
 func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
@@ -133,7 +134,7 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 		return nil, err
 	}
 
-	a.ik, err = createDofBotSolver(logger)
+	a.model, a.ik, err = createDofBotSolver(logger)
 	if err != nil {
 		return nil, err
 	}
@@ -284,8 +285,8 @@ func (a *dofBot) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 }
 
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem
-func (a *dofBot) ModelFrame() []byte {
-	return modeljson
+func (a *dofBot) ModelFrame() *kinematics.Model {
+	return a.model
 }
 
 // Open opens the gripper.
