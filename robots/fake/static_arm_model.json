@@ -1,6 +1,6 @@
 {
     "name": "fake_arm",
-    "link≈s": [
+    "links": [
         {
             "id": "base_link",
             "parent": "world",
@@ -18,4 +18,3 @@
         }
     ]
 }
-
