@@ -26,3 +26,15 @@ func TestBasicConversions(t *testing.T) {
 	inputs = FloatsToInputs(floats)
 	test.That(t, floats, test.ShouldResemble, InputsToFloats(inputs))
 }
+
+func TestInterpolateValues(t *testing.T) {
+	jp1 := FloatsToInputs([]float64{0, 4})
+	jp2 := FloatsToInputs([]float64{8, -8})
+	jpHalf := FloatsToInputs([]float64{4, -2})
+	jpQuarter := FloatsToInputs([]float64{2, 1})
+
+	interp1 := InterpolateInputs(jp1, jp2, 0.5)
+	interp2 := InterpolateInputs(jp1, jp2, 0.25)
+	test.That(t, interp1, test.ShouldResemble, jpHalf)
+	test.That(t, interp2, test.ShouldResemble, jpQuarter)
+}

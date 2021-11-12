@@ -106,8 +106,8 @@ func (ik *CombinedIK) Solve(ctx context.Context, c chan []frame.Input, newGoal s
 	return collectedErrs
 }
 
-// Model returns the associated model
-func (ik *CombinedIK) Model() frame.Frame {
+// Frame returns the associated frame
+func (ik *CombinedIK) Frame() frame.Frame {
 	return ik.model
 }
 
