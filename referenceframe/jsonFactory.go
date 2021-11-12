@@ -1,4 +1,4 @@
-package kinematics
+package referenceframe
 
 import (
 	"encoding/json"
@@ -8,8 +8,6 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
 
-	"go.viam.com/core/config"
-	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 )
@@ -19,10 +17,10 @@ type ModelJSON struct {
 	Name         string `json:"name"`
 	KinParamType string `json:"kinematic_param_type"`
 	Links        []struct {
-		ID          string                               `json:"id"`
-		Parent      string                               `json:"parent"`
-		Translation config.Translation                   `json:"translation"`
-		Orientation spatialmath.OrientationVectorDegrees `json:"orientation"`
+		ID          string                     `json:"id"`
+		Parent      string                     `json:"parent"`
+		Translation spatialmath.Translation    `json:"translation"`
+		Orientation spatialmath.RawOrientation `json:"orientation"`
 	} `json:"links"`
 	Joints []struct {
 		ID     string `json:"id"`
@@ -80,32 +78,35 @@ func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
 		model.SolveWeights = *m.Tolerances
 	}
 
-	transforms := map[string]frame.Frame{}
+	transforms := map[string]Frame{}
 
 	// Make a map of parents for each element for post-process, to allow items to be processed out of order
 	parentMap := map[string]string{}
 
 	if m.KinParamType == "SVA" || m.KinParamType == "" {
 		for _, link := range m.Links {
-			if link.ID == frame.World {
+			if link.ID == World {
 				return model, errors.New("reserved word: cannot name a link 'world'")
 			}
 		}
 		for _, joint := range m.Joints {
-			if joint.ID == frame.World {
+			if joint.ID == World {
 				return model, errors.New("reserved word: cannot name a joint 'world'")
 			}
 		}
 
 		for _, link := range m.Links {
 			parentMap[link.ID] = link.Parent
-
-			ov := &spatialmath.OrientationVector{utils.DegToRad(link.Orientation.Theta), link.Orientation.OX, link.Orientation.OY, link.Orientation.OZ}
+			orientation, err := spatialmath.ParseOrientation(link.Orientation)
+			if err != nil {
+				return nil, err
+			}
+			ov := orientation.OrientationVectorRadians()
 			pt := r3.Vector{link.Translation.X, link.Translation.Y, link.Translation.Z}
 
 			q := spatialmath.NewPoseFromOrientationVector(pt, ov)
 
-			transforms[link.ID], err = frame.NewStaticFrame(link.ID, q)
+			transforms[link.ID], err = NewStaticFrame(link.ID, q)
 			if err != nil {
 				return nil, err
 			}
@@ -118,7 +119,7 @@ func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
 			if joint.Type == "revolute" {
 				aa := spatialmath.R4AA{RX: joint.Axis.X, RY: joint.Axis.Y, RZ: joint.Axis.Z}
 
-				rev, err := frame.NewRotationalFrame(joint.ID, aa, frame.Limit{Min: joint.Min * math.Pi / 180, Max: joint.Max * math.Pi / 180})
+				rev, err := NewRotationalFrame(joint.ID, aa, Limit{Min: joint.Min * math.Pi / 180, Max: joint.Max * math.Pi / 180})
 				if err != nil {
 					return nil, err
 				}
@@ -135,7 +136,7 @@ func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
 			// Joint part of DH param
 			jointID := dh.ID + "_j"
 			parentMap[jointID] = dh.Parent
-			j, err := frame.NewRotationalFrame(jointID, spatialmath.R4AA{RX: 0, RY: 0, RZ: 1}, frame.Limit{Min: dh.Min * math.Pi / 180, Max: dh.Max * math.Pi / 180})
+			j, err := NewRotationalFrame(jointID, spatialmath.R4AA{RX: 0, RY: 0, RZ: 1}, Limit{Min: dh.Min * math.Pi / 180, Max: dh.Max * math.Pi / 180})
 			if err != nil {
 				return nil, err
 			}
@@ -145,7 +146,7 @@ func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
 			linkID := dh.ID
 			linkQuat := spatialmath.NewPoseFromDH(dh.A, dh.D, dh.Alpha)
 
-			transforms[linkID], err = frame.NewStaticFrame(linkID, linkQuat)
+			transforms[linkID], err = NewStaticFrame(linkID, linkQuat)
 			if err != nil {
 				return nil, err
 			}
@@ -153,7 +154,7 @@ func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
 		}
 	} else if m.KinParamType == "frames" {
 		for _, x := range m.RawFrames {
-			f, err := frame.UnmarshalFrameMap(x)
+			f, err := UnmarshalFrameMap(x)
 			if err != nil {
 				return nil, err
 			}
@@ -166,7 +167,7 @@ func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
 	}
 
 	// Determine which transforms have no children
-	parents := map[string]frame.Frame{}
+	parents := map[string]Frame{}
 	// First create a copy of the map
 	for id, trans := range transforms {
 		parents[id] = trans
@@ -192,7 +193,7 @@ func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
 	// Create an ordered list of transforms
 	seen := map[string]bool{}
 	nextTransform := transforms[eename]
-	orderedTransforms := []frame.Frame{nextTransform}
+	orderedTransforms := []Frame{nextTransform}
 	seen[eename] = true
 	for {
 		parent := parentMap[nextTransform.Name()]
@@ -200,7 +201,7 @@ func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
 			return nil, errors.New("infinite loop finding path from end effector to world")
 		}
 		// Reserved word, we reached the end of the chain
-		if parent == frame.World {
+		if parent == World {
 			break
 		}
 		seen[parent] = true
