@@ -52,13 +52,14 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (*
 	// Max individual step of 0.5% of full range of motion
 	mp.qstep = getFrameSteps(frame, 0.015)
 	mp.iter = 2000
+	mp.stepSize = 2
 
 	mp.seed = rand.New(rand.NewSource(42))
 
 	mp.AddConstraint("jointSwingScorer", NewJointScorer())
 
 	// For safety, remove before merging into main
-	mp.AddConstraint("officewall", dontHitPetersWallConstraint())
+	mp.AddConstraint("officewall", DontHitPetersWallConstraint())
 	fmt.Println("Note: adding constraint for Peter's office wall")
 
 	return mp, nil
