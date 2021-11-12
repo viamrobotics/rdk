@@ -211,6 +211,7 @@ func TestServer(t *testing.T) {
 		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.OY, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OY)
 		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.OZ, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OZ)
 		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.Theta, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().Theta)
+		t.Logf("the json frame should be empty:\n %v", fssResp.FrameSystemConfigs[0].ModelJson)
 		modelFrame, err := referenceframe.ParseJSON(fssResp.FrameSystemConfigs[0].ModelJson, fssResp.FrameSystemConfigs[0].Name)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, modelFrame, test.ShouldEqual, fsConfigs[0].ModelFrame)

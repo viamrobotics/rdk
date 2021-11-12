@@ -306,12 +306,15 @@ func decodePose(m map[string]interface{}) (spatial.Pose, error) {
 		return nil, err
 	}
 
-	var ro spatial.RawOrientation
-	err = mapstructure.Decode(m["orientation"], &ro)
+	orientationMap := m["orientation"].(map[string]interface{})
+	oType := orientationMap["type"].(string)
+	oValue := orientationMap["value"].(map[string]interface{})
+	jsonValue, err := json.Marshal(oValue)
 	if err != nil {
 		return nil, err
 	}
 
+	ro := spatial.RawOrientation{oType, jsonValue}
 	orientation, err := spatial.ParseOrientation(ro)
 	if err != nil {
 		return nil, err
@@ -339,7 +342,9 @@ func UnmarshalFrameMap(m map[string]interface{}) (Frame, error) {
 	case "static":
 		f := staticFrame{}
 		f.name = m["name"].(string)
-		f.transform, err = decodePose(m["transform"].(map[string]interface{}))
+
+		pose := m["transform"].(map[string]interface{})
+		f.transform, err = decodePose(pose)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding transform (%v) %w", m["transform"], err)
 		}
