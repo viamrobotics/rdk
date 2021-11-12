@@ -11,6 +11,11 @@ import (
 	"go.uber.org/multierr"
 )
 
+// ModelFramer has a method that returns the kinematics information needed to build a dynamic frame.
+type ModelFramer interface {
+	ModelFrame() *Model
+}
+
 // XYZWeights Defines a struct into which XYZ values can be parsed from JSON
 type XYZWeights struct {
 	X float64 `json:"x"`
