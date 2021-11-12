@@ -39,7 +39,7 @@ func TestDoGrabFailures(t *testing.T) {
 	mgs, err := objectmanipulation.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = mgs.DoGrab(context.Background(), "fakeGripper", "fakeArm", "fakeCamera", 10.0, 10.0, 10.0)
+	_, err = mgs.DoGrab(context.Background(), "fakeGripper", "fakeArm", "fakeCamera", &r3.Vector{10.0, 10.0, 10.0})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// fails when gripper fails to open
@@ -60,7 +60,7 @@ func TestDoGrabFailures(t *testing.T) {
 	}
 	mgs, _ = objectmanipulation.New(context.Background(), r, cfgService, logger)
 
-	_, err = mgs.DoGrab(context.Background(), "fakeGripper", "fakeArm", "fakeCamera", 10.0, 10.0, 10.0)
+	_, err = mgs.DoGrab(context.Background(), "fakeGripper", "fakeArm", "fakeCamera", &r3.Vector{10.0, 10.0, 10.0})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	r = &inject.Robot{}
@@ -76,7 +76,7 @@ func TestDoGrabFailures(t *testing.T) {
 		return nil
 	}
 	// can't move gripper with respect to gripper
-	_, err = mgs.DoGrab(context.Background(), "fakeGripperName", "fakeArm", "fakeGripperName", 0, 0, 200)
+	_, err = mgs.DoGrab(context.Background(), "fakeGripperName", "fakeArm", "fakeGripperName", &r3.Vector{0, 0, 200})
 	test.That(t, err, test.ShouldBeError, "cannot move gripper with respect to gripper frame, gripper will always be at its own origin")
 }
 
@@ -123,7 +123,7 @@ func TestDoGrab(t *testing.T) {
 
 	fs := referenceframe.NewEmptySimpleFrameSystem("fakeGripper")
 
-	pose := spatialmath.NewPoseFromPoint(r3.Vector{5, 0, 5})
+	pose := spatialmath.NewPoseFromPoint(r3.Vector{X: 5, Y: 0, Z: 5})
 	gripperFrame, err := referenceframe.NewStaticFrame("fakeGripper", pose)
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gripperFrame, fs.World())
@@ -132,7 +132,7 @@ func TestDoGrab(t *testing.T) {
 	}
 	mgs, err := objectmanipulation.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
-	grabbed, err := mgs.DoGrab(context.Background(), gripperName, armName, "world", 500.0, 0.0, 500.0)
+	grabbed, err := mgs.DoGrab(context.Background(), gripperName, armName, "world", &r3.Vector{X: 500.0, Y: 0.0, Z: 500.0})
 	test.That(t, grabbed, test.ShouldBeFalse)
 	test.That(t, err, test.ShouldBeError, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics"))
 
@@ -147,7 +147,7 @@ func TestDoGrab(t *testing.T) {
 	mgs, err = objectmanipulation.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	grabbed, err = mgs.DoGrab(context.Background(), gripperName, armName, "world", 500.0, 0.0, 500.0)
+	grabbed, err = mgs.DoGrab(context.Background(), gripperName, armName, "world", &r3.Vector{X: 500.0, Y: 0.0, Z: 500.0})
 	test.That(t, grabbed, test.ShouldBeFalse)
 	test.That(t, err, test.ShouldBeNil)
 }

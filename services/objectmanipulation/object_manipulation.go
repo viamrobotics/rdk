@@ -16,6 +16,8 @@ import (
 	"go.viam.com/core/spatialmath"
 )
 
+const frameSystemName = "move_gripper"
+
 func init() {
 	registry.RegisterService(Type, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
@@ -26,7 +28,7 @@ func init() {
 
 // A Service controls the flow of manipulating other objects with a robot's gripper.
 type Service interface {
-	DoGrab(ctx context.Context, gripperName, armName, cameraName string, x, y, z float64) (bool, error)
+	DoGrab(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error)
 }
 
 // Type is the type of service.
@@ -47,7 +49,7 @@ type objectMService struct {
 
 // DoGrab takes a camera point of an object's location and both moves the gripper
 // to that location and commands it to grab the object
-func (mgs objectMService) DoGrab(ctx context.Context, gripperName, armName, cameraName string, x, y, z float64) (bool, error) {
+func (mgs objectMService) DoGrab(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
 	// get gripper component
 	gripper, ok := mgs.r.GripperByName(gripperName)
 	if !ok {
@@ -58,8 +60,7 @@ func (mgs objectMService) DoGrab(ctx context.Context, gripperName, armName, came
 	if err != nil {
 		return false, err
 	}
-	cameraPoint := r3.Vector{x, y, z}
-	cameraPose := spatialmath.NewPoseFromPoint(cameraPoint)
+	cameraPose := spatialmath.NewPoseFromPoint(*cameraPoint)
 	err = mgs.moveGripper(ctx, gripperName, armName, cameraPose, cameraName)
 	if err != nil {
 		return false, err
@@ -86,7 +87,7 @@ func (mgs objectMService) moveGripper(ctx context.Context, gripperName, armName 
 	logger.Debugf("using gripper %q", gripperName)
 
 	// get the frame system of the robot
-	frameSys, err := r.FrameSystem(ctx, "move_gripper", "")
+	frameSys, err := r.FrameSystem(ctx, frameSystemName, "")
 	if err != nil {
 		return err
 	}

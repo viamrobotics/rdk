@@ -36,6 +36,7 @@ import (
 	"go.viam.com/core/testutils/inject"
 
 	"github.com/golang/geo/r2"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -243,7 +244,7 @@ func TestServer(t *testing.T) {
 		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
 			return omSvc, true
 		}
-		omSvc.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, x, y, z float64) (bool, error) {
+		omSvc.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
 			return false, passedErr
 		}
 		req := &pb.ObjectManipulationServiceDoGrabRequest{
@@ -256,7 +257,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, passedErr)
 
 		// returns response
-		omSvc.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, x, y, z float64) (bool, error) {
+		omSvc.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
 			return true, nil
 		}
 		resp, err := server.ObjectManipulationServiceDoGrab(context.Background(), req)
