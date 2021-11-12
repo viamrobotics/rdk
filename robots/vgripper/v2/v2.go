@@ -14,6 +14,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
+	"go.viam.com/core/kinematics"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
@@ -66,7 +67,7 @@ type GripperV2 struct {
 	closedDirection, openDirection pb.DirectionRelative
 	logger                         golog.Logger
 
-	frameJSON             []byte
+	model                 *kinematics.Model
 	numBadCurrentReadings int
 }
 
@@ -112,6 +113,11 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 	pressureLimit := config.Attributes.Float64("pressureLimit", 30)
 	calibrationNoiseThreshold := config.Attributes.Float64("calibrationNoiseThreshold", 7)
 
+	model, err := kinematics.ParseJSON(vgripperjson, "")
+	if err != nil {
+		return nil, err
+	}
+
 	vg := &GripperV2{
 		motor:                     motor,
 		current:                   current,
@@ -120,7 +126,7 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		calibrationNoiseThreshold: calibrationNoiseThreshold,
 		holdingPressure:           .5,
 		logger:                    logger,
-		frameJSON:                 vgripperjson,
+		model:                     model,
 	}
 
 	if err := vg.calibrate(ctx, logger); err != nil {
@@ -223,9 +229,9 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 	return nil
 }
 
-// ModelFrame returns the json bytes that describe the dynamic frame of the model
-func (vg *GripperV2) ModelFrame() []byte {
-	return vg.frameJSON
+// ModelFrame returns the dynamic frame of the model
+func (vg *GripperV2) ModelFrame() *kinematics.Model {
+	return vg.model
 }
 
 // Open opens the jaws.
