@@ -282,10 +282,10 @@ func (g *Controller) connectDev(ctx context.Context) error {
 	}
 
 	for _, v := range g.Mapping.Axes {
-		g.appendControl(v)
+		g.controls = append(g.controls, v)
 	}
 	for _, v := range g.Mapping.Buttons {
-		g.appendControl(v)
+		g.controls = append(g.controls, v)
 	}
 
 	g.mu.Unlock()
@@ -379,27 +379,5 @@ func (g *Controller) RegisterControlCallback(ctx context.Context, control input.
 			g.callbacks[control][trigger] = ctrlFunc
 		}
 	}
-	return nil
-}
-
-func (g *Controller) appendControl(ctrl input.Control) {
-	var seen bool
-	for _, name := range g.controls {
-		if name == ctrl {
-			seen = true
-			break
-		}
-	}
-	if !seen {
-		g.controls = append(g.controls, ctrl)
-	}
-}
-
-// InjectEvent allows directly sending an Event (such as a button press) from external code
-func (g *Controller) InjectEvent(ctx context.Context, event input.Event) error {
-	g.mu.Lock()
-	g.appendControl(event.Control)
-	g.mu.Unlock()
-	g.makeCallbacks(ctx, event)
 	return nil
 }
