@@ -119,6 +119,14 @@ func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.I
 	return inputs
 }
 
+func (sf *solverFrame) MarshalJSON() ([]byte, error) {
+	return nil, errors.New("cannot serialize solverFrame")
+}
+
+func (sf *solverFrame) AlmostEquals(otherFrame frame.Frame) bool {
+	return false
+}
+
 // uniqInPlaceSlice will deduplicate the values in a slice using in-place replacement on the slice. This is faster than
 // a solution using append().
 // This function does not remove anything from the input slice, but it does rearrange the elements.
