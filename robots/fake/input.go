@@ -29,7 +29,7 @@ func init() {
 			return nil, err
 		}
 		return &conf, nil
-	})
+	}, &Config{})
 }
 
 // NewInputController returns a fake input.Controller

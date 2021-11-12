@@ -19,7 +19,7 @@ import (
 var (
 	home7 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
 	home6 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
-	nCPU = runtime.NumCPU()
+	nCPU  = runtime.NumCPU()
 )
 
 // This should test a simple linear motion
@@ -27,7 +27,7 @@ func TestSimpleMotion(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	m, err := kinematics.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	mp, err := NewCBiRRTMotionPlanner_petertest(m, logger, 4)
 	test.That(t, err, test.ShouldBeNil)
 	//~ mp.AddConstraint("orientation", NewPoseConstraint())
@@ -52,10 +52,9 @@ func TestSimpleMotionUR5(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := NewCBiRRTMotionPlanner(m, logger, 4)
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	mp.RemoveConstraint("orientation")
 	mp.RemoveConstraint("obstacle")
-	
 
 	// Test ability to arrive at another position
 	pos := &pb.ArmPosition{

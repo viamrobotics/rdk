@@ -1,0 +1,14 @@
+{
+    "name": "viam-gripper-v1",
+    "links": [
+        {
+            "id": "base_link",
+            "parent": "world",
+            "translation": {
+                "x": 0,
+                "y": 0,
+                "z": 220.0
+            }
+        }
+    ]
+}

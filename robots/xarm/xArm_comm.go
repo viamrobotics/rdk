@@ -9,7 +9,6 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/arm"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
@@ -339,7 +338,7 @@ func (x *xArm) Close() error {
 
 // MoveToJointPositions moves the arm to the requested joint positions.
 func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
-	radians := arm.JointPositionsToRadians(newPositions)
+	radians := frame.JointPositionsToRadians(newPositions)
 	c := x.newCmd(regMap["MoveJoints"])
 	jFloatBytes := make([]byte, 4)
 	for _, jRad := range radians {
@@ -372,7 +371,7 @@ func (x *xArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (x *xArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (x *xArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	joints, err := x.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -381,7 +380,7 @@ func (x *xArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (x *xArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+func (x *xArm) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 	joints, err := x.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -413,5 +412,5 @@ func (x *xArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, e
 		radians = append(radians, float64fromByte32(jData.params[idx:idx+4]))
 	}
 
-	return arm.JointPositionsFromRadians(radians), nil
+	return frame.JointPositionsFromRadians(radians), nil
 }

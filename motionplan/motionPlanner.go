@@ -19,8 +19,8 @@ import (
 type MotionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
-	Plan(context.Context, *pb.ArmPosition, []frame.Input) ([][]frame.Input, error)
-	AddConstraint(string, func(*ConstraintInput) (bool, float64))
+	Plan(context.Context, *pb.Pose, []frame.Input) ([][]frame.Input, error)
+	AddConstraint(string, Constraint)
 	RemoveConstraint(string)
 	Constraints() []string
 	CheckConstraints(*ConstraintInput) (bool, float64)
@@ -46,12 +46,12 @@ func NewLinearMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (M
 // A straightforward motion planner that will path a straight line from start to end
 type linearMotionPlanner struct {
 	constraintHandler
-	solver kinematics.InverseKinematics
-	frame   frame.Frame
-	logger        golog.Logger
+	solver             kinematics.InverseKinematics
+	frame              frame.Frame
+	logger             golog.Logger
 	idealMovementScore float64
-	stepSize          float64
-	visited  map[r3.Vector]bool
+	stepSize           float64
+	visited            map[r3.Vector]bool
 }
 
 func (mp *linearMotionPlanner) Frame() frame.Frame {
@@ -62,14 +62,14 @@ func (mp *linearMotionPlanner) Resolution() float64 {
 	return mp.stepSize
 }
 
-func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, seed []frame.Input) ([][]frame.Input, error) {
+func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed []frame.Input) ([][]frame.Input, error) {
 	var inputSteps [][]frame.Input
 
 	seedPos, err := mp.frame.Transform(seed)
 	if err != nil {
 		return nil, err
 	}
-	goalPos := spatial.NewPoseFromArmPos(fixOvIncrement(goal, spatial.PoseToArmPos(seedPos)))
+	goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
 
 	// First, we break down the spatial distance and rotational distance from seed to goal, and determine the number
 	// of steps needed to get from one to the other
@@ -84,16 +84,16 @@ func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, s
 			break
 		default:
 		}
-		
+
 		intPos := spatial.Interpolate(seedPos, goalPos, float64(i)/float64(nSteps))
 
 		var step []frame.Input
-		
-		solutions, err := getSolutions(ctx, -1, mp.idealMovementScore, mp.solver, spatial.PoseToArmPos(intPos), seed, mp)
+
+		solutions, err := getSolutions(ctx, -1, mp.idealMovementScore, mp.solver, spatial.PoseToProtobuf(intPos), seed, mp)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		minScore := math.Inf(1)
 		for score, sol := range solutions {
 			if score < minScore {
@@ -127,7 +127,7 @@ func getSteps(seedPos, goalPos spatial.Pose, stepSize float64) int {
 // original goal is returned.
 // Rationale: if clicking the increment buttons in the interface, the user likely wants the most intuitive motion
 // posible. If setting values manually, the user likely wants exactly what they requested.
-func fixOvIncrement(pos, seed *pb.ArmPosition) *pb.ArmPosition {
+func fixOvIncrement(pos, seed *pb.Pose) *pb.Pose {
 	epsilon := 0.0001
 	// Nothing to do for spatial translations or theta increments
 	if pos.X != seed.X || pos.Y != seed.Y || pos.Z != seed.Z || pos.Theta != seed.Theta {
@@ -165,7 +165,7 @@ func fixOvIncrement(pos, seed *pb.ArmPosition) *pb.ArmPosition {
 		adj *= -1
 	}
 
-	return &pb.ArmPosition{
+	return &pb.Pose{
 		X:     pos.X,
 		Y:     pos.Y,
 		Z:     pos.Z,
@@ -176,44 +176,43 @@ func fixOvIncrement(pos, seed *pb.ArmPosition) *pb.ArmPosition {
 	}
 }
 
-
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
-func getSolutions(ctx context.Context, maxSolutions int, minScore float64, solver kinematics.InverseKinematics, goal *pb.ArmPosition, seed []frame.Input, mp MotionPlanner) (map[float64][]frame.Input, error) {
-	
+func getSolutions(ctx context.Context, maxSolutions int, minScore float64, solver kinematics.InverseKinematics, goal *pb.Pose, seed []frame.Input, mp MotionPlanner) (map[float64][]frame.Input, error) {
+
 	seedPos, err := mp.Frame().Transform(seed)
 	if err != nil {
 		return nil, err
 	}
-	goalPos := spatial.NewPoseFromArmPos(fixOvIncrement(goal, spatial.PoseToArmPos(seedPos)))
-	
+	goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
+
 	solutionGen := make(chan []frame.Input)
 	ikErr := make(chan error)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
-	
+
 	// Spawn the IK solver to generate solutions until done
-	go func(){
+	go func() {
 		defer close(ikErr)
 		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goalPos, seed)
 	}()
-	
+
 	solutions := map[float64][]frame.Input{}
-	
+
 	// Solve the IK solver. Loop labels are required because `break` etc in a `select` will break only the `select`.
-	IK:
+IK:
 	for {
 		select {
 		case <-ctx.Done():
 			return nil, errors.New("context Done signal")
-		case step := <- solutionGen:
+		case step := <-solutionGen:
 			cPass, cScore := mp.CheckConstraints(&ConstraintInput{
 				seedPos,
 				goalPos,
 				seed,
 				step,
 				mp.Frame()})
-			
+
 			if cPass {
 				if cScore < minScore && minScore >= 0 {
 					solutions = map[float64][]frame.Input{}
@@ -221,7 +220,7 @@ func getSolutions(ctx context.Context, maxSolutions int, minScore float64, solve
 					// good solution, stopping early
 					break IK
 				}
-				
+
 				solutions[cScore] = step
 				if len(solutions) >= maxSolutions && maxSolutions > 0 {
 					// sufficient solutions found, stopping early
@@ -232,9 +231,9 @@ func getSolutions(ctx context.Context, maxSolutions int, minScore float64, solve
 			continue IK
 		default:
 		}
-		
-		select{
-		case err = <- ikErr:
+
+		select {
+		case err = <-ikErr:
 			// If we have a return from the IK solver, there are no more solutions, so we finish processing above
 			// until we've drained the channel
 			break IK
@@ -245,7 +244,7 @@ func getSolutions(ctx context.Context, maxSolutions int, minScore float64, solve
 	if len(solutions) == 0 {
 		return nil, errors.New("unable to solve for position")
 	}
-	
+
 	return solutions, nil
 }
 

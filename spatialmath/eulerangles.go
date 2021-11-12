@@ -6,7 +6,7 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
-// EulerAngles are three angles used to represent the rotation of an object in 3D Euclidean space
+// EulerAngles are three angles (in radians) used to represent the rotation of an object in 3D Euclidean space
 // The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.
 type EulerAngles struct {
 	Roll  float64 `json:"roll"`  // phi

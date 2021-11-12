@@ -39,11 +39,11 @@ func TestStaticFrame(t *testing.T) {
 
 func TestPrismaticFrame(t *testing.T) {
 	// define a prismatic transform
-	limits := []Limit{{-30, 30}}
+	limits := []Limit{{Min: -30, Max: 30}}
 	frame, err := NewTranslationalFrame("test", []bool{false, true, false}, limits) // can only move on y axis
 	test.That(t, err, test.ShouldBeNil)
 	// this should return an error
-	badLimits := []Limit{{0, 0}, {-30, 30}, {0, 0}}
+	badLimits := []Limit{{Min: 0, Max: 0}, {Min: -30, Max: 30}, {Min: 0, Max: 0}}
 	_, err = NewTranslationalFrame("test", []bool{false, true, false}, badLimits) // can only move on y axis
 	test.That(t, err, test.ShouldBeError, errors.New("given number of limits 3 does not match number of axes 1"))
 	// expected output
@@ -66,7 +66,7 @@ func TestPrismaticFrame(t *testing.T) {
 	overLimit := 50.0
 	input = FloatsToInputs([]float64{overLimit})
 	_, err = frame.Transform(input)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of bounds %.5f", overLimit, frame.DoF()[0]))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of bounds %v", overLimit, frame.DoF()[0]))
 	// gets the correct limits back
 	frameLimits := frame.DoF()
 	test.That(t, frameLimits, test.ShouldResemble, limits)
@@ -74,8 +74,8 @@ func TestPrismaticFrame(t *testing.T) {
 
 func TestRevoluteFrame(t *testing.T) {
 	// define a prismatic transform
-	axis := spatial.R4AA{RX: 1, RY: 0, RZ: 0}                                 // axis of rotation is x axis
-	frame := &rotationalFrame{"test", axis, Limit{-math.Pi / 2, math.Pi / 2}} // limits between -90 and 90 degrees
+	axis := spatial.R4AA{RX: 1, RY: 0, RZ: 0}                                     // axis of rotation is x axis
+	frame := &rotationalFrame{"test", axis, []Limit{{-math.Pi / 2, math.Pi / 2}}} // limits between -90 and 90 degrees
 	// expected output
 	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{1, 0, 0}, math.Pi/4) // 45 degrees
 	// get expected transform back
@@ -98,15 +98,48 @@ func TestRevoluteFrame(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of rev frame bounds %.5f", utils.DegToRad(overLimit), frame.DoF()[0]))
 	// gets the correct limits back
 	limit := frame.DoF()
-	test.That(t, limit, test.ShouldResemble, []Limit{{-math.Pi / 2, math.Pi / 2}})
+	expLimit := []Limit{{Min: -math.Pi / 2, Max: math.Pi / 2}}
+	test.That(t, limit, test.ShouldHaveLength, 1)
+	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
 }
 
-func TestBasicConversions(t *testing.T) {
-	jp := &pb.JointPositions{Degrees: []float64{45, 55}}
-	inputs := JointPosToInputs(jp)
-	test.That(t, jp, test.ShouldResemble, InputsToJointPos(inputs))
+func TestSerializationStatic(t *testing.T) {
+	f, err := NewStaticFrame("foo", spatial.NewPoseFromAxisAngle(r3.Vector{1, 2, 3}, r3.Vector{4, 5, 6}, math.Pi/2))
+	test.That(t, err, test.ShouldBeNil)
 
-	floats := []float64{45, 55, 27}
-	inputs = FloatsToInputs(floats)
-	test.That(t, floats, test.ShouldResemble, InputsToFloats(inputs))
+	data, err := f.MarshalJSON()
+	test.That(t, err, test.ShouldBeNil)
+
+	f2, err := UnmarshalFrameJSON(data)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
+}
+
+func TestSerializationTranslation(t *testing.T) {
+	f, err := NewTranslationalFrame("foo", []bool{true, false, true}, []Limit{{1, 2}, {3, 4}})
+	test.That(t, err, test.ShouldBeNil)
+
+	data, err := f.MarshalJSON()
+	test.That(t, err, test.ShouldBeNil)
+
+	f2, err := UnmarshalFrameJSON(data)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
+	test.That(t, f2, test.ShouldResemble, f)
+}
+
+func TestSerializationRotations(t *testing.T) {
+	f, err := NewRotationalFrame("foo", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
+	test.That(t, err, test.ShouldBeNil)
+
+	data, err := f.MarshalJSON()
+	test.That(t, err, test.ShouldBeNil)
+
+	f2, err := UnmarshalFrameJSON(data)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
+	test.That(t, f2, test.ShouldResemble, f)
 }

@@ -44,7 +44,7 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 	frames := uniqInPlaceSlice(append(sFrames, gFrames...))
 
 	// Create a frame to solve for, and an IK solver with that frame.
-	sf := &solverFrame{fss, frames, solveFrame, goalFrame}
+	sf := &solverFrame{solveFrame.Name() + "_" + goalFrame.Name(), fss, frames, solveFrame, goalFrame}
 	var planner MotionPlanner
 	if fss.mpFunc != nil {
 		planner, err = fss.mpFunc(sf, fss.logger, runtime.NumCPU()/2)
@@ -58,7 +58,7 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 	seed := sf.mapToSlice(seedMap)
 
 	// Solve for the goal position
-	resultSlices, err := planner.Plan(ctx, spatial.PoseToArmPos(goal), seed)
+	resultSlices, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed)
 	if err != nil {
 		return nil, err
 	}
@@ -77,15 +77,16 @@ func (fss *SolvableFrameSystem) SetPlannerGen(mpFunc func(frame.Frame, golog.Log
 // solverFrames are meant to be ephemerally created each time a frame system solution is created, and fulfills the
 // Frame and MultiFrame interfaces so that it can be passed to inverse kinematics.
 type solverFrame struct {
+	name       string
 	fss        *SolvableFrameSystem
 	frames     []frame.Frame
 	solveFrame frame.Frame
 	goalFrame  frame.Frame
 }
 
-// Name returns the name of the solver frame, which is the name of the two frames being solved for.
+// Name returns the name of the solver frame
 func (sf *solverFrame) Name() string {
-	return sf.solveFrame.Name() + "_" + sf.goalFrame.Name()
+	return sf.name
 }
 
 // Transform returns the pose between the two frames of this solver for a given set of inputs.
@@ -135,6 +136,14 @@ func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.I
 		i += len(frame.DoF())
 	}
 	return inputs
+}
+
+func (sf *solverFrame) MarshalJSON() ([]byte, error) {
+	return nil, errors.New("cannot serialize solverFrame")
+}
+
+func (sf *solverFrame) AlmostEquals(otherFrame frame.Frame) bool {
+	return false
 }
 
 // uniqInPlaceSlice will deduplicate the values in a slice using in-place replacement on the slice. This is faster than

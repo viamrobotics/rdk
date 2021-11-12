@@ -13,8 +13,6 @@ import (
 	"go.viam.com/core/kinematics"
 	"go.viam.com/core/motionplan"
 
-	"go.viam.com/core/referenceframe"
-
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -29,6 +27,7 @@ type xArm struct {
 	accel    float32 //acceleration=500*π/180rad/s^2
 	moveLock *sync.Mutex
 	mp       motionplan.MotionPlanner
+	model    *kinematics.Model
 }
 
 //go:embed xArm6_kinematics.json
@@ -40,63 +39,57 @@ var xArm7modeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, "xArm6", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewxArm(ctx, config.Host, logger, 6)
+			return NewxArm(ctx, config, logger, 6)
 		},
-		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name, 6) },
 	})
 	registry.RegisterComponent(arm.Subtype, "xArm7", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewxArm(ctx, config.Host, logger, 7)
+			return NewxArm(ctx, config, logger, 7)
 		},
-		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name, 7) },
 	})
 }
 
 // XArmModel returns the kinematics model of the xArm, also has all Frame information.
 func xArmModel(dof int) (*kinematics.Model, error) {
 	if dof == 6 {
-		return kinematics.ParseJSON(xArm6modeljson)
+		return kinematics.ParseJSON(xArm6modeljson, "")
 	} else if dof == 7 {
-		return kinematics.ParseJSON(xArm7modeljson)
+		return kinematics.ParseJSON(xArm7modeljson, "")
 	}
 	return nil, errors.New("no kinematics model for xarm with specified degrees of freedom")
 }
 
-// xArmFrame returns the reference frame of the arm with the given name.
-func xArmFrame(name string, dof int) (referenceframe.Frame, error) {
-	frame, err := xArmModel(dof)
+// NewxArm returns a new xArm with the specified dof
+func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof int) (arm.Arm, error) {
+	host := cfg.Host
+	conn, err := net.Dial("tcp", host+":502")
 	if err != nil {
 		return nil, err
 	}
-	frame.SetName(name)
-	return frame, nil
-}
-
-// NewxArm returns a new xArm with the specified dof
-func NewxArm(ctx context.Context, host string, logger golog.Logger, dof int) (arm.Arm, error) {
-	conn, err := net.Dial("tcp", host+":502")
-	if err != nil {
-		return &xArm{}, err
-	}
 	model, err := xArmModel(dof)
 	if err != nil {
-		return &xArm{}, err
+		return nil, err
 	}
 	nCPU := runtime.NumCPU()
 	mp, err := motionplan.NewCBiRRTMotionPlanner(model, logger, nCPU)
 	if err != nil {
-		return &xArm{}, err
+		return nil, err
 	}
 
 	mutex := &sync.Mutex{}
 	// Start with default speed/acceleration parameters
 	// TODO(pl): add settable speed
-	xA := xArm{dof, 0, conn, 1.35, 18.7, mutex, mp}
+	xA := xArm{dof, 0, conn, 0.35, 8.7, mutex, mp, model}
 
 	err = xA.start()
 	if err != nil {
-		return &xArm{}, err
+		return nil, err
 	}
 
 	return &xA, nil
+}
+
+// ModelFrame returns the dynamic frame of the model
+func (x *xArm) ModelFrame() *kinematics.Model {
+	return x.model
 }

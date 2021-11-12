@@ -21,7 +21,6 @@ import (
 	"go.viam.com/core/kinematics"
 	"go.viam.com/core/motionplan"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -40,30 +39,20 @@ var ur5DHmodeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, "ur", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return URArmConnect(ctx, config.Host, config.Attributes.Float64("speed", .1), logger)
+			return URArmConnect(ctx, config, logger)
 		},
-		Frame: func(name string) (referenceframe.Frame, error) { return ur5eFrame(name) },
 	})
 }
 
 // Ur5eModel() returns the kinematics model of the xArm, also has all Frame information.
 func ur5eModel() (*kinematics.Model, error) {
-	return kinematics.ParseJSON(ur5modeljson)
-}
-
-// Ur5eFrame() returns the reference frame of the arm with the given name.
-func ur5eFrame(name string) (referenceframe.Frame, error) {
-	frame, err := ur5eModel()
-	if err != nil {
-		return nil, err
-	}
-	frame.SetName(name)
-	return frame, nil
+	return kinematics.ParseJSON(ur5modeljson, "")
 }
 
 // URArm TODO
 type URArm struct {
 	mu                      *sync.Mutex
+	muMove                  sync.Mutex
 	conn                    net.Conn
 	speed                   float64
 	state                   RobotState
@@ -74,6 +63,7 @@ type URArm struct {
 	cancel                  func()
 	activeBackgroundWorkers *sync.WaitGroup
 	mp                      motionplan.MotionPlanner
+	model                   *kinematics.Model
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -107,7 +97,9 @@ func (ua *URArm) Close() error {
 }
 
 // URArmConnect TODO
-func URArmConnect(ctx context.Context, host string, speed float64, logger golog.Logger) (arm.Arm, error) {
+func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+	speed := cfg.Attributes.Float64("speed", .1)
+	host := cfg.Host
 	if speed > 1 || speed < .1 {
 		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
 	}
@@ -138,6 +130,7 @@ func URArmConnect(ctx context.Context, host string, speed float64, logger golog.
 		logger:                  logger,
 		cancel:                  cancel,
 		mp:                      mp,
+		model:                   model,
 	}
 
 	onData := make(chan struct{})
@@ -166,6 +159,11 @@ func URArmConnect(ctx context.Context, host string, speed float64, logger golog.
 	}
 }
 
+// ModelFrame returns all the information necessary for including the arm in a FrameSystem
+func (ua *URArm) ModelFrame() *kinematics.Model {
+	return ua.model
+}
+
 func (ua *URArm) setRuntimeError(re error) {
 	ua.mu.Lock()
 	ua.runtimeError = re
@@ -187,24 +185,31 @@ func (ua *URArm) setState(state RobotState) {
 }
 
 // State TODO
-func (ua *URArm) State() RobotState {
+func (ua *URArm) State() (RobotState, error) {
 	ua.mu.Lock()
 	defer ua.mu.Unlock()
-	return ua.state
+	age := time.Since(ua.state.creationTime)
+	if age > time.Second {
+		return ua.state, fmt.Errorf("ur status is too old %v from: %v", age, ua.state.creationTime)
+	}
+	return ua.state, nil
 }
 
 // CurrentJointPositions TODO
 func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	radians := []float64{}
-	state := ua.State()
+	state, err := ua.State()
+	if err != nil {
+		return nil, err
+	}
 	for _, j := range state.Joints {
 		radians = append(radians, j.Qactual)
 	}
-	return arm.JointPositionsFromRadians(radians), nil
+	return frame.JointPositionsFromRadians(radians), nil
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	joints, err := ua.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -213,14 +218,20 @@ func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 	joints, err := ua.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
 	}
+	start := time.Now()
 	solution, err := ua.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
+	}
+	timeToSolve := time.Since(start)
+	if timeToSolve > time.Second {
+		ua.logger.Debugf("ur took too long to solve position %v", timeToSolve)
+		return fmt.Errorf("ur took too long to solve position %v", timeToSolve)
 	}
 	for _, step := range solution {
 		err = ua.MoveToJointPositions(ctx, frame.InputsToJointPos(step))
@@ -238,7 +249,10 @@ func (ua *URArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 	}
 
 	radians := []float64{}
-	state := ua.State()
+	state, err := ua.State()
+	if err != nil {
+		return err
+	}
 	for _, j := range state.Joints {
 		radians = append(radians, j.Qactual)
 	}
@@ -250,11 +264,14 @@ func (ua *URArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 
 // MoveToJointPositions TODO
 func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
-	return ua.MoveToJointPositionRadians(ctx, arm.JointPositionsToRadians(joints))
+	return ua.MoveToJointPositionRadians(ctx, frame.JointPositionsToRadians(joints))
 }
 
 // MoveToJointPositionRadians TODO
 func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float64) error {
+	ua.muMove.Lock()
+	defer ua.muMove.Unlock()
+
 	if len(radians) != 6 {
 		return errors.New("need 6 joints")
 	}
@@ -279,7 +296,10 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 	slept := 0
 	for {
 		good := true
-		state := ua.State()
+		state, err := ua.State()
+		if err != nil {
+			return err
+		}
 		for idx, r := range radians {
 			if math.Round(r*100) != math.Round(state.Joints[idx].Qactual*100) {
 				good = false

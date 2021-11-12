@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/resource"
 
@@ -83,26 +84,18 @@ func TestArmPosition(t *testing.T) {
 	test.That(t, p.Theta, test.ShouldEqual, math.Pi/2)
 }
 
-func TestJointPositions(t *testing.T) {
-	in := []float64{0, math.Pi}
-	j := JointPositionsFromRadians(in)
-	test.That(t, j.Degrees[0], test.ShouldEqual, 0.0)
-	test.That(t, j.Degrees[1], test.ShouldEqual, 180.0)
-	test.That(t, JointPositionsToRadians(j), test.ShouldResemble, in)
-}
-
 func TestArmPositionDiff(t *testing.T) {
-	test.That(t, PositionGridDiff(&pb.ArmPosition{}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 0)
-	test.That(t, PositionGridDiff(&pb.ArmPosition{X: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
-	test.That(t, PositionGridDiff(&pb.ArmPosition{Y: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
-	test.That(t, PositionGridDiff(&pb.ArmPosition{Z: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
-	test.That(t, PositionGridDiff(&pb.ArmPosition{X: 1, Y: 1, Z: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, math.Sqrt(3))
+	test.That(t, PositionGridDiff(&pb.Pose{}, &pb.Pose{}), test.ShouldAlmostEqual, 0)
+	test.That(t, PositionGridDiff(&pb.Pose{X: 1}, &pb.Pose{}), test.ShouldAlmostEqual, 1)
+	test.That(t, PositionGridDiff(&pb.Pose{Y: 1}, &pb.Pose{}), test.ShouldAlmostEqual, 1)
+	test.That(t, PositionGridDiff(&pb.Pose{Z: 1}, &pb.Pose{}), test.ShouldAlmostEqual, 1)
+	test.That(t, PositionGridDiff(&pb.Pose{X: 1, Y: 1, Z: 1}, &pb.Pose{}), test.ShouldAlmostEqual, math.Sqrt(3))
 
-	test.That(t, PositionRotationDiff(&pb.ArmPosition{}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 0)
-	test.That(t, PositionRotationDiff(&pb.ArmPosition{OX: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
-	test.That(t, PositionRotationDiff(&pb.ArmPosition{OY: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
-	test.That(t, PositionRotationDiff(&pb.ArmPosition{OZ: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
-	test.That(t, PositionRotationDiff(&pb.ArmPosition{OX: 1, OY: 1, OZ: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 3)
+	test.That(t, PositionRotationDiff(&pb.Pose{}, &pb.Pose{}), test.ShouldAlmostEqual, 0)
+	test.That(t, PositionRotationDiff(&pb.Pose{OX: 1}, &pb.Pose{}), test.ShouldAlmostEqual, 1)
+	test.That(t, PositionRotationDiff(&pb.Pose{OY: 1}, &pb.Pose{}), test.ShouldAlmostEqual, 1)
+	test.That(t, PositionRotationDiff(&pb.Pose{OZ: 1}, &pb.Pose{}), test.ShouldAlmostEqual, 1)
+	test.That(t, PositionRotationDiff(&pb.Pose{OX: 1, OY: 1, OZ: 1}, &pb.Pose{}), test.ShouldAlmostEqual, 3)
 }
 
 type mockArm struct {
@@ -110,9 +103,9 @@ type mockArm struct {
 	reconCount int
 }
 
-func (m *mockArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) { return nil, nil }
+func (m *mockArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) { return nil, nil }
 
-func (m *mockArm) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error { return nil }
+func (m *mockArm) MoveToPosition(ctx context.Context, c *pb.Pose) error { return nil }
 
 func (m *mockArm) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error { return nil }
 
@@ -121,6 +114,10 @@ func (m *mockArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions
 }
 
 func (m *mockArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
+	return nil
+}
+
+func (m *mockArm) ModelFrame() *kinematics.Model {
 	return nil
 }
 

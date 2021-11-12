@@ -23,8 +23,8 @@ import (
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motionplan"
 	"go.viam.com/core/kinematics"
+	"go.viam.com/core/motionplan"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
@@ -37,7 +37,7 @@ var wx250smodeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, "wx250s", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewArm(config.Attributes, logger)
+			return NewArm(ctx, config.Attributes, logger)
 		},
 	})
 }
@@ -68,6 +68,7 @@ type Arm struct {
 	moveLock *sync.Mutex
 	logger   golog.Logger
 	mp       motionplan.MotionPlanner
+	model    *kinematics.Model
 }
 
 // servoPosToDegrees takes a 360 degree 0-4096 servo position, centered at 2048,
@@ -98,14 +99,14 @@ func getPortMutex(port string) *sync.Mutex {
 }
 
 // NewArm TODO
-func NewArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
+func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
 	usbPort := attributes.String("usbPort")
 	servos, err := findServos(usbPort, attributes.String("baudRate"), attributes.String("armServoCount"))
 	if err != nil {
 		return nil, err
 	}
 
-	model, err := kinematics.ParseJSON(wx250smodeljson)
+	model, err := kinematics.ParseJSON(wx250smodeljson, "")
 	if err != nil {
 		return nil, err
 	}
@@ -126,11 +127,12 @@ func NewArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error
 		moveLock: getPortMutex(usbPort),
 		logger:   logger,
 		mp:       mp,
+		model:    model,
 	}, nil
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (a *Arm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -139,7 +141,7 @@ func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (a *Arm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+func (a *Arm) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -393,6 +395,11 @@ func (a *Arm) WaitForMovement(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// ModelFrame TODO
+func (a *Arm) ModelFrame() *kinematics.Model {
+	return a.model
 }
 
 func setServoDefaults(newServo *servo.Servo) error {

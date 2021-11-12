@@ -8,8 +8,8 @@ import (
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motionplan"
 	"go.viam.com/core/kinematics"
+	"go.viam.com/core/motionplan"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
@@ -19,7 +19,7 @@ import (
 )
 
 //go:embed arm_model.json
-var armModelJSON string
+var armikModelJSON []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "fake_ik", registry.Component{
@@ -27,60 +27,54 @@ func init() {
 			if config.Attributes.Bool("fail_new", false) {
 				return nil, errors.New("whoops")
 			}
-			return NewArmIK(config.Name, logger)
-		},
-		Frame: func(name string) (frame.Frame, error) {
-			return fakeFrame(name)
+			return NewArmIK(ctx, config, logger)
 		},
 	})
 }
 
 // fakeModel returns the kinematics model
 func fakeModel() (*kinematics.Model, error) {
-	return kinematics.ParseJSON([]byte(armModelJSON))
-}
-
-// fakeFrame returns the reference frame of the fake arm
-func fakeFrame(name string) (frame.Frame, error) {
-	f, err := fakeModel()
-	if err != nil {
-		return nil, err
-	}
-	f.SetName(name)
-	return f, nil
+	return kinematics.ParseJSON(armikModelJSON, "")
 }
 
 // NewArmIK returns a new fake arm.
-func NewArmIK(name string, logger golog.Logger) (arm.Arm, error) {
+func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+	name := cfg.Name
 	model, err := fakeModel()
 	if err != nil {
 		return nil, err
 	}
-
-	mp, err := motionplan.NewLinearMotionPlanner(model, logger, 4)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, logger, 4)
 	if err != nil {
 		return nil, err
 	}
 
 	return &ArmIK{
 		Name:     name,
-		position: &pb.ArmPosition{},
+		position: &pb.Pose{},
 		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
 		mp:       mp,
+		model:    model,
 	}, nil
 }
 
 // ArmIK is a fake arm that can simply read and set properties.
 type ArmIK struct {
 	Name       string
-	position   *pb.ArmPosition
+	position   *pb.Pose
 	joints     *pb.JointPositions
 	mp         motionplan.MotionPlanner
 	CloseCount int
+	model      *kinematics.Model
+}
+
+// ModelFrame returns the dynamic frame of the model
+func (a *ArmIK) ModelFrame() *kinematics.Model {
+	return a.model
 }
 
 // CurrentPosition returns the set position.
-func (a *ArmIK) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+func (a *ArmIK) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -88,8 +82,8 @@ func (a *ArmIK) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	return kinematics.ComputePosition(a.mp.Frame(), joints)
 }
 
-// MoveToPosition moves the arm to the specified cartesian position.
-func (a *ArmIK) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+// MoveToPosition sets the position.
+func (a *ArmIK) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err

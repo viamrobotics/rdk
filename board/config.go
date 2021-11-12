@@ -22,7 +22,7 @@ func RegisterConfigAttributeConverter(model string) {
 			return nil, err
 		}
 		return &conf, nil
-	})
+	}, &Config{})
 }
 
 // A Config describes the configuration of a board and all of its connected parts.

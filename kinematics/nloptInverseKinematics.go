@@ -73,9 +73,9 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 			err = ik.opt.ForceStop()
 			ik.logger.Errorf("forcestop error %q", err)
 		}
-		
+
 		dist := ik.distFunc(eePos, ik.goal.GoalTransform)
-		
+
 		if len(gradient) > 0 {
 			for i := range gradient {
 				// Deep copy of our current joint positions
@@ -138,7 +138,7 @@ func (ik *NloptIK) SetDistFunc(f func(spatial.Pose, spatial.Pose) float64) {
 	ik.distFunc = f
 }
 
-// SetMaxIter sets the number of times to 
+// SetMaxIter sets the number of times to
 func (ik *NloptIK) SetMaxIter(i int) {
 	ik.maxIterations = i
 }
@@ -275,7 +275,7 @@ func (ik *NloptIK) UpdateBounds(lower, upper []float64) error {
 	)
 }
 
-// defaultDistFunc 
+// defaultDistFunc
 func (ik *NloptIK) defaultDistFunc(from, to spatial.Pose) float64 {
 	dx := make([]float64, 6)
 

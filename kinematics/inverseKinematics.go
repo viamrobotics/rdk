@@ -26,6 +26,7 @@ type goal struct {
 type InverseKinematics interface {
 	// Solve receives a context, the goal position, and current frame inputs.
 	Solve(context.Context, chan []frame.Input, spatial.Pose, []frame.Input) error
+	Model() frame.Frame
 	SetSolveWeights(SolverDistanceWeights)
 	SetDistFunc(func(spatial.Pose, spatial.Pose) float64)
 	Close() error

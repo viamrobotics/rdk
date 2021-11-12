@@ -56,7 +56,7 @@ func init() {
 			return nil, err
 		}
 		return &conf, nil
-	})
+	}, &TMC5072Config{})
 }
 
 // A Motor represents a brushless motor connected via a TMC controller chip (ex: TMC5072)
