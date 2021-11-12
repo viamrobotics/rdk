@@ -87,7 +87,7 @@ func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, er
 	if err != nil {
 		return &pb.JointPositions{}, err
 	}
-	return arm.JointPositionsFromRadians(data.ServosPosition), nil
+	return frame.JointPositionsFromRadians(data.ServosPosition), nil
 }
 
 // CurrentPosition computes and returns the current cartesian position.
@@ -113,7 +113,7 @@ func (e *eva) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
-	radians := arm.JointPositionsToRadians(newPositions)
+	radians := frame.JointPositionsToRadians(newPositions)
 
 	err := e.doMoveJoints(ctx, radians)
 	if err == nil {

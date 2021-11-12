@@ -103,16 +103,6 @@ func TestRevoluteFrame(t *testing.T) {
 	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
 }
 
-func TestBasicConversions(t *testing.T) {
-	jp := &pb.JointPositions{Degrees: []float64{45, 55}}
-	inputs := JointPosToInputs(jp)
-	test.That(t, jp, test.ShouldResemble, InputsToJointPos(inputs))
-
-	floats := []float64{45, 55, 27}
-	inputs = FloatsToInputs(floats)
-	test.That(t, floats, test.ShouldResemble, InputsToFloats(inputs))
-}
-
 func TestSerializationStatic(t *testing.T) {
 	f, err := NewStaticFrame("foo", spatial.NewPoseFromAxisAngle(r3.Vector{1, 2, 3}, r3.Vector{4, 5, 6}, math.Pi/2))
 	test.That(t, err, test.ShouldBeNil)

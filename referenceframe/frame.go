@@ -10,49 +10,11 @@ import (
 	"fmt"
 	"math"
 
-	"go.viam.com/core/component/arm"
-	pb "go.viam.com/core/proto/api/v1"
 	spatial "go.viam.com/core/spatialmath"
 
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 )
-
-// Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position. Revolute inputs should be in
-// radians. Prismatic inputs should be in mm.
-// TODO: Determine what more this needs, or eschew in favor of raw float64s if nothing needed.
-type Input struct {
-	Value float64
-}
-
-// FloatsToInputs wraps a slice of floats in Inputs
-func FloatsToInputs(floats []float64) []Input {
-	inputs := make([]Input, len(floats))
-	for i, f := range floats {
-		inputs[i] = Input{f}
-	}
-	return inputs
-}
-
-// InputsToFloats unwraps Inputs to raw floats
-func InputsToFloats(inputs []Input) []float64 {
-	floats := make([]float64, len(inputs))
-	for i, f := range inputs {
-		floats[i] = f.Value
-	}
-	return floats
-}
-
-// JointPosToInputs will take a pb.JointPositions which has values in Degrees, convert to Radians and wrap in Inputs
-func JointPosToInputs(jp *pb.JointPositions) []Input {
-	floats := arm.JointPositionsToRadians(jp)
-	return FloatsToInputs(floats)
-}
-
-// InputsToJointPos will take a slice of Inputs which are all joint position radians, and return a JointPositions struct.
-func InputsToJointPos(inputs []Input) *pb.JointPositions {
-	return arm.JointPositionsFromRadians(InputsToFloats(inputs))
-}
 
 // Limit represents the limits of motion for a frame
 type Limit struct {

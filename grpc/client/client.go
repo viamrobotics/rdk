@@ -30,6 +30,7 @@ import (
 	"go.viam.com/core/grpc"
 	metadataclient "go.viam.com/core/grpc/metadata/client"
 	"go.viam.com/core/input"
+	"go.viam.com/core/kinematics"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
@@ -792,6 +793,11 @@ func (ac *armClient) JointMoveDelta(ctx context.Context, joint int, amountDegs f
 		AmountDegs: amountDegs,
 	})
 	return err
+}
+
+func (ac *armClient) ModelFrame() *kinematics.Model {
+	// TODO(erh): this feels wrong
+	return nil
 }
 
 // gripperClient satisfies a gRPC based gripper.Gripper. Refer to the interface
