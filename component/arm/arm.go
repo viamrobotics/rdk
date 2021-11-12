@@ -9,6 +9,7 @@ import (
 	"github.com/go-errors/errors"
 	viamutils "go.viam.com/utils"
 
+	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/rlog"
@@ -47,6 +48,9 @@ type Arm interface {
 
 	// JointMoveDelta moves a specific joint of the arm by the given amount.
 	JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error
+
+	// ModelFrame returns the kinematics model of the arm
+	ModelFrame() *kinematics.Model
 }
 
 var (
@@ -95,6 +99,12 @@ func (r *reconfigurableArm) JointMoveDelta(ctx context.Context, joint int, amoun
 	return r.actual.JointMoveDelta(ctx, joint, amountDegs)
 }
 
+func (r *reconfigurableArm) ModelFrame() *kinematics.Model {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.ModelFrame()
+}
+
 func (r *reconfigurableArm) Close() error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -141,26 +151,6 @@ func NewPositionFromMetersAndOV(x, y, z, th, ox, oy, oz float64) *pb.Pose {
 		OZ:    oz,
 		Theta: th,
 	}
-}
-
-// JointPositionsToRadians converts the given positions into a slice
-// of radians.
-func JointPositionsToRadians(jp *pb.JointPositions) []float64 {
-	n := make([]float64, len(jp.Degrees))
-	for idx, d := range jp.Degrees {
-		n[idx] = utils.DegToRad(d)
-	}
-	return n
-}
-
-// JointPositionsFromRadians converts the given slice of radians into
-// joint positions (represented in degrees).
-func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
-	n := make([]float64, len(radians))
-	for idx, a := range radians {
-		n[idx] = utils.RadToDeg(a)
-	}
-	return &pb.JointPositions{Degrees: n}
 }
 
 // PositionGridDiff returns the euclidean distance between
