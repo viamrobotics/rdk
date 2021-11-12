@@ -348,14 +348,19 @@ func (g *Controller) Controls(ctx context.Context) ([]input.Control, error) {
 	if g.dev == nil && len(g.controls) == 0 {
 		return nil, errors.New("no controller connected")
 	}
-	return g.controls, nil
+	out := append([]input.Control(nil), g.controls...)
+	return out, nil
 }
 
 // LastEvents returns the last input.Event (the current state)
 func (g *Controller) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.lastEvents, nil
+	out := make(map[input.Control]input.Event)
+	for key, value := range g.lastEvents {
+		out[key] = value
+	}
+	return out, nil
 }
 
 // RegisterControlCallback registers a callback function to be executed on the specified control's trigger Events

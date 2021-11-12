@@ -372,6 +372,9 @@
                         break;
                     }
                   },
+                  inputInject: function(req) {
+                    robotService.inputControllerInjectEvent(req, {}, (err, resp) => grpcCallback(err, resp));
+                  },
                   pidCommand: function(motor,cmd){
                       let req = cmd.request;
                       req.setName(motor);
@@ -1248,6 +1251,7 @@
       <!-- ******* WEB CONTROLS *******  -->
       <web-gamepad
         v-if="status.webGamepad"
+        v-on:execute="inputInject($event)"
         style="max-width: 1080px;">
       </web-gamepad>
 

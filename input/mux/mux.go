@@ -11,8 +11,8 @@ import (
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
-	"github.com/go-errors/errors"
 	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -22,7 +22,6 @@ const (
 
 func init() {
 	registry.RegisterInputController(modelname, registry.InputController{Constructor: NewController})
-
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelname, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
@@ -40,9 +39,8 @@ func init() {
 
 // Config is used for converting config attributes
 type Config struct {
-	Sources       []string `json:"sources"`
+	Sources []string `json:"sources"`
 }
-
 
 // Controller is an input.Controller
 type Controller struct {
@@ -143,7 +141,7 @@ func (g *Controller) Controls(ctx context.Context) ([]input.Control, error) {
 		}
 	}
 	var controlsOut []input.Control
-	for c, _  := range controlMap {
+	for c := range controlMap {
 		controlsOut = append(controlsOut, c)
 	}
 
@@ -161,7 +159,7 @@ func (g *Controller) LastEvents(ctx context.Context) (map[input.Control]input.Ev
 
 		for ctrl, eventA := range eventList {
 			eventB, ok := eventsOut[ctrl]
-			if !ok || eventA.Time.After(eventB.Time){
+			if !ok || eventA.Time.After(eventB.Time) {
 				eventsOut[ctrl] = eventA
 			}
 		}

@@ -98,8 +98,8 @@ var emptyStatus = &pb.Status{
 		"motor1": {},
 		"motor2": {},
 	},
-	InputControllers: map[string]bool{
-		"inputController1": true,
+	InputControllers: map[string]*pb.InputControllerStatus{
+		"inputController1": {},
 	},
 	Servos: map[string]*pb.ServoStatus{
 		"servo1": {},
@@ -191,9 +191,9 @@ var finalStatus = &pb.Status{
 		"motor2": {},
 		"motor3": {},
 	},
-	InputControllers: map[string]bool{
-		"inputController2": true,
-		"inputController3": true,
+	InputControllers: map[string]*pb.InputControllerStatus{
+		"inputController2": {},
+		"inputController3": {},
 	},
 	Boards: map[string]*pb.BoardStatus{
 		"board2": {
