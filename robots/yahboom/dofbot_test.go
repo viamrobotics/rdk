@@ -25,7 +25,7 @@ func TestDofBotIK(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	ik, err := createDofBotSolver(logger)
+	_, ik, err := createDofBotSolver(logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	goal := pb.Pose{X: 206.59, Y: -1.57, Z: 253.05, Theta: -180, OX: -.53, OY: 0, OZ: .85}
