@@ -1,17 +1,14 @@
 {
-   "model": {
-      "manufacturer": "Viam Robotics",
-      "name": "gripper",
-      "links": [
-         {
-            "id": "base_link",
-            "parent": "world",
-            "translation": {
-               "x": 0,
-               "y": 0,
-               "z": 220.0
-            }
-         }
-      ]
-   }
+  "name": "viam-gripper-v2",
+  "links": [
+     {
+        "id": "base_link",
+        "parent": "world",
+        "translation": {
+           "x": 0,
+           "y": 0,
+           "z": 220.0
+        }
+     }
+  ]
 }
