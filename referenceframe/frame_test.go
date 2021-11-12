@@ -112,3 +112,56 @@ func TestBasicConversions(t *testing.T) {
 	inputs = FloatsToInputs(floats)
 	test.That(t, floats, test.ShouldResemble, InputsToFloats(inputs))
 }
+
+func TestSerializationStatic(t *testing.T) {
+	f, err := NewStaticFrame("foo", spatial.NewPoseFromAxisAngle(r3.Vector{1, 2, 3}, r3.Vector{4, 5, 6}, math.Pi/2))
+	test.That(t, err, test.ShouldBeNil)
+
+	data, err := f.MarshalJSON()
+	test.That(t, err, test.ShouldBeNil)
+
+	f2, err := UnmarshalFrameJSON(data)
+	test.That(t, err, test.ShouldBeNil)
+
+	sf, ok := f2.(*staticFrame)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	ff := f.(*staticFrame)
+	test.That(t, sf.name, test.ShouldResemble, ff.name)
+
+	test.That(t, sf.transform.Point().X, test.ShouldAlmostEqual, ff.transform.Point().X)
+	test.That(t, sf.transform.Point().Y, test.ShouldAlmostEqual, ff.transform.Point().Y)
+	test.That(t, sf.transform.Point().Z, test.ShouldAlmostEqual, ff.transform.Point().Z)
+
+	test.That(t, sf.transform.Orientation().AxisAngles().RX, test.ShouldAlmostEqual, ff.transform.Orientation().AxisAngles().RX)
+	test.That(t, sf.transform.Orientation().AxisAngles().RY, test.ShouldAlmostEqual, ff.transform.Orientation().AxisAngles().RY)
+	test.That(t, sf.transform.Orientation().AxisAngles().RZ, test.ShouldAlmostEqual, ff.transform.Orientation().AxisAngles().RZ)
+
+	test.That(t, sf.transform.Orientation().AxisAngles().Theta, test.ShouldAlmostEqual, ff.transform.Orientation().AxisAngles().Theta)
+}
+
+func TestSerializationTranslation(t *testing.T) {
+	f, err := NewTranslationalFrame("foo", []bool{true, false, true}, []Limit{{1,2}, {3,4}})
+	test.That(t, err, test.ShouldBeNil)
+
+	data, err := f.MarshalJSON()
+	test.That(t, err, test.ShouldBeNil)
+
+	f2, err := UnmarshalFrameJSON(data)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, f2, test.ShouldResemble, f)	
+}
+
+func TestSerializationRotations(t *testing.T) {
+	f, err := NewRotationalFrame("foo", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
+	test.That(t, err, test.ShouldBeNil)
+
+	data, err := f.MarshalJSON()
+	test.That(t, err, test.ShouldBeNil)
+
+	f2, err := UnmarshalFrameJSON(data)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, f2, test.ShouldResemble, f)	
+}
