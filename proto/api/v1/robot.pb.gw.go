@@ -5967,7 +5967,7 @@ func RegisterRobotServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.v1.RobotService/ObjectManipulationServiceDoGrab", runtime.WithHTTPPathPattern("/api/v1/services/objectmanipulation/dograb"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.v1.RobotService/ObjectManipulationServiceDoGrab", runtime.WithHTTPPathPattern("/api/v1/services/objectmanipulation/do_grab"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7607,7 +7607,7 @@ func RegisterRobotServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.v1.RobotService/ObjectManipulationServiceDoGrab", runtime.WithHTTPPathPattern("/api/v1/services/objectmanipulation/dograb"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.v1.RobotService/ObjectManipulationServiceDoGrab", runtime.WithHTTPPathPattern("/api/v1/services/objectmanipulation/do_grab"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -7891,7 +7891,7 @@ var (
 
 	pattern_RobotService_NavigationServiceRemoveWaypoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5}, []string{"api", "v1", "services", "navigation", "waypoints", "id"}, ""))
 
-	pattern_RobotService_ObjectManipulationServiceDoGrab_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "services", "objectmanipulation", "dograb"}, ""))
+	pattern_RobotService_ObjectManipulationServiceDoGrab_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "services", "objectmanipulation", "do_grab"}, ""))
 
 	pattern_RobotService_IMUAngularVelocity_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "sensors", "imu", "name", "angular_velocity"}, ""))
 
