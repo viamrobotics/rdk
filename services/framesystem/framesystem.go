@@ -20,7 +20,7 @@ const Type = config.ServiceType("frame_system")
 func init() {
 	registry.RegisterService(Type, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return New(ctx, r, logger)
+			return New(ctx, r, c, logger)
 		},
 	},
 	)
@@ -34,7 +34,7 @@ type Service interface {
 }
 
 // New returns a new frame system service for the given robot.
-func New(ctx context.Context, r robot.Robot, logger golog.Logger) (Service, error) {
+func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Logger) (Service, error) {
 	// collect the necessary robot parts (skipping remotes, services, etc)
 	parts, err := CollectFrameSystemParts(ctx, r)
 	if err != nil {
