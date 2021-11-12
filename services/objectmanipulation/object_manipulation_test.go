@@ -10,7 +10,6 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
-	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/services/objectmanipulation"
@@ -137,7 +136,7 @@ func TestDoGrab(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics"))
 
 	fs = referenceframe.NewEmptySimpleFrameSystem("fakeGripper")
-	gripperFrame, err = kinematics.ParseJSONFile(utils.ResolveFile("robots/fake/arm_model.json"), "fakeGripper")
+	gripperFrame, err = referenceframe.ParseJSONFile(utils.ResolveFile("robots/fake/arm_model.json"), "fakeGripper")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gripperFrame, fs.World())
 	r.FrameSystemFunc = func(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
