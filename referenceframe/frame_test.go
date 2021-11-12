@@ -141,7 +141,7 @@ func TestSerializationStatic(t *testing.T) {
 }
 
 func TestSerializationTranslation(t *testing.T) {
-	f, err := NewTranslationalFrame("foo", []bool{true, false, true}, []Limit{{1,2}, {3,4}})
+	f, err := NewTranslationalFrame("foo", []bool{true, false, true}, []Limit{{1, 2}, {3, 4}})
 	test.That(t, err, test.ShouldBeNil)
 
 	data, err := f.MarshalJSON()
@@ -150,7 +150,7 @@ func TestSerializationTranslation(t *testing.T) {
 	f2, err := UnmarshalFrameJSON(data)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, f2, test.ShouldResemble, f)	
+	test.That(t, f2, test.ShouldResemble, f)
 }
 
 func TestSerializationRotations(t *testing.T) {
@@ -163,5 +163,5 @@ func TestSerializationRotations(t *testing.T) {
 	f2, err := UnmarshalFrameJSON(data)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, f2, test.ShouldResemble, f)	
+	test.That(t, f2, test.ShouldResemble, f)
 }

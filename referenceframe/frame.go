@@ -13,8 +13,8 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 	spatial "go.viam.com/core/spatialmath"
 
-	"github.com/mitchellh/mapstructure"
 	"github.com/golang/geo/r3"
+	"github.com/mitchellh/mapstructure"
 )
 
 // Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position. Revolute inputs should be in
@@ -119,20 +119,19 @@ func (sf *staticFrame) DoF() []Limit {
 
 func poseToMap(p spatial.Pose) map[string]interface{} {
 	return map[string]interface{}{
-		"point" : p.Point(),
-		"orientation" : p.Orientation().AxisAngles(),
+		"point":       p.Point(),
+		"orientation": p.Orientation().AxisAngles(),
 	}
 }
 
 func (sf *staticFrame) MarshalJSON() ([]byte, error) {
 	m := map[string]interface{}{
-		"type" : "static",
-		"name" : sf.name,
-		"transform" : poseToMap(sf.transform),
+		"type":      "static",
+		"name":      sf.name,
+		"transform": poseToMap(sf.transform),
 	}
 	return json.Marshal(m)
 }
-
 
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions
 type translationalFrame struct {
@@ -196,10 +195,10 @@ func (pf *translationalFrame) DoFInt() int {
 
 func (pf *translationalFrame) MarshalJSON() ([]byte, error) {
 	m := map[string]interface{}{
-		"type" : "translational",
-		"name" : pf.name,
-		"axes" : pf.axes,
-		"limits" : pf.limits,
+		"type":   "translational",
+		"name":   pf.name,
+		"axes":   pf.axes,
+		"limits": pf.limits,
 	}
 	return json.Marshal(m)
 }
@@ -253,10 +252,10 @@ func (rf *rotationalFrame) Name() string {
 
 func (rf *rotationalFrame) MarshalJSON() ([]byte, error) {
 	m := map[string]interface{}{
-		"type" : "rotational",
-		"name" : rf.name,
-		"rotAxis" : rf.rotAxis,
-		"limit" : rf.limit,
+		"type":    "rotational",
+		"name":    rf.name,
+		"rotAxis": rf.rotAxis,
+		"limit":   rf.limit,
 	}
 	return json.Marshal(m)
 }
@@ -275,10 +274,11 @@ func decodeAngleAxisPose(m map[string]interface{}) (spatial.Pose, error) {
 	}
 
 	angle := m["orientation"].(map[string]interface{})["th"].(float64)
-	
+
 	return spatial.NewPoseFromAxisAngle(point, rotationAxis, angle), nil
 }
 
+// UnmarshalFrameJSON deserialized json into a reference frame
 func UnmarshalFrameJSON(data []byte) (Frame, error) {
 
 	m := map[string]interface{}{}
@@ -286,7 +286,7 @@ func UnmarshalFrameJSON(data []byte) (Frame, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	switch m["type"] {
 	case "static":
 		f := staticFrame{}
@@ -316,7 +316,7 @@ func UnmarshalFrameJSON(data []byte) (Frame, error) {
 		f.rotAxis.RY = m["rotAxis"].(map[string]interface{})["y"].(float64)
 		f.rotAxis.RZ = m["rotAxis"].(map[string]interface{})["z"].(float64)
 		f.rotAxis.Theta = m["rotAxis"].(map[string]interface{})["th"].(float64)
-		
+
 		err = mapstructure.Decode(m["limit"], &f.limit)
 		if err != nil {
 			return nil, err
