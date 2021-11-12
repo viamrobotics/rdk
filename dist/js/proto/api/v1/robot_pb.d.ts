@@ -3437,6 +3437,60 @@ export namespace NavigationServiceRemoveWaypointResponse {
   }
 }
 
+export class ObjectManipulationServiceDoGrabRequest extends jspb.Message {
+  getCameraName(): string;
+  setCameraName(value: string): void;
+
+  hasCameraPoint(): boolean;
+  clearCameraPoint(): void;
+  getCameraPoint(): Vector3 | undefined;
+  setCameraPoint(value?: Vector3): void;
+
+  getGripperName(): string;
+  setGripperName(value: string): void;
+
+  getArmName(): string;
+  setArmName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): ObjectManipulationServiceDoGrabRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: ObjectManipulationServiceDoGrabRequest): ObjectManipulationServiceDoGrabRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: ObjectManipulationServiceDoGrabRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ObjectManipulationServiceDoGrabRequest;
+  static deserializeBinaryFromReader(message: ObjectManipulationServiceDoGrabRequest, reader: jspb.BinaryReader): ObjectManipulationServiceDoGrabRequest;
+}
+
+export namespace ObjectManipulationServiceDoGrabRequest {
+  export type AsObject = {
+    cameraName: string,
+    cameraPoint?: Vector3.AsObject,
+    gripperName: string,
+    armName: string,
+  }
+}
+
+export class ObjectManipulationServiceDoGrabResponse extends jspb.Message {
+  getHasGrabbed(): boolean;
+  setHasGrabbed(value: boolean): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): ObjectManipulationServiceDoGrabResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: ObjectManipulationServiceDoGrabResponse): ObjectManipulationServiceDoGrabResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: ObjectManipulationServiceDoGrabResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ObjectManipulationServiceDoGrabResponse;
+  static deserializeBinaryFromReader(message: ObjectManipulationServiceDoGrabResponse, reader: jspb.BinaryReader): ObjectManipulationServiceDoGrabResponse;
+}
+
+export namespace ObjectManipulationServiceDoGrabResponse {
+  export type AsObject = {
+    hasGrabbed: boolean,
+  }
+}
+
 export class InputControllerControlsRequest extends jspb.Message {
   getController(): string;
   setController(value: string): void;

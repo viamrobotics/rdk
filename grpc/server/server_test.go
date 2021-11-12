@@ -30,11 +30,13 @@ import (
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
+	servicepkg "go.viam.com/core/services"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/testutils/inject"
 
 	"github.com/golang/geo/r2"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -184,7 +186,7 @@ func TestServer(t *testing.T) {
 		// set up the robot with something that is not a framesystem service
 		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
 			services := make(map[string]interface{})
-			services["frame_system"] = nil
+			services[servicepkg.FrameSystemName] = nil
 			service, ok := services[name]
 			return service, ok
 		}
@@ -194,7 +196,7 @@ func TestServer(t *testing.T) {
 		// set up the robot with the frame system
 		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
 			services := make(map[string]interface{})
-			services["frame_system"] = fss
+			services[servicepkg.FrameSystemName] = fss
 			service, ok := services[name]
 			return service, ok
 		}
@@ -212,6 +214,56 @@ func TestServer(t *testing.T) {
 		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.OZ, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OZ)
 		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.Theta, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().Theta)
 		test.That(t, fssResp.FrameSystemConfigs[0].ModelJson, test.ShouldEqual, fsConfigs[0].ModelFrameConfig)
+	})
+
+	t.Run("ObjectManipulation", func(t *testing.T) {
+		server, injectRobot := newServer()
+
+		// set up the robot without an objectmanipulation service
+		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
+			services := make(map[string]interface{})
+			service, ok := services[name]
+			return service, ok
+		}
+		_, err := server.ObjectManipulationServiceDoGrab(context.Background(), &pb.ObjectManipulationServiceDoGrabRequest{})
+		test.That(t, err, test.ShouldBeError, errors.New("no objectmanipulation service"))
+
+		// set up the robot with something that is not an objectmanipulation service
+		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
+			services := make(map[string]interface{})
+			services[servicepkg.ObjectManipulationServiceName] = nil
+			service, ok := services[name]
+			return service, ok
+		}
+		_, err = server.ObjectManipulationServiceDoGrab(context.Background(), &pb.ObjectManipulationServiceDoGrabRequest{})
+		test.That(t, err, test.ShouldBeError, errors.New("service is not a objectmanipulation service"))
+
+		// pass on dograb error
+		passedErr := errors.New("fake dograb error")
+		omSvc := &inject.ObjectManipulationService{}
+		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
+			return omSvc, true
+		}
+		omSvc.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
+			return false, passedErr
+		}
+		req := &pb.ObjectManipulationServiceDoGrabRequest{
+			CameraName:  "fakeC",
+			GripperName: "fakeG",
+			ArmName:     "fakeA",
+			CameraPoint: &pb.Vector3{X: 0, Y: 0, Z: 0},
+		}
+		_, err = server.ObjectManipulationServiceDoGrab(context.Background(), req)
+		test.That(t, err, test.ShouldBeError, passedErr)
+
+		// returns response
+		omSvc.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
+			return true, nil
+		}
+		resp, err := server.ObjectManipulationServiceDoGrab(context.Background(), req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.GetHasGrabbed(), test.ShouldBeTrue)
+
 	})
 
 	t.Run("StatusStream", func(t *testing.T) {

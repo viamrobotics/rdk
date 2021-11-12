@@ -38,6 +38,7 @@ import (
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/imu"
+	servicepkg "go.viam.com/core/services"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/testutils/inject"
@@ -703,7 +704,7 @@ func TestClient(t *testing.T) {
 	}
 	injectRobot1.ServiceByNameFunc = func(name string) (interface{}, bool) {
 		services := make(map[string]interface{})
-		services["frame_system"] = fss
+		services[servicepkg.FrameSystemName] = fss
 		service, ok := services[name]
 		return service, ok
 	}

@@ -7894,6 +7894,124 @@ func (*NavigationServiceRemoveWaypointResponse) Descriptor() ([]byte, []int) {
 	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{152}
 }
 
+type ObjectManipulationServiceDoGrabRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	CameraName  string   `protobuf:"bytes,1,opt,name=camera_name,json=cameraName,proto3" json:"camera_name,omitempty"`
+	CameraPoint *Vector3 `protobuf:"bytes,2,opt,name=camera_point,json=cameraPoint,proto3" json:"camera_point,omitempty"`
+	GripperName string   `protobuf:"bytes,3,opt,name=gripper_name,json=gripperName,proto3" json:"gripper_name,omitempty"`
+	ArmName     string   `protobuf:"bytes,4,opt,name=arm_name,json=armName,proto3" json:"arm_name,omitempty"`
+}
+
+func (x *ObjectManipulationServiceDoGrabRequest) Reset() {
+	*x = ObjectManipulationServiceDoGrabRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[153]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ObjectManipulationServiceDoGrabRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ObjectManipulationServiceDoGrabRequest) ProtoMessage() {}
+
+func (x *ObjectManipulationServiceDoGrabRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[153]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ObjectManipulationServiceDoGrabRequest.ProtoReflect.Descriptor instead.
+func (*ObjectManipulationServiceDoGrabRequest) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{153}
+}
+
+func (x *ObjectManipulationServiceDoGrabRequest) GetCameraName() string {
+	if x != nil {
+		return x.CameraName
+	}
+	return ""
+}
+
+func (x *ObjectManipulationServiceDoGrabRequest) GetCameraPoint() *Vector3 {
+	if x != nil {
+		return x.CameraPoint
+	}
+	return nil
+}
+
+func (x *ObjectManipulationServiceDoGrabRequest) GetGripperName() string {
+	if x != nil {
+		return x.GripperName
+	}
+	return ""
+}
+
+func (x *ObjectManipulationServiceDoGrabRequest) GetArmName() string {
+	if x != nil {
+		return x.ArmName
+	}
+	return ""
+}
+
+type ObjectManipulationServiceDoGrabResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	HasGrabbed bool `protobuf:"varint,1,opt,name=has_grabbed,json=hasGrabbed,proto3" json:"has_grabbed,omitempty"`
+}
+
+func (x *ObjectManipulationServiceDoGrabResponse) Reset() {
+	*x = ObjectManipulationServiceDoGrabResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[154]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ObjectManipulationServiceDoGrabResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ObjectManipulationServiceDoGrabResponse) ProtoMessage() {}
+
+func (x *ObjectManipulationServiceDoGrabResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[154]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ObjectManipulationServiceDoGrabResponse.ProtoReflect.Descriptor instead.
+func (*ObjectManipulationServiceDoGrabResponse) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{154}
+}
+
+func (x *ObjectManipulationServiceDoGrabResponse) GetHasGrabbed() bool {
+	if x != nil {
+		return x.HasGrabbed
+	}
+	return false
+}
+
 type InputControllerControlsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -7905,7 +8023,7 @@ type InputControllerControlsRequest struct {
 func (x *InputControllerControlsRequest) Reset() {
 	*x = InputControllerControlsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[153]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[155]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7918,7 +8036,7 @@ func (x *InputControllerControlsRequest) String() string {
 func (*InputControllerControlsRequest) ProtoMessage() {}
 
 func (x *InputControllerControlsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[153]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[155]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7931,7 +8049,7 @@ func (x *InputControllerControlsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InputControllerControlsRequest.ProtoReflect.Descriptor instead.
 func (*InputControllerControlsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{153}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{155}
 }
 
 func (x *InputControllerControlsRequest) GetController() string {
@@ -7952,7 +8070,7 @@ type InputControllerControlsResponse struct {
 func (x *InputControllerControlsResponse) Reset() {
 	*x = InputControllerControlsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[154]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[156]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7965,7 +8083,7 @@ func (x *InputControllerControlsResponse) String() string {
 func (*InputControllerControlsResponse) ProtoMessage() {}
 
 func (x *InputControllerControlsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[154]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[156]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7978,7 +8096,7 @@ func (x *InputControllerControlsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InputControllerControlsResponse.ProtoReflect.Descriptor instead.
 func (*InputControllerControlsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{154}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{156}
 }
 
 func (x *InputControllerControlsResponse) GetControls() []string {
@@ -7999,7 +8117,7 @@ type InputControllerLastEventsRequest struct {
 func (x *InputControllerLastEventsRequest) Reset() {
 	*x = InputControllerLastEventsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[155]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[157]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8012,7 +8130,7 @@ func (x *InputControllerLastEventsRequest) String() string {
 func (*InputControllerLastEventsRequest) ProtoMessage() {}
 
 func (x *InputControllerLastEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[155]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[157]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8025,7 +8143,7 @@ func (x *InputControllerLastEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InputControllerLastEventsRequest.ProtoReflect.Descriptor instead.
 func (*InputControllerLastEventsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{155}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{157}
 }
 
 func (x *InputControllerLastEventsRequest) GetController() string {
@@ -8046,7 +8164,7 @@ type InputControllerLastEventsResponse struct {
 func (x *InputControllerLastEventsResponse) Reset() {
 	*x = InputControllerLastEventsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[156]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[158]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8059,7 +8177,7 @@ func (x *InputControllerLastEventsResponse) String() string {
 func (*InputControllerLastEventsResponse) ProtoMessage() {}
 
 func (x *InputControllerLastEventsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[156]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[158]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8072,7 +8190,7 @@ func (x *InputControllerLastEventsResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use InputControllerLastEventsResponse.ProtoReflect.Descriptor instead.
 func (*InputControllerLastEventsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{156}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{158}
 }
 
 func (x *InputControllerLastEventsResponse) GetEvents() []*InputControllerEvent {
@@ -8093,7 +8211,7 @@ type InputControllerStatus struct {
 func (x *InputControllerStatus) Reset() {
 	*x = InputControllerStatus{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[157]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[159]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8106,7 +8224,7 @@ func (x *InputControllerStatus) String() string {
 func (*InputControllerStatus) ProtoMessage() {}
 
 func (x *InputControllerStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[157]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[159]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8119,7 +8237,7 @@ func (x *InputControllerStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InputControllerStatus.ProtoReflect.Descriptor instead.
 func (*InputControllerStatus) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{157}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{159}
 }
 
 func (x *InputControllerStatus) GetEvents() []*InputControllerEvent {
@@ -8141,7 +8259,7 @@ type InputControllerInjectEventRequest struct {
 func (x *InputControllerInjectEventRequest) Reset() {
 	*x = InputControllerInjectEventRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[158]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[160]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8154,7 +8272,7 @@ func (x *InputControllerInjectEventRequest) String() string {
 func (*InputControllerInjectEventRequest) ProtoMessage() {}
 
 func (x *InputControllerInjectEventRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[158]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[160]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8167,7 +8285,7 @@ func (x *InputControllerInjectEventRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use InputControllerInjectEventRequest.ProtoReflect.Descriptor instead.
 func (*InputControllerInjectEventRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{158}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{160}
 }
 
 func (x *InputControllerInjectEventRequest) GetController() string {
@@ -8193,7 +8311,7 @@ type InputControllerInjectEventResponse struct {
 func (x *InputControllerInjectEventResponse) Reset() {
 	*x = InputControllerInjectEventResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[159]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[161]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8206,7 +8324,7 @@ func (x *InputControllerInjectEventResponse) String() string {
 func (*InputControllerInjectEventResponse) ProtoMessage() {}
 
 func (x *InputControllerInjectEventResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[159]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[161]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8219,7 +8337,7 @@ func (x *InputControllerInjectEventResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use InputControllerInjectEventResponse.ProtoReflect.Descriptor instead.
 func (*InputControllerInjectEventResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{159}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{161}
 }
 
 type InputControllerEvent struct {
@@ -8236,7 +8354,7 @@ type InputControllerEvent struct {
 func (x *InputControllerEvent) Reset() {
 	*x = InputControllerEvent{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[160]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[162]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8249,7 +8367,7 @@ func (x *InputControllerEvent) String() string {
 func (*InputControllerEvent) ProtoMessage() {}
 
 func (x *InputControllerEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[160]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[162]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8262,7 +8380,7 @@ func (x *InputControllerEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InputControllerEvent.ProtoReflect.Descriptor instead.
 func (*InputControllerEvent) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{160}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{162}
 }
 
 func (x *InputControllerEvent) GetTime() *timestamppb.Timestamp {
@@ -8305,7 +8423,7 @@ type InputControllerEventStreamRequest struct {
 func (x *InputControllerEventStreamRequest) Reset() {
 	*x = InputControllerEventStreamRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[161]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[163]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8318,7 +8436,7 @@ func (x *InputControllerEventStreamRequest) String() string {
 func (*InputControllerEventStreamRequest) ProtoMessage() {}
 
 func (x *InputControllerEventStreamRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[161]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[163]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8331,7 +8449,7 @@ func (x *InputControllerEventStreamRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use InputControllerEventStreamRequest.ProtoReflect.Descriptor instead.
 func (*InputControllerEventStreamRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{161}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{163}
 }
 
 func (x *InputControllerEventStreamRequest) GetController() string {
@@ -8362,7 +8480,7 @@ type AngularVelocity struct {
 func (x *AngularVelocity) Reset() {
 	*x = AngularVelocity{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[162]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[164]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8375,7 +8493,7 @@ func (x *AngularVelocity) String() string {
 func (*AngularVelocity) ProtoMessage() {}
 
 func (x *AngularVelocity) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[162]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[164]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8388,7 +8506,7 @@ func (x *AngularVelocity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AngularVelocity.ProtoReflect.Descriptor instead.
 func (*AngularVelocity) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{162}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{164}
 }
 
 func (x *AngularVelocity) GetX() float64 {
@@ -8427,7 +8545,7 @@ type EulerAngles struct {
 func (x *EulerAngles) Reset() {
 	*x = EulerAngles{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[163]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[165]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8440,7 +8558,7 @@ func (x *EulerAngles) String() string {
 func (*EulerAngles) ProtoMessage() {}
 
 func (x *EulerAngles) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[163]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[165]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8453,7 +8571,7 @@ func (x *EulerAngles) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EulerAngles.ProtoReflect.Descriptor instead.
 func (*EulerAngles) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{163}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{165}
 }
 
 func (x *EulerAngles) GetRoll() float64 {
@@ -8488,7 +8606,7 @@ type IMUAngularVelocityRequest struct {
 func (x *IMUAngularVelocityRequest) Reset() {
 	*x = IMUAngularVelocityRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[164]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[166]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8501,7 +8619,7 @@ func (x *IMUAngularVelocityRequest) String() string {
 func (*IMUAngularVelocityRequest) ProtoMessage() {}
 
 func (x *IMUAngularVelocityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[164]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[166]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8514,7 +8632,7 @@ func (x *IMUAngularVelocityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IMUAngularVelocityRequest.ProtoReflect.Descriptor instead.
 func (*IMUAngularVelocityRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{164}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{166}
 }
 
 func (x *IMUAngularVelocityRequest) GetName() string {
@@ -8535,7 +8653,7 @@ type IMUAngularVelocityResponse struct {
 func (x *IMUAngularVelocityResponse) Reset() {
 	*x = IMUAngularVelocityResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[165]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[167]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8548,7 +8666,7 @@ func (x *IMUAngularVelocityResponse) String() string {
 func (*IMUAngularVelocityResponse) ProtoMessage() {}
 
 func (x *IMUAngularVelocityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[165]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[167]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8561,7 +8679,7 @@ func (x *IMUAngularVelocityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IMUAngularVelocityResponse.ProtoReflect.Descriptor instead.
 func (*IMUAngularVelocityResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{165}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{167}
 }
 
 func (x *IMUAngularVelocityResponse) GetAngularVelocity() *AngularVelocity {
@@ -8582,7 +8700,7 @@ type IMUOrientationRequest struct {
 func (x *IMUOrientationRequest) Reset() {
 	*x = IMUOrientationRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[166]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[168]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8595,7 +8713,7 @@ func (x *IMUOrientationRequest) String() string {
 func (*IMUOrientationRequest) ProtoMessage() {}
 
 func (x *IMUOrientationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[166]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[168]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8608,7 +8726,7 @@ func (x *IMUOrientationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IMUOrientationRequest.ProtoReflect.Descriptor instead.
 func (*IMUOrientationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{166}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{168}
 }
 
 func (x *IMUOrientationRequest) GetName() string {
@@ -8629,7 +8747,7 @@ type IMUOrientationResponse struct {
 func (x *IMUOrientationResponse) Reset() {
 	*x = IMUOrientationResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[167]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[169]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8642,7 +8760,7 @@ func (x *IMUOrientationResponse) String() string {
 func (*IMUOrientationResponse) ProtoMessage() {}
 
 func (x *IMUOrientationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[167]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[169]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8655,7 +8773,7 @@ func (x *IMUOrientationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IMUOrientationResponse.ProtoReflect.Descriptor instead.
 func (*IMUOrientationResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{167}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{169}
 }
 
 func (x *IMUOrientationResponse) GetOrientation() *EulerAngles {
@@ -8676,7 +8794,7 @@ type GPSLocationRequest struct {
 func (x *GPSLocationRequest) Reset() {
 	*x = GPSLocationRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[168]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[170]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8689,7 +8807,7 @@ func (x *GPSLocationRequest) String() string {
 func (*GPSLocationRequest) ProtoMessage() {}
 
 func (x *GPSLocationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[168]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[170]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8702,7 +8820,7 @@ func (x *GPSLocationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GPSLocationRequest.ProtoReflect.Descriptor instead.
 func (*GPSLocationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{168}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{170}
 }
 
 func (x *GPSLocationRequest) GetName() string {
@@ -8723,7 +8841,7 @@ type GPSLocationResponse struct {
 func (x *GPSLocationResponse) Reset() {
 	*x = GPSLocationResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[169]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[171]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8736,7 +8854,7 @@ func (x *GPSLocationResponse) String() string {
 func (*GPSLocationResponse) ProtoMessage() {}
 
 func (x *GPSLocationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[169]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[171]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8749,7 +8867,7 @@ func (x *GPSLocationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GPSLocationResponse.ProtoReflect.Descriptor instead.
 func (*GPSLocationResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{169}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{171}
 }
 
 func (x *GPSLocationResponse) GetCoordinate() *GeoPoint {
@@ -8770,7 +8888,7 @@ type GPSAltitudeRequest struct {
 func (x *GPSAltitudeRequest) Reset() {
 	*x = GPSAltitudeRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[170]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[172]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8783,7 +8901,7 @@ func (x *GPSAltitudeRequest) String() string {
 func (*GPSAltitudeRequest) ProtoMessage() {}
 
 func (x *GPSAltitudeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[170]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[172]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8796,7 +8914,7 @@ func (x *GPSAltitudeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GPSAltitudeRequest.ProtoReflect.Descriptor instead.
 func (*GPSAltitudeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{170}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{172}
 }
 
 func (x *GPSAltitudeRequest) GetName() string {
@@ -8817,7 +8935,7 @@ type GPSAltitudeResponse struct {
 func (x *GPSAltitudeResponse) Reset() {
 	*x = GPSAltitudeResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[171]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[173]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8830,7 +8948,7 @@ func (x *GPSAltitudeResponse) String() string {
 func (*GPSAltitudeResponse) ProtoMessage() {}
 
 func (x *GPSAltitudeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[171]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[173]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8843,7 +8961,7 @@ func (x *GPSAltitudeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GPSAltitudeResponse.ProtoReflect.Descriptor instead.
 func (*GPSAltitudeResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{171}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{173}
 }
 
 func (x *GPSAltitudeResponse) GetAltitude() float64 {
@@ -8864,7 +8982,7 @@ type GPSSpeedRequest struct {
 func (x *GPSSpeedRequest) Reset() {
 	*x = GPSSpeedRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[172]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[174]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8877,7 +8995,7 @@ func (x *GPSSpeedRequest) String() string {
 func (*GPSSpeedRequest) ProtoMessage() {}
 
 func (x *GPSSpeedRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[172]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[174]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8890,7 +9008,7 @@ func (x *GPSSpeedRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GPSSpeedRequest.ProtoReflect.Descriptor instead.
 func (*GPSSpeedRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{172}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{174}
 }
 
 func (x *GPSSpeedRequest) GetName() string {
@@ -8911,7 +9029,7 @@ type GPSSpeedResponse struct {
 func (x *GPSSpeedResponse) Reset() {
 	*x = GPSSpeedResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[173]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[175]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8924,7 +9042,7 @@ func (x *GPSSpeedResponse) String() string {
 func (*GPSSpeedResponse) ProtoMessage() {}
 
 func (x *GPSSpeedResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[173]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[175]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8937,7 +9055,7 @@ func (x *GPSSpeedResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GPSSpeedResponse.ProtoReflect.Descriptor instead.
 func (*GPSSpeedResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{173}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{175}
 }
 
 func (x *GPSSpeedResponse) GetSpeedKph() float64 {
@@ -8958,7 +9076,7 @@ type GPSAccuracyRequest struct {
 func (x *GPSAccuracyRequest) Reset() {
 	*x = GPSAccuracyRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[174]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[176]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8971,7 +9089,7 @@ func (x *GPSAccuracyRequest) String() string {
 func (*GPSAccuracyRequest) ProtoMessage() {}
 
 func (x *GPSAccuracyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[174]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[176]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8984,7 +9102,7 @@ func (x *GPSAccuracyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GPSAccuracyRequest.ProtoReflect.Descriptor instead.
 func (*GPSAccuracyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{174}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{176}
 }
 
 func (x *GPSAccuracyRequest) GetName() string {
@@ -9006,7 +9124,7 @@ type GPSAccuracyResponse struct {
 func (x *GPSAccuracyResponse) Reset() {
 	*x = GPSAccuracyResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[175]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[177]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9019,7 +9137,7 @@ func (x *GPSAccuracyResponse) String() string {
 func (*GPSAccuracyResponse) ProtoMessage() {}
 
 func (x *GPSAccuracyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[175]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[177]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9032,7 +9150,7 @@ func (x *GPSAccuracyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GPSAccuracyResponse.ProtoReflect.Descriptor instead.
 func (*GPSAccuracyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{175}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{177}
 }
 
 func (x *GPSAccuracyResponse) GetHorizontalAccuracy() float64 {
@@ -9063,7 +9181,7 @@ type Matrix struct {
 func (x *Matrix) Reset() {
 	*x = Matrix{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[176]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[178]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9076,7 +9194,7 @@ func (x *Matrix) String() string {
 func (*Matrix) ProtoMessage() {}
 
 func (x *Matrix) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[176]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[178]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9089,7 +9207,7 @@ func (x *Matrix) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Matrix.ProtoReflect.Descriptor instead.
 func (*Matrix) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{176}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{178}
 }
 
 func (x *Matrix) GetRows() uint32 {
@@ -9125,7 +9243,7 @@ type ForceMatrixMatrixRequest struct {
 func (x *ForceMatrixMatrixRequest) Reset() {
 	*x = ForceMatrixMatrixRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[177]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[179]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9138,7 +9256,7 @@ func (x *ForceMatrixMatrixRequest) String() string {
 func (*ForceMatrixMatrixRequest) ProtoMessage() {}
 
 func (x *ForceMatrixMatrixRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[177]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[179]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9151,7 +9269,7 @@ func (x *ForceMatrixMatrixRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForceMatrixMatrixRequest.ProtoReflect.Descriptor instead.
 func (*ForceMatrixMatrixRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{177}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{179}
 }
 
 func (x *ForceMatrixMatrixRequest) GetName() string {
@@ -9172,7 +9290,7 @@ type ForceMatrixMatrixResponse struct {
 func (x *ForceMatrixMatrixResponse) Reset() {
 	*x = ForceMatrixMatrixResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[178]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[180]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9185,7 +9303,7 @@ func (x *ForceMatrixMatrixResponse) String() string {
 func (*ForceMatrixMatrixResponse) ProtoMessage() {}
 
 func (x *ForceMatrixMatrixResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[178]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[180]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9198,7 +9316,7 @@ func (x *ForceMatrixMatrixResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForceMatrixMatrixResponse.ProtoReflect.Descriptor instead.
 func (*ForceMatrixMatrixResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{178}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{180}
 }
 
 func (x *ForceMatrixMatrixResponse) GetMatrix() *Matrix {
@@ -9219,7 +9337,7 @@ type ForceMatrixSlipDetectionRequest struct {
 func (x *ForceMatrixSlipDetectionRequest) Reset() {
 	*x = ForceMatrixSlipDetectionRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[179]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[181]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9232,7 +9350,7 @@ func (x *ForceMatrixSlipDetectionRequest) String() string {
 func (*ForceMatrixSlipDetectionRequest) ProtoMessage() {}
 
 func (x *ForceMatrixSlipDetectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[179]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[181]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9245,7 +9363,7 @@ func (x *ForceMatrixSlipDetectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForceMatrixSlipDetectionRequest.ProtoReflect.Descriptor instead.
 func (*ForceMatrixSlipDetectionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{179}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{181}
 }
 
 func (x *ForceMatrixSlipDetectionRequest) GetName() string {
@@ -9266,7 +9384,7 @@ type ForceMatrixSlipDetectionResponse struct {
 func (x *ForceMatrixSlipDetectionResponse) Reset() {
 	*x = ForceMatrixSlipDetectionResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[180]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[182]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9279,7 +9397,7 @@ func (x *ForceMatrixSlipDetectionResponse) String() string {
 func (*ForceMatrixSlipDetectionResponse) ProtoMessage() {}
 
 func (x *ForceMatrixSlipDetectionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[180]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[182]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9292,7 +9410,7 @@ func (x *ForceMatrixSlipDetectionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForceMatrixSlipDetectionResponse.ProtoReflect.Descriptor instead.
 func (*ForceMatrixSlipDetectionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{180}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{182}
 }
 
 func (x *ForceMatrixSlipDetectionResponse) GetIsSlipping() bool {
@@ -9315,7 +9433,7 @@ type InputControllerEventStreamRequest_Events struct {
 func (x *InputControllerEventStreamRequest_Events) Reset() {
 	*x = InputControllerEventStreamRequest_Events{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[196]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[198]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9328,7 +9446,7 @@ func (x *InputControllerEventStreamRequest_Events) String() string {
 func (*InputControllerEventStreamRequest_Events) ProtoMessage() {}
 
 func (x *InputControllerEventStreamRequest_Events) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[196]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[198]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9341,7 +9459,7 @@ func (x *InputControllerEventStreamRequest_Events) ProtoReflect() protoreflect.M
 
 // Deprecated: Use InputControllerEventStreamRequest_Events.ProtoReflect.Descriptor instead.
 func (*InputControllerEventStreamRequest_Events) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{161, 0}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{163, 0}
 }
 
 func (x *InputControllerEventStreamRequest_Events) GetControl() string {
@@ -10155,6 +10273,23 @@ var file_proto_api_v1_robot_proto_rawDesc = []byte{
 	0x09, 0x52, 0x02, 0x69, 0x64, 0x22, 0x29, 0x0a, 0x27, 0x4e, 0x61, 0x76, 0x69, 0x67, 0x61, 0x74,
 	0x69, 0x6f, 0x6e, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x52, 0x65, 0x6d, 0x6f, 0x76, 0x65,
 	0x57, 0x61, 0x79, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x22, 0xc1, 0x01, 0x0a, 0x26, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x4d, 0x61, 0x6e, 0x69, 0x70,
+	0x75, 0x6c, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x44, 0x6f,
+	0x47, 0x72, 0x61, 0x62, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1f, 0x0a, 0x0b, 0x63,
+	0x61, 0x6d, 0x65, 0x72, 0x61, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x0a, 0x63, 0x61, 0x6d, 0x65, 0x72, 0x61, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x38, 0x0a, 0x0c,
+	0x63, 0x61, 0x6d, 0x65, 0x72, 0x61, 0x5f, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x0b, 0x32, 0x15, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76,
+	0x31, 0x2e, 0x56, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x33, 0x52, 0x0b, 0x63, 0x61, 0x6d, 0x65, 0x72,
+	0x61, 0x50, 0x6f, 0x69, 0x6e, 0x74, 0x12, 0x21, 0x0a, 0x0c, 0x67, 0x72, 0x69, 0x70, 0x70, 0x65,
+	0x72, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x67, 0x72,
+	0x69, 0x70, 0x70, 0x65, 0x72, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x19, 0x0a, 0x08, 0x61, 0x72, 0x6d,
+	0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x61, 0x72, 0x6d,
+	0x4e, 0x61, 0x6d, 0x65, 0x22, 0x4a, 0x0a, 0x27, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x4d, 0x61,
+	0x6e, 0x69, 0x70, 0x75, 0x6c, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63,
+	0x65, 0x44, 0x6f, 0x47, 0x72, 0x61, 0x62, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
+	0x1f, 0x0a, 0x0b, 0x68, 0x61, 0x73, 0x5f, 0x67, 0x72, 0x61, 0x62, 0x62, 0x65, 0x64, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x08, 0x52, 0x0a, 0x68, 0x61, 0x73, 0x47, 0x72, 0x61, 0x62, 0x62, 0x65, 0x64,
 	0x22, 0x40, 0x0a, 0x1e, 0x49, 0x6e, 0x70, 0x75, 0x74, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c,
 	0x6c, 0x65, 0x72, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65,
 	0x73, 0x74, 0x12, 0x1e, 0x0a, 0x0a, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x6c, 0x65, 0x72,
@@ -10305,7 +10440,7 @@ var file_proto_api_v1_robot_proto_rawDesc = []byte{
 	0x4f, 0x44, 0x45, 0x5f, 0x4d, 0x41, 0x4e, 0x55, 0x41, 0x4c, 0x10, 0x01, 0x12, 0x24, 0x0a, 0x20,
 	0x4e, 0x41, 0x56, 0x49, 0x47, 0x41, 0x54, 0x49, 0x4f, 0x4e, 0x5f, 0x53, 0x45, 0x52, 0x56, 0x49,
 	0x43, 0x45, 0x5f, 0x4d, 0x4f, 0x44, 0x45, 0x5f, 0x57, 0x41, 0x59, 0x50, 0x4f, 0x49, 0x4e, 0x54,
-	0x10, 0x02, 0x32, 0xa3, 0x58, 0x0a, 0x0c, 0x52, 0x6f, 0x62, 0x6f, 0x74, 0x53, 0x65, 0x72, 0x76,
+	0x10, 0x02, 0x32, 0xe9, 0x59, 0x0a, 0x0c, 0x52, 0x6f, 0x62, 0x6f, 0x74, 0x53, 0x65, 0x72, 0x76,
 	0x69, 0x63, 0x65, 0x12, 0x5b, 0x0a, 0x06, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x1b, 0x2e,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x53, 0x74, 0x61,
 	0x74, 0x75, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1c, 0x2e, 0x70, 0x72, 0x6f,
@@ -10961,61 +11096,74 @@ var file_proto_api_v1_robot_proto_rawDesc = []byte{
 	0x32, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x2c, 0x2a, 0x2a, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31,
 	0x2f, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x73, 0x2f, 0x6e, 0x61, 0x76, 0x69, 0x67, 0x61,
 	0x74, 0x69, 0x6f, 0x6e, 0x2f, 0x77, 0x61, 0x79, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x73, 0x2f, 0x7b,
-	0x69, 0x64, 0x7d, 0x12, 0x9c, 0x01, 0x0a, 0x12, 0x49, 0x4d, 0x55, 0x41, 0x6e, 0x67, 0x75, 0x6c,
-	0x61, 0x72, 0x56, 0x65, 0x6c, 0x6f, 0x63, 0x69, 0x74, 0x79, 0x12, 0x27, 0x2e, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x49, 0x4d, 0x55, 0x41, 0x6e, 0x67,
-	0x75, 0x6c, 0x61, 0x72, 0x56, 0x65, 0x6c, 0x6f, 0x63, 0x69, 0x74, 0x79, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x1a, 0x28, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e,
-	0x76, 0x31, 0x2e, 0x49, 0x4d, 0x55, 0x41, 0x6e, 0x67, 0x75, 0x6c, 0x61, 0x72, 0x56, 0x65, 0x6c,
-	0x6f, 0x63, 0x69, 0x74, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x33, 0x82,
-	0xd3, 0xe4, 0x93, 0x02, 0x2d, 0x12, 0x2b, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73,
-	0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f, 0x69, 0x6d, 0x75, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65,
-	0x7d, 0x2f, 0x61, 0x6e, 0x67, 0x75, 0x6c, 0x61, 0x72, 0x5f, 0x76, 0x65, 0x6c, 0x6f, 0x63, 0x69,
-	0x74, 0x79, 0x12, 0x8b, 0x01, 0x0a, 0x0e, 0x49, 0x4d, 0x55, 0x4f, 0x72, 0x69, 0x65, 0x6e, 0x74,
-	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x23, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70,
-	0x69, 0x2e, 0x76, 0x31, 0x2e, 0x49, 0x4d, 0x55, 0x4f, 0x72, 0x69, 0x65, 0x6e, 0x74, 0x61, 0x74,
-	0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x24, 0x2e, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x49, 0x4d, 0x55, 0x4f, 0x72, 0x69,
-	0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x22, 0x2e, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x28, 0x12, 0x26, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76,
-	0x31, 0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f, 0x69, 0x6d, 0x75, 0x2f, 0x7b, 0x6e,
-	0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x6f, 0x72, 0x69, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e,
-	0x12, 0x7f, 0x0a, 0x0b, 0x47, 0x50, 0x53, 0x4c, 0x6f, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12,
-	0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x47,
-	0x50, 0x53, 0x4c, 0x6f, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
-	0x74, 0x1a, 0x21, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31,
-	0x2e, 0x47, 0x50, 0x53, 0x4c, 0x6f, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2b, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x25, 0x12, 0x23, 0x2f, 0x61,
-	0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f, 0x67, 0x70,
-	0x73, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x6c, 0x6f, 0x63, 0x61, 0x74, 0x69, 0x6f,
-	0x6e, 0x12, 0x7f, 0x0a, 0x0b, 0x47, 0x50, 0x53, 0x41, 0x6c, 0x74, 0x69, 0x74, 0x75, 0x64, 0x65,
-	0x12, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e,
-	0x47, 0x50, 0x53, 0x41, 0x6c, 0x74, 0x69, 0x74, 0x75, 0x64, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65,
-	0x73, 0x74, 0x1a, 0x21, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76,
-	0x31, 0x2e, 0x47, 0x50, 0x53, 0x41, 0x6c, 0x74, 0x69, 0x74, 0x75, 0x64, 0x65, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2b, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x25, 0x12, 0x23, 0x2f,
-	0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f, 0x67,
-	0x70, 0x73, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x61, 0x6c, 0x74, 0x69, 0x74, 0x75,
-	0x64, 0x65, 0x12, 0x73, 0x0a, 0x08, 0x47, 0x50, 0x53, 0x53, 0x70, 0x65, 0x65, 0x64, 0x12, 0x1d,
-	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x50,
-	0x53, 0x53, 0x70, 0x65, 0x65, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1e, 0x2e,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x50, 0x53,
-	0x53, 0x70, 0x65, 0x65, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x28, 0x82,
-	0xd3, 0xe4, 0x93, 0x02, 0x22, 0x12, 0x20, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73,
-	0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f, 0x67, 0x70, 0x73, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65,
-	0x7d, 0x2f, 0x73, 0x70, 0x65, 0x65, 0x64, 0x12, 0x7f, 0x0a, 0x0b, 0x47, 0x50, 0x53, 0x41, 0x63,
-	0x63, 0x75, 0x72, 0x61, 0x63, 0x79, 0x12, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61,
-	0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x50, 0x53, 0x41, 0x63, 0x63, 0x75, 0x72, 0x61, 0x63,
-	0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x21, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x50, 0x53, 0x41, 0x63, 0x63, 0x75, 0x72,
-	0x61, 0x63, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2b, 0x82, 0xd3, 0xe4,
+	0x69, 0x64, 0x7d, 0x12, 0xc3, 0x01, 0x0a, 0x1f, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x4d, 0x61,
+	0x6e, 0x69, 0x70, 0x75, 0x6c, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63,
+	0x65, 0x44, 0x6f, 0x47, 0x72, 0x61, 0x62, 0x12, 0x34, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e,
+	0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x4d, 0x61, 0x6e,
+	0x69, 0x70, 0x75, 0x6c, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65,
+	0x44, 0x6f, 0x47, 0x72, 0x61, 0x62, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x35, 0x2e,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4f, 0x62, 0x6a,
+	0x65, 0x63, 0x74, 0x4d, 0x61, 0x6e, 0x69, 0x70, 0x75, 0x6c, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x53,
+	0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x44, 0x6f, 0x47, 0x72, 0x61, 0x62, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x33, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x2d, 0x22, 0x2b, 0x2f, 0x61,
+	0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x73, 0x2f, 0x6f,
+	0x62, 0x6a, 0x65, 0x63, 0x74, 0x6d, 0x61, 0x6e, 0x69, 0x70, 0x75, 0x6c, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x2f, 0x64, 0x6f, 0x5f, 0x67, 0x72, 0x61, 0x62, 0x12, 0x9c, 0x01, 0x0a, 0x12, 0x49, 0x4d,
+	0x55, 0x41, 0x6e, 0x67, 0x75, 0x6c, 0x61, 0x72, 0x56, 0x65, 0x6c, 0x6f, 0x63, 0x69, 0x74, 0x79,
+	0x12, 0x27, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e,
+	0x49, 0x4d, 0x55, 0x41, 0x6e, 0x67, 0x75, 0x6c, 0x61, 0x72, 0x56, 0x65, 0x6c, 0x6f, 0x63, 0x69,
+	0x74, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x28, 0x2e, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x49, 0x4d, 0x55, 0x41, 0x6e, 0x67, 0x75,
+	0x6c, 0x61, 0x72, 0x56, 0x65, 0x6c, 0x6f, 0x63, 0x69, 0x74, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x22, 0x33, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x2d, 0x12, 0x2b, 0x2f, 0x61, 0x70,
+	0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f, 0x69, 0x6d, 0x75,
+	0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x61, 0x6e, 0x67, 0x75, 0x6c, 0x61, 0x72, 0x5f,
+	0x76, 0x65, 0x6c, 0x6f, 0x63, 0x69, 0x74, 0x79, 0x12, 0x8b, 0x01, 0x0a, 0x0e, 0x49, 0x4d, 0x55,
+	0x4f, 0x72, 0x69, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x23, 0x2e, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x49, 0x4d, 0x55, 0x4f, 0x72,
+	0x69, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x1a, 0x24, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e,
+	0x49, 0x4d, 0x55, 0x4f, 0x72, 0x69, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2e, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x28, 0x12, 0x26,
+	0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f,
+	0x69, 0x6d, 0x75, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x6f, 0x72, 0x69, 0x65, 0x6e,
+	0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x7f, 0x0a, 0x0b, 0x47, 0x50, 0x53, 0x4c, 0x6f, 0x63,
+	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70,
+	0x69, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x50, 0x53, 0x4c, 0x6f, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x21, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e,
+	0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x50, 0x53, 0x4c, 0x6f, 0x63, 0x61, 0x74, 0x69,
+	0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2b, 0x82, 0xd3, 0xe4, 0x93,
+	0x02, 0x25, 0x12, 0x23, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73, 0x65, 0x6e, 0x73,
+	0x6f, 0x72, 0x73, 0x2f, 0x67, 0x70, 0x73, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x6c,
+	0x6f, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x7f, 0x0a, 0x0b, 0x47, 0x50, 0x53, 0x41, 0x6c,
+	0x74, 0x69, 0x74, 0x75, 0x64, 0x65, 0x12, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61,
+	0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x50, 0x53, 0x41, 0x6c, 0x74, 0x69, 0x74, 0x75, 0x64,
+	0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x21, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x50, 0x53, 0x41, 0x6c, 0x74, 0x69, 0x74,
+	0x75, 0x64, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2b, 0x82, 0xd3, 0xe4,
 	0x93, 0x02, 0x25, 0x12, 0x23, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73, 0x65, 0x6e,
 	0x73, 0x6f, 0x72, 0x73, 0x2f, 0x67, 0x70, 0x73, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f,
-	0x61, 0x63, 0x63, 0x75, 0x72, 0x61, 0x63, 0x79, 0x42, 0x3b, 0x0a, 0x1a, 0x63, 0x6f, 0x6d, 0x2e,
-	0x76, 0x69, 0x61, 0x6d, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e,
-	0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x5a, 0x1d, 0x67, 0x6f, 0x2e, 0x76, 0x69, 0x61, 0x6d, 0x2e,
-	0x63, 0x6f, 0x6d, 0x2f, 0x63, 0x6f, 0x72, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x61,
-	0x70, 0x69, 0x2f, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x61, 0x6c, 0x74, 0x69, 0x74, 0x75, 0x64, 0x65, 0x12, 0x73, 0x0a, 0x08, 0x47, 0x50, 0x53, 0x53,
+	0x70, 0x65, 0x65, 0x64, 0x12, 0x1d, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69,
+	0x2e, 0x76, 0x31, 0x2e, 0x47, 0x50, 0x53, 0x53, 0x70, 0x65, 0x65, 0x64, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x1a, 0x1e, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e,
+	0x76, 0x31, 0x2e, 0x47, 0x50, 0x53, 0x53, 0x70, 0x65, 0x65, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x22, 0x28, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x22, 0x12, 0x20, 0x2f, 0x61, 0x70,
+	0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f, 0x67, 0x70, 0x73,
+	0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x73, 0x70, 0x65, 0x65, 0x64, 0x12, 0x7f, 0x0a,
+	0x0b, 0x47, 0x50, 0x53, 0x41, 0x63, 0x63, 0x75, 0x72, 0x61, 0x63, 0x79, 0x12, 0x20, 0x2e, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x50, 0x53, 0x41,
+	0x63, 0x63, 0x75, 0x72, 0x61, 0x63, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x21,
+	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x50,
+	0x53, 0x41, 0x63, 0x63, 0x75, 0x72, 0x61, 0x63, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x2b, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x25, 0x12, 0x23, 0x2f, 0x61, 0x70, 0x69, 0x2f,
+	0x76, 0x31, 0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f, 0x67, 0x70, 0x73, 0x2f, 0x7b,
+	0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x61, 0x63, 0x63, 0x75, 0x72, 0x61, 0x63, 0x79, 0x42, 0x3b,
+	0x0a, 0x1a, 0x63, 0x6f, 0x6d, 0x2e, 0x76, 0x69, 0x61, 0x6d, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x5a, 0x1d, 0x67, 0x6f,
+	0x2e, 0x76, 0x69, 0x61, 0x6d, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x63, 0x6f, 0x72, 0x65, 0x2f, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x33,
 }
 
 var (
@@ -11031,7 +11179,7 @@ func file_proto_api_v1_robot_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_api_v1_robot_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_api_v1_robot_proto_msgTypes = make([]protoimpl.MessageInfo, 197)
+var file_proto_api_v1_robot_proto_msgTypes = make([]protoimpl.MessageInfo, 199)
 var file_proto_api_v1_robot_proto_goTypes = []interface{}{
 	(DirectionRelative)(0),                           // 0: proto.api.v1.DirectionRelative
 	(NavigationServiceMode)(0),                       // 1: proto.api.v1.NavigationServiceMode
@@ -11188,73 +11336,75 @@ var file_proto_api_v1_robot_proto_goTypes = []interface{}{
 	(*NavigationServiceAddWaypointResponse)(nil),     // 152: proto.api.v1.NavigationServiceAddWaypointResponse
 	(*NavigationServiceRemoveWaypointRequest)(nil),   // 153: proto.api.v1.NavigationServiceRemoveWaypointRequest
 	(*NavigationServiceRemoveWaypointResponse)(nil),  // 154: proto.api.v1.NavigationServiceRemoveWaypointResponse
-	(*InputControllerControlsRequest)(nil),           // 155: proto.api.v1.InputControllerControlsRequest
-	(*InputControllerControlsResponse)(nil),          // 156: proto.api.v1.InputControllerControlsResponse
-	(*InputControllerLastEventsRequest)(nil),         // 157: proto.api.v1.InputControllerLastEventsRequest
-	(*InputControllerLastEventsResponse)(nil),        // 158: proto.api.v1.InputControllerLastEventsResponse
-	(*InputControllerStatus)(nil),                    // 159: proto.api.v1.InputControllerStatus
-	(*InputControllerInjectEventRequest)(nil),        // 160: proto.api.v1.InputControllerInjectEventRequest
-	(*InputControllerInjectEventResponse)(nil),       // 161: proto.api.v1.InputControllerInjectEventResponse
-	(*InputControllerEvent)(nil),                     // 162: proto.api.v1.InputControllerEvent
-	(*InputControllerEventStreamRequest)(nil),        // 163: proto.api.v1.InputControllerEventStreamRequest
-	(*AngularVelocity)(nil),                          // 164: proto.api.v1.AngularVelocity
-	(*EulerAngles)(nil),                              // 165: proto.api.v1.EulerAngles
-	(*IMUAngularVelocityRequest)(nil),                // 166: proto.api.v1.IMUAngularVelocityRequest
-	(*IMUAngularVelocityResponse)(nil),               // 167: proto.api.v1.IMUAngularVelocityResponse
-	(*IMUOrientationRequest)(nil),                    // 168: proto.api.v1.IMUOrientationRequest
-	(*IMUOrientationResponse)(nil),                   // 169: proto.api.v1.IMUOrientationResponse
-	(*GPSLocationRequest)(nil),                       // 170: proto.api.v1.GPSLocationRequest
-	(*GPSLocationResponse)(nil),                      // 171: proto.api.v1.GPSLocationResponse
-	(*GPSAltitudeRequest)(nil),                       // 172: proto.api.v1.GPSAltitudeRequest
-	(*GPSAltitudeResponse)(nil),                      // 173: proto.api.v1.GPSAltitudeResponse
-	(*GPSSpeedRequest)(nil),                          // 174: proto.api.v1.GPSSpeedRequest
-	(*GPSSpeedResponse)(nil),                         // 175: proto.api.v1.GPSSpeedResponse
-	(*GPSAccuracyRequest)(nil),                       // 176: proto.api.v1.GPSAccuracyRequest
-	(*GPSAccuracyResponse)(nil),                      // 177: proto.api.v1.GPSAccuracyResponse
-	(*Matrix)(nil),                                   // 178: proto.api.v1.Matrix
-	(*ForceMatrixMatrixRequest)(nil),                 // 179: proto.api.v1.ForceMatrixMatrixRequest
-	(*ForceMatrixMatrixResponse)(nil),                // 180: proto.api.v1.ForceMatrixMatrixResponse
-	(*ForceMatrixSlipDetectionRequest)(nil),          // 181: proto.api.v1.ForceMatrixSlipDetectionRequest
-	(*ForceMatrixSlipDetectionResponse)(nil),         // 182: proto.api.v1.ForceMatrixSlipDetectionResponse
-	nil,                                              // 183: proto.api.v1.Status.ArmsEntry
-	nil,                                              // 184: proto.api.v1.Status.BasesEntry
-	nil,                                              // 185: proto.api.v1.Status.GrippersEntry
-	nil,                                              // 186: proto.api.v1.Status.BoardsEntry
-	nil,                                              // 187: proto.api.v1.Status.CamerasEntry
-	nil,                                              // 188: proto.api.v1.Status.LidarsEntry
-	nil,                                              // 189: proto.api.v1.Status.SensorsEntry
-	nil,                                              // 190: proto.api.v1.Status.FunctionsEntry
-	nil,                                              // 191: proto.api.v1.Status.ServosEntry
-	nil,                                              // 192: proto.api.v1.Status.MotorsEntry
-	nil,                                              // 193: proto.api.v1.Status.ServicesEntry
-	nil,                                              // 194: proto.api.v1.Status.InputControllersEntry
-	nil,                                              // 195: proto.api.v1.Status.GantriesEntry
-	nil,                                              // 196: proto.api.v1.BoardStatus.AnalogsEntry
-	nil,                                              // 197: proto.api.v1.BoardStatus.DigitalInterruptsEntry
-	(*InputControllerEventStreamRequest_Events)(nil), // 198: proto.api.v1.InputControllerEventStreamRequest.Events
-	(*durationpb.Duration)(nil),                      // 199: google.protobuf.Duration
-	(*structpb.Struct)(nil),                          // 200: google.protobuf.Struct
-	(*structpb.Value)(nil),                           // 201: google.protobuf.Value
-	(*timestamppb.Timestamp)(nil),                    // 202: google.protobuf.Timestamp
-	(*httpbody.HttpBody)(nil),                        // 203: google.api.HttpBody
+	(*ObjectManipulationServiceDoGrabRequest)(nil),   // 155: proto.api.v1.ObjectManipulationServiceDoGrabRequest
+	(*ObjectManipulationServiceDoGrabResponse)(nil),  // 156: proto.api.v1.ObjectManipulationServiceDoGrabResponse
+	(*InputControllerControlsRequest)(nil),           // 157: proto.api.v1.InputControllerControlsRequest
+	(*InputControllerControlsResponse)(nil),          // 158: proto.api.v1.InputControllerControlsResponse
+	(*InputControllerLastEventsRequest)(nil),         // 159: proto.api.v1.InputControllerLastEventsRequest
+	(*InputControllerLastEventsResponse)(nil),        // 160: proto.api.v1.InputControllerLastEventsResponse
+	(*InputControllerStatus)(nil),                    // 161: proto.api.v1.InputControllerStatus
+	(*InputControllerInjectEventRequest)(nil),        // 162: proto.api.v1.InputControllerInjectEventRequest
+	(*InputControllerInjectEventResponse)(nil),       // 163: proto.api.v1.InputControllerInjectEventResponse
+	(*InputControllerEvent)(nil),                     // 164: proto.api.v1.InputControllerEvent
+	(*InputControllerEventStreamRequest)(nil),        // 165: proto.api.v1.InputControllerEventStreamRequest
+	(*AngularVelocity)(nil),                          // 166: proto.api.v1.AngularVelocity
+	(*EulerAngles)(nil),                              // 167: proto.api.v1.EulerAngles
+	(*IMUAngularVelocityRequest)(nil),                // 168: proto.api.v1.IMUAngularVelocityRequest
+	(*IMUAngularVelocityResponse)(nil),               // 169: proto.api.v1.IMUAngularVelocityResponse
+	(*IMUOrientationRequest)(nil),                    // 170: proto.api.v1.IMUOrientationRequest
+	(*IMUOrientationResponse)(nil),                   // 171: proto.api.v1.IMUOrientationResponse
+	(*GPSLocationRequest)(nil),                       // 172: proto.api.v1.GPSLocationRequest
+	(*GPSLocationResponse)(nil),                      // 173: proto.api.v1.GPSLocationResponse
+	(*GPSAltitudeRequest)(nil),                       // 174: proto.api.v1.GPSAltitudeRequest
+	(*GPSAltitudeResponse)(nil),                      // 175: proto.api.v1.GPSAltitudeResponse
+	(*GPSSpeedRequest)(nil),                          // 176: proto.api.v1.GPSSpeedRequest
+	(*GPSSpeedResponse)(nil),                         // 177: proto.api.v1.GPSSpeedResponse
+	(*GPSAccuracyRequest)(nil),                       // 178: proto.api.v1.GPSAccuracyRequest
+	(*GPSAccuracyResponse)(nil),                      // 179: proto.api.v1.GPSAccuracyResponse
+	(*Matrix)(nil),                                   // 180: proto.api.v1.Matrix
+	(*ForceMatrixMatrixRequest)(nil),                 // 181: proto.api.v1.ForceMatrixMatrixRequest
+	(*ForceMatrixMatrixResponse)(nil),                // 182: proto.api.v1.ForceMatrixMatrixResponse
+	(*ForceMatrixSlipDetectionRequest)(nil),          // 183: proto.api.v1.ForceMatrixSlipDetectionRequest
+	(*ForceMatrixSlipDetectionResponse)(nil),         // 184: proto.api.v1.ForceMatrixSlipDetectionResponse
+	nil,                                              // 185: proto.api.v1.Status.ArmsEntry
+	nil,                                              // 186: proto.api.v1.Status.BasesEntry
+	nil,                                              // 187: proto.api.v1.Status.GrippersEntry
+	nil,                                              // 188: proto.api.v1.Status.BoardsEntry
+	nil,                                              // 189: proto.api.v1.Status.CamerasEntry
+	nil,                                              // 190: proto.api.v1.Status.LidarsEntry
+	nil,                                              // 191: proto.api.v1.Status.SensorsEntry
+	nil,                                              // 192: proto.api.v1.Status.FunctionsEntry
+	nil,                                              // 193: proto.api.v1.Status.ServosEntry
+	nil,                                              // 194: proto.api.v1.Status.MotorsEntry
+	nil,                                              // 195: proto.api.v1.Status.ServicesEntry
+	nil,                                              // 196: proto.api.v1.Status.InputControllersEntry
+	nil,                                              // 197: proto.api.v1.Status.GantriesEntry
+	nil,                                              // 198: proto.api.v1.BoardStatus.AnalogsEntry
+	nil,                                              // 199: proto.api.v1.BoardStatus.DigitalInterruptsEntry
+	(*InputControllerEventStreamRequest_Events)(nil), // 200: proto.api.v1.InputControllerEventStreamRequest.Events
+	(*durationpb.Duration)(nil),                      // 201: google.protobuf.Duration
+	(*structpb.Struct)(nil),                          // 202: google.protobuf.Struct
+	(*structpb.Value)(nil),                           // 203: google.protobuf.Value
+	(*timestamppb.Timestamp)(nil),                    // 204: google.protobuf.Timestamp
+	(*httpbody.HttpBody)(nil),                        // 205: google.api.HttpBody
 }
 var file_proto_api_v1_robot_proto_depIdxs = []int32{
-	199, // 0: proto.api.v1.StatusStreamRequest.every:type_name -> google.protobuf.Duration
+	201, // 0: proto.api.v1.StatusStreamRequest.every:type_name -> google.protobuf.Duration
 	6,   // 1: proto.api.v1.StatusResponse.status:type_name -> proto.api.v1.Status
 	6,   // 2: proto.api.v1.StatusStreamResponse.status:type_name -> proto.api.v1.Status
-	183, // 3: proto.api.v1.Status.arms:type_name -> proto.api.v1.Status.ArmsEntry
-	184, // 4: proto.api.v1.Status.bases:type_name -> proto.api.v1.Status.BasesEntry
-	185, // 5: proto.api.v1.Status.grippers:type_name -> proto.api.v1.Status.GrippersEntry
-	186, // 6: proto.api.v1.Status.boards:type_name -> proto.api.v1.Status.BoardsEntry
-	187, // 7: proto.api.v1.Status.cameras:type_name -> proto.api.v1.Status.CamerasEntry
-	188, // 8: proto.api.v1.Status.lidars:type_name -> proto.api.v1.Status.LidarsEntry
-	189, // 9: proto.api.v1.Status.sensors:type_name -> proto.api.v1.Status.SensorsEntry
-	190, // 10: proto.api.v1.Status.functions:type_name -> proto.api.v1.Status.FunctionsEntry
-	191, // 11: proto.api.v1.Status.servos:type_name -> proto.api.v1.Status.ServosEntry
-	192, // 12: proto.api.v1.Status.motors:type_name -> proto.api.v1.Status.MotorsEntry
-	193, // 13: proto.api.v1.Status.services:type_name -> proto.api.v1.Status.ServicesEntry
-	194, // 14: proto.api.v1.Status.input_controllers:type_name -> proto.api.v1.Status.InputControllersEntry
-	195, // 15: proto.api.v1.Status.gantries:type_name -> proto.api.v1.Status.GantriesEntry
+	185, // 3: proto.api.v1.Status.arms:type_name -> proto.api.v1.Status.ArmsEntry
+	186, // 4: proto.api.v1.Status.bases:type_name -> proto.api.v1.Status.BasesEntry
+	187, // 5: proto.api.v1.Status.grippers:type_name -> proto.api.v1.Status.GrippersEntry
+	188, // 6: proto.api.v1.Status.boards:type_name -> proto.api.v1.Status.BoardsEntry
+	189, // 7: proto.api.v1.Status.cameras:type_name -> proto.api.v1.Status.CamerasEntry
+	190, // 8: proto.api.v1.Status.lidars:type_name -> proto.api.v1.Status.LidarsEntry
+	191, // 9: proto.api.v1.Status.sensors:type_name -> proto.api.v1.Status.SensorsEntry
+	192, // 10: proto.api.v1.Status.functions:type_name -> proto.api.v1.Status.FunctionsEntry
+	193, // 11: proto.api.v1.Status.servos:type_name -> proto.api.v1.Status.ServosEntry
+	194, // 12: proto.api.v1.Status.motors:type_name -> proto.api.v1.Status.MotorsEntry
+	195, // 13: proto.api.v1.Status.services:type_name -> proto.api.v1.Status.ServicesEntry
+	196, // 14: proto.api.v1.Status.input_controllers:type_name -> proto.api.v1.Status.InputControllersEntry
+	197, // 15: proto.api.v1.Status.gantries:type_name -> proto.api.v1.Status.GantriesEntry
 	14,  // 16: proto.api.v1.ComponentConfig.pose:type_name -> proto.api.v1.Pose
 	7,   // 17: proto.api.v1.ConfigResponse.components:type_name -> proto.api.v1.ComponentConfig
 	14,  // 18: proto.api.v1.ArmStatus.grid_position:type_name -> proto.api.v1.Pose
@@ -11268,210 +11418,213 @@ var file_proto_api_v1_robot_proto_depIdxs = []int32{
 	15,  // 26: proto.api.v1.ArmMoveToJointPositionsRequest.to:type_name -> proto.api.v1.JointPositions
 	52,  // 27: proto.api.v1.ObjectPointCloudsResponse.centers:type_name -> proto.api.v1.Vector3
 	53,  // 28: proto.api.v1.ObjectPointCloudsResponse.bounding_boxes:type_name -> proto.api.v1.BoxGeometry
-	200, // 29: proto.api.v1.LidarInfoResponse.info:type_name -> google.protobuf.Struct
+	202, // 29: proto.api.v1.LidarInfoResponse.info:type_name -> google.protobuf.Struct
 	55,  // 30: proto.api.v1.LidarScanResponse.measurements:type_name -> proto.api.v1.LidarMeasurement
-	196, // 31: proto.api.v1.BoardStatus.analogs:type_name -> proto.api.v1.BoardStatus.AnalogsEntry
-	197, // 32: proto.api.v1.BoardStatus.digital_interrupts:type_name -> proto.api.v1.BoardStatus.DigitalInterruptsEntry
+	198, // 31: proto.api.v1.BoardStatus.analogs:type_name -> proto.api.v1.BoardStatus.AnalogsEntry
+	199, // 32: proto.api.v1.BoardStatus.digital_interrupts:type_name -> proto.api.v1.BoardStatus.DigitalInterruptsEntry
 	70,  // 33: proto.api.v1.BoardStatusResponse.status:type_name -> proto.api.v1.BoardStatus
 	86,  // 34: proto.api.v1.BoardDigitalInterruptConfigResponse.config:type_name -> proto.api.v1.DigitalInterruptConfig
-	201, // 35: proto.api.v1.SensorReadingsResponse.readings:type_name -> google.protobuf.Value
-	201, // 36: proto.api.v1.ExecuteFunctionResponse.results:type_name -> google.protobuf.Value
-	201, // 37: proto.api.v1.ExecuteSourceResponse.results:type_name -> google.protobuf.Value
-	200, // 38: proto.api.v1.MotorStatus.pid_config:type_name -> google.protobuf.Struct
-	200, // 39: proto.api.v1.MotorGetPIDConfigResponse.pid_config:type_name -> google.protobuf.Struct
-	200, // 40: proto.api.v1.MotorSetPIDConfigRequest.pid_config:type_name -> google.protobuf.Struct
+	203, // 35: proto.api.v1.SensorReadingsResponse.readings:type_name -> google.protobuf.Value
+	203, // 36: proto.api.v1.ExecuteFunctionResponse.results:type_name -> google.protobuf.Value
+	203, // 37: proto.api.v1.ExecuteSourceResponse.results:type_name -> google.protobuf.Value
+	202, // 38: proto.api.v1.MotorStatus.pid_config:type_name -> google.protobuf.Struct
+	202, // 39: proto.api.v1.MotorGetPIDConfigResponse.pid_config:type_name -> google.protobuf.Struct
+	202, // 40: proto.api.v1.MotorSetPIDConfigRequest.pid_config:type_name -> google.protobuf.Struct
 	0,   // 41: proto.api.v1.MotorGoRequest.direction:type_name -> proto.api.v1.DirectionRelative
 	0,   // 42: proto.api.v1.MotorGoForRequest.direction:type_name -> proto.api.v1.DirectionRelative
 	0,   // 43: proto.api.v1.MotorGoTillStopRequest.direction:type_name -> proto.api.v1.DirectionRelative
-	200, // 44: proto.api.v1.ResourceRunCommandRequest.args:type_name -> google.protobuf.Struct
-	200, // 45: proto.api.v1.ResourceRunCommandResponse.result:type_name -> google.protobuf.Struct
+	202, // 44: proto.api.v1.ResourceRunCommandRequest.args:type_name -> google.protobuf.Struct
+	202, // 45: proto.api.v1.ResourceRunCommandResponse.result:type_name -> google.protobuf.Struct
 	1,   // 46: proto.api.v1.NavigationServiceModeResponse.mode:type_name -> proto.api.v1.NavigationServiceMode
 	1,   // 47: proto.api.v1.NavigationServiceSetModeRequest.mode:type_name -> proto.api.v1.NavigationServiceMode
 	146, // 48: proto.api.v1.NavigationServiceWaypoint.location:type_name -> proto.api.v1.GeoPoint
 	146, // 49: proto.api.v1.NavigationServiceLocationResponse.location:type_name -> proto.api.v1.GeoPoint
 	145, // 50: proto.api.v1.NavigationServiceWaypointsResponse.waypoints:type_name -> proto.api.v1.NavigationServiceWaypoint
 	146, // 51: proto.api.v1.NavigationServiceAddWaypointRequest.location:type_name -> proto.api.v1.GeoPoint
-	162, // 52: proto.api.v1.InputControllerLastEventsResponse.events:type_name -> proto.api.v1.InputControllerEvent
-	162, // 53: proto.api.v1.InputControllerStatus.events:type_name -> proto.api.v1.InputControllerEvent
-	162, // 54: proto.api.v1.InputControllerInjectEventRequest.event:type_name -> proto.api.v1.InputControllerEvent
-	202, // 55: proto.api.v1.InputControllerEvent.time:type_name -> google.protobuf.Timestamp
-	198, // 56: proto.api.v1.InputControllerEventStreamRequest.events:type_name -> proto.api.v1.InputControllerEventStreamRequest.Events
-	164, // 57: proto.api.v1.IMUAngularVelocityResponse.angular_velocity:type_name -> proto.api.v1.AngularVelocity
-	165, // 58: proto.api.v1.IMUOrientationResponse.orientation:type_name -> proto.api.v1.EulerAngles
-	146, // 59: proto.api.v1.GPSLocationResponse.coordinate:type_name -> proto.api.v1.GeoPoint
-	178, // 60: proto.api.v1.ForceMatrixMatrixResponse.matrix:type_name -> proto.api.v1.Matrix
-	13,  // 61: proto.api.v1.Status.ArmsEntry.value:type_name -> proto.api.v1.ArmStatus
-	70,  // 62: proto.api.v1.Status.BoardsEntry.value:type_name -> proto.api.v1.BoardStatus
-	73,  // 63: proto.api.v1.Status.SensorsEntry.value:type_name -> proto.api.v1.SensorStatus
-	108, // 64: proto.api.v1.Status.ServosEntry.value:type_name -> proto.api.v1.ServoStatus
-	107, // 65: proto.api.v1.Status.MotorsEntry.value:type_name -> proto.api.v1.MotorStatus
-	159, // 66: proto.api.v1.Status.InputControllersEntry.value:type_name -> proto.api.v1.InputControllerStatus
-	12,  // 67: proto.api.v1.Status.GantriesEntry.value:type_name -> proto.api.v1.GantryStatus
-	71,  // 68: proto.api.v1.BoardStatus.AnalogsEntry.value:type_name -> proto.api.v1.AnalogStatus
-	72,  // 69: proto.api.v1.BoardStatus.DigitalInterruptsEntry.value:type_name -> proto.api.v1.DigitalInterruptStatus
-	2,   // 70: proto.api.v1.RobotService.Status:input_type -> proto.api.v1.StatusRequest
-	3,   // 71: proto.api.v1.RobotService.StatusStream:input_type -> proto.api.v1.StatusStreamRequest
-	8,   // 72: proto.api.v1.RobotService.Config:input_type -> proto.api.v1.ConfigRequest
-	10,  // 73: proto.api.v1.RobotService.DoAction:input_type -> proto.api.v1.DoActionRequest
-	30,  // 74: proto.api.v1.RobotService.GantryCurrentPosition:input_type -> proto.api.v1.GantryCurrentPositionRequest
-	32,  // 75: proto.api.v1.RobotService.GantryMoveToPosition:input_type -> proto.api.v1.GantryMoveToPositionRequest
-	20,  // 76: proto.api.v1.RobotService.ArmCurrentPosition:input_type -> proto.api.v1.ArmCurrentPositionRequest
-	24,  // 77: proto.api.v1.RobotService.ArmMoveToPosition:input_type -> proto.api.v1.ArmMoveToPositionRequest
-	22,  // 78: proto.api.v1.RobotService.ArmCurrentJointPositions:input_type -> proto.api.v1.ArmCurrentJointPositionsRequest
-	26,  // 79: proto.api.v1.RobotService.ArmMoveToJointPositions:input_type -> proto.api.v1.ArmMoveToJointPositionsRequest
-	28,  // 80: proto.api.v1.RobotService.ArmJointMoveDelta:input_type -> proto.api.v1.ArmJointMoveDeltaRequest
-	34,  // 81: proto.api.v1.RobotService.BaseMoveStraight:input_type -> proto.api.v1.BaseMoveStraightRequest
-	36,  // 82: proto.api.v1.RobotService.BaseSpin:input_type -> proto.api.v1.BaseSpinRequest
-	38,  // 83: proto.api.v1.RobotService.BaseStop:input_type -> proto.api.v1.BaseStopRequest
-	40,  // 84: proto.api.v1.RobotService.BaseWidthMillis:input_type -> proto.api.v1.BaseWidthMillisRequest
-	42,  // 85: proto.api.v1.RobotService.GripperOpen:input_type -> proto.api.v1.GripperOpenRequest
-	44,  // 86: proto.api.v1.RobotService.GripperGrab:input_type -> proto.api.v1.GripperGrabRequest
-	46,  // 87: proto.api.v1.RobotService.CameraFrame:input_type -> proto.api.v1.CameraFrameRequest
-	47,  // 88: proto.api.v1.RobotService.CameraRenderFrame:input_type -> proto.api.v1.CameraRenderFrameRequest
-	49,  // 89: proto.api.v1.RobotService.PointCloud:input_type -> proto.api.v1.PointCloudRequest
-	51,  // 90: proto.api.v1.RobotService.ObjectPointClouds:input_type -> proto.api.v1.ObjectPointCloudsRequest
-	56,  // 91: proto.api.v1.RobotService.LidarInfo:input_type -> proto.api.v1.LidarInfoRequest
-	58,  // 92: proto.api.v1.RobotService.LidarStart:input_type -> proto.api.v1.LidarStartRequest
-	60,  // 93: proto.api.v1.RobotService.LidarStop:input_type -> proto.api.v1.LidarStopRequest
-	62,  // 94: proto.api.v1.RobotService.LidarScan:input_type -> proto.api.v1.LidarScanRequest
-	64,  // 95: proto.api.v1.RobotService.LidarRange:input_type -> proto.api.v1.LidarRangeRequest
-	66,  // 96: proto.api.v1.RobotService.LidarBounds:input_type -> proto.api.v1.LidarBoundsRequest
-	68,  // 97: proto.api.v1.RobotService.LidarAngularResolution:input_type -> proto.api.v1.LidarAngularResolutionRequest
-	74,  // 98: proto.api.v1.RobotService.BoardStatus:input_type -> proto.api.v1.BoardStatusRequest
-	76,  // 99: proto.api.v1.RobotService.BoardGPIOSet:input_type -> proto.api.v1.BoardGPIOSetRequest
-	78,  // 100: proto.api.v1.RobotService.BoardGPIOGet:input_type -> proto.api.v1.BoardGPIOGetRequest
-	80,  // 101: proto.api.v1.RobotService.BoardPWMSet:input_type -> proto.api.v1.BoardPWMSetRequest
-	83,  // 102: proto.api.v1.RobotService.BoardPWMSetFrequency:input_type -> proto.api.v1.BoardPWMSetFrequencyRequest
-	84,  // 103: proto.api.v1.RobotService.BoardAnalogReaderRead:input_type -> proto.api.v1.BoardAnalogReaderReadRequest
-	87,  // 104: proto.api.v1.RobotService.BoardDigitalInterruptConfig:input_type -> proto.api.v1.BoardDigitalInterruptConfigRequest
-	89,  // 105: proto.api.v1.RobotService.BoardDigitalInterruptValue:input_type -> proto.api.v1.BoardDigitalInterruptValueRequest
-	91,  // 106: proto.api.v1.RobotService.BoardDigitalInterruptTick:input_type -> proto.api.v1.BoardDigitalInterruptTickRequest
-	93,  // 107: proto.api.v1.RobotService.SensorReadings:input_type -> proto.api.v1.SensorReadingsRequest
-	95,  // 108: proto.api.v1.RobotService.CompassHeading:input_type -> proto.api.v1.CompassHeadingRequest
-	97,  // 109: proto.api.v1.RobotService.CompassStartCalibration:input_type -> proto.api.v1.CompassStartCalibrationRequest
-	99,  // 110: proto.api.v1.RobotService.CompassStopCalibration:input_type -> proto.api.v1.CompassStopCalibrationRequest
-	101, // 111: proto.api.v1.RobotService.CompassMark:input_type -> proto.api.v1.CompassMarkRequest
-	179, // 112: proto.api.v1.RobotService.ForceMatrixMatrix:input_type -> proto.api.v1.ForceMatrixMatrixRequest
-	181, // 113: proto.api.v1.RobotService.ForceMatrixSlipDetection:input_type -> proto.api.v1.ForceMatrixSlipDetectionRequest
-	103, // 114: proto.api.v1.RobotService.ExecuteFunction:input_type -> proto.api.v1.ExecuteFunctionRequest
-	105, // 115: proto.api.v1.RobotService.ExecuteSource:input_type -> proto.api.v1.ExecuteSourceRequest
-	109, // 116: proto.api.v1.RobotService.ServoMove:input_type -> proto.api.v1.ServoMoveRequest
-	111, // 117: proto.api.v1.RobotService.ServoCurrent:input_type -> proto.api.v1.ServoCurrentRequest
-	113, // 118: proto.api.v1.RobotService.MotorGetPIDConfig:input_type -> proto.api.v1.MotorGetPIDConfigRequest
-	115, // 119: proto.api.v1.RobotService.MotorSetPIDConfig:input_type -> proto.api.v1.MotorSetPIDConfigRequest
-	117, // 120: proto.api.v1.RobotService.MotorPIDStep:input_type -> proto.api.v1.MotorPIDStepRequest
-	119, // 121: proto.api.v1.RobotService.MotorPower:input_type -> proto.api.v1.MotorPowerRequest
-	121, // 122: proto.api.v1.RobotService.MotorGo:input_type -> proto.api.v1.MotorGoRequest
-	123, // 123: proto.api.v1.RobotService.MotorGoFor:input_type -> proto.api.v1.MotorGoForRequest
-	125, // 124: proto.api.v1.RobotService.MotorGoTo:input_type -> proto.api.v1.MotorGoToRequest
-	127, // 125: proto.api.v1.RobotService.MotorGoTillStop:input_type -> proto.api.v1.MotorGoTillStopRequest
-	129, // 126: proto.api.v1.RobotService.MotorZero:input_type -> proto.api.v1.MotorZeroRequest
-	131, // 127: proto.api.v1.RobotService.MotorPosition:input_type -> proto.api.v1.MotorPositionRequest
-	133, // 128: proto.api.v1.RobotService.MotorPositionSupported:input_type -> proto.api.v1.MotorPositionSupportedRequest
-	135, // 129: proto.api.v1.RobotService.MotorOff:input_type -> proto.api.v1.MotorOffRequest
-	137, // 130: proto.api.v1.RobotService.MotorIsOn:input_type -> proto.api.v1.MotorIsOnRequest
-	155, // 131: proto.api.v1.RobotService.InputControllerControls:input_type -> proto.api.v1.InputControllerControlsRequest
-	157, // 132: proto.api.v1.RobotService.InputControllerLastEvents:input_type -> proto.api.v1.InputControllerLastEventsRequest
-	163, // 133: proto.api.v1.RobotService.InputControllerEventStream:input_type -> proto.api.v1.InputControllerEventStreamRequest
-	160, // 134: proto.api.v1.RobotService.InputControllerInjectEvent:input_type -> proto.api.v1.InputControllerInjectEventRequest
-	139, // 135: proto.api.v1.RobotService.ResourceRunCommand:input_type -> proto.api.v1.ResourceRunCommandRequest
-	18,  // 136: proto.api.v1.RobotService.FrameServiceConfig:input_type -> proto.api.v1.FrameServiceConfigRequest
-	141, // 137: proto.api.v1.RobotService.NavigationServiceMode:input_type -> proto.api.v1.NavigationServiceModeRequest
-	143, // 138: proto.api.v1.RobotService.NavigationServiceSetMode:input_type -> proto.api.v1.NavigationServiceSetModeRequest
-	147, // 139: proto.api.v1.RobotService.NavigationServiceLocation:input_type -> proto.api.v1.NavigationServiceLocationRequest
-	149, // 140: proto.api.v1.RobotService.NavigationServiceWaypoints:input_type -> proto.api.v1.NavigationServiceWaypointsRequest
-	151, // 141: proto.api.v1.RobotService.NavigationServiceAddWaypoint:input_type -> proto.api.v1.NavigationServiceAddWaypointRequest
-	153, // 142: proto.api.v1.RobotService.NavigationServiceRemoveWaypoint:input_type -> proto.api.v1.NavigationServiceRemoveWaypointRequest
-	166, // 143: proto.api.v1.RobotService.IMUAngularVelocity:input_type -> proto.api.v1.IMUAngularVelocityRequest
-	168, // 144: proto.api.v1.RobotService.IMUOrientation:input_type -> proto.api.v1.IMUOrientationRequest
-	170, // 145: proto.api.v1.RobotService.GPSLocation:input_type -> proto.api.v1.GPSLocationRequest
-	172, // 146: proto.api.v1.RobotService.GPSAltitude:input_type -> proto.api.v1.GPSAltitudeRequest
-	174, // 147: proto.api.v1.RobotService.GPSSpeed:input_type -> proto.api.v1.GPSSpeedRequest
-	176, // 148: proto.api.v1.RobotService.GPSAccuracy:input_type -> proto.api.v1.GPSAccuracyRequest
-	4,   // 149: proto.api.v1.RobotService.Status:output_type -> proto.api.v1.StatusResponse
-	5,   // 150: proto.api.v1.RobotService.StatusStream:output_type -> proto.api.v1.StatusStreamResponse
-	9,   // 151: proto.api.v1.RobotService.Config:output_type -> proto.api.v1.ConfigResponse
-	11,  // 152: proto.api.v1.RobotService.DoAction:output_type -> proto.api.v1.DoActionResponse
-	31,  // 153: proto.api.v1.RobotService.GantryCurrentPosition:output_type -> proto.api.v1.GantryCurrentPositionResponse
-	33,  // 154: proto.api.v1.RobotService.GantryMoveToPosition:output_type -> proto.api.v1.GantryMoveToPositionResponse
-	21,  // 155: proto.api.v1.RobotService.ArmCurrentPosition:output_type -> proto.api.v1.ArmCurrentPositionResponse
-	25,  // 156: proto.api.v1.RobotService.ArmMoveToPosition:output_type -> proto.api.v1.ArmMoveToPositionResponse
-	23,  // 157: proto.api.v1.RobotService.ArmCurrentJointPositions:output_type -> proto.api.v1.ArmCurrentJointPositionsResponse
-	27,  // 158: proto.api.v1.RobotService.ArmMoveToJointPositions:output_type -> proto.api.v1.ArmMoveToJointPositionsResponse
-	29,  // 159: proto.api.v1.RobotService.ArmJointMoveDelta:output_type -> proto.api.v1.ArmJointMoveDeltaResponse
-	35,  // 160: proto.api.v1.RobotService.BaseMoveStraight:output_type -> proto.api.v1.BaseMoveStraightResponse
-	37,  // 161: proto.api.v1.RobotService.BaseSpin:output_type -> proto.api.v1.BaseSpinResponse
-	39,  // 162: proto.api.v1.RobotService.BaseStop:output_type -> proto.api.v1.BaseStopResponse
-	41,  // 163: proto.api.v1.RobotService.BaseWidthMillis:output_type -> proto.api.v1.BaseWidthMillisResponse
-	43,  // 164: proto.api.v1.RobotService.GripperOpen:output_type -> proto.api.v1.GripperOpenResponse
-	45,  // 165: proto.api.v1.RobotService.GripperGrab:output_type -> proto.api.v1.GripperGrabResponse
-	48,  // 166: proto.api.v1.RobotService.CameraFrame:output_type -> proto.api.v1.CameraFrameResponse
-	203, // 167: proto.api.v1.RobotService.CameraRenderFrame:output_type -> google.api.HttpBody
-	50,  // 168: proto.api.v1.RobotService.PointCloud:output_type -> proto.api.v1.PointCloudResponse
-	54,  // 169: proto.api.v1.RobotService.ObjectPointClouds:output_type -> proto.api.v1.ObjectPointCloudsResponse
-	57,  // 170: proto.api.v1.RobotService.LidarInfo:output_type -> proto.api.v1.LidarInfoResponse
-	59,  // 171: proto.api.v1.RobotService.LidarStart:output_type -> proto.api.v1.LidarStartResponse
-	61,  // 172: proto.api.v1.RobotService.LidarStop:output_type -> proto.api.v1.LidarStopResponse
-	63,  // 173: proto.api.v1.RobotService.LidarScan:output_type -> proto.api.v1.LidarScanResponse
-	65,  // 174: proto.api.v1.RobotService.LidarRange:output_type -> proto.api.v1.LidarRangeResponse
-	67,  // 175: proto.api.v1.RobotService.LidarBounds:output_type -> proto.api.v1.LidarBoundsResponse
-	69,  // 176: proto.api.v1.RobotService.LidarAngularResolution:output_type -> proto.api.v1.LidarAngularResolutionResponse
-	75,  // 177: proto.api.v1.RobotService.BoardStatus:output_type -> proto.api.v1.BoardStatusResponse
-	77,  // 178: proto.api.v1.RobotService.BoardGPIOSet:output_type -> proto.api.v1.BoardGPIOSetResponse
-	79,  // 179: proto.api.v1.RobotService.BoardGPIOGet:output_type -> proto.api.v1.BoardGPIOGetResponse
-	81,  // 180: proto.api.v1.RobotService.BoardPWMSet:output_type -> proto.api.v1.BoardPWMSetResponse
-	82,  // 181: proto.api.v1.RobotService.BoardPWMSetFrequency:output_type -> proto.api.v1.BoardPWMSetFrequencyResponse
-	85,  // 182: proto.api.v1.RobotService.BoardAnalogReaderRead:output_type -> proto.api.v1.BoardAnalogReaderReadResponse
-	88,  // 183: proto.api.v1.RobotService.BoardDigitalInterruptConfig:output_type -> proto.api.v1.BoardDigitalInterruptConfigResponse
-	90,  // 184: proto.api.v1.RobotService.BoardDigitalInterruptValue:output_type -> proto.api.v1.BoardDigitalInterruptValueResponse
-	92,  // 185: proto.api.v1.RobotService.BoardDigitalInterruptTick:output_type -> proto.api.v1.BoardDigitalInterruptTickResponse
-	94,  // 186: proto.api.v1.RobotService.SensorReadings:output_type -> proto.api.v1.SensorReadingsResponse
-	96,  // 187: proto.api.v1.RobotService.CompassHeading:output_type -> proto.api.v1.CompassHeadingResponse
-	98,  // 188: proto.api.v1.RobotService.CompassStartCalibration:output_type -> proto.api.v1.CompassStartCalibrationResponse
-	100, // 189: proto.api.v1.RobotService.CompassStopCalibration:output_type -> proto.api.v1.CompassStopCalibrationResponse
-	102, // 190: proto.api.v1.RobotService.CompassMark:output_type -> proto.api.v1.CompassMarkResponse
-	180, // 191: proto.api.v1.RobotService.ForceMatrixMatrix:output_type -> proto.api.v1.ForceMatrixMatrixResponse
-	182, // 192: proto.api.v1.RobotService.ForceMatrixSlipDetection:output_type -> proto.api.v1.ForceMatrixSlipDetectionResponse
-	104, // 193: proto.api.v1.RobotService.ExecuteFunction:output_type -> proto.api.v1.ExecuteFunctionResponse
-	106, // 194: proto.api.v1.RobotService.ExecuteSource:output_type -> proto.api.v1.ExecuteSourceResponse
-	110, // 195: proto.api.v1.RobotService.ServoMove:output_type -> proto.api.v1.ServoMoveResponse
-	112, // 196: proto.api.v1.RobotService.ServoCurrent:output_type -> proto.api.v1.ServoCurrentResponse
-	114, // 197: proto.api.v1.RobotService.MotorGetPIDConfig:output_type -> proto.api.v1.MotorGetPIDConfigResponse
-	116, // 198: proto.api.v1.RobotService.MotorSetPIDConfig:output_type -> proto.api.v1.MotorSetPIDConfigResponse
-	118, // 199: proto.api.v1.RobotService.MotorPIDStep:output_type -> proto.api.v1.MotorPIDStepResponse
-	120, // 200: proto.api.v1.RobotService.MotorPower:output_type -> proto.api.v1.MotorPowerResponse
-	122, // 201: proto.api.v1.RobotService.MotorGo:output_type -> proto.api.v1.MotorGoResponse
-	124, // 202: proto.api.v1.RobotService.MotorGoFor:output_type -> proto.api.v1.MotorGoForResponse
-	126, // 203: proto.api.v1.RobotService.MotorGoTo:output_type -> proto.api.v1.MotorGoToResponse
-	128, // 204: proto.api.v1.RobotService.MotorGoTillStop:output_type -> proto.api.v1.MotorGoTillStopResponse
-	130, // 205: proto.api.v1.RobotService.MotorZero:output_type -> proto.api.v1.MotorZeroResponse
-	132, // 206: proto.api.v1.RobotService.MotorPosition:output_type -> proto.api.v1.MotorPositionResponse
-	134, // 207: proto.api.v1.RobotService.MotorPositionSupported:output_type -> proto.api.v1.MotorPositionSupportedResponse
-	136, // 208: proto.api.v1.RobotService.MotorOff:output_type -> proto.api.v1.MotorOffResponse
-	138, // 209: proto.api.v1.RobotService.MotorIsOn:output_type -> proto.api.v1.MotorIsOnResponse
-	156, // 210: proto.api.v1.RobotService.InputControllerControls:output_type -> proto.api.v1.InputControllerControlsResponse
-	158, // 211: proto.api.v1.RobotService.InputControllerLastEvents:output_type -> proto.api.v1.InputControllerLastEventsResponse
-	162, // 212: proto.api.v1.RobotService.InputControllerEventStream:output_type -> proto.api.v1.InputControllerEvent
-	161, // 213: proto.api.v1.RobotService.InputControllerInjectEvent:output_type -> proto.api.v1.InputControllerInjectEventResponse
-	140, // 214: proto.api.v1.RobotService.ResourceRunCommand:output_type -> proto.api.v1.ResourceRunCommandResponse
-	19,  // 215: proto.api.v1.RobotService.FrameServiceConfig:output_type -> proto.api.v1.FrameServiceConfigResponse
-	142, // 216: proto.api.v1.RobotService.NavigationServiceMode:output_type -> proto.api.v1.NavigationServiceModeResponse
-	144, // 217: proto.api.v1.RobotService.NavigationServiceSetMode:output_type -> proto.api.v1.NavigationServiceSetModeResponse
-	148, // 218: proto.api.v1.RobotService.NavigationServiceLocation:output_type -> proto.api.v1.NavigationServiceLocationResponse
-	150, // 219: proto.api.v1.RobotService.NavigationServiceWaypoints:output_type -> proto.api.v1.NavigationServiceWaypointsResponse
-	152, // 220: proto.api.v1.RobotService.NavigationServiceAddWaypoint:output_type -> proto.api.v1.NavigationServiceAddWaypointResponse
-	154, // 221: proto.api.v1.RobotService.NavigationServiceRemoveWaypoint:output_type -> proto.api.v1.NavigationServiceRemoveWaypointResponse
-	167, // 222: proto.api.v1.RobotService.IMUAngularVelocity:output_type -> proto.api.v1.IMUAngularVelocityResponse
-	169, // 223: proto.api.v1.RobotService.IMUOrientation:output_type -> proto.api.v1.IMUOrientationResponse
-	171, // 224: proto.api.v1.RobotService.GPSLocation:output_type -> proto.api.v1.GPSLocationResponse
-	173, // 225: proto.api.v1.RobotService.GPSAltitude:output_type -> proto.api.v1.GPSAltitudeResponse
-	175, // 226: proto.api.v1.RobotService.GPSSpeed:output_type -> proto.api.v1.GPSSpeedResponse
-	177, // 227: proto.api.v1.RobotService.GPSAccuracy:output_type -> proto.api.v1.GPSAccuracyResponse
-	149, // [149:228] is the sub-list for method output_type
-	70,  // [70:149] is the sub-list for method input_type
-	70,  // [70:70] is the sub-list for extension type_name
-	70,  // [70:70] is the sub-list for extension extendee
-	0,   // [0:70] is the sub-list for field type_name
+	52,  // 52: proto.api.v1.ObjectManipulationServiceDoGrabRequest.camera_point:type_name -> proto.api.v1.Vector3
+	164, // 53: proto.api.v1.InputControllerLastEventsResponse.events:type_name -> proto.api.v1.InputControllerEvent
+	164, // 54: proto.api.v1.InputControllerStatus.events:type_name -> proto.api.v1.InputControllerEvent
+	164, // 55: proto.api.v1.InputControllerInjectEventRequest.event:type_name -> proto.api.v1.InputControllerEvent
+	204, // 56: proto.api.v1.InputControllerEvent.time:type_name -> google.protobuf.Timestamp
+	200, // 57: proto.api.v1.InputControllerEventStreamRequest.events:type_name -> proto.api.v1.InputControllerEventStreamRequest.Events
+	166, // 58: proto.api.v1.IMUAngularVelocityResponse.angular_velocity:type_name -> proto.api.v1.AngularVelocity
+	167, // 59: proto.api.v1.IMUOrientationResponse.orientation:type_name -> proto.api.v1.EulerAngles
+	146, // 60: proto.api.v1.GPSLocationResponse.coordinate:type_name -> proto.api.v1.GeoPoint
+	180, // 61: proto.api.v1.ForceMatrixMatrixResponse.matrix:type_name -> proto.api.v1.Matrix
+	13,  // 62: proto.api.v1.Status.ArmsEntry.value:type_name -> proto.api.v1.ArmStatus
+	70,  // 63: proto.api.v1.Status.BoardsEntry.value:type_name -> proto.api.v1.BoardStatus
+	73,  // 64: proto.api.v1.Status.SensorsEntry.value:type_name -> proto.api.v1.SensorStatus
+	108, // 65: proto.api.v1.Status.ServosEntry.value:type_name -> proto.api.v1.ServoStatus
+	107, // 66: proto.api.v1.Status.MotorsEntry.value:type_name -> proto.api.v1.MotorStatus
+	161, // 67: proto.api.v1.Status.InputControllersEntry.value:type_name -> proto.api.v1.InputControllerStatus
+	12,  // 68: proto.api.v1.Status.GantriesEntry.value:type_name -> proto.api.v1.GantryStatus
+	71,  // 69: proto.api.v1.BoardStatus.AnalogsEntry.value:type_name -> proto.api.v1.AnalogStatus
+	72,  // 70: proto.api.v1.BoardStatus.DigitalInterruptsEntry.value:type_name -> proto.api.v1.DigitalInterruptStatus
+	2,   // 71: proto.api.v1.RobotService.Status:input_type -> proto.api.v1.StatusRequest
+	3,   // 72: proto.api.v1.RobotService.StatusStream:input_type -> proto.api.v1.StatusStreamRequest
+	8,   // 73: proto.api.v1.RobotService.Config:input_type -> proto.api.v1.ConfigRequest
+	10,  // 74: proto.api.v1.RobotService.DoAction:input_type -> proto.api.v1.DoActionRequest
+	30,  // 75: proto.api.v1.RobotService.GantryCurrentPosition:input_type -> proto.api.v1.GantryCurrentPositionRequest
+	32,  // 76: proto.api.v1.RobotService.GantryMoveToPosition:input_type -> proto.api.v1.GantryMoveToPositionRequest
+	20,  // 77: proto.api.v1.RobotService.ArmCurrentPosition:input_type -> proto.api.v1.ArmCurrentPositionRequest
+	24,  // 78: proto.api.v1.RobotService.ArmMoveToPosition:input_type -> proto.api.v1.ArmMoveToPositionRequest
+	22,  // 79: proto.api.v1.RobotService.ArmCurrentJointPositions:input_type -> proto.api.v1.ArmCurrentJointPositionsRequest
+	26,  // 80: proto.api.v1.RobotService.ArmMoveToJointPositions:input_type -> proto.api.v1.ArmMoveToJointPositionsRequest
+	28,  // 81: proto.api.v1.RobotService.ArmJointMoveDelta:input_type -> proto.api.v1.ArmJointMoveDeltaRequest
+	34,  // 82: proto.api.v1.RobotService.BaseMoveStraight:input_type -> proto.api.v1.BaseMoveStraightRequest
+	36,  // 83: proto.api.v1.RobotService.BaseSpin:input_type -> proto.api.v1.BaseSpinRequest
+	38,  // 84: proto.api.v1.RobotService.BaseStop:input_type -> proto.api.v1.BaseStopRequest
+	40,  // 85: proto.api.v1.RobotService.BaseWidthMillis:input_type -> proto.api.v1.BaseWidthMillisRequest
+	42,  // 86: proto.api.v1.RobotService.GripperOpen:input_type -> proto.api.v1.GripperOpenRequest
+	44,  // 87: proto.api.v1.RobotService.GripperGrab:input_type -> proto.api.v1.GripperGrabRequest
+	46,  // 88: proto.api.v1.RobotService.CameraFrame:input_type -> proto.api.v1.CameraFrameRequest
+	47,  // 89: proto.api.v1.RobotService.CameraRenderFrame:input_type -> proto.api.v1.CameraRenderFrameRequest
+	49,  // 90: proto.api.v1.RobotService.PointCloud:input_type -> proto.api.v1.PointCloudRequest
+	51,  // 91: proto.api.v1.RobotService.ObjectPointClouds:input_type -> proto.api.v1.ObjectPointCloudsRequest
+	56,  // 92: proto.api.v1.RobotService.LidarInfo:input_type -> proto.api.v1.LidarInfoRequest
+	58,  // 93: proto.api.v1.RobotService.LidarStart:input_type -> proto.api.v1.LidarStartRequest
+	60,  // 94: proto.api.v1.RobotService.LidarStop:input_type -> proto.api.v1.LidarStopRequest
+	62,  // 95: proto.api.v1.RobotService.LidarScan:input_type -> proto.api.v1.LidarScanRequest
+	64,  // 96: proto.api.v1.RobotService.LidarRange:input_type -> proto.api.v1.LidarRangeRequest
+	66,  // 97: proto.api.v1.RobotService.LidarBounds:input_type -> proto.api.v1.LidarBoundsRequest
+	68,  // 98: proto.api.v1.RobotService.LidarAngularResolution:input_type -> proto.api.v1.LidarAngularResolutionRequest
+	74,  // 99: proto.api.v1.RobotService.BoardStatus:input_type -> proto.api.v1.BoardStatusRequest
+	76,  // 100: proto.api.v1.RobotService.BoardGPIOSet:input_type -> proto.api.v1.BoardGPIOSetRequest
+	78,  // 101: proto.api.v1.RobotService.BoardGPIOGet:input_type -> proto.api.v1.BoardGPIOGetRequest
+	80,  // 102: proto.api.v1.RobotService.BoardPWMSet:input_type -> proto.api.v1.BoardPWMSetRequest
+	83,  // 103: proto.api.v1.RobotService.BoardPWMSetFrequency:input_type -> proto.api.v1.BoardPWMSetFrequencyRequest
+	84,  // 104: proto.api.v1.RobotService.BoardAnalogReaderRead:input_type -> proto.api.v1.BoardAnalogReaderReadRequest
+	87,  // 105: proto.api.v1.RobotService.BoardDigitalInterruptConfig:input_type -> proto.api.v1.BoardDigitalInterruptConfigRequest
+	89,  // 106: proto.api.v1.RobotService.BoardDigitalInterruptValue:input_type -> proto.api.v1.BoardDigitalInterruptValueRequest
+	91,  // 107: proto.api.v1.RobotService.BoardDigitalInterruptTick:input_type -> proto.api.v1.BoardDigitalInterruptTickRequest
+	93,  // 108: proto.api.v1.RobotService.SensorReadings:input_type -> proto.api.v1.SensorReadingsRequest
+	95,  // 109: proto.api.v1.RobotService.CompassHeading:input_type -> proto.api.v1.CompassHeadingRequest
+	97,  // 110: proto.api.v1.RobotService.CompassStartCalibration:input_type -> proto.api.v1.CompassStartCalibrationRequest
+	99,  // 111: proto.api.v1.RobotService.CompassStopCalibration:input_type -> proto.api.v1.CompassStopCalibrationRequest
+	101, // 112: proto.api.v1.RobotService.CompassMark:input_type -> proto.api.v1.CompassMarkRequest
+	181, // 113: proto.api.v1.RobotService.ForceMatrixMatrix:input_type -> proto.api.v1.ForceMatrixMatrixRequest
+	183, // 114: proto.api.v1.RobotService.ForceMatrixSlipDetection:input_type -> proto.api.v1.ForceMatrixSlipDetectionRequest
+	103, // 115: proto.api.v1.RobotService.ExecuteFunction:input_type -> proto.api.v1.ExecuteFunctionRequest
+	105, // 116: proto.api.v1.RobotService.ExecuteSource:input_type -> proto.api.v1.ExecuteSourceRequest
+	109, // 117: proto.api.v1.RobotService.ServoMove:input_type -> proto.api.v1.ServoMoveRequest
+	111, // 118: proto.api.v1.RobotService.ServoCurrent:input_type -> proto.api.v1.ServoCurrentRequest
+	113, // 119: proto.api.v1.RobotService.MotorGetPIDConfig:input_type -> proto.api.v1.MotorGetPIDConfigRequest
+	115, // 120: proto.api.v1.RobotService.MotorSetPIDConfig:input_type -> proto.api.v1.MotorSetPIDConfigRequest
+	117, // 121: proto.api.v1.RobotService.MotorPIDStep:input_type -> proto.api.v1.MotorPIDStepRequest
+	119, // 122: proto.api.v1.RobotService.MotorPower:input_type -> proto.api.v1.MotorPowerRequest
+	121, // 123: proto.api.v1.RobotService.MotorGo:input_type -> proto.api.v1.MotorGoRequest
+	123, // 124: proto.api.v1.RobotService.MotorGoFor:input_type -> proto.api.v1.MotorGoForRequest
+	125, // 125: proto.api.v1.RobotService.MotorGoTo:input_type -> proto.api.v1.MotorGoToRequest
+	127, // 126: proto.api.v1.RobotService.MotorGoTillStop:input_type -> proto.api.v1.MotorGoTillStopRequest
+	129, // 127: proto.api.v1.RobotService.MotorZero:input_type -> proto.api.v1.MotorZeroRequest
+	131, // 128: proto.api.v1.RobotService.MotorPosition:input_type -> proto.api.v1.MotorPositionRequest
+	133, // 129: proto.api.v1.RobotService.MotorPositionSupported:input_type -> proto.api.v1.MotorPositionSupportedRequest
+	135, // 130: proto.api.v1.RobotService.MotorOff:input_type -> proto.api.v1.MotorOffRequest
+	137, // 131: proto.api.v1.RobotService.MotorIsOn:input_type -> proto.api.v1.MotorIsOnRequest
+	157, // 132: proto.api.v1.RobotService.InputControllerControls:input_type -> proto.api.v1.InputControllerControlsRequest
+	159, // 133: proto.api.v1.RobotService.InputControllerLastEvents:input_type -> proto.api.v1.InputControllerLastEventsRequest
+	165, // 134: proto.api.v1.RobotService.InputControllerEventStream:input_type -> proto.api.v1.InputControllerEventStreamRequest
+	162, // 135: proto.api.v1.RobotService.InputControllerInjectEvent:input_type -> proto.api.v1.InputControllerInjectEventRequest
+	139, // 136: proto.api.v1.RobotService.ResourceRunCommand:input_type -> proto.api.v1.ResourceRunCommandRequest
+	18,  // 137: proto.api.v1.RobotService.FrameServiceConfig:input_type -> proto.api.v1.FrameServiceConfigRequest
+	141, // 138: proto.api.v1.RobotService.NavigationServiceMode:input_type -> proto.api.v1.NavigationServiceModeRequest
+	143, // 139: proto.api.v1.RobotService.NavigationServiceSetMode:input_type -> proto.api.v1.NavigationServiceSetModeRequest
+	147, // 140: proto.api.v1.RobotService.NavigationServiceLocation:input_type -> proto.api.v1.NavigationServiceLocationRequest
+	149, // 141: proto.api.v1.RobotService.NavigationServiceWaypoints:input_type -> proto.api.v1.NavigationServiceWaypointsRequest
+	151, // 142: proto.api.v1.RobotService.NavigationServiceAddWaypoint:input_type -> proto.api.v1.NavigationServiceAddWaypointRequest
+	153, // 143: proto.api.v1.RobotService.NavigationServiceRemoveWaypoint:input_type -> proto.api.v1.NavigationServiceRemoveWaypointRequest
+	155, // 144: proto.api.v1.RobotService.ObjectManipulationServiceDoGrab:input_type -> proto.api.v1.ObjectManipulationServiceDoGrabRequest
+	168, // 145: proto.api.v1.RobotService.IMUAngularVelocity:input_type -> proto.api.v1.IMUAngularVelocityRequest
+	170, // 146: proto.api.v1.RobotService.IMUOrientation:input_type -> proto.api.v1.IMUOrientationRequest
+	172, // 147: proto.api.v1.RobotService.GPSLocation:input_type -> proto.api.v1.GPSLocationRequest
+	174, // 148: proto.api.v1.RobotService.GPSAltitude:input_type -> proto.api.v1.GPSAltitudeRequest
+	176, // 149: proto.api.v1.RobotService.GPSSpeed:input_type -> proto.api.v1.GPSSpeedRequest
+	178, // 150: proto.api.v1.RobotService.GPSAccuracy:input_type -> proto.api.v1.GPSAccuracyRequest
+	4,   // 151: proto.api.v1.RobotService.Status:output_type -> proto.api.v1.StatusResponse
+	5,   // 152: proto.api.v1.RobotService.StatusStream:output_type -> proto.api.v1.StatusStreamResponse
+	9,   // 153: proto.api.v1.RobotService.Config:output_type -> proto.api.v1.ConfigResponse
+	11,  // 154: proto.api.v1.RobotService.DoAction:output_type -> proto.api.v1.DoActionResponse
+	31,  // 155: proto.api.v1.RobotService.GantryCurrentPosition:output_type -> proto.api.v1.GantryCurrentPositionResponse
+	33,  // 156: proto.api.v1.RobotService.GantryMoveToPosition:output_type -> proto.api.v1.GantryMoveToPositionResponse
+	21,  // 157: proto.api.v1.RobotService.ArmCurrentPosition:output_type -> proto.api.v1.ArmCurrentPositionResponse
+	25,  // 158: proto.api.v1.RobotService.ArmMoveToPosition:output_type -> proto.api.v1.ArmMoveToPositionResponse
+	23,  // 159: proto.api.v1.RobotService.ArmCurrentJointPositions:output_type -> proto.api.v1.ArmCurrentJointPositionsResponse
+	27,  // 160: proto.api.v1.RobotService.ArmMoveToJointPositions:output_type -> proto.api.v1.ArmMoveToJointPositionsResponse
+	29,  // 161: proto.api.v1.RobotService.ArmJointMoveDelta:output_type -> proto.api.v1.ArmJointMoveDeltaResponse
+	35,  // 162: proto.api.v1.RobotService.BaseMoveStraight:output_type -> proto.api.v1.BaseMoveStraightResponse
+	37,  // 163: proto.api.v1.RobotService.BaseSpin:output_type -> proto.api.v1.BaseSpinResponse
+	39,  // 164: proto.api.v1.RobotService.BaseStop:output_type -> proto.api.v1.BaseStopResponse
+	41,  // 165: proto.api.v1.RobotService.BaseWidthMillis:output_type -> proto.api.v1.BaseWidthMillisResponse
+	43,  // 166: proto.api.v1.RobotService.GripperOpen:output_type -> proto.api.v1.GripperOpenResponse
+	45,  // 167: proto.api.v1.RobotService.GripperGrab:output_type -> proto.api.v1.GripperGrabResponse
+	48,  // 168: proto.api.v1.RobotService.CameraFrame:output_type -> proto.api.v1.CameraFrameResponse
+	205, // 169: proto.api.v1.RobotService.CameraRenderFrame:output_type -> google.api.HttpBody
+	50,  // 170: proto.api.v1.RobotService.PointCloud:output_type -> proto.api.v1.PointCloudResponse
+	54,  // 171: proto.api.v1.RobotService.ObjectPointClouds:output_type -> proto.api.v1.ObjectPointCloudsResponse
+	57,  // 172: proto.api.v1.RobotService.LidarInfo:output_type -> proto.api.v1.LidarInfoResponse
+	59,  // 173: proto.api.v1.RobotService.LidarStart:output_type -> proto.api.v1.LidarStartResponse
+	61,  // 174: proto.api.v1.RobotService.LidarStop:output_type -> proto.api.v1.LidarStopResponse
+	63,  // 175: proto.api.v1.RobotService.LidarScan:output_type -> proto.api.v1.LidarScanResponse
+	65,  // 176: proto.api.v1.RobotService.LidarRange:output_type -> proto.api.v1.LidarRangeResponse
+	67,  // 177: proto.api.v1.RobotService.LidarBounds:output_type -> proto.api.v1.LidarBoundsResponse
+	69,  // 178: proto.api.v1.RobotService.LidarAngularResolution:output_type -> proto.api.v1.LidarAngularResolutionResponse
+	75,  // 179: proto.api.v1.RobotService.BoardStatus:output_type -> proto.api.v1.BoardStatusResponse
+	77,  // 180: proto.api.v1.RobotService.BoardGPIOSet:output_type -> proto.api.v1.BoardGPIOSetResponse
+	79,  // 181: proto.api.v1.RobotService.BoardGPIOGet:output_type -> proto.api.v1.BoardGPIOGetResponse
+	81,  // 182: proto.api.v1.RobotService.BoardPWMSet:output_type -> proto.api.v1.BoardPWMSetResponse
+	82,  // 183: proto.api.v1.RobotService.BoardPWMSetFrequency:output_type -> proto.api.v1.BoardPWMSetFrequencyResponse
+	85,  // 184: proto.api.v1.RobotService.BoardAnalogReaderRead:output_type -> proto.api.v1.BoardAnalogReaderReadResponse
+	88,  // 185: proto.api.v1.RobotService.BoardDigitalInterruptConfig:output_type -> proto.api.v1.BoardDigitalInterruptConfigResponse
+	90,  // 186: proto.api.v1.RobotService.BoardDigitalInterruptValue:output_type -> proto.api.v1.BoardDigitalInterruptValueResponse
+	92,  // 187: proto.api.v1.RobotService.BoardDigitalInterruptTick:output_type -> proto.api.v1.BoardDigitalInterruptTickResponse
+	94,  // 188: proto.api.v1.RobotService.SensorReadings:output_type -> proto.api.v1.SensorReadingsResponse
+	96,  // 189: proto.api.v1.RobotService.CompassHeading:output_type -> proto.api.v1.CompassHeadingResponse
+	98,  // 190: proto.api.v1.RobotService.CompassStartCalibration:output_type -> proto.api.v1.CompassStartCalibrationResponse
+	100, // 191: proto.api.v1.RobotService.CompassStopCalibration:output_type -> proto.api.v1.CompassStopCalibrationResponse
+	102, // 192: proto.api.v1.RobotService.CompassMark:output_type -> proto.api.v1.CompassMarkResponse
+	182, // 193: proto.api.v1.RobotService.ForceMatrixMatrix:output_type -> proto.api.v1.ForceMatrixMatrixResponse
+	184, // 194: proto.api.v1.RobotService.ForceMatrixSlipDetection:output_type -> proto.api.v1.ForceMatrixSlipDetectionResponse
+	104, // 195: proto.api.v1.RobotService.ExecuteFunction:output_type -> proto.api.v1.ExecuteFunctionResponse
+	106, // 196: proto.api.v1.RobotService.ExecuteSource:output_type -> proto.api.v1.ExecuteSourceResponse
+	110, // 197: proto.api.v1.RobotService.ServoMove:output_type -> proto.api.v1.ServoMoveResponse
+	112, // 198: proto.api.v1.RobotService.ServoCurrent:output_type -> proto.api.v1.ServoCurrentResponse
+	114, // 199: proto.api.v1.RobotService.MotorGetPIDConfig:output_type -> proto.api.v1.MotorGetPIDConfigResponse
+	116, // 200: proto.api.v1.RobotService.MotorSetPIDConfig:output_type -> proto.api.v1.MotorSetPIDConfigResponse
+	118, // 201: proto.api.v1.RobotService.MotorPIDStep:output_type -> proto.api.v1.MotorPIDStepResponse
+	120, // 202: proto.api.v1.RobotService.MotorPower:output_type -> proto.api.v1.MotorPowerResponse
+	122, // 203: proto.api.v1.RobotService.MotorGo:output_type -> proto.api.v1.MotorGoResponse
+	124, // 204: proto.api.v1.RobotService.MotorGoFor:output_type -> proto.api.v1.MotorGoForResponse
+	126, // 205: proto.api.v1.RobotService.MotorGoTo:output_type -> proto.api.v1.MotorGoToResponse
+	128, // 206: proto.api.v1.RobotService.MotorGoTillStop:output_type -> proto.api.v1.MotorGoTillStopResponse
+	130, // 207: proto.api.v1.RobotService.MotorZero:output_type -> proto.api.v1.MotorZeroResponse
+	132, // 208: proto.api.v1.RobotService.MotorPosition:output_type -> proto.api.v1.MotorPositionResponse
+	134, // 209: proto.api.v1.RobotService.MotorPositionSupported:output_type -> proto.api.v1.MotorPositionSupportedResponse
+	136, // 210: proto.api.v1.RobotService.MotorOff:output_type -> proto.api.v1.MotorOffResponse
+	138, // 211: proto.api.v1.RobotService.MotorIsOn:output_type -> proto.api.v1.MotorIsOnResponse
+	158, // 212: proto.api.v1.RobotService.InputControllerControls:output_type -> proto.api.v1.InputControllerControlsResponse
+	160, // 213: proto.api.v1.RobotService.InputControllerLastEvents:output_type -> proto.api.v1.InputControllerLastEventsResponse
+	164, // 214: proto.api.v1.RobotService.InputControllerEventStream:output_type -> proto.api.v1.InputControllerEvent
+	163, // 215: proto.api.v1.RobotService.InputControllerInjectEvent:output_type -> proto.api.v1.InputControllerInjectEventResponse
+	140, // 216: proto.api.v1.RobotService.ResourceRunCommand:output_type -> proto.api.v1.ResourceRunCommandResponse
+	19,  // 217: proto.api.v1.RobotService.FrameServiceConfig:output_type -> proto.api.v1.FrameServiceConfigResponse
+	142, // 218: proto.api.v1.RobotService.NavigationServiceMode:output_type -> proto.api.v1.NavigationServiceModeResponse
+	144, // 219: proto.api.v1.RobotService.NavigationServiceSetMode:output_type -> proto.api.v1.NavigationServiceSetModeResponse
+	148, // 220: proto.api.v1.RobotService.NavigationServiceLocation:output_type -> proto.api.v1.NavigationServiceLocationResponse
+	150, // 221: proto.api.v1.RobotService.NavigationServiceWaypoints:output_type -> proto.api.v1.NavigationServiceWaypointsResponse
+	152, // 222: proto.api.v1.RobotService.NavigationServiceAddWaypoint:output_type -> proto.api.v1.NavigationServiceAddWaypointResponse
+	154, // 223: proto.api.v1.RobotService.NavigationServiceRemoveWaypoint:output_type -> proto.api.v1.NavigationServiceRemoveWaypointResponse
+	156, // 224: proto.api.v1.RobotService.ObjectManipulationServiceDoGrab:output_type -> proto.api.v1.ObjectManipulationServiceDoGrabResponse
+	169, // 225: proto.api.v1.RobotService.IMUAngularVelocity:output_type -> proto.api.v1.IMUAngularVelocityResponse
+	171, // 226: proto.api.v1.RobotService.IMUOrientation:output_type -> proto.api.v1.IMUOrientationResponse
+	173, // 227: proto.api.v1.RobotService.GPSLocation:output_type -> proto.api.v1.GPSLocationResponse
+	175, // 228: proto.api.v1.RobotService.GPSAltitude:output_type -> proto.api.v1.GPSAltitudeResponse
+	177, // 229: proto.api.v1.RobotService.GPSSpeed:output_type -> proto.api.v1.GPSSpeedResponse
+	179, // 230: proto.api.v1.RobotService.GPSAccuracy:output_type -> proto.api.v1.GPSAccuracyResponse
+	151, // [151:231] is the sub-list for method output_type
+	71,  // [71:151] is the sub-list for method input_type
+	71,  // [71:71] is the sub-list for extension type_name
+	71,  // [71:71] is the sub-list for extension extendee
+	0,   // [0:71] is the sub-list for field type_name
 }
 
 func init() { file_proto_api_v1_robot_proto_init() }
@@ -13317,7 +13470,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[153].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*InputControllerControlsRequest); i {
+			switch v := v.(*ObjectManipulationServiceDoGrabRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13329,7 +13482,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[154].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*InputControllerControlsResponse); i {
+			switch v := v.(*ObjectManipulationServiceDoGrabResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13341,7 +13494,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[155].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*InputControllerLastEventsRequest); i {
+			switch v := v.(*InputControllerControlsRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13353,7 +13506,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[156].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*InputControllerLastEventsResponse); i {
+			switch v := v.(*InputControllerControlsResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13365,7 +13518,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[157].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*InputControllerStatus); i {
+			switch v := v.(*InputControllerLastEventsRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13377,7 +13530,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[158].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*InputControllerInjectEventRequest); i {
+			switch v := v.(*InputControllerLastEventsResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13389,7 +13542,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[159].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*InputControllerInjectEventResponse); i {
+			switch v := v.(*InputControllerStatus); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13401,7 +13554,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[160].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*InputControllerEvent); i {
+			switch v := v.(*InputControllerInjectEventRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13413,7 +13566,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[161].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*InputControllerEventStreamRequest); i {
+			switch v := v.(*InputControllerInjectEventResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13425,7 +13578,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[162].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AngularVelocity); i {
+			switch v := v.(*InputControllerEvent); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13437,7 +13590,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[163].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*EulerAngles); i {
+			switch v := v.(*InputControllerEventStreamRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13449,7 +13602,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[164].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*IMUAngularVelocityRequest); i {
+			switch v := v.(*AngularVelocity); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13461,7 +13614,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[165].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*IMUAngularVelocityResponse); i {
+			switch v := v.(*EulerAngles); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13473,7 +13626,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[166].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*IMUOrientationRequest); i {
+			switch v := v.(*IMUAngularVelocityRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13485,7 +13638,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[167].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*IMUOrientationResponse); i {
+			switch v := v.(*IMUAngularVelocityResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13497,7 +13650,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[168].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GPSLocationRequest); i {
+			switch v := v.(*IMUOrientationRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13509,7 +13662,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[169].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GPSLocationResponse); i {
+			switch v := v.(*IMUOrientationResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13521,7 +13674,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[170].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GPSAltitudeRequest); i {
+			switch v := v.(*GPSLocationRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13533,7 +13686,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[171].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GPSAltitudeResponse); i {
+			switch v := v.(*GPSLocationResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13545,7 +13698,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[172].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GPSSpeedRequest); i {
+			switch v := v.(*GPSAltitudeRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13557,7 +13710,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[173].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GPSSpeedResponse); i {
+			switch v := v.(*GPSAltitudeResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13569,7 +13722,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[174].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GPSAccuracyRequest); i {
+			switch v := v.(*GPSSpeedRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13581,7 +13734,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[175].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GPSAccuracyResponse); i {
+			switch v := v.(*GPSSpeedResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13593,7 +13746,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[176].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Matrix); i {
+			switch v := v.(*GPSAccuracyRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13605,7 +13758,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[177].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ForceMatrixMatrixRequest); i {
+			switch v := v.(*GPSAccuracyResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13617,7 +13770,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[178].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ForceMatrixMatrixResponse); i {
+			switch v := v.(*Matrix); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13629,7 +13782,7 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[179].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ForceMatrixSlipDetectionRequest); i {
+			switch v := v.(*ForceMatrixMatrixRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13641,6 +13794,30 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[180].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ForceMatrixMatrixResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_proto_api_v1_robot_proto_msgTypes[181].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ForceMatrixSlipDetectionRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_proto_api_v1_robot_proto_msgTypes[182].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ForceMatrixSlipDetectionResponse); i {
 			case 0:
 				return &v.state
@@ -13652,7 +13829,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[196].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[198].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*InputControllerEventStreamRequest_Events); i {
 			case 0:
 				return &v.state
@@ -13672,7 +13849,7 @@ func file_proto_api_v1_robot_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_proto_api_v1_robot_proto_rawDesc,
 			NumEnums:      2,
-			NumMessages:   197,
+			NumMessages:   199,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

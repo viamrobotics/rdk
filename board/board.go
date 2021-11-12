@@ -89,15 +89,21 @@ type SPIHandle interface {
 
 // I2C represents a shareable I2C bus on the board.
 type I2C interface {
-	// OpenHandle locks the shared bus and returns a handle interface that MUST be closed when done.
-	OpenHandle() (I2CHandle, error)
+	// OpenHandle locks returns a handle interface that MUST be closed when done.
+	// you cannot have 2 open for the same addr
+	OpenHandle(addr byte) (I2CHandle, error)
 }
 
 // I2CHandle is similar to an io handle. It MUST be closed to release the bus.
 type I2CHandle interface {
-	Write(ctx context.Context, addr byte, tx []byte) error
+	Write(ctx context.Context, tx []byte) error
+	Read(ctx context.Context, count int) ([]byte, error)
 
-	Read(ctx context.Context, addr byte, count int) ([]byte, error)
+	ReadByteData(ctx context.Context, register byte) (byte, error)
+	WriteByteData(ctx context.Context, register byte, data byte) error
+
+	ReadWordData(ctx context.Context, register byte) (uint16, error)
+	WriteWordData(ctx context.Context, register byte, data uint16) error
 
 	// Close closes the handle and releases the lock on the bus.
 	Close() error
