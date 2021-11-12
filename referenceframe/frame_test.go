@@ -123,21 +123,7 @@ func TestSerializationStatic(t *testing.T) {
 	f2, err := UnmarshalFrameJSON(data)
 	test.That(t, err, test.ShouldBeNil)
 
-	sf, ok := f2.(*staticFrame)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	ff := f.(*staticFrame)
-	test.That(t, sf.name, test.ShouldResemble, ff.name)
-
-	test.That(t, sf.transform.Point().X, test.ShouldAlmostEqual, ff.transform.Point().X)
-	test.That(t, sf.transform.Point().Y, test.ShouldAlmostEqual, ff.transform.Point().Y)
-	test.That(t, sf.transform.Point().Z, test.ShouldAlmostEqual, ff.transform.Point().Z)
-
-	test.That(t, sf.transform.Orientation().AxisAngles().RX, test.ShouldAlmostEqual, ff.transform.Orientation().AxisAngles().RX)
-	test.That(t, sf.transform.Orientation().AxisAngles().RY, test.ShouldAlmostEqual, ff.transform.Orientation().AxisAngles().RY)
-	test.That(t, sf.transform.Orientation().AxisAngles().RZ, test.ShouldAlmostEqual, ff.transform.Orientation().AxisAngles().RZ)
-
-	test.That(t, sf.transform.Orientation().AxisAngles().Theta, test.ShouldAlmostEqual, ff.transform.Orientation().AxisAngles().Theta)
+	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
 }
 
 func TestSerializationTranslation(t *testing.T) {
@@ -150,6 +136,7 @@ func TestSerializationTranslation(t *testing.T) {
 	f2, err := UnmarshalFrameJSON(data)
 	test.That(t, err, test.ShouldBeNil)
 
+	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
 	test.That(t, f2, test.ShouldResemble, f)
 }
 
@@ -163,5 +150,6 @@ func TestSerializationRotations(t *testing.T) {
 	f2, err := UnmarshalFrameJSON(data)
 	test.That(t, err, test.ShouldBeNil)
 
+	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
 	test.That(t, f2, test.ShouldResemble, f)
 }
