@@ -23,6 +23,18 @@ type Pose interface {
 	Orientation() Orientation
 }
 
+// PoseMap encodes the orientation interface to something serializable and human readable
+func PoseMap(p Pose) (map[string]interface{}, error) {
+	orientation, err := OrientationMap(p.Orientation().AxisAngles())
+	if err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{
+		"point":       p.Point(),
+		"orientation": orientation,
+	}, nil
+}
+
 // NewZeroPose returns a pose at (0,0,0) with same orientation as whatever frame it is placed in.
 func NewZeroPose() Pose {
 	return newDualQuaternion()
