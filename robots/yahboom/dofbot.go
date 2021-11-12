@@ -29,8 +29,8 @@ import (
 //go:embed dofbot.json
 var modeljson []byte
 
-func dofbotModel() (*kinematics.Model, error) {
-	return kinematics.ParseJSON(modeljson, "yahboom-dofbot")
+func dofbotModel() (*frame.Model, error) {
+	return frame.ParseJSON(modeljson, "yahboom-dofbot")
 }
 
 type jointConfig struct {
@@ -95,13 +95,13 @@ func init() {
 
 type dofBot struct {
 	handle board.I2CHandle
-	model  *kinematics.Model
+	model  *frame.Model
 	ik     kinematics.InverseKinematics
 	mu     sync.Mutex
 	muMove sync.Mutex
 }
 
-func createDofBotSolver(logger golog.Logger) (*kinematics.Model, kinematics.InverseKinematics, error) {
+func createDofBotSolver(logger golog.Logger) (*frame.Model, kinematics.InverseKinematics, error) {
 	model, err := dofbotModel()
 	if err != nil {
 		return nil, nil, err
@@ -285,7 +285,7 @@ func (a *dofBot) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 }
 
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem
-func (a *dofBot) ModelFrame() *kinematics.Model {
+func (a *dofBot) ModelFrame() *frame.Model {
 	return a.model
 }
 
