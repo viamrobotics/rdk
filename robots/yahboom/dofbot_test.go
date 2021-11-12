@@ -8,7 +8,8 @@ import (
 
 	"go.viam.com/test"
 
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	componentpb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/referenceframe"
 )
 
@@ -28,7 +29,7 @@ func TestDofBotIK(t *testing.T) {
 	_, ik, err := createDofBotSolver(logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	goal := pb.Pose{X: 206.59, Y: -1.57, Z: 253.05, Theta: -180, OX: -.53, OY: 0, OZ: .85}
-	_, err = ik.Solve(ctx, &goal, referenceframe.JointPosToInputs(&pb.JointPositions{Degrees: make([]float64, 5)}))
+	goal := commonpb.Pose{X: 206.59, Y: -1.57, Z: 253.05, Theta: -180, OX: -.53, OY: 0, OZ: .85}
+	_, err = ik.Solve(ctx, &goal, referenceframe.JointPosToInputs(&componentpb.ArmJointPositions{Degrees: make([]float64, 5)}))
 	test.That(t, err, test.ShouldBeNil)
 }
