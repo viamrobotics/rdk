@@ -76,6 +76,7 @@ type eva struct {
 
 	moveLock *sync.Mutex
 	logger   golog.Logger
+	model    *kinematics.Model
 	ik       kinematics.InverseKinematics
 
 	frameJSON []byte
@@ -311,8 +312,8 @@ func (e *eva) apiUnlock(ctx context.Context) {
 }
 
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem
-func (e *eva) ModelFrame() []byte {
-	return e.frameJSON
+func (e *eva) ModelFrame() *kinematics.Model {
+	return e.model
 }
 
 // EvaModel() returns the kinematics model of the Eva, also has all Frame information.
@@ -339,6 +340,7 @@ func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm
 		token:     attrs.String("token"),
 		logger:    logger,
 		moveLock:  &sync.Mutex{},
+		model:     model,
 		ik:        ik,
 		frameJSON: evamodeljson,
 	}
