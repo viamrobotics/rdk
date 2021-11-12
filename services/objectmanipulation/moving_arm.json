@@ -1,0 +1,26 @@
+{
+    "services": [
+        {
+            "name": "frame_system",
+            "type": "frame_system"
+        }
+    ],
+    "components": [
+        {
+            "model": "fake",
+            "name": "pieceGripper",
+            "type": "gripper",
+            "frame" : {
+                "parent" : "pieceArm"
+            }
+        },
+        {
+            "model": "fake_ik",
+            "name": "pieceArm",
+            "type": "arm",
+            "frame" : {
+                "parent" : "world"
+            }
+        }
+    ]
+}

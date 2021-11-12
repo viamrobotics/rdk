@@ -578,8 +578,34 @@
 
                   },
                   doPCDGrab : function(){
-                      console.log(theData.pcdClick.path);
-                      fetch(theData.pcdClick.path).then(console.log);
+                      let gripperName = theData.status.grippersMap[0][0];
+                      let armName = theData.status.armsMap[0].name;
+                      let cameraName = pcdGlobal.cameraName;
+                      let cameraPointX = theData.pcdClick.x;
+                      let cameraPointY = theData.pcdClick.y;
+                      let cameraPointZ = theData.pcdClick.z;
+
+                      let req = new robotApi.ObjectManipulationServiceDoGrabRequest();
+                      let cameraPoint = new robotApi.Vector3();
+                      cameraPoint.setX(cameraPointX);
+                      cameraPoint.setY(cameraPointY);
+                      cameraPoint.setZ(cameraPointZ);
+
+                      req.setArmName(armName);
+                      req.setCameraName(cameraName);
+                      req.setCameraPoint(cameraPoint);
+                      req.setGripperName(gripperName);
+                      console.log("making grab attempt");
+                      console.log(gripperName);
+
+                      robotService.objectManipulationServiceDoGrab(req, {}, 
+                        (err, resp) => {
+                          grpcCallback(err, resp);
+                          if (err) {
+                            return Promise.reject(err);
+                          }
+                          return Promise.resolve(resp).then(console.log);
+                      })
                   },
                   findSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
                       theData.pcdClick.calculatingSegments = true;
@@ -842,14 +868,9 @@
       }
 
       function setPoint(point) {
-          var path = "/grab_at_camera_position/"
-              + pcdGlobal.cameraName + "/"
-              + r(point.x) + "/" + r(point.y) + "/" + r(point.z);
-
           theData.pcdClick.x = r(point.x);
           theData.pcdClick.y = r(point.y);
           theData.pcdClick.z = r(point.z);
-          theData.pcdClick.path = path;
           pcdGlobal.sphere.position.copy(point);
       }
 
@@ -1340,9 +1361,6 @@
                 <tr>
                   <th>Z</th>
                   <td>${pcdClick.z}</td>
-                </tr>
-                <tr>
-                  <td colspan=2>${pcdClick.path}</td>
                 </tr>
                 <tr>
                   <td colspan=2>

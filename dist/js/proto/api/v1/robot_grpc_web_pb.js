@@ -4462,6 +4462,67 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.navigationServiceRemoveWa
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.ObjectManipulationServiceDoGrabRequest,
+ *   !proto.proto.api.v1.ObjectManipulationServiceDoGrabResponse>}
+ */
+const methodDescriptor_RobotService_ObjectManipulationServiceDoGrab = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/ObjectManipulationServiceDoGrab',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.ObjectManipulationServiceDoGrabRequest,
+  proto.proto.api.v1.ObjectManipulationServiceDoGrabResponse,
+  /**
+   * @param {!proto.proto.api.v1.ObjectManipulationServiceDoGrabRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ObjectManipulationServiceDoGrabResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.ObjectManipulationServiceDoGrabRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.ObjectManipulationServiceDoGrabResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ObjectManipulationServiceDoGrabResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.objectManipulationServiceDoGrab =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ObjectManipulationServiceDoGrab',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ObjectManipulationServiceDoGrab,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.ObjectManipulationServiceDoGrabRequest} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.ObjectManipulationServiceDoGrabResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.objectManipulationServiceDoGrab =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ObjectManipulationServiceDoGrab',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ObjectManipulationServiceDoGrab);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.v1.IMUAngularVelocityRequest,
  *   !proto.proto.api.v1.IMUAngularVelocityResponse>}
  */
