@@ -95,24 +95,14 @@ var checkSeq = []float64{0.5, 0.333, 0.25, 0.17}
 // constraintHandler is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse
 type constraintHandler struct {
-	constraints map[string]func(*ConstraintInput) (bool, float64)
-}
-
-// TODO: add spatial transforms
-func interpolateInput(ci *ConstraintInput, by1, by2 float64) (*ConstraintInput, bool){
-	new := &ConstraintInput{}
-	new.frame = ci.frame
-	new.startInput = frame.InterpolateInputs(ci.startInput, ci.endInput, by1)
-	new.endInput = frame.InterpolateInputs(ci.startInput, ci.endInput, by2)
-	
-	return new, true
+	constraints map[string]Constraint
 }
 
 // AddConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
 // if the given position satisfies the constraint.
-func (c *constraintHandler) AddConstraint(name string, cons func(*ConstraintInput) (bool, float64)) {
+func (c *constraintHandler) AddConstraint(name string, cons Constraint) {
 	if c.constraints == nil {
-		c.constraints = map[string]func(*ConstraintInput) (bool, float64){}
+		c.constraints = map[string]Constraint{}
 	}
 	c.constraints[name] = cons
 }
@@ -366,7 +356,7 @@ func NewPoseFlexOVGradient(goal spatial.Pose, alpha float64) func(spatial.Pose, 
 // NewPlaneConstraintAndGradient is used to define a constraint space for a plane, and will return 1) a constraint
 // function which will determine whether a point is on the plane and in a valid orientation, and 2) a gradient function
 // which will bring a pose into the valid constraint space. The plane normal is assumed to point towards the valid area
-func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector) (func(*ConstraintInput) (bool, float64), func(spatial.Pose, spatial.Pose) float64) {
+func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector) (Constraint, func(spatial.Pose, spatial.Pose) float64) {
 	
 	// arc length from plane-perpendicular vector allowable for writing
 	writingAngle := 0.3
@@ -414,7 +404,7 @@ func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector) (func(*ConstraintInput) 
 // NewLineConstraintAndGradient is used to define a constraint space for a line, and will return 1) a constraint
 // function which will determine whether a point is on the line and in a valid orientation, and 2) a gradient function
 // which will bring a pose into the valid constraint space. The OV passed in defines the center of the valid orientation area.
-func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, ov *spatial.OrientationVector) (func(*ConstraintInput) (bool, float64), func(spatial.Pose, spatial.Pose) float64) {
+func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, ov *spatial.OrientationVector) (Constraint, func(spatial.Pose, spatial.Pose) float64) {
 	
 	// arc length from plane-perpendicular vector allowable for writing
 	writingAngle := 0.2
@@ -471,6 +461,7 @@ func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, ov *spatial.OrientationVec
 	return validFunc, gradFunc
 }
 
+// Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
 func resolveInput(ci *ConstraintInput) (*ConstraintInput, error) {
 	if ci.startPos == nil {
 		if ci.frame != nil {
@@ -505,4 +496,14 @@ func resolveInput(ci *ConstraintInput) (*ConstraintInput, error) {
 		}
 	}
 	return ci, nil
+}
+
+// TODO: add spatial transforms
+func interpolateInput(ci *ConstraintInput, by1, by2 float64) (*ConstraintInput, bool){
+	new := &ConstraintInput{}
+	new.frame = ci.frame
+	new.startInput = frame.InterpolateInputs(ci.startInput, ci.endInput, by1)
+	new.endInput = frame.InterpolateInputs(ci.startInput, ci.endInput, by2)
+	
+	return new, true
 }
