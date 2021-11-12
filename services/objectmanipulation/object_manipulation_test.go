@@ -26,23 +26,29 @@ func TestDoGrabFailures(t *testing.T) {
 	cfgService := config.Service{Name: "objectmanipulation", Type: objectmanipulation.Type}
 	logger := golog.NewTestLogger(t)
 
+	var r *inject.Robot
+	var _gripper *inject.Gripper
+	var _arm *inject.Arm
+
 	// fails on not finding gripper
-	r := &inject.Robot{}
+
+	r = &inject.Robot{}
 	r.GripperByNameFunc = func(string) (gripper.Gripper, bool) {
 		return nil, false
 	}
-	mgs, _ := objectmanipulation.New(context.Background(), r, cfgService, logger)
+	mgs, err := objectmanipulation.New(context.Background(), r, cfgService, logger)
+	test.That(t, err, test.ShouldBeNil)
 
-	_, err := mgs.DoGrab(context.Background(), "fakeGripper", "fakeArm", "fakeCamera", 10.0, 10.0, 10.0)
+	_, err = mgs.DoGrab(context.Background(), "fakeGripper", "fakeArm", "fakeCamera", 10.0, 10.0, 10.0)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// fails when gripper fails to open
 	r = &inject.Robot{}
-	_arm := &inject.Arm{}
+	_arm = &inject.Arm{}
 	r.ArmByNameFunc = func(name string) (arm.Arm, bool) {
 		return _arm, true
 	}
-	_gripper := &inject.Gripper{}
+	_gripper = &inject.Gripper{}
 	_gripper.OpenFunc = func(ctx context.Context) error {
 		return errors.New("failure to open")
 	}
@@ -78,31 +84,35 @@ func TestDoGrab(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cfgService := config.Service{Name: "objectmanipulation", Type: objectmanipulation.Type}
 
-	r := &inject.Robot{}
+	var r *inject.Robot
+	var _gripper *inject.Gripper
+	var _arm *inject.Arm
 
-	g := &inject.Gripper{}
-	g.OpenFunc = func(ctx context.Context) error {
+	r = &inject.Robot{}
+
+	_gripper = &inject.Gripper{}
+	_gripper.OpenFunc = func(ctx context.Context) error {
 		return nil
 	}
-	g.GrabFunc = func(ctx context.Context) (bool, error) {
+	_gripper.GrabFunc = func(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	a := &inject.Arm{}
-	a.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
+	_arm = &inject.Arm{}
+	_arm.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
 		return &pb.JointPositions{
 			Degrees: []float64{0, 0, 0, 0, 0, 0},
 		}, nil
 	}
-	a.MoveToJointPositionsFunc = func(ctx context.Context, pos *pb.JointPositions) error {
+	_arm.MoveToJointPositionsFunc = func(ctx context.Context, pos *pb.JointPositions) error {
 		return nil
 	}
 
 	r.ArmByNameFunc = func(name string) (arm.Arm, bool) {
-		return a, true
+		return _arm, true
 	}
 	r.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
-		return g, true
+		return _gripper, true
 	}
 	r.LoggerFunc = func() golog.Logger {
 		return logger
@@ -114,7 +124,8 @@ func TestDoGrab(t *testing.T) {
 	fs := referenceframe.NewEmptySimpleFrameSystem("fakeGripper")
 
 	pose := spatialmath.NewPoseFromPoint(r3.Vector{5, 0, 5})
-	gripperFrame, _ := referenceframe.NewStaticFrame("fakeGripper", pose)
+	gripperFrame, err := referenceframe.NewStaticFrame("fakeGripper", pose)
+	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gripperFrame, fs.World())
 	r.FrameSystemFunc = func(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
 		return fs, nil
@@ -123,11 +134,11 @@ func TestDoGrab(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	grabbed, err := mgs.DoGrab(context.Background(), gripperName, armName, "world", 500.0, 0.0, 500.0)
 	test.That(t, grabbed, test.ShouldBeFalse)
-	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeError, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics"))
 
 	fs = referenceframe.NewEmptySimpleFrameSystem("fakeGripper")
-	gripperFrame, _ = kinematics.ParseJSONFile(utils.ResolveFile("robots/fake/arm_model.json"), "fakeGripper")
+	gripperFrame, err = kinematics.ParseJSONFile(utils.ResolveFile("robots/fake/arm_model.json"), "fakeGripper")
+	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gripperFrame, fs.World())
 	r.FrameSystemFunc = func(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
 		return fs, nil
