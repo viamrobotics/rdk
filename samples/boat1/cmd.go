@@ -81,7 +81,7 @@ func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 
 // MoveArc TODO
 func (b *Boat) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) (int, error) {
-	return 1, nil
+	return 1, errors.New("boat can't move in arc yet")
 }
 
 // Spin TODO

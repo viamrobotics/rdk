@@ -1,0 +1,64 @@
+{
+    "components" : [
+        { "name" : "front-raw",
+          "type" : "camera",
+          "model" : "intel",
+          "host" : "localhost",
+          "port" : 8181,
+          "attributes" : {
+	          "num" : "1",
+              "hide" : true
+          }
+        },
+        { "name" : "front",
+          "type" : "camera",
+          "model" : "rotate",
+          "attributes" : {
+              "source" : "front-raw"
+          }
+        },
+
+	    { "name" : "front-overlay",
+          "type" : "camera",
+          "model" : "overlay",
+          "attributes" : {
+              "source" : "front"
+          }
+        },
+        { "name" : "back",
+          "type" : "camera",
+          "model" : "intel",
+          "host" : "localhost",
+          "port" : 8181,
+          "attributes" : {
+              "num" : "0"
+          }
+        },
+        {
+            "name": "lidarOnBase",
+            "type": "lidar",
+            "model": "grpc",
+            "host": "127.0.0.1",
+            "port": 4444
+
+        }
+    ],
+    "remotes": [
+        {
+            "name": "pi",
+            "address": "pi64a.local:8080"
+        }
+    ],
+    "processes": [
+        {
+            "name": "/home/erh/work/rplidar/main",
+            "cwd" : "/home/erh/work/rplidar",
+            "log": true
+        },
+        {
+            "name": "/home/erh/core/etc/camera_servers/intelrealserver",
+            "log": true
+        }
+
+    ]
+}
