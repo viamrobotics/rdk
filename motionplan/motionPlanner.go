@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"math"
-	//~ "fmt"
-	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -22,19 +20,23 @@ type MotionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
 	Plan(context.Context, *pb.ArmPosition, []frame.Input) ([][]frame.Input, error)
-	AddConstraint(string, func(constraintInput) (bool, float64))
+	AddConstraint(string, func(*ConstraintInput) (bool, float64))
 	RemoveConstraint(string)
 	Constraints() []string
+	CheckConstraints(*ConstraintInput) (bool, float64)
+	Resolution() float64 // how narrowly to check for constraints
 	Frame() frame.Frame
 }
 
-// NewLinearMotionPlanner returns a linearMotionPlanner
+// NewLinearMotionPlanner returns a linearMotionPlanner. This does a linear IK interpolation from start to goal.
+// Assuming a direct motion is possible, it should find a valid path. It cannot navigate around obstacles.
+// Probably cBiRRT should be used instead- it should give nearly as good results
 func NewLinearMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (MotionPlanner, error) {
 	ik, err := kinematics.CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
 		return nil, err
 	}
-	mp := &linearMotionPlanner{solver: ik, frame: frame, idealMovementScore: 0.3, logger: logger}
+	mp := &linearMotionPlanner{solver: ik, frame: frame, idealMovementScore: 0.3, stepSize: 2., logger: logger}
 	mp.visited = map[r3.Vector]bool{}
 	mp.AddConstraint("interpolationConstraint", NewInterpolatingConstraint())
 	mp.AddConstraint("jointSwingScorer", NewJointScorer())
@@ -48,6 +50,7 @@ type linearMotionPlanner struct {
 	frame   frame.Frame
 	logger        golog.Logger
 	idealMovementScore float64
+	stepSize          float64
 	visited  map[r3.Vector]bool
 }
 
@@ -55,12 +58,11 @@ func (mp *linearMotionPlanner) Frame() frame.Frame {
 	return mp.frame
 }
 
-func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, seed []frame.Input) ([][]frame.Input, error) {
-	return mp.stepLinearPlan(ctx, goal, seed)
+func (mp *linearMotionPlanner) Resolution() float64 {
+	return mp.stepSize
 }
 
-
-func (mp *linearMotionPlanner) stepLinearPlan(ctx context.Context, goal *pb.ArmPosition, seed []frame.Input) ([][]frame.Input, error) {
+func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *pb.ArmPosition, seed []frame.Input) ([][]frame.Input, error) {
 	var inputSteps [][]frame.Input
 
 	seedPos, err := mp.frame.Transform(seed)
@@ -71,11 +73,8 @@ func (mp *linearMotionPlanner) stepLinearPlan(ctx context.Context, goal *pb.ArmP
 
 	// First, we break down the spatial distance and rotational distance from seed to goal, and determine the number
 	// of steps needed to get from one to the other
-	nSteps := getSteps(seedPos, goalPos)
+	nSteps := getSteps(seedPos, goalPos, mp.stepSize)
 
-	// Intermediate pos for constraint checking
-	lastPos := seedPos
-	
 	mp.logger.Debug("starting plan")
 
 	// Create the required steps. nSteps is guaranteed to be at least 1.
@@ -90,91 +89,18 @@ func (mp *linearMotionPlanner) stepLinearPlan(ctx context.Context, goal *pb.ArmP
 
 		var step []frame.Input
 		
-		solutionGen := make(chan []frame.Input)
-		ikErr := make(chan error)
-		ctxWithCancel, cancel := context.WithCancel(ctx)
-		var activeSolver sync.WaitGroup
-		activeSolver.Add(1)
-		
-		// Spawn the IK solver to generate solutions until done
-		go func(){
-			defer activeSolver.Done()
-			defer close(ikErr)
-			ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, intPos, seed)
-		}()
-		
-		solutions := map[float64][]frame.Input{}
-		
-		done := false
-		solverReturned := false
-		
-		for !done {
-			select {
-			case <-ctx.Done():
-				done = true
-				break
-			case step = <- solutionGen:
-				cPass, cScore := mp.CheckConstraints(constraintInput{
-					lastPos,
-					intPos,
-					seed,
-					step,
-					mp.frame})
-				
-				
-				if cPass {
-					// collision check if supported
-					// TODO: do a thing to get around the obstruction
-					if cScore < mp.idealMovementScore {
-						// If the movement scores SO well, we will perform that movement immediately rather than
-						// trying for a better one
-						solutions = map[float64][]frame.Input{}
-						solutions[cScore] = step
-						mp.logger.Debug("good solution, stopping early")
-						done = true
-					}else{
-						solutions[cScore] = step
-					}
-				}
-				// Skip the return check below until we have nothing left to read from solutionGen
-				continue
-			default:
-			}
-			
-			select{
-			case err = <- ikErr:
-				// If we have a return from the IK solver, there are no more solutions, so we finish processing above
-				// until we've drained the channel
-				mp.logger.Debug("got IK return", err)
-				done = true
-				solverReturned = true
-			default:
-			}
-		}
-		mp.logger.Debug("done, cancelling")
-		cancel()
-		if !solverReturned{
-			err = <- ikErr
-			mp.logger.Debug("got IK return", err)
-		}
-		mp.logger.Debug("done, cancelling")
-		activeSolver.Wait()
-		if len(solutions) == 0 {
-			return nil, errors.New("could not solve position within constraints")
-		}
+		solutions, err := getSolutions(ctx, -1, mp.idealMovementScore, mp.solver, spatial.PoseToArmPos(intPos), seed, mp)
 		if err != nil {
-			mp.logger.Debug("got solution but IK returned ignorable error ", err)
+			return nil, err
 		}
-		close(solutionGen)
 		
 		minScore := math.Inf(1)
-		for score, solution := range solutions {
+		for score, sol := range solutions {
 			if score < minScore {
-				step = solution
+				step = sol
 			}
 		}
 
-		lastPos = intPos
 		seed = step
 		// Append deep copy of result to inputSteps
 		inputSteps = append(inputSteps, append([]frame.Input{}, step...))
@@ -185,14 +111,13 @@ func (mp *linearMotionPlanner) stepLinearPlan(ctx context.Context, goal *pb.ArmP
 
 // getSteps will determine the number of steps which should be used to get from the seed to the goal.
 // The returned value is guaranteed to be at least 1.
-func getSteps(seedPos, goalPos spatial.Pose) int {
-	maxLinear := 2.  // max mm movement per step
-	maxDegrees := 2. // max R4AA degrees per step
+// stepSize represents both the max mm movement per step, and max R4AA degrees per step
+func getSteps(seedPos, goalPos spatial.Pose, stepSize float64) int {
 
 	mmDist := seedPos.Point().Distance(goalPos.Point())
 	rDist := spatial.OrientationBetween(seedPos.Orientation(), goalPos.Orientation()).AxisAngles()
 
-	nSteps := math.Max(math.Abs(mmDist/maxLinear), math.Abs(utils.RadToDeg(rDist.Theta)/maxDegrees))
+	nSteps := math.Max(math.Abs(mmDist/stepSize), math.Abs(utils.RadToDeg(rDist.Theta)/stepSize))
 	return int(nSteps) + 1
 }
 
@@ -252,12 +177,12 @@ func fixOvIncrement(pos, seed *pb.ArmPosition) *pb.ArmPosition {
 }
 
 
-// getSolutions will initiate an IK solver for the given position and seed, collect ALL solutions, and return them scored by constraints.
-// TODO: currently at least one constraint is necessary, and there's no way to short-circuit the solving.
-func getSolutions(ctx context.Context, f frame.Frame, solver kinematics.InverseKinematics, goal *pb.ArmPosition, seed []frame.Input, mp constraintHandler) (map[float64][]frame.Input, error) {
+// getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
+// If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
+// If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
+func getSolutions(ctx context.Context, maxSolutions int, minScore float64, solver kinematics.InverseKinematics, goal *pb.ArmPosition, seed []frame.Input, mp MotionPlanner) (map[float64][]frame.Input, error) {
 	
-	
-	seedPos, err := f.Transform(seed)
+	seedPos, err := mp.Frame().Transform(seed)
 	if err != nil {
 		return nil, err
 	}
@@ -275,24 +200,33 @@ func getSolutions(ctx context.Context, f frame.Frame, solver kinematics.InverseK
 	
 	solutions := map[float64][]frame.Input{}
 	
-	// Solve the IK solver
+	// Solve the IK solver. Loop labels are required because `break` etc in a `select` will break only the `select`.
 	IK:
 	for {
 		select {
 		case <-ctx.Done():
 			return nil, errors.New("context Done signal")
 		case step := <- solutionGen:
-			cPass, cScore := mp.CheckConstraints(constraintInput{
+			cPass, cScore := mp.CheckConstraints(&ConstraintInput{
 				seedPos,
 				goalPos,
 				seed,
 				step,
-				f})
+				mp.Frame()})
 			
 			if cPass {
-				// collision check if supported
-				// TODO: do a thing to get around the obstruction
+				if cScore < minScore && minScore >= 0 {
+					solutions = map[float64][]frame.Input{}
+					solutions[cScore] = step
+					// good solution, stopping early
+					break IK
+				}
+				
 				solutions[cScore] = step
+				if len(solutions) >= maxSolutions && maxSolutions > 0 {
+					// sufficient solutions found, stopping early
+					break IK
+				}
 			}
 			// Skip the return check below until we have nothing left to read from solutionGen
 			continue IK

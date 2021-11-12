@@ -2,7 +2,7 @@ package motionplan
 
 import (
 	"math"
-	"fmt"
+	//~ "fmt"
 	"errors"
 
 	"github.com/golang/geo/r3"
@@ -11,7 +11,7 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 )
 
-type constraintInput struct {
+type ConstraintInput struct {
 	startPos   spatial.Pose
 	endPos     spatial.Pose
 	startInput []frame.Input
@@ -19,29 +19,100 @@ type constraintInput struct {
 	frame      frame.Frame
 }
 
+type Constraint interface{
+	// A bool returning whether the given input is known to be good, and a float representing how far the input is
+	// from "ideal". 
+	Valid(*ConstraintInput) (bool, float64)
+}
+
+// CheckConstraintPath will interpolate between two joint inputs and check that `true` is returned for all constraints
+// in all intermediate positions. If failing on an intermediate position, it will return that position.
+func CheckConstraintPath(mp MotionPlanner, ci *ConstraintInput) (bool, *ConstraintInput) {
+	//~ fmt.Println("path checking", ci)
+	var seedPos, goalPos spatial.Pose
+	var err error
+	if ci.startPos != nil {
+		seedPos = ci.startPos
+	}else if ci.startInput != nil {
+		seedPos, err = ci.frame.Transform(ci.startInput)
+		if err != nil {
+			return false, nil
+		}
+		ci.startPos = seedPos
+	}else{
+		return false, nil
+	}
+	if ci.endPos != nil {
+		goalPos = ci.endPos
+	}else if ci.startInput != nil {
+		goalPos, err = ci.frame.Transform(ci.endInput)
+		
+		if err != nil {
+			return false, nil
+		}
+		ci.endPos = goalPos
+	}else{
+		return false, nil
+	}
+	steps := getSteps(seedPos, goalPos, mp.Resolution())
+	
+	lastInterp := 0.
+	
+	for i := 1; i <= steps; i++ {
+		interp := float64(i)/float64(steps)
+		interpC, ok := interpolateInput(ci, lastInterp, interp)
+		lastInterp = interp
+		if !ok {
+			return false, nil
+		}
+		
+		pass, _ := mp.CheckConstraints(interpC)
+		if !pass {
+			if i > 1 {
+				return false, interpC
+			}else{
+				// fail on start pos
+				return false, nil
+			}
+		}
+	}
+	// extra step to check the end
+	interpC, ok := interpolateInput(ci, 1, 1)
+	if !ok {
+		return false, nil
+	}
+	
+	pass, _ := mp.CheckConstraints(interpC)
+	if !pass {
+		return false, interpC
+	}
+	
+	return true, nil
+}
+
 var checkSeq = []float64{0.5, 0.333, 0.25, 0.17}
 
 // constraintHandler is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse
 type constraintHandler struct {
-	constraints map[string]func(constraintInput) (bool, float64)
+	constraints map[string]func(*ConstraintInput) (bool, float64)
 }
 
 // TODO: add spatial transforms
-func interpolateInput(ci constraintInput, by float64) (constraintInput, bool){
-	var new constraintInput
+func interpolateInput(ci *ConstraintInput, by1, by2 float64) (*ConstraintInput, bool){
+	new := &ConstraintInput{}
 	new.frame = ci.frame
-	new.startInput = frame.InterpolateInputs(ci.startInput, ci.endInput, by)
-	new.endInput = ci.endInput
+	new.startInput = frame.InterpolateInputs(ci.startInput, ci.endInput, by1)
+	new.endInput = frame.InterpolateInputs(ci.startInput, ci.endInput, by2)
 	
 	return new, true
 }
 
 // AddConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
 // if the given position satisfies the constraint.
-func (c *constraintHandler) AddConstraint(name string, cons func(constraintInput) (bool, float64)) {
+func (c *constraintHandler) AddConstraint(name string, cons func(*ConstraintInput) (bool, float64)) {
 	if c.constraints == nil {
-		c.constraints = map[string]func(constraintInput) (bool, float64){}
+		c.constraints = map[string]func(*ConstraintInput) (bool, float64){}
 	}
 	c.constraints[name] = cons
 }
@@ -61,16 +132,17 @@ func (c *constraintHandler) Constraints() []string {
 }
 
 // CheckConstraints will check a given input against all constraints
-func (c *constraintHandler) CheckConstraints(cInput constraintInput) (bool, float64) {
+func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, float64) {
 	score := 0.
 	
 	//~ fmt.Println("checking", cInput)
 	
-	for name, cFunc := range c.constraints {
+	//~ for name, cFunc := range c.constraints {
+	for _, cFunc := range c.constraints {
 		pass, cScore := cFunc(cInput)
 		//~ fmt.Println(name, pass)
 		if !pass {
-			fmt.Println(name, "failed, off by", cScore)
+			//~ fmt.Println(name, "failed, off by", cScore)
 			return false, math.Inf(1)
 		}
 		score += cScore
@@ -78,68 +150,11 @@ func (c *constraintHandler) CheckConstraints(cInput constraintInput) (bool, floa
 	return true, score
 }
 
-// CheckConstraintPath will interpolate between two joint inputs and check that `true` is returned for all constraints
-// in all intermediate positions
-func (c *constraintHandler) CheckConstraintPath(ci constraintInput) bool {
-	//~ fmt.Println("path checking", ci)
-	var seedPos, goalPos spatial.Pose
-	var err error
-	if ci.startPos != nil {
-		seedPos = ci.startPos
-	}else if ci.startInput != nil {
-		seedPos, err = ci.frame.Transform(ci.startInput)
-		if err != nil {
-			return false
-		}
-		ci.startPos = seedPos
-	}else{
-		return false
-	}
-	if ci.endPos != nil {
-		goalPos = ci.endPos
-	}else if ci.startInput != nil {
-		goalPos, err = ci.frame.Transform(ci.endInput)
-		
-		if err != nil {
-			return false
-		}
-		ci.endPos = goalPos
-	}else{
-		return false
-	}
-	steps := getSteps(seedPos, goalPos)
-	
-	fmt.Println("steps:", steps, "from", spatial.PoseToArmPos(seedPos), "to", spatial.PoseToArmPos(goalPos))
-	
-	for i := 0; i < steps; i++ {
-		interp := float64(i)/float64(steps)
-		interpC, ok := interpolateInput(ci, interp)
-		if !ok {
-			return false
-		}
-		
-		//~ fmt.Println("interp", interpC)
-		pass, _ := c.CheckConstraints(interpC)
-		if !pass {
-			return false
-		}
-		
-		//~ for _, cFunc := range c.constraints {
-			//~ pass, _ := cFunc(interpC)
-			//~ if !pass {
-				//~ return false
-			//~ }
-		//~ }
-	}
-	return true
-}
-
-func interpolationCheck(cInput constraintInput, s float64) bool {
+func interpolationCheck(cInput *ConstraintInput, s float64) bool {
 	epsilon := 0.1
 	
 	iPos, err := cInput.frame.Transform(frame.InterpolateInputs(cInput.startInput, cInput.endInput, s))
 	if err != nil {
-		fmt.Println("err")
 		return false
 	}
 	interp := spatial.Interpolate(cInput.startPos, cInput.endPos, s)
@@ -153,8 +168,8 @@ func interpolationCheck(cInput constraintInput, s float64) bool {
 // NewInterpolatingConstraint creates a constraint function from an arbitrary function that will decide if a given pose is valid.
 // This function will check the given function at each point in checkSeq, and 1-point. If all constraints are satisfied,
 // it will return true. If any intermediate pose violates the constraint, will return false. 
-func NewInterpolatingConstraint() func(constraintInput) (bool, float64) {
-	return func(cInput constraintInput) (bool, float64){
+func NewInterpolatingConstraint() func(*ConstraintInput) (bool, float64) {
+	return func(cInput *ConstraintInput) (bool, float64){
 		for _, s := range checkSeq {
 			ok := interpolationCheck(cInput, s)
 			if !ok {
@@ -173,8 +188,8 @@ func NewInterpolatingConstraint() func(constraintInput) (bool, float64) {
 }
 
 // NewPoseConstraint enforces a constant pose
-func NewPoseConstraint() func(constraintInput) (bool, float64) {
-	return func(cInput constraintInput) (bool, float64){
+func NewPoseConstraint() func(*ConstraintInput) (bool, float64) {
+	return func(cInput *ConstraintInput) (bool, float64){
 		if cInput.startPos != nil {
 			oDiff := spatial.OrientationBetween(cInput.startPos.Orientation(), &spatial.OrientationVector{OZ:-1})
 			r4 := oDiff.AxisAngles()
@@ -196,8 +211,8 @@ func NewPoseConstraint() func(constraintInput) (bool, float64) {
 }
 
 // NewJointScorer returns a function which will sum the differences in each input from start to end
-func NewJointScorer() func(constraintInput) (bool, float64) {
-	return func(cInput constraintInput) (bool, float64){
+func NewJointScorer() func(*ConstraintInput) (bool, float64) {
+	return func(cInput *ConstraintInput) (bool, float64){
 		jScore := 0.
 		for i, f := range cInput.startInput {
 			jScore += math.Abs(f.Value - cInput.endInput[i].Value)
@@ -207,14 +222,14 @@ func NewJointScorer() func(constraintInput) (bool, float64) {
 }
 
 // Simulates an obstacle.
-func dontHitPetersWall(ci constraintInput) (bool, float64) {
+func dontHitPetersWall(ci *ConstraintInput) (bool, float64) {
 	checkPt := func(pose spatial.Pose) bool {
 		pt := pose.Point()
 		
 		// wall in Peter's office
 		// this has some buffer- whiteboard at precisely -506
-		if pt.Y < -495.8 {
-			fmt.Println(spatial.PoseToArmPos(pose))
+		if pt.Y < -536.8 {
+			//~ fmt.Println(spatial.PoseToArmPos(pose))
 			return false
 		}
 		if pt.X < -600 {
@@ -257,7 +272,7 @@ func dontHitPetersWall(ci constraintInput) (bool, float64) {
 }
 
 // Simulates an obstacle.
-func fakeObstacle(ci constraintInput) (bool, float64) {
+func fakeObstacle(ci *ConstraintInput) (bool, float64) {
 	checkPt := func(pose spatial.Pose) bool {
 		pt := pose.Point()
 
@@ -351,7 +366,7 @@ func NewPoseFlexOVGradient(goal spatial.Pose, alpha float64) func(spatial.Pose, 
 // NewPlaneConstraintAndGradient is used to define a constraint space for a plane, and will return 1) a constraint
 // function which will determine whether a point is on the plane and in a valid orientation, and 2) a gradient function
 // which will bring a pose into the valid constraint space. The plane normal is assumed to point towards the valid area
-func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector) (func(constraintInput) (bool, float64), func(spatial.Pose, spatial.Pose) float64) {
+func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector) (func(*ConstraintInput) (bool, float64), func(spatial.Pose, spatial.Pose) float64) {
 	
 	// arc length from plane-perpendicular vector allowable for writing
 	writingAngle := 0.3
@@ -381,7 +396,7 @@ func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector) (func(constraintInput) (
 		return pDist*pDist + oDist*oDist
 	}
 	
-	validFunc := func(cInput constraintInput) (bool, float64) {
+	validFunc := func(cInput *ConstraintInput) (bool, float64) {
 		cInput, err := resolveInput(cInput)
 		if err != nil{
 			return false, 0
@@ -399,11 +414,11 @@ func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector) (func(constraintInput) (
 // NewLineConstraintAndGradient is used to define a constraint space for a line, and will return 1) a constraint
 // function which will determine whether a point is on the line and in a valid orientation, and 2) a gradient function
 // which will bring a pose into the valid constraint space. The OV passed in defines the center of the valid orientation area.
-func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, ov *spatial.OrientationVector) (func(constraintInput) (bool, float64), func(spatial.Pose, spatial.Pose) float64) {
+func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, ov *spatial.OrientationVector) (func(*ConstraintInput) (bool, float64), func(spatial.Pose, spatial.Pose) float64) {
 	
 	// arc length from plane-perpendicular vector allowable for writing
-	writingAngle := 0.4
-	epsilon := 0.3
+	writingAngle := 0.2
+	epsilon := 0.01
 	
 	// invert the normal to get the valid AOA OV
 	ov.Normalize()
@@ -431,17 +446,16 @@ func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, ov *spatial.OrientationVec
 
 	}
 	
-	// TODO: do we need to care about trajectory here? Probably, but not yet implemented
 	gradFunc := func(from, to spatial.Pose) float64 {
 		pDist := lineDist(from.Point())
 		oDist := dFunc(from.Orientation())
 		
-		fmt.Println("p, o", pDist, oDist)
+		//~ fmt.Println("p, o", pDist, oDist)
 		
 		return pDist*pDist + oDist*oDist
 	}
 	
-	validFunc := func(cInput constraintInput) (bool, float64) {
+	validFunc := func(cInput *ConstraintInput) (bool, float64) {
 		cInput, err := resolveInput(cInput)
 		if err != nil{
 			return false, 0
@@ -457,7 +471,7 @@ func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, ov *spatial.OrientationVec
 	return validFunc, gradFunc
 }
 
-func resolveInput(ci constraintInput) (constraintInput, error) {
+func resolveInput(ci *ConstraintInput) (*ConstraintInput, error) {
 	if ci.startPos == nil {
 		if ci.frame != nil {
 			if ci.startInput != nil {
