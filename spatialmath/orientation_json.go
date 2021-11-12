@@ -2,6 +2,8 @@ package spatialmath
 
 import (
 	"encoding/json"
+
+	"github.com/go-errors/errors"
 )
 
 // OrientationType defines what orientation representations are known
@@ -9,12 +11,28 @@ type OrientationType string
 
 // The set of allowed representations for orientation
 const (
-	NoOrientation            = OrientationType("")
-	OrientationVectorDegrees = OrientationType("ov_degrees")
-	OrientationVectorRadians = OrientationType("ov_radians")
-	EulerAngles              = OrientationType("euler_angles")
-	AxisAngles               = OrientationType("axis_angles")
+	NoOrientationType            = OrientationType("")
+	OrientationVectorDegreesType = OrientationType("ov_degrees")
+	OrientationVectorRadiansType = OrientationType("ov_radians")
+	EulerAnglesType              = OrientationType("euler_angles")
+	AxisAnglesType               = OrientationType("axis_angles")
 )
+
+// OrientationMap encodes the orientation interface to something serializable and human readable
+func OrientationMap(o Orientation) (map[string]interface{}, error) {
+	switch v := o.(type) {
+	case *R4AA:
+		return map[string]interface{}{"type": string(AxisAnglesType), "value": v}, nil
+	case *OrientationVector:
+		return map[string]interface{}{"type": string(OrientationVectorRadiansType), "value": v}, nil
+	case *OrientationVectorDegrees:
+		return map[string]interface{}{"type": string(OrientationVectorDegreesType), "value": v}, nil
+	case *EulerAngles:
+		return map[string]interface{}{"type": string(EulerAnglesType), "value": v}, nil
+	default:
+		return nil, errors.Errorf("do not know how to map Orientation type %T to json fields", v)
+	}
+}
 
 // RawOrientation holds the underlying type of orientation, and the value.
 type RawOrientation struct {
@@ -26,30 +44,30 @@ type RawOrientation struct {
 func ParseOrientation(ro RawOrientation) (Orientation, error) {
 	// use the type to unmarshal the value
 	switch OrientationType(ro.Type) {
-	case NoOrientation:
+	case NoOrientationType:
 		return NewZeroOrientation(), nil
-	case OrientationVectorDegrees:
+	case OrientationVectorDegreesType:
 		var o OrientationVectorDegrees
 		err = json.Unmarshal(ro.Value, &o)
 		if err != nil {
 			return nil, err
 		}
 		return &o, nil
-	case OrientationVectorRadians:
+	case OrientationVectorRadiansType:
 		var o OrientationVector
 		err = json.Unmarshal(ro.Value, &o)
 		if err != nil {
 			return nil, err
 		}
 		return &o, nil
-	case AxisAngles:
+	case AxisAnglesType:
 		var o R4AA
 		err = json.Unmarshal(ro.Value, &o)
 		if err != nil {
 			return nil, err
 		}
 		return &o, nil
-	case EulerAngles:
+	case EulerAnglesType:
 		var o EulerAngles
 		err = json.Unmarshal(ro.Value, &o)
 		if err != nil {
