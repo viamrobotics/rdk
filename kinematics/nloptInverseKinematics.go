@@ -255,8 +255,8 @@ func (ik *NloptIK) GenerateRandomPositions() []frame.Input {
 	return pos
 }
 
-// Model returns the associated model
-func (ik *NloptIK) Model() frame.Frame {
+// Frame returns the associated frame
+func (ik *NloptIK) Frame() frame.Frame {
 	return ik.model
 }
 

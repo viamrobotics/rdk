@@ -2,6 +2,7 @@ package kinematics
 
 import (
 	"context"
+	"errors"
 	"math"
 	"math/rand"
 	"runtime"
@@ -9,6 +10,7 @@ import (
 
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
+	spatial "go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
@@ -40,7 +42,7 @@ func TestCombinedIKinematics(t *testing.T) {
 		OY: -1.32,
 		OZ: -1.11,
 	}
-	solution, err := ik.Solve(context.Background(), pos, home)
+	solution, err := solveTest(context.Background(), ik, pos, home)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test moving forward 20 in X direction from previous position
@@ -52,7 +54,7 @@ func TestCombinedIKinematics(t *testing.T) {
 		OY: -3.3,
 		OZ: -1.11,
 	}
-	_, err = ik.Solve(context.Background(), pos, solution)
+	_, err = solveTest(context.Background(), ik, pos, solution[0])
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -71,9 +73,9 @@ func BenchCombinedIKinematics(t *testing.B) {
 		randJointPos := m.GenerateRandomJointPositions(seed)
 		randPos, err := ComputePosition(m, frame.JointPositionsFromRadians(randJointPos))
 		test.That(t, err, test.ShouldBeNil)
-		solution, err := ik.Solve(context.Background(), randPos, home)
+		solution, err := solveTest(context.Background(), ik, randPos, home)
 		test.That(t, solution, test.ShouldNotBeNil)
-		test.That(t, checkGoodJointDelta([]float64{0, 0, 0, 0, 0, 0}, frame.InputsToFloats(solution)), test.ShouldBeTrue)
+		test.That(t, checkGoodJointDelta([]float64{0, 0, 0, 0, 0, 0}, frame.InputsToFloats(solution[0])), test.ShouldBeTrue)
 		if err == nil {
 			solvedCnt++
 		}
@@ -92,7 +94,7 @@ func TestUR5NloptIKinematics(t *testing.T) {
 	goalJP := frame.JointPositionsFromRadians([]float64{-4.128, 2.71, 2.798, 2.3, 1.291, 0.62})
 	goal, err := ComputePosition(m, goalJP)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = ik.Solve(context.Background(), goal, home)
+	_, err = solveTest(context.Background(), ik, goal, home)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -113,7 +115,7 @@ func TestIKTolerances(t *testing.T) {
 		OY: -3.3,
 		OZ: -1.11,
 	}
-	_, err = ik.Solve(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
+	_, err = solveTest(context.Background(), ik, pos, frame.FloatsToInputs([]float64{0, 0}))
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
@@ -123,7 +125,7 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ik.SetSolveWeights(m.SolveWeights)
 
-	_, err = ik.Solve(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
+	_, err = solveTest(context.Background(), ik, pos, frame.FloatsToInputs([]float64{0, 0}))
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -169,45 +171,45 @@ func BenchNloptSwing(t *testing.B) {
 		randPos, err := ComputePosition(m, frame.JointPositionsFromRadians(origRadians))
 		test.That(t, err, test.ShouldBeNil)
 		randPos.X += 10
-		solution, err := ik.Solve(context.Background(), randPos, randJointPos)
+		solution, err := solveTest(context.Background(), ik, randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution)), test.ShouldBeTrue)
+			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution[0])), test.ShouldBeTrue)
 		}
 
 		randPos.Y += 10
-		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
+		solution, err = solveTest(context.Background(), ik, randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution)), test.ShouldBeTrue)
+			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution[0])), test.ShouldBeTrue)
 		}
 
 		randPos.Z += 10
-		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
+		solution, err = solveTest(context.Background(), ik, randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution)), test.ShouldBeTrue)
+			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution[0])), test.ShouldBeTrue)
 		}
 
 		randPos.OX += 0.1
-		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
+		solution, err = solveTest(context.Background(), ik, randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution)), test.ShouldBeTrue)
+			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution[0])), test.ShouldBeTrue)
 		}
 
 		randPos.OY += 0.1
-		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
+		solution, err = solveTest(context.Background(), ik, randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution)), test.ShouldBeTrue)
+			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution[0])), test.ShouldBeTrue)
 		}
 
 		randPos.OZ += 0.1
-		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
+		solution, err = solveTest(context.Background(), ik, randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution)), test.ShouldBeTrue)
+			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution[0])), test.ShouldBeTrue)
 		}
 
 		randPos.Theta += 45
-		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
+		solution, err = solveTest(context.Background(), ik, randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution)), test.ShouldBeTrue)
+			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution[0])), test.ShouldBeTrue)
 		}
 	}
 }
@@ -221,4 +223,48 @@ func checkGoodJointDelta(orig, solution []float64) bool {
 		}
 	}
 	return true
+}
+
+func solveTest(ctx context.Context, solver InverseKinematics, goal *pb.Pose, seed []frame.Input) ([][]frame.Input, error) {
+	goalPos := spatial.NewPoseFromProtobuf(goal)
+
+	solutionGen := make(chan []frame.Input)
+	ikErr := make(chan error)
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+
+	// Spawn the IK solver to generate solutions until done
+	go func() {
+		defer close(ikErr)
+		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goalPos, seed)
+	}()
+
+	var solutions [][]frame.Input
+
+	// Solve the IK solver. Loop labels are required because `break` etc in a `select` will break only the `select`.
+IK:
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, errors.New("context Done signal")
+		case step := <-solutionGen:
+			solutions = append(solutions, step)
+			// Skip the return check below until we have nothing left to read from solutionGen
+			continue IK
+		default:
+		}
+
+		select {
+		case <-ikErr:
+			// If we have a return from the IK solver, there are no more solutions, so we finish processing above
+			// until we've drained the channel
+			break IK
+		default:
+		}
+	}
+	cancel()
+	if len(solutions) == 0 {
+		return nil, errors.New("unable to solve for position")
+	}
+
+	return solutions, nil
 }
