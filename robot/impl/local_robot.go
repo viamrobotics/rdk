@@ -68,6 +68,7 @@ import (
 	_ "go.viam.com/core/robots/vx300s"                  // for arm and gripper
 	_ "go.viam.com/core/robots/wx250s"                  // for arm and gripper
 	_ "go.viam.com/core/robots/xarm"                    // for an arm
+	_ "go.viam.com/core/robots/yahboom"                 // for an arm
 	_ "go.viam.com/core/sensor/compass/gy511"
 	_ "go.viam.com/core/sensor/compass/lidar"
 	_ "go.viam.com/core/sensor/forcematrix"
