@@ -24,9 +24,9 @@ import (
 func TestUR5eForwardKinementsSVAvsDH(t *testing.T) {
 	numTests := 10000
 
-	mSVA, err := kinematics.ParseJSON(ur5modeljson, "")
+	mSVA, err := frame.ParseJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
-	mDH, err := kinematics.ParseJSON(ur5DHmodeljson, "")
+	mDH, err := frame.ParseJSON(ur5DHmodeljson, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	seed := rand.New(rand.NewSource(23))
@@ -50,7 +50,7 @@ func TestUR5eForwardKinementsSVAvsDH(t *testing.T) {
 }
 
 func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *pb.Pose) {
-	m, err := kinematics.ParseJSON(ur5modeljson, "")
+	m, err := frame.ParseJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	pos, err := kinematics.ComputePosition(m, frame.JointPositionsFromRadians(jointRadians))
@@ -75,7 +75,7 @@ func testUR5eInverseKinements(t *testing.T, pos *pb.Pose) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	m, err := kinematics.ParseJSON(ur5modeljson, "")
+	m, err := frame.ParseJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := kinematics.CreateCombinedIKSolver(m, logger, 4)
 	test.That(t, err, test.ShouldBeNil)

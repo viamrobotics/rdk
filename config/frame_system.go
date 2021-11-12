@@ -2,16 +2,17 @@ package config
 
 import (
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
 )
 
 // FrameSystemPart is used to collect all the info need from a named robot part to build the frame node in a frame system.
 // Name is the robot part name, FrameConfig gives the general structure of the frame system,
-// and ModelFrameConfig is an optional JSON btye stream that describes the internal kinematics of the robot part.
+// and ModelFrameConfig is an optional ModelJSON that describes the internal kinematics of the robot part.
 type FrameSystemPart struct {
 	Name             string
 	FrameConfig      *Frame
-	ModelFrameConfig []byte
+	ModelFrameConfig referenceframe.ModelJSON
 }
 
 // ToProtobuf turns all the interfaces into serializable types
