@@ -11,7 +11,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/kinematics"
-	pb "go.viam.com/core/proto/api/v1"
+	pb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/services/objectmanipulation"
 	"go.viam.com/core/spatialmath"
@@ -99,12 +99,12 @@ func TestDoGrab(t *testing.T) {
 	}
 
 	_arm = &inject.Arm{}
-	_arm.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
-		return &pb.JointPositions{
+	_arm.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
+		return &pb.ArmJointPositions{
 			Degrees: []float64{0, 0, 0, 0, 0, 0},
 		}, nil
 	}
-	_arm.MoveToJointPositionsFunc = func(ctx context.Context, pos *pb.JointPositions) error {
+	_arm.MoveToJointPositionsFunc = func(ctx context.Context, pos *pb.ArmJointPositions) error {
 		return nil
 	}
 
