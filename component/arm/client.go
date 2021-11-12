@@ -4,6 +4,7 @@ package arm
 import (
 	"context"
 	"errors"
+	"io"
 
 	rpcclient "go.viam.com/utils/rpc/client"
 
@@ -24,7 +25,7 @@ type subtypeClient struct {
 }
 
 // NewSubtypeClient constructs a new subtypeClient that is served at the given address.
-func NewSubtypeClient(ctx context.Context, address string, opts rpcclient.DialOptions, logger golog.Logger) (*subtypeClient, error) {
+func NewSubtypeClient(ctx context.Context, address string, opts rpcclient.DialOptions, logger golog.Logger) (io.Closer, error) {
 	conn, err := grpc.Dial(ctx, address, opts, logger)
 	if err != nil {
 		return nil, err
@@ -50,6 +51,7 @@ type client struct {
 	name string
 }
 
+// NewFromClient constructs a new Client from another client.
 func NewFromClient(ctx context.Context, client interface{}, name string) (Arm, error) {
 	c, ok := client.(grpc.DialInfoGetter)
 	if !ok {

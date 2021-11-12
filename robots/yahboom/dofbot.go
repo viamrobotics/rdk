@@ -15,7 +15,8 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/kinematics"
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	componentpb "go.viam.com/core/proto/api/component/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -143,7 +144,7 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 }
 
 // CurrentPosition returns the current position of the arm.
-func (a *dofBot) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
+func (a *dofBot) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -152,7 +153,7 @@ func (a *dofBot) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the given absolute position.
-func (a *dofBot) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
+func (a *dofBot) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -165,7 +166,7 @@ func (a *dofBot) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 }
 
 // MoveToJointPositions moves the arm's joints to the given positions.
-func (a *dofBot) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
+func (a *dofBot) MoveToJointPositions(ctx context.Context, pos *componentpb.ArmJointPositions) error {
 	a.muMove.Lock()
 	defer a.muMove.Unlock()
 	if len(pos.Degrees) > 5 {
@@ -239,15 +240,15 @@ func (a *dofBot) moveJointInLock(ctx context.Context, joint int, degrees float64
 }
 
 // CurrentJointPositions returns the current joint positions of the arm.
-func (a *dofBot) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (a *dofBot) CurrentJointPositions(ctx context.Context) (*componentpb.ArmJointPositions, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
 	return a.currentJointPositionsInLock(ctx)
 }
 
-func (a *dofBot) currentJointPositionsInLock(ctx context.Context) (*pb.JointPositions, error) {
-	pos := pb.JointPositions{}
+func (a *dofBot) currentJointPositionsInLock(ctx context.Context) (*componentpb.ArmJointPositions, error) {
+	pos := componentpb.ArmJointPositions{}
 	for i := 1; i <= 5; i++ {
 		x, err := a.readJointInLock(ctx, i)
 		if err != nil {

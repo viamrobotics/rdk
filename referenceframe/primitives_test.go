@@ -6,7 +6,7 @@ import (
 
 	"go.viam.com/test"
 
-	pb "go.viam.com/core/proto/api/v1"
+	pb "go.viam.com/core/proto/api/component/v1"
 )
 
 func TestJointPositions(t *testing.T) {
@@ -18,7 +18,7 @@ func TestJointPositions(t *testing.T) {
 }
 
 func TestBasicConversions(t *testing.T) {
-	jp := &pb.JointPositions{Degrees: []float64{45, 55}}
+	jp := &pb.ArmJointPositions{Degrees: []float64{45, 55}}
 	inputs := JointPosToInputs(jp)
 	test.That(t, jp, test.ShouldResemble, InputsToJointPos(inputs))
 

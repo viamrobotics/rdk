@@ -28,11 +28,13 @@ type Info struct {
 	Logger golog.Logger
 }
 
+// DialInfo returns info that can be used to create another grpc client
 func (d Info) DialInfo() Info {
 	return d
 }
 
 // DialInfoGetter defines a method to get DialInfo
 type DialInfoGetter interface {
+	// DialInfo returns info that can be used to create another grpc client
 	DialInfo() Info
 }
