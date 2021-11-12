@@ -157,7 +157,7 @@ func TestClient(t *testing.T) {
 		test.That(t, utils.TryClose(arm2Client), test.ShouldBeNil)
 	})
 
-	t.Run("arm client 2", func(t *testing.T) {
+	t.Run("arm client 3", func(t *testing.T) {
 		armSubtypeClient, err := arm.NewSubtypeClient(
 			context.Background(), listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger,
 		)
