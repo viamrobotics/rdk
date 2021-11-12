@@ -16,6 +16,8 @@ import (
 
 const (
 	modelname = "webgamepad"
+	// NOTE: Component NAME (in config file) must also be set to "WebGamepad" exactly
+	// This is because there's no way to get a component's model from a robot.Robot
 )
 
 func init() {
