@@ -5,6 +5,7 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -12,6 +13,7 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 	spatial "go.viam.com/core/spatialmath"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/golang/geo/r3"
 )
 
@@ -67,6 +69,8 @@ type Frame interface {
 	Name() string
 	Transform([]Input) (spatial.Pose, error)
 	DoF() []Limit
+
+	json.Marshaler
 }
 
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation from the current Frame to the parent Frame
@@ -112,6 +116,23 @@ func (sf *staticFrame) Transform(inp []Input) (spatial.Pose, error) {
 func (sf *staticFrame) DoF() []Limit {
 	return []Limit{}
 }
+
+func poseToMap(p spatial.Pose) map[string]interface{} {
+	return map[string]interface{}{
+		"point" : p.Point(),
+		"orientation" : p.Orientation().AxisAngles(),
+	}
+}
+
+func (sf *staticFrame) MarshalJSON() ([]byte, error) {
+	m := map[string]interface{}{
+		"type" : "static",
+		"name" : sf.name,
+		"transform" : poseToMap(sf.transform),
+	}
+	return json.Marshal(m)
+}
+
 
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions
 type translationalFrame struct {
@@ -173,6 +194,16 @@ func (pf *translationalFrame) DoFInt() int {
 	return DoF
 }
 
+func (pf *translationalFrame) MarshalJSON() ([]byte, error) {
+	m := map[string]interface{}{
+		"type" : "translational",
+		"name" : pf.name,
+		"axes" : pf.axes,
+		"limits" : pf.limits,
+	}
+	return json.Marshal(m)
+}
+
 type rotationalFrame struct {
 	name    string
 	rotAxis spatial.R4AA
@@ -218,4 +249,82 @@ func (rf *rotationalFrame) DoF() []Limit {
 // Name returns the name of the frame
 func (rf *rotationalFrame) Name() string {
 	return rf.name
+}
+
+func (rf *rotationalFrame) MarshalJSON() ([]byte, error) {
+	m := map[string]interface{}{
+		"type" : "rotational",
+		"name" : rf.name,
+		"rotAxis" : rf.rotAxis,
+		"limit" : rf.limit,
+	}
+	return json.Marshal(m)
+}
+
+func decodeAngleAxisPose(m map[string]interface{}) (spatial.Pose, error) {
+	var point, rotationAxis r3.Vector
+
+	err := mapstructure.Decode(m["point"], &point)
+	if err != nil {
+		return nil, err
+	}
+
+	err = mapstructure.Decode(m["orientation"], &rotationAxis)
+	if err != nil {
+		return nil, err
+	}
+
+	angle := m["orientation"].(map[string]interface{})["th"].(float64)
+	
+	return spatial.NewPoseFromAxisAngle(point, rotationAxis, angle), nil
+}
+
+func UnmarshalFrameJSON(data []byte) (Frame, error) {
+
+	m := map[string]interface{}{}
+	err := json.Unmarshal(data, &m)
+	if err != nil {
+		return nil, err
+	}
+	
+	switch m["type"] {
+	case "static":
+		f := staticFrame{}
+		f.name = m["name"].(string)
+		f.transform, err = decodeAngleAxisPose(m["transform"].(map[string]interface{}))
+		if err != nil {
+			return nil, fmt.Errorf("error decoding transform (%v) %w", m["transform"], err)
+		}
+		return &f, nil
+	case "translational":
+		f := translationalFrame{}
+		f.name = m["name"].(string)
+		err := mapstructure.Decode(m["axes"], &f.axes)
+		if err != nil {
+			return nil, err
+		}
+		err = mapstructure.Decode(m["limits"], &f.limits)
+		if err != nil {
+			return nil, err
+		}
+		return &f, nil
+	case "rotational":
+		f := rotationalFrame{}
+		f.name = m["name"].(string)
+
+		f.rotAxis.RX = m["rotAxis"].(map[string]interface{})["x"].(float64)
+		f.rotAxis.RY = m["rotAxis"].(map[string]interface{})["y"].(float64)
+		f.rotAxis.RZ = m["rotAxis"].(map[string]interface{})["z"].(float64)
+		f.rotAxis.Theta = m["rotAxis"].(map[string]interface{})["th"].(float64)
+		
+		err = mapstructure.Decode(m["limit"], &f.limit)
+		if err != nil {
+			return nil, err
+		}
+		return &f, nil
+
+	default:
+		return nil, fmt.Errorf("no frame type: [%v]", m["type"])
+	}
+
 }
