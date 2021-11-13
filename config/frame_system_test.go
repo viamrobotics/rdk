@@ -1,0 +1,77 @@
+package config
+
+import (
+	"io/ioutil"
+	"testing"
+
+	"go.viam.com/test"
+
+	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
+	spatial "go.viam.com/core/spatialmath"
+	coreutils "go.viam.com/core/utils"
+)
+
+func TestFrameModelPart(t *testing.T) {
+	jsonData, err := ioutil.ReadFile(coreutils.ResolveFile("config/data/model_frame.json"))
+	test.That(t, err, test.ShouldBeNil)
+	model, err := referenceframe.ParseJSON(jsonData, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	// minimally specified part
+	part := &FrameSystemPart{
+		Name:        "test",
+		FrameConfig: nil,
+		ModelFrame:  nil,
+	}
+	result, err := part.ToProtobuf()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldBeNil) // no FrameConfig means nil result
+
+	// slightly specified part
+	part = &FrameSystemPart{
+		Name:        "test",
+		FrameConfig: &Frame{Parent: "world"},
+		ModelFrame:  nil,
+	}
+	result, err = part.ToProtobuf()
+	test.That(t, err, test.ShouldBeNil)
+	pose := &pb.Pose{OZ: 1, Theta: 0} // zero pose
+	exp := &pb.FrameSystemConfig{Name: "test", FrameConfig: &pb.FrameConfig{Parent: "world", Pose: pose}}
+	test.That(t, result.Name, test.ShouldEqual, exp.Name)
+	test.That(t, result.FrameConfig, test.ShouldResemble, exp.FrameConfig)
+	test.That(t, result.ModelJson, test.ShouldResemble, exp.ModelJson)
+	// return to FrameSystemPart
+	partAgain, err := ProtobufToFrameSystemPart(result)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, partAgain.Name, test.ShouldEqual, part.Name)
+	test.That(t, partAgain.FrameConfig.Parent, test.ShouldEqual, part.FrameConfig.Parent)
+	test.That(t, partAgain.FrameConfig.Translation, test.ShouldResemble, part.FrameConfig.Translation)
+	// nil orientations become specified as zero orientations
+	test.That(t, partAgain.FrameConfig.Orientation, test.ShouldResemble, spatial.NewZeroOrientation())
+	test.That(t, partAgain.ModelFrame, test.ShouldResemble, part.ModelFrame)
+
+	// fully specified part
+	part = &FrameSystemPart{
+		Name:        "test",
+		FrameConfig: &Frame{Parent: "world", Translation: spatial.Translation{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
+		ModelFrame:  model,
+	}
+	result, err = part.ToProtobuf()
+	test.That(t, err, test.ShouldBeNil)
+	pose = &pb.Pose{X: 1, Y: 2, Z: 3, OZ: 1, Theta: 0}
+	exp = &pb.FrameSystemConfig{Name: "test", FrameConfig: &pb.FrameConfig{Parent: "world", Pose: pose}, ModelJson: jsonData}
+	test.That(t, result.Name, test.ShouldEqual, exp.Name)
+	test.That(t, result.FrameConfig, test.ShouldResemble, exp.FrameConfig)
+	test.That(t, result.ModelJson, test.ShouldNotBeNil)
+	// return to FrameSystemPart
+	partAgain, err = ProtobufToFrameSystemPart(result)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, partAgain.Name, test.ShouldEqual, part.Name)
+	test.That(t, partAgain.FrameConfig.Parent, test.ShouldEqual, part.FrameConfig.Parent)
+	test.That(t, partAgain.FrameConfig.Translation, test.ShouldResemble, part.FrameConfig.Translation)
+	test.That(t, partAgain.FrameConfig.Orientation, test.ShouldResemble, part.FrameConfig.Orientation)
+	test.That(t, partAgain.ModelFrame.Name, test.ShouldEqual, part.ModelFrame.Name)
+	test.That(t, len(partAgain.ModelFrame.OrdTransforms), test.ShouldEqual, len(part.ModelFrame.OrdTransforms))
+
+}
