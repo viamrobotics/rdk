@@ -13,7 +13,6 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/gantry"
 	"go.viam.com/core/config"
-	"go.viam.com/core/kinematics"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
@@ -202,8 +201,8 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 	return g.motor.GoTo(ctx, g.rpm, x)
 }
 
-func (g *oneAxis) ModelFrame() *kinematics.Model {
-	m := kinematics.NewModel()
+func (g *oneAxis) ModelFrame() *referenceframe.Model {
+	m := referenceframe.NewModel()
 	f, err := referenceframe.NewTranslationalFrame(
 		g.name,
 		[]bool{true},
