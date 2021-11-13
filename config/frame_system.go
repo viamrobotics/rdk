@@ -4,6 +4,9 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
+
+	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
 )
 
 // FrameSystemPart is used to collect all the info need from a named robot part to build the frame node in a frame system.
@@ -59,4 +62,27 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 		FrameConfig: frameConfig,
 		ModelFrame:  modelFrame,
 	}, nil
+}
+
+// CreateFramesFromPart will gather the frame information and build the frames from the given robot part
+func CreateFramesFromPart(part *FrameSystemPart, logger golog.Logger) (referenceframe.Frame, referenceframe.Frame, error) {
+	if part == nil || part.FrameConfig == nil {
+		return nil, nil, errors.New("config for FrameSystemPart is nil")
+	}
+	var modelFrame referenceframe.Frame
+	var err error
+	// use identity frame if no model frame defined
+	if part.ModelFrame == nil {
+		modelFrame = referenceframe.NewZeroStaticFrame(part.Name)
+	} else {
+		part.ModelFrame.ChangeName(part.Name)
+		modelFrame = part.ModelFrame
+	}
+	// static frame defines an offset from the parent part-- if it is empty, a 0 offset frame will be applied.
+	staticOffsetName := part.Name + "_offset"
+	staticOffsetFrame, err := part.FrameConfig.StaticFrame(staticOffsetName)
+	if err != nil {
+		return nil, nil, err
+	}
+	return modelFrame, staticOffsetFrame, nil
 }
