@@ -50,29 +50,6 @@ func BuildFrameSystem(ctx context.Context, name string, children map[string][]re
 	return fs, nil
 }
 
-// CreateFramesFromPart will gather the frame information and build the frames from the given robot part
-func CreateFramesFromPart(part *config.FrameSystemPart, logger golog.Logger) (referenceframe.Frame, referenceframe.Frame, error) {
-	if part == nil {
-		return nil, nil, errors.New("config for FrameSystemPart is nil")
-	}
-	var modelFrame referenceframe.Frame
-	var err error
-	// use identity frame if no model frame defined
-	if part.ModelFrame == nil {
-		modelFrame = referenceframe.NewZeroStaticFrame(part.Name)
-	} else {
-		part.ModelFrame.ChangeName(part.Name)
-		modelFrame = part.ModelFrame
-	}
-	// static frame defines an offset from the parent part-- if it is empty, a 0 offset frame will be applied.
-	staticOffsetName := part.Name + "_offset"
-	staticOffsetFrame, err := part.FrameConfig.StaticFrame(staticOffsetName)
-	if err != nil {
-		return nil, nil, err
-	}
-	return modelFrame, staticOffsetFrame, nil
-}
-
 // CollectFrameSystemParts collects the physical parts of the robot that may have frame info (excluding remote robots and services, etc)
 // don't collect remote components, even though the Config lists them.
 func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*config.FrameSystemPart, error) {
@@ -110,7 +87,7 @@ func processPart(part *config.FrameSystemPart, children map[string][]referencefr
 		return fmt.Errorf("parent field in frame config for part %q is empty", part.Name)
 	}
 	// build the frames from the part config
-	modelFrame, staticOffsetFrame, err := CreateFramesFromPart(part, logger)
+	modelFrame, staticOffsetFrame, err := config.CreateFramesFromPart(part, logger)
 	if err != nil {
 		return err
 	}
