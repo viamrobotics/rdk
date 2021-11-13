@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/kinematics"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/rlog"
 )
@@ -34,7 +34,7 @@ type Gantry interface {
 	// Lengths is the length of gantries in meters
 	Lengths(ctx context.Context) ([]float64, error)
 
-	kinematics.ModelFramer
+	referenceframe.ModelFramer
 }
 
 // WrapWithReconfigurable wraps a gantry with a reconfigurable and locking interface
@@ -90,7 +90,7 @@ func (g *reconfigurableGantry) Reconfigure(newGantry resource.Reconfigurable) er
 	return nil
 }
 
-func (g *reconfigurableGantry) ModelFrame() *kinematics.Model {
+func (g *reconfigurableGantry) ModelFrame() *referenceframe.Model {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.actual.ModelFrame()
