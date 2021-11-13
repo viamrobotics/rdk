@@ -66,7 +66,7 @@ type Arm struct {
 	Joints   map[string][]*servo.Servo
 	moveLock *sync.Mutex
 	logger   golog.Logger
-	model    *kinematics.Model
+	model    *frame.Model
 	ik       kinematics.InverseKinematics
 }
 
@@ -105,7 +105,7 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 		return nil, err
 	}
 
-	model, err := kinematics.ParseJSON(wx250smodeljson, "")
+	model, err := frame.ParseJSON(wx250smodeljson, "")
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +391,7 @@ func (a *Arm) WaitForMovement(ctx context.Context) error {
 }
 
 // ModelFrame TODO
-func (a *Arm) ModelFrame() *kinematics.Model {
+func (a *Arm) ModelFrame() *frame.Model {
 	return a.model
 }
 

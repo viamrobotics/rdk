@@ -10,7 +10,6 @@ import (
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
-	"go.viam.com/core/kinematics"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/utils"
@@ -51,31 +50,6 @@ func BuildFrameSystem(ctx context.Context, name string, children map[string][]re
 	return fs, nil
 }
 
-// CreateFramesFromPart will gather the frame information and build the frames from the given robot part
-func CreateFramesFromPart(part *config.FrameSystemPart, logger golog.Logger) (referenceframe.Frame, referenceframe.Frame, error) {
-	if part == nil {
-		return nil, nil, errors.New("config for FrameSystemPart is nil")
-	}
-	var modelFrame referenceframe.Frame
-	var err error
-	// use identity frame if no model frame defined
-	if part.ModelFrameConfig == nil {
-		modelFrame = referenceframe.NewZeroStaticFrame(part.Name)
-	} else {
-		modelFrame, err = kinematics.ParseJSON(part.ModelFrameConfig, part.Name)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	// static frame defines an offset from the parent part-- if it is empty, a 0 offset frame will be applied.
-	staticOffsetName := part.Name + "_offset"
-	staticOffsetFrame, err := part.FrameConfig.StaticFrame(staticOffsetName)
-	if err != nil {
-		return nil, nil, err
-	}
-	return modelFrame, staticOffsetFrame, nil
-}
-
 // CollectFrameSystemParts collects the physical parts of the robot that may have frame info (excluding remote robots and services, etc)
 // don't collect remote components, even though the Config lists them.
 func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*config.FrameSystemPart, error) {
@@ -97,15 +71,7 @@ func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*co
 		if err != nil {
 			return nil, err
 		}
-		var modelJSON []byte
-		if model != nil {
-			// TODO(erh,bijan): this is silly
-			modelJSON, err = model.MarshalJSON()
-			if err != nil {
-				return nil, err
-			}
-		}
-		parts[c.Name] = &config.FrameSystemPart{Name: c.Name, FrameConfig: c.Frame, ModelFrameConfig: modelJSON}
+		parts[c.Name] = &config.FrameSystemPart{Name: c.Name, FrameConfig: c.Frame, ModelFrame: model}
 	}
 	return parts, nil
 }
@@ -121,7 +87,7 @@ func processPart(part *config.FrameSystemPart, children map[string][]referencefr
 		return fmt.Errorf("parent field in frame config for part %q is empty", part.Name)
 	}
 	// build the frames from the part config
-	modelFrame, staticOffsetFrame, err := CreateFramesFromPart(part, logger)
+	modelFrame, staticOffsetFrame, err := config.CreateFramesFromPart(part, logger)
 	if err != nil {
 		return err
 	}
@@ -173,14 +139,14 @@ func topologicallySortFrameNames(ctx context.Context, children map[string][]refe
 
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
 // JSON []byte if it does, or nil if it doesn't.
-func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, compType config.ComponentType) (*kinematics.Model, error) {
+func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, compType config.ComponentType) (*referenceframe.Model, error) {
 	switch compType {
 	case config.ComponentTypeBase:
 		part, ok := r.BaseByName(name)
 		if !ok {
 			return nil, errors.Errorf("no base found with name %q when extracting model frame json", name)
 		}
-		if framer, ok := utils.UnwrapProxy(part).(kinematics.ModelFramer); ok {
+		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
 		return nil, nil
@@ -189,7 +155,7 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		if !ok {
 			return nil, errors.Errorf("no gripper found with name %q when extracting model frame json", name)
 		}
-		if framer, ok := utils.UnwrapProxy(part).(kinematics.ModelFramer); ok {
+		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
 		return nil, nil
@@ -198,7 +164,7 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		if !ok {
 			return nil, errors.Errorf("no camera found with name %q when extracting model frame json", name)
 		}
-		if framer, ok := utils.UnwrapProxy(part).(kinematics.ModelFramer); ok {
+		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
 		return nil, nil
@@ -207,7 +173,7 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		if !ok {
 			return nil, errors.Errorf("no lidar found with name %q when extracting model frame json", name)
 		}
-		if framer, ok := utils.UnwrapProxy(part).(kinematics.ModelFramer); ok {
+		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
 		return nil, nil
@@ -216,7 +182,7 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		if !ok {
 			return nil, errors.Errorf("no sensor found with name %q when extracting model frame json", name)
 		}
-		if framer, ok := utils.UnwrapProxy(part).(kinematics.ModelFramer); ok {
+		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
 		return nil, nil
@@ -225,7 +191,7 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		if !ok {
 			return nil, errors.Errorf("no board found with name %q when extracting model frame json", name)
 		}
-		if framer, ok := utils.UnwrapProxy(part).(kinematics.ModelFramer); ok {
+		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
 		return nil, nil
@@ -234,7 +200,7 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		if !ok {
 			return nil, errors.Errorf("no servo found with name %q when extracting model frame json", name)
 		}
-		if framer, ok := utils.UnwrapProxy(part).(kinematics.ModelFramer); ok {
+		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
 		return nil, nil
@@ -243,7 +209,7 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		if !ok {
 			return nil, errors.Errorf("no motor found with name %q when extracting model frame json", name)
 		}
-		if framer, ok := utils.UnwrapProxy(part).(kinematics.ModelFramer); ok {
+		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
 		return nil, nil
@@ -252,7 +218,7 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		if !ok {
 			return nil, errors.Errorf("no resource found with name %q when extracting model frame json", name)
 		}
-		if framer, ok := utils.UnwrapProxy(part).(kinematics.ModelFramer); ok {
+		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
 		return nil, errors.Errorf("got an arm of type %T that is not a ModelFrame", utils.UnwrapProxy(part))
