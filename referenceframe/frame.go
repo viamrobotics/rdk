@@ -101,18 +101,15 @@ func (sf *staticFrame) DoF() []Limit {
 	return []Limit{}
 }
 
-func poseToMap(p spatial.Pose) map[string]interface{} {
-	return map[string]interface{}{
-		"point":       p.Point(),
-		"orientation": p.Orientation().AxisAngles(),
-	}
-}
-
 func (sf *staticFrame) MarshalJSON() ([]byte, error) {
+	transform, err := spatial.PoseMap(sf.transform)
+	if err != nil {
+		return nil, err
+	}
 	m := map[string]interface{}{
 		"type":      "static",
 		"name":      sf.name,
-		"transform": poseToMap(sf.transform),
+		"transform": transform,
 	}
 	return json.Marshal(m)
 }
@@ -301,24 +298,28 @@ func (rf *rotationalFrame) AlmostEquals(otherFrame Frame) bool {
 		float64AlmostEqual(rf.rotAxis.Theta, other.rotAxis.Theta)
 }
 
-func decodeAngleAxisPose(m map[string]interface{}) (spatial.Pose, error) {
-	var point, rotationAxis r3.Vector
+func decodePose(m map[string]interface{}) (spatial.Pose, error) {
+	var point r3.Vector
 
 	err := mapstructure.Decode(m["point"], &point)
 	if err != nil {
 		return nil, err
 	}
 
-	err = mapstructure.Decode(m["orientation"], &rotationAxis)
+	orientationMap := m["orientation"].(map[string]interface{})
+	oType := orientationMap["type"].(string)
+	oValue := orientationMap["value"].(map[string]interface{})
+	jsonValue, err := json.Marshal(oValue)
 	if err != nil {
 		return nil, err
 	}
 
-	angle, ok := m["orientation"].(map[string]interface{})["th"].(float64)
-	if !ok || angle == 0 {
-		return spatial.NewPoseFromPoint(point), nil
+	ro := spatial.RawOrientation{oType, jsonValue}
+	orientation, err := spatial.ParseOrientation(ro)
+	if err != nil {
+		return nil, err
 	}
-	return spatial.NewPoseFromAxisAngle(point, rotationAxis, angle), nil
+	return spatial.NewPoseFromOrientation(point, orientation), nil
 }
 
 // UnmarshalFrameJSON deserialized json into a reference frame
@@ -341,7 +342,9 @@ func UnmarshalFrameMap(m map[string]interface{}) (Frame, error) {
 	case "static":
 		f := staticFrame{}
 		f.name = m["name"].(string)
-		f.transform, err = decodeAngleAxisPose(m["transform"].(map[string]interface{}))
+
+		pose := m["transform"].(map[string]interface{})
+		f.transform, err = decodePose(pose)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding transform (%v) %w", m["transform"], err)
 		}

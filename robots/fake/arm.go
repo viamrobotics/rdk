@@ -8,8 +8,8 @@ import (
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
-	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -33,7 +33,7 @@ func init() {
 // NewArm returns a new fake arm.
 func NewArm(cfg config.Component) (arm.Arm, error) {
 	name := cfg.Name
-	model, err := kinematics.ParseJSON(armModelJSON, "")
+	model, err := referenceframe.ParseJSON(armModelJSON, "")
 	if err != nil {
 		return nil, err
 	}
@@ -51,11 +51,11 @@ type Arm struct {
 	position   *pb.Pose
 	joints     *pb.JointPositions
 	CloseCount int
-	model      *kinematics.Model
+	model      *referenceframe.Model
 }
 
 // ModelFrame returns the dynamic frame of the model
-func (a *Arm) ModelFrame() *kinematics.Model {
+func (a *Arm) ModelFrame() *referenceframe.Model {
 	return a.model
 }
 

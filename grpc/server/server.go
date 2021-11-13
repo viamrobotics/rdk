@@ -1243,7 +1243,11 @@ func (s *Server) FrameServiceConfig(ctx context.Context, req *pb.FrameServiceCon
 	}
 	configs := make([]*pb.FrameSystemConfig, len(sortedParts))
 	for i, part := range sortedParts {
-		configs[i] = part.ToProtobuf()
+		c, err := part.ToProtobuf()
+		if err != nil {
+			return nil, err
+		}
+		configs[i] = c
 	}
 	return &pb.FrameServiceConfigResponse{FrameSystemConfigs: configs}, nil
 }

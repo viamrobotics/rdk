@@ -7,7 +7,6 @@ import (
 
 	"go.viam.com/core/component/gantry"
 	"go.viam.com/core/config"
-	"go.viam.com/core/kinematics"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -46,7 +45,7 @@ func (g *fakeGantry) MoveToPosition(ctx context.Context, positions []float64) er
 	return nil
 }
 
-func (g *fakeGantry) ModelFrame() *kinematics.Model {
+func (g *fakeGantry) ModelFrame() *referenceframe.Model {
 	axes := []bool{}
 	limits := []referenceframe.Limit{}
 
@@ -63,7 +62,7 @@ func (g *fakeGantry) ModelFrame() *kinematics.Model {
 	if err != nil {
 		panic(err)
 	}
-	m := kinematics.NewModel()
+	m := referenceframe.NewModel()
 	m.OrdTransforms = append(m.OrdTransforms, f)
 	return m
 }
