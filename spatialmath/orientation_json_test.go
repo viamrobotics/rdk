@@ -29,12 +29,14 @@ func TestOrientation(t *testing.T) {
 	// Config with unknown orientation
 	ro := RawOrientation{}
 	err = json.Unmarshal(testMap["wrong"], &ro)
+	test.That(t, err, test.ShouldBeNil)
 	_, err = ParseOrientation(ro)
 	test.That(t, err, test.ShouldBeError, errors.New("orientation type oiler_angles not recognized"))
 
 	// Config with good type, but bad value
 	ro = RawOrientation{}
 	err = json.Unmarshal(testMap["wrongvalue"], &ro)
+	test.That(t, err, test.ShouldBeNil)
 	_, err = ParseOrientation(ro)
 	test.That(t, err, test.ShouldBeError, errors.New("json: cannot unmarshal string into Go struct field OrientationVectorDegrees.th of type float64"))
 
