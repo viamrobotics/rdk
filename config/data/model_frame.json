@@ -65,10 +65,13 @@
             },
             "setorientation": true,
             "orientation": {
-                "x": 0,
-                "y": -1,
-                "z": 0,
-                "th": -90
+                "type" : "ov_degrees",
+                "value": {
+                    "x": 0,
+                    "y": -1,
+                    "z": 0,
+                    "th": -90
+                }
             }
         }
     ],
