@@ -139,7 +139,7 @@ func (sf *staticFrame) AlmostEquals(otherFrame Frame) bool {
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions
 type translationalFrame struct {
 	name   string
-	axes   []bool
+	axes   []bool // if it moves along each axes, x, y, z
 	limits []Limit
 }
 
