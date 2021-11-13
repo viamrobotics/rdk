@@ -91,7 +91,7 @@ func TestFramesFromPart(t *testing.T) {
 		FrameConfig: nil,
 		ModelFrame:  nil,
 	}
-	modelFrame, offsetFrame, err := CreateFramesFromPart(part, logger)
+	_, _, err = CreateFramesFromPart(part, logger)
 	test.That(t, err, test.ShouldBeError, errors.New("config for FrameSystemPart is nil"))
 
 	// slightly specified part
@@ -100,7 +100,7 @@ func TestFramesFromPart(t *testing.T) {
 		FrameConfig: &Frame{Parent: "world"},
 		ModelFrame:  nil,
 	}
-	modelFrame, offsetFrame, err = CreateFramesFromPart(part, logger)
+	modelFrame, offsetFrame, err := CreateFramesFromPart(part, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, modelFrame, test.ShouldResemble, referenceframe.NewZeroStaticFrame(part.Name))
 	test.That(t, offsetFrame, test.ShouldResemble, referenceframe.NewZeroStaticFrame(part.Name+"_offset"))
