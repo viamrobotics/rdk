@@ -49,8 +49,7 @@ type Arm interface {
 	// JointMoveDelta moves a specific joint of the arm by the given amount.
 	JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error
 
-	// ModelFrame returns the kinematics model of the arm
-	ModelFrame() *kinematics.Model
+	kinematics.ModelFramer
 }
 
 var (
