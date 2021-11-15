@@ -4,8 +4,6 @@ package subtype
 import (
 	"sync"
 
-	"github.com/pkg/errors"
-
 	"go.viam.com/core/resource"
 )
 
@@ -45,9 +43,6 @@ func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
 	defer s.mu.Unlock()
 	resources := make(map[string]interface{}, len(r))
 	for n, v := range r {
-		if _, ok := resources[n.Name]; ok {
-			return errors.Errorf("duplicate name in resources %s", n.Name)
-		}
 		resources[n.Name] = v
 	}
 	s.resources = resources
