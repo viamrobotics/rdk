@@ -1,0 +1,15 @@
+{
+    "components":
+    [
+        {
+            "name": "local",
+            "model": "numato",
+            "type": "board",
+            "attributes":
+            {
+                
+            }
+        }
+       
+    ]
+}
