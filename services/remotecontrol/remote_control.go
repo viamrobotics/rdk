@@ -118,13 +118,13 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	err := remoteSvc.Start(ctx)
 
 	if err != nil {
-		return nil, errors.Errorf("error with starting remote control service")
+		return nil, errors.Errorf("error with starting remote control service: %q", err)
 	}
 
 	return remoteSvc, nil
 }
 
-// StartRemote is the main control loops for sending events from controller to base
+// Start is the main control loops for sending events from controller to base
 func (svc *RemoteService) Start(ctx context.Context) error {
 
 	var millisPerSec float64
