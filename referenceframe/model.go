@@ -111,10 +111,10 @@ func (m *Model) JointRadToQuats(inputs []Input) ([]spatialmath.Pose, error) {
 	composedTransformation := spatialmath.NewZeroPose()
 	var transformations []spatialmath.Pose
 	var lastTransformation spatialmath.Pose
-	for _, pose := range poses {
-		composedTransformation = spatialmath.Compose(composedTransformation, pose)
+	for i := 0; i < len(poses); i++ {
+		composedTransformation = spatialmath.Compose(composedTransformation, poses[i])
 		// only append transformations to the list that result in a change in translation
-		if lastTransformation == nil || !spatialmath.AlmostCoincident(composedTransformation, lastTransformation) {
+		if i == 0 || !spatialmath.AlmostCoincident(composedTransformation, lastTransformation) || i == len(poses)-1 {
 			transformations = append(transformations, composedTransformation)
 		}
 		lastTransformation = composedTransformation
