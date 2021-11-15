@@ -98,37 +98,6 @@ func TestUR5NloptIKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestIKTolerances(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-
-	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/varm/v1_test.json"), "")
-	test.That(t, err, test.ShouldBeNil)
-	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Test inability to arrive at another position due to orientation
-	pos := &pb.Pose{
-		X:  -46,
-		Y:  0,
-		Z:  372,
-		OX: -1.78,
-		OY: -3.3,
-		OZ: -1.11,
-	}
-	_, err = solveTest(context.Background(), ik, pos, frame.FloatsToInputs([]float64{0, 0}))
-	test.That(t, err, test.ShouldNotBeNil)
-
-	// Now verify that setting tolerances to zero allows the same arm to reach that position
-	m, err = frame.ParseJSONFile(utils.ResolveFile("robots/varm/v1.json"), "")
-	test.That(t, err, test.ShouldBeNil)
-	ik, err = CreateCombinedIKSolver(m, logger, nCPU)
-	test.That(t, err, test.ShouldBeNil)
-	ik.SetSolveWeights(m.SolveWeights)
-
-	_, err = solveTest(context.Background(), ik, pos, frame.FloatsToInputs([]float64{0, 0}))
-	test.That(t, err, test.ShouldBeNil)
-}
-
 func TestSVAvsDH(t *testing.T) {
 	mSVA, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)

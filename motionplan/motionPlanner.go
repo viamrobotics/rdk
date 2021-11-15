@@ -24,7 +24,8 @@ type MotionPlanner interface {
 	RemoveConstraint(string)
 	Constraints() []string
 	CheckConstraints(*ConstraintInput) (bool, float64)
-	Resolution() float64 // how narrowly to check for constraints
+	Resolution() float64                                  // how narrowly to check for constraints
+	SetGradient(func(spatial.Pose, spatial.Pose) float64) // Sets the function to minimize for the goal
 	Frame() frame.Frame
 }
 
@@ -38,7 +39,7 @@ func NewLinearMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (M
 	}
 	mp := &linearMotionPlanner{solver: ik, frame: frame, idealMovementScore: 0.3, stepSize: 2., logger: logger}
 	mp.visited = map[r3.Vector]bool{}
-	mp.AddConstraint("interpolationConstraint", NewInterpolatingConstraint())
+	mp.AddConstraint("interpolationConstraint", NewInterpolatingConstraint(0.1))
 	mp.AddConstraint("jointSwingScorer", NewJointScorer())
 	return mp, nil
 }
@@ -60,6 +61,10 @@ func (mp *linearMotionPlanner) Frame() frame.Frame {
 
 func (mp *linearMotionPlanner) Resolution() float64 {
 	return mp.stepSize
+}
+
+func (mp *linearMotionPlanner) SetGradient(f func(spatial.Pose, spatial.Pose) float64) {
+	mp.solver.SetGradient(f)
 }
 
 func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed []frame.Input) ([][]frame.Input, error) {

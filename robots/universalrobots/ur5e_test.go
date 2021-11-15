@@ -83,7 +83,7 @@ func testUR5eInverseKinements(t *testing.T, pos *pb.Pose) {
 
 	steps, err := mp.Plan(ctx, pos, frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}))
 	test.That(t, err, test.ShouldBeNil)
-	solution := steps[len(steps) - 1]
+	solution := steps[len(steps)-1]
 
 	// we test that if we go forward from these joints, we end up in the same place
 	jointRadians := frame.InputsToFloats(solution)

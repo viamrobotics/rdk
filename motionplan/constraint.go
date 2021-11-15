@@ -1,9 +1,8 @@
 package motionplan
 
 import (
-	"math"
-	//~ "fmt"
 	"errors"
+	"math"
 
 	"github.com/golang/geo/r3"
 
@@ -20,6 +19,9 @@ type ConstraintInput struct {
 	frame      frame.Frame
 }
 
+// Constraint defines a struct that contains a function which is able to determine whether or not a given position
+// is valid.
+// TODO (pl): Determine how Gradient should fit into this
 type Constraint interface {
 	// A bool returning whether the given input is known to be good, and a float representing how far the input is
 	// from "ideal".
@@ -105,14 +107,9 @@ func (c *constraintHandler) Constraints() []string {
 func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, float64) {
 	score := 0.
 
-	//~ fmt.Println("checking", cInput)
-
-	//~ for name, cFunc := range c.constraints {
 	for _, cFunc := range c.constraints {
 		pass, cScore := cFunc.Valid(cInput)
-		//~ fmt.Println(name, pass)
 		if !pass {
-			//~ fmt.Println(name, "failed, off by", cScore)
 			return false, math.Inf(1)
 		}
 		score += cScore
@@ -120,14 +117,12 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 	return true, score
 }
 
-func interpolationCheck(cInput *ConstraintInput, s float64) bool {
-	epsilon := 0.1
-
-	iPos, err := cInput.frame.Transform(frame.InterpolateInputs(cInput.startInput, cInput.endInput, s))
+func interpolationCheck(cInput *ConstraintInput, by, epsilon float64) bool {
+	iPos, err := cInput.frame.Transform(frame.InterpolateInputs(cInput.startInput, cInput.endInput, by))
 	if err != nil {
 		return false
 	}
-	interp := spatial.Interpolate(cInput.startPos, cInput.endPos, s)
+	interp := spatial.Interpolate(cInput.startPos, cInput.endPos, by)
 	dist := kinematics.SquaredNorm(spatial.PoseDelta(iPos, interp))
 	if dist > epsilon {
 		return false
@@ -153,17 +148,17 @@ func (c *flexibleConstraint) setFunc(f func(cInput *ConstraintInput) (bool, floa
 // NewInterpolatingConstraint creates a constraint function from an arbitrary function that will decide if a given pose is valid.
 // This function will check the given function at each point in checkSeq, and 1-point. If all constraints are satisfied,
 // it will return true. If any intermediate pose violates the constraint, will return false.
-func NewInterpolatingConstraint() Constraint {
+func NewInterpolatingConstraint(epsilon float64) Constraint {
 	c := &flexibleConstraint{}
 	f := func(cInput *ConstraintInput) (bool, float64) {
 		for _, s := range checkSeq {
-			ok := interpolationCheck(cInput, s)
+			ok := interpolationCheck(cInput, s, epsilon)
 			if !ok {
 				return ok, 0
 			}
 			// Check 1 - s if s != 0.5
 			if s != 0.5 {
-				ok := interpolationCheck(cInput, 1-s)
+				ok := interpolationCheck(cInput, 1-s, epsilon)
 				if !ok {
 					return ok, 0
 				}
@@ -212,7 +207,8 @@ func NewJointScorer() Constraint {
 	return c
 }
 
-// Simulates an obstacle.
+// DontHitPetersWallConstraint defines some obstacles that nothing should not intersect with
+// TODO(pl): put this somewhere else, maybe in an example file or something
 func DontHitPetersWallConstraint() Constraint {
 
 	f := func(ci *ConstraintInput) (bool, float64) {
@@ -220,9 +216,7 @@ func DontHitPetersWallConstraint() Constraint {
 			pt := pose.Point()
 
 			// wall in Peter's office
-			// this has some buffer- whiteboard at precisely -506
 			if pt.Y < -536.8 {
-				//~ fmt.Println(spatial.PoseToProtobuf(pose))
 				return false
 			}
 			if pt.X < -600 {
@@ -358,9 +352,6 @@ func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector, writingAngle, epsilon fl
 	// TODO: do we need to care about trajectory here? Probably, but not yet implemented
 	gradFunc := func(from, to spatial.Pose) float64 {
 		pDist := planeDist(from.Point())
-
-		//~ fmt.Println(pDist, from.Point())
-
 		oDist := dFunc(from.Orientation())
 		return pDist*pDist + oDist*oDist
 	}
@@ -436,6 +427,14 @@ func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, ov *spatial.OrientationVec
 	c := &flexibleConstraint{validFunc}
 
 	return c, gradFunc
+}
+
+// PositionOnlyGradient returns the point-wise distance between two poses without regard for orientation.
+// This is useful for scenarios where there are not enough DOF to control orientation, but arbitrary spatial points may
+// still be arived at.
+func PositionOnlyGradient(from, to spatial.Pose) float64 {
+	pDist := from.Point().Distance(to.Point())
+	return pDist * pDist
 }
 
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.

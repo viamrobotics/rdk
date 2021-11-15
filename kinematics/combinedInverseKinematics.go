@@ -127,9 +127,9 @@ func (ik *CombinedIK) SetSolveWeights(weights frame.SolverDistanceWeights) {
 	}
 }
 
-// SetDistFunc sets the function for distance between two poses
-func (ik *CombinedIK) SetDistFunc(f func(spatialmath.Pose, spatialmath.Pose) float64) {
+// SetGradient sets the function for distance between two poses
+func (ik *CombinedIK) SetGradient(f func(spatialmath.Pose, spatialmath.Pose) float64) {
 	for _, solver := range ik.solvers {
-		solver.SetDistFunc(f)
+		solver.SetGradient(f)
 	}
 }

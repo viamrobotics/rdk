@@ -2,7 +2,6 @@ package kinematics
 
 import (
 	"context"
-	"math"
 
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
@@ -27,7 +26,7 @@ type InverseKinematics interface {
 	// Solve receives a context, the goal arm position, and current joint angles.
 	Solve(context.Context, chan []frame.Input, spatial.Pose, []frame.Input) error
 	SetSolveWeights(frame.SolverDistanceWeights)
-	SetDistFunc(func(spatial.Pose, spatial.Pose) float64)
+	SetGradient(func(spatial.Pose, spatial.Pose) float64)
 	Close() error
 }
 
@@ -54,91 +53,6 @@ func WeightedSquaredNorm(vec []float64, config frame.SolverDistanceWeights) floa
 		norm += v * v * configArr[i]
 	}
 	return norm
-}
-
-// calcSwingAmount will calculate the distance from the start position to the halfway point, and also the start position to
-// the end position, and return the ratio of the two. If the result >1.0, then the halfway point is further from the
-// start position than the end position is, and thus solution searching should continue.
-// Positions passed in should be valid, as should their halfway points, so any error will return an infinite distance
-func calcSwingAmount(from, to []frame.Input, model frame.Frame) (float64, error) {
-
-	startPos, err := model.Transform(from)
-	if err != nil {
-		return math.Inf(1), err
-	}
-	endPos, err := model.Transform(to)
-	if err != nil {
-		return math.Inf(1), err
-	}
-
-	fullDist := SquaredNorm(spatial.PoseDelta(startPos, endPos))
-
-	dist := 0.
-	orientWeights := frame.SolverDistanceWeights{Orient: frame.XYZTHWeights{1, 1, 1, 1}}
-	for i := 0; i < waypoints; i++ {
-		// waypoint will be a sequence of fractions: 1/2, 1/3, 1/4, 1/5...
-		// This represents how far down the path of motion to interpolate.
-		// We will interpolate `waypoint` amount between the start/goal joint positions, and between the start/goal
-		// cartesian positions, and compare those two distances- closer is better.
-		// Note: Each waypoint (except 0.5) will check that distance from both ends of the path. For example, if
-		// waypoint equals 0.2, that will check 0.2 and 0.8.
-		waypoint := 1. / float64(i+2)
-		interp := frame.InterpolateInputs(from, to, waypoint)
-		pathPos, err := model.Transform(interp)
-		if err != nil {
-			// This should never happen unless you have invalid waypoints
-			return math.Inf(1), err
-		}
-
-		compPos := pathPos
-		if waypoint != 0.5 {
-			// If we're not at the halfway point, check both sides- since joints move towards and away from singularities,
-			// a smooth joint movement won't be symmetrical.
-			interp = frame.InterpolateInputs(from, to, 1-waypoint)
-			compPos, err = model.Transform(interp)
-			if err != nil {
-				// This should never happen unless you have invalid waypoints
-				return math.Inf(1), err
-			}
-		}
-
-		// Orientation should cleanly interpolate from one end to the other.
-		// Position will not since arm parts move in arcs, not straight lines, so we check that the position ratio is correct
-		idealPos := spatial.Interpolate(startPos, endPos, waypoint)
-
-		// This should ensure that orientation is held approximately constant through a move
-		dist += WeightedSquaredNorm(spatial.PoseDelta(pathPos, idealPos), orientWeights) / 50
-
-		// Ensure that the path position is the correct distance ratio to both the start and end
-		// Note that this does NOT prevent linear deviation from the ideal path, only ensures that the waypoints are
-		// proportionally located from start to end
-		dist += 10 * math.Pow(waypoint-SquaredNorm(spatial.PoseDelta(pathPos, startPos))/fullDist, 2)
-		dist += 10 * math.Pow(waypoint-SquaredNorm(spatial.PoseDelta(compPos, endPos))/fullDist, 2)
-	}
-
-	// Add total amount of joint movement to distance
-	for i, f := range from {
-		dist += math.Abs(f.Value - to[i].Value)
-	}
-	return dist, nil
-}
-
-// bestSolution will select the best solution from a slice of possible solutions for a given model. "Best" is defined
-// such that the interpolated halfway point of the motion is most in line with the movement from start to end.
-func bestSolution(seedAngles []frame.Input, solutions [][]frame.Input, model frame.Frame) ([]frame.Input, float64, error) {
-	var best []frame.Input
-	dist := math.Inf(1)
-	for _, solution := range solutions {
-		newDist, err := calcSwingAmount(seedAngles, solution, model)
-		if err != nil {
-			return nil, math.Inf(1), err
-		}
-		if newDist < dist {
-			dist = newDist
-			best = solution
-		}
-	}
-	return best, dist, nil
 }
 
 func limitsToArrays(limits []frame.Limit) ([]float64, []float64) {

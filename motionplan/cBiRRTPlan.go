@@ -3,7 +3,6 @@ package motionplan
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"math/rand"
 	"sort"
@@ -58,19 +57,15 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (*
 
 	mp.AddConstraint("jointSwingScorer", NewJointScorer())
 
-	// For safety, remove before merging into main
-	//~ mp.AddConstraint("officewall", DontHitPetersWallConstraint())
-	fmt.Println("Note: adding constraint for Peter's office wall")
-
 	return mp, nil
 }
 
-func (mp *cBiRRTMotionPlanner) SetGoalDistFunc(f func(spatial.Pose, spatial.Pose) float64) {
-	mp.solver.SetDistFunc(f)
+func (mp *cBiRRTMotionPlanner) SetGradient(f func(spatial.Pose, spatial.Pose) float64) {
+	mp.solver.SetGradient(f)
 }
 
 func (mp *cBiRRTMotionPlanner) SetPathDistFunc(f func(spatial.Pose, spatial.Pose) float64) {
-	mp.fastGradDescent.SetDistFunc(f)
+	mp.fastGradDescent.SetGradient(f)
 }
 
 func (mp *cBiRRTMotionPlanner) Frame() frame.Frame {

@@ -70,20 +70,6 @@ func TestForwardKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
-func TestSwingEdgeCases(t *testing.T) {
-	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"), "")
-	test.That(t, err, test.ShouldBeNil)
-
-	origin := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0})
-	oob := frame.FloatsToInputs([]float64{0, 0, 0, 0, 999})
-	swing, err := calcSwingAmount(oob, origin, m)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, swing, test.ShouldEqual, math.Inf(1))
-	swing, err = calcSwingAmount(origin, oob, m)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, swing, test.ShouldEqual, math.Inf(1))
-}
-
 func floatDelta(l1, l2 []float64) float64 {
 	delta := 0.0
 	for i, v := range l1 {

@@ -2,13 +2,10 @@ package motionplan
 
 import (
 	"context"
-	"fmt"
 	"sort"
 
-	//~ "runtime"
 	"testing"
 
-	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/utils"
@@ -27,20 +24,20 @@ func TestExtend(t *testing.T) {
 	inputSteps := [][]frame.Input{}
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	m, err := kinematics.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"))
+	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	mp, err := NewCBiRRTMotionPlanner_petertest(m, logger, 4)
+	mp, err := NewCBiRRTMotionPlanner(m, logger, 4)
 	test.That(t, err, test.ShouldBeNil)
 
-	pos := &pb.ArmPosition{
+	pos := &pb.Pose{
 		X:  206,
 		Y:  100,
 		Z:  120.5,
 		OZ: -1,
 	}
 
-	solutions, err := getSolutions(ctx, mp.frame, mp.solver, pos, home7, mp.constraintHandler)
+	solutions, err := getSolutions(ctx, -1, -1, mp.solver, pos, home7, mp)
 	test.That(t, err, test.ShouldBeNil)
 
 	near1 := &solution{home7}
@@ -61,48 +58,30 @@ func TestExtend(t *testing.T) {
 	}
 
 	for _, k := range keys[:nSolutions] {
-		fmt.Println("goal", k, solutions[k])
 		goalMap[&solution{solutions[k]}] = nil
 	}
 
 	seedReached, goalReached := mp.constrainedExtendWrapper(seedMap, goalMap, near1, target)
 
-	fmt.Println(target)
-	fmt.Println("seedR", seedReached)
-	fmt.Println("goalR", goalReached)
-	//~ fmt.Println("seedMap")
-	//~ printMap(seedMap)
-	//~ fmt.Println("goalMap")
-	//~ printMap(goalMap)
-
 	test.That(t, inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist, test.ShouldBeTrue)
 
-	if inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist {
-		fmt.Println("got path!")
-		// extract the path to the seed
-		for seedReached != nil {
-			inputSteps = append(inputSteps, seedReached.inputs)
-			seedReached = seedMap[seedReached]
-		}
-		//~ fmt.Println("path1", inputSteps)
-		// reverse the slice
-		for i, j := 0, len(inputSteps)-1; i < j; i, j = i+1, j-1 {
-			inputSteps[i], inputSteps[j] = inputSteps[j], inputSteps[i]
-		}
-		// extract the path to the goal
-		for goalReached != nil {
-			inputSteps = append(inputSteps, goalReached.inputs)
-			goalReached = goalMap[goalReached]
-		}
-		//~ fmt.Println("path", inputSteps)
-		inputSteps = mp.SmoothPath(ctx, inputSteps)
-		//~ fmt.Println(inputSteps)
+	// extract the path to the seed
+	for seedReached != nil {
+		inputSteps = append(inputSteps, seedReached.inputs)
+		seedReached = seedMap[seedReached]
 	}
-}
+	// reverse the slice
+	for i, j := 0, len(inputSteps)-1; i < j; i, j = i+1, j-1 {
+		inputSteps[i], inputSteps[j] = inputSteps[j], inputSteps[i]
+	}
+	// extract the path to the goal
+	for goalReached != nil {
+		inputSteps = append(inputSteps, goalReached.inputs)
+		goalReached = goalMap[goalReached]
+	}
 
-func printMap(m map[*solution]*solution) {
-	for k, v := range m {
-		fmt.Println(k)
-		fmt.Println("  -> ", v)
-	}
+	// Test that smoothing shortens the path
+	unsmoothLen := len(inputSteps)
+	inputSteps = mp.SmoothPath(ctx, inputSteps)
+	test.That(t, len(inputSteps), test.ShouldBeLessThan, unsmoothLen)
 }
