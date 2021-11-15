@@ -22,12 +22,11 @@ type cBiRRTMotionPlanner struct {
 	solver            kinematics.InverseKinematics
 	fastGradDescent   *kinematics.NloptIK
 	frame             frame.Frame
-	distFunc          func(spatial.Pose, spatial.Pose) float64
 	logger            golog.Logger
 	qstep             []float64
 	iter              int
 	stepSize          float64
-	seed              *rand.Rand
+	randseed          *rand.Rand
 }
 
 // needed to wrap slices so we can use them as map keys
@@ -35,6 +34,8 @@ type solution struct {
 	inputs []frame.Input
 }
 
+// NewCBiRRTMotionPlanner creates an object able to solve constrained paths around obstacles to some goal for a given frame.
+// It uses the Constrained Bidirctional Rapidly-expanding Random Tree algorithm, Berenson et al 2009
 func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (*cBiRRTMotionPlanner, error) {
 	ik, err := kinematics.CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
@@ -53,7 +54,7 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (*
 	mp.iter = 2000
 	mp.stepSize = 2
 
-	mp.seed = rand.New(rand.NewSource(42))
+	mp.randseed = rand.New(rand.NewSource(42))
 
 	mp.AddConstraint("jointSwingScorer", NewJointScorer())
 
@@ -82,10 +83,6 @@ func (mp *cBiRRTMotionPlanner) SetFrame(f frame.Frame) {
 
 func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed []frame.Input) ([][]frame.Input, error) {
 	inputSteps := [][]frame.Input{}
-	seedCopy := make([]frame.Input, 0, len(seed))
-	for _, s := range seed {
-		seedCopy = append(seedCopy, s)
-	}
 
 	// How many of the top solutions to try
 	nSolutions := 50
@@ -169,7 +166,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed []f
 			return inputSteps, nil
 		}
 
-		target = &solution{frame.RestrictedRandomFrameInputs(mp.frame, mp.seed, 0.1)}
+		target = &solution{frame.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1)}
 		for j, v := range rSeed.inputs {
 			target.inputs[j].Value += v.Value
 		}
@@ -276,9 +273,8 @@ func (mp *cBiRRTMotionPlanner) constrainNear(seedInputs, target []frame.Input) [
 	if !ok {
 		if failpos != nil {
 			return mp.constrainNear(seedInputs, failpos.startInput)
-		} else {
-			return nil
 		}
+		return nil
 	}
 
 	return solved
