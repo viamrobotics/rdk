@@ -26,7 +26,7 @@ var (
 // This should test all of the kinematics functions
 func TestCombinedIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
+	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
@@ -59,7 +59,7 @@ func TestCombinedIKinematics(t *testing.T) {
 func BenchCombinedIKinematics(t *testing.B) {
 	logger := golog.NewDevelopmentLogger("combinedBenchmark")
 
-	m, err := ParseJSONFile(utils.ResolveFile("robots/eva/eva_json"), "")
+	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/eva/eva_json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
@@ -84,7 +84,7 @@ func BenchCombinedIKinematics(t *testing.B) {
 func TestUR5NloptIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	m, err := ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
+	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
@@ -99,7 +99,7 @@ func TestUR5NloptIKinematics(t *testing.T) {
 func TestIKTolerances(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	m, err := ParseJSONFile(utils.ResolveFile("robots/varm/v1_test.json"), "")
+	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/varm/v1_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
@@ -117,7 +117,7 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
-	m, err = ParseJSONFile(utils.ResolveFile("robots/varm/v1.json"), "")
+	m, err = frame.ParseJSONFile(utils.ResolveFile("robots/varm/v1.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err = CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
@@ -128,9 +128,9 @@ func TestIKTolerances(t *testing.T) {
 }
 
 func TestSVAvsDH(t *testing.T) {
-	mSVA, err := ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
+	mSVA, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mDH, err := ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e_DH.json"), "")
+	mDH, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e_DH.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	numTests := 10000
@@ -157,7 +157,7 @@ func TestSVAvsDH(t *testing.T) {
 
 func BenchNloptSwing(t *testing.B) {
 	logger := golog.NewDevelopmentLogger("testSwing")
-	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_json"), "")
+	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
