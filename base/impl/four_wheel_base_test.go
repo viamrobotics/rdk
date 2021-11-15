@@ -9,48 +9,23 @@ import (
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rlog"
-	robotimpl "go.viam.com/core/robot/impl"
+	"go.viam.com/core/robots/fake"
+	"go.viam.com/core/testutils/inject"
 
 	"go.viam.com/test"
 )
 
 func TestFourWheelBase1(t *testing.T) {
 	ctx := context.Background()
-	r, err := robotimpl.New(ctx,
-		&config.Config{
-			Components: []config.Component{
-				{
-					Name:                "fr-m",
-					Model:               "fake",
-					Type:                config.ComponentTypeMotor,
-					ConvertedAttributes: &motor.Config{},
-				},
-				{
-					Name:                "fl-m",
-					Model:               "fake",
-					Type:                config.ComponentTypeMotor,
-					ConvertedAttributes: &motor.Config{},
-				},
-				{
-					Name:                "br-m",
-					Model:               "fake",
-					Type:                config.ComponentTypeMotor,
-					ConvertedAttributes: &motor.Config{},
-				},
-				{
-					Name:                "bl-m",
-					Model:               "fake",
-					Type:                config.ComponentTypeMotor,
-					ConvertedAttributes: &motor.Config{},
-				},
-			},
-		},
-		rlog.Logger,
-	)
-	test.That(t, err, test.ShouldBeNil)
-	defer test.That(t, r.Close(), test.ShouldBeNil)
 
-	_, err = CreateFourWheelBase(context.Background(), r, config.Component{}, rlog.Logger)
+	fakeRobot := &inject.Robot{}
+
+	fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
+		return &fake.Motor{}, true
+	}
+
+	_, err := CreateFourWheelBase(context.Background(), fakeRobot, config.Component{}, rlog.Logger)
+
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfg := config.Component{
@@ -63,7 +38,7 @@ func TestFourWheelBase1(t *testing.T) {
 			"backLeft":                 "bl-m",
 		},
 	}
-	baseBase, err := CreateFourWheelBase(context.Background(), r, cfg, rlog.Logger)
+	baseBase, err := CreateFourWheelBase(context.Background(), fakeRobot, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
 	base, ok := baseBase.(*FourWheelBase)
