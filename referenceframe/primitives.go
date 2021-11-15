@@ -1,6 +1,8 @@
 package referenceframe
 
 import (
+	"context"
+	
 	pb "go.viam.com/core/proto/api/v1"
 
 	"go.viam.com/core/utils"
@@ -60,4 +62,9 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 		n[idx] = utils.RadToDeg(a)
 	}
 	return &pb.JointPositions{Degrees: n}
+}
+
+type InputEnabled interface {
+	CurrentInputs(ctx context.Context) ([]Input, error)
+	GoToInputs(ctx context.Context, goal []Input) error
 }

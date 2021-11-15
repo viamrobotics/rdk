@@ -50,6 +50,7 @@ type Arm interface {
 	JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error
 
 	referenceframe.ModelFramer
+	referenceframe.InputEnabled
 }
 
 var (
@@ -103,6 +104,19 @@ func (r *reconfigurableArm) ModelFrame() *referenceframe.Model {
 	defer r.mu.RUnlock()
 	return r.actual.ModelFrame()
 }
+
+func (r *reconfigurableArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.CurrentInputs(ctx)
+}
+
+func (r *reconfigurableArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.GoToInputs(ctx, goal)
+}
+
 
 func (r *reconfigurableArm) Close() error {
 	r.mu.RLock()
