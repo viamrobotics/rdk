@@ -118,7 +118,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	err := remoteSvc.Start(ctx)
 
 	if err != nil {
-		errors.Errorf("error with starting remote control service", err)
+		errors.Errorf("error with starting remote control service")
 	}
 
 	return remoteSvc, nil
