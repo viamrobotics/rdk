@@ -86,6 +86,20 @@ func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64)
 	return errors.New("arm JointMoveDelta does nothing")
 }
 
+// CurrentInputs TODO
+func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	res, err := a.CurrentJointPositions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.JointPosToInputs(res), nil
+}
+
+// GoToInputs TODO
+func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+}
+
 // Close does nothing.
 func (a *Arm) Close() error {
 	a.CloseCount++
