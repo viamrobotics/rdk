@@ -172,6 +172,7 @@ func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.Arm,
 	if err != nil {
 		return nil, err
 	}
+	newArm.mp.SetGradient(motionplan.PositionOnlyGradient)
 
 	newArm.j0.degMin = -135.0
 	newArm.j0.degMax = 75.0

@@ -2,12 +2,9 @@ package motionplan
 
 import (
 	"context"
-	"fmt"
-
 	"runtime"
 	"testing"
 
-	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/utils"
@@ -25,15 +22,15 @@ var (
 // This should test a simple linear motion
 func TestSimpleMotion(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := kinematics.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"))
+	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	mp, err := NewCBiRRTMotionPlanner_petertest(m, logger, 4)
+	mp, err := NewCBiRRTMotionPlanner(m, logger, 4)
 	test.That(t, err, test.ShouldBeNil)
 	//~ mp.AddConstraint("orientation", NewPoseConstraint())
 
 	// Test ability to arrive at another position
-	pos := &pb.ArmPosition{
+	pos := &pb.Pose{
 		X:  206,
 		Y:  100,
 		Z:  120,
@@ -41,14 +38,13 @@ func TestSimpleMotion(t *testing.T) {
 	}
 	path, err := mp.Plan(context.Background(), pos, home7)
 	test.That(t, err, test.ShouldBeNil)
-
-	fmt.Println(path)
+	test.That(t, len(path), test.ShouldNotEqual, 0)
 }
 
 // This should test a simple linear motion
 func TestSimpleMotionUR5(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := kinematics.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"))
+	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := NewCBiRRTMotionPlanner(m, logger, 4)
 	test.That(t, err, test.ShouldBeNil)
@@ -57,7 +53,7 @@ func TestSimpleMotionUR5(t *testing.T) {
 	mp.RemoveConstraint("obstacle")
 
 	// Test ability to arrive at another position
-	pos := &pb.ArmPosition{
+	pos := &pb.Pose{
 		X:  -750,
 		Y:  -250,
 		Z:  200,
@@ -65,8 +61,7 @@ func TestSimpleMotionUR5(t *testing.T) {
 	}
 	path, err := mp.Plan(context.Background(), pos, home6)
 	test.That(t, err, test.ShouldBeNil)
-
-	fmt.Println(path)
+	test.That(t, len(path), test.ShouldNotEqual, 0)
 }
 
 func TestFixOvIncrement(t *testing.T) {

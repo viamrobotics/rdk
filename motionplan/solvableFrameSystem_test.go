@@ -9,7 +9,6 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
-	"go.viam.com/core/kinematics"
 	//~ pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
@@ -33,11 +32,11 @@ func makeTestFS(t *testing.T) *SolvableFrameSystem {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantry, gantryOffset)
 
-	modelXarm, err := kinematics.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"))
+	modelXarm, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelXarm, gantry)
 
-	modelUR5e, err := kinematics.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"))
+	modelUR5e, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelUR5e, urOffset)
 

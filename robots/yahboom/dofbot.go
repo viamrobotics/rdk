@@ -111,8 +111,8 @@ func createDofBotSolver(logger golog.Logger) (*frame.Model, motionplan.MotionPla
 	if err != nil {
 		return nil, nil, err
 	}
-	// TODO (peter): update this to be a constraint
-	//~ mp.SetSolveWeights(model.SolveWeights)
+	// dofbot las limited dof
+	mp.SetGradient(motionplan.PositionOnlyGradient)
 	return model, mp, nil
 }
 

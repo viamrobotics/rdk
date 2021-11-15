@@ -133,8 +133,8 @@ func (ik *NloptIK) SetSolveWeights(weights frame.SolverDistanceWeights) {
 	ik.SolveWeights = weights
 }
 
-// SetDistFunc sets the function for distance between two poses
-func (ik *NloptIK) SetDistFunc(f func(spatial.Pose, spatial.Pose) float64) {
+// SetGradient sets the function for distance between two poses
+func (ik *NloptIK) SetGradient(f func(spatial.Pose, spatial.Pose) float64) {
 	ik.distFunc = f
 }
 

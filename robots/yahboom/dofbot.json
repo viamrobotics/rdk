@@ -47,23 +47,5 @@
             "max": 180,
             "min": -180
         }
-    ],
-    "tolerances": {
-        "translation": {
-            "x": 1,
-            "y": 1,
-            "z": 1
-        },
-        "orientation": {
-            "type": "ov_degrees",
-            "value": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": 0.0,
-                "th": 0.0
-            }
-        }
-
-        
-    }
+    ]
 }

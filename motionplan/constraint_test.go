@@ -1,42 +1,39 @@
 package motionplan
 
 import (
-	"fmt"
-
-	//~ "runtime"
+	"context"
 	"testing"
 
 	pb "go.viam.com/core/proto/api/v1"
-	spatial "go.viam.com/core/spatialmath"
+	frame "go.viam.com/core/referenceframe"
+	"go.viam.com/core/utils"
+
+	"github.com/edaniels/golog"
+	"go.viam.com/test"
 )
 
-var wbY = -480.
+func TestIKTolerances(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 
-func TestWhiteboard(t *testing.T) {
-	oldGoal := spatial.NewPoseFromArmPos(&pb.ArmPosition{
-		X:  480,
-		Y:  wbY,
-		Z:  600,
-		OY: -1,
-	})
-	goal := spatial.NewPoseFromArmPos(&pb.ArmPosition{X: 440, Y: wbY, Z: 500, OY: -1})
-	validOV := &spatial.OrientationVector{OX: 0, OY: -1, OZ: 0}
-	validFunc, _ := NewLineConstraintAndGradient(oldGoal.Point(), goal.Point(), validOV)
+	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/varm/v1.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	mp, err := NewCBiRRTMotionPlanner(m, logger, nCPU)
+	test.That(t, err, test.ShouldBeNil)
 
-	//~ p1 := spatial.NewPoseFromArmPos(&pb.ArmPosition{X:479.8361361711587,
-	//~ Y:-480.08581873824187,
-	//~ Z:600.2562446722525,
-	//~ OX:-0.00025139303175381045,
-	//~ OY:-0.9999998419942064,
-	//~ OZ:0.0005028052361426005,
-	//~ Theta:-0.044449533434648386})
-	p2 := spatial.NewPoseFromArmPos(&pb.ArmPosition{X: 479.8779170592054,
-		Y:     -480.00004548561094,
-		Z:     599.6951753254116,
-		OX:    -0.0023524376220581955,
-		OY:    -0.9996054198800094,
-		OZ:    -0.027990544541756812,
-		Theta: 2.027966162594598})
+	// Test inability to arrive at another position due to orientation
+	pos := &pb.Pose{
+		X:  -46,
+		Y:  0,
+		Z:  372,
+		OX: -1.78,
+		OY: -3.3,
+		OZ: -1.11,
+	}
+	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
+	test.That(t, err, test.ShouldNotBeNil)
 
-	fmt.Println(validFunc(ConstraintInput{startPos: p2, endPos: p2}))
+	// Now verify that setting tolerances to zero allows the same arm to reach that position
+	mp.SetGradient(PositionOnlyGradient)
+	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
+	test.That(t, err, test.ShouldBeNil)
 }
