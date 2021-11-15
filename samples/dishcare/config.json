@@ -5,8 +5,8 @@
             "name": "local",
             "model": "numato",
             "type": "board",
-            "attributes":
-            {
+            "attributes": 
+            { "pins": "128"
                 
             }
         }
