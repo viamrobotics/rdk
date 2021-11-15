@@ -50,6 +50,7 @@ func init() {
 
 		return connect(ctx, conf, logger)
 	}})
+	board.RegisterConfigAttributeConverter(modelName)
 }
 
 type mask []byte
