@@ -8,7 +8,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 	"github.com/mitchellh/mapstructure"
-	"go.viam.com/utils"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/config"
@@ -125,21 +124,8 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	return remoteSvc, nil
 }
 
-// Start begins background process of remote control
-func (svc *RemoteService) Start(ctx context.Context) error {
-	svc.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer svc.activeBackgroundWorkers.Done()
-
-		if err := svc.StartRemote(ctx); err != nil {
-			errors.Errorf("error with remote control", err)
-		}
-	})
-	return nil
-}
-
 // StartRemote is the main control loops for sending events from controller to base
-func (svc *RemoteService) StartRemote(ctx context.Context) error {
+func (svc *RemoteService) Start(ctx context.Context) error {
 
 	var millisPerSec float64
 	var degPerSec float64
