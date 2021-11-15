@@ -2,8 +2,8 @@ package baseremotecontrol
 
 import (
 	"context"
+	"fmt"
 	"math"
-	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
@@ -17,7 +17,7 @@ import (
 )
 
 // Type is the type of service.
-const Type = config.ServiceType("remote-control")
+const Type = config.ServiceType("remote_control")
 
 // Initialize remote-control service with main server
 func init() {
@@ -58,8 +58,9 @@ type Config struct {
 
 // A Service controls the navigation for a robot.
 type Service interface {
-	Start(context.Context) error
+	Start() error
 	Close() error
+	Stop() error
 }
 
 // Close out all remote control related systems
@@ -68,8 +69,14 @@ func (svc *RemoteService) Close() error {
 		svc.cancelFunc()
 		svc.cancelFunc = nil
 	}
-	svc.activeBackgroundWorkers.Wait()
+
 	return nil
+}
+
+// Stop pauses the input controller events responses
+func (svc *RemoteService) Stop() error {
+	err := fmt.Errorf("pausing of remote service is currently unavailable")
+	return err
 }
 
 // RemoteService is the structure of the remote service
@@ -80,10 +87,8 @@ type RemoteService struct {
 	inputController input.Controller
 	joystickMode    JoyStickMode
 
-	logger                  golog.Logger
-	cancelCtx               context.Context
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
+	logger     golog.Logger
+	cancelFunc func()
 }
 
 // New returns a new remote control service for the given robot.
@@ -104,27 +109,26 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		joyStickMode1 = TriggerSpeed
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	_, cancelFunc := context.WithCancel(context.Background())
 	remoteSvc := &RemoteService{
 		r:               r,
 		base:            base1,
 		inputController: controller,
 		joystickMode:    joyStickMode1,
 		logger:          logger,
-		cancelCtx:       cancelCtx,
 		cancelFunc:      cancelFunc,
 	}
 
 	err := remoteSvc.Start(ctx)
 
 	if err != nil {
-		return nil, errors.Errorf("error with starting remote control service")
+		return nil, errors.Errorf("error starting remote control service: %q", err)
 	}
 
 	return remoteSvc, nil
 }
 
-// StartRemote is the main control loops for sending events from controller to base
+// Start is the main control loops for sending events from controller to base
 func (svc *RemoteService) Start(ctx context.Context) error {
 
 	var millisPerSec float64
