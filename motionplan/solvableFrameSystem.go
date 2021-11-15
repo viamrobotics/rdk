@@ -97,20 +97,30 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if len(inputs) != len(sf.DoF()) {
 		return nil, errors.New("incorrect number of inputs to Transform")
 	}
-	pos := frame.StartPositions(sf.fss)
-	i := 0
-	for _, frame := range sf.frames {
-		pos[frame.Name()] = inputs[i : i+len(frame.DoF())]
-		i += len(frame.DoF())
-	}
-	return sf.fss.TransformFrame(pos, sf.solveFrame, sf.goalFrame)
+	return sf.fss.TransformFrame(sf.sliceToMap(inputs), sf.solveFrame, sf.goalFrame)
 }
 
-// func (sf *solverFrame) MultiTransform(inputs []frame.Input) (spatial.Pose, error) {
-// 	if len(inputs) != len(sf.DoF()) {
-// 		return nil, errors.New("incorrect number of inputs to MultiTransform")
-// 	}
-// }
+// VerboseTransform takes a solverFrame and a list of joint angles in radians and computes the dual quaterions
+// representing poses of each of the links up to and including the end effector, and returns a mapping of frame names
+// to poses.  This is useful for when conversions between quaternions and OV are not needed.
+func (sf *solverFrame) VerboseTransform(inputs []frame.Input) (map[string]spatial.Pose, error) {
+	if len(inputs) != len(sf.DoF()) {
+		return nil, errors.New("incorrect number of inputs to Transform")
+	}
+	var err error
+	inputMap := sf.sliceToMap(inputs)
+	poseMap := make(map[string]spatial.Pose)
+	for _, frame := range sf.frames {
+		poseMapI, err := sf.fss.VerboseTransformFrame(inputMap, sf.solveFrame, frame)
+		if err != nil {
+			return nil, err
+		}
+		for name, pose := range poseMapI {
+			poseMap[name] = pose
+		}
+	}
+	return poseMap, err
+}
 
 // DoF returns the summed DoF of all frames between the two solver frames.
 func (sf *solverFrame) DoF() []frame.Limit {
