@@ -6,7 +6,10 @@
             "model": "numato",
             "type": "board",
             "attributes": 
-            { "pins": "128"
+            { 
+                "attributes": {
+                    "pins": "128"
+                }
                 
             }
         }
