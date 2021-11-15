@@ -16,7 +16,7 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := CreateNloptIKSolver(m, logger, 1)
+	ik, err := CreateNloptIKSolver(m, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	pos := &pb.Pose{X: 360, Z: 362}
