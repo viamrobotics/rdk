@@ -32,8 +32,8 @@ func init() {
 }
 
 // fakeModel returns the kinematics model
-func fakeModel() (*kinematics.Model, error) {
-	return kinematics.ParseJSON(armikModelJSON, "")
+func fakeModel() (*frame.Model, error) {
+	return frame.ParseJSON(armikModelJSON, "")
 }
 
 // NewArmIK returns a new fake arm.
@@ -49,11 +49,11 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 	}
 
 	return &ArmIK{
-		Name:      name,
-		position:  &pb.Pose{},
-		joints:    &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
-		ik:        ik,
-		frameJSON: armikModelJSON,
+		Name:     name,
+		position: &pb.Pose{},
+		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		ik:       ik,
+		model:    model,
 	}, nil
 }
 
@@ -64,12 +64,12 @@ type ArmIK struct {
 	joints     *pb.JointPositions
 	ik         kinematics.InverseKinematics
 	CloseCount int
-	frameJSON  []byte
+	model      *frame.Model
 }
 
-// ModelFrame returns the json bytes that describe the dynamic frame of the model
-func (a *ArmIK) ModelFrame() []byte {
-	return a.frameJSON
+// ModelFrame returns the dynamic frame of the model
+func (a *ArmIK) ModelFrame() *frame.Model {
+	return a.model
 }
 
 // CurrentPosition returns the set position.

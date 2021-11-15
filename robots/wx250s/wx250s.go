@@ -66,6 +66,7 @@ type Arm struct {
 	Joints   map[string][]*servo.Servo
 	moveLock *sync.Mutex
 	logger   golog.Logger
+	model    *frame.Model
 	ik       kinematics.InverseKinematics
 }
 
@@ -104,7 +105,7 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 		return nil, err
 	}
 
-	model, err := kinematics.ParseJSON(wx250smodeljson, "")
+	model, err := frame.ParseJSON(wx250smodeljson, "")
 	if err != nil {
 		return nil, err
 	}
@@ -124,6 +125,7 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 		},
 		moveLock: getPortMutex(usbPort),
 		logger:   logger,
+		model:    model,
 		ik:       ik,
 	}, nil
 }
@@ -386,6 +388,11 @@ func (a *Arm) WaitForMovement(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// ModelFrame TODO
+func (a *Arm) ModelFrame() *frame.Model {
+	return a.model
 }
 
 func setServoDefaults(newServo *servo.Servo) error {

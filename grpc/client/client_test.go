@@ -38,6 +38,7 @@ import (
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/imu"
+	servicepkg "go.viam.com/core/services"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/testutils/inject"
@@ -666,7 +667,7 @@ func TestClient(t *testing.T) {
 				Type: config.ComponentTypeArm,
 				Frame: &config.Frame{
 					Parent:      "b",
-					Translation: config.Translation{X: 1, Y: 2, Z: 3},
+					Translation: spatialmath.Translation{X: 1, Y: 2, Z: 3},
 					Orientation: &spatialmath.OrientationVectorDegrees{OX: 0, OY: 0, OZ: 1.0000000000000002, Theta: 7},
 				},
 			},
@@ -685,7 +686,7 @@ func TestClient(t *testing.T) {
 			Name: "frame1",
 			FrameConfig: &config.Frame{
 				Parent:      referenceframe.World,
-				Translation: config.Translation{1, 2, 3},
+				Translation: spatialmath.Translation{1, 2, 3},
 				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
 			},
 		},
@@ -693,7 +694,7 @@ func TestClient(t *testing.T) {
 			Name: "frame2",
 			FrameConfig: &config.Frame{
 				Parent:      "frame1",
-				Translation: config.Translation{4, 5, 6},
+				Translation: spatialmath.Translation{4, 5, 6},
 			},
 		},
 	}
@@ -703,7 +704,7 @@ func TestClient(t *testing.T) {
 	}
 	injectRobot1.ServiceByNameFunc = func(name string) (interface{}, bool) {
 		services := make(map[string]interface{})
-		services["frame_system"] = fss
+		services[servicepkg.FrameSystemName] = fss
 		service, ok := services[name]
 		return service, ok
 	}

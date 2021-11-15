@@ -45,6 +45,9 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 
 	// Create a frame to solve for, and an IK solver with that frame.
 	sf := &solverFrame{solveFrame.Name() + "_" + goalFrame.Name(), fss, frames, solveFrame, goalFrame}
+	if len(sf.DoF()) == 0 {
+		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
+	}
 	solver, err := CreateCombinedIKSolver(sf, fss.logger, runtime.NumCPU()/2)
 	if err != nil {
 		return nil, err
@@ -117,6 +120,14 @@ func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.I
 		i += len(frame.DoF())
 	}
 	return inputs
+}
+
+func (sf *solverFrame) MarshalJSON() ([]byte, error) {
+	return nil, errors.New("cannot serialize solverFrame")
+}
+
+func (sf *solverFrame) AlmostEquals(otherFrame frame.Frame) bool {
+	return false
 }
 
 // uniqInPlaceSlice will deduplicate the values in a slice using in-place replacement on the slice. This is faster than

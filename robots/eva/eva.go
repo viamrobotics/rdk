@@ -76,6 +76,7 @@ type eva struct {
 
 	moveLock *sync.Mutex
 	logger   golog.Logger
+	model    *frame.Model
 	ik       kinematics.InverseKinematics
 
 	frameJSON []byte
@@ -86,7 +87,7 @@ func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, er
 	if err != nil {
 		return &pb.JointPositions{}, err
 	}
-	return arm.JointPositionsFromRadians(data.ServosPosition), nil
+	return frame.JointPositionsFromRadians(data.ServosPosition), nil
 }
 
 // CurrentPosition computes and returns the current cartesian position.
@@ -112,7 +113,7 @@ func (e *eva) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
-	radians := arm.JointPositionsToRadians(newPositions)
+	radians := frame.JointPositionsToRadians(newPositions)
 
 	err := e.doMoveJoints(ctx, radians)
 	if err == nil {
@@ -311,13 +312,13 @@ func (e *eva) apiUnlock(ctx context.Context) {
 }
 
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem
-func (e *eva) ModelFrame() []byte {
-	return e.frameJSON
+func (e *eva) ModelFrame() *frame.Model {
+	return e.model
 }
 
 // EvaModel() returns the kinematics model of the Eva, also has all Frame information.
-func evaModel() (*kinematics.Model, error) {
-	return kinematics.ParseJSON(evamodeljson, "")
+func evaModel() (*frame.Model, error) {
+	return frame.ParseJSON(evamodeljson, "")
 }
 
 // NewEva TODO
@@ -339,6 +340,7 @@ func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm
 		token:     attrs.String("token"),
 		logger:    logger,
 		moveLock:  &sync.Mutex{},
+		model:     model,
 		ik:        ik,
 		frameJSON: evamodeljson,
 	}

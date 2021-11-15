@@ -5,51 +5,16 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 
-	"go.viam.com/core/component/arm"
-	pb "go.viam.com/core/proto/api/v1"
 	spatial "go.viam.com/core/spatialmath"
 
 	"github.com/golang/geo/r3"
+	"github.com/mitchellh/mapstructure"
 )
-
-// Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position. Revolute inputs should be in
-// radians. Prismatic inputs should be in mm.
-// TODO: Determine what more this needs, or eschew in favor of raw float64s if nothing needed.
-type Input struct {
-	Value float64
-}
-
-// FloatsToInputs wraps a slice of floats in Inputs
-func FloatsToInputs(floats []float64) []Input {
-	inputs := make([]Input, len(floats))
-	for i, f := range floats {
-		inputs[i] = Input{f}
-	}
-	return inputs
-}
-
-// InputsToFloats unwraps Inputs to raw floats
-func InputsToFloats(inputs []Input) []float64 {
-	floats := make([]float64, len(inputs))
-	for i, f := range inputs {
-		floats[i] = f.Value
-	}
-	return floats
-}
-
-// JointPosToInputs will take a pb.JointPositions which has values in Degrees, convert to Radians and wrap in Inputs
-func JointPosToInputs(jp *pb.JointPositions) []Input {
-	floats := arm.JointPositionsToRadians(jp)
-	return FloatsToInputs(floats)
-}
-
-// InputsToJointPos will take a slice of Inputs which are all joint position radians, and return a JointPositions struct.
-func InputsToJointPos(inputs []Input) *pb.JointPositions {
-	return arm.JointPositionsFromRadians(InputsToFloats(inputs))
-}
 
 // Limit represents the limits of motion for a frame
 type Limit struct {
@@ -57,16 +22,39 @@ type Limit struct {
 	Max float64
 }
 
+func limitsALmostTheSame(a, b []Limit) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for idx, x := range a {
+		if !float64AlmostEqual(x.Min, b[idx].Min) ||
+			!float64AlmostEqual(x.Max, b[idx].Max) {
+			return false
+		}
+	}
+
+	return true
+}
+
 // Frame represents a single reference frame, e.g. an arm, a joint, a gripper, a board, etc.
-// Name returns the name of the frame.
-// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's frame.
-// DoF will return a slice with length equal to the number of joints/degrees of freedom.
-// Each element describes the min and max movement limit of that joint/degree of freedom.
-// For robot parts that don't move, it returns an empty slice.
 type Frame interface {
+	// Name returns the name of the frame.
 	Name() string
+
+	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's frame.
 	Transform([]Input) (spatial.Pose, error)
+
+	// DoF will return a slice with length equal to the number of joints/degrees of freedom.
+	// Each element describes the min and max movement limit of that joint/degree of freedom.
+	// For robot parts that don't move, it returns an empty slice.
 	DoF() []Limit
+
+	// AlmostEquals returns if the otherFrame is close to the frame.
+	// differences should just be things like floating point inprecision
+	AlmostEquals(otherFrame Frame) bool
+
+	json.Marshaler
 }
 
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation from the current Frame to the parent Frame
@@ -113,10 +101,42 @@ func (sf *staticFrame) DoF() []Limit {
 	return []Limit{}
 }
 
+func (sf *staticFrame) MarshalJSON() ([]byte, error) {
+	transform, err := spatial.PoseMap(sf.transform)
+	if err != nil {
+		return nil, err
+	}
+	m := map[string]interface{}{
+		"type":      "static",
+		"name":      sf.name,
+		"transform": transform,
+	}
+	return json.Marshal(m)
+}
+
+func float64AlmostEqual(a, b float64) bool {
+	return math.Abs(a-b) < .00001
+}
+func (sf *staticFrame) AlmostEquals(otherFrame Frame) bool {
+	other, ok := otherFrame.(*staticFrame)
+	if !ok {
+		return false
+	}
+
+	return sf.name == other.name &&
+		float64AlmostEqual(sf.transform.Point().X, other.transform.Point().X) &&
+		float64AlmostEqual(sf.transform.Point().Y, other.transform.Point().Y) &&
+		float64AlmostEqual(sf.transform.Point().Z, other.transform.Point().Z) &&
+		float64AlmostEqual(sf.transform.Orientation().AxisAngles().RX, other.transform.Orientation().AxisAngles().RX) &&
+		float64AlmostEqual(sf.transform.Orientation().AxisAngles().RY, other.transform.Orientation().AxisAngles().RY) &&
+		float64AlmostEqual(sf.transform.Orientation().AxisAngles().RZ, other.transform.Orientation().AxisAngles().RZ) &&
+		float64AlmostEqual(sf.transform.Orientation().AxisAngles().Theta, other.transform.Orientation().AxisAngles().Theta)
+}
+
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions
 type translationalFrame struct {
 	name   string
-	axes   []bool
+	axes   []bool // if it moves along each axes, x, y, z
 	limits []Limit
 }
 
@@ -173,6 +193,40 @@ func (pf *translationalFrame) DoFInt() int {
 	return DoF
 }
 
+func (pf *translationalFrame) MarshalJSON() ([]byte, error) {
+	m := map[string]interface{}{
+		"type":   "translational",
+		"name":   pf.name,
+		"axes":   pf.axes,
+		"limits": pf.limits,
+	}
+	return json.Marshal(m)
+}
+
+func (pf *translationalFrame) AlmostEquals(otherFrame Frame) bool {
+	other, ok := otherFrame.(*translationalFrame)
+	if !ok {
+		return false
+	}
+
+	if pf.name != other.name {
+		return false
+	}
+
+	// axes
+	if len(pf.axes) != len(other.axes) {
+		return false
+	}
+
+	for idx, a := range pf.axes {
+		if a != other.axes[idx] {
+			return false
+		}
+	}
+
+	return limitsALmostTheSame(pf.limits, other.limits)
+}
+
 type rotationalFrame struct {
 	name    string
 	rotAxis spatial.R4AA
@@ -218,4 +272,112 @@ func (rf *rotationalFrame) DoF() []Limit {
 // Name returns the name of the frame
 func (rf *rotationalFrame) Name() string {
 	return rf.name
+}
+
+func (rf *rotationalFrame) MarshalJSON() ([]byte, error) {
+	m := map[string]interface{}{
+		"type":    "rotational",
+		"name":    rf.name,
+		"rotAxis": rf.rotAxis,
+		"limit":   rf.limit,
+	}
+	return json.Marshal(m)
+}
+
+func (rf *rotationalFrame) AlmostEquals(otherFrame Frame) bool {
+	other, ok := otherFrame.(*rotationalFrame)
+	if !ok {
+		return false
+	}
+
+	return rf.name == other.name &&
+		limitsALmostTheSame(rf.limit, other.limit) &&
+		float64AlmostEqual(rf.rotAxis.RX, other.rotAxis.RX) &&
+		float64AlmostEqual(rf.rotAxis.RY, other.rotAxis.RY) &&
+		float64AlmostEqual(rf.rotAxis.RZ, other.rotAxis.RZ) &&
+		float64AlmostEqual(rf.rotAxis.Theta, other.rotAxis.Theta)
+}
+
+func decodePose(m map[string]interface{}) (spatial.Pose, error) {
+	var point r3.Vector
+
+	err := mapstructure.Decode(m["point"], &point)
+	if err != nil {
+		return nil, err
+	}
+
+	orientationMap := m["orientation"].(map[string]interface{})
+	oType := orientationMap["type"].(string)
+	oValue := orientationMap["value"].(map[string]interface{})
+	jsonValue, err := json.Marshal(oValue)
+	if err != nil {
+		return nil, err
+	}
+
+	ro := spatial.RawOrientation{oType, jsonValue}
+	orientation, err := spatial.ParseOrientation(ro)
+	if err != nil {
+		return nil, err
+	}
+	return spatial.NewPoseFromOrientation(point, orientation), nil
+}
+
+// UnmarshalFrameJSON deserialized json into a reference frame
+func UnmarshalFrameJSON(data []byte) (Frame, error) {
+
+	m := map[string]interface{}{}
+	err := json.Unmarshal(data, &m)
+	if err != nil {
+		return nil, err
+	}
+
+	return UnmarshalFrameMap(m)
+}
+
+// UnmarshalFrameMap deserializes a Frame from a map
+func UnmarshalFrameMap(m map[string]interface{}) (Frame, error) {
+	var err error
+
+	switch m["type"] {
+	case "static":
+		f := staticFrame{}
+		f.name = m["name"].(string)
+
+		pose := m["transform"].(map[string]interface{})
+		f.transform, err = decodePose(pose)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding transform (%v) %w", m["transform"], err)
+		}
+		return &f, nil
+	case "translational":
+		f := translationalFrame{}
+		f.name = m["name"].(string)
+		err := mapstructure.Decode(m["axes"], &f.axes)
+		if err != nil {
+			return nil, err
+		}
+		err = mapstructure.Decode(m["limits"], &f.limits)
+		if err != nil {
+			return nil, err
+		}
+		return &f, nil
+	case "rotational":
+		f := rotationalFrame{}
+		f.name = m["name"].(string)
+
+		f.rotAxis.RX = m["rotAxis"].(map[string]interface{})["x"].(float64)
+		f.rotAxis.RY = m["rotAxis"].(map[string]interface{})["y"].(float64)
+		f.rotAxis.RZ = m["rotAxis"].(map[string]interface{})["z"].(float64)
+		f.rotAxis.Theta = m["rotAxis"].(map[string]interface{})["th"].(float64)
+
+		err = mapstructure.Decode(m["limit"], &f.limit)
+		if err != nil {
+			return nil, err
+		}
+		return &f, nil
+
+	default:
+		return nil, fmt.Errorf("no frame type: [%v]", m["type"])
+	}
+
 }

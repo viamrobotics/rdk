@@ -43,7 +43,6 @@ import (
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
 	"go.viam.com/core/sensor/imu"
-	"go.viam.com/core/services/framesystem"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
 
@@ -255,7 +254,7 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 			cc.Frame = &config.Frame{Parent: c.Parent}
 		}
 		if cc.Frame != nil && c.Pose != nil {
-			cc.Frame.Translation = config.Translation{
+			cc.Frame.Translation = spatialmath.Translation{
 				X: c.Pose.X,
 				Y: c.Pose.Y,
 				Z: c.Pose.Z,
@@ -662,14 +661,17 @@ func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (re
 	configs := resp.FrameSystemConfigs
 	// using the configs, build a FrameSystem using model frames and static offset frames, the configs slice should already be sorted.
 	for _, conf := range configs {
-		part := config.ProtobufToFrameSystemPart(conf)
+		part, err := config.ProtobufToFrameSystemPart(conf)
+		if err != nil {
+			return nil, err
+		}
 		// rename everything with prefixes
 		part.Name = prefix + part.Name
 		if part.FrameConfig.Parent != referenceframe.World {
 			part.FrameConfig.Parent = prefix + part.FrameConfig.Parent
 		}
 		// make the frames from the configs
-		modelFrame, staticOffsetFrame, err := framesystem.CreateFramesFromPart(part, rc.logger)
+		modelFrame, staticOffsetFrame, err := config.CreateFramesFromPart(part, rc.logger)
 		if err != nil {
 			return nil, err
 		}
@@ -809,6 +811,11 @@ func (ac *armClient) JointMoveDelta(ctx context.Context, joint int, amountDegs f
 		AmountDegs: amountDegs,
 	})
 	return err
+}
+
+func (ac *armClient) ModelFrame() *referenceframe.Model {
+	// TODO(erh): this feels wrong
+	return nil
 }
 
 // gripperClient satisfies a gRPC based gripper.Gripper. Refer to the interface

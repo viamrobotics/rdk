@@ -1,14 +1,19 @@
-package kinematics
+package referenceframe
 
 import (
+	"encoding/json"
 	"math"
 	"math/rand"
 
-	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
 
 	"go.uber.org/multierr"
 )
+
+// ModelFramer has a method that returns the kinematics information needed to build a dynamic frame.
+type ModelFramer interface {
+	ModelFrame() *Model
+}
 
 // XYZWeights Defines a struct into which XYZ values can be parsed from JSON
 type XYZWeights struct {
@@ -44,7 +49,7 @@ type SolverDistanceWeights struct {
 type Model struct {
 	name string // the name of the arm
 	// OrdTransforms is the list of transforms ordered from end effector to base
-	OrdTransforms []referenceframe.Frame
+	OrdTransforms []Frame
 	SolveWeights  SolverDistanceWeights
 }
 
@@ -71,8 +76,8 @@ func (m *Model) GenerateRandomJointPositions(randSeed *rand.Rand) []float64 {
 }
 
 // Joints returns an array of all settable frames in the model, from the base outwards.
-func (m *Model) Joints() []referenceframe.Frame {
-	joints := make([]referenceframe.Frame, 0, len(m.OrdTransforms)-1)
+func (m *Model) Joints() []Frame {
+	joints := make([]Frame, 0, len(m.OrdTransforms)-1)
 	// OrdTransforms is ordered from end effector -> base, so we reverse the list to get joints from the base outwards.
 	for i := len(m.OrdTransforms) - 1; i >= 0; i-- {
 		transform := m.OrdTransforms[i]
@@ -88,9 +93,14 @@ func (m *Model) Name() string {
 	return m.name
 }
 
+// ChangeName changes the name of this model - necessary for building frame systems
+func (m *Model) ChangeName(name string) {
+	m.name = name
+}
+
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
-func (m *Model) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+func (m *Model) Transform(inputs []Input) (spatialmath.Pose, error) {
 	pos := make([]float64, len(inputs))
 	for i, input := range inputs {
 		pos[i] = input.Value
@@ -124,9 +134,9 @@ func (m *Model) GetPoses(pos []float64) ([]spatialmath.Pose, error) {
 		transform := m.OrdTransforms[i]
 
 		dof := len(transform.DoF())
-		input := make([]referenceframe.Input, dof)
+		input := make([]Input, dof)
 		for j := 0; j < dof; j++ {
-			input[j] = referenceframe.Input{pos[posIdx]}
+			input[j] = Input{pos[posIdx]}
 			posIdx++
 		}
 
@@ -159,19 +169,48 @@ func (m *Model) OperationalDoF() int {
 }
 
 // DoF returns the number of degrees of freedom within an arm.
-func (m *Model) DoF() []referenceframe.Limit {
-	limits := []referenceframe.Limit{}
+func (m *Model) DoF() []Limit {
+	limits := []Limit{}
 	for _, joint := range m.Joints() {
 		limits = append(limits, joint.DoF()...)
 	}
 	return limits
 }
 
-func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
-	var min, max []float64
-	for _, limit := range limits {
-		min = append(min, limit.Min)
-		max = append(max, limit.Max)
+// MarshalJSON serializes a Model
+func (m *Model) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"name":                 m.name,
+		"kinematic_param_type": "frames",
+		"frames":               m.OrdTransforms,
+		"tolerances":           m.SolveWeights,
+	})
+}
+
+// AlmostEquals returns true if the only difference between this model and another is floating point inprecision
+func (m *Model) AlmostEquals(otherFrame Frame) bool {
+	other, ok := otherFrame.(*Model)
+	if !ok {
+		return false
 	}
-	return min, max
+
+	if m.name != other.name {
+		return false
+	}
+
+	if m.SolveWeights != other.SolveWeights {
+		return false
+	}
+
+	if len(m.OrdTransforms) != len(other.OrdTransforms) {
+		return false
+	}
+
+	for idx, f := range m.OrdTransforms {
+		if !f.AlmostEquals(other.OrdTransforms[idx]) {
+			return false
+		}
+	}
+
+	return true
 }
