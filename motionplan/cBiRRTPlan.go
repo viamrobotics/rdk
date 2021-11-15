@@ -59,7 +59,7 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (*
 	mp.AddConstraint("jointSwingScorer", NewJointScorer())
 
 	// For safety, remove before merging into main
-	mp.AddConstraint("officewall", DontHitPetersWallConstraint())
+	//~ mp.AddConstraint("officewall", DontHitPetersWallConstraint())
 	fmt.Println("Note: adding constraint for Peter's office wall")
 
 	return mp, nil

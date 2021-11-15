@@ -118,7 +118,7 @@ func (mgs objectMService) moveGripper(ctx context.Context, gripperName, armName 
 	if err != nil {
 		return err
 	}
-	
+
 	for _, step := range output {
 		err = arm.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(step[armName]))
 		if err != nil {
