@@ -4,10 +4,12 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/core/base"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
+	"go.viam.com/core/input"
 	"go.viam.com/core/rlog"
-	robotimpl "go.viam.com/core/robot/impl"
+	"go.viam.com/core/robots/fake"
+	"go.viam.com/core/testutils/inject"
 
 	"go.viam.com/test"
 
@@ -18,41 +20,17 @@ import (
 
 func TestBaseRemoteControl(t *testing.T) {
 	ctx := context.Background()
-	r, err := robotimpl.New(ctx,
-		&config.Config{
-			Components: []config.Component{
-				{
-					Name:                "fr-m",
-					Model:               "fake",
-					Type:                config.ComponentTypeMotor,
-					ConvertedAttributes: &motor.Config{},
-				},
-				{
-					Name:                "fl-m",
-					Model:               "fake",
-					Type:                config.ComponentTypeMotor,
-					ConvertedAttributes: &motor.Config{},
-				},
-				{
-					Name:                "br-m",
-					Model:               "fake",
-					Type:                config.ComponentTypeMotor,
-					ConvertedAttributes: &motor.Config{},
-				},
-				{
-					Name:                "bl-m",
-					Model:               "fake",
-					Type:                config.ComponentTypeMotor,
-					ConvertedAttributes: &motor.Config{},
-				},
-			},
-		},
-		rlog.Logger,
-	)
-	test.That(t, err, test.ShouldBeNil)
-	defer test.That(t, r.Close(), test.ShouldBeNil)
 
-	svc, _ := New(ctx, r,
+	fakeRobot := &inject.Robot{}
+	fakeRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
+		return &fake.Base{}, true
+	}
+
+	fakeRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
+		return &fake.InputController{}, true
+	}
+
+	svc, _ := New(ctx, fakeRobot,
 		config.Service{
 			Name:                "remote-control",
 			Type:                "remote-control",
