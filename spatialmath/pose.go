@@ -6,6 +6,8 @@
 package spatialmath
 
 import (
+	"math"
+
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/quat"
 
@@ -172,4 +174,12 @@ func Interpolate(p1, p2 Pose, by float64) Pose {
 		(p1.Point().Y + (p2.Point().Y-p1.Point().Y)*by),
 		(p1.Point().Z + (p2.Point().Z-p1.Point().Z)*by))
 	return intQ
+}
+
+// IsAlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location
+func AlmostCoincident(a, b Pose) bool {
+	const epsilon = 1e-8
+	ap := a.Point()
+	bp := b.Point()
+	return math.Abs(ap.X-bp.X) < epsilon && math.Abs(ap.Y-bp.Y) < epsilon && math.Abs(ap.Z-bp.Z) < epsilon
 }

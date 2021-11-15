@@ -87,13 +87,17 @@ func RandomFrameInputs(m Frame, seed *rand.Rand) []Input {
 	return pos
 }
 
-// Frame represents a single reference frame, e.g. an arm, a joint, a gripper, a board, etc.
+// Frame represents a reference frame, e.g. an arm, a joint, a gripper, a board, etc.
 type Frame interface {
 	// Name returns the name of the frame.
 	Name() string
 
 	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's frame.
 	Transform([]Input) (spatial.Pose, error)
+
+	// VerboseTransform returns a map between names and poses for the reference frame and any intermediate frames that
+	// may be defined for it, e.g. links in an arm
+	VerboseTransform([]Input) (map[string]spatial.Pose, error)
 
 	// DoF will return a slice with length equal to the number of joints/degrees of freedom.
 	// Each element describes the min and max movement limit of that joint/degree of freedom.
@@ -105,13 +109,6 @@ type Frame interface {
 	AlmostEquals(otherFrame Frame) bool
 
 	json.Marshaler
-}
-
-// MultiFrame represents a series of reference frames, e.g. each link in an arm
-// MultiTransform takes FROM current frame TO each of the intermediate frames' parent
-type MultiFrame interface {
-	Frame
-	MultiTransform([]Input) ([]spatial.Pose, error)
 }
 
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation from the current Frame to the parent Frame
@@ -151,6 +148,13 @@ func (sf *staticFrame) Transform(inp []Input) (spatial.Pose, error) {
 		return nil, fmt.Errorf("given input length %q does not match frame DoF 0", len(inp))
 	}
 	return sf.transform, nil
+}
+
+func (sf *staticFrame) VerboseTransform(input []Input) (map[string]spatial.Pose, error) {
+	pose, err := sf.Transform(input)
+	m := make(map[string]spatial.Pose)
+	m[sf.Name()] = pose
+	return m, err
 }
 
 // DoF are the degrees of freedom of the transform. In the staticFrame, it is always 0.
@@ -232,6 +236,13 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	}
 	q := spatial.NewPoseFromPoint(r3.Vector{translation[0], translation[1], translation[2]})
 	return q, err
+}
+
+func (pf *translationalFrame) VerboseTransform(input []Input) (map[string]spatial.Pose, error) {
+	pose, err := pf.Transform(input)
+	m := make(map[string]spatial.Pose)
+	m[pf.Name()] = pose
+	return m, err
 }
 
 // DoF are the degrees of freedom of the transform.
@@ -319,6 +330,13 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	pose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{rf.rotAxis.RX, rf.rotAxis.RY, rf.rotAxis.RZ}, input[0].Value)
 
 	return pose, err
+}
+
+func (rf *rotationalFrame) VerboseTransform(input []Input) (map[string]spatial.Pose, error) {
+	pose, err := rf.Transform(input)
+	m := make(map[string]spatial.Pose)
+	m[rf.Name()] = pose
+	return m, err
 }
 
 // DoF returns the number of degrees of freedom that a joint has. This would be 1 for a standard revolute joint.

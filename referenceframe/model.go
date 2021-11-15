@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math"
 	"math/rand"
+	"strconv"
 
 	"go.viam.com/core/spatialmath"
 
@@ -101,7 +102,7 @@ func (m *Model) ChangeName(name string) {
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
 func (m *Model) Transform(inputs []Input) (spatialmath.Pose, error) {
-	poses, err := m.MultiTransform(inputs)
+	poses, err := m.JointRadToQuats(inputs)
 	if err != nil && poses == nil {
 		return nil, err
 	}
@@ -109,30 +110,43 @@ func (m *Model) Transform(inputs []Input) (spatialmath.Pose, error) {
 }
 
 // MultiTransform takes a model and a list of joint angles in radians and computes the dual quaterions representing the
-// cartesian positions of each of the links up to and including the end effector.  This is useful for when conversions
-// between quaternions and OV are not needed.
-func (m *Model) MultiTransform(inputs []Input) ([]spatialmath.Pose, error) {
-	pos := make([]float64, len(inputs))
-	for i, input := range inputs {
-		pos[i] = input.Value
+// cartesian positions of each of the links up to and including the end effector, and returns a mapping of frame names
+// to poses.  This is useful for when conversions between quaternions and OV are not needed.
+func (m *Model) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, error) {
+	poses, err := m.JointRadToQuats(inputs)
+	if err != nil && poses == nil {
+		return nil, err
 	}
-	return m.JointRadToQuats(pos)
+	poseMap := make(map[string]spatialmath.Pose)
+	for i, pose := range poses {
+		poseMap[m.Name()+strconv.Itoa(i)] = pose
+	}
+	return poseMap, err
 }
 
 // JointRadToQuats takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of each of the links up to and including the end effector. This is useful for when conversions
 // between quaternions and OV are not needed.
-func (m *Model) JointRadToQuats(radAngles []float64) ([]spatialmath.Pose, error) {
-	poses, err := m.GetPoses(radAngles)
+func (m *Model) JointRadToQuats(inputs []Input) ([]spatialmath.Pose, error) {
+	joints := make([]float64, len(inputs))
+	for i, input := range inputs {
+		joints[i] = input.Value
+	}
+	poses, err := m.GetPoses(joints)
 	if err != nil && poses == nil {
 		return nil, err
 	}
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
 	composedTransformation := spatialmath.NewZeroPose()
 	var transformations []spatialmath.Pose
+	var lastTransformation spatialmath.Pose
 	for _, pose := range poses {
 		composedTransformation = spatialmath.Compose(composedTransformation, pose)
-		transformations = append(transformations, composedTransformation)
+		// only append transformations to the list that result in a change in translation
+		if lastTransformation == nil || !spatialmath.AlmostCoincident(composedTransformation, lastTransformation) {
+			transformations = append(transformations, composedTransformation)
+		}
+		lastTransformation = composedTransformation
 	}
 	return transformations, err
 }
@@ -161,7 +175,6 @@ func (m *Model) GetPoses(pos []float64) ([]spatialmath.Pose, error) {
 		}
 		multierr.AppendInto(&errAll, err)
 		quats[len(quats)-i-1] = quat
-
 	}
 	return quats, errAll
 }
