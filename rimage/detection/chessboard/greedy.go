@@ -113,27 +113,20 @@ func getIdentityGrid(n, offset int) []r2.Point {
 	return outPoints
 }
 
-func getMinSaddleDistance(saddlePoints []r2.Point, pt r2.Point) (r2.Point, float64){
-	minDist := math.MaxFloat64
-	minPt := r2.Point{0,0}
-	for _, ptSaddle := range saddlePoints {
-		d := ptSaddle.Sub(pt).Norm()
-		if d < minDist {
-			minDist = d
-			minPt = ptSaddle
-		}
-	}
-	return minPt, minDist
-}
-
 // makeChessGrid returns an identity Grid and its transformation with homography H
 func makeChessGrid(H rimage.Matrix, n int) ([]r2.Point, []r2.Point) {
-	grid := transform.ApplyHomography(H, idealGrid)
+	unitGrid := getIdentityGrid(2+2*n, -n)
+	grid := transform.ApplyHomography(H, unitGrid)
+	return unitGrid, grid
+}
+
+// getInitialChessGrid returns an ideal grid, the homography H from the unit quad to current quad
+// and the ideal grid transformed by H
 func getInitialChessGrid(quad []r2.Point) ([]r2.Point, []r2.Point, *mat.Dense, error) {
 	// order points ccw
 	quad = rimage.SortPointCounterClockwise(quad)
 	// estimate exact homography
-	H, err := transform.EstimateExactHomographyFrom8Points(quadI, quad)
+	H, err := transform.EstimateExactHomographyFrom8Points(quadI, quad, false)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -220,7 +213,7 @@ func GreedyIterations(contours [][]r2.Point, saddlePoints []r2.Point, cfg ChessG
 	currentGridNext := make([]r2.Point, 0)
 	currentGridGood := make([]int, 0)
 	currentM := mat.NewDense(3, 3, nil)
-	var currentGrid, idealGrid []r2.Point
+	var currentGrid []r2.Point
 	var M *mat.Dense
 	var err error
 	// iterate through contours
@@ -236,12 +229,12 @@ func GreedyIterations(contours [][]r2.Point, saddlePoints []r2.Point, cfg ChessG
 			nGood = 0
 			// iterate through possible positions of the Grid
 			for gridI := 0; gridI < 7; gridI++ {
-				idealGrid, currentGrid = makeChessGrid(M, gridI+1)
+				_, currentGrid = makeChessGrid(M, gridI+1)
 				nextGrid, goodGrid = findGoodPoints(currentGrid, saddlePoints, 15.0)
 
 				nGood = sumGoodPoints(goodGrid)
-				fmt.Println("nGood = ", nGood)
 				if nGood < 4 {
+					continue
 				}
 				if M == nil || math.Abs(M.At(0, 0)/M.At(1, 1)) > cfg.HomographyAcceptableScaleRatio || math.Abs(M.At(1, 1)/M.At(0, 0)) > cfg.HomographyAcceptableScaleRatio {
 					M = nil

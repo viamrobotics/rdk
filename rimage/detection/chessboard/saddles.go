@@ -103,6 +103,11 @@ func PruneSaddle(s mat.Matrix, cfg *SaddleConfiguration) *mat.Dense {
 // NonMaxSuppression performs a non-maximum suppression in a mat.Dense, with a window of size winSize
 func NonMaxSuppression(img *mat.Dense, winSize int) *mat.Dense {
 	h, w := img.Dims()
+	kernel := rimage.GetBlur3()
+	imgBlur, err := rimage.ConvolveGrayFloat64(img, &kernel)
+	if err != nil {
+		return nil
+	}
 	imgSup := mat.NewDense(h, w, nil)
 	for i := 0; i < h; i++ {
 		for j := 0; j < w; j++ {
@@ -115,8 +120,8 @@ func NonMaxSuppression(img *mat.Dense, winSize int) *mat.Dense {
 				// cell
 				cell := img.Slice(ta, tb, tc, td)
 
-				if mat.Max(cell) == img.At(i, j) {
-					imgSup.Set(i, j, img.At(i, j))
+				if mat.Max(cell) == imgBlur.At(i, j) {
+					imgSup.Set(i, j, imgBlur.At(i, j))
 				}
 			}
 		}
@@ -128,6 +133,11 @@ func NonMaxSuppression(img *mat.Dense, winSize int) *mat.Dense {
 func GetSaddleMapPoints(img *mat.Dense, conf *SaddleConfiguration) (*mat.Dense, []image.Point, error) {
 	nRows, nCols := img.Dims()
 	originalSize := image.Point{nCols, nRows}
+	//kernel := rimage.GetBlur3()
+	//imgBlur,err := rimage.ConvolveGrayFloat64(img, &kernel)
+	//if err != nil {
+	//	return nil, nil, err
+	//}
 	hessian, err := computePixelWiseHessianDeterminant(img)
 	if err != nil {
 		return nil, nil, err

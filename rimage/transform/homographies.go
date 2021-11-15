@@ -1,10 +1,10 @@
 package transform
 
 import (
-	"fmt"
-	"gonum.org/v1/gonum/floats"
 	"log"
 	"math"
+
+	"github.com/gonum/floats"
 
 	"github.com/go-errors/errors"
 
@@ -17,35 +17,51 @@ import (
 	"go.viam.com/core/utils"
 )
 
+// ComputeNormalizationMatFromSliceVecs computes the normalization matrix from a slice of vectors
+// from Multiple View Geometry. Richard Hartley and Andrew Zisserman. Alg 4.2 p109
 func ComputeNormalizationMatFromSliceVecs(pts []r2.Point) *mat.Dense {
 	out := mat.NewDense(3, 3, nil)
 	xs, ys := rimage.SliceVecsToXsYs(pts)
-	avgX := floats.Sum(xs) / float64(len(pts))
-	avgY := floats.Sum(ys) / float64(len(pts))
-	stdX := stat.StdDev(xs, nil)
-	stdY := stat.StdDev(ys, nil)
-	out.Set(0, 0, avgX)
-	out.Set(0, 2, -stdX*avgX)
-	out.Set(1, 1, stdY)
-	out.Set(1, 2, -stdY*avgY)
+	avgX := stat.Mean(xs, nil)
+	avgY := stat.Mean(ys, nil)
+	diffX := make([]float64, len(xs))
+	copy(diffX, xs)
+	floats.AddConst(avgX, diffX)
+	diffY := make([]float64, len(ys))
+	copy(diffY, ys)
+	floats.AddConst(avgY, diffY)
+	norms := make([]float64, len(xs))
+
+	for i := 0; i < len(pts); i++ {
+		norms[i] = math.Sqrt(diffX[i]*diffX[i] + diffY[i]*diffY[i])
+	}
+	scaleFactor := math.Sqrt(2) / stat.Mean(norms, nil)
+	out.Set(0, 0, scaleFactor)
+	out.Set(0, 2, -scaleFactor*avgX)
+	out.Set(1, 1, scaleFactor)
+	out.Set(1, 2, -scaleFactor*avgY)
 	out.Set(2, 2, 1)
 	return out
 }
 
 // EstimateExactHomographyFrom8Points computes the exact homography from 2 sets of 4 matching points
-func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point) (*mat.Dense, error) {
+// from Multiple View Geometry. Richard Hartley and Andrew Zisserman. Alg 4.1 p91
+func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point, normalize bool) (*mat.Dense, error) {
 	if len(s1) != 4 {
 		panic("slice s1 must have 4 points each")
 	}
 	if len(s2) != 4 {
 		panic("slice s2 must have 4 points each")
 	}
-	//norm1 := ComputeNormalizationMatFromSliceVecs(s1)
-	//norm2 := ComputeNormalizationMatFromSliceVecs(s1)
-	//st1 := ApplyNormalizationMat(norm1, s1)
-	//st2 := ApplyNormalizationMat(norm2, s2)
 	st1 := s1
 	st2 := s2
+	norm1 := ComputeNormalizationMatFromSliceVecs(s1)
+	norm2 := ComputeNormalizationMatFromSliceVecs(s1)
+	if normalize {
+
+		st1 = ApplyNormalizationMat(norm1, s1)
+		st2 = ApplyNormalizationMat(norm2, s2)
+	}
 
 	x1 := st1[0].X
 	y1 := st1[0].Y
@@ -84,34 +100,49 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point) (*mat.Dense, error) {
 
 	// If matrix A is invertible, get the least square solution
 	if mat.Det(A) != 0 {
-		x := mat.NewDense(8, 1, nil)
-		err := x.Solve(A, b)
-		if err != nil {
-			return nil, err
+		//x := mat.NewDense(8, 1, nil)
+		// Perform an SVD retaining all singular vectors.
+		var svd mat.SVD
+		ok := svd.Factorize(A, mat.SVDFull)
+		if !ok {
+			log.Fatal("failed to factorize A")
 		}
+
+		// Determine the rank of the A matrix with a near zero condition threshold.
+		const rcond = 1e-15
+		rank := svd.Rank(rcond)
+		if rank == 0 {
+			log.Fatal("zero rank system")
+			return nil, nil
+		}
+
+		// Find a least-squares solution using the determined parts of the system.
+		var x mat.Dense
+		svd.SolveTo(&x, b, rank)
 		// homography is a 3x3 matrix, with last element =1
 		s := append(x.RawMatrix().Data, 1.)
 		outMat := mat.NewDense(3, 3, s)
-		// de-normalize data
-		//invNorm1 := mat.NewDense(3, 3, nil)
-		//err = invNorm1.Inverse(norm1)
-		//if err != nil {
-		//	panic(err)
-		//}
-		//invNorm2 := mat.NewDense(3, 3, nil)
-		//err = invNorm2.Inverse(norm2)
-		//if err != nil {
-		//	panic(err)
-		//}
-		//var m1, m2, m3 mat.Dense
-		//m1.Mul(norm1, outMat)
-		//m2.Mul(&m1, invNorm2)
-		//m3.Scale(1./m2.At(2, 2), &m2)
-		//fmt.Println(m3)
-		//
-		//return &m3, nil
-		fmt.Println(outMat)
-		return outMat, err
+
+		if normalize {
+			// de-normalize data
+			invNorm1 := mat.NewDense(3, 3, nil)
+			err := invNorm1.Inverse(norm1)
+			if err != nil {
+				panic(err)
+			}
+			invNorm2 := mat.NewDense(3, 3, nil)
+			err = invNorm2.Inverse(norm2)
+			if err != nil {
+				panic(err)
+			}
+			var m1, m2, m3 mat.Dense
+			m1.Mul(norm1, outMat)
+			m2.Mul(&m1, invNorm2)
+			m3.Scale(1./m2.At(2, 2), &m2)
+			return &m3, nil
+		}
+
+		return outMat, nil
 	}
 	// Otherwise, matrix cannot be inverted; return nothing
 	return nil, nil
@@ -254,6 +285,7 @@ func Are4PointsNonCollinear(p1, p2, p3, p4 r2.Point) bool {
 
 // EstimateHomographyRANSAC estimates a homography from matches of 2 sets of
 // points with the RANdom SAmple Consensus method
+// from Multiple View Geometry. Richard Hartley and Andrew Zisserman. Alg 4.4 p118
 func EstimateHomographyRANSAC(pts1, pts2 []r2.Point, thresh float64, nMaxIteration int) (*mat.Dense, []int, error) {
 	// test len(pts1)==len(pts2)
 	// test len(pts1) > 4
@@ -274,7 +306,7 @@ func EstimateHomographyRANSAC(pts1, pts2 []r2.Point, thresh float64, nMaxIterati
 		}
 
 		// estimate exact homography from these 4 matches
-		h, err := EstimateExactHomographyFrom8Points(s1, s2)
+		h, err := EstimateExactHomographyFrom8Points(s1, s2, false)
 		if err != nil {
 			return nil, nil, err
 		}

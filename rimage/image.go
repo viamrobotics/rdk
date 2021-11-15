@@ -9,12 +9,10 @@ package rimage
 import (
 	"image"
 	"image/color"
+	"math"
 
 	"go.viam.com/core/utils"
 	"go.viam.com/rdk/utils"
-	"gonum.org/v1/gonum/mat"
-
-	"go.viam.com/core/utils"
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/core/utils"
@@ -146,7 +144,7 @@ func ConvertColorImageToLuminanceFloat(img Image) *mat.Dense {
 	utils.ParallelForEachPixel(image.Point{img.width, img.height}, func(x int, y int) {
 		c := img.At(x, y)
 		nc := NewColorFromColor(c)
-		l := Luminance(nc)
+		l := math.Floor(Luminance(nc))
 		out.Set(y, x, l)
 	})
 	return out

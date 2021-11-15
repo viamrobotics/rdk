@@ -3,6 +3,7 @@ package rimage
 import (
 	"image"
 	"image/color"
+	"math"
 
 	"gonum.org/v1/gonum/mat"
 
@@ -35,6 +36,19 @@ func GetSobelY() Kernel {
 	}
 }
 
+// GetBlur3 returns the Kernel corresponding to the Sobel kernel in the y direction
+func GetBlur3() Kernel {
+
+	return Kernel{[][]float64{
+		{1, 1, 1},
+		{1, 1, 1},
+		{1, 1, 1},
+	},
+		3, //bias
+		3, //factor
+	}
+}
+
 // ConvolveGray applies a convolution matrix (Kernel) to a grayscale image.
 // Example of usage:
 //
@@ -55,7 +69,7 @@ func ConvolveGray(img *image.Gray, kernel *Kernel, anchor image.Point, border Bo
 		for ky := 0; ky < kernelSize.Y; ky++ {
 			for kx := 0; kx < kernelSize.X; kx++ {
 				pixel := padded.GrayAt(x+kx, y+ky)
-				kE := kernel.At(kx, ky)
+				kE := kernel.At(kx, ky) / float64(kernelSize.X*kernelSize.Y)
 				sum += float64(pixel.Y) * kE
 			}
 		}
@@ -81,33 +95,11 @@ func ConvolveGrayFloat64(m *mat.Dense, filter *Kernel) (*mat.Dense, error) {
 		for ky := 0; ky < kernelSize.Y; ky++ {
 			for kx := 0; kx < kernelSize.X; kx++ {
 				pixel := padded.At(y+ky, x+kx)
-				kE := filter.At(kx, ky)
+				kE := filter.At(ky, kx) // float64(kernelSize.X*kernelSize.Y)
 				sum += pixel * kE
 			}
 		}
-		result.Set(y, x, sum)
-	})
-	return result, nil
-}
-
-func ConvolveGrayFloat64(m *mat.Dense, filter *Kernel) (*mat.Dense, error) {
-	h, w := m.Dims()
-	result := mat.NewDense(h, w, nil)
-	kernelSize := filter.Size()
-	padded, err := PaddingFloat64(m, kernelSize, image.Point{1, 1}, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	utils.ParallelForEachPixel(image.Point{w, h}, func(x int, y int) {
-		sum := float64(0)
-		for ky := 0; ky < kernelSize.Y; ky++ {
-			for kx := 0; kx < kernelSize.X; kx++ {
-				pixel := padded.At(y+ky, x+kx)
-				kE := filter.At(kx, ky)
-				sum += pixel * kE
-			}
-		}
+		sum = math.Floor(sum)
 		result.Set(y, x, sum)
 	})
 	return result, nil

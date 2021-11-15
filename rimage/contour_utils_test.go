@@ -18,8 +18,6 @@ func TestBorderType(t *testing.T) {
 func TestCreateHoleBorder(t *testing.T) {
 	border := CreateHoleBorder()
 	test.That(t, border.borderType, test.ShouldEqual, Hole)
-	test.That(t, border.borderType, test.ShouldEqual, Outer)
-	assert.Equal(t, border.borderType, Outer)
 }
 
 func TestFindContours(t *testing.T) {

@@ -11,8 +11,6 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/core/utils"
-	"gonum.org/v1/gonum/floats"
-	"gonum.org/v1/gonum/mat"
 )
 
 func Single(dim int, x []float64) [][]float64 {
@@ -112,7 +110,7 @@ func TestEstimateHomographyFrom8Points(t *testing.T) {
 	homography := mat.NewDense(3, 3, h)
 	pts1 := []r2.Point{{0., 0.}, {25., 0.}, {0., 25.}, {25., 25.}}
 	pts2 := []r2.Point{{9.7324705, 7.2666674}, {28.65283, 9.481666}, {7.4806085, 27.474358}, {26.896238, 29.288015}}
-	H, _ := EstimateExactHomographyFrom8Points(pts1, pts2)
+	H, _ := EstimateExactHomographyFrom8Points(pts1, pts2, false)
 	test.That(t, mat.EqualApprox(H, homography, 0.00001), test.ShouldBeTrue)
 }
 

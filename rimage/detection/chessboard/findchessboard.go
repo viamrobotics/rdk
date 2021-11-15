@@ -1,16 +1,14 @@
 package chessboard
 
 import (
-	"fmt"
 	"image"
 	"os"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
-	"gonum.org/v1/gonum/mat"
+	"go.viam.com/utils"
 
 	"go.viam.com/core/rimage"
-	"go.viam.com/utils"
 )
 
 var (
@@ -41,7 +39,8 @@ func getMinSaddleDistance(saddlePoints []r2.Point, pt r2.Point) (r2.Point, float
 	return bestPt, bestDist
 }
 
-func FindChessboard(img rimage.Image, cfg DetectionConfiguration) *ChessGrid {
+// FindChessboard is the function that finds the chessboard given a rimage.Image
+func FindChessboard(img rimage.Image, cfg DetectionConfiguration, plot bool) *ChessGrid {
 	// convert to mat
 	im := rimage.ConvertColorImageToLuminanceFloat(img)
 	ih, iw := im.Dims()
@@ -69,8 +68,6 @@ func FindChessboard(img rimage.Image, cfg DetectionConfiguration) *ChessGrid {
 	// convert to float mat for further operations
 	edgesImg := rimage.ConvertImage(edgesGray)
 	edgesMat := rimage.ConvertColorImageToLuminanceFloat(*edgesImg)
-	fmt.Println("Edges : ")
-	fmt.Println(mat.Max(edgesMat))
 	// make image binary
 	edges := BinarizeMat(edgesMat, 127)
 	// extract contours
@@ -78,17 +75,22 @@ func FindChessboard(img rimage.Image, cfg DetectionConfiguration) *ChessGrid {
 	_ = rimage.DrawContours(edges, contours, "contours16.png")
 	// Approximate contours with polygons
 	contoursSimplified := rimage.SimplifyContours(contours)
-	err = rimage.DrawContoursSimplified(edges, contoursSimplified, "contours_polygons.png")
-	if err != nil {
-		logger.Error(err)
+	if plot {
+		err = rimage.DrawContoursSimplified(edges, contoursSimplified, "contours_polygons.png")
+		if err != nil {
+			logger.Error(err)
+		}
 	}
+
 	// select only contours that correspond to convex quadrilateral
 	prunedContours := PruneContours(contoursSimplified, hierarchy, saddleMap, cfg.Contours.WinSize)
-	err = rimage.DrawContoursSimplified(edges, prunedContours, "pruned_contours.png")
-	if err != nil {
-		logger.Error(err)
+	if plot {
+		err = rimage.DrawContoursSimplified(edges, prunedContours, "pruned_contours.png")
+		if err != nil {
+			logger.Error(err)
+		}
+		PlotSaddleMap(saddlePoints, prunedContours, "polygonsWithSaddles.png", ih, iw)
 	}
-	PlotSaddleMap(saddlePoints, prunedContours, "polygonsWithSaddles.png", ih, iw)
 
 	// greedy iterations to find the best homography
 	//TODO(louise): fix homography iteration issue
@@ -96,7 +98,13 @@ func FindChessboard(img rimage.Image, cfg DetectionConfiguration) *ChessGrid {
 	grid, err := GreedyIterations(prunedContours, saddles, cfg.Greedy)
 	if err != nil {
 		logger.Error(err)
+		return nil
 	}
-	fmt.Println(grid.M)
+	m, err := GenerateNewBestFit(grid.IdealGrid, grid.Grid, grid.GoodPoints)
+	if err != nil {
+		logger.Error(err)
+		return nil
+	}
+	grid.M = m
 	return grid
 }
