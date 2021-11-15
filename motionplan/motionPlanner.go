@@ -83,10 +83,11 @@ func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed []f
 	mp.logger.Debug("starting plan")
 
 	// Create the required steps. nSteps is guaranteed to be at least 1.
+STEP:
 	for i := 1; i <= nSteps; i++ {
 		select {
 		case <-ctx.Done():
-			break
+			break STEP
 		default:
 		}
 

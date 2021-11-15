@@ -15,33 +15,6 @@ type ModelFramer interface {
 	ModelFrame() *Model
 }
 
-// XYZWeights Defines a struct into which XYZ values can be parsed from JSON
-type XYZWeights struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-	Z float64 `json:"z"`
-}
-
-// XYZTHWeights Defines a struct into which XYZ + theta values can be parsed from JSON
-type XYZTHWeights struct {
-	X  float64 `json:"x"`
-	Y  float64 `json:"y"`
-	Z  float64 `json:"z"`
-	TH float64 `json:"th"`
-}
-
-// SolverDistanceWeights values are used to augment the distance check for a given IK solution.
-// For each component of a 6d pose, the distance from current position to goal is
-// squared and then multiplied by the corresponding weight in this struct. The results
-// are summed and that sum must be below a certain threshold.
-// So values > 1 forces the IK algorithm to get that value closer to perfect than it
-// otherwise would have, and values < 1 cause it to be more lax. A value of 0.0 will cause
-// that dimension to not be considered at all.
-type SolverDistanceWeights struct {
-	Trans  XYZWeights   `json:"translation"`
-	Orient XYZTHWeights `json:"orientation"`
-}
-
 // Model TODO
 // Generally speaking, a Joint will attach a Body to a Frame
 // And a Fixed will attach a Frame to a Body
@@ -50,13 +23,11 @@ type Model struct {
 	name string // the name of the arm
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	OrdTransforms []Frame
-	SolveWeights  SolverDistanceWeights
 }
 
 // NewModel constructs a new model.
 func NewModel() *Model {
 	m := Model{}
-	m.SolveWeights = SolverDistanceWeights{XYZWeights{1.0, 1.0, 1.0}, XYZTHWeights{1.0, 1.0, 1.0, 1.0}}
 	return &m
 }
 
@@ -197,7 +168,6 @@ func (m *Model) MarshalJSON() ([]byte, error) {
 		"name":                 m.name,
 		"kinematic_param_type": "frames",
 		"frames":               m.OrdTransforms,
-		"tolerances":           m.SolveWeights,
 	})
 }
 
@@ -209,10 +179,6 @@ func (m *Model) AlmostEquals(otherFrame Frame) bool {
 	}
 
 	if m.name != other.name {
-		return false
-	}
-
-	if m.SolveWeights != other.SolveWeights {
 		return false
 	}
 

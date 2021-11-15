@@ -120,13 +120,6 @@ func (ik *CombinedIK) Close() error {
 	return err
 }
 
-// SetSolveWeights sets the solve weights for the solver.
-func (ik *CombinedIK) SetSolveWeights(weights frame.SolverDistanceWeights) {
-	for _, solver := range ik.solvers {
-		solver.SetSolveWeights(weights)
-	}
-}
-
 // SetGradient sets the function for distance between two poses
 func (ik *CombinedIK) SetGradient(f func(spatialmath.Pose, spatialmath.Pose) float64) {
 	for _, solver := range ik.solvers {

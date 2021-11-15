@@ -29,7 +29,6 @@ type NloptIK struct {
 	logger        golog.Logger
 	jump          float64
 	randSeed      *rand.Rand
-	SolveWeights  frame.SolverDistanceWeights
 	distFunc      func(spatial.Pose, spatial.Pose) float64
 }
 
@@ -48,8 +47,6 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error)
 	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.DoF())
 	// How much to adjust joints to determine slope
 	ik.jump = 0.00000001
-
-	ik.SolveWeights = frame.SolverDistanceWeights{frame.XYZWeights{1.0, 1.0, 1.0}, frame.XYZTHWeights{1.0, 1.0, 1.0, 1.0}}
 
 	// May eventually need to be destroyed to prevent memory leaks
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
@@ -126,11 +123,6 @@ func (ik *NloptIK) addGoal(newGoal spatial.Pose, effectorID int) {
 // clearGoals clears all goals for the Ik object
 func (ik *NloptIK) clearGoal() {
 	ik.goal = goal{}
-}
-
-// SetSolveWeights sets the slve weights
-func (ik *NloptIK) SetSolveWeights(weights frame.SolverDistanceWeights) {
-	ik.SolveWeights = weights
 }
 
 // SetGradient sets the function for distance between two poses
@@ -277,16 +269,7 @@ func (ik *NloptIK) UpdateBounds(lower, upper []float64) error {
 
 // defaultDistFunc is the default distance function between two poses to be used for gradient descent
 func (ik *NloptIK) defaultDistFunc(from, to spatial.Pose) float64 {
-	dx := make([]float64, 6)
-
-	// Update dx with the delta to the desired position
-	dxDelta := spatial.PoseDelta(from, to)
-
-	for i, delta := range dxDelta {
-		dx[i] = delta
-	}
-
-	return WeightedSquaredNorm(dx, ik.SolveWeights)
+	return SquaredNorm(spatial.PoseDelta(from, to))
 }
 
 // updateBounds will set the allowable maximum/minimum joint angles to disincentivise large swings before small swings
