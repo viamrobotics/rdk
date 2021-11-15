@@ -1,11 +1,10 @@
-package baseimpl_test
+package baseimpl
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	baseimpl "go.viam.com/core/base/impl"
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
@@ -55,7 +54,7 @@ func TestFourWheelBase1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer test.That(t, r.Close(), test.ShouldBeNil)
 
-	_, err = baseimpl.CreateFourWheelBase(context.Background(), r, config.Component{}, rlog.Logger)
+	_, err = CreateFourWheelBase(context.Background(), r, config.Component{}, rlog.Logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfg := config.Component{
@@ -68,10 +67,10 @@ func TestFourWheelBase1(t *testing.T) {
 			"backLeft":                 "bl-m",
 		},
 	}
-	baseBase, err := baseimpl.CreateFourWheelBase(context.Background(), r, cfg, rlog.Logger)
+	baseBase, err := CreateFourWheelBase(context.Background(), r, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
-	base, ok := baseBase.(*baseimpl.FourWheelBase)
+	base, ok := baseBase.(*FourWheelBase)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("basics", func(t *testing.T) {
@@ -81,17 +80,17 @@ func TestFourWheelBase1(t *testing.T) {
 	})
 
 	t.Run("math_straight", func(t *testing.T) {
-		d, rpm, rotations := base.StraightDistanceToMotorInfo(1000, 1000)
+		d, rpm, rotations := base.straightDistanceToMotorInfo(1000, 1000)
 		test.That(t, d, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 		test.That(t, rpm, test.ShouldEqual, 60.0)
 		test.That(t, rotations, test.ShouldEqual, 1.0)
 
-		d, rpm, rotations = base.StraightDistanceToMotorInfo(-1000, 1000)
+		d, rpm, rotations = base.straightDistanceToMotorInfo(-1000, 1000)
 		test.That(t, d, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
 		test.That(t, rpm, test.ShouldEqual, 60.0)
 		test.That(t, rotations, test.ShouldEqual, 1.0)
 
-		d, rpm, rotations = base.StraightDistanceToMotorInfo(-1000, -1000)
+		d, rpm, rotations = base.straightDistanceToMotorInfo(-1000, -1000)
 		test.That(t, d, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 		test.That(t, rpm, test.ShouldEqual, 60.0)
 		test.That(t, rotations, test.ShouldEqual, 1.0)
@@ -169,11 +168,11 @@ func TestFourWheelBase1(t *testing.T) {
 	t.Run("spin math", func(t *testing.T) {
 		// i'm only testing pieces that are correct
 
-		leftDirection, _, rotations := base.SpinMath(90, 10)
+		leftDirection, _, rotations := base.spinMath(90, 10)
 		test.That(t, leftDirection, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 		test.That(t, rotations, test.ShouldAlmostEqual, .0785, .001)
 
-		leftDirection, _, rotations = base.SpinMath(-90, 10)
+		leftDirection, _, rotations = base.spinMath(-90, 10)
 		test.That(t, leftDirection, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
 		test.That(t, rotations, test.ShouldAlmostEqual, .0785, .001)
 
@@ -218,7 +217,7 @@ func TestFourWheelBase1(t *testing.T) {
 
 	t.Run("arc math", func(t *testing.T) {
 
-		directions, rpms, rotations := base.ArcMath(10, 1000, 1000)
+		directions, rpms, rotations := base.arcMath(10, 1000, 1000)
 		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 		test.That(t, rpms[0], test.ShouldAlmostEqual, 60.524, 0.01)
 		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.008, .01)
@@ -226,7 +225,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, rpms[1], test.ShouldAlmostEqual, 59.476, 0.01)
 		test.That(t, rotations[1], test.ShouldAlmostEqual, 0.9913, .01)
 
-		directions, _, rotations = base.ArcMath(10, -10000, 1000)
+		directions, _, rotations = base.arcMath(10, -10000, 1000)
 		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
 		test.That(t, rpms[0], test.ShouldAlmostEqual, 60.524, 0.01)
 		test.That(t, rotations[0], test.ShouldAlmostEqual, 0.999, .01)
@@ -238,13 +237,13 @@ func TestFourWheelBase1(t *testing.T) {
 
 	t.Run("arc math zero speed", func(t *testing.T) {
 
-		directions, _, rotations := base.ArcMath(10, 0, 90)
+		directions, _, rotations := base.arcMath(10, 0, 90)
 		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 		test.That(t, rotations[0], test.ShouldAlmostEqual, .0785, .001)
 		test.That(t, directions[1], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
 		test.That(t, rotations[1], test.ShouldAlmostEqual, .0785, .001)
 
-		directions, _, rotations = base.ArcMath(10, 0, -90)
+		directions, _, rotations = base.arcMath(10, 0, -90)
 		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
 		test.That(t, rotations[0], test.ShouldAlmostEqual, .0785, .001)
 		test.That(t, directions[1], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
@@ -254,7 +253,7 @@ func TestFourWheelBase1(t *testing.T) {
 
 	t.Run("arc math zero angle", func(t *testing.T) {
 
-		directions, rpms, rotations := base.ArcMath(0, 1000, 1000)
+		directions, rpms, rotations := base.arcMath(0, 1000, 1000)
 		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 		test.That(t, rpms[0], test.ShouldEqual, 60.0)
 		test.That(t, rotations[0], test.ShouldEqual, 1.0)
@@ -262,7 +261,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, rpms[1], test.ShouldEqual, 60.0)
 		test.That(t, rotations[1], test.ShouldEqual, 1.0)
 
-		directions, rpms, rotations = base.ArcMath(0, -1000, 1000)
+		directions, rpms, rotations = base.arcMath(0, -1000, 1000)
 		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
 		test.That(t, rpms[0], test.ShouldEqual, 60.0)
 		test.That(t, rotations[0], test.ShouldEqual, 1.0)

@@ -119,7 +119,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	err := remoteSvc.Start(ctx)
 
 	if err != nil {
-		remoteSvc.logger.Errorw("error with starting remote control service", "error", err)
+		errors.Errorf("error with starting remote control service", err)
 	}
 
 	return remoteSvc, nil
@@ -132,7 +132,7 @@ func (svc *RemoteService) Start(ctx context.Context) error {
 		defer svc.activeBackgroundWorkers.Done()
 
 		if err := svc.StartRemote(ctx); err != nil {
-			svc.logger.Errorw("error with remote control", "error", err)
+			errors.Errorf("error with remote control", err)
 		}
 	})
 	return nil
@@ -155,9 +155,9 @@ func (svc *RemoteService) StartRemote(ctx context.Context) error {
 
 		switch svc.joystickMode {
 		case TriggerSpeed:
-			millisPerSec, degPerSec = svc.TriggerSpeedEvent(event, millisPerSec, degPerSec)
+			millisPerSec, degPerSec = svc.triggerSpeedEvent(event, millisPerSec, degPerSec)
 		default:
-			millisPerSec, degPerSec = svc.OneJoyStickEvent(event, millisPerSec, degPerSec)
+			millisPerSec, degPerSec = svc.oneJoyStickEvent(event, millisPerSec, degPerSec)
 		}
 
 		// Set distance to large number as it will be overwritten (Note: could have a dependecy on speed)
@@ -180,7 +180,7 @@ func (svc *RemoteService) StartRemote(ctx context.Context) error {
 
 // TriggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left jostick to
 // control the angle
-func (svc *RemoteService) TriggerSpeedEvent(event input.Event, speed float64, angle float64) (float64, float64) {
+func (svc *RemoteService) triggerSpeedEvent(event input.Event, speed float64, angle float64) (float64, float64) {
 
 	oldSpeed := speed
 	oldAngle := angle
@@ -199,11 +199,11 @@ func (svc *RemoteService) TriggerSpeedEvent(event input.Event, speed float64, an
 		speed = oldSpeed
 	}
 
-	return svc.SpeedAndAngleMathMag(speed, angle, oldSpeed, oldAngle)
+	return svc.speedAndAngleMathMag(speed, angle, oldSpeed, oldAngle)
 }
 
 // OneJoyStickEvent (default) takes inputs from the gamepad allowing the left joystick to control speed and angle
-func (svc *RemoteService) OneJoyStickEvent(event input.Event, speed float64, angle float64) (float64, float64) {
+func (svc *RemoteService) oneJoyStickEvent(event input.Event, speed float64, angle float64) (float64, float64) {
 
 	oldSpeed := speed
 	oldAngle := angle
@@ -217,12 +217,12 @@ func (svc *RemoteService) OneJoyStickEvent(event input.Event, speed float64, ang
 		speed = oldSpeed
 	}
 
-	return svc.SpeedAndAngleMathMag(speed, angle, oldSpeed, oldAngle)
+	return svc.speedAndAngleMathMag(speed, angle, oldSpeed, oldAngle)
 }
 
 // SpeedAndAngleMathMag utilizes a cut-off and the magnitude of the speed and angle to dictate millisPerSec and
 // degPerSec
-func (svc *RemoteService) SpeedAndAngleMathMag(speed float64, angle float64, oldSpeed float64, oldAngle float64) (float64, float64) {
+func (svc *RemoteService) speedAndAngleMathMag(speed float64, angle float64, oldSpeed float64, oldAngle float64) (float64, float64) {
 
 	var newSpeed float64
 	var newAngle float64
