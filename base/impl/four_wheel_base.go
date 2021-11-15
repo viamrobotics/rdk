@@ -1,4 +1,3 @@
-// Package baseimpl defines implementations of a base.
 package baseimpl
 
 import (
@@ -40,7 +39,7 @@ type FourWheelBase struct {
 func (base *FourWheelBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 
 	// Spin math
-	leftDirection, rpm, revolutions := base.SpinMath(angleDeg, degsPerSec)
+	leftDirection, rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
 	rightDirection := board.FlipDirection(leftDirection)
 
 	// Send motor commands
@@ -71,7 +70,7 @@ func (base *FourWheelBase) MoveStraight(ctx context.Context, distanceMillis int,
 	}
 
 	// Straight math
-	d, rpm, rotations := base.StraightDistanceToMotorInfo(distanceMillis, millisPerSec)
+	d, rpm, rotations := base.straightDistanceToMotorInfo(distanceMillis, millisPerSec)
 
 	// Send motor commands
 	for _, m := range base.AllMotors {
@@ -98,7 +97,7 @@ func (base *FourWheelBase) MoveArc(ctx context.Context, distanceMillis int, mill
 	}
 
 	// Arc math
-	dirLR, rpmLR, revLR := base.ArcMath(angleDeg, millisPerSec, distanceMillis)
+	dirLR, rpmLR, revLR := base.arcMath(angleDeg, millisPerSec, distanceMillis)
 
 	// Send motor commands
 	err := multierr.Combine(
@@ -122,7 +121,7 @@ func (base *FourWheelBase) MoveArc(ctx context.Context, distanceMillis int, mill
 }
 
 // SpinMath returns direction, rpm, revolutions for spin motion
-func (base *FourWheelBase) SpinMath(angleDeg float64, degsPerSec float64) (pb.DirectionRelative, float64, float64) {
+func (base *FourWheelBase) spinMath(angleDeg float64, degsPerSec float64) (pb.DirectionRelative, float64, float64) {
 	leftDirection := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 	if angleDeg < 0 {
 		leftDirection = board.FlipDirection(leftDirection)
@@ -139,10 +138,10 @@ func (base *FourWheelBase) SpinMath(angleDeg float64, degsPerSec float64) (pb.Di
 }
 
 // ArcMath performs calculations for arcing motion
-func (base *FourWheelBase) ArcMath(degsPerSec float64, millisPerSec float64, distanceMillis int) ([]pb.DirectionRelative, []float64, []float64) {
+func (base *FourWheelBase) arcMath(degsPerSec float64, millisPerSec float64, distanceMillis int) ([]pb.DirectionRelative, []float64, []float64) {
 
 	if math.Abs(millisPerSec) < 0.01 {
-		leftDirection, rpm, revolutions := base.SpinMath(float64(distanceMillis), degsPerSec)
+		leftDirection, rpm, revolutions := base.spinMath(float64(distanceMillis), degsPerSec)
 
 		dirs := []pb.DirectionRelative{leftDirection, board.FlipDirection(leftDirection)}
 		rpms := []float64{rpm, rpm}
@@ -190,7 +189,7 @@ func (base *FourWheelBase) ArcMath(degsPerSec float64, millisPerSec float64, dis
 }
 
 // StraightDistanceToMotorInfo performs calculations to determeine direction, rpm and # of revolutions
-func (base *FourWheelBase) StraightDistanceToMotorInfo(distanceMillis int, millisPerSec float64) (pb.DirectionRelative, float64, float64) {
+func (base *FourWheelBase) straightDistanceToMotorInfo(distanceMillis int, millisPerSec float64) (pb.DirectionRelative, float64, float64) {
 	var d pb.DirectionRelative = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 	if millisPerSec < 0 {
 		d = board.FlipDirection(d)
