@@ -135,7 +135,7 @@ func (ik *CombinedIK) Close() error {
 }
 
 // SetSolveWeights sets the solve weights for the solver.
-func (ik *CombinedIK) SetSolveWeights(weights SolverDistanceWeights) {
+func (ik *CombinedIK) SetSolveWeights(weights referenceframe.SolverDistanceWeights) {
 	for _, solver := range ik.solvers {
 		solver.SetSolveWeights(weights)
 	}

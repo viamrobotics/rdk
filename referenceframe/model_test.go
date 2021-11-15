@@ -1,11 +1,10 @@
-package kinematics
+package referenceframe
 
 import (
 	"math"
 	"math/rand"
 	"testing"
 
-	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
@@ -43,13 +42,13 @@ func TestJoint(t *testing.T) {
 
 	joints := m.Joints()
 	test.That(t, len(joints), test.ShouldEqual, 6)
-	pose, err := joints[0].Transform([]referenceframe.Input{{0}})
+	pose, err := joints[0].Transform([]Input{{0}})
 	test.That(t, err, test.ShouldBeNil)
 	firstJov := pose.Orientation().OrientationVectorRadians()
 	firstJovExpect := &spatialmath.OrientationVector{Theta: 0, OX: 0, OY: 0, OZ: 1}
 	test.That(t, firstJov, test.ShouldResemble, firstJovExpect)
 
-	pose, err = joints[0].Transform([]referenceframe.Input{{1.5708}})
+	pose, err = joints[0].Transform([]Input{{1.5708}})
 	test.That(t, err, test.ShouldBeNil)
 	firstJov = pose.Orientation().OrientationVectorRadians()
 	firstJovExpect = &spatialmath.OrientationVector{Theta: 1.5708, OX: 0, OY: 0, OZ: 1}

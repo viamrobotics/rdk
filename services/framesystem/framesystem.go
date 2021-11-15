@@ -20,7 +20,7 @@ const Type = config.ServiceType("frame_system")
 func init() {
 	registry.RegisterService(Type, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return New(ctx, r, logger)
+			return New(ctx, r, c, logger)
 		},
 	},
 	)
@@ -30,11 +30,11 @@ func init() {
 type Service interface {
 	FrameSystemConfig(ctx context.Context) ([]*config.FrameSystemPart, error)
 	LocalFrameSystem(ctx context.Context, name string) (referenceframe.FrameSystem, error)
-	ModelFrame(ctx context.Context, name string) ([]byte, error)
+	ModelFrame(ctx context.Context, name string) (*referenceframe.Model, error)
 }
 
 // New returns a new frame system service for the given robot.
-func New(ctx context.Context, r robot.Robot, logger golog.Logger) (Service, error) {
+func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Logger) (Service, error) {
 	// collect the necessary robot parts (skipping remotes, services, etc)
 	parts, err := CollectFrameSystemParts(ctx, r)
 	if err != nil {
@@ -117,11 +117,11 @@ func (svc *frameSystemService) LocalFrameSystem(ctx context.Context, name string
 
 // ModelFrame returns the model frame for the named part in the local frame system.
 // If the part does not have a model frame, nil will be returned
-func (svc *frameSystemService) ModelFrame(ctx context.Context, name string) ([]byte, error) {
+func (svc *frameSystemService) ModelFrame(ctx context.Context, name string) (*referenceframe.Model, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	if part, ok := svc.fsParts[name]; ok {
-		return part.ModelFrameConfig, nil
+		return part.ModelFrame, nil
 	}
 	return nil, errors.Errorf("no part with name %q in frame system", name)
 }

@@ -11,8 +11,8 @@ import (
 	"sync"
 
 	"go.viam.com/core/config"
-	"go.viam.com/core/kinematics"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -54,12 +54,12 @@ type Lidar struct {
 	posX, posY float64
 	started    bool
 	seed       int64
-	model      *kinematics.Model
+	model      *referenceframe.Model
 }
 
 // NewLidar returns a new fake lidar.
 func NewLidar(cfg config.Component) (*Lidar, error) {
-	model, err := kinematics.ParseJSON(lidarmodel, "")
+	model, err := referenceframe.ParseJSON(lidarmodel, "")
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func NewLidar(cfg config.Component) (*Lidar, error) {
 }
 
 // ModelFrame returns the dynamic frame of the model
-func (l *Lidar) ModelFrame() *kinematics.Model {
+func (l *Lidar) ModelFrame() *referenceframe.Model {
 	return l.model
 }
 
