@@ -17,6 +17,7 @@ import (
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
+	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc/client"
@@ -30,7 +31,6 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	servicepkg "go.viam.com/core/services"
-	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/testutils/inject"
 

@@ -10,6 +10,8 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/servo"
+	fakeservo "go.viam.com/core/component/servo/fake"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
@@ -19,7 +21,6 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/sensor"
-	"go.viam.com/core/servo"
 	"go.viam.com/core/status"
 	"go.viam.com/core/testutils/inject"
 
@@ -98,7 +99,7 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return &fake.Compass{Name: name}, true
 	}
 	injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
-		return &fake.Servo{Name: name}, true
+		return &fakeservo.Servo{Name: name}, true
 	}
 	injectRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
 		return &fake.Motor{Name: name}, true

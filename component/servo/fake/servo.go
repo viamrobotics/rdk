@@ -5,16 +5,17 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
-	"go.viam.com/core/servo"
 )
 
 func init() {
-	registry.RegisterServo(modelName, registry.Servo{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (servo.Servo, error) {
-		return &Servo{Name: config.Name}, nil
-	}})
+	registry.RegisterComponent(servo.Subtype, "fake", registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return &Servo{Name: config.Name}, nil
+		}})
 }
 
 // A Servo allows setting and reading a single angle.
