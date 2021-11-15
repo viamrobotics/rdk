@@ -30,7 +30,7 @@ type NloptIK struct {
 	logger        golog.Logger
 	jump          float64
 	randSeed      *rand.Rand
-	SolveWeights  SolverDistanceWeights
+	SolveWeights  frame.SolverDistanceWeights
 }
 
 // CreateNloptIKSolver TODO
@@ -48,7 +48,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 	// How much to adjust joints to determine slope
 	ik.jump = 0.00000001
 
-	ik.SolveWeights = SolverDistanceWeights{XYZWeights{1.0, 1.0, 1.0}, XYZTHWeights{1.0, 1.0, 1.0, 1.0}}
+	ik.SolveWeights = frame.SolverDistanceWeights{frame.XYZWeights{1.0, 1.0, 1.0}, frame.XYZTHWeights{1.0, 1.0, 1.0, 1.0}}
 
 	// May eventually need to be destroyed to prevent memory leaks
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
@@ -152,7 +152,7 @@ func (ik *NloptIK) getGoals() []goal {
 }
 
 // SetSolveWeights sets the slve weights
-func (ik *NloptIK) SetSolveWeights(weights SolverDistanceWeights) {
+func (ik *NloptIK) SetSolveWeights(weights frame.SolverDistanceWeights) {
 	ik.SolveWeights = weights
 }
 

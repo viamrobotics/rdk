@@ -16,6 +16,7 @@ import (
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -24,7 +25,7 @@ import (
 )
 
 //go:embed vgripper_model.json
-var vgripperjson []byte
+var vgripperv1json []byte
 
 // modelName is used to register the gripper to a model name.
 const modelName = "viam-v1"
@@ -67,7 +68,7 @@ type GripperV1 struct {
 	closeDirection, openDirection pb.DirectionRelative
 	logger                        golog.Logger
 
-	frameJSON             []byte
+	model                 *referenceframe.Model
 	numBadCurrentReadings int
 }
 
@@ -86,6 +87,12 @@ func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	if !ok {
 		return nil, errors.New("failed to find analog reader 'pressure'")
 	}
+
+	model, err := referenceframe.ParseJSON(vgripperv1json, "")
+	if err != nil {
+		return nil, err
+	}
+
 	vg := &GripperV1{
 		motor:           motor,
 		current:         current,
@@ -93,7 +100,7 @@ func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 		holdingPressure: .5,
 		pressureLimit:   pressureLimit,
 		logger:          logger,
-		frameJSON:       vgripperjson,
+		model:           model,
 	}
 
 	if vg.motor == nil {
@@ -260,9 +267,9 @@ func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	return vg, vg.Open(ctx)
 }
 
-// ModelFrame returns the json bytes that describe the dynamic frame of the model
-func (vg *GripperV1) ModelFrame() []byte {
-	return vg.frameJSON
+// ModelFrame returns the dynamic frame of the model
+func (vg *GripperV1) ModelFrame() *referenceframe.Model {
+	return vg.model
 }
 
 // Open opens the jaws

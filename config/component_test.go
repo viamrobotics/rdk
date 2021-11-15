@@ -1,4 +1,4 @@
-package config
+package config_test
 
 import (
 	"testing"
@@ -6,18 +6,19 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/config"
 	"go.viam.com/core/resource"
 
 	"go.viam.com/test"
 )
 
 func TestComponentValidate(t *testing.T) {
-	var emptyConfig Component
+	var emptyConfig config.Component
 	err := emptyConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 
-	validConfig := Component{
+	validConfig := config.Component{
 		Name: "foo",
 		Type: "arm",
 	}
@@ -27,13 +28,13 @@ func TestComponentValidate(t *testing.T) {
 func TestComponentResourceName(t *testing.T) {
 	for _, tc := range []struct {
 		Name            string
-		Config          Component
+		Config          config.Component
 		ExpectedSubtype resource.Subtype
 		ExpectedName    resource.Name
 	}{
 		{
 			"all fields included",
-			Component{
+			config.Component{
 				Type: "arm",
 				Name: "foo",
 			},
@@ -42,7 +43,7 @@ func TestComponentResourceName(t *testing.T) {
 		},
 		{
 			"missing subtype",
-			Component{
+			config.Component{
 				Name: "foo",
 			},
 			resource.Subtype{
@@ -60,7 +61,7 @@ func TestComponentResourceName(t *testing.T) {
 		},
 		{
 			"sensor with no subtype",
-			Component{
+			config.Component{
 				Type: "sensor",
 				Name: "foo",
 			},
@@ -79,7 +80,7 @@ func TestComponentResourceName(t *testing.T) {
 		},
 		{
 			"sensor with subtype",
-			Component{
+			config.Component{
 				Type:    "sensor",
 				SubType: "compass",
 				Name:    "foo",
@@ -99,7 +100,7 @@ func TestComponentResourceName(t *testing.T) {
 		},
 		{
 			"sensor missing name",
-			Component{
+			config.Component{
 				Type:    "sensor",
 				SubType: "compass",
 				Name:    "",
@@ -129,8 +130,8 @@ func TestComponentResourceName(t *testing.T) {
 
 func TestComponentFlag(t *testing.T) {
 	type MyStruct struct {
-		Comp  Component `flag:"comp"`
-		Comp2 Component `flag:"0"`
+		Comp  config.Component `flag:"comp"`
+		Comp2 config.Component `flag:"0"`
 	}
 	var myStruct MyStruct
 	err := utils.ParseFlags([]string{"main", "--comp=foo"}, &myStruct)
@@ -143,64 +144,64 @@ func TestComponentFlag(t *testing.T) {
 
 	err = utils.ParseFlags([]string{"main", "--comp=type=foo,host=bar,attr=wee:woo"}, &myStruct)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, myStruct.Comp.Type, test.ShouldEqual, ComponentType("foo"))
+	test.That(t, myStruct.Comp.Type, test.ShouldEqual, config.ComponentType("foo"))
 	test.That(t, myStruct.Comp.Host, test.ShouldEqual, "bar")
-	test.That(t, myStruct.Comp.Attributes, test.ShouldResemble, AttributeMap{
+	test.That(t, myStruct.Comp.Attributes, test.ShouldResemble, config.AttributeMap{
 		"wee": "woo",
 	})
 
 	err = utils.ParseFlags([]string{"main", "type=foo,host=bar,attr=wee:woo"}, &myStruct)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, myStruct.Comp2.Type, test.ShouldEqual, ComponentType("foo"))
+	test.That(t, myStruct.Comp2.Type, test.ShouldEqual, config.ComponentType("foo"))
 	test.That(t, myStruct.Comp2.Host, test.ShouldEqual, "bar")
-	test.That(t, myStruct.Comp2.Attributes, test.ShouldResemble, AttributeMap{
+	test.That(t, myStruct.Comp2.Attributes, test.ShouldResemble, config.AttributeMap{
 		"wee": "woo",
 	})
 }
 
 func TestParseComponentFlag(t *testing.T) {
-	_, err := ParseComponentFlag("foo")
+	_, err := config.ParseComponentFlag("foo")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
 
-	_, err = ParseComponentFlag("host=foo")
+	_, err = config.ParseComponentFlag("host=foo")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "required")
 
-	_, err = ParseComponentFlag("port=foo")
+	_, err = config.ParseComponentFlag("port=foo")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
 
-	comp, err := ParseComponentFlag("name=baz,type=foo,depends_on=")
+	comp, err := config.ParseComponentFlag("name=baz,type=foo,depends_on=")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.DependsOn, test.ShouldResemble, []string(nil))
 
-	comp, err = ParseComponentFlag("name=baz,type=foo,depends_on=|")
+	comp, err = config.ParseComponentFlag("name=baz,type=foo,depends_on=|")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.DependsOn, test.ShouldResemble, []string(nil))
 
-	comp, err = ParseComponentFlag("name=baz,type=foo,depends_on=foo")
+	comp, err = config.ParseComponentFlag("name=baz,type=foo,depends_on=foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.DependsOn, test.ShouldResemble, []string{"foo"})
 
-	comp, err = ParseComponentFlag("name=baz,type=foo,depends_on=foo|")
+	comp, err = config.ParseComponentFlag("name=baz,type=foo,depends_on=foo|")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.DependsOn, test.ShouldResemble, []string{"foo"})
 
-	_, err = ParseComponentFlag("depends_on=foo,bar")
+	_, err = config.ParseComponentFlag("depends_on=foo,bar")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
 
-	comp, err = ParseComponentFlag("type=foo,host=bar,port=5,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
+	comp, err = config.ParseComponentFlag("type=foo,host=bar,port=5,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.Name, test.ShouldEqual, "baz")
 	test.That(t, comp.Host, test.ShouldEqual, "bar")
 	test.That(t, comp.Port, test.ShouldEqual, 5)
-	test.That(t, comp.Type, test.ShouldEqual, ComponentType("foo"))
+	test.That(t, comp.Type, test.ShouldEqual, config.ComponentType("foo"))
 	test.That(t, comp.SubType, test.ShouldEqual, "who")
 	test.That(t, comp.Model, test.ShouldEqual, "bar")
 	test.That(t, comp.DependsOn, test.ShouldResemble, []string{"foo", "bar"})
-	test.That(t, comp.Attributes, test.ShouldResemble, AttributeMap{
+	test.That(t, comp.Attributes, test.ShouldResemble, config.AttributeMap{
 		"wee": "woo",
 		"one": "two",
 	})

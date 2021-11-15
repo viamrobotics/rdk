@@ -59,7 +59,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return fmt.Errorf("%q is not a GPS device", gpsName)
 	}
 
-	handle, err := i2c.OpenHandle()
+	handle, err := i2c.OpenHandle(dispAddr)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 			meterStr = "lock"
 		}
 
-		handle, err := i2c.OpenHandle()
+		handle, err := i2c.OpenHandle(dispAddr)
 		if err != nil {
 			return err
 		}

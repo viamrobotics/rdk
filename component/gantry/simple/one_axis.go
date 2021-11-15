@@ -14,6 +14,7 @@ import (
 	"go.viam.com/core/component/gantry"
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -30,6 +31,7 @@ func init() {
 // NewOneAxis creates a new one axis gantry
 func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
 	g := &oneAxis{
+		name:   config.Name,
 		logger: logger,
 	}
 
@@ -66,6 +68,7 @@ func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 }
 
 type oneAxis struct {
+	name  string
 	motor motor.Motor
 
 	limitSwitchPins []string
@@ -196,4 +199,19 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 	g.logger.Debugf("oneAxis SetPosition %v -> %v", positions[0], x)
 
 	return g.motor.GoTo(ctx, g.rpm, x)
+}
+
+func (g *oneAxis) ModelFrame() *referenceframe.Model {
+	m := referenceframe.NewModel()
+	f, err := referenceframe.NewTranslationalFrame(
+		g.name,
+		[]bool{true},
+		[]referenceframe.Limit{{0, g.lengthMeters}},
+	)
+	if err != nil {
+		panic(fmt.Errorf("error creating frame, should be impossible %w", err))
+	}
+	m.OrdTransforms = append(m.OrdTransforms, f)
+
+	return m
 }

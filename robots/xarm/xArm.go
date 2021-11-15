@@ -11,6 +11,7 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
+	"go.viam.com/core/referenceframe"
 
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -19,14 +20,14 @@ import (
 )
 
 type xArm struct {
-	dof       int
-	tid       uint16
-	conn      net.Conn
-	speed     float32 //speed=20*π/180rad/s
-	accel     float32 //acceleration=500*π/180rad/s^2
-	moveLock  *sync.Mutex
-	ik        kinematics.InverseKinematics
-	frameJSON []byte
+	dof      int
+	tid      uint16
+	conn     net.Conn
+	speed    float32 //speed=20*π/180rad/s
+	accel    float32 //acceleration=500*π/180rad/s^2
+	moveLock *sync.Mutex
+	model    *referenceframe.Model
+	ik       kinematics.InverseKinematics
 }
 
 //go:embed xArm6_kinematics.json
@@ -49,11 +50,11 @@ func init() {
 }
 
 // XArmModel returns the kinematics model of the xArm, also has all Frame information.
-func xArmModel(dof int) (*kinematics.Model, error) {
+func xArmModel(dof int) (*referenceframe.Model, error) {
 	if dof == 6 {
-		return kinematics.ParseJSON(xArm6modeljson, "")
+		return referenceframe.ParseJSON(xArm6modeljson, "")
 	} else if dof == 7 {
-		return kinematics.ParseJSON(xArm7modeljson, "")
+		return referenceframe.ParseJSON(xArm7modeljson, "")
 	}
 	return nil, errors.New("no kinematics model for xarm with specified degrees of freedom")
 }
@@ -69,12 +70,6 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 	if err != nil {
 		return nil, err
 	}
-	var frame []byte
-	if dof == 6 {
-		frame = xArm6modeljson
-	} else if dof == 7 {
-		frame = xArm7modeljson
-	}
 	nCPU := runtime.NumCPU()
 	ik, err := kinematics.CreateCombinedIKSolver(model, logger, nCPU)
 	if err != nil {
@@ -84,7 +79,7 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 	mutex := &sync.Mutex{}
 	// Start with default speed/acceleration parameters
 	// TODO(pl): add settable speed
-	xA := xArm{dof, 0, conn, 0.35, 8.7, mutex, ik, frame}
+	xA := xArm{dof, 0, conn, 0.35, 8.7, mutex, model, ik}
 
 	err = xA.start()
 	if err != nil {
@@ -94,7 +89,7 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 	return &xA, nil
 }
 
-// ModelFrame returns the json bytes that describe the dynamic frame of the model
-func (x *xArm) ModelFrame() []byte {
-	return x.frameJSON
+// ModelFrame returns the dynamic frame of the model
+func (x *xArm) ModelFrame() *referenceframe.Model {
+	return x.model
 }

@@ -1,27 +1,23 @@
 { 
     "wrong" : {
-        "parent": "a",
-        "orientation": {
-            "type": "oiler_angles",
-            "value" : {
-                "yaw": 45,
-                "roll": 0
-            }
+        "type": "oiler_angles",
+        "value" : {
+            "yaw": 45,
+            "roll": 0
+        }
+    },
+    "wrongvalue" : {
+        "type": "ov_degrees",
+        "value" : {
+            "th": "word",
+            "x": "another",
+            "y": 4,
+            "z": 12
         }
     },
     "empty" : {
     },
-    "mostlyempty" : {
-        "parent": "a"
-    },
     "ovdegrees" : {
-        "parent": "a",
-        "translation": {
-            "x": 1,
-            "y": 2,
-            "z": 3
-        },
-        "orientation": {
             "type": "ov_degrees",
             "value" : {
                 "th": 45,
@@ -29,16 +25,8 @@
                 "y": 0,
                 "z": 1
             }
-        }
     },
     "ovradians" : {
-        "parent": "b",
-        "translation": {
-            "x": 4,
-            "y": 5,
-            "z": 6
-        },
-        "orientation": {
             "type": "ov_radians",
             "value" : {
                 "th": 0.78539816,
@@ -46,26 +34,15 @@
                 "y": 1,
                 "z": 0
             }
-        }
     },
     "euler" : {
-        "parent": "c",
-        "translation": {
-            "x": 7,
-            "y": 8,
-            "z": 9
-        },
-        "orientation": {
             "type": "euler_angles",
             "value" : {
                 "yaw": 45,
                 "roll": 0
             }
-        }
     },
     "axisangle" : {
-        "parent": "d",
-        "orientation": {
             "type": "axis_angles",
             "value" : {
                 "th": 0.78539816,
@@ -73,6 +50,5 @@
                 "y": 0,
                 "z": 0
             }
-        }
     }
 }
