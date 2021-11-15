@@ -77,35 +77,36 @@ func TestGetInitialChessGrid(t *testing.T) {
 	// test for random indices
 	for i := 0; i < NTESTRANDOM; i++ {
 		randomIndex := rand.Intn(len(grid))
-		test.That(t, idealGrid[randomIndex], test.ShouldResemble, grid[randomIndex])
+		test.That(t, idealGrid[randomIndex].X, test.ShouldAlmostEqual, grid[randomIndex].X)
+		test.That(t, idealGrid[randomIndex].Y, test.ShouldAlmostEqual, grid[randomIndex].Y)
 	}
 	// test H = I
 	I := Create3IdentityMatrix()
 	test.That(t, mat.EqualApprox(H, I, 0.0000001), test.ShouldBeTrue)
 
 	// translated quad
-	quadTranslated := []r2.Point{{2,2},{3,2}, {3,3},{2,3}}
+	quadTranslated := []r2.Point{{2, 2}, {3, 2}, {3, 3}, {2, 3}}
 	_, gridT, T, err := getInitialChessGrid(quadTranslated)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(gridT), test.ShouldEqual, 16)
 	// create GT translation by (2,2) matrix
 	T2 := Create3IdentityMatrix()
-	T2.Set(0,2,2)
-	T2.Set(1,2,2)
+	T2.Set(0, 2, 2)
+	T2.Set(1, 2, 2)
 	test.That(t, mat.EqualApprox(T, T2, 0.0000001), test.ShouldBeTrue)
 
 }
 
-func TestSumGoodPoints(t *testing.T){
-	goodPoints1 := []int{0,0,0,0,0,0}
+func TestSumGoodPoints(t *testing.T) {
+	goodPoints1 := []int{0, 0, 0, 0, 0, 0}
 	sum1 := sumGoodPoints(goodPoints1)
-	test.That(t, sum1, test.ShouldEqual,0)
+	test.That(t, sum1, test.ShouldEqual, 0)
 
-	goodPoints2 := []int{0,0,1,0,0,0}
+	goodPoints2 := []int{0, 0, 1, 0, 0, 0}
 	sum2 := sumGoodPoints(goodPoints2)
-	test.That(t, sum2, test.ShouldEqual,1)
+	test.That(t, sum2, test.ShouldEqual, 1)
 
-	goodPoints3 := []int{1,1,1,1,1,1}
+	goodPoints3 := []int{1, 1, 1, 1, 1, 1}
 	sum3 := sumGoodPoints(goodPoints3)
-	test.That(t, sum3, test.ShouldEqual,6)
+	test.That(t, sum3, test.ShouldEqual, 6)
 }

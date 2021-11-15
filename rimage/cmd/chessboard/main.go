@@ -3,13 +3,9 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
-	"image"
 	"os"
 
 	"github.com/edaniels/golog"
-	"gonum.org/v1/gonum/mat"
-
 	"go.viam.com/utils"
 
 	"go.viam.com/core/rimage"
@@ -44,66 +40,7 @@ func main() {
 	if err != nil {
 		logger.Error(err)
 	}
-	imgCopy, err := rimage.NewImageFromFile(*path)
-	if err != nil {
-		logger.Error(err)
-	}
+	grid := chessboard.FindChessboard(*img, cfg, false)
+	logger.Info(grid.M)
 
-	logger.Info(img.Bounds().Max)
-	// convert to mat
-	im := rimage.ConvertColorImageToLuminanceFloat(*imgCopy)
-	//ih, iw := im.Dims()
-	saddleMap, saddlePoints, err := chessboard.GetSaddleMapPoints(im, &cfg.Saddle)
-	if err != nil {
-		logger.Error(err)
-	}
-	// contours
-	//TODO(louise): fix canny contour detection. For now, loading contour map generated with openCV
-	//cannyDetector := rimage.NewCannyDericheEdgeDetectorWithParameters(cfg.Contours.CannyHigh, cfg.Contours.CannyLow, false)
-	//edgesGray, _ := cannyDetector.DetectEdges(img, 0.5)
-
-	// open edges image
-	if err != nil {
-		logger.Error(err)
-	}
-	defer utils.UncheckedErrorFunc(f.Close)
-
-	edgesGray, _, err := image.Decode(f)
-	if err != nil {
-		logger.Error(err)
-	}
-
-	// convert to float mat for further operations
-	edgesImg := rimage.ConvertImage(edgesGray)
-	edgesMat := rimage.ConvertColorImageToLuminanceFloat(*edgesImg)
-	fmt.Println("Edges : ")
-	fmt.Println(mat.Max(edgesMat))
-	// make image binary
-	edges := chessboard.BinarizeMat(edgesMat, 127)
-	// extract contours
-	contours, hierarchy := rimage.FindContours(edges)
-	_ = rimage.DrawContours(edges, contours, "contours16.png")
-	// Approximate contours with polygons
-	contoursSimplified := rimage.SimplifyContours(contours)
-	// select only contours that correspond to convex quadrilateral
-	prunedContours := chessboard.PruneContours(contoursSimplified, hierarchy, saddleMap, cfg.Contours.WinSize)
-	//err = rimage.DrawContoursSimplified(edges, prunedContours, "pruned_contours.png")
-	//if err != nil {
-	//	logger.Error(err)
-	//}
-	//chessboard.PlotSaddleMap(saddlePoints, prunedContours, "polygonsWithSaddles.png", ih, iw)
-
-	// greedy iterations to find the best homography
-	//TODO(louise): fix homography iteration issue
-	saddles := rimage.ConvertSliceImagePointToSliceVec(saddlePoints)
-	grid, err := chessboard.GreedyIterations(prunedContours, saddles, cfg.Greedy)
-	if err != nil {
-		logger.Error(err)
-	}
-	fmt.Println(grid.M)
-	fmt.Println(len(saddlePoints))
-	fmt.Println(saddleMap.Dims())
-	fmt.Println(mat.Max(saddleMap))
-	// contours
-	cannyDetector := rimage.NewCannyDericheEdgeDetectorWithParameters(cfg.Contours.CannyHigh, cfg.Contours.CannyLow,true)
-	edgesGray, _ := cannyDetector.DetectEdges(img, 0.5)
+}

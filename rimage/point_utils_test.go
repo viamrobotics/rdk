@@ -110,14 +110,3 @@ func TestAreCollinear(t *testing.T) {
 	c2 := AreCollinear(a, b, d, 0.01)
 	test.That(t, c2, test.ShouldBeTrue)
 }
-
-func TestAreCollinear(t *testing.T) {
-	a := r2.Point{0, 0}
-	b := r2.Point{1, 0}
-	c := r2.Point{1, 1}
-	d := r2.Point{2, 0}
-	c1 := AreCollinear(a, b, c, 0.01)
-	test.That(t, c1, test.ShouldBeFalse)
-	c2 := AreCollinear(a, b, d, 0.01)
-	test.That(t, c2, test.ShouldBeTrue)
-}
