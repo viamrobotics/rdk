@@ -1,0 +1,19 @@
+{
+    "test" : {
+        "parent": "world",
+        "translation": {
+            "x": 1,
+            "y": 2,
+            "z": 3
+        },
+        "orientation": {
+            "type": "ov_degrees",
+            "value": {
+                "th": 85,
+                "x": 0,
+                "y": 0,
+                "z": 1
+            }
+        }
+    }
+}

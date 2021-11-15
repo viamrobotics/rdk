@@ -29,16 +29,16 @@ type NloptIK struct {
 	logger        golog.Logger
 	jump          float64
 	randSeed      *rand.Rand
-	SolveWeights  SolverDistanceWeights
-	parallelSetup bool
+	SolveWeights  frame.SolverDistanceWeights
 	distFunc      func(spatial.Pose, spatial.Pose) float64
 }
 
 // CreateNloptIKSolver TODO
-func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK, error) {
-	ik := &NloptIK{id: id, logger: logger}
+func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error) {
+	ik := &NloptIK{logger: logger}
 	ik.randSeed = rand.New(rand.NewSource(1))
 	ik.model = mdl
+	ik.id = 0
 	// How close we want to get to the goal
 	ik.epsilon = 0.001
 	// The absolute smallest value able to be represented by a float64
@@ -49,7 +49,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 	// How much to adjust joints to determine slope
 	ik.jump = 0.00000001
 
-	ik.SolveWeights = SolverDistanceWeights{XYZWeights{1.0, 1.0, 1.0}, XYZTHWeights{1.0, 1.0, 1.0, 1.0}}
+	ik.SolveWeights = frame.SolverDistanceWeights{frame.XYZWeights{1.0, 1.0, 1.0}, frame.XYZTHWeights{1.0, 1.0, 1.0, 1.0}}
 
 	// May eventually need to be destroyed to prevent memory leaks
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
@@ -128,8 +128,8 @@ func (ik *NloptIK) clearGoal() {
 	ik.goal = goal{}
 }
 
-// SetSolveWeights sets the solve weights
-func (ik *NloptIK) SetSolveWeights(weights SolverDistanceWeights) {
+// SetSolveWeights sets the slve weights
+func (ik *NloptIK) SetSolveWeights(weights frame.SolverDistanceWeights) {
 	ik.SolveWeights = weights
 }
 
@@ -152,7 +152,7 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 	ik.iterations = 0
 	solutionsFound := 0
 	startingPos := seed
-	if ik.parallelSetup {
+	if ik.id > 0 {
 
 		// Solver with ID 1 seeds off current angles
 		if ik.id == 1 {
@@ -205,7 +205,7 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 			solutionsFound++
 		}
 		tries++
-		if ik.parallelSetup && tries < 30 {
+		if ik.id > 0 && tries < 30 {
 			err = ik.updateBounds(seed, tries)
 			if err != nil {
 				return err
@@ -275,7 +275,7 @@ func (ik *NloptIK) UpdateBounds(lower, upper []float64) error {
 	)
 }
 
-// defaultDistFunc
+// defaultDistFunc is the default distance function between two poses to be used for gradient descent
 func (ik *NloptIK) defaultDistFunc(from, to spatial.Pose) float64 {
 	dx := make([]float64, 6)
 

@@ -543,6 +543,14 @@ service RobotService {
     };
   }
 
+  // Object Manipulation Service
+
+  rpc ObjectManipulationServiceDoGrab(ObjectManipulationServiceDoGrabRequest) returns (ObjectManipulationServiceDoGrabResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/services/objectmanipulation/do_grab"
+    };
+  }
+
   // IMU
 
   // IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
@@ -1299,6 +1307,21 @@ message NavigationServiceRemoveWaypointRequest {
 
 message NavigationServiceRemoveWaypointResponse {
 }
+
+// Object Manipulation Service
+
+message ObjectManipulationServiceDoGrabRequest {
+  string camera_name = 1;
+  Vector3 camera_point = 2;
+  string gripper_name = 3;
+  string arm_name = 4;
+}
+
+message ObjectManipulationServiceDoGrabResponse {
+  bool has_grabbed = 1;
+}
+
+// End Object Manipulation Service
 
 message InputControllerControlsRequest {
   string controller = 1;

@@ -846,6 +846,14 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.ObjectManipulationServiceDoGrabRequest"><span class="badge">M</span>ObjectManipulationServiceDoGrabRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.ObjectManipulationServiceDoGrabResponse"><span class="badge">M</span>ObjectManipulationServiceDoGrabResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.ObjectPointCloudsRequest"><span class="badge">M</span>ObjectPointCloudsRequest</a>
                 </li>
               
@@ -5095,6 +5103,75 @@
 
         
       
+        <h3 id="proto.api.v1.ObjectManipulationServiceDoGrabRequest">ObjectManipulationServiceDoGrabRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>camera_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>camera_point</td>
+                  <td><a href="#proto.api.v1.Vector3">Vector3</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>gripper_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>arm_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.ObjectManipulationServiceDoGrabResponse">ObjectManipulationServiceDoGrabResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>has_grabbed</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.ObjectPointCloudsRequest">ObjectPointCloudsRequest</h3>
         <p></p>
 
@@ -6790,6 +6867,13 @@ is reliant on having an encoder.</p></td>
               </tr>
             
               <tr>
+                <td>ObjectManipulationServiceDoGrab</td>
+                <td><a href="#proto.api.v1.ObjectManipulationServiceDoGrabRequest">ObjectManipulationServiceDoGrabRequest</a></td>
+                <td><a href="#proto.api.v1.ObjectManipulationServiceDoGrabResponse">ObjectManipulationServiceDoGrabResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
                 <td>IMUAngularVelocity</td>
                 <td><a href="#proto.api.v1.IMUAngularVelocityRequest">IMUAngularVelocityRequest</a></td>
                 <td><a href="#proto.api.v1.IMUAngularVelocityResponse">IMUAngularVelocityResponse</a></td>
@@ -7565,6 +7649,16 @@ is reliant on having an encoder.</p></td>
                 <td>NavigationServiceRemoveWaypoint</td>
                 <td>DELETE</td>
                 <td>/api/v1/services/navigation/waypoints/{id}</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>ObjectManipulationServiceDoGrab</td>
+                <td>POST</td>
+                <td>/api/v1/services/objectmanipulation/do_grab</td>
                 <td></td>
               </tr>
               

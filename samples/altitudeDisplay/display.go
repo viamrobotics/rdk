@@ -61,19 +61,19 @@ func initDisp(ctx context.Context, handle board.I2CHandle, startup bool) {
 		sh110xNORMALDISPLAY,      // 0xa6
 	}
 
-	handle.Write(ctx, dispAddr, init)
+	handle.Write(ctx, init)
 
 	time.Sleep(100 * time.Millisecond)
 
 	// turn on
-	handle.Write(ctx, dispAddr, []byte{0x00, 0xAF})
+	handle.Write(ctx, []byte{0x00, 0xAF})
 	if startup {
 		initAnimation(ctx, handle)
 	}
 }
 
 func checkInit(ctx context.Context, handle board.I2CHandle) {
-	buffer, _ := handle.Read(ctx, dispAddr, 1)
+	buffer, _ := handle.Read(ctx, 1)
 	if buffer[0] == 71 {
 		initDisp(ctx, handle, false)
 	}
@@ -88,7 +88,7 @@ func initAnimation(ctx context.Context, handle board.I2CHandle) {
 		}
 		buf := blank()
 		buf = writeFillRect(0, 20, i*8, 24, buf)
-		writeBuf(ctx, buf, dispAddr, handle)
+		writeBuf(ctx, buf, handle)
 	}
 }
 
@@ -105,7 +105,7 @@ func writeAlt(ctx context.Context, feet, meters string, handle board.I2CHandle) 
 	}
 	buf = writeString(0, 28, feet, buf)
 	buf = writeString(0, 58, meters, buf)
-	writeBuf(ctx, buf, dispAddr, handle)
+	writeBuf(ctx, buf, handle)
 }
 
 func blank() []byte {
@@ -113,7 +113,7 @@ func blank() []byte {
 }
 
 // This actually writes the buffered bytes to the display
-func writeBuf(ctx context.Context, buf []byte, dispAddr byte, handle board.I2CHandle) {
+func writeBuf(ctx context.Context, buf []byte, handle board.I2CHandle) {
 
 	checkInit(ctx, handle)
 
@@ -121,15 +121,15 @@ func writeBuf(ctx context.Context, buf []byte, dispAddr byte, handle board.I2CHa
 	iter := 0
 	for reg = 0xB0; reg <= 0xBF; reg++ {
 		someBytes := []byte{0, reg, 0x10, 0}
-		handle.Write(context.Background(), dispAddr, someBytes)
+		handle.Write(context.Background(), someBytes)
 
 		someBytes = append([]byte{0x40}, buf[0+iter*64:31+iter*64]...)
-		handle.Write(context.Background(), dispAddr, someBytes)
+		handle.Write(context.Background(), someBytes)
 		someBytes = append([]byte{0x40}, buf[31+iter*64:62+iter*64]...)
-		handle.Write(context.Background(), dispAddr, someBytes)
+		handle.Write(context.Background(), someBytes)
 
 		someBytes = []byte{0x40, buf[62+iter*64], buf[63+iter*64]}
-		handle.Write(context.Background(), dispAddr, someBytes)
+		handle.Write(context.Background(), someBytes)
 
 		iter++
 	}

@@ -35,7 +35,7 @@ func CheckConstraintPath(mp MotionPlanner, ci *ConstraintInput) (bool, *Constrai
 		return false, nil
 	}
 	steps := getSteps(ci.startPos, ci.endPos, mp.Resolution())
-	
+
 	lastInterp := 0.
 
 	for i := 1; i <= steps; i++ {
@@ -324,7 +324,7 @@ func orientDistToRegion(goal spatial.Orientation, alpha float64) func(spatial.Or
 }
 
 // NewPoseFlexOVGradient will provide a gradient function which will converge on an OV within an arclength of `alpha`
-// of the ov of the goal given. The 3d point of the goal given is discarded, and the function will converge on the 
+// of the ov of the goal given. The 3d point of the goal given is discarded, and the function will converge on the
 // 3d point of the `to` pose (this is probably what you want).
 func NewPoseFlexOVGradient(goal spatial.Pose, alpha float64) func(spatial.Pose, spatial.Pose) float64 {
 	oDistFunc := orientDistToRegion(goal.Orientation(), alpha)

@@ -41,7 +41,7 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (*
 	if err != nil {
 		return nil, err
 	}
-	nlopt, err := kinematics.CreateNloptIKSolver(frame, logger, 1)
+	nlopt, err := kinematics.CreateNloptIKSolver(frame, logger)
 	if err != nil {
 		return nil, err
 	}

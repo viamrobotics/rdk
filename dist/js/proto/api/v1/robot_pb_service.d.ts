@@ -653,6 +653,15 @@ type RobotServiceNavigationServiceRemoveWaypoint = {
   readonly responseType: typeof proto_api_v1_robot_pb.NavigationServiceRemoveWaypointResponse;
 };
 
+type RobotServiceObjectManipulationServiceDoGrab = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabResponse;
+};
+
 type RobotServiceIMUAngularVelocity = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -781,6 +790,7 @@ export class RobotService {
   static readonly NavigationServiceWaypoints: RobotServiceNavigationServiceWaypoints;
   static readonly NavigationServiceAddWaypoint: RobotServiceNavigationServiceAddWaypoint;
   static readonly NavigationServiceRemoveWaypoint: RobotServiceNavigationServiceRemoveWaypoint;
+  static readonly ObjectManipulationServiceDoGrab: RobotServiceObjectManipulationServiceDoGrab;
   static readonly IMUAngularVelocity: RobotServiceIMUAngularVelocity;
   static readonly IMUOrientation: RobotServiceIMUOrientation;
   static readonly GPSLocation: RobotServiceGPSLocation;
@@ -1444,6 +1454,15 @@ export class RobotServiceClient {
   navigationServiceRemoveWaypoint(
     requestMessage: proto_api_v1_robot_pb.NavigationServiceRemoveWaypointRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.NavigationServiceRemoveWaypointResponse|null) => void
+  ): UnaryResponse;
+  objectManipulationServiceDoGrab(
+    requestMessage: proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabResponse|null) => void
+  ): UnaryResponse;
+  objectManipulationServiceDoGrab(
+    requestMessage: proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabResponse|null) => void
   ): UnaryResponse;
   iMUAngularVelocity(
     requestMessage: proto_api_v1_robot_pb.IMUAngularVelocityRequest,

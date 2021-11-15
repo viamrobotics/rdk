@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/go-errors/errors"
+
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
@@ -238,24 +240,45 @@ type I2C struct {
 }
 
 // OpenHandle opens a handle to perform I2C transfers that must be later closed to release access to the bus.
-func (s *I2C) OpenHandle() (board.I2CHandle, error) {
+func (s *I2C) OpenHandle(addr byte) (board.I2CHandle, error) {
 	s.mu.Lock()
-	return &I2CHandle{s}, nil
+	return &I2CHandle{s, addr}, nil
 }
 
 // A I2CHandle allows read/write and Close.
 type I2CHandle struct {
-	bus *I2C
+	bus  *I2C
+	addr byte
 }
 
-func (h *I2CHandle) Write(ctx context.Context, addr byte, tx []byte) error {
+func (h *I2CHandle) Write(ctx context.Context, tx []byte) error {
 	h.bus.fifo <- tx
 	return nil
 }
 
-func (h *I2CHandle) Read(ctx context.Context, addr byte, count int) ([]byte, error) {
+func (h *I2CHandle) Read(ctx context.Context, count int) ([]byte, error) {
 	ret := <-h.bus.fifo
 	return ret[:count], nil
+}
+
+// ReadByteData reads a byte from the i2c channelC
+func (h *I2CHandle) ReadByteData(ctx context.Context, register byte) (byte, error) {
+	return 0, errors.New("finish me")
+}
+
+// WriteByteData writes a byte to the i2c channelC
+func (h *I2CHandle) WriteByteData(ctx context.Context, register byte, data byte) error {
+	return errors.New("finish me")
+}
+
+// ReadWordData reads a word from the i2c channelC
+func (h *I2CHandle) ReadWordData(ctx context.Context, register byte) (uint16, error) {
+	return 0, errors.New("finish me")
+}
+
+// WriteWordData writes a word to the i2c channelC
+func (h *I2CHandle) WriteWordData(ctx context.Context, register byte, data uint16) error {
+	return errors.New("finish me")
 }
 
 // Close releases access to the bus

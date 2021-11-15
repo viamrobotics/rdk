@@ -45,6 +45,9 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 
 	// Create a frame to solve for, and an IK solver with that frame.
 	sf := &solverFrame{solveFrame.Name() + "_" + goalFrame.Name(), fss, frames, solveFrame, goalFrame}
+	if len(sf.DoF()) == 0 {
+		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
+	}
 	var planner MotionPlanner
 	if fss.mpFunc != nil {
 		planner, err = fss.mpFunc(sf, fss.logger, runtime.NumCPU()/2)

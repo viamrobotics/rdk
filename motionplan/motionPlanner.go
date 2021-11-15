@@ -113,7 +113,7 @@ func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed []f
 // The returned value is guaranteed to be at least 1.
 // stepSize represents both the max mm movement per step, and max R4AA degrees per step
 func getSteps(seedPos, goalPos spatial.Pose, stepSize float64) int {
-	
+
 	// use a default size of 1 if zero is passed in to avoid divide-by-zero
 	if stepSize == 0 {
 		stepSize = 1.
