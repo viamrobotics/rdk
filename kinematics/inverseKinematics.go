@@ -24,17 +24,16 @@ type goal struct {
 // InverseKinematics defines an interface which, provided with a goal position and seed inputs, will output all found
 // solutions to the provided channel until cancelled or otherwise completes
 type InverseKinematics interface {
-	// Solve receives a context, the goal position, and current frame inputs.
+	// Solve receives a context, the goal arm position, and current joint angles.
 	Solve(context.Context, chan []frame.Input, spatial.Pose, []frame.Input) error
-	Frame() frame.Frame
-	SetSolveWeights(SolverDistanceWeights)
+	SetSolveWeights(frame.SolverDistanceWeights)
 	SetDistFunc(func(spatial.Pose, spatial.Pose) float64)
 	Close() error
 }
 
-// toArray returns the SolverDistanceWeights as a slice with the components in the same order as the array returned from
-// pose ToDelta. Note that orientation components are multiplied by 100 since they are usually small, to avoid drift.
-func (dc *SolverDistanceWeights) toArray() []float64 {
+// toArray returns the frame.SolverDistanceWeights as a slice with the components in the same order as the array returned from
+// pose ToDelta. Note that orientation components are multiplied by 100 since they are usually small to avoid drift.
+func toArray(dc frame.SolverDistanceWeights) []float64 {
 	return []float64{dc.Trans.X, dc.Trans.Y, dc.Trans.Z, 100 * dc.Orient.TH * dc.Orient.X, 100 * dc.Orient.TH * dc.Orient.Y, 100 * dc.Orient.TH * dc.Orient.Z}
 }
 
@@ -48,8 +47,8 @@ func SquaredNorm(vec []float64) float64 {
 }
 
 // WeightedSquaredNorm returns the dot product of a vector with itself, applying the given weights to each piece.
-func WeightedSquaredNorm(vec []float64, config SolverDistanceWeights) float64 {
-	configArr := config.toArray()
+func WeightedSquaredNorm(vec []float64, config frame.SolverDistanceWeights) float64 {
+	configArr := toArray(config)
 	norm := 0.0
 	for i, v := range vec {
 		norm += v * v * configArr[i]
@@ -75,7 +74,7 @@ func calcSwingAmount(from, to []frame.Input, model frame.Frame) (float64, error)
 	fullDist := SquaredNorm(spatial.PoseDelta(startPos, endPos))
 
 	dist := 0.
-	orientWeights := SolverDistanceWeights{Orient: XYZTHWeights{1, 1, 1, 1}}
+	orientWeights := frame.SolverDistanceWeights{Orient: frame.XYZTHWeights{1, 1, 1, 1}}
 	for i := 0; i < waypoints; i++ {
 		// waypoint will be a sequence of fractions: 1/2, 1/3, 1/4, 1/5...
 		// This represents how far down the path of motion to interpolate.
@@ -140,4 +139,13 @@ func bestSolution(seedAngles []frame.Input, solutions [][]frame.Input, model fra
 		}
 	}
 	return best, dist, nil
+}
+
+func limitsToArrays(limits []frame.Limit) ([]float64, []float64) {
+	var min, max []float64
+	for _, limit := range limits {
+		min = append(min, limit.Min)
+		max = append(max, limit.Max)
+	}
+	return min, max
 }

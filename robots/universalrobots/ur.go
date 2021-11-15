@@ -45,8 +45,8 @@ func init() {
 }
 
 // Ur5eModel() returns the kinematics model of the xArm, also has all Frame information.
-func ur5eModel() (*kinematics.Model, error) {
-	return kinematics.ParseJSON(ur5modeljson, "")
+func ur5eModel() (*frame.Model, error) {
+	return frame.ParseJSON(ur5modeljson, "")
 }
 
 // URArm TODO
@@ -63,7 +63,7 @@ type URArm struct {
 	cancel                  func()
 	activeBackgroundWorkers *sync.WaitGroup
 	mp                      motionplan.MotionPlanner
-	model                   *kinematics.Model
+	model                   *frame.Model
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -160,7 +160,7 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 }
 
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem
-func (ua *URArm) ModelFrame() *kinematics.Model {
+func (ua *URArm) ModelFrame() *frame.Model {
 	return ua.model
 }
 

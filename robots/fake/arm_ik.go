@@ -33,8 +33,8 @@ func init() {
 }
 
 // fakeModel returns the kinematics model
-func fakeModel() (*kinematics.Model, error) {
-	return kinematics.ParseJSON(armikModelJSON, "")
+func fakeModel() (*frame.Model, error) {
+	return frame.ParseJSON(armikModelJSON, "")
 }
 
 // NewArmIK returns a new fake arm.
@@ -65,11 +65,11 @@ type ArmIK struct {
 	joints     *pb.JointPositions
 	mp         motionplan.MotionPlanner
 	CloseCount int
-	model      *kinematics.Model
+	model      *frame.Model
 }
 
 // ModelFrame returns the dynamic frame of the model
-func (a *ArmIK) ModelFrame() *kinematics.Model {
+func (a *ArmIK) ModelFrame() *frame.Model {
 	return a.model
 }
 

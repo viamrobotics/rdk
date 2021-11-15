@@ -63,7 +63,7 @@ func newPmtkI2CNMEAGPS(r robot.Robot, config config.Component, logger golog.Logg
 
 func (g *pmtkI2CNMEAGPS) Start() {
 
-	handle, err := g.bus.OpenHandle()
+	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
 		g.logger.Fatalf("can't open gps i2c %s", err)
 		return
@@ -72,12 +72,12 @@ func (g *pmtkI2CNMEAGPS) Start() {
 	cmd314 := addChk([]byte("PMTK314,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	cmd220 := addChk([]byte("PMTK220,1000"))
 
-	err = handle.Write(context.Background(), g.addr, cmd314)
+	err = handle.Write(context.Background(), cmd314)
 	if err != nil {
 		g.logger.Fatalf("i2c handle write failed %s", err)
 		return
 	}
-	err = handle.Write(context.Background(), g.addr, cmd220)
+	err = handle.Write(context.Background(), cmd220)
 	if err != nil {
 		g.logger.Fatalf("i2c handle write failed %s", err)
 		return
@@ -100,12 +100,12 @@ func (g *pmtkI2CNMEAGPS) Start() {
 			}
 
 			// Opening an i2c handle blocks the whole bus, so we open/close each loop so other things also have a chance to use it
-			handle, err := g.bus.OpenHandle()
+			handle, err := g.bus.OpenHandle(g.addr)
 			if err != nil {
 				g.logger.Fatalf("can't open gps i2c handle: %s", err)
 				return
 			}
-			buffer, err := handle.Read(context.Background(), g.addr, 32)
+			buffer, err := handle.Read(context.Background(), 32)
 			hErr := handle.Close()
 			if hErr != nil {
 				g.logger.Fatalf("failed to close handle: %s", hErr)

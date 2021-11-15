@@ -27,12 +27,12 @@ func CreateCombinedIKSolver(model frame.Frame, logger golog.Logger, nCPU int) (*
 	ik := &CombinedIK{}
 	ik.model = model
 	for i := 1; i <= nCPU; i++ {
-		nlopt, err := CreateNloptIKSolver(model, logger, i)
+		nlopt, err := CreateNloptIKSolver(model, logger)
+		nlopt.id = i
 		if err != nil {
 			return nil, err
 		}
 		nlopt.SetSeed(int64(i * 1000))
-		nlopt.parallelSetup = true
 		ik.solvers = append(ik.solvers, nlopt)
 	}
 	ik.logger = logger
@@ -121,7 +121,7 @@ func (ik *CombinedIK) Close() error {
 }
 
 // SetSolveWeights sets the solve weights for the solver.
-func (ik *CombinedIK) SetSolveWeights(weights SolverDistanceWeights) {
+func (ik *CombinedIK) SetSolveWeights(weights frame.SolverDistanceWeights) {
 	for _, solver := range ik.solvers {
 		solver.SetSolveWeights(weights)
 	}

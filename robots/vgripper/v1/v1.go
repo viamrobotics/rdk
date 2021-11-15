@@ -14,9 +14,9 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
-	"go.viam.com/core/kinematics"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -68,7 +68,7 @@ type GripperV1 struct {
 	closeDirection, openDirection pb.DirectionRelative
 	logger                        golog.Logger
 
-	model                 *kinematics.Model
+	model                 *referenceframe.Model
 	numBadCurrentReadings int
 }
 
@@ -88,7 +88,7 @@ func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 		return nil, errors.New("failed to find analog reader 'pressure'")
 	}
 
-	model, err := kinematics.ParseJSON(vgripperv1json, "")
+	model, err := referenceframe.ParseJSON(vgripperv1json, "")
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +268,7 @@ func NewGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 }
 
 // ModelFrame returns the dynamic frame of the model
-func (vg *GripperV1) ModelFrame() *kinematics.Model {
+func (vg *GripperV1) ModelFrame() *referenceframe.Model {
 	return vg.model
 }
 

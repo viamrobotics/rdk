@@ -68,7 +68,7 @@ type Arm struct {
 	moveLock *sync.Mutex
 	logger   golog.Logger
 	mp       motionplan.MotionPlanner
-	model    *kinematics.Model
+	model    *frame.Model
 }
 
 // servoPosToDegrees takes a 360 degree 0-4096 servo position, centered at 2048,
@@ -106,11 +106,11 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 		return nil, err
 	}
 
-	model, err := kinematics.ParseJSON(wx250smodeljson, "")
+	model, err := frame.ParseJSON(wx250smodeljson, "")
 	if err != nil {
 		return nil, err
 	}
-	mp, err := motionplan.NewLinearMotionPlanner(model, logger, 4)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, logger, 4)
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +398,7 @@ func (a *Arm) WaitForMovement(ctx context.Context) error {
 }
 
 // ModelFrame TODO
-func (a *Arm) ModelFrame() *kinematics.Model {
+func (a *Arm) ModelFrame() *frame.Model {
 	return a.model
 }
 

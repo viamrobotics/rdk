@@ -2,9 +2,9 @@ package xarm
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
-	"fmt"
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
@@ -23,6 +23,7 @@ import (
 var home7 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
 
 var wbY = -523.
+
 //~ var wbY = -425.
 
 func TestWrite1(t *testing.T) {
@@ -37,25 +38,25 @@ func TestWrite1(t *testing.T) {
 	err = fs.AddFrame(m, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
-	markerOffFrame, err := frame.NewStaticFrame("marker_offset", spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY:-1, OZ:1}))
+	markerOffFrame, err := frame.NewStaticFrame("marker_offset", spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY: -1, OZ: 1}))
 	markerFrame, err := frame.NewStaticFrame("marker", spatial.NewPoseFromPoint(r3.Vector{0, 0, 160}))
 	err = fs.AddFrame(markerOffFrame, m)
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(markerFrame, markerOffFrame)
 	test.That(t, err, test.ShouldBeNil)
-	
-	eraserOffFrame, err := frame.NewStaticFrame("eraser_offset", spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY:1, OZ:1}))
+
+	eraserOffFrame, err := frame.NewStaticFrame("eraser_offset", spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY: 1, OZ: 1}))
 	eraserFrame, err := frame.NewStaticFrame("eraser", spatial.NewPoseFromPoint(r3.Vector{0, 0, 160}))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(eraserOffFrame, m)
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(eraserFrame, eraserOffFrame)
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	//~ markerFrame, err := frame.NewStaticFrame("marker", spatial.NewPoseFromPoint(r3.Vector{0, 0, 135}))
 	//~ err = fs.AddFrame(markerFrame, m)
 	//~ test.That(t, err, test.ShouldBeNil)
-	
+
 	moveFrame := eraserFrame
 
 	// Have to be able to update the motion planner from here
@@ -88,12 +89,12 @@ func TestWrite1(t *testing.T) {
 	jPos, err := arm.CurrentJointPositions(ctx)
 	seedMap[m.Name()] = frame.JointPosToInputs(jPos)
 	curPos, _ := fs.TransformFrame(seedMap, moveFrame, fs.World())
-	
+
 	fmt.Println("curpos", spatial.PoseToProtobuf(curPos))
 
 	steps, err := fss.SolvePose(ctx, seedMap, goal, moveFrame, fs.World())
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	fmt.Println("steps, err", steps, err)
 
 	validOV := &spatial.OrientationVector{OX: 0, OY: -1, OZ: 0}

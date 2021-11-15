@@ -10,8 +10,8 @@ import (
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
-	"go.viam.com/core/kinematics"
 	"go.viam.com/core/motionplan"
+	"go.viam.com/core/referenceframe"
 
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -27,7 +27,7 @@ type xArm struct {
 	accel    float32 //acceleration=500*π/180rad/s^2
 	moveLock *sync.Mutex
 	mp       motionplan.MotionPlanner
-	model    *kinematics.Model
+	model    *referenceframe.Model
 }
 
 //go:embed xArm6_kinematics.json
@@ -50,11 +50,11 @@ func init() {
 }
 
 // XArmModel returns the kinematics model of the xArm, also has all Frame information.
-func xArmModel(dof int) (*kinematics.Model, error) {
+func xArmModel(dof int) (*referenceframe.Model, error) {
 	if dof == 6 {
-		return kinematics.ParseJSON(xArm6modeljson, "")
+		return referenceframe.ParseJSON(xArm6modeljson, "")
 	} else if dof == 7 {
-		return kinematics.ParseJSON(xArm7modeljson, "")
+		return referenceframe.ParseJSON(xArm7modeljson, "")
 	}
 	return nil, errors.New("no kinematics model for xarm with specified degrees of freedom")
 }
@@ -90,6 +90,6 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 }
 
 // ModelFrame returns the dynamic frame of the model
-func (x *xArm) ModelFrame() *kinematics.Model {
+func (x *xArm) ModelFrame() *referenceframe.Model {
 	return x.model
 }
