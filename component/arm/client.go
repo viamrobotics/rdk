@@ -12,9 +12,9 @@ import (
 	"go.viam.com/utils/rpc/dialer"
 
 	"go.viam.com/core/grpc"
-	"go.viam.com/core/kinematics"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	pb "go.viam.com/core/proto/api/component/v1"
+	"go.viam.com/core/referenceframe"
 )
 
 // subtypeClient is a client satisfies the arm_subtype.proto contract.
@@ -130,7 +130,7 @@ func (c *client) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 	return err
 }
 
-func (c *client) ModelFrame() *kinematics.Model {
+func (c *client) ModelFrame() *referenceframe.Model {
 	// TODO(erh): this feels wrong
 	return nil
 }
