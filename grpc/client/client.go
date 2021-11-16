@@ -801,6 +801,18 @@ func (ac *armClient) ModelFrame() *referenceframe.Model {
 	return nil
 }
 
+func (ac *armClient) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	res, err := ac.CurrentJointPositions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.JointPosToInputs(res), nil
+}
+
+func (ac *armClient) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	return ac.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+}
+
 // gripperClient satisfies a gRPC based gripper.Gripper. Refer to the interface
 // for descriptions of its methods.
 type gripperClient struct {

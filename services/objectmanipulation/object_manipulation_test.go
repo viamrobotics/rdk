@@ -10,12 +10,10 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/resource"
+	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/services/objectmanipulation"
-	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/testutils/inject"
-	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -57,6 +55,20 @@ func TestDoGrabFailures(t *testing.T) {
 	r.LoggerFunc = func() golog.Logger {
 		return logger
 	}
+	r.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{arm.Named("fakeArm"), gripper.Named("fakeGripper")}
+	}
+	r.ResourceByNameFunc = func(n resource.Name) (interface{}, bool) {
+		switch n.Name {
+		case "fakeArm":
+			return _arm, true
+		case "fakeGripper":
+			return _gripper, true
+		default:
+			return nil, false
+		}
+	}
+
 	mgs, _ = objectmanipulation.New(context.Background(), r, cfgService, logger)
 
 	_, err = mgs.DoGrab(context.Background(), "fakeGripper", "fakeArm", "fakeCamera", &r3.Vector{10.0, 10.0, 10.0})
@@ -80,73 +92,43 @@ func TestDoGrabFailures(t *testing.T) {
 }
 
 func TestDoGrab(t *testing.T) {
+	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	cfgService := config.Service{Name: "objectmanipulation", Type: objectmanipulation.Type}
 
-	var r *inject.Robot
-	var _gripper *inject.Gripper
-	var _arm *inject.Arm
-
-	r = &inject.Robot{}
-
-	_gripper = &inject.Gripper{}
-	_gripper.OpenFunc = func(ctx context.Context) error {
-		return nil
-	}
-	_gripper.GrabFunc = func(ctx context.Context) (bool, error) {
-		return false, nil
-	}
-
-	_arm = &inject.Arm{}
-	_arm.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
-		return &pb.JointPositions{
-			Degrees: []float64{0, 0, 0, 0, 0, 0},
-		}, nil
-	}
-	_arm.MoveToJointPositionsFunc = func(ctx context.Context, pos *pb.JointPositions) error {
-		return nil
-	}
-
-	r.ArmByNameFunc = func(name string) (arm.Arm, bool) {
-		return _arm, true
-	}
-	r.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
-		return _gripper, true
-	}
-	r.LoggerFunc = func() golog.Logger {
-		return logger
-	}
-
-	gripperName := "fakeGripper"
-	armName := "fakeArm"
-
-	fs := referenceframe.NewEmptySimpleFrameSystem("fakeGripper")
-
-	pose := spatialmath.NewPoseFromPoint(r3.Vector{X: 5, Y: 0, Z: 5})
-	gripperFrame, err := referenceframe.NewStaticFrame("fakeGripper", pose)
-	test.That(t, err, test.ShouldBeNil)
-	fs.AddFrame(gripperFrame, fs.World())
-	r.FrameSystemFunc = func(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
-		return fs, nil
-	}
-	mgs, err := objectmanipulation.New(context.Background(), r, cfgService, logger)
-	test.That(t, err, test.ShouldBeNil)
-	grabbed, err := mgs.DoGrab(context.Background(), gripperName, armName, "world", &r3.Vector{X: 500.0, Y: 0.0, Z: 500.0})
-	test.That(t, grabbed, test.ShouldBeFalse)
-	test.That(t, err, test.ShouldBeError, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics"))
-
-	fs = referenceframe.NewEmptySimpleFrameSystem("fakeGripper")
-	gripperFrame, err = referenceframe.ParseJSONFile(utils.ResolveFile("robots/fake/arm_model.json"), "fakeGripper")
-	test.That(t, err, test.ShouldBeNil)
-	fs.AddFrame(gripperFrame, fs.World())
-	r.FrameSystemFunc = func(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
-		return fs, nil
-	}
-
-	mgs, err = objectmanipulation.New(context.Background(), r, cfgService, logger)
+	cfg, err := config.Read("data/moving_arm.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	grabbed, err = mgs.DoGrab(context.Background(), gripperName, armName, "world", &r3.Vector{X: 500.0, Y: 0.0, Z: 500.0})
-	test.That(t, grabbed, test.ShouldBeFalse)
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
+	defer myRobot.Close()
+
+	svc, err := objectmanipulation.New(ctx, myRobot, config.Service{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = svc.DoGrab(ctx, "pieceGripper", "pieceArm", "c", &r3.Vector{-20, -30, -40})
+	test.That(t, err, test.ShouldBeNil)
+
+}
+
+func TestMultiplePieces(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	cfg, err := config.Read("data/fake_tomato.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer myRobot.Close()
+
+	svc, err := objectmanipulation.New(ctx, myRobot, config.Service{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = svc.DoGrab(ctx, "gr", "a", "c", &r3.Vector{-20, -30, -40})
+	test.That(t, err, test.ShouldBeNil)
+
+	// remove after this
+	theArm, _ := myRobot.ArmByName("a")
+	temp, _ := theArm.CurrentJointPositions(ctx)
+	logger.Debugf("end arm position; %v", temp)
 }

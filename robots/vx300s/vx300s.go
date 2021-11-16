@@ -403,6 +403,18 @@ func (a *myArm) ModelFrame() *frame.Model {
 	return a.model
 }
 
+func (a *myArm) CurrentInputs(ctx context.Context) ([]frame.Input, error) {
+	res, err := a.CurrentJointPositions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return frame.JointPosToInputs(res), nil
+}
+
+func (a *myArm) GoToInputs(ctx context.Context, goal []frame.Input) error {
+	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(goal))
+}
+
 // TODO: Map out *all* servo defaults so that they are always set correctly
 func setServoDefaults(newServo *servo.Servo) error {
 	// Set some nice-to-have settings

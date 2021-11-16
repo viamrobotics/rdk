@@ -316,6 +316,18 @@ func (e *eva) ModelFrame() *frame.Model {
 	return e.model
 }
 
+func (e *eva) CurrentInputs(ctx context.Context) ([]frame.Input, error) {
+	res, err := e.CurrentJointPositions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return frame.JointPosToInputs(res), nil
+}
+
+func (e *eva) GoToInputs(ctx context.Context, goal []frame.Input) error {
+	return e.MoveToJointPositions(ctx, frame.InputsToJointPos(goal))
+}
+
 // EvaModel() returns the kinematics model of the Eva, also has all Frame information.
 func evaModel() (*frame.Model, error) {
 	return frame.ParseJSON(evamodeljson, "")
