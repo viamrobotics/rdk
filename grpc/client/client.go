@@ -809,11 +809,9 @@ func (ac *armClient) CurrentInputs(ctx context.Context) ([]referenceframe.Input,
 	return referenceframe.JointPosToInputs(res), nil
 }
 
-
 func (ac *armClient) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	return ac.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
 }
-
 
 // gripperClient satisfies a gRPC based gripper.Gripper. Refer to the interface
 // for descriptions of its methods.

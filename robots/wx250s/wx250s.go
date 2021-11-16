@@ -379,7 +379,6 @@ func (a *Arm) GoToInputs(ctx context.Context, goal []frame.Input) error {
 	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(goal))
 }
 
-
 // WaitForMovement takes some servos, and will block until the servos are done moving.
 func (a *Arm) WaitForMovement(ctx context.Context) error {
 	a.moveLock.Lock()

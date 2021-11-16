@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	
+
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
@@ -75,7 +75,6 @@ func (mgs objectMService) moveGripper(ctx context.Context, gripperName, rootName
 	logger := r.Logger()
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
-
 	if goalFrameName == gripperName {
 		return errors.New("cannot move gripper with respect to gripper frame, gripper will always be at its own origin")
 	}
@@ -92,7 +91,7 @@ func (mgs objectMService) moveGripper(ctx context.Context, gripperName, rootName
 
 	allOriginals := map[string][]referenceframe.Input{}
 	resources := map[string]referenceframe.InputEnabled{}
-	
+
 	for k, original := range input {
 		if strings.HasSuffix(k, "_offset") {
 			continue
@@ -102,7 +101,7 @@ func (mgs objectMService) moveGripper(ctx context.Context, gripperName, rootName
 		}
 
 		allOriginals[k] = original
-		
+
 		all := robot.AllResourcesByName(r, k)
 		if len(all) != 1 {
 			return fmt.Errorf("got %d resources instead of 1 for (%s)", len(all), k)
@@ -114,7 +113,7 @@ func (mgs objectMService) moveGripper(ctx context.Context, gripperName, rootName
 		}
 
 		resources[k] = ii
-		
+
 		pos, err := ii.CurrentInputs(ctx)
 		if err != nil {
 			return err
@@ -157,6 +156,6 @@ func (mgs objectMService) moveGripper(ctx context.Context, gripperName, rootName
 			return err
 		}
 	}
-	
+
 	return nil
 }
