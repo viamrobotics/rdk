@@ -51,7 +51,7 @@ func TestArmName(t *testing.T) {
 }
 
 func TestWrapWtihReconfigurable(t *testing.T) {
-	actualArm1 := &mockArm{Name: "arm1"}
+	var actualArm1 Arm = &mockArm{Name: "arm1"}
 	fakeArm1, err := WrapWithReconfigurable(actualArm1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeArm1.(*reconfigurableArm).actual, test.ShouldEqual, actualArm1)
@@ -118,6 +118,14 @@ func (m *mockArm) JointMoveDelta(ctx context.Context, joint int, amountDegs floa
 }
 
 func (m *mockArm) ModelFrame() *referenceframe.Model {
+	return nil
+}
+
+func (m *mockArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	return nil, nil
+}
+
+func (m *mockArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	return nil
 }
 
