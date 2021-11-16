@@ -34,8 +34,6 @@ func TestBaseRemoteControl(t *testing.T) {
 		},
 		rlog.Logger)
 
-	_ = svc.Start(ctx)
-
 	// Starting point: above threshold
 	t.Run("above_threshold_move_below_threshold", func(t *testing.T) {
 		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.4, 0.0, 1.0, 0.0)
