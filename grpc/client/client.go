@@ -60,7 +60,7 @@ var errUnimplemented = errors.New("unimplemented")
 // RobotClient satisfies the robot.Robot interface through a gRPC based
 // client conforming to the robot.proto contract.
 type RobotClient struct {
-	grpc.Info
+	address        string
 	conn           dialer.ClientConn
 	client         pb.RobotServiceClient
 	metadataClient *metadataclient.MetadataServiceClient
@@ -83,6 +83,7 @@ type RobotClient struct {
 
 	activeBackgroundWorkers *sync.WaitGroup
 	cancelBackgroundWorkers func()
+	logger                  golog.Logger
 
 	cachingStatus         bool
 	cachedStatus          *pb.Status
@@ -125,7 +126,7 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 	client := pb.NewRobotServiceClient(conn)
 	closeCtx, cancel := context.WithCancel(context.Background())
 	rc := &RobotClient{
-		Info:                    grpc.Info{Address: address, DialOptions: opts.DialOptions, Logger: logger},
+		address:                 address,
 		conn:                    conn,
 		client:                  client,
 		metadataClient:          metadataClient,
@@ -133,6 +134,7 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 		cancelBackgroundWorkers: cancel,
 		namesMu:                 &sync.RWMutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
+		logger:                  logger,
 		cachedStatusMu:          &sync.Mutex{},
 		cachedSubtypeClientMu:   &sync.Mutex{},
 		cachedSubtypeClients:    map[resource.Subtype]interface{}{},
@@ -404,13 +406,14 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	subtypeClient, ok := rc.cachedSubtypeClients[name.Subtype]
 
 	if !ok {
-		newClient, err := c.SubtypeClient(rc.closeContext, rc.Address, name.Name, rc.Logger())
+		newClient, err := c.SubtypeClient(rc.closeContext, rc.address, name.Name, rc.Logger())
 		if err != nil {
 			return nil, false
 		}
 		rc.cachedSubtypeClients[name.Subtype] = newClient
 		subtypeClient = newClient
 	}
+	// pass in conn
 	resourceClient, err := c.ResourceClient(subtypeClient, name.Name)
 	if err != nil {
 		return nil, false
@@ -680,7 +683,7 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 
 // Logger returns the logger being used for this robot.
 func (rc *RobotClient) Logger() golog.Logger {
-	return rc.Info.Logger
+	return rc.logger
 }
 
 // FrameSystem retrieves an ordered slice of the frame configs and then builds a FrameSystem from the configs
