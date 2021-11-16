@@ -173,7 +173,7 @@ func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMillis i
 	return moved, err
 }
 
-// MoveArc TODO
+// MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD)
 func (b *interceptingGPSBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) (int, error) {
 	return distanceMillis, nil
 }

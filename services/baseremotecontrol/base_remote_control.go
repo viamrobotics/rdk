@@ -15,8 +15,12 @@ import (
 	"go.viam.com/core/robot"
 )
 
-// Type is the type of service.
-const Type = config.ServiceType("base_remote_control")
+// Type is the type of service. maxSpeed and maxAngle are used in conversion from Joystick pos to motion
+const (
+	Type     = config.ServiceType("base_remote_control")
+	maxSpeed = 100.0
+	maxAngle = 40.0
+)
 
 // Initialize remote-control service with main server
 func init() {
@@ -72,8 +76,6 @@ func (svc *RemoteService) Close() error {
 
 // RemoteService is the structure of the remote service
 type RemoteService struct {
-	r robot.Robot
-
 	base            base.Base
 	inputController input.Controller
 	controlMode     ControlMode
@@ -101,9 +103,9 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		controlMode1 = TriggerSpeedControl
 	}
 
-	_, cancelFunc := context.WithCancel(context.Background())
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+
 	remoteSvc := &RemoteService{
-		r:               r,
 		base:            base1,
 		inputController: controller,
 		controlMode:     controlMode1,
@@ -111,10 +113,10 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		cancelFunc:      cancelFunc,
 	}
 
-	err := remoteSvc.start(ctx)
+	err := remoteSvc.start(cancelCtx)
 
 	if err != nil {
-		return nil, errors.New("error with starting remote control service")
+		return nil, errors.Errorf("error with starting remote control service: %q", err)
 	}
 
 	return remoteSvc, nil
@@ -125,9 +127,6 @@ func (svc *RemoteService) start(ctx context.Context) error {
 
 	var millisPerSec float64
 	var degPerSec float64
-
-	maxSpeed := 100.0
-	maxAngle := 40.0
 
 	remoteCtl := func(ctx context.Context, event input.Event) {
 
