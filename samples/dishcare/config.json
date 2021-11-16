@@ -1,18 +1,168 @@
 {
-    "components":
-    [
+    "components": [
+      {
+        "model": "pi",
+        "name": "leo-cam",
+        "type": "board",
+        "attributes":
         {
-            "name": "local",
-            "model": "numato",
-            "type": "board",
-            "attributes": 
-            { 
-                "attributes": {
-                    "pins": "128"
-                }
-                
+          "analogs":
+          [
+            {
+              "name": "a0",
+              "pin": "0",
+              "spi_bus": "main",
+              "chip_select": "26"
+            },
+            {
+              "name": "a1",
+              "pin": "1",
+              "spi_bus": "main",
+              "chip_select": "26"
+            },
+            {
+              "name": "a2",
+              "pin": "2",
+              "spi_bus": "main",
+              "chip_select": "26"
+            },
+            {
+              "name": "a3",
+              "pin": "3",
+              "spi_bus": "main",
+              "chip_select": "26"
+            },
+            {
+              "name": "a4",
+              "pin": "4",
+              "spi_bus": "main",
+              "chip_select": "26"
+            },
+            {
+              "name": "a5",
+              "pin": "5",
+              "spi_bus": "main",
+              "chip_select": "26"
+            },
+            {
+              "name": "a6",
+              "pin": "6",
+              "spi_bus": "main",
+              "chip_select": "26"
+            },
+            {
+                "name": "b0",
+                "pin": "0",
+                "spi_bus": "main",
+                "chip_select": "24"
+              },
+              {
+                "name": "b1",
+                "pin": "1",
+                "spi_bus": "main",
+                "chip_select": "24"
+              },
+              {
+                "name": "b2",
+                "pin": "2",
+                "spi_bus": "main",
+                "chip_select": "24"
+              },
+              {
+                "name": "b3",
+                "pin": "3",
+                "spi_bus": "main",
+                "chip_select": "24"
+              },
+              {
+                "name": "b4",
+                "pin": "4",
+                "spi_bus": "main",
+                "chip_select": "24"
+              },
+              {
+                "name": "b5",
+                "pin": "5",
+                "spi_bus": "main",
+                "chip_select": "24"
+              },
+              {
+                "name": "b6",
+                "pin": "6",
+                "spi_bus": "main",
+                "chip_select": "24"
+              }
+
+          ],
+          "spis": [
+            {
+              "name": "main",
+              "bus_select": "0"
             }
+          ]
         }
-       
+      },
+      {
+        "model": "forcematrixwithmux_v1",
+        "name": "forcematrixWithMux",
+        "type": "sensor",
+        "subtype": "forcematrix",
+        "attributes": {
+          "board": "leo-cam",
+          "column_gpio_pins_left_to_right": [
+            "io6",
+            "io13",
+            "io16"
+          ],
+          "mux_gpio_pins_s2_to_s0": [
+            "io1",
+            "io0",
+            "io12"
+          ],
+          "io_pins_top_to_bottom": [
+            7,
+            6,
+            5,
+            1,
+            2,
+            3,
+            4
+          ],
+          "analog_channel": "a0",
+          "slip_detection_window": 50,
+          "noise_threshold": 100.0
+        }
+      },
+      {
+        "model": "forcematrixwithmux_v1",
+        "name": "forcematrixWithMux2",
+        "type": "sensor",
+        "subtype": "forcematrix",
+        "attributes": {
+          "board": "leo-cam",
+          "column_gpio_pins_left_to_right": [
+            "io20",
+            "io21",
+            "io26"
+          ],
+          "mux_gpio_pins_s2_to_s0": [
+            "io18",
+            "io23",
+            "io24"
+          ],
+          "io_pins_top_to_bottom": [
+            7,
+            6,
+            5,
+            1,
+            2,
+            3,
+            4
+          ],
+          "analog_channel": "b0",
+          "slip_detection_window": 50,
+          "noise_threshold": 100.0
+        }
+      }
     ]
-}
+  }
