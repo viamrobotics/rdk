@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
+	"go.viam.com/core/grpc"
 	"go.viam.com/core/grpc/client"
 	"go.viam.com/core/metadata/service"
 	commonpb "go.viam.com/core/proto/api/common/v1"
@@ -18,6 +19,8 @@ import (
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/testutils/inject"
+
+	rpcclient "go.viam.com/utils/rpc/client"
 )
 
 var resources = []resource.Name{resource.NewName(resource.Namespace("acme"), resource.ResourceTypeComponent, arm.SubtypeName, "arm1")}
@@ -112,16 +115,17 @@ func TestWebUpdate(t *testing.T) {
 	err = updateable.Update(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
 
-	aClient, err := arm.NewFromClient(context.Background(), c, arm1)
+	conn, err := grpc.Dial(context.Background(), addr, rpcclient.DialOptions{Insecure: true}, logger)
 	test.That(t, err, test.ShouldBeNil)
+	aClient := arm.NewClientFromConn(conn, arm1, logger)
 	position, err := aClient.CurrentPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos)
 
 	// try to close server
-	err = svc.Close()
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, svc.Close(), test.ShouldBeNil)
 	test.That(t, svc.(*webService).cancelFunc, test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// now start it with the arm already in it
 	ctx, robot2 := setupRobotCtx()
@@ -139,7 +143,9 @@ func TestWebUpdate(t *testing.T) {
 	c2, err := client.NewClient(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, c2.ResourceNames(), test.ShouldResemble, resources)
-	aClient2, err := arm.NewFromClient(context.Background(), c2, arm1)
+	conn, err = grpc.Dial(context.Background(), addr, rpcclient.DialOptions{Insecure: true}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	aClient2 := arm.NewClientFromConn(conn, arm1, logger)
 	test.That(t, err, test.ShouldBeNil)
 	position, err = aClient2.CurrentPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -161,16 +167,16 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos)
 
-	aClient3, err := arm.NewFromClient(context.Background(), c2, arm2)
+	aClient3 := arm.NewClientFromConn(conn, arm2, logger)
 	test.That(t, err, test.ShouldBeNil)
 	position, err = aClient3.CurrentPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos2)
 
 	// try to close server
-	err = svc2.Close()
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, svc2.Close(), test.ShouldBeNil)
 	test.That(t, svc2.(*webService).cancelFunc, test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
 func setupRobotCtx() (context.Context, robot.Robot) {
