@@ -19,6 +19,8 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
+
+	viamgrpc "go.viam.com/core/grpc"
 )
 
 func TestClient(t *testing.T) {
@@ -131,16 +133,14 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("arm client 2", func(t *testing.T) {
-		armSubtypeClient, err := arm.NewSubtypeClient(
-			context.Background(), listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger,
-		)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
 		test.That(t, err, test.ShouldBeNil)
-		arm1Client2, err := arm.NewClientFromSubtypeClient(armSubtypeClient, arm1)
+		arm1Client2 := arm.NewClientFromConn(conn, arm1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		pos, err := arm1Client2.CurrentPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos.String(), test.ShouldResemble, pos1.String())
-		test.That(t, armSubtypeClient.Close(), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	test.That(t, utils.TryClose(arm1Client), test.ShouldBeNil)
 }

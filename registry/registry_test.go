@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/utils/rpc/dialer"
 	rpcserver "go.viam.com/utils/rpc/server"
 
 	"go.viam.com/core/base"
@@ -145,11 +146,8 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	sf := func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
 		return nil
 	}
-	scf := func(ctx context.Context, address string, name string, logger golog.Logger) (interface{}, error) {
-		return nil, nil
-	}
-	rcf := func(subtypeClient interface{}, name string) (interface{}, error) {
-		return nil, nil
+	rcf := func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
+		return nil
 	}
 	newSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, arm.SubtypeName)
 	test.That(t, func() { RegisterResourceSubtype(newSubtype, ResourceSubtype{}) }, test.ShouldPanic)
@@ -173,9 +171,8 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	subtype3 := resource.NewSubtype(resource.Namespace("acme3"), resource.ResourceTypeComponent, arm.SubtypeName)
 	test.That(t, ResourceSubtypeLookup(subtype3), test.ShouldBeNil)
 
-	RegisterResourceSubtype(subtype3, ResourceSubtype{SubtypeClient: scf, ResourceClient: rcf})
+	RegisterResourceSubtype(subtype3, ResourceSubtype{ResourceClient: rcf})
 	creator = ResourceSubtypeLookup(subtype3)
 	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, creator.SubtypeClient, test.ShouldEqual, scf)
 	test.That(t, creator.ResourceClient, test.ShouldEqual, rcf)
 }

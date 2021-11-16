@@ -3,8 +3,6 @@ package arm
 
 import (
 	"context"
-	"errors"
-	"io"
 
 	rpcclient "go.viam.com/utils/rpc/client"
 
@@ -17,64 +15,62 @@ import (
 	"go.viam.com/core/referenceframe"
 )
 
-// subtypeClient is a client satisfies the arm_subtype.proto contract.
-type subtypeClient struct {
-	address string
-	conn    dialer.ClientConn
-	client  pb.ArmServiceClient
-	logger  golog.Logger
+// serviceClient is a client satisfies the arm.proto contract.
+type serviceClient struct {
+	conn   dialer.ClientConn
+	client pb.ArmServiceClient
+	logger golog.Logger
 }
 
-// NewSubtypeClient constructs a new subtypeClient that is served at the given address.
-func NewSubtypeClient(ctx context.Context, address string, opts rpcclient.DialOptions, logger golog.Logger) (io.Closer, error) {
+// newServiceClient constructs a new serviceClient that is served at the given address.
+func newServiceClient(ctx context.Context, address string, opts rpcclient.DialOptions, logger golog.Logger) (*serviceClient, error) {
 	conn, err := grpc.Dial(ctx, address, opts, logger)
 	if err != nil {
 		return nil, err
 	}
-
-	client := pb.NewArmServiceClient(conn)
-	sc := &subtypeClient{
-		address: address,
-		conn:    conn,
-		client:  client,
-		logger:  logger,
-	}
+	sc := newSvcClientFromConn(conn, logger)
 	return sc, nil
 }
 
+// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
+func newSvcClientFromConn(conn dialer.ClientConn, logger golog.Logger) *serviceClient {
+	client := pb.NewArmServiceClient(conn)
+	sc := &serviceClient{
+		conn:   conn,
+		client: client,
+		logger: logger,
+	}
+	return sc
+}
+
 // Close cleanly closes the underlying connections
-func (sc *subtypeClient) Close() error {
+func (sc *serviceClient) Close() error {
 	return sc.conn.Close()
 }
 
 // client is an arm client
 type client struct {
-	*subtypeClient
+	*serviceClient
 	name string
 }
 
 // NewClient constructs a new client that is served at the given address.
 func NewClient(ctx context.Context, name string, address string, opts rpcclient.DialOptions, logger golog.Logger) (Arm, error) {
-	sc, err := NewSubtypeClient(ctx, address, opts, logger)
+	sc, err := newServiceClient(ctx, address, opts, logger)
 	if err != nil {
 		return nil, err
 	}
-
-	c, err := NewClientFromSubtypeClient(sc, name)
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
+	return clientFromSvcClient(sc, name), nil
 }
 
-// NewClientFromSubtypeClient constructs a new Client from subtype client.
-func NewClientFromSubtypeClient(sc interface{}, name string) (Arm, error) {
-	newSc, ok := sc.(*subtypeClient)
-	if !ok {
-		return nil, errors.New("not an arm subtype client")
-	}
-	c := &client{newSc, name}
-	return c, nil
+// NewClientFromConn constructs a new Client from connection passed in.
+func NewClientFromConn(conn dialer.ClientConn, name string, logger golog.Logger) Arm {
+	sc := newSvcClientFromConn(conn, logger)
+	return clientFromSvcClient(sc, name)
+}
+
+func clientFromSvcClient(sc *serviceClient, name string) Arm {
+	return &client{sc, name}
 }
 
 func (c *client) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {

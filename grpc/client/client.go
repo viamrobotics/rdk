@@ -85,11 +85,9 @@ type RobotClient struct {
 	cancelBackgroundWorkers func()
 	logger                  golog.Logger
 
-	cachingStatus         bool
-	cachedStatus          *pb.Status
-	cachedStatusMu        *sync.Mutex
-	cachedSubtypeClientMu *sync.Mutex
-	cachedSubtypeClients  map[resource.Subtype]interface{}
+	cachingStatus  bool
+	cachedStatus   *pb.Status
+	cachedStatusMu *sync.Mutex
 
 	closeContext context.Context
 }
@@ -136,8 +134,6 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		logger:                  logger,
 		cachedStatusMu:          &sync.Mutex{},
-		cachedSubtypeClientMu:   &sync.Mutex{},
-		cachedSubtypeClients:    map[resource.Subtype]interface{}{},
 		closeContext:            closeCtx,
 	}
 	// refresh once to hydrate the robot.
@@ -179,11 +175,7 @@ func (rc *RobotClient) Close() error {
 	rc.cancelBackgroundWorkers()
 	rc.activeBackgroundWorkers.Wait()
 
-	var err error = nil
-	for _, v := range rc.cachedSubtypeClients {
-		err = multierr.Combine(err, utils.TryClose(v))
-	}
-	return multierr.Combine(err, rc.conn.Close(), rc.metadataClient.Close())
+	return multierr.Combine(rc.conn.Close(), rc.metadataClient.Close())
 }
 
 // RefreshEvery refreshes the robot on the interval given by every until the
@@ -396,29 +388,13 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
-	rc.cachedSubtypeClientMu.Lock()
-	defer rc.cachedSubtypeClientMu.Unlock()
 	c := registry.ResourceSubtypeLookup(name.Subtype)
-	if c == nil || c.SubtypeClient == nil || c.ResourceClient == nil {
+	if c == nil || c.ResourceClient == nil {
 		// registration doesn't exist
 		return nil, false
 	}
-	subtypeClient, ok := rc.cachedSubtypeClients[name.Subtype]
-
-	if !ok {
-		newClient, err := c.SubtypeClient(rc.closeContext, rc.address, name.Name, rc.Logger())
-		if err != nil {
-			return nil, false
-		}
-		rc.cachedSubtypeClients[name.Subtype] = newClient
-		subtypeClient = newClient
-	}
 	// pass in conn
-	resourceClient, err := c.ResourceClient(subtypeClient, name.Name)
-	if err != nil {
-		return nil, false
-	}
-
+	resourceClient := c.ResourceClient(rc.conn, name.Name, rc.Logger())
 	return resourceClient, true
 }
 

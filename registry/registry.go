@@ -9,7 +9,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 	"github.com/mitchellh/copystructure"
-	rpcclient "go.viam.com/utils/rpc/client"
+	"go.viam.com/utils/rpc/dialer"
 	rpcserver "go.viam.com/utils/rpc/server"
 
 	componentpb "go.viam.com/core/proto/api/component/v1"
@@ -46,17 +46,8 @@ func init() {
 				componentpb.RegisterArmServiceHandlerFromEndpoint,
 			)
 		},
-		SubtypeClient: func(ctx context.Context, address string, name string, logger golog.Logger) (interface{}, error) {
-			return arm.NewSubtypeClient(
-				ctx,
-				address,
-				// TODO(https://github.com/viamrobotics/core/issues/237): configurable
-				rpcclient.DialOptions{Insecure: true},
-				logger,
-			)
-		},
-		ResourceClient: func(subtypeClient interface{}, name string) (interface{}, error) {
-			return arm.NewClientFromSubtypeClient(subtypeClient, name)
+		ResourceClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
+			return arm.NewClientFromConn(conn, name, logger)
 		},
 	})
 
@@ -429,12 +420,9 @@ type (
 	// A RegisterSubtypeService will register the subtype service to the server
 	RegisterSubtypeService func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error
 
-	// A CreateSubtypeClient will create the client for the resource subtype.
-	// TODO: Remove as part of #227
-	CreateSubtypeClient func(ctx context.Context, address string, name string, logger golog.Logger) (interface{}, error)
 	// A CreateResourceClient will create the client for the resource.
 	// TODO: Remove as part of #227
-	CreateResourceClient func(subtypeClient interface{}, name string) (interface{}, error)
+	CreateResourceClient func(conn dialer.ClientConn, name string, logger golog.Logger) interface{}
 )
 
 // Component stores a resource constructor (mandatory) and a Frame building function (optional)
@@ -447,7 +435,6 @@ type Component struct {
 type ResourceSubtype struct {
 	Reconfigurable  CreateReconfigurable
 	RegisterService RegisterSubtypeService
-	SubtypeClient   CreateSubtypeClient
 	ResourceClient  CreateResourceClient
 }
 
@@ -491,7 +478,7 @@ func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) 
 	if old {
 		panic(errors.Errorf("trying to register two of the same component subtype:%s", subtype))
 	}
-	if creator.Reconfigurable == nil && creator.RegisterService == nil && creator.SubtypeClient == nil && creator.ResourceClient == nil {
+	if creator.Reconfigurable == nil && creator.RegisterService == nil && creator.ResourceClient == nil {
 		panic(errors.Errorf("cannot register a nil constructor for subtype:%s", subtype))
 	}
 	subtypeRegistry[subtype] = creator
