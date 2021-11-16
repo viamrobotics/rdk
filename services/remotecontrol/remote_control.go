@@ -59,7 +59,6 @@ type Config struct {
 type Service interface {
 	Start() error
 	Close() error
-	Stop() error
 }
 
 // Close out all remote control related systems
@@ -70,12 +69,6 @@ func (svc *RemoteService) Close() error {
 	}
 
 	return nil
-}
-
-// Stop pauses the input controller events responses
-func (svc *RemoteService) Stop() error {
-	err := errors.New("pausing of remote service is currently unavailable")
-	return err
 }
 
 // RemoteService is the structure of the remote service
@@ -117,12 +110,6 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		controlMode:     controlMode1,
 		logger:          logger,
 		cancelFunc:      cancelFunc,
-	}
-
-	err := remoteSvc.Start(ctx)
-
-	if err != nil {
-		return nil, errors.Errorf("error starting remote control service: %q", err)
 	}
 
 	return remoteSvc, nil
