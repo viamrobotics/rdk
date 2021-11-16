@@ -7,6 +7,14 @@
     ],
     "components": [
         {
+            "type": "camera",
+            "model": "fake",
+            "name": "c",
+            "frame" : {
+                "parent" : "pieceGripper"
+            }
+        },
+        {
             "model": "fake",
             "name": "pieceGripper",
             "type": "gripper",

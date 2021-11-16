@@ -123,6 +123,18 @@ func (c *client) ModelFrame() *referenceframe.Model {
 	return nil
 }
 
+func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	res, err := c.CurrentJointPositions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.JointPosToInputs(res), nil
+}
+
+func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	return c.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+}
+
 // Close cleanly closes the underlying connections
 func (c *client) Close() error {
 	return c.conn.Close()
