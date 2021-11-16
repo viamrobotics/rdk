@@ -49,7 +49,7 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (M
 	nlopt.SetMaxIter(1)
 	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: 0.0001}
 
-	// Max individual step of 0.5% of full range of motion
+	// Max individual step of 1.5% of full range of motion
 	mp.qstep = getFrameSteps(frame, 0.015)
 	mp.iter = 2000
 	mp.stepSize = 1
@@ -85,6 +85,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed []f
 	inputSteps := [][]frame.Input{}
 
 	// How many of the top solutions to try
+	// Solver will terminate after getting this many to save time
 	nSolutions := 50
 
 	solutions, err := getSolutions(ctx, nSolutions, -1, mp.solver, goal, seed, mp)
@@ -288,6 +289,7 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(ctx context.Context, inputSteps [][]fr
 			return nil
 		default:
 		}
+		// Pick two random non-adjacent indices
 		j := 2 + rand.Intn(len(inputSteps)-2)
 		i := rand.Intn(j)
 		shortcutGoal := make(map[*solution]*solution)

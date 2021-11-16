@@ -74,8 +74,6 @@ func CheckConstraintPath(mp MotionPlanner, ci *ConstraintInput) (bool, *Constrai
 	return true, nil
 }
 
-var checkSeq = []float64{0.5, 0.333, 0.25, 0.17}
-
 // constraintHandler is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse
 type constraintHandler struct {
@@ -148,6 +146,7 @@ func (c *flexibleConstraint) setFunc(f func(cInput *ConstraintInput) (bool, floa
 // This function will check the given function at each point in checkSeq, and 1-point. If all constraints are satisfied,
 // it will return true. If any intermediate pose violates the constraint, will return false.
 func NewInterpolatingConstraint(epsilon float64) Constraint {
+	checkSeq := []float64{0.5, 0.333, 0.25, 0.17}
 	c := &flexibleConstraint{}
 	f := func(cInput *ConstraintInput) (bool, float64) {
 		for _, s := range checkSeq {
