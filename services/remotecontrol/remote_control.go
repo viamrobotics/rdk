@@ -16,7 +16,7 @@ import (
 )
 
 // Type is the type of service.
-const Type = config.ServiceType("base-remote-control")
+const Type = config.ServiceType("base_remote_control")
 
 // Initialize remote-control service with main server
 func init() {
