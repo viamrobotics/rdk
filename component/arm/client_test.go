@@ -89,7 +89,7 @@ func TestClient(t *testing.T) {
 
 	armSvc, err := subtype.New((map[resource.Name]interface{}{arm.Named(arm1): injectArm, arm.Named(arm2): injectArm2}))
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterArmSubtypeServiceServer(gServer1, arm.NewServer(armSvc))
+	componentpb.RegisterArmServiceServer(gServer1, arm.NewServer(armSvc))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -182,7 +182,7 @@ func TestClientDialerOption(t *testing.T) {
 
 	armSvc, err := subtype.New((map[resource.Name]interface{}{arm.Named(arm1): injectArm}))
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterArmSubtypeServiceServer(gServer, arm.NewServer(armSvc))
+	componentpb.RegisterArmServiceServer(gServer, arm.NewServer(armSvc))
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()

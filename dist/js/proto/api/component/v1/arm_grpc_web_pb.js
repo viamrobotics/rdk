@@ -29,7 +29,7 @@ const proto = {};
 proto.proto = {};
 proto.proto.api = {};
 proto.proto.api.component = {};
-proto.proto.api.component.v1 = require('./arm_subtype_pb.js');
+proto.proto.api.component.v1 = require('./arm_pb.js');
 
 /**
  * @param {string} hostname

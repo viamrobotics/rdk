@@ -624,11 +624,11 @@ func TestClient(t *testing.T) {
 	// for these, just need to double check type (main tests should be in the respective grpc client and server files)
 	armSvc1, err := subtype.New((map[resource.Name]interface{}{}))
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterArmSubtypeServiceServer(gServer1, arm.NewServer(armSvc1))
+	componentpb.RegisterArmServiceServer(gServer1, arm.NewServer(armSvc1))
 
 	armSvc2, err := subtype.New((map[resource.Name]interface{}{arm.Named("arm1"): injectArm}))
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterArmSubtypeServiceServer(gServer2, arm.NewServer(armSvc2))
+	componentpb.RegisterArmServiceServer(gServer2, arm.NewServer(armSvc2))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()

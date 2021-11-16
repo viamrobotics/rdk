@@ -1,4 +1,4 @@
-// source: proto/api/component/v1/arm_subtype.proto
+// source: proto/api/component/v1/arm.proto
 /**
  * @fileoverview
  * @enhanceable

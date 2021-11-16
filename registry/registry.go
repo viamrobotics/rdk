@@ -41,9 +41,9 @@ func init() {
 		RegisterService: func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
-				&componentpb.ArmSubtypeService_ServiceDesc,
+				&componentpb.ArmService_ServiceDesc,
 				arm.NewServer(subtypeSvc),
-				componentpb.RegisterArmSubtypeServiceHandlerFromEndpoint,
+				componentpb.RegisterArmServiceHandlerFromEndpoint,
 			)
 		},
 		SubtypeClient: func(ctx context.Context, address string, name string, logger golog.Logger) (interface{}, error) {

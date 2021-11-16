@@ -21,7 +21,7 @@ import (
 type subtypeClient struct {
 	grpc.Info
 	conn   dialer.ClientConn
-	client pb.ArmSubtypeServiceClient
+	client pb.ArmServiceClient
 }
 
 // NewSubtypeClient constructs a new subtypeClient that is served at the given address.
@@ -31,7 +31,7 @@ func NewSubtypeClient(ctx context.Context, address string, opts rpcclient.DialOp
 		return nil, err
 	}
 
-	client := pb.NewArmSubtypeServiceClient(conn)
+	client := pb.NewArmServiceClient(conn)
 	sc := &subtypeClient{
 		Info:   grpc.Info{Address: address, DialOptions: opts, Logger: logger},
 		conn:   conn,
@@ -86,7 +86,7 @@ func NewClientFromSubtypeClient(sc interface{}, name string) (Arm, error) {
 }
 
 func (c *client) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
-	resp, err := c.client.CurrentPosition(ctx, &pb.ArmSubtypeServiceCurrentPositionRequest{
+	resp, err := c.client.CurrentPosition(ctx, &pb.ArmServiceCurrentPositionRequest{
 		Name: c.name,
 	})
 	if err != nil {
@@ -96,7 +96,7 @@ func (c *client) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 func (c *client) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
-	_, err := c.client.MoveToPosition(ctx, &pb.ArmSubtypeServiceMoveToPositionRequest{
+	_, err := c.client.MoveToPosition(ctx, &pb.ArmServiceMoveToPositionRequest{
 		Name: c.name,
 		To:   pos,
 	})
@@ -104,7 +104,7 @@ func (c *client) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 }
 
 func (c *client) MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPositions) error {
-	_, err := c.client.MoveToJointPositions(ctx, &pb.ArmSubtypeServiceMoveToJointPositionsRequest{
+	_, err := c.client.MoveToJointPositions(ctx, &pb.ArmServiceMoveToJointPositionsRequest{
 		Name: c.name,
 		To:   pos,
 	})
@@ -112,7 +112,7 @@ func (c *client) MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPosit
 }
 
 func (c *client) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
-	resp, err := c.client.CurrentJointPositions(ctx, &pb.ArmSubtypeServiceCurrentJointPositionsRequest{
+	resp, err := c.client.CurrentJointPositions(ctx, &pb.ArmServiceCurrentJointPositionsRequest{
 		Name: c.name,
 	})
 	if err != nil {
@@ -122,7 +122,7 @@ func (c *client) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositio
 }
 
 func (c *client) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	_, err := c.client.JointMoveDelta(ctx, &pb.ArmSubtypeServiceJointMoveDeltaRequest{
+	_, err := c.client.JointMoveDelta(ctx, &pb.ArmServiceJointMoveDeltaRequest{
 		Name:       c.name,
 		Joint:      int32(joint),
 		AmountDegs: amountDegs,

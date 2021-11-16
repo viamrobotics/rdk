@@ -1,5 +1,5 @@
 // package: proto.api.component.v1
-// file: proto/api/component/v1/arm_subtype.proto
+// file: proto/api/component/v1/arm.proto
 
 import * as jspb from "google-protobuf";
 import * as google_protobuf_struct_pb from "google-protobuf/google/protobuf/struct_pb";

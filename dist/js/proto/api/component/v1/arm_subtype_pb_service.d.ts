@@ -4,58 +4,58 @@
 import * as proto_api_component_v1_arm_subtype_pb from "../../../../proto/api/component/v1/arm_subtype_pb";
 import {grpc} from "@improbable-eng/grpc-web";
 
-type ArmSubtypeServiceCurrentPosition = {
+type ArmServiceCurrentPosition = {
   readonly methodName: string;
-  readonly service: typeof ArmSubtypeService;
+  readonly service: typeof ArmService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceCurrentPositionRequest;
-  readonly responseType: typeof proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceCurrentPositionResponse;
+  readonly requestType: typeof proto_api_component_v1_arm_subtype_pb.ArmServiceCurrentPositionRequest;
+  readonly responseType: typeof proto_api_component_v1_arm_subtype_pb.ArmServiceCurrentPositionResponse;
 };
 
-type ArmSubtypeServiceMoveToPosition = {
+type ArmServiceMoveToPosition = {
   readonly methodName: string;
-  readonly service: typeof ArmSubtypeService;
+  readonly service: typeof ArmService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceMoveToPositionRequest;
-  readonly responseType: typeof proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceMoveToPositionResponse;
+  readonly requestType: typeof proto_api_component_v1_arm_subtype_pb.ArmServiceMoveToPositionRequest;
+  readonly responseType: typeof proto_api_component_v1_arm_subtype_pb.ArmServiceMoveToPositionResponse;
 };
 
-type ArmSubtypeServiceCurrentJointPositions = {
+type ArmServiceCurrentJointPositions = {
   readonly methodName: string;
-  readonly service: typeof ArmSubtypeService;
+  readonly service: typeof ArmService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceCurrentJointPositionsRequest;
-  readonly responseType: typeof proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceCurrentJointPositionsResponse;
+  readonly requestType: typeof proto_api_component_v1_arm_subtype_pb.ArmServiceCurrentJointPositionsRequest;
+  readonly responseType: typeof proto_api_component_v1_arm_subtype_pb.ArmServiceCurrentJointPositionsResponse;
 };
 
-type ArmSubtypeServiceMoveToJointPositions = {
+type ArmServiceMoveToJointPositions = {
   readonly methodName: string;
-  readonly service: typeof ArmSubtypeService;
+  readonly service: typeof ArmService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceMoveToJointPositionsRequest;
-  readonly responseType: typeof proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceMoveToJointPositionsResponse;
+  readonly requestType: typeof proto_api_component_v1_arm_subtype_pb.ArmServiceMoveToJointPositionsRequest;
+  readonly responseType: typeof proto_api_component_v1_arm_subtype_pb.ArmServiceMoveToJointPositionsResponse;
 };
 
-type ArmSubtypeServiceJointMoveDelta = {
+type ArmServiceJointMoveDelta = {
   readonly methodName: string;
-  readonly service: typeof ArmSubtypeService;
+  readonly service: typeof ArmService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceJointMoveDeltaRequest;
-  readonly responseType: typeof proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceJointMoveDeltaResponse;
+  readonly requestType: typeof proto_api_component_v1_arm_subtype_pb.ArmServiceJointMoveDeltaRequest;
+  readonly responseType: typeof proto_api_component_v1_arm_subtype_pb.ArmServiceJointMoveDeltaResponse;
 };
 
-export class ArmSubtypeService {
+export class ArmService {
   static readonly serviceName: string;
-  static readonly CurrentPosition: ArmSubtypeServiceCurrentPosition;
-  static readonly MoveToPosition: ArmSubtypeServiceMoveToPosition;
-  static readonly CurrentJointPositions: ArmSubtypeServiceCurrentJointPositions;
-  static readonly MoveToJointPositions: ArmSubtypeServiceMoveToJointPositions;
-  static readonly JointMoveDelta: ArmSubtypeServiceJointMoveDelta;
+  static readonly CurrentPosition: ArmServiceCurrentPosition;
+  static readonly MoveToPosition: ArmServiceMoveToPosition;
+  static readonly CurrentJointPositions: ArmServiceCurrentJointPositions;
+  static readonly MoveToJointPositions: ArmServiceMoveToJointPositions;
+  static readonly JointMoveDelta: ArmServiceJointMoveDelta;
 }
 
 export type ServiceError = { message: string, code: number; metadata: grpc.Metadata }
@@ -86,54 +86,54 @@ interface BidirectionalStream<ReqT, ResT> {
   on(type: 'status', handler: (status: Status) => void): BidirectionalStream<ReqT, ResT>;
 }
 
-export class ArmSubtypeServiceClient {
+export class ArmServiceClient {
   readonly serviceHost: string;
 
   constructor(serviceHost: string, options?: grpc.RpcOptions);
   currentPosition(
-    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceCurrentPositionRequest,
+    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceCurrentPositionRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceCurrentPositionResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceCurrentPositionResponse|null) => void
   ): UnaryResponse;
   currentPosition(
-    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceCurrentPositionRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceCurrentPositionResponse|null) => void
+    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceCurrentPositionRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceCurrentPositionResponse|null) => void
   ): UnaryResponse;
   moveToPosition(
-    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceMoveToPositionRequest,
+    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceMoveToPositionRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceMoveToPositionResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceMoveToPositionResponse|null) => void
   ): UnaryResponse;
   moveToPosition(
-    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceMoveToPositionRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceMoveToPositionResponse|null) => void
+    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceMoveToPositionRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceMoveToPositionResponse|null) => void
   ): UnaryResponse;
   currentJointPositions(
-    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceCurrentJointPositionsRequest,
+    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceCurrentJointPositionsRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceCurrentJointPositionsResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceCurrentJointPositionsResponse|null) => void
   ): UnaryResponse;
   currentJointPositions(
-    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceCurrentJointPositionsRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceCurrentJointPositionsResponse|null) => void
+    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceCurrentJointPositionsRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceCurrentJointPositionsResponse|null) => void
   ): UnaryResponse;
   moveToJointPositions(
-    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceMoveToJointPositionsRequest,
+    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceMoveToJointPositionsRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceMoveToJointPositionsResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceMoveToJointPositionsResponse|null) => void
   ): UnaryResponse;
   moveToJointPositions(
-    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceMoveToJointPositionsRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceMoveToJointPositionsResponse|null) => void
+    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceMoveToJointPositionsRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceMoveToJointPositionsResponse|null) => void
   ): UnaryResponse;
   jointMoveDelta(
-    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceJointMoveDeltaRequest,
+    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceJointMoveDeltaRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceJointMoveDeltaResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceJointMoveDeltaResponse|null) => void
   ): UnaryResponse;
   jointMoveDelta(
-    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceJointMoveDeltaRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmSubtypeServiceJointMoveDeltaResponse|null) => void
+    requestMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceJointMoveDeltaRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_arm_subtype_pb.ArmServiceJointMoveDeltaResponse|null) => void
   ): UnaryResponse;
 }
 
