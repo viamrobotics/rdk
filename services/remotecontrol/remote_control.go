@@ -2,7 +2,6 @@ package baseremotecontrol
 
 import (
 	"context"
-	"fmt"
 	"math"
 
 	"github.com/edaniels/golog"
@@ -75,7 +74,7 @@ func (svc *RemoteService) Close() error {
 
 // Stop pauses the input controller events responses
 func (svc *RemoteService) Stop() error {
-	err := fmt.Errorf("pausing of remote service is currently unavailable")
+	err := errors.Errorf("pausing of remote service is currently unavailable")
 	return err
 }
 
