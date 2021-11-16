@@ -57,7 +57,6 @@ type Config struct {
 
 // A Service controls the navigation for a robot.
 type Service interface {
-	Start() error
 	Close() error
 }
 
@@ -112,11 +111,17 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		cancelFunc:      cancelFunc,
 	}
 
+	err := remoteSvc.start(ctx)
+
+	if err != nil {
+		return nil, errors.New("error with starting remote control service")
+	}
+
 	return remoteSvc, nil
 }
 
 // Start is the main control loops for sending events from controller to base
-func (svc *RemoteService) Start(ctx context.Context) error {
+func (svc *RemoteService) start(ctx context.Context) error {
 
 	var millisPerSec float64
 	var degPerSec float64
@@ -151,7 +156,6 @@ func (svc *RemoteService) Start(ctx context.Context) error {
 			return err
 		}
 	}
-
 	return nil
 }
 
