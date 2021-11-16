@@ -1,0 +1,8 @@
+{
+    "remotes": [
+        {
+            "name": "matrix-sensors",
+            "address": "pihostname.local:8080"
+        }
+    ]
+}

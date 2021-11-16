@@ -1,6 +1,8 @@
 package referenceframe
 
 import (
+	"context"
+
 	pb "go.viam.com/core/proto/api/component/v1"
 
 	"go.viam.com/core/utils"
@@ -60,4 +62,12 @@ func JointPositionsFromRadians(radians []float64) *pb.ArmJointPositions {
 		n[idx] = utils.RadToDeg(a)
 	}
 	return &pb.ArmJointPositions{Degrees: n}
+}
+
+// InputEnabled is a standard interface for all things that interact with the frame system
+// This allows us to figure out where they currently are, and then move them.
+// Input units are always in meters or radians
+type InputEnabled interface {
+	CurrentInputs(ctx context.Context) ([]Input, error)
+	GoToInputs(ctx context.Context, goal []Input) error
 }
