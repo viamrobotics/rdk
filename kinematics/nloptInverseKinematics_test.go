@@ -18,6 +18,7 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateNloptIKSolver(m, logger)
 	test.That(t, err, test.ShouldBeNil)
+	ik.id = 1
 
 	pos := &pb.Pose{X: 360, Z: 362}
 	seed := frame.FloatsToInputs([]float64{1, 1, 1, 1, 1, 0})

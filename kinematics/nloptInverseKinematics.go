@@ -104,7 +104,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error)
 		opt.SetUpperBounds(ik.upperBound),
 		opt.SetXtolAbs1(floatEpsilon),
 		opt.SetXtolRel(floatEpsilon),
-		opt.SetMaxEval(8001),
+		opt.SetMaxEval(4001),
 	)
 
 	if err != nil {
