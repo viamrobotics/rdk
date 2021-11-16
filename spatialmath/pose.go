@@ -176,7 +176,7 @@ func Interpolate(p1, p2 Pose, by float64) Pose {
 	return intQ
 }
 
-// IsAlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location
+// AlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location
 func AlmostCoincident(a, b Pose) bool {
 	const epsilon = 1e-8
 	ap := a.Point()

@@ -1,7 +1,7 @@
 package motionplan
 
 import (
-	//~ "context"
+	"context"
 	"math"
 	"testing"
 
@@ -9,7 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
-	//~ pb "go.viam.com/core/proto/api/v1"
+	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
@@ -54,62 +54,63 @@ func makeTestFS(t *testing.T) *SolvableFrameSystem {
 	return NewSolvableFrameSystem(fs, logger)
 }
 
-//~ func TestFrameSystemSolver(t *testing.T) {
-//~ solver := makeTestFS(t)
-//~ positions := frame.StartPositions(solver)
+func TestFrameSystemSolver(t *testing.T) {
+	solver := makeTestFS(t)
+	positions := frame.StartPositions(solver)
 
-//~ pointXarmGripper := r3.Vector{157., -50, -288}
+	pointXarmGripper := r3.Vector{157., -50, -288}
 
-//~ transformPoint, err := solver.TransformFrame(positions, solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
-//~ test.That(t, err, test.ShouldBeNil)
-//~ test.That(t, transformPoint.Point().X, test.ShouldAlmostEqual, pointXarmGripper.X)
-//~ test.That(t, transformPoint.Point().Y, test.ShouldAlmostEqual, pointXarmGripper.Y)
-//~ test.That(t, transformPoint.Point().Z, test.ShouldAlmostEqual, pointXarmGripper.Z)
+	transformPoint, err := solver.TransformFrame(positions, solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
 
-//~ // Set a goal such that the gantry and arm must both be used to solve
-//~ goal1 := &pb.ArmPosition{
-//~ X:     257,
-//~ Y:     2100,
-//~ Z:     -300,
-//~ Theta: 0,
-//~ OX:    0,
-//~ OY:    0,
-//~ OZ:    -1,
-//~ }
-//~ newPos, err := solver.SolvePose(context.Background(), positions, spatial.NewPoseFromArmPos(goal1), solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
-//~ test.That(t, err, test.ShouldBeNil)
-//~ solvedPose, err := solver.TransformFrame(newPos, solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
-//~ test.That(t, err, test.ShouldBeNil)
-//~ test.That(t, solvedPose.Point().X, test.ShouldAlmostEqual, goal1.X, 0.01)
-//~ test.That(t, solvedPose.Point().Y, test.ShouldAlmostEqual, goal1.Y, 0.01)
-//~ test.That(t, solvedPose.Point().Z, test.ShouldAlmostEqual, goal1.Z, 0.01)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformPoint.Point().X, test.ShouldAlmostEqual, pointXarmGripper.X)
+	test.That(t, transformPoint.Point().Y, test.ShouldAlmostEqual, pointXarmGripper.Y)
+	test.That(t, transformPoint.Point().Z, test.ShouldAlmostEqual, pointXarmGripper.Z)
 
-//~ // Solve such that the ur5 and xArm are pointing at each other, 60mm from gripper to camera
-//~ goal2 := &pb.ArmPosition{
-//~ X:     0,
-//~ Y:     0,
-//~ Z:     60,
-//~ Theta: 0,
-//~ OX:    0,
-//~ OY:    0,
-//~ OZ:    -1,
-//~ }
-//~ newPos, err = solver.SolvePose(context.Background(), positions, spatial.NewPoseFromArmPos(goal2), solver.GetFrame("xArmVgripper"), solver.GetFrame("urCamera"))
-//~ test.That(t, err, test.ShouldBeNil)
+	// Set a goal such that the gantry and arm must both be used to solve
+	goal1 := &pb.Pose{
+		X:     257,
+		Y:     2100,
+		Z:     -300,
+		Theta: 0,
+		OX:    0,
+		OY:    0,
+		OZ:    -1,
+	}
+	newPos, err := solver.SolvePose(context.Background(), positions, spatial.NewPoseFromProtobuf(goal1), solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
+	test.That(t, err, test.ShouldBeNil)
+	solvedPose, err := solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, solvedPose.Point().X, test.ShouldAlmostEqual, goal1.X, 0.01)
+	test.That(t, solvedPose.Point().Y, test.ShouldAlmostEqual, goal1.Y, 0.01)
+	test.That(t, solvedPose.Point().Z, test.ShouldAlmostEqual, goal1.Z, 0.01)
 
-//~ // Both frames should wind up at the goal relative to one another
-//~ solvedPose, err = solver.TransformFrame(newPos, solver.GetFrame("xArmVgripper"), solver.GetFrame("urCamera"))
-//~ test.That(t, err, test.ShouldBeNil)
-//~ solvedPose2, err := solver.TransformFrame(newPos, solver.GetFrame("urCamera"), solver.GetFrame("xArmVgripper"))
-//~ test.That(t, err, test.ShouldBeNil)
+	// Solve such that the ur5 and xArm are pointing at each other, 60mm from gripper to camera
+	goal2 := &pb.Pose{
+		X:     0,
+		Y:     0,
+		Z:     60,
+		Theta: 0,
+		OX:    0,
+		OY:    0,
+		OZ:    -1,
+	}
+	newPos, err = solver.SolvePose(context.Background(), positions, spatial.NewPoseFromProtobuf(goal2), solver.GetFrame("xArmVgripper"), solver.GetFrame("urCamera"))
+	test.That(t, err, test.ShouldBeNil)
 
-//~ test.That(t, solvedPose.Point().X, test.ShouldAlmostEqual, goal2.X, 0.01)
-//~ test.That(t, solvedPose.Point().Y, test.ShouldAlmostEqual, goal2.Y, 0.01)
-//~ test.That(t, solvedPose.Point().Z, test.ShouldAlmostEqual, goal2.Z, 0.01)
-//~ test.That(t, solvedPose2.Point().X, test.ShouldAlmostEqual, goal2.X, 0.01)
-//~ test.That(t, solvedPose2.Point().Y, test.ShouldAlmostEqual, goal2.Y, 0.01)
-//~ test.That(t, solvedPose2.Point().Z, test.ShouldAlmostEqual, goal2.Z, 0.01)
-//~ }
+	// Both frames should wind up at the goal relative to one another
+	solvedPose, err = solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("xArmVgripper"), solver.GetFrame("urCamera"))
+	test.That(t, err, test.ShouldBeNil)
+	solvedPose2, err := solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("urCamera"), solver.GetFrame("xArmVgripper"))
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, solvedPose.Point().X, test.ShouldAlmostEqual, goal2.X, 0.1)
+	test.That(t, solvedPose.Point().Y, test.ShouldAlmostEqual, goal2.Y, 0.1)
+	test.That(t, solvedPose.Point().Z, test.ShouldAlmostEqual, goal2.Z, 0.1)
+	test.That(t, solvedPose2.Point().X, test.ShouldAlmostEqual, goal2.X, 0.1)
+	test.That(t, solvedPose2.Point().Y, test.ShouldAlmostEqual, goal2.Y, 0.1)
+	test.That(t, solvedPose2.Point().Z, test.ShouldAlmostEqual, goal2.Z, 0.1)
+}
 
 func TestSliceUniq(t *testing.T) {
 	solver := makeTestFS(t)

@@ -36,7 +36,7 @@ type solution struct {
 
 // NewCBiRRTMotionPlanner creates an object able to solve constrained paths around obstacles to some goal for a given frame.
 // It uses the Constrained Bidirctional Rapidly-expanding Random Tree algorithm, Berenson et al 2009
-func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (*cBiRRTMotionPlanner, error) {
+func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (MotionPlanner, error) {
 	ik, err := kinematics.CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (*
 	// Max individual step of 0.5% of full range of motion
 	mp.qstep = getFrameSteps(frame, 0.015)
 	mp.iter = 2000
-	mp.stepSize = 2
+	mp.stepSize = 1
 
 	mp.randseed = rand.New(rand.NewSource(42))
 
@@ -124,9 +124,6 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed []f
 			return nil, errors.New("context Done signal")
 		default:
 		}
-		//~ if i % 50 == 0 {
-		//~ fmt.Println("i:", i, len(seedMap), len(goalMap))
-		//~ }
 
 		var seedReached, goalReached, rSeed *solution
 
@@ -199,7 +196,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(rrtMap map[*solution]*solution,
 			return near
 		} else if inputDist(near.inputs, target.inputs) > inputDist(oldNear.inputs, target.inputs) {
 			return oldNear
-		} else if i > 2 && inputDist(near.inputs, oldNear.inputs) < mp.solDist*mp.solDist*mp.solDist {
+		} else if i > 2 && inputDist(near.inputs, oldNear.inputs) < math.Pow(mp.solDist, 3) {
 			return oldNear
 		}
 
@@ -351,8 +348,8 @@ func nearestNeighbor(seed *solution, rrtMap map[*solution]*solution) *solution {
 	return best
 }
 
-// betterPath returns whether the new path has less joint swing than the old one
-func betterPath(new, old [][]frame.Input) bool {
+// BetterPath returns whether the new path has less joint swing than the old one
+func BetterPath(new, old [][]frame.Input) bool {
 	newDist := 0.
 	oldDist := 0.
 	for i, sol := range new {
