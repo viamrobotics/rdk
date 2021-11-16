@@ -22,11 +22,17 @@ func TestBaseRemoteControl(t *testing.T) {
 		return &fake.Base{}, true
 	}
 
+	fakeController := &inject.InputController{}
+
 	fakeRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
-		return &fake.InputController{}, true
+		return fakeController, true
 	}
 
-	svc, _ := New(ctx, fakeRobot,
+	fakeController.RegisterControlCallbackFunc = func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+		return nil
+	}
+
+	svc, err := New(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -34,51 +40,53 @@ func TestBaseRemoteControl(t *testing.T) {
 		},
 		rlog.Logger)
 
-	// Starting point: above threshold
-	t.Run("above_threshold_move_below_threshold", func(t *testing.T) {
+	test.That(t, err, test.ShouldBeNil)
+
+	// Starting point: high speed, straight
+	t.Run("full speed to half speed", func(t *testing.T) {
 		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.4, 0.0, 1.0, 0.0)
 		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.4, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 	})
 
-	t.Run("above_threshold_move_above_threshold", func(t *testing.T) {
+	t.Run("full speed to full speed slight angle", func(t *testing.T) {
 		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(1.0, 0.1, 1.0, 0.0)
 		test.That(t, millisPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.1, .001)
 	})
 
-	t.Run("above_threshold_move_above_mag", func(t *testing.T) {
+	t.Run("full speed to sharp turn", func(t *testing.T) {
 		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 1.0, 1.0, 0.0)
 		test.That(t, millisPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
 	})
 
-	t.Run("above_threshold_move_below_mag", func(t *testing.T) {
+	t.Run("full speed to gentle turn", func(t *testing.T) {
 		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 0.4, 1.0, 0.0)
 		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.1, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.4, .001)
 	})
 
-	// Starting point: below threshold
-	t.Run("above_threshold_move_below_threshold", func(t *testing.T) {
+	// Starting point: low speed, arcing
+	t.Run("slow arc to straight", func(t *testing.T) {
 		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.4, 0.0, 0.2, 0.2)
 		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.4, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 	})
 
-	t.Run("above_threshold_move_above_threshold", func(t *testing.T) {
+	t.Run("slow arc to full speed slight angle", func(t *testing.T) {
 		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(1.0, 0.1, 0.2, 0.2)
 		test.That(t, millisPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.1, .001)
 	})
 
-	t.Run("above_threshold_move_above_mag", func(t *testing.T) {
+	t.Run("slow arc to sharp turn", func(t *testing.T) {
 		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 1.0, 0.2, 0.2)
 		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.2, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
 	})
 
-	t.Run("above_threshold_move_below_mag", func(t *testing.T) {
+	t.Run("slow arc to slow turn", func(t *testing.T) {
 		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 0.4, 0.2, 0.2)
 		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.1, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.4, .001)

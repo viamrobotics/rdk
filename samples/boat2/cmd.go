@@ -368,7 +368,7 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 	return 0, b.SteerAndMove(ctx, dir, speed)
 }
 
-// MoveArc TODO
+// MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD)
 func (b *boat) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) (int, error) {
 	return 1, errors.New("boat can't move in arc yet")
 }
