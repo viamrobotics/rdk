@@ -28,8 +28,8 @@ func TestBaseRemoteControl(t *testing.T) {
 
 	svc, _ := New(ctx, fakeRobot,
 		config.Service{
-			Name:                "remote-control",
-			Type:                "remote-control",
+			Name:                "remote_control",
+			Type:                "remote_control",
 			ConvertedAttributes: &Config{},
 		},
 		rlog.Logger)

@@ -41,12 +41,12 @@ func init() {
 }
 
 // JoyStickMode is the control type for the remote control
-type JoyStickMode uint8
+type ControlMode uint8
 
 // The set of known joystick modes.
 const (
-	OneJoyStick = JoyStickMode(iota)
-	TriggerSpeed
+	OneJoyStickControl = ControlMode(iota)
+	TriggerSpeedControl
 )
 
 // Config describes how to configure the service.
@@ -85,7 +85,7 @@ type RemoteService struct {
 
 	base            base.Base
 	inputController input.Controller
-	joystickMode    JoyStickMode
+	controlMode     ControlMode
 
 	logger     golog.Logger
 	cancelFunc func()
@@ -103,10 +103,11 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, errors.Errorf("no input controller named %q", svcConfig.InputControllerName)
 	}
 
-	joyStickMode1 := OneJoyStick
+	controlMode1 := OneJoyStickControl
+
 	switch svcConfig.JoyStickModeName {
-	case "TriggerSpeed":
-		joyStickMode1 = TriggerSpeed
+	case "TriggerSpeedControl":
+		controlMode1 = TriggerSpeedControl
 	}
 
 	_, cancelFunc := context.WithCancel(context.Background())
@@ -114,7 +115,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		r:               r,
 		base:            base1,
 		inputController: controller,
-		joystickMode:    joyStickMode1,
+		controlMode:     controlMode1,
 		logger:          logger,
 		cancelFunc:      cancelFunc,
 	}
@@ -143,8 +144,8 @@ func (svc *RemoteService) Start(ctx context.Context) error {
 			return
 		}
 
-		switch svc.joystickMode {
-		case TriggerSpeed:
+		switch svc.controlMode {
+		case TriggerSpeedControl:
 			millisPerSec, degPerSec = svc.triggerSpeedEvent(event, millisPerSec, degPerSec)
 		default:
 			millisPerSec, degPerSec = svc.oneJoyStickEvent(event, millisPerSec, degPerSec)

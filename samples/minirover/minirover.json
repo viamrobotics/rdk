@@ -145,8 +145,8 @@
     "services":
     [
         {
-            "name": "remote-control",
-            "type": "remote-control",
+            "name": "remote_control",
+            "type": "remote_control",
             "attributes": {
                 "base": "pierre",
                 "input_controller" : "controller"
