@@ -19,9 +19,10 @@ import (
 
 // subtypeClient is a client satisfies the arm_subtype.proto contract.
 type subtypeClient struct {
-	grpc.Info
-	conn   dialer.ClientConn
-	client pb.ArmServiceClient
+	address string
+	conn    dialer.ClientConn
+	client  pb.ArmServiceClient
+	logger  golog.Logger
 }
 
 // NewSubtypeClient constructs a new subtypeClient that is served at the given address.
@@ -33,9 +34,10 @@ func NewSubtypeClient(ctx context.Context, address string, opts rpcclient.DialOp
 
 	client := pb.NewArmServiceClient(conn)
 	sc := &subtypeClient{
-		Info:   grpc.Info{Address: address, DialOptions: opts, Logger: logger},
-		conn:   conn,
-		client: client,
+		address: address,
+		conn:    conn,
+		client:  client,
+		logger:  logger,
 	}
 	return sc, nil
 }
@@ -49,16 +51,6 @@ func (sc *subtypeClient) Close() error {
 type client struct {
 	*subtypeClient
 	name string
-}
-
-// NewFromClient constructs a new Client from another client.
-func NewFromClient(ctx context.Context, client interface{}, name string) (Arm, error) {
-	c, ok := client.(grpc.DialInfoGetter)
-	if !ok {
-		return nil, errors.New("client passed in does not contain DialInfo")
-	}
-	info := c.DialInfo()
-	return NewClient(ctx, name, info.Address, info.DialOptions, info.Logger)
 }
 
 // NewClient constructs a new client that is served at the given address.

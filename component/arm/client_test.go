@@ -131,33 +131,6 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("arm client 2", func(t *testing.T) {
-		arm2Client, err := arm.NewFromClient(context.Background(), arm1Client, arm2)
-		test.That(t, err, test.ShouldBeNil)
-
-		pos, err := arm2Client.CurrentPosition(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos.String(), test.ShouldResemble, pos2.String())
-
-		jointPos, err := arm2Client.CurrentJointPositions(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, jointPos.String(), test.ShouldResemble, jointPos2.String())
-
-		err = arm2Client.MoveToPosition(context.Background(), pos1)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmPos.String(), test.ShouldResemble, pos1.String())
-
-		err = arm2Client.MoveToJointPositions(context.Background(), jointPos1)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos1.String())
-
-		err = arm2Client.JointMoveDelta(context.Background(), 15, 57.0)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmJoint, test.ShouldEqual, 15)
-		test.That(t, capArmJointAngleDeg, test.ShouldEqual, 57.0)
-		test.That(t, utils.TryClose(arm2Client), test.ShouldBeNil)
-	})
-
-	t.Run("arm client 3", func(t *testing.T) {
 		armSubtypeClient, err := arm.NewSubtypeClient(
 			context.Background(), listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger,
 		)
