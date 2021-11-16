@@ -81,7 +81,7 @@ func (fss *SolvableFrameSystem) SetPlannerGen(mpFunc func(frame.Frame, golog.Log
 }
 
 // solverFrames are meant to be ephemerally created each time a frame system solution is created, and fulfills the
-// Frame and MultiFrame interfaces so that it can be passed to inverse kinematics.
+// Frame interface so that it can be passed to inverse kinematics.
 type solverFrame struct {
 	name       string
 	fss        *SolvableFrameSystem
@@ -114,11 +114,11 @@ func (sf *solverFrame) VerboseTransform(inputs []frame.Input) (map[string]spatia
 	inputMap := sf.sliceToMap(inputs)
 	poseMap := make(map[string]spatial.Pose)
 	for _, frame := range sf.frames {
-		poseMapI, err := sf.fss.VerboseTransformFrame(inputMap, sf.solveFrame, frame)
+		pm, err := sf.fss.VerboseTransformFrame(inputMap, sf.solveFrame, frame)
 		if err != nil {
 			return nil, err
 		}
-		for name, pose := range poseMapI {
+		for name, pose := range pm {
 			poseMap[name] = pose
 		}
 	}

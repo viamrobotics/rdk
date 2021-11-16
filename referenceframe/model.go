@@ -94,7 +94,6 @@ func (m *Model) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, e
 	}
 	poseMap := make(map[string]spatialmath.Pose)
 	for _, pose := range poses {
-		// only append transformations to the list that result in a change in translation
 		poseMap[pose.name] = pose.pose
 	}
 	return poseMap, err
@@ -104,7 +103,7 @@ func (m *Model) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, e
 // cartesian position of each of the links up to and including the end effector. This is useful for when conversions
 // between quaternions and OV are not needed.
 func (m *Model) jointRadToQuats(inputs []Input) ([]namedPose, error) {
-	joints := make([]float64, len(inputs))
+	joints := InputsToFloats(inputs)
 	for i, input := range inputs {
 		joints[i] = input.Value
 	}
