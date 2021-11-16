@@ -73,6 +73,9 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 	return steps, nil
 }
 
+// SetPlannerGen sets the function which is used to create the motion planner to solve a requested plan.
+// A SolvableFrameSystem wraps a complete frame system, and will make solverFrames on the fly to solve for. These
+// solverFrames are used to create the planner here.
 func (fss *SolvableFrameSystem) SetPlannerGen(mpFunc func(frame.Frame, golog.Logger, int) (MotionPlanner, error)) {
 	fss.mpFunc = mpFunc
 }

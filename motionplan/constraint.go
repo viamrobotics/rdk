@@ -11,6 +11,9 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 )
 
+// ConstraintInput contains all the information a constraint needs to determine validity for a movement.
+// It contains the starting inputs, the ending inputs, corresponding poses, and the frame it refers to.
+// Pose fields may be empty, and may be filled in by a constraint that needs them.
 type ConstraintInput struct {
 	startPos   spatial.Pose
 	endPos     spatial.Pose
@@ -52,10 +55,9 @@ func CheckConstraintPath(mp MotionPlanner, ci *ConstraintInput) (bool, *Constrai
 		if !pass {
 			if i > 1 {
 				return false, interpC
-			} else {
-				// fail on start pos
-				return false, nil
 			}
+			// fail on start pos
+			return false, nil
 		}
 	}
 	// extra step to check the end
@@ -124,10 +126,7 @@ func interpolationCheck(cInput *ConstraintInput, by, epsilon float64) bool {
 	}
 	interp := spatial.Interpolate(cInput.startPos, cInput.endPos, by)
 	dist := kinematics.SquaredNorm(spatial.PoseDelta(iPos, interp))
-	if dist > epsilon {
-		return false
-	}
-	return true
+	return dist <= epsilon
 }
 
 type flexibleConstraint struct {
@@ -260,8 +259,8 @@ func DontHitPetersWallConstraint() Constraint {
 	return &flexibleConstraint{f}
 }
 
-// Simulates an obstacle.
-func fakeObstacle(ci *ConstraintInput) (bool, float64) {
+// FakeObstacle simulates an obstacle.
+func FakeObstacle(ci *ConstraintInput) (bool, float64) {
 	checkPt := func(pose spatial.Pose) bool {
 		pt := pose.Point()
 

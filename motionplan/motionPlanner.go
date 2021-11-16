@@ -215,6 +215,7 @@ IK:
 	for {
 		select {
 		case <-ctx.Done():
+			cancel()
 			return nil, errors.New("context Done signal")
 		case step := <-solutionGen:
 			cPass, cScore := mp.CheckConstraints(&ConstraintInput{
@@ -244,7 +245,7 @@ IK:
 		}
 
 		select {
-		case err = <-ikErr:
+		case <-ikErr:
 			// If we have a return from the IK solver, there are no more solutions, so we finish processing above
 			// until we've drained the channel
 			break IK

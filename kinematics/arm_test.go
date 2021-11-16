@@ -214,6 +214,7 @@ IK:
 	for {
 		select {
 		case <-ctx.Done():
+			cancel()
 			return nil, errors.New("context Done signal")
 		case step := <-solutionGen:
 			solutions = append(solutions, step)

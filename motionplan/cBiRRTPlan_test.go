@@ -2,10 +2,12 @@ package motionplan
 
 import (
 	"context"
+	"math/rand"
 	"sort"
 
 	"testing"
 
+	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/utils"
@@ -27,8 +29,22 @@ func TestExtend(t *testing.T) {
 	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	mp, err := NewCBiRRTMotionPlanner(m, logger, 4)
+	ik, err := kinematics.CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
+	nlopt, err := kinematics.CreateNloptIKSolver(m, logger)
+	test.That(t, err, test.ShouldBeNil)
+	// nlopt should try only once
+	nlopt.SetMaxIter(1)
+	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: m, logger: logger, solDist: 0.0001}
+
+	// Max individual step of 0.5% of full range of motion
+	mp.qstep = getFrameSteps(m, 0.015)
+	mp.iter = 2000
+	mp.stepSize = 1
+
+	mp.randseed = rand.New(rand.NewSource(42))
+
+	mp.AddConstraint("jointSwingScorer", NewJointScorer())
 
 	pos := &pb.Pose{
 		X:  206,
