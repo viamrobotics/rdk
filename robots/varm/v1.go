@@ -352,7 +352,6 @@ func (a *armV1) CurrentInputs(ctx context.Context) ([]frame.Input, error) {
 	return frame.JointPosToInputs(res), nil
 }
 
-
 func (a *armV1) GoToInputs(ctx context.Context, goal []frame.Input) error {
 	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(goal))
 }

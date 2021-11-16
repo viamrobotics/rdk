@@ -94,7 +94,7 @@ func TestDoGrabFailures(t *testing.T) {
 func TestDoGrab(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	
+
 	cfg, err := config.Read("data/moving_arm.json")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -113,7 +113,7 @@ func TestDoGrab(t *testing.T) {
 func TestMultiplePieces(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	
+
 	cfg, err := config.Read("data/fake_tomato.json")
 	test.That(t, err, test.ShouldBeNil)
 

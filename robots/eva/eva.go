@@ -324,7 +324,6 @@ func (e *eva) CurrentInputs(ctx context.Context) ([]frame.Input, error) {
 	return frame.JointPosToInputs(res), nil
 }
 
-
 func (e *eva) GoToInputs(ctx context.Context, goal []frame.Input) error {
 	return e.MoveToJointPositions(ctx, frame.InputsToJointPos(goal))
 }

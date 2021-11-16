@@ -117,7 +117,6 @@ func (r *reconfigurableArm) GoToInputs(ctx context.Context, goal []referencefram
 	return r.actual.GoToInputs(ctx, goal)
 }
 
-
 func (r *reconfigurableArm) Close() error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
