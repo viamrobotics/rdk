@@ -15,7 +15,7 @@ import (
 	"go.viam.com/core/testutils/inject"
 )
 
-func newServer() (pb.ArmSubtypeServiceServer, *inject.Arm, *inject.Arm, error) {
+func newServer() (pb.ArmServiceServer, *inject.Arm, *inject.Arm, error) {
 	injectArm := &inject.Arm{}
 	injectArm2 := &inject.Arm{}
 	armSvc, err := subtype.New((map[resource.Name]interface{}{arm.Named("arm1"): injectArm, arm.Named("arm2"): injectArm2}))
@@ -87,52 +87,52 @@ func TestServer(t *testing.T) {
 	}
 
 	t.Run("arm position", func(t *testing.T) {
-		resp, err := armServer.CurrentPosition(context.Background(), &pb.ArmSubtypeServiceCurrentPositionRequest{Name: arm1})
+		resp, err := armServer.CurrentPosition(context.Background(), &pb.ArmServiceCurrentPositionRequest{Name: arm1})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Position.String(), test.ShouldResemble, pos1.String())
 
-		resp, err = armServer.CurrentPosition(context.Background(), &pb.ArmSubtypeServiceCurrentPositionRequest{Name: arm2})
+		resp, err = armServer.CurrentPosition(context.Background(), &pb.ArmServiceCurrentPositionRequest{Name: arm2})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Position.String(), test.ShouldResemble, pos2.String())
 	})
 
 	t.Run("move to position", func(t *testing.T) {
-		_, err := armServer.MoveToPosition(context.Background(), &pb.ArmSubtypeServiceMoveToPositionRequest{Name: arm1, To: pos2})
+		_, err := armServer.MoveToPosition(context.Background(), &pb.ArmServiceMoveToPositionRequest{Name: arm1, To: pos2})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmPos.String(), test.ShouldResemble, pos2.String())
 
-		_, err = armServer.MoveToPosition(context.Background(), &pb.ArmSubtypeServiceMoveToPositionRequest{Name: arm2, To: pos1})
+		_, err = armServer.MoveToPosition(context.Background(), &pb.ArmServiceMoveToPositionRequest{Name: arm2, To: pos1})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmPos.String(), test.ShouldResemble, pos1.String())
 	})
 
 	t.Run("arm joint position", func(t *testing.T) {
-		resp, err := armServer.CurrentJointPositions(context.Background(), &pb.ArmSubtypeServiceCurrentJointPositionsRequest{Name: arm1})
+		resp, err := armServer.CurrentJointPositions(context.Background(), &pb.ArmServiceCurrentJointPositionsRequest{Name: arm1})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Positions.String(), test.ShouldResemble, jointPos1.String())
 
-		resp, err = armServer.CurrentJointPositions(context.Background(), &pb.ArmSubtypeServiceCurrentJointPositionsRequest{Name: arm2})
+		resp, err = armServer.CurrentJointPositions(context.Background(), &pb.ArmServiceCurrentJointPositionsRequest{Name: arm2})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Positions.String(), test.ShouldResemble, jointPos2.String())
 	})
 
 	t.Run("move to joint position", func(t *testing.T) {
-		_, err := armServer.MoveToJointPositions(context.Background(), &pb.ArmSubtypeServiceMoveToJointPositionsRequest{Name: arm1, To: jointPos2})
+		_, err := armServer.MoveToJointPositions(context.Background(), &pb.ArmServiceMoveToJointPositionsRequest{Name: arm1, To: jointPos2})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos2.String())
 
-		_, err = armServer.MoveToJointPositions(context.Background(), &pb.ArmSubtypeServiceMoveToJointPositionsRequest{Name: arm2, To: jointPos1})
+		_, err = armServer.MoveToJointPositions(context.Background(), &pb.ArmServiceMoveToJointPositionsRequest{Name: arm2, To: jointPos1})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos1.String())
 	})
 
 	t.Run("joint move delta", func(t *testing.T) {
-		_, err := armServer.JointMoveDelta(context.Background(), &pb.ArmSubtypeServiceJointMoveDeltaRequest{Name: arm1, Joint: 10, AmountDegs: 5.5})
+		_, err := armServer.JointMoveDelta(context.Background(), &pb.ArmServiceJointMoveDeltaRequest{Name: arm1, Joint: 10, AmountDegs: 5.5})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmJoint, test.ShouldEqual, 10)
 		test.That(t, capArmJointAngleDeg, test.ShouldEqual, 5.5)
 
-		_, err = armServer.JointMoveDelta(context.Background(), &pb.ArmSubtypeServiceJointMoveDeltaRequest{Name: arm2, Joint: 11, AmountDegs: 6.6})
+		_, err = armServer.JointMoveDelta(context.Background(), &pb.ArmServiceJointMoveDeltaRequest{Name: arm2, Joint: 11, AmountDegs: 6.6})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmJoint, test.ShouldEqual, 11)
 		test.That(t, capArmJointAngleDeg, test.ShouldEqual, 6.6)
