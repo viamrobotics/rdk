@@ -337,6 +337,20 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 
 }
 
+// CurrentInputs TODO
+func (ua *URArm) CurrentInputs(ctx context.Context) ([]frame.Input, error) {
+	res, err := ua.CurrentJointPositions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return frame.JointPosToInputs(res), nil
+}
+
+// GoToInputs TODO
+func (ua *URArm) GoToInputs(ctx context.Context, goal []frame.Input) error {
+	return ua.MoveToJointPositions(ctx, frame.InputsToJointPos(goal))
+}
+
 // AddToLog TODO
 func (ua *URArm) AddToLog(msg string) error {
 	// TODO(erh): check for " in msg
