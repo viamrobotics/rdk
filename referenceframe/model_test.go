@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
@@ -36,7 +37,7 @@ func TestModelLoading(t *testing.T) {
 	test.That(t, m.Name(), test.ShouldEqual, "foo")
 }
 
-func TestJoint(t *testing.T) {
+func TestTransform(t *testing.T) {
 	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -56,4 +57,20 @@ func TestJoint(t *testing.T) {
 	test.That(t, firstJov.OX, test.ShouldAlmostEqual, firstJovExpect.OX)
 	test.That(t, firstJov.OY, test.ShouldAlmostEqual, firstJovExpect.OY)
 	test.That(t, firstJov.OZ, test.ShouldAlmostEqual, firstJovExpect.OZ)
+}
+
+func TestVerboseTransform(t *testing.T) {
+	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	poses, err := m.VerboseTransform([]Input{{0.0}, {0.0}, {0.0}, {0.0}, {0.0}, {0.0}})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(poses), test.ShouldEqual, len(m.OrdTransforms))
+
+	shoulderExpect := spatialmath.NewPoseFromPoint(r3.Vector{0.0, 0.0, 110.25})
+	test.That(t, spatialmath.AlmostCoincident(poses["shoulder"], shoulderExpect), test.ShouldBeTrue)
+	upperArmExpect := spatialmath.NewPoseFromPoint(r3.Vector{50.0, 0.0, 360.25})
+	test.That(t, spatialmath.AlmostCoincident(poses["upper_arm"], upperArmExpect), test.ShouldBeTrue)
+	forearmPoseExpect := spatialmath.NewPoseFromPoint(r3.Vector{300.0, 0.0, 360.25})
+	test.That(t, spatialmath.AlmostCoincident(poses["forearm"], forearmPoseExpect), test.ShouldBeTrue)
 }
