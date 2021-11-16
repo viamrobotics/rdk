@@ -2,7 +2,6 @@ package baseremotecontrol
 
 import (
 	"context"
-	"fmt"
 	"math"
 
 	"github.com/edaniels/golog"
@@ -17,7 +16,7 @@ import (
 )
 
 // Type is the type of service.
-const Type = config.ServiceType("remote_control")
+const Type = config.ServiceType("base_remote_control")
 
 // Initialize remote-control service with main server
 func init() {
@@ -40,10 +39,10 @@ func init() {
 	)
 }
 
-// JoyStickMode is the control type for the remote control
+// ControlMode is the control type for the remote control
 type ControlMode uint8
 
-// The set of known joystick modes.
+// The set of implmented control modes.
 const (
 	OneJoyStickControl = ControlMode(iota)
 	TriggerSpeedControl
@@ -75,7 +74,7 @@ func (svc *RemoteService) Close() error {
 
 // Stop pauses the input controller events responses
 func (svc *RemoteService) Stop() error {
-	err := fmt.Errorf("pausing of remote service is currently unavailable")
+	err := errors.New("pausing of remote service is currently unavailable")
 	return err
 }
 
