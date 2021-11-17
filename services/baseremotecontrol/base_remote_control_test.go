@@ -41,7 +41,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	}
 
 	// New base_remote_control check
-	svc, err := New(ctx, fakeRobot,
+	tmpSvc, err := New(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -49,9 +49,11 @@ func TestBaseRemoteControl(t *testing.T) {
 		},
 		rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
+	svc, ok := tmpSvc.(*remoteService)
+	test.That(t, ok, test.ShouldBeTrue)
 
 	cfg.JoyStickModeName = "triggerSpeedControl"
-	svc1, err := New(ctx, fakeRobot,
+	tmpSvc1, err := New(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -59,6 +61,8 @@ func TestBaseRemoteControl(t *testing.T) {
 		},
 		rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
+	svc1, ok := tmpSvc1.(*remoteService)
+	test.That(t, ok, test.ShouldBeTrue)
 
 	// Controller import failure
 	fakeRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
@@ -214,7 +218,13 @@ func TestBaseRemoteControl(t *testing.T) {
 	})
 
 	// Close out check
-	err = svc.Close(ctx)
+	err = svc.Close()
 	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("one joy stick control mode for input Y", func(t *testing.T) {
+		millisPerSec, degsPerSec := svc.triggerSpeedEvent(eventZ, 0.5, 0.6)
+		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.5, .001)
+		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.6, .001)
+	})
 
 }

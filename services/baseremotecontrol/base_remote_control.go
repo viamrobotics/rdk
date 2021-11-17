@@ -55,7 +55,7 @@ type Config struct {
 }
 
 // controllerInputs returns the list of inputs from the controller that are being monitored for that control mode
-func (svc *RemoteService) controllerInputs() []input.Control {
+func (svc *remoteService) controllerInputs() []input.Control {
 	switch svc.controlMode {
 	case triggerSpeedControl:
 		return []input.Control{input.AbsoluteX, input.AbsoluteZ, input.AbsoluteRZ}
@@ -64,24 +64,8 @@ func (svc *RemoteService) controllerInputs() []input.Control {
 	}
 }
 
-// A Service controls the navigation for a robot.
-type Service interface {
-	Close(ctx context.Context) error
-}
-
-// Close out all remote control related systems
-func (svc *RemoteService) Close(ctx context.Context) error {
-	for _, control := range svc.controllerInputs() {
-		err := svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.PositionChangeAbs}, nil)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // RemoteService is the structure of the remote service
-type RemoteService struct {
+type remoteService struct {
 	base            base.Base
 	inputController input.Controller
 	controlMode     controlMode
@@ -90,7 +74,7 @@ type RemoteService struct {
 }
 
 // New returns a new remote control service for the given robot.
-func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (*RemoteService, error) {
+func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
 	svcConfig := config.ConvertedAttributes.(*Config)
 	base1, ok := r.BaseByName(svcConfig.BaseName)
 	if !ok {
@@ -108,7 +92,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		controlMode1 = triggerSpeedControl
 	}
 
-	remoteSvc := &RemoteService{
+	remoteSvc := &remoteService{
 		base:            base1,
 		inputController: controller,
 		controlMode:     controlMode1,
@@ -125,7 +109,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 }
 
 // Start is the main control loops for sending events from controller to base
-func (svc *RemoteService) start(ctx context.Context) error {
+func (svc *remoteService) start(ctx context.Context) error {
 
 	var millisPerSec float64
 	var degPerSec float64
@@ -160,9 +144,20 @@ func (svc *RemoteService) start(ctx context.Context) error {
 	return nil
 }
 
+// Close out all remote control related systems
+func (svc *remoteService) Close() error {
+	for _, control := range svc.controllerInputs() {
+		err := svc.inputController.RegisterControlCallback(context.Background(), control, []input.EventType{input.PositionChangeAbs}, nil)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // triggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left jostick to
 // control the angle
-func (svc *RemoteService) triggerSpeedEvent(event input.Event, speed float64, angle float64) (float64, float64) {
+func (svc *remoteService) triggerSpeedEvent(event input.Event, speed float64, angle float64) (float64, float64) {
 
 	oldSpeed := speed
 	oldAngle := angle
@@ -185,7 +180,7 @@ func (svc *RemoteService) triggerSpeedEvent(event input.Event, speed float64, an
 }
 
 // oneJoyStickEvent (default) takes inputs from the gamepad allowing the left joystick to control speed and angle
-func (svc *RemoteService) oneJoyStickEvent(event input.Event, speed float64, angle float64) (float64, float64) {
+func (svc *remoteService) oneJoyStickEvent(event input.Event, speed float64, angle float64) (float64, float64) {
 
 	oldSpeed := speed
 	oldAngle := angle
@@ -204,7 +199,7 @@ func (svc *RemoteService) oneJoyStickEvent(event input.Event, speed float64, ang
 
 // SpeedAndAngleMathMag utilizes a cut-off and the magnitude of the speed and angle to dictate millisPerSec and
 // degPerSec
-func (svc *RemoteService) speedAndAngleMathMag(speed float64, angle float64, oldSpeed float64, oldAngle float64) (float64, float64) {
+func (svc *remoteService) speedAndAngleMathMag(speed float64, angle float64, oldSpeed float64, oldAngle float64) (float64, float64) {
 
 	var newSpeed float64
 	var newAngle float64
