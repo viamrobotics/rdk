@@ -36,6 +36,8 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	componentpb "go.viam.com/core/proto/api/component/v1"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
@@ -224,8 +226,10 @@ func (s *Server) ArmCurrentPosition(ctx context.Context, req *pb.ArmCurrentPosit
 	if err != nil {
 		return nil, err
 	}
-
-	return &pb.ArmCurrentPositionResponse{Position: pos}, nil
+	convertedPos := &pb.Pose{
+		X: pos.X, Y: pos.Y, Z: pos.Z, OX: pos.OX, OY: pos.OY, OZ: pos.OZ, Theta: pos.Theta,
+	}
+	return &pb.ArmCurrentPositionResponse{Position: convertedPos}, nil
 }
 
 // ArmCurrentJointPositions gets the current joint position of an arm of the underlying robot.
@@ -238,8 +242,8 @@ func (s *Server) ArmCurrentJointPositions(ctx context.Context, req *pb.ArmCurren
 	if err != nil {
 		return nil, err
 	}
-
-	return &pb.ArmCurrentJointPositionsResponse{Positions: pos}, nil
+	convertedPos := &pb.JointPositions{Degrees: pos.Degrees}
+	return &pb.ArmCurrentJointPositionsResponse{Positions: convertedPos}, nil
 }
 
 // ArmMoveToPosition moves an arm of the underlying robot to the requested position.
@@ -248,8 +252,10 @@ func (s *Server) ArmMoveToPosition(ctx context.Context, req *pb.ArmMoveToPositio
 	if !ok {
 		return nil, errors.Errorf("no arm with name (%s)", req.Name)
 	}
-
-	return &pb.ArmMoveToPositionResponse{}, arm.MoveToPosition(ctx, req.To)
+	convertedTo := &commonpb.Pose{
+		X: req.To.X, Y: req.To.Y, Z: req.To.Z, OX: req.To.OX, OY: req.To.OY, OZ: req.To.OZ, Theta: req.To.Theta,
+	}
+	return &pb.ArmMoveToPositionResponse{}, arm.MoveToPosition(ctx, convertedTo)
 }
 
 // ArmMoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
@@ -258,8 +264,8 @@ func (s *Server) ArmMoveToJointPositions(ctx context.Context, req *pb.ArmMoveToJ
 	if !ok {
 		return nil, errors.Errorf("no arm with name (%s)", req.Name)
 	}
-
-	return &pb.ArmMoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.To)
+	convertedPos := &componentpb.ArmJointPositions{Degrees: req.To.Degrees}
+	return &pb.ArmMoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, convertedPos)
 }
 
 // ArmJointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.

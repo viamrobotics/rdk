@@ -9,7 +9,8 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	pb "go.viam.com/core/proto/api/component/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -50,8 +51,8 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 
 	return &ArmIK{
 		Name:     name,
-		position: &pb.Pose{},
-		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		position: &commonpb.Pose{},
+		joints:   &pb.ArmJointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
 		ik:       ik,
 		model:    model,
 	}, nil
@@ -60,8 +61,8 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 // ArmIK is a fake arm that can simply read and set properties.
 type ArmIK struct {
 	Name       string
-	position   *pb.Pose
-	joints     *pb.JointPositions
+	position   *commonpb.Pose
+	joints     *pb.ArmJointPositions
 	ik         kinematics.InverseKinematics
 	CloseCount int
 	model      *frame.Model
@@ -73,7 +74,7 @@ func (a *ArmIK) ModelFrame() *frame.Model {
 }
 
 // CurrentPosition returns the set position.
-func (a *ArmIK) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
+func (a *ArmIK) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -82,7 +83,7 @@ func (a *ArmIK) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 }
 
 // MoveToPosition sets the position.
-func (a *ArmIK) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
+func (a *ArmIK) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -95,13 +96,13 @@ func (a *ArmIK) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 }
 
 // MoveToJointPositions sets the joints.
-func (a *ArmIK) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
+func (a *ArmIK) MoveToJointPositions(ctx context.Context, joints *pb.ArmJointPositions) error {
 	a.joints = joints
 	return nil
 }
 
 // CurrentJointPositions returns the set joints.
-func (a *ArmIK) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (a *ArmIK) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	return a.joints, nil
 }
 

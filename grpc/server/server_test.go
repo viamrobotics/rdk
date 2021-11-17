@@ -26,6 +26,8 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	componentpb "go.viam.com/core/proto/api/component/v1"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
@@ -521,8 +523,8 @@ func TestServer(t *testing.T) {
 		}
 
 		err1 := errors.New("whoops")
-		pos := &pb.Pose{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
-		injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.Pose, error) {
+		pos := &commonpb.Pose{X: 1, Y: 2, Z: 3, OX: 4, OY: 5, OZ: 6}
+		injectArm.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 			return nil, err1
 		}
 
@@ -531,14 +533,15 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldEqual, err1)
 
-		injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.Pose, error) {
+		injectArm.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 			return pos, nil
 		}
 		resp, err := server.ArmCurrentPosition(context.Background(), &pb.ArmCurrentPositionRequest{
 			Name: "arm1",
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Position, test.ShouldResemble, pos)
+		convertedPos := &pb.Pose{X: pos.X, Y: pos.Y, Z: pos.Z, OX: pos.OX, OY: pos.OY, OZ: pos.OZ, Theta: pos.Theta}
+		test.That(t, resp.Position, test.ShouldResemble, convertedPos)
 	})
 
 	t.Run("ArmCurrentJointPositions", func(t *testing.T) {
@@ -562,8 +565,8 @@ func TestServer(t *testing.T) {
 		}
 
 		err1 := errors.New("whoops")
-		pos := &pb.JointPositions{Degrees: []float64{1.2, 3.4}}
-		injectArm.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
+		pos := &componentpb.ArmJointPositions{Degrees: []float64{1.2, 3.4}}
+		injectArm.CurrentJointPositionsFunc = func(ctx context.Context) (*componentpb.ArmJointPositions, error) {
 			return nil, err1
 		}
 
@@ -572,14 +575,14 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldEqual, err1)
 
-		injectArm.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
+		injectArm.CurrentJointPositionsFunc = func(ctx context.Context) (*componentpb.ArmJointPositions, error) {
 			return pos, nil
 		}
 		resp, err := server.ArmCurrentJointPositions(context.Background(), &pb.ArmCurrentJointPositionsRequest{
 			Name: "arm1",
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Positions, test.ShouldResemble, pos)
+		test.That(t, resp.Positions, test.ShouldResemble, &pb.JointPositions{Degrees: pos.Degrees})
 	})
 
 	t.Run("ArmMoveToPosition", func(t *testing.T) {
@@ -603,8 +606,8 @@ func TestServer(t *testing.T) {
 		}
 
 		err1 := errors.New("whoops")
-		var capAP *pb.Pose
-		injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.Pose) error {
+		var capAP *commonpb.Pose
+		injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
 			capAP = ap
 			return err1
 		}
@@ -615,9 +618,10 @@ func TestServer(t *testing.T) {
 			To:   pos,
 		})
 		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capAP, test.ShouldEqual, pos)
+		convertedPos := &commonpb.Pose{X: pos.X, Y: pos.Y, Z: pos.Z, OX: pos.OX, OY: pos.OY, OZ: pos.OZ, Theta: pos.Theta}
+		test.That(t, capAP, test.ShouldResemble, convertedPos)
 
-		injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.Pose) error {
+		injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
 			return nil
 		}
 		_, err = server.ArmMoveToPosition(context.Background(), &pb.ArmMoveToPositionRequest{
@@ -648,8 +652,8 @@ func TestServer(t *testing.T) {
 		}
 
 		err1 := errors.New("whoops")
-		var capJP *pb.JointPositions
-		injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions) error {
+		var capJP *componentpb.ArmJointPositions
+		injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.ArmJointPositions) error {
 			capJP = jp
 			return err1
 		}
@@ -660,9 +664,9 @@ func TestServer(t *testing.T) {
 			To:   pos,
 		})
 		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capJP, test.ShouldEqual, pos)
+		test.That(t, capJP, test.ShouldResemble, &componentpb.ArmJointPositions{Degrees: pos.Degrees})
 
-		injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions) error {
+		injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.ArmJointPositions) error {
 			return nil
 		}
 		_, err = server.ArmMoveToJointPositions(context.Background(), &pb.ArmMoveToJointPositionsRequest{

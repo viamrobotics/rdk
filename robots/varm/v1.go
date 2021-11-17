@@ -15,6 +15,8 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	"go.viam.com/core/motor"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	componentpb "go.viam.com/core/proto/api/component/v1"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
@@ -224,7 +226,7 @@ type armV1 struct {
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (a *armV1) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
+func (a *armV1) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -233,7 +235,7 @@ func (a *armV1) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (a *armV1) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
+func (a *armV1) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -260,7 +262,7 @@ func (a *armV1) moveJointToDegrees(ctx context.Context, m motor.Motor, j joint, 
 }
 
 // MoveToJointPositions TODO
-func (a *armV1) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
+func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.ArmJointPositions) error {
 	if len(pos.Degrees) != 2 {
 		return errors.New("need exactly 2 joints")
 	}
@@ -314,9 +316,9 @@ func jointToDegrees(ctx context.Context, m motor.Motor, j joint) (float64, error
 }
 
 // CurrentJointPositions TODO
-func (a *armV1) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (a *armV1) CurrentJointPositions(ctx context.Context) (*componentpb.ArmJointPositions, error) {
 	var e1, e2 error
-	joints := &pb.JointPositions{Degrees: make([]float64, 2)}
+	joints := &componentpb.ArmJointPositions{Degrees: make([]float64, 2)}
 	joints.Degrees[0], e1 = jointToDegrees(ctx, a.j0Motor, a.j0)
 	joints.Degrees[1], e2 = jointToDegrees(ctx, a.j1Motor, a.j1)
 

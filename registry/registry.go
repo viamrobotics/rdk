@@ -9,6 +9,10 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 	"github.com/mitchellh/copystructure"
+	"go.viam.com/utils/rpc/dialer"
+	rpcserver "go.viam.com/utils/rpc/server"
+
+	componentpb "go.viam.com/core/proto/api/component/v1"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -24,18 +28,30 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
+	"go.viam.com/core/subtype"
 )
 
 // TODO: currently here because of import cycles. get rid of this block at conclusion of Core v2 migration.
 //these registrations should happen in the subtype's go package instead.
 func init() {
-	RegisterComponentSubtype(arm.Subtype, ComponentSubtype{
+	RegisterResourceSubtype(arm.Subtype, ResourceSubtype{
 		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
 			return arm.WrapWithReconfigurable(r)
 		},
+		RegisterRPCService: func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&componentpb.ArmService_ServiceDesc,
+				arm.NewServer(subtypeSvc),
+				componentpb.RegisterArmServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
+			return arm.NewClientFromConn(conn, name, logger)
+		},
 	})
 
-	RegisterComponentSubtype(gantry.Subtype, ComponentSubtype{
+	RegisterResourceSubtype(gantry.Subtype, ResourceSubtype{
 		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
 			return gantry.WrapWithReconfigurable(r)
 		},
@@ -400,6 +416,13 @@ type (
 
 	// A CreateReconfigurable makes a reconfigurable resource from a given resource.
 	CreateReconfigurable func(resource interface{}) (resource.Reconfigurable, error)
+
+	// A RegisterSubtypeRPCService will register the subtype service to the grpc server
+	RegisterSubtypeRPCService func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error
+
+	// A CreateRPCClient will create the client for the resource.
+	// TODO: Remove as part of #227
+	CreateRPCClient func(conn dialer.ClientConn, name string, logger golog.Logger) interface{}
 )
 
 // Component stores a resource constructor (mandatory) and a Frame building function (optional)
@@ -408,15 +431,21 @@ type Component struct {
 	Constructor CreateComponent
 }
 
-// ComponentSubtype stores a reconfigurable resource creator
-type ComponentSubtype struct {
-	Reconfigurable CreateReconfigurable
+// ResourceSubtype stores subtype-specific functions and clients
+type ResourceSubtype struct {
+	Reconfigurable     CreateReconfigurable
+	RegisterRPCService RegisterSubtypeRPCService
+	RPCClient          CreateRPCClient
+}
+
+// SubtypeGrpc stores functions necessary for a resource subtype to be accessible through grpc
+type SubtypeGrpc struct {
 }
 
 // all registries
 var (
-	componentRegistry        = map[string]Component{}
-	componentSubtypeRegistry = map[resource.Subtype]ComponentSubtype{}
+	componentRegistry = map[string]Component{}
+	subtypeRegistry   = map[resource.Subtype]ResourceSubtype{}
 )
 
 // RegisterComponent register a creator to its corresponding component and model.
@@ -443,22 +472,22 @@ func ComponentLookup(subtype resource.Subtype, model string) *Component {
 	return nil
 }
 
-// RegisterComponentSubtype register a ComponentSubtype to its corresponding component subtype.
-func RegisterComponentSubtype(subtype resource.Subtype, creator ComponentSubtype) {
-	_, old := componentSubtypeRegistry[subtype]
+// RegisterResourceSubtype register a ResourceSubtype to its corresponding component subtype.
+func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) {
+	_, old := subtypeRegistry[subtype]
 	if old {
 		panic(errors.Errorf("trying to register two of the same component subtype:%s", subtype))
 	}
-	if creator.Reconfigurable == nil {
-		panic(errors.Errorf("cannot register a nil Reconfigurable constructor for subtype:%s", subtype))
+	if creator.Reconfigurable == nil && creator.RegisterRPCService == nil && creator.RPCClient == nil {
+		panic(errors.Errorf("cannot register a nil constructor for subtype:%s", subtype))
 	}
-	componentSubtypeRegistry[subtype] = creator
+	subtypeRegistry[subtype] = creator
 }
 
-// ComponentSubtypeLookup looks up a ComponentSubtype by the given subtype. nil is returned if
+// ResourceSubtypeLookup looks up a ResourceSubtype by the given subtype. nil is returned if
 // there is None.
-func ComponentSubtypeLookup(subtype resource.Subtype) *ComponentSubtype {
-	if registration, ok := componentSubtypeRegistry[subtype]; ok {
+func ResourceSubtypeLookup(subtype resource.Subtype) *ResourceSubtype {
+	if registration, ok := subtypeRegistry[subtype]; ok {
 		return &registration
 	}
 	return nil
@@ -561,4 +590,13 @@ func RegisteredComponents() map[string]Component {
 		panic(err)
 	}
 	return copied.(map[string]Component)
+}
+
+// RegisteredResourceSubtypes returns a copy of the registered resource subtypes.
+func RegisteredResourceSubtypes() map[resource.Subtype]ResourceSubtype {
+	copied, err := copystructure.Copy(subtypeRegistry)
+	if err != nil {
+		panic(err)
+	}
+	return copied.(map[resource.Subtype]ResourceSubtype)
 }
