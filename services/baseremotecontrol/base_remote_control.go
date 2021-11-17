@@ -134,7 +134,7 @@ func (svc *remoteService) start(ctx context.Context) error {
 	return nil
 }
 
-// Close out all remote control related systems
+// Close out of all remote control related systems
 func (svc *remoteService) Close() error {
 	for _, control := range svc.controllerInputs() {
 		err := svc.inputController.RegisterControlCallback(context.Background(), control, []input.EventType{input.PositionChangeAbs}, nil)
