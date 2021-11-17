@@ -38,7 +38,7 @@ func init() {
 		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
 			return arm.WrapWithReconfigurable(r)
 		},
-		RegisterService: func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
+		RegisterRPCService: func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&componentpb.ArmService_ServiceDesc,
@@ -46,7 +46,7 @@ func init() {
 				componentpb.RegisterArmServiceHandlerFromEndpoint,
 			)
 		},
-		ResourceClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
+		RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
 			return arm.NewClientFromConn(conn, name, logger)
 		},
 	})
@@ -417,12 +417,12 @@ type (
 	// A CreateReconfigurable makes a reconfigurable resource from a given resource.
 	CreateReconfigurable func(resource interface{}) (resource.Reconfigurable, error)
 
-	// A RegisterSubtypeService will register the subtype service to the server
-	RegisterSubtypeService func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error
+	// A RegisterSubtypeRPCService will register the subtype service to the grpc server
+	RegisterSubtypeRPCService func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error
 
-	// A CreateResourceClient will create the client for the resource.
+	// A CreateRPCClient will create the client for the resource.
 	// TODO: Remove as part of #227
-	CreateResourceClient func(conn dialer.ClientConn, name string, logger golog.Logger) interface{}
+	CreateRPCClient func(conn dialer.ClientConn, name string, logger golog.Logger) interface{}
 )
 
 // Component stores a resource constructor (mandatory) and a Frame building function (optional)
@@ -433,9 +433,9 @@ type Component struct {
 
 // ResourceSubtype stores subtype-specific functions and clients
 type ResourceSubtype struct {
-	Reconfigurable  CreateReconfigurable
-	RegisterService RegisterSubtypeService
-	ResourceClient  CreateResourceClient
+	Reconfigurable     CreateReconfigurable
+	RegisterRPCService RegisterSubtypeRPCService
+	RPCClient          CreateRPCClient
 }
 
 // SubtypeGrpc stores functions necessary for a resource subtype to be accessible through grpc
@@ -478,7 +478,7 @@ func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) 
 	if old {
 		panic(errors.Errorf("trying to register two of the same component subtype:%s", subtype))
 	}
-	if creator.Reconfigurable == nil && creator.RegisterService == nil && creator.ResourceClient == nil {
+	if creator.Reconfigurable == nil && creator.RegisterRPCService == nil && creator.RPCClient == nil {
 		panic(errors.Errorf("cannot register a nil constructor for subtype:%s", subtype))
 	}
 	subtypeRegistry[subtype] = creator

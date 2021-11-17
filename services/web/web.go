@@ -462,7 +462,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	// TODO: only register necessary services (#272)
 	subtypeConstructors := registry.RegisteredResourceSubtypes()
 	for s, rs := range subtypeConstructors {
-		if rs.RegisterService == nil {
+		if rs.RegisterRPCService == nil {
 			continue
 		}
 		subtypeSvc, ok := svc.services[s]
@@ -474,7 +474,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 			subtypeSvc = newSvc
 			svc.services[s] = newSvc
 		}
-		if err := rs.RegisterService(ctx, rpcServer, subtypeSvc); err != nil {
+		if err := rs.RegisterRPCService(ctx, rpcServer, subtypeSvc); err != nil {
 			return err
 		}
 	}
