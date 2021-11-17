@@ -241,7 +241,7 @@ func TestFourWheelBase1(t *testing.T) {
 
 	})
 
-	t.Run("move arc test", func(t *testing.T) {
+	t.Run("MoveArc test with block and zero distance", func(t *testing.T) {
 		distanceMillis, err := base.MoveArc(ctx, 0, 1, 1, true)
 		test.That(t, distanceMillis, test.ShouldEqual, 0)
 		test.That(t, err, test.ShouldBeError, errors.New("cannot block unless you have a distance"))
