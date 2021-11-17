@@ -15,14 +15,15 @@ import (
 	"go.viam.com/core/robot"
 )
 
-// Type is the type of service. maxSpeed and maxAngle are used in conversion from Joystick pos to motion
+// Type is the type of service, set of implmented control modes and maxSpeed and maxAngle parameters
 const (
+	oneJoyStickControl = controlMode(iota)
+	triggerSpeedControl
 	Type     = config.ServiceType("base_remote_control")
 	maxSpeed = 100.0
 	maxAngle = 40.0
 )
 
-// Initialize remote-control service with main server
 func init() {
 	registry.RegisterService(Type, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
@@ -44,13 +45,7 @@ func init() {
 }
 
 // ControlMode is the control type for the remote control
-type ControlMode uint8
-
-// The set of implmented control modes.
-const (
-	OneJoyStickControl = ControlMode(iota)
-	TriggerSpeedControl
-)
+type controlMode uint8
 
 // Config describes how to configure the service.
 type Config struct {
@@ -59,18 +54,29 @@ type Config struct {
 	JoyStickModeName    string `json:"joystick_mode"`
 }
 
+// controllerInputs returns the list of inputs from the controller that are being monitored for that control mode
+func (svc *RemoteService) controllerInputs() []input.Control {
+	switch svc.controlMode {
+	case triggerSpeedControl:
+		return []input.Control{input.AbsoluteX, input.AbsoluteZ, input.AbsoluteRZ}
+	default:
+		return []input.Control{input.AbsoluteX, input.AbsoluteY}
+	}
+}
+
 // A Service controls the navigation for a robot.
 type Service interface {
-	Close() error
+	Close(ctx context.Context) error
 }
 
 // Close out all remote control related systems
-func (svc *RemoteService) Close() error {
-	if svc.cancelFunc != nil {
-		svc.cancelFunc()
-		svc.cancelFunc = nil
+func (svc *RemoteService) Close(ctx context.Context) error {
+	for _, control := range svc.controllerInputs() {
+		err := svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.PositionChangeAbs}, nil)
+		if err != nil {
+			return err
+		}
 	}
-
 	return nil
 }
 
@@ -78,10 +84,9 @@ func (svc *RemoteService) Close() error {
 type RemoteService struct {
 	base            base.Base
 	inputController input.Controller
-	controlMode     ControlMode
+	controlMode     controlMode
 
-	logger     golog.Logger
-	cancelFunc func()
+	logger golog.Logger
 }
 
 // New returns a new remote control service for the given robot.
@@ -96,24 +101,21 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, errors.Errorf("no input controller named %q", svcConfig.InputControllerName)
 	}
 
-	controlMode1 := OneJoyStickControl
+	controlMode1 := oneJoyStickControl
 
 	switch svcConfig.JoyStickModeName {
-	case "TriggerSpeedControl":
-		controlMode1 = TriggerSpeedControl
+	case "triggerSpeedControl":
+		controlMode1 = triggerSpeedControl
 	}
-
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	remoteSvc := &RemoteService{
 		base:            base1,
 		inputController: controller,
 		controlMode:     controlMode1,
 		logger:          logger,
-		cancelFunc:      cancelFunc,
 	}
 
-	err := remoteSvc.start(cancelCtx)
+	err := remoteSvc.start(ctx)
 
 	if err != nil {
 		return nil, errors.Errorf("error with starting remote control service: %q", err)
@@ -135,21 +137,21 @@ func (svc *RemoteService) start(ctx context.Context) error {
 		}
 
 		switch svc.controlMode {
-		case TriggerSpeedControl:
+		case triggerSpeedControl:
 			millisPerSec, degPerSec = svc.triggerSpeedEvent(event, millisPerSec, degPerSec)
 		default:
 			millisPerSec, degPerSec = svc.oneJoyStickEvent(event, millisPerSec, degPerSec)
 		}
 
 		// Set distance to large number as it will be overwritten (Note: could have a dependecy on speed)
-		_, err := svc.base.MoveArc(ctx, 1000, millisPerSec*maxSpeed*-1, degPerSec*maxAngle, true) //300 | 40
+		_, err := svc.base.MoveArc(context.Background(), 1000, millisPerSec*maxSpeed*-1, degPerSec*maxAngle, true)
 
 		if err != nil {
 			svc.logger.Errorw("error with moving base to desired position", "error", err)
 		}
 	}
 
-	for _, control := range []input.Control{input.AbsoluteY, input.AbsoluteX} {
+	for _, control := range svc.controllerInputs() {
 		err := svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.PositionChangeAbs}, remoteCtl)
 		if err != nil {
 			return err
@@ -158,7 +160,7 @@ func (svc *RemoteService) start(ctx context.Context) error {
 	return nil
 }
 
-// TriggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left jostick to
+// triggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left jostick to
 // control the angle
 func (svc *RemoteService) triggerSpeedEvent(event input.Event, speed float64, angle float64) (float64, float64) {
 
@@ -182,7 +184,7 @@ func (svc *RemoteService) triggerSpeedEvent(event input.Event, speed float64, an
 	return svc.speedAndAngleMathMag(speed, angle, oldSpeed, oldAngle)
 }
 
-// OneJoyStickEvent (default) takes inputs from the gamepad allowing the left joystick to control speed and angle
+// oneJoyStickEvent (default) takes inputs from the gamepad allowing the left joystick to control speed and angle
 func (svc *RemoteService) oneJoyStickEvent(event input.Event, speed float64, angle float64) (float64, float64) {
 
 	oldSpeed := speed
