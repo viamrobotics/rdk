@@ -15,7 +15,22 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 )
 
-// MotionPlanner defines a struct able to plan motion
+const(
+	// The maximum percent of a joints range of motion to allow per step
+	frameStep = 0.015
+	// If the dot product between two sets of joint angles is less than this, consider them identical
+	jointSolveDist = 0.0001
+	// Number of planner iterations before giving up
+	planIter = 2000
+	// Number of IK solutions with which to seed the goal side of the bidirectional tree
+	solutionsToSeed = 50
+	// Name of joint swing scorer
+	jointConstraint = "defaultJointSwingConstraint"
+)
+
+// cBiRRTMotionPlanner an object able to solve constrained paths around obstacles to some goal for a given frame.
+// It uses the Constrained Bidirctional Rapidly-expanding Random Tree algorithm, Berenson et al 2009
+// https://ieeexplore.ieee.org/document/5152399/
 type cBiRRTMotionPlanner struct {
 	constraintHandler // joint movement minimization, collision detection, etc can be handled here
 	solDist           float64
@@ -34,9 +49,8 @@ type solution struct {
 	inputs []frame.Input
 }
 
-// NewCBiRRTMotionPlanner creates an object able to solve constrained paths around obstacles to some goal for a given frame.
-// It uses the Constrained Bidirctional Rapidly-expanding Random Tree algorithm, Berenson et al 2009
-func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (MotionPlanner, error) {
+// NewCBiRRTMotionPlanner creates a cBiRRTMotionPlanner object
+func NewCBiRRTMotionPlanner(frame frame.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
 	ik, err := kinematics.CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
 		return nil, err
@@ -47,16 +61,16 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (M
 	}
 	// nlopt should try only once
 	nlopt.SetMaxIter(1)
-	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: 0.0001}
+	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: jointSolveDist}
 
 	// Max individual step of 1.5% of full range of motion
-	mp.qstep = getFrameSteps(frame, 0.015)
-	mp.iter = 2000
+	mp.qstep = getFrameSteps(frame, frameStep)
+	mp.iter = planIter
 	mp.stepSize = 1
 
 	mp.randseed = rand.New(rand.NewSource(42))
 
-	mp.AddConstraint("jointSwingScorer", NewJointScorer())
+	mp.AddConstraint(jointConstraint, NewJointConstraint(math.Inf(1)))
 
 	return mp, nil
 }
@@ -86,7 +100,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed []f
 
 	// How many of the top solutions to try
 	// Solver will terminate after getting this many to save time
-	nSolutions := 50
+	nSolutions := solutionsToSeed
 
 	solutions, err := getSolutions(ctx, nSolutions, -1, mp.solver, goal, seed, mp)
 	if err != nil {

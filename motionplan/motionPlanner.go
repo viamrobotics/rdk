@@ -263,7 +263,7 @@ IK:
 func inputDist(from, to []frame.Input) float64 {
 	dist := 0.
 	for i, f := range from {
-		dist += math.Abs(to[i].Value - f.Value)
+		dist += math.Pow(to[i].Value - f.Value, 2)
 	}
 	return dist
 }

@@ -25,7 +25,7 @@ func TestSimpleMotion(t *testing.T) {
 	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	mp, err := NewCBiRRTMotionPlanner(m, logger, 4)
+	mp, err := NewCBiRRTMotionPlanner(m, 4, logger)
 	test.That(t, err, test.ShouldBeNil)
 	//~ mp.AddConstraint("orientation", NewPoseConstraint())
 
@@ -46,7 +46,7 @@ func TestSimpleMotionUR5(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := NewCBiRRTMotionPlanner(m, logger, 4)
+	mp, err := NewCBiRRTMotionPlanner(m, 4, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	mp.RemoveConstraint("orientation")
@@ -72,6 +72,7 @@ func TestFixOvIncrement(t *testing.T) {
 		Theta: 15,
 		OX:    0,
 		OY:    1,
+		
 		OZ:    0,
 	}
 	pos2 := &pb.Pose{

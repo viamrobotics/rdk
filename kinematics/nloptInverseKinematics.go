@@ -15,6 +15,14 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 )
 
+var (
+	noSolveError     = errors.New("kinematics could not solve for position")
+	badBoundsError   = errors.New("cannot set upper or lower bounds for nlopt, slice is empty")
+	tooManyValsError = errors.New("passed in too many joint positions")
+)
+
+const constrainedTries = 30
+
 // NloptIK TODO
 type NloptIK struct {
 	id            int
@@ -92,7 +100,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error)
 		return dist
 	}
 	if len(ik.lowerBound) == 0 || len(ik.upperBound) == 0 {
-		return nil, errors.New("cannot set upper or lower bounds for nlopt, slice is empty")
+		return nil, badBoundsError
 	}
 
 	err = multierr.Combine(
@@ -149,7 +157,7 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 		// Solver with ID 1 seeds off current angles
 		if ik.id == 1 {
 			if len(seed) > len(ik.model.DoF()) {
-				return errors.New("passed in too many joint positions")
+				return tooManyValsError
 			}
 			startingPos = seed
 
@@ -161,7 +169,7 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 		} else {
 			// Solvers whose ID is not 1 should skip ahead directly to trying random seeds
 			startingPos = ik.GenerateRandomPositions()
-			tries = 30
+			tries = constrainedTries
 		}
 	}
 	ik.addGoal(newGoal, 0)
@@ -197,7 +205,7 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 			solutionsFound++
 		}
 		tries++
-		if ik.id > 0 && tries < 30 {
+		if ik.id > 0 && tries < constrainedTries {
 			err = ik.updateBounds(seed, tries)
 			if err != nil {
 				return err
@@ -216,7 +224,7 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 	if solutionsFound > 0 {
 		return nil
 	}
-	return multierr.Combine(err, errors.New("kinematics could not solve for position"))
+	return multierr.Combine(err, noSolveError)
 }
 
 // SetSeed sets the random seed of this solver
