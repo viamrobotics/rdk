@@ -89,11 +89,7 @@ func (m *Model) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, e
 	}
 	poseMap := make(map[string]spatialmath.Pose)
 	for _, pose := range poses {
-<<<<<<< HEAD
-		poseMap[m.name+":"+pose.name] = pose.pose
-=======
-		poseMap[pose.name] = pose.transform
->>>>>>> cdcfce601ee6f316d3f0662a2cd72268d1a03354
+		poseMap[m.name+":"+pose.name] = pose.transform
 	}
 	return poseMap, err
 }
