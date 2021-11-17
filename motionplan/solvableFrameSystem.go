@@ -98,23 +98,24 @@ func (sf *solverFrame) Name() string {
 // Transform returns the pose between the two frames of this solver for a given set of inputs.
 func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if len(inputs) != len(sf.DoF()) {
-		return nil, errors.New("incorrect number of inputs to Transform")
+		return nil, errors.New("incorrect number of inputs to transform")
 	}
 	return sf.fss.TransformFrame(sf.sliceToMap(inputs), sf.solveFrame, sf.goalFrame)
 }
 
 // VerboseTransform takes a solverFrame and a list of joint angles in radians and computes the dual quaterions
-// representing poses of each of the links up to and including the end effector, and returns a mapping of frame names
-// to poses.  This is useful for when conversions between quaternions and OV are not needed.
+// representing poses of each of the intermediate frames (if any exist) up to and including the end effector, and
+// returns a map of frame names to poses. The key for each frame in the map will be the string
+// "<model_name>:<frame_name>"
 func (sf *solverFrame) VerboseTransform(inputs []frame.Input) (map[string]spatial.Pose, error) {
 	if len(inputs) != len(sf.DoF()) {
-		return nil, errors.New("incorrect number of inputs to Transform")
+		return nil, errors.New("incorrect number of inputs to transform")
 	}
 	var err error
 	inputMap := sf.sliceToMap(inputs)
 	poseMap := make(map[string]spatial.Pose)
 	for _, frame := range sf.frames {
-		pm, err := sf.fss.VerboseTransformFrame(inputMap, sf.solveFrame, frame)
+		pm, err := sf.fss.VerboseTransformFrame(inputMap, frame, sf.goalFrame)
 		if err != nil {
 			return nil, err
 		}
