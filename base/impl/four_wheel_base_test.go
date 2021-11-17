@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-errors/errors"
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
@@ -135,10 +136,8 @@ func TestFourWheelBase1(t *testing.T) {
 		}
 
 	})
-
+	// Spin tests
 	t.Run("spin math", func(t *testing.T) {
-		// i'm only testing pieces that are correct
-
 		leftDirection, _, rotations := base.spinMath(90, 10)
 		test.That(t, leftDirection, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 		test.That(t, rotations, test.ShouldAlmostEqual, .0785, .001)
@@ -185,7 +184,7 @@ func TestFourWheelBase1(t *testing.T) {
 		}
 
 	})
-
+	// Arc tests
 	t.Run("arc math", func(t *testing.T) {
 
 		directions, rpms, rotations := base.arcMath(10, 1000, 1000)
@@ -240,6 +239,12 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, rpms[1], test.ShouldEqual, 60.0)
 		test.That(t, rotations[1], test.ShouldEqual, 1.0)
 
+	})
+
+	t.Run("move arc test", func(t *testing.T) {
+		distanceMillis, err := base.MoveArc(ctx, 0, 1, 1, true)
+		test.That(t, distanceMillis, test.ShouldEqual, 0)
+		test.That(t, err, test.ShouldBeError, errors.New("cannot block unless you have a distance"))
 	})
 
 }
