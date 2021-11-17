@@ -31,11 +31,6 @@ func NewModel() *Model {
 	return &m
 }
 
-type namedPose struct {
-	name string
-	pose spatialmath.Pose
-}
-
 // GenerateRandomJointPositions generates a list of radian joint positions that are random but valid for each joint.
 func (m *Model) GenerateRandomJointPositions(randSeed *rand.Rand) []float64 {
 	limits := m.DoF()
@@ -81,7 +76,7 @@ func (m *Model) Transform(inputs []Input) (spatialmath.Pose, error) {
 	if err != nil && poses == nil {
 		return nil, err
 	}
-	return poses[len(poses)-1].pose, err
+	return poses[len(poses)-1].transform, err
 }
 
 // VerboseTransform takes a model and a list of joint angles in radians and computes the dual quaterions representing
@@ -94,7 +89,11 @@ func (m *Model) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, e
 	}
 	poseMap := make(map[string]spatialmath.Pose)
 	for _, pose := range poses {
+<<<<<<< HEAD
 		poseMap[m.name+":"+pose.name] = pose.pose
+=======
+		poseMap[pose.name] = pose.transform
+>>>>>>> cdcfce601ee6f316d3f0662a2cd72268d1a03354
 	}
 	return poseMap, err
 }
@@ -102,7 +101,7 @@ func (m *Model) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, e
 // jointRadToQuats takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of each of the links up to and including the end effector. This is useful for when conversions
 // between quaternions and OV are not needed.
-func (m *Model) jointRadToQuats(inputs []Input) ([]namedPose, error) {
+func (m *Model) jointRadToQuats(inputs []Input) ([]staticFrame, error) {
 	joints := InputsToFloats(inputs)
 	for i, input := range inputs {
 		joints[i] = input.Value
@@ -113,10 +112,10 @@ func (m *Model) jointRadToQuats(inputs []Input) ([]namedPose, error) {
 	}
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
 	composedTransformation := spatialmath.NewZeroPose()
-	var transformations []namedPose
+	var transformations []staticFrame
 	for _, pose := range poses {
-		composedTransformation = spatialmath.Compose(composedTransformation, pose.pose)
-		pose.pose = composedTransformation
+		composedTransformation = spatialmath.Compose(composedTransformation, pose.transform)
+		pose.transform = composedTransformation
 		transformations = append(transformations, pose)
 	}
 	return transformations, err
@@ -124,8 +123,8 @@ func (m *Model) jointRadToQuats(inputs []Input) ([]namedPose, error) {
 
 // getPoses returns the list of Poses which, when multiplied together in order, will yield the
 // Pose representing the 6d cartesian position of the end effector.
-func (m *Model) getPoses(pos []float64) ([]namedPose, error) {
-	quats := make([]namedPose, len(m.OrdTransforms))
+func (m *Model) getPoses(pos []float64) ([]staticFrame, error) {
+	quats := make([]staticFrame, len(m.OrdTransforms))
 	var errAll error
 	posIdx := 0
 	// OrdTransforms is ordered from end effector -> base, so we reverse the list to get quaternions from the base outwards.
@@ -145,7 +144,7 @@ func (m *Model) getPoses(pos []float64) ([]namedPose, error) {
 			return nil, err
 		}
 		multierr.AppendInto(&errAll, err)
-		quats[len(quats)-i-1] = namedPose{transform.Name(), quat}
+		quats[len(quats)-i-1] = staticFrame{transform.Name(), quat}
 	}
 	return quats, errAll
 }
