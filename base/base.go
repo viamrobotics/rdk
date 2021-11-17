@@ -9,7 +9,6 @@ import (
 type Base interface {
 	// MoveStraight moves the robot straight a given distance at a given speed. The method
 	// can be requested to block until the move is complete.
-	// MoveStraight obsolesence with addition of MoveArc see ISSUE #289 https://github.com/viamrobotics/core/issues/289
 	MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error)
 
 	// MoveArc moves the robot in an arc a given distance at a given speed and degs per second of movement.
@@ -20,7 +19,6 @@ type Base interface {
 
 	// Spin spins the robot by a given angle in degrees at a given speed. The method
 	// can be requested to block until the move is complete.
-	// Spin obsolesence with addition of MoveArc see ISSUE #289 https://github.com/viamrobotics/core/issues/289
 	Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error)
 
 	// Stop stops the base. It is assumed the base stops immediately.

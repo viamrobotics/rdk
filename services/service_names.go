@@ -1,6 +1,7 @@
 package services
 
 const (
+	// Service names should not be exposured in a file like this. See GIT Issue: Service Name Exposure #291
 	// FrameSystemName is the name key associated with the FrameSystemService
 	FrameSystemName = "frame_system"
 	// NavigationServiceName is the name key associated with the NavigationService
