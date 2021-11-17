@@ -159,7 +159,7 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 				return err
 			}
 		} else {
-			//~ // Solvers whose ID is not 1 should skip ahead directly to trying random seeds
+			// Solvers whose ID is not 1 should skip ahead directly to trying random seeds
 			startingPos = ik.GenerateRandomPositions()
 			tries = 30
 		}
@@ -177,7 +177,7 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 	for ik.iterations < ik.maxIterations {
 		select {
 		case <-ctx.Done():
-			return err
+			return ctx.Err()
 		default:
 		}
 		ik.iterations++
@@ -216,8 +216,7 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 	if solutionsFound > 0 {
 		return nil
 	}
-	//~ fmt.Println("no solve")
-	return multierr.Combine(errors.New("kinematics could not solve for position"), err)
+	return multierr.Combine(err, errors.New("kinematics could not solve for position"))
 }
 
 // SetSeed sets the random seed of this solver
