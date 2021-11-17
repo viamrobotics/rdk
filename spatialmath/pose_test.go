@@ -15,7 +15,6 @@ import (
 )
 
 func TestBasicPoseConstruction(t *testing.T) {
-
 	p := NewZeroPose()
 	// Should return an identity dual quat
 	test.That(t, p.Orientation().OrientationVectorRadians(), test.ShouldResemble, &OrientationVector{0, 0, 0, 1})
@@ -101,7 +100,6 @@ func TestPoseInterpolation(t *testing.T) {
 }
 
 func TestLidarPose(t *testing.T) {
-
 	ea := NewEulerAngles()
 	// 45 degrees above horizon
 	ea.Pitch = math.Pi / 4
@@ -120,4 +118,12 @@ func TestLidarPose(t *testing.T) {
 	test.That(t, expectPoint.X, test.ShouldAlmostEqual, seenPoint.X)
 	test.That(t, expectPoint.Y, test.ShouldAlmostEqual, seenPoint.Y)
 	test.That(t, expectPoint.Z, test.ShouldAlmostEqual, seenPoint.Z)
+}
+
+func TestAlmostCoincident(t *testing.T) {
+	p1 := NewPoseFromPoint(r3.Vector{1.0, 2.0, 3.0})
+	p2 := NewPoseFromPoint(r3.Vector{1.0000000001, 1.999999999, 3.0000000001})
+	p3 := NewPoseFromPoint(r3.Vector{1.0000001, 2.999999, 3.0000001})
+	test.That(t, AlmostCoincident(p1, p2), test.ShouldBeTrue)
+	test.That(t, AlmostCoincident(p1, p3), test.ShouldBeFalse)
 }

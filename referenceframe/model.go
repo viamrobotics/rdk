@@ -84,9 +84,9 @@ func (m *Model) Transform(inputs []Input) (spatialmath.Pose, error) {
 	return poses[len(poses)-1].pose, err
 }
 
-// VerboseTransform takes a model and a list of joint angles in radians and computes the dual quaterions representing the
-// pose of each of the frames up to and including the end effector, and returns a mapping of frame names
-// to poses.  This is useful for when conversions between quaternions and OV are not needed.
+// VerboseTransform takes a model and a list of joint angles in radians and computes the dual quaterions representing
+// the pose of each of the intermediate frames (if any exist) up to and including the end effector, and returns a map
+// of frame names to poses. The key for each frame in the map will be the string "<model_name>:<frame_name>"
 func (m *Model) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, error) {
 	poses, err := m.jointRadToQuats(inputs)
 	if err != nil && poses == nil {
@@ -94,7 +94,7 @@ func (m *Model) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, e
 	}
 	poseMap := make(map[string]spatialmath.Pose)
 	for _, pose := range poses {
-		poseMap[pose.name] = pose.pose
+		poseMap[m.name+":"+pose.name] = pose.pose
 	}
 	return poseMap, err
 }

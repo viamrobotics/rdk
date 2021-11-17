@@ -122,3 +122,28 @@ func TestSliceUniq(t *testing.T) {
 	uniqd := uniqInPlaceSlice(slice)
 	test.That(t, len(uniqd), test.ShouldEqual, 3)
 }
+
+func TestSolverFrame(t *testing.T) {
+	// setup solverFrame with start and goal frames
+	solver := makeTestFS(t)
+	solveFrame := solver.GetFrame("UR5e")
+	test.That(t, solveFrame, test.ShouldNotBeNil)
+	sFrames, err := solver.TracebackFrame(solveFrame)
+	test.That(t, err, test.ShouldBeNil)
+	goalFrame := solver.GetFrame("xArm6")
+	test.That(t, goalFrame, test.ShouldNotBeNil)
+	gFrames, err := solver.TracebackFrame(goalFrame)
+	test.That(t, err, test.ShouldBeNil)
+	frames := uniqInPlaceSlice(append(sFrames, gFrames...))
+	sf := &solverFrame{solveFrame.Name() + "_" + goalFrame.Name(), solver, frames, solveFrame, goalFrame}
+
+	// get the VerboseTransform at the zero position
+	inputs := frame.StartPositions(solver)
+	poseMap, err := sf.VerboseTransform(sf.mapToSlice(inputs))
+	test.That(t, err, test.ShouldBeNil)
+
+	// test that the VerboseTransform outputs the same output as the basic Transform
+	poseExpect, err := sf.Transform(sf.mapToSlice(inputs))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.AlmostCoincident(poseMap["UR5e:ee_link"], poseExpect), test.ShouldBeTrue)
+}
