@@ -56,8 +56,9 @@ func (ik *CombinedIK) Solve(ctx context.Context, c chan []frame.Input, newGoal s
 	ik.logger.Debugf("goal 6d position: %v", spatialmath.PoseToProtobuf(newGoal))
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-	errChan := make(chan error)
+	errChan := make(chan error, len(ik.solvers))
 	var activeSolvers sync.WaitGroup
 	activeSolvers.Add(len(ik.solvers))
 
@@ -76,11 +77,15 @@ func (ik *CombinedIK) Solve(ctx context.Context, c chan []frame.Input, newGoal s
 	var collectedErrs error
 
 	// Wait until either 1) we have a success or 2) all solvers have returned false
+	// Multiple selects are necessary in the case where we get a ctx.Done() while there is also an error waiting
 	for !done {
-		//~ fmt.Println(returned)
 		select {
 		case <-ctx.Done():
-			done = true
+			return ctx.Err()
+		default:
+		}
+		
+		select {
 		case err = <-errChan:
 			returned++
 			if err != nil {
@@ -95,6 +100,12 @@ func (ik *CombinedIK) Solve(ctx context.Context, c chan []frame.Input, newGoal s
 	cancel()
 	for returned < len(ik.solvers) {
 		// Collect return errors from all solvers
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		
 		err = <-errChan
 		returned++
 		if err != nil {
@@ -102,7 +113,6 @@ func (ik *CombinedIK) Solve(ctx context.Context, c chan []frame.Input, newGoal s
 		}
 	}
 	activeSolvers.Wait()
-	close(errChan)
 	return collectedErrs
 }
 
