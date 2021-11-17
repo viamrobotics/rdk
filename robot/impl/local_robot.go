@@ -79,6 +79,7 @@ import (
 	_ "go.viam.com/core/vision" // this is for interesting camera types, depth, etc...
 
 	// These are the services we want by default
+	_ "go.viam.com/core/services/baseremotecontrol"
 	_ "go.viam.com/core/services/navigation"
 )
 
