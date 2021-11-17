@@ -200,6 +200,7 @@ func solveTest(ctx context.Context, solver InverseKinematics, goal *pb.Pose, see
 	solutionGen := make(chan []frame.Input)
 	ikErr := make(chan error)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	// Spawn the IK solver to generate solutions until done
 	go func() {
@@ -214,8 +215,11 @@ IK:
 	for {
 		select {
 		case <-ctx.Done():
-			cancel()
-			return nil, errors.New("context Done signal")
+			return nil, ctx.Err()
+		default:
+		}
+		
+		select {
 		case step := <-solutionGen:
 			solutions = append(solutions, step)
 			// Skip the return check below until we have nothing left to read from solutionGen
