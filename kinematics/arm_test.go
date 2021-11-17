@@ -218,7 +218,7 @@ IK:
 			return nil, ctx.Err()
 		default:
 		}
-		
+
 		select {
 		case step := <-solutionGen:
 			solutions = append(solutions, step)

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 

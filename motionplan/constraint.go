@@ -191,15 +191,16 @@ func NewPoseConstraint() func(*ConstraintInput) (bool, float64) {
 	}
 }
 
-// NewJointScorer returns a function which will sum the differences in each input from start to end
-func NewJointScorer() Constraint {
+// NewJointConstraint returns a function which will sum the squared differences in each input from start to end
+// It will return false if that sum is over a specified threshold
+func NewJointConstraint(threshold float64) Constraint {
 	c := &flexibleConstraint{}
 	f := func(cInput *ConstraintInput) (bool, float64) {
 		jScore := 0.
 		for i, f := range cInput.startInput {
 			jScore += math.Abs(f.Value - cInput.endInput[i].Value)
 		}
-		return true, jScore
+		return jScore < threshold, jScore
 	}
 	c.setFunc(f)
 	return c

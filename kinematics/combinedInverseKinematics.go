@@ -84,7 +84,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, c chan []frame.Input, newGoal s
 			return ctx.Err()
 		default:
 		}
-		
+
 		select {
 		case err = <-errChan:
 			returned++
@@ -105,7 +105,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, c chan []frame.Input, newGoal s
 			return ctx.Err()
 		default:
 		}
-		
+
 		err = <-errChan
 		returned++
 		if err != nil {
