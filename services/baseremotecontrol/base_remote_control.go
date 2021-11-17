@@ -54,16 +54,6 @@ type Config struct {
 	JoyStickModeName    string `json:"joystick_mode"`
 }
 
-// controllerInputs returns the list of inputs from the controller that are being monitored for that control mode
-func (svc *remoteService) controllerInputs() []input.Control {
-	switch svc.controlMode {
-	case triggerSpeedControl:
-		return []input.Control{input.AbsoluteX, input.AbsoluteZ, input.AbsoluteRZ}
-	default:
-		return []input.Control{input.AbsoluteX, input.AbsoluteY}
-	}
-}
-
 // RemoteService is the structure of the remote service
 type remoteService struct {
 	base            base.Base
@@ -153,6 +143,16 @@ func (svc *remoteService) Close() error {
 		}
 	}
 	return nil
+}
+
+// controllerInputs returns the list of inputs from the controller that are being monitored for that control mode
+func (svc *remoteService) controllerInputs() []input.Control {
+	switch svc.controlMode {
+	case triggerSpeedControl:
+		return []input.Control{input.AbsoluteX, input.AbsoluteZ, input.AbsoluteRZ}
+	default:
+		return []input.Control{input.AbsoluteX, input.AbsoluteY}
+	}
 }
 
 // triggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left jostick to
