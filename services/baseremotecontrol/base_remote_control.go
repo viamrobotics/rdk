@@ -31,6 +31,7 @@ func init() {
 		},
 	},
 	)
+
 	config.RegisterServiceAttributeMapConverter(Type, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
