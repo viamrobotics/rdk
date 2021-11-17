@@ -3,7 +3,7 @@ package referenceframe
 import (
 	"context"
 
-	pb "go.viam.com/core/proto/api/v1"
+	pb "go.viam.com/core/proto/api/component/v1"
 
 	"go.viam.com/core/utils"
 )
@@ -34,19 +34,19 @@ func InputsToFloats(inputs []Input) []float64 {
 }
 
 // InputsToJointPos will take a slice of Inputs which are all joint position radians, and return a JointPositions struct.
-func InputsToJointPos(inputs []Input) *pb.JointPositions {
+func InputsToJointPos(inputs []Input) *pb.ArmJointPositions {
 	return JointPositionsFromRadians(InputsToFloats(inputs))
 }
 
 // JointPosToInputs will take a pb.JointPositions which has values in Degrees, convert to Radians and wrap in Inputs
-func JointPosToInputs(jp *pb.JointPositions) []Input {
+func JointPosToInputs(jp *pb.ArmJointPositions) []Input {
 	floats := JointPositionsToRadians(jp)
 	return FloatsToInputs(floats)
 }
 
 // JointPositionsToRadians converts the given positions into a slice
 // of radians.
-func JointPositionsToRadians(jp *pb.JointPositions) []float64 {
+func JointPositionsToRadians(jp *pb.ArmJointPositions) []float64 {
 	n := make([]float64, len(jp.Degrees))
 	for idx, d := range jp.Degrees {
 		n[idx] = utils.DegToRad(d)
@@ -56,12 +56,12 @@ func JointPositionsToRadians(jp *pb.JointPositions) []float64 {
 
 // JointPositionsFromRadians converts the given slice of radians into
 // joint positions (represented in degrees).
-func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
+func JointPositionsFromRadians(radians []float64) *pb.ArmJointPositions {
 	n := make([]float64, len(radians))
 	for idx, a := range radians {
 		n[idx] = utils.RadToDeg(a)
 	}
-	return &pb.JointPositions{Degrees: n}
+	return &pb.ArmJointPositions{Degrees: n}
 }
 
 // InputEnabled is a standard interface for all things that interact with the frame system

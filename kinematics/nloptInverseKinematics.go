@@ -11,7 +11,7 @@ import (
 	"github.com/go-nlopt/nlopt"
 	"go.uber.org/multierr"
 
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
 )
@@ -135,7 +135,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 }
 
 // addGoal adds a nlopt IK goal
-func (ik *NloptIK) addGoal(newGoal *pb.Pose, effectorID int) {
+func (ik *NloptIK) addGoal(newGoal *commonpb.Pose, effectorID int) {
 
 	goalQuat := spatial.NewPoseFromProtobuf(newGoal)
 	ik.goals = append(ik.goals, goal{goalQuat, effectorID})
@@ -157,7 +157,7 @@ func (ik *NloptIK) SetSolveWeights(weights frame.SolverDistanceWeights) {
 }
 
 // Solve runs the actual solver and returns a list of all
-func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.Pose, seed []frame.Input) ([]frame.Input, error) {
+func (ik *NloptIK) Solve(ctx context.Context, newGoal *commonpb.Pose, seed []frame.Input) ([]frame.Input, error) {
 	var err error
 
 	// Allow ~160 degrees of swing at most

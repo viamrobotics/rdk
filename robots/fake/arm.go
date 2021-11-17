@@ -8,7 +8,8 @@ import (
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	pb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -39,8 +40,8 @@ func NewArm(cfg config.Component) (arm.Arm, error) {
 	}
 	return &Arm{
 		Name:     name,
-		position: &pb.Pose{},
-		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		position: &commonpb.Pose{},
+		joints:   &pb.ArmJointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
 		model:    model,
 	}, nil
 }
@@ -48,8 +49,8 @@ func NewArm(cfg config.Component) (arm.Arm, error) {
 // Arm is a fake arm that can simply read and set properties.
 type Arm struct {
 	Name       string
-	position   *pb.Pose
-	joints     *pb.JointPositions
+	position   *commonpb.Pose
+	joints     *pb.ArmJointPositions
 	CloseCount int
 	model      *referenceframe.Model
 }
@@ -60,24 +61,24 @@ func (a *Arm) ModelFrame() *referenceframe.Model {
 }
 
 // CurrentPosition returns the set position.
-func (a *Arm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
+func (a *Arm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	return a.position, nil
 }
 
 // MoveToPosition sets the position.
-func (a *Arm) MoveToPosition(ctx context.Context, c *pb.Pose) error {
+func (a *Arm) MoveToPosition(ctx context.Context, c *commonpb.Pose) error {
 	a.position = c
 	return nil
 }
 
 // MoveToJointPositions sets the joints.
-func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
+func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.ArmJointPositions) error {
 	a.joints = joints
 	return nil
 }
 
 // CurrentJointPositions returns the set joints.
-func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	return a.joints, nil
 }
 

@@ -4,7 +4,8 @@ import (
 	"context"
 	"testing"
 
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	pb "go.viam.com/core/proto/api/component/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/utils"
 
@@ -19,15 +20,15 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	ik, err := CreateNloptIKSolver(m, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 
-	pos := &pb.Pose{X: 360, Z: 362}
+	pos := &commonpb.Pose{X: 360, Z: 362}
 	seed := frame.FloatsToInputs([]float64{1, 1, 1, 1, 1, 0})
 
 	_, err = ik.Solve(context.Background(), pos, seed)
 	test.That(t, err, test.ShouldBeNil)
 
-	pos = &pb.Pose{X: -46, Y: -23, Z: 372, Theta: utils.RadToDeg(3.92), OX: -0.46, OY: 0.84, OZ: 0.28}
+	pos = &commonpb.Pose{X: -46, Y: -23, Z: 372, Theta: utils.RadToDeg(3.92), OX: -0.46, OY: 0.84, OZ: 0.28}
 
-	seed = frame.JointPosToInputs(&pb.JointPositions{Degrees: []float64{49, 28, -101, 0, -73, 0}})
+	seed = frame.JointPosToInputs(&pb.ArmJointPositions{Degrees: []float64{49, 28, -101, 0, -73, 0}})
 
 	_, err = ik.Solve(context.Background(), pos, seed)
 	test.That(t, err, test.ShouldBeNil)

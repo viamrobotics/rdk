@@ -5,7 +5,8 @@ import (
 	"math"
 	"testing"
 
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	pb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"
 
@@ -85,17 +86,17 @@ func TestArmPosition(t *testing.T) {
 }
 
 func TestArmPositionDiff(t *testing.T) {
-	test.That(t, PositionGridDiff(&pb.Pose{}, &pb.Pose{}), test.ShouldAlmostEqual, 0)
-	test.That(t, PositionGridDiff(&pb.Pose{X: 1}, &pb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, PositionGridDiff(&pb.Pose{Y: 1}, &pb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, PositionGridDiff(&pb.Pose{Z: 1}, &pb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, PositionGridDiff(&pb.Pose{X: 1, Y: 1, Z: 1}, &pb.Pose{}), test.ShouldAlmostEqual, math.Sqrt(3))
+	test.That(t, PositionGridDiff(&commonpb.Pose{}, &commonpb.Pose{}), test.ShouldAlmostEqual, 0)
+	test.That(t, PositionGridDiff(&commonpb.Pose{X: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
+	test.That(t, PositionGridDiff(&commonpb.Pose{Y: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
+	test.That(t, PositionGridDiff(&commonpb.Pose{Z: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
+	test.That(t, PositionGridDiff(&commonpb.Pose{X: 1, Y: 1, Z: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, math.Sqrt(3))
 
-	test.That(t, PositionRotationDiff(&pb.Pose{}, &pb.Pose{}), test.ShouldAlmostEqual, 0)
-	test.That(t, PositionRotationDiff(&pb.Pose{OX: 1}, &pb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, PositionRotationDiff(&pb.Pose{OY: 1}, &pb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, PositionRotationDiff(&pb.Pose{OZ: 1}, &pb.Pose{}), test.ShouldAlmostEqual, 1)
-	test.That(t, PositionRotationDiff(&pb.Pose{OX: 1, OY: 1, OZ: 1}, &pb.Pose{}), test.ShouldAlmostEqual, 3)
+	test.That(t, PositionRotationDiff(&commonpb.Pose{}, &commonpb.Pose{}), test.ShouldAlmostEqual, 0)
+	test.That(t, PositionRotationDiff(&commonpb.Pose{OX: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
+	test.That(t, PositionRotationDiff(&commonpb.Pose{OY: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
+	test.That(t, PositionRotationDiff(&commonpb.Pose{OZ: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 1)
+	test.That(t, PositionRotationDiff(&commonpb.Pose{OX: 1, OY: 1, OZ: 1}, &commonpb.Pose{}), test.ShouldAlmostEqual, 3)
 }
 
 type mockArm struct {
@@ -103,13 +104,15 @@ type mockArm struct {
 	reconCount int
 }
 
-func (m *mockArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) { return nil, nil }
+func (m *mockArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) { return nil, nil }
 
-func (m *mockArm) MoveToPosition(ctx context.Context, c *pb.Pose) error { return nil }
+func (m *mockArm) MoveToPosition(ctx context.Context, c *commonpb.Pose) error { return nil }
 
-func (m *mockArm) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error { return nil }
+func (m *mockArm) MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPositions) error {
+	return nil
+}
 
-func (m *mockArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (m *mockArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	return nil, nil
 }
 

@@ -51,13 +51,30 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 
 			armStatus := &pb.ArmStatus{}
 
-			armStatus.GridPosition, err = arm.CurrentPosition(ctx)
+			gridPosition, err := arm.CurrentPosition(ctx)
 			if err != nil {
 				return nil, err
 			}
-			armStatus.JointPositions, err = arm.CurrentJointPositions(ctx)
+			if gridPosition != nil {
+				armStatus.GridPosition = &pb.Pose{
+					X:     gridPosition.X,
+					Y:     gridPosition.Y,
+					Z:     gridPosition.Z,
+					OX:    gridPosition.OX,
+					OY:    gridPosition.OY,
+					OZ:    gridPosition.OZ,
+					Theta: gridPosition.Theta,
+				}
+			}
+
+			jointPositions, err := arm.CurrentJointPositions(ctx)
 			if err != nil {
 				return nil, err
+			}
+			if jointPositions != nil {
+				armStatus.JointPositions = &pb.JointPositions{
+					Degrees: jointPositions.Degrees,
+				}
 			}
 
 			status.Arms[name.Name] = armStatus

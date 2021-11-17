@@ -10,7 +10,8 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/kinematics"
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	pb "go.viam.com/core/proto/api/component/v1"
 	frame "go.viam.com/core/referenceframe"
 
 	"go.uber.org/multierr"
@@ -337,7 +338,7 @@ func (x *xArm) Close() error {
 }
 
 // MoveToJointPositions moves the arm to the requested joint positions.
-func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
+func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJointPositions) error {
 	radians := frame.JointPositionsToRadians(newPositions)
 	c := x.newCmd(regMap["MoveJoints"])
 	jFloatBytes := make([]byte, 4)
@@ -371,7 +372,7 @@ func (x *xArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (x *xArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
+func (x *xArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := x.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -380,7 +381,7 @@ func (x *xArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (x *xArm) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
+func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	joints, err := x.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -393,12 +394,12 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 }
 
 // CurrentJointPositions returns the current positions of all joints.
-func (x *xArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (x *xArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	c := x.newCmd(regMap["JointPos"])
 
 	jData, err := x.send(ctx, c, true)
 	if err != nil {
-		return &pb.JointPositions{}, err
+		return &pb.ArmJointPositions{}, err
 	}
 	var radians []float64
 	for i := 0; i < x.dof; i++ {
