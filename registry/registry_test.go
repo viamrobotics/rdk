@@ -152,27 +152,27 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	newSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, arm.SubtypeName)
 	test.That(t, func() { RegisterResourceSubtype(newSubtype, ResourceSubtype{}) }, test.ShouldPanic)
 
-	RegisterResourceSubtype(newSubtype, ResourceSubtype{Reconfigurable: rf, RegisterService: sf})
+	RegisterResourceSubtype(newSubtype, ResourceSubtype{Reconfigurable: rf, RegisterRPCService: sf})
 	creator := ResourceSubtypeLookup(newSubtype)
 	test.That(t, creator, test.ShouldNotBeNil)
 	test.That(t, creator.Reconfigurable, test.ShouldEqual, rf)
-	test.That(t, creator.RegisterService, test.ShouldEqual, sf)
-	test.That(t, creator.ResourceClient, test.ShouldBeNil)
+	test.That(t, creator.RegisterRPCService, test.ShouldEqual, sf)
+	test.That(t, creator.RPCClient, test.ShouldBeNil)
 
 	subtype2 := resource.NewSubtype(resource.Namespace("acme2"), resource.ResourceTypeComponent, arm.SubtypeName)
 	test.That(t, ResourceSubtypeLookup(subtype2), test.ShouldBeNil)
 
-	RegisterResourceSubtype(subtype2, ResourceSubtype{RegisterService: sf, ResourceClient: rcf})
+	RegisterResourceSubtype(subtype2, ResourceSubtype{RegisterRPCService: sf, RPCClient: rcf})
 	creator = ResourceSubtypeLookup(subtype2)
 	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, creator.RegisterService, test.ShouldEqual, sf)
-	test.That(t, creator.ResourceClient, test.ShouldEqual, rcf)
+	test.That(t, creator.RegisterRPCService, test.ShouldEqual, sf)
+	test.That(t, creator.RPCClient, test.ShouldEqual, rcf)
 
 	subtype3 := resource.NewSubtype(resource.Namespace("acme3"), resource.ResourceTypeComponent, arm.SubtypeName)
 	test.That(t, ResourceSubtypeLookup(subtype3), test.ShouldBeNil)
 
-	RegisterResourceSubtype(subtype3, ResourceSubtype{ResourceClient: rcf})
+	RegisterResourceSubtype(subtype3, ResourceSubtype{RPCClient: rcf})
 	creator = ResourceSubtypeLookup(subtype3)
 	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, creator.ResourceClient, test.ShouldEqual, rcf)
+	test.That(t, creator.RPCClient, test.ShouldEqual, rcf)
 }
