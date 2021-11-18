@@ -144,7 +144,7 @@ func (ik *NloptIK) SetMaxIter(i int) {
 }
 
 // Solve runs the actual solver and returns a list of all
-func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spatial.Pose, seed []frame.Input) error {
+func (ik *NloptIK) Solve(ctx context.Context, c chan<- []frame.Input, newGoal spatial.Pose, seed []frame.Input) error {
 	var err error
 
 	// Allow ~160 degrees of swing at most
