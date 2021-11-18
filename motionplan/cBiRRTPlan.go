@@ -46,7 +46,7 @@ type cBiRRTMotionPlanner struct {
 
 // needed to wrap slices so we can use them as map keys
 type solution struct {
-	inputs []frame.Input
+	inputs frame.Waypoint
 }
 
 // NewCBiRRTMotionPlanner creates a cBiRRTMotionPlanner object
@@ -95,8 +95,8 @@ func (mp *cBiRRTMotionPlanner) SetFrame(f frame.Frame) {
 	mp.frame = f
 }
 
-func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed []frame.Input) ([][]frame.Input, error) {
-	var inputSteps [][]frame.Input
+func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed frame.Waypoint) ([]frame.Waypoint, error) {
+	var inputSteps []frame.Waypoint
 
 	// How many of the top solutions to try
 	// Solver will terminate after getting this many to save time
@@ -214,7 +214,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(rrtMap map[*solution]*solution,
 
 		oldNear = near
 
-		newNear := make([]frame.Input, 0, len(near.inputs))
+		newNear := make(frame.Waypoint, 0, len(near.inputs))
 
 		// alter near to be closer to target
 		for j, nearInput := range near.inputs {
@@ -243,7 +243,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(rrtMap map[*solution]*solution,
 
 // constrainNear will do a IK gradient descent from seedInputs to target. If a gradient descent distance function has
 // been specified, this will use that.
-func (mp *cBiRRTMotionPlanner) constrainNear(seedInputs, target []frame.Input) []frame.Input {
+func (mp *cBiRRTMotionPlanner) constrainNear(seedInputs, target frame.Waypoint) frame.Waypoint {
 	seedPos, err := mp.frame.Transform(seedInputs)
 	if err != nil {
 		return nil
@@ -263,13 +263,13 @@ func (mp *cBiRRTMotionPlanner) constrainNear(seedInputs, target []frame.Input) [
 		return target
 	}
 
-	solutionGen := make(chan []frame.Input, 1)
+	solutionGen := make(chan frame.Waypoint, 1)
 	// This should run very fast and does not need to be cancelled. A cancellation will be caught above in Plan()
 	ctx := context.Background()
 	// Spawn the IK solver to generate solutions until done
 	err = mp.fastGradDescent.Solve(ctx, solutionGen, goalPos, target)
 	// We should have zero or one solutions
-	var solved []frame.Input
+	var solved frame.Waypoint
 	select {
 	case solved = <-solutionGen:
 	default:
@@ -290,7 +290,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(seedInputs, target []frame.Input) [
 	return solved
 }
 
-func (mp *cBiRRTMotionPlanner) SmoothPath(ctx context.Context, inputSteps [][]frame.Input) [][]frame.Input {
+func (mp *cBiRRTMotionPlanner) SmoothPath(ctx context.Context, inputSteps []frame.Waypoint) []frame.Waypoint {
 
 	iter := int(math.Max(float64(mp.iter-len(inputSteps)*len(inputSteps)), float64(mp.iter-200)))
 
@@ -317,7 +317,7 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(ctx context.Context, inputSteps [][]fr
 		// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
 		// so we allow elongation here.
 		if inputDist(inputSteps[i], reached.inputs) < mp.solDist {
-			newInputSteps := append([][]frame.Input{}, inputSteps[:i]...)
+			newInputSteps := append([]frame.Waypoint{}, inputSteps[:i]...)
 			for reached != nil {
 				newInputSteps = append(newInputSteps, reached.inputs)
 				reached = shortcutGoal[reached]
@@ -363,7 +363,7 @@ func nearestNeighbor(seed *solution, rrtMap map[*solution]*solution) *solution {
 }
 
 // BetterPath returns whether the new path has less joint swing than the old one
-func BetterPath(new, old [][]frame.Input) bool {
+func BetterPath(new, old []frame.Waypoint) bool {
 	newDist := 0.
 	oldDist := 0.
 	for i, sol := range new {

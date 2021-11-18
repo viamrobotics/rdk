@@ -7,12 +7,13 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"go.viam.com/utils"
 
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
-	"go.viam.com/core/utils"
+	vutil "go.viam.com/core/utils"
 )
 
 // MotionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
@@ -20,7 +21,7 @@ import (
 type MotionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
-	Plan(context.Context, *pb.Pose, []frame.Input) ([][]frame.Input, error)
+	Plan(context.Context, solvE *pb.Pose, frame.Waypoint) ([]frame.Waypoint, error)
 	AddConstraint(string, Constraint)
 	RemoveConstraint(string)
 	Constraints() []string
@@ -68,8 +69,8 @@ func (mp *linearMotionPlanner) SetGradient(f func(spatial.Pose, spatial.Pose) fl
 	mp.solver.SetGradient(f)
 }
 
-func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed []frame.Input) ([][]frame.Input, error) {
-	var inputSteps [][]frame.Input
+func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed frame.Waypoint) ([]frame.Waypoint, error) {
+	var inputSteps []frame.Waypoint
 
 	seedPos, err := mp.frame.Transform(seed)
 	if err != nil {
@@ -94,7 +95,7 @@ STEP:
 
 		intPos := spatial.Interpolate(seedPos, goalPos, float64(i)/float64(nSteps))
 
-		var step []frame.Input
+		var step frame.Waypoint
 
 		solutions, err := getSolutions(ctx, -1, mp.idealMovementScore, mp.solver, spatial.PoseToProtobuf(intPos), seed, mp)
 		if err != nil {
@@ -110,7 +111,7 @@ STEP:
 
 		seed = step
 		// Append deep copy of result to inputSteps
-		inputSteps = append(inputSteps, append([]frame.Input{}, step...))
+		inputSteps = append(inputSteps, append(frame.Waypoint{}, step...))
 	}
 
 	return inputSteps, nil
@@ -129,7 +130,7 @@ func getSteps(seedPos, goalPos spatial.Pose, stepSize float64) int {
 	mmDist := seedPos.Point().Distance(goalPos.Point())
 	rDist := spatial.OrientationBetween(seedPos.Orientation(), goalPos.Orientation()).AxisAngles()
 
-	nSteps := math.Max(math.Abs(mmDist/stepSize), math.Abs(utils.RadToDeg(rDist.Theta)/stepSize))
+	nSteps := math.Max(math.Abs(mmDist/stepSize), math.Abs(vutil.RadToDeg(rDist.Theta)/stepSize))
 	return int(nSteps) + 1
 }
 
@@ -191,7 +192,7 @@ func fixOvIncrement(pos, seed *pb.Pose) *pb.Pose {
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
-func getSolutions(ctx context.Context, maxSolutions int, minScore float64, solver kinematics.InverseKinematics, goal *pb.Pose, seed []frame.Input, mp MotionPlanner) (map[float64][]frame.Input, error) {
+func getSolutions(ctx context.Context, maxSolutions int, minScore float64, solver kinematics.InverseKinematics, goal *pb.Pose, seed frame.Waypoint, mp MotionPlanner) (map[float64]frame.Waypoint, error) {
 
 	seedPos, err := mp.Frame().Transform(seed)
 	if err != nil {
@@ -199,18 +200,18 @@ func getSolutions(ctx context.Context, maxSolutions int, minScore float64, solve
 	}
 	goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
 
-	solutionGen := make(chan []frame.Input)
+	solutionGen := make(chan frame.Waypoint)
 	ikErr := make(chan error)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	// Spawn the IK solver to generate solutions until done
-	go func() {
+	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
 		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goalPos, seed)
-	}()
+	})
 
-	solutions := map[float64][]frame.Input{}
+	solutions := map[float64]frame.Waypoint{}
 
 	// Solve the IK solver. Loop labels are required because `break` etc in a `select` will break only the `select`.
 IK:
@@ -232,7 +233,7 @@ IK:
 
 			if cPass {
 				if cScore < minScore && minScore >= 0 {
-					solutions = map[float64][]frame.Input{}
+					solutions = map[float64]frame.Waypoint{}
 					solutions[cScore] = step
 					// good solution, stopping early
 					break IK
@@ -264,7 +265,7 @@ IK:
 	return solutions, nil
 }
 
-func inputDist(from, to []frame.Input) float64 {
+func inputDist(from, to frame.Waypoint) float64 {
 	dist := 0.
 	for i, f := range from {
 		dist += math.Pow(to[i].Value - f.Value, 2)
