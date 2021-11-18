@@ -7,7 +7,7 @@ ifneq ("$(wildcard /etc/rpi-issue)","")
    TAGS = -tags="pi custom_wasmer_runtime"
 endif
 
-SERVER_DEB_VER = 0.3
+SERVER_DEB_VER = 0.4
 
 binsetup:
 	mkdir -p ${BIN_OUTPUT_PATH}
