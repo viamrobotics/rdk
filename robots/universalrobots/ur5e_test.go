@@ -15,7 +15,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/core/kinematics"
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
@@ -49,7 +49,7 @@ func TestUR5eForwardKinementsSVAvsDH(t *testing.T) {
 	}
 }
 
-func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *pb.Pose) {
+func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *commonpb.Pose) {
 	m, err := frame.ParseJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -71,7 +71,7 @@ func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *pb.
 
 }
 
-func testUR5eInverseKinements(t *testing.T, pos *pb.Pose) {
+func testUR5eInverseKinements(t *testing.T, pos *commonpb.Pose) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -100,49 +100,49 @@ func TestKin1(t *testing.T) {
 	// Section 1 - first we test each joint independently
 
 	//    Home
-	testUR5eForwardKinements(t, []float64{0, 0, 0, 0, 0, 0}, &pb.Pose{X: -817.2, Y: -232.90, Z: 62.80})
+	testUR5eForwardKinements(t, []float64{0, 0, 0, 0, 0, 0}, &commonpb.Pose{X: -817.2, Y: -232.90, Z: 62.80})
 
 	//    Joint 0
-	testUR5eForwardKinements(t, []float64{math.Pi / 2, 0, 0, 0, 0, 0}, &pb.Pose{X: 232.90, Y: -817.2, Z: 62.80})
-	testUR5eForwardKinements(t, []float64{math.Pi, 0, 0, 0, 0, 0}, &pb.Pose{X: 817.2, Y: 232.90, Z: 62.80})
+	testUR5eForwardKinements(t, []float64{math.Pi / 2, 0, 0, 0, 0, 0}, &commonpb.Pose{X: 232.90, Y: -817.2, Z: 62.80})
+	testUR5eForwardKinements(t, []float64{math.Pi, 0, 0, 0, 0, 0}, &commonpb.Pose{X: 817.2, Y: 232.90, Z: 62.80})
 
 	//    Joint 1
-	testUR5eForwardKinements(t, []float64{0, math.Pi / -2, 0, 0, 0, 0}, &pb.Pose{X: -99.7, Y: -232.90, Z: 979.70})
-	testUR5eForwardKinements(t, []float64{0, math.Pi / 2, 0, 0, 0, 0}, &pb.Pose{X: 99.7, Y: -232.90, Z: -654.70})
-	testUR5eForwardKinements(t, []float64{0, math.Pi, 0, 0, 0, 0}, &pb.Pose{X: 817.2, Y: -232.90, Z: 262.2})
+	testUR5eForwardKinements(t, []float64{0, math.Pi / -2, 0, 0, 0, 0}, &commonpb.Pose{X: -99.7, Y: -232.90, Z: 979.70})
+	testUR5eForwardKinements(t, []float64{0, math.Pi / 2, 0, 0, 0, 0}, &commonpb.Pose{X: 99.7, Y: -232.90, Z: -654.70})
+	testUR5eForwardKinements(t, []float64{0, math.Pi, 0, 0, 0, 0}, &commonpb.Pose{X: 817.2, Y: -232.90, Z: 262.2})
 
 	//    Joint 2
-	testUR5eForwardKinements(t, []float64{0, 0, math.Pi / 2, 0, 0, 0}, &pb.Pose{X: -325.3, Y: -232.90, Z: -229.7})
-	testUR5eForwardKinements(t, []float64{0, 0, math.Pi, 0, 0, 0}, &pb.Pose{X: -32.8, Y: -232.90, Z: 262.2})
+	testUR5eForwardKinements(t, []float64{0, 0, math.Pi / 2, 0, 0, 0}, &commonpb.Pose{X: -325.3, Y: -232.90, Z: -229.7})
+	testUR5eForwardKinements(t, []float64{0, 0, math.Pi, 0, 0, 0}, &commonpb.Pose{X: -32.8, Y: -232.90, Z: 262.2})
 
 	//    Joint 3
-	testUR5eForwardKinements(t, []float64{0, 0, 0, math.Pi / 2, 0, 0}, &pb.Pose{X: -717.5, Y: -232.90, Z: 162.5})
-	testUR5eForwardKinements(t, []float64{0, 0, 0, math.Pi, 0, 0}, &pb.Pose{X: -817.2, Y: -232.90, Z: 262.2})
+	testUR5eForwardKinements(t, []float64{0, 0, 0, math.Pi / 2, 0, 0}, &commonpb.Pose{X: -717.5, Y: -232.90, Z: 162.5})
+	testUR5eForwardKinements(t, []float64{0, 0, 0, math.Pi, 0, 0}, &commonpb.Pose{X: -817.2, Y: -232.90, Z: 262.2})
 
 	//    Joint 4
-	testUR5eForwardKinements(t, []float64{0, 0, 0, 0, math.Pi / 2, 0}, &pb.Pose{X: -916.80, Y: -133.3, Z: 62.8})
-	testUR5eForwardKinements(t, []float64{0, 0, 0, 0, math.Pi, 0}, &pb.Pose{X: -817.2, Y: -33.7, Z: 62.8})
+	testUR5eForwardKinements(t, []float64{0, 0, 0, 0, math.Pi / 2, 0}, &commonpb.Pose{X: -916.80, Y: -133.3, Z: 62.8})
+	testUR5eForwardKinements(t, []float64{0, 0, 0, 0, math.Pi, 0}, &commonpb.Pose{X: -817.2, Y: -33.7, Z: 62.8})
 
 	//    Joint 5
-	testUR5eForwardKinements(t, []float64{0, 0, 0, 0, 0, math.Pi / 2}, &pb.Pose{X: -817.2, Y: -232.90, Z: 62.80})
-	testUR5eForwardKinements(t, []float64{0, 0, 0, 0, 0, math.Pi}, &pb.Pose{X: -817.2, Y: -232.90, Z: 62.80})
+	testUR5eForwardKinements(t, []float64{0, 0, 0, 0, 0, math.Pi / 2}, &commonpb.Pose{X: -817.2, Y: -232.90, Z: 62.80})
+	testUR5eForwardKinements(t, []float64{0, 0, 0, 0, 0, math.Pi}, &commonpb.Pose{X: -817.2, Y: -232.90, Z: 62.80})
 
 	// Section 2 - try some consistent angle
 	rad := math.Pi / 4
-	testUR5eForwardKinements(t, []float64{rad, rad, rad, rad, rad, rad}, &pb.Pose{X: 16.62, Y: -271.49, Z: -509.52})
+	testUR5eForwardKinements(t, []float64{rad, rad, rad, rad, rad, rad}, &commonpb.Pose{X: 16.62, Y: -271.49, Z: -509.52})
 
 	rad = math.Pi / 2
-	testUR5eForwardKinements(t, []float64{rad, rad, rad, rad, rad, rad}, &pb.Pose{X: 133.3, Y: 292.5, Z: -162.9})
+	testUR5eForwardKinements(t, []float64{rad, rad, rad, rad, rad, rad}, &commonpb.Pose{X: 133.3, Y: 292.5, Z: -162.9})
 
 	rad = math.Pi
-	testUR5eForwardKinements(t, []float64{rad, rad, rad, rad, rad, rad}, &pb.Pose{X: -32.8, Y: 33.7, Z: 262.2})
+	testUR5eForwardKinements(t, []float64{rad, rad, rad, rad, rad, rad}, &commonpb.Pose{X: -32.8, Y: 33.7, Z: 262.2})
 
 	// Section 3 - try some random angles
-	testUR5eForwardKinements(t, []float64{math.Pi / 4, math.Pi / 2, 0, math.Pi / 4, math.Pi / 2, 0}, &pb.Pose{X: 193.91, Y: 5.39, Z: -654.63})
-	testUR5eForwardKinements(t, []float64{0, math.Pi / 4, math.Pi / 2, 0, math.Pi / 4, math.Pi / 2}, &pb.Pose{X: 97.11, Y: -203.73, Z: -394.65})
+	testUR5eForwardKinements(t, []float64{math.Pi / 4, math.Pi / 2, 0, math.Pi / 4, math.Pi / 2, 0}, &commonpb.Pose{X: 193.91, Y: 5.39, Z: -654.63})
+	testUR5eForwardKinements(t, []float64{0, math.Pi / 4, math.Pi / 2, 0, math.Pi / 4, math.Pi / 2}, &commonpb.Pose{X: 97.11, Y: -203.73, Z: -394.65})
 
 	testUR5eInverseKinements(t,
-		&pb.Pose{X: -202.31, Y: -577.75, Z: 318.58, Theta: 51.84, OX: 0.47, OY: -.42, OZ: -.78},
+		&commonpb.Pose{X: -202.31, Y: -577.75, Z: 318.58, Theta: 51.84, OX: 0.47, OY: -.42, OZ: -.78},
 	)
 }
 
@@ -184,7 +184,7 @@ var jointConstants = []dhConstants{
 
 var orientationDH = dhConstants{0, 1, math.Pi / -2}
 
-func computeUR5ePosition(t *testing.T, jointRadians []float64) *pb.Pose {
+func computeUR5ePosition(t *testing.T, jointRadians []float64) *commonpb.Pose {
 	res := jointConstants[0].matrix(jointRadians[0])
 	for x, theta := range jointRadians {
 		if x == 0 {
@@ -222,7 +222,7 @@ func computeUR5ePosition(t *testing.T, jointRadians []float64) *pb.Pose {
 	test.That(t, poseOV.OY, test.ShouldAlmostEqual, ov.OY, .01)
 	test.That(t, poseOV.OZ, test.ShouldAlmostEqual, ov.OZ, .01)
 
-	return &pb.Pose{
+	return &commonpb.Pose{
 		X:     1000 * res.At(0, 3),
 		Y:     1000 * res.At(1, 3),
 		Z:     1000 * res.At(2, 3),

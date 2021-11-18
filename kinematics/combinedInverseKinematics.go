@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/utils"
 
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
 
@@ -47,7 +47,7 @@ func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCP
 	return ik, nil
 }
 
-func runSolver(ctx context.Context, solver InverseKinematics, c chan ReturnTest, noMoreSolutions <-chan struct{}, pos *pb.Pose, seed []referenceframe.Input) {
+func runSolver(ctx context.Context, solver InverseKinematics, c chan ReturnTest, noMoreSolutions <-chan struct{}, pos *commonpb.Pose, seed []referenceframe.Input) {
 	result, err := solver.Solve(ctx, pos, seed)
 	select {
 	case c <- ReturnTest{err, result}:
@@ -57,7 +57,7 @@ func runSolver(ctx context.Context, solver InverseKinematics, c chan ReturnTest,
 
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
 // positions. If unable to solve, the returned error will be non-nil
-func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.Pose, seed []referenceframe.Input) ([]referenceframe.Input, error) {
+func (ik *CombinedIK) Solve(ctx context.Context, pos *commonpb.Pose, seed []referenceframe.Input) ([]referenceframe.Input, error) {
 	ik.logger.Debugf("starting joint positions: %v", seed)
 	startPos, err := ik.model.Transform(seed)
 	if err != nil {
@@ -147,7 +147,7 @@ func (ik *CombinedIK) SetSolveWeights(weights referenceframe.SolverDistanceWeigh
 // original goal is returned.
 // Rationale: if clicking the increment buttons in the interface, the user likely wants the most intuitive motion
 // posible. If setting values manually, the user likely wants exactly what they requested.
-func fixOvIncrement(pos, seed *pb.Pose) *pb.Pose {
+func fixOvIncrement(pos, seed *commonpb.Pose) *commonpb.Pose {
 	epsilon := 0.0001
 	// Nothing to do for spatial translations or theta increments
 	if pos.X != seed.X || pos.Y != seed.Y || pos.Z != seed.Z || pos.Theta != seed.Theta {
@@ -185,7 +185,7 @@ func fixOvIncrement(pos, seed *pb.Pose) *pb.Pose {
 		adj *= -1
 	}
 
-	return &pb.Pose{
+	return &commonpb.Pose{
 		X:     pos.X,
 		Y:     pos.Y,
 		Z:     pos.Z,

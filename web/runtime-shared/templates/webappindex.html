@@ -201,14 +201,14 @@
                       }
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getGridPosition();
-                      var newPosition = Object.assign(Object.create(robotApi.Pose.prototype), old);
+                      var newPosition = Object.assign(Object.create(commonApi.Pose.prototype), old);
                       const getter = `get${getterSetter}`;
                       const setter = `set${getterSetter}`;
                       newPosition[setter](newPosition[getter]() + amount);
-                      const req = new robotApi.ArmMoveToPositionRequest();
+                      const req = new armApi.ArmServiceMoveToPositionRequest();
                       req.setName(name);
                       req.setTo(newPosition);
-                      robotService.armMoveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
+                      armService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   motorPIDStep: function(motor,req,chart,val){
                       if (theData.chartStream){
@@ -238,28 +238,28 @@
                   armJointInc : function(name, field, amount) {
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getJointPositions();
-                      var newPosition = Object.assign(Object.create(robotApi.JointPositions.prototype), old);
+                      var newPosition = Object.assign(Object.create(armApi.ArmJointPositions.prototype), old);
                       var newList = newPosition.getDegreesList();
                       newList[field] += amount;
                       newPosition.setDegreesList(newList);
-                      const req = new robotApi.ArmMoveToJointPositionsRequest();
+                      const req = new armApi.ArmServiceMoveToJointPositionsRequest();
                       req.setName(name);
                       req.setTo(newPosition);
-                      robotService.armMoveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
+                      armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   armHome : function(name) {
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getJointPositions();
-                      var newPosition = Object.assign(Object.create(robotApi.JointPositions.prototype), old);
+                      var newPosition = Object.assign(Object.create(armApi.ArmJointPositions.prototype), old);
                       var newList = newPosition.getDegreesList();
                       for (var i = 0; i < newList.length; i++) {
                         newList[i] = 0;
                       }
                       newPosition.setDegreesList(newList);
-                      const req = new robotApi.ArmMoveToJointPositionsRequest();
+                      const req = new armApi.ArmServiceMoveToJointPositionsRequest();
                       req.setName(name);
                       req.setTo(newPosition);
-                      robotService.armMoveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
+                      armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   armModifyAll : function(name) {
                       const arm = theApp.armByName(name);
@@ -284,7 +284,7 @@
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getGridPosition();
 
-                      var newPosition = Object.assign(Object.create(robotApi.Pose.prototype), old);
+                      var newPosition = Object.assign(Object.create(commonApi.Pose.prototype), old);
                       var newPieces = theData.armToggle[name].pieces;
 
                       for (var i=0; i < newPieces.length; i++) {
@@ -294,17 +294,17 @@
                           newPosition[setter](newPieces[i].gridValue);
                       }
 
-                      const req = new robotApi.ArmMoveToPositionRequest();
+                      const req = new armApi.ArmServiceMoveToPositionRequest();
                       req.setName(name);
                       req.setTo(newPosition);
-                      robotService.armMoveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
+                      armService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
                       delete theData.armToggle[name];
                   },
                   armModifyAllDoJoint : function(name) {
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getJointPositions();
 
-                      var newPosition = Object.assign(Object.create(robotApi.JointPositions.prototype), old);
+                      var newPosition = Object.assign(Object.create(armApi.ArmJointPositions.prototype), old);
                       var newList = newPosition.getDegreesList();
 
                       var newPieces = theData.armToggle[name].pieces;
@@ -314,10 +314,10 @@
 
                       newPosition.setDegreesList(newList);
 
-                      const req = new robotApi.ArmMoveToJointPositionsRequest();
+                      const req = new armApi.ArmServiceMoveToJointPositionsRequest();
                       req.setName(name);
                       req.setTo(newPosition);
-                      robotService.armMoveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
+                      armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
                       delete theData.armToggle[name];
                   },
 

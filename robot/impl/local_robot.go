@@ -470,8 +470,8 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	if err != nil {
 		return nil, err
 	}
-	c := registry.ComponentSubtypeLookup(rName.Subtype)
-	if c == nil {
+	c := registry.ResourceSubtypeLookup(rName.Subtype)
+	if c == nil || c.Reconfigurable == nil {
 		return newResource, nil
 	}
 	return c.Reconfigurable(newResource)

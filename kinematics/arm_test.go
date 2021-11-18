@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/utils"
 
@@ -32,7 +32,7 @@ func TestCombinedIKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test ability to arrive at another position
-	pos := &pb.Pose{
+	pos := &commonpb.Pose{
 		X:  -46,
 		Y:  -133,
 		Z:  372,
@@ -44,7 +44,7 @@ func TestCombinedIKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test moving forward 20 in X direction from previous position
-	pos = &pb.Pose{
+	pos = &commonpb.Pose{
 		X:  -66,
 		Y:  -133,
 		Z:  372,
@@ -105,7 +105,7 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
-	pos := &pb.Pose{
+	pos := &commonpb.Pose{
 		X:  -46,
 		Y:  0,
 		Z:  372,

@@ -1,6 +1,7 @@
 package config
 
 import (
+	commonpb "go.viam.com/core/proto/api/common/v1"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
@@ -23,8 +24,17 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	if part.FrameConfig == nil {
 		return nil, nil
 	}
-	pose := part.FrameConfig.Pose()
-	frameConfig := &pb.FrameConfig{Parent: part.FrameConfig.Parent, Pose: spatialmath.PoseToProtobuf(pose)}
+	pose := spatialmath.PoseToProtobuf(part.FrameConfig.Pose())
+	convertedPose := &pb.Pose{
+		X:     pose.X,
+		Y:     pose.Y,
+		Z:     pose.Z,
+		OX:    pose.OY,
+		OY:    pose.OY,
+		OZ:    pose.OZ,
+		Theta: pose.Theta,
+	}
+	frameConfig := &pb.FrameConfig{Parent: part.FrameConfig.Parent, Pose: convertedPose}
 	var modelJSON []byte
 	var err error
 	if part.ModelFrame != nil {
@@ -45,7 +55,16 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 	if fsc == nil {
 		return nil, nil
 	}
-	pose := spatialmath.NewPoseFromProtobuf(fsc.FrameConfig.Pose)
+	convertedPose := &commonpb.Pose{
+		X:     fsc.FrameConfig.Pose.X,
+		Y:     fsc.FrameConfig.Pose.Y,
+		Z:     fsc.FrameConfig.Pose.Z,
+		OX:    fsc.FrameConfig.Pose.OY,
+		OY:    fsc.FrameConfig.Pose.OY,
+		OZ:    fsc.FrameConfig.Pose.OZ,
+		Theta: fsc.FrameConfig.Pose.Theta,
+	}
+	pose := spatialmath.NewPoseFromProtobuf(convertedPose)
 	point := pose.Point()
 	translation := spatialmath.Translation{X: point.X, Y: point.Y, Z: point.Z}
 	frameConfig := &Frame{

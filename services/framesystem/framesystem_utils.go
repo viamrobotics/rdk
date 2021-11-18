@@ -9,6 +9,7 @@ import (
 	"github.com/go-errors/errors"
 
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/gantry"
 	"go.viam.com/core/config"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
@@ -222,6 +223,16 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 			return framer.ModelFrame(), nil
 		}
 		return nil, errors.Errorf("got an arm of type %T that is not a ModelFrame", utils.UnwrapProxy(part))
+	case config.ComponentTypeGantry:
+		part, ok := r.ResourceByName(gantry.Named(name))
+		if !ok {
+			return nil, errors.Errorf("no resource found with name %q when extracting model frame json", name)
+		}
+		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
+			return framer.ModelFrame(), nil
+		}
+		return nil, errors.Errorf("got a gantry of type %T that is not a ModelFrame", utils.UnwrapProxy(part))
+
 	default:
 		return nil, errors.Errorf("do not recognize component type %v for model frame extraction", compType)
 	}

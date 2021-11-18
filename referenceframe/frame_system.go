@@ -23,9 +23,18 @@ type FrameSystem interface {
 	RemoveFrame(frame Frame)
 	TracebackFrame(frame Frame) ([]Frame, error)
 	Parent(frame Frame) (Frame, error)
+
+	// TransformFrame takes in a source and destination frame, and returns the pose from the first to the second. Positions
+	// is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 	TransformFrame(positions map[string][]Input, srcFrame, endFrame Frame) (spatial.Pose, error)
+
 	TransformPoint(positions map[string][]Input, point r3.Vector, srcFrame, endFrame Frame) (r3.Vector, error)
+
+	// TransformPose takes in a pose with respect to a source Frame, and outputs the pose with respect to the target Frame.
+	// Positions is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
+	// We the inputs tells us how to walk back from the input pose to the target pose
 	TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, endFrame Frame) (spatial.Pose, error)
+
 	DivideFrameSystem(newRoot Frame) (FrameSystem, error)
 	MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error
 }
@@ -198,8 +207,6 @@ func (sfs *simpleFrameSystem) transformFrameFromParent(positions map[string][]In
 	return fullTransform, err
 }
 
-// TransformFrame takes in a source and destination frame, and returns the pose from the first to the second. Positions
-// is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 func (sfs *simpleFrameSystem) TransformFrame(positions map[string][]Input, srcFrame, dstFrame Frame) (spatial.Pose, error) {
 	if !sfs.frameExists(srcFrame.Name()) {
 		return nil, fmt.Errorf("source frame %s not found in FrameSystem", srcFrame.Name())
@@ -223,8 +230,6 @@ func (sfs *simpleFrameSystem) TransformPoint(positions map[string][]Input, point
 	return fullTransform.Point(), nil
 }
 
-// TransformPose takes in a pose with respect to a source Frame, and outputs the pose with respect to the target Frame.
-// Positions is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 func (sfs *simpleFrameSystem) TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, dstFrame Frame) (spatial.Pose, error) {
 	poseFrame, err := NewStaticFrame("", pose)
 	if err != nil {
