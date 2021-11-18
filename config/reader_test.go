@@ -42,4 +42,11 @@ func TestFromReaderValidate(t *testing.T) {
 			},
 		},
 	})
+
+	badMapConverter := func() {
+		RegisterServiceAttributeMapConverter(ServiceType("someservice"), func(attributes AttributeMap) (interface{}, error) {
+			return &conf, nil
+		}, nil)
+	}
+	test.That(t, badMapConverter, test.ShouldPanic)
 }
