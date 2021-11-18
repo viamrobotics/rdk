@@ -4,7 +4,7 @@ import (
 	"context"
 	"math"
 
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
 )
@@ -27,7 +27,7 @@ type InverseKinematics interface {
 	// Solve receives a context, the goal arm position, and current joint angles.
 	// It will return a boolean which will be true if it solved successfully, and the joint positions which
 	// will yield that goal position.
-	Solve(context.Context, *pb.Pose, []frame.Input) ([]frame.Input, error)
+	Solve(context.Context, *commonpb.Pose, []frame.Input) ([]frame.Input, error)
 	Model() frame.Frame
 	SetSolveWeights(frame.SolverDistanceWeights)
 	Close() error
