@@ -249,6 +249,45 @@
         
           
           <li>
+            <a href="#proto%2fapi%2fcomponent%2fv1%2fgantry.proto">proto/api/component/v1/gantry.proto</a>
+            <ul>
+              
+                <li>
+                  <a href="#proto.api.component.v1.GantryServiceCurrentPositionRequest"><span class="badge">M</span>GantryServiceCurrentPositionRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.GantryServiceCurrentPositionResponse"><span class="badge">M</span>GantryServiceCurrentPositionResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.GantryServiceLengthsRequest"><span class="badge">M</span>GantryServiceLengthsRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.GantryServiceLengthsResponse"><span class="badge">M</span>GantryServiceLengthsResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.GantryServiceMoveToPositionRequest"><span class="badge">M</span>GantryServiceMoveToPositionRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.GantryServiceMoveToPositionResponse"><span class="badge">M</span>GantryServiceMoveToPositionResponse</a>
+                </li>
+              
+              
+              
+              
+                <li>
+                  <a href="#proto.api.component.v1.GantryService"><span class="badge">S</span>GantryService</a>
+                </li>
+              
+            </ul>
+          </li>
+        
+          
+          <li>
             <a href="#proto%2fapi%2fservice%2fv1%2fmetadata.proto">proto/api/service/v1/metadata.proto</a>
             <ul>
               
@@ -1544,6 +1583,235 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                 <td>JointMoveDelta</td>
                 <td>PUT</td>
                 <td>/api/v1/component/arm/{name}/joint_move_delta</td>
+                <td></td>
+              </tr>
+              
+            
+            </tbody>
+          </table>
+          
+        
+    
+      
+      <div class="file-heading">
+        <h2 id="proto/api/component/v1/gantry.proto">proto/api/component/v1/gantry.proto</h2><a href="#title">Top</a>
+      </div>
+      <p></p>
+
+      
+        <h3 id="proto.api.component.v1.GantryServiceCurrentPositionRequest">GantryServiceCurrentPositionRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.GantryServiceCurrentPositionResponse">GantryServiceCurrentPositionResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>positions</td>
+                  <td><a href="#double">double</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.GantryServiceLengthsRequest">GantryServiceLengthsRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.GantryServiceLengthsResponse">GantryServiceLengthsResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>positions</td>
+                  <td><a href="#double">double</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.GantryServiceMoveToPositionRequest">GantryServiceMoveToPositionRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>positions</td>
+                  <td><a href="#double">double</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.GantryServiceMoveToPositionResponse">GantryServiceMoveToPositionResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+
+      
+
+      
+
+      
+        <h3 id="proto.api.component.v1.GantryService">GantryService</h3>
+        <p>An GantryService services maintains all gantries associated with a robot</p>
+        <table class="enum-table">
+          <thead>
+            <tr><td>Method Name</td><td>Request Type</td><td>Response Type</td><td>Description</td></tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td>CurrentPosition</td>
+                <td><a href="#proto.api.component.v1.GantryServiceCurrentPositionRequest">GantryServiceCurrentPositionRequest</a></td>
+                <td><a href="#proto.api.component.v1.GantryServiceCurrentPositionResponse">GantryServiceCurrentPositionResponse</a></td>
+                <td><p>CurrentPosition gets the current position of a gantry of the underlying robot.</p></td>
+              </tr>
+            
+              <tr>
+                <td>MoveToPosition</td>
+                <td><a href="#proto.api.component.v1.GantryServiceMoveToPositionRequest">GantryServiceMoveToPositionRequest</a></td>
+                <td><a href="#proto.api.component.v1.GantryServiceMoveToPositionResponse">GantryServiceMoveToPositionResponse</a></td>
+                <td><p>MoveToPosition moves a gantry of the underlying robot to the requested position.</p></td>
+              </tr>
+            
+              <tr>
+                <td>Lengths</td>
+                <td><a href="#proto.api.component.v1.GantryServiceLengthsRequest">GantryServiceLengthsRequest</a></td>
+                <td><a href="#proto.api.component.v1.GantryServiceLengthsResponse">GantryServiceLengthsResponse</a></td>
+                <td><p>Lengths gets the current position of a gantry of the underlying robot.</p></td>
+              </tr>
+            
+          </tbody>
+        </table>
+
+        
+          
+          
+          <h4>Methods with HTTP bindings</h4>
+          <table>
+            <thead>
+              <tr>
+                <td>Method Name</td>
+                <td>Method</td>
+                <td>Pattern</td>
+                <td>Body</td>
+              </tr>
+            </thead>
+            <tbody>
+            
+              
+              
+              <tr>
+                <td>CurrentPosition</td>
+                <td>GET</td>
+                <td>/api/v1/component/gantry/{name}/current_position</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>MoveToPosition</td>
+                <td>PUT</td>
+                <td>/api/v1/component/gantry/{name}/move_to_position</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>Lengths</td>
+                <td>GET</td>
+                <td>/api/v1/component/gantry/{name}/lengths</td>
                 <td></td>
               </tr>
               
