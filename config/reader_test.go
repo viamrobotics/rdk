@@ -43,10 +43,17 @@ func TestFromReaderValidate(t *testing.T) {
 		},
 	})
 
-	badMapConverter := func() {
+	badComponentMapConverter := func() {
+		RegisterComponentAttributeMapConverter(ComponentType("somecomponent"), "somemodel", func(attributes AttributeMap) (interface{}, error) {
+			return &conf, nil
+		}, nil)
+	}
+	test.That(t, badComponentMapConverter, test.ShouldPanic)
+
+	badServiceMapConverter := func() {
 		RegisterServiceAttributeMapConverter(ServiceType("someservice"), func(attributes AttributeMap) (interface{}, error) {
 			return &conf, nil
 		}, nil)
 	}
-	test.That(t, badMapConverter, test.ShouldPanic)
+	test.That(t, badServiceMapConverter, test.ShouldPanic)
 }
