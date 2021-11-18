@@ -723,6 +723,23 @@ func (bc *baseClient) MoveStraight(ctx context.Context, distanceMillis int, mill
 	return moved, errors.New(resp.Error)
 }
 
+func (bc *baseClient) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) (int, error) {
+	resp, err := bc.rc.client.BaseMoveArc(ctx, &pb.BaseMoveArcRequest{
+		Name:           bc.name,
+		MillisPerSec:   millisPerSec,
+		AngleDeg:       degsPerSec,
+		DistanceMillis: int64(distanceMillis),
+	})
+	if err != nil {
+		return 0, err
+	}
+	moved := int(resp.DistanceMillis)
+	if resp.Success {
+		return moved, nil
+	}
+	return moved, errors.New(resp.Error)
+}
+
 func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 	resp, err := bc.rc.client.BaseSpin(ctx, &pb.BaseSpinRequest{
 		Name:       bc.name,

@@ -389,11 +389,20 @@
                           req.setDistanceMillis(document.getElementById("distance").value * amount);
                           robotService.baseMoveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
+                        case 'arc':
+                          req = new robotApi.BaseMoveArcRequest();
+                          req.setName(name);
+                          req.setMillisPerSec(document.getElementById("speed").value)
+                          req.setDistanceMillis(document.getElementById("distance").value * amount);
+                          req.setAngleDeg(document.getElementById("angle").value);
+                          robotService.baseMoveArc(req, {}, (err, resp) => grpcCallback(err, resp));
+                          break;
                         case 'angle':
                           req = new robotApi.BaseSpinRequest();
                           req.setName(name);
                           req.setDegsPerSec(document.getElementById("speed").value)
                           req.setAngleDeg(amount);
+                          req.setAngleDeg(document.getElementById("angle").value * amount);
                           robotService.baseSpin(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
                       }
@@ -1122,12 +1131,15 @@
         <ul>
           <li><button v-on:click="baseAction(base[0], 'straight', 1)">Forward</button></li>
           <li><button v-on:click="baseAction(base[0], 'straight', -1)">Backward</button></li>
-          <li><button v-on:click="baseAction(base[0], 'angle', 15)">Spin Clockwise</button></li>
-          <li><button v-on:click="baseAction(base[0], 'angle', -15)">Spin Counterclockwise</button></li>
+          <li><button v-on:click="baseAction(base[0], 'arc', 1)">Arc Forward</button></li>
+          <li><button v-on:click="baseAction(base[0], 'arc', -1)">Arc Backward</button></li>
+          <li><button v-on:click="baseAction(base[0], 'angle', 1)">Spin Clockwise</button></li>
+          <li><button v-on:click="baseAction(base[0], 'angle', -1)">Spin Counterclockwise</button></li>
         </ul>
 
         Speed (mm per sec): <input id="speed" name="speed" value="300"/><br>
-        Distances (mm): <input id="distance" name="speed" value="500"/><br>
+        Distances (mm): <input id="distance" name="distance" value="500"/><br>
+        Angle (degree): <input id="angle" name="angle" value="0"/><br>
       </div>
 
       <!-- ******* GANTRY *******  -->
