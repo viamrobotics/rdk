@@ -6,22 +6,23 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/component/arm"
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	pb "go.viam.com/core/proto/api/component/v1"
 )
 
 // Arm is an injected arm.
 type Arm struct {
 	arm.Arm
-	CurrentPositionFunc       func(ctx context.Context) (*pb.Pose, error)
-	MoveToPositionFunc        func(ctx context.Context, c *pb.Pose) error
-	MoveToJointPositionsFunc  func(ctx context.Context, pos *pb.JointPositions) error
-	CurrentJointPositionsFunc func(ctx context.Context) (*pb.JointPositions, error)
+	CurrentPositionFunc       func(ctx context.Context) (*commonpb.Pose, error)
+	MoveToPositionFunc        func(ctx context.Context, c *commonpb.Pose) error
+	MoveToJointPositionsFunc  func(ctx context.Context, pos *pb.ArmJointPositions) error
+	CurrentJointPositionsFunc func(ctx context.Context) (*pb.ArmJointPositions, error)
 	JointMoveDeltaFunc        func(ctx context.Context, joint int, amount float64) error
 	CloseFunc                 func() error
 }
 
 // CurrentPosition calls the injected CurrentPosition or the real version.
-func (a *Arm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
+func (a *Arm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	if a.CurrentPositionFunc == nil {
 		return a.Arm.CurrentPosition(ctx)
 	}
@@ -29,7 +30,7 @@ func (a *Arm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 }
 
 // MoveToPosition calls the injected MoveToPosition or the real version.
-func (a *Arm) MoveToPosition(ctx context.Context, c *pb.Pose) error {
+func (a *Arm) MoveToPosition(ctx context.Context, c *commonpb.Pose) error {
 	if a.MoveToPositionFunc == nil {
 		return a.Arm.MoveToPosition(ctx, c)
 	}
@@ -37,7 +38,7 @@ func (a *Arm) MoveToPosition(ctx context.Context, c *pb.Pose) error {
 }
 
 // MoveToJointPositions calls the injected MoveToJointPositions or the real version.
-func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
+func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.ArmJointPositions) error {
 	if a.MoveToJointPositionsFunc == nil {
 		return a.Arm.MoveToJointPositions(ctx, jp)
 	}
@@ -45,7 +46,7 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) e
 }
 
 // CurrentJointPositions calls the injected CurrentJointPositions or the real version.
-func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	if a.CurrentJointPositionsFunc == nil {
 		return a.Arm.CurrentJointPositions(ctx)
 	}

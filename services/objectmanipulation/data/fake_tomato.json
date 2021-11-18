@@ -1,0 +1,47 @@
+{
+    "services": [
+        {
+            "name": "frame_system",
+            "type": "frame_system"
+        },
+        {
+            "name": "object_manipulation",
+            "type": "object_manipulation"
+        }
+
+    ],
+    "components": [
+        {
+            "type": "camera",
+            "model": "fake",
+            "name": "c",
+            "frame" : {
+                "parent" : "gr"
+            }
+        },
+        {
+            "type": "gripper",
+            "model": "fake",
+            "name": "gr",
+            "frame" : {
+                "parent" : "a"
+            }
+        },
+        {
+            "type": "arm",
+            "model": "fake_ik",
+            "name": "a",
+            "frame" : {
+                "parent" : "ga"
+            }
+        },
+        {
+            "type": "gantry",
+            "model": "fake",
+            "name": "ga",
+            "frame" : {
+                "parent" : "world"
+            }
+        }
+    ]
+}

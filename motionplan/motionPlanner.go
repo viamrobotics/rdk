@@ -10,7 +10,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/kinematics"
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
 	vutil "go.viam.com/core/utils"
@@ -21,7 +21,7 @@ import (
 type MotionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
-	Plan(context.Context, solvE *pb.Pose, frame.Waypoint) ([]frame.Waypoint, error)
+	Plan(context.Context, *commonpb.Pose, []frame.Input) ([][]frame.Input, error)
 	AddConstraint(string, Constraint)
 	RemoveConstraint(string)
 	Constraints() []string
@@ -69,8 +69,8 @@ func (mp *linearMotionPlanner) SetGradient(f func(spatial.Pose, spatial.Pose) fl
 	mp.solver.SetGradient(f)
 }
 
-func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed frame.Waypoint) ([]frame.Waypoint, error) {
-	var inputSteps []frame.Waypoint
+func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, seed []frame.Input) ([][]frame.Input, error) {
+	var inputSteps [][]frame.Input
 
 	seedPos, err := mp.frame.Transform(seed)
 	if err != nil {
@@ -95,7 +95,7 @@ STEP:
 
 		intPos := spatial.Interpolate(seedPos, goalPos, float64(i)/float64(nSteps))
 
-		var step frame.Waypoint
+		var step []frame.Input
 
 		solutions, err := getSolutions(ctx, -1, mp.idealMovementScore, mp.solver, spatial.PoseToProtobuf(intPos), seed, mp)
 		if err != nil {
@@ -111,7 +111,7 @@ STEP:
 
 		seed = step
 		// Append deep copy of result to inputSteps
-		inputSteps = append(inputSteps, append(frame.Waypoint{}, step...))
+		inputSteps = append(inputSteps, append([]frame.Input{}, step...))
 	}
 
 	return inputSteps, nil
@@ -140,7 +140,7 @@ func getSteps(seedPos, goalPos spatial.Pose, stepSize float64) int {
 // original goal is returned.
 // Rationale: if clicking the increment buttons in the interface, the user likely wants the most intuitive motion
 // posible. If setting values manually, the user likely wants exactly what they requested.
-func fixOvIncrement(pos, seed *pb.Pose) *pb.Pose {
+func fixOvIncrement(pos, seed *commonpb.Pose) *commonpb.Pose {
 	epsilon := 0.0001
 	// Nothing to do for spatial translations or theta increments
 	if pos.X != seed.X || pos.Y != seed.Y || pos.Z != seed.Z || pos.Theta != seed.Theta {
@@ -178,7 +178,7 @@ func fixOvIncrement(pos, seed *pb.Pose) *pb.Pose {
 		adj *= -1
 	}
 
-	return &pb.Pose{
+	return &commonpb.Pose{
 		X:     pos.X,
 		Y:     pos.Y,
 		Z:     pos.Z,
@@ -192,7 +192,7 @@ func fixOvIncrement(pos, seed *pb.Pose) *pb.Pose {
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
-func getSolutions(ctx context.Context, maxSolutions int, minScore float64, solver kinematics.InverseKinematics, goal *pb.Pose, seed frame.Waypoint, mp MotionPlanner) (map[float64]frame.Waypoint, error) {
+func getSolutions(ctx context.Context, maxSolutions int, minScore float64, solver kinematics.InverseKinematics, goal *commonpb.Pose, seed []frame.Input, mp MotionPlanner) (map[float64][]frame.Input, error) {
 
 	seedPos, err := mp.Frame().Transform(seed)
 	if err != nil {
@@ -200,7 +200,7 @@ func getSolutions(ctx context.Context, maxSolutions int, minScore float64, solve
 	}
 	goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
 
-	solutionGen := make(chan frame.Waypoint)
+	solutionGen := make(chan []frame.Input)
 	ikErr := make(chan error)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -211,7 +211,7 @@ func getSolutions(ctx context.Context, maxSolutions int, minScore float64, solve
 		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goalPos, seed)
 	})
 
-	solutions := map[float64]frame.Waypoint{}
+	solutions := map[float64][]frame.Input{}
 
 	// Solve the IK solver. Loop labels are required because `break` etc in a `select` will break only the `select`.
 IK:
@@ -221,8 +221,8 @@ IK:
 			return nil, ctx.Err()
 		default:
 		}
-		
-		select{
+
+		select {
 		case step := <-solutionGen:
 			cPass, cScore := mp.CheckConstraints(&ConstraintInput{
 				seedPos,
@@ -233,7 +233,7 @@ IK:
 
 			if cPass {
 				if cScore < minScore && minScore >= 0 {
-					solutions = map[float64]frame.Waypoint{}
+					solutions = map[float64][]frame.Input{}
 					solutions[cScore] = step
 					// good solution, stopping early
 					break IK
@@ -265,10 +265,10 @@ IK:
 	return solutions, nil
 }
 
-func inputDist(from, to frame.Waypoint) float64 {
+func inputDist(from, to []frame.Input) float64 {
 	dist := 0.
 	for i, f := range from {
-		dist += math.Pow(to[i].Value - f.Value, 2)
+		dist += math.Pow(to[i].Value-f.Value, 2)
 	}
 	return dist
 }

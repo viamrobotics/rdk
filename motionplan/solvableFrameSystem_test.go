@@ -9,7 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
@@ -68,7 +68,7 @@ func TestFrameSystemSolver(t *testing.T) {
 	test.That(t, transformPoint.Point().Z, test.ShouldAlmostEqual, pointXarmGripper.Z)
 
 	// Set a goal such that the gantry and arm must both be used to solve
-	goal1 := &pb.Pose{
+	goal1 := &commonpb.Pose{
 		X:     257,
 		Y:     2100,
 		Z:     -300,
@@ -86,7 +86,7 @@ func TestFrameSystemSolver(t *testing.T) {
 	test.That(t, solvedPose.Point().Z, test.ShouldAlmostEqual, goal1.Z, 0.01)
 
 	// Solve such that the ur5 and xArm are pointing at each other, 60mm from gripper to camera
-	goal2 := &pb.Pose{
+	goal2 := &commonpb.Pose{
 		X:     0,
 		Y:     0,
 		Z:     60,

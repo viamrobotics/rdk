@@ -70,6 +70,8 @@ require (
 	periph.io/x/host/v3 v3.7.1
 )
 
+require github.com/pkg/errors v0.9.1 // indirect
+
 replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de
 
 replace github.com/starship-technologies/gobag => github.com/kkufieta/gobag v0.0.0-20210528190924-d8b19286f98e

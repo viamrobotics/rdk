@@ -147,3 +147,20 @@ type LocalRobot interface {
 	// on the given new config.
 	Reconfigure(ctx context.Context, newConfig *config.Config) error
 }
+
+//AllResourcesByName returns an array of all resources that have this simple name
+func AllResourcesByName(r Robot, name string) []interface{} {
+	all := []interface{}{}
+
+	for _, n := range r.ResourceNames() {
+		if n.Name == name {
+			r, ok := r.ResourceByName(n)
+			if !ok {
+				panic("this should be impossible")
+			}
+			all = append(all, r)
+		}
+	}
+
+	return all
+}

@@ -215,3 +215,14 @@ func (g *oneAxis) ModelFrame() *referenceframe.Model {
 
 	return m
 }
+
+func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	res, err := g.CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.FloatsToInputs(res), nil
+}
+func (g *oneAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
+}
