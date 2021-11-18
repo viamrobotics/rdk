@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"context"
+	"math"
 	"math/rand"
 	"sort"
 
@@ -16,12 +17,10 @@ import (
 	"go.viam.com/test"
 )
 
-var (
-	interp = frame.FloatsToInputs([]float64{0.22034293025523666, 0.023301860367034785, 0.0035938741832804775, 0.03706780636626979, -0.006010542176591475, 0.013764993693680328, 0.22994099248696265})
-)
+var interp = frame.FloatsToInputs([]float64{0.22034293025523666, 0.023301860367034785, 0.0035938741832804775, 0.03706780636626979, -0.006010542176591475, 0.013764993693680328, 0.22994099248696265})
 
 // This should test a simple linear motion
-func TestExtend(t *testing.T) {
+func TestSimpleLinearMotion(t *testing.T) {
 	nSolutions := 5
 	inputSteps := [][]frame.Input{}
 	ctx := context.Background()
@@ -44,7 +43,7 @@ func TestExtend(t *testing.T) {
 
 	mp.randseed = rand.New(rand.NewSource(42))
 
-	mp.AddConstraint("jointSwingScorer", NewJointScorer())
+	mp.AddConstraint("jointSwingScorer", NewJointConstraint(math.Inf(1)))
 
 	pos := &pb.Pose{
 		X:  206,

@@ -96,7 +96,7 @@ func (mp *cBiRRTMotionPlanner) SetFrame(f frame.Frame) {
 }
 
 func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed []frame.Input) ([][]frame.Input, error) {
-	inputSteps := [][]frame.Input{}
+	var inputSteps [][]frame.Input
 
 	// How many of the top solutions to try
 	// Solver will terminate after getting this many to save time
@@ -107,7 +107,6 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed []f
 		return nil, err
 	}
 
-	mp.logger.Debug("getting best")
 	// Get the N best solutions
 	keys := make([]float64, 0, len(solutions))
 	for k := range solutions {
@@ -115,11 +114,11 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed []f
 	}
 	sort.Float64s(keys)
 
-	goalMap := make(map[*solution]*solution)
-
 	if len(keys) < nSolutions {
 		nSolutions = len(keys)
 	}
+	
+	goalMap := make(map[*solution]*solution, nSolutions)
 
 	for _, k := range keys[:nSolutions] {
 		goalMap[&solution{solutions[k]}] = nil
@@ -136,7 +135,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed []f
 	for i := 0; i < mp.iter; i++ {
 		select {
 		case <-ctx.Done():
-			return nil, errors.New("context Done signal")
+			return nil, ctx.Err()
 		default:
 		}
 
@@ -173,7 +172,6 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *pb.Pose, seed []f
 				goalReached = goalMap[goalReached]
 			}
 			inputSteps = mp.SmoothPath(ctx, inputSteps)
-			mp.logger.Debug("got path!")
 
 			return inputSteps, nil
 		}
@@ -204,15 +202,14 @@ func (mp *cBiRRTMotionPlanner) constrainedExtendWrapper(m1, m2 map[*solution]*so
 
 func (mp *cBiRRTMotionPlanner) constrainedExtend(rrtMap map[*solution]*solution, near, target *solution) *solution {
 	oldNear := near
-	i := 0
-	for {
-		i++
+	for i := 0; true; i++ {
 		if inputDist(near.inputs, target.inputs) < mp.solDist {
 			return near
 		} else if inputDist(near.inputs, target.inputs) > inputDist(oldNear.inputs, target.inputs) {
-			return oldNear
+			break
 		} else if i > 2 && inputDist(near.inputs, oldNear.inputs) < math.Pow(mp.solDist, 3) {
-			return oldNear
+			// not moving enough to make meaningful progress. Do not trigger on first iteration.
+			break
 		}
 
 		oldNear = near
@@ -238,9 +235,10 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(rrtMap map[*solution]*solution,
 			near = &solution{newNear}
 			rrtMap[near] = oldNear
 		} else {
-			return oldNear
+			break
 		}
 	}
+	return oldNear
 }
 
 // constrainNear will do a IK gradient descent from seedInputs to target. If a gradient descent distance function has

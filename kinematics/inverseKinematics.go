@@ -18,7 +18,7 @@ type goal struct {
 // solutions to the provided channel until cancelled or otherwise completes
 type InverseKinematics interface {
 	// Solve receives a context, the goal arm position, and current joint angles.
-	Solve(context.Context, chan []frame.Input, spatial.Pose, []frame.Input) error
+	Solve(ctx context.Context, c chan<- []frame.Input, goal spatial.Pose, seed []frame.Input) error
 	SetGradient(func(spatial.Pose, spatial.Pose) float64)
 	Close() error
 }

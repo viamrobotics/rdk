@@ -15,7 +15,8 @@ import (
 	"go.viam.com/core/utils"
 )
 
-// MotionPlanner defines a struct able to plan motion
+// MotionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
+// management of the constraints used to plan paths.
 type MotionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
@@ -40,7 +41,7 @@ func NewLinearMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (M
 	mp := &linearMotionPlanner{solver: ik, frame: frame, idealMovementScore: 0.3, stepSize: 2., logger: logger}
 	mp.visited = map[r3.Vector]bool{}
 	mp.AddConstraint("interpolationConstraint", NewInterpolatingConstraint(0.1))
-	mp.AddConstraint("jointSwingScorer", NewJointScorer())
+	mp.AddConstraint(jointConstraint, NewJointConstraint(math.Inf(1)))
 	return mp, nil
 }
 
@@ -201,6 +202,7 @@ func getSolutions(ctx context.Context, maxSolutions int, minScore float64, solve
 	solutionGen := make(chan []frame.Input)
 	ikErr := make(chan error)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	// Spawn the IK solver to generate solutions until done
 	go func() {
@@ -215,8 +217,11 @@ IK:
 	for {
 		select {
 		case <-ctx.Done():
-			cancel()
-			return nil, errors.New("context Done signal")
+			return nil, ctx.Err()
+		default:
+		}
+		
+		select{
 		case step := <-solutionGen:
 			cPass, cScore := mp.CheckConstraints(&ConstraintInput{
 				seedPos,
@@ -252,7 +257,6 @@ IK:
 		default:
 		}
 	}
-	cancel()
 	if len(solutions) == 0 {
 		return nil, errors.New("unable to solve for position")
 	}
