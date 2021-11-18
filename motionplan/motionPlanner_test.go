@@ -72,8 +72,8 @@ func TestFixOvIncrement(t *testing.T) {
 		Theta: 15,
 		OX:    0,
 		OY:    1,
-		
-		OZ:    0,
+
+		OZ: 0,
 	}
 	pos2 := &pb.Pose{
 		X:     -66,
