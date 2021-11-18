@@ -13,8 +13,10 @@ type Input struct {
 	Value float64
 }
 
+type Waypoint []Input
+
 // FloatsToInputs wraps a slice of floats in Inputs
-func FloatsToInputs(floats []float64) []Input {
+func FloatsToInputs(floats []float64) Waypoint {
 	inputs := make([]Input, len(floats))
 	for i, f := range floats {
 		inputs[i] = Input{f}
@@ -23,7 +25,7 @@ func FloatsToInputs(floats []float64) []Input {
 }
 
 // InputsToFloats unwraps Inputs to raw floats
-func InputsToFloats(inputs []Input) []float64 {
+func InputsToFloats(inputs Waypoint) []float64 {
 	floats := make([]float64, len(inputs))
 	for i, f := range inputs {
 		floats[i] = f.Value
@@ -32,12 +34,12 @@ func InputsToFloats(inputs []Input) []float64 {
 }
 
 // InputsToJointPos will take a slice of Inputs which are all joint position radians, and return a JointPositions struct.
-func InputsToJointPos(inputs []Input) *pb.JointPositions {
+func InputsToJointPos(inputs Waypoint) *pb.JointPositions {
 	return JointPositionsFromRadians(InputsToFloats(inputs))
 }
 
 // JointPosToInputs will take a pb.JointPositions which has values in Degrees, convert to Radians and wrap in Inputs
-func JointPosToInputs(jp *pb.JointPositions) []Input {
+func JointPosToInputs(jp *pb.JointPositions) Waypoint {
 	floats := JointPositionsToRadians(jp)
 	return FloatsToInputs(floats)
 }
@@ -65,8 +67,8 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 // InterpolateInputs will return a set of inputs that are the specified percent between the two given sets of
 // inputs. For example, setting by to 0.5 will return the inputs halfway between the from/to values, and 0.25 would
 // return one quarter of the way from "from" to "to"
-func InterpolateInputs(from, to []Input, by float64) []Input {
-	var newVals []Input
+func InterpolateInputs(from, to Waypoint, by float64) Waypoint {
+	var newVals Waypoint
 	for i, j1 := range from {
 		newVals = append(newVals, Input{j1.Value + ((to[i].Value - j1.Value) * by)})
 	}

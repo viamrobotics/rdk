@@ -17,8 +17,8 @@ import (
 type ConstraintInput struct {
 	startPos   spatial.Pose
 	endPos     spatial.Pose
-	startInput []frame.Input
-	endInput   []frame.Input
+	startInput frame.Waypoint
+	endInput   frame.Waypoint
 	frame      frame.Frame
 }
 

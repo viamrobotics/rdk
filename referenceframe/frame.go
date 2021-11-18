@@ -46,7 +46,7 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64) []Input
 	}
 	dof := m.DoF()
 	pos := make([]Input, 0, len(dof))
-	for i, limit := range dof {
+	for _, limit := range dof {
 		l, u := limit.Min, limit.Max
 
 		// Default to [-999,999] as range if limits are infinite
@@ -70,7 +70,7 @@ func RandomFrameInputs(m Frame, rSeed *rand.Rand) []Input {
 	}
 	dof := m.DoF()
 	pos := make([]Input, 0, len(dof))
-	for i, lim := range dof {
+	for _, lim := range dof {
 		l, u := lim.Min, lim.Max
 
 		// Default to [-999,999] as range if limits are infinite
