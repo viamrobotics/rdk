@@ -41,7 +41,7 @@ type constraintHandler struct {
 // in all intermediate positions. If failing on an intermediate position, it will return that position.
 func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution float64) (bool, *ConstraintInput) {
 	// ensure we have cartesian positions
-	err := resolveInput(ci)
+	err := resolveInputsToPositions(ci)
 	if err != nil {
 		return false, nil
 	}
@@ -174,29 +174,6 @@ func NewInterpolatingConstraint(epsilon float64) Constraint {
 	return c
 }
 
-// NewPoseConstraint enforces a constant pose
-func NewPoseConstraint() func(*ConstraintInput) (bool, float64) {
-	return func(cInput *ConstraintInput) (bool, float64) {
-		if cInput.StartPos != nil {
-			oDiff := spatial.OrientationBetween(cInput.StartPos.Orientation(), &spatial.OrientationVector{OZ: -1})
-			r4 := oDiff.AxisAngles()
-			dist := r3.Vector{r4.RX * r4.Theta, r4.RY * r4.Theta, r4.RZ * r4.Theta}.Norm()
-			if dist > 0.01 {
-				return false, dist
-			}
-		}
-		if cInput.EndPos != nil {
-			oDiff := spatial.OrientationBetween(cInput.EndPos.Orientation(), &spatial.OrientationVector{OZ: -1})
-			r4 := oDiff.AxisAngles()
-			dist := r3.Vector{r4.RX * r4.Theta, r4.RY * r4.Theta, r4.RZ * r4.Theta}.Norm()
-			if dist > 0.01 {
-				return false, dist
-			}
-		}
-		return true, 0
-	}
-}
-
 // NewJointConstraint returns a function which will sum the squared differences in each input from start to end
 // It will return false if that sum is over a specified threshold
 func NewJointConstraint(threshold float64) Constraint {
@@ -309,7 +286,7 @@ func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector, writingAngle, epsilon fl
 	}
 
 	validFunc := func(cInput *ConstraintInput) (bool, float64) {
-		err := resolveInput(cInput)
+		err := resolveInputsToPositions(cInput)
 		if err != nil {
 			return false, 0
 		}
@@ -330,9 +307,9 @@ func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector, writingAngle, epsilon fl
 // which will bring a pose into the valid constraint space. The OV passed in defines the center of the valid orientation area.
 // angle refers to the maximum unit sphere arc length deviation from the ov
 // epsilon refers to the closeness to the line necessary to be a valid pose
-func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, ov *spatial.OrientationVector, writingAngle, epsilon float64) (Constraint, kinematics.Metric) {
+func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, orient spatial.Orientation, writingAngle, epsilon float64) (Constraint, kinematics.Metric) {
 	// invert the normal to get the valid AOA OV
-	ov.Normalize()
+	ov := orient.OrientationVectorRadians()
 
 	dFunc := orientDistToRegion(ov, writingAngle)
 
@@ -365,7 +342,7 @@ func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, ov *spatial.OrientationVec
 	}
 
 	validFunc := func(cInput *ConstraintInput) (bool, float64) {
-		err := resolveInput(cInput)
+		err := resolveInputsToPositions(cInput)
 		if err != nil {
 			return false, 0
 		}
@@ -395,7 +372,7 @@ func positionOnlyDist(from, to spatial.Pose) float64 {
 }
 
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
-func resolveInput(ci *ConstraintInput) error {
+func resolveInputsToPositions(ci *ConstraintInput) error {
 	if ci.StartPos == nil {
 		if ci.Frame != nil {
 			if ci.StartInput != nil {
