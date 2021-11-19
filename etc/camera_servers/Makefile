@@ -8,9 +8,9 @@ LIB_FILES = cameraserver.cpp
 
 setupmacos: macos.sh
 	./macos.sh
-                      
+
 cubeeyeserver: cubeeyeserver.cpp $(LIB_FILES)
-	g++ -g -std=c++11 cubeeyeserver.cpp $(LIB_FILES) `pkg-config --cflags --libs libhttpserver cubeeyeserver` -lpthread -o cubeeyeserver
+	g++ -g -std=c++11 cubeeyeserver.cpp $(LIB_FILES) `pkg-config --cflags --libs libhttpserver cubeeye` $(special) -o cubeeyeserver
 
 intelrealserver: intelrealserver.cpp $(LIB_FILES)
 	g++ -g -std=c++17 intelrealserver.cpp $(LIB_FILES) `pkg-config --cflags --libs realsense2 libhttpserver` $(special) -o intelrealserver
