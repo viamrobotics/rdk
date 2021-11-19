@@ -31,15 +31,16 @@ const (
 // It uses the Constrained Bidirctional Rapidly-expanding Random Tree algorithm, Berenson et al 2009
 // https://ieeexplore.ieee.org/document/5152399/
 type cBiRRTMotionPlanner struct {
-	solDist           float64
-	solver            kinematics.InverseKinematics
-	fastGradDescent   *kinematics.NloptIK
-	frame             frame.Frame
-	logger            golog.Logger
-	qstep             []float64
-	iter              int
-	stepSize          float64
-	randseed          *rand.Rand
+	solDist         float64
+	solver          kinematics.InverseKinematics
+	fastGradDescent *kinematics.NloptIK
+	frame           frame.Frame
+	logger          golog.Logger
+	qstep           []float64
+	iter            int
+	stepSize        float64
+	randseed        *rand.Rand
+	opt             *PlannerOptions
 }
 
 // needed to wrap slices so we can use them as map keys
@@ -67,6 +68,7 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, nCPU int, logger golog.Logger) (M
 	mp.stepSize = 1
 
 	mp.randseed = rand.New(rand.NewSource(42))
+	mp.opt = NewDefaultPlannerOptions()
 
 	return mp, nil
 }
@@ -91,13 +93,21 @@ func (mp *cBiRRTMotionPlanner) SetFrame(f frame.Frame) {
 	mp.frame = f
 }
 
-func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, opt *PlannerOptions, goal *commonpb.Pose, seed []frame.Input) ([][]frame.Input, error) {
+func (mp *cBiRRTMotionPlanner) SetOptions(opt *PlannerOptions) {
+	mp.opt = opt
+	mp.SetMetric(opt.metric)
+}
+
+func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, seed []frame.Input) ([][]frame.Input, error) {
 	var inputSteps [][]frame.Input
+
+	// Store copy of planner options for duration of solve
+	opt := mp.opt
 
 	// How many of the top solutions to try
 	// Solver will terminate after getting this many to save time
 	nSolutions := solutionsToSeed
-	
+
 	if opt.maxSolutions == 0 {
 		opt.maxSolutions = nSolutions
 	}

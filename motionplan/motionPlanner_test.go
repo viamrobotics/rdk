@@ -49,9 +49,6 @@ func TestSimpleMotionUR5(t *testing.T) {
 	mp, err := NewCBiRRTMotionPlanner(m, 4, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	mp.RemoveConstraint("orientation")
-	mp.RemoveConstraint("obstacle")
-
 	// Test ability to arrive at another position
 	pos := &commonpb.Pose{
 		X:  -750,

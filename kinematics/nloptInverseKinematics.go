@@ -37,7 +37,7 @@ type NloptIK struct {
 	logger        golog.Logger
 	jump          float64
 	randSeed      *rand.Rand
-	metric      Metric
+	metric        Metric
 }
 
 // CreateNloptIKSolver TODO
@@ -133,7 +133,7 @@ func (ik *NloptIK) clearGoal() {
 	ik.goal = goal{}
 }
 
-// SetGradient sets the function for distance between two poses
+// SetMetric sets the function for distance between two poses
 func (ik *NloptIK) SetMetric(m Metric) {
 	ik.metric = m
 }

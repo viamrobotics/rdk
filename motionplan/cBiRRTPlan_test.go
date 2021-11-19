@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"context"
-	"math"
 	"math/rand"
 	"sort"
 
@@ -43,7 +42,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	mp.randseed = rand.New(rand.NewSource(42))
 
-	mp.AddConstraint("jointSwingScorer", NewJointConstraint(math.Inf(1)))
+	mp.opt = NewDefaultPlannerOptions()
 
 	pos := &commonpb.Pose{
 		X:  206,
@@ -52,7 +51,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 		OZ: -1,
 	}
 
-	solutions, err := getSolutions(ctx, -1, -1, mp.solver, pos, home7, mp)
+	solutions, err := getSolutions(ctx, mp.opt, mp.solver, pos, home7, mp)
 	test.That(t, err, test.ShouldBeNil)
 
 	near1 := &solution{home7}
@@ -76,7 +75,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 		goalMap[&solution{solutions[k]}] = nil
 	}
 
-	seedReached, goalReached := mp.constrainedExtendWrapper(seedMap, goalMap, near1, target)
+	seedReached, goalReached := mp.constrainedExtendWrapper(mp.opt, seedMap, goalMap, near1, target)
 
 	test.That(t, inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist, test.ShouldBeTrue)
 
@@ -97,6 +96,6 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	// Test that smoothing shortens the path
 	unsmoothLen := len(inputSteps)
-	inputSteps = mp.SmoothPath(ctx, inputSteps)
+	inputSteps = mp.SmoothPath(ctx, mp.opt, inputSteps)
 	test.That(t, len(inputSteps), test.ShouldBeLessThan, unsmoothLen)
 }

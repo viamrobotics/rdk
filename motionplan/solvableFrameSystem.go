@@ -60,11 +60,9 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 	}
 
 	seed := sf.mapToSlice(seedMap)
-	
-	opt := NewDefaultPlannerOptions()
 
 	// Solve for the goal position
-	resultSlices, err := planner.Plan(ctx, opt, spatial.PoseToProtobuf(goal), seed)
+	resultSlices, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed)
 	if err != nil {
 		return nil, err
 	}
