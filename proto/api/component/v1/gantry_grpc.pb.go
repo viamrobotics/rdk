@@ -23,7 +23,7 @@ type GantryServiceClient interface {
 	CurrentPosition(ctx context.Context, in *GantryServiceCurrentPositionRequest, opts ...grpc.CallOption) (*GantryServiceCurrentPositionResponse, error)
 	// MoveToPosition moves a gantry of the underlying robot to the requested position.
 	MoveToPosition(ctx context.Context, in *GantryServiceMoveToPositionRequest, opts ...grpc.CallOption) (*GantryServiceMoveToPositionResponse, error)
-	// Lengths gets the current position of a gantry of the underlying robot.
+	// Lengths gets the lengths of a gantry of the underlying robot.
 	Lengths(ctx context.Context, in *GantryServiceLengthsRequest, opts ...grpc.CallOption) (*GantryServiceLengthsResponse, error)
 }
 
@@ -70,7 +70,7 @@ type GantryServiceServer interface {
 	CurrentPosition(context.Context, *GantryServiceCurrentPositionRequest) (*GantryServiceCurrentPositionResponse, error)
 	// MoveToPosition moves a gantry of the underlying robot to the requested position.
 	MoveToPosition(context.Context, *GantryServiceMoveToPositionRequest) (*GantryServiceMoveToPositionResponse, error)
-	// Lengths gets the current position of a gantry of the underlying robot.
+	// Lengths gets the lengths of a gantry of the underlying robot.
 	Lengths(context.Context, *GantryServiceLengthsRequest) (*GantryServiceLengthsResponse, error)
 	mustEmbedUnimplementedGantryServiceServer()
 }
