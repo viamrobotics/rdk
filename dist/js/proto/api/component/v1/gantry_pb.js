@@ -901,7 +901,7 @@ proto.proto.api.component.v1.GantryServiceLengthsResponse.prototype.toObject = f
  */
 proto.proto.api.component.v1.GantryServiceLengthsResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    positionsList: (f = jspb.Message.getRepeatedFloatingPointField(msg, 1)) == null ? undefined : f
+    lengthsList: (f = jspb.Message.getRepeatedFloatingPointField(msg, 1)) == null ? undefined : f
   };
 
   if (includeInstance) {
@@ -941,7 +941,7 @@ proto.proto.api.component.v1.GantryServiceLengthsResponse.deserializeBinaryFromR
     case 1:
       var values = /** @type {!Array<number>} */ (reader.isDelimited() ? reader.readPackedDouble() : [reader.readDouble()]);
       for (var i = 0; i < values.length; i++) {
-        msg.addPositions(values[i]);
+        msg.addLengths(values[i]);
       }
       break;
     default:
@@ -973,7 +973,7 @@ proto.proto.api.component.v1.GantryServiceLengthsResponse.prototype.serializeBin
  */
 proto.proto.api.component.v1.GantryServiceLengthsResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getPositionsList();
+  f = message.getLengthsList();
   if (f.length > 0) {
     writer.writePackedDouble(
       1,
@@ -984,10 +984,10 @@ proto.proto.api.component.v1.GantryServiceLengthsResponse.serializeBinaryToWrite
 
 
 /**
- * repeated double positions = 1;
+ * repeated double lengths = 1;
  * @return {!Array<number>}
  */
-proto.proto.api.component.v1.GantryServiceLengthsResponse.prototype.getPositionsList = function() {
+proto.proto.api.component.v1.GantryServiceLengthsResponse.prototype.getLengthsList = function() {
   return /** @type {!Array<number>} */ (jspb.Message.getRepeatedFloatingPointField(this, 1));
 };
 
@@ -996,7 +996,7 @@ proto.proto.api.component.v1.GantryServiceLengthsResponse.prototype.getPositions
  * @param {!Array<number>} value
  * @return {!proto.proto.api.component.v1.GantryServiceLengthsResponse} returns this
  */
-proto.proto.api.component.v1.GantryServiceLengthsResponse.prototype.setPositionsList = function(value) {
+proto.proto.api.component.v1.GantryServiceLengthsResponse.prototype.setLengthsList = function(value) {
   return jspb.Message.setField(this, 1, value || []);
 };
 
@@ -1006,7 +1006,7 @@ proto.proto.api.component.v1.GantryServiceLengthsResponse.prototype.setPositions
  * @param {number=} opt_index
  * @return {!proto.proto.api.component.v1.GantryServiceLengthsResponse} returns this
  */
-proto.proto.api.component.v1.GantryServiceLengthsResponse.prototype.addPositions = function(value, opt_index) {
+proto.proto.api.component.v1.GantryServiceLengthsResponse.prototype.addLengths = function(value, opt_index) {
   return jspb.Message.addToRepeatedField(this, 1, value, opt_index);
 };
 
@@ -1015,8 +1015,8 @@ proto.proto.api.component.v1.GantryServiceLengthsResponse.prototype.addPositions
  * Clears the list making it empty but non-null.
  * @return {!proto.proto.api.component.v1.GantryServiceLengthsResponse} returns this
  */
-proto.proto.api.component.v1.GantryServiceLengthsResponse.prototype.clearPositionsList = function() {
-  return this.setPositionsList([]);
+proto.proto.api.component.v1.GantryServiceLengthsResponse.prototype.clearLengthsList = function() {
+  return this.setLengthsList([]);
 };
 
 

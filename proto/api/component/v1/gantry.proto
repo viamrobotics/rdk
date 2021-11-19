@@ -54,5 +54,5 @@ message GantryServiceLengthsRequest {
 }
 
 message GantryServiceLengthsResponse {
-  repeated double positions = 1;
+  repeated double lengths = 1;
 }

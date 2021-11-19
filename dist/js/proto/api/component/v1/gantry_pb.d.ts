@@ -112,10 +112,10 @@ export namespace GantryServiceLengthsRequest {
 }
 
 export class GantryServiceLengthsResponse extends jspb.Message {
-  clearPositionsList(): void;
-  getPositionsList(): Array<number>;
-  setPositionsList(value: Array<number>): void;
-  addPositions(value: number, index?: number): number;
+  clearLengthsList(): void;
+  getLengthsList(): Array<number>;
+  setLengthsList(value: Array<number>): void;
+  addLengths(value: number, index?: number): number;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): GantryServiceLengthsResponse.AsObject;
@@ -129,7 +129,7 @@ export class GantryServiceLengthsResponse extends jspb.Message {
 
 export namespace GantryServiceLengthsResponse {
   export type AsObject = {
-    positionsList: Array<number>,
+    lengthsList: Array<number>,
   }
 }
 
