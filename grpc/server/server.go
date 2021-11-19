@@ -171,25 +171,15 @@ func (s *Server) DoAction(ctx context.Context, req *pb.DoActionRequest) (*pb.DoA
 }
 
 func (s *Server) getGantry(ctx context.Context, name string) (gantry.Gantry, error) {
-	// TODO(cheuk): what's the long term plan for stuff like this?
-	for _, rn := range s.r.ResourceNames() {
-		if rn.Subtype != gantry.Subtype {
-			continue
-		}
-		if rn.Name != name {
-			continue
-		}
-		r, ok := s.r.ResourceByName(rn)
-		if !ok {
-			return nil, errors.New("impossible")
-		}
-		g, ok := r.(gantry.Gantry)
-		if !ok {
-			return nil, errors.New("impossible")
-		}
-		return g, nil
+	r, ok := s.r.ResourceByName(gantry.Named(name))
+	if !ok {
+		return nil, errors.Errorf("unknown gantry name [%s]", name)
 	}
-	return nil, errors.Errorf("no gantry named [%s]", name)
+	g, ok := r.(gantry.Gantry)
+	if !ok {
+		return nil, errors.New("impossible")
+	}
+	return g, nil
 }
 
 // GantryCurrentPosition gets the current position of an gantry of the underlying robot.
