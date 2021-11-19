@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"testing"
 
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/utils"
 
@@ -30,7 +30,7 @@ func TestSimpleMotion(t *testing.T) {
 	//~ mp.AddConstraint("orientation", NewPoseConstraint())
 
 	// Test ability to arrive at another position
-	pos := &pb.Pose{
+	pos := &commonpb.Pose{
 		X:  206,
 		Y:  100,
 		Z:  120,
@@ -53,7 +53,7 @@ func TestSimpleMotionUR5(t *testing.T) {
 	mp.RemoveConstraint("obstacle")
 
 	// Test ability to arrive at another position
-	pos := &pb.Pose{
+	pos := &commonpb.Pose{
 		X:  -750,
 		Y:  -250,
 		Z:  200,
@@ -65,7 +65,7 @@ func TestSimpleMotionUR5(t *testing.T) {
 }
 
 func TestFixOvIncrement(t *testing.T) {
-	pos1 := &pb.Pose{
+	pos1 := &commonpb.Pose{
 		X:     -66,
 		Y:     -133,
 		Z:     372,
@@ -75,7 +75,7 @@ func TestFixOvIncrement(t *testing.T) {
 
 		OZ: 0,
 	}
-	pos2 := &pb.Pose{
+	pos2 := &commonpb.Pose{
 		X:     -66,
 		Y:     -133,
 		Z:     372,

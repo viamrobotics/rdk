@@ -13,6 +13,8 @@ import (
 	"go.viam.com/core/action"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	"go.viam.com/core/robot"
+	"go.viam.com/core/motionplan"
+	spatial "go.viam.com/core/spatialmath"
 	webserver "go.viam.com/core/web/server"
 
 	"github.com/edaniels/golog"
@@ -128,4 +130,57 @@ func play(ctx context.Context, r robot.Robot) error {
 
 func main() {
 	utils.ContextualMain(webserver.RunServer, logger)
+}
+
+// DontHitPetersWallConstraint defines some obstacles that nothing should not intersect with
+// TODO(pl): put this somewhere else, maybe in an example file or something
+func DontHitPetersWallConstraint() motionplan.Constraint {
+
+	f := func(ci *motionplan.ConstraintInput) (bool, float64) {
+		checkPt := func(pose spatial.Pose) bool {
+			pt := pose.Point()
+
+			// wall in Peter's office
+			if pt.Y < -536.8 {
+				return false
+			}
+			if pt.X < -600 {
+				return false
+			}
+			// shelf in Peter's office
+			if pt.Z < 5 && pt.Y < 260 && pt.X < 140 {
+				return false
+			}
+
+			return true
+		}
+		if ci.StartPos != nil {
+			if !checkPt(ci.StartPos) {
+				return false, 0
+			}
+		} else if ci.StartInput != nil {
+			pos, err := ci.Frame.Transform(ci.StartInput)
+			if err != nil {
+				return false, 0
+			}
+			if !checkPt(pos) {
+				return false, 0
+			}
+		}
+		if ci.EndPos != nil {
+			if !checkPt(ci.EndPos) {
+				return false, 0
+			}
+		} else if ci.EndInput != nil {
+			pos, err := ci.Frame.Transform(ci.EndInput)
+			if err != nil {
+				return false, 0
+			}
+			if !checkPt(pos) {
+				return false, 0
+			}
+		}
+		return true, 0
+	}
+	return motionplan.NewFlexibleConstraint(f)
 }

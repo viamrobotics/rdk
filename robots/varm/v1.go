@@ -170,7 +170,7 @@ func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.Arm,
 	if err != nil {
 		return nil, err
 	}
-	newArm.mp, err = motionplan.NewCBiRRTMotionPlanner(newArm.model, logger, 4)
+	newArm.mp, err = motionplan.NewCBiRRTMotionPlanner(newArm.model, 4, logger)
 	if err != nil {
 		return nil, err
 	}

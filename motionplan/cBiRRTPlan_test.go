@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"go.viam.com/core/kinematics"
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/utils"
 
@@ -45,7 +45,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	mp.AddConstraint("jointSwingScorer", NewJointConstraint(math.Inf(1)))
 
-	pos := &pb.Pose{
+	pos := &commonpb.Pose{
 		X:  206,
 		Y:  100,
 		Z:  120.5,

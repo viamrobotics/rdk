@@ -71,7 +71,7 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 		return nil, err
 	}
 	nCPU := runtime.NumCPU()
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, logger, nCPU)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, nCPU, logger)
 	if err != nil {
 		return nil, err
 	}

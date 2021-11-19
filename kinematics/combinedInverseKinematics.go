@@ -131,8 +131,8 @@ func (ik *CombinedIK) Close() error {
 }
 
 // SetGradient sets the function for distance between two poses
-func (ik *CombinedIK) SetGradient(f func(spatialmath.Pose, spatialmath.Pose) float64) {
+func (ik *CombinedIK) SetMetric(m Metric) {
 	for _, solver := range ik.solvers {
-		solver.SetGradient(f)
+		solver.SetMetric(m)
 	}
 }
