@@ -14,6 +14,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 	"github.com/mitchellh/mapstructure"
+	"go.uber.org/multierr"
 )
 
 const (
@@ -128,15 +129,21 @@ func (g *Controller) Close() error {
 // Controls lists the unique input.Controls for the combined sources
 func (g *Controller) Controls(ctx context.Context) ([]input.Control, error) {
 	controlMap := make(map[input.Control]bool)
+	var ok bool
+	var errs error
 	for _, c := range g.sources {
 		controls, err := c.Controls(ctx)
 		if err != nil {
-			return nil, err
+			errs = multierr.Combine(errs, err)
+			continue
 		}
-
+		ok = true
 		for _, ctrl := range controls {
 			controlMap[ctrl] = true
 		}
+	}
+	if !ok {
+		return nil, errs
 	}
 	var controlsOut []input.Control
 	for c := range controlMap {
@@ -149,18 +156,24 @@ func (g *Controller) Controls(ctx context.Context) ([]input.Control, error) {
 // LastEvents returns the last input.Event (the current state)
 func (g *Controller) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
 	eventsOut := make(map[input.Control]input.Event)
+	var ok bool
+	var errs error
 	for _, c := range g.sources {
 		eventList, err := c.LastEvents(ctx)
 		if err != nil {
-			return nil, err
+			errs = multierr.Combine(errs, err)
+			continue
 		}
-
+		ok = true
 		for ctrl, eventA := range eventList {
 			eventB, ok := eventsOut[ctrl]
 			if !ok || eventA.Time.After(eventB.Time) {
 				eventsOut[ctrl] = eventA
 			}
 		}
+	}
+	if !ok {
+		return nil, errs
 	}
 	return eventsOut, nil
 }
@@ -189,12 +202,18 @@ func (g *Controller) RegisterControlCallback(ctx context.Context, control input.
 		}
 	}
 
+	var ok bool
+	var errs error
 	for _, c := range g.sources {
 		err := c.RegisterControlCallback(ctx, control, triggers, relayFunc)
 		if err != nil {
-			return err
+			errs = multierr.Combine(errs, err)
+			continue
 		}
+		ok = true
 	}
-
+	if !ok {
+		return errs
+	}
 	return nil
 }
