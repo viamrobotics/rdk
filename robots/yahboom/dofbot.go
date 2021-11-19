@@ -113,7 +113,9 @@ func createDofBotSolver(logger golog.Logger) (*frame.Model, motionplan.MotionPla
 		return nil, nil, err
 	}
 	// dofbot las limited dof
-	mp.SetGradient(motionplan.PositionOnlyGradient)
+	opt := motionplan.NewDefaultPlannerOptions()
+	opt.SetMetric(motionplan.NewPositionOnlyMetric())
+	mp.SetOptions(opt)
 	return model, mp, nil
 }
 

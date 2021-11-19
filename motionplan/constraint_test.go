@@ -33,7 +33,10 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
-	mp.SetGradient(PositionOnlyGradient)
+	opt := NewDefaultPlannerOptions()
+	opt.SetMetric(NewPositionOnlyMetric())
+	opt.SetMaxSolutions(50)
+	mp.SetOptions(opt)
 	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
 	test.That(t, err, test.ShouldBeNil)
 }

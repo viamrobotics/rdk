@@ -131,10 +131,12 @@ type flexibleConstraint struct {
 	validFunc func(cInput *ConstraintInput) (bool, float64)
 }
 
+// NewFlexibleConstraint returns a constraint which can be flexibly configured to any `valid` function
 func NewFlexibleConstraint(f func(cInput *ConstraintInput) (bool, float64)) Constraint {
 	return &flexibleConstraint{f}
 }
 
+// Valid returns whether the constraint is met
 func (c *flexibleConstraint) Valid(cInput *ConstraintInput) (bool, float64) {
 	if c.validFunc != nil {
 		return c.validFunc(cInput)

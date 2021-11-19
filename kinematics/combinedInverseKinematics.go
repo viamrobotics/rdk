@@ -130,7 +130,7 @@ func (ik *CombinedIK) Close() error {
 	return err
 }
 
-// SetGradient sets the function for distance between two poses
+// SetMetric sets the function for distance between two poses
 func (ik *CombinedIK) SetMetric(m Metric) {
 	for _, solver := range ik.solvers {
 		solver.SetMetric(m)

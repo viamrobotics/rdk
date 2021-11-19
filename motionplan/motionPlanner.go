@@ -16,6 +16,7 @@ import (
 	vutil "go.viam.com/core/utils"
 )
 
+// PlannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem
 type PlannerOptions struct {
 	constraintHandler
 	metric kinematics.Metric
@@ -26,11 +27,27 @@ type PlannerOptions struct {
 	minScore float64
 }
 
-func NewDefaultPlannerOptions() *PlannerOptions{
+// NewDefaultPlannerOptions specifies a set of default options for the planner
+func NewDefaultPlannerOptions() *PlannerOptions {
 	opt := &PlannerOptions{}
 	opt.AddConstraint(jointConstraint, NewJointConstraint(math.Inf(1)))
 	opt.metric = kinematics.NewSquaredNormMetric()
 	return opt
+}
+
+// SetMetric sets the distance metric for the solver
+func (p *PlannerOptions) SetMetric(m kinematics.Metric) {
+	p.metric = m
+}
+
+// SetMaxSolutions sets the maximum number of IK solutions to generate for the planner
+func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
+	p.maxSolutions = maxSolutions
+}
+
+// SetMinScore specifies the IK stopping score for the planner
+func (p *PlannerOptions) SetMinScore(minScore float64) {
+	p.minScore = minScore
 }
 
 // MotionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
@@ -38,9 +55,10 @@ func NewDefaultPlannerOptions() *PlannerOptions{
 type MotionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
-	Plan(context.Context, *PlannerOptions, *commonpb.Pose, []frame.Input) ([][]frame.Input, error)
-	Resolution() float64                                  // how narrowly to check for constraints
-	Frame() frame.Frame
+	Plan(context.Context, *commonpb.Pose, []frame.Input) ([][]frame.Input, error)
+	SetOptions(*PlannerOptions) // SetOptions updates the planner options. Should not change executing Plan()s
+	Resolution() float64        // Resoltion specifies how narrowly to check for constraints
+	Frame() frame.Frame         // Frame will return the frame used for planning
 }
 
 // NewLinearMotionPlanner returns a linearMotionPlanner. This does a linear IK interpolation from start to goal.
@@ -53,8 +71,8 @@ func NewLinearMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (M
 	}
 	mp := &linearMotionPlanner{solver: ik, frame: frame, idealMovementScore: 0.3, stepSize: 2., logger: logger}
 	mp.visited = map[r3.Vector]bool{}
-	mp.AddConstraint("interpolationConstraint", NewInterpolatingConstraint(0.1))
-	mp.AddConstraint(jointConstraint, NewJointConstraint(math.Inf(1)))
+	mp.opt = NewDefaultPlannerOptions()
+	mp.opt.AddConstraint("interpolationConstraint", NewInterpolatingConstraint(0.1))
 	return mp, nil
 }
 
@@ -67,6 +85,12 @@ type linearMotionPlanner struct {
 	idealMovementScore float64
 	stepSize           float64
 	visited            map[r3.Vector]bool
+	opt                *PlannerOptions
+}
+
+func (mp *linearMotionPlanner) SetOptions(opt *PlannerOptions) {
+	mp.opt = opt
+	mp.solver.SetMetric(opt.metric)
 }
 
 func (mp *linearMotionPlanner) Frame() frame.Frame {
@@ -77,11 +101,9 @@ func (mp *linearMotionPlanner) Resolution() float64 {
 	return mp.stepSize
 }
 
-func (mp *linearMotionPlanner) SetMetric(m kinematics.Metric) {
-	mp.solver.SetMetric(m)
-}
-
-func (mp *linearMotionPlanner) Plan(ctx context.Context, opt *PlannerOptions, goal *commonpb.Pose, seed []frame.Input) ([][]frame.Input, error) {
+func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, seed []frame.Input) ([][]frame.Input, error) {
+	// Store copy of planner options for duration of solve
+	opt := mp.opt
 	var inputSteps [][]frame.Input
 
 	seedPos, err := mp.frame.Transform(seed)
