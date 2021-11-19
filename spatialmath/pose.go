@@ -4,8 +4,15 @@ import (
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/quat"
 
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
 )
+
+// Translation is the translation between two objects in the grid system. It is always in millimeters.
+type Translation struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	Z float64 `json:"z"`
+}
 
 // Pose represents a 6dof pose, position and orientation, with respect to the origin.
 // The Point() method returns the position in (x,y,z) mm coordinates,
@@ -14,6 +21,18 @@ import (
 type Pose interface {
 	Point() r3.Vector
 	Orientation() Orientation
+}
+
+// PoseMap encodes the orientation interface to something serializable and human readable
+func PoseMap(p Pose) (map[string]interface{}, error) {
+	orientation, err := OrientationMap(p.Orientation().AxisAngles())
+	if err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{
+		"point":       p.Point(),
+		"orientation": orientation,
+	}, nil
 }
 
 // NewZeroPose returns a pose at (0,0,0) with same orientation as whatever frame it is placed in.
@@ -63,7 +82,7 @@ func NewPoseFromPoint(point r3.Vector) Pose {
 }
 
 // NewPoseFromProtobuf creates a new pose from a protobuf pose
-func NewPoseFromProtobuf(pos *pb.Pose) Pose {
+func NewPoseFromProtobuf(pos *commonpb.Pose) Pose {
 	return newDualQuaternionFromProtobuf(pos)
 }
 
@@ -115,8 +134,8 @@ func PoseDelta(a, b Pose) []float64 {
 }
 
 // PoseToProtobuf converts a pose to the pose format protobuf expects (which is as OrientationVectorDegrees)
-func PoseToProtobuf(p Pose) *pb.Pose {
-	final := &pb.Pose{}
+func PoseToProtobuf(p Pose) *commonpb.Pose {
+	final := &commonpb.Pose{}
 	pt := p.Point()
 	final.X = pt.X
 	final.Y = pt.Y

@@ -15,7 +15,8 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/kinematics"
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	componentpb "go.viam.com/core/proto/api/component/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -29,8 +30,8 @@ import (
 //go:embed dofbot.json
 var modeljson []byte
 
-func dofbotModel() (*kinematics.Model, error) {
-	return kinematics.ParseJSON(modeljson, "yahboom-dofbot")
+func dofbotModel() (*frame.Model, error) {
+	return frame.ParseJSON(modeljson, "yahboom-dofbot")
 }
 
 type jointConfig struct {
@@ -95,13 +96,13 @@ func init() {
 
 type dofBot struct {
 	handle board.I2CHandle
-	model  *kinematics.Model
+	model  *frame.Model
 	ik     kinematics.InverseKinematics
 	mu     sync.Mutex
 	muMove sync.Mutex
 }
 
-func createDofBotSolver(logger golog.Logger) (*kinematics.Model, kinematics.InverseKinematics, error) {
+func createDofBotSolver(logger golog.Logger) (*frame.Model, kinematics.InverseKinematics, error) {
 	model, err := dofbotModel()
 	if err != nil {
 		return nil, nil, err
@@ -143,7 +144,7 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 }
 
 // CurrentPosition returns the current position of the arm.
-func (a *dofBot) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
+func (a *dofBot) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -152,7 +153,7 @@ func (a *dofBot) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the given absolute position.
-func (a *dofBot) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
+func (a *dofBot) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -165,7 +166,7 @@ func (a *dofBot) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 }
 
 // MoveToJointPositions moves the arm's joints to the given positions.
-func (a *dofBot) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
+func (a *dofBot) MoveToJointPositions(ctx context.Context, pos *componentpb.ArmJointPositions) error {
 	a.muMove.Lock()
 	defer a.muMove.Unlock()
 	if len(pos.Degrees) > 5 {
@@ -239,15 +240,15 @@ func (a *dofBot) moveJointInLock(ctx context.Context, joint int, degrees float64
 }
 
 // CurrentJointPositions returns the current joint positions of the arm.
-func (a *dofBot) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (a *dofBot) CurrentJointPositions(ctx context.Context) (*componentpb.ArmJointPositions, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
 	return a.currentJointPositionsInLock(ctx)
 }
 
-func (a *dofBot) currentJointPositionsInLock(ctx context.Context) (*pb.JointPositions, error) {
-	pos := pb.JointPositions{}
+func (a *dofBot) currentJointPositionsInLock(ctx context.Context) (*componentpb.ArmJointPositions, error) {
+	pos := componentpb.ArmJointPositions{}
 	for i := 1; i <= 5; i++ {
 		x, err := a.readJointInLock(ctx, i)
 		if err != nil {
@@ -285,7 +286,7 @@ func (a *dofBot) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 }
 
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem
-func (a *dofBot) ModelFrame() *kinematics.Model {
+func (a *dofBot) ModelFrame() *frame.Model {
 	return a.model
 }
 
@@ -335,6 +336,18 @@ func (a *dofBot) Grab(ctx context.Context) (bool, error) {
 	}
 
 	return last < grabAngle, a.moveJointInLock(ctx, 6, last+20) // squeeze a tiny bit
+}
+
+func (a *dofBot) CurrentInputs(ctx context.Context) ([]frame.Input, error) {
+	res, err := a.CurrentJointPositions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return frame.JointPosToInputs(res), nil
+}
+
+func (a *dofBot) GoToInputs(ctx context.Context, goal []frame.Input) error {
+	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(goal))
 }
 
 func (a *dofBot) Close() error {

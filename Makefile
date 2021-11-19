@@ -7,7 +7,7 @@ ifneq ("$(wildcard /etc/rpi-issue)","")
    TAGS = -tags="pi custom_wasmer_runtime"
 endif
 
-SERVER_DEB_VER = 0.3
+SERVER_DEB_VER = 0.4
 
 binsetup:
 	mkdir -p ${BIN_OUTPUT_PATH}
@@ -66,6 +66,7 @@ server:
 cameras:
 	cd etc/camera_servers && make royaleserver
 	cd etc/camera_servers && make intelrealserver
+	cd etc/camera_servers && make cubeeyeserver
 
 deb-server: server cameras
 	rm -rf etc/packaging/work/
@@ -74,15 +75,7 @@ deb-server: server cameras
 	install -D $(BIN_OUTPUT_PATH)/server etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/bin/viam-server
 	install -D etc/camera_servers/intelrealserver etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/bin/intelrealserver
 	install -D etc/camera_servers/royaleserver etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/bin/royaleserver
-	install -m 644 -D web/runtime-shared/templates/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/templates/
-	install -m 644 -D web/runtime-shared/static/control.js etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/control.js
-	install -m 644 -D web/runtime-shared/static/third-party/vue.js etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/third-party/vue.js
-	install -m 644 -D web/runtime-shared/static/third-party/ace/snippets/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/third-party/ace/snippets
-	install -m 644 -D web/runtime-shared/static/third-party/ace/*.js --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/third-party/ace
-	install -m 644 -D web/runtime-shared/static/components/*.js --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/components
-	install -m 644 -D web/runtime-shared/static/components/*.css --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/components
-	install -m 644 -D web/runtime-shared/static/components/fonts/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/components/fonts
-	install -m 644 -D web/runtime-shared/static/components/img/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/components/img
+	install -D etc/camera_servers/cubeeyeserver etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/bin/cubeeyeserver
 	cd etc/packaging/work/viam-server-$(SERVER_DEB_VER)/ \
 	&& dch -v $(SERVER_DEB_VER)+`date -u '+%Y%m%d%H%M'` "Auto-build from commit `git log --pretty=format:'%h' -n 1`" \
 	&& dch -r viam \

@@ -11,6 +11,12 @@ type Base interface {
 	// can be requested to block until the move is complete.
 	MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error)
 
+	// MoveArc moves the robot in an arc a given distance at a given speed and degs per second of movement.
+	// The degs per sec can be thought of as the angular velocity the robot has during its movement. This function
+	// can be requested to block until move is complete
+	// Note: ramping affects when and how arc is performed, further improvements may be needed
+	MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) (int, error)
+
 	// Spin spins the robot by a given angle in degrees at a given speed. The method
 	// can be requested to block until the move is complete.
 	Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error)
