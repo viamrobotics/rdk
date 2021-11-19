@@ -4,7 +4,8 @@ import (
 	"math"
 	"testing"
 
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	pb "go.viam.com/core/proto/api/component/v1"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
@@ -14,50 +15,50 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
-func poseToSlice(p *pb.Pose) []float64 {
+func poseToSlice(p *commonpb.Pose) []float64 {
 	return []float64{p.X, p.Y, p.Z, p.Theta, p.OX, p.OY, p.OZ}
 }
 
 // This should test forward kinematics functions
 func TestForwardKinematics(t *testing.T) {
 	// Test fake 5DOF arm to confirm kinematics works with non-6dof arms
-	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"), "")
+	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 300, 0, 360.25
 	expect := []float64{300, 0, 360.25, 0, 1, 0, 0}
-	pos, err := ComputePosition(m, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0}})
+	pos, err := ComputePosition(m, &pb.ArmJointPositions{Degrees: []float64{0, 0, 0, 0, 0}})
 	test.That(t, err, test.ShouldBeNil)
 	actual := poseToSlice(pos)
 
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
 
 	// Test the 6dof arm we actually have
-	m, err = ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
+	m, err = frame.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 365, 0, 360.25
 	expect = []float64{365, 0, 360.25, 0, 1, 0, 0}
-	pos, err = ComputePosition(m, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}})
+	pos, err = ComputePosition(m, &pb.ArmJointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}})
 	test.That(t, err, test.ShouldBeNil)
 	actual = poseToSlice(pos)
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
 
 	// Test incorrect joints
-	_, err = ComputePosition(m, &pb.JointPositions{Degrees: []float64{}})
+	_, err = ComputePosition(m, &pb.ArmJointPositions{Degrees: []float64{}})
 	test.That(t, err, test.ShouldNotBeNil)
-	_, err = ComputePosition(m, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0, 0}})
+	_, err = ComputePosition(m, &pb.ArmJointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0, 0}})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	newPos := []float64{45, -45, 0, 0, 0, 0}
-	pos, err = ComputePosition(m, &pb.JointPositions{Degrees: newPos})
+	pos, err = ComputePosition(m, &pb.ArmJointPositions{Degrees: newPos})
 	test.That(t, err, test.ShouldBeNil)
 	actual = poseToSlice(pos)
 	expect = []float64{57.5, 57.5, 545.1208197765168, 0, 0.5, 0.5, 0.707}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
 
 	newPos = []float64{-45, 0, 0, 0, 0, 45}
-	pos, err = ComputePosition(m, &pb.JointPositions{Degrees: newPos})
+	pos, err = ComputePosition(m, &pb.ArmJointPositions{Degrees: newPos})
 	test.That(t, err, test.ShouldBeNil)
 	actual = poseToSlice(pos)
 	expect = []float64{258.0935, -258.0935, 360.25, utils.RadToDeg(0.7854), 0.707, -0.707, 0}
@@ -65,13 +66,13 @@ func TestForwardKinematics(t *testing.T) {
 
 	// Test out of bounds
 	newPos = []float64{-45, 0, 0, 0, 0, 999}
-	pos, err = ComputePosition(m, &pb.JointPositions{Degrees: newPos})
+	pos, err = ComputePosition(m, &pb.ArmJointPositions{Degrees: newPos})
 	test.That(t, pos, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func TestSwingEdgeCases(t *testing.T) {
-	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"), "")
+	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	origin := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0})
@@ -154,7 +155,7 @@ func TestDeriv(t *testing.T) {
 func TestDynamicFrameSystemXArm(t *testing.T) {
 	fs := frame.NewEmptySimpleFrameSystem("test")
 
-	model, err := ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
+	model, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(model, fs.World())
 
@@ -208,11 +209,11 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantry, gantryOffset)
 
-	modelXarm, err := ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
+	modelXarm, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelXarm, gantry)
 
-	modelUR5e, err := ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
+	modelUR5e, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelUR5e, urOffset)
 
@@ -282,7 +283,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 }
 
 func TestFixOvIncrement(t *testing.T) {
-	pos1 := &pb.Pose{
+	pos1 := &commonpb.Pose{
 		X:     -66,
 		Y:     -133,
 		Z:     372,
@@ -291,7 +292,7 @@ func TestFixOvIncrement(t *testing.T) {
 		OY:    1,
 		OZ:    0,
 	}
-	pos2 := &pb.Pose{
+	pos2 := &commonpb.Pose{
 		X:     -66,
 		Y:     -133,
 		Z:     372,

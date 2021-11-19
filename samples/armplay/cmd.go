@@ -11,7 +11,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/action"
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
 	"go.viam.com/core/robot"
 	webserver "go.viam.com/core/web/server"
 
@@ -56,10 +56,10 @@ func chrisCirlce(ctx context.Context, r robot.Robot) error {
 	}
 
 	return multierr.Combine(
-		arm.MoveToPosition(ctx, &pb.Pose{X: -600, Z: 480}),
-		arm.MoveToPosition(ctx, &pb.Pose{X: -200, Z: 480}),
-		arm.MoveToPosition(ctx, &pb.Pose{X: -200, Z: 300}),
-		arm.MoveToPosition(ctx, &pb.Pose{X: -600, Z: 300}),
+		arm.MoveToPosition(ctx, &commonpb.Pose{X: -600, Z: 480}),
+		arm.MoveToPosition(ctx, &commonpb.Pose{X: -200, Z: 480}),
+		arm.MoveToPosition(ctx, &commonpb.Pose{X: -200, Z: 300}),
+		arm.MoveToPosition(ctx, &commonpb.Pose{X: -600, Z: 300}),
 	)
 }
 

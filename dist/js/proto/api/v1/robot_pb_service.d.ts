@@ -113,6 +113,15 @@ type RobotServiceBaseMoveStraight = {
   readonly responseType: typeof proto_api_v1_robot_pb.BaseMoveStraightResponse;
 };
 
+type RobotServiceBaseMoveArc = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.BaseMoveArcRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.BaseMoveArcResponse;
+};
+
 type RobotServiceBaseSpin = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -739,6 +748,7 @@ export class RobotService {
   static readonly ArmMoveToJointPositions: RobotServiceArmMoveToJointPositions;
   static readonly ArmJointMoveDelta: RobotServiceArmJointMoveDelta;
   static readonly BaseMoveStraight: RobotServiceBaseMoveStraight;
+  static readonly BaseMoveArc: RobotServiceBaseMoveArc;
   static readonly BaseSpin: RobotServiceBaseSpin;
   static readonly BaseStop: RobotServiceBaseStop;
   static readonly BaseWidthMillis: RobotServiceBaseWidthMillis;
@@ -940,6 +950,15 @@ export class RobotServiceClient {
   baseMoveStraight(
     requestMessage: proto_api_v1_robot_pb.BaseMoveStraightRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BaseMoveStraightResponse|null) => void
+  ): UnaryResponse;
+  baseMoveArc(
+    requestMessage: proto_api_v1_robot_pb.BaseMoveArcRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BaseMoveArcResponse|null) => void
+  ): UnaryResponse;
+  baseMoveArc(
+    requestMessage: proto_api_v1_robot_pb.BaseMoveArcRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BaseMoveArcResponse|null) => void
   ): UnaryResponse;
   baseSpin(
     requestMessage: proto_api_v1_robot_pb.BaseSpinRequest,

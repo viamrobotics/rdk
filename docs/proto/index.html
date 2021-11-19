@@ -175,6 +175,80 @@
         
           
           <li>
+            <a href="#proto%2fapi%2fcommon%2fv1%2fcommon.proto">proto/api/common/v1/common.proto</a>
+            <ul>
+              
+                <li>
+                  <a href="#proto.api.common.v1.Pose"><span class="badge">M</span>Pose</a>
+                </li>
+              
+              
+              
+              
+            </ul>
+          </li>
+        
+          
+          <li>
+            <a href="#proto%2fapi%2fcomponent%2fv1%2farm.proto">proto/api/component/v1/arm.proto</a>
+            <ul>
+              
+                <li>
+                  <a href="#proto.api.component.v1.ArmJointPositions"><span class="badge">M</span>ArmJointPositions</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.ArmServiceCurrentJointPositionsRequest"><span class="badge">M</span>ArmServiceCurrentJointPositionsRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.ArmServiceCurrentJointPositionsResponse"><span class="badge">M</span>ArmServiceCurrentJointPositionsResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.ArmServiceCurrentPositionRequest"><span class="badge">M</span>ArmServiceCurrentPositionRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.ArmServiceCurrentPositionResponse"><span class="badge">M</span>ArmServiceCurrentPositionResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.ArmServiceJointMoveDeltaRequest"><span class="badge">M</span>ArmServiceJointMoveDeltaRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.ArmServiceJointMoveDeltaResponse"><span class="badge">M</span>ArmServiceJointMoveDeltaResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.ArmServiceMoveToJointPositionsRequest"><span class="badge">M</span>ArmServiceMoveToJointPositionsRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.ArmServiceMoveToJointPositionsResponse"><span class="badge">M</span>ArmServiceMoveToJointPositionsResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.ArmServiceMoveToPositionRequest"><span class="badge">M</span>ArmServiceMoveToPositionRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.ArmServiceMoveToPositionResponse"><span class="badge">M</span>ArmServiceMoveToPositionResponse</a>
+                </li>
+              
+              
+              
+              
+                <li>
+                  <a href="#proto.api.component.v1.ArmService"><span class="badge">S</span>ArmService</a>
+                </li>
+              
+            </ul>
+          </li>
+        
+          
+          <li>
             <a href="#proto%2fapi%2fservice%2fv1%2fmetadata.proto">proto/api/service/v1/metadata.proto</a>
             <ul>
               
@@ -255,6 +329,14 @@
               
                 <li>
                   <a href="#proto.api.v1.ArmStatus"><span class="badge">M</span>ArmStatus</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BaseMoveArcRequest"><span class="badge">M</span>BaseMoveArcRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BaseMoveArcResponse"><span class="badge">M</span>BaseMoveArcResponse</a>
                 </li>
               
                 <li>
@@ -1026,6 +1108,465 @@
     
       
       <div class="file-heading">
+        <h2 id="proto/api/common/v1/common.proto">proto/api/common/v1/common.proto</h2><a href="#title">Top</a>
+      </div>
+      <p>common.proto should hold messages that are used across multiple resource subtypes</p>
+
+      
+        <h3 id="proto.api.common.v1.Pose">Pose</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>x</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p>millimeters of the end effector from the base </p></td>
+                </tr>
+              
+                <tr>
+                  <td>y</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>z</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>o_x</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p>ox, oy, oz, theta represents an orientation vector
+Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
+with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation
+such that the ox/oy/oz components represent the point on the cartesian unit sphere at which your end effector is pointing
+from the origin, and that unit vector forms an axis around which theta rotates. This means that incrementing/decrementing
+theta will perform an in-line rotation of the end effector.
+Theta is defined as rotation between two planes: the plane defined by the origin, the point (0,0,1), and the rx,ry,rz
+point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at
+zero as the north/south pole is circled, the Roll will correct itself to remain in-line.
+Theta in pb.Pose should be degrees. It will be converted to radians in the internal OrientationVec. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>o_y</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>o_z</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>theta</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+
+      
+
+      
+
+      
+    
+      
+      <div class="file-heading">
+        <h2 id="proto/api/component/v1/arm.proto">proto/api/component/v1/arm.proto</h2><a href="#title">Top</a>
+      </div>
+      <p></p>
+
+      
+        <h3 id="proto.api.component.v1.ArmJointPositions">ArmJointPositions</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>degrees</td>
+                  <td><a href="#double">double</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.ArmServiceCurrentJointPositionsRequest">ArmServiceCurrentJointPositionsRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.ArmServiceCurrentJointPositionsResponse">ArmServiceCurrentJointPositionsResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>positions</td>
+                  <td><a href="#proto.api.component.v1.ArmJointPositions">ArmJointPositions</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.ArmServiceCurrentPositionRequest">ArmServiceCurrentPositionRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.ArmServiceCurrentPositionResponse">ArmServiceCurrentPositionResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>position</td>
+                  <td><a href="#proto.api.common.v1.Pose">proto.api.common.v1.Pose</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.ArmServiceJointMoveDeltaRequest">ArmServiceJointMoveDeltaRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>joint</td>
+                  <td><a href="#int32">int32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>amount_degs</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.ArmServiceJointMoveDeltaResponse">ArmServiceJointMoveDeltaResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.component.v1.ArmServiceMoveToJointPositionsRequest">ArmServiceMoveToJointPositionsRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>to</td>
+                  <td><a href="#proto.api.component.v1.ArmJointPositions">ArmJointPositions</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.ArmServiceMoveToJointPositionsResponse">ArmServiceMoveToJointPositionsResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.component.v1.ArmServiceMoveToPositionRequest">ArmServiceMoveToPositionRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>to</td>
+                  <td><a href="#proto.api.common.v1.Pose">proto.api.common.v1.Pose</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.ArmServiceMoveToPositionResponse">ArmServiceMoveToPositionResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+
+      
+
+      
+
+      
+        <h3 id="proto.api.component.v1.ArmService">ArmService</h3>
+        <p>An ArmService services maintains all arms associated with a robot</p>
+        <table class="enum-table">
+          <thead>
+            <tr><td>Method Name</td><td>Request Type</td><td>Response Type</td><td>Description</td></tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td>CurrentPosition</td>
+                <td><a href="#proto.api.component.v1.ArmServiceCurrentPositionRequest">ArmServiceCurrentPositionRequest</a></td>
+                <td><a href="#proto.api.component.v1.ArmServiceCurrentPositionResponse">ArmServiceCurrentPositionResponse</a></td>
+                <td><p>CurrentPosition gets the current position of an arm of the underlying robot.</p></td>
+              </tr>
+            
+              <tr>
+                <td>MoveToPosition</td>
+                <td><a href="#proto.api.component.v1.ArmServiceMoveToPositionRequest">ArmServiceMoveToPositionRequest</a></td>
+                <td><a href="#proto.api.component.v1.ArmServiceMoveToPositionResponse">ArmServiceMoveToPositionResponse</a></td>
+                <td><p>MoveToPosition moves an arm of the underlying robot to the requested position.</p></td>
+              </tr>
+            
+              <tr>
+                <td>CurrentJointPositions</td>
+                <td><a href="#proto.api.component.v1.ArmServiceCurrentJointPositionsRequest">ArmServiceCurrentJointPositionsRequest</a></td>
+                <td><a href="#proto.api.component.v1.ArmServiceCurrentJointPositionsResponse">ArmServiceCurrentJointPositionsResponse</a></td>
+                <td><p>CurrentJointPositions gets the current joint position of an arm of the underlying robot.</p></td>
+              </tr>
+            
+              <tr>
+                <td>MoveToJointPositions</td>
+                <td><a href="#proto.api.component.v1.ArmServiceMoveToJointPositionsRequest">ArmServiceMoveToJointPositionsRequest</a></td>
+                <td><a href="#proto.api.component.v1.ArmServiceMoveToJointPositionsResponse">ArmServiceMoveToJointPositionsResponse</a></td>
+                <td><p>MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.</p></td>
+              </tr>
+            
+              <tr>
+                <td>JointMoveDelta</td>
+                <td><a href="#proto.api.component.v1.ArmServiceJointMoveDeltaRequest">ArmServiceJointMoveDeltaRequest</a></td>
+                <td><a href="#proto.api.component.v1.ArmServiceJointMoveDeltaResponse">ArmServiceJointMoveDeltaResponse</a></td>
+                <td><p>JointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.</p></td>
+              </tr>
+            
+          </tbody>
+        </table>
+
+        
+          
+          
+          <h4>Methods with HTTP bindings</h4>
+          <table>
+            <thead>
+              <tr>
+                <td>Method Name</td>
+                <td>Method</td>
+                <td>Pattern</td>
+                <td>Body</td>
+              </tr>
+            </thead>
+            <tbody>
+            
+              
+              
+              <tr>
+                <td>CurrentPosition</td>
+                <td>GET</td>
+                <td>/api/v1/component/arm/{name}/current_position</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>MoveToPosition</td>
+                <td>PUT</td>
+                <td>/api/v1/component/arm/{name}/move_to_position</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>CurrentJointPositions</td>
+                <td>GET</td>
+                <td>/api/v1/component/arm/{name}/current_joint_positions</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>MoveToJointPositions</td>
+                <td>PUT</td>
+                <td>/api/v1/component/arm/{name}/move_to_joint_positions</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>JointMoveDelta</td>
+                <td>PUT</td>
+                <td>/api/v1/component/arm/{name}/joint_move_delta</td>
+                <td></td>
+              </tr>
+              
+            
+            </tbody>
+          </table>
+          
+        
+    
+      
+      <div class="file-heading">
         <h2 id="proto/api/service/v1/metadata.proto">proto/api/service/v1/metadata.proto</h2><a href="#title">Top</a>
       </div>
       <p></p>
@@ -1474,6 +2015,89 @@
                 <tr>
                   <td>joint_positions</td>
                   <td><a href="#proto.api.v1.JointPositions">JointPositions</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BaseMoveArcRequest">BaseMoveArcRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>distance_millis</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>millis_per_sec</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>angle_deg</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BaseMoveArcResponse">BaseMoveArcResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>success</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>error</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>distance_millis</td>
+                  <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -6511,6 +7135,13 @@ And not the pieces relevant to local configuration (pins, security keys, etc...)
               </tr>
             
               <tr>
+                <td>BaseMoveArc</td>
+                <td><a href="#proto.api.v1.BaseMoveArcRequest">BaseMoveArcRequest</a></td>
+                <td><a href="#proto.api.v1.BaseMoveArcResponse">BaseMoveArcResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
                 <td>BaseSpin</td>
                 <td><a href="#proto.api.v1.BaseSpinRequest">BaseSpinRequest</a></td>
                 <td><a href="#proto.api.v1.BaseSpinResponse">BaseSpinResponse</a></td>
@@ -7130,6 +7761,16 @@ is reliant on having an encoder.</p></td>
                 <td>BaseMoveStraight</td>
                 <td>POST</td>
                 <td>/api/v1/base/{name}/move_straight</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>BaseMoveArc</td>
+                <td>POST</td>
+                <td>/api/v1/base/{name}/move_arc</td>
                 <td></td>
               </tr>
               

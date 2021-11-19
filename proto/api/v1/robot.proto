@@ -105,6 +105,12 @@ service RobotService {
     };  
   }
 
+  rpc BaseMoveArc(BaseMoveArcRequest) returns (BaseMoveArcResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/base/{name}/move_arc"
+    };  
+  }
+
   // BaseSpin spins a base of the underlying robot.
   rpc BaseSpin(BaseSpinRequest) returns (BaseSpinResponse) {
     option (google.api.http) = {
@@ -773,6 +779,19 @@ message BaseMoveStraightRequest {
 }
 
 message BaseMoveStraightResponse {
+  bool success = 1;
+  string error = 2;
+  int64 distance_millis = 3;
+}
+
+message BaseMoveArcRequest {
+  string name = 1;
+  int64 distance_millis = 2;
+  double millis_per_sec = 3;
+  double angle_deg = 4;
+}
+
+message BaseMoveArcResponse {
   bool success = 1;
   string error = 2;
   int64 distance_millis = 3;

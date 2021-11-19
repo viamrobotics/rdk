@@ -823,6 +823,66 @@ export namespace BaseMoveStraightResponse {
   }
 }
 
+export class BaseMoveArcRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  getDistanceMillis(): number;
+  setDistanceMillis(value: number): void;
+
+  getMillisPerSec(): number;
+  setMillisPerSec(value: number): void;
+
+  getAngleDeg(): number;
+  setAngleDeg(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BaseMoveArcRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: BaseMoveArcRequest): BaseMoveArcRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BaseMoveArcRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BaseMoveArcRequest;
+  static deserializeBinaryFromReader(message: BaseMoveArcRequest, reader: jspb.BinaryReader): BaseMoveArcRequest;
+}
+
+export namespace BaseMoveArcRequest {
+  export type AsObject = {
+    name: string,
+    distanceMillis: number,
+    millisPerSec: number,
+    angleDeg: number,
+  }
+}
+
+export class BaseMoveArcResponse extends jspb.Message {
+  getSuccess(): boolean;
+  setSuccess(value: boolean): void;
+
+  getError(): string;
+  setError(value: string): void;
+
+  getDistanceMillis(): number;
+  setDistanceMillis(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BaseMoveArcResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BaseMoveArcResponse): BaseMoveArcResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BaseMoveArcResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BaseMoveArcResponse;
+  static deserializeBinaryFromReader(message: BaseMoveArcResponse, reader: jspb.BinaryReader): BaseMoveArcResponse;
+}
+
+export namespace BaseMoveArcResponse {
+  export type AsObject = {
+    success: boolean,
+    error: string,
+    distanceMillis: number,
+  }
+}
+
 export class BaseSpinRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;

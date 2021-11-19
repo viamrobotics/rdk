@@ -4,6 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/utils/rpc/dialer"
+	rpcserver "go.viam.com/utils/rpc/server"
+
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
@@ -17,6 +20,7 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/servo"
+	"go.viam.com/core/subtype"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -135,18 +139,40 @@ func TestComponentRegistry(t *testing.T) {
 
 }
 
-func TestComponentSubtypeRegistry(t *testing.T) {
+func TestResourceSubtypeRegistry(t *testing.T) {
 	rf := func(r interface{}) (resource.Reconfigurable, error) {
 		return nil, nil
 	}
+	sf := func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
+		return nil
+	}
+	rcf := func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
+		return nil
+	}
 	newSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, arm.SubtypeName)
-	test.That(t, func() { RegisterComponentSubtype(newSubtype, ComponentSubtype{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterResourceSubtype(newSubtype, ResourceSubtype{}) }, test.ShouldPanic)
 
-	RegisterComponentSubtype(newSubtype, ComponentSubtype{rf})
-	creator := ComponentSubtypeLookup(newSubtype)
+	RegisterResourceSubtype(newSubtype, ResourceSubtype{Reconfigurable: rf, RegisterRPCService: sf})
+	creator := ResourceSubtypeLookup(newSubtype)
 	test.That(t, creator, test.ShouldNotBeNil)
+	test.That(t, creator.Reconfigurable, test.ShouldEqual, rf)
+	test.That(t, creator.RegisterRPCService, test.ShouldEqual, sf)
+	test.That(t, creator.RPCClient, test.ShouldBeNil)
 
 	subtype2 := resource.NewSubtype(resource.Namespace("acme2"), resource.ResourceTypeComponent, arm.SubtypeName)
-	test.That(t, ComponentSubtypeLookup(subtype2), test.ShouldBeNil)
-	test.That(t, creator.Reconfigurable, test.ShouldEqual, rf)
+	test.That(t, ResourceSubtypeLookup(subtype2), test.ShouldBeNil)
+
+	RegisterResourceSubtype(subtype2, ResourceSubtype{RegisterRPCService: sf, RPCClient: rcf})
+	creator = ResourceSubtypeLookup(subtype2)
+	test.That(t, creator, test.ShouldNotBeNil)
+	test.That(t, creator.RegisterRPCService, test.ShouldEqual, sf)
+	test.That(t, creator.RPCClient, test.ShouldEqual, rcf)
+
+	subtype3 := resource.NewSubtype(resource.Namespace("acme3"), resource.ResourceTypeComponent, arm.SubtypeName)
+	test.That(t, ResourceSubtypeLookup(subtype3), test.ShouldBeNil)
+
+	RegisterResourceSubtype(subtype3, ResourceSubtype{RPCClient: rcf})
+	creator = ResourceSubtypeLookup(subtype3)
+	test.That(t, creator, test.ShouldNotBeNil)
+	test.That(t, creator.RPCClient, test.ShouldEqual, rcf)
 }

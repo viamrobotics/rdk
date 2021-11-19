@@ -3,6 +3,7 @@ package kinematics
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"runtime"
 
@@ -82,7 +83,7 @@ func (sf *solverFrame) Name() string {
 // Transform returns the pose between the two frames of this solver for a given set of inputs.
 func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if len(inputs) != len(sf.DoF()) {
-		return nil, errors.New("incorrect number of inputs to Transform")
+		return nil, fmt.Errorf("incorrect number of inputs to Transform got %d want %d", len(inputs), len(sf.DoF()))
 	}
 	pos := frame.StartPositions(sf.fss)
 	i := 0

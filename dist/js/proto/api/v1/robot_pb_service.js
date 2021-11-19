@@ -119,6 +119,15 @@ RobotService.BaseMoveStraight = {
   responseType: proto_api_v1_robot_pb.BaseMoveStraightResponse
 };
 
+RobotService.BaseMoveArc = {
+  methodName: "BaseMoveArc",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.BaseMoveArcRequest,
+  responseType: proto_api_v1_robot_pb.BaseMoveArcResponse
+};
+
 RobotService.BaseSpin = {
   methodName: "BaseSpin",
   service: RobotService,
@@ -1092,6 +1101,37 @@ RobotServiceClient.prototype.baseMoveStraight = function baseMoveStraight(reques
     callback = arguments[1];
   }
   var client = grpc.unary(RobotService.BaseMoveStraight, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.baseMoveArc = function baseMoveArc(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.BaseMoveArc, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

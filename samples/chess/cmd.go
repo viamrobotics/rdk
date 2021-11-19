@@ -23,7 +23,7 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
@@ -232,7 +232,7 @@ func moveOutOfWay(ctx context.Context, myArm arm.Arm) error {
 
 func initArm(ctx context.Context, myArm arm.Arm) error {
 	foo := getCoord("a1")
-	err := myArm.MoveToPosition(ctx, &pb.Pose{
+	err := myArm.MoveToPosition(ctx, &commonpb.Pose{
 		X:     float64(foo.x),
 		Y:     float64(foo.y),
 		Z:     SafeMoveHeight,

@@ -1,0 +1,34 @@
+// common.proto should hold messages that are used across multiple resource subtypes
+syntax = "proto3";
+option go_package = "go.viam.com/core/proto/api/common/v1";
+option java_package = "com.viam.core.proto.api.common.v1";
+
+package proto.api.common.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/duration.proto";
+import "google/api/annotations.proto";
+import "google/api/httpbody.proto";
+
+
+message Pose {
+  // millimeters of the end effector from the base
+  double x = 1;
+  double y = 2;
+  double z = 3;
+
+  // ox, oy, oz, theta represents an orientation vector
+  // Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
+  // with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation
+  // such that the ox/oy/oz components represent the point on the cartesian unit sphere at which your end effector is pointing
+  // from the origin, and that unit vector forms an axis around which theta rotates. This means that incrementing/decrementing
+  // theta will perform an in-line rotation of the end effector.
+  // Theta is defined as rotation between two planes: the plane defined by the origin, the point (0,0,1), and the rx,ry,rz
+  // point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at
+  // zero as the north/south pole is circled, the Roll will correct itself to remain in-line.
+  // Theta in pb.Pose should be degrees. It will be converted to radians in the internal OrientationVec.
+  double o_x = 4;
+  double o_y = 5;
+  double o_z = 6;
+  double theta = 7;
+}

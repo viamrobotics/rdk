@@ -24,7 +24,8 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	pb "go.viam.com/core/proto/api/component/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -65,7 +66,7 @@ type myArm struct {
 	Joints   map[string][]*servo.Servo
 	moveLock *sync.Mutex
 	logger   golog.Logger
-	model    *kinematics.Model
+	model    *frame.Model
 	ik       kinematics.InverseKinematics
 }
 
@@ -103,7 +104,7 @@ func newArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 		return nil, err
 	}
 
-	model, err := kinematics.ParseJSON(vx300smodeljson, "")
+	model, err := frame.ParseJSON(vx300smodeljson, "")
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +130,7 @@ func newArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (a *myArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
+func (a *myArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -138,7 +139,7 @@ func (a *myArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (a *myArm) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
+func (a *myArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -151,7 +152,7 @@ func (a *myArm) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position.
-func (a *myArm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
+func (a *myArm) MoveToJointPositions(ctx context.Context, jp *pb.ArmJointPositions) error {
 	if len(jp.Degrees) > len(a.JointOrder()) {
 		return errors.New("passed in too many positions")
 	}
@@ -169,10 +170,10 @@ func (a *myArm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions)
 }
 
 // CurrentJointPositions returns an empty struct, because the vx300s should use joint angles from kinematics.
-func (a *myArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (a *myArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	angleMap, err := a.GetAllAngles()
 	if err != nil {
-		return &pb.JointPositions{}, err
+		return &pb.ArmJointPositions{}, err
 	}
 
 	positions := make([]float64, 0, len(a.JointOrder()))
@@ -180,7 +181,7 @@ func (a *myArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, 
 		positions[i] = servoPosToDegrees(angleMap[jointName])
 	}
 
-	return &pb.JointPositions{Degrees: positions}, nil
+	return &pb.ArmJointPositions{Degrees: positions}, nil
 }
 
 // JointMoveDelta TODO
@@ -399,8 +400,20 @@ func (a *myArm) WaitForMovement(ctx context.Context) error {
 }
 
 // ModelFrame TODO
-func (a *myArm) ModelFrame() *kinematics.Model {
+func (a *myArm) ModelFrame() *frame.Model {
 	return a.model
+}
+
+func (a *myArm) CurrentInputs(ctx context.Context) ([]frame.Input, error) {
+	res, err := a.CurrentJointPositions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return frame.JointPosToInputs(res), nil
+}
+
+func (a *myArm) GoToInputs(ctx context.Context, goal []frame.Input) error {
+	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(goal))
 }
 
 // TODO: Map out *all* servo defaults so that they are always set correctly
