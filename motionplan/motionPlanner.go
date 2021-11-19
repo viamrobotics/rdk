@@ -16,18 +16,30 @@ import (
 	vutil "go.viam.com/core/utils"
 )
 
+type PlannerOptions struct {
+	constraintHandler
+	metric kinematics.Metric
+	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
+	// Max number of ik solutions to consider
+	maxSolutions int
+	// Movements that score below this amount are considered "good enough" and returned immediately
+	minScore float64
+}
+
+func NewDefaultPlannerOptions() *PlannerOptions{
+	opt := &PlannerOptions{}
+	opt.AddConstraint(jointConstraint, NewJointConstraint(math.Inf(1)))
+	opt.metric = kinematics.NewSquaredNormMetric()
+	return opt
+}
+
 // MotionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
 // management of the constraints used to plan paths.
 type MotionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
-	Plan(context.Context, *commonpb.Pose, []frame.Input) ([][]frame.Input, error)
-	AddConstraint(string, Constraint)
-	RemoveConstraint(string)
-	Constraints() []string
-	CheckConstraints(*ConstraintInput) (bool, float64)
+	Plan(context.Context, *PlannerOptions, *commonpb.Pose, []frame.Input) ([][]frame.Input, error)
 	Resolution() float64                                  // how narrowly to check for constraints
-	SetGradient(func(spatial.Pose, spatial.Pose) float64) // Sets the function to minimize for the goal
 	Frame() frame.Frame
 }
 
@@ -65,11 +77,11 @@ func (mp *linearMotionPlanner) Resolution() float64 {
 	return mp.stepSize
 }
 
-func (mp *linearMotionPlanner) SetGradient(f func(spatial.Pose, spatial.Pose) float64) {
-	mp.solver.SetGradient(f)
+func (mp *linearMotionPlanner) SetMetric(m kinematics.Metric) {
+	mp.solver.SetMetric(m)
 }
 
-func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, seed []frame.Input) ([][]frame.Input, error) {
+func (mp *linearMotionPlanner) Plan(ctx context.Context, opt *PlannerOptions, goal *commonpb.Pose, seed []frame.Input) ([][]frame.Input, error) {
 	var inputSteps [][]frame.Input
 
 	seedPos, err := mp.frame.Transform(seed)
@@ -82,7 +94,9 @@ func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 	// of steps needed to get from one to the other
 	nSteps := getSteps(seedPos, goalPos, mp.stepSize)
 
-	mp.logger.Debug("starting plan")
+	if opt.minScore == 0 {
+		opt.minScore = mp.idealMovementScore
+	}
 
 	// Create the required steps. nSteps is guaranteed to be at least 1.
 STEP:
@@ -97,7 +111,7 @@ STEP:
 
 		var step []frame.Input
 
-		solutions, err := getSolutions(ctx, -1, mp.idealMovementScore, mp.solver, spatial.PoseToProtobuf(intPos), seed, mp)
+		solutions, err := getSolutions(ctx, opt, mp.solver, spatial.PoseToProtobuf(intPos), seed, mp)
 		if err != nil {
 			return nil, err
 		}
@@ -192,7 +206,7 @@ func fixOvIncrement(pos, seed *commonpb.Pose) *commonpb.Pose {
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
-func getSolutions(ctx context.Context, maxSolutions int, minScore float64, solver kinematics.InverseKinematics, goal *commonpb.Pose, seed []frame.Input, mp MotionPlanner) (map[float64][]frame.Input, error) {
+func getSolutions(ctx context.Context, opt *PlannerOptions, solver kinematics.InverseKinematics, goal *commonpb.Pose, seed []frame.Input, mp MotionPlanner) (map[float64][]frame.Input, error) {
 
 	seedPos, err := mp.Frame().Transform(seed)
 	if err != nil {
@@ -224,7 +238,7 @@ IK:
 
 		select {
 		case step := <-solutionGen:
-			cPass, cScore := mp.CheckConstraints(&ConstraintInput{
+			cPass, cScore := opt.CheckConstraints(&ConstraintInput{
 				seedPos,
 				goalPos,
 				seed,
@@ -232,7 +246,7 @@ IK:
 				mp.Frame()})
 
 			if cPass {
-				if cScore < minScore && minScore >= 0 {
+				if cScore < opt.minScore && opt.minScore > 0 {
 					solutions = map[float64][]frame.Input{}
 					solutions[cScore] = step
 					// good solution, stopping early
@@ -240,7 +254,7 @@ IK:
 				}
 
 				solutions[cScore] = step
-				if len(solutions) >= maxSolutions && maxSolutions > 0 {
+				if len(solutions) >= opt.maxSolutions && opt.maxSolutions > 0 {
 					// sufficient solutions found, stopping early
 					break IK
 				}

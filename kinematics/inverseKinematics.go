@@ -19,7 +19,7 @@ type goal struct {
 type InverseKinematics interface {
 	// Solve receives a context, the goal arm position, and current joint angles.
 	Solve(ctx context.Context, c chan<- []frame.Input, goal spatial.Pose, seed []frame.Input) error
-	SetGradient(func(spatial.Pose, spatial.Pose) float64)
+	SetMetric(Metric)
 	Close() error
 }
 

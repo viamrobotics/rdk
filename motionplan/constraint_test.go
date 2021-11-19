@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/utils"
 
@@ -21,7 +21,7 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
-	pos := &pb.Pose{
+	pos := &commonpb.Pose{
 		X:  -46,
 		Y:  0,
 		Z:  372,
