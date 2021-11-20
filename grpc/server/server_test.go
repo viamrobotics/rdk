@@ -30,6 +30,7 @@ import (
 	componentpb "go.viam.com/core/proto/api/component/v1"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	servicepkg "go.viam.com/core/services"
@@ -724,6 +725,92 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 1, 1.23})
+	})
+
+	t.Run("GantryCurrentPosition", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			capName = name.Name
+			return nil, false
+		}
+
+		_, err := server.GantryCurrentPosition(context.Background(), &pb.GantryCurrentPositionRequest{
+			Name: "gantry1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no gantry")
+		test.That(t, capName, test.ShouldEqual, "gantry1")
+
+		injectGantry := &inject.Gantry{}
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			return injectGantry, true
+		}
+
+		err1 := errors.New("whoops")
+		pos := []float64{1.0, 2.0}
+		injectGantry.CurrentPositionFunc = func(ctx context.Context) ([]float64, error) {
+			return nil, err1
+		}
+
+		_, err = server.GantryCurrentPosition(context.Background(), &pb.GantryCurrentPositionRequest{
+			Name: "gantry1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+
+		injectGantry.CurrentPositionFunc = func(ctx context.Context) ([]float64, error) {
+			return pos, nil
+		}
+		resp, err := server.GantryCurrentPosition(context.Background(), &pb.GantryCurrentPositionRequest{
+			Name: "gantry1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Positions, test.ShouldResemble, pos)
+	})
+
+	t.Run("GantryMoveToPosition", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			capName = name.Name
+			return nil, false
+		}
+
+		_, err := server.GantryMoveToPosition(context.Background(), &pb.GantryMoveToPositionRequest{
+			Name: "gantry1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no gantry")
+		test.That(t, capName, test.ShouldEqual, "gantry1")
+
+		injectGantry := &inject.Gantry{}
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			return injectGantry, true
+		}
+
+		err1 := errors.New("whoops")
+		var capPos []float64
+		injectGantry.MoveToPositionFunc = func(ctx context.Context, pos []float64) error {
+			capPos = pos
+			return err1
+		}
+
+		pos := []float64{2.0, 3.0}
+		_, err = server.GantryMoveToPosition(context.Background(), &pb.GantryMoveToPositionRequest{
+			Name:      "gantry1",
+			Positions: pos,
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capPos, test.ShouldResemble, pos)
+
+		injectGantry.MoveToPositionFunc = func(ctx context.Context, pos []float64) error {
+			return nil
+		}
+		_, err = server.GantryMoveToPosition(context.Background(), &pb.GantryMoveToPositionRequest{
+			Name:      "gantry1",
+			Positions: pos,
+		})
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("Gripper", func(t *testing.T) {

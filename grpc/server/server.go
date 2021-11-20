@@ -173,7 +173,7 @@ func (s *Server) DoAction(ctx context.Context, req *pb.DoActionRequest) (*pb.DoA
 func (s *Server) getGantry(ctx context.Context, name string) (gantry.Gantry, error) {
 	r, ok := s.r.ResourceByName(gantry.Named(name))
 	if !ok {
-		return nil, errors.Errorf("unknown gantry name [%s]", name)
+		return nil, errors.Errorf("no gantry with name (%s)", name)
 	}
 	g, ok := r.(gantry.Gantry)
 	if !ok {
