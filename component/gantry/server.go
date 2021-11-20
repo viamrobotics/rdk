@@ -29,7 +29,7 @@ func (s *subtypeServer) getGantry(name string) (Gantry, error) {
 	}
 	gantry, ok := resource.(Gantry)
 	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not an gantry", name)
+		return nil, errors.Errorf("resource with name (%s) is not a gantry", name)
 	}
 	return gantry, nil
 }
