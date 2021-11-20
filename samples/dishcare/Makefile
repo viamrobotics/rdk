@@ -13,7 +13,9 @@ package: setup buf
 	cp -R gen dump.py viam.json tmp
 	cp Makefile_dishcare tmp/Makefile
 	cd tmp
-	tar -czf viam.tgz tmp/*
+	tar -czf ../viam.tgz *
+	cd ../
+	rm -rf tmp
 
 run_client:
 	python3 client.py local.jetson.unyyjqwtoa.viam.cloud 8080
