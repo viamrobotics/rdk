@@ -51,6 +51,14 @@ func TestWrapWtihReconfigurable(t *testing.T) {
 	fakeGantry1, err := WrapWithReconfigurable(actualGantry1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeGantry1.(*reconfigurableGantry).actual, test.ShouldEqual, actualGantry1)
+
+	_, err = WrapWithReconfigurable(nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+
+	fakeGantry2, err := WrapWithReconfigurable(fakeGantry1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fakeGantry2, test.ShouldEqual, fakeGantry1)
 }
 
 func TestReconfigurableGantry(t *testing.T) {
@@ -68,6 +76,10 @@ func TestReconfigurableGantry(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeGantry1.(*reconfigurableGantry).actual, test.ShouldEqual, actualGantry2)
 	test.That(t, actualGantry1.reconCount, test.ShouldEqual, 1)
+
+	err = fakeGantry1.(*reconfigurableGantry).Reconfigure(nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new gantry")
 }
 
 type mock struct {
