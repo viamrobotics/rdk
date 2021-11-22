@@ -21,8 +21,8 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
-	"go.viam.com/core/gripper"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
