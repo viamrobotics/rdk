@@ -366,21 +366,20 @@ func (sfs *simpleFrameSystem) getTargetParentTransform(inputMap map[string][]Inp
 
 // Returns the relative pose between two frames, or a map of name to relative pose, if the verbose option is specified
 func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, src, srcParent, target Frame) (spatial.Pose, error) {
+	// catch all errors together to for allow hypothetical calculations that result in errors
+	var errAll error
 	toTarget, err := sfs.getTargetParentTransform(inputMap, target)
-	if err != nil {
-		return nil, err
-	}
+	multierr.AppendInto(&errAll, err)
 	fromParent, err := sfs.getSrcParentTransform(inputMap, src, srcParent)
-	if err != nil {
-		return nil, err
+	multierr.AppendInto(&errAll, err)
+	pose, err := poseFromPositions(src, inputMap)
+	multierr.AppendInto(&errAll, err)
+	if errAll != nil && (toTarget == nil || fromParent == nil || pose == nil) {
+		return nil, errAll
 	}
 
 	// transform from source to world, world to target
-	pose, err := poseFromPositions(src, inputMap)
-	if err != nil && pose == nil {
-		return nil, err
-	}
-	return spatial.Compose(spatial.Compose(toTarget, fromParent), pose), err
+	return spatial.Compose(spatial.Compose(toTarget, fromParent), pose), errAll
 }
 
 // Returns the relative pose between two frames, or a map of name to relative pose, if the verbose option is specified
