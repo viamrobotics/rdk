@@ -23,9 +23,9 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
-	"go.viam.com/core/gripper"
 	metadataserver "go.viam.com/core/grpc/metadata/server"
 	"go.viam.com/core/grpc/server"
 	"go.viam.com/core/input"
@@ -122,7 +122,7 @@ var emptyStatus = &pb.Status{
 	},
 }
 
-var emptyResources = []resource.Name{arm.Named("arm1")}
+var emptyResources = []resource.Name{arm.Named("arm1"), gripper.Named("gripper1")}
 
 var finalStatus = &pb.Status{
 	Arms: map[string]*pb.ArmStatus{
@@ -222,7 +222,7 @@ var finalStatus = &pb.Status{
 	},
 }
 
-var finalResources = []resource.Name{arm.Named("arm2"), arm.Named("arm3"), servo.Named("servo2"), servo.Named("servo3")}
+var finalResources = []resource.Name{arm.Named("arm2"), arm.Named("arm3"), servo.Named("servo2"), servo.Named("servo3"), gripper.Named("gripper2"), gripper.Named("gripper3")}
 
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)

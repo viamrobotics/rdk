@@ -25,9 +25,9 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
-	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc"
 	metadataclient "go.viam.com/core/grpc/metadata/client"
 	"go.viam.com/core/input"
@@ -68,7 +68,6 @@ type RobotClient struct {
 
 	namesMu              *sync.RWMutex
 	baseNames            []string
-	gripperNames         []string
 	boardNames           []boardInfo
 	cameraNames          []string
 	lidarNames           []string
@@ -421,6 +420,7 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 		return err
 	}
 	if err == nil {
+		fmt.Printf("names: %v\n", names)
 		rc.resourceNames = make([]resource.Name, 0, len(names))
 		for _, name := range names {
 			newName := resource.NewName(
@@ -440,13 +440,7 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 			rc.baseNames = append(rc.baseNames, name)
 		}
 	}
-	rc.gripperNames = nil
-	if len(status.Grippers) != 0 {
-		rc.gripperNames = make([]string, 0, len(status.Grippers))
-		for name := range status.Grippers {
-			rc.gripperNames = append(rc.gripperNames, name)
-		}
-	}
+
 	rc.boardNames = nil
 	if len(status.Boards) != 0 {
 		rc.boardNames = make([]boardInfo, 0, len(status.Boards))
@@ -550,7 +544,13 @@ func (rc *RobotClient) ArmNames() []string {
 func (rc *RobotClient) GripperNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.gripperNames)
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		if v.Subtype == gripper.Subtype {
+			names = append(names, v.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // CameraNames returns the names of all known cameras.
@@ -794,6 +794,11 @@ func (gc *gripperClient) Grab(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	return resp.Grabbed, nil
+}
+
+func (gc *gripperClient) ModelFrame() *referenceframe.Model {
+	// TODO(erh): this feels wrong
+	return nil
 }
 
 // boardClient satisfies a gRPC based board.Board. Refer to the interface
