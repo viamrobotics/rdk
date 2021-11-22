@@ -1,13 +1,22 @@
 
 BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 
-ifneq ("$(wildcard /etc/rpi-issue)","")
+GREPPED = $(shell grep -sao jetson /proc/device-tree/compatible)
+ifneq ("$(strip $(GREPPED))", "")
+   $(info Nvidia Jetson Detected)
+   export CGO_LDFLAGS = -lwasmer
+   TAGS = -tags="jetson custom_wasmer_runtime"
+   SERVER_DEB_PLATFORM = jetson
+else ifneq ("$(wildcard /etc/rpi-issue)","")
    $(info Raspberry Pi Detected)
    export CGO_LDFLAGS = -lwasmer
    TAGS = -tags="pi custom_wasmer_runtime"
+   SERVER_DEB_PLATFORM = pi
+else
+   SERVER_DEB_PLATFORM = generic
 endif
 
-SERVER_DEB_VER = 0.4
+SERVER_DEB_VER = 0.5
 
 binsetup:
 	mkdir -p ${BIN_OUTPUT_PATH}
@@ -63,26 +72,19 @@ docker: dockerlocal
 server:
 	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
 
-cameras:
-	cd etc/camera_servers && make royaleserver
-	cd etc/camera_servers && make intelrealserver
-	cd etc/camera_servers && make cubeeyeserver
-
-deb-server: server cameras
+deb-server: server
 	rm -rf etc/packaging/work/
 	mkdir etc/packaging/work/
-	cp -r etc/packaging/viam-server-$(SERVER_DEB_VER)/ etc/packaging/work/
-	install -D $(BIN_OUTPUT_PATH)/server etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/bin/viam-server
-	install -D etc/camera_servers/intelrealserver etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/bin/intelrealserver
-	install -D etc/camera_servers/royaleserver etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/bin/royaleserver
-	install -D etc/camera_servers/cubeeyeserver etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/bin/cubeeyeserver
-	cd etc/packaging/work/viam-server-$(SERVER_DEB_VER)/ \
-	&& dch -v $(SERVER_DEB_VER)+`date -u '+%Y%m%d%H%M'` "Auto-build from commit `git log --pretty=format:'%h' -n 1`" \
-	&& dch -r viam \
+	cp -r etc/packaging/viam-server-$(SERVER_DEB_VER)/ etc/packaging/work/viam-server-$(SERVER_DEB_PLATFORM)-$(SERVER_DEB_VER)/
+	install -D $(BIN_OUTPUT_PATH)/server etc/packaging/work/viam-server-$(SERVER_DEB_PLATFORM)-$(SERVER_DEB_VER)/usr/bin/viam-server
+	cd etc/packaging/work/viam-server-$(SERVER_DEB_PLATFORM)-$(SERVER_DEB_VER)/ \
+	&& sed -i "s/viam-server/viam-server-$(SERVER_DEB_PLATFORM)/g" debian/control debian/changelog \
+	&& sed -i "s/viam-camera-servers/viam-camera-servers-$(SERVER_DEB_PLATFORM)/g" debian/control \
+	&& dch --force-distribution -D viam -v $(SERVER_DEB_VER)+`date -u '+%Y%m%d%H%M'` "Auto-build from commit `git log --pretty=format:'%h' -n 1`" \
 	&& dpkg-buildpackage -us -uc -b \
 
 deb-install: deb-server
-	sudo dpkg -i etc/packaging/work/viam-server_$(SERVER_DEB_VER)+*.deb
+	sudo dpkg -i etc/packaging/work/viam-server-$(SERVER_DEB_PLATFORM)_$(SERVER_DEB_VER)+*.deb
 
 boat: samples/boat1/cmd.go
 	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat samples/boat1/cmd.go

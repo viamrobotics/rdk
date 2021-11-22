@@ -1,3 +1,10 @@
+viam-server (0.5) viam; urgency=medium
+
+  * Split camera servers to own repo and package
+  * Seperate pi and jetson builds
+
+ -- James Otting <james@viam.com>  Thu, 19 Nov 2021 14:36:30 -0800
+
 viam-server (0.4) viam; urgency=medium
 
   * Move to embedded web filesystem
