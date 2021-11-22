@@ -6,8 +6,8 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
-	"go.viam.com/core/gripper"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -17,8 +17,8 @@ import (
 var gripperjson []byte
 
 func init() {
-	registry.RegisterGripper(ModelName, registry.Gripper{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
+	registry.RegisterComponent(gripper.Subtype, "fake", registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			model, err := referenceframe.ParseJSON(gripperjson, "")
 			if err != nil {
 				return nil, err
