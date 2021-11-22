@@ -1603,6 +1603,30 @@ func (s *Server) InputControllerLastEvents(ctx context.Context, req *pb.InputCon
 	return resp, nil
 }
 
+// InputControllerInjectEvent allows directly sending an Event (such as a button press) from external code
+func (s *Server) InputControllerInjectEvent(ctx context.Context, req *pb.InputControllerInjectEventRequest) (*pb.InputControllerInjectEventResponse, error) {
+	controller, ok := s.r.InputControllerByName(req.Controller)
+	if !ok {
+		return nil, errors.Errorf("no input controller with name (%s)", req.Controller)
+	}
+	injectController, ok := controller.(input.Injectable)
+	if !ok {
+		return nil, errors.Errorf("input controller is not of type input.Injectable (%s)", req.Controller)
+	}
+
+	err := injectController.InjectEvent(ctx, input.Event{
+		Time:    req.Event.Time.AsTime(),
+		Event:   input.EventType(req.Event.Event),
+		Control: input.Control(req.Event.Control),
+		Value:   req.Event.Value,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.InputControllerInjectEventResponse{}, nil
+}
+
 // InputControllerEventStream returns a stream of input.Event
 func (s *Server) InputControllerEventStream(req *pb.InputControllerEventStreamRequest, server pb.RobotService_InputControllerEventStreamServer) error {
 	controller, ok := s.r.InputControllerByName(req.Controller)
