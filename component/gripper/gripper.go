@@ -62,22 +62,22 @@ type reconfigurableGripper struct {
 	actual Gripper
 }
 
-func (p *reconfigurableGripper) ProxyFor() interface{} {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual
+func (g *reconfigurableGripper) ProxyFor() interface{} {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual
 }
 
-func (p *reconfigurableGripper) Open(ctx context.Context) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Open(ctx)
+func (g *reconfigurableGripper) Open(ctx context.Context) error {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.Open(ctx)
 }
 
-func (p *reconfigurableGripper) Grab(ctx context.Context) (bool, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Grab(ctx)
+func (g *reconfigurableGripper) Grab(ctx context.Context) (bool, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.Grab(ctx)
 }
 
 // Reconfigure reconfigures the resource
