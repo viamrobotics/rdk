@@ -24,7 +24,8 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	"go.viam.com/core/motionplan"
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	pb "go.viam.com/core/proto/api/component/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -83,16 +84,16 @@ type eva struct {
 	frameJSON []byte
 }
 
-func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	data, err := e.DataSnapshot(ctx)
 	if err != nil {
-		return &pb.JointPositions{}, err
+		return &pb.ArmJointPositions{}, err
 	}
 	return frame.JointPositionsFromRadians(data.ServosPosition), nil
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (e *eva) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
+func (e *eva) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := e.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -101,7 +102,7 @@ func (e *eva) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (e *eva) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
+func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	joints, err := e.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -119,7 +120,7 @@ func (e *eva) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
 	return nil
 }
 
-func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
+func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJointPositions) error {
 	radians := frame.JointPositionsToRadians(newPositions)
 
 	err := e.doMoveJoints(ctx, radians)
@@ -323,6 +324,18 @@ func (e *eva) ModelFrame() *frame.Model {
 	return e.model
 }
 
+func (e *eva) CurrentInputs(ctx context.Context) ([]frame.Input, error) {
+	res, err := e.CurrentJointPositions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return frame.JointPosToInputs(res), nil
+}
+
+func (e *eva) GoToInputs(ctx context.Context, goal []frame.Input) error {
+	return e.MoveToJointPositions(ctx, frame.InputsToJointPos(goal))
+}
+
 // EvaModel() returns the kinematics model of the Eva, also has all Frame information.
 func evaModel() (*frame.Model, error) {
 	return frame.ParseJSON(evamodeljson, "")
@@ -336,7 +349,7 @@ func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm
 	if err != nil {
 		return nil, err
 	}
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, logger, 4)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	if err != nil {
 		return nil, err
 	}

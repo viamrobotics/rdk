@@ -5,7 +5,8 @@ package kinematics
 import (
 	"math"
 
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	pb "go.viam.com/core/proto/api/component/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
 
@@ -15,8 +16,8 @@ import (
 )
 
 // ComputePosition takes a model and a protobuf JointPositions in degrees and returns the cartesian position of the
-// end effector as a protobuf Pose. This is performed statelessly without changing any data.
-func ComputePosition(model frame.Frame, joints *pb.JointPositions) (*pb.Pose, error) {
+// end effector as a protobuf ArmPosition. This is performed statelessly without changing any data.
+func ComputePosition(model frame.Frame, joints *pb.ArmJointPositions) (*commonpb.Pose, error) {
 
 	if len(joints.Degrees) != len(model.DoF()) {
 		return nil, errors.Errorf("incorrect number of joints passed to ComputePosition. Want: %d, got: %d", len(model.DoF()), len(joints.Degrees))

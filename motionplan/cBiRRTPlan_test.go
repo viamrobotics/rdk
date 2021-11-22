@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"go.viam.com/core/kinematics"
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/utils"
 
@@ -16,12 +16,10 @@ import (
 	"go.viam.com/test"
 )
 
-var (
-	interp = frame.FloatsToInputs([]float64{0.22034293025523666, 0.023301860367034785, 0.0035938741832804775, 0.03706780636626979, -0.006010542176591475, 0.013764993693680328, 0.22994099248696265})
-)
+var interp = frame.FloatsToInputs([]float64{0.22034293025523666, 0.023301860367034785, 0.0035938741832804775, 0.03706780636626979, -0.006010542176591475, 0.013764993693680328, 0.22994099248696265})
 
 // This should test a simple linear motion
-func TestExtend(t *testing.T) {
+func TestSimpleLinearMotion(t *testing.T) {
 	nSolutions := 5
 	inputSteps := [][]frame.Input{}
 	ctx := context.Background()
@@ -44,16 +42,16 @@ func TestExtend(t *testing.T) {
 
 	mp.randseed = rand.New(rand.NewSource(42))
 
-	mp.AddConstraint("jointSwingScorer", NewJointScorer())
+	mp.opt = NewDefaultPlannerOptions()
 
-	pos := &pb.Pose{
+	pos := &commonpb.Pose{
 		X:  206,
 		Y:  100,
 		Z:  120.5,
 		OZ: -1,
 	}
 
-	solutions, err := getSolutions(ctx, -1, -1, mp.solver, pos, home7, mp)
+	solutions, err := getSolutions(ctx, mp.opt, mp.solver, pos, home7, mp)
 	test.That(t, err, test.ShouldBeNil)
 
 	near1 := &solution{home7}
@@ -77,7 +75,7 @@ func TestExtend(t *testing.T) {
 		goalMap[&solution{solutions[k]}] = nil
 	}
 
-	seedReached, goalReached := mp.constrainedExtendWrapper(seedMap, goalMap, near1, target)
+	seedReached, goalReached := mp.constrainedExtendWrapper(mp.opt, seedMap, goalMap, near1, target)
 
 	test.That(t, inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist, test.ShouldBeTrue)
 
@@ -98,6 +96,6 @@ func TestExtend(t *testing.T) {
 
 	// Test that smoothing shortens the path
 	unsmoothLen := len(inputSteps)
-	inputSteps = mp.SmoothPath(ctx, inputSteps)
+	inputSteps = mp.SmoothPath(ctx, mp.opt, inputSteps)
 	test.That(t, len(inputSteps), test.ShouldBeLessThan, unsmoothLen)
 }

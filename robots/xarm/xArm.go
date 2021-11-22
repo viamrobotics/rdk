@@ -71,7 +71,7 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 		return nil, err
 	}
 	nCPU := runtime.NumCPU()
-	mp, err := motionplan.NewCBiRRTMotionPlanner(model, logger, nCPU)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, nCPU, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -87,6 +87,18 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 	}
 
 	return &xA, nil
+}
+
+func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	res, err := x.CurrentJointPositions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.JointPosToInputs(res), nil
+}
+
+func (x *xArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	return x.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
 }
 
 // ModelFrame returns the dynamic frame of the model

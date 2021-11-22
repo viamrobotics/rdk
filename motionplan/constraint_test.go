@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/utils"
 
@@ -17,11 +17,11 @@ func TestIKTolerances(t *testing.T) {
 
 	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/varm/v1.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := NewCBiRRTMotionPlanner(m, logger, nCPU)
+	mp, err := NewCBiRRTMotionPlanner(m, nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
-	pos := &pb.Pose{
+	pos := &commonpb.Pose{
 		X:  -46,
 		Y:  0,
 		Z:  372,
@@ -33,7 +33,10 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
-	mp.SetGradient(PositionOnlyGradient)
+	opt := NewDefaultPlannerOptions()
+	opt.SetMetric(NewPositionOnlyMetric())
+	opt.SetMaxSolutions(50)
+	mp.SetOptions(opt)
 	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
 	test.That(t, err, test.ShouldBeNil)
 }

@@ -20,7 +20,8 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	"go.viam.com/core/motionplan"
-	pb "go.viam.com/core/proto/api/v1"
+	commonpb "go.viam.com/core/proto/api/common/v1"
+	pb "go.viam.com/core/proto/api/component/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -108,7 +109,7 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 	if err != nil {
 		return nil, err
 	}
-	mp, err := motionplan.NewLinearMotionPlanner(model, logger, 4)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +197,7 @@ func (ua *URArm) State() (RobotState, error) {
 }
 
 // CurrentJointPositions TODO
-func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	radians := []float64{}
 	state, err := ua.State()
 	if err != nil {
@@ -209,7 +210,7 @@ func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions,
 }
 
 // CurrentPosition computes and returns the current cartesian position.
-func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
+func (ua *URArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := ua.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
@@ -218,7 +219,7 @@ func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.Pose) error {
+func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	joints, err := ua.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -263,7 +264,7 @@ func (ua *URArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 }
 
 // MoveToJointPositions TODO
-func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
+func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.ArmJointPositions) error {
 	return ua.MoveToJointPositionRadians(ctx, frame.JointPositionsToRadians(joints))
 }
 
@@ -342,6 +343,20 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		slept += 10
 	}
 
+}
+
+// CurrentInputs TODO
+func (ua *URArm) CurrentInputs(ctx context.Context) ([]frame.Input, error) {
+	res, err := ua.CurrentJointPositions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return frame.JointPosToInputs(res), nil
+}
+
+// GoToInputs TODO
+func (ua *URArm) GoToInputs(ctx context.Context, goal []frame.Input) error {
+	return ua.MoveToJointPositions(ctx, frame.InputsToJointPos(goal))
 }
 
 // AddToLog TODO
