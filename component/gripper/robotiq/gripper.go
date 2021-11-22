@@ -13,20 +13,21 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
-	"go.viam.com/core/gripper"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 )
 
 func init() {
-	registry.RegisterGripper("robotiq", registry.Gripper{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
-		return NewGripper(ctx, config.Host, logger)
-	}})
+	registry.RegisterComponent(gripper.Subtype, "robotiq", registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return newGripper(ctx, config.Host, logger)
+		}})
 }
 
-// Gripper TODO
-type Gripper struct {
+// robotiqGripper TODO
+type robotiqGripper struct {
 	conn net.Conn
 
 	openLimit  string
@@ -34,13 +35,13 @@ type Gripper struct {
 	logger     golog.Logger
 }
 
-// NewGripper TODO
-func NewGripper(ctx context.Context, host string, logger golog.Logger) (*Gripper, error) {
+// newGripper TODO
+func newGripper(ctx context.Context, host string, logger golog.Logger) (*robotiqGripper, error) {
 	conn, err := net.Dial("tcp", host+":63352")
 	if err != nil {
 		return nil, err
 	}
-	g := &Gripper{conn, "0", "255", logger}
+	g := &robotiqGripper{conn, "0", "255", logger}
 
 	init := [][]string{
 		{"ACT", "1"},   // robot activate
@@ -62,7 +63,7 @@ func NewGripper(ctx context.Context, host string, logger golog.Logger) (*Gripper
 }
 
 // MultiSet TODO
-func (g *Gripper) MultiSet(ctx context.Context, cmds [][]string) error {
+func (g *robotiqGripper) MultiSet(ctx context.Context, cmds [][]string) error {
 	for _, i := range cmds {
 		err := g.Set(i[0], i[1])
 		if err != nil {
@@ -85,7 +86,7 @@ func (g *Gripper) MultiSet(ctx context.Context, cmds [][]string) error {
 }
 
 // Send TODO
-func (g *Gripper) Send(msg string) (string, error) {
+func (g *robotiqGripper) Send(msg string) (string, error) {
 	_, err := g.conn.Write([]byte(msg))
 	if err != nil {
 		return "", err
@@ -100,7 +101,7 @@ func (g *Gripper) Send(msg string) (string, error) {
 }
 
 // Set TODO
-func (g *Gripper) Set(what string, to string) error {
+func (g *robotiqGripper) Set(what string, to string) error {
 	res, err := g.Send(fmt.Sprintf("SET %s %s\r\n", what, to))
 	if err != nil {
 		return err
@@ -112,11 +113,11 @@ func (g *Gripper) Set(what string, to string) error {
 }
 
 // Get TODO
-func (g *Gripper) Get(what string) (string, error) {
+func (g *robotiqGripper) Get(what string) (string, error) {
 	return g.Send(fmt.Sprintf("GET %s\r\n", what))
 }
 
-func (g *Gripper) read() (string, error) {
+func (g *robotiqGripper) read() (string, error) {
 	buf := make([]byte, 128)
 	x, err := g.conn.Read(buf)
 	if err != nil {
@@ -132,7 +133,7 @@ func (g *Gripper) read() (string, error) {
 }
 
 // SetPos returns true iff reached desired position.
-func (g *Gripper) SetPos(ctx context.Context, pos string) (bool, error) {
+func (g *robotiqGripper) SetPos(ctx context.Context, pos string) (bool, error) {
 	err := g.Set("POS", pos)
 	if err != nil {
 		return false, err
@@ -168,19 +169,19 @@ func (g *Gripper) SetPos(ctx context.Context, pos string) (bool, error) {
 }
 
 // Open TODO
-func (g *Gripper) Open(ctx context.Context) error {
+func (g *robotiqGripper) Open(ctx context.Context) error {
 	_, err := g.SetPos(ctx, g.openLimit)
 	return err
 }
 
 // Close TODO
-func (g *Gripper) Close() error {
+func (g *robotiqGripper) Close() error {
 	_, err := g.SetPos(context.Background(), g.closeLimit)
 	return err
 }
 
 // Grab returns true iff grabbed something
-func (g *Gripper) Grab(ctx context.Context) (bool, error) {
+func (g *robotiqGripper) Grab(ctx context.Context) (bool, error) {
 	res, err := g.SetPos(ctx, g.closeLimit)
 	if err != nil {
 		return false, err
@@ -200,7 +201,7 @@ func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 }
 
 // Calibrate TODO
-func (g *Gripper) Calibrate(ctx context.Context) error {
+func (g *robotiqGripper) Calibrate(ctx context.Context) error {
 	err := g.Open(ctx)
 	if err != nil {
 		return err

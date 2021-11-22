@@ -6,10 +6,11 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	viamutils "go.viam.com/utils"
+
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/rlog"
-	viamutils "go.viam.com/utils"
 )
 
 // SubtypeName is a constant that identifies the component resource subtype string
