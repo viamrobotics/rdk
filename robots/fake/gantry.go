@@ -66,3 +66,14 @@ func (g *fakeGantry) ModelFrame() *referenceframe.Model {
 	m.OrdTransforms = append(m.OrdTransforms, f)
 	return m
 }
+
+func (g *fakeGantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	res, err := g.CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.FloatsToInputs(res), nil
+}
+func (g *fakeGantry) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
+}

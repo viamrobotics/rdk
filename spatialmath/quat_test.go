@@ -6,9 +6,9 @@ import (
 
 	"go.viam.com/test"
 
-	pb "go.viam.com/core/proto/api/v1"
-
 	"gonum.org/v1/gonum/num/quat"
+
+	commonpb "go.viam.com/core/proto/api/common/v1"
 )
 
 func TestAngleAxisConversion1(t *testing.T) {
@@ -56,7 +56,7 @@ func TestDHConversion(t *testing.T) {
 	// Test conversion of a DH param to a dual quaternion
 	dhParam := []float64{-0.425, 0.1333, math.Pi / 2}
 	dq1 := newDualQuaternionFromDH(dhParam[0], dhParam[1], dhParam[2])
-	dq2 := newDualQuaternionFromProtobuf(&pb.Pose{X: -0.425, Y: 0, Z: 0.1333, OY: -1, Theta: 90})
+	dq2 := newDualQuaternionFromProtobuf(&commonpb.Pose{X: -0.425, Y: 0, Z: 0.1333, OY: -1, Theta: 90})
 	quatCompare(t, dq1.Real, dq2.Real)
 	quatCompare(t, dq1.Dual, dq2.Dual)
 }

@@ -23,6 +23,11 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
+// Named is a helper for getting the named Gantry's typed resource name
+func Named(name string) resource.Name {
+	return resource.NewFromSubtype(Subtype, name)
+}
+
 // Gantry is used for controlling gantries of N axis
 type Gantry interface {
 	// CurrentPosition returns the position in meters
@@ -35,6 +40,7 @@ type Gantry interface {
 	Lengths(ctx context.Context) ([]float64, error)
 
 	referenceframe.ModelFramer
+	referenceframe.InputEnabled
 }
 
 // WrapWithReconfigurable wraps a gantry with a reconfigurable and locking interface
@@ -94,4 +100,17 @@ func (g *reconfigurableGantry) ModelFrame() *referenceframe.Model {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.actual.ModelFrame()
+}
+
+func (g *reconfigurableGantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.actual.CurrentInputs(ctx)
+}
+
+func (g *reconfigurableGantry) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.actual.GoToInputs(ctx, goal)
+
 }

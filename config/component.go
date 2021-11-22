@@ -20,6 +20,7 @@ type ComponentType string
 const (
 	ComponentTypeBase            = ComponentType("base")
 	ComponentTypeArm             = ComponentType("arm")
+	ComponentTypeGantry          = ComponentType("gantry")
 	ComponentTypeGripper         = ComponentType("gripper")
 	ComponentTypeCamera          = ComponentType("camera")
 	ComponentTypeLidar           = ComponentType("lidar")

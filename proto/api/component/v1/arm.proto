@@ -1,0 +1,94 @@
+syntax = "proto3";
+option go_package = "go.viam.com/core/proto/api/component/v1";
+option java_package = "com.viam.core.proto.api.component.v1";
+
+package proto.api.component.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/duration.proto";
+import "google/api/annotations.proto";
+import "google/api/httpbody.proto";
+
+import "proto/api/common/v1/common.proto";
+
+
+// An ArmService services maintains all arms associated with a robot
+service ArmService {
+  // CurrentPosition gets the current position of an arm of the underlying robot.
+  rpc CurrentPosition(ArmServiceCurrentPositionRequest) returns (ArmServiceCurrentPositionResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/component/arm/{name}/current_position"
+    };  
+  }
+
+  // MoveToPosition moves an arm of the underlying robot to the requested position.
+  rpc MoveToPosition(ArmServiceMoveToPositionRequest) returns (ArmServiceMoveToPositionResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/component/arm/{name}/move_to_position"
+    };  
+  }
+
+  // CurrentJointPositions gets the current joint position of an arm of the underlying robot.
+  rpc CurrentJointPositions(ArmServiceCurrentJointPositionsRequest) returns (ArmServiceCurrentJointPositionsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/component/arm/{name}/current_joint_positions"
+    };  
+  }
+
+  // MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
+  rpc MoveToJointPositions(ArmServiceMoveToJointPositionsRequest) returns (ArmServiceMoveToJointPositionsResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/component/arm/{name}/move_to_joint_positions"
+    };  
+  }
+
+  // JointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.
+  rpc JointMoveDelta(ArmServiceJointMoveDeltaRequest) returns (ArmServiceJointMoveDeltaResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/component/arm/{name}/joint_move_delta"
+    };  
+  }
+
+}
+
+message ArmJointPositions {
+  repeated double degrees = 1;
+}
+
+message ArmServiceCurrentPositionRequest {
+  string name = 1;
+}
+
+message ArmServiceCurrentPositionResponse {
+  common.v1.Pose position = 1;
+}
+
+message ArmServiceCurrentJointPositionsRequest {
+  string name = 1;
+}
+
+message ArmServiceCurrentJointPositionsResponse {
+  ArmJointPositions positions = 1;
+}
+
+message ArmServiceMoveToPositionRequest {
+  string name = 1;
+  common.v1.Pose to = 2;
+}
+
+message ArmServiceMoveToPositionResponse {}
+
+message ArmServiceMoveToJointPositionsRequest {
+  string name = 1;
+  ArmJointPositions to = 2;
+}
+
+message ArmServiceMoveToJointPositionsResponse {}
+
+message ArmServiceJointMoveDeltaRequest {
+  string name = 1;
+  int32 joint = 2;
+  double amount_degs = 3;
+}
+
+message ArmServiceJointMoveDeltaResponse {}

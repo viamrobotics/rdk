@@ -3,6 +3,7 @@ package motionplan
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"runtime"
 
@@ -17,7 +18,7 @@ import (
 type SolvableFrameSystem struct {
 	frame.FrameSystem
 	logger golog.Logger
-	mpFunc func(frame.Frame, golog.Logger, int) (MotionPlanner, error)
+	mpFunc func(frame.Frame, int, golog.Logger) (MotionPlanner, error)
 }
 
 // NewSolvableFrameSystem will create a new solver for a frame system
@@ -50,9 +51,9 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 	}
 	var planner MotionPlanner
 	if fss.mpFunc != nil {
-		planner, err = fss.mpFunc(sf, fss.logger, runtime.NumCPU()/2)
+		planner, err = fss.mpFunc(sf, runtime.NumCPU()/2, fss.logger)
 	} else {
-		planner, err = NewCBiRRTMotionPlanner(sf, fss.logger, runtime.NumCPU()/2)
+		planner, err = NewCBiRRTMotionPlanner(sf, runtime.NumCPU()/2, fss.logger)
 	}
 	if err != nil {
 		return nil, err
@@ -76,7 +77,7 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 // SetPlannerGen sets the function which is used to create the motion planner to solve a requested plan.
 // A SolvableFrameSystem wraps a complete frame system, and will make solverFrames on the fly to solve for. These
 // solverFrames are used to create the planner here.
-func (fss *SolvableFrameSystem) SetPlannerGen(mpFunc func(frame.Frame, golog.Logger, int) (MotionPlanner, error)) {
+func (fss *SolvableFrameSystem) SetPlannerGen(mpFunc func(frame.Frame, int, golog.Logger) (MotionPlanner, error)) {
 	fss.mpFunc = mpFunc
 }
 
@@ -98,7 +99,7 @@ func (sf *solverFrame) Name() string {
 // Transform returns the pose between the two frames of this solver for a given set of inputs.
 func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if len(inputs) != len(sf.DoF()) {
-		return nil, errors.New("incorrect number of inputs to transform")
+		return nil, fmt.Errorf("incorrect number of inputs to Transform got %d want %d", len(inputs), len(sf.DoF()))
 	}
 	return sf.fss.TransformFrame(sf.sliceToMap(inputs), sf.solveFrame, sf.goalFrame)
 }

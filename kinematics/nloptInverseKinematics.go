@@ -15,6 +15,14 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 )
 
+var (
+	errNoSolve     = errors.New("kinematics could not solve for position")
+	errBadBounds   = errors.New("cannot set upper or lower bounds for nlopt, slice is empty")
+	errTooManyVals = errors.New("passed in too many joint positions")
+)
+
+const constrainedTries = 30
+
 // NloptIK TODO
 type NloptIK struct {
 	id            int
@@ -29,7 +37,7 @@ type NloptIK struct {
 	logger        golog.Logger
 	jump          float64
 	randSeed      *rand.Rand
-	distFunc      func(spatial.Pose, spatial.Pose) float64
+	metric        Metric
 }
 
 // CreateNloptIKSolver TODO
@@ -55,7 +63,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error)
 		return nil, fmt.Errorf("nlopt creation error: %w", err)
 	}
 	ik.opt = opt
-	ik.distFunc = ik.defaultDistFunc
+	ik.metric = NewSquaredNormMetric()
 
 	// x is our joint positions
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
@@ -71,7 +79,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error)
 			ik.logger.Errorf("forcestop error %q", err)
 		}
 
-		dist := ik.distFunc(eePos, ik.goal.GoalTransform)
+		dist := ik.metric.Distance(eePos, ik.goal.GoalTransform)
 
 		if len(gradient) > 0 {
 			for i := range gradient {
@@ -84,7 +92,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error)
 					err = ik.opt.ForceStop()
 					ik.logger.Errorf("forcestop error %q", err)
 				}
-				dist2 := ik.distFunc(eePos, ik.goal.GoalTransform)
+				dist2 := ik.metric.Distance(eePos, ik.goal.GoalTransform)
 
 				gradient[i] = (dist2 - dist) / (2 * ik.jump)
 			}
@@ -92,7 +100,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error)
 		return dist
 	}
 	if len(ik.lowerBound) == 0 || len(ik.upperBound) == 0 {
-		return nil, errors.New("cannot set upper or lower bounds for nlopt, slice is empty")
+		return nil, errBadBounds
 	}
 
 	err = multierr.Combine(
@@ -125,9 +133,9 @@ func (ik *NloptIK) clearGoal() {
 	ik.goal = goal{}
 }
 
-// SetGradient sets the function for distance between two poses
-func (ik *NloptIK) SetGradient(f func(spatial.Pose, spatial.Pose) float64) {
-	ik.distFunc = f
+// SetMetric sets the function for distance between two poses
+func (ik *NloptIK) SetMetric(m Metric) {
+	ik.metric = m
 }
 
 // SetMaxIter sets the number of times to
@@ -136,7 +144,7 @@ func (ik *NloptIK) SetMaxIter(i int) {
 }
 
 // Solve runs the actual solver and returns a list of all
-func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spatial.Pose, seed []frame.Input) error {
+func (ik *NloptIK) Solve(ctx context.Context, c chan<- []frame.Input, newGoal spatial.Pose, seed []frame.Input) error {
 	var err error
 
 	// Allow ~160 degrees of swing at most
@@ -149,7 +157,7 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 		// Solver with ID 1 seeds off current angles
 		if ik.id == 1 {
 			if len(seed) > len(ik.model.DoF()) {
-				return errors.New("passed in too many joint positions")
+				return errTooManyVals
 			}
 			startingPos = seed
 
@@ -161,7 +169,7 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 		} else {
 			// Solvers whose ID is not 1 should skip ahead directly to trying random seeds
 			startingPos = ik.GenerateRandomPositions()
-			tries = 30
+			tries = constrainedTries
 		}
 	}
 	ik.addGoal(newGoal, 0)
@@ -197,7 +205,7 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 			solutionsFound++
 		}
 		tries++
-		if ik.id > 0 && tries < 30 {
+		if ik.id > 0 && tries < constrainedTries {
 			err = ik.updateBounds(seed, tries)
 			if err != nil {
 				return err
@@ -216,7 +224,7 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spat
 	if solutionsFound > 0 {
 		return nil
 	}
-	return multierr.Combine(err, errors.New("kinematics could not solve for position"))
+	return multierr.Combine(err, errNoSolve)
 }
 
 // SetSeed sets the random seed of this solver
@@ -264,11 +272,6 @@ func (ik *NloptIK) UpdateBounds(lower, upper []float64) error {
 		ik.opt.SetLowerBounds(lower),
 		ik.opt.SetUpperBounds(upper),
 	)
-}
-
-// defaultDistFunc is the default distance function between two poses to be used for gradient descent
-func (ik *NloptIK) defaultDistFunc(from, to spatial.Pose) float64 {
-	return SquaredNorm(spatial.PoseDelta(from, to))
 }
 
 // updateBounds will set the allowable maximum/minimum joint angles to disincentivise large swings before small swings

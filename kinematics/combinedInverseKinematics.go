@@ -39,13 +39,13 @@ func CreateCombinedIKSolver(model frame.Frame, logger golog.Logger, nCPU int) (*
 	return ik, nil
 }
 
-func runSolver(ctx context.Context, solver InverseKinematics, c chan []frame.Input, pos spatialmath.Pose, seed []frame.Input) error {
+func runSolver(ctx context.Context, solver InverseKinematics, c chan<- []frame.Input, pos spatialmath.Pose, seed []frame.Input) error {
 	return solver.Solve(ctx, c, pos, seed)
 }
 
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
 // positions. If unable to solve, the returned error will be non-nil
-func (ik *CombinedIK) Solve(ctx context.Context, c chan []frame.Input, newGoal spatialmath.Pose, seed []frame.Input) error {
+func (ik *CombinedIK) Solve(ctx context.Context, c chan<- []frame.Input, newGoal spatialmath.Pose, seed []frame.Input) error {
 	ik.logger.Debugf("starting joint positions: %v", seed)
 	startPos, err := ik.model.Transform(seed)
 	if err != nil {
@@ -84,7 +84,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, c chan []frame.Input, newGoal s
 			return ctx.Err()
 		default:
 		}
-		
+
 		select {
 		case err = <-errChan:
 			returned++
@@ -105,7 +105,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, c chan []frame.Input, newGoal s
 			return ctx.Err()
 		default:
 		}
-		
+
 		err = <-errChan
 		returned++
 		if err != nil {
@@ -130,9 +130,9 @@ func (ik *CombinedIK) Close() error {
 	return err
 }
 
-// SetGradient sets the function for distance between two poses
-func (ik *CombinedIK) SetGradient(f func(spatialmath.Pose, spatialmath.Pose) float64) {
+// SetMetric sets the function for distance between two poses
+func (ik *CombinedIK) SetMetric(m Metric) {
 	for _, solver := range ik.solvers {
-		solver.SetGradient(f)
+		solver.SetMetric(m)
 	}
 }
