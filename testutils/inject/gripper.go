@@ -5,7 +5,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/gripper"
+	"go.viam.com/core/component/gripper"
 )
 
 // Gripper is an injected gripper.
