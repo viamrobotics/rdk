@@ -7273,55 +7273,6 @@ And not the pieces relevant to local configuration (pins, security keys, etc...)
               </tr>
             
               <tr>
-                <td>GantryCurrentPosition</td>
-                <td><a href="#proto.api.v1.GantryCurrentPositionRequest">GantryCurrentPositionRequest</a></td>
-                <td><a href="#proto.api.v1.GantryCurrentPositionResponse">GantryCurrentPositionResponse</a></td>
-                <td><p>GantryCurrentPosition gets the current position of an gantry of the underlying robot.</p></td>
-              </tr>
-            
-              <tr>
-                <td>GantryMoveToPosition</td>
-                <td><a href="#proto.api.v1.GantryMoveToPositionRequest">GantryMoveToPositionRequest</a></td>
-                <td><a href="#proto.api.v1.GantryMoveToPositionResponse">GantryMoveToPositionResponse</a></td>
-                <td><p>GantryMoveToPosition moves an gantry of the underlying robot to the requested position.</p></td>
-              </tr>
-            
-              <tr>
-                <td>ArmCurrentPosition</td>
-                <td><a href="#proto.api.v1.ArmCurrentPositionRequest">ArmCurrentPositionRequest</a></td>
-                <td><a href="#proto.api.v1.ArmCurrentPositionResponse">ArmCurrentPositionResponse</a></td>
-                <td><p>ArmCurrentPosition gets the current position of an arm of the underlying robot.</p></td>
-              </tr>
-            
-              <tr>
-                <td>ArmMoveToPosition</td>
-                <td><a href="#proto.api.v1.ArmMoveToPositionRequest">ArmMoveToPositionRequest</a></td>
-                <td><a href="#proto.api.v1.ArmMoveToPositionResponse">ArmMoveToPositionResponse</a></td>
-                <td><p>ArmMoveToPosition moves an arm of the underlying robot to the requested position.</p></td>
-              </tr>
-            
-              <tr>
-                <td>ArmCurrentJointPositions</td>
-                <td><a href="#proto.api.v1.ArmCurrentJointPositionsRequest">ArmCurrentJointPositionsRequest</a></td>
-                <td><a href="#proto.api.v1.ArmCurrentJointPositionsResponse">ArmCurrentJointPositionsResponse</a></td>
-                <td><p>ArmCurrentJointPositions gets the current joint position of an arm of the underlying robot.</p></td>
-              </tr>
-            
-              <tr>
-                <td>ArmMoveToJointPositions</td>
-                <td><a href="#proto.api.v1.ArmMoveToJointPositionsRequest">ArmMoveToJointPositionsRequest</a></td>
-                <td><a href="#proto.api.v1.ArmMoveToJointPositionsResponse">ArmMoveToJointPositionsResponse</a></td>
-                <td><p>ArmMoveToJointPositions moves an arm of the underlying robot to the requested joint positions.</p></td>
-              </tr>
-            
-              <tr>
-                <td>ArmJointMoveDelta</td>
-                <td><a href="#proto.api.v1.ArmJointMoveDeltaRequest">ArmJointMoveDeltaRequest</a></td>
-                <td><a href="#proto.api.v1.ArmJointMoveDeltaResponse">ArmJointMoveDeltaResponse</a></td>
-                <td><p>ArmJointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.</p></td>
-              </tr>
-            
-              <tr>
                 <td>BaseMoveStraight</td>
                 <td><a href="#proto.api.v1.BaseMoveStraightRequest">BaseMoveStraightRequest</a></td>
                 <td><a href="#proto.api.v1.BaseMoveStraightResponse">BaseMoveStraightResponse</a></td>
@@ -7868,76 +7819,6 @@ is reliant on having an encoder.</p></td>
                 <td>DoAction</td>
                 <td>POST</td>
                 <td>/api/v1/do_action</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>GantryCurrentPosition</td>
-                <td>GET</td>
-                <td>/api/v1/gantry/{name}/current_position</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>GantryMoveToPosition</td>
-                <td>PUT</td>
-                <td>/api/v1/gantry/{name}/move_to_position</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>ArmCurrentPosition</td>
-                <td>GET</td>
-                <td>/api/v1/arm/{name}/current_position</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>ArmMoveToPosition</td>
-                <td>PUT</td>
-                <td>/api/v1/arm/{name}/move_to_position</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>ArmCurrentJointPositions</td>
-                <td>GET</td>
-                <td>/api/v1/arm/{name}/current_joint_positions</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>ArmMoveToJointPositions</td>
-                <td>PUT</td>
-                <td>/api/v1/arm/{name}/move_to_joint_positions</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>ArmJointMoveDelta</td>
-                <td>PUT</td>
-                <td>/api/v1/arm/{name}/joint_move_delta</td>
                 <td></td>
               </tr>
               

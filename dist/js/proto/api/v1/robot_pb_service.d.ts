@@ -41,69 +41,6 @@ type RobotServiceDoAction = {
   readonly responseType: typeof proto_api_v1_robot_pb.DoActionResponse;
 };
 
-type RobotServiceGantryCurrentPosition = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.GantryCurrentPositionRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.GantryCurrentPositionResponse;
-};
-
-type RobotServiceGantryMoveToPosition = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.GantryMoveToPositionRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.GantryMoveToPositionResponse;
-};
-
-type RobotServiceArmCurrentPosition = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.ArmCurrentPositionRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.ArmCurrentPositionResponse;
-};
-
-type RobotServiceArmMoveToPosition = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.ArmMoveToPositionRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.ArmMoveToPositionResponse;
-};
-
-type RobotServiceArmCurrentJointPositions = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.ArmCurrentJointPositionsRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.ArmCurrentJointPositionsResponse;
-};
-
-type RobotServiceArmMoveToJointPositions = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.ArmMoveToJointPositionsRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.ArmMoveToJointPositionsResponse;
-};
-
-type RobotServiceArmJointMoveDelta = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.ArmJointMoveDeltaRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.ArmJointMoveDeltaResponse;
-};
-
 type RobotServiceBaseMoveStraight = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -731,13 +668,6 @@ export class RobotService {
   static readonly StatusStream: RobotServiceStatusStream;
   static readonly Config: RobotServiceConfig;
   static readonly DoAction: RobotServiceDoAction;
-  static readonly GantryCurrentPosition: RobotServiceGantryCurrentPosition;
-  static readonly GantryMoveToPosition: RobotServiceGantryMoveToPosition;
-  static readonly ArmCurrentPosition: RobotServiceArmCurrentPosition;
-  static readonly ArmMoveToPosition: RobotServiceArmMoveToPosition;
-  static readonly ArmCurrentJointPositions: RobotServiceArmCurrentJointPositions;
-  static readonly ArmMoveToJointPositions: RobotServiceArmMoveToJointPositions;
-  static readonly ArmJointMoveDelta: RobotServiceArmJointMoveDelta;
   static readonly BaseMoveStraight: RobotServiceBaseMoveStraight;
   static readonly BaseMoveArc: RobotServiceBaseMoveArc;
   static readonly BaseSpin: RobotServiceBaseSpin;
@@ -868,69 +798,6 @@ export class RobotServiceClient {
   doAction(
     requestMessage: proto_api_v1_robot_pb.DoActionRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.DoActionResponse|null) => void
-  ): UnaryResponse;
-  gantryCurrentPosition(
-    requestMessage: proto_api_v1_robot_pb.GantryCurrentPositionRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GantryCurrentPositionResponse|null) => void
-  ): UnaryResponse;
-  gantryCurrentPosition(
-    requestMessage: proto_api_v1_robot_pb.GantryCurrentPositionRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GantryCurrentPositionResponse|null) => void
-  ): UnaryResponse;
-  gantryMoveToPosition(
-    requestMessage: proto_api_v1_robot_pb.GantryMoveToPositionRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GantryMoveToPositionResponse|null) => void
-  ): UnaryResponse;
-  gantryMoveToPosition(
-    requestMessage: proto_api_v1_robot_pb.GantryMoveToPositionRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GantryMoveToPositionResponse|null) => void
-  ): UnaryResponse;
-  armCurrentPosition(
-    requestMessage: proto_api_v1_robot_pb.ArmCurrentPositionRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ArmCurrentPositionResponse|null) => void
-  ): UnaryResponse;
-  armCurrentPosition(
-    requestMessage: proto_api_v1_robot_pb.ArmCurrentPositionRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ArmCurrentPositionResponse|null) => void
-  ): UnaryResponse;
-  armMoveToPosition(
-    requestMessage: proto_api_v1_robot_pb.ArmMoveToPositionRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ArmMoveToPositionResponse|null) => void
-  ): UnaryResponse;
-  armMoveToPosition(
-    requestMessage: proto_api_v1_robot_pb.ArmMoveToPositionRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ArmMoveToPositionResponse|null) => void
-  ): UnaryResponse;
-  armCurrentJointPositions(
-    requestMessage: proto_api_v1_robot_pb.ArmCurrentJointPositionsRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ArmCurrentJointPositionsResponse|null) => void
-  ): UnaryResponse;
-  armCurrentJointPositions(
-    requestMessage: proto_api_v1_robot_pb.ArmCurrentJointPositionsRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ArmCurrentJointPositionsResponse|null) => void
-  ): UnaryResponse;
-  armMoveToJointPositions(
-    requestMessage: proto_api_v1_robot_pb.ArmMoveToJointPositionsRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ArmMoveToJointPositionsResponse|null) => void
-  ): UnaryResponse;
-  armMoveToJointPositions(
-    requestMessage: proto_api_v1_robot_pb.ArmMoveToJointPositionsRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ArmMoveToJointPositionsResponse|null) => void
-  ): UnaryResponse;
-  armJointMoveDelta(
-    requestMessage: proto_api_v1_robot_pb.ArmJointMoveDeltaRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ArmJointMoveDeltaResponse|null) => void
-  ): UnaryResponse;
-  armJointMoveDelta(
-    requestMessage: proto_api_v1_robot_pb.ArmJointMoveDeltaRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ArmJointMoveDeltaResponse|null) => void
   ): UnaryResponse;
   baseMoveStraight(
     requestMessage: proto_api_v1_robot_pb.BaseMoveStraightRequest,

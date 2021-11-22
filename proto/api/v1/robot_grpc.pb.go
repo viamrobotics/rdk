@@ -30,20 +30,6 @@ type RobotServiceClient interface {
 	Config(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error)
-	// GantryCurrentPosition gets the current position of an gantry of the underlying robot.
-	GantryCurrentPosition(ctx context.Context, in *GantryCurrentPositionRequest, opts ...grpc.CallOption) (*GantryCurrentPositionResponse, error)
-	// GantryMoveToPosition moves an gantry of the underlying robot to the requested position.
-	GantryMoveToPosition(ctx context.Context, in *GantryMoveToPositionRequest, opts ...grpc.CallOption) (*GantryMoveToPositionResponse, error)
-	// ArmCurrentPosition gets the current position of an arm of the underlying robot.
-	ArmCurrentPosition(ctx context.Context, in *ArmCurrentPositionRequest, opts ...grpc.CallOption) (*ArmCurrentPositionResponse, error)
-	// ArmMoveToPosition moves an arm of the underlying robot to the requested position.
-	ArmMoveToPosition(ctx context.Context, in *ArmMoveToPositionRequest, opts ...grpc.CallOption) (*ArmMoveToPositionResponse, error)
-	// ArmCurrentJointPositions gets the current joint position of an arm of the underlying robot.
-	ArmCurrentJointPositions(ctx context.Context, in *ArmCurrentJointPositionsRequest, opts ...grpc.CallOption) (*ArmCurrentJointPositionsResponse, error)
-	// ArmMoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
-	ArmMoveToJointPositions(ctx context.Context, in *ArmMoveToJointPositionsRequest, opts ...grpc.CallOption) (*ArmMoveToJointPositionsResponse, error)
-	// ArmJointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.
-	ArmJointMoveDelta(ctx context.Context, in *ArmJointMoveDeltaRequest, opts ...grpc.CallOption) (*ArmJointMoveDeltaResponse, error)
 	// BaseMoveStraight moves a base of the underlying robot straight.
 	BaseMoveStraight(ctx context.Context, in *BaseMoveStraightRequest, opts ...grpc.CallOption) (*BaseMoveStraightResponse, error)
 	BaseMoveArc(ctx context.Context, in *BaseMoveArcRequest, opts ...grpc.CallOption) (*BaseMoveArcResponse, error)
@@ -242,69 +228,6 @@ func (c *robotServiceClient) Config(ctx context.Context, in *ConfigRequest, opts
 func (c *robotServiceClient) DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error) {
 	out := new(DoActionResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/DoAction", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) GantryCurrentPosition(ctx context.Context, in *GantryCurrentPositionRequest, opts ...grpc.CallOption) (*GantryCurrentPositionResponse, error) {
-	out := new(GantryCurrentPositionResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GantryCurrentPosition", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) GantryMoveToPosition(ctx context.Context, in *GantryMoveToPositionRequest, opts ...grpc.CallOption) (*GantryMoveToPositionResponse, error) {
-	out := new(GantryMoveToPositionResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GantryMoveToPosition", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) ArmCurrentPosition(ctx context.Context, in *ArmCurrentPositionRequest, opts ...grpc.CallOption) (*ArmCurrentPositionResponse, error) {
-	out := new(ArmCurrentPositionResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ArmCurrentPosition", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) ArmMoveToPosition(ctx context.Context, in *ArmMoveToPositionRequest, opts ...grpc.CallOption) (*ArmMoveToPositionResponse, error) {
-	out := new(ArmMoveToPositionResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ArmMoveToPosition", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) ArmCurrentJointPositions(ctx context.Context, in *ArmCurrentJointPositionsRequest, opts ...grpc.CallOption) (*ArmCurrentJointPositionsResponse, error) {
-	out := new(ArmCurrentJointPositionsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ArmCurrentJointPositions", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) ArmMoveToJointPositions(ctx context.Context, in *ArmMoveToJointPositionsRequest, opts ...grpc.CallOption) (*ArmMoveToJointPositionsResponse, error) {
-	out := new(ArmMoveToJointPositionsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ArmMoveToJointPositions", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) ArmJointMoveDelta(ctx context.Context, in *ArmJointMoveDeltaRequest, opts ...grpc.CallOption) (*ArmJointMoveDeltaResponse, error) {
-	out := new(ArmJointMoveDeltaResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ArmJointMoveDelta", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -992,20 +915,6 @@ type RobotServiceServer interface {
 	Config(context.Context, *ConfigRequest) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error)
-	// GantryCurrentPosition gets the current position of an gantry of the underlying robot.
-	GantryCurrentPosition(context.Context, *GantryCurrentPositionRequest) (*GantryCurrentPositionResponse, error)
-	// GantryMoveToPosition moves an gantry of the underlying robot to the requested position.
-	GantryMoveToPosition(context.Context, *GantryMoveToPositionRequest) (*GantryMoveToPositionResponse, error)
-	// ArmCurrentPosition gets the current position of an arm of the underlying robot.
-	ArmCurrentPosition(context.Context, *ArmCurrentPositionRequest) (*ArmCurrentPositionResponse, error)
-	// ArmMoveToPosition moves an arm of the underlying robot to the requested position.
-	ArmMoveToPosition(context.Context, *ArmMoveToPositionRequest) (*ArmMoveToPositionResponse, error)
-	// ArmCurrentJointPositions gets the current joint position of an arm of the underlying robot.
-	ArmCurrentJointPositions(context.Context, *ArmCurrentJointPositionsRequest) (*ArmCurrentJointPositionsResponse, error)
-	// ArmMoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
-	ArmMoveToJointPositions(context.Context, *ArmMoveToJointPositionsRequest) (*ArmMoveToJointPositionsResponse, error)
-	// ArmJointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.
-	ArmJointMoveDelta(context.Context, *ArmJointMoveDeltaRequest) (*ArmJointMoveDeltaResponse, error)
 	// BaseMoveStraight moves a base of the underlying robot straight.
 	BaseMoveStraight(context.Context, *BaseMoveStraightRequest) (*BaseMoveStraightResponse, error)
 	BaseMoveArc(context.Context, *BaseMoveArcRequest) (*BaseMoveArcResponse, error)
@@ -1159,27 +1068,6 @@ func (UnimplementedRobotServiceServer) Config(context.Context, *ConfigRequest) (
 }
 func (UnimplementedRobotServiceServer) DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DoAction not implemented")
-}
-func (UnimplementedRobotServiceServer) GantryCurrentPosition(context.Context, *GantryCurrentPositionRequest) (*GantryCurrentPositionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GantryCurrentPosition not implemented")
-}
-func (UnimplementedRobotServiceServer) GantryMoveToPosition(context.Context, *GantryMoveToPositionRequest) (*GantryMoveToPositionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GantryMoveToPosition not implemented")
-}
-func (UnimplementedRobotServiceServer) ArmCurrentPosition(context.Context, *ArmCurrentPositionRequest) (*ArmCurrentPositionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ArmCurrentPosition not implemented")
-}
-func (UnimplementedRobotServiceServer) ArmMoveToPosition(context.Context, *ArmMoveToPositionRequest) (*ArmMoveToPositionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ArmMoveToPosition not implemented")
-}
-func (UnimplementedRobotServiceServer) ArmCurrentJointPositions(context.Context, *ArmCurrentJointPositionsRequest) (*ArmCurrentJointPositionsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ArmCurrentJointPositions not implemented")
-}
-func (UnimplementedRobotServiceServer) ArmMoveToJointPositions(context.Context, *ArmMoveToJointPositionsRequest) (*ArmMoveToJointPositionsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ArmMoveToJointPositions not implemented")
-}
-func (UnimplementedRobotServiceServer) ArmJointMoveDelta(context.Context, *ArmJointMoveDeltaRequest) (*ArmJointMoveDeltaResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ArmJointMoveDelta not implemented")
 }
 func (UnimplementedRobotServiceServer) BaseMoveStraight(context.Context, *BaseMoveStraightRequest) (*BaseMoveStraightResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BaseMoveStraight not implemented")
@@ -1472,132 +1360,6 @@ func _RobotService_DoAction_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).DoAction(ctx, req.(*DoActionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_GantryCurrentPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GantryCurrentPositionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).GantryCurrentPosition(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/GantryCurrentPosition",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).GantryCurrentPosition(ctx, req.(*GantryCurrentPositionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_GantryMoveToPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GantryMoveToPositionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).GantryMoveToPosition(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/GantryMoveToPosition",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).GantryMoveToPosition(ctx, req.(*GantryMoveToPositionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_ArmCurrentPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ArmCurrentPositionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).ArmCurrentPosition(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/ArmCurrentPosition",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).ArmCurrentPosition(ctx, req.(*ArmCurrentPositionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_ArmMoveToPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ArmMoveToPositionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).ArmMoveToPosition(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/ArmMoveToPosition",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).ArmMoveToPosition(ctx, req.(*ArmMoveToPositionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_ArmCurrentJointPositions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ArmCurrentJointPositionsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).ArmCurrentJointPositions(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/ArmCurrentJointPositions",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).ArmCurrentJointPositions(ctx, req.(*ArmCurrentJointPositionsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_ArmMoveToJointPositions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ArmMoveToJointPositionsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).ArmMoveToJointPositions(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/ArmMoveToJointPositions",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).ArmMoveToJointPositions(ctx, req.(*ArmMoveToJointPositionsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_ArmJointMoveDelta_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ArmJointMoveDeltaRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).ArmJointMoveDelta(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/ArmJointMoveDelta",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).ArmJointMoveDelta(ctx, req.(*ArmJointMoveDeltaRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2868,34 +2630,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DoAction",
 			Handler:    _RobotService_DoAction_Handler,
-		},
-		{
-			MethodName: "GantryCurrentPosition",
-			Handler:    _RobotService_GantryCurrentPosition_Handler,
-		},
-		{
-			MethodName: "GantryMoveToPosition",
-			Handler:    _RobotService_GantryMoveToPosition_Handler,
-		},
-		{
-			MethodName: "ArmCurrentPosition",
-			Handler:    _RobotService_ArmCurrentPosition_Handler,
-		},
-		{
-			MethodName: "ArmMoveToPosition",
-			Handler:    _RobotService_ArmMoveToPosition_Handler,
-		},
-		{
-			MethodName: "ArmCurrentJointPositions",
-			Handler:    _RobotService_ArmCurrentJointPositions_Handler,
-		},
-		{
-			MethodName: "ArmMoveToJointPositions",
-			Handler:    _RobotService_ArmMoveToJointPositions_Handler,
-		},
-		{
-			MethodName: "ArmJointMoveDelta",
-			Handler:    _RobotService_ArmJointMoveDelta_Handler,
 		},
 		{
 			MethodName: "BaseMoveStraight",

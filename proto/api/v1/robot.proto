@@ -43,59 +43,6 @@ service RobotService {
     };  
   }
 
-  // Gantry
-
-  // GantryCurrentPosition gets the current position of an gantry of the underlying robot.
-  rpc GantryCurrentPosition(GantryCurrentPositionRequest) returns (GantryCurrentPositionResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/gantry/{name}/current_position"
-    };  
-  }
-
-  // GantryMoveToPosition moves an gantry of the underlying robot to the requested position.
-  rpc GantryMoveToPosition(GantryMoveToPositionRequest) returns (GantryMoveToPositionResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/gantry/{name}/move_to_position"
-    };  
-  }
-
-  // Arm
-  
-  // ArmCurrentPosition gets the current position of an arm of the underlying robot.
-  rpc ArmCurrentPosition(ArmCurrentPositionRequest) returns (ArmCurrentPositionResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/arm/{name}/current_position"
-    };  
-  }
-
-  // ArmMoveToPosition moves an arm of the underlying robot to the requested position.
-  rpc ArmMoveToPosition(ArmMoveToPositionRequest) returns (ArmMoveToPositionResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/arm/{name}/move_to_position"
-    };  
-  }
-
-  // ArmCurrentJointPositions gets the current joint position of an arm of the underlying robot.
-  rpc ArmCurrentJointPositions(ArmCurrentJointPositionsRequest) returns (ArmCurrentJointPositionsResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/arm/{name}/current_joint_positions"
-    };  
-  }
-
-  // ArmMoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
-  rpc ArmMoveToJointPositions(ArmMoveToJointPositionsRequest) returns (ArmMoveToJointPositionsResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/arm/{name}/move_to_joint_positions"
-    };  
-  }
-
-  // ArmJointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.
-  rpc ArmJointMoveDelta(ArmJointMoveDeltaRequest) returns (ArmJointMoveDeltaResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/arm/{name}/joint_move_delta"
-    };  
-  }
-
   // Base
 
   // BaseMoveStraight moves a base of the underlying robot straight.
