@@ -86,8 +86,8 @@ var emptyStatus = &pb.StatusResponse{
 		Motors: map[string]*pb.MotorStatus{
 			"motor1": {},
 		},
-		InputControllers: map[string]bool{
-			"inputController1": true,
+		InputControllers: map[string]*pb.InputControllerStatus{
+			"inputController1": {},
 		},
 		Boards: map[string]*pb.BoardStatus{
 			"board1": {

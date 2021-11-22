@@ -51,6 +51,7 @@ import (
 	"github.com/golang/geo/r2"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -1513,6 +1514,23 @@ func (cc *inputControllerClient) LastEvents(ctx context.Context) (map[input.Cont
 		}
 	}
 	return eventsOut, nil
+}
+
+// InjectEvent allows directly sending an Event (such as a button press) from external code
+func (cc *inputControllerClient) InjectEvent(ctx context.Context, event input.Event) error {
+	eventMsg := &pb.InputControllerEvent{
+		Time:    timestamppb.New(event.Time),
+		Event:   string(event.Event),
+		Control: string(event.Control),
+		Value:   event.Value,
+	}
+
+	_, err := cc.rc.client.InputControllerInjectEvent(ctx, &pb.InputControllerInjectEventRequest{
+		Controller: cc.name,
+		Event:      eventMsg,
+	})
+
+	return err
 }
 
 func (cc *inputControllerClient) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
