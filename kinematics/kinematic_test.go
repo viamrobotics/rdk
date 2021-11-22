@@ -169,7 +169,7 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 	test.That(t, transformPoint2.Point().Z, test.ShouldAlmostEqual, pointWorld2.Z)
 
 	transformPoint3, err := fs.TransformFrame(positions, fs.GetFrame(frame.World), fs.GetFrame("xArm6"))
-	// test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, transformPoint3.Point().X, test.ShouldAlmostEqual, pointXarm.X)
 	test.That(t, transformPoint3.Point().Y, test.ShouldAlmostEqual, pointXarm.Y)
 	test.That(t, transformPoint3.Point().Z, test.ShouldAlmostEqual, pointXarm.Z)
