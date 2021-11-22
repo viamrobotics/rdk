@@ -141,6 +141,7 @@ type RobotServiceClient interface {
 	InputControllerControls(ctx context.Context, in *InputControllerControlsRequest, opts ...grpc.CallOption) (*InputControllerControlsResponse, error)
 	InputControllerLastEvents(ctx context.Context, in *InputControllerLastEventsRequest, opts ...grpc.CallOption) (*InputControllerLastEventsResponse, error)
 	InputControllerEventStream(ctx context.Context, in *InputControllerEventStreamRequest, opts ...grpc.CallOption) (RobotService_InputControllerEventStreamClient, error)
+	InputControllerInjectEvent(ctx context.Context, in *InputControllerInjectEventRequest, opts ...grpc.CallOption) (*InputControllerInjectEventResponse, error)
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(ctx context.Context, in *ResourceRunCommandRequest, opts ...grpc.CallOption) (*ResourceRunCommandResponse, error)
 	// Frame System Service
@@ -766,6 +767,15 @@ func (x *robotServiceInputControllerEventStreamClient) Recv() (*InputControllerE
 	return m, nil
 }
 
+func (c *robotServiceClient) InputControllerInjectEvent(ctx context.Context, in *InputControllerInjectEventRequest, opts ...grpc.CallOption) (*InputControllerInjectEventResponse, error) {
+	out := new(InputControllerInjectEventResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/InputControllerInjectEvent", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *robotServiceClient) ResourceRunCommand(ctx context.Context, in *ResourceRunCommandRequest, opts ...grpc.CallOption) (*ResourceRunCommandResponse, error) {
 	out := new(ResourceRunCommandResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ResourceRunCommand", in, out, opts...)
@@ -1026,6 +1036,7 @@ type RobotServiceServer interface {
 	InputControllerControls(context.Context, *InputControllerControlsRequest) (*InputControllerControlsResponse, error)
 	InputControllerLastEvents(context.Context, *InputControllerLastEventsRequest) (*InputControllerLastEventsResponse, error)
 	InputControllerEventStream(*InputControllerEventStreamRequest, RobotService_InputControllerEventStreamServer) error
+	InputControllerInjectEvent(context.Context, *InputControllerInjectEventRequest) (*InputControllerInjectEventResponse, error)
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error)
 	// Frame System Service
@@ -1230,6 +1241,9 @@ func (UnimplementedRobotServiceServer) InputControllerLastEvents(context.Context
 }
 func (UnimplementedRobotServiceServer) InputControllerEventStream(*InputControllerEventStreamRequest, RobotService_InputControllerEventStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method InputControllerEventStream not implemented")
+}
+func (UnimplementedRobotServiceServer) InputControllerInjectEvent(context.Context, *InputControllerInjectEventRequest) (*InputControllerInjectEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InputControllerInjectEvent not implemented")
 }
 func (UnimplementedRobotServiceServer) ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResourceRunCommand not implemented")
@@ -2342,6 +2356,24 @@ func (x *robotServiceInputControllerEventStreamServer) Send(m *InputControllerEv
 	return x.ServerStream.SendMsg(m)
 }
 
+func _RobotService_InputControllerInjectEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InputControllerInjectEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).InputControllerInjectEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/InputControllerInjectEvent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).InputControllerInjectEvent(ctx, req.(*InputControllerInjectEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RobotService_ResourceRunCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ResourceRunCommandRequest)
 	if err := dec(in); err != nil {
@@ -2838,6 +2870,10 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "InputControllerLastEvents",
 			Handler:    _RobotService_InputControllerLastEvents_Handler,
+		},
+		{
+			MethodName: "InputControllerInjectEvent",
+			Handler:    _RobotService_InputControllerInjectEvent_Handler,
 		},
 		{
 			MethodName: "ResourceRunCommand",

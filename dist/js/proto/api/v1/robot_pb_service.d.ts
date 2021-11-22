@@ -527,6 +527,15 @@ type RobotServiceInputControllerEventStream = {
   readonly responseType: typeof proto_api_v1_robot_pb.InputControllerEvent;
 };
 
+type RobotServiceInputControllerInjectEvent = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.InputControllerInjectEventRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.InputControllerInjectEventResponse;
+};
+
 type RobotServiceResourceRunCommand = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -722,6 +731,7 @@ export class RobotService {
   static readonly InputControllerControls: RobotServiceInputControllerControls;
   static readonly InputControllerLastEvents: RobotServiceInputControllerLastEvents;
   static readonly InputControllerEventStream: RobotServiceInputControllerEventStream;
+  static readonly InputControllerInjectEvent: RobotServiceInputControllerInjectEvent;
   static readonly ResourceRunCommand: RobotServiceResourceRunCommand;
   static readonly FrameServiceConfig: RobotServiceFrameServiceConfig;
   static readonly NavigationServiceMode: RobotServiceNavigationServiceMode;
@@ -1269,6 +1279,15 @@ export class RobotServiceClient {
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.InputControllerLastEventsResponse|null) => void
   ): UnaryResponse;
   inputControllerEventStream(requestMessage: proto_api_v1_robot_pb.InputControllerEventStreamRequest, metadata?: grpc.Metadata): ResponseStream<proto_api_v1_robot_pb.InputControllerEvent>;
+  inputControllerInjectEvent(
+    requestMessage: proto_api_v1_robot_pb.InputControllerInjectEventRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.InputControllerInjectEventResponse|null) => void
+  ): UnaryResponse;
+  inputControllerInjectEvent(
+    requestMessage: proto_api_v1_robot_pb.InputControllerInjectEventRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.InputControllerInjectEventResponse|null) => void
+  ): UnaryResponse;
   resourceRunCommand(
     requestMessage: proto_api_v1_robot_pb.ResourceRunCommandRequest,
     metadata: grpc.Metadata,

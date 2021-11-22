@@ -3608,6 +3608,67 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.inputControllerEventStrea
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.InputControllerInjectEventRequest,
+ *   !proto.proto.api.v1.InputControllerInjectEventResponse>}
+ */
+const methodDescriptor_RobotService_InputControllerInjectEvent = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/InputControllerInjectEvent',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.InputControllerInjectEventRequest,
+  proto.proto.api.v1.InputControllerInjectEventResponse,
+  /**
+   * @param {!proto.proto.api.v1.InputControllerInjectEventRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.InputControllerInjectEventResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.InputControllerInjectEventRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.v1.InputControllerInjectEventResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.InputControllerInjectEventResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.inputControllerInjectEvent =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/InputControllerInjectEvent',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_InputControllerInjectEvent,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.InputControllerInjectEventRequest} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.InputControllerInjectEventResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.inputControllerInjectEvent =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/InputControllerInjectEvent',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_InputControllerInjectEvent);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.v1.ResourceRunCommandRequest,
  *   !proto.proto.api.v1.ResourceRunCommandResponse>}
  */

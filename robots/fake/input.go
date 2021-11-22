@@ -70,3 +70,8 @@ func (c *InputController) LastEvents(ctx context.Context) (map[input.Control]inp
 func (c *InputController) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
 	return errors.New("unsupported")
 }
+
+// InjectEvent allows directly sending an Event (such as a button press) from external code
+func (c *InputController) InjectEvent(ctx context.Context, event input.Event) error {
+	return errors.New("unsupported")
+}

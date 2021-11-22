@@ -65,6 +65,7 @@ const (
 	ButtonStart  Control = "ButtonStart"
 	ButtonMenu   Control = "ButtonMenu"
 	ButtonRecord Control = "ButtonRecord"
+	ButtonEStop  Control = "ButtonEStop"
 )
 
 // Event is passed to the registered ControlFunction or returned by State()
@@ -73,4 +74,10 @@ type Event struct {
 	Event   EventType
 	Control Control // Key or Axis
 	Value   float64 // 0 or 1 for buttons, -1.0 to +1.0 for axes
+}
+
+// Injectable is used by the WebGamepad interface to inject events
+type Injectable interface {
+	// InjectEvent allows directly sending an Event (such as a button press) from external code
+	InjectEvent(ctx context.Context, event Event) error
 }

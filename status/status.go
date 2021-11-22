@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-errors/errors"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/gantry"
@@ -222,9 +223,26 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 	}
 
 	if names := r.InputControllerNames(); len(names) != 0 {
-		status.InputControllers = make(map[string]bool, len(names))
+		status.InputControllers = make(map[string]*pb.InputControllerStatus, len(names))
 		for _, name := range names {
-			status.InputControllers[name] = true
+			controller, ok := r.InputControllerByName(name)
+			if !ok {
+				return nil, fmt.Errorf("input controller %q not found", name)
+			}
+			eventsIn, err := controller.LastEvents(ctx)
+			if err != nil {
+				return nil, err
+			}
+			resp := &pb.InputControllerStatus{}
+			for _, eventIn := range eventsIn {
+				resp.Events = append(resp.Events, &pb.InputControllerEvent{
+					Time:    timestamppb.New(eventIn.Time),
+					Event:   string(eventIn.Event),
+					Control: string(eventIn.Control),
+					Value:   eventIn.Value,
+				})
+			}
+			status.InputControllers[name] = resp
 		}
 	}
 

@@ -2,6 +2,7 @@ package robotimpl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"sync"
@@ -1104,6 +1105,17 @@ func (p *proxyInputController) LastEvents(ctx context.Context) (map[input.Contro
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.LastEvents(ctx)
+}
+
+// InjectEvent allows directly sending an Event (such as a button press) from external code
+func (p *proxyInputController) InjectEvent(ctx context.Context, event input.Event) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	iActual, ok := p.actual.(input.Injectable)
+	if !ok {
+		return errors.New("controller is not input.Injectable")
+	}
+	return iActual.InjectEvent(ctx, event)
 }
 
 func (p *proxyInputController) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
