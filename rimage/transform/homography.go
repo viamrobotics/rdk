@@ -16,8 +16,12 @@ func (dch *DepthColorHomography) AlignImageWithDepth(ii *rimage.ImageWithDepth) 
 		return nil, errors.New("no depth image present to align")
 	}
 	// rotate depth image if necessary
-	// use homography to transform depth points to color points and store in hashmap
-	// interpolate pixel values
-	// iterate through color image pixels. get floor and ceiling of each pixel (x,y)
+	if dch.RotateDepth != 0. {
+		ii.Depth = ii.Depth.Rotate(dch.RotateDepth)
+	}
+	// make a new depth map that is as big as the color image
+	// iterate through color pixels - use reverse homography to see where they land in the depth map.
+	// use bilinear interpretation in the depth map to get the value.
+	// set the color-sized depth map to the interpolated depth value
 	// save new image with depth
 }
