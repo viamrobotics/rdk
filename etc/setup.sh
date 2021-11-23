@@ -13,6 +13,12 @@ fi
 
 if [ "$(uname)" == "Linux" ]; then
 
+	if [ "$(uname -m)" != "x86_64" ]; then
+		echo "Automated dev environment setup is only supported on Linux/x86_64 or Darwin (Mac)."
+		echo "If you need to build on a Raspberry Pi, please install the Viam RPi image."
+		exit 1
+	fi
+
 	INSTALL_CMD=""
 	if apt --version > /dev/null 2>&1; then
 		# Debian/Ubuntu

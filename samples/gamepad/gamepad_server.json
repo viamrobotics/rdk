@@ -1,12 +1,32 @@
 {
   "components": [
     {
-      "name": "TestGamepad",
+      "name": "Gamepad",
       "model": "gamepad",
       "type": "input_controller",
       "attributes": {
         "dev_file": "",
         "auto_reconnect": true
+      }
+    },
+    {
+      "name": "WebGamepad",
+      "model": "webgamepad",
+      "type": "input_controller"
+    },
+    {
+      "name": "Mux",
+      "model": "mux",
+      "type": "input_controller",
+      "depends_on": [
+        "Gamepad",
+        "WebGamepad"
+      ],
+      "attributes": {
+        "sources": [
+          "Gamepad",
+          "WebGamepad"
+        ]
       }
     }
   ]

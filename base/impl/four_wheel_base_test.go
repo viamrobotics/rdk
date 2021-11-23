@@ -1,57 +1,33 @@
-package baseimpl_test
+package baseimpl
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	baseimpl "go.viam.com/core/base/impl"
+	"github.com/go-errors/errors"
+
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rlog"
-	robotimpl "go.viam.com/core/robot/impl"
+	"go.viam.com/core/robots/fake"
+	"go.viam.com/core/testutils/inject"
 
 	"go.viam.com/test"
 )
 
 func TestFourWheelBase1(t *testing.T) {
 	ctx := context.Background()
-	r, err := robotimpl.New(ctx,
-		&config.Config{
-			Components: []config.Component{
-				{
-					Name:                "fr-m",
-					Model:               "fake",
-					Type:                config.ComponentTypeMotor,
-					ConvertedAttributes: &motor.Config{},
-				},
-				{
-					Name:                "fl-m",
-					Model:               "fake",
-					Type:                config.ComponentTypeMotor,
-					ConvertedAttributes: &motor.Config{},
-				},
-				{
-					Name:                "br-m",
-					Model:               "fake",
-					Type:                config.ComponentTypeMotor,
-					ConvertedAttributes: &motor.Config{},
-				},
-				{
-					Name:                "bl-m",
-					Model:               "fake",
-					Type:                config.ComponentTypeMotor,
-					ConvertedAttributes: &motor.Config{},
-				},
-			},
-		},
-		rlog.Logger,
-	)
-	test.That(t, err, test.ShouldBeNil)
-	defer test.That(t, r.Close(), test.ShouldBeNil)
 
-	_, err = baseimpl.CreateFourWheelBase(context.Background(), r, config.Component{}, rlog.Logger)
+	fakeRobot := &inject.Robot{}
+
+	fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
+		return &fake.Motor{}, true
+	}
+
+	_, err := CreateFourWheelBase(context.Background(), fakeRobot, config.Component{}, rlog.Logger)
+
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfg := config.Component{
@@ -64,10 +40,10 @@ func TestFourWheelBase1(t *testing.T) {
 			"backLeft":                 "bl-m",
 		},
 	}
-	baseBase, err := baseimpl.CreateFourWheelBase(context.Background(), r, cfg, rlog.Logger)
+	baseBase, err := CreateFourWheelBase(context.Background(), fakeRobot, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
-	base, ok := baseBase.(*baseimpl.FourWheelBase)
+	base, ok := baseBase.(*FourWheelBase)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("basics", func(t *testing.T) {
@@ -76,18 +52,18 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, temp, test.ShouldEqual, 100)
 	})
 
-	t.Run("math", func(t *testing.T) {
-		d, rpm, rotations := base.StraightDistanceToMotorInfo(1000, 1000)
+	t.Run("math_straight", func(t *testing.T) {
+		d, rpm, rotations := base.straightDistanceToMotorInfo(1000, 1000)
 		test.That(t, d, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 		test.That(t, rpm, test.ShouldEqual, 60.0)
 		test.That(t, rotations, test.ShouldEqual, 1.0)
 
-		d, rpm, rotations = base.StraightDistanceToMotorInfo(-1000, 1000)
+		d, rpm, rotations = base.straightDistanceToMotorInfo(-1000, 1000)
 		test.That(t, d, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
 		test.That(t, rpm, test.ShouldEqual, 60.0)
 		test.That(t, rotations, test.ShouldEqual, 1.0)
 
-		d, rpm, rotations = base.StraightDistanceToMotorInfo(-1000, -1000)
+		d, rpm, rotations = base.straightDistanceToMotorInfo(-1000, -1000)
 		test.That(t, d, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 		test.That(t, rpm, test.ShouldEqual, 60.0)
 		test.That(t, rotations, test.ShouldEqual, 1.0)
@@ -161,15 +137,13 @@ func TestFourWheelBase1(t *testing.T) {
 		}
 
 	})
-
+	// Spin tests
 	t.Run("spin math", func(t *testing.T) {
-		// i'm only testing pieces that are correct
-
-		leftDirection, _, rotations := base.SpinMath(90, 10)
+		leftDirection, _, rotations := base.spinMath(90, 10)
 		test.That(t, leftDirection, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 		test.That(t, rotations, test.ShouldAlmostEqual, .0785, .001)
 
-		leftDirection, _, rotations = base.SpinMath(-90, 10)
+		leftDirection, _, rotations = base.spinMath(-90, 10)
 		test.That(t, leftDirection, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
 		test.That(t, rotations, test.ShouldAlmostEqual, .0785, .001)
 
@@ -210,6 +184,68 @@ func TestFourWheelBase1(t *testing.T) {
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
 
+	})
+	// Arc tests
+	t.Run("arc math", func(t *testing.T) {
+
+		directions, rpms, rotations := base.arcMath(10, 1000, 1000)
+		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		test.That(t, rpms[0], test.ShouldAlmostEqual, 60.524, 0.01)
+		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.008, .01)
+		test.That(t, directions[1], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		test.That(t, rpms[1], test.ShouldAlmostEqual, 59.476, 0.01)
+		test.That(t, rotations[1], test.ShouldAlmostEqual, 0.9913, .01)
+
+		directions, _, rotations = base.arcMath(10, -10000, 1000)
+		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+		test.That(t, rpms[0], test.ShouldAlmostEqual, 60.524, 0.01)
+		test.That(t, rotations[0], test.ShouldAlmostEqual, 0.999, .01)
+		test.That(t, directions[1], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+		test.That(t, rpms[1], test.ShouldAlmostEqual, 59.476, 0.01)
+		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.001, .01)
+
+	})
+
+	t.Run("arc math zero speed", func(t *testing.T) {
+
+		directions, _, rotations := base.arcMath(10, 0, 90)
+		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		test.That(t, rotations[0], test.ShouldAlmostEqual, .0785, .001)
+		test.That(t, directions[1], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+		test.That(t, rotations[1], test.ShouldAlmostEqual, .0785, .001)
+
+		directions, _, rotations = base.arcMath(10, 0, -90)
+		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+		test.That(t, rotations[0], test.ShouldAlmostEqual, .0785, .001)
+		test.That(t, directions[1], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		test.That(t, rotations[1], test.ShouldAlmostEqual, .0785, .001)
+
+	})
+
+	t.Run("arc math zero angle", func(t *testing.T) {
+
+		directions, rpms, rotations := base.arcMath(0, 1000, 1000)
+		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		test.That(t, rpms[0], test.ShouldEqual, 60.0)
+		test.That(t, rotations[0], test.ShouldEqual, 1.0)
+		test.That(t, directions[1], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		test.That(t, rpms[1], test.ShouldEqual, 60.0)
+		test.That(t, rotations[1], test.ShouldEqual, 1.0)
+
+		directions, rpms, rotations = base.arcMath(0, -1000, 1000)
+		test.That(t, directions[0], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+		test.That(t, rpms[0], test.ShouldEqual, 60.0)
+		test.That(t, rotations[0], test.ShouldEqual, 1.0)
+		test.That(t, directions[1], test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+		test.That(t, rpms[1], test.ShouldEqual, 60.0)
+		test.That(t, rotations[1], test.ShouldEqual, 1.0)
+
+	})
+
+	t.Run("MoveArc test with block and zero distance", func(t *testing.T) {
+		distanceMillis, err := base.MoveArc(ctx, 0, 1, 1, true)
+		test.That(t, distanceMillis, test.ShouldEqual, 0)
+		test.That(t, err, test.ShouldBeError, errors.New("cannot block unless you have a distance"))
 	})
 
 }

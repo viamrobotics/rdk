@@ -49,8 +49,11 @@ import (
 	_ "go.viam.com/core/board/jetson"
 	_ "go.viam.com/core/board/numato"
 	_ "go.viam.com/core/camera/velodyne" // velodyne lidary
+	_ "go.viam.com/core/component/gantry/fake"
 	_ "go.viam.com/core/component/gantry/simple"
 	_ "go.viam.com/core/input/gamepad" // xbox controller and similar
+	_ "go.viam.com/core/input/mux"
+	_ "go.viam.com/core/input/webgamepad" // gamepads via webbrowser
 	_ "go.viam.com/core/motor/gpio"
 	_ "go.viam.com/core/motor/gpiostepper"
 	_ "go.viam.com/core/motor/tmcstepper"
@@ -79,6 +82,7 @@ import (
 	_ "go.viam.com/core/vision" // this is for interesting camera types, depth, etc...
 
 	// These are the services we want by default
+	_ "go.viam.com/core/services/baseremotecontrol"
 	_ "go.viam.com/core/services/navigation"
 )
 

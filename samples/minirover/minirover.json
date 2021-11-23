@@ -11,15 +11,24 @@
                 "widthMillis": 600,
                 "wheelCircumferenceMillis": 470,
                 "spinSlipFactor": 2.0,
-                "frontLeft": "fl-m",
                 "frontRight": "fr-m",
+                "frontLeft": "fl-m",
                 "backLeft": "bl-m",
                 "backRight": "br-m"
             },
             "depends_on":
             [
-                "local"
+                "local", "fl-m", "fr-m","bl-m","br-m"
             ]
+        },
+        {
+            "name": "controller",
+            "model": "gamepad",
+            "type": "input_controller",
+            "attributes": {
+              "dev_file": "",
+              "auto_reconnect": true
+            }
         },
         {
             "name": "local",
@@ -49,37 +58,12 @@
             }
         },
         {
-            "model": "pi",
-            "name": "pan",
-            "type": "servo",
-            "attributes":
-            {
-                "pin": "16"
-            },
-            "depends_on":
-            [
-                "local"
-            ]
-        },
-        {
-            "model": "pi",
-            "name": "tilt",
-            "type": "servo",
-            "attributes":
-            {
-                "pin": "12"
-            },
-            "depends_on":
-            [
-                "local"
-            ]
-        },
-        {
             "name": "fl-m",
             "type": "motor",
             "model": "pi",
             "attributes":
             {
+                "board": "local",
                 "pins":
                 {
                     "a": "38",
@@ -100,6 +84,7 @@
             "model": "pi",
             "attributes":
             {
+                "board": "local",
                 "pins":
                 {
                     "a": "22",
@@ -120,6 +105,7 @@
             "model": "pi",
             "attributes":
             {
+                "board": "local",
                 "pins":
                 {
                     "a": "37",
@@ -140,6 +126,7 @@
             "model": "pi",
             "attributes":
             {
+                "board": "local",
                 "pins":
                 {
                     "a": "29",
@@ -153,6 +140,17 @@
             [
                 "local"
             ]
+        }
+    ],
+    "services":
+    [
+        {
+            "name": "base_remote_control",
+            "type": "base_remote_control",
+            "attributes": {
+                "base": "pierre",
+                "input_controller" : "controller"
+            }
         }
     ]
 }

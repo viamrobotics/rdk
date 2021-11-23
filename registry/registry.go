@@ -55,6 +55,17 @@ func init() {
 		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
 			return gantry.WrapWithReconfigurable(r)
 		},
+		RegisterRPCService: func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&componentpb.GantryService_ServiceDesc,
+				gantry.NewServer(subtypeSvc),
+				componentpb.RegisterGantryServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
+			return gantry.NewClientFromConn(conn, name, logger)
+		},
 	})
 
 }

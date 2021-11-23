@@ -113,7 +113,7 @@ export class Status extends jspb.Message {
   clearMotorsMap(): void;
   getServicesMap(): jspb.Map<string, boolean>;
   clearServicesMap(): void;
-  getInputControllersMap(): jspb.Map<string, boolean>;
+  getInputControllersMap(): jspb.Map<string, InputControllerStatus>;
   clearInputControllersMap(): void;
   getGantriesMap(): jspb.Map<string, GantryStatus>;
   clearGantriesMap(): void;
@@ -140,7 +140,7 @@ export namespace Status {
     servosMap: Array<[string, ServoStatus.AsObject]>,
     motorsMap: Array<[string, MotorStatus.AsObject]>,
     servicesMap: Array<[string, boolean]>,
-    inputControllersMap: Array<[string, boolean]>,
+    inputControllersMap: Array<[string, InputControllerStatus.AsObject]>,
     gantriesMap: Array<[string, GantryStatus.AsObject]>,
   }
 }
@@ -816,6 +816,66 @@ export class BaseMoveStraightResponse extends jspb.Message {
 }
 
 export namespace BaseMoveStraightResponse {
+  export type AsObject = {
+    success: boolean,
+    error: string,
+    distanceMillis: number,
+  }
+}
+
+export class BaseMoveArcRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  getDistanceMillis(): number;
+  setDistanceMillis(value: number): void;
+
+  getMillisPerSec(): number;
+  setMillisPerSec(value: number): void;
+
+  getAngleDeg(): number;
+  setAngleDeg(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BaseMoveArcRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: BaseMoveArcRequest): BaseMoveArcRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BaseMoveArcRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BaseMoveArcRequest;
+  static deserializeBinaryFromReader(message: BaseMoveArcRequest, reader: jspb.BinaryReader): BaseMoveArcRequest;
+}
+
+export namespace BaseMoveArcRequest {
+  export type AsObject = {
+    name: string,
+    distanceMillis: number,
+    millisPerSec: number,
+    angleDeg: number,
+  }
+}
+
+export class BaseMoveArcResponse extends jspb.Message {
+  getSuccess(): boolean;
+  setSuccess(value: boolean): void;
+
+  getError(): string;
+  setError(value: string): void;
+
+  getDistanceMillis(): number;
+  setDistanceMillis(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BaseMoveArcResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BaseMoveArcResponse): BaseMoveArcResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BaseMoveArcResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BaseMoveArcResponse;
+  static deserializeBinaryFromReader(message: BaseMoveArcResponse, reader: jspb.BinaryReader): BaseMoveArcResponse;
+}
+
+export namespace BaseMoveArcResponse {
   export type AsObject = {
     success: boolean,
     error: string,
@@ -3572,6 +3632,70 @@ export class InputControllerLastEventsResponse extends jspb.Message {
 export namespace InputControllerLastEventsResponse {
   export type AsObject = {
     eventsList: Array<InputControllerEvent.AsObject>,
+  }
+}
+
+export class InputControllerStatus extends jspb.Message {
+  clearEventsList(): void;
+  getEventsList(): Array<InputControllerEvent>;
+  setEventsList(value: Array<InputControllerEvent>): void;
+  addEvents(value?: InputControllerEvent, index?: number): InputControllerEvent;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): InputControllerStatus.AsObject;
+  static toObject(includeInstance: boolean, msg: InputControllerStatus): InputControllerStatus.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: InputControllerStatus, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): InputControllerStatus;
+  static deserializeBinaryFromReader(message: InputControllerStatus, reader: jspb.BinaryReader): InputControllerStatus;
+}
+
+export namespace InputControllerStatus {
+  export type AsObject = {
+    eventsList: Array<InputControllerEvent.AsObject>,
+  }
+}
+
+export class InputControllerInjectEventRequest extends jspb.Message {
+  getController(): string;
+  setController(value: string): void;
+
+  hasEvent(): boolean;
+  clearEvent(): void;
+  getEvent(): InputControllerEvent | undefined;
+  setEvent(value?: InputControllerEvent): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): InputControllerInjectEventRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: InputControllerInjectEventRequest): InputControllerInjectEventRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: InputControllerInjectEventRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): InputControllerInjectEventRequest;
+  static deserializeBinaryFromReader(message: InputControllerInjectEventRequest, reader: jspb.BinaryReader): InputControllerInjectEventRequest;
+}
+
+export namespace InputControllerInjectEventRequest {
+  export type AsObject = {
+    controller: string,
+    event?: InputControllerEvent.AsObject,
+  }
+}
+
+export class InputControllerInjectEventResponse extends jspb.Message {
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): InputControllerInjectEventResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: InputControllerInjectEventResponse): InputControllerInjectEventResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: InputControllerInjectEventResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): InputControllerInjectEventResponse;
+  static deserializeBinaryFromReader(message: InputControllerInjectEventResponse, reader: jspb.BinaryReader): InputControllerInjectEventResponse;
+}
+
+export namespace InputControllerInjectEventResponse {
+  export type AsObject = {
   }
 }
 
