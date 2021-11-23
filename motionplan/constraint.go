@@ -22,8 +22,7 @@ type ConstraintInput struct {
 	Frame      frame.Frame
 }
 
-// Constraint defines a struct that contains a function which is able to determine whether or not a given position
-// is valid.
+// Constraint defines functions able to determine whether or not a given position is valid.
 // TODO (pl): Determine how Gradient should fit into this
 type Constraint interface {
 	// A bool returning whether the given input is known to be good, and a float representing how far the input is
@@ -151,6 +150,7 @@ func (c *flexibleConstraint) setFunc(f func(cInput *ConstraintInput) (bool, floa
 // NewInterpolatingConstraint creates a constraint function from an arbitrary function that will decide if a given pose is valid.
 // This function will check the given function at each point in checkSeq, and 1-point. If all constraints are satisfied,
 // it will return true. If any intermediate pose violates the constraint, will return false.
+// This constraint will interpolate between the start and end poses, and ensure that the pose given by interpolating the inputs the same amount does not deviate by more than a set amount
 func NewInterpolatingConstraint(epsilon float64) Constraint {
 	checkSeq := []float64{0.5, 0.333, 0.25, 0.17}
 	c := &flexibleConstraint{}
@@ -408,12 +408,13 @@ func resolveInputsToPositions(ci *ConstraintInput) error {
 	return nil
 }
 
-// TODO: add spatial transforms
 func interpolateInput(ci *ConstraintInput, by1, by2 float64) (*ConstraintInput, bool) {
 	new := &ConstraintInput{}
 	new.Frame = ci.Frame
 	new.StartInput = frame.InterpolateInputs(ci.StartInput, ci.EndInput, by1)
 	new.EndInput = frame.InterpolateInputs(ci.StartInput, ci.EndInput, by2)
+	new.StartPos = spatial.Interpolate(ci.StartPos, ci.EndPos, by1)
+	new.EndPos = spatial.Interpolate(ci.StartPos, ci.EndPos, by2)
 
 	return new, true
 }
