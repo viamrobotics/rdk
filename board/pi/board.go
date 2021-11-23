@@ -39,7 +39,7 @@ func init() {
 		boardConfig := config.ConvertedAttributes.(*board.Config)
 		return NewPigpio(ctx, boardConfig, logger)
 	}})
-	board.RegisterConfigAttributeConverter(modelName)
+	board.RegisterConfigAttributeConverter("pi")
 }
 
 // piPigpio is an implementation of a board.Board of a Raspberry Pi
