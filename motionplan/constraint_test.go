@@ -40,3 +40,37 @@ func TestIKTolerances(t *testing.T) {
 	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
 	test.That(t, err, test.ShouldBeNil)
 }
+
+func TestConstraintPath(t *testing.T) {
+
+	homePos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	toPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1})
+
+	modelXarm, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	ci := &ConstraintInput{StartInput: homePos, EndInput: toPos, Frame: modelXarm}
+
+	handler := &constraintHandler{}
+
+	// No constraints, should pass
+	ok, failCI := handler.CheckConstraintPath(ci, 0.5)
+	test.That(t, failCI, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// Test interpolating
+	handler.AddConstraint("interp", NewInterpolatingConstraint(0.5))
+	ok, failCI = handler.CheckConstraintPath(ci, 0.5)
+	test.That(t, failCI, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	test.That(t, len(handler.Constraints()), test.ShouldEqual, 1)
+
+	badInterpPos := frame.FloatsToInputs([]float64{6.2, 0, 0, 0, 0, 0})
+	ciBad := &ConstraintInput{StartInput: homePos, EndInput: badInterpPos, Frame: modelXarm}
+	ok, failCI = handler.CheckConstraintPath(ciBad, 0.5)
+	test.That(t, failCI, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeFalse)
+	ok, failCI = handler.CheckConstraintPath(ciBad, 0.005)
+	test.That(t, failCI, test.ShouldNotBeNil)
+	test.That(t, ok, test.ShouldBeFalse)
+}
