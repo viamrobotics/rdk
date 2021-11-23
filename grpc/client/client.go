@@ -25,6 +25,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc"
@@ -44,7 +45,6 @@ import (
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
 	"go.viam.com/core/sensor/imu"
-	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
 
 	"github.com/edaniels/golog"
@@ -73,7 +73,6 @@ type RobotClient struct {
 	cameraNames          []string
 	lidarNames           []string
 	sensorNames          []string
-	servoNames           []string
 	motorNames           []string
 	inputControllerNames []string
 	functionNames        []string
@@ -490,13 +489,6 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 			rc.sensorTypes[name] = sensor.Type(sensorStatus.Type)
 		}
 	}
-	rc.servoNames = nil
-	if len(status.Servos) != 0 {
-		rc.servoNames = make([]string, 0, len(status.Servos))
-		for name := range status.Servos {
-			rc.servoNames = append(rc.servoNames, name)
-		}
-	}
 	rc.motorNames = nil
 	if len(status.Motors) != 0 {
 		rc.motorNames = make([]string, 0, len(status.Motors))
@@ -604,7 +596,13 @@ func (rc *RobotClient) SensorNames() []string {
 func (rc *RobotClient) ServoNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.servoNames)
+	names := []string{}
+	for _, res := range rc.ResourceNames() {
+		if res.Subtype == servo.Subtype {
+			names = append(names, res.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // MotorNames returns the names of all known motors.

@@ -27,7 +27,6 @@ import (
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
-	"go.viam.com/core/servo"
 	"go.viam.com/core/subtype"
 )
 
@@ -89,16 +88,13 @@ type (
 	// A CreateBoard creates a board from a given config.
 	CreateBoard func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error)
 
-	// A CreateServo creates a servo from a given config.
-	CreateServo func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (servo.Servo, error)
-
 	// A CreateMotor creates a motor from a given config.
 	CreateMotor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error)
 
 	// A CreateInputController creates an input.Controller from a given config.
 	CreateInputController func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error)
 
-	// A CreateService creates a servoce from a given config.
+	// A CreateService creates a service from a given config.
 	CreateService func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error)
 )
 
@@ -144,12 +140,6 @@ type Board struct {
 	Constructor CreateBoard
 }
 
-// Servo stores a Servo constructor function (mandatory)
-type Servo struct {
-	RegDebugInfo
-	Constructor CreateServo
-}
-
 // Motor stores a Motor constructor function (mandatory)
 type Motor struct {
 	RegDebugInfo
@@ -177,7 +167,6 @@ var (
 	lidarRegistry           = map[string]Lidar{}
 	sensorRegistry          = map[sensor.Type]map[string]Sensor{}
 	boardRegistry           = map[string]Board{}
-	servoRegistry           = map[string]Servo{}
 	motorRegistry           = map[string]Motor{}
 	inputControllerRegistry = map[string]InputController{}
 	serviceRegistry         = map[config.ServiceType]Service{}
@@ -273,19 +262,6 @@ func RegisterBoard(model string, creator Board) {
 	boardRegistry[model] = creator
 }
 
-// RegisterServo registers a servo model to a creator.
-func RegisterServo(model string, creator Servo) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := servoRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two servos with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	servoRegistry[model] = creator
-}
-
 // RegisterMotor registers a motor model to a creator.
 func RegisterMotor(model string, creator Motor) {
 	creator.RegistrarLoc = getCallerName()
@@ -378,15 +354,6 @@ func SensorLookup(sensorType sensor.Type, model string) *Sensor {
 // there is no creator registered.
 func BoardLookup(model string) *Board {
 	if registration, ok := boardRegistry[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// ServoLookup looks up a servo creator by the given model. nil is returned if
-// there is no creator registered.
-func ServoLookup(model string) *Servo {
-	if registration, ok := servoRegistry[model]; ok {
 		return &registration
 	}
 	return nil
@@ -556,15 +523,6 @@ func RegisteredBoards() map[string]Board {
 		panic(err)
 	}
 	return copied.(map[string]Board)
-}
-
-// RegisteredServos returns a copy of the registered servos.
-func RegisteredServos() map[string]Servo {
-	copied, err := copystructure.Copy(servoRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]Servo)
 }
 
 // RegisteredMotors returns a copy of the registered motors.
