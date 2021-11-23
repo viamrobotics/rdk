@@ -420,7 +420,6 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 		return err
 	}
 	if err == nil {
-		fmt.Printf("names: %v\n", names)
 		rc.resourceNames = make([]resource.Name, 0, len(names))
 		for _, name := range names {
 			newName := resource.NewName(
