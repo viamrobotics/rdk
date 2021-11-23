@@ -22,8 +22,6 @@ import (
 	"go.viam.com/core/robot"
 )
 
-const modelName = "pi"
-
 // init registers a pi servo based on pigpio.
 func init() {
 	registry.RegisterComponent(servo.Subtype, modelName, registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
