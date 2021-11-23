@@ -661,62 +661,6 @@ message FrameServiceConfigResponse {
   repeated FrameSystemConfig frame_system_configs = 1;
 }
 
-message ArmCurrentPositionRequest {
-  string name = 1;
-}
-
-message ArmCurrentPositionResponse {
-  Pose position = 1;
-}
-
-message ArmCurrentJointPositionsRequest {
-  string name = 1;
-}
-
-message ArmCurrentJointPositionsResponse {
-  JointPositions positions = 1;
-}
-
-message ArmMoveToPositionRequest {
-  string name = 1;
-  Pose to = 2;
-}
-
-message ArmMoveToPositionResponse {}
-
-message ArmMoveToJointPositionsRequest {
-  string name = 1;
-  JointPositions to = 2;
-}
-
-message ArmMoveToJointPositionsResponse {}
-
-message ArmJointMoveDeltaRequest {
-  string name = 1;
-  int32 joint = 2;
-  double amount_degs = 3;
-}
-
-message ArmJointMoveDeltaResponse {}
-
-// Gantry
-
-message GantryCurrentPositionRequest {
-  string name = 1;
-}
-
-message GantryCurrentPositionResponse {
-  repeated double positions = 1;
-}
-
-message GantryMoveToPositionRequest {
-  string name = 1;
-  repeated double positions = 2;
-}
-
-message GantryMoveToPositionResponse {}
-
-
 // Base
 
 message BaseMoveStraightRequest {
