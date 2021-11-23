@@ -49,7 +49,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error)
 	// How close we want to get to the goal
 	ik.epsilon = 0.001
 	// The absolute smallest value able to be represented by a float64
-	floatEpsilon := math.Nextafter(1, 2) - 1
+	floatEpsilon := math.Pow(ik.epsilon, 4)
 	ik.maxIterations = 5000
 	ik.iterations = 0
 	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.DoF())
