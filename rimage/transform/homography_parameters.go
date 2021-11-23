@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/golang/geo/r2"
+	"gonum.org/v1/gonum/mat"
 )
 
 // DepthColorHomography stores the color camera intrinsics and the depth->color homography that aligns a depth map
@@ -30,5 +31,20 @@ func (h *Homography) Apply(pt r2.Point) []r2.Point {
 	return r2.Point{X: x / z, Y: y / z}
 }
 
-func BicubicInterpolation() {
+func (h *Homography) Inverse() *Homography {
+	toMat := mat.NewDense(3, 3, []float64{
+		h.At(0, 0), h.At(0, 1), h.At(0, 2),
+		h.At(1, 0), h.At(1, 1), h.At(1, 2),
+		h.At(2, 0), h.At(2, 1), h.At(2, 2),
+	})
+
+	var hInv mat.Dense
+	err := hInv.Inverse(toMat)
+	if err != nil {
+		panic("homography is not invertible (but homographies should always be invertible?): %v", err)
+	}
+	return hInv
+}
+
+func BilinearInterpolation() {
 }
