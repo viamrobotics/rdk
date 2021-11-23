@@ -26,6 +26,9 @@ type CombinedIK struct {
 func CreateCombinedIKSolver(model frame.Frame, logger golog.Logger, nCPU int) (*CombinedIK, error) {
 	ik := &CombinedIK{}
 	ik.model = model
+	if nCPU == 0 {
+		nCPU = 1
+	}
 	for i := 1; i <= nCPU; i++ {
 		nlopt, err := CreateNloptIKSolver(model, logger)
 		nlopt.id = i
