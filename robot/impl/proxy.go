@@ -2,6 +2,7 @@ package robotimpl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"sync"
@@ -45,6 +46,12 @@ func (p *proxyBase) MoveStraight(ctx context.Context, distanceMillis int, millis
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.MoveStraight(ctx, distanceMillis, millisPerSec, block)
+}
+
+func (p *proxyBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) (int, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.MoveArc(ctx, distanceMillis, millisPerSec, degsPerSec, block)
 }
 
 func (p *proxyBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
@@ -1098,6 +1105,17 @@ func (p *proxyInputController) LastEvents(ctx context.Context) (map[input.Contro
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.LastEvents(ctx)
+}
+
+// InjectEvent allows directly sending an Event (such as a button press) from external code
+func (p *proxyInputController) InjectEvent(ctx context.Context, event input.Event) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	iActual, ok := p.actual.(input.Injectable)
+	if !ok {
+		return errors.New("controller is not input.Injectable")
+	}
+	return iActual.InjectEvent(ctx, event)
 }
 
 func (p *proxyInputController) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {

@@ -1,3 +1,17 @@
+viam-server (0.5) viam; urgency=medium
+
+  * Split camera servers to own repo and package
+  * Seperate pi and jetson builds
+
+ -- James Otting <james@viam.com>  Thu, 19 Nov 2021 14:36:30 -0800
+
+viam-server (0.4) viam; urgency=medium
+
+  * Move to embedded web filesystem
+  * Add cubeeye camera server
+
+ -- James Otting <james@viam.com>  Thu, 18 Nov 2021 12:35:43 -0800
+
 viam-server (0.3) viam; urgency=medium
 
   * Add 80 -> 8080 port forwarding rule in service files
