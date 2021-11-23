@@ -33,11 +33,9 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 )
 
-const modelName = "pi"
-
 // init registers a pi board based on pigpio.
 func init() {
-	registry.RegisterBoard(modelName, registry.Board{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error) {
+	registry.RegisterBoard("pi", registry.Board{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error) {
 		boardConfig := config.ConvertedAttributes.(*board.Config)
 		return NewPigpio(ctx, boardConfig, logger)
 	}})
