@@ -16,7 +16,7 @@ import (
 var (
 	home7 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
 	home6 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
-	nCPU  = runtime.NumCPU()/8
+	nCPU  = runtime.NumCPU() / 8
 )
 
 // This should test a simple linear motion

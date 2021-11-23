@@ -21,7 +21,7 @@ const toSolve = 100
 
 var (
 	home = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
-	nCPU = runtime.NumCPU()/4
+	nCPU = runtime.NumCPU() / 4
 	seed = rand.New(rand.NewSource(1))
 )
 
