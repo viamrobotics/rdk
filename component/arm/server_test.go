@@ -18,7 +18,7 @@ import (
 func newServer() (pb.ArmServiceServer, *inject.Arm, *inject.Arm, error) {
 	injectArm := &inject.Arm{}
 	injectArm2 := &inject.Arm{}
-	armSvc, err := subtype.New((map[resource.Name]interface{}{arm.Named("arm1"): injectArm, arm.Named("arm2"): injectArm2}))
+	armSvc, err := subtype.New((map[resource.Name]interface{}{arm.Named("arm1"): injectArm, arm.Named("arm2"): injectArm2, arm.Named("arm3"): "notArm"}))
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -87,6 +87,14 @@ func TestServer(t *testing.T) {
 	}
 
 	t.Run("arm position", func(t *testing.T) {
+		_, err := armServer.CurrentPosition(context.Background(), &pb.ArmServiceCurrentPositionRequest{Name: "a4"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+
+		_, err = armServer.CurrentPosition(context.Background(), &pb.ArmServiceCurrentPositionRequest{Name: "arm3"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not an arm")
+
 		resp, err := armServer.CurrentPosition(context.Background(), &pb.ArmServiceCurrentPositionRequest{Name: arm1})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Position.String(), test.ShouldResemble, pos1.String())
@@ -97,6 +105,10 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("move to position", func(t *testing.T) {
+		_, err = armServer.MoveToPosition(context.Background(), &pb.ArmServiceMoveToPositionRequest{Name: "a4", To: pos2})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+
 		_, err := armServer.MoveToPosition(context.Background(), &pb.ArmServiceMoveToPositionRequest{Name: arm1, To: pos2})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmPos.String(), test.ShouldResemble, pos2.String())
@@ -107,6 +119,10 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("arm joint position", func(t *testing.T) {
+		_, err := armServer.CurrentJointPositions(context.Background(), &pb.ArmServiceCurrentJointPositionsRequest{Name: "a4"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+
 		resp, err := armServer.CurrentJointPositions(context.Background(), &pb.ArmServiceCurrentJointPositionsRequest{Name: arm1})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Positions.String(), test.ShouldResemble, jointPos1.String())
@@ -117,6 +133,10 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("move to joint position", func(t *testing.T) {
+		_, err = armServer.MoveToJointPositions(context.Background(), &pb.ArmServiceMoveToJointPositionsRequest{Name: "a4", To: jointPos2})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+
 		_, err := armServer.MoveToJointPositions(context.Background(), &pb.ArmServiceMoveToJointPositionsRequest{Name: arm1, To: jointPos2})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos2.String())
@@ -127,6 +147,10 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("joint move delta", func(t *testing.T) {
+		_, err = armServer.JointMoveDelta(context.Background(), &pb.ArmServiceJointMoveDeltaRequest{Name: "a4", Joint: 10, AmountDegs: 5.5})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+
 		_, err := armServer.JointMoveDelta(context.Background(), &pb.ArmServiceJointMoveDeltaRequest{Name: arm1, Joint: 10, AmountDegs: 5.5})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmJoint, test.ShouldEqual, 10)

@@ -49,6 +49,7 @@ import (
 	_ "go.viam.com/core/board/jetson"
 	_ "go.viam.com/core/board/numato"
 	_ "go.viam.com/core/camera/velodyne" // velodyne lidary
+	_ "go.viam.com/core/component/gantry/fake"
 	_ "go.viam.com/core/component/gantry/simple"
 	_ "go.viam.com/core/input/gamepad" // xbox controller and similar
 	_ "go.viam.com/core/input/mux"

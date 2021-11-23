@@ -200,10 +200,10 @@
                       }
                       pos[axis] += amount;
                       
-                      const req = new robotApi.GantryMoveToPositionRequest();
+                      const req = new gantryApi.GantryServiceMoveToPositionRequest();
                       req.setName(name);
                       req.setPositionsList(pos);
-                      robotService.gantryMoveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
+                      gantryService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   armGridInc : function(name, getterSetter, amount) {
                       if (getterSetter[0] == 'o' || getterSetter[0] == 'O') {
