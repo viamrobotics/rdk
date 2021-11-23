@@ -23,6 +23,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	metadataserver "go.viam.com/core/grpc/metadata/server"
@@ -42,8 +43,8 @@ import (
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/imu"
 	servicepkg "go.viam.com/core/services"
-	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
+	coretestutils "go.viam.com/core/testutils"
 	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"
@@ -221,7 +222,7 @@ var finalStatus = &pb.Status{
 	},
 }
 
-var finalResources = []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
+var finalResources = []resource.Name{arm.Named("arm2"), arm.Named("arm3"), servo.Named("servo2"), servo.Named("servo3")}
 
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -1303,14 +1304,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func newResourceNameSet(values ...resource.Name) map[resource.Name]struct{} {
-	set := make(map[resource.Name]struct{}, len(values))
-	for _, val := range values {
-		set[val] = struct{}{}
-	}
-	return set
-}
-
 func TestClientRefresh(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
@@ -1375,7 +1368,11 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4", "fsm1", "fsm2"))
 	test.That(t, utils.NewStringSet(client.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo2", "servo3"))
-	test.That(t, newResourceNameSet(client.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm2"), arm.Named("arm3")}...))
+	resources := map[resource.Subtype][]resource.Name{
+		arm.Subtype:   {arm.Named("arm2"), arm.Named("arm3")},
+		servo.Subtype: {servo.Named("servo2"), servo.Named("servo3")},
+	}
+	test.That(t, coretestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, coretestutils.ResourceMapToStringSet(resources))
 
 	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)
@@ -1403,7 +1400,10 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass1", "compass2", "imu1", "fsm1", "fsm2"))
-	test.That(t, newResourceNameSet(client.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm1")}...))
+	resources = map[resource.Subtype][]resource.Name{
+		arm.Subtype: {arm.Named("arm1")},
+	}
+	test.That(t, coretestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, coretestutils.ResourceMapToStringSet(resources))
 
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return finalStatus, nil
@@ -1421,7 +1421,11 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4", "fsm1", "fsm2"))
-	test.That(t, newResourceNameSet(client.ResourceNames()...), test.ShouldResemble, newResourceNameSet([]resource.Name{arm.Named("arm2"), arm.Named("arm3")}...))
+	resources = map[resource.Subtype][]resource.Name{
+		arm.Subtype:   {arm.Named("arm2"), arm.Named("arm3")},
+		servo.Subtype: {servo.Named("servo2"), servo.Named("servo3")},
+	}
+	test.That(t, coretestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, coretestutils.ResourceMapToStringSet(resources))
 
 	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)

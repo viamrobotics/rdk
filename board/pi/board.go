@@ -12,7 +12,6 @@ import "C"
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"strconv"
 	"sync"
@@ -26,68 +25,12 @@ import (
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
+	piutils "go.viam.com/core/lib/pi"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 
 	pb "go.viam.com/core/proto/api/v1"
-)
-
-var (
-	// piHWPinToBroadcom maps the hardware inscribed pin number to
-	// its Broadcom pin. For the sake of programming, a user typically
-	// knows the hardware pin since they have the board on hand but does
-	// not know the corresponding Broadcom pin.
-	piHWPinToBroadcom = map[string]uint{
-		// 1 -> 3v3
-		// 2 -> 5v
-		"3":   2,
-		"sda": 2,
-		// 4 -> 5v
-		"5":   3,
-		"scl": 3,
-		// 6 -> GND
-		"7": 4,
-		"8": 14,
-		// 9 -> GND
-		"10":  15,
-		"11":  17,
-		"12":  18,
-		"clk": 18,
-		"13":  27,
-		// 14 -> GND
-		"15": 22,
-		"16": 23,
-		// 17 -> 3v3
-		"18":   24,
-		"19":   10,
-		"mosi": 10,
-		// 20 -> GND
-		"21":   9,
-		"miso": 9,
-		"22":   25,
-		"23":   11,
-		"sclk": 11,
-		"24":   8,
-		"ce0":  8,
-		// 25 -> GND
-		"26":  7,
-		"ce1": 7,
-		"27":  0,
-		"28":  1,
-		"29":  5,
-		// 30 -> GND
-		"31": 6,
-		"32": 12,
-		"33": 13,
-		// 34 -> GND
-		"35": 19,
-		"36": 16,
-		"37": 26,
-		"38": 20,
-		// 39 -> GND
-		"40": 21,
-	}
 )
 
 const modelName = "pi"
@@ -99,17 +42,6 @@ func init() {
 		return NewPigpio(ctx, boardConfig, logger)
 	}})
 	board.RegisterConfigAttributeConverter(modelName)
-
-	toAdd := map[string]uint{}
-	for k, v := range piHWPinToBroadcom {
-		if len(k) >= 3 {
-			continue
-		}
-		toAdd[fmt.Sprintf("io%d", v)] = v
-	}
-	for k, v := range toAdd {
-		piHWPinToBroadcom[k] = v
-	}
 }
 
 // piPigpio is an implementation of a board.Board of a Raspberry Pi
@@ -208,7 +140,7 @@ func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (boa
 	piInstance.interrupts = map[string]board.DigitalInterrupt{}
 	piInstance.interruptsHW = map[uint]board.DigitalInterrupt{}
 	for _, c := range cfg.DigitalInterrupts {
-		bcom, have := piHWPinToBroadcom[c.Pin]
+		bcom, have := piutils.BroadcomPinFromHardwareLabel(c.Pin)
 		if !have {
 			return nil, errors.Errorf("no hw mapping for %s", c.Pin)
 		}
@@ -232,7 +164,7 @@ func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (boa
 
 // GPIOSet sets the given pin to high or low.
 func (pi *piPigpio) GPIOSet(ctx context.Context, pin string, high bool) error {
-	bcom, have := piHWPinToBroadcom[pin]
+	bcom, have := piutils.BroadcomPinFromHardwareLabel(pin)
 	if !have {
 		return errors.Errorf("no hw pin for (%s)", pin)
 	}
@@ -241,7 +173,7 @@ func (pi *piPigpio) GPIOSet(ctx context.Context, pin string, high bool) error {
 
 // GPIOGet reads the high/low state of the given pin.
 func (pi *piPigpio) GPIOGet(ctx context.Context, pin string) (bool, error) {
-	bcom, have := piHWPinToBroadcom[pin]
+	bcom, have := piutils.BroadcomPinFromHardwareLabel(pin)
 	if !have {
 		return false, errors.Errorf("no hw pin for (%s)", pin)
 	}
@@ -292,7 +224,7 @@ func (pi *piPigpio) GPIOSetBcom(bcom int, high bool) error {
 
 // PWMSet sets the given pin to the given PWM duty cycle.
 func (pi *piPigpio) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	bcom, have := piHWPinToBroadcom[pin]
+	bcom, have := piutils.BroadcomPinFromHardwareLabel(pin)
 	if !have {
 		return errors.Errorf("no hw pin for (%s)", pin)
 	}
@@ -310,7 +242,7 @@ func (pi *piPigpio) PWMSetBcom(bcom int, dutyCycle byte) error {
 
 // PWMSetFreq sets the given pin to the given PWM frequency.
 func (pi *piPigpio) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	bcom, have := piHWPinToBroadcom[pin]
+	bcom, have := piutils.BroadcomPinFromHardwareLabel(pin)
 	if !have {
 		return errors.Errorf("no hw pin for (%s)", pin)
 	}

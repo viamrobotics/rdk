@@ -15,6 +15,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc/client"
@@ -28,7 +29,6 @@ import (
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
 	"go.viam.com/core/sensor/imu"
-	"go.viam.com/core/servo"
 )
 
 // robotParts are the actual parts that make up a robot.
@@ -40,7 +40,6 @@ type robotParts struct {
 	lidars           map[string]*proxyLidar
 	bases            map[string]*proxyBase
 	sensors          map[string]sensor.Sensor
-	servos           map[string]*proxyServo
 	motors           map[string]*proxyMotor
 	inputControllers map[string]*proxyInputController
 	services         map[string]interface{}
@@ -59,7 +58,6 @@ func newRobotParts(logger golog.Logger) *robotParts {
 		lidars:           map[string]*proxyLidar{},
 		bases:            map[string]*proxyBase{},
 		sensors:          map[string]sensor.Sensor{},
-		servos:           map[string]*proxyServo{},
 		motors:           map[string]*proxyMotor{},
 		inputControllers: map[string]*proxyInputController{},
 		services:         map[string]interface{}{},
@@ -160,15 +158,6 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 			parts.sensors[c.Name] = &proxySensor{actual: s}
 		}
 	}
-}
-
-// AddServo adds a servo to the parts.
-func (parts *robotParts) AddServo(s servo.Servo, c config.Component) {
-	c = fixType(c, config.ComponentTypeServo, len(parts.servos))
-	if proxy, ok := s.(*proxyServo); ok {
-		s = proxy.actual
-	}
-	parts.servos[c.Name] = &proxyServo{actual: s}
 }
 
 // AddMotor adds a motor to the parts.
@@ -321,8 +310,10 @@ func (parts *robotParts) SensorNames() []string {
 // ServoNames returns the names of all servos in the parts.
 func (parts *robotParts) ServoNames() []string {
 	names := []string{}
-	for k := range parts.servos {
-		names = append(names, k)
+	for _, n := range parts.ResourceNames() {
+		if n.Subtype == servo.Subtype {
+			names = append(names, n.Name)
+		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.ServoNames)
 }
@@ -417,12 +408,6 @@ func (parts *robotParts) Clone() *robotParts {
 			clonedParts.sensors[k] = v
 		}
 	}
-	if len(parts.servos) != 0 {
-		clonedParts.servos = make(map[string]*proxyServo, len(parts.servos))
-		for k, v := range parts.servos {
-			clonedParts.servos[k] = v
-		}
-	}
 	if len(parts.motors) != 0 {
 		clonedParts.motors = make(map[string]*proxyMotor, len(parts.motors))
 		for k, v := range parts.motors {
@@ -505,12 +490,6 @@ func (parts *robotParts) Close() error {
 	for _, x := range parts.sensors {
 		if err := utils.TryClose(x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing sensor: %w", err))
-		}
-	}
-
-	for _, x := range parts.servos {
-		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing servo: %w", err))
 		}
 	}
 
@@ -664,12 +643,6 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 				return err
 			}
 			parts.AddBoard(board, c)
-		case config.ComponentTypeServo:
-			servo, err := r.newServo(ctx, c)
-			if err != nil {
-				return err
-			}
-			parts.AddServo(servo, c)
 		case config.ComponentTypeMotor:
 			motor, err := r.newMotor(ctx, c)
 			if err != nil {
@@ -843,9 +816,13 @@ func (parts *robotParts) SensorByName(name string) (sensor.Sensor, bool) {
 // ServoByName returns the given servo by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) ServoByName(name string) (servo.Servo, bool) {
-	part, ok := parts.servos[name]
+	servoResourceName := servo.Named(name)
+	resource, ok := parts.resources[servoResourceName]
 	if ok {
-		return part, true
+		part, ok := resource.(servo.Servo)
+		if ok {
+			return part, true
+		}
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.ServoByName(name)
@@ -1001,15 +978,6 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 	}
 
-	if len(toAdd.servos) != 0 {
-		if parts.servos == nil {
-			parts.servos = make(map[string]*proxyServo, len(toAdd.servos))
-		}
-		for k, v := range toAdd.servos {
-			parts.servos[k] = v
-		}
-	}
-
 	if len(toAdd.motors) != 0 {
 		if parts.motors == nil {
 			parts.motors = make(map[string]*proxyMotor, len(toAdd.motors))
@@ -1161,17 +1129,6 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 		}
 	}
 
-	if len(toModify.servos) != 0 {
-		for k, v := range toModify.servos {
-			old, ok := parts.servos[k]
-			if !ok {
-				// should not happen
-				continue
-			}
-			old.replace(v)
-		}
-	}
-
 	if len(toModify.motors) != 0 {
 		for k, v := range toModify.motors {
 			old, ok := parts.motors[k]
@@ -1262,12 +1219,6 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 	if len(toRemove.sensors) != 0 {
 		for k := range toRemove.sensors {
 			delete(parts.sensors, k)
-		}
-	}
-
-	if len(toRemove.servos) != 0 {
-		for k := range toRemove.servos {
-			delete(parts.servos, k)
 		}
 	}
 
@@ -1369,12 +1320,6 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 				continue
 			}
 			filtered.AddSensor(part, compConf)
-		case config.ComponentTypeServo:
-			part, ok := parts.ServoByName(compConf.Name)
-			if !ok {
-				continue
-			}
-			filtered.AddServo(part, compConf)
 		case config.ComponentTypeMotor:
 			part, ok := parts.MotorByName(compConf.Name)
 			if !ok {
