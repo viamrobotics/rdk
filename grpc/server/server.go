@@ -28,7 +28,6 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/board"
-	"go.viam.com/core/component/gantry"
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/grpc"
@@ -36,8 +35,6 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	componentpb "go.viam.com/core/proto/api/component/v1"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
@@ -168,114 +165,6 @@ func (s *Server) DoAction(ctx context.Context, req *pb.DoActionRequest) (*pb.DoA
 		act(s.cancelCtx, s.r)
 	})
 	return &pb.DoActionResponse{}, nil
-}
-
-func (s *Server) getGantry(ctx context.Context, name string) (gantry.Gantry, error) {
-	// TODO(cheuk): what's the long term plan for stuff like this?
-	for _, rn := range s.r.ResourceNames() {
-		if rn.Subtype != gantry.Subtype {
-			continue
-		}
-		if rn.Name != name {
-			continue
-		}
-		r, ok := s.r.ResourceByName(rn)
-		if !ok {
-			return nil, errors.New("impossible")
-		}
-		g, ok := r.(gantry.Gantry)
-		if !ok {
-			return nil, errors.New("impossible")
-		}
-		return g, nil
-	}
-	return nil, errors.Errorf("no gantry named [%s]", name)
-}
-
-// GantryCurrentPosition gets the current position of an gantry of the underlying robot.
-func (s *Server) GantryCurrentPosition(ctx context.Context, req *pb.GantryCurrentPositionRequest) (*pb.GantryCurrentPositionResponse, error) {
-	g, err := s.getGantry(ctx, req.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	pos, err := g.CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.GantryCurrentPositionResponse{Positions: pos}, nil
-}
-
-// GantryMoveToPosition moves an arm of the underlying robot to the requested position.
-func (s *Server) GantryMoveToPosition(ctx context.Context, req *pb.GantryMoveToPositionRequest) (*pb.GantryMoveToPositionResponse, error) {
-	g, err := s.getGantry(ctx, req.Name)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.GantryMoveToPositionResponse{}, g.MoveToPosition(ctx, req.Positions)
-}
-
-// ArmCurrentPosition gets the current position of an arm of the underlying robot.
-func (s *Server) ArmCurrentPosition(ctx context.Context, req *pb.ArmCurrentPositionRequest) (*pb.ArmCurrentPositionResponse, error) {
-	arm, ok := s.r.ArmByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no arm with name (%s)", req.Name)
-	}
-	pos, err := arm.CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
-	convertedPos := &pb.Pose{
-		X: pos.X, Y: pos.Y, Z: pos.Z, OX: pos.OX, OY: pos.OY, OZ: pos.OZ, Theta: pos.Theta,
-	}
-	return &pb.ArmCurrentPositionResponse{Position: convertedPos}, nil
-}
-
-// ArmCurrentJointPositions gets the current joint position of an arm of the underlying robot.
-func (s *Server) ArmCurrentJointPositions(ctx context.Context, req *pb.ArmCurrentJointPositionsRequest) (*pb.ArmCurrentJointPositionsResponse, error) {
-	arm, ok := s.r.ArmByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no arm with name (%s)", req.Name)
-	}
-	pos, err := arm.CurrentJointPositions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	convertedPos := &pb.JointPositions{Degrees: pos.Degrees}
-	return &pb.ArmCurrentJointPositionsResponse{Positions: convertedPos}, nil
-}
-
-// ArmMoveToPosition moves an arm of the underlying robot to the requested position.
-func (s *Server) ArmMoveToPosition(ctx context.Context, req *pb.ArmMoveToPositionRequest) (*pb.ArmMoveToPositionResponse, error) {
-	arm, ok := s.r.ArmByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no arm with name (%s)", req.Name)
-	}
-	convertedTo := &commonpb.Pose{
-		X: req.To.X, Y: req.To.Y, Z: req.To.Z, OX: req.To.OX, OY: req.To.OY, OZ: req.To.OZ, Theta: req.To.Theta,
-	}
-	return &pb.ArmMoveToPositionResponse{}, arm.MoveToPosition(ctx, convertedTo)
-}
-
-// ArmMoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
-func (s *Server) ArmMoveToJointPositions(ctx context.Context, req *pb.ArmMoveToJointPositionsRequest) (*pb.ArmMoveToJointPositionsResponse, error) {
-	arm, ok := s.r.ArmByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no arm with name (%s)", req.Name)
-	}
-	convertedPos := &componentpb.ArmJointPositions{Degrees: req.To.Degrees}
-	return &pb.ArmMoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, convertedPos)
-}
-
-// ArmJointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.
-func (s *Server) ArmJointMoveDelta(ctx context.Context, req *pb.ArmJointMoveDeltaRequest) (*pb.ArmJointMoveDeltaResponse, error) {
-	arm, ok := s.r.ArmByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no arm with name (%s)", req.Name)
-	}
-
-	return &pb.ArmJointMoveDeltaResponse{}, arm.JointMoveDelta(ctx, int(req.Joint), req.AmountDegs)
 }
 
 // BaseMoveStraight moves a base of the underlying robot straight.

@@ -60,6 +60,12 @@ type reconfigurableGantry struct {
 	actual Gantry
 }
 
+func (g *reconfigurableGantry) ProxyFor() interface{} {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual
+}
+
 // CurrentPosition returns the position in meters
 func (g *reconfigurableGantry) CurrentPosition(ctx context.Context) ([]float64, error) {
 	g.mu.Lock()
