@@ -387,14 +387,19 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
-	c := registry.ResourceSubtypeLookup(name.Subtype)
-	if c == nil || c.RPCClient == nil {
-		// registration doesn't exist
-		return nil, false
+	switch name.Subtype {
+	case gripper.Subtype:
+		return &gripperClient{rc: rc, name: name.Name}, true
+	default:
+		c := registry.ResourceSubtypeLookup(name.Subtype)
+		if c == nil || c.RPCClient == nil {
+			// registration doesn't exist
+			return nil, false
+		}
+		// pass in conn
+		resourceClient := c.RPCClient(rc.conn, name.Name, rc.Logger())
+		return resourceClient, true
 	}
-	// pass in conn
-	resourceClient := c.RPCClient(rc.conn, name.Name, rc.Logger())
-	return resourceClient, true
 }
 
 // Refresh manually updates the underlying parts of the robot based
