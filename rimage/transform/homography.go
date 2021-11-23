@@ -18,5 +18,6 @@ func (dch *DepthColorHomography) AlignImageWithDepth(ii *rimage.ImageWithDepth) 
 	// rotate depth image if necessary
 	// use homography to transform depth points to color points and store in hashmap
 	// interpolate pixel values
+	// iterate through color image pixels. get floor and ceiling of each pixel (x,y)
 	// save new image with depth
 }
