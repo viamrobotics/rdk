@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/kinematics"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	pb "go.viam.com/core/proto/api/component/v1"
@@ -390,13 +391,7 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	for _, step := range solution {
-		err = x.MoveToJointPositions(ctx, frame.InputsToJointPos(step))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return arm.GoToWaypoints(ctx, x, solution)
 }
 
 // CurrentJointPositions returns the current positions of all joints.

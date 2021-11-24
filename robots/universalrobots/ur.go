@@ -234,13 +234,7 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 		ua.logger.Debugf("ur took too long to solve position %v", timeToSolve)
 		return fmt.Errorf("ur took too long to solve position %v", timeToSolve)
 	}
-	for _, step := range solution {
-		err = ua.MoveToJointPositions(ctx, frame.InputsToJointPos(step))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return arm.GoToWaypoints(ctx, ua, solution)
 }
 
 // JointMoveDelta TODO

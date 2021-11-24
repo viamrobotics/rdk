@@ -111,13 +111,7 @@ func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	for _, step := range solution {
-		err = e.MoveToJointPositions(ctx, frame.InputsToJointPos(step))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return arm.GoToWaypoints(ctx, e, solution)
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJointPositions) error {
