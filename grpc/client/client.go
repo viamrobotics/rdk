@@ -390,6 +390,8 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	switch name.Subtype {
 	case gripper.Subtype:
 		return &gripperClient{rc: rc, name: name.Name}, true
+	case servo.Subtype:
+		return &servoClient{rc: rc, name: name.Name}, true
 	default:
 		c := registry.ResourceSubtypeLookup(name.Subtype)
 		if c == nil || c.RPCClient == nil {
