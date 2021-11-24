@@ -6,7 +6,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/sensor"
-	"go.viam.com/core/component/imu"
+	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/spatialmath"
 )
 

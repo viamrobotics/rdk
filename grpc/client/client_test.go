@@ -40,7 +40,7 @@ import (
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/component/imu"
+	"go.viam.com/core/sensor/imu"
 	servicepkg "go.viam.com/core/services"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
