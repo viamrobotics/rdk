@@ -10,6 +10,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/imu"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
@@ -32,6 +33,9 @@ type Robot interface {
 
 	// ArmByName returns an arm by name.
 	ArmByName(name string) (arm.Arm, bool)
+
+	// IMUByName returns an imu by name.
+	IMUByName(name string) (imu.IMU, bool)
 
 	// BaseByName returns a base by name.
 	BaseByName(name string) (base.Base, bool)
@@ -72,6 +76,9 @@ type Robot interface {
 
 	// ArmNames returns the name of all known arms.
 	ArmNames() []string
+
+	// IMUNames returns the name of all known imus.
+	IMUNames() []string
 
 	// GripperNames returns the name of all known grippers.
 	GripperNames() []string
