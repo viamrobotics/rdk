@@ -93,13 +93,7 @@ func (a *ArmIK) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	for _, step := range solution {
-		err = a.MoveToJointPositions(ctx, frame.InputsToJointPos(step))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return arm.GoToWaypoints(ctx, a, solution)
 }
 
 // MoveToJointPositions sets the joints.
