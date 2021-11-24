@@ -194,6 +194,15 @@ func checkGoodJointDelta(orig, solution []float64) bool {
 	return true
 }
 
+func TestCombinedCPUs(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	ik, err := CreateCombinedIKSolver(m, logger, runtime.NumCPU()/400000)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(ik.solvers), test.ShouldEqual, 1)
+}
+
 func solveTest(ctx context.Context, solver InverseKinematics, goal *commonpb.Pose, seed []frame.Input) ([][]frame.Input, error) {
 	goalPos := spatial.NewPoseFromProtobuf(goal)
 

@@ -67,7 +67,7 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, nCPU int, logger golog.Logger) (M
 	mp.iter = planIter
 	mp.stepSize = 1
 
-	mp.randseed = rand.New(rand.NewSource(42))
+	mp.randseed = rand.New(rand.NewSource(1))
 	mp.opt = NewDefaultPlannerOptions()
 
 	return mp, nil
@@ -87,10 +87,6 @@ func (mp *cBiRRTMotionPlanner) Frame() frame.Frame {
 
 func (mp *cBiRRTMotionPlanner) Resolution() float64 {
 	return mp.stepSize
-}
-
-func (mp *cBiRRTMotionPlanner) SetFrame(f frame.Frame) {
-	mp.frame = f
 }
 
 func (mp *cBiRRTMotionPlanner) SetOptions(opt *PlannerOptions) {
@@ -197,6 +193,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 	return nil, errors.New("could not solve path")
 }
 
+// constrainedExtendWrapper wraps two calls to constrainedExtend, adding to one map first, then the other
 func (mp *cBiRRTMotionPlanner) constrainedExtendWrapper(opt *PlannerOptions, m1, m2 map[*solution]*solution, near1, target *solution) (*solution, *solution) {
 	// Extend tree m1 as far towards target as it can get. It may or may not reach it.
 	m1reach := mp.constrainedExtend(opt, m1, near1, target)
@@ -210,6 +207,8 @@ func (mp *cBiRRTMotionPlanner) constrainedExtendWrapper(opt *PlannerOptions, m1,
 	return m1reach, m2reach
 }
 
+// constrainedExtend will try to extend the map towards the target while meeting constraints along the way. It will
+// return the closest solution to the target that it reaches, which may or may not actually be the target.
 func (mp *cBiRRTMotionPlanner) constrainedExtend(opt *PlannerOptions, rrtMap map[*solution]*solution, near, target *solution) *solution {
 	oldNear := near
 	for i := 0; true; i++ {
@@ -241,7 +240,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(opt *PlannerOptions, rrtMap map
 		// if we are not meeting a constraint, gradient descend to the constraint
 		newNear = mp.constrainNear(opt, oldNear.inputs, newNear)
 		if newNear != nil {
-			// constrainNEar will ensure path between oldNear and newNear satisfies constraints along the way
+			// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
 			near = &solution{newNear}
 			rrtMap[near] = oldNear
 		} else {
@@ -300,6 +299,8 @@ func (mp *cBiRRTMotionPlanner) constrainNear(opt *PlannerOptions, seedInputs, ta
 	return solved
 }
 
+// SmoothPath will pick two points at random along the path and attempt to do a fast gradient descent directly between
+// them, which will cut off randomly-chosen points with odd joint angles into something that is a more intuitive motion.
 func (mp *cBiRRTMotionPlanner) SmoothPath(ctx context.Context, opt *PlannerOptions, inputSteps [][]frame.Input) [][]frame.Input {
 
 	iter := int(math.Max(float64(mp.iter-len(inputSteps)*len(inputSteps)), float64(mp.iter-200)))
@@ -339,6 +340,8 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(ctx context.Context, opt *PlannerOptio
 	return inputSteps
 }
 
+// getFrameSteps will return a slice of positive values representing the largest amount a particular DOF of a frame should
+// move in any given step.
 func getFrameSteps(f frame.Frame, by float64) []float64 {
 	dof := f.DoF()
 	pos := make([]float64, len(dof))
@@ -370,23 +373,4 @@ func nearestNeighbor(seed *solution, rrtMap map[*solution]*solution) *solution {
 		}
 	}
 	return best
-}
-
-// BetterPath returns whether the new path has less joint swing than the old one
-func BetterPath(new, old [][]frame.Input) bool {
-	newDist := 0.
-	oldDist := 0.
-	for i, sol := range new {
-		if i == 0 {
-			continue
-		}
-		newDist += inputDist(sol, new[i-1])
-	}
-	for i, sol := range old {
-		if i == 0 {
-			continue
-		}
-		oldDist += inputDist(sol, old[i-1])
-	}
-	return newDist < oldDist
 }
