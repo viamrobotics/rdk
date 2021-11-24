@@ -10,11 +10,11 @@ import (
 
 	slib "github.com/jacobsa/go-serial/serial"
 
-	"go.viam.com/component/component/imu"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
+	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/spatialmath"
 
 	"go.viam.com/utils"
