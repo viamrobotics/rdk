@@ -24,7 +24,7 @@ func ExtractNames(values ...resource.Name) []string {
 	return names
 }
 
-// ConcatResourceNamesSet takes a slice of slices of resource.Name objects
+// ConcatResourceNames takes a slice of slices of resource.Name objects
 // and returns a concatenated slice of resource.Name for the purposes of comparison
 // in automated tests
 func ConcatResourceNames(values ...[]resource.Name) []resource.Name {
