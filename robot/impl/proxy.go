@@ -27,7 +27,6 @@ import (
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
 	"go.viam.com/core/sensor/imu"
-	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
 )
 
@@ -942,46 +941,6 @@ func (p *proxyBoardDigitalInterrupt) AddPostProcessor(pp board.PostProcessor) {
 func (p *proxyBoardDigitalInterrupt) Close() error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return utils.TryClose(p.actual)
-}
-
-type proxyServo struct {
-	mu     sync.RWMutex
-	actual servo.Servo
-}
-
-func (p *proxyServo) ProxyFor() interface{} {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual
-}
-
-func (p *proxyServo) replace(newServo servo.Servo) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newServo.(*proxyServo)
-	if !ok {
-		panic(fmt.Errorf("expected new servo to be %T but got %T", actual, newServo))
-	}
-	if err := utils.TryClose(p.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = actual.actual
-}
-
-func (p *proxyServo) Move(ctx context.Context, angleDegs uint8) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Move(ctx, angleDegs)
-}
-
-func (p *proxyServo) Current(ctx context.Context) (uint8, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Current(ctx)
-}
-
-func (p *proxyServo) Close() error {
 	return utils.TryClose(p.actual)
 }
 

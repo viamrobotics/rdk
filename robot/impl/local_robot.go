@@ -15,6 +15,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/input"
@@ -30,7 +31,6 @@ import (
 	"go.viam.com/core/services"
 	"go.viam.com/core/services/framesystem"
 	"go.viam.com/core/services/web"
-	"go.viam.com/core/servo"
 	"go.viam.com/core/status"
 
 	"github.com/edaniels/golog"
@@ -45,7 +45,6 @@ import (
 	// These are the robot pieces we want by default
 	_ "go.viam.com/core/base/impl"
 	_ "go.viam.com/core/board/arduino"
-	_ "go.viam.com/core/board/detector"
 	_ "go.viam.com/core/board/jetson"
 	_ "go.viam.com/core/board/numato"
 	_ "go.viam.com/core/camera/velodyne" // velodyne lidary
@@ -57,6 +56,7 @@ import (
 	_ "go.viam.com/core/motor/gpio"
 	_ "go.viam.com/core/motor/gpiostepper"
 	_ "go.viam.com/core/motor/tmcstepper"
+	_ "go.viam.com/core/platformdetector/pi"
 	_ "go.viam.com/core/rimage" // this is for the core camera types
 	_ "go.viam.com/core/rimage/imagesource"
 	_ "go.viam.com/core/robots/eva" // for eva
@@ -420,14 +420,6 @@ func (r *localRobot) newSensor(ctx context.Context, config config.Component, sen
 	f := registry.SensorLookup(sensorType, config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown sensor model (type=%s): %s", sensorType, config.Model)
-	}
-	return f.Constructor(ctx, r, config, r.logger)
-}
-
-func (r *localRobot) newServo(ctx context.Context, config config.Component) (servo.Servo, error) {
-	f := registry.ServoLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown servo model: %s", config.Model)
 	}
 	return f.Constructor(ctx, r, config, r.logger)
 }

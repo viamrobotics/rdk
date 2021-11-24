@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
@@ -36,7 +37,7 @@ func TestPiPigpio(t *testing.T) {
 	pp, err := NewPigpio(ctx, &cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	servoCtor := registry.ServoLookup(modelName)
+	servoCtor := registry.ComponentLookup(servo.Subtype, modelName)
 	servo1, err := servoCtor(ctx, nil, config.Component{Name: "servo", Attributes: config.AttributeMap{"pin": "18"}}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
