@@ -10,6 +10,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/input"
@@ -19,7 +20,6 @@ import (
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/sensor"
-	"go.viam.com/core/servo"
 
 	"github.com/edaniels/golog"
 )
