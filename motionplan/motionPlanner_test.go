@@ -7,6 +7,7 @@ import (
 
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
+	spatial "go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
@@ -25,7 +26,7 @@ func TestSimpleMotion(t *testing.T) {
 	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	mp, err := NewCBiRRTMotionPlanner(m, nCPU, logger)
+	mp, err := NewCBiRRTMotionPlanner(m, nCPU/4, logger)
 	test.That(t, err, test.ShouldBeNil)
 	//~ mp.AddConstraint("orientation", NewPoseConstraint())
 
@@ -42,11 +43,45 @@ func TestSimpleMotion(t *testing.T) {
 }
 
 // This should test a simple linear motion
+func TestComplexMotion(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	mp, err := NewCBiRRTMotionPlanner(m, nCPU/4, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Test ability to arrive at another position
+	pos := &commonpb.Pose{
+		X:  -206,
+		Y:  100,
+		Z:  120,
+		OZ: -1,
+	}
+
+	opt := NewDefaultPlannerOptions()
+	orientMetric := NewPoseFlexOVMetric(spatial.NewPoseFromProtobuf(pos), 0.1)
+
+	oFunc := orientDistToRegion(spatial.NewPoseFromProtobuf(pos).Orientation(), 0.1)
+	orientConstraint := func(o spatial.Orientation) bool {
+		return oFunc(o) == 0
+	}
+
+	opt.SetMetric(orientMetric)
+	opt.AddConstraint("orientation", NewOrientationConstraint(orientConstraint))
+	mp.SetOptions(opt)
+
+	path, err := mp.Plan(context.Background(), pos, home7)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(path), test.ShouldNotEqual, 0)
+}
+
+// This should test a simple linear motion
 func TestSimpleMotionUR5(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := NewCBiRRTMotionPlanner(m, nCPU, logger)
+	mp, err := NewCBiRRTMotionPlanner(m, nCPU/4, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test ability to arrive at another position

@@ -150,7 +150,8 @@ func (c *flexibleConstraint) setFunc(f func(cInput *ConstraintInput) (bool, floa
 // NewInterpolatingConstraint creates a constraint function from an arbitrary function that will decide if a given pose is valid.
 // This function will check the given function at each point in checkSeq, and 1-point. If all constraints are satisfied,
 // it will return true. If any intermediate pose violates the constraint, will return false.
-// This constraint will interpolate between the start and end poses, and ensure that the pose given by interpolating the inputs the same amount does not deviate by more than a set amount
+// This constraint will interpolate between the start and end poses, and ensure that the pose given by interpolating
+// the inputs the same amount does not deviate by more than a set amount.
 func NewInterpolatingConstraint(epsilon float64) Constraint {
 	checkSeq := []float64{0.5, 0.333, 0.25, 0.17}
 	c := &flexibleConstraint{}
@@ -174,7 +175,7 @@ func NewInterpolatingConstraint(epsilon float64) Constraint {
 	return c
 }
 
-// NewJointConstraint returns a function which will sum the squared differences in each input from start to end
+// NewJointConstraint returns a constraint which will sum the squared differences in each input from start to end
 // It will return false if that sum is over a specified threshold
 func NewJointConstraint(threshold float64) Constraint {
 	c := &flexibleConstraint{}
@@ -189,49 +190,24 @@ func NewJointConstraint(threshold float64) Constraint {
 	return c
 }
 
-// FakeObstacle simulates an obstacle.
-func FakeObstacle(ci *ConstraintInput) (bool, float64) {
-	checkPt := func(pose spatial.Pose) bool {
-		pt := pose.Point()
-
-		// wood panel box
-		if pt.X > -290 && pt.X < 510 {
-			if pt.Y < 500 && pt.Y > 200 {
-				if pt.Z < 260 {
-					return false
-				}
+// NewOrientationConstraint returns a constraint which will return false if the startPos or endPos orientations
+// are not valid.
+func NewOrientationConstraint(orientFunc func(o spatial.Orientation) bool) Constraint {
+	c := &flexibleConstraint{}
+	f := func(cInput *ConstraintInput) (bool, float64) {
+		if cInput.StartPos == nil || cInput.EndPos == nil {
+			err := resolveInputsToPositions(cInput)
+			if err != nil {
+				return false, 0
 			}
 		}
-
-		return true
+		if orientFunc(cInput.StartPos.Orientation()) && orientFunc(cInput.EndPos.Orientation()) {
+			return true, 0
+		}
+		return false, 0
 	}
-	if ci.StartPos != nil {
-		if !checkPt(ci.StartPos) {
-			return false, 0
-		}
-	} else if ci.StartInput != nil {
-		pos, err := ci.Frame.Transform(ci.StartInput)
-		if err != nil {
-			return false, 0
-		}
-		if !checkPt(pos) {
-			return false, 0
-		}
-	}
-	if ci.EndPos != nil {
-		if !checkPt(ci.EndPos) {
-			return false, 0
-		}
-	} else if ci.EndInput != nil {
-		pos, err := ci.Frame.Transform(ci.EndInput)
-		if err != nil {
-			return false, 0
-		}
-		if !checkPt(pos) {
-			return false, 0
-		}
-	}
-	return true, 0
+	c.setFunc(f)
+	return c
 }
 
 // orientDistToRegion will return a function which will tell you how far the unit sphere component of an orientation

@@ -138,7 +138,7 @@ func (ik *NloptIK) SetMetric(m Metric) {
 	ik.metric = m
 }
 
-// SetMaxIter sets the number of times to
+// SetMaxIter sets the number of times the solver will iterate
 func (ik *NloptIK) SetMaxIter(i int) {
 	ik.maxIterations = i
 }
