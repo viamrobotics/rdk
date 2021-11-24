@@ -15,6 +15,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/imu"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
@@ -28,7 +29,6 @@ import (
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
-	"go.viam.com/core/sensor/imu"
 )
 
 // robotParts are the actual parts that make up a robot.
@@ -140,8 +140,6 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 		parts.sensors[c.Name] = newProxyRelativeCompass(pType.actual)
 	case *proxyGPS:
 		parts.sensors[c.Name] = newProxyGPS(pType.actual)
-	case *proxyIMU:
-		parts.sensors[c.Name] = newProxyIMU(pType.actual)
 	default:
 		switch s.Desc().Type {
 		case compass.Type:
@@ -150,8 +148,6 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 			parts.sensors[c.Name] = newProxyRelativeCompass(s.(compass.RelativeCompass))
 		case gps.Type:
 			parts.sensors[c.Name] = newProxyGPS(s.(gps.GPS))
-		case imu.Type:
-			parts.sensors[c.Name] = newProxyIMU(s.(imu.IMU))
 		case forcematrix.Type:
 			parts.sensors[c.Name] = newProxyForceMatrix(s.(forcematrix.ForceMatrix))
 		default:
@@ -251,6 +247,17 @@ func (parts *robotParts) ArmNames() []string {
 		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.ArmNames)
+}
+
+// IMUNames returns the names of all imus in the parts.
+func (parts *robotParts) IMUNames() []string {
+	names := []string{}
+	for _, n := range parts.ResourceNames() {
+		if n.Subtype == imu.Subtype {
+			names = append(names, n.Name)
+		}
+	}
+	return parts.mergeNamesWithRemotes(names, robot.Robot.IMUNames)
 }
 
 // GripperNames returns the names of all grippers in the parts.
@@ -726,6 +733,26 @@ func (parts *robotParts) ArmByName(name string) (arm.Arm, bool) {
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.ArmByName(name)
+		if ok {
+			return part, true
+		}
+	}
+	return nil, false
+}
+
+// IMUByName returns the given imu by name, if it exists;
+// returns nil otherwise.
+func (parts *robotParts) IMUByName(name string) (imu.IMU, bool) {
+	rName := imu.Named(name)
+	r, ok := parts.resources[rName]
+	if ok {
+		part, ok := r.(imu.IMU)
+		if ok {
+			return part, true
+		}
+	}
+	for _, remote := range parts.remotes {
+		part, ok := remote.IMUByName(name)
 		if ok {
 			return part, true
 		}
