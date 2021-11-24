@@ -106,7 +106,7 @@ func TestPiPigpio(t *testing.T) {
 		err := servo1.Move(ctx, 90)
 		test.That(t, err, test.ShouldBeNil)
 
-		v, err := servo1.Current(ctx)
+		v, err := servo1.AngularOffset(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, int(v), test.ShouldEqual, 90)
 

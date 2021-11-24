@@ -109,6 +109,31 @@
           return n;
       }
 
+      function fixServos(old) {
+        var n = [];
+          for (var i=0; i<old.length; i++) {
+              const [servoName, servoValue] = old[i];
+              var newArm = { name : servoName, pieces : [] };
+
+              var fieldSetters = [ ["x", "X"], ["y", "Y"], ["z", "Z"], ["theta", "Theta"], ["oX", "OX"], ["oY", "OY"], ["oZ", "OZ"]];
+              for (var j=0; j<fieldSetters.length; j++ ){
+                  let gridField = fieldSetters[j][0].split(".");
+                  let gridValue = servoValue.gridPosition[gridField[0]];
+                  for (let k = 1; k < gridField.length; k++) {
+                    gridValue = gridValue[gridField[k]];
+                  }
+                  newArm.pieces.push( { grid : fieldSetters[j],
+                                        joint : j,
+                                        gridValue : gridValue,
+                                        jointValue : servoValue.jointPositions.degreesList[j] || 0,
+                                      });
+              }
+
+              n.push(newArm);
+          }
+          return n;
+      }
+
       firstResult = false;
 
       async function updateStatus(rawStatus) {
@@ -346,14 +371,16 @@
                           break;
                       }
                   },
-                  servoMove : function(name, amount) {
+                  servoMove : function(name, oldAngle, amount) {
                       const servo = theData.rawStatus.getServosMap().get(name);
-                      var old = servo.getAngle();
-                      var angle = old + amount;
-                      const req = new robotApi.ServoMoveRequest();
+                      // const servo = filterResources()
+                      var oldAngle = servo.getAngle();
+                      let angle = oldAngle + amount;
+                      console.log("old angle: " + angle);
+                      const req = new servoApi.ServoServiceMoveRequest();
                       req.setName(name);
                       req.setAngleDeg(angle);
-                      robotService.servoMove(req, {}, (err, resp) => grpcCallback(err, resp));
+                      servoService.move(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   motorCommand: function(motor, cmd) {
                     let req = cmd.request;
@@ -1249,17 +1276,17 @@
       </div>
 
       <!-- ******* SERVO *******  -->
-      <div class="servo" v-for="servo in status.servosMap" :key="servo[0]" style="margin-bottom: 64px;">
-        <h3>Servo ${ servo[0] }</h3>
+      <div class="servo" v-for="servo in filterResources('core', 'component', 'servo')" :key="servo.name" style="margin-bottom: 64px;">
+        <h3>Servo ${ servo.name }</h3>
         <table border="1">
-          <tr><th>Angle</th><td>${servo[1].angle}</td></tr>
+          <tr><th>Angle</th><td>${servo.angle}</td></tr>
           <tr>
             <td></td>
             <td>
-              <button v-on:click="servoMove(servo[0], -10)">-10</button>
-              <button v-on:click="servoMove(servo[0], -1)">-1</button>
-              <button v-on:click="servoMove(servo[0], 1)">1</button>
-              <button v-on:click="servoMove(servo[0], 10)">10</button>
+              <button v-on:click="servoMove(servo.name, servo.angle, -10)">-10</button>
+              <button v-on:click="servoMove(servo.name, servo.angle, -1)">-1</button>
+              <button v-on:click="servoMove(servo.name, servo.angle, 1)">1</button>
+              <button v-on:click="servoMove(servo.name, servo.angle, 10)">10</button>
             </td>
           </tr>
         </table>

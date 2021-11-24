@@ -820,30 +820,6 @@ func (s *Server) ExecuteSource(ctx context.Context, req *pb.ExecuteSourceRequest
 	}, nil
 }
 
-// ServoCurrent returns the current set angle (degrees) of the servo a board of the underlying robot.
-func (s *Server) ServoCurrent(ctx context.Context, req *pb.ServoCurrentRequest) (*pb.ServoCurrentResponse, error) {
-	theServo, ok := s.r.ServoByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no servo with name (%s)", req.Name)
-	}
-
-	angleDeg, err := theServo.Current(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.ServoCurrentResponse{AngleDeg: uint32(angleDeg)}, nil
-}
-
-// ServoMove requests the servo of a board of the underlying robot to move.
-func (s *Server) ServoMove(ctx context.Context, req *pb.ServoMoveRequest) (*pb.ServoMoveResponse, error) {
-	theServo, ok := s.r.ServoByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no servo with name (%s)", req.Name)
-	}
-
-	return &pb.ServoMoveResponse{}, theServo.Move(ctx, uint8(req.AngleDeg))
-}
-
 // MotorGetPIDConfig returns the config of the motor's PID
 func (s *Server) MotorGetPIDConfig(ctx context.Context, req *pb.MotorGetPIDConfigRequest) (*pb.MotorGetPIDConfigResponse, error) {
 	m, ok := s.r.MotorByName(req.Name)

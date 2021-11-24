@@ -303,22 +303,6 @@ service RobotService {
     }; 
   }
 
-  // Servo
-
-  // ServoMove requests the servo of the underlying robot to move.
-  rpc ServoMove(ServoMoveRequest) returns (ServoMoveResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/servo/{name}/move"
-    };
-  }
-
-  // ServoCurrent returns the current set angle (degrees) of the servo of the underlying robot.
-  rpc ServoCurrent(ServoCurrentRequest) returns (ServoCurrentResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/servo/{name}/current"
-    };
-  }
-
   //Motor
   // Return the PID configuration for a Motor
   rpc MotorGetPIDConfig(MotorGetPIDConfigRequest) returns (MotorGetPIDConfigResponse){
@@ -1003,23 +987,6 @@ message MotorStatus {
 
 message ServoStatus {
   uint32 angle = 1;
-}
-
-// Servo
-
-message ServoMoveRequest {
-  string name = 1;
-  uint32 angle_deg = 2; // (0-180)
-}
-
-message ServoMoveResponse {}
-
-message ServoCurrentRequest {
-  string name = 1;
-}
-
-message ServoCurrentResponse {
-  uint32 angle_deg = 1; // (0-180)
 }
 
 // Motor
