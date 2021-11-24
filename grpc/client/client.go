@@ -25,6 +25,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/imu"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
@@ -44,7 +45,6 @@ import (
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
-	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/spatialmath"
 
 	"github.com/edaniels/golog"
@@ -294,6 +294,20 @@ func (rc *RobotClient) ArmByName(name string) (arm.Arm, bool) {
 	return actualArm, true
 }
 
+// IMUByName returns an arm by name. It is assumed to exist on the
+// other end.
+func (rc *RobotClient) IMUByName(name string) (imu.IMU, bool) {
+	resource, ok := rc.ResourceByName(imu.Named(name))
+	if !ok {
+		return nil, false
+	}
+	actualIMU, ok := resource.(imu.IMU)
+	if !ok {
+		return nil, false
+	}
+	return actualIMU, true
+}
+
 // BaseByName returns a base by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) BaseByName(name string) (base.Base, bool) {
@@ -341,8 +355,6 @@ func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 		return &compassClient{sc}, true
 	case compass.RelativeType:
 		return &relativeCompassClient{&compassClient{sc}}, true
-	case imu.Type:
-		return &imuClient{sc}, true
 	case gps.Type:
 		return &gpsClient{sc}, true
 	case forcematrix.Type:
@@ -540,6 +552,19 @@ func (rc *RobotClient) ArmNames() []string {
 	names := []string{}
 	for _, v := range rc.ResourceNames() {
 		if v.Subtype == arm.Subtype {
+			names = append(names, v.Name)
+		}
+	}
+	return copyStringSlice(names)
+}
+
+// IMUNames returns the names of all known IMUs.
+func (rc *RobotClient) IMUNames() []string {
+	rc.namesMu.RLock()
+	defer rc.namesMu.RUnlock()
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		if v.Subtype == imu.Subtype {
 			names = append(names, v.Name)
 		}
 	}
