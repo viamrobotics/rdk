@@ -55,6 +55,7 @@ import (
 
 	_ "go.viam.com/core/component/arm/register"
 	_ "go.viam.com/core/component/gripper/register"
+	_ "go.viam.com/core/component/servo/register"
 )
 
 var emptyStatus = &pb.Status{
@@ -282,7 +283,6 @@ func TestClient(t *testing.T) {
 		capBoardName            string
 		capMotorName            string
 		capInputControllerName  string
-		capServoName            string
 		capAnalogReaderName     string
 		capDigitalInterruptName string
 		capCameraName           string
@@ -448,10 +448,6 @@ func TestClient(t *testing.T) {
 	injectRobot2.MotorByNameFunc = func(name string) (motor.Motor, bool) {
 		capMotorName = name
 		return injectMotor, true
-	}
-	injectRobot2.ServoByNameFunc = func(name string) (servo.Servo, bool) {
-		capServoName = name
-		return injectServo, true
 	}
 	injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 		capAnalogReaderName = name
@@ -646,6 +642,14 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterGripperServiceServer(gServer2, gripper.NewServer(gripperSvc2))
 
+	servoSvc, err := subtype.New((map[resource.Name]interface{}{}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterServoServiceServer(gServer1, servo.NewServer(servoSvc))
+
+	servoSvc2, err := subtype.New((map[resource.Name]interface{}{servo.Named("servo1"): injectServo}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterServoServiceServer(gServer2, servo.NewServer(servoSvc2))
+
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
 	go gServer2.Serve(listener2)
@@ -808,7 +812,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
-	_, err = servo1.Current(context.Background())
+	_, err = servo1.AngularOffset(context.Background())
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
 	motor1, ok := client.MotorByName("motor1")
@@ -979,12 +983,10 @@ func TestClient(t *testing.T) {
 	err = servo1.Move(context.Background(), 4)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capServoAngle, test.ShouldEqual, 4)
-	test.That(t, capServoName, test.ShouldEqual, "servo1")
 
-	currentVal, err := servo1.Current(context.Background())
+	currentVal, err := servo1.AngularOffset(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, currentVal, test.ShouldEqual, 5)
-	test.That(t, capServoName, test.ShouldEqual, "servo1")
 
 	motor1, ok = client.MotorByName("motor1")
 	test.That(t, ok, test.ShouldBeTrue)
