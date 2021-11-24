@@ -77,7 +77,7 @@ type Robot interface {
 	// ArmNames returns the name of all known arms.
 	ArmNames() []string
 
-	// IMUNames returns the name of all known imus.
+	// IMUNames returns the name of all known IMUs.
 	IMUNames() []string
 
 	// GripperNames returns the name of all known grippers.
