@@ -42,7 +42,7 @@ func limitsALmostTheSame(a, b []Limit) bool {
 // `lim` percent of the limits
 func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64) []Input {
 	if rSeed == nil {
-		rand.New(rand.NewSource(1))
+		rSeed = rand.New(rand.NewSource(1))
 	}
 	dof := m.DoF()
 	pos := make([]Input, 0, len(dof))
@@ -66,7 +66,7 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64) []Input
 // RandomFrameInputs will produce a list of valid, in-bounds inputs for the frame
 func RandomFrameInputs(m Frame, rSeed *rand.Rand) []Input {
 	if rSeed == nil {
-		rand.New(rand.NewSource(1))
+		rSeed = rand.New(rand.NewSource(1))
 	}
 	dof := m.DoF()
 	pos := make([]Input, 0, len(dof))
