@@ -26,7 +26,7 @@ import (
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
-	"go.viam.com/core/sensor/imu"
+	"go.viam.com/core/component/imu"
 	"go.viam.com/core/servo"
 	"go.viam.com/core/spatialmath"
 )
