@@ -65,6 +65,8 @@ type gripperV2 struct {
 	holdingPressure               float32
 	pressureLimit                 float64
 	calibrationNoiseThreshold     float64
+	timeStepSizeInMilliseconds    float64
+	pressureStepSize              float64
 	activatedAntiSlipForceControl bool // flag
 
 	// action state machine
@@ -123,6 +125,10 @@ func new(ctx context.Context, r robot.Robot, config config.Component, logger gol
 
 	pressureLimit := config.Attributes.Float64("pressureLimit", 30)
 	calibrationNoiseThreshold := config.Attributes.Float64("calibrationNoiseThreshold", 7)
+	activatedAntiSlipForceControl := config.Attributes.Bool("activatedAntiSlipForceControl", true)
+	startHoldingPressure := config.Attributes.Float64("startHoldingPressure", 0.005)
+	timeStepSizeInMilliseconds := config.Attributes.Float64("timeStepSizeInMilliseconds", 10)
+	pressureStepSize := config.Attributes.Float64("pressureStepSize", 0.005)
 
 	model, err := referenceframe.ParseJSON(vgripperv2json, "")
 	if err != nil {
@@ -135,10 +141,12 @@ func new(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		current:     current,
 		forceMatrix: forceMatrixDevice,
 		// parameters that are set by the user
-		holdingPressure:               holdingPressure,
+		holdingPressure:               float32(startHoldingPressure),
 		pressureLimit:                 pressureLimit,
 		calibrationNoiseThreshold:     calibrationNoiseThreshold,
-		activatedAntiSlipForceControl: true,
+		timeStepSizeInMilliseconds:    timeStepSizeInMilliseconds,
+		pressureStepSize:              pressureStepSize,
+		activatedAntiSlipForceControl: activatedAntiSlipForceControl,
 		// action state machine
 		state:    gripperState_UNSPECIFIED,
 		stateMu:  &sync.Mutex{},
@@ -255,7 +263,7 @@ func (vg *gripperV2) AntiSlipForceControl(ctx context.Context) error {
 // antiSlipForceControl controls adaptively the pressure while holding an object
 // with the aim to prevent it from slipping.
 func (vg *gripperV2) antiSlipForceControl(ctx context.Context) error {
-	msPer := 10
+	msPer := vg.timeStepSizeInMilliseconds
 	antiSlipHoldingPressure := vg.holdingPressure
 	for {
 		wait := utils.SelectContextOrWait(ctx, time.Duration(msPer)*time.Millisecond)
@@ -281,7 +289,7 @@ func (vg *gripperV2) antiSlipForceControl(ctx context.Context) error {
 			return err
 		}
 		if objectIsSlipping {
-			antiSlipHoldingPressure += 0.005
+			antiSlipHoldingPressure += float32(vg.pressureStepSize)
 			err = vg.motor.Go(ctx, vg.closedDirection, antiSlipHoldingPressure)
 			if err != nil {
 				return err
