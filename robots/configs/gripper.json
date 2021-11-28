@@ -108,7 +108,11 @@
           "current": "current",
           "pressureLimit": 15,
           "calibrationNoiseThreshold": 7,
-          "forcematrix": "forcematrixWithMuxOnGripper"
+          "forcematrix": "forcematrixWithMuxOnGripper",
+          "activatedAntiSlipForceControl": true,
+          "startHoldingPressure": 0.005,
+          "timeStepSizeInMilliseconds": 10,
+          "pressureStepSize": 0.005
         },
         "depends_on": [
           "gripper-board",
