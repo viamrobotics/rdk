@@ -32,6 +32,17 @@ func init() {
 		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
 			return gripper.WrapWithReconfigurable(r)
 		},
+		RegisterRPCService: func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&componentpb.GripperService_ServiceDesc,
+				gripper.NewServer(subtypeSvc),
+				componentpb.RegisterGripperServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
+			return gripper.NewClientFromConn(conn, name, logger)
+		},
 	})
 }
 
