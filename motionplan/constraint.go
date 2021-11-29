@@ -24,11 +24,9 @@ type ConstraintInput struct {
 
 // Constraint defines functions able to determine whether or not a given position is valid.
 // TODO (pl): Determine how Gradient should fit into this
-type Constraint interface {
-	// A bool returning whether the given input is known to be good, and a float representing how far the input is
-	// from "ideal".
-	Valid(*ConstraintInput) (bool, float64)
-}
+// A bool returning whether the given input is known to be good, and a float representing how far the input is
+// from "ideal".
+type Constraint func(*ConstraintInput) (bool, float64)
 
 // constraintHandler is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse
@@ -107,7 +105,7 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 	score := 0.
 
 	for _, cFunc := range c.constraints {
-		pass, cScore := cFunc.Valid(cInput)
+		pass, cScore := cFunc(cInput)
 		if !pass {
 			return false, math.Inf(1)
 		}
@@ -126,27 +124,6 @@ func interpolationCheck(cInput *ConstraintInput, by, epsilon float64) bool {
 	return dist <= epsilon
 }
 
-type flexibleConstraint struct {
-	validFunc func(cInput *ConstraintInput) (bool, float64)
-}
-
-// NewFlexibleConstraint returns a constraint which can be flexibly configured to any `valid` function
-func NewFlexibleConstraint(f func(cInput *ConstraintInput) (bool, float64)) Constraint {
-	return &flexibleConstraint{f}
-}
-
-// Valid returns whether the constraint is met
-func (c *flexibleConstraint) Valid(cInput *ConstraintInput) (bool, float64) {
-	if c.validFunc != nil {
-		return c.validFunc(cInput)
-	}
-	return true, 0
-}
-
-func (c *flexibleConstraint) setFunc(f func(cInput *ConstraintInput) (bool, float64)) {
-	c.validFunc = f
-}
-
 // NewInterpolatingConstraint creates a constraint function from an arbitrary function that will decide if a given pose is valid.
 // This function will check the given function at each point in checkSeq, and 1-point. If all constraints are satisfied,
 // it will return true. If any intermediate pose violates the constraint, will return false.
@@ -154,7 +131,6 @@ func (c *flexibleConstraint) setFunc(f func(cInput *ConstraintInput) (bool, floa
 // the inputs the same amount does not deviate by more than a set amount.
 func NewInterpolatingConstraint(epsilon float64) Constraint {
 	checkSeq := []float64{0.5, 0.333, 0.25, 0.17}
-	c := &flexibleConstraint{}
 	f := func(cInput *ConstraintInput) (bool, float64) {
 		for _, s := range checkSeq {
 			ok := interpolationCheck(cInput, s, epsilon)
@@ -171,14 +147,12 @@ func NewInterpolatingConstraint(epsilon float64) Constraint {
 		}
 		return true, 0
 	}
-	c.setFunc(f)
-	return c
+	return f
 }
 
 // NewJointConstraint returns a constraint which will sum the squared differences in each input from start to end
 // It will return false if that sum is over a specified threshold
 func NewJointConstraint(threshold float64) Constraint {
-	c := &flexibleConstraint{}
 	f := func(cInput *ConstraintInput) (bool, float64) {
 		jScore := 0.
 		for i, f := range cInput.StartInput {
@@ -186,14 +160,12 @@ func NewJointConstraint(threshold float64) Constraint {
 		}
 		return jScore < threshold, jScore
 	}
-	c.setFunc(f)
-	return c
+	return f
 }
 
 // NewOrientationConstraint returns a constraint which will return false if the startPos or endPos orientations
 // are not valid.
 func NewOrientationConstraint(orientFunc func(o spatial.Orientation) bool) Constraint {
-	c := &flexibleConstraint{}
 	f := func(cInput *ConstraintInput) (bool, float64) {
 		if cInput.StartPos == nil || cInput.EndPos == nil {
 			err := resolveInputsToPositions(cInput)
@@ -206,8 +178,7 @@ func NewOrientationConstraint(orientFunc func(o spatial.Orientation) bool) Const
 		}
 		return false, 0
 	}
-	c.setFunc(f)
-	return c
+	return f
 }
 
 // orientDistToRegion will return a function which will tell you how far the unit sphere component of an orientation
@@ -227,11 +198,11 @@ func orientDistToRegion(goal spatial.Orientation, alpha float64) func(spatial.Or
 // 3d point of the `to` pose (this is probably what you want).
 func NewPoseFlexOVMetric(goal spatial.Pose, alpha float64) kinematics.Metric {
 	oDistFunc := orientDistToRegion(goal.Orientation(), alpha)
-	return kinematics.NewBasicMetric(func(from, to spatial.Pose) float64 {
+	return func(from, to spatial.Pose) float64 {
 		pDist := from.Point().Distance(to.Point())
 		oDist := oDistFunc(from.Orientation())
 		return pDist*pDist + oDist*oDist
-	})
+	}
 }
 
 // NewPlaneConstraintAndGradient is used to define a constraint space for a plane, and will return 1) a constraint
@@ -273,9 +244,7 @@ func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector, writingAngle, epsilon fl
 		return false, 0
 	}
 
-	c := &flexibleConstraint{validFunc}
-
-	return c, kinematics.NewBasicMetric(gradFunc)
+	return validFunc, gradFunc
 }
 
 // NewLineConstraintAndGradient is used to define a constraint space for a line, and will return 1) a constraint
@@ -329,14 +298,12 @@ func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, orient spatial.Orientation
 		return false, dist
 	}
 
-	c := &flexibleConstraint{validFunc}
-
-	return c, kinematics.NewBasicMetric(gradFunc)
+	return validFunc, gradFunc
 }
 
 // NewPositionOnlyMetric returns a Metric that reports the point-wise distance between two poses.
 func NewPositionOnlyMetric() kinematics.Metric {
-	return kinematics.NewBasicMetric(positionOnlyDist)
+	return positionOnlyDist
 }
 
 // positionOnlyDist returns the point-wise distance between two poses without regard for orientation.

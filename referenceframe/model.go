@@ -99,9 +99,6 @@ func (m *Model) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, e
 // between quaternions and OV are not needed.
 func (m *Model) jointRadToQuats(inputs []Input) ([]staticFrame, error) {
 	joints := InputsToFloats(inputs)
-	for i, input := range inputs {
-		joints[i] = input.Value
-	}
 	poses, err := m.getPoses(joints)
 	if err != nil && poses == nil {
 		return nil, err

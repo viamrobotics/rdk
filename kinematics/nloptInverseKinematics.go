@@ -17,7 +17,7 @@ import (
 
 var (
 	errNoSolve     = errors.New("kinematics could not solve for position")
-	errBadBounds   = errors.New("cannot set upper or lower bounds for nlopt, slice is empty")
+	errBadBounds   = errors.New("cannot set upper or lower bounds for nlopt, slice is empty. Are you trying to move a static frame?")
 	errTooManyVals = errors.New("passed in too many joint positions")
 )
 
@@ -79,7 +79,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error)
 			ik.logger.Errorf("forcestop error %q", err)
 		}
 
-		dist := ik.metric.Distance(eePos, ik.goal.GoalTransform)
+		dist := ik.metric(eePos, ik.goal.GoalTransform)
 
 		if len(gradient) > 0 {
 			for i := range gradient {
@@ -92,7 +92,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error)
 					err = ik.opt.ForceStop()
 					ik.logger.Errorf("forcestop error %q", err)
 				}
-				dist2 := ik.metric.Distance(eePos, ik.goal.GoalTransform)
+				dist2 := ik.metric(eePos, ik.goal.GoalTransform)
 
 				gradient[i] = (dist2 - dist) / (2 * ik.jump)
 			}
