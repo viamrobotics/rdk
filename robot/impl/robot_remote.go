@@ -145,12 +145,6 @@ func (rr *remoteRobot) ArmNames() []string {
 	return rr.prefixNames(rr.parts.ArmNames())
 }
 
-func (rr *remoteRobot) IMUNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.IMUNames())
-}
-
 func (rr *remoteRobot) GripperNames() []string {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
@@ -237,12 +231,6 @@ func (rr *remoteRobot) ArmByName(name string) (arm.Arm, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.ArmByName(rr.unprefixName(name))
-}
-
-func (rr *remoteRobot) IMUByName(name string) (imu.IMU, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.IMUByName(rr.unprefixName(name))
 }
 
 func (rr *remoteRobot) BaseByName(name string) (base.Base, bool) {

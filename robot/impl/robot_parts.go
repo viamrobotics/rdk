@@ -249,17 +249,6 @@ func (parts *robotParts) ArmNames() []string {
 	return parts.mergeNamesWithRemotes(names, robot.Robot.ArmNames)
 }
 
-// IMUNames returns the names of all imus in the parts.
-func (parts *robotParts) IMUNames() []string {
-	names := []string{}
-	for _, n := range parts.ResourceNames() {
-		if n.Subtype == imu.Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.IMUNames)
-}
-
 // GripperNames returns the names of all grippers in the parts.
 func (parts *robotParts) GripperNames() []string {
 	names := []string{}
@@ -733,26 +722,6 @@ func (parts *robotParts) ArmByName(name string) (arm.Arm, bool) {
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.ArmByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
-// IMUByName returns the given imu by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) IMUByName(name string) (imu.IMU, bool) {
-	rName := imu.Named(name)
-	r, ok := parts.resources[rName]
-	if ok {
-		part, ok := r.(imu.IMU)
-		if ok {
-			return part, true
-		}
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.IMUByName(name)
 		if ok {
 			return part, true
 		}

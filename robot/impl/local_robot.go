@@ -119,12 +119,6 @@ func (r *localRobot) ArmByName(name string) (arm.Arm, bool) {
 	return r.parts.ArmByName(name)
 }
 
-// IMUByName returns an IMU by name. If it does not exist
-// nil is returned.
-func (r *localRobot) IMUByName(name string) (imu.IMU, bool) {
-	return r.parts.IMUByName(name)
-}
-
 // BaseByName returns a base by name. If it does not exist
 // nil is returned.
 func (r *localRobot) BaseByName(name string) (base.Base, bool) {
@@ -191,11 +185,6 @@ func (r *localRobot) RemoteNames() []string {
 // ArmNames returns the name of all known arms.
 func (r *localRobot) ArmNames() []string {
 	return r.parts.ArmNames()
-}
-
-// IMUNames returns the name of all known IMUs.
-func (r *localRobot) IMUNames() []string {
-	return r.parts.IMUNames()
 }
 
 // GripperNames returns the name of all known grippers.
