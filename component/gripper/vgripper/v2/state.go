@@ -4,24 +4,30 @@ package vgripper
 type gripperState int32
 
 const (
-	gripperStateUnspecified              gripperState = 0
-	gripperStateCalibrating              gripperState = 1
-	gripperStateOpening                  gripperState = 2
-	gripperStateGrabbing                 gripperState = 3
-	gripperStateIdle                     gripperState = 4
-	gripperStateAntiSlipForceControlling gripperState = 5
+	gripperStateUnspecified = gripperState(iota)
+	gripperStateCalibrating
+	gripperStateOpening
+	gripperStateGrabbing
+	gripperStateIdle
+	gripperStateAntiSlipForceControlling
 )
 
-// Enum value maps for DirectionRelative.
-// TODO: write tests for this to make sure that all conversions are a closed loop;
-// to make sure human error doesn't happen here
-var (
-	gripperStateName = map[gripperState]string{
-		0: "gripperStateUnspecified",
-		1: "gripperStateCalibrating",
-		2: "gripperStateOpening",
-		3: "gripperStateGrabbing",
-		4: "gripperStateIdle",
-		5: "gripperStateAntiSlipForceControlling",
+// String returns a string for the gripperState.
+func (gs gripperState) String() string {
+	switch gs {
+	case gripperStateUnspecified:
+		return "gripperStateUnspecified"
+	case gripperStateCalibrating:
+		return "gripperStateCalibrating"
+	case gripperStateOpening:
+		return "gripperStateOpening"
+	case gripperStateGrabbing:
+		return "gripperStateGrabbing"
+	case gripperStateIdle:
+		return "gripperStateIdle"
+	case gripperStateAntiSlipForceControlling:
+		return "gripperStateAntiSlipForceControlling"
+	default:
+		return "unknown"
 	}
-)
+}
