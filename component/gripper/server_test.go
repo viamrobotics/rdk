@@ -2,6 +2,7 @@ package gripper_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"go.viam.com/test"
@@ -30,7 +31,7 @@ func TestServer(t *testing.T) {
 	var gripperOpen string
 
 	gripper1 := "gripper1"
-	grabbed1 := false
+	grabbed1 := true
 	injectGripper.OpenFunc = func(ctx context.Context) error {
 		gripperOpen = gripper1
 		return nil
@@ -38,12 +39,11 @@ func TestServer(t *testing.T) {
 	injectGripper.GrabFunc = func(ctx context.Context) (bool, error) { return grabbed1, nil }
 
 	gripper2 := "gripper2"
-	grabbed2 := true
 	injectGripper2.OpenFunc = func(ctx context.Context) error {
 		gripperOpen = gripper2
-		return nil
+		return errors.New("can't open")
 	}
-	injectGripper2.GrabFunc = func(ctx context.Context) (bool, error) { return grabbed2, nil }
+	injectGripper2.GrabFunc = func(ctx context.Context) (bool, error) { return false, errors.New("can't grab") }
 
 	t.Run("open", func(t *testing.T) {
 		_, err := gripperServer.Open(context.Background(), &pb.GripperServiceOpenRequest{Name: "g4"})
@@ -59,7 +59,8 @@ func TestServer(t *testing.T) {
 		test.That(t, gripperOpen, test.ShouldEqual, gripper1)
 
 		_, err = gripperServer.Open(context.Background(), &pb.GripperServiceOpenRequest{Name: gripper2})
-		test.That(t, err, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't open")
 		test.That(t, gripperOpen, test.ShouldEqual, gripper2)
 	})
 
@@ -73,8 +74,9 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Grabbed, test.ShouldEqual, grabbed1)
 
 		resp, err = gripperServer.Grab(context.Background(), &pb.GripperServiceGrabRequest{Name: gripper2})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Grabbed, test.ShouldEqual, grabbed2)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't grab")
+		test.That(t, resp, test.ShouldBeNil)
 	})
 
 }
