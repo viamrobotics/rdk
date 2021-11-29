@@ -7,6 +7,8 @@ window.armApi = require('proto/api/component/v1/arm_pb.js');
 const { ArmServiceClient } = require('proto/api/component/v1/arm_pb_service.js');
 window.gantryApi = require('proto/api/component/v1/gantry_pb.js');
 const { GantryServiceClient } = require('proto/api/component/v1/gantry_pb_service.js');
+window.gripperApi = require('proto/api/component/v1/gripper_pb.js');
+const { GripperServiceClient } = require('proto/api/component/v1/gripper_pb_service.js');
 window.commonApi = require('proto/api/common/v1/common_pb.js');
 const { dial } = require("@viamrobotics/rpc");
 window.THREE = require("three/build/three.module.js")
@@ -41,6 +43,7 @@ if (window.webrtcEnabled) {
 			// TODO: these should be created as needed for #272
 			window.armService = new ArmServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
 			window.gantryService = new GantryServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
+			window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
 		} catch (e) {
 			console.error("error dialing:", e);
 			throw e;
@@ -56,6 +59,7 @@ if (window.webrtcEnabled) {
 	// TODO: these should be created as needed for #272
 	window.armService = new ArmServiceClient(url);
 	window.gantryService = new GantryServiceClient(url);
+	window.gripperService = new GripperServiceClient(url);
 	pResolve(undefined);
 }
 
