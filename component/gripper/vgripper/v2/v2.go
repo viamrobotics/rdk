@@ -281,7 +281,7 @@ func (vg *gripperV2) antiSlipForceControl(ctx context.Context) error {
 		default:
 			return nil
 		}
-		vg.logger.Debugf("antiSlipForceControl, state: ", gripperStateName[vg.state])
+		vg.logger.Debugf("antiSlipForceControl, state: %v", vg.state.String())
 
 		// Adjust grip strength
 		objectIsSlipping, err := vg.forceMatrix.IsSlipping(ctx)
@@ -406,7 +406,7 @@ func (vg *gripperV2) ModelFrame() *referenceframe.Model {
 
 // open opens the jaws.
 func (vg *gripperV2) open(ctx context.Context) error {
-	vg.logger.Debugf("In open fcn: ", gripperStateName[vg.state])
+	vg.logger.Debugf("In open fcn: %v", vg.state.String())
 	switch vg.State() {
 	case gripperStateUnspecified:
 		return errors.New("gripper state is unspecified")
@@ -426,7 +426,7 @@ func (vg *gripperV2) open(ctx context.Context) error {
 	msPer := 10
 	total := 0
 	for {
-		vg.logger.Debugf("Opening, state: ", gripperStateName[vg.state])
+		vg.logger.Debugf("Opening, state: %v", vg.state.String())
 
 		switch vg.State() {
 		case gripperStateUnspecified:
@@ -476,7 +476,7 @@ func (vg *gripperV2) open(ctx context.Context) error {
 // grab closes the jaws until pressure is sensed and returns true,
 // or until closed position is reached, and returns false.
 func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
-	vg.logger.Debugf("In grab fcn: ", gripperStateName[vg.state])
+	vg.logger.Debugf("In grab fcn: %v", vg.state.String())
 	switch vg.State() {
 	case gripperStateUnspecified:
 		return false, errors.New("gripper state is unspecified")
@@ -496,7 +496,7 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 	msPer := 10
 	total := 0
 	for {
-		vg.logger.Debugf("Grabbing, state: ", gripperStateName[vg.state])
+		vg.logger.Debugf("Grabbing, state: %v", vg.state.String())
 		switch vg.State() {
 		case gripperStateUnspecified:
 			return false, errors.New("gripper state is unspecified")
