@@ -65,7 +65,7 @@ type gripperV2 struct {
 	calibrationNoiseThreshold     float64
 	timeStepSizeInMilliseconds    float64
 	pressureStepSize              float64
-	activatedAntiSlipForceControl bool // flag
+	activatedAntiSlipForceControl bool
 
 	// action state machine
 	state    gripperState
@@ -121,12 +121,12 @@ func new(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		return nil, errors.Errorf("(%v) is not a ForceMatrix device", forceMatrixName)
 	}
 
-	pressureLimit := config.Attributes.Float64("pressureLimit", 30)
-	calibrationNoiseThreshold := config.Attributes.Float64("calibrationNoiseThreshold", 7)
-	activatedAntiSlipForceControl := config.Attributes.Bool("activatedAntiSlipForceControl", true)
-	startHoldingPressure := config.Attributes.Float64("startHoldingPressure", 0.005)
-	timeStepSizeInMilliseconds := config.Attributes.Float64("timeStepSizeInMilliseconds", 10)
-	pressureStepSize := config.Attributes.Float64("pressureStepSize", 0.005)
+	pressureLimit := config.Attributes.Float64("pressure_limit", 30)
+	calibrationNoiseThreshold := config.Attributes.Float64("calibration_noise_threshold", 7)
+	activatedAntiSlipForceControl := config.Attributes.Bool("activated_anti_slip_force_control", true)
+	startHoldingPressure := config.Attributes.Float64("start_holding_pressure", 0.005)
+	timeStepSizeInMilliseconds := config.Attributes.Float64("time_step_size_in_milliseconds", 10)
+	pressureStepSize := config.Attributes.Float64("pressure_step_size", 0.005)
 
 	model, err := referenceframe.ParseJSON(vgripperv2json, "")
 	if err != nil {
