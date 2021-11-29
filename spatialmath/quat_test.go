@@ -11,6 +11,16 @@ import (
 	commonpb "go.viam.com/core/proto/api/common/v1"
 )
 
+var quatTestCases = []quat.Number{
+	{0.7071067811865476, 0.7071067811865476, 0, 0},
+	{0.7071067811865476, -0.7071067811865476, 0, 0},
+	{0.96, 0, -0.28, 0},
+	{0.96, 0, 0, -0.28},
+	{0.96, -0.28, 0, 0},
+	{0.96, 0.28, 0, 0},
+	{0.5, -0.5, -0.5, -0.5},
+}
+
 func TestAngleAxisConversion1(t *testing.T) {
 	// Test that we can convert back and forth losslessly between angle axis and quaternions
 
@@ -33,6 +43,14 @@ func TestAngleAxisConversion2(t *testing.T) {
 	test.That(t, math.Abs(end1.RX-startAA.RX), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(end1.RY-startAA.RZ), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(end1.RZ-startAA.RZ), test.ShouldBeLessThan, 0.001)
+}
+
+func TestMatrixConversion(t *testing.T) {
+	// Test that lossless conversion between quaternions and rotation matrices is acheived
+	for _, q := range quatTestCases {
+		q2 := QuatToRotationMatrix(q).Quaternion()
+		quatCompare(t, q, q2)
+	}
 }
 
 func TestFlip(t *testing.T) {
@@ -69,19 +87,9 @@ func TestQuatDefault(t *testing.T) {
 
 func TestQuatConversion(t *testing.T) {
 	// Ensure a robust, lossless quaternion/ov/quaternion/ov transformation
-	quatConvert(t, quat.Number{0.7071067811865476, 0.7071067811865476, 0, 0})
-	quatConvert(t, quat.Number{0.7071067811865476, -0.7071067811865476, 0, 0})
-	quatConvert(t, quat.Number{0.96, 0, -0.28, 0})
-	quatConvert(t, quat.Number{0.96, 0, 0, -0.28})
-
-	// Should be negative theta
-	quatConvert(t, quat.Number{0.96, -0.28, 0, 0})
-
-	// Test the complementary angle
-	quatConvert(t, quat.Number{0.96, 0.28, 0, 0})
-
-	// Another odd angle
-	quatConvert(t, quat.Number{0.5, -0.5, -0.5, -0.5})
+	for _, q := range quatTestCases {
+		quatConvert(t, q)
+	}
 
 	// Some orientation vectors
 	ovConvert(t, &OrientationVector{Theta: 2.47208, OX: 1, OY: 0, OZ: 0})
@@ -164,8 +172,11 @@ func ovCompare(t *testing.T, ov1, ov2 *OrientationVector) {
 }
 
 func quatCompare(t *testing.T, q1, q2 quat.Number) {
-	test.That(t, q1.Real, test.ShouldAlmostEqual, q2.Real)
-	test.That(t, q1.Imag, test.ShouldAlmostEqual, q2.Imag)
-	test.That(t, q1.Jmag, test.ShouldAlmostEqual, q2.Jmag)
-	test.That(t, q1.Kmag, test.ShouldAlmostEqual, q2.Kmag)
+	tol := 1e-8
+	equal := func(q1, q2 quat.Number) bool {
+		return math.Abs(q1.Real-q2.Real) < tol && math.Abs(q2.Imag-q2.Imag) < tol &&
+			math.Abs(q2.Jmag-q2.Jmag) < tol && math.Abs(q2.Kmag-q2.Kmag) < tol
+	}
+	// quaternion q1 will be equivalent to q2 if they are elementwise equivalent to q2 or -q2
+	test.That(t, equal(q1, q2) || equal(q1, Flip(q2)), test.ShouldBeTrue)
 }
