@@ -8,8 +8,8 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
-	"go.viam.com/core/gripper"
 	"go.viam.com/core/resource"
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/services/objectmanipulation"

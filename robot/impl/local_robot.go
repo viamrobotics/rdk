@@ -15,9 +15,9 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
-	"go.viam.com/core/gripper"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/metadata/service"
@@ -50,7 +50,15 @@ import (
 	_ "go.viam.com/core/camera/velodyne" // velodyne lidary
 	_ "go.viam.com/core/component/gantry/fake"
 	_ "go.viam.com/core/component/gantry/simple"
-	_ "go.viam.com/core/input/gamepad" // xbox controller and similar
+	_ "go.viam.com/core/component/gripper/fake"         // for a gripper
+	_ "go.viam.com/core/component/gripper/robotiq"      // for a gripper
+	_ "go.viam.com/core/component/gripper/softrobotics" // for a gripper
+	_ "go.viam.com/core/component/gripper/vgripper/v1"  // for a gripper with a single force sensor cell
+	_ "go.viam.com/core/component/gripper/vgripper/v2"  // for a gripper with a force matrix
+	_ "go.viam.com/core/component/gripper/vx300s"       // for a gripper
+	_ "go.viam.com/core/component/gripper/wx250s"       // for a gripper
+	_ "go.viam.com/core/component/gripper/yahboom"      // for a gripper
+	_ "go.viam.com/core/input/gamepad"                  // xbox controller and similar
 	_ "go.viam.com/core/input/mux"
 	_ "go.viam.com/core/input/webgamepad" // gamepads via webbrowser
 	_ "go.viam.com/core/motor/gpio"
@@ -62,14 +70,10 @@ import (
 	_ "go.viam.com/core/robots/eva" // for eva
 	_ "go.viam.com/core/robots/fake"
 	_ "go.viam.com/core/robots/gopro"                   // for a camera
-	_ "go.viam.com/core/robots/robotiq"                 // for a gripper
-	_ "go.viam.com/core/robots/softrobotics"            // for a gripper
 	_ "go.viam.com/core/robots/universalrobots"         // for an arm
 	_ "go.viam.com/core/robots/varm"                    // for an arm
 	_ "go.viam.com/core/robots/vforcematrixtraditional" // for a traditional force matrix
 	_ "go.viam.com/core/robots/vforcematrixwithmux"     // for a force matrix built using a mux
-	_ "go.viam.com/core/robots/vgripper/v1"             // for a gripper with a single force sensor cell
-	_ "go.viam.com/core/robots/vgripper/v2"             // for a gripper with a force matrix
 	_ "go.viam.com/core/robots/vx300s"                  // for arm and gripper
 	_ "go.viam.com/core/robots/wx250s"                  // for arm and gripper
 	_ "go.viam.com/core/robots/xarm"                    // for an arm
@@ -388,14 +392,6 @@ func (r *localRobot) newBase(ctx context.Context, config config.Component) (base
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *localRobot) newGripper(ctx context.Context, config config.Component) (gripper.Gripper, error) {
-	f := registry.GripperLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown gripper model: %s", config.Model)
-	}
-	return f.Constructor(ctx, r, config, r.logger)
-}
-
 func (r *localRobot) newCamera(ctx context.Context, config config.Component) (camera.Camera, error) {
 	f := registry.CameraLookup(config.Model)
 	if f == nil {
@@ -522,15 +518,6 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 		)
 		resources = append(resources, res)
 	}
-	for _, name := range r.GripperNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceCore,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeGripper,
-			name,
-		)
-		resources = append(resources, res)
-	}
 	for _, name := range r.LidarNames() {
 		res := resource.NewName(
 			resource.ResourceNamespaceCore,
@@ -557,15 +544,6 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 			name,
 		)
 
-		resources = append(resources, res)
-	}
-	for _, name := range r.ServoNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceCore,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeServo,
-			name,
-		)
 		resources = append(resources, res)
 	}
 	for _, name := range r.MotorNames() {
