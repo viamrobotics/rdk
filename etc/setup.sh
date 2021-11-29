@@ -45,7 +45,7 @@ if [ "$(uname)" == "Linux" ]; then
 		eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 		export LIBRARY_PATH=/home/linuxbrew/.linuxbrew/lib
 		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-		export CC=gcc
+		export CC=gcc-11
 	fi
 	EOS
 
@@ -102,6 +102,7 @@ brew bundle --file=- <<-EOS
 
 tap  "bufbuild/buf"
 tap  "viamrobotics/brews"
+brew "gcc@11"
 brew "make"
 brew "cmake"
 brew "pkgconfig"
@@ -117,9 +118,6 @@ brew "ts-protoc-gen"
 brew "grpcurl"
 brew "node"
 brew "nlopt"
-brew "libx11"
-brew "libxext"
-brew "libvpx"
 brew "x264"
 
 EOS
