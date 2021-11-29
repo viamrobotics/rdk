@@ -14,6 +14,7 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
+	"go.viam.com/core/motionplan"
 	"go.viam.com/core/motor"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	componentpb "go.viam.com/core/proto/api/component/v1"
@@ -169,10 +170,13 @@ func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.Arm,
 	if err != nil {
 		return nil, err
 	}
-	newArm.ik, err = kinematics.CreateCombinedIKSolver(newArm.model, logger, 4)
+	newArm.mp, err = motionplan.NewCBiRRTMotionPlanner(newArm.model, 4, logger)
 	if err != nil {
 		return nil, err
 	}
+	opt := motionplan.NewDefaultPlannerOptions()
+	opt.SetMetric(motionplan.NewPositionOnlyMetric())
+	newArm.mp.SetOptions(opt)
 
 	newArm.j0.degMin = -135.0
 	newArm.j0.degMax = 75.0
@@ -221,8 +225,8 @@ type armV1 struct {
 	j0Motor, j1Motor motor.Motor
 
 	j0, j1 joint
+	mp     motionplan.MotionPlanner
 	model  *frame.Model
-	ik     kinematics.InverseKinematics
 }
 
 // CurrentPosition computes and returns the current cartesian position.
@@ -231,7 +235,7 @@ func (a *armV1) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(a.ik.Model(), joints)
+	return kinematics.ComputePosition(a.mp.Frame(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
@@ -240,11 +244,11 @@ func (a *armV1) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	solution, err := a.ik.Solve(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := a.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
-	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
+	return arm.GoToWaypoints(ctx, a, solution)
 }
 
 func (a *armV1) moveJointToDegrees(ctx context.Context, m motor.Motor, j joint, curDegrees, gotoDegrees float64) error {

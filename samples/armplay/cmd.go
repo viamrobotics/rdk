@@ -73,20 +73,20 @@ func upAndDown(ctx context.Context, r robot.Robot) error {
 		return fmt.Errorf("failed to find arm %q", r.ArmNames()[0])
 	}
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 5; i++ {
 		logger.Debugf("upAndDown loop %d", i)
 		pos, err := arm.CurrentPosition(ctx)
 		if err != nil {
 			return err
 		}
 
-		pos.Z += 100
+		pos.Y += 550
 		err = arm.MoveToPosition(ctx, pos)
 		if err != nil {
 			return err
 		}
 
-		pos.Z -= 100
+		pos.Y -= 550
 		err = arm.MoveToPosition(ctx, pos)
 		if err != nil {
 			return err

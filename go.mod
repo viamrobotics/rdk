@@ -109,7 +109,6 @@ require (
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-critic/go-critic v0.5.5 // indirect
 	github.com/go-latex/latex v0.0.0-20200518072620-0806b477ea35 // indirect
-	github.com/go-playground/validator/v10 v10.4.1 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/go-toolsmith/astcast v1.0.0 // indirect
 	github.com/go-toolsmith/astcopy v1.0.0 // indirect
@@ -143,7 +142,6 @@ require (
 	github.com/gonuts/binary v0.2.0 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/googleapis/gax-go/v2 v2.0.5 // indirect
-	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
 	github.com/gordonklaus/ineffassign v0.0.0-20210225214923-2e10b2664254 // indirect
 	github.com/gostaticanalysis/analysisutil v0.4.1 // indirect
 	github.com/gostaticanalysis/comment v1.4.1 // indirect
@@ -154,13 +152,13 @@ require (
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.0.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/huandu/xstrings v1.3.2 // indirect
-	github.com/imdario/mergo v0.3.11 // indirect
+	github.com/huandu/xstrings v1.2.0 // indirect
+	github.com/imdario/mergo v0.3.9 // indirect
 	github.com/improbable-eng/grpc-web v0.14.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jezek/xgb v0.0.0-20210312150743-0e0f116e1240 // indirect
 	github.com/jgautheron/goconst v1.4.0 // indirect
-	github.com/jhump/protoreflect v1.8.1 // indirect
+	github.com/jhump/protoreflect v1.6.1 // indirect
 	github.com/jingyugao/rowserrcheck v0.0.0-20210315055705-d907ca737bb1 // indirect
 	github.com/jirfag/go-printf-func-name v0.0.0-20200119135958-7558a9eaa5af // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
@@ -215,7 +213,7 @@ require (
 	github.com/pion/transport v0.12.3 // indirect
 	github.com/pion/turn/v2 v2.0.5 // indirect
 	github.com/pion/udp v0.1.1 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pkg/errors v0.9.1
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pquerna/cachecontrol v0.0.0-20201205024021-ac21108117ac // indirect
 	github.com/pseudomuto/protokit v0.2.0 // indirect
@@ -244,8 +242,6 @@ require (
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/tdakkota/asciicheck v0.0.0-20200416200610-e657995f937b // indirect
 	github.com/tetafro/godot v1.4.4 // indirect
-	github.com/tidwall/gjson v1.9.3 // indirect
-	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/timakin/bodyclose v0.0.0-20200424151742-cb6215831a94 // indirect
 	github.com/tomarrell/wrapcheck v1.0.0 // indirect
 	github.com/tommy-muehle/go-mnd/v2 v2.3.1 // indirect
@@ -271,7 +267,6 @@ require (
 	golang.org/x/sys v0.0.0-20211031064116-611d5d643895 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
-	gonum.org/v1/netlib v0.0.0-20201012070519-2390d26c3658 // indirect
 	google.golang.org/api v0.46.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/ini.v1 v1.51.0 // indirect
