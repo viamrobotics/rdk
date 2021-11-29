@@ -1285,7 +1285,7 @@ func (ic *imuClient) Orientation(ctx context.Context) (spatialmath.Orientation, 
 }
 
 func (ic *imuClient) Desc() sensor.Description {
-	return sensor.Description{imu.SubtypeName, ""}
+	return sensor.Description{sensor.Type(imu.SubtypeName), ""}
 }
 
 // gpsClient satisfies a gRPC based gps.GPS. Refer to the interface
