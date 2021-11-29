@@ -46,7 +46,7 @@ func TestAngleAxisConversion2(t *testing.T) {
 }
 
 func TestMatrixConversion(t *testing.T) {
-	// Test that lossless conversion between quaternions and rotation matrices is acheived
+	// Test that lossless conversion between quaternions and rotation matrices is achieved
 	for _, q := range quatTestCases {
 		q2 := QuatToRotationMatrix(q).Quaternion()
 		quatCompare(t, q, q2)
@@ -174,8 +174,8 @@ func ovCompare(t *testing.T, ov1, ov2 *OrientationVector) {
 func quatCompare(t *testing.T, q1, q2 quat.Number) {
 	tol := 1e-8
 	equal := func(q1, q2 quat.Number) bool {
-		return math.Abs(q1.Real-q2.Real) < tol && math.Abs(q2.Imag-q2.Imag) < tol &&
-			math.Abs(q2.Jmag-q2.Jmag) < tol && math.Abs(q2.Kmag-q2.Kmag) < tol
+		return math.Abs(q1.Real-q2.Real) < tol && math.Abs(q1.Imag-q2.Imag) < tol &&
+			math.Abs(q1.Jmag-q2.Jmag) < tol && math.Abs(q1.Kmag-q2.Kmag) < tol
 	}
 	// quaternion q1 will be equivalent to q2 if they are elementwise equivalent to q2 or -q2
 	test.That(t, equal(q1, q2) || equal(q1, Flip(q2)), test.ShouldBeTrue)
