@@ -1,4 +1,4 @@
-package kinematics
+package motionplan
 
 import (
 	"context"
@@ -61,6 +61,7 @@ func TestFrameSystemSolver(t *testing.T) {
 	pointXarmGripper := r3.Vector{157., -50, -288}
 
 	transformPoint, err := solver.TransformFrame(positions, solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
+
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint.Point().X, test.ShouldAlmostEqual, pointXarmGripper.X)
 	test.That(t, transformPoint.Point().Y, test.ShouldAlmostEqual, pointXarmGripper.Y)
@@ -78,7 +79,7 @@ func TestFrameSystemSolver(t *testing.T) {
 	}
 	newPos, err := solver.SolvePose(context.Background(), positions, spatial.NewPoseFromProtobuf(goal1), solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
-	solvedPose, err := solver.TransformFrame(newPos, solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
+	solvedPose, err := solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solvedPose.Point().X, test.ShouldAlmostEqual, goal1.X, 0.01)
 	test.That(t, solvedPose.Point().Y, test.ShouldAlmostEqual, goal1.Y, 0.01)
@@ -98,17 +99,17 @@ func TestFrameSystemSolver(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Both frames should wind up at the goal relative to one another
-	solvedPose, err = solver.TransformFrame(newPos, solver.GetFrame("xArmVgripper"), solver.GetFrame("urCamera"))
+	solvedPose, err = solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("xArmVgripper"), solver.GetFrame("urCamera"))
 	test.That(t, err, test.ShouldBeNil)
-	solvedPose2, err := solver.TransformFrame(newPos, solver.GetFrame("urCamera"), solver.GetFrame("xArmVgripper"))
+	solvedPose2, err := solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("urCamera"), solver.GetFrame("xArmVgripper"))
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, solvedPose.Point().X, test.ShouldAlmostEqual, goal2.X, 0.01)
-	test.That(t, solvedPose.Point().Y, test.ShouldAlmostEqual, goal2.Y, 0.01)
-	test.That(t, solvedPose.Point().Z, test.ShouldAlmostEqual, goal2.Z, 0.01)
-	test.That(t, solvedPose2.Point().X, test.ShouldAlmostEqual, goal2.X, 0.01)
-	test.That(t, solvedPose2.Point().Y, test.ShouldAlmostEqual, goal2.Y, 0.01)
-	test.That(t, solvedPose2.Point().Z, test.ShouldAlmostEqual, goal2.Z, 0.01)
+	test.That(t, solvedPose.Point().X, test.ShouldAlmostEqual, goal2.X, 0.1)
+	test.That(t, solvedPose.Point().Y, test.ShouldAlmostEqual, goal2.Y, 0.1)
+	test.That(t, solvedPose.Point().Z, test.ShouldAlmostEqual, goal2.Z, 0.1)
+	test.That(t, solvedPose2.Point().X, test.ShouldAlmostEqual, goal2.X, 0.1)
+	test.That(t, solvedPose2.Point().Y, test.ShouldAlmostEqual, goal2.Y, 0.1)
+	test.That(t, solvedPose2.Point().Z, test.ShouldAlmostEqual, goal2.Z, 0.1)
 }
 
 func TestSliceUniq(t *testing.T) {
@@ -120,4 +121,29 @@ func TestSliceUniq(t *testing.T) {
 	slice = append(slice, solver.GetFrame("urCamera"))
 	uniqd := uniqInPlaceSlice(slice)
 	test.That(t, len(uniqd), test.ShouldEqual, 3)
+}
+
+func TestSolverFrame(t *testing.T) {
+	// setup solverFrame with start and goal frames
+	solver := makeTestFS(t)
+	solveFrame := solver.GetFrame("UR5e")
+	test.That(t, solveFrame, test.ShouldNotBeNil)
+	sFrames, err := solver.TracebackFrame(solveFrame)
+	test.That(t, err, test.ShouldBeNil)
+	goalFrame := solver.GetFrame("xArm6")
+	test.That(t, goalFrame, test.ShouldNotBeNil)
+	gFrames, err := solver.TracebackFrame(goalFrame)
+	test.That(t, err, test.ShouldBeNil)
+	frames := uniqInPlaceSlice(append(sFrames, gFrames...))
+	sf := &solverFrame{solveFrame.Name() + "_" + goalFrame.Name(), solver, frames, solveFrame, goalFrame}
+
+	// get the VerboseTransform at the zero position
+	inputs := frame.StartPositions(solver)
+	poseMap, err := sf.VerboseTransform(sf.mapToSlice(inputs))
+	test.That(t, err, test.ShouldBeNil)
+
+	// test that the VerboseTransform outputs the same output as the basic Transform
+	poseExpect, err := sf.Transform(sf.mapToSlice(inputs))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.AlmostCoincident(poseMap["UR5e:ee_link"], poseExpect), test.ShouldBeTrue)
 }

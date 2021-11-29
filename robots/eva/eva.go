@@ -23,6 +23,7 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
+	"go.viam.com/core/motionplan"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	pb "go.viam.com/core/proto/api/component/v1"
 	frame "go.viam.com/core/referenceframe"
@@ -77,8 +78,8 @@ type eva struct {
 
 	moveLock *sync.Mutex
 	logger   golog.Logger
+	mp       motionplan.MotionPlanner
 	model    *frame.Model
-	ik       kinematics.InverseKinematics
 
 	frameJSON []byte
 }
@@ -97,7 +98,7 @@ func (e *eva) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(e.ik.Model(), joints)
+	return kinematics.ComputePosition(e.mp.Frame(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
@@ -106,11 +107,11 @@ func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	solution, err := e.ik.Solve(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := e.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
-	return e.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
+	return arm.GoToWaypoints(ctx, e, solution)
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJointPositions) error {
@@ -342,7 +343,7 @@ func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm
 	if err != nil {
 		return nil, err
 	}
-	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +355,7 @@ func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm
 		logger:    logger,
 		moveLock:  &sync.Mutex{},
 		model:     model,
-		ik:        ik,
+		mp:        mp,
 		frameJSON: evamodeljson,
 	}
 

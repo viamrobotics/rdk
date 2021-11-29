@@ -71,20 +71,6 @@ func TestForwardKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
-func TestSwingEdgeCases(t *testing.T) {
-	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"), "")
-	test.That(t, err, test.ShouldBeNil)
-
-	origin := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0})
-	oob := frame.FloatsToInputs([]float64{0, 0, 0, 0, 999})
-	swing, err := calcSwingAmount(oob, origin, m)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, swing, test.ShouldEqual, math.Inf(1))
-	swing, err = calcSwingAmount(origin, oob, m)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, swing, test.ShouldEqual, math.Inf(1))
-}
-
 func floatDelta(l1, l2 []float64) float64 {
 	delta := 0.0
 	for i, v := range l1 {
@@ -184,7 +170,7 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 	test.That(t, transformPoint2.Point().Z, test.ShouldAlmostEqual, pointWorld2.Z)
 
 	transformPoint3, err := fs.TransformFrame(positions, fs.GetFrame(frame.World), fs.GetFrame("xArm6"))
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, transformPoint3.Point().X, test.ShouldAlmostEqual, pointXarm.X)
 	test.That(t, transformPoint3.Point().Y, test.ShouldAlmostEqual, pointXarm.Y)
 	test.That(t, transformPoint3.Point().Z, test.ShouldAlmostEqual, pointXarm.Z)
@@ -280,56 +266,4 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	test.That(t, pointCamToXarm.X, test.ShouldAlmostEqual, 0)
 	test.That(t, pointCamToXarm.Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pointCamToXarm.Z, test.ShouldAlmostEqual, 0)
-}
-
-func TestFixOvIncrement(t *testing.T) {
-	pos1 := &commonpb.Pose{
-		X:     -66,
-		Y:     -133,
-		Z:     372,
-		Theta: 15,
-		OX:    0,
-		OY:    1,
-		OZ:    0,
-	}
-	pos2 := &commonpb.Pose{
-		X:     -66,
-		Y:     -133,
-		Z:     372,
-		Theta: 15,
-		OX:    0,
-		OY:    1,
-		OZ:    0,
-	}
-	// Increment, but we're not pointing at Z axis, so should do nothing
-	pos2.OX = -0.1
-	outpos := fixOvIncrement(pos2, pos1)
-	test.That(t, outpos, test.ShouldResemble, pos2)
-
-	// point at positive Z axis, decrement OX, should subtract 180
-	pos1.OZ = 1
-	pos2.OZ = 1
-	pos1.OY = 0
-	pos2.OY = 0
-	outpos = fixOvIncrement(pos2, pos1)
-	test.That(t, outpos.Theta, test.ShouldEqual, -165)
-
-	// Spatial translation is incremented, should do nothing
-	pos2.X -= 0.1
-	outpos = fixOvIncrement(pos2, pos1)
-	test.That(t, outpos, test.ShouldResemble, pos2)
-
-	// Point at -Z, increment OY
-	pos2.X += 0.1
-	pos2.OX += 0.1
-	pos1.OZ = -1
-	pos2.OZ = -1
-	pos2.OY = 0.1
-	outpos = fixOvIncrement(pos2, pos1)
-	test.That(t, outpos.Theta, test.ShouldEqual, 105)
-
-	// OX and OY are both incremented, should do nothing
-	pos2.OX += 0.1
-	outpos = fixOvIncrement(pos2, pos1)
-	test.That(t, outpos, test.ShouldResemble, pos2)
 }

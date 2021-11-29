@@ -1,4 +1,4 @@
-package kinematics
+package motionplan
 
 import (
 	"context"
@@ -8,30 +8,30 @@ import (
 	"runtime"
 
 	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
 
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
 )
 
 // SolvableFrameSystem wraps a FrameSystem to allow solving between frames of the frame system.
-// Note that this needs to live in kinematics, not referenceframe, to avoid circular dependencies
+// Note that this needs to live in motionplan, not referenceframe, to avoid circular dependencies
 type SolvableFrameSystem struct {
 	frame.FrameSystem
 	logger golog.Logger
+	mpFunc func(frame.Frame, int, golog.Logger) (MotionPlanner, error)
 }
 
 // NewSolvableFrameSystem will create a new solver for a frame system
 func NewSolvableFrameSystem(fs frame.FrameSystem, logger golog.Logger) *SolvableFrameSystem {
-	return &SolvableFrameSystem{fs, logger}
+	return &SolvableFrameSystem{FrameSystem: fs, logger: logger}
 }
 
 // SolvePose will take a set of starting positions, a goal frame, a frame to solve for, and a pose. The function will
-// then try to solve the full frame system such that the solveFrame has the goal pose from the perspective of the goalFrame.
+// then try to path plan the full frame system such that the solveFrame has the goal pose from the perspective of the goalFrame.
 // For example, if a world system has a gripper attached to an arm attached to a gantry, and the system was being solved
 // to place the gripper at a particular pose in the world, the solveFrame would be the gripper and the goalFrame would be
 // the world frame.
-func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[string][]frame.Input, goal spatial.Pose, solveFrame, goalFrame frame.Frame) (map[string][]frame.Input, error) {
+func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[string][]frame.Input, goal spatial.Pose, solveFrame, goalFrame frame.Frame) ([]map[string][]frame.Input, error) {
 
 	// Get parentage of both frames. This will also verify the frames are in the frame system
 	sFrames, err := fss.TracebackFrame(solveFrame)
@@ -49,7 +49,12 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 	if len(sf.DoF()) == 0 {
 		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 	}
-	solver, err := CreateCombinedIKSolver(sf, fss.logger, runtime.NumCPU()/2)
+	var planner MotionPlanner
+	if fss.mpFunc != nil {
+		planner, err = fss.mpFunc(sf, runtime.NumCPU()/2, fss.logger)
+	} else {
+		planner, err = NewCBiRRTMotionPlanner(sf, runtime.NumCPU()/2, fss.logger)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -57,12 +62,23 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 	seed := sf.mapToSlice(seedMap)
 
 	// Solve for the goal position
-	resultSlice, err := solver.Solve(ctx, spatial.PoseToProtobuf(goal), seed)
+	resultSlices, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed)
 	if err != nil {
-		return nil, multierr.Combine(err, solver.Close())
+		return nil, err
+	}
+	steps := make([]map[string][]frame.Input, 0, len(resultSlices))
+	for _, resultSlice := range resultSlices {
+		steps = append(steps, sf.sliceToMap(resultSlice))
 	}
 
-	return sf.sliceToMap(resultSlice), solver.Close()
+	return steps, nil
+}
+
+// SetPlannerGen sets the function which is used to create the motion planner to solve a requested plan.
+// A SolvableFrameSystem wraps a complete frame system, and will make solverFrames on the fly to solve for. These
+// solverFrames are used to create the planner here.
+func (fss *SolvableFrameSystem) SetPlannerGen(mpFunc func(frame.Frame, int, golog.Logger) (MotionPlanner, error)) {
+	fss.mpFunc = mpFunc
 }
 
 // solverFrames are meant to be ephemerally created each time a frame system solution is created, and fulfills the
@@ -85,13 +101,30 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if len(inputs) != len(sf.DoF()) {
 		return nil, fmt.Errorf("incorrect number of inputs to Transform got %d want %d", len(inputs), len(sf.DoF()))
 	}
-	pos := frame.StartPositions(sf.fss)
-	i := 0
-	for _, frame := range sf.frames {
-		pos[frame.Name()] = inputs[i : i+len(frame.DoF())]
-		i += len(frame.DoF())
+	return sf.fss.TransformFrame(sf.sliceToMap(inputs), sf.solveFrame, sf.goalFrame)
+}
+
+// VerboseTransform takes a solverFrame and a list of joint angles in radians and computes the dual quaterions
+// representing poses of each of the intermediate frames (if any exist) up to and including the end effector, and
+// returns a map of frame names to poses. The key for each frame in the map will be the string
+// "<model_name>:<frame_name>"
+func (sf *solverFrame) VerboseTransform(inputs []frame.Input) (map[string]spatial.Pose, error) {
+	if len(inputs) != len(sf.DoF()) {
+		return nil, errors.New("incorrect number of inputs to transform")
 	}
-	return sf.fss.TransformFrame(pos, sf.solveFrame, sf.goalFrame)
+	var err error
+	inputMap := sf.sliceToMap(inputs)
+	poseMap := make(map[string]spatial.Pose)
+	for _, frame := range sf.frames {
+		pm, err := sf.fss.VerboseTransformFrame(inputMap, frame, sf.goalFrame)
+		if err != nil {
+			return nil, err
+		}
+		for name, pose := range pm {
+			poseMap[name] = pose
+		}
+	}
+	return poseMap, err
 }
 
 // DoF returns the summed DoF of all frames between the two solver frames.
@@ -114,7 +147,7 @@ func (sf *solverFrame) mapToSlice(inputMap map[string][]frame.Input) []frame.Inp
 }
 
 func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.Input {
-	inputs := map[string][]frame.Input{}
+	inputs := frame.StartPositions(sf.fss)
 	i := 0
 	for _, frame := range sf.frames {
 		inputs[frame.Name()] = inputSlice[i : i+len(frame.DoF())]

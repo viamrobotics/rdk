@@ -11,10 +11,17 @@ import (
 	"github.com/go-nlopt/nlopt"
 	"go.uber.org/multierr"
 
-	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
 )
+
+var (
+	errNoSolve     = errors.New("kinematics could not solve for position")
+	errBadBounds   = errors.New("cannot set upper or lower bounds for nlopt, slice is empty. Are you trying to move a static frame?")
+	errTooManyVals = errors.New("passed in too many joint positions")
+)
+
+const constrainedTries = 30
 
 // NloptIK TODO
 type NloptIK struct {
@@ -25,30 +32,29 @@ type NloptIK struct {
 	iterations    int
 	maxIterations int
 	epsilon       float64
-	goals         []goal
+	goal          goal
 	opt           *nlopt.NLopt
 	logger        golog.Logger
 	jump          float64
 	randSeed      *rand.Rand
-	SolveWeights  frame.SolverDistanceWeights
+	metric        Metric
 }
 
 // CreateNloptIKSolver TODO
-func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK, error) {
-	ik := &NloptIK{id: id, logger: logger}
+func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error) {
+	ik := &NloptIK{logger: logger}
 	ik.randSeed = rand.New(rand.NewSource(1))
 	ik.model = mdl
+	ik.id = 0
 	// How close we want to get to the goal
 	ik.epsilon = 0.001
 	// The absolute smallest value able to be represented by a float64
-	floatEpsilon := math.Nextafter(1, 2) - 1
+	floatEpsilon := math.Pow(ik.epsilon, 4)
 	ik.maxIterations = 5000
 	ik.iterations = 0
 	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.DoF())
 	// How much to adjust joints to determine slope
 	ik.jump = 0.00000001
-
-	ik.SolveWeights = frame.SolverDistanceWeights{frame.XYZWeights{1.0, 1.0, 1.0}, frame.XYZTHWeights{1.0, 1.0, 1.0, 1.0}}
 
 	// May eventually need to be destroyed to prevent memory leaks
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
@@ -57,6 +63,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 		return nil, fmt.Errorf("nlopt creation error: %w", err)
 	}
 	ik.opt = opt
+	ik.metric = NewSquaredNormMetric()
 
 	// x is our joint positions
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
@@ -71,19 +78,8 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 			err = ik.opt.ForceStop()
 			ik.logger.Errorf("forcestop error %q", err)
 		}
-		dx := make([]float64, 6)
 
-		// Update dx with the delta to the desired position
-		for _, nextGoal := range ik.getGoals() {
-			dxDelta := spatial.PoseDelta(eePos, nextGoal.GoalTransform)
-
-			dxIdx := nextGoal.EffectorID * len(dxDelta)
-			for i, delta := range dxDelta {
-				dx[dxIdx+i] = delta
-			}
-		}
-
-		dist := WeightedSquaredNorm(dx, ik.SolveWeights)
+		dist := ik.metric(eePos, ik.goal.GoalTransform)
 
 		if len(gradient) > 0 {
 			for i := range gradient {
@@ -96,15 +92,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 					err = ik.opt.ForceStop()
 					ik.logger.Errorf("forcestop error %q", err)
 				}
-				dx2 := make([]float64, 6)
-				for _, nextGoal := range ik.getGoals() {
-					dxDelta := spatial.PoseDelta(eePos, nextGoal.GoalTransform)
-					dxIdx := nextGoal.EffectorID * len(dxDelta)
-					for i, delta := range dxDelta {
-						dx2[dxIdx+i] = delta
-					}
-				}
-				dist2 := WeightedSquaredNorm(dx2, ik.SolveWeights)
+				dist2 := ik.metric(eePos, ik.goal.GoalTransform)
 
 				gradient[i] = (dist2 - dist) / (2 * ik.jump)
 			}
@@ -112,7 +100,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 		return dist
 	}
 	if len(ik.lowerBound) == 0 || len(ik.upperBound) == 0 {
-		return nil, errors.New("cannot set upper or lower bounds for nlopt, slice is empty")
+		return nil, errBadBounds
 	}
 
 	err = multierr.Combine(
@@ -124,7 +112,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 		opt.SetUpperBounds(ik.upperBound),
 		opt.SetXtolAbs1(floatEpsilon),
 		opt.SetXtolRel(floatEpsilon),
-		opt.SetMaxEval(8001),
+		opt.SetMaxEval(4001),
 	)
 
 	if err != nil {
@@ -135,69 +123,69 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, id int) (*NloptIK
 }
 
 // addGoal adds a nlopt IK goal
-func (ik *NloptIK) addGoal(newGoal *commonpb.Pose, effectorID int) {
+func (ik *NloptIK) addGoal(newGoal spatial.Pose, effectorID int) {
 
-	goalQuat := spatial.NewPoseFromProtobuf(newGoal)
-	ik.goals = append(ik.goals, goal{goalQuat, effectorID})
+	ik.goal = goal{newGoal, effectorID}
 }
 
 // clearGoals clears all goals for the Ik object
-func (ik *NloptIK) clearGoals() {
-	ik.goals = []goal{}
+func (ik *NloptIK) clearGoal() {
+	ik.goal = goal{}
 }
 
-// GetGoals returns the list of all current goal positions
-func (ik *NloptIK) getGoals() []goal {
-	return ik.goals
+// SetMetric sets the function for distance between two poses
+func (ik *NloptIK) SetMetric(m Metric) {
+	ik.metric = m
 }
 
-// SetSolveWeights sets the slve weights
-func (ik *NloptIK) SetSolveWeights(weights frame.SolverDistanceWeights) {
-	ik.SolveWeights = weights
+// SetMaxIter sets the number of times the solver will iterate
+func (ik *NloptIK) SetMaxIter(i int) {
+	ik.maxIterations = i
 }
 
 // Solve runs the actual solver and returns a list of all
-func (ik *NloptIK) Solve(ctx context.Context, newGoal *commonpb.Pose, seed []frame.Input) ([]frame.Input, error) {
+func (ik *NloptIK) Solve(ctx context.Context, c chan<- []frame.Input, newGoal spatial.Pose, seed []frame.Input) error {
 	var err error
 
 	// Allow ~160 degrees of swing at most
 	tries := 1
 	ik.iterations = 0
-	startingPos := ik.GenerateRandomPositions()
+	solutionsFound := 0
+	startingPos := seed
+	if ik.id > 0 {
 
-	// Solver with ID 1 seeds off current angles
-	if ik.id == 1 {
-		if len(seed) > len(ik.model.DoF()) {
-			return nil, errors.New("passed in too many joint positions")
-		}
-		startingPos = seed
+		// Solver with ID 1 seeds off current angles
+		if ik.id == 1 {
+			if len(seed) > len(ik.model.DoF()) {
+				return errTooManyVals
+			}
+			startingPos = seed
 
-		// Set initial restrictions on joints for more intuitive movement
-		err = ik.updateBounds(startingPos, tries)
-		if err != nil {
-			return nil, err
+			// Set initial restrictions on joints for more intuitive movement
+			err = ik.updateBounds(startingPos, tries)
+			if err != nil {
+				return err
+			}
+		} else {
+			// Solvers whose ID is not 1 should skip ahead directly to trying random seeds
+			startingPos = ik.GenerateRandomPositions()
+			tries = constrainedTries
 		}
-	} else {
-		//~ // Solvers whose ID is not 1 should skip ahead directly to trying random seeds
-		tries = 30
 	}
 	ik.addGoal(newGoal, 0)
-	defer ik.clearGoals()
+	defer ik.clearGoal()
 
 	select {
 	case <-ctx.Done():
 		ik.logger.Info("solver halted before solving start; possibly solving twice in a row?")
-		return nil, err
+		return err
 	default:
 	}
 
-	var solutions [][]frame.Input
-
 	for ik.iterations < ik.maxIterations {
-		retrySeed := false
 		select {
 		case <-ctx.Done():
-			return nil, err
+			return ctx.Err()
 		default:
 		}
 		ik.iterations++
@@ -209,42 +197,34 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *commonpb.Pose, seed []fra
 		}
 
 		if result < ik.epsilon*ik.epsilon {
-			solution := frame.FloatsToInputs(solutionRaw)
-			// Return immediately if we have a "natural" solution, i.e. one where the halfway point is on the way
-			// to the end point
-			swing, newErr := calcSwingAmount(seed, solution, ik.model)
-			if newErr != nil {
-				// out-of-bounds angles. Shouldn't happen, but if it does, record the error and move on without
-				// keeping the invalid solution
-				err = multierr.Combine(err, newErr)
-			} else if swing < goodSwingAmt {
-				return solution, err
-			} else {
-				solutions = append(solutions, solution)
+			select {
+			case <-ctx.Done():
+				return err
+			case c <- frame.FloatsToInputs(solutionRaw):
 			}
+			solutionsFound++
 		}
 		tries++
-		if tries < 30 {
+		if ik.id > 0 && tries < constrainedTries {
 			err = ik.updateBounds(seed, tries)
 			if err != nil {
-				return nil, err
+				return err
 			}
-		} else if !retrySeed {
+		} else {
 			err = multierr.Combine(
 				ik.opt.SetLowerBounds(ik.lowerBound),
 				ik.opt.SetUpperBounds(ik.upperBound),
 			)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			startingPos = ik.GenerateRandomPositions()
 		}
 	}
-	if len(solutions) > 0 {
-		solution, _, err := bestSolution(seed, solutions, ik.model)
-		return solution, err
+	if solutionsFound > 0 {
+		return nil
 	}
-	return nil, multierr.Combine(errors.New("kinematics could not solve for position"), err)
+	return multierr.Combine(err, errNoSolve)
 }
 
 // SetSeed sets the random seed of this solver
@@ -274,8 +254,8 @@ func (ik *NloptIK) GenerateRandomPositions() []frame.Input {
 	return pos
 }
 
-// Model returns the associated model
-func (ik *NloptIK) Model() frame.Frame {
+// Frame returns the associated frame
+func (ik *NloptIK) Frame() frame.Frame {
 	return ik.model
 }
 
@@ -284,6 +264,14 @@ func (ik *NloptIK) Close() error {
 	err := ik.opt.ForceStop()
 	ik.opt.Destroy()
 	return err
+}
+
+// UpdateBounds updates the lower/upper bounds
+func (ik *NloptIK) UpdateBounds(lower, upper []float64) error {
+	return multierr.Combine(
+		ik.opt.SetLowerBounds(lower),
+		ik.opt.SetUpperBounds(upper),
+	)
 }
 
 // updateBounds will set the allowable maximum/minimum joint angles to disincentivise large swings before small swings
