@@ -37,6 +37,9 @@ func createWorkingMotor() *inject.Motor {
 	return injectMotor
 }
 
+// (kat) TODO:
+// Test state and action mutexes behavior that have been added together with slip control.
+
 func TestNew(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
