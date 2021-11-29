@@ -33,7 +33,6 @@ const (
 	ResourceSubtypeCamera          = SubtypeName("camera")
 	ResourceSubtypeCompass         = SubtypeName("compass")
 	ResourceSubtypeFunction        = SubtypeName("function")
-	ResourceSubtypeGripper         = SubtypeName("gripper")
 	ResourceSubtypeLidar           = SubtypeName("lidar")
 	ResourceSubtypeRemote          = SubtypeName("remote")
 	ResourceSubtypeSensor          = SubtypeName("sensor")
