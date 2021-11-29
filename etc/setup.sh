@@ -45,6 +45,7 @@ if [ "$(uname)" == "Linux" ]; then
 		eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 		export LIBRARY_PATH=/home/linuxbrew/.linuxbrew/lib
 		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
+		export CC=gcc
 	fi
 	EOS
 
@@ -101,7 +102,6 @@ brew bundle --file=- <<-EOS
 
 tap  "bufbuild/buf"
 tap  "viamrobotics/brews"
-brew "gcc@5" #Needed for cgo
 brew "make"
 brew "cmake"
 brew "pkgconfig"
