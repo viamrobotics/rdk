@@ -4,7 +4,6 @@ package imu
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-errors/errors"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/spatialmath"
