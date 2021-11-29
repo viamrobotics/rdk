@@ -34,9 +34,6 @@ type Robot interface {
 	// ArmByName returns an arm by name.
 	ArmByName(name string) (arm.Arm, bool)
 
-	// IMUByName returns an imu by name.
-	IMUByName(name string) (imu.IMU, bool)
-
 	// BaseByName returns a base by name.
 	BaseByName(name string) (base.Base, bool)
 
@@ -76,9 +73,6 @@ type Robot interface {
 
 	// ArmNames returns the name of all known arms.
 	ArmNames() []string
-
-	// IMUNames returns the name of all known IMUs.
-	IMUNames() []string
 
 	// GripperNames returns the name of all known grippers.
 	GripperNames() []string
