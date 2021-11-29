@@ -2,6 +2,7 @@ package gripper_test
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 
@@ -32,7 +33,7 @@ func TestClient(t *testing.T) {
 	var gripperOpen string
 
 	gripper1 := "gripper1"
-	grabbed1 := false
+	grabbed1 := true
 	injectGripper := &inject.Gripper{}
 	injectGripper.OpenFunc = func(ctx context.Context) error {
 		gripperOpen = gripper1
@@ -41,13 +42,12 @@ func TestClient(t *testing.T) {
 	injectGripper.GrabFunc = func(ctx context.Context) (bool, error) { return grabbed1, nil }
 
 	gripper2 := "gripper2"
-	grabbed2 := true
 	injectGripper2 := &inject.Gripper{}
 	injectGripper2.OpenFunc = func(ctx context.Context) error {
 		gripperOpen = gripper2
-		return nil
+		return errors.New("can't open")
 	}
-	injectGripper2.GrabFunc = func(ctx context.Context) (bool, error) { return grabbed2, nil }
+	injectGripper2.GrabFunc = func(ctx context.Context) (bool, error) { return false, errors.New("can't grab") }
 
 	gripperSvc, err := subtype.New((map[resource.Name]interface{}{gripper.Named(gripper1): injectGripper, gripper.Named(gripper2): injectGripper2}))
 	test.That(t, err, test.ShouldBeNil)
@@ -86,12 +86,14 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		err = gripper2Client.Open(context.Background())
-		test.That(t, err, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't open")
 		test.That(t, gripperOpen, test.ShouldEqual, gripper2)
 
 		grabbed, err := gripper2Client.Grab(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, grabbed, test.ShouldEqual, grabbed2)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't grab")
+		test.That(t, grabbed, test.ShouldEqual, false)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
