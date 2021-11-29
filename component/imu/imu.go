@@ -65,19 +65,6 @@ func (r *reconfigurableIMU) Close() error {
 	return viamutils.TryClose(r.actual)
 }
 
-func (r *reconfigurableIMU) replace(newSensor sensor.Sensor) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	actual, ok := newSensor.(*reconfigurableIMU)
-	if !ok {
-		panic(fmt.Errorf("expected new sensor to be %T but got %T", actual, newSensor))
-	}
-	if err := viamutils.TryClose(r.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	r.actual = actual.actual
-}
-
 func (r *reconfigurableIMU) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
