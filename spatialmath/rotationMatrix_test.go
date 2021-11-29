@@ -13,15 +13,19 @@ func TestQuaternionConversion(t *testing.T) {
 	// http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/examples/index.htm
 	cos45 := 0.7071067811865476
 	cases := []struct {
-		input    *RotationMatrix
+		input    *rotationMatrix
 		expected quat.Number
 	}{
 		{
-			NewRotationMatrix(),
+			&rotationMatrix{
+				1, 0, 0,
+				0, 1, 0,
+				0, 0, 1,
+			},
 			NewZeroOrientation().Quaternion(),
 		},
 		{
-			&RotationMatrix{
+			&rotationMatrix{
 				0, 0, -1,
 				0, 1, 0,
 				1, 0, 0,
@@ -29,7 +33,7 @@ func TestQuaternionConversion(t *testing.T) {
 			quat.Number{cos45, 0, cos45, 0},
 		},
 		{
-			&RotationMatrix{
+			&rotationMatrix{
 				-1, 0, 0,
 				0, 1, 0,
 				0, 0, -1,
@@ -37,7 +41,7 @@ func TestQuaternionConversion(t *testing.T) {
 			quat.Number{0, 0, 1, 0},
 		},
 		{
-			&RotationMatrix{
+			&rotationMatrix{
 				0, 1, 0,
 				-1, 0, 0,
 				0, 0, 1,
@@ -45,7 +49,7 @@ func TestQuaternionConversion(t *testing.T) {
 			quat.Number{cos45, 0, 0, cos45},
 		},
 		{
-			&RotationMatrix{
+			&rotationMatrix{
 				1, 0, 0,
 				0, 0, 1,
 				0, -1, 0,
@@ -60,7 +64,7 @@ func TestQuaternionConversion(t *testing.T) {
 }
 
 func TestMatrixRows(t *testing.T) {
-	rm := RotationMatrix{
+	rm := rotationMatrix{
 		1, 2, 3,
 		4, 5, 6,
 		7, 8, 9,
