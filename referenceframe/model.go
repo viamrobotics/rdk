@@ -15,33 +15,6 @@ type ModelFramer interface {
 	ModelFrame() *Model
 }
 
-// XYZWeights Defines a struct into which XYZ values can be parsed from JSON
-type XYZWeights struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-	Z float64 `json:"z"`
-}
-
-// XYZTHWeights Defines a struct into which XYZ + theta values can be parsed from JSON
-type XYZTHWeights struct {
-	X  float64 `json:"x"`
-	Y  float64 `json:"y"`
-	Z  float64 `json:"z"`
-	TH float64 `json:"th"`
-}
-
-// SolverDistanceWeights values are used to augment the distance check for a given IK solution.
-// For each component of a 6d pose, the distance from current position to goal is
-// squared and then multiplied by the corresponding weight in this struct. The results
-// are summed and that sum must be below a certain threshold.
-// So values > 1 forces the IK algorithm to get that value closer to perfect than it
-// otherwise would have, and values < 1 cause it to be more lax. A value of 0.0 will cause
-// that dimension to not be considered at all.
-type SolverDistanceWeights struct {
-	Trans  XYZWeights   `json:"translation"`
-	Orient XYZTHWeights `json:"orientation"`
-}
-
 // Model TODO
 // Generally speaking, a Joint will attach a Body to a Frame
 // And a Fixed will attach a Frame to a Body
@@ -50,13 +23,11 @@ type Model struct {
 	name string // the name of the arm
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	OrdTransforms []Frame
-	SolveWeights  SolverDistanceWeights
 }
 
 // NewModel constructs a new model.
 func NewModel() *Model {
 	m := Model{}
-	m.SolveWeights = SolverDistanceWeights{XYZWeights{1.0, 1.0, 1.0}, XYZTHWeights{1.0, 1.0, 1.0, 1.0}}
 	return &m
 }
 
@@ -101,32 +72,52 @@ func (m *Model) ChangeName(name string) {
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
 func (m *Model) Transform(inputs []Input) (spatialmath.Pose, error) {
-	pos := make([]float64, len(inputs))
-	for i, input := range inputs {
-		pos[i] = input.Value
+	poses, err := m.jointRadToQuats(inputs)
+	if err != nil && poses == nil {
+		return nil, err
 	}
-	return m.JointRadToQuat(pos)
+	return poses[len(poses)-1].transform, err
 }
 
-// JointRadToQuat takes a model and a list of joint angles in radians and computes the dual quaternion representing the
-// cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
-func (m *Model) JointRadToQuat(radAngles []float64) (spatialmath.Pose, error) {
-	poses, err := m.GetPoses(radAngles)
+// VerboseTransform takes a model and a list of joint angles in radians and computes the dual quaterions representing
+// the pose of each of the intermediate frames (if any exist) up to and including the end effector, and returns a map
+// of frame names to poses. The key for each frame in the map will be the string "<model_name>:<frame_name>"
+func (m *Model) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, error) {
+	poses, err := m.jointRadToQuats(inputs)
+	if err != nil && poses == nil {
+		return nil, err
+	}
+	poseMap := make(map[string]spatialmath.Pose)
+	for _, pose := range poses {
+		poseMap[m.name+":"+pose.name] = pose.transform
+	}
+	return poseMap, err
+}
+
+// jointRadToQuats takes a model and a list of joint angles in radians and computes the dual quaternion representing the
+// cartesian position of each of the links up to and including the end effector. This is useful for when conversions
+// between quaternions and OV are not needed.
+func (m *Model) jointRadToQuats(inputs []Input) ([]staticFrame, error) {
+	joints := InputsToFloats(inputs)
+	poses, err := m.getPoses(joints)
 	if err != nil && poses == nil {
 		return nil, err
 	}
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
-	transformations := spatialmath.NewZeroPose()
+	composedTransformation := spatialmath.NewZeroPose()
+	var transformations []staticFrame
 	for _, pose := range poses {
-		transformations = spatialmath.Compose(transformations, pose)
+		composedTransformation = spatialmath.Compose(composedTransformation, pose.transform)
+		pose.transform = composedTransformation
+		transformations = append(transformations, pose)
 	}
 	return transformations, err
 }
 
-// GetPoses returns the list of Poses which, when multiplied together in order, will yield the
+// getPoses returns the list of Poses which, when multiplied together in order, will yield the
 // Pose representing the 6d cartesian position of the end effector.
-func (m *Model) GetPoses(pos []float64) ([]spatialmath.Pose, error) {
-	quats := make([]spatialmath.Pose, len(m.OrdTransforms))
+func (m *Model) getPoses(pos []float64) ([]staticFrame, error) {
+	quats := make([]staticFrame, len(m.OrdTransforms))
 	var errAll error
 	posIdx := 0
 	// OrdTransforms is ordered from end effector -> base, so we reverse the list to get quaternions from the base outwards.
@@ -146,8 +137,7 @@ func (m *Model) GetPoses(pos []float64) ([]spatialmath.Pose, error) {
 			return nil, err
 		}
 		multierr.AppendInto(&errAll, err)
-		quats[len(quats)-i-1] = quat
-
+		quats[len(quats)-i-1] = staticFrame{transform.Name(), quat}
 	}
 	return quats, errAll
 }
@@ -183,7 +173,6 @@ func (m *Model) MarshalJSON() ([]byte, error) {
 		"name":                 m.name,
 		"kinematic_param_type": "frames",
 		"frames":               m.OrdTransforms,
-		"tolerances":           m.SolveWeights,
 	})
 }
 
@@ -195,10 +184,6 @@ func (m *Model) AlmostEquals(otherFrame Frame) bool {
 	}
 
 	if m.name != other.name {
-		return false
-	}
-
-	if m.SolveWeights != other.SolveWeights {
 		return false
 	}
 

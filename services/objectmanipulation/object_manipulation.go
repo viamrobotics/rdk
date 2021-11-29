@@ -10,7 +10,7 @@ import (
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/core/config"
-	"go.viam.com/core/kinematics"
+	"go.viam.com/core/motionplan"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -85,7 +85,7 @@ func (mgs objectMService) moveGripper(ctx context.Context, gripperName, rootName
 	if err != nil {
 		return err
 	}
-	solver := kinematics.NewSolvableFrameSystem(frameSys, r.Logger())
+	solver := motionplan.NewSolvableFrameSystem(frameSys, r.Logger())
 	// get the initial inputs
 	input := referenceframe.StartPositions(solver)
 
@@ -146,16 +146,17 @@ func (mgs objectMService) moveGripper(ctx context.Context, gripperName, rootName
 		return err
 	}
 
-	// TODO(erh): what order? parallel?
-	for n, v := range output {
-		if len(v) == 0 {
-			continue
-		}
-		err := resources[n].GoToInputs(ctx, v)
-		if err != nil {
-			return err
+	for _, step := range output {
+		// TODO(erh): what order? parallel?
+		for n, v := range step {
+			if len(v) == 0 {
+				continue
+			}
+			err := resources[n].GoToInputs(ctx, v)
+			if err != nil {
+				return err
+			}
 		}
 	}
-
 	return nil
 }

@@ -34,11 +34,14 @@ func (q *quaternion) EulerAngles() *EulerAngles {
 	return QuatToEulerAngles(q.Quaternion())
 }
 
+<<<<<<< HEAD
 // RotationMatrix returns the orientation in rotation matrix representation
 func (q *quaternion) RotationMatrix() *RotationMatrix {
 	return QuatToRotationMatrix(q.Quaternion())
 }
 
+=======
+>>>>>>> c44687d2de3db148fadcacb96f9105d837abafbf
 // QuatToEulerAngles converts a quaternion to the euler angle representation. Algorithm from Wikipedia.
 // https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_angles_conversion
 func QuatToEulerAngles(q quat.Number) *EulerAngles {
@@ -174,6 +177,7 @@ func QuatToR3AA(q quat.Number) R3AA {
 	return R3AA{angle * q.Imag / denom, angle * q.Jmag / denom, angle * q.Kmag / denom}
 }
 
+<<<<<<< HEAD
 // QuatToRotationMatrix converts a quat to a Rotation Matrix
 // reference: https://github.com/go-gl/mathgl/blob/592312d8590acb0686c14740dcf60e2f32d9c618/mgl64/quat.go#L168
 func QuatToRotationMatrix(q quat.Number) *RotationMatrix {
@@ -185,6 +189,8 @@ func QuatToRotationMatrix(q quat.Number) *RotationMatrix {
 	}
 }
 
+=======
+>>>>>>> c44687d2de3db148fadcacb96f9105d837abafbf
 // Used for interpolating orientations.
 // Intro to lerp vs slerp: https://threadreaderapp.com/thread/1176137498323501058.html
 func slerp(qN1, qN2 quat.Number, by float64) quat.Number {

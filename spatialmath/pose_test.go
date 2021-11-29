@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 
-	//~ "fmt"
 	"testing"
 
 	"go.viam.com/test"
@@ -102,6 +101,7 @@ func TestPoseInterpolation(t *testing.T) {
 func TestLidarPose(t *testing.T) {
 	ea := NewEulerAngles()
 	// 45 degrees above horizon
+	// Positive pitch rotation rotates from the default of pointing up at the +Z axis, forwards towards the +X axis.
 	ea.Pitch = math.Pi / 4
 	// Point to the left (at positive Y axis)
 	ea.Yaw = math.Pi / 2

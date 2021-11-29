@@ -15,6 +15,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/kinematics"
+	"go.viam.com/core/motionplan"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	componentpb "go.viam.com/core/proto/api/component/v1"
 	frame "go.viam.com/core/referenceframe"
@@ -97,22 +98,25 @@ func init() {
 type dofBot struct {
 	handle board.I2CHandle
 	model  *frame.Model
-	ik     kinematics.InverseKinematics
+	mp     motionplan.MotionPlanner
 	mu     sync.Mutex
 	muMove sync.Mutex
 }
 
-func createDofBotSolver(logger golog.Logger) (*frame.Model, kinematics.InverseKinematics, error) {
+func createDofBotSolver(logger golog.Logger) (*frame.Model, motionplan.MotionPlanner, error) {
 	model, err := dofbotModel()
 	if err != nil {
 		return nil, nil, err
 	}
-	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	if err != nil {
 		return nil, nil, err
 	}
-	ik.SetSolveWeights(model.SolveWeights)
-	return model, ik, nil
+	// dofbot las limited dof
+	opt := motionplan.NewDefaultPlannerOptions()
+	opt.SetMetric(motionplan.NewPositionOnlyMetric())
+	mp.SetOptions(opt)
+	return model, mp, nil
 }
 
 func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
@@ -135,7 +139,7 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 		return nil, err
 	}
 
-	a.model, a.ik, err = createDofBotSolver(logger)
+	a.model, a.mp, err = createDofBotSolver(logger)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +153,7 @@ func (a *dofBot) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(a.ik.Model(), joints)
+	return kinematics.ComputePosition(a.mp.Frame(), joints)
 }
 
 // MoveToPosition moves the arm to the given absolute position.
@@ -158,11 +162,11 @@ func (a *dofBot) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	solution, err := a.ik.Solve(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := a.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
-	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
+	return arm.GoToWaypoints(ctx, a, solution)
 }
 
 // MoveToJointPositions moves the arm's joints to the given positions.

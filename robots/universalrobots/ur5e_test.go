@@ -15,6 +15,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/core/kinematics"
+	"go.viam.com/core/motionplan"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
@@ -77,11 +78,12 @@ func testUR5eInverseKinements(t *testing.T, pos *commonpb.Pose) {
 
 	m, err := frame.ParseJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := kinematics.CreateCombinedIKSolver(m, logger, 4)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(m, 4, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	solution, err := ik.Solve(ctx, pos, frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}))
+	steps, err := mp.Plan(ctx, pos, frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}))
 	test.That(t, err, test.ShouldBeNil)
+	solution := steps[len(steps)-1]
 
 	// we test that if we go forward from these joints, we end up in the same place
 	jointRadians := frame.InputsToFloats(solution)

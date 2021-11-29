@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/component/arm"
 	"go.viam.com/core/kinematics"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	pb "go.viam.com/core/proto/api/component/v1"
@@ -377,7 +378,7 @@ func (x *xArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(x.ik.Model(), joints)
+	return kinematics.ComputePosition(x.mp.Frame(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
@@ -386,11 +387,11 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	solution, err := x.ik.Solve(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := x.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
-	return x.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
+	return arm.GoToWaypoints(ctx, x, solution)
 }
 
 // CurrentJointPositions returns the current positions of all joints.
