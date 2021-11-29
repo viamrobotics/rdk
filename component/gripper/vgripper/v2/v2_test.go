@@ -170,7 +170,7 @@ func TestCalibrate(t *testing.T) {
 			numBadCurrentReadings: 0,
 			pressureLimit:         pressureLimit,
 		}
-		err := injectedGripper.calibrate(context.Background(), logger)
+		err := injectedGripper.calibrate(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -201,7 +201,7 @@ func TestCalibrate(t *testing.T) {
 			numBadCurrentReadings: 0,
 			pressureLimit:         pressureLimit,
 		}
-		err := injectedGripper.calibrate(context.Background(), logger)
+		err := injectedGripper.calibrate(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
@@ -228,7 +228,7 @@ func TestOpen(t *testing.T) {
 			openPos:               openPosition,
 			stateMu:               &sync.Mutex{},
 			actionMu:              &sync.Mutex{},
-			state:                 gripperState_UNSPECIFIED,
+			state:                 gripperStateUNSPECIFIED,
 		}
 		err := injectedGripper.Open(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -249,7 +249,7 @@ func TestOpen(t *testing.T) {
 			openPos:               openPosition,
 			stateMu:               &sync.Mutex{},
 			actionMu:              &sync.Mutex{},
-			state:                 gripperState_UNSPECIFIED,
+			state:                 gripperStateUNSPECIFIED,
 		}
 		err := injectedGripper.Open(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
@@ -276,7 +276,7 @@ func TestOpen(t *testing.T) {
 			numBadCurrentReadings: 0,
 			stateMu:               &sync.Mutex{},
 			actionMu:              &sync.Mutex{},
-			state:                 gripperState_UNSPECIFIED,
+			state:                 gripperStateUNSPECIFIED,
 		}
 		err := injectedGripper.Open(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
@@ -327,7 +327,7 @@ func TestGrab(t *testing.T) {
 			pressureLimit:         pressureLimit,
 			stateMu:               &sync.Mutex{},
 			actionMu:              &sync.Mutex{},
-			state:                 gripperState_UNSPECIFIED,
+			state:                 gripperStateUNSPECIFIED,
 		}
 		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
@@ -369,7 +369,7 @@ func TestGrab(t *testing.T) {
 			pressureLimit:         pressureLimit,
 			stateMu:               &sync.Mutex{},
 			actionMu:              &sync.Mutex{},
-			state:                 gripperState_UNSPECIFIED,
+			state:                 gripperStateUNSPECIFIED,
 		}
 		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -410,7 +410,7 @@ func TestGrab(t *testing.T) {
 			pressureLimit:         pressureLimit,
 			stateMu:               &sync.Mutex{},
 			actionMu:              &sync.Mutex{},
-			state:                 gripperState_UNSPECIFIED,
+			state:                 gripperStateUNSPECIFIED,
 		}
 		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -451,7 +451,7 @@ func TestGrab(t *testing.T) {
 			pressureLimit:         pressureLimit,
 			stateMu:               &sync.Mutex{},
 			actionMu:              &sync.Mutex{},
-			state:                 gripperState_UNSPECIFIED,
+			state:                 gripperStateUNSPECIFIED,
 		}
 		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)

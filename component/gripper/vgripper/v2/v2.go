@@ -4,7 +4,6 @@ package vgripper
 import (
 	"context"
 	_ "embed" // used to import model frame
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -46,12 +45,11 @@ const (
 	targetRPM               = 200
 	maxCurrent              = 300
 	currentBadReadingCounts = 50
-	openPosOffset           = 0.4   // Reduce maximum opening width, keeps out of mechanical binding region
-	numMeasurementsCalib    = 10    // Number of measurements at each end position taken when calibrating the gripper
-	positionTolerance       = 1     // Tolerance for motor position when reaching the open or closed position
-	openTimeout             = 5000  // unit: [ms]
-	grabTimeout             = 5000  // unit: [ms]
-	holdingPressure         = 0.005 //  percentage of power the gripper uses to hold an item; range: [0-1]
+	openPosOffset           = 0.4  // Reduce maximum opening width, keeps out of mechanical binding region
+	numMeasurementsCalib    = 10   // Number of measurements at each end position taken when calibrating the gripper
+	positionTolerance       = 1    // Tolerance for motor position when reaching the open or closed position
+	openTimeout             = 5000 // unit: [ms]
+	grabTimeout             = 5000 // unit: [ms]
 )
 
 // gripperV2 represents a Viam gripper which operates with a ForceMatrix.
@@ -62,7 +60,7 @@ type gripperV2 struct {
 	forceMatrix forcematrix.ForceMatrix
 
 	// parameters that are set by the user
-	holdingPressure               float32
+	holdingPressure               float32 //  percentage of power the gripper uses to hold an item; range: [0-1]
 	pressureLimit                 float64
 	calibrationNoiseThreshold     float64
 	timeStepSizeInMilliseconds    float64
@@ -70,7 +68,7 @@ type gripperV2 struct {
 	activatedAntiSlipForceControl bool // flag
 
 	// action state machine
-	state    gripperState
+	state    GripperState
 	stateMu  *sync.Mutex
 	actionMu *sync.Mutex
 
@@ -148,7 +146,7 @@ func new(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		pressureStepSize:              pressureStepSize,
 		activatedAntiSlipForceControl: activatedAntiSlipForceControl,
 		// action state machine
-		state:    gripperState_UNSPECIFIED,
+		state:    gripperStateUNSPECIFIED,
 		stateMu:  &sync.Mutex{},
 		actionMu: &sync.Mutex{},
 		// switchActionChannel: make(chan bool),
@@ -157,7 +155,7 @@ func new(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		model:  model,
 	}
 
-	if err := vg.Calibrate(ctx, logger); err != nil {
+	if err := vg.Calibrate(ctx); err != nil {
 		return nil, err
 	}
 
@@ -168,13 +166,15 @@ func new(ctx context.Context, r robot.Robot, config config.Component, logger gol
 	return vg, nil
 }
 
+// Idle sets the state to a passive state that is neither grabbing nor opening.
 func (vg *gripperV2) Idle() {
 	vg.stateMu.Lock()
-	vg.state = gripperState_IDLE
+	vg.state = gripperStateIDLE
 	defer vg.stateMu.Unlock()
 }
 
-func (vg *gripperV2) State() gripperState {
+// State returns the state of the gripper.
+func (vg *gripperV2) State() GripperState {
 	vg.stateMu.Lock()
 	defer vg.stateMu.Unlock()
 	return vg.state
@@ -182,20 +182,20 @@ func (vg *gripperV2) State() gripperState {
 
 // Calibrate finds the open and close position, as well as which motor direction
 // corresponds to opening and closing the gripper.
-func (vg *gripperV2) Calibrate(ctx context.Context, logger golog.Logger) error {
+func (vg *gripperV2) Calibrate(ctx context.Context) error {
 	vg.stateMu.Lock()
-	vg.state = gripperState_CALIBRATING
+	vg.state = gripperStateCALIBRATING
 	vg.stateMu.Unlock()
 	vg.actionMu.Lock()
 	defer vg.actionMu.Unlock()
 	defer vg.Idle()
-	return vg.calibrate(ctx, logger)
+	return vg.calibrate(ctx)
 }
 
 // Open opens the jaws.
 func (vg *gripperV2) Open(ctx context.Context) error {
 	vg.stateMu.Lock()
-	vg.state = gripperState_OPENING
+	vg.state = gripperStateOPENING
 	vg.stateMu.Unlock()
 	vg.actionMu.Lock()
 	defer vg.actionMu.Unlock()
@@ -206,7 +206,7 @@ func (vg *gripperV2) Open(ctx context.Context) error {
 // or until closed position is reached, and returns false.
 func (vg *gripperV2) Grab(ctx context.Context) (bool, error) {
 	vg.stateMu.Lock()
-	vg.state = gripperState_GRABBING
+	vg.state = gripperStateGRABBING
 	vg.stateMu.Unlock()
 
 	vg.actionMu.Lock()
@@ -241,14 +241,14 @@ func (vg *gripperV2) AntiSlipForceControl(ctx context.Context) error {
 	// If we are in a specific state that's defined, someone probably decided
 	// to go for another action than staying in AntiSlipForceControl.
 	switch vg.state {
-	case gripperState_UNSPECIFIED:
+	case gripperStateUNSPECIFIED:
 		defer vg.stateMu.Unlock()
 		return errors.New("gripper state is unspecified")
-	case gripperState_GRABBING:
+	case gripperStateGRABBING:
 		// TODO: Make sure this case is ok. We might want to
 		// make sure we've grabbed something successfully before going straight into AntiSlipForceControlling
-		vg.state = gripperState_ANTI_SLIP_FORCE_CONTROLLING
-	case gripperState_ANTI_SLIP_FORCE_CONTROLLING:
+		vg.state = gripperStateANTISLIPFORCECONTROLLING
+	case gripperStateANTISLIPFORCECONTROLLING:
 	default:
 		defer vg.stateMu.Unlock()
 		return nil
@@ -275,13 +275,13 @@ func (vg *gripperV2) antiSlipForceControl(ctx context.Context) error {
 			return nil
 		}
 		switch vg.State() {
-		case gripperState_UNSPECIFIED:
+		case gripperStateUNSPECIFIED:
 			return errors.New("gripper state is unspecified")
-		case gripperState_ANTI_SLIP_FORCE_CONTROLLING:
+		case gripperStateANTISLIPFORCECONTROLLING:
 		default:
 			return nil
 		}
-		fmt.Println("antiSlipForceControl, state: ", gripperState_name[vg.state])
+		vg.logger.Debugf("antiSlipForceControl, state: ", gripperStateName[vg.state])
 
 		// Adjust grip strength
 		objectIsSlipping, err := vg.forceMatrix.IsSlipping(ctx)
@@ -311,25 +311,25 @@ func (vg *gripperV2) antiSlipForceControl(ctx context.Context) error {
 
 // calibrate finds the open and close position, as well as which motor direction
 // corresponds to opening and closing the gripper.
-func (vg *gripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
+func (vg *gripperV2) calibrate(ctx context.Context) error {
 	// This will be passed to GoTillStop
 	stopFuncHighCurrent := func(ctx context.Context) bool {
 		current, err := vg.readCurrent(ctx)
 		if err != nil {
-			logger.Error(err)
+			vg.logger.Error(err)
 			return true
 		}
 
 		err = vg.checkCurrentInAcceptableRange(ctx, current, "init")
 		if err != nil {
-			logger.Error(err)
+			vg.logger.Error(err)
 			return true
 		}
 		return false
 	}
 
 	// Test forward motion for pressure/endpoint
-	logger.Debug("init: moving forward")
+	vg.logger.Debug("init: moving forward")
 	err := vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, targetRPM/2, stopFuncHighCurrent)
 	if err != nil {
 		return err
@@ -355,7 +355,7 @@ func (vg *gripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 	}
 
 	// Test backward motion for pressure/endpoint
-	logger.Debug("init: moving backward")
+	vg.logger.Debug("init: moving backward")
 	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, targetRPM/2, stopFuncHighCurrent)
 	if err != nil {
 		return err
@@ -395,7 +395,7 @@ func (vg *gripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 
 	vg.openPos += math.Copysign(openPosOffset, (vg.closedPos - vg.openPos))
 
-	vg.state = gripperState_IDLE
+	vg.state = gripperStateIDLE
 	return nil
 }
 
@@ -406,11 +406,11 @@ func (vg *gripperV2) ModelFrame() *referenceframe.Model {
 
 // open opens the jaws.
 func (vg *gripperV2) open(ctx context.Context) error {
-	fmt.Println("In open fcn: ", gripperState_name[vg.state])
+	vg.logger.Debugf("In open fcn: ", gripperStateName[vg.state])
 	switch vg.State() {
-	case gripperState_UNSPECIFIED:
+	case gripperStateUNSPECIFIED:
 		return errors.New("gripper state is unspecified")
-	case gripperState_OPENING:
+	case gripperStateOPENING:
 	default:
 		return nil
 	}
@@ -426,12 +426,12 @@ func (vg *gripperV2) open(ctx context.Context) error {
 	msPer := 10
 	total := 0
 	for {
-		fmt.Println("Opening, state: ", gripperState_name[vg.state])
+		vg.logger.Debugf("Opening, state: ", gripperStateName[vg.state])
 
 		switch vg.State() {
-		case gripperState_UNSPECIFIED:
+		case gripperStateUNSPECIFIED:
 			return errors.New("gripper state is unspecified")
-		case gripperState_OPENING:
+		case gripperStateOPENING:
 		default:
 			return nil
 		}
@@ -476,11 +476,11 @@ func (vg *gripperV2) open(ctx context.Context) error {
 // grab closes the jaws until pressure is sensed and returns true,
 // or until closed position is reached, and returns false.
 func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
-	fmt.Println("In grab fcn: ", gripperState_name[vg.state])
+	vg.logger.Debugf("In grab fcn: ", gripperStateName[vg.state])
 	switch vg.State() {
-	case gripperState_UNSPECIFIED:
+	case gripperStateUNSPECIFIED:
 		return false, errors.New("gripper state is unspecified")
-	case gripperState_GRABBING:
+	case gripperStateGRABBING:
 	default:
 		return false, nil
 	}
@@ -496,11 +496,11 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 	msPer := 10
 	total := 0
 	for {
-		fmt.Println("Grabbing, state: ", gripperState_name[vg.state])
+		vg.logger.Debugf("Grabbing, state: ", gripperStateName[vg.state])
 		switch vg.State() {
-		case gripperState_UNSPECIFIED:
+		case gripperStateUNSPECIFIED:
 			return false, errors.New("gripper state is unspecified")
-		case gripperState_GRABBING:
+		case gripperStateGRABBING:
 		default:
 			return false, nil
 		}
