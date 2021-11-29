@@ -4,12 +4,12 @@ package vgripper
 type GripperState int32
 
 const (
-	gripperStateUNSPECIFIED              GripperState = 0
-	gripperStateCALIBRATING              GripperState = 1
-	gripperStateOPENING                  GripperState = 2
-	gripperStateGRABBING                 GripperState = 3
-	gripperStateIDLE                     GripperState = 4
-	gripperStateANTISLIPFORCECONTROLLING GripperState = 5
+	gripperStateUnspecified              GripperState = 0
+	gripperStateCalibrating              GripperState = 1
+	gripperStateOpening                  GripperState = 2
+	gripperStateGrabbing                 GripperState = 3
+	gripperStateIdle                     GripperState = 4
+	gripperStateAntiSlipForceControlling GripperState = 5
 )
 
 // Enum value maps for DirectionRelative.
@@ -17,11 +17,11 @@ const (
 // to make sure human error doesn't happen here
 var (
 	gripperStateName = map[GripperState]string{
-		0: "gripperStateUNSPECIFIED",
-		1: "gripperStateCALIBRATING",
-		2: "gripperStateOPENING",
-		3: "gripperStateGRABBING",
-		4: "gripperStateIDLE",
-		5: "gripperStateANTISLIPFORCECONTROLLING",
+		0: "gripperStateUnspecified",
+		1: "gripperStateCalibrating",
+		2: "gripperStateOpening",
+		3: "gripperStateGrabbing",
+		4: "gripperStateIdle",
+		5: "gripperStateAntiSlipForceControlling",
 	}
 )
