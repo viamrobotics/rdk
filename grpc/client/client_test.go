@@ -23,6 +23,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/imu"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
@@ -41,7 +42,6 @@ import (
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/sensor/imu"
 	servicepkg "go.viam.com/core/services"
 	"go.viam.com/core/spatialmath"
 	coretestutils "go.viam.com/core/testutils"
@@ -88,9 +88,6 @@ var emptyStatus = &pb.Status{
 		},
 		"compass2": {
 			Type: compass.RelativeType,
-		},
-		"imu1": {
-			Type: imu.Type,
 		},
 		"fsm1": {
 			Type: forcematrix.Type,
