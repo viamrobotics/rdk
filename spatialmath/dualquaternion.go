@@ -1,4 +1,3 @@
-// Package spatialmath defines spatial mathematical operations
 package spatialmath
 
 import (

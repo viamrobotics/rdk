@@ -42,8 +42,7 @@ type ModelJSON struct {
 		Max    float64 `json:"max"`
 		Min    float64 `json:"min"`
 	} `json:"dhParams"`
-	RawFrames  []map[string]interface{} `json:"frames"`
-	Tolerances *SolverDistanceWeights   `json:"tolerances"`
+	RawFrames []map[string]interface{} `json:"frames"`
 }
 
 // Model turns the ModelJSON struct into a full Model with the name modelName
@@ -54,11 +53,6 @@ func (m *ModelJSON) Model(modelName string) (*Model, error) {
 		model.name = m.Name
 	} else {
 		model.name = modelName
-	}
-
-	// do this early in case we bail early
-	if m.Tolerances != nil {
-		model.SolveWeights = *m.Tolerances
 	}
 
 	transforms := map[string]Frame{}

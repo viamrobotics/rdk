@@ -24,6 +24,7 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
+	"go.viam.com/core/motionplan"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	pb "go.viam.com/core/proto/api/component/v1"
 	frame "go.viam.com/core/referenceframe"
@@ -67,8 +68,8 @@ type Arm struct {
 	Joints   map[string][]*servo.Servo
 	moveLock *sync.Mutex
 	logger   golog.Logger
+	mp       motionplan.MotionPlanner
 	model    *frame.Model
-	ik       kinematics.InverseKinematics
 }
 
 // servoPosToDegrees takes a 360 degree 0-4096 servo position, centered at 2048,
@@ -110,7 +111,7 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 	if err != nil {
 		return nil, err
 	}
-	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -126,8 +127,8 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 		},
 		moveLock: getPortMutex(usbPort),
 		logger:   logger,
+		mp:       mp,
 		model:    model,
-		ik:       ik,
 	}, nil
 }
 
@@ -137,7 +138,7 @@ func (a *Arm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(a.ik.Model(), joints)
+	return kinematics.ComputePosition(a.mp.Frame(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
@@ -146,11 +147,11 @@ func (a *Arm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	solution, err := a.ik.Solve(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := a.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
-	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
+	return arm.GoToWaypoints(ctx, a, solution)
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position

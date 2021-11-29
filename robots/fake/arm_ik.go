@@ -9,6 +9,7 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
+	"go.viam.com/core/motionplan"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	pb "go.viam.com/core/proto/api/component/v1"
 	frame "go.viam.com/core/referenceframe"
@@ -44,7 +45,7 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 	if err != nil {
 		return nil, err
 	}
-	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +54,7 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 		Name:     name,
 		position: &commonpb.Pose{},
 		joints:   &pb.ArmJointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
-		ik:       ik,
+		mp:       mp,
 		model:    model,
 	}, nil
 }
@@ -63,7 +64,7 @@ type ArmIK struct {
 	Name       string
 	position   *commonpb.Pose
 	joints     *pb.ArmJointPositions
-	ik         kinematics.InverseKinematics
+	mp         motionplan.MotionPlanner
 	CloseCount int
 	model      *frame.Model
 }
@@ -79,7 +80,7 @@ func (a *ArmIK) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(a.ik.Model(), joints)
+	return kinematics.ComputePosition(a.mp.Frame(), joints)
 }
 
 // MoveToPosition sets the position.
@@ -88,11 +89,11 @@ func (a *ArmIK) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	solution, err := a.ik.Solve(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := a.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
-	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
+	return arm.GoToWaypoints(ctx, a, solution)
 }
 
 // MoveToJointPositions sets the joints.
