@@ -68,7 +68,7 @@ type gripperV2 struct {
 	activatedAntiSlipForceControl bool // flag
 
 	// action state machine
-	state    GripperState
+	state    gripperState
 	stateMu  *sync.Mutex
 	actionMu *sync.Mutex
 
@@ -174,7 +174,7 @@ func (vg *gripperV2) Idle() {
 }
 
 // State returns the state of the gripper.
-func (vg *gripperV2) State() GripperState {
+func (vg *gripperV2) State() gripperState {
 	vg.stateMu.Lock()
 	defer vg.stateMu.Unlock()
 	return vg.state
