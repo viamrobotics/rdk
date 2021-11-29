@@ -39,10 +39,6 @@ type RobotServiceClient interface {
 	BaseStop(ctx context.Context, in *BaseStopRequest, opts ...grpc.CallOption) (*BaseStopResponse, error)
 	// BaseWidthMillis returns the width of a base of the underlying robot.
 	BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error)
-	// GripperOpen opens a gripper of the underlying robot.
-	GripperOpen(ctx context.Context, in *GripperOpenRequest, opts ...grpc.CallOption) (*GripperOpenResponse, error)
-	// GripperGrab requests a gripper of the underlying robot to grab.
-	GripperGrab(ctx context.Context, in *GripperGrabRequest, opts ...grpc.CallOption) (*GripperGrabResponse, error)
 	// CameraFrame returns a frame from a camera of the underlying robot. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
 	CameraFrame(ctx context.Context, in *CameraFrameRequest, opts ...grpc.CallOption) (*CameraFrameResponse, error)
@@ -274,24 +270,6 @@ func (c *robotServiceClient) BaseStop(ctx context.Context, in *BaseStopRequest, 
 func (c *robotServiceClient) BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error) {
 	out := new(BaseWidthMillisResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseWidthMillis", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) GripperOpen(ctx context.Context, in *GripperOpenRequest, opts ...grpc.CallOption) (*GripperOpenResponse, error) {
-	out := new(GripperOpenResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GripperOpen", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) GripperGrab(ctx context.Context, in *GripperGrabRequest, opts ...grpc.CallOption) (*GripperGrabResponse, error) {
-	out := new(GripperGrabResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GripperGrab", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -934,10 +912,6 @@ type RobotServiceServer interface {
 	BaseStop(context.Context, *BaseStopRequest) (*BaseStopResponse, error)
 	// BaseWidthMillis returns the width of a base of the underlying robot.
 	BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error)
-	// GripperOpen opens a gripper of the underlying robot.
-	GripperOpen(context.Context, *GripperOpenRequest) (*GripperOpenResponse, error)
-	// GripperGrab requests a gripper of the underlying robot to grab.
-	GripperGrab(context.Context, *GripperGrabRequest) (*GripperGrabResponse, error)
 	// CameraFrame returns a frame from a camera of the underlying robot. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
 	CameraFrame(context.Context, *CameraFrameRequest) (*CameraFrameResponse, error)
@@ -1094,12 +1068,6 @@ func (UnimplementedRobotServiceServer) BaseStop(context.Context, *BaseStopReques
 }
 func (UnimplementedRobotServiceServer) BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BaseWidthMillis not implemented")
-}
-func (UnimplementedRobotServiceServer) GripperOpen(context.Context, *GripperOpenRequest) (*GripperOpenResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GripperOpen not implemented")
-}
-func (UnimplementedRobotServiceServer) GripperGrab(context.Context, *GripperGrabRequest) (*GripperGrabResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GripperGrab not implemented")
 }
 func (UnimplementedRobotServiceServer) CameraFrame(context.Context, *CameraFrameRequest) (*CameraFrameResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CameraFrame not implemented")
@@ -1464,42 +1432,6 @@ func _RobotService_BaseWidthMillis_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).BaseWidthMillis(ctx, req.(*BaseWidthMillisRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_GripperOpen_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GripperOpenRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).GripperOpen(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/GripperOpen",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).GripperOpen(ctx, req.(*GripperOpenRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_GripperGrab_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GripperGrabRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).GripperGrab(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/GripperGrab",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).GripperGrab(ctx, req.(*GripperGrabRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2682,14 +2614,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BaseWidthMillis",
 			Handler:    _RobotService_BaseWidthMillis_Handler,
-		},
-		{
-			MethodName: "GripperOpen",
-			Handler:    _RobotService_GripperOpen_Handler,
-		},
-		{
-			MethodName: "GripperGrab",
-			Handler:    _RobotService_GripperGrab_Handler,
 		},
 		{
 			MethodName: "CameraFrame",
