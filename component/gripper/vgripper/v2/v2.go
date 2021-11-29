@@ -12,8 +12,8 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
-	"go.viam.com/core/gripper"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
@@ -32,9 +32,9 @@ const modelName = "viam-v2"
 var vgripperv2json []byte
 
 func init() {
-	registry.RegisterGripper(modelName, registry.Gripper{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
-			return New(ctx, r, config, logger)
+	registry.RegisterComponent(gripper.Subtype, modelName, registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return new(ctx, r, config, logger)
 		},
 	})
 }
@@ -51,8 +51,8 @@ const (
 	grabTimeout             = 5000 // in ms
 )
 
-// GripperV2 represents a Viam gripper which operates with a ForceMatrix.
-type GripperV2 struct {
+// gripperV2 represents a Viam gripper which operates with a ForceMatrix.
+type gripperV2 struct {
 	motor       motor.Motor
 	current     board.AnalogReader
 	forceMatrix forcematrix.ForceMatrix
@@ -71,8 +71,8 @@ type GripperV2 struct {
 	numBadCurrentReadings int
 }
 
-// New returns a GripperV2 which operates with a ForceMatrix.
-func New(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*GripperV2, error) {
+// new returns a gripperV2 which operates with a ForceMatrix.
+func new(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*gripperV2, error) {
 	boardName := config.Attributes.String("board")
 	board, exists := r.BoardByName(boardName)
 	if !exists {
@@ -118,7 +118,7 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		return nil, err
 	}
 
-	vg := &GripperV2{
+	vg := &gripperV2{
 		motor:                     motor,
 		current:                   current,
 		forceMatrix:               forceMatrixDevice,
@@ -142,7 +142,7 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 
 // calibrate finds the open and close position, as well as which motor direction
 // corresponds to opening and closing the gripper.
-func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
+func (vg *gripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 	// This will be passed to GoTillStop
 	stopFuncHighCurrent := func(ctx context.Context) bool {
 		current, err := vg.readCurrent(ctx)
@@ -230,12 +230,12 @@ func (vg *GripperV2) calibrate(ctx context.Context, logger golog.Logger) error {
 }
 
 // ModelFrame returns the dynamic frame of the model
-func (vg *GripperV2) ModelFrame() *referenceframe.Model {
+func (vg *gripperV2) ModelFrame() *referenceframe.Model {
 	return vg.model
 }
 
 // Open opens the jaws.
-func (vg *GripperV2) Open(ctx context.Context) error {
+func (vg *gripperV2) Open(ctx context.Context) error {
 	err := vg.Stop(ctx)
 	if err != nil {
 		return err
@@ -287,7 +287,7 @@ func (vg *GripperV2) Open(ctx context.Context) error {
 
 // Grab closes the jaws until pressure is sensed and returns true,
 // or until closed position is reached, and returns false.
-func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
+func (vg *gripperV2) Grab(ctx context.Context) (bool, error) {
 	err := vg.Stop(ctx)
 	if err != nil {
 		return false, err
@@ -360,7 +360,7 @@ func (vg *GripperV2) Grab(ctx context.Context) (bool, error) {
 }
 
 // checkCurrentInAcceptableRange checks if the current is within a healthy range or not.
-func (vg *GripperV2) checkCurrentInAcceptableRange(ctx context.Context, current int, where string) error {
+func (vg *gripperV2) checkCurrentInAcceptableRange(ctx context.Context, current int, where string) error {
 	if current < maxCurrent {
 		vg.numBadCurrentReadings = 0
 		return nil
@@ -373,28 +373,28 @@ func (vg *GripperV2) checkCurrentInAcceptableRange(ctx context.Context, current 
 }
 
 // Close stops the motors.
-func (vg *GripperV2) Close() error {
+func (vg *gripperV2) Close() error {
 	return vg.Stop(context.Background())
 }
 
 // stopAfterError stops the motor and returns the combined errors.
-func (vg *GripperV2) stopAfterError(ctx context.Context, other error) error {
+func (vg *gripperV2) stopAfterError(ctx context.Context, other error) error {
 	return multierr.Combine(other, vg.motor.Off(ctx))
 }
 
 // Stop stops the motors.
-func (vg *GripperV2) Stop(ctx context.Context) error {
+func (vg *gripperV2) Stop(ctx context.Context) error {
 	return vg.motor.Off(ctx)
 }
 
 // readCurrent reads the current.
-func (vg *GripperV2) readCurrent(ctx context.Context) (int, error) {
+func (vg *gripperV2) readCurrent(ctx context.Context) (int, error) {
 	return vg.current.Read(ctx)
 }
 
 // readRobustAveragePressure reads the pressure multiple times and returns the average over
 // all matrix cells and number of measurements.
-func (vg *GripperV2) readRobustAveragePressure(ctx context.Context, numMeasurements int) (float64, error) {
+func (vg *gripperV2) readRobustAveragePressure(ctx context.Context, numMeasurements int) (float64, error) {
 	var averagePressure float64
 	for i := 0; i < numMeasurements; i++ {
 		avgPressure, err := vg.readAveragePressure(ctx)
@@ -409,7 +409,7 @@ func (vg *GripperV2) readRobustAveragePressure(ctx context.Context, numMeasureme
 
 // readAveragePressure reads the ForceMatrix sensors and returns the average over
 // all matrix cells.
-func (vg *GripperV2) readAveragePressure(ctx context.Context) (float64, error) {
+func (vg *gripperV2) readAveragePressure(ctx context.Context) (float64, error) {
 	matrix, err := vg.forceMatrix.Matrix(ctx)
 	if err != nil {
 		return 0, err
@@ -427,7 +427,7 @@ func (vg *GripperV2) readAveragePressure(ctx context.Context) (float64, error) {
 
 // hasPressure checks if the average pressure measurement is above the
 // pressureLimit threshold or not.
-func (vg *GripperV2) hasPressure(ctx context.Context) (bool, float64, error) {
+func (vg *gripperV2) hasPressure(ctx context.Context) (bool, float64, error) {
 	p, err := vg.readAveragePressure(ctx)
 	if err != nil {
 		return false, 0, err
@@ -438,7 +438,7 @@ func (vg *GripperV2) hasPressure(ctx context.Context) (bool, float64, error) {
 // analogs returns measurements such as: boolean that indicates if the average
 // pressure is above the pressure limit, the average pressure from the ForceMatrix,
 // and the current in the motor.
-func (vg *GripperV2) analogs(ctx context.Context) (bool, float64, int, error) {
+func (vg *gripperV2) analogs(ctx context.Context) (bool, float64, int, error) {
 	hasPressure, pressure, errP := vg.hasPressure(ctx)
 	current, errC := vg.readCurrent(ctx)
 	err := multierr.Combine(errP, errC)

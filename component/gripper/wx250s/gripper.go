@@ -15,30 +15,48 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
-	"go.viam.com/core/gripper"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 )
 
 func init() {
-	registry.RegisterGripper("wx250s", registry.Gripper{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
-		return NewGripper(config.Attributes, logger)
-	}})
+	registry.RegisterComponent(gripper.Subtype, "wx250s", registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return newGripper(config.Attributes, logger)
+		},
+	})
 }
 
-// Gripper TODO
-type Gripper struct {
+var (
+	portMapping   = map[string]*sync.Mutex{}
+	portMappingMu sync.Mutex
+)
+
+func getPortMutex(port string) *sync.Mutex {
+	portMappingMu.Lock()
+	defer portMappingMu.Unlock()
+	mu, ok := portMapping[port]
+	if !ok {
+		mu = &sync.Mutex{}
+		portMapping[port] = mu
+	}
+	return mu
+}
+
+// wx250s TODO
+type wx250s struct {
 	jServo   *servo.Servo
 	moveLock *sync.Mutex
 }
 
-// NewGripper TODO
-func NewGripper(attributes config.AttributeMap, logger golog.Logger) (*Gripper, error) {
+// newGripper TODO
+func newGripper(attributes config.AttributeMap, logger golog.Logger) (*wx250s, error) {
 	usbPort := attributes.String("usbPort")
 	jServo := findServo(usbPort, attributes.String("baudRate"), logger)
 	err := jServo.SetTorqueEnable(true)
-	newGripper := Gripper{
+	newGripper := wx250s{
 		jServo:   jServo,
 		moveLock: getPortMutex(usbPort),
 	}
@@ -46,12 +64,12 @@ func NewGripper(attributes config.AttributeMap, logger golog.Logger) (*Gripper, 
 }
 
 // GetMoveLock TODO
-func (g *Gripper) GetMoveLock() *sync.Mutex {
+func (g *wx250s) GetMoveLock() *sync.Mutex {
 	return g.moveLock
 }
 
 // Open TODO
-func (g *Gripper) Open(ctx context.Context) error {
+func (g *wx250s) Open(ctx context.Context) error {
 	g.moveLock.Lock()
 	defer g.moveLock.Unlock()
 	err := g.jServo.SetGoalPWM(150)
@@ -80,7 +98,7 @@ func (g *Gripper) Open(ctx context.Context) error {
 }
 
 // Grab TODO
-func (g *Gripper) Grab(ctx context.Context) (bool, error) {
+func (g *wx250s) Grab(ctx context.Context) (bool, error) {
 	g.moveLock.Lock()
 	defer g.moveLock.Unlock()
 	err := g.jServo.SetGoalPWM(-350)
@@ -105,7 +123,7 @@ func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 }
 
 // Close closes the connection, not the gripper.
-func (g *Gripper) Close() error {
+func (g *wx250s) Close() error {
 	err := g.jServo.SetTorqueEnable(false)
 	return err
 }

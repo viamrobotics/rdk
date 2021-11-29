@@ -15,7 +15,6 @@ import (
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
-	"go.viam.com/core/gripper"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
@@ -83,48 +82,6 @@ func (p *proxyBase) replace(newBase base.Base) {
 	actual, ok := newBase.(*proxyBase)
 	if !ok {
 		panic(fmt.Errorf("expected new base to be %T but got %T", actual, newBase))
-	}
-	if err := utils.TryClose(p.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = actual.actual
-}
-
-type proxyGripper struct {
-	mu     sync.RWMutex
-	actual gripper.Gripper
-}
-
-func (p *proxyGripper) ProxyFor() interface{} {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual
-}
-
-func (p *proxyGripper) Open(ctx context.Context) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Open(ctx)
-}
-
-func (p *proxyGripper) Grab(ctx context.Context) (bool, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Grab(ctx)
-}
-
-func (p *proxyGripper) Close() error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return utils.TryClose(p.actual)
-}
-
-func (p *proxyGripper) replace(newGripper gripper.Gripper) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newGripper.(*proxyGripper)
-	if !ok {
-		panic(fmt.Errorf("expected new gripper to be %T but got %T", actual, newGripper))
 	}
 	if err := utils.TryClose(p.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
