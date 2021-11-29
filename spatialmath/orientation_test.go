@@ -176,3 +176,13 @@ func TestOrientationTransform(t *testing.T) {
 	test.That(t, aaResult.RY, test.ShouldAlmostEqual, aa.RY)
 	test.That(t, aaResult.RZ, test.ShouldAlmostEqual, aa.RZ)
 }
+
+func TestOrientationBetween(t *testing.T) {
+	aa := &R4AA{Theta: math.Pi / 2., RX: 0., RY: 1., RZ: 0.}
+	btw := OrientationBetween(aa, ov45x).OrientationVectorDegrees()
+	result := &OrientationVectorDegrees{Theta: 135.0, OX: -1., OY: 0.0, OZ: 0.0}
+	test.That(t, result.Theta, test.ShouldAlmostEqual, btw.Theta)
+	test.That(t, result.OX, test.ShouldAlmostEqual, btw.OX)
+	test.That(t, result.OY, test.ShouldAlmostEqual, btw.OY)
+	test.That(t, result.OZ, test.ShouldAlmostEqual, btw.OZ)
+}
