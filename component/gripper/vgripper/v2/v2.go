@@ -146,9 +146,7 @@ func new(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		pressureStepSize:              pressureStepSize,
 		activatedAntiSlipForceControl: activatedAntiSlipForceControl,
 		// action state machine
-		state:    gripperStateUnspecified,
-		stateMu:  &sync.Mutex{},
-		actionMu: &sync.Mutex{},
+		state: gripperStateUnspecified,
 		// switchActionChannel: make(chan bool),
 		// other
 		logger: logger,
@@ -169,8 +167,8 @@ func new(ctx context.Context, r robot.Robot, config config.Component, logger gol
 // Idle sets the state to a passive state that is neither grabbing nor opening.
 func (vg *gripperV2) Idle() {
 	vg.stateMu.Lock()
-	vg.state = gripperStateIdle
 	defer vg.stateMu.Unlock()
+	vg.state = gripperStateIdle
 }
 
 // State returns the state of the gripper.
@@ -412,7 +410,7 @@ func (vg *gripperV2) open(ctx context.Context) error {
 		return errors.New("gripper state is unspecified")
 	case gripperStateOpening:
 	default:
-		return nil
+		return errors.New("gripper state is unspecified")
 	}
 	err := vg.Stop(ctx)
 	if err != nil {
