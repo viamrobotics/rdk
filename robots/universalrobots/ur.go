@@ -19,6 +19,7 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
+	"go.viam.com/core/motionplan"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	pb "go.viam.com/core/proto/api/component/v1"
 	frame "go.viam.com/core/referenceframe"
@@ -62,8 +63,8 @@ type URArm struct {
 	logger                  golog.Logger
 	cancel                  func()
 	activeBackgroundWorkers *sync.WaitGroup
+	mp                      motionplan.MotionPlanner
 	model                   *frame.Model
-	ik                      kinematics.InverseKinematics
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -108,7 +109,7 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 	if err != nil {
 		return nil, err
 	}
-	ik, err := kinematics.CreateCombinedIKSolver(model, logger, 4)
+	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -129,8 +130,8 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 		haveData:                false,
 		logger:                  logger,
 		cancel:                  cancel,
+		mp:                      mp,
 		model:                   model,
-		ik:                      ik,
 	}
 
 	onData := make(chan struct{})
@@ -214,7 +215,7 @@ func (ua *URArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(ua.ik.Model(), joints)
+	return kinematics.ComputePosition(ua.mp.Frame(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
@@ -224,7 +225,7 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 		return err
 	}
 	start := time.Now()
-	solution, err := ua.ik.Solve(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := ua.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
@@ -233,7 +234,7 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 		ua.logger.Debugf("ur took too long to solve position %v", timeToSolve)
 		return fmt.Errorf("ur took too long to solve position %v", timeToSolve)
 	}
-	return ua.MoveToJointPositions(ctx, frame.InputsToJointPos(solution))
+	return arm.GoToWaypoints(ctx, ua, solution)
 }
 
 // JointMoveDelta TODO
