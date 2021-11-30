@@ -16,7 +16,7 @@ import (
 
 const (
 	// The maximum percent of a joints range of motion to allow per step
-	frameStep = 0.015
+	frameStep = 0.03
 	// If the dot product between two sets of joint angles is less than this, consider them identical
 	jointSolveDist = 0.0001
 	// Number of planner iterations before giving up
@@ -62,10 +62,9 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, nCPU int, logger golog.Logger) (M
 	nlopt.SetMaxIter(1)
 	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: jointSolveDist}
 
-	// Max individual step of 1.5% of full range of motion
 	mp.qstep = getFrameSteps(frame, frameStep)
 	mp.iter = planIter
-	mp.stepSize = 1
+	mp.stepSize = 2
 
 	mp.randseed = rand.New(rand.NewSource(1))
 	mp.opt = NewDefaultPlannerOptions()
