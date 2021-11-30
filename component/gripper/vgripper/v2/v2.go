@@ -69,8 +69,8 @@ type gripperV2 struct {
 
 	// action state machine
 	state    gripperState
-	stateMu  *sync.Mutex
-	actionMu *sync.Mutex
+	stateMu  sync.Mutex
+	actionMu sync.Mutex
 
 	// determined during the calibration
 	openPos, closedPos             float64
