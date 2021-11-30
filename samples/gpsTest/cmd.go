@@ -97,7 +97,7 @@ func ExampleNewClientRequest_sourcetable(urlStr string) (err error) {
 
 func ExampleNewClientRequest() (err error) {
 	// readMount, writeMount := io.Pipe()
-	req, _ := ntrip.NewClientRequest("http://rtn.dot.ny.gov:8082/NYGC")
+	req, _ := ntrip.NewClientRequest("http://rtn.dot.ny.gov:8082/NJI2")
 	// req, _ := ntrip.NewClientRequest("http://rtn.dot.ny.gov:8080/near_msm")
 	// c := http.Client{Timeout: time.Duration(1) * time.Second}
 	// resp, _ := c.Get("https://www.google.com")//ntrip.NewClientRequest("http://rtn.dot.ny.gov:8080/near_msm")
@@ -129,7 +129,7 @@ func ExampleNewClientRequest() (err error) {
 		StopBits:        1,
 		MinimumReadSize: 1,
 	}
-	options.PortName = "/dev/serial0"
+	options.PortName = "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00" // "/dev/serial0" //
 	port, err := slib.Open(options)
 	w := bufio.NewWriter(port)
 
