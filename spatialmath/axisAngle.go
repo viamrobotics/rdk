@@ -64,7 +64,7 @@ func (r4 *R4AA) EulerAngles() *EulerAngles {
 }
 
 // RotationMatrix returns the orientation in rotation matrix representation
-func (r4 *R4AA) RotationMatrix() *rotationMatrix {
+func (r4 *R4AA) RotationMatrix() *RotationMatrix {
 	return QuatToRotationMatrix(r4.Quaternion())
 }
 
