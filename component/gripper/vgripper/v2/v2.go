@@ -513,7 +513,7 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 			return false, vg.stopAfterError(ctx, err)
 		}
 
-		pressure, _, current, err := vg.analogs(ctx)
+		hasPressure, pressure, current, err := vg.analogs(ctx)
 		if err != nil {
 			return false, vg.stopAfterError(ctx, err)
 		}
@@ -523,7 +523,7 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 			if err != nil {
 				return false, err
 			}
-			if !pressure && math.Abs(measuredPos-vg.closedPos) > positionTolerance {
+			if !hasPressure && math.Abs(measuredPos-vg.closedPos) > positionTolerance {
 				return false, errors.Errorf("didn't reach closed position and am not holding an object,"+
 					"closed position: %f +/- %v tolerance, actual position: %f", vg.closedPos, positionTolerance, measuredPos)
 
@@ -536,7 +536,7 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 			return false, vg.stopAfterError(ctx, err)
 		}
 
-		if pressure {
+		if float32(pressure) >= vg.holdingPressure {
 			now, err := vg.motor.Position(ctx)
 			if err != nil {
 				return false, err
