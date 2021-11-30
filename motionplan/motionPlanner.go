@@ -19,7 +19,7 @@ import (
 // PlannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem
 type PlannerOptions struct {
 	constraintHandler
-	metric kinematics.Metric
+	metric   kinematics.Metric
 	pathDist kinematics.Metric
 	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
 	// Max number of ik solutions to consider

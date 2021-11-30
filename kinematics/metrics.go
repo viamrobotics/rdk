@@ -16,7 +16,7 @@ func sqNormDist(from, to spatial.Pose) float64 {
 	// Increase weight for orientation since it's a small number
 	for i, v := range d {
 		if i > 2 {
-			d[i] = v*10
+			d[i] = v * 10
 		}
 	}
 	return SquaredNorm(d)
