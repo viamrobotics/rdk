@@ -111,6 +111,11 @@ func (ov *OrientationVector) AxisAngles() *R4AA {
 	return QuatToR4AA(ov.ToQuat())
 }
 
+// RotationMatrix returns the orientation in rotation matrix representation
+func (ov *OrientationVector) RotationMatrix() *RotationMatrix {
+	return QuatToRotationMatrix(ov.Quaternion())
+}
+
 // NewOrientationVectorDegrees Creates a zero-initialized OrientationVectorDegrees
 func NewOrientationVectorDegrees() *OrientationVectorDegrees {
 	return &OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1}
@@ -149,4 +154,9 @@ func (ovd *OrientationVectorDegrees) OrientationVectorDegrees() *OrientationVect
 // AxisAngles returns the orientation in axis angle representation
 func (ovd *OrientationVectorDegrees) AxisAngles() *R4AA {
 	return QuatToR4AA(ovd.ToQuat())
+}
+
+// RotationMatrix returns the orientation in rotation matrix representation
+func (ovd *OrientationVectorDegrees) RotationMatrix() *RotationMatrix {
+	return QuatToRotationMatrix(ovd.Quaternion())
 }
