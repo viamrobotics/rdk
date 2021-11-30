@@ -24,19 +24,19 @@ func init() {
 	}})
 }
 
-// ColorSegmentsSource applies a segmentation to the point cloud of an ImageWithDepth
-type ColorSegmentsSource struct {
+// colorSegmentsSource applies a segmentation to the point cloud of an ImageWithDepth
+type colorSegmentsSource struct {
 	source gostream.ImageSource
 	config segmentation.ObjectConfig
 }
 
 // Close closes the source
-func (cs *ColorSegmentsSource) Close() error {
+func (cs *colorSegmentsSource) Close() error {
 	return nil
 }
 
 // Next applies segmentation to the next image and gives each distinct object a unique color
-func (cs *ColorSegmentsSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (cs *colorSegmentsSource) Next(ctx context.Context) (image.Image, func(), error) {
 	i, closer, err := cs.source.Next(ctx)
 	if err != nil {
 		return i, closer, err
@@ -79,6 +79,6 @@ func newColorSegmentsSource(r robot.Robot, config config.Component) (camera.Came
 	cfg := segmentation.ObjectConfig{
 		MinPtsInPlane: planeSize, MinPtsInSegment: segmentSize, ClusteringRadius: clusterRadius,
 	}
-	return &camera.ImageSource{ImageSource: &ColorSegmentsSource{source, cfg}}, nil
+	return &camera.ImageSource{ImageSource: &colorSegmentsSource{source, cfg}}, nil
 
 }

@@ -23,10 +23,12 @@ func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 	ii := rimage.ConvertToImageWithDepth(img)
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth")
 
-	colorSource := &StaticSource{ii.Color}
-	depthSource := &StaticSource{ii.Depth}
-	dc, err := NewDepthComposed(colorSource, depthSource, h.attrs, logger)
+	colorSource := &staticSource{ii.Color}
+	depthSource := &staticSource{ii.Depth}
+	is, err := NewDepthComposed(colorSource, depthSource, h.attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
+	dc, ok := is.(*depthComposed)
+	test.That(t, ok, test.ShouldBeTrue)
 
 	rawAligned, _, err := dc.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
