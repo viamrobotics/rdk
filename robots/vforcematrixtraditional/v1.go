@@ -61,6 +61,9 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 	}
 	noiseThreshold := config.Attributes.Float64("noise_threshold", 0)
 	slipDetectionWindow := config.Attributes.Int("slip_detection_window", forcematrix.MatrixStorageSize)
+	if slipDetectionWindow > forcematrix.MatrixStorageSize {
+		return nil, errors.Errorf("slip_detection_window has to be <= %v", forcematrix.MatrixStorageSize)
+	}
 	previousMatrices := make([][][]int, 0)
 
 	return &ForceMatrixTraditional{
