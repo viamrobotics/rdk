@@ -7,7 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/core/camera"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/registry"

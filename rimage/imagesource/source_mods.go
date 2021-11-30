@@ -10,7 +10,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/camera"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rimage"
