@@ -2,7 +2,6 @@ package vgripper
 
 import (
 	"context"
-	"sync"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -226,8 +225,6 @@ func TestOpen(t *testing.T) {
 			logger:                logger,
 			numBadCurrentReadings: 0,
 			openPos:               openPosition,
-			stateMu:               &sync.Mutex{},
-			actionMu:              &sync.Mutex{},
 			state:                 gripperStateUnspecified,
 		}
 		err := injectedGripper.Open(context.Background())
@@ -247,8 +244,6 @@ func TestOpen(t *testing.T) {
 			logger:                logger,
 			numBadCurrentReadings: 0,
 			openPos:               openPosition,
-			stateMu:               &sync.Mutex{},
-			actionMu:              &sync.Mutex{},
 			state:                 gripperStateUnspecified,
 		}
 		err := injectedGripper.Open(context.Background())
@@ -274,8 +269,6 @@ func TestOpen(t *testing.T) {
 			current:               fakeCurrent,
 			logger:                logger,
 			numBadCurrentReadings: 0,
-			stateMu:               &sync.Mutex{},
-			actionMu:              &sync.Mutex{},
 			state:                 gripperStateUnspecified,
 		}
 		err := injectedGripper.Open(context.Background())
@@ -325,8 +318,6 @@ func TestGrab(t *testing.T) {
 			logger:                logger,
 			numBadCurrentReadings: 0,
 			pressureLimit:         pressureLimit,
-			stateMu:               &sync.Mutex{},
-			actionMu:              &sync.Mutex{},
 			state:                 gripperStateUnspecified,
 		}
 		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
@@ -367,8 +358,6 @@ func TestGrab(t *testing.T) {
 			numBadCurrentReadings: 0,
 			closedPos:             closedPosition,
 			pressureLimit:         pressureLimit,
-			stateMu:               &sync.Mutex{},
-			actionMu:              &sync.Mutex{},
 			state:                 gripperStateUnspecified,
 		}
 		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
@@ -408,8 +397,6 @@ func TestGrab(t *testing.T) {
 			numBadCurrentReadings: 0,
 			closedPos:             closedPosition,
 			pressureLimit:         pressureLimit,
-			stateMu:               &sync.Mutex{},
-			actionMu:              &sync.Mutex{},
 			state:                 gripperStateUnspecified,
 		}
 		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
@@ -449,8 +436,6 @@ func TestGrab(t *testing.T) {
 			numBadCurrentReadings: 0,
 			closedPos:             closedPosition,
 			pressureLimit:         pressureLimit,
-			stateMu:               &sync.Mutex{},
-			actionMu:              &sync.Mutex{},
 			state:                 gripperStateUnspecified,
 		}
 		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
