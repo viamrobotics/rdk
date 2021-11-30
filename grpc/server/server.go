@@ -1299,11 +1299,11 @@ func (s *Server) ObjectManipulationServiceDoGrab(ctx context.Context, req *pb.Ob
 }
 
 func (s *Server) imuByName(name string) (imu.IMU, error) {
-	sensorDevice, ok := s.r.SensorByName(name)
+	imuDevice, ok := s.r.ResourceByName(imu.Named(name))
 	if !ok {
 		return nil, errors.Errorf("no sensor with name (%s)", name)
 	}
-	return sensorDevice.(imu.IMU), nil
+	return imuDevice.(imu.IMU), nil
 }
 
 // IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
