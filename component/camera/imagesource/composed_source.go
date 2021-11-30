@@ -52,7 +52,7 @@ func newOverlay(r robot.Robot, config config.Component) (camera.Camera, error) {
 	if !ok {
 		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
-	return &camera.ImageSource{&overlaySource{source}}, nil
+	return &camera.ImageSource{ImageSource: &overlaySource{source}}, nil
 
 }
 

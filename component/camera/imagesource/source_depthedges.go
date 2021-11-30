@@ -22,20 +22,20 @@ func init() {
 	}})
 }
 
-// DepthEdgesSource applies a Canny Edge Detector to the depth map of the ImageWithDepth
-type DepthEdgesSource struct {
+// depthEdgesSource applies a Canny Edge Detector to the depth map of the ImageWithDepth
+type depthEdgesSource struct {
 	source     gostream.ImageSource
 	detector   *rimage.CannyEdgeDetector
 	blurRadius float64
 }
 
 // Close closes the source
-func (os *DepthEdgesSource) Close() error {
+func (os *depthEdgesSource) Close() error {
 	return nil
 }
 
 // Next applies a canny edge detector on the depth map of the next image
-func (os *DepthEdgesSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (os *depthEdgesSource) Next(ctx context.Context) (image.Image, func(), error) {
 	i, closer, err := os.source.Next(ctx)
 	if err != nil {
 		return i, closer, err
@@ -58,6 +58,6 @@ func newDepthEdgesSource(r robot.Robot, config config.Component) (camera.Camera,
 		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
-	return &camera.ImageSource{ImageSource: &DepthEdgesSource{source, canny, 3.0}}, nil
+	return &camera.ImageSource{ImageSource: &depthEdgesSource{source, canny, 3.0}}, nil
 
 }

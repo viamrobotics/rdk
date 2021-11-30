@@ -22,18 +22,18 @@ func init() {
 	}})
 }
 
-// PreprocessDepthSource applies pre-processing functions to depth maps in order to smooth edges and fill holes.
-type PreprocessDepthSource struct {
+// preprocessDepthSource applies pre-processing functions to depth maps in order to smooth edges and fill holes.
+type preprocessDepthSource struct {
 	source gostream.ImageSource
 }
 
 // Close closes the source
-func (os *PreprocessDepthSource) Close() error {
+func (os *preprocessDepthSource) Close() error {
 	return nil
 }
 
 // Next applies depth preprocessing to the next image
-func (os *PreprocessDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (os *preprocessDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
 	i, closer, err := os.source.Next(ctx)
 	if err != nil {
 		return i, closer, err
@@ -55,6 +55,6 @@ func newPreprocessDepth(r robot.Robot, config config.Component) (camera.Camera, 
 	if !ok {
 		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
-	return &camera.ImageSource{ImageSource: &PreprocessDepthSource{source}}, nil
+	return &camera.ImageSource{ImageSource: &preprocessDepthSource{source}}, nil
 
 }

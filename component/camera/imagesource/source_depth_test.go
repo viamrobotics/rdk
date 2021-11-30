@@ -21,8 +21,10 @@ func (h *depthSourceTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorCont
 
 	ii := rimage.ConvertToImageWithDepth(img)
 	// align the images
-	dc, err := NewDepthComposed(nil, nil, h.attrs, logger)
+	is, err := NewDepthComposed(nil, nil, h.attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
+	dc, ok := is.(*depthComposed)
+	test.That(t, ok, test.ShouldBeTrue)
 	fixed, err := dc.alignmentCamera.AlignImageWithDepth(ii)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "aligned-depth")
@@ -30,10 +32,10 @@ func (h *depthSourceTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorCont
 	// change to use projection camera
 	fixed.SetCameraSystem(dc.projectionCamera)
 	// create edge map
-	source := &StaticSource{fixed}
+	source := &staticSource{fixed}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
 	blur := 3.0
-	ds := &DepthEdgesSource{source, canny, blur}
+	ds := &depthEdgesSource{source, canny, blur}
 	edges, _, err := ds.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
@@ -45,8 +47,8 @@ func (h *depthSourceTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorCont
 	pCtx.GotDebugPointCloud(fixedPointCloud, "aligned-pointcloud")
 
 	// preprocess depth map
-	source = &StaticSource{fixed}
-	rs := &PreprocessDepthSource{source}
+	source = &staticSource{fixed}
+	rs := &preprocessDepthSource{source}
 
 	output, _, err := rs.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -57,8 +59,8 @@ func (h *depthSourceTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorCont
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(preprocessedPointCloud, "preprocessed-aligned-pointcloud")
 
-	source = &StaticSource{preprocessed}
-	ds = &DepthEdgesSource{source, canny, blur}
+	source = &staticSource{preprocessed}
+	ds = &depthEdgesSource{source, canny, blur}
 	processedEdges, _, err := ds.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 

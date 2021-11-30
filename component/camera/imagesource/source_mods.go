@@ -25,7 +25,7 @@ func init() {
 			return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
 		}
 
-		return &camera.ImageSource{ImageSource: &RotateImageDepthSource{source}}, nil
+		return &camera.ImageSource{ImageSource: &rotateImageDepthSource{source}}, nil
 	}})
 
 	registry.RegisterComponent(camera.Subtype, "resize", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
@@ -45,13 +45,13 @@ func init() {
 
 }
 
-// RotateImageDepthSource TODO
-type RotateImageDepthSource struct {
+// rotateImageDepthSource TODO
+type rotateImageDepthSource struct {
 	Original gostream.ImageSource
 }
 
 // Next TODO
-func (rids *RotateImageDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (rids *rotateImageDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
 	orig, release, err := rids.Original.Next(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -67,6 +67,6 @@ func (rids *RotateImageDepthSource) Next(ctx context.Context) (image.Image, func
 }
 
 // Close TODO
-func (rids *RotateImageDepthSource) Close() error {
+func (rids *rotateImageDepthSource) Close() error {
 	return rids.Original.Close()
 }

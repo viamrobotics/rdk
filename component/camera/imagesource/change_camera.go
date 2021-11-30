@@ -37,20 +37,20 @@ func init() {
 	})
 }
 
-// CameraSystemChanger changes the camera system of the ImageWithDepth. Might be necessary if the system
+// cameraSystemChanger changes the camera system of the ImageWithDepth. Might be necessary if the system
 // that does the alignment is different from the system that does the projection.
-type CameraSystemChanger struct {
+type cameraSystemChanger struct {
 	source    gostream.ImageSource
 	NewCamera rimage.CameraSystem
 }
 
 // Close closes the source
-func (os *CameraSystemChanger) Close() error {
+func (os *cameraSystemChanger) Close() error {
 	return nil
 }
 
 // Next changes the CameraSystem of the ImageWithDepth to the system in the config file.
-func (os *CameraSystemChanger) Next(ctx context.Context) (image.Image, func(), error) {
+func (os *cameraSystemChanger) Next(ctx context.Context) (image.Image, func(), error) {
 	i, closer, err := os.source.Next(ctx)
 	if err != nil {
 		return i, closer, err
@@ -78,5 +78,5 @@ func newChangeCameraSystem(r robot.Robot, config config.Component) (camera.Camer
 	if err != nil {
 		return nil, err
 	}
-	return &camera.ImageSource{ImageSource: &CameraSystemChanger{source, cam}}, nil
+	return &camera.ImageSource{ImageSource: &cameraSystemChanger{source, cam}}, nil
 }
