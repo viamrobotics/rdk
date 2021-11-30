@@ -4,11 +4,13 @@ package imu
 
 import (
 	"context"
+	"sync"
+
 	"github.com/go-errors/errors"
+	viamutils "go.viam.com/utils"
+
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/spatialmath"
-	viamutils "go.viam.com/utils"
-	"sync"
 
 	"go.viam.com/core/resource"
 	"go.viam.com/core/rlog"
