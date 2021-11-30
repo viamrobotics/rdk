@@ -25,8 +25,8 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/imu"
 	"go.viam.com/core/component/gripper"
+	"go.viam.com/core/component/imu"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc"
@@ -386,17 +386,14 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	switch name.Subtype {
-<<<<<<< HEAD
 	case imu.Subtype:
 		sensorType := rc.sensorTypes[name.Name]
 		sc := &sensorClient{rc, name.Name, sensorType}
 		return &imuClient{sc}, true
-=======
 	case gripper.Subtype:
 		return &gripperClient{rc: rc, name: name.Name}, true
 	case servo.Subtype:
 		return &servoClient{rc: rc, name: name.Name}, true
->>>>>>> main
 	default:
 		c := registry.ResourceSubtypeLookup(name.Subtype)
 		if c == nil || c.RPCClient == nil {
