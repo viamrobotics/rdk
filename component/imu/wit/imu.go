@@ -25,7 +25,7 @@ import (
 const model = "wit"
 
 func init() {
-	registry.RegisterComponent(imu.Subtype, "wit", registry.Component{
+	registry.RegisterComponent(imu.Subtype, model, registry.Component{
 		Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
