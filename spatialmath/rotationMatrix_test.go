@@ -56,6 +56,14 @@ func TestQuaternionConversion(t *testing.T) {
 			},
 			quat.Number{cos45, cos45, 0, 0},
 		},
+		{
+			[9]float64{
+				0.43, -0.43, .78,
+				0.75, -0.65, -0.04,
+				-0.5, 0.61, 0.61,
+			},
+			quat.Number{cos45, cos45, 0, 0},
+		},
 	}
 
 	for _, c := range cases {
