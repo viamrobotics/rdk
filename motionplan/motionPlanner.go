@@ -20,6 +20,7 @@ import (
 type PlannerOptions struct {
 	constraintHandler
 	metric kinematics.Metric
+	pathDist kinematics.Metric
 	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
 	// Max number of ik solutions to consider
 	maxSolutions int
@@ -32,12 +33,18 @@ func NewDefaultPlannerOptions() *PlannerOptions {
 	opt := &PlannerOptions{}
 	opt.AddConstraint(jointConstraint, NewJointConstraint(math.Inf(1)))
 	opt.metric = kinematics.NewSquaredNormMetric()
+	opt.pathDist = kinematics.NewSquaredNormMetric()
 	return opt
 }
 
 // SetMetric sets the distance metric for the solver
 func (p *PlannerOptions) SetMetric(m kinematics.Metric) {
 	p.metric = m
+}
+
+// SetPathDist sets the distance metric for the solver to move a constraint-violating point into a valid manifold
+func (p *PlannerOptions) SetPathDist(m kinematics.Metric) {
+	p.pathDist = m
 }
 
 // SetMaxSolutions sets the maximum number of IK solutions to generate for the planner
