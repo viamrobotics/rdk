@@ -658,7 +658,15 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	// register boat as base properly
 	registry.RegisterBase("viam-boat2", registry.Base{Constructor: newBoat})
 
-	registry.RegisterSensor(imu.Type, "temp-imu", registry.Sensor{Constructor: newArduinoIMU})
+	registry.RegisterComponent(imu.Subtype, "temp-imu", registry.Component{
+		Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return newArduinoIMU(ctx, r, config, logger)
+		}})
 
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
