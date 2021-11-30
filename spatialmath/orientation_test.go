@@ -53,6 +53,10 @@ func TestOrientationVectorDegrees(t *testing.T) {
 	testCompatibility(t, ovd45x)
 }
 
+func TestRotationMatrix(t *testing.T) {
+	testCompatibility(t, rm45x)
+}
+
 func TestSlerp(t *testing.T) {
 	q1 := q45x
 	q2 := quat.Conj(q45x)
@@ -100,6 +104,7 @@ func TestOrientationBetween(t *testing.T) {
 }
 
 func testCompatibility(t *testing.T, o Orientation) {
+	// Orientation Vectors
 	test.That(t, o.OrientationVectorRadians().Theta, test.ShouldAlmostEqual, ov45x.Theta)
 	test.That(t, o.OrientationVectorRadians().OX, test.ShouldAlmostEqual, ov45x.OX)
 	test.That(t, o.OrientationVectorRadians().OY, test.ShouldAlmostEqual, ov45x.OY)
@@ -108,24 +113,28 @@ func testCompatibility(t *testing.T, o Orientation) {
 	test.That(t, o.OrientationVectorDegrees().OX, test.ShouldAlmostEqual, ovd45x.OX)
 	test.That(t, o.OrientationVectorDegrees().OY, test.ShouldAlmostEqual, ovd45x.OY)
 	test.That(t, o.OrientationVectorDegrees().OZ, test.ShouldAlmostEqual, ovd45x.OZ)
+
+	// Quaternion
 	test.That(t, o.Quaternion().Real, test.ShouldAlmostEqual, q45x.Real)
 	test.That(t, o.Quaternion().Imag, test.ShouldAlmostEqual, q45x.Imag)
 	test.That(t, o.Quaternion().Jmag, test.ShouldAlmostEqual, q45x.Jmag)
 	test.That(t, o.Quaternion().Kmag, test.ShouldAlmostEqual, q45x.Kmag)
+
+	// Axis angles
 	test.That(t, o.AxisAngles().Theta, test.ShouldAlmostEqual, aa45x.Theta)
 	test.That(t, o.AxisAngles().RX, test.ShouldAlmostEqual, aa45x.RX)
 	test.That(t, o.AxisAngles().RY, test.ShouldAlmostEqual, aa45x.RY)
 	test.That(t, o.AxisAngles().RZ, test.ShouldAlmostEqual, aa45x.RZ)
+
+	// Euler angles
 	test.That(t, o.EulerAngles().Roll, test.ShouldAlmostEqual, ea45x.Roll)
 	test.That(t, o.EulerAngles().Pitch, test.ShouldAlmostEqual, ea45x.Pitch)
 	test.That(t, o.EulerAngles().Yaw, test.ShouldAlmostEqual, ea45x.Yaw)
-	matrixCompare(t, ovd45x.RotationMatrix(), rm45x)
-}
 
-func matrixCompare(t *testing.T, rm1, rm2 *RotationMatrix) {
+	// Rotation matrices
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 3; j++ {
-			test.That(t, rm1.At(i, j), test.ShouldAlmostEqual, rm2.At(i, j))
+			test.That(t, o.RotationMatrix().At(i, j), test.ShouldAlmostEqual, rm45x.At(i, j))
 		}
 	}
 }
