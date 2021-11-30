@@ -19,7 +19,7 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("colorSegments", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterComponent(camera.Subtype, "colorSegments", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		return newColorSegmentsSource(r, config)
 	}})
 }
@@ -76,7 +76,9 @@ func newColorSegmentsSource(r robot.Robot, config config.Component) (camera.Came
 	planeSize := config.Attributes.Int("plane_size", 10000)
 	segmentSize := config.Attributes.Int("segment_size", 5)
 	clusterRadius := config.Attributes.Float64("cluster_radius", 5.0)
-	cfg := segmentation.ObjectConfig{planeSize, segmentSize, clusterRadius}
-	return &camera.ImageSource{&ColorSegmentsSource{source, cfg}}, nil
+	cfg := segmentation.ObjectConfig{
+		MinPtsInPlane: planeSize, MinPtsInSegment: segmentSize, ClusteringRadius: clusterRadius,
+	}
+	return &camera.ImageSource{ImageSource: &ColorSegmentsSource{source, cfg}}, nil
 
 }

@@ -47,8 +47,10 @@ import (
 	_ "go.viam.com/core/board/arduino"
 	_ "go.viam.com/core/board/jetson"
 	_ "go.viam.com/core/board/numato"
+	_ "go.viam.com/core/component/camera/fake"
+	_ "go.viam.com/core/component/camera/gopro"
 	_ "go.viam.com/core/component/camera/imagesource"
-	_ "go.viam.com/core/component/camera/velodyne" // velodyne lidary
+	_ "go.viam.com/core/component/camera/velodyne"
 	_ "go.viam.com/core/component/gantry/fake"
 	_ "go.viam.com/core/component/gantry/simple"
 	_ "go.viam.com/core/component/gripper/fake"         // for a gripper
@@ -70,7 +72,6 @@ import (
 	_ "go.viam.com/core/rimage"     // this is for the core camera types
 	_ "go.viam.com/core/robots/eva" // for eva
 	_ "go.viam.com/core/robots/fake"
-	_ "go.viam.com/core/robots/gopro"                   // for a camera
 	_ "go.viam.com/core/robots/universalrobots"         // for an arm
 	_ "go.viam.com/core/robots/varm"                    // for an arm
 	_ "go.viam.com/core/robots/vforcematrixtraditional" // for a traditional force matrix
@@ -394,7 +395,7 @@ func (r *localRobot) newBase(ctx context.Context, config config.Component) (base
 }
 
 func (r *localRobot) newCamera(ctx context.Context, config config.Component) (camera.Camera, error) {
-	f := registry.CameraLookup(config.Model)
+	f := registry.ComponentLookup(camera.Subtype, config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown camera model: %s", config.Model)
 	}
@@ -402,7 +403,7 @@ func (r *localRobot) newCamera(ctx context.Context, config config.Component) (ca
 	if err != nil {
 		return nil, err
 	}
-	return &camera.ImageSource{is}, nil
+	return is.(camera.Camera), nil
 }
 
 func (r *localRobot) newLidar(ctx context.Context, config config.Component) (lidar.Lidar, error) {

@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
+	fakecamera "go.viam.com/core/component/camera/fake"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
@@ -68,7 +69,7 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	camera1, ok := parts.CameraByName("camera1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1")
+	test.That(t, camera1.(*proxyCamera).actual.(*fakecamera.Camera).Name, test.ShouldEqual, "camera1")
 	_, ok = parts.CameraByName("camera1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 	lidar1, ok := parts.LidarByName("lidar1")
@@ -175,13 +176,13 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 
 	camera1, ok := parts.CameraByName("camera1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1")
+	test.That(t, camera1.(*proxyCamera).actual.(*fakecamera.Camera).Name, test.ShouldEqual, "camera1")
 	camera1, ok = parts.CameraByName("camera1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1_r1")
+	test.That(t, camera1.(*proxyCamera).actual.(*fakecamera.Camera).Name, test.ShouldEqual, "camera1_r1")
 	camera1, ok = parts.CameraByName("camera1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1_r2")
+	test.That(t, camera1.(*proxyCamera).actual.(*fakecamera.Camera).Name, test.ShouldEqual, "camera1_r2")
 	_, ok = parts.CameraByName("camera1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -377,13 +378,13 @@ func TestPartsClone(t *testing.T) {
 
 	camera1, ok := newParts.CameraByName("camera1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1")
+	test.That(t, camera1.(*proxyCamera).actual.(*fakecamera.Camera).Name, test.ShouldEqual, "camera1")
 	camera1, ok = newParts.CameraByName("camera1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1_r1")
+	test.That(t, camera1.(*proxyCamera).actual.(*fakecamera.Camera).Name, test.ShouldEqual, "camera1_r1")
 	camera1, ok = newParts.CameraByName("camera1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1_r2")
+	test.That(t, camera1.(*proxyCamera).actual.(*fakecamera.Camera).Name, test.ShouldEqual, "camera1_r2")
 	_, ok = newParts.CameraByName("camera1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
