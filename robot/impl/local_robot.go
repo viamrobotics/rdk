@@ -47,6 +47,7 @@ import (
 	_ "go.viam.com/core/board/arduino"
 	_ "go.viam.com/core/board/jetson"
 	_ "go.viam.com/core/board/numato"
+	_ "go.viam.com/core/component/camera/imagesource"
 	_ "go.viam.com/core/component/camera/velodyne" // velodyne lidary
 	_ "go.viam.com/core/component/gantry/fake"
 	_ "go.viam.com/core/component/gantry/simple"
@@ -66,8 +67,7 @@ import (
 	_ "go.viam.com/core/motor/gpiostepper"
 	_ "go.viam.com/core/motor/tmcstepper"
 	_ "go.viam.com/core/platformdetector/pi"
-	_ "go.viam.com/core/rimage" // this is for the core camera types
-	_ "go.viam.com/core/rimage/imagesource"
+	_ "go.viam.com/core/rimage"     // this is for the core camera types
 	_ "go.viam.com/core/robots/eva" // for eva
 	_ "go.viam.com/core/robots/fake"
 	_ "go.viam.com/core/robots/gopro"                   // for a camera
