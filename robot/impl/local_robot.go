@@ -394,18 +394,6 @@ func (r *localRobot) newBase(ctx context.Context, config config.Component) (base
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *localRobot) newCamera(ctx context.Context, config config.Component) (camera.Camera, error) {
-	f := registry.ComponentLookup(camera.Subtype, config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown camera model: %s", config.Model)
-	}
-	is, err := f.Constructor(ctx, r, config, r.logger)
-	if err != nil {
-		return nil, err
-	}
-	return is.(camera.Camera), nil
-}
-
 func (r *localRobot) newLidar(ctx context.Context, config config.Component) (lidar.Lidar, error) {
 	f := registry.LidarLookup(config.Model)
 	if f == nil {
@@ -498,15 +486,6 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeBoard,
-			name,
-		)
-		resources = append(resources, res)
-	}
-	for _, name := range r.CameraNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceCore,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeCamera,
 			name,
 		)
 		resources = append(resources, res)
