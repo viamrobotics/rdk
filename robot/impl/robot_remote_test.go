@@ -14,6 +14,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/camera"
+	fakecamera "go.viam.com/core/component/camera/fake"
 	"go.viam.com/core/component/gripper"
 	fakegripper "go.viam.com/core/component/gripper/fake"
 	"go.viam.com/core/component/servo"
@@ -127,7 +128,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		if _, ok := utils.NewStringSet(injectRobot.CameraNames()...)[name]; !ok {
 			return nil, false
 		}
-		return &fake.Camera{Name: name}, true
+		return &fakecamera.Camera{Name: name}, true
 	}
 	injectRobot.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.LidarNames()...)[name]; !ok {
@@ -504,11 +505,11 @@ func TestRemoteRobot(t *testing.T) {
 	robot.conf.Prefix = false
 	camera1, ok := robot.CameraByName("camera1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1")
+	test.That(t, camera1.(*proxyCamera).actual.(*fakecamera.Camera).Name, test.ShouldEqual, "camera1")
 	robot.conf.Prefix = true
 	camera1, ok = robot.CameraByName("one.camera1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1")
+	test.That(t, camera1.(*proxyCamera).actual.(*fakecamera.Camera).Name, test.ShouldEqual, "camera1")
 	_, ok = robot.CameraByName("camera1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 

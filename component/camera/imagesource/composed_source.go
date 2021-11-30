@@ -17,11 +17,11 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("depthToPretty", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterComponent(camera.Subtype, "depthToPretty", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		return newDepthToPretty(r, config)
 	}})
 
-	registry.RegisterCamera("overlay", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterComponent(camera.Subtype, "overlay", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		return newOverlay(r, config)
 	}})
 }
@@ -82,5 +82,5 @@ func newDepthToPretty(r robot.Robot, config config.Component) (camera.Camera, er
 	if !ok {
 		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
-	return &camera.ImageSource{&depthToPretty{source}}, nil
+	return &camera.ImageSource{ImageSource: &depthToPretty{source}}, nil
 }

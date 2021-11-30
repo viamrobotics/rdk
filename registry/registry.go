@@ -50,6 +50,12 @@ func init() {
 		},
 	})
 
+	RegisterResourceSubtype(camera.Subtype, ResourceSubtype{
+		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
+			return camera.WrapWithReconfigurable(r)
+		},
+	})
+
 	RegisterResourceSubtype(gantry.Subtype, ResourceSubtype{
 		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
 			return gantry.WrapWithReconfigurable(r)
@@ -76,12 +82,6 @@ func init() {
 }
 
 type (
-	// A CreateCamera creates a camera from a given config.
-	CreateCamera func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error)
-
-	// A CreateGripper creates a gripper from a given config.
-	CreateGripper func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error)
-
 	// A CreateBase creates a base from a given config.
 	CreateBase func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error)
 
@@ -108,12 +108,6 @@ type (
 // for debugging purposes.
 type RegDebugInfo struct {
 	RegistrarLoc string
-}
-
-// Camera stores a Camera constructor function (mandatory)
-type Camera struct {
-	RegDebugInfo
-	Constructor CreateCamera
 }
 
 // Base stores a Base constructor function (mandatory)
@@ -161,7 +155,6 @@ type Service struct {
 
 // all registries
 var (
-	cameraRegistry          = map[string]Camera{}
 	baseRegistry            = map[string]Base{}
 	lidarRegistry           = map[string]Lidar{}
 	sensorRegistry          = map[sensor.Type]map[string]Sensor{}
@@ -178,19 +171,6 @@ func getCallerName() string {
 		return details.Name()
 	}
 	return "unknown"
-}
-
-// RegisterCamera registers a camera model to a creator.
-func RegisterCamera(model string, creator Camera) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := cameraRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two cameras with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	cameraRegistry[model] = creator
 }
 
 // RegisterBase registers a base model to a creator.
@@ -285,15 +265,6 @@ func RegisterService(typeName config.ServiceType, registration Service) {
 		panic(errors.Errorf("cannot register a nil constructor for service %s", typeName))
 	}
 	serviceRegistry[typeName] = registration
-}
-
-// CameraLookup looks up a camera creator by the given model. nil is returned if
-// there is no creator registered.
-func CameraLookup(model string) *Camera {
-	if registration, ok := cameraRegistry[model]; ok {
-		return &registration
-	}
-	return nil
 }
 
 // BaseLookup looks up a base creator by the given model. nil is returned if
@@ -446,15 +417,6 @@ func ResourceSubtypeLookup(subtype resource.Subtype) *ResourceSubtype {
 		return &registration
 	}
 	return nil
-}
-
-// RegisteredCameras returns a copy of the registered cameras.
-func RegisteredCameras() map[string]Camera {
-	copied, err := copystructure.Copy(cameraRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]Camera)
 }
 
 // RegisteredBases returns a copy of the registered bases.

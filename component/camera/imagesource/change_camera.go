@@ -19,7 +19,7 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("changeCameraSystem", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterComponent(camera.Subtype, "changeCameraSystem", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		return newChangeCameraSystem(r, config)
 	}})
 
@@ -78,5 +78,5 @@ func newChangeCameraSystem(r robot.Robot, config config.Component) (camera.Camer
 	if err != nil {
 		return nil, err
 	}
-	return &camera.ImageSource{&CameraSystemChanger{source, cam}}, nil
+	return &camera.ImageSource{ImageSource: &CameraSystemChanger{source, cam}}, nil
 }
