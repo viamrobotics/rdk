@@ -83,9 +83,9 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error)
 
 		if len(gradient) > 0 {
 			for i := range gradient {
-				x[i] += ik.jump
-				eePos, err := ik.model.Transform(frame.FloatsToInputs(x))
-				x[i] -= ik.jump
+				xBak := append([]float64{}, x...)
+				xBak[i] += ik.jump
+				eePos, err := ik.model.Transform(frame.FloatsToInputs(xBak))
 				if err != nil && eePos == nil {
 					ik.logger.Errorf("error calculating eePos in nlopt %q", err)
 					err = ik.opt.ForceStop()
