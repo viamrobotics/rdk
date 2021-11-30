@@ -12,8 +12,8 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	fakegripper "go.viam.com/core/component/gripper/fake"
 	"go.viam.com/core/component/servo"

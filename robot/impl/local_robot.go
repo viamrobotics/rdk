@@ -13,8 +13,8 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
@@ -47,7 +47,7 @@ import (
 	_ "go.viam.com/core/board/arduino"
 	_ "go.viam.com/core/board/jetson"
 	_ "go.viam.com/core/board/numato"
-	_ "go.viam.com/core/camera/velodyne" // velodyne lidary
+	_ "go.viam.com/core/component/camera/velodyne" // velodyne lidary
 	_ "go.viam.com/core/component/gantry/fake"
 	_ "go.viam.com/core/component/gantry/simple"
 	_ "go.viam.com/core/component/gripper/fake"         // for a gripper
