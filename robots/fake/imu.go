@@ -8,17 +8,16 @@ import (
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/spatialmath"
 
-	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/imu"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor/imu"
 
 	"github.com/edaniels/golog"
 )
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, "fake", registry.Component{
+	registry.RegisterComponent(imu.Subtype, "fake", registry.Component{
 		Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
