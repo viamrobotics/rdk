@@ -285,6 +285,7 @@ func TestGrab(t *testing.T) {
 	closedPosition := 5.
 	failedPosition := closedPosition + 2*positionTolerance
 	successfulPosition := closedPosition + 0.5*positionTolerance
+	startHoldingPressure := 15.
 
 	// Expect the position of the fingers to be close to the position of the closedPosition
 	// or to have pressure on them
@@ -319,6 +320,7 @@ func TestGrab(t *testing.T) {
 			numBadCurrentReadings: 0,
 			hasPressureThreshold:  hasPressureThreshold,
 			state:                 gripperStateUnspecified,
+			startHoldingPressure:  startHoldingPressure,
 		}
 		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
@@ -359,6 +361,7 @@ func TestGrab(t *testing.T) {
 			closedPos:             closedPosition,
 			hasPressureThreshold:  hasPressureThreshold,
 			state:                 gripperStateUnspecified,
+			startHoldingPressure:  startHoldingPressure,
 		}
 		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -398,6 +401,7 @@ func TestGrab(t *testing.T) {
 			closedPos:             closedPosition,
 			hasPressureThreshold:  hasPressureThreshold,
 			state:                 gripperStateUnspecified,
+			startHoldingPressure:  startHoldingPressure,
 		}
 		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -437,6 +441,7 @@ func TestGrab(t *testing.T) {
 			closedPos:             closedPosition,
 			hasPressureThreshold:  hasPressureThreshold,
 			state:                 gripperStateUnspecified,
+			startHoldingPressure:  startHoldingPressure,
 		}
 		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
