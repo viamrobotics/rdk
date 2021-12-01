@@ -42,7 +42,7 @@ func TestSimpleMotion(t *testing.T) {
 	test.That(t, len(path), test.ShouldNotEqual, 0)
 }
 
-// This should test a simple linear motion
+// This should test a simple linear motion on a longer path, with a no-spill constraint
 func TestComplexMotion(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
@@ -60,14 +60,18 @@ func TestComplexMotion(t *testing.T) {
 	}
 
 	opt := NewDefaultPlannerOptions()
-	orientMetric := NewPoseFlexOVMetric(spatial.NewPoseFromProtobuf(pos), 0.1)
+	orientMetric := NewPoseFlexOVMetric(spatial.NewPoseFromProtobuf(pos), 0.09)
 
 	oFunc := orientDistToRegion(spatial.NewPoseFromProtobuf(pos).Orientation(), 0.1)
+	oFuncMet := func(from, to spatial.Pose) float64 {
+		return oFunc(from.Orientation())
+	}
 	orientConstraint := func(o spatial.Orientation) bool {
 		return oFunc(o) == 0
 	}
 
 	opt.SetMetric(orientMetric)
+	opt.SetPathDist(oFuncMet)
 	opt.AddConstraint("orientation", NewOrientationConstraint(orientConstraint))
 	mp.SetOptions(opt)
 

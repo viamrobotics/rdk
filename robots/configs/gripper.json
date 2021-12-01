@@ -106,13 +106,15 @@
           "board": "gripper-board",
           "motor": "gripper-motor",
           "current": "current",
-          "pressure_limit": 15,
-          "calibration_noise_threshold": 7,
+          "has_pressure_threshold": 15,
+          "calibration_min_pressure_difference": 7,
           "forcematrix": "forcematrixWithMuxOnGripper",
-          "activated_anti_slip_force_control": true,
-          "start_holding_pressure": 0.005,
-          "time_step_size_in_milliseconds": 10,
-          "pressure_step_size": 0.005
+          "activated_anti_slip_grip_power_control": true,
+          "start_holding_pressure": 15,
+          "start_grip_power_pct": 0.001,
+          "anti_slip_time_step_size_in_milliseconds": 10,
+          "anti_slip_grip_power_pct_step_size": 0.005,
+          "target_rpm": 200
         },
         "depends_on": [
           "gripper-board",

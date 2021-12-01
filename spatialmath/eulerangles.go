@@ -56,3 +56,8 @@ func (ea *EulerAngles) OrientationVectorDegrees() *OrientationVectorDegrees {
 func (ea *EulerAngles) AxisAngles() *R4AA {
 	return QuatToR4AA(ea.Quaternion())
 }
+
+// RotationMatrix returns the orientation in rotation matrix representation
+func (ea *EulerAngles) RotationMatrix() *RotationMatrix {
+	return QuatToRotationMatrix(ea.Quaternion())
+}
