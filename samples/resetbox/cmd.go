@@ -18,8 +18,8 @@ import (
 	"go.viam.com/core/motor"
 	"go.viam.com/core/services/web"
 
+	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
-	"go.viam.com/core/gripper"
 	componentpb "go.viam.com/core/proto/api/component/v1"
 	pb "go.viam.com/core/proto/api/v1"
 

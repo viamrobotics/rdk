@@ -34,6 +34,11 @@ func (q *quaternion) EulerAngles() *EulerAngles {
 	return QuatToEulerAngles(q.Quaternion())
 }
 
+// RotationMatrix returns the orientation in rotation matrix representation
+func (q *quaternion) RotationMatrix() *RotationMatrix {
+	return QuatToRotationMatrix(q.Quaternion())
+}
+
 // QuatToEulerAngles converts a quaternion to the euler angle representation. Algorithm from Wikipedia.
 // https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_angles_conversion
 func QuatToEulerAngles(q quat.Number) *EulerAngles {
@@ -167,6 +172,18 @@ func QuatToR3AA(q quat.Number) R3AA {
 		return R3AA{1, 0, 0}
 	}
 	return R3AA{angle * q.Imag / denom, angle * q.Jmag / denom, angle * q.Kmag / denom}
+}
+
+// QuatToRotationMatrix converts a quat to a Rotation Matrix
+// reference: https://github.com/go-gl/mathgl/blob/592312d8590acb0686c14740dcf60e2f32d9c618/mgl64/quat.go#L168
+func QuatToRotationMatrix(q quat.Number) *RotationMatrix {
+	w, x, y, z := q.Real, q.Imag, q.Jmag, q.Kmag
+	mat := [9]float64{
+		1 - 2*y*y - 2*z*z, 2*x*y + 2*w*z, 2*x*z - 2*w*y,
+		2*x*y - 2*w*z, 1 - 2*x*x - 2*z*z, 2*y*z + 2*w*x,
+		2*x*z + 2*w*y, 2*y*z - 2*w*x, 1 - 2*x*x - 2*y*y,
+	}
+	return &RotationMatrix{mat}
 }
 
 // Used for interpolating orientations.

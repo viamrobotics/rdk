@@ -11,6 +11,7 @@ type Orientation interface {
 	AxisAngles() *R4AA
 	Quaternion() quat.Number
 	EulerAngles() *EulerAngles
+	RotationMatrix() *RotationMatrix
 }
 
 // NewZeroOrientation returns an orientatation which signifies no rotation
