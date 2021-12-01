@@ -40,9 +40,6 @@ import (
 	_ "go.viam.com/core/function/vm/engines/javascript"
 
 	// These are the robot pieces we want by default
-	_ "go.viam.com/SensorExporter/go"
-
-	// These are the robot pieces we want by default
 	_ "go.viam.com/core/base/impl"
 	_ "go.viam.com/core/board/arduino"
 	_ "go.viam.com/core/board/jetson"
