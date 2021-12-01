@@ -542,8 +542,6 @@ func TestClient(t *testing.T) {
 		switch name {
 		case "compass2":
 			return injectRelCompassDev, true
-		case "imu1":
-			return injectIMUDev, true
 		case "fsm1":
 			return injectFsm, true
 		case "fsm2":
