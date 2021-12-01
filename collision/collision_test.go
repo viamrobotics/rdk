@@ -1,82 +1,27 @@
 package collision
 
 import (
-	"math"
 	"testing"
 
-	"github.com/golang/geo/r3"
+	frame "go.viam.com/core/referenceframe"
+	"go.viam.com/core/utils"
 	"go.viam.com/test"
-
-	spatial "go.viam.com/core/spatialmath"
 )
 
-func TestOBBvsOBB(t *testing.T) {
-	cases := []struct {
-		A        *Box
-		B        *Box
-		Expected bool
-	}{
-		{
-			// test no collision
-			NewBox(spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, spatial.NewZeroOrientation()), r3.Vector{1, 1, 1}),
-			NewBox(spatial.NewPoseFromOrientation(r3.Vector{2.1, 0, 0}, spatial.NewZeroOrientation()), r3.Vector{1, 1, 1}),
-			false,
-		},
-		{
-			// test face to face contact
-			NewBox(spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, spatial.NewZeroOrientation()), r3.Vector{1, 1, 1}),
-			NewBox(spatial.NewPoseFromOrientation(r3.Vector{2, 0, 0}, spatial.NewZeroOrientation()), r3.Vector{1, 1, 1}),
-			true,
-		},
-		{
-			// test inscribed box
-			NewBox(spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, spatial.NewZeroOrientation()), r3.Vector{2, 2, 2}),
-			NewBox(spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, spatial.NewZeroOrientation()), r3.Vector{1, 1, 1}),
-			true,
-		},
-		{
-			// test edge to edge contact
-			NewBox(spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, spatial.NewZeroOrientation()), r3.Vector{1, 1, 1}),
-			NewBox(spatial.NewPoseFromOrientation(r3.Vector{2, 4, 0}, spatial.NewZeroOrientation()), r3.Vector{1, 3, 1}),
-			true,
-		},
-		// {
-		// 	// test edge intersecting face
-		// 	NewBox(spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, spatial.NewZeroOrientation()), r3.Vector{1, 1, 1}),
-		// 	NewBox(spatial.NewPoseFromOrientation(r3.Vector{2, 0, 0}, spatial.NewZeroOrientation()), r3.Vector{1, 1, 1}),
-		// 	true,
-		// },
-		// {
-		// 	// test edge along face contact
-		// },
-		{
-			// test vertex to vertex contact
-			NewBox(spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, spatial.NewZeroOrientation()), r3.Vector{1, 1, 1}),
-			NewBox(spatial.NewPoseFromOrientation(r3.Vector{2, 2, 2}, spatial.NewZeroOrientation()), r3.Vector{1, 1, 1}),
-			true,
-		},
-		// {
-		// 	// test edge to vertex contact
-		// },
-		{
-			// test vertex to face contact
-			NewBox(spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, &spatial.EulerAngles{math.Pi / 4., math.Pi / 4., math.Pi / 4.}), r3.Vector{1, 1, 1}),
-			NewBox(spatial.NewPoseFromOrientation(r3.Vector{1. + math.Sqrt(3)/2, 0, 0}, spatial.NewZeroOrientation()), r3.Vector{1, 1, 1}),
-			true,
-		},
-		{
-			// test vertex to face near collision
-			NewBox(spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, &spatial.EulerAngles{math.Pi / 4., math.Pi / 4., math.Pi / 4.}), r3.Vector{1, 1, 1}),
-			NewBox(spatial.NewPoseFromOrientation(r3.Vector{1.1 + math.Sqrt(3)/2, 0, 0}, spatial.NewZeroOrientation()), r3.Vector{1, 1, 1}),
-			false,
-		},
-	}
+func TestSelfCollision(t *testing.T) {
+	modelUR5e, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
 
-	for _, c := range cases {
-		fn := test.ShouldBeTrue
-		if !c.Expected {
-			fn = test.ShouldBeFalse
-		}
-		test.That(t, BoxVsBox(c.A, c.B), fn)
-	}
+	poses, err := modelUR5e.VerboseTransform([]frame.Input{{0.0}, {0.0}, {0.0}, {0.0}, {0.0}, {0.0}})
+	test.That(t, err, test.ShouldBeNil)
+
+	collisions := SelfCollision(poses)
+	test.That(t, len(collisions) > 0, test.ShouldBeTrue)
+
+	// shoulderExpect := spatialmath.NewPoseFromPoint(r3.Vector{0.0, 0.0, 110.25})
+	// test.That(t, spatialmath.AlmostCoincident(poses["wx250s:shoulder"], shoulderExpect), test.ShouldBeTrue)
+	// upperArmExpect := spatialmath.NewPoseFromPoint(r3.Vector{50.0, 0.0, 360.25})
+	// test.That(t, spatialmath.AlmostCoincident(poses["wx250s:upper_arm"], upperArmExpect), test.ShouldBeTrue)
+	// forearmPoseExpect := spatialmath.NewPoseFromPoint(r3.Vector{300.0, 0.0, 360.25})
+	// test.That(t, spatialmath.AlmostCoincident(poses["wx250s:forearm"], forearmPoseExpect), test.ShouldBeTrue)
 }
