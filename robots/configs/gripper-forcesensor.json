@@ -54,8 +54,8 @@
           7
         ],
         "analog_channel": "a0",
-        "slip_detection_window": 50,
-        "noise_threshold": 80
+        "slip_detection_window": 100,
+        "slip_detection_signal_to_noise_cutoff": 150
       }
     }
   ]

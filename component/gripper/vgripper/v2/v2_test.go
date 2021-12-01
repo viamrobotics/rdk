@@ -156,7 +156,7 @@ func TestCalibrate(t *testing.T) {
 		}
 		fakeForceMatrix := &inject.ForceMatrix{}
 		// return the same pressure no matter what
-		pressureLimit := 4.
+		hasPressureThreshold := 4.
 		measuredPressure := 5
 		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{measuredPressure}}, nil
@@ -167,7 +167,7 @@ func TestCalibrate(t *testing.T) {
 			forceMatrix:           fakeForceMatrix,
 			logger:                logger,
 			numBadCurrentReadings: 0,
-			pressureLimit:         pressureLimit,
+			hasPressureThreshold:  hasPressureThreshold,
 		}
 		err := injectedGripper.calibrate(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
@@ -182,7 +182,7 @@ func TestCalibrate(t *testing.T) {
 
 		openPressure := 0
 		closedPressure := 10
-		pressureLimit := 5.
+		hasPressureThreshold := 5.
 
 		called := -1
 		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
@@ -198,7 +198,7 @@ func TestCalibrate(t *testing.T) {
 			forceMatrix:           fakeForceMatrix,
 			logger:                logger,
 			numBadCurrentReadings: 0,
-			pressureLimit:         pressureLimit,
+			hasPressureThreshold:  hasPressureThreshold,
 		}
 		err := injectedGripper.calibrate(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -306,7 +306,7 @@ func TestGrab(t *testing.T) {
 
 		// There is no pressure detected
 		measuredPressure := 0
-		pressureLimit := 500.
+		hasPressureThreshold := 500.
 		fakeForceMatrix := &inject.ForceMatrix{}
 		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{measuredPressure}}, nil
@@ -317,7 +317,7 @@ func TestGrab(t *testing.T) {
 			current:               fakeCurrent,
 			logger:                logger,
 			numBadCurrentReadings: 0,
-			pressureLimit:         pressureLimit,
+			hasPressureThreshold:  hasPressureThreshold,
 			state:                 gripperStateUnspecified,
 		}
 		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
@@ -345,7 +345,7 @@ func TestGrab(t *testing.T) {
 		// so let's assume it's not detected even though the gripper is closed.
 		// (Since this depends on the actual physical system design).
 		measuredPressure := 0
-		pressureLimit := 500.
+		hasPressureThreshold := 500.
 		fakeForceMatrix := &inject.ForceMatrix{}
 		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{measuredPressure}}, nil
@@ -357,7 +357,7 @@ func TestGrab(t *testing.T) {
 			logger:                logger,
 			numBadCurrentReadings: 0,
 			closedPos:             closedPosition,
-			pressureLimit:         pressureLimit,
+			hasPressureThreshold:  hasPressureThreshold,
 			state:                 gripperStateUnspecified,
 		}
 		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
@@ -384,7 +384,7 @@ func TestGrab(t *testing.T) {
 
 		// There is pressure detected, since the gripper holds an object
 		measuredPressure := 1000
-		pressureLimit := 500.
+		hasPressureThreshold := 500.
 		fakeForceMatrix := &inject.ForceMatrix{}
 		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{measuredPressure}}, nil
@@ -396,7 +396,7 @@ func TestGrab(t *testing.T) {
 			logger:                logger,
 			numBadCurrentReadings: 0,
 			closedPos:             closedPosition,
-			pressureLimit:         pressureLimit,
+			hasPressureThreshold:  hasPressureThreshold,
 			state:                 gripperStateUnspecified,
 		}
 		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
@@ -423,7 +423,7 @@ func TestGrab(t *testing.T) {
 		}
 		// There is no pressure detected
 		measuredPressure := 0
-		pressureLimit := 500.
+		hasPressureThreshold := 500.
 		fakeForceMatrix := &inject.ForceMatrix{}
 		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{measuredPressure}}, nil
@@ -435,7 +435,7 @@ func TestGrab(t *testing.T) {
 			logger:                logger,
 			numBadCurrentReadings: 0,
 			closedPos:             closedPosition,
-			pressureLimit:         pressureLimit,
+			hasPressureThreshold:  hasPressureThreshold,
 			state:                 gripperStateUnspecified,
 		}
 		grabbedSuccessfully, err := injectedGripper.Grab(context.Background())
@@ -617,14 +617,14 @@ func TestReadAveragePressure(t *testing.T) {
 
 func TestHasPressure(t *testing.T) {
 	t.Run("detect pressure", func(t *testing.T) {
-		pressureLimit := 1.
+		hasPressureThreshold := 1.
 		fakeForceMatrix := &inject.ForceMatrix{}
 		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{1, 2}, {3, 4}}, nil
 		}
 		injectedGripper := &gripperV2{
-			forceMatrix:   fakeForceMatrix,
-			pressureLimit: pressureLimit,
+			forceMatrix:          fakeForceMatrix,
+			hasPressureThreshold: hasPressureThreshold,
 		}
 		hasPressure, pressure, err := injectedGripper.hasPressure(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -633,14 +633,14 @@ func TestHasPressure(t *testing.T) {
 	})
 
 	t.Run("don't detect pressure", func(t *testing.T) {
-		pressureLimit := 10.
+		hasPressureThreshold := 10.
 		fakeForceMatrix := &inject.ForceMatrix{}
 		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{4, 10}, {6, 4}}, nil
 		}
 		injectedGripper := &gripperV2{
-			forceMatrix:   fakeForceMatrix,
-			pressureLimit: pressureLimit,
+			forceMatrix:          fakeForceMatrix,
+			hasPressureThreshold: hasPressureThreshold,
 		}
 		hasPressure, pressure, err := injectedGripper.hasPressure(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -669,15 +669,15 @@ func TestAnalogs(t *testing.T) {
 		fakeCurrent.ReadFunc = func(ctx context.Context) (int, error) {
 			return 10, nil
 		}
-		pressureLimit := 4.
+		hasPressureThreshold := 4.
 		fakeForceMatrix := &inject.ForceMatrix{}
 		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{1, 5}, {6, 8}}, nil
 		}
 		injectedGripper := &gripperV2{
-			current:       fakeCurrent,
-			forceMatrix:   fakeForceMatrix,
-			pressureLimit: pressureLimit,
+			current:              fakeCurrent,
+			forceMatrix:          fakeForceMatrix,
+			hasPressureThreshold: hasPressureThreshold,
 		}
 		hasPressure, pressure, current, err := injectedGripper.analogs(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -691,15 +691,15 @@ func TestAnalogs(t *testing.T) {
 		fakeCurrent.ReadFunc = func(ctx context.Context) (int, error) {
 			return 10, nil
 		}
-		pressureLimit := 4.
+		hasPressureThreshold := 4.
 		fakeForceMatrix := &inject.ForceMatrix{}
 		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{}}, errors.New("matrix reading went wrong")
 		}
 		injectedGripper := &gripperV2{
-			current:       fakeCurrent,
-			forceMatrix:   fakeForceMatrix,
-			pressureLimit: pressureLimit,
+			current:              fakeCurrent,
+			forceMatrix:          fakeForceMatrix,
+			hasPressureThreshold: hasPressureThreshold,
 		}
 		hasPressure, pressure, current, err := injectedGripper.analogs(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
@@ -713,15 +713,15 @@ func TestAnalogs(t *testing.T) {
 		fakeCurrent.ReadFunc = func(ctx context.Context) (int, error) {
 			return 0, errors.New("current reading went wrong")
 		}
-		pressureLimit := 4.
+		hasPressureThreshold := 4.
 		fakeForceMatrix := &inject.ForceMatrix{}
 		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{1, 5}, {6, 8}}, nil
 		}
 		injectedGripper := &gripperV2{
-			current:       fakeCurrent,
-			forceMatrix:   fakeForceMatrix,
-			pressureLimit: pressureLimit,
+			current:              fakeCurrent,
+			forceMatrix:          fakeForceMatrix,
+			hasPressureThreshold: hasPressureThreshold,
 		}
 		hasPressure, pressure, current, err := injectedGripper.analogs(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)

@@ -42,7 +42,6 @@ func init() {
 
 // Parameters for calibration & operating the gripper.
 const (
-	targetRPM               = 200
 	maxCurrent              = 300
 	currentBadReadingCounts = 50
 	openPosOffset           = 0.4  // Reduce maximum opening width, keeps out of mechanical binding region
@@ -60,12 +59,14 @@ type gripperV2 struct {
 	forceMatrix forcematrix.ForceMatrix
 
 	// parameters that are set by the user
-	holdingPressure               float32 //  percentage of power the gripper uses to hold an item; range: [0-1]
-	pressureLimit                 float64
-	calibrationNoiseThreshold     float64
-	timeStepSizeInMilliseconds    float64
-	pressureStepSize              float64
-	activatedAntiSlipForceControl bool
+	startHoldingPressure               float64
+	startGripPowerPct                  float32 // percentage of power the gripper uses to hold an item; range: [0-1]
+	hasPressureThreshold               float64
+	calibrationMinPressureDifference   float64
+	antiSlipTimeStepSizeInMilliseconds float64
+	antiSlipGripPowerPctStepSize       float64
+	targetRPM                          float64
+	activatedAntiSlipGripPowerControl  bool
 
 	// action state machine
 	state    gripperState
@@ -121,12 +122,14 @@ func new(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		return nil, errors.Errorf("(%v) is not a ForceMatrix device", forceMatrixName)
 	}
 
-	pressureLimit := config.Attributes.Float64("pressure_limit", 30)
-	calibrationNoiseThreshold := config.Attributes.Float64("calibration_noise_threshold", 7)
-	activatedAntiSlipForceControl := config.Attributes.Bool("activated_anti_slip_force_control", true)
+	hasPressureThreshold := config.Attributes.Float64("has_pressure_threshold", 30)
+	calibrationMinPressureDifference := config.Attributes.Float64("calibration_min_pressure_difference", 7)
+	activatedAntiSlipGripPowerControl := config.Attributes.Bool("activated_anti_slip_grip_power_control", true)
 	startHoldingPressure := config.Attributes.Float64("start_holding_pressure", 0.005)
-	timeStepSizeInMilliseconds := config.Attributes.Float64("time_step_size_in_milliseconds", 10)
-	pressureStepSize := config.Attributes.Float64("pressure_step_size", 0.005)
+	startGripPowerPct := config.Attributes.Float64("start_grip_power_pct", 0.005)
+	antiSlipTimeStepSizeInMilliseconds := config.Attributes.Float64("anti_slip_time_step_size_in_milliseconds", 10)
+	antiSlipGripPowerPctStepSize := config.Attributes.Float64("anti_slip_grip_power_pct_step_size", 0.005)
+	targetRPM := config.Attributes.Float64("target_rpm", 200)
 
 	model, err := referenceframe.ParseJSON(vgripperv2json, "")
 	if err != nil {
@@ -139,15 +142,16 @@ func new(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		current:     current,
 		forceMatrix: forceMatrixDevice,
 		// parameters that are set by the user
-		holdingPressure:               float32(startHoldingPressure),
-		pressureLimit:                 pressureLimit,
-		calibrationNoiseThreshold:     calibrationNoiseThreshold,
-		timeStepSizeInMilliseconds:    timeStepSizeInMilliseconds,
-		pressureStepSize:              pressureStepSize,
-		activatedAntiSlipForceControl: activatedAntiSlipForceControl,
+		startHoldingPressure:               startHoldingPressure,
+		startGripPowerPct:                  float32(startGripPowerPct),
+		hasPressureThreshold:               hasPressureThreshold,
+		calibrationMinPressureDifference:   calibrationMinPressureDifference,
+		antiSlipTimeStepSizeInMilliseconds: antiSlipTimeStepSizeInMilliseconds,
+		antiSlipGripPowerPctStepSize:       antiSlipGripPowerPctStepSize,
+		targetRPM:                          targetRPM,
+		activatedAntiSlipGripPowerControl:  activatedAntiSlipGripPowerControl,
 		// action state machine
 		state: gripperStateUnspecified,
-		// switchActionChannel: make(chan bool),
 		// other
 		logger: logger,
 		model:  model,
@@ -214,7 +218,7 @@ func (vg *gripperV2) Grab(ctx context.Context) (bool, error) {
 		return grabbingSuccess, err
 	}
 
-	if grabbingSuccess && vg.activatedAntiSlipForceControl {
+	if grabbingSuccess && vg.activatedAntiSlipGripPowerControl {
 		err = vg.AntiSlipForceControl(ctx)
 		if err != nil {
 			return false, err
@@ -226,7 +230,7 @@ func (vg *gripperV2) Grab(ctx context.Context) (bool, error) {
 // ActivateAntiSlipForceControl sets the flag that determines whether or not the gripper
 // adjusts the holding pressure based on the presence of slip; or not.
 func (vg *gripperV2) ActivateAntiSlipForceControl(ctx context.Context, activate bool) {
-	vg.activatedAntiSlipForceControl = activate
+	vg.activatedAntiSlipGripPowerControl = activate
 }
 
 // AntiSlipForceControl controls adaptively the pressure while holding an object
@@ -261,15 +265,15 @@ func (vg *gripperV2) AntiSlipForceControl(ctx context.Context) error {
 // antiSlipForceControl controls adaptively the pressure while holding an object
 // with the aim to prevent it from slipping.
 func (vg *gripperV2) antiSlipForceControl(ctx context.Context) error {
-	msPer := vg.timeStepSizeInMilliseconds
-	antiSlipHoldingPressure := vg.holdingPressure
+	msPer := vg.antiSlipTimeStepSizeInMilliseconds
+	gripPowerPct := vg.startGripPowerPct
 	for {
 		wait := utils.SelectContextOrWait(ctx, time.Duration(msPer)*time.Millisecond)
 		if !wait {
 			return vg.stopAfterError(ctx, ctx.Err())
 		}
 
-		if !vg.activatedAntiSlipForceControl {
+		if !vg.activatedAntiSlipGripPowerControl {
 			return nil
 		}
 		switch vg.State() {
@@ -287,8 +291,8 @@ func (vg *gripperV2) antiSlipForceControl(ctx context.Context) error {
 			return err
 		}
 		if objectIsSlipping {
-			antiSlipHoldingPressure += float32(vg.pressureStepSize)
-			err = vg.motor.Go(ctx, vg.closedDirection, antiSlipHoldingPressure)
+			gripPowerPct += float32(vg.antiSlipGripPowerPctStepSize)
+			err = vg.motor.Go(ctx, vg.closedDirection, gripPowerPct)
 			if err != nil {
 				return err
 			}
@@ -328,7 +332,7 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 
 	// Test forward motion for pressure/endpoint
 	vg.logger.Debug("init: moving forward")
-	err := vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, targetRPM/2, stopFuncHighCurrent)
+	err := vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, vg.targetRPM/2, stopFuncHighCurrent)
 	if err != nil {
 		return err
 	}
@@ -342,7 +346,7 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 	}
 
 	var pressureOpen, pressureClosed float64
-	if pressure > vg.pressureLimit {
+	if pressure > vg.hasPressureThreshold {
 		vg.closedPos = position
 		vg.closedDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 		pressureClosed = pressure
@@ -354,7 +358,7 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 
 	// Test backward motion for pressure/endpoint
 	vg.logger.Debug("init: moving backward")
-	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, targetRPM/2, stopFuncHighCurrent)
+	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, vg.targetRPM/2, stopFuncHighCurrent)
 	if err != nil {
 		return err
 	}
@@ -366,7 +370,7 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if pressure > vg.pressureLimit {
+	if pressure > vg.hasPressureThreshold {
 		vg.closedPos = position
 		vg.closedDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
 		pressureClosed = pressure
@@ -378,7 +382,7 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 
 	// Sanity check; if the pressure difference between open & closed position is too small,
 	// something went wrong
-	if math.Abs(pressureOpen-pressureClosed) < vg.calibrationNoiseThreshold ||
+	if math.Abs(pressureOpen-pressureClosed) < vg.calibrationMinPressureDifference ||
 		vg.closedDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED ||
 		vg.openDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
 		return errors.Errorf("init: open and closed positions can't be distinguished: "+
@@ -416,7 +420,7 @@ func (vg *gripperV2) open(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	err = vg.motor.GoTo(ctx, targetRPM, vg.openPos)
+	err = vg.motor.GoTo(ctx, vg.targetRPM, vg.openPos)
 	if err != nil {
 		return err
 	}
@@ -486,7 +490,7 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	err = vg.motor.GoTo(ctx, targetRPM, vg.closedPos)
+	err = vg.motor.GoTo(ctx, vg.targetRPM, vg.closedPos)
 	if err != nil {
 		return false, err
 	}
@@ -536,13 +540,13 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 			return false, vg.stopAfterError(ctx, err)
 		}
 
-		if float32(pressure) >= vg.holdingPressure {
+		if pressure >= vg.startHoldingPressure {
 			now, err := vg.motor.Position(ctx)
 			if err != nil {
 				return false, err
 			}
 			vg.logger.Debugf("i think i grabbed something, have pressure, pos: %f closedPos: %v", now, vg.closedPos)
-			err = vg.motor.Go(ctx, vg.closedDirection, vg.holdingPressure)
+			err = vg.motor.Go(ctx, vg.closedDirection, vg.startGripPowerPct)
 			return err == nil, err
 		}
 
@@ -629,13 +633,13 @@ func (vg *gripperV2) readAveragePressure(ctx context.Context) (float64, error) {
 }
 
 // hasPressure checks if the average pressure measurement is above the
-// pressureLimit threshold or not.
+// hasPressureThreshold threshold or not.
 func (vg *gripperV2) hasPressure(ctx context.Context) (bool, float64, error) {
 	p, err := vg.readAveragePressure(ctx)
 	if err != nil {
 		return false, 0, err
 	}
-	return p > vg.pressureLimit, p, err
+	return p > vg.hasPressureThreshold, p, err
 }
 
 // analogs returns measurements such as: boolean that indicates if the average
