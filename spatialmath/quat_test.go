@@ -134,6 +134,24 @@ func TestOVConversionPoles(t *testing.T) {
 
 }
 
+func TestQuatNormalize(t *testing.T) {
+	tests := []struct {
+		rotation quat.Number
+		expected quat.Number
+	}{
+		{quat.Number{0, 0, 0, 0}, quat.Number{1, 0, 0, 0}},
+		{quat.Number{0, 1, 0, 0}, quat.Number{0, 1, 0, 0}},
+		{quat.Number{0, 0.0000000000001, 0, 0}, quat.Number{0, 1, 0, 0}},
+		{quat.Number{0, float64(math.MaxFloat64), 1, 0}, quat.Number{0, 1, 0, 0}},
+		{quat.Number{4, 2, 8, 4}, quat.Number{0.4, 0.2, 0.8, 0.4}},
+		{quat.Number{0, 3.0, 4.0, 5.0}, quat.Number{0, 3.0 / math.Sqrt(50), 4.0 / math.Sqrt(50), 5.0 / math.Sqrt(50)}},
+	}
+
+	for _, c := range tests {
+		quatCompare(t, Normalize(c.rotation), c.expected)
+	}
+}
+
 func TestR4Normalize(t *testing.T) {
 	// Test that Normalize() will produce a unit vector
 	ov1 := R4AA{0, 999, 0, 0}
@@ -185,8 +203,8 @@ func ovCompare(t *testing.T, ov1, ov2 *OrientationVector) {
 }
 
 func quatCompare(t *testing.T, q1, q2 quat.Number) {
-	test.That(t, q1.Real, test.ShouldAlmostEqual, q2.Real)
-	test.That(t, q1.Imag, test.ShouldAlmostEqual, q2.Imag)
-	test.That(t, q1.Jmag, test.ShouldAlmostEqual, q2.Jmag)
-	test.That(t, q1.Kmag, test.ShouldAlmostEqual, q2.Kmag)
+	test.That(t, q1.Real, test.ShouldAlmostEqual, q2.Real, 1e-8)
+	test.That(t, q1.Imag, test.ShouldAlmostEqual, q2.Imag, 1e-8)
+	test.That(t, q1.Jmag, test.ShouldAlmostEqual, q2.Jmag, 1e-8)
+	test.That(t, q1.Kmag, test.ShouldAlmostEqual, q2.Kmag, 1e-8)
 }
