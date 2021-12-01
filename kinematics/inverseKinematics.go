@@ -23,15 +23,6 @@ type InverseKinematics interface {
 	Close() error
 }
 
-// SquaredNorm returns the dot product of a vector with itself
-func SquaredNorm(vec []float64) float64 {
-	norm := 0.0
-	for _, v := range vec {
-		norm += v * v
-	}
-	return norm
-}
-
 func limitsToArrays(limits []frame.Limit) ([]float64, []float64) {
 	var min, max []float64
 	for _, limit := range limits {

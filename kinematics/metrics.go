@@ -1,6 +1,8 @@
 package kinematics
 
 import (
+	"github.com/golang/geo/r3"
+
 	spatial "go.viam.com/core/spatialmath"
 )
 
@@ -13,12 +15,11 @@ func NewSquaredNormMetric() Metric {
 }
 
 func weightedSqNormDist(from, to spatial.Pose) float64 {
-	d := spatial.PoseDelta(from, to)
+	delta := spatial.PoseDelta(from, to)
+	aa := delta.Orientation().AxisAngles()
+
 	// Increase weight for orientation since it's a small number
-	for i, v := range d {
-		if i > 2 {
-			d[i] = v * 10
-		}
-	}
-	return SquaredNorm(d)
+	aaWeighted := (r3.Vector{aa.RX, aa.RY, aa.RZ}).Mul(10.0)
+
+	return delta.Point().Norm2() + aaWeighted.Norm2()
 }
