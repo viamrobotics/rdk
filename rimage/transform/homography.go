@@ -38,7 +38,8 @@ func (dch *DepthColorHomography) AlignImageWithDepth(ii *rimage.ImageWithDepth) 
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			depthPt := colorToDepth.Apply(r2.Point{float64(x), float64(y)})
-			depthVal := BilinearInterpolationDepth(depthPt, ii.Depth)
+			//depthVal := BilinearInterpolationDepth(depthPt, ii.Depth)
+			depthVal := NearestNeighborDepth(depthPt, ii.Depth)
 			if depthVal != nil {
 				newDepth.Set(x, y, *depthVal)
 			}
