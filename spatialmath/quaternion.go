@@ -186,6 +186,21 @@ func QuatToRotationMatrix(q quat.Number) *RotationMatrix {
 	return &RotationMatrix{mat}
 }
 
+// Normalize a quaternion, returning its, versor (unit quaternion)
+func Normalize(q quat.Number) quat.Number {
+	length := math.Sqrt(q.Real*q.Real + q.Imag*q.Imag + q.Jmag*q.Jmag + q.Kmag*q.Kmag)
+	if math.Abs(length-1.0) < 1e-10 {
+		return q
+	}
+	if length == 0 {
+		return NewZeroOrientation().Quaternion()
+	}
+	if length == math.Inf(1) {
+		length = float64(math.MaxFloat64)
+	}
+	return quat.Number{q.Real / length, q.Imag / length, q.Jmag / length, q.Kmag / length}
+}
+
 // Used for interpolating orientations.
 // Intro to lerp vs slerp: https://threadreaderapp.com/thread/1176137498323501058.html
 func slerp(qN1, qN2 quat.Number, by float64) quat.Number {
