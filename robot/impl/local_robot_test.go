@@ -14,8 +14,8 @@ import (
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
-	"go.viam.com/core/gripper"
 	"go.viam.com/core/metadata/service"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
@@ -308,7 +308,7 @@ func TestNewTeardown(t *testing.T) {
 	registry.RegisterBoard(modelName, registry.Board{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error) {
 		return &dummyBoard1, nil
 	}})
-	registry.RegisterGripper(modelName, registry.Gripper{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
+	registry.RegisterComponent(gripper.Subtype, modelName, registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		return nil, errors.New("whoops")
 	}})
 
@@ -417,7 +417,7 @@ func TestMetadataUpdate(t *testing.T) {
 					Namespace:    resource.ResourceNamespaceCore,
 					ResourceType: resource.ResourceTypeComponent,
 				},
-				ResourceSubtype: resource.ResourceSubtypeGripper,
+				ResourceSubtype: gripper.SubtypeName,
 			},
 			Name: "pieceGripper",
 		}: {},
