@@ -13,7 +13,6 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
-	"go.viam.com/core/gripper"
 	"go.viam.com/core/kinematics"
 	"go.viam.com/core/motionplan"
 	commonpb "go.viam.com/core/proto/api/common/v1"
@@ -21,7 +20,6 @@ import (
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
-	"go.viam.com/core/utils"
 
 	gutils "go.viam.com/utils"
 
@@ -72,27 +70,6 @@ func init() {
 			return newDofBot(ctx, r, config, logger)
 		},
 	})
-
-	registry.RegisterGripper("yahboom-dofbot", registry.Gripper{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
-			armName := config.Attributes.String("arm")
-			if armName == "" {
-				return nil, errors.New("yahboom-dofbot gripper needs an arm")
-			}
-			myArm, ok := r.ArmByName(armName)
-			if !ok {
-				return nil, errors.New("yahboom-dofbot gripper can't find arm")
-			}
-
-			goodArm, ok := utils.UnwrapProxy(myArm).(*dofBot)
-			if !ok {
-				return nil, fmt.Errorf("yahboom-dofbot gripper got not a dofbot arm, got %T", myArm)
-			}
-
-			return goodArm, nil
-		},
-	})
-
 }
 
 type dofBot struct {

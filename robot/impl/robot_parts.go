@@ -15,9 +15,9 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
-	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc/client"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
@@ -35,7 +35,6 @@ import (
 type robotParts struct {
 	remotes          map[string]*remoteRobot
 	boards           map[string]*proxyBoard
-	grippers         map[string]*proxyGripper
 	cameras          map[string]*proxyCamera
 	lidars           map[string]*proxyLidar
 	bases            map[string]*proxyBase
@@ -53,7 +52,6 @@ func newRobotParts(logger golog.Logger) *robotParts {
 	return &robotParts{
 		remotes:          map[string]*remoteRobot{},
 		boards:           map[string]*proxyBoard{},
-		grippers:         map[string]*proxyGripper{},
 		cameras:          map[string]*proxyCamera{},
 		lidars:           map[string]*proxyLidar{},
 		bases:            map[string]*proxyBase{},
@@ -88,15 +86,6 @@ func (parts *robotParts) AddBoard(b board.Board, c config.Component) {
 		b = proxy.actual
 	}
 	parts.boards[c.Name] = newProxyBoard(b)
-}
-
-// AddGripper adds a gripper to the parts.
-func (parts *robotParts) AddGripper(g gripper.Gripper, c config.Component) {
-	c = fixType(c, config.ComponentTypeGripper, len(parts.grippers))
-	if proxy, ok := g.(*proxyGripper); ok {
-		g = proxy.actual
-	}
-	parts.grippers[c.Name] = &proxyGripper{actual: g}
 }
 
 // AddCamera adds a camera to the parts.
@@ -256,8 +245,10 @@ func (parts *robotParts) ArmNames() []string {
 // GripperNames returns the names of all grippers in the parts.
 func (parts *robotParts) GripperNames() []string {
 	names := []string{}
-	for k := range parts.grippers {
-		names = append(names, k)
+	for _, n := range parts.ResourceNames() {
+		if n.Subtype == gripper.Subtype {
+			names = append(names, n.Name)
+		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.GripperNames)
 }
@@ -378,12 +369,6 @@ func (parts *robotParts) Clone() *robotParts {
 			clonedParts.boards[k] = v
 		}
 	}
-	if len(parts.grippers) != 0 {
-		clonedParts.grippers = make(map[string]*proxyGripper, len(parts.grippers))
-		for k, v := range parts.grippers {
-			clonedParts.grippers[k] = v
-		}
-	}
 	if len(parts.cameras) != 0 {
 		clonedParts.cameras = make(map[string]*proxyCamera, len(parts.cameras))
 		for k, v := range parts.cameras {
@@ -460,12 +445,6 @@ func (parts *robotParts) Close() error {
 	for _, x := range parts.remotes {
 		if err := utils.TryClose(x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing remote: %w", err))
-		}
-	}
-
-	for _, x := range parts.grippers {
-		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing gripper: %w", err))
 		}
 	}
 
@@ -610,12 +589,6 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 				return err
 			}
 			parts.AddBase(b, c)
-		case config.ComponentTypeGripper:
-			g, err := r.newGripper(ctx, c)
-			if err != nil {
-				return err
-			}
-			parts.AddGripper(g, c)
 		case config.ComponentTypeCamera:
 			camera, err := r.newCamera(ctx, c)
 			if err != nil {
@@ -752,9 +725,13 @@ func (parts *robotParts) BaseByName(name string) (base.Base, bool) {
 // GripperByName returns the given gripper by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) GripperByName(name string) (gripper.Gripper, bool) {
-	part, ok := parts.grippers[name]
+	rName := gripper.Named(name)
+	r, ok := parts.resources[rName]
 	if ok {
-		return part, true
+		part, ok := r.(gripper.Gripper)
+		if ok {
+			return part, true
+		}
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.GripperByName(name)
@@ -933,15 +910,6 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 	}
 
-	if len(toAdd.grippers) != 0 {
-		if parts.grippers == nil {
-			parts.grippers = make(map[string]*proxyGripper, len(toAdd.grippers))
-		}
-		for k, v := range toAdd.grippers {
-			parts.grippers[k] = v
-		}
-	}
-
 	if len(toAdd.cameras) != 0 {
 		if parts.cameras == nil {
 			parts.cameras = make(map[string]*proxyCamera, len(toAdd.cameras))
@@ -1074,17 +1042,6 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 		}
 	}
 
-	if len(toModify.grippers) != 0 {
-		for k, v := range toModify.grippers {
-			old, ok := parts.grippers[k]
-			if !ok {
-				// should not happen
-				continue
-			}
-			old.replace(v)
-		}
-	}
-
 	if len(toModify.cameras) != 0 {
 		for k, v := range toModify.cameras {
 			old, ok := parts.cameras[k]
@@ -1192,12 +1149,6 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 		}
 	}
 
-	if len(toRemove.grippers) != 0 {
-		for k := range toRemove.grippers {
-			delete(parts.grippers, k)
-		}
-	}
-
 	if len(toRemove.cameras) != 0 {
 		for k := range toRemove.cameras {
 			delete(parts.cameras, k)
@@ -1290,12 +1241,6 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 				continue
 			}
 			filtered.AddBase(part, compConf)
-		case config.ComponentTypeGripper:
-			part, ok := parts.GripperByName(compConf.Name)
-			if !ok {
-				continue
-			}
-			filtered.AddGripper(part, compConf)
 		case config.ComponentTypeCamera:
 			part, ok := parts.CameraByName(compConf.Name)
 			if !ok {
