@@ -6,7 +6,6 @@ import (
 	"errors"
 	"math"
 	"time"
-	"fmt"
 
 	"go.viam.com/utils"
 
@@ -260,7 +259,7 @@ func (x *xArm) setMotionState(ctx context.Context, state byte) error {
 // setMotionMode sets the motion mode of the arm.
 // 0: Position Control Mode, i.e. "normal" mode
 // 1: Servoj mode. This mode will immediately execute joint positions at the fastest available speed and is intended
-// for streaming large numbers of joint positions to the arm. 
+// for streaming large numbers of joint positions to the arm.
 // 2: Joint teaching mode, not useful right now
 func (x *xArm) setMotionMode(ctx context.Context, state byte) error {
 	c := x.newCmd(regMap["SetMode"])
@@ -359,20 +358,18 @@ func (x *xArm) Close() error {
 // MoveToJointPositions moves the arm to the requested joint positions.
 func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJointPositions) error {
 	to := frame.JointPosToInputs(newPositions)
-	fmt.Println("moving!")
 	curPos, err := x.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
 	}
 	from := frame.JointPosToInputs(curPos)
-	
+
 	diff := getMaxDiff(from, to)
-	nSteps := int((diff/float64(x.speed)) * x.moveHZ)
-	fmt.Println("nstep", nSteps)
+	nSteps := int((diff / float64(x.speed)) * x.moveHZ)
 	for i := 1; i <= nSteps; i++ {
-		
+
 		step := frame.InputsToFloats(frame.InterpolateInputs(from, to, float64(i)/float64(nSteps)))
-		
+
 		c := x.newCmd(regMap["MoveJoints"])
 		jFloatBytes := make([]byte, 4)
 		for _, jRad := range step {
@@ -383,13 +380,6 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJoi
 		for dof := x.dof; dof < 7; dof++ {
 			c.params = append(c.params, 0, 0, 0, 0)
 		}
-		// Add speed
-		//~ binary.LittleEndian.PutUint32(jFloatBytes, math.Float32bits(x.speed))
-		//~ c.params = append(c.params, jFloatBytes...)
-		// Add accel
-		//~ binary.LittleEndian.PutUint32(jFloatBytes, math.Float32bits(x.accel))
-		//~ c.params = append(c.params, jFloatBytes...)
-
 		// When in servoj mode, motion time, speed, and acceleration are not handled by the control box
 		c.params = append(c.params, 0, 0, 0, 0)
 		c.params = append(c.params, 0, 0, 0, 0)
@@ -402,7 +392,6 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJoi
 			return ctx.Err()
 		}
 	}
-	//~ return x.motionWait(ctx)
 	return nil
 }
 
@@ -430,7 +419,11 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	return arm.GoToWaypoints(ctx, x, solution)
+	err = arm.GoToWaypoints(ctx, x, solution)
+	if err != nil {
+		return err
+	}
+	return x.motionWait(ctx)
 }
 
 // CurrentJointPositions returns the current positions of all joints.
@@ -450,7 +443,7 @@ func (x *xArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions
 	return frame.JointPositionsFromRadians(radians), nil
 }
 
-func getMaxDiff(from, to []frame.Input) float64{
+func getMaxDiff(from, to []frame.Input) float64 {
 	maxDiff := 0.
 	for i, fromI := range from {
 		diff := math.Abs(fromI.Value - to[i].Value)

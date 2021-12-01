@@ -64,7 +64,7 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, nCPU int, logger golog.Logger) (M
 
 	mp.qstep = getFrameSteps(frame, frameStep)
 	mp.iter = planIter
-	mp.stepSize = 2
+	mp.stepSize = 3
 
 	mp.randseed = rand.New(rand.NewSource(1))
 	mp.opt = NewDefaultPlannerOptions()
