@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"math"
@@ -258,6 +259,9 @@ func TestClient(t *testing.T) {
 	injectRobot1.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 		return nil, false
 	}
+	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		return nil, false
+	}
 	injectRobot1.ServoByNameFunc = func(name string) (servo.Servo, bool) {
 		return nil, false
 	}
@@ -282,6 +286,7 @@ func TestClient(t *testing.T) {
 		capCameraName           string
 		capLidarName            string
 		capSensorName           string
+		capIMUName              string
 	)
 	injectBase := &inject.Base{}
 	injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
@@ -536,7 +541,6 @@ func TestClient(t *testing.T) {
 
 	injectCompassDev := &inject.Compass{}
 	injectRelCompassDev := &inject.RelativeCompass{}
-	injectIMUDev := &inject.IMU{}
 	injectRobot2.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 		capSensorName = name
 		switch name {
@@ -578,6 +582,8 @@ func TestClient(t *testing.T) {
 	injectRelCompassDev.StopCalibrationFunc = func(ctx context.Context) error {
 		return nil
 	}
+
+	injectIMUDev := &inject.IMU{}
 	injectIMUDev.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 		return []interface{}{1.2, 2.3}, nil
 	}
@@ -586,6 +592,14 @@ func TestClient(t *testing.T) {
 	}
 	injectIMUDev.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
 		return &spatialmath.EulerAngles{1, 2, 3}, nil
+	}
+	injectRobot2.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		switch name.Subtype {
+		case imu.Subtype:
+			capIMUName = name.Name
+			return injectIMUDev, true
+		}
+		panic(fmt.Sprintf("no resource of subtype %v\n", name.Subtype))
 	}
 
 	injectInputDev := &inject.InputController{}
@@ -1266,7 +1280,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ea := orientation.EulerAngles()
 	test.That(t, ea, test.ShouldResemble, &spatialmath.EulerAngles{1, 2, 3})
-	test.That(t, capSensorName, test.ShouldEqual, "imu1")
+	test.That(t, capIMUName, test.ShouldEqual, "imu1")
 
 	resource1, ok = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
