@@ -15,7 +15,7 @@ import (
 // where the origin is the origin of the color camera, with units of mm.
 type DepthColorHomography struct {
 	ColorCamera  PinholeCameraIntrinsics `json:"color"`
-	DepthToColor Homography              `json:"homography"`
+	DepthToColor *Homography             `json:"homography"`
 	RotateDepth  int                     `json:"rotate"`
 }
 
@@ -49,14 +49,8 @@ func (h *Homography) Apply(pt r2.Point) r2.Point {
 // Inverse inverts the homography. If it pointed from color -> depth, Inverse makes it point
 // from depth -> color.
 func (h *Homography) Inverse() (*Homography, error) {
-	toMat := mat.NewDense(3, 3, []float64{
-		h.At(0, 0), h.At(0, 1), h.At(0, 2),
-		h.At(1, 0), h.At(1, 1), h.At(1, 2),
-		h.At(2, 0), h.At(2, 1), h.At(2, 2),
-	})
-
 	var hInv mat.Dense
-	err := hInv.Inverse(toMat)
+	err := hInv.Inverse(h.matrix)
 	if err != nil {
 		return nil, errors.Errorf("homography is not invertible (but homographies should always be invertible?): %w", err)
 	}
@@ -87,5 +81,18 @@ func BilinearInterpolationDepth(pt r2.Point, dm *rimage.DepthMap) *rimage.Depth 
 	w11 := ((pt.X - float64(xmin)) * (pt.Y - float64(ymin))) / area
 
 	result := rimage.Depth(math.Round(d00*w00 + d01*w01 + d10*w10 + d11*w11))
+	return &result
+}
+
+// NearestNeighborDepth takes the value of the closest point to the intermediate pixel
+func NearestNeighborDepth(pt r2.Point, dm *rimage.DepthMap) *rimage.Depth {
+	width, height := dm.Width(), dm.Height()
+	x := int(math.Round(pt.X))
+	y := int(math.Round(pt.Y))
+	if x < 0 || y < 0 || x >= width || y >= height { // point out of bounds - skip it
+		return nil
+	}
+	// get depth value
+	result := dm.GetDepth(x, y)
 	return &result
 }
