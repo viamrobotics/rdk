@@ -1013,6 +1013,10 @@
           console.log("error getting slip detection readings: ", err);
           return;
         }
+        if (resp === null) {
+          console.log("response is null")
+          dispEl.innerText = "response is invalid"
+        }
         let isSlipping = resp.getIsSlipping()
         let dispEl = document.getElementById("force-is-slipping-" + id);
         if (isSlipping) {
