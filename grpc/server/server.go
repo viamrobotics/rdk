@@ -1301,7 +1301,7 @@ func (s *Server) ObjectManipulationServiceDoGrab(ctx context.Context, req *pb.Ob
 func (s *Server) imuByName(name string) (imu.IMU, error) {
 	imuDevice, ok := s.r.ResourceByName(imu.Named(name))
 	if !ok {
-		return nil, errors.Errorf("no sensor with name (%s)", name)
+		return nil, errors.Errorf("no IMU with name (%s)", name)
 	}
 	return imuDevice.(imu.IMU), nil
 }
