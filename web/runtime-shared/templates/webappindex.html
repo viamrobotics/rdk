@@ -542,7 +542,7 @@
 
                       if (type === "forcematrix") {
                         robotService.forceMatrixMatrix(req, {}, (err, resp) => animateForceMatrix(err, resp, animation_stuff_2D, animation_stuff_3D));
-                        robotService.forceMatrixSlipDetection(req, {}, (err, resp) => updateSlipDetectionResult(err, resp, id));
+                        robotService.forceMatrixSlipDetection(slipReq, {}, (err, resp) => updateSlipDetectionResult(err, resp, id));
                       } else {
                         console.log("error: unknown force matrix type");
                       }
