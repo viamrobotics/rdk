@@ -48,12 +48,11 @@ func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution 
 
 	for i := 1; i <= steps; i++ {
 		interp := float64(i) / float64(steps)
-		interpC, ok := interpolateInput(ci, lastInterp, interp)
-		lastInterp = interp
-		if !ok {
+		interpC, err := interpolateInput(ci, lastInterp, interp)
+		if err != nil {
 			return false, nil
 		}
-
+		lastInterp = interp
 		pass, _ := c.CheckConstraints(interpC)
 		if !pass {
 			if i > 1 {
@@ -64,8 +63,8 @@ func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution 
 		}
 	}
 	// extra step to check the end
-	interpC, ok := interpolateInput(ci, 1, 1)
-	if !ok {
+	interpC, err := interpolateInput(ci, 1, 1)
+	if err != nil {
 		return false, nil
 	}
 
@@ -351,13 +350,11 @@ func resolveInputsToPositions(ci *ConstraintInput) error {
 	return nil
 }
 
-func interpolateInput(ci *ConstraintInput, by1, by2 float64) (*ConstraintInput, bool) {
+func interpolateInput(ci *ConstraintInput, by1, by2 float64) (*ConstraintInput, error) {
 	new := &ConstraintInput{}
 	new.Frame = ci.Frame
 	new.StartInput = frame.InterpolateInputs(ci.StartInput, ci.EndInput, by1)
 	new.EndInput = frame.InterpolateInputs(ci.StartInput, ci.EndInput, by2)
-	new.StartPos = spatial.Interpolate(ci.StartPos, ci.EndPos, by1)
-	new.EndPos = spatial.Interpolate(ci.StartPos, ci.EndPos, by2)
 
-	return new, true
+	return new, resolveInputsToPositions(new)
 }

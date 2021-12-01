@@ -19,7 +19,8 @@ import (
 // PlannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem
 type PlannerOptions struct {
 	constraintHandler
-	metric kinematics.Metric
+	metric   kinematics.Metric
+	pathDist kinematics.Metric
 	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
 	// Max number of ik solutions to consider
 	maxSolutions int
@@ -32,12 +33,18 @@ func NewDefaultPlannerOptions() *PlannerOptions {
 	opt := &PlannerOptions{}
 	opt.AddConstraint(jointConstraint, NewJointConstraint(math.Inf(1)))
 	opt.metric = kinematics.NewSquaredNormMetric()
+	opt.pathDist = kinematics.NewSquaredNormMetric()
 	return opt
 }
 
 // SetMetric sets the distance metric for the solver
 func (p *PlannerOptions) SetMetric(m kinematics.Metric) {
 	p.metric = m
+}
+
+// SetPathDist sets the distance metric for the solver to move a constraint-violating point into a valid manifold
+func (p *PlannerOptions) SetPathDist(m kinematics.Metric) {
+	p.pathDist = m
 }
 
 // SetMaxSolutions sets the maximum number of IK solutions to generate for the planner
@@ -237,7 +244,7 @@ func getSolutions(ctx context.Context, opt *PlannerOptions, solver kinematics.In
 	goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
 
 	solutionGen := make(chan []frame.Input)
-	ikErr := make(chan error)
+	ikErr := make(chan error, 1)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 

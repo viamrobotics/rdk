@@ -13,7 +13,6 @@ import (
 
 func TestAngleAxisConversion1(t *testing.T) {
 	// Test that we can convert back and forth losslessly between angle axis and quaternions
-
 	startAA := R4AA{2.5980762, 0.577350, 0.577350, 0.577350}
 	quat := startAA.ToQuat()
 	end1 := QuatToR4AA(quat)
@@ -25,7 +24,6 @@ func TestAngleAxisConversion1(t *testing.T) {
 
 func TestAngleAxisConversion2(t *testing.T) {
 	// Test that we can convert back and forth losslessly between r4 and r3 angle axis
-
 	startAA := R4AA{2.5980762, 0.577350, 0.577350, 0.577350}
 	r3 := startAA.ToR3()
 	end1 := r3.ToR4()
@@ -35,9 +33,32 @@ func TestAngleAxisConversion2(t *testing.T) {
 	test.That(t, math.Abs(end1.RZ-startAA.RZ), test.ShouldBeLessThan, 0.001)
 }
 
+func TestMatrixConversion(t *testing.T) {
+	// Test that lossless conversion between quaternions and rotation matrices is achieved
+	q := quat.Number{0.7071067811865476, 0.7071067811865476, 0, 0}
+	quatCompare(t, q, QuatToRotationMatrix(q).Quaternion())
+	q = quat.Number{0.7071067811865476, -0.7071067811865476, 0, 0}
+	quatCompare(t, q, QuatToRotationMatrix(q).Quaternion())
+	q = quat.Number{0.96, 0, -0.28, 0}
+	quatCompare(t, q, QuatToRotationMatrix(q).Quaternion())
+	q = quat.Number{0.96, 0, 0, -0.28}
+	quatCompare(t, q, QuatToRotationMatrix(q).Quaternion())
+
+	// Should be negative theta
+	q = quat.Number{0.96, -0.28, 0, 0}
+	quatCompare(t, q, QuatToRotationMatrix(q).Quaternion())
+
+	// Test the complementary angle
+	q = quat.Number{0.96, 0.28, 0, 0}
+	quatCompare(t, q, QuatToRotationMatrix(q).Quaternion())
+
+	// Another odd angle
+	q = quat.Number{0.5, -0.5, -0.5, -0.5}
+	quatCompare(t, q, Flip(QuatToRotationMatrix(q).Quaternion()))
+}
+
 func TestFlip(t *testing.T) {
 	// Test that flipping quaternions to the opposite octant results in the same rotation
-
 	startAA := R4AA{2.5980762, 0.577350, -0.577350, -0.577350}
 	quat1 := startAA.ToQuat()
 	quat2 := startAA.ToQuat()

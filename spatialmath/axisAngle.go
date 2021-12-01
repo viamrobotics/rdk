@@ -63,6 +63,11 @@ func (r4 *R4AA) EulerAngles() *EulerAngles {
 	return QuatToEulerAngles(r4.Quaternion())
 }
 
+// RotationMatrix returns the orientation in rotation matrix representation
+func (r4 *R4AA) RotationMatrix() *RotationMatrix {
+	return QuatToRotationMatrix(r4.Quaternion())
+}
+
 // ToR3 converts an R4 angle axis to R3
 func (r4 *R4AA) ToR3() R3AA {
 	return R3AA{r4.RX * r4.Theta, r4.RY * r4.Theta, r4.RZ * r4.Theta}

@@ -92,6 +92,7 @@ func (mp *cBiRRTMotionPlanner) Resolution() float64 {
 func (mp *cBiRRTMotionPlanner) SetOptions(opt *PlannerOptions) {
 	mp.opt = opt
 	mp.SetMetric(opt.metric)
+	mp.SetPathDistFunc(opt.pathDist)
 }
 
 func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, seed []frame.Input) ([][]frame.Input, error) {
@@ -290,7 +291,8 @@ func (mp *cBiRRTMotionPlanner) constrainNear(opt *PlannerOptions, seedInputs, ta
 
 	ok, failpos := opt.CheckConstraintPath(&ConstraintInput{StartInput: seedInputs, EndInput: solved, Frame: mp.frame}, mp.Resolution())
 	if !ok {
-		if failpos != nil {
+		if failpos != nil && inputDist(target, failpos.StartInput) > mp.solDist {
+			// If we have a first failing position, and that target is updating (no infinite loop), then recurse
 			return mp.constrainNear(opt, seedInputs, failpos.StartInput)
 		}
 		return nil
