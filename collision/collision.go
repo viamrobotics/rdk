@@ -1,59 +1,28 @@
 package collision
 
 import (
-	"math"
+	"testing"
 
 	"github.com/golang/geo/r3"
-
-	spatial "go.viam.com/core/spatialmath"
+	frame "go.viam.com/core/referenceframe"
+	"go.viam.com/core/spatialmath"
+	"go.viam.com/core/utils"
+	"go.viam.com/test"
 )
 
-type Box struct {
-	Position r3.Vector
-	Axes     axes
-	HalfSize r3.Vector
-}
+func TestSelfCollision(t *testing.T) {
+	modelUR5e, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(modelUR5e, urOffset)
 
-type axes struct {
-	X r3.Vector
-	Y r3.Vector
-	Z r3.Vector
-}
+	poses, err := m.VerboseTransform([]Input{{0.0}, {0.0}, {0.0}, {0.0}, {0.0}, {0.0}})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(poses), test.ShouldEqual, len(m.OrdTransforms))
 
-// Initialize a new 3D box from a pose and a half size vector
-func NewBox(center spatial.Pose, halfSize r3.Vector) *Box {
-	rm := center.Orientation().RotationMatrix()
-	return &Box{center.Point(), axes{rm.Row(0), rm.Row(1), rm.Row(2)}, halfSize}
-}
-
-// BoxVsBox takes two Boxes as arguments and returns a bool describing if they are in collision
-// reference: https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
-func BoxVsBox(a, b *Box) bool {
-	positionDelta := a.Position.Sub(b.Position)
-	return !(separatingPlaneTest(positionDelta, a.Axes.X, a, b) ||
-		separatingPlaneTest(positionDelta, a.Axes.Y, a, b) ||
-		separatingPlaneTest(positionDelta, a.Axes.Z, a, b) ||
-		separatingPlaneTest(positionDelta, b.Axes.X, a, b) ||
-		separatingPlaneTest(positionDelta, b.Axes.Y, a, b) ||
-		separatingPlaneTest(positionDelta, b.Axes.Z, a, b) ||
-		separatingPlaneTest(positionDelta, a.Axes.X.Cross(b.Axes.X), a, b) ||
-		separatingPlaneTest(positionDelta, a.Axes.X.Cross(b.Axes.Y), a, b) ||
-		separatingPlaneTest(positionDelta, a.Axes.X.Cross(b.Axes.Z), a, b) ||
-		separatingPlaneTest(positionDelta, a.Axes.Y.Cross(b.Axes.X), a, b) ||
-		separatingPlaneTest(positionDelta, a.Axes.Y.Cross(b.Axes.Y), a, b) ||
-		separatingPlaneTest(positionDelta, a.Axes.Y.Cross(b.Axes.Z), a, b) ||
-		separatingPlaneTest(positionDelta, a.Axes.Z.Cross(b.Axes.X), a, b) ||
-		separatingPlaneTest(positionDelta, a.Axes.Z.Cross(b.Axes.Y), a, b) ||
-		separatingPlaneTest(positionDelta, a.Axes.Z.Cross(b.Axes.Z), a, b))
-}
-
-// Helper function to check if there is a separating plane in between the selected axes
-// reference: https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
-func separatingPlaneTest(positionDelta, plane r3.Vector, a, b *Box) bool {
-	return math.Abs(positionDelta.Dot(plane)) > (math.Abs(a.Axes.X.Mul(a.HalfSize.X).Dot(plane)) +
-		math.Abs(a.Axes.Y.Mul(a.HalfSize.Y).Dot(plane)) +
-		math.Abs(a.Axes.Z.Mul(a.HalfSize.Z).Dot(plane)) +
-		math.Abs(b.Axes.X.Mul(b.HalfSize.X).Dot(plane)) +
-		math.Abs(b.Axes.Y.Mul(b.HalfSize.Y).Dot(plane)) +
-		math.Abs(b.Axes.Z.Mul(b.HalfSize.Z).Dot(plane)))
+	shoulderExpect := spatialmath.NewPoseFromPoint(r3.Vector{0.0, 0.0, 110.25})
+	test.That(t, spatialmath.AlmostCoincident(poses["wx250s:shoulder"], shoulderExpect), test.ShouldBeTrue)
+	upperArmExpect := spatialmath.NewPoseFromPoint(r3.Vector{50.0, 0.0, 360.25})
+	test.That(t, spatialmath.AlmostCoincident(poses["wx250s:upper_arm"], upperArmExpect), test.ShouldBeTrue)
+	forearmPoseExpect := spatialmath.NewPoseFromPoint(r3.Vector{300.0, 0.0, 360.25})
+	test.That(t, spatialmath.AlmostCoincident(poses["wx250s:forearm"], forearmPoseExpect), test.ShouldBeTrue)
 }
