@@ -19,8 +19,8 @@ import (
 	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/gantry"
+	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
-	"go.viam.com/core/gripper"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
@@ -67,6 +67,12 @@ func init() {
 		},
 	})
 
+	RegisterResourceSubtype(gripper.Subtype, ResourceSubtype{
+		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
+			return gripper.WrapWithReconfigurable(r)
+		},
+	})
+
 }
 
 type (
@@ -108,12 +114,6 @@ type RegDebugInfo struct {
 type Camera struct {
 	RegDebugInfo
 	Constructor CreateCamera
-}
-
-// Gripper stores a Gripper constructor function (mandatory)
-type Gripper struct {
-	RegDebugInfo
-	Constructor CreateGripper
 }
 
 // Base stores a Base constructor function (mandatory)
@@ -162,7 +162,6 @@ type Service struct {
 // all registries
 var (
 	cameraRegistry          = map[string]Camera{}
-	gripperRegistry         = map[string]Gripper{}
 	baseRegistry            = map[string]Base{}
 	lidarRegistry           = map[string]Lidar{}
 	sensorRegistry          = map[sensor.Type]map[string]Sensor{}
@@ -192,19 +191,6 @@ func RegisterCamera(model string, creator Camera) {
 		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
 	}
 	cameraRegistry[model] = creator
-}
-
-// RegisterGripper registers a gripper model to a creator.
-func RegisterGripper(model string, creator Gripper) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := gripperRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two grippers with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	gripperRegistry[model] = creator
 }
 
 // RegisterBase registers a base model to a creator.
@@ -305,15 +291,6 @@ func RegisterService(typeName config.ServiceType, registration Service) {
 // there is no creator registered.
 func CameraLookup(model string) *Camera {
 	if registration, ok := cameraRegistry[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// GripperLookup looks up a gripper creator by the given model. nil is returned if
-// there is no creator registered.
-func GripperLookup(model string) *Gripper {
-	if registration, ok := gripperRegistry[model]; ok {
 		return &registration
 	}
 	return nil
@@ -478,15 +455,6 @@ func RegisteredCameras() map[string]Camera {
 		panic(err)
 	}
 	return copied.(map[string]Camera)
-}
-
-// RegisteredGrippers returns a copy of the registered grippers.
-func RegisteredGrippers() map[string]Gripper {
-	copied, err := copystructure.Copy(gripperRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]Gripper)
 }
 
 // RegisteredBases returns a copy of the registered bases.

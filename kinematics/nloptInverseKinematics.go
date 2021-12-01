@@ -83,7 +83,6 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error)
 
 		if len(gradient) > 0 {
 			for i := range gradient {
-				// Deep copy of our current joint positions
 				xBak := append([]float64{}, x...)
 				xBak[i] += ik.jump
 				eePos, err := ik.model.Transform(frame.FloatsToInputs(xBak))
