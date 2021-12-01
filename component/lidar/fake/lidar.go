@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
+	"go.viam.com/core/component/lidar"
 	"go.viam.com/core/config"
-	"go.viam.com/core/lidar"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -23,12 +23,9 @@ import (
 //go:embed lidar_model.json
 var lidarmodel []byte
 
-// LidarType uses the fake model name.
-const LidarType = ModelName
-
 func init() {
-	registry.RegisterLidar(LidarType, registry.Lidar{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
+	registry.RegisterComponent(lidar.Subtype, "fake", registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			if config.Host == "" {
 				config.Host = "0"
 			}

@@ -12,8 +12,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"go.viam.com/core/component/lidar"
 	"go.viam.com/core/config"
-	"go.viam.com/core/lidar"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
@@ -51,18 +51,19 @@ func From(lidar lidar.Lidar) compass.RelativeCompass {
 // New returns a newly constructed lidar and turns it into a compass.
 func New(ctx context.Context, config config.Component, logger golog.Logger) (compass.RelativeCompass, error) {
 	lidarType := config.Attributes.String("type")
-	f := registry.LidarLookup(lidarType)
-	if f == nil || f.Constructor == nil {
+
+	f := registry.ComponentLookup(lidar.Subtype, lidarType)
+	if f == nil {
 		return nil, errors.Errorf("unknown lidar model: %s", lidarType)
 	}
-	lidar, err := f.Constructor(ctx, nil, config, logger)
+	_lidar, err := f.Constructor(ctx, nil, config, logger)
 	if err != nil {
 		return nil, err
 	}
-	if err := lidar.Start(ctx); err != nil {
+	if err := _lidar.(lidar.Lidar).Start(ctx); err != nil {
 		return nil, err
 	}
-	return From(lidar), nil
+	return From(_lidar.(lidar.Lidar)), nil
 }
 
 // Desc returns a description of the compass.

@@ -9,8 +9,8 @@ import (
 
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/core/component/lidar"
 	"go.viam.com/core/config"
-	"go.viam.com/core/lidar"
 	"go.viam.com/core/usb"
 
 	"go.viam.com/test"

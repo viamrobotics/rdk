@@ -15,7 +15,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/core/lidar"
+	"go.viam.com/core/component/lidar"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/testutils/inject"
 )

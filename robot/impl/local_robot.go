@@ -16,10 +16,10 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
+	"go.viam.com/core/component/lidar"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
 	"go.viam.com/core/metadata/service"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
@@ -385,14 +385,6 @@ func (r *localRobot) newBase(ctx context.Context, config config.Component) (base
 	f := registry.BaseLookup(config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown base model: %s", config.Model)
-	}
-	return f.Constructor(ctx, r, config, r.logger)
-}
-
-func (r *localRobot) newLidar(ctx context.Context, config config.Component) (lidar.Lidar, error) {
-	f := registry.LidarLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown lidar model: %s", config.Model)
 	}
 	return f.Constructor(ctx, r, config, r.logger)
 }

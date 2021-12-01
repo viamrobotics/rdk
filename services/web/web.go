@@ -23,11 +23,11 @@ import (
 	rpcserver "go.viam.com/utils/rpc/server"
 
 	"go.viam.com/core/action"
+	"go.viam.com/core/component/lidar"
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc"
 	grpcmetadata "go.viam.com/core/grpc/metadata/server"
 	grpcserver "go.viam.com/core/grpc/server"
-	"go.viam.com/core/lidar"
 	"go.viam.com/core/metadata/service"
 	metadatapb "go.viam.com/core/proto/api/service/v1"
 	pb "go.viam.com/core/proto/api/v1"
