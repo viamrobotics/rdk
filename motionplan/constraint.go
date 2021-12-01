@@ -119,7 +119,8 @@ func interpolationCheck(cInput *ConstraintInput, by, epsilon float64) bool {
 		return false
 	}
 	interp := spatial.Interpolate(cInput.StartPos, cInput.EndPos, by)
-	dist := spatial.PoseDelta(iPos, interp).Point().Norm2()
+	metric := kinematics.NewSquaredNormMetric()
+	dist := metric(iPos, interp)
 	return dist <= epsilon
 }
 
