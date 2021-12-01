@@ -146,7 +146,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 
 	dumpComponentsInfo(registry.RegisteredCameras(), resource.SubtypeName(config.ComponentTypeCamera))
-	dumpComponentsInfo(registry.RegisteredGrippers(), resource.SubtypeName(config.ComponentTypeGripper))
 	dumpComponentsInfo(registry.RegisteredBases(), resource.SubtypeName(config.ComponentTypeBase))
 	dumpComponentsInfo(registry.RegisteredLidars(), resource.SubtypeName(config.ComponentTypeLidar))
 	dumpComponentsInfo(registry.RegisteredSensors(), resource.SubtypeName(config.ComponentTypeSensor))
