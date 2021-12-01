@@ -244,7 +244,7 @@ func getSolutions(ctx context.Context, opt *PlannerOptions, solver kinematics.In
 	goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
 
 	solutionGen := make(chan []frame.Input)
-	ikErr := make(chan error)
+	ikErr := make(chan error, 1)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
