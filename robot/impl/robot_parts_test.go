@@ -73,9 +73,8 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = parts.CameraByName("camera1_what")
 	test.That(t, ok, test.ShouldBeFalse)
-	lidar1, ok := parts.LidarByName("lidar1")
+	_, ok = parts.LidarByName("lidar1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, lidar1.(*proxyLidar).actual.(*fake.Lidar).Name, test.ShouldEqual, "lidar1")
 	_, ok = parts.LidarByName("lidar1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 	board1, ok := parts.BoardByName("board1")
@@ -186,15 +185,12 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	_, ok = parts.CameraByName("camera1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
-	lidar1, ok := parts.LidarByName("lidar1")
+	_, ok = parts.LidarByName("lidar1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, lidar1.(*proxyLidar).actual.(*fake.Lidar).Name, test.ShouldEqual, "lidar1")
-	lidar1, ok = parts.LidarByName("lidar1_r1")
+	_, ok = parts.LidarByName("lidar1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, lidar1.(*proxyLidar).actual.(*fake.Lidar).Name, test.ShouldEqual, "lidar1_r1")
-	lidar1, ok = parts.LidarByName("lidar1_r2")
+	_, ok = parts.LidarByName("lidar1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, lidar1.(*proxyLidar).actual.(*fake.Lidar).Name, test.ShouldEqual, "lidar1_r2")
 	_, ok = parts.LidarByName("lidar1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -300,8 +296,6 @@ func TestPartsClone(t *testing.T) {
 	// remove and delete parts to prove clone
 	delete(parts.remotes, "remote1")
 	parts.remotes = nil
-	delete(parts.lidars, "lidar1")
-	parts.lidars = nil
 	delete(parts.bases, "base1")
 	parts.bases = nil
 	delete(parts.boards, "board1")
@@ -386,18 +380,6 @@ func TestPartsClone(t *testing.T) {
 	_, ok = newParts.CameraByName("camera1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
-	lidar1, ok := newParts.LidarByName("lidar1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, lidar1.(*proxyLidar).actual.(*fake.Lidar).Name, test.ShouldEqual, "lidar1")
-	lidar1, ok = newParts.LidarByName("lidar1_r1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, lidar1.(*proxyLidar).actual.(*fake.Lidar).Name, test.ShouldEqual, "lidar1_r1")
-	lidar1, ok = newParts.LidarByName("lidar1_r2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, lidar1.(*proxyLidar).actual.(*fake.Lidar).Name, test.ShouldEqual, "lidar1_r2")
-	_, ok = newParts.LidarByName("lidar1_what")
-	test.That(t, ok, test.ShouldBeFalse)
-
 	board1, ok := newParts.BoardByName("board1")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1")
@@ -473,6 +455,15 @@ func TestPartsClone(t *testing.T) {
 	_, ok = newParts.ResourceByName(arm.Named("arm1_what"))
 	test.That(t, ok, test.ShouldBeFalse)
 
+	_, ok = newParts.LidarByName("lidar1")
+	test.That(t, ok, test.ShouldBeTrue)
+	_, ok = newParts.LidarByName("lidar1_r1")
+	test.That(t, ok, test.ShouldBeTrue)
+	_, ok = newParts.LidarByName("lidar1_r2")
+	test.That(t, ok, test.ShouldBeTrue)
+	_, ok = newParts.LidarByName("lidar1_what")
+	test.That(t, ok, test.ShouldBeFalse)
+
 	_, ok = newParts.ResourceByName(servo.Named("servo1"))
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = newParts.ResourceByName(servo.Named("servo1_r1"))
@@ -528,14 +519,6 @@ func TestPartsAdd(t *testing.T) {
 	test.That(t, board1.(*proxyBoard).actual, test.ShouldEqual, injectBoard)
 	parts.AddBoard(board1, config.Component{Name: "board1"})
 	test.That(t, board1.(*proxyBoard).actual, test.ShouldEqual, injectBoard)
-
-	injectLidar := &inject.Lidar{}
-	parts.AddLidar(injectLidar, config.Component{Name: "lidar1"})
-	lidar1, ok := parts.LidarByName("lidar1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, lidar1.(*proxyLidar).actual, test.ShouldEqual, injectLidar)
-	parts.AddLidar(lidar1, config.Component{Name: "lidar1"})
-	test.That(t, lidar1.(*proxyLidar).actual, test.ShouldEqual, injectLidar)
 
 	injectBase := &inject.Base{}
 	parts.AddBase(injectBase, config.Component{Name: "base1"})
@@ -613,6 +596,19 @@ func TestPartsAdd(t *testing.T) {
 	resource1, ok := parts.ResourceByName(rName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resource1, test.ShouldEqual, injectArm)
+
+	injectLidar := &inject.Lidar{}
+	cfg = &config.Component{Type: config.ComponentTypeLidar, Name: "lidar1"}
+	rName = cfg.ResourceName()
+	parts.addResource(rName, injectLidar)
+	lidar1, ok := parts.LidarByName("lidar1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, lidar1, test.ShouldEqual, injectLidar)
+	parts.addResource(rName, lidar1)
+	test.That(t, lidar1, test.ShouldEqual, injectLidar)
+	resource1, ok = parts.ResourceByName(rName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resource1, test.ShouldEqual, injectLidar)
 
 	injectServo := &inject.Servo{}
 	cfg = &config.Component{Type: config.ComponentTypeServo, Name: "servo1"}
@@ -888,7 +884,6 @@ func TestPartsMergeModify(t *testing.T) {
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	robotForRemote.parts.AddBoard(fakeBoardRemote, config.Component{Name: "board2_r1"})
-	robotForRemote.parts.AddLidar(&inject.Lidar{}, config.Component{Name: "lidar2_r1"})
 	robotForRemote.parts.AddBase(&inject.Base{}, config.Component{Name: "base2_r1"})
 	robotForRemote.parts.AddSensor(&inject.Compass{}, config.Component{Name: "sensor2_r1"})
 	robotForRemote.parts.AddMotor(&inject.Motor{}, config.Component{Name: "motor2_r1"})
@@ -898,6 +893,9 @@ func TestPartsMergeModify(t *testing.T) {
 	cfg := config.Component{Type: config.ComponentTypeArm, Name: "arm2_r1"}
 	rName := cfg.ResourceName()
 	robotForRemote.parts.addResource(rName, &inject.Arm{})
+
+	cfg = config.Component{Type: config.ComponentTypeLidar, Name: "lidar2_r1"}
+	robotForRemote.parts.addResource(cfg.ResourceName(), &inject.Lidar{})
 
 	cfg = config.Component{Type: config.ComponentTypeServo, Name: "servo2_r1"}
 	rName = cfg.ResourceName()
@@ -927,8 +925,6 @@ func TestPartsMergeModify(t *testing.T) {
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	replacementParts.AddBoard(fakeBoard, config.Component{Name: "board1"})
-	injectLidar := &inject.Lidar{}
-	replacementParts.AddLidar(injectLidar, config.Component{Name: "lidar1"})
 	injectBase := &inject.Base{}
 	replacementParts.AddBase(injectBase, config.Component{Name: "base1"})
 	injectCompass := &inject.Compass{}
@@ -940,6 +936,8 @@ func TestPartsMergeModify(t *testing.T) {
 	cfg = config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
 	rName = cfg.ResourceName()
 	replacementParts.addResource(rName, &inject.Arm{})
+	cfg = config.Component{Type: config.ComponentTypeLidar, Name: "lidar1"}
+	replacementParts.addResource(cfg.ResourceName(), &inject.Lidar{})
 	cfg = config.Component{Type: config.ComponentTypeServo, Name: "servo1"}
 	rName = cfg.ResourceName()
 	replacementParts.addResource(rName, &inject.Servo{})

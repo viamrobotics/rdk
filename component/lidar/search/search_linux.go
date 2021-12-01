@@ -1,18 +1,18 @@
-//go:build darwin
-// +build darwin
+//go:build linux
+// +build linux
 
 package search
 
 import (
+	"go.viam.com/core/component/lidar"
 	"go.viam.com/core/config"
-	"go.viam.com/core/lidar"
 	"go.viam.com/core/usb"
 )
 
-// Devices uses macOS io device APIs to find all applicable lidar devices.
+// Devices uses linux USB device APIs to find all applicable lidar devices.
 func Devices() []config.Component {
 	usbDevices := usb.Search(
-		usb.NewSearchFilter("IOUserSerial", "usbserial-"),
+		usb.SearchFilter{},
 		func(vendorID, productID int) bool {
 			return lidar.CheckProductDeviceIDs(vendorID, productID) != lidar.TypeUnknown
 		})

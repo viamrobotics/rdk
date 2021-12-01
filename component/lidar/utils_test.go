@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/lidar"
+	"go.viam.com/core/component/lidar"
 	"go.viam.com/core/testutils/inject"
 
 	"go.viam.com/test"

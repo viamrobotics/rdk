@@ -11,8 +11,8 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
+	"go.viam.com/core/component/lidar"
 	"go.viam.com/core/config"
-	"go.viam.com/core/lidar"
 	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -32,7 +32,7 @@ func TestNew(t *testing.T) {
 
 	devType := lidar.Type(utils.RandomAlphaString(5))
 	var newFunc func(conf config.Component) (lidar.Lidar, error)
-	registry.RegisterLidar(string(devType), registry.Lidar{Constructor: func(ctx context.Context, r robot.Robot, conf config.Component, logger golog.Logger) (lidar.Lidar, error) {
+	registry.RegisterComponent(lidar.Subtype, string(devType), registry.Component{Constructor: func(ctx context.Context, r robot.Robot, conf config.Component, logger golog.Logger) (interface{}, error) {
 		return newFunc(conf)
 	}})
 

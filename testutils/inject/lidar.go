@@ -6,7 +6,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/lidar"
+	"go.viam.com/core/component/lidar"
 
 	"github.com/golang/geo/r2"
 )

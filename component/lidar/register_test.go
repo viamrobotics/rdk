@@ -3,7 +3,7 @@ package lidar_test
 import (
 	"testing"
 
-	"go.viam.com/core/lidar"
+	"go.viam.com/core/component/lidar"
 	"go.viam.com/core/usb"
 
 	"go.viam.com/test"
