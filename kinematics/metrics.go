@@ -16,7 +16,13 @@ func NewSquaredNormMetric() Metric {
 
 func weightedSqNormDist(from, to spatial.Pose) float64 {
 	delta := spatial.PoseDelta(from, to)
-	aa := delta.Orientation().AxisAngles()
+
+	// convert to axis angles
+	aa := delta.Orientation().AxisAngles().ToR3()
+	// zero := R3AA{1, 0, 0}
+	// if aa == zero {
+	// 	aa.RX = 0
+	// }
 
 	// Increase weight for orientation since it's a small number
 	aaWeighted := (r3.Vector{aa.RX, aa.RY, aa.RZ}).Mul(10.0)
