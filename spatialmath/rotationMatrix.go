@@ -50,10 +50,7 @@ func (rm *RotationMatrix) Quaternion() quat.Number {
 		s := 2.0 * math.Sqrt(1.0+m[8]-m[0]-m[4])
 		q = quat.Number{(m[1] - m[3]) / s, (m[6] + m[2]) / s, (m[7] + m[5]) / s, 0.25 * s}
 	}
-	return q
-	// normalize in order to guarantee unit quaternion
-	// denom := Norm(q)
-	// return quat.Number{q.Real / denom, q.Imag / denom, q.Jmag / denom, q.Kmag / denom}
+	return Normalize(q)
 }
 
 // EulerAngles returns orientation in Euler angle representation
