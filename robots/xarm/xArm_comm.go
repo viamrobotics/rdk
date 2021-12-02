@@ -97,7 +97,7 @@ var regMap = map[string]byte{
 	"ClearWarn":   0x11,
 	"ToggleBrake": 0x12,
 	"SetMode":     0x13,
-	"MoveJoints":  0x17,
+	"MoveJoints":  0x1D,
 	"ZeroJoints":  0x19,
 	"JointPos":    0x2A,
 	"SetBound":    0x34,
@@ -216,8 +216,9 @@ func (x *xArm) clearErrorAndWarning(ctx context.Context) error {
 	c2 := x.newCmd(regMap["ClearWarn"])
 	_, err1 := x.send(ctx, c1, false)
 	_, err2 := x.send(ctx, c2, false)
-	err3 := x.setMotionState(context.Background(), 0)
-	return multierr.Combine(err1, err2, err3)
+	err3 := x.setMotionMode(context.Background(), 1)
+	err4 := x.setMotionState(context.Background(), 0)
+	return multierr.Combine(err1, err2, err3, err4)
 }
 
 func (x *xArm) readError(ctx context.Context) error {
@@ -255,6 +256,18 @@ func (x *xArm) setMotionState(ctx context.Context, state byte) error {
 	return err
 }
 
+// setMotionMode sets the motion mode of the arm.
+// 0: Position Control Mode, i.e. "normal" mode
+// 1: Servoj mode. This mode will immediately execute joint positions at the fastest available speed and is intended
+// for streaming large numbers of joint positions to the arm.
+// 2: Joint teaching mode, not useful right now
+func (x *xArm) setMotionMode(ctx context.Context, state byte) error {
+	c := x.newCmd(regMap["SetMode"])
+	c.params = append(c.params, state)
+	_, err := x.send(ctx, c, true)
+	return err
+}
+
 // toggleServos toggles the servos on or off.
 // True enables servos and disengages brakes.
 // False disables servos without engaging brakes.
@@ -284,6 +297,10 @@ func (x *xArm) toggleBrake(ctx context.Context, disable bool) error {
 
 func (x *xArm) start() error {
 	err := x.toggleServos(context.Background(), true)
+	if err != nil {
+		return err
+	}
+	err = x.setMotionMode(context.Background(), 1)
 	if err != nil {
 		return err
 	}
@@ -340,31 +357,42 @@ func (x *xArm) Close() error {
 
 // MoveToJointPositions moves the arm to the requested joint positions.
 func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJointPositions) error {
-	radians := frame.JointPositionsToRadians(newPositions)
-	c := x.newCmd(regMap["MoveJoints"])
-	jFloatBytes := make([]byte, 4)
-	for _, jRad := range radians {
-		binary.LittleEndian.PutUint32(jFloatBytes, math.Float32bits(float32(jRad)))
-		c.params = append(c.params, jFloatBytes...)
-	}
-	// xarm 6 has 6 joints, but protocol needs 7- add 4 bytes for a blank 7th joint
-	for dof := x.dof; dof < 7; dof++ {
-		c.params = append(c.params, 0, 0, 0, 0)
-	}
-	// Add speed
-	binary.LittleEndian.PutUint32(jFloatBytes, math.Float32bits(x.speed))
-	c.params = append(c.params, jFloatBytes...)
-	// Add accel
-	binary.LittleEndian.PutUint32(jFloatBytes, math.Float32bits(x.accel))
-	c.params = append(c.params, jFloatBytes...)
-
-	// add motion time, 0
-	c.params = append(c.params, 0, 0, 0, 0)
-	_, err := x.send(ctx, c, true)
+	to := frame.JointPosToInputs(newPositions)
+	curPos, err := x.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
 	}
-	return x.motionWait(ctx)
+	from := frame.JointPosToInputs(curPos)
+
+	diff := getMaxDiff(from, to)
+	nSteps := int((diff / float64(x.speed)) * x.moveHZ)
+	for i := 1; i <= nSteps; i++ {
+
+		step := frame.InputsToFloats(frame.InterpolateInputs(from, to, float64(i)/float64(nSteps)))
+
+		c := x.newCmd(regMap["MoveJoints"])
+		jFloatBytes := make([]byte, 4)
+		for _, jRad := range step {
+			binary.LittleEndian.PutUint32(jFloatBytes, math.Float32bits(float32(jRad)))
+			c.params = append(c.params, jFloatBytes...)
+		}
+		// xarm 6 has 6 joints, but protocol needs 7- add 4 bytes for a blank 7th joint
+		for dof := x.dof; dof < 7; dof++ {
+			c.params = append(c.params, 0, 0, 0, 0)
+		}
+		// When in servoj mode, motion time, speed, and acceleration are not handled by the control box
+		c.params = append(c.params, 0, 0, 0, 0)
+		c.params = append(c.params, 0, 0, 0, 0)
+		c.params = append(c.params, 0, 0, 0, 0)
+		_, err := x.send(ctx, c, true)
+		if err != nil {
+			return err
+		}
+		if !utils.SelectContextOrWait(ctx, time.Duration(1000000./x.moveHZ)*time.Microsecond) {
+			return ctx.Err()
+		}
+	}
+	return nil
 }
 
 // JointMoveDelta TODO
@@ -391,7 +419,11 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	return arm.GoToWaypoints(ctx, x, solution)
+	err = arm.GoToWaypoints(ctx, x, solution)
+	if err != nil {
+		return err
+	}
+	return x.motionWait(ctx)
 }
 
 // CurrentJointPositions returns the current positions of all joints.
@@ -409,4 +441,15 @@ func (x *xArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions
 	}
 
 	return frame.JointPositionsFromRadians(radians), nil
+}
+
+func getMaxDiff(from, to []frame.Input) float64 {
+	maxDiff := 0.
+	for i, fromI := range from {
+		diff := math.Abs(fromI.Value - to[i].Value)
+		if diff > maxDiff {
+			maxDiff = diff
+		}
+	}
+	return maxDiff
 }
