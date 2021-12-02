@@ -73,8 +73,8 @@ func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 func NewDepthColorIntrinsicsExtrinsics(attrs config.AttributeMap) (*DepthColorIntrinsicsExtrinsics, error) {
 	var matrices *DepthColorIntrinsicsExtrinsics
 
-	if attrs.Has("matrices") {
-		matrices = attrs["matrices"].(*DepthColorIntrinsicsExtrinsics)
+	if attrs.Has("intrinsic_extrinsic") {
+		matrices = attrs["intrinsic_extrinsic"].(*DepthColorIntrinsicsExtrinsics)
 	} else {
 		return nil, errors.New("no camera config")
 	}
