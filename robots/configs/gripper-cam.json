@@ -61,7 +61,7 @@
                   "depth_to_color": false,
                   "rotate_depth": -90
               },
-              "matrices_x": {
+              "intrinsic_extrinsic": {
                   "color": {
                     "height": 786,
                     "width": 1024,
@@ -111,7 +111,7 @@
                     ]
                   }
               },
-              "config" : {
+              "warp" : {
                   "ColorInputSize" : { "X" : 1024, "Y" : 768 },
                   "ColorWarpPoints" : [ { "X" : 604, "Y" : 575}, { "X" : 695, "Y" : 115 } ],
                   "DepthInputSize" : { "X" : 224, "Y" : 171},

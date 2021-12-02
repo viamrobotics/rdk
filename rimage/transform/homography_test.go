@@ -12,7 +12,7 @@ import (
 )
 
 type homographyTestHelper struct {
-	params DepthColorHomography
+	params *DepthColorHomography
 }
 
 func (h *homographyTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
@@ -40,15 +40,16 @@ func (h *homographyTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorConte
 	return nil
 }
 
-func TestAlignHomography(t *testing.T) {
+func TestNewHomography(t *testing.T) {
 	_, err := NewHomography([]float64{})
 	test.That(t, err, test.ShouldBeError, errors.New("input to NewHomography must have length of 9. Has length of 0"))
 
-	vals := []float64{
-		2.32700501e-01, -8.33535395e-03, -3.61894025e+01, -1.90671303e-03, 2.35303232e-01, 8.38582614e+00, -6.39101664e-05, -4.64582754e-05, 1.00000000e+00,
-	}
-	matrix, err := NewHomography(vals)
+	vals := []float64{2.32700501e-01, -8.33535395e-03, -3.61894025e+01, -1.90671303e-03, 2.35303232e-01, 8.38582614e+00, -6.39101664e-05, -4.64582754e-05, 1.00000000e+00}
+	_, err = NewHomography(vals)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestDepthColorHomography(t *testing.T) {
 	intrinsics := PinholeCameraIntrinsics{ // color camera intrinsic parameters
 		Width:      1024,
 		Height:     768,
@@ -59,14 +60,16 @@ func TestAlignHomography(t *testing.T) {
 		Distortion: DistortionModel{0.11297234, -0.21375332, -0.01584774, -0.00302002, 0.19969297},
 	}
 
-	conf := DepthColorHomography{
+	conf := &RawDepthColorHomography{
 		ColorCamera:  intrinsics,
-		Homography:   matrix,
+		Homography:   []float64{2.32700501e-01, -8.33535395e-03, -3.61894025e+01, -1.90671303e-03, 2.35303232e-01, 8.38582614e+00, -6.39101664e-05, -4.64582754e-05, 1.00000000e+00},
 		DepthToColor: false,
 		RotateDepth:  -90,
 	}
 
+	dch, err := NewDepthColorHomography(conf)
+	test.That(t, err, test.ShouldBeNil)
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
-	err = d.Process(t, &homographyTestHelper{conf})
+	err = d.Process(t, &homographyTestHelper{dch})
 	test.That(t, err, test.ShouldBeNil)
 }
