@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/camera"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/registry"
@@ -72,7 +72,7 @@ var allProductData map[vlp16.ProductID]productConfig = map[vlp16.ProductID]produ
 }
 
 func init() {
-	registry.RegisterCamera("velodyne", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterComponent(camera.Subtype, "velodyne", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		port := config.Attributes.Int("port", 2368)
 		ttl := config.Attributes.Int("ttlMilliseconds", 0)
 		if ttl == 0 {

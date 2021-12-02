@@ -18,7 +18,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/camera"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rimage"
@@ -26,6 +26,7 @@ import (
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 	_ "github.com/lmittmann/ppm" // register ppm
 )
 
@@ -33,16 +34,16 @@ import (
 var intel515json []byte
 
 func init() {
-	registry.RegisterCamera("intel", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterComponent(camera.Subtype, "intel", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		source, err := NewIntelServerSource(config.Host, config.Port, config.Attributes)
 		if err != nil {
 			return nil, err
 		}
-		return &camera.ImageSource{source}, nil
+		return &camera.ImageSource{ImageSource: source}, nil
 	}})
-	registry.RegisterCamera("eliot", *registry.CameraLookup("intel"))
+	registry.RegisterComponent(camera.Subtype, "eliot", *registry.ComponentLookup(camera.Subtype, "intel"))
 
-	registry.RegisterCamera("url", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterComponent(camera.Subtype, "url", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		if len(config.Attributes) == 0 {
 			return nil, errors.New("camera 'url' needs a color attribute (and a depth if you have it)")
 		}
@@ -54,14 +55,14 @@ func init() {
 		if !ok {
 			return nil, errors.New("attribute 'aligned' must be a bool")
 		}
-		return &camera.ImageSource{&HTTPSource{
+		return &camera.ImageSource{ImageSource: &httpSource{
 			ColorURL:  config.Attributes.String("color"),
 			DepthURL:  config.Attributes.String("depth"),
 			isAligned: aligned,
 		}}, nil
 	}})
 
-	registry.RegisterCamera("file", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterComponent(camera.Subtype, "file", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		x, has := config.Attributes["aligned"]
 		if !has {
 			return nil, errors.New("config for file needs bool attribute 'aligned'")
@@ -70,50 +71,50 @@ func init() {
 		if !ok {
 			return nil, errors.New("attribute 'aligned' must be a bool")
 		}
-		return &camera.ImageSource{&FileSource{config.Attributes.String("color"), config.Attributes.String("depth"), aligned}}, nil
+		return &camera.ImageSource{ImageSource: &fileSource{config.Attributes.String("color"), config.Attributes.String("depth"), aligned}}, nil
 	}})
 }
 
-// StaticSource TODO
-type StaticSource struct {
+// staticSource TODO
+type staticSource struct {
 	Img image.Image
 }
 
 // Next TODO
-func (ss *StaticSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (ss *staticSource) Next(ctx context.Context) (image.Image, func(), error) {
 	return ss.Img, func() {}, nil
 }
 
 // Close TODO
-func (ss *StaticSource) Close() error {
+func (ss *staticSource) Close() error {
 	return nil
 }
 
-// FileSource TODO
-type FileSource struct {
+// fileSource TODO
+type fileSource struct {
 	ColorFN   string
 	DepthFN   string
 	isAligned bool // are color and depth image already aligned
 }
 
 // IsAligned TODO
-func (fs *FileSource) IsAligned() bool {
+func (fs *fileSource) IsAligned() bool {
 	return fs.isAligned
 }
 
 // Next TODO
-func (fs *FileSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (fs *fileSource) Next(ctx context.Context) (image.Image, func(), error) {
 	img, err := rimage.NewImageWithDepth(fs.ColorFN, fs.DepthFN, fs.IsAligned())
 	return img, func() {}, err
 }
 
 // Close TODO
-func (fs *FileSource) Close() error {
+func (fs *fileSource) Close() error {
 	return nil
 }
 
-// HTTPSource TODO
-type HTTPSource struct {
+// httpSource TODO
+type httpSource struct {
 	client    http.Client
 	ColorURL  string // this is for a generic image
 	DepthURL  string // this is for my bizarre custom data format for depth data
@@ -121,7 +122,7 @@ type HTTPSource struct {
 }
 
 // IsAligned TODO
-func (hs *HTTPSource) IsAligned() bool {
+func (hs *httpSource) IsAligned() bool {
 	return hs.isAligned
 }
 
@@ -136,7 +137,7 @@ func readyBytesFromURL(client http.Client, url string) ([]byte, error) {
 }
 
 // Next TODO
-func (hs *HTTPSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (hs *httpSource) Next(ctx context.Context) (image.Image, func(), error) {
 	colorData, err := readyBytesFromURL(hs.client, hs.ColorURL)
 	if err != nil {
 		return nil, nil, errors.Errorf("couldn't ready color url: %w", err)
@@ -165,13 +166,13 @@ func (hs *HTTPSource) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 // Close TODO
-func (hs *HTTPSource) Close() error {
+func (hs *httpSource) Close() error {
 	hs.client.CloseIdleConnections()
 	return nil
 }
 
-// IntelServerSource TODO
-type IntelServerSource struct {
+// intelServerSource TODO
+type intelServerSource struct {
 	client    http.Client
 	BothURL   string
 	host      string
@@ -180,17 +181,17 @@ type IntelServerSource struct {
 }
 
 // IsAligned TODO
-func (s *IntelServerSource) IsAligned() bool {
+func (s *intelServerSource) IsAligned() bool {
 	return s.isAligned
 }
 
 // CameraSystem TODO
-func (s *IntelServerSource) CameraSystem() rimage.CameraSystem {
+func (s *intelServerSource) CameraSystem() rimage.CameraSystem {
 	return s.camera
 }
 
 // NewIntelServerSource TODO
-func NewIntelServerSource(host string, port int, attrs config.AttributeMap) (*IntelServerSource, error) {
+func NewIntelServerSource(host string, port int, attrs config.AttributeMap) (gostream.ImageSource, error) {
 	num := "0"
 	numString, has := attrs["num"]
 	if has {
@@ -200,7 +201,7 @@ func NewIntelServerSource(host string, port int, attrs config.AttributeMap) (*In
 	if err != nil {
 		return nil, err
 	}
-	return &IntelServerSource{
+	return &intelServerSource{
 		BothURL:   fmt.Sprintf("http://%s:%d/both?num=%s", host, port, num),
 		host:      host,
 		isAligned: attrs.Bool("aligned", true),
@@ -209,13 +210,13 @@ func NewIntelServerSource(host string, port int, attrs config.AttributeMap) (*In
 }
 
 // Close TODO
-func (s *IntelServerSource) Close() error {
+func (s *intelServerSource) Close() error {
 	s.client.CloseIdleConnections()
 	return nil
 }
 
 // Next TODO
-func (s *IntelServerSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (s *intelServerSource) Next(ctx context.Context) (image.Image, func(), error) {
 	allData, err := readyBytesFromURL(s.client, s.BothURL)
 	if err != nil {
 		return nil, nil, errors.Errorf("couldn't read url (%s): %w", s.BothURL, err)

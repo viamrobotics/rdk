@@ -13,8 +13,8 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
@@ -34,7 +34,6 @@ import (
 type robotParts struct {
 	remotes          map[string]*remoteRobot
 	boards           map[string]*proxyBoard
-	cameras          map[string]*proxyCamera
 	lidars           map[string]*proxyLidar
 	bases            map[string]*proxyBase
 	sensors          map[string]sensor.Sensor
@@ -51,7 +50,6 @@ func newRobotParts(logger golog.Logger) *robotParts {
 	return &robotParts{
 		remotes:          map[string]*remoteRobot{},
 		boards:           map[string]*proxyBoard{},
-		cameras:          map[string]*proxyCamera{},
 		lidars:           map[string]*proxyLidar{},
 		bases:            map[string]*proxyBase{},
 		sensors:          map[string]sensor.Sensor{},
@@ -85,15 +83,6 @@ func (parts *robotParts) AddBoard(b board.Board, c config.Component) {
 		b = proxy.actual
 	}
 	parts.boards[c.Name] = newProxyBoard(b)
-}
-
-// AddCamera adds a camera to the parts.
-func (parts *robotParts) AddCamera(c camera.Camera, cc config.Component) {
-	cc = fixType(cc, config.ComponentTypeCamera, len(parts.cameras))
-	if proxy, ok := c.(*proxyCamera); ok {
-		c = proxy.actual
-	}
-	parts.cameras[cc.Name] = &proxyCamera{actual: c}
 }
 
 // AddLidar adds a lidar to the parts.
@@ -251,8 +240,10 @@ func (parts *robotParts) GripperNames() []string {
 // CameraNames returns the names of all cameras in the parts.
 func (parts *robotParts) CameraNames() []string {
 	names := []string{}
-	for k := range parts.cameras {
-		names = append(names, k)
+	for _, n := range parts.ResourceNames() {
+		if n.Subtype == camera.Subtype {
+			names = append(names, n.Name)
+		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.CameraNames)
 }
@@ -364,12 +355,6 @@ func (parts *robotParts) Clone() *robotParts {
 			clonedParts.boards[k] = v
 		}
 	}
-	if len(parts.cameras) != 0 {
-		clonedParts.cameras = make(map[string]*proxyCamera, len(parts.cameras))
-		for k, v := range parts.cameras {
-			clonedParts.cameras[k] = v
-		}
-	}
 	if len(parts.lidars) != 0 {
 		clonedParts.lidars = make(map[string]*proxyLidar, len(parts.lidars))
 		for k, v := range parts.lidars {
@@ -440,12 +425,6 @@ func (parts *robotParts) Close() error {
 	for _, x := range parts.remotes {
 		if err := utils.TryClose(x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing remote: %w", err))
-		}
-	}
-
-	for _, x := range parts.cameras {
-		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing camera: %w", err))
 		}
 	}
 
@@ -584,12 +563,6 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 				return err
 			}
 			parts.AddBase(b, c)
-		case config.ComponentTypeCamera:
-			camera, err := r.newCamera(ctx, c)
-			if err != nil {
-				return err
-			}
-			parts.AddCamera(camera, c)
 		case config.ComponentTypeLidar:
 			lidar, err := r.newLidar(ctx, c)
 			if err != nil {
@@ -740,9 +713,13 @@ func (parts *robotParts) GripperByName(name string) (gripper.Gripper, bool) {
 // CameraByName returns the given camera by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) CameraByName(name string) (camera.Camera, bool) {
-	part, ok := parts.cameras[name]
+	rName := camera.Named(name)
+	r, ok := parts.resources[rName]
 	if ok {
-		return part, true
+		part, ok := r.(camera.Camera)
+		if ok {
+			return part, true
+		}
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.CameraByName(name)
@@ -905,15 +882,6 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 	}
 
-	if len(toAdd.cameras) != 0 {
-		if parts.cameras == nil {
-			parts.cameras = make(map[string]*proxyCamera, len(toAdd.cameras))
-		}
-		for k, v := range toAdd.cameras {
-			parts.cameras[k] = v
-		}
-	}
-
 	if len(toAdd.lidars) != 0 {
 		if parts.lidars == nil {
 			parts.lidars = make(map[string]*proxyLidar, len(toAdd.lidars))
@@ -1037,17 +1005,6 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 		}
 	}
 
-	if len(toModify.cameras) != 0 {
-		for k, v := range toModify.cameras {
-			old, ok := parts.cameras[k]
-			if !ok {
-				// should not happen
-				continue
-			}
-			old.replace(v)
-		}
-	}
-
 	if len(toModify.lidars) != 0 {
 		for k, v := range toModify.lidars {
 			old, ok := parts.lidars[k]
@@ -1144,12 +1101,6 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 		}
 	}
 
-	if len(toRemove.cameras) != 0 {
-		for k := range toRemove.cameras {
-			delete(parts.cameras, k)
-		}
-	}
-
 	if len(toRemove.lidars) != 0 {
 		for k := range toRemove.lidars {
 			delete(parts.lidars, k)
@@ -1236,12 +1187,6 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 				continue
 			}
 			filtered.AddBase(part, compConf)
-		case config.ComponentTypeCamera:
-			part, ok := parts.CameraByName(compConf.Name)
-			if !ok {
-				continue
-			}
-			filtered.AddCamera(part, compConf)
 		case config.ComponentTypeLidar:
 			part, ok := parts.LidarByName(compConf.Name)
 			if !ok {

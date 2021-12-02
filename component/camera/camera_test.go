@@ -1,4 +1,4 @@
-package gripper
+package camera
 
 import (
 	"testing"
@@ -8,7 +8,7 @@ import (
 	"go.viam.com/test"
 )
 
-func TestGripperName(t *testing.T) {
+func TestCameraName(t *testing.T) {
 	for _, tc := range []struct {
 		TestName string
 		Name     string
@@ -18,7 +18,7 @@ func TestGripperName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "c0ee7310-504c-5e57-8386-dfd75372c242",
+				UUID: "cf359663-1ffd-553f-8d2a-bd99656aa19a",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
@@ -28,14 +28,14 @@ func TestGripperName(t *testing.T) {
 		},
 		{
 			"all fields included",
-			"gripper1",
+			"camera1",
 			resource.Name{
-				UUID: "169be933-0c65-58bc-be9c-2a9fbe6c70c9",
+				UUID: "6543c4be-b3dd-56ab-976a-48cd37c91501",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
-				Name: "gripper1",
+				Name: "camera1",
 			},
 		},
 	} {
@@ -47,43 +47,43 @@ func TestGripperName(t *testing.T) {
 }
 
 func TestWrapWtihReconfigurable(t *testing.T) {
-	var actualGripper1 Gripper = &mock{Name: "gripper1"}
-	fakeGripper1, err := WrapWithReconfigurable(actualGripper1)
+	var actualCamera1 Camera = &mock{Name: "camera1"}
+	fakeCamera1, err := WrapWithReconfigurable(actualCamera1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeGripper1.(*reconfigurableGripper).actual, test.ShouldEqual, actualGripper1)
+	test.That(t, fakeCamera1.(*reconfigurableCamera).actual, test.ShouldEqual, actualCamera1)
 
 	_, err = WrapWithReconfigurable(nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
 
-	fakeGripper2, err := WrapWithReconfigurable(fakeGripper1)
+	fakeCamera2, err := WrapWithReconfigurable(fakeCamera1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeGripper2, test.ShouldEqual, fakeGripper1)
+	test.That(t, fakeCamera2, test.ShouldEqual, fakeCamera1)
 }
 
-func TestReconfigurableGripper(t *testing.T) {
-	actualGripper1 := &mock{Name: "gripper1"}
-	fakeGripper1, err := WrapWithReconfigurable(actualGripper1)
+func TestReconfigurableCamera(t *testing.T) {
+	actualCamera1 := &mock{Name: "camera1"}
+	fakeCamera1, err := WrapWithReconfigurable(actualCamera1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeGripper1.(*reconfigurableGripper).actual, test.ShouldEqual, actualGripper1)
+	test.That(t, fakeCamera1.(*reconfigurableCamera).actual, test.ShouldEqual, actualCamera1)
 
-	actualGripper2 := &mock{Name: "gripper2"}
-	fakeGripper2, err := WrapWithReconfigurable(actualGripper2)
+	actualCamera2 := &mock{Name: "camera2"}
+	fakeCamera2, err := WrapWithReconfigurable(actualCamera2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualGripper1.reconfCount, test.ShouldEqual, 0)
+	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 0)
 
-	err = fakeGripper1.(*reconfigurableGripper).Reconfigure(fakeGripper2)
+	err = fakeCamera1.(*reconfigurableCamera).Reconfigure(fakeCamera2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeGripper1.(*reconfigurableGripper).actual, test.ShouldEqual, actualGripper2)
-	test.That(t, actualGripper1.reconfCount, test.ShouldEqual, 1)
+	test.That(t, fakeCamera1.(*reconfigurableCamera).actual, test.ShouldEqual, actualCamera2)
+	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 1)
 
-	err = fakeGripper1.(*reconfigurableGripper).Reconfigure(nil)
+	err = fakeCamera1.(*reconfigurableCamera).Reconfigure(nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new gripper")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new camera")
 }
 
 type mock struct {
-	Gripper
+	Camera
 	Name        string
 	reconfCount int
 }
