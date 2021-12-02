@@ -29,17 +29,21 @@ func (dch *DepthColorHomography) AlignImageWithDepth(ii *rimage.ImageWithDepth) 
 	// make a new depth map that is as big as the color image
 	width, height := ii.Color.Width(), ii.Color.Height()
 	newDepth := rimage.NewEmptyDepthMap(width, height)
-	colorToDepth, err := dch.DepthToColor.Inverse()
-	if err != nil {
-		return nil, err
+	// get the homography that will turn color pixels into depth pixels
+	var err error
+	colorToDepth := dch.Homography
+	if dch.DepthToColor {
+		colorToDepth, err = dch.Homography.Inverse()
+		if err != nil {
+			return nil, err
+		}
 	}
-	// iterate through color pixels - use the inverse homography to see where they land in the depth map.
+	// iterate through color pixels - use the homography to see where they land in the depth map.
 	// use interpolation to get the depth value at that point
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			depthPt := colorToDepth.Apply(r2.Point{float64(x), float64(y)})
-			//depthVal := BilinearInterpolationDepth(depthPt, ii.Depth)
-			depthVal := NearestNeighborDepth(depthPt, ii.Depth)
+			depthVal := rimage.NearestNeighborDepth(depthPt, ii.Depth)
 			if depthVal != nil {
 				newDepth.Set(x, y, *depthVal)
 			}

@@ -1,36 +1,37 @@
 package transform
 
 import (
-	"math"
-
 	"github.com/go-errors/errors"
 	"github.com/golang/geo/r2"
 	"gonum.org/v1/gonum/mat"
-
-	"go.viam.com/core/rimage"
 )
 
-// DepthColorHomography stores the color camera intrinsics and the depth->color homography that aligns a depth map
-// with the color image. These parameters can take the color and depth image and create a point cloud of 3D points
+// DepthColorHomography stores the color camera intrinsics and the homography that aligns a depth map
+// with the color image. DepthToColor is true if the homography maps from depth pixels to color pixels, and false
+// if it maps from color pixels to depth pixels.
+// These parameters can take the color and depth image and create a point cloud of 3D points
 // where the origin is the origin of the color camera, with units of mm.
 type DepthColorHomography struct {
 	ColorCamera  PinholeCameraIntrinsics `json:"color"`
-	DepthToColor *Homography             `json:"homography"`
-	RotateDepth  int                     `json:"rotate"`
+	Homography   *Homography             `json:"homography"`
+	DepthToColor bool                    `json:"depth_to_color"`
+	RotateDepth  int                     `json:"rotate_depth"`
 }
 
-// Homography is a 3x3 matrix (represented as a 2D array) used to transform a plane from the perspective of a 2D
-// camera to the perspective of another 2D camera. Indices are [row][column]
+// Homography is a 3x3 matrix used to transform a plane from the perspective of a 2D
+// camera to the perspective of another 2D camera.
 type Homography struct {
 	matrix *mat.Dense
 }
 
 // NewHomography creates a Homography from a slice of floats
-func NewHomography(vals []float64) *Homography {
-	// add check for length of 9
-	// add check for mathematical property of homography
+func NewHomography(vals []float64) (*Homography, error) {
+	if len(vals) != 9 {
+		return nil, errors.Errorf("input to NewHomography must have length of 9. Has length of %d", len(vals))
+	}
+	//TODO(bij): add check for mathematical property of homography
 	d := mat.NewDense(3, 3, vals)
-	return &Homography{d}
+	return &Homography{d}, nil
 }
 
 // At returns the value of the homography at the given index
@@ -46,7 +47,7 @@ func (h *Homography) Apply(pt r2.Point) r2.Point {
 	return r2.Point{X: x / z, Y: y / z}
 }
 
-// Inverse inverts the homography. If it pointed from color -> depth, Inverse makes it point
+// Inverse inverts the homography. If homography went from color -> depth, Inverse makes it point
 // from depth -> color.
 func (h *Homography) Inverse() (*Homography, error) {
 	var hInv mat.Dense
@@ -55,44 +56,4 @@ func (h *Homography) Inverse() (*Homography, error) {
 		return nil, errors.Errorf("homography is not invertible (but homographies should always be invertible?): %w", err)
 	}
 	return &Homography{&hInv}, nil
-}
-
-// BilinearInterpolationDepth approximates the Depth value between pixels according to a bilinear
-// interpolation. A nil return value means the interpolation is out of bounds.
-func BilinearInterpolationDepth(pt r2.Point, dm *rimage.DepthMap) *rimage.Depth {
-	width, height := dm.Width(), dm.Height()
-	xmin := int(math.Floor(pt.X))
-	xmax := int(math.Ceil(pt.X))
-	ymin := int(math.Floor(pt.Y))
-	ymax := int(math.Ceil(pt.Y))
-	if xmin < 0 || ymin < 0 || xmax >= width || ymax >= height { // point out of bounds - skip it
-		return nil
-	}
-	// get depth values
-	d00 := float64(dm.GetDepth(xmin, ymin))
-	d10 := float64(dm.GetDepth(xmax, ymin))
-	d01 := float64(dm.GetDepth(xmin, ymax))
-	d11 := float64(dm.GetDepth(xmax, ymax))
-	// calculate weights
-	area := float64((xmax - xmin) * (ymax - ymin))
-	w00 := ((float64(xmax) - pt.X) * (float64(ymax) - pt.Y)) / area
-	w10 := ((float64(xmax) - pt.X) * (pt.Y - float64(ymin))) / area
-	w01 := ((pt.X - float64(xmin)) * (float64(ymax) - pt.Y)) / area
-	w11 := ((pt.X - float64(xmin)) * (pt.Y - float64(ymin))) / area
-
-	result := rimage.Depth(math.Round(d00*w00 + d01*w01 + d10*w10 + d11*w11))
-	return &result
-}
-
-// NearestNeighborDepth takes the value of the closest point to the intermediate pixel
-func NearestNeighborDepth(pt r2.Point, dm *rimage.DepthMap) *rimage.Depth {
-	width, height := dm.Width(), dm.Height()
-	x := int(math.Round(pt.X))
-	y := int(math.Round(pt.Y))
-	if x < 0 || y < 0 || x >= width || y >= height { // point out of bounds - skip it
-		return nil
-	}
-	// get depth value
-	result := dm.GetDepth(x, y)
-	return &result
 }
