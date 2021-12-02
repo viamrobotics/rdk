@@ -17,7 +17,6 @@ import (
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gantry"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
@@ -47,12 +46,6 @@ func init() {
 		},
 		RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
 			return arm.NewClientFromConn(conn, name, logger)
-		},
-	})
-
-	RegisterResourceSubtype(camera.Subtype, ResourceSubtype{
-		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
-			return camera.WrapWithReconfigurable(r)
 		},
 	})
 
