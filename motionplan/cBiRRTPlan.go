@@ -62,7 +62,6 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, nCPU int, logger golog.Logger) (M
 	nlopt.SetMaxIter(1)
 	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: jointSolveDist}
 
-	// Max individual step of 1.5% of full range of motion
 	mp.qstep = getFrameSteps(frame, frameStep)
 	mp.iter = planIter
 	mp.stepSize = 1
