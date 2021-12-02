@@ -53,6 +53,7 @@ import (
 	"google.golang.org/grpc"
 
 	_ "go.viam.com/core/component/arm/register"
+	_ "go.viam.com/core/component/gripper/register"
 )
 
 var emptyStatus = &pb.Status{
