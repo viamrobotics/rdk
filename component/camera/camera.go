@@ -16,17 +16,17 @@ import (
 	"go.viam.com/core/rlog"
 )
 
-// SubtypeName is a constant that identifies the component resource subtype string
+// SubtypeName is a constant that identifies the camera resource subtype string
 const SubtypeName = resource.SubtypeName("camera")
 
-// Subtype is a constant that identifies the component resource subtype
+// Subtype is a constant that identifies the camera resource subtype
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceCore,
 	resource.ResourceTypeComponent,
 	SubtypeName,
 )
 
-// Named is a helper for getting the named gameras's typed resource name
+// Named is a helper for getting the named cameras's typed resource name
 func Named(name string) resource.Name {
 	return resource.NewFromSubtype(Subtype, name)
 }

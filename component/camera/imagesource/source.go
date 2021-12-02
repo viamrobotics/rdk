@@ -55,7 +55,7 @@ func init() {
 		if !ok {
 			return nil, errors.New("attribute 'aligned' must be a bool")
 		}
-		return &camera.ImageSource{ImageSource: &hTTPSource{
+		return &camera.ImageSource{ImageSource: &httpSource{
 			ColorURL:  config.Attributes.String("color"),
 			DepthURL:  config.Attributes.String("depth"),
 			isAligned: aligned,
@@ -113,8 +113,8 @@ func (fs *fileSource) Close() error {
 	return nil
 }
 
-// hTTPSource TODO
-type hTTPSource struct {
+// httpSource TODO
+type httpSource struct {
 	client    http.Client
 	ColorURL  string // this is for a generic image
 	DepthURL  string // this is for my bizarre custom data format for depth data
@@ -122,7 +122,7 @@ type hTTPSource struct {
 }
 
 // IsAligned TODO
-func (hs *hTTPSource) IsAligned() bool {
+func (hs *httpSource) IsAligned() bool {
 	return hs.isAligned
 }
 
@@ -137,7 +137,7 @@ func readyBytesFromURL(client http.Client, url string) ([]byte, error) {
 }
 
 // Next TODO
-func (hs *hTTPSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (hs *httpSource) Next(ctx context.Context) (image.Image, func(), error) {
 	colorData, err := readyBytesFromURL(hs.client, hs.ColorURL)
 	if err != nil {
 		return nil, nil, errors.Errorf("couldn't ready color url: %w", err)
@@ -166,7 +166,7 @@ func (hs *hTTPSource) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 // Close TODO
-func (hs *hTTPSource) Close() error {
+func (hs *httpSource) Close() error {
 	hs.client.CloseIdleConnections()
 	return nil
 }

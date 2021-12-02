@@ -67,12 +67,12 @@ func TestReconfigurableArm(t *testing.T) {
 	actualArm2 := &mockArm{Name: "arm2"}
 	fakeArm2, err := WrapWithReconfigurable(actualArm2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualArm1.reconCount, test.ShouldEqual, 0)
+	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 0)
 
 	err = fakeArm1.(*reconfigurableArm).Reconfigure(fakeArm2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeArm1.(*reconfigurableArm).actual, test.ShouldEqual, actualArm2)
-	test.That(t, actualArm1.reconCount, test.ShouldEqual, 1)
+	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 1)
 }
 
 func TestArmPosition(t *testing.T) {
@@ -100,8 +100,8 @@ func TestArmPositionDiff(t *testing.T) {
 }
 
 type mockArm struct {
-	Name       string
-	reconCount int
+	Name        string
+	reconfCount int
 }
 
 func (m *mockArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) { return nil, nil }
@@ -132,4 +132,4 @@ func (m *mockArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) e
 	return nil
 }
 
-func (m *mockArm) Close() error { m.reconCount++; return nil }
+func (m *mockArm) Close() error { m.reconfCount++; return nil }

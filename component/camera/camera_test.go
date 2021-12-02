@@ -70,12 +70,12 @@ func TestReconfigurableCamera(t *testing.T) {
 	actualCamera2 := &mock{Name: "camera2"}
 	fakeCamera2, err := WrapWithReconfigurable(actualCamera2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualCamera1.reconCount, test.ShouldEqual, 0)
+	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 0)
 
 	err = fakeCamera1.(*reconfigurableCamera).Reconfigure(fakeCamera2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeCamera1.(*reconfigurableCamera).actual, test.ShouldEqual, actualCamera2)
-	test.That(t, actualCamera1.reconCount, test.ShouldEqual, 1)
+	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 1)
 
 	err = fakeCamera1.(*reconfigurableCamera).Reconfigure(nil)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -84,8 +84,8 @@ func TestReconfigurableCamera(t *testing.T) {
 
 type mock struct {
 	Camera
-	Name       string
-	reconCount int
+	Name        string
+	reconfCount int
 }
 
-func (m *mock) Close() error { m.reconCount++; return nil }
+func (m *mock) Close() error { m.reconfCount++; return nil }
