@@ -66,7 +66,6 @@ import (
 	_ "go.viam.com/core/motor/gpiostepper"
 	_ "go.viam.com/core/motor/tmcstepper"
 	_ "go.viam.com/core/platformdetector/pi"
-	_ "go.viam.com/core/rimage"     // this is for the core camera types
 	_ "go.viam.com/core/robots/eva" // for eva
 	_ "go.viam.com/core/robots/fake"
 	_ "go.viam.com/core/robots/universalrobots"         // for an arm
@@ -82,7 +81,6 @@ import (
 	_ "go.viam.com/core/sensor/forcematrix"
 	_ "go.viam.com/core/sensor/gps/merge"
 	_ "go.viam.com/core/sensor/gps/nmea"
-	_ "go.viam.com/core/vision" // this is for interesting camera types, depth, etc...
 
 	// These are the services we want by default
 	_ "go.viam.com/core/services/baseremotecontrol"
