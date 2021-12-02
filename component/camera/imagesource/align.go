@@ -173,6 +173,9 @@ func (dc *depthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 		}
 	}
 	aligned, err := dc.alignmentCamera.AlignImageWithDepth(ii)
+	if err != nil {
+		return nil, nil, err
+	}
 	aligned.SetCameraSystem(dc.projectionCamera)
 
 	return aligned, func() {}, err
