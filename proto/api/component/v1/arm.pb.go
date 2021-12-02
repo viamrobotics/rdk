@@ -32,6 +32,7 @@ type ArmJointPositions struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Used in ArmServiceCurrentJointPositionsResponse and ArmServiceMoveToJointPositionsRequest
 	Degrees []float64 `protobuf:"fixed64,1,rep,packed,name=degrees,proto3" json:"degrees,omitempty"`
 }
 
@@ -126,6 +127,7 @@ type ArmServiceCurrentPositionResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Returns the X,Y,Z coordinates and pose ox, oy, oz of the end effector in millimeters from the base
 	Position *v1.Pose `protobuf:"bytes,1,opt,name=position,proto3" json:"position,omitempty"`
 }
 

@@ -12,7 +12,7 @@ import "google/api/httpbody.proto";
 import "proto/api/common/v1/common.proto";
 
 
-// An ArmService services maintains all arms associated with a robot
+// An ArmService services maintains all arms associated with a test robot
 service ArmService {
   // CurrentPosition gets the current position of an arm of the underlying robot.
   rpc CurrentPosition(ArmServiceCurrentPositionRequest) returns (ArmServiceCurrentPositionResponse) {
@@ -52,6 +52,7 @@ service ArmService {
 }
 
 message ArmJointPositions {
+  // Used in ArmServiceCurrentJointPositionsResponse and ArmServiceMoveToJointPositionsRequest
   repeated double degrees = 1;
 }
 
@@ -60,6 +61,7 @@ message ArmServiceCurrentPositionRequest {
 }
 
 message ArmServiceCurrentPositionResponse {
+  // Returns the X,Y,Z coordinates and pose ox, oy, oz of the end effector in millimeters from the base
   common.v1.Pose position = 1;
 }
 
