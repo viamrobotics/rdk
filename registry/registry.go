@@ -12,13 +12,8 @@ import (
 	"go.viam.com/utils/rpc/dialer"
 	rpcserver "go.viam.com/utils/rpc/server"
 
-	componentpb "go.viam.com/core/proto/api/component/v1"
-
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/gantry"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
@@ -33,55 +28,14 @@ import (
 // TODO: currently here because of import cycles. get rid of this block at conclusion of Core v2 migration.
 //these registrations should happen in the subtype's go package instead.
 func init() {
-	RegisterResourceSubtype(arm.Subtype, ResourceSubtype{
-		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
-			return arm.WrapWithReconfigurable(r)
-		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&componentpb.ArmService_ServiceDesc,
-				arm.NewServer(subtypeSvc),
-				componentpb.RegisterArmServiceHandlerFromEndpoint,
-			)
-		},
-		RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
-			return arm.NewClientFromConn(conn, name, logger)
-		},
-	})
-
-	RegisterResourceSubtype(gantry.Subtype, ResourceSubtype{
-		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
-			return gantry.WrapWithReconfigurable(r)
-		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&componentpb.GantryService_ServiceDesc,
-				gantry.NewServer(subtypeSvc),
-				componentpb.RegisterGantryServiceHandlerFromEndpoint,
-			)
-		},
-		RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
-			return gantry.NewClientFromConn(conn, name, logger)
-		},
-	})
-
 	RegisterResourceSubtype(gripper.Subtype, ResourceSubtype{
 		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
 			return gripper.WrapWithReconfigurable(r)
 		},
 	})
-
 }
 
 type (
-	// A CreateCamera creates a camera from a given config.
-	CreateCamera func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error)
-
-	// A CreateGripper creates a gripper from a given config.
-	CreateGripper func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error)
-
 	// A CreateBase creates a base from a given config.
 	CreateBase func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error)
 
@@ -108,12 +62,6 @@ type (
 // for debugging purposes.
 type RegDebugInfo struct {
 	RegistrarLoc string
-}
-
-// Camera stores a Camera constructor function (mandatory)
-type Camera struct {
-	RegDebugInfo
-	Constructor CreateCamera
 }
 
 // Base stores a Base constructor function (mandatory)
@@ -161,7 +109,6 @@ type Service struct {
 
 // all registries
 var (
-	cameraRegistry          = map[string]Camera{}
 	baseRegistry            = map[string]Base{}
 	lidarRegistry           = map[string]Lidar{}
 	sensorRegistry          = map[sensor.Type]map[string]Sensor{}
@@ -178,19 +125,6 @@ func getCallerName() string {
 		return details.Name()
 	}
 	return "unknown"
-}
-
-// RegisterCamera registers a camera model to a creator.
-func RegisterCamera(model string, creator Camera) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := cameraRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two cameras with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	cameraRegistry[model] = creator
 }
 
 // RegisterBase registers a base model to a creator.
@@ -285,15 +219,6 @@ func RegisterService(typeName config.ServiceType, registration Service) {
 		panic(errors.Errorf("cannot register a nil constructor for service %s", typeName))
 	}
 	serviceRegistry[typeName] = registration
-}
-
-// CameraLookup looks up a camera creator by the given model. nil is returned if
-// there is no creator registered.
-func CameraLookup(model string) *Camera {
-	if registration, ok := cameraRegistry[model]; ok {
-		return &registration
-	}
-	return nil
 }
 
 // BaseLookup looks up a base creator by the given model. nil is returned if
@@ -446,15 +371,6 @@ func ResourceSubtypeLookup(subtype resource.Subtype) *ResourceSubtype {
 		return &registration
 	}
 	return nil
-}
-
-// RegisteredCameras returns a copy of the registered cameras.
-func RegisteredCameras() map[string]Camera {
-	copied, err := copystructure.Copy(cameraRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]Camera)
 }
 
 // RegisteredBases returns a copy of the registered bases.

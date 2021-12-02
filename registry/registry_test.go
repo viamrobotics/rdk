@@ -9,7 +9,6 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
@@ -26,10 +25,6 @@ import (
 )
 
 func TestRegistry(t *testing.T) {
-	cf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
-		return nil, nil
-	}
-
 	lf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
 		return nil, nil
 	}
@@ -55,7 +50,6 @@ func TestRegistry(t *testing.T) {
 	}
 
 	// test panics
-	test.That(t, func() { RegisterCamera("x", Camera{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterBase("x", Base{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterLidar("x", Lidar{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterSensor(sensor.Type("x"), "y", Sensor{}) }, test.ShouldPanic)
@@ -64,7 +58,6 @@ func TestRegistry(t *testing.T) {
 	test.That(t, func() { RegisterInputController("x", InputController{}) }, test.ShouldPanic)
 
 	// test register
-	RegisterCamera("x", Camera{Constructor: cf})
 	RegisterBase("x", Base{Constructor: bf})
 	RegisterLidar("x", Lidar{Constructor: lf})
 	RegisterSensor(sensor.Type("x"), "y", Sensor{Constructor: sf})
@@ -73,11 +66,6 @@ func TestRegistry(t *testing.T) {
 	RegisterInputController("x", InputController{Constructor: inputf})
 
 	// test look up
-
-	test.That(t, CameraLookup("x"), test.ShouldNotBeNil)
-	test.That(t, CameraLookup("z"), test.ShouldBeNil)
-	test.That(t, CameraLookup("x").Constructor, test.ShouldNotBeNil)
-
 	test.That(t, BaseLookup("x"), test.ShouldNotBeNil)
 	test.That(t, BaseLookup("z"), test.ShouldBeNil)
 	test.That(t, BaseLookup("x").Constructor, test.ShouldNotBeNil)

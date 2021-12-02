@@ -10,7 +10,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/camera"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rimage"
@@ -18,17 +18,17 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("rotate", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterComponent(camera.Subtype, "rotate", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		sourceName := config.Attributes.String("source")
 		source, ok := r.CameraByName(sourceName)
 		if !ok {
 			return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
 		}
 
-		return &camera.ImageSource{&RotateImageDepthSource{source}}, nil
+		return &camera.ImageSource{ImageSource: &rotateImageDepthSource{source}}, nil
 	}})
 
-	registry.RegisterCamera("resize", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterComponent(camera.Subtype, "resize", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		sourceName := config.Attributes.String("source")
 		source, ok := r.CameraByName(sourceName)
 		if !ok {
@@ -38,18 +38,20 @@ func init() {
 		width := config.Attributes.Int("width", 800)
 		height := config.Attributes.Int("height", 640)
 
-		return &camera.ImageSource{gostream.ResizeImageSource{source, width, height}}, nil
+		return &camera.ImageSource{
+			ImageSource: gostream.ResizeImageSource{Src: source, Width: width, Height: height},
+		}, nil
 	}})
 
 }
 
-// RotateImageDepthSource TODO
-type RotateImageDepthSource struct {
+// rotateImageDepthSource TODO
+type rotateImageDepthSource struct {
 	Original gostream.ImageSource
 }
 
 // Next TODO
-func (rids *RotateImageDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (rids *rotateImageDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
 	orig, release, err := rids.Original.Next(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -65,6 +67,6 @@ func (rids *RotateImageDepthSource) Next(ctx context.Context) (image.Image, func
 }
 
 // Close TODO
-func (rids *RotateImageDepthSource) Close() error {
+func (rids *rotateImageDepthSource) Close() error {
 	return rids.Original.Close()
 }

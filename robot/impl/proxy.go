@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"image"
 	"sync"
 
 	"github.com/golang/geo/r2"
@@ -14,11 +13,9 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
-	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/sensor"
@@ -82,48 +79,6 @@ func (p *proxyBase) replace(newBase base.Base) {
 	actual, ok := newBase.(*proxyBase)
 	if !ok {
 		panic(fmt.Errorf("expected new base to be %T but got %T", actual, newBase))
-	}
-	if err := utils.TryClose(p.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = actual.actual
-}
-
-type proxyCamera struct {
-	mu     sync.RWMutex
-	actual camera.Camera
-}
-
-func (p *proxyCamera) ProxyFor() interface{} {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual
-}
-
-func (p *proxyCamera) Next(ctx context.Context) (image.Image, func(), error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Next(ctx)
-}
-
-func (p *proxyCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.NextPointCloud(ctx)
-}
-
-func (p *proxyCamera) Close() error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return utils.TryClose(p.actual)
-}
-
-func (p *proxyCamera) replace(newCamera camera.Camera) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newCamera.(*proxyCamera)
-	if !ok {
-		panic(fmt.Errorf("expected new camera to be %T but got %T", actual, newCamera))
 	}
 	if err := utils.TryClose(p.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)

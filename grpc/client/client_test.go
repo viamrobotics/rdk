@@ -21,8 +21,8 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
@@ -51,6 +51,8 @@ import (
 	"github.com/golang/geo/r2"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
+
+	_ "go.viam.com/core/component/arm/register"
 )
 
 var emptyStatus = &pb.Status{
@@ -122,7 +124,7 @@ var emptyStatus = &pb.Status{
 	},
 }
 
-var emptyResources = []resource.Name{arm.Named("arm1"), gripper.Named("gripper1")}
+var emptyResources = []resource.Name{arm.Named("arm1"), gripper.Named("gripper1"), camera.Named("camera1")}
 
 var finalStatus = &pb.Status{
 	Arms: map[string]*pb.ArmStatus{
@@ -222,7 +224,7 @@ var finalStatus = &pb.Status{
 	},
 }
 
-var finalResources = []resource.Name{arm.Named("arm2"), arm.Named("arm3"), servo.Named("servo2"), servo.Named("servo3"), gripper.Named("gripper2"), gripper.Named("gripper3")}
+var finalResources = []resource.Name{arm.Named("arm2"), arm.Named("arm3"), servo.Named("servo2"), servo.Named("servo3"), gripper.Named("gripper2"), gripper.Named("gripper3"), camera.Named("camera2"), camera.Named("camera3")}
 
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -1361,11 +1363,12 @@ func TestClientRefresh(t *testing.T) {
 
 	armNames := []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
 	gripperNames := []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
+	cameraNames := []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
 	servoNames := []resource.Name{servo.Named("servo2"), servo.Named("servo3")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera2", "camera3"))
+	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar2", "lidar3"))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
@@ -1375,6 +1378,7 @@ func TestClientRefresh(t *testing.T) {
 		coretestutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
+			cameraNames,
 			servoNames,
 		)...))
 
@@ -1398,10 +1402,11 @@ func TestClientRefresh(t *testing.T) {
 
 	armNames = []resource.Name{arm.Named("arm1")}
 	gripperNames = []resource.Name{gripper.Named("gripper1")}
+	cameraNames = []resource.Name{camera.Named("camera1")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera1"))
+	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1"))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board3"))
@@ -1411,6 +1416,7 @@ func TestClientRefresh(t *testing.T) {
 		coretestutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
+			cameraNames,
 		)...))
 
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
@@ -1423,10 +1429,11 @@ func TestClientRefresh(t *testing.T) {
 
 	armNames = []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
 	gripperNames = []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
+	cameraNames = []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera2", "camera3"))
+	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar2", "lidar3"))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
@@ -1436,6 +1443,7 @@ func TestClientRefresh(t *testing.T) {
 		coretestutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
+			cameraNames,
 			servoNames,
 		)...))
 

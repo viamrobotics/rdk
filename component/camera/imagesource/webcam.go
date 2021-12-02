@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/camera"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -20,7 +20,7 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("webcam", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterComponent(camera.Subtype, "webcam", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		return NewWebcamSource(config.Attributes, logger)
 	}})
 
@@ -132,5 +132,5 @@ func tryWebcamOpen(path string, debug bool, constraints mediadevices.MediaStream
 	if err != nil {
 		return nil, err
 	}
-	return &camera.ImageSource{reader}, nil
+	return &camera.ImageSource{ImageSource: reader}, nil
 }
