@@ -68,6 +68,19 @@ func init() {
 		}
 		return matrices, err
 	})
+
+	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "homography", func(val interface{}) (interface{}, error) {
+		homography := &transform.DepthColorHomography{}
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: homography})
+		if err != nil {
+			return nil, err
+		}
+		err = decoder.Decode(val)
+		if err == nil {
+			err = homography.CheckValid()
+		}
+		return homography, err
+	})
 }
 
 var alignCurrentlyWriting = false
