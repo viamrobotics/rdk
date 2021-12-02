@@ -47,6 +47,7 @@ import (
 	_ "go.viam.com/core/board/arduino"
 	_ "go.viam.com/core/board/jetson"
 	_ "go.viam.com/core/board/numato"
+	_ "go.viam.com/core/component/arm/register"         // for all arms TODO: #298
 	_ "go.viam.com/core/component/camera/register"      // for all cameras
 	_ "go.viam.com/core/component/gantry/register"      // for all gantries
 	_ "go.viam.com/core/component/gripper/fake"         // for a gripper
