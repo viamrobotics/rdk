@@ -23,8 +23,9 @@ type xArm struct {
 	dof      int
 	tid      uint16
 	conn     net.Conn
-	speed    float32 //speed=20*π/180rad/s
+	speed    float32 //speed=max joint radians per second
 	accel    float32 //acceleration=500*π/180rad/s^2
+	moveHZ   float64 // Number of joint positions to send per second
 	moveLock *sync.Mutex
 	mp       motionplan.MotionPlanner
 	model    *referenceframe.Model
@@ -79,7 +80,16 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 	mutex := &sync.Mutex{}
 	// Start with default speed/acceleration parameters
 	// TODO(pl): add settable speed
-	xA := xArm{dof, 0, conn, 0.35, 8.7, mutex, mp, model}
+	xA := xArm{dof: dof,
+		tid:      0,
+		conn:     conn,
+		speed:    0.25,
+		accel:    8.7,
+		moveHZ:   100.,
+		moveLock: mutex,
+		mp:       mp,
+		model:    model,
+	}
 
 	err = xA.start()
 	if err != nil {
