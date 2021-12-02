@@ -83,7 +83,7 @@ func TestAlignGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestGripperHomography(t *testing.T) {
+func TestAlignGripperHomography(t *testing.T) {
 	config, err := config.Read(utils.ResolveFile("robots/configs/gripper-cam.json"))
 	test.That(t, err, test.ShouldBeNil)
 
