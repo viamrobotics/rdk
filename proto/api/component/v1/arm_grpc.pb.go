@@ -19,15 +19,15 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ArmServiceClient interface {
-	// CurrentPosition gets the current position of an arm of the underlying robot.
+	// CurrentPosition gets the current position of the mount point of the robot's end effector expressed as X,Y,Z,ox,oy,oz,theta
 	CurrentPosition(ctx context.Context, in *ArmServiceCurrentPositionRequest, opts ...grpc.CallOption) (*ArmServiceCurrentPositionResponse, error)
-	// MoveToPosition moves an arm of the underlying robot to the requested position.
+	// MoveToPosition moves the mount point of the robot's end effector to the requested position.
 	MoveToPosition(ctx context.Context, in *ArmServiceMoveToPositionRequest, opts ...grpc.CallOption) (*ArmServiceMoveToPositionResponse, error)
-	// CurrentJointPositions gets the current joint position of an arm of the underlying robot.
+	// CurrentJointPositions lists the joint positions (in degrees) of every joint on a robot
 	CurrentJointPositions(ctx context.Context, in *ArmServiceCurrentJointPositionsRequest, opts ...grpc.CallOption) (*ArmServiceCurrentJointPositionsResponse, error)
-	// MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
+	// MoveToJointPositions moves every joint on a robot by the specified number of degrees
 	MoveToJointPositions(ctx context.Context, in *ArmServiceMoveToJointPositionsRequest, opts ...grpc.CallOption) (*ArmServiceMoveToJointPositionsResponse, error)
-	// JointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.
+	// JointMoveDelta moves a specific joint of a robot by the the specified number of degrees
 	JointMoveDelta(ctx context.Context, in *ArmServiceJointMoveDeltaRequest, opts ...grpc.CallOption) (*ArmServiceJointMoveDeltaResponse, error)
 }
 
@@ -88,15 +88,15 @@ func (c *armServiceClient) JointMoveDelta(ctx context.Context, in *ArmServiceJoi
 // All implementations must embed UnimplementedArmServiceServer
 // for forward compatibility
 type ArmServiceServer interface {
-	// CurrentPosition gets the current position of an arm of the underlying robot.
+	// CurrentPosition gets the current position of the mount point of the robot's end effector expressed as X,Y,Z,ox,oy,oz,theta
 	CurrentPosition(context.Context, *ArmServiceCurrentPositionRequest) (*ArmServiceCurrentPositionResponse, error)
-	// MoveToPosition moves an arm of the underlying robot to the requested position.
+	// MoveToPosition moves the mount point of the robot's end effector to the requested position.
 	MoveToPosition(context.Context, *ArmServiceMoveToPositionRequest) (*ArmServiceMoveToPositionResponse, error)
-	// CurrentJointPositions gets the current joint position of an arm of the underlying robot.
+	// CurrentJointPositions lists the joint positions (in degrees) of every joint on a robot
 	CurrentJointPositions(context.Context, *ArmServiceCurrentJointPositionsRequest) (*ArmServiceCurrentJointPositionsResponse, error)
-	// MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
+	// MoveToJointPositions moves every joint on a robot by the specified number of degrees
 	MoveToJointPositions(context.Context, *ArmServiceMoveToJointPositionsRequest) (*ArmServiceMoveToJointPositionsResponse, error)
-	// JointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.
+	// JointMoveDelta moves a specific joint of a robot by the the specified number of degrees
 	JointMoveDelta(context.Context, *ArmServiceJointMoveDeltaRequest) (*ArmServiceJointMoveDeltaResponse, error)
 	mustEmbedUnimplementedArmServiceServer()
 }
