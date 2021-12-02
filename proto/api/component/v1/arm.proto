@@ -12,7 +12,7 @@ import "google/api/httpbody.proto";
 import "proto/api/common/v1/common.proto";
 
 
-// An ArmService services maintains all arms associated with a test robot
+// An ArmService services maintains all arms associated with a robot
 service ArmService {
   // CurrentPosition gets the current position of an arm of the underlying robot.
   rpc CurrentPosition(ArmServiceCurrentPositionRequest) returns (ArmServiceCurrentPositionResponse) {
