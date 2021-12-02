@@ -15,32 +15,17 @@ import (
 	"go.viam.com/core/grpc/client"
 	"go.viam.com/core/metadata/service"
 	commonpb "go.viam.com/core/proto/api/common/v1"
-	componentpb "go.viam.com/core/proto/api/component/v1"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/registry"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
-	"go.viam.com/core/subtype"
 	"go.viam.com/core/testutils/inject"
 
 	rpcclient "go.viam.com/utils/rpc/client"
-	rpcserver "go.viam.com/utils/rpc/server"
+
+	_ "go.viam.com/core/component/arm/register"
 )
 
 var resources = []resource.Name{resource.NewName(resource.Namespace("acme"), resource.ResourceTypeComponent, arm.SubtypeName, "arm1")}
-
-func init() {
-	registry.RegisterResourceSubtype(arm.Subtype, registry.ResourceSubtype{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&componentpb.ArmService_ServiceDesc,
-				arm.NewServer(subtypeSvc),
-				componentpb.RegisterArmServiceHandlerFromEndpoint,
-			)
-		},
-	})
-}
 
 func TestWebStart(t *testing.T) {
 	logger := golog.NewTestLogger(t)
