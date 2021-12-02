@@ -17,7 +17,6 @@ import (
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/gantry"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
@@ -46,23 +45,6 @@ func init() {
 		},
 		RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
 			return arm.NewClientFromConn(conn, name, logger)
-		},
-	})
-
-	RegisterResourceSubtype(gantry.Subtype, ResourceSubtype{
-		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
-			return gantry.WrapWithReconfigurable(r)
-		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&componentpb.GantryService_ServiceDesc,
-				gantry.NewServer(subtypeSvc),
-				componentpb.RegisterGantryServiceHandlerFromEndpoint,
-			)
-		},
-		RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
-			return gantry.NewClientFromConn(conn, name, logger)
 		},
 	})
 
