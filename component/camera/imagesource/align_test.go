@@ -82,3 +82,15 @@ func TestAlignGripper(t *testing.T) {
 	err = d.Process(t, &alignTestHelper{c.Attributes})
 	test.That(t, err, test.ShouldBeNil)
 }
+
+func TestGripperHomography(t *testing.T) {
+	config, err := config.Read(utils.ResolveFile("robots/configs/gripper-cam.json"))
+	test.That(t, err, test.ShouldBeNil)
+
+	c := config.FindComponent("combined")
+	test.That(t, c, test.ShouldNotBeNil)
+
+	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
+	err = d.Process(t, &alignTestHelper{c.Attributes})
+	test.That(t, err, test.ShouldBeNil)
+}

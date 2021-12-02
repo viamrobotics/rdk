@@ -13,9 +13,23 @@ import (
 // where the origin is the origin of the color camera, with units of mm.
 type DepthColorHomography struct {
 	ColorCamera  PinholeCameraIntrinsics `json:"color"`
-	Homography   *Homography             `json:"homography"`
+	Homography   *Homography             `json:"transform"`
 	DepthToColor bool                    `json:"depth_to_color"`
 	RotateDepth  int                     `json:"rotate_depth"`
+}
+
+// CheckValid runs checks on the fields of the struct to see if the inputs are valid
+func (dch *DepthColorHomography) CheckValid() error {
+	if dch == nil {
+		return errors.New("pointer to DepthColorHomography is nil")
+	}
+	if dch.Homography == nil {
+		return errors.New("pointer to Homography is nil")
+	}
+	if dch.ColorCamera.Width == 0 || dch.ColorCamera.Height == 0 {
+		return errors.Errorf("invalid ColorSize (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height)
+	}
+	return nil
 }
 
 // Homography is a 3x3 matrix used to transform a plane from the perspective of a 2D
