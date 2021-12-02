@@ -9,7 +9,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 
-	"go.viam.com/core/camera"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rimage"
@@ -17,25 +17,25 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("depthEdges", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterComponent(camera.Subtype, "depthEdges", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		return newDepthEdgesSource(r, config)
 	}})
 }
 
-// DepthEdgesSource applies a Canny Edge Detector to the depth map of the ImageWithDepth
-type DepthEdgesSource struct {
+// depthEdgesSource applies a Canny Edge Detector to the depth map of the ImageWithDepth
+type depthEdgesSource struct {
 	source     gostream.ImageSource
 	detector   *rimage.CannyEdgeDetector
 	blurRadius float64
 }
 
 // Close closes the source
-func (os *DepthEdgesSource) Close() error {
+func (os *depthEdgesSource) Close() error {
 	return nil
 }
 
 // Next applies a canny edge detector on the depth map of the next image
-func (os *DepthEdgesSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (os *depthEdgesSource) Next(ctx context.Context) (image.Image, func(), error) {
 	i, closer, err := os.source.Next(ctx)
 	if err != nil {
 		return i, closer, err
@@ -58,6 +58,6 @@ func newDepthEdgesSource(r robot.Robot, config config.Component) (camera.Camera,
 		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
-	return &camera.ImageSource{&DepthEdgesSource{source, canny, 3.0}}, nil
+	return &camera.ImageSource{ImageSource: &depthEdgesSource{source, canny, 3.0}}, nil
 
 }

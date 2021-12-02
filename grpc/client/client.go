@@ -23,8 +23,8 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
@@ -69,7 +69,6 @@ type RobotClient struct {
 	namesMu              *sync.RWMutex
 	baseNames            []string
 	boardNames           []boardInfo
-	cameraNames          []string
 	lidarNames           []string
 	sensorNames          []string
 	motorNames           []string
@@ -390,6 +389,8 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	switch name.Subtype {
 	case gripper.Subtype:
 		return &gripperClient{rc: rc, name: name.Name}, true
+	case camera.Subtype:
+		return &cameraClient{rc: rc, name: name.Name}, true
 	case servo.Subtype:
 		return &servoClient{rc: rc, name: name.Name}, true
 	default:
@@ -465,13 +466,6 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 				}
 			}
 			rc.boardNames = append(rc.boardNames, info)
-		}
-	}
-	rc.cameraNames = nil
-	if len(status.Cameras) != 0 {
-		rc.cameraNames = make([]string, 0, len(status.Cameras))
-		for name := range status.Cameras {
-			rc.cameraNames = append(rc.cameraNames, name)
 		}
 	}
 	rc.lidarNames = nil
@@ -563,7 +557,13 @@ func (rc *RobotClient) GripperNames() []string {
 func (rc *RobotClient) CameraNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.cameraNames)
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		if v.Subtype == camera.Subtype {
+			names = append(names, v.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // LidarNames returns the names of all known lidars.

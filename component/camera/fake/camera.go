@@ -7,7 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/core/camera"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/registry"
@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("fake", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterComponent(camera.Subtype, "fake", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		return &Camera{Name: config.Name}, nil
 	}})
 }

@@ -13,8 +13,8 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
@@ -47,9 +47,9 @@ import (
 	_ "go.viam.com/core/board/arduino"
 	_ "go.viam.com/core/board/jetson"
 	_ "go.viam.com/core/board/numato"
-	_ "go.viam.com/core/camera/velodyne" // velodyne lidary
-	_ "go.viam.com/core/component/gantry/fake"
-	_ "go.viam.com/core/component/gantry/simple"
+	_ "go.viam.com/core/component/arm/register"         // for all arms TODO: #298
+	_ "go.viam.com/core/component/camera/register"      // for all cameras
+	_ "go.viam.com/core/component/gantry/register"      // for all gantries
 	_ "go.viam.com/core/component/gripper/fake"         // for a gripper
 	_ "go.viam.com/core/component/gripper/robotiq"      // for a gripper
 	_ "go.viam.com/core/component/gripper/softrobotics" // for a gripper
@@ -66,11 +66,8 @@ import (
 	_ "go.viam.com/core/motor/gpiostepper"
 	_ "go.viam.com/core/motor/tmcstepper"
 	_ "go.viam.com/core/platformdetector/pi"
-	_ "go.viam.com/core/rimage" // this is for the core camera types
-	_ "go.viam.com/core/rimage/imagesource"
 	_ "go.viam.com/core/robots/eva" // for eva
 	_ "go.viam.com/core/robots/fake"
-	_ "go.viam.com/core/robots/gopro"                   // for a camera
 	_ "go.viam.com/core/robots/universalrobots"         // for an arm
 	_ "go.viam.com/core/robots/varm"                    // for an arm
 	_ "go.viam.com/core/robots/vforcematrixtraditional" // for a traditional force matrix
@@ -84,7 +81,6 @@ import (
 	_ "go.viam.com/core/sensor/forcematrix"
 	_ "go.viam.com/core/sensor/gps/merge"
 	_ "go.viam.com/core/sensor/gps/nmea"
-	_ "go.viam.com/core/vision" // this is for interesting camera types, depth, etc...
 
 	// These are the services we want by default
 	_ "go.viam.com/core/services/baseremotecontrol"
@@ -393,18 +389,6 @@ func (r *localRobot) newBase(ctx context.Context, config config.Component) (base
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *localRobot) newCamera(ctx context.Context, config config.Component) (camera.Camera, error) {
-	f := registry.CameraLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown camera model: %s", config.Model)
-	}
-	is, err := f.Constructor(ctx, r, config, r.logger)
-	if err != nil {
-		return nil, err
-	}
-	return &camera.ImageSource{is}, nil
-}
-
 func (r *localRobot) newLidar(ctx context.Context, config config.Component) (lidar.Lidar, error) {
 	f := registry.LidarLookup(config.Model)
 	if f == nil {
@@ -497,15 +481,6 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeBoard,
-			name,
-		)
-		resources = append(resources, res)
-	}
-	for _, name := range r.CameraNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceCore,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeCamera,
 			name,
 		)
 		resources = append(resources, res)
