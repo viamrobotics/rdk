@@ -5,13 +5,14 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/utils/rpc/dialer"
+	rpcserver "go.viam.com/utils/rpc/server"
+
 	"go.viam.com/core/component/gantry"
 	componentpb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/subtype"
-	"go.viam.com/utils/rpc/dialer"
-	rpcserver "go.viam.com/utils/rpc/server"
 
 	_ "go.viam.com/core/component/gantry/fake"
 	_ "go.viam.com/core/component/gantry/simple"
