@@ -65,7 +65,7 @@ message ArmServiceCurrentPositionRequest {
 
 message ArmServiceCurrentPositionResponse {
   // Returns 6d pose of the end effector relative to the base, represented by X,Y,Z coordinates which express
-  // millimeters and theta, ox, oy, oz coordinates which express orientation vectors
+  // millimeters and theta, ox, oy, oz coordinates which express an orientation vector
   common.v1.Pose position = 1;
 }
 

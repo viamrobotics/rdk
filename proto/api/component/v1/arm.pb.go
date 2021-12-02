@@ -131,7 +131,7 @@ type ArmServiceCurrentPositionResponse struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Returns 6d pose of the end effector relative to the base, represented by X,Y,Z coordinates which express
-	// millimeters and theta, ox, oy, oz coordinates which express orientation vectors
+	// millimeters and theta, ox, oy, oz coordinates which express an orientation vector
 	Position *v1.Pose `protobuf:"bytes,1,opt,name=position,proto3" json:"position,omitempty"`
 }
 
