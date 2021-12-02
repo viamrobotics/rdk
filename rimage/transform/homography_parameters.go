@@ -6,28 +6,27 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// DepthColorHomography stores the color camera intrinsics and the homography that aligns a depth map
-// with the color image. DepthToColor is true if the homography maps from depth pixels to color pixels, and false
-// if it maps from color pixels to depth pixels.
-// These parameters can take the color and depth image and create a point cloud of 3D points
-// where the origin is the origin of the color camera, with units of mm.
-type DepthColorHomography struct {
+// RawDepthColorHomography is a structure that can be easily serialized and unserialized into JSON
+type RawDepthColorHomography struct {
 	ColorCamera  PinholeCameraIntrinsics `json:"color"`
-	Homography   *Homography             `json:"transform"`
+	Homography   []float64               `json:"transform"`
 	DepthToColor bool                    `json:"depth_to_color"`
 	RotateDepth  int                     `json:"rotate_depth"`
 }
 
 // CheckValid runs checks on the fields of the struct to see if the inputs are valid
-func (dch *DepthColorHomography) CheckValid() error {
-	if dch == nil {
+func (rdch *RawDepthColorHomography) CheckValid() error {
+	if rdch == nil {
 		return errors.New("pointer to DepthColorHomography is nil")
 	}
-	if dch.Homography == nil {
+	if rdch.Homography == nil {
 		return errors.New("pointer to Homography is nil")
 	}
-	if dch.ColorCamera.Width == 0 || dch.ColorCamera.Height == 0 {
-		return errors.Errorf("invalid ColorSize (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height)
+	if rdch.ColorCamera.Width == 0 || rdch.ColorCamera.Height == 0 {
+		return errors.Errorf("invalid ColorSize (%#v, %#v)", rdch.ColorCamera.Width, rdch.ColorCamera.Height)
+	}
+	if len(rdch.Homography) != 9 {
+		return errors.Errorf("input to NewHomography must have length of 9. Has length of %d", len(rdch.Homography))
 	}
 	return nil
 }

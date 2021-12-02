@@ -47,16 +47,16 @@ func init() {
 		return &camera.ImageSource{ImageSource: dc}, nil
 	}})
 
-	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "config", func(val interface{}) (interface{}, error) {
-		config := &transform.AlignConfig{}
-		err := mapstructure.Decode(val, config)
+	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "warp", func(val interface{}) (interface{}, error) {
+		warp := &transform.AlignConfig{}
+		err := mapstructure.Decode(val, warp)
 		if err == nil {
-			err = config.CheckValid()
+			err = warp.CheckValid()
 		}
-		return config, err
+		return warp, err
 	})
 
-	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "matrices", func(val interface{}) (interface{}, error) {
+	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "intrinsic_extrinsic", func(val interface{}) (interface{}, error) {
 		matrices := &transform.DepthColorIntrinsicsExtrinsics{}
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: matrices})
 		if err != nil {
@@ -70,7 +70,7 @@ func init() {
 	})
 
 	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "homography", func(val interface{}) (interface{}, error) {
-		homography := &transform.DepthColorHomography{}
+		homography := &transform.RawDepthColorHomography{}
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: homography})
 		if err != nil {
 			return nil, err
@@ -101,25 +101,22 @@ func NewDepthComposed(color, depth gostream.ImageSource, attrs config.AttributeM
 	var projectCamera rimage.CameraSystem
 	var err error
 
-	if attrs.Has("config") && attrs.Has("matrices") {
-		config := attrs["config"].(*transform.AlignConfig)
-		alignCamera, err = transform.NewDepthColorWarpTransforms(config, logger)
-		if err != nil {
-			return nil, err
-		}
-		projectCamera, err = transform.NewDepthColorIntrinsicsExtrinsics(attrs)
-		if err != nil {
-			return nil, err
-		}
-	} else if attrs.Has("config") {
-		config := attrs["config"].(*transform.AlignConfig)
-		alignCamera, err = transform.NewDepthColorWarpTransforms(config, logger)
+	if attrs.Has("intrinsic_extrinsic") {
+		alignCamera, err = transform.NewDepthColorIntrinsicsExtrinsics(attrs)
 		if err != nil {
 			return nil, err
 		}
 		projectCamera = alignCamera
-	} else if attrs.Has("matrices") {
-		alignCamera, err = transform.NewDepthColorIntrinsicsExtrinsics(attrs)
+	} else if attrs.Has("homography") {
+		conf := attrs["homography"].(*transform.RawDepthColorHomography)
+		alignCamera, err = transform.NewDepthColorHomography(conf)
+		if err != nil {
+			return nil, err
+		}
+		projectCamera = alignCamera
+	} else if attrs.Has("warp") {
+		conf := attrs["warp"].(*transform.AlignConfig)
+		alignCamera, err = transform.NewDepthColorWarpTransforms(conf, logger)
 		if err != nil {
 			return nil, err
 		}

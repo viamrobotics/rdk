@@ -11,6 +11,32 @@ import (
 	"github.com/golang/geo/r3"
 )
 
+// DepthColorHomography stores the color camera intrinsics and the homography that aligns a depth map
+// with the color image. DepthToColor is true if the homography maps from depth pixels to color pixels, and false
+// if it maps from color pixels to depth pixels.
+// These parameters can take the color and depth image and create a point cloud of 3D points
+// where the origin is the origin of the color camera, with units of mm.
+type DepthColorHomography struct {
+	ColorCamera  PinholeCameraIntrinsics `json:"color"`
+	Homography   *Homography             `json:"transform"`
+	DepthToColor bool                    `json:"depth_to_color"`
+	RotateDepth  int                     `json:"rotate_depth"`
+}
+
+// NewDepthColorHomography takes in a struct that stores raw data from JSON and converts it into a DepthColorHomography struct
+func NewDepthColorHomography(inp *RawDepthColorHomography) (*DepthColorHomography, error) {
+	homography, err := NewHomography(inp.Homography)
+	if err != nil {
+		return nil, err
+	}
+	return &DepthColorHomography{
+		ColorCamera:  inp.ColorCamera,
+		Homography:   homography,
+		DepthToColor: inp.DepthToColor,
+		RotateDepth:  inp.RotateDepth,
+	}, nil
+}
+
 // AlignImageWithDepth will take the depth and the color image and overlay the two properly.
 func (dch *DepthColorHomography) AlignImageWithDepth(ii *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
 	if ii.IsAligned() {

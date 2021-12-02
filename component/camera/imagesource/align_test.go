@@ -71,13 +71,15 @@ func TestAlignIntelMatrices(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestAlignGripper(t *testing.T) {
+func TestAlignGripperWarp(t *testing.T) {
 	config, err := config.Read(utils.ResolveFile("robots/configs/gripper-cam.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("combined")
 	test.That(t, c, test.ShouldNotBeNil)
 
+	delete(c.Attributes, "intrinsic_extrinsic")
+	delete(c.Attributes, "homography")
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
 	err = d.Process(t, &alignTestHelper{c.Attributes})
 	test.That(t, err, test.ShouldBeNil)
@@ -90,6 +92,8 @@ func TestAlignGripperHomography(t *testing.T) {
 	c := config.FindComponent("combined")
 	test.That(t, c, test.ShouldNotBeNil)
 
+	delete(c.Attributes, "intrinsic_extrinsic")
+	delete(c.Attributes, "warp")
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
 	err = d.Process(t, &alignTestHelper{c.Attributes})
 	test.That(t, err, test.ShouldBeNil)
