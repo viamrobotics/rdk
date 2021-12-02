@@ -23,8 +23,10 @@ func (h *segmentationSourceTestHelper) Process(t *testing.T, pCtx *rimage.Proces
 
 	ii := rimage.ConvertToImageWithDepth(img)
 	// align the images
-	dc, err := NewDepthComposed(nil, nil, h.attrs, logger)
+	is, err := NewDepthComposed(nil, nil, h.attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
+	dc, ok := is.(*depthComposed)
+	test.That(t, ok, test.ShouldBeTrue)
 	fixed, err := dc.alignmentCamera.AlignImageWithDepth(ii)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "aligned-depth")
@@ -33,8 +35,8 @@ func (h *segmentationSourceTestHelper) Process(t *testing.T, pCtx *rimage.Proces
 	fixed.SetCameraSystem(dc.projectionCamera)
 
 	//
-	source := &StaticSource{fixed}
-	cs := &ColorSegmentsSource{source, h.config}
+	source := &staticSource{fixed}
+	cs := &colorSegmentsSource{source, h.config}
 	segments, _, err := cs.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 

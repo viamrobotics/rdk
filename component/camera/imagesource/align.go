@@ -11,7 +11,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/core/camera"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rimage"
@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("depthComposed", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterComponent(camera.Subtype, "depthComposed", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		attrs := config.Attributes
 
 		colorName := attrs.String("color")
@@ -44,7 +44,7 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		return &camera.ImageSource{dc}, nil
+		return &camera.ImageSource{ImageSource: dc}, nil
 	}})
 
 	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "config", func(val interface{}) (interface{}, error) {
@@ -72,8 +72,8 @@ func init() {
 
 var alignCurrentlyWriting = false
 
-// DepthComposed TODO
-type DepthComposed struct {
+// depthComposed TODO
+type depthComposed struct {
 	color, depth     gostream.ImageSource
 	alignmentCamera  rimage.CameraSystem
 	projectionCamera rimage.CameraSystem
@@ -83,7 +83,7 @@ type DepthComposed struct {
 }
 
 // NewDepthComposed TODO
-func NewDepthComposed(color, depth gostream.ImageSource, attrs config.AttributeMap, logger golog.Logger) (*DepthComposed, error) {
+func NewDepthComposed(color, depth gostream.ImageSource, attrs config.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
 	var alignCamera rimage.CameraSystem
 	var projectCamera rimage.CameraSystem
 	var err error
@@ -114,17 +114,17 @@ func NewDepthComposed(color, depth gostream.ImageSource, attrs config.AttributeM
 	} else {
 		return nil, errors.New("no camera system config")
 	}
-	return &DepthComposed{color, depth, alignCamera, projectCamera, attrs.Bool("aligned", false), attrs.Bool("debug", false), logger}, nil
+	return &depthComposed{color, depth, alignCamera, projectCamera, attrs.Bool("aligned", false), attrs.Bool("debug", false), logger}, nil
 }
 
 // Close does nothing.
-func (dc *DepthComposed) Close() error {
+func (dc *depthComposed) Close() error {
 	// TODO(erh): who owns these?
 	return nil
 }
 
 // Next TODO
-func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) {
+func (dc *depthComposed) Next(ctx context.Context) (image.Image, func(), error) {
 	c, cCloser, err := dc.color.Next(ctx)
 	if err != nil {
 		return nil, nil, err

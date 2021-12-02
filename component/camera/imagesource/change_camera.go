@@ -10,7 +10,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/mitchellh/mapstructure"
 
-	"go.viam.com/core/camera"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rimage"
@@ -19,7 +19,7 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("changeCameraSystem", registry.Camera{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterComponent(camera.Subtype, "changeCameraSystem", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		return newChangeCameraSystem(r, config)
 	}})
 
@@ -37,20 +37,20 @@ func init() {
 	})
 }
 
-// CameraSystemChanger changes the camera system of the ImageWithDepth. Might be necessary if the system
+// cameraSystemChanger changes the camera system of the ImageWithDepth. Might be necessary if the system
 // that does the alignment is different from the system that does the projection.
-type CameraSystemChanger struct {
+type cameraSystemChanger struct {
 	source    gostream.ImageSource
 	NewCamera rimage.CameraSystem
 }
 
 // Close closes the source
-func (os *CameraSystemChanger) Close() error {
+func (os *cameraSystemChanger) Close() error {
 	return nil
 }
 
 // Next changes the CameraSystem of the ImageWithDepth to the system in the config file.
-func (os *CameraSystemChanger) Next(ctx context.Context) (image.Image, func(), error) {
+func (os *cameraSystemChanger) Next(ctx context.Context) (image.Image, func(), error) {
 	i, closer, err := os.source.Next(ctx)
 	if err != nil {
 		return i, closer, err
@@ -78,5 +78,5 @@ func newChangeCameraSystem(r robot.Robot, config config.Component) (camera.Camer
 	if err != nil {
 		return nil, err
 	}
-	return &camera.ImageSource{&CameraSystemChanger{source, cam}}, nil
+	return &camera.ImageSource{ImageSource: &cameraSystemChanger{source, cam}}, nil
 }

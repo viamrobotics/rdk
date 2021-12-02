@@ -48,8 +48,8 @@ func TestChangeCamera(t *testing.T) {
 	test.That(t, iwd.CameraSystem(), test.ShouldHaveSameTypeAs, alignmentSystem)
 
 	// change the camera system
-	source := &StaticSource{iwd}
-	csc := &CameraSystemChanger{source, projectionSystem}
+	source := &staticSource{iwd}
+	csc := &cameraSystemChanger{source, projectionSystem}
 
 	rawImage, _, err := csc.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)

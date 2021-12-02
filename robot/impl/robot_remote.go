@@ -14,8 +14,8 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
@@ -448,13 +448,6 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 		}
 		parts.AddBoard(part, config.Component{Name: name})
 	}
-	for _, name := range robot.CameraNames() {
-		part, ok := robot.CameraByName(name)
-		if !ok {
-			continue
-		}
-		parts.AddCamera(part, config.Component{Name: name})
-	}
 	for _, name := range robot.LidarNames() {
 		part, ok := robot.LidarByName(name)
 		if !ok {
@@ -507,7 +500,6 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 // replaceForRemote replaces these parts with the given parts coming from a remote.
 func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	var oldBoardNames map[string]struct{}
-	var oldCameraNames map[string]struct{}
 	var oldLidarNames map[string]struct{}
 	var oldBaseNames map[string]struct{}
 	var oldSensorNames map[string]struct{}
@@ -521,12 +513,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		oldBoardNames = make(map[string]struct{}, len(parts.boards))
 		for name := range parts.boards {
 			oldBoardNames[name] = struct{}{}
-		}
-	}
-	if len(parts.cameras) != 0 {
-		oldCameraNames = make(map[string]struct{}, len(parts.cameras))
-		for name := range parts.cameras {
-			oldCameraNames[name] = struct{}{}
 		}
 	}
 	if len(parts.lidars) != 0 {
@@ -589,15 +575,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		parts.boards[name] = newPart
 	}
 
-	for name, newPart := range newParts.cameras {
-		oldPart, ok := parts.cameras[name]
-		delete(oldCameraNames, name)
-		if ok {
-			oldPart.replace(newPart)
-			continue
-		}
-		parts.cameras[name] = newPart
-	}
 	for name, newPart := range newParts.lidars {
 		oldPart, ok := parts.lidars[name]
 		delete(oldLidarNames, name)
@@ -684,9 +661,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 
 	for name := range oldBoardNames {
 		delete(parts.boards, name)
-	}
-	for name := range oldCameraNames {
-		delete(parts.cameras, name)
 	}
 	for name := range oldLidarNames {
 		delete(parts.lidars, name)

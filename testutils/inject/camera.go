@@ -6,7 +6,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/camera"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/pointcloud"
 )
 
