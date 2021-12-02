@@ -1,4 +1,4 @@
-// register registers all relevant cameras and also subtype specific functions
+// Package register registers all relevant cameras and also subtype specific functions
 package register
 
 import (
@@ -6,10 +6,10 @@ import (
 	"go.viam.com/core/registry"
 	"go.viam.com/core/resource"
 
-	_ "go.viam.com/core/component/camera/fake"
-	_ "go.viam.com/core/component/camera/gopro"
-	_ "go.viam.com/core/component/camera/imagesource"
-	_ "go.viam.com/core/component/camera/velodyne"
+	_ "go.viam.com/core/component/camera/fake"        // for camera
+	_ "go.viam.com/core/component/camera/gopro"       // for camera
+	_ "go.viam.com/core/component/camera/imagesource" // for camera
+	_ "go.viam.com/core/component/camera/velodyne"    // for camera
 )
 
 func init() {

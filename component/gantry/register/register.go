@@ -1,4 +1,4 @@
-// register registers all relevant gantries and also subtype specific functions
+// Package register registers all relevant gantries and also subtype specific functions
 package register
 
 import (
@@ -14,8 +14,8 @@ import (
 	"go.viam.com/core/resource"
 	"go.viam.com/core/subtype"
 
-	_ "go.viam.com/core/component/gantry/fake"
-	_ "go.viam.com/core/component/gantry/simple"
+	_ "go.viam.com/core/component/gantry/fake"   // for gantry
+	_ "go.viam.com/core/component/gantry/simple" // for gantry
 )
 
 func init() {

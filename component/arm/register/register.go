@@ -1,4 +1,4 @@
-// register registers all relevant arms and also subtype specific functions
+// Package register registers all relevant arms and also subtype specific functions
 package register
 
 import (
