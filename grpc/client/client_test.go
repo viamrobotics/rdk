@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"go.viam.com/core/registry"
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/subtype"
 
@@ -223,6 +224,14 @@ var finalStatus = &pb.Status{
 }
 
 var finalResources = []resource.Name{arm.Named("arm2"), arm.Named("arm3"), servo.Named("servo2"), servo.Named("servo3"), gripper.Named("gripper2"), gripper.Named("gripper3"), camera.Named("camera2"), camera.Named("camera3")}
+
+func init() {
+	registry.RegisterResourceSubtype(arm.Subtype, registry.ResourceSubtype{
+		RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
+			return arm.NewClientFromConn(conn, name, logger)
+		},
+	})
+}
 
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
