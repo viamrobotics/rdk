@@ -12,11 +12,8 @@ import (
 	"go.viam.com/utils/rpc/dialer"
 	rpcserver "go.viam.com/utils/rpc/server"
 
-	componentpb "go.viam.com/core/proto/api/component/v1"
-
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
@@ -31,29 +28,11 @@ import (
 // TODO: currently here because of import cycles. get rid of this block at conclusion of Core v2 migration.
 //these registrations should happen in the subtype's go package instead.
 func init() {
-	RegisterResourceSubtype(arm.Subtype, ResourceSubtype{
-		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
-			return arm.WrapWithReconfigurable(r)
-		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&componentpb.ArmService_ServiceDesc,
-				arm.NewServer(subtypeSvc),
-				componentpb.RegisterArmServiceHandlerFromEndpoint,
-			)
-		},
-		RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
-			return arm.NewClientFromConn(conn, name, logger)
-		},
-	})
-
 	RegisterResourceSubtype(gripper.Subtype, ResourceSubtype{
 		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
 			return gripper.WrapWithReconfigurable(r)
 		},
 	})
-
 }
 
 type (
