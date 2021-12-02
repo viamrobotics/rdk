@@ -14,7 +14,6 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
@@ -24,27 +23,6 @@ import (
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/subtype"
 )
-
-// TODO: currently here because of import cycles. get rid of this block at conclusion of Core v2 migration.
-//these registrations should happen in the subtype's go package instead.
-func init() {
-	RegisterResourceSubtype(gripper.Subtype, ResourceSubtype{
-		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
-			return gripper.WrapWithReconfigurable(r)
-		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&componentpb.GripperService_ServiceDesc,
-				gripper.NewServer(subtypeSvc),
-				componentpb.RegisterGripperServiceHandlerFromEndpoint,
-			)
-		},
-		RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
-			return gripper.NewClientFromConn(conn, name, logger)
-		},
-	})
-}
 
 type (
 	// A CreateBase creates a base from a given config.
