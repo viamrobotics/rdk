@@ -12,6 +12,11 @@ import (
 	"go.viam.com/utils"
 )
 
+type signalMapper struct {
+	uid int32
+	s   []Signal
+}
+
 // ControlBlockInternal Holds internal variables to control de flow of signals between blocks
 type controlBlockInternal struct {
 	mu        sync.Mutex
@@ -69,7 +74,7 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 				ctx := ctx
 				close(waitCh)
 				for d := range t {
-					logger.Debugf("time object %+v %+v \r\n", d, b)
+					logger.Debugf("Impulse on BLOCK %s %+v \r\n", b.blk.Config(ctx).Name, d)
 					v, _ := b.blk.Next(ctx, nil, c.dt)
 					for _, out := range b.outs {
 						out <- v
@@ -79,7 +84,6 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 				defer b.mu.Unlock()
 				for _, out := range b.outs {
 					close(out)
-
 				}
 				b.outs = nil
 			})
@@ -96,10 +100,10 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 				for i, ch := range b.ins {
 					cases[i] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ch)}
 				}
-				sw := []Signal{}
+				sw := make([]Signal, nInputs)
 				close(waitCh)
 				for {
-					_, s, ok := reflect.Select(cases)
+					ci, s, ok := reflect.Select(cases)
 					logger.Debugf("Running Block %s %+v %+v OK : %+v\r\n", b.blk.Config(ctx).Name, s.IsZero(), s, ok)
 					if s.IsZero() {
 						b.mu.Lock()
@@ -110,18 +114,23 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 						b.mu.Unlock()
 						return
 					}
-					sw = append(sw, s.Interface().([]Signal)...)
+					unwraped := s.Interface().([]Signal)
+					if len(unwraped) == 1 {
+						sw[ci] = unwraped[0]
+					} else {
+						sw = append(sw, unwraped...)
+					}
 					i++
 					if i == nInputs {
-						logger.Debugf("Running Block %s\r\n", b.blk.Config(ctx).Name)
 						v, ok := b.blk.Next(ctx, sw, c.dt)
+						logger.Debugf("Have signals for Block %s ins %+v returned %v\r\n", b.blk.Config(ctx).Name, sw, ok)
 						if ok {
 							for _, out := range b.outs {
 								out <- v
 							}
 						}
 						i = 0
-						sw = []Signal{}
+						sw = make([]Signal, nInputs)
 					}
 				}
 			})

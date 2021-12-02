@@ -19,6 +19,7 @@ const (
 	blockGain                        controlBlockType = "Gain"
 	blockDerivative                  controlBlockType = "Derivative"
 	blockSum                         controlBlockType = "Sum"
+	blockConstant                    controlBlockType = "Constant"
 )
 
 //ControlBlockConfig configuration of a given block
@@ -97,6 +98,13 @@ func createControlBlock(ctx context.Context, cfg ControlBlockConfig) (ControlBlo
 		return &b, nil
 	case blockFilter:
 		var b filterStruct
+		err := b.Configure(ctx, cfg)
+		if err != nil {
+			return nil, err
+		}
+		return &b, nil
+	case blockConstant:
+		var b constant
 		err := b.Configure(ctx, cfg)
 		if err != nil {
 			return nil, err

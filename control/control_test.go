@@ -26,42 +26,67 @@ func TestControlLoop(t *testing.T) {
 			},
 			{
 				Name: "B",
-				Type: "Derivative",
+				Type: "Sum",
 				Attribute: config.AttributeMap{
-					"DeriveType": "Backward1st1",
+					"SumString": "+-",
 				},
-				DependsOn: []string{"A"},
+				DependsOn: []string{"A", "S1"},
+			},
+			{
+				Name: "S1",
+				Type: "Constant",
+				Attribute: config.AttributeMap{
+					"ConstantVal": 3.0,
+				},
+				DependsOn: []string{},
 			},
 			{
 				Name: "C",
+				Type: "Gain",
+				Attribute: config.AttributeMap{
+					"Gain": -2.0,
+				},
+				DependsOn: []string{"B"},
+			},
+			{
+				Name: "D",
 				Type: "Sum",
 				Attribute: config.AttributeMap{
-					"SumString": "-+",
+					"SumString": "+-",
 				},
-				DependsOn: []string{"B", "D"},
+				DependsOn: []string{"C", "S2"},
 			},
 			{
-				Name:      "D",
-				Type:      "TrapezoidalVelocityProfile",
-				DependsOn: []string{},
+				Name: "S2",
+				Type: "Constant",
 				Attribute: config.AttributeMap{
-					"MaxAcc": 1000.0,
-					"MaxVel": 100.0,
+					"ConstantVal": 10.0,
 				},
+				DependsOn: []string{},
 			},
 			{
-				Name:      "E",
-				Attribute: config.AttributeMap{"Kd": 0.11, "Kp": 0.12, "Ki": 0.22},
-				Type:      "PID",
-				DependsOn: []string{"C"},
+				Name: "E",
+				Type: "Gain",
+				Attribute: config.AttributeMap{
+					"Gain": -2.0,
+				},
+				DependsOn: []string{"D"},
 			},
 		},
-		Frequency: 1.0,
+		Frequency: 20.0,
 	}
 	cLoop, err := createControlLoop(ctx, logger, cfg, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cLoop, test.ShouldNotBeNil)
 	cLoop.Start(ctx)
-	time.Sleep(1200 * time.Millisecond)
+	for i := 200; i > 0; i-- {
+		time.Sleep(65 * time.Millisecond)
+		b, err := cLoop.OutputAt(ctx, "E")
+		test.That(t, b[0].signal[0], test.ShouldEqual, 8.0)
+		test.That(t, err, test.ShouldBeNil)
+		b, err = cLoop.OutputAt(ctx, "B")
+		test.That(t, b[0].signal[0], test.ShouldEqual, -3.0)
+		test.That(t, err, test.ShouldBeNil)
+	}
 	cLoop.Stop(ctx)
 }

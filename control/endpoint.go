@@ -21,10 +21,10 @@ func (e *endpoint) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 		if e.ctr != nil {
 			err := e.ctr.Power(ctx, power)
 			if err != nil {
-				return []Signal{}, true
+				return []Signal{}, false
 			}
 		}
-		return []Signal{}, true
+		return []Signal{}, false
 	}
 	if len(x) == 0 {
 		if e.ctr != nil {
