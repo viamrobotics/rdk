@@ -73,7 +73,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error)
 
 		// TODO(pl): Might need to check if any of x is +/- Inf
 		eePos, err := ik.model.Transform(frame.FloatsToInputs(x))
-		if err != nil && eePos == nil {
+		if eePos == nil {
 			ik.logger.Errorf("error calculating eePos in nlopt %q", err)
 			err = ik.opt.ForceStop()
 			ik.logger.Errorf("forcestop error %q", err)
@@ -87,7 +87,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error)
 				xBak[i] += ik.jump
 				eePos, err := ik.model.Transform(frame.FloatsToInputs(xBak))
 				xBak[i] -= ik.jump
-				if err != nil && eePos == nil {
+				if eePos == nil {
 					ik.logger.Errorf("error calculating eePos in nlopt %q", err)
 					err = ik.opt.ForceStop()
 					ik.logger.Errorf("forcestop error %q", err)

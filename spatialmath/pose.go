@@ -7,6 +7,7 @@ package spatialmath
 
 import (
 	"math"
+	//~ "fmt"
 
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/quat"
@@ -107,12 +108,14 @@ func NewPoseFromDH(a, d, alpha float64) Pose {
 func Compose(a, b Pose) Pose {
 	aq := dualQuaternionFromPose(a)
 	bq := dualQuaternionFromPose(b)
-	result := newDualQuaternion()
-	result.Number = aq.Transformation(bq.Number)
+	result := &dualQuaternion{aq.Transformation(bq.Number)}
 
 	// Normalization
-	if vecLen := quat.Abs(result.Real); vecLen != 1 {
-		result.Real = quat.Scale(1/vecLen, result.Real)
+	if vecLen := 1/quat.Abs(result.Real); vecLen != 1 {
+		result.Real.Real *= vecLen
+		result.Real.Imag *= vecLen
+		result.Real.Jmag *= vecLen
+		result.Real.Kmag *= vecLen
 	}
 	return result
 }

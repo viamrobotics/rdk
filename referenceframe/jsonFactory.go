@@ -185,6 +185,9 @@ func (m *ModelJSON) Model(modelName string) (*Model, error) {
 		nextTransform = transforms[parent]
 		orderedTransforms = append(orderedTransforms, nextTransform)
 	}
+	for i, j := 0, len(orderedTransforms)-1; i < j; i, j = i+1, j-1 {
+		orderedTransforms[i], orderedTransforms[j] = orderedTransforms[j], orderedTransforms[i]
+	}
 	model.OrdTransforms = orderedTransforms
 
 	return model, nil
