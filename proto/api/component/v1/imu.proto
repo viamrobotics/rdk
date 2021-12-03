@@ -18,14 +18,14 @@ service IMUService {
   // IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
   rpc IMUAngularVelocity(IMUAngularVelocityRequest) returns (IMUAngularVelocityResponse) {
       option (google.api.http) = {
-      get: "/api/v1/sensors/imu/{name}/angular_velocity"
+      get: "/api/v1/component/imu/{name}/angular_velocity"
     };
   }
 
   // IMUOrientation returns the most recent orientation reading from the given IMU.
   rpc IMUOrientation(IMUOrientationRequest) returns (IMUOrientationResponse) {
       option (google.api.http) = {
-      get: "/api/v1/sensors/imu/{name}/orientation"
+      get: "/api/v1/component/imu/{name}/orientation"
     };
   }
 }
