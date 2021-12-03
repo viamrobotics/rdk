@@ -1,39 +1,17 @@
 package chessboard
 
 import (
-	"image"
 	"math"
-	"os"
 	"testing"
 
+	"go.viam.com/core/rimage"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"gonum.org/v1/gonum/mat"
-
-	"go.viam.com/core/rimage"
 )
 
-// readImageFromFile extracts the RGB, Z16, or "both" data from an image file.
-// Aligned matters if you are reading a .both.gz file and both the rgb and d image are already aligned.
-// Otherwise, if you are just reading an image, aligned is a moot parameter and should be false.
-func readImageFromFile(path string, aligned bool) (image.Image, error) {
-
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer utils.UncheckedErrorFunc(f.Close)
-
-	img, _, err := image.Decode(f)
-	if err != nil {
-		return nil, err
-	}
-	return img, nil
-}
-
 func TestComputeSaddleMap(t *testing.T) {
-	imgPng, err := readImageFromFile(artifact.MustPath("rimage/image_2021-07-16-15-59-18.png"), false)
+	imgPng, err := rimage.NewImageFromFile(artifact.MustPath("rimage/image_2021-07-16-15-59-18.png"))
 	test.That(t, err, test.ShouldBeNil)
 	bounds := imgPng.Bounds()
 	dims := bounds.Max
@@ -54,7 +32,7 @@ func TestComputeSaddleMap(t *testing.T) {
 
 func TestNonMaxSuppression(t *testing.T) {
 	// loading an image with 2 points (50,100) and (100,150) convolved with a gaussian
-	imgPng, err := readImageFromFile(artifact.MustPath("rimage/nms_test_50_100_100_150.png"), false)
+	imgPng, err := rimage.NewImageFromFile(artifact.MustPath("rimage/nms_test_50_100_100_150.png"))
 	test.That(t, err, test.ShouldBeNil)
 	bounds := imgPng.Bounds()
 	dims := bounds.Max
