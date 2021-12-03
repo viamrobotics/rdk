@@ -1,9 +1,11 @@
 package imu
 
 import (
+	"context"
 	"testing"
 
 	"go.viam.com/core/resource"
+	"go.viam.com/core/spatialmath"
 
 	"go.viam.com/test"
 )
@@ -70,22 +72,54 @@ func TestReconfigurableIMU(t *testing.T) {
 	actualIMU2 := &mock{Name: "imu2"}
 	fakeIMU2, err := WrapWithReconfigurable(actualIMU2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualIMU1.reconfCount, test.ShouldEqual, 0)
+	test.That(t, actualIMU1.reconfCalls, test.ShouldEqual, 0)
 
 	err = fakeIMU1.(*reconfigurableIMU).Reconfigure(fakeIMU2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeIMU1.(*reconfigurableIMU).actual, test.ShouldEqual, actualIMU2)
-	test.That(t, actualIMU1.reconfCount, test.ShouldEqual, 1)
+	test.That(t, actualIMU1.reconfCalls, test.ShouldEqual, 1)
 
 	err = fakeIMU1.(*reconfigurableIMU).Reconfigure(nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new IMU")
 }
 
-type mock struct {
-	IMU
-	Name        string
-	reconfCount int
+func TestAngularVelocity(t *testing.T) {
+	actualIMU1 := &mock{Name: "imu1"}
+	fakeIMU1, _ := WrapWithReconfigurable(actualIMU1)
+
+	test.That(t, actualIMU1.angularVelocityCalls, test.ShouldEqual, 0)
+	vel, err := fakeIMU1.(*reconfigurableIMU).AngularVelocity(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, vel, test.ShouldResemble, spatialmath.AngularVelocity{1, 2, 3})
+	test.That(t, actualIMU1.angularVelocityCalls, test.ShouldEqual, 1)
 }
 
-func (m *mock) Close() error { m.reconfCount++; return nil }
+func TestOrientiation(t *testing.T) {
+	actualIMU1 := &mock{Name: "imu1"}
+	fakeIMU1, _ := WrapWithReconfigurable(actualIMU1)
+
+	test.That(t, actualIMU1.orientationCalls, test.ShouldEqual, 0)
+	angles, err := fakeIMU1.(*reconfigurableIMU).Orientation(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, angles, test.ShouldResemble, &spatialmath.EulerAngles{4, 5, 6})
+	test.That(t, actualIMU1.orientationCalls, test.ShouldEqual, 1)
+}
+
+type mock struct {
+	IMU
+	Name                 string
+	angularVelocityCalls int
+	orientationCalls     int
+	reconfCalls          int
+}
+
+func (m *mock) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+	m.angularVelocityCalls++
+	return spatialmath.AngularVelocity{1, 2, 3}, nil
+}
+func (m *mock) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+	m.orientationCalls++
+	return &spatialmath.EulerAngles{4, 5, 6}, nil
+}
+func (m *mock) Close() error { m.reconfCalls++; return nil }
