@@ -311,7 +311,6 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, err
 		limit:   []Limit{limit},
 	}
 	
-
 	return &rf, nil
 }
 

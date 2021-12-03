@@ -27,7 +27,7 @@ import (
 
 var logger = golog.NewDevelopmentLogger("armplay")
 
-const whiteboardY = -409.
+var whiteboardY = -509.
 
 func init() {
 	action.RegisterAction("play", func(ctx context.Context, r robot.Robot) {
@@ -144,7 +144,7 @@ func play(ctx context.Context, r robot.Robot) error {
 func mpFuncBasic(f frame.Frame, ncpu int, logger golog.Logger) (motionplan.MotionPlanner, error) {
 	mp, err := motionplan.NewCBiRRTMotionPlanner(f, 4, logger)
 	opt := motionplan.NewDefaultPlannerOptions()
-	opt.AddConstraint("officewall", DontHitPetersWallConstraint)
+	opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY + 15))
 	mp.SetOptions(opt)
 
 	return mp, err
@@ -216,7 +216,7 @@ func writeViam(ctx context.Context, r robot.Robot) error {
 			// just in case frame changed
 			mp, err := motionplan.NewCBiRRTMotionPlanner(f, 4, logger)
 			opt := motionplan.NewDefaultPlannerOptions()
-			opt.AddConstraint("officewall", DontHitPetersWallConstraint)
+			opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY))
 
 			opt.SetPathDist(gradFunc)
 			opt.SetMetric(destGrad)
@@ -364,50 +364,53 @@ var eraserPoints = []spatial.Pose{
 }
 
 // DontHitPetersWallConstraint defines some obstacles that nothing should intersect with
-func DontHitPetersWallConstraint(ci *motionplan.ConstraintInput) (bool, float64) {
+func DontHitPetersWallConstraint(wbY float64) func(ci *motionplan.ConstraintInput) (bool, float64) {
 
-	checkPt := func(pose spatial.Pose) bool {
-		pt := pose.Point()
+	f := func(ci *motionplan.ConstraintInput) (bool, float64){
+		checkPt := func(pose spatial.Pose) bool {
+			pt := pose.Point()
 
-		// wall in Peter's office
-		if pt.Y < whiteboardY-10 {
-			return false
-		}
-		if pt.X < -600 {
-			return false
-		}
-		// shelf in Peter's office
-		if pt.Z < 5 && pt.Y < 260 && pt.X < 140 {
-			return false
-		}
+			// wall in Peter's office
+			if pt.Y < wbY-10 {
+				return false
+			}
+			if pt.X < -600 {
+				return false
+			}
+			// shelf in Peter's office
+			if pt.Z < 5 && pt.Y < 260 && pt.X < 140 {
+				return false
+			}
 
-		return true
+			return true
+		}
+		if ci.StartPos != nil {
+			if !checkPt(ci.StartPos) {
+				return false, 0
+			}
+		} else if ci.StartInput != nil {
+			pos, err := ci.Frame.Transform(ci.StartInput)
+			if err != nil {
+				return false, 0
+			}
+			if !checkPt(pos) {
+				return false, 0
+			}
+		}
+		if ci.EndPos != nil {
+			if !checkPt(ci.EndPos) {
+				return false, 0
+			}
+		} else if ci.EndInput != nil {
+			pos, err := ci.Frame.Transform(ci.EndInput)
+			if err != nil {
+				return false, 0
+			}
+			if !checkPt(pos) {
+				return false, 0
+			}
+		}
+		return true, 0
 	}
-	if ci.StartPos != nil {
-		if !checkPt(ci.StartPos) {
-			return false, 0
-		}
-	} else if ci.StartInput != nil {
-		pos, err := ci.Frame.Transform(ci.StartInput)
-		if err != nil {
-			return false, 0
-		}
-		if !checkPt(pos) {
-			return false, 0
-		}
-	}
-	if ci.EndPos != nil {
-		if !checkPt(ci.EndPos) {
-			return false, 0
-		}
-	} else if ci.EndInput != nil {
-		pos, err := ci.Frame.Transform(ci.EndInput)
-		if err != nil {
-			return false, 0
-		}
-		if !checkPt(pos) {
-			return false, 0
-		}
-	}
-	return true, 0
+	return f
 }

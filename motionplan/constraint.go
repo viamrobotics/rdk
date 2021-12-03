@@ -36,38 +36,30 @@ type constraintHandler struct {
 	constraints map[string]Constraint
 }
 
-var checkTime time.Duration
-var checkResolve1 time.Duration
 var checkResolve2 time.Duration
 
 // CheckConstraintPath will interpolate between two joint inputs and check that `true` is returned for all constraints
 // in all intermediate positions. If failing on an intermediate position, it will return that position.
 func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution float64) (bool, *ConstraintInput) {
 	// ensure we have cartesian positions
-	start1 := time.Now()
 	err := resolveInputsToPositions(ci)
-	checkResolve1 += time.Since(start1)
 	if err != nil {
 		return false, nil
 	}
 	steps := getSteps(ci.StartPos, ci.EndPos, resolution)
 
-	lastInterp := 0.
 	var lastGood []frame.Input
-	
+	interpC := ci
 	
 	for i := 1; i <= steps; i++ {
 		interp := float64(i) / float64(steps)
 		start2 := time.Now()
-		interpC, err := interpolateInput(ci, lastInterp, interp)
+		interpC, err = cachedInterpolateInput(ci, interp, interpC.EndInput, interpC.EndPos)
 		checkResolve2 += time.Since(start2)
 		if err != nil {
 			return false, nil
 		}
-		lastInterp = interp
-		start := time.Now()
 		pass, _ := c.CheckConstraints(interpC)
-		checkTime += time.Since(start)
 		if !pass {
 			if i > 1 {
 				return false, &ConstraintInput{StartInput: lastGood, EndInput: interpC.StartInput}
@@ -81,15 +73,16 @@ func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution 
 	//~ time.Since(start)
 	//~ fmt.Println("steps took", elapsed)
 	// extra step to check the end
-	start2 := time.Now()
-	interpC, err := interpolateInput(ci, 1, 1)
-	checkResolve2 += time.Since(start2)
 	if err != nil {
 		return false, nil
 	}
-	start := time.Now()
-	pass, _ := c.CheckConstraints(interpC)
-	checkTime += time.Since(start)
+	pass, _ := c.CheckConstraints(&ConstraintInput{
+		StartPos:   ci.EndPos,
+		EndPos:     ci.EndPos,
+		StartInput: ci.EndInput,
+		EndInput:   ci.EndInput,
+		Frame:      ci.Frame,
+		})
 	if !pass {
 		return false, &ConstraintInput{StartInput: lastGood, EndInput: interpC.StartInput}
 	}
@@ -377,6 +370,17 @@ func interpolateInput(ci *ConstraintInput, by1, by2 float64) (*ConstraintInput, 
 	new.Frame = ci.Frame
 	new.StartInput = frame.InterpolateInputs(ci.StartInput, ci.EndInput, by1)
 	new.EndInput = frame.InterpolateInputs(ci.StartInput, ci.EndInput, by2)
+
+	return new, resolveInputsToPositions(new)
+}
+
+// Use this when you already have the start input and pos calculated
+func cachedInterpolateInput(ci *ConstraintInput, by float64, startInput []frame.Input, startPos spatial.Pose) (*ConstraintInput, error) {
+	new := &ConstraintInput{}
+	new.Frame = ci.Frame
+	new.StartInput = startInput
+	new.StartPos = startPos
+	new.EndInput = frame.InterpolateInputs(ci.StartInput, ci.EndInput, by)
 
 	return new, resolveInputsToPositions(new)
 }
