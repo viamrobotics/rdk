@@ -2,10 +2,7 @@
 // file: proto/api/component/v1/gantry.proto
 
 import * as jspb from "google-protobuf";
-import * as google_protobuf_struct_pb from "google-protobuf/google/protobuf/struct_pb";
-import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/duration_pb";
 import * as google_api_annotations_pb from "../../../../google/api/annotations_pb";
-import * as google_api_httpbody_pb from "../../../../google/api/httpbody_pb";
 
 export class GantryServiceCurrentPositionRequest extends jspb.Message {
   getName(): string;

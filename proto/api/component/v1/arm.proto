@@ -4,11 +4,7 @@ option java_package = "com.viam.core.proto.api.component.v1";
 
 package proto.api.component.v1;
 
-import "google/protobuf/struct.proto";
-import "google/protobuf/duration.proto";
 import "google/api/annotations.proto";
-import "google/api/httpbody.proto";
-
 import "proto/api/common/v1/common.proto";
 
 

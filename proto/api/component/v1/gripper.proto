@@ -4,10 +4,7 @@ option java_package = "com.viam.core.proto.api.component.v1";
 
 package proto.api.component.v1;
 
-import "google/protobuf/struct.proto";
-import "google/protobuf/duration.proto";
 import "google/api/annotations.proto";
-import "google/api/httpbody.proto";
 
 // An GripperService services maintains all grippers associated with a robot
 service GripperService {
