@@ -7,7 +7,12 @@
             "subtype": "gps",
             "model": "nmea-serial",
             "attributes" : {
-                "path" : "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"
+                "path" : "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00",
+                "ntrip" : "http://rtn.dot.ny.gov:8082/NJI2",
+                "username" : "john",
+                "password" : "johnviam",
+                "writepath" : "",
+                "writebaud" : 38400
             }
             
         }

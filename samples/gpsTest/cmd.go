@@ -4,6 +4,7 @@ package main
 import (
 	"bufio"
 	"io"
+	"time"
 
 	"context"
 	"flag"
@@ -43,11 +44,12 @@ func ExampleNewClientRequest_sourcetable(urlStr string, username string, passwor
 		return err
 	}
 
-	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
 		fmt.Printf("received non-200 response code: %d", resp.StatusCode)
+		return err
 	}
+
+	defer resp.Body.Close()
 	// read all of the mount points we got back
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -64,28 +66,45 @@ func ExampleNewClientRequest_sourcetable(urlStr string, username string, passwor
 }
 
 // setup the system as a ntrip client, and write corrections to the gps via serial
-func ExampleNewClientRequest(urlStr string, username string, password string, gpsport string) (err error) {
+func ExampleNewClientRequest(urlStr string, username string, password string, gpsport string, baud uint) (err error) {
 
 	// talk to the gps network, looking for mount points
 	req, _ := ntrip.NewClientRequest(urlStr)
 	req.SetBasicAuth(username, password)
 	resp, err := http.DefaultClient.Do(req)
-
+	reconnFlag := 0
 	if err != nil {
 		fmt.Printf("error making NTRIP request: %s\n", err)
-		return err
+		reconnFlag = 1
+		fmt.Println(reconnFlag)
+		// return err
+	} else if resp.StatusCode != http.StatusOK {
+		fmt.Printf("received non-200 response code: %d", resp.StatusCode)
+		reconnFlag = 1
 	}
-	defer resp.Body.Close()
+
+	for reconnFlag == 1 {
+		fmt.Println("yo")
+		resp, err = http.DefaultClient.Do(req)
+		if err != nil {
+			fmt.Printf("error making NTRIP request: %s\n", err)
+			// return err
+		} else if resp.StatusCode != http.StatusOK {
+			fmt.Printf("received non-200 response code: %d", resp.StatusCode)
+		} else {
+			reconnFlag = 0
+		}
+	}
 	if resp.StatusCode != http.StatusOK {
 		fmt.Printf("received non-200 response code: %d", resp.StatusCode)
-		return err
+		// return err
 	}
+	defer resp.Body.Close()
 	fmt.Printf("Status Code : %d \n", resp.StatusCode)
-	fmt.Println("Response Body: ", resp.Body)
 
 	// setup port to write to
 	options := slib.OpenOptions{
-		BaudRate:        38400,
+		BaudRate:        baud,
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
@@ -123,11 +142,17 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	webOpts := web.NewOptions()
 	webOpts.Insecure = true
 
-	gpsport := "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"
+	// gpsport := "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"
 
 	// go ExampleNewClientRequest_sourcetable("http://rtn.dot.ny.gov:8080","viam","checkmate")
 	// go ExampleNewClientRequest_sourcetable("http://rtn.dot.ny.gov:8082","viam","checkmate")
-	go ExampleNewClientRequest("http://rtn.dot.ny.gov:8082/NJI2", "viam", "checkmate", gpsport)
-
+	// go ExampleNewClientRequest("http://rtn.dot.ny.gov:8082/NJI2", "viam", "checkmate", gpsport, 38400)
+	// go dummyFunc()
 	return webserver.RunWeb(ctx, myRobot, webOpts, logger)
+}
+
+func dummyFunc() {
+	for {
+		time.Sleep(200 * time.Millisecond)
+	}
 }
