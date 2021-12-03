@@ -4,8 +4,9 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/core/rimage"
 	"go.viam.com/test"
+
+	"go.viam.com/core/rimage"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
