@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"math"
@@ -24,6 +25,7 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
+	"go.viam.com/core/component/imu"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	metadataserver "go.viam.com/core/grpc/metadata/server"
@@ -41,7 +43,6 @@ import (
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/sensor/imu"
 	servicepkg "go.viam.com/core/services"
 	"go.viam.com/core/spatialmath"
 	coretestutils "go.viam.com/core/testutils"
@@ -90,9 +91,6 @@ var emptyStatus = &pb.Status{
 		},
 		"compass2": {
 			Type: compass.RelativeType,
-		},
-		"imu1": {
-			Type: imu.Type,
 		},
 		"fsm1": {
 			Type: forcematrix.Type,
@@ -263,6 +261,9 @@ func TestClient(t *testing.T) {
 	injectRobot1.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 		return nil, false
 	}
+	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		return nil, false
+	}
 	injectRobot1.ServoByNameFunc = func(name string) (servo.Servo, bool) {
 		return nil, false
 	}
@@ -287,6 +288,7 @@ func TestClient(t *testing.T) {
 		capCameraName           string
 		capLidarName            string
 		capSensorName           string
+		capIMUName              string
 	)
 	injectBase := &inject.Base{}
 	injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
@@ -541,14 +543,11 @@ func TestClient(t *testing.T) {
 
 	injectCompassDev := &inject.Compass{}
 	injectRelCompassDev := &inject.RelativeCompass{}
-	injectIMUDev := &inject.IMU{}
 	injectRobot2.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 		capSensorName = name
 		switch name {
 		case "compass2":
 			return injectRelCompassDev, true
-		case "imu1":
-			return injectIMUDev, true
 		case "fsm1":
 			return injectFsm, true
 		case "fsm2":
@@ -585,6 +584,8 @@ func TestClient(t *testing.T) {
 	injectRelCompassDev.StopCalibrationFunc = func(ctx context.Context) error {
 		return nil
 	}
+
+	injectIMUDev := &inject.IMU{}
 	injectIMUDev.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 		return []interface{}{1.2, 2.3}, nil
 	}
@@ -593,6 +594,14 @@ func TestClient(t *testing.T) {
 	}
 	injectIMUDev.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
 		return &spatialmath.EulerAngles{1, 2, 3}, nil
+	}
+	injectRobot2.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		switch name.Subtype {
+		case imu.Subtype:
+			capIMUName = name.Name
+			return injectIMUDev, true
+		}
+		panic(fmt.Sprintf("no resource of subtype %v\n", name.Subtype))
 	}
 
 	injectInputDev := &inject.InputController{}
@@ -1260,21 +1269,20 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capSensorName, test.ShouldEqual, "compass2")
 
-	sensorDev, ok = client.SensorByName("imu1")
+	imuDev, ok := client.ResourceByName(imu.Named("imu1"))
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensorDev, test.ShouldImplement, (*imu.IMU)(nil))
-	readings, err = sensorDev.Readings(context.Background())
+	test.That(t, imuDev, test.ShouldImplement, (*imu.IMU)(nil))
+	readings, err = imuDev.(imu.IMU).Readings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings, test.ShouldResemble, []interface{}{float64(1), float64(2), float64(3), float64(1), float64(2), float64(3)})
-	imuDev := sensorDev.(imu.IMU)
-	vel, err := imuDev.AngularVelocity(context.Background())
+	vel, err := imuDev.(imu.IMU).AngularVelocity(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, vel, test.ShouldResemble, spatialmath.AngularVelocity{1, 2, 3})
-	orientation, err := imuDev.Orientation(context.Background())
+	orientation, err := imuDev.(imu.IMU).Orientation(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	ea := orientation.EulerAngles()
 	test.That(t, ea, test.ShouldResemble, &spatialmath.EulerAngles{1, 2, 3})
-	test.That(t, capSensorName, test.ShouldEqual, "imu1")
+	test.That(t, capIMUName, test.ShouldEqual, "imu1")
 
 	resource1, ok = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
@@ -1410,7 +1418,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1"))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board3"))
-	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass1", "compass2", "imu1", "fsm1", "fsm2"))
+	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass1", "compass2", "fsm1", "fsm2"))
 	test.That(t, utils.NewStringSet(client.ServoNames()...), test.ShouldBeEmpty)
 	test.That(t, coretestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 		coretestutils.ConcatResourceNames(

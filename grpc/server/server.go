@@ -28,6 +28,7 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/imu"
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/grpc"
@@ -41,7 +42,6 @@ import (
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
-	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/services"
 	"go.viam.com/core/services/framesystem"
 	"go.viam.com/core/services/navigation"
@@ -1299,11 +1299,11 @@ func (s *Server) ObjectManipulationServiceDoGrab(ctx context.Context, req *pb.Ob
 }
 
 func (s *Server) imuByName(name string) (imu.IMU, error) {
-	sensorDevice, ok := s.r.SensorByName(name)
+	imuDevice, ok := s.r.ResourceByName(imu.Named(name))
 	if !ok {
-		return nil, errors.Errorf("no sensor with name (%s)", name)
+		return nil, errors.Errorf("no IMU with name (%s)", name)
 	}
-	return sensorDevice.(imu.IMU), nil
+	return imuDevice.(imu.IMU), nil
 }
 
 // IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
