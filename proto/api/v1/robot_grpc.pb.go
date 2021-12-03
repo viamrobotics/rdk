@@ -5,7 +5,6 @@ package v1
 import (
 	context "context"
 
-	httpbody "google.golang.org/genproto/googleapis/api/httpbody"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -39,19 +38,6 @@ type RobotServiceClient interface {
 	BaseStop(ctx context.Context, in *BaseStopRequest, opts ...grpc.CallOption) (*BaseStopResponse, error)
 	// BaseWidthMillis returns the width of a base of the underlying robot.
 	BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error)
-	// CameraFrame returns a frame from a camera of the underlying robot. A specific MIME type
-	// can be requested but may not necessarily be the same one returned.
-	CameraFrame(ctx context.Context, in *CameraFrameRequest, opts ...grpc.CallOption) (*CameraFrameResponse, error)
-	// CameraFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
-	// can be requested but may not necessarily be the same one returned.
-	CameraRenderFrame(ctx context.Context, in *CameraRenderFrameRequest, opts ...grpc.CallOption) (*httpbody.HttpBody, error)
-	// PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
-	// can be requested but may not necessarily be the same one returned.
-	PointCloud(ctx context.Context, in *PointCloudRequest, opts ...grpc.CallOption) (*PointCloudResponse, error)
-	// ObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
-	// as well as the 3-vector center of each of the found objects.
-	// A specific MIME type can be requested but may not necessarily be the same one returned.
-	ObjectPointClouds(ctx context.Context, in *ObjectPointCloudsRequest, opts ...grpc.CallOption) (*ObjectPointCloudsResponse, error)
 	// LidarInfo returns the info of a lidar of the underlying robot.
 	LidarInfo(ctx context.Context, in *LidarInfoRequest, opts ...grpc.CallOption) (*LidarInfoResponse, error)
 	// LidarStart starts a lidar of the underlying robot.
@@ -266,42 +252,6 @@ func (c *robotServiceClient) BaseStop(ctx context.Context, in *BaseStopRequest, 
 func (c *robotServiceClient) BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error) {
 	out := new(BaseWidthMillisResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseWidthMillis", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) CameraFrame(ctx context.Context, in *CameraFrameRequest, opts ...grpc.CallOption) (*CameraFrameResponse, error) {
-	out := new(CameraFrameResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/CameraFrame", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) CameraRenderFrame(ctx context.Context, in *CameraRenderFrameRequest, opts ...grpc.CallOption) (*httpbody.HttpBody, error) {
-	out := new(httpbody.HttpBody)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/CameraRenderFrame", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) PointCloud(ctx context.Context, in *PointCloudRequest, opts ...grpc.CallOption) (*PointCloudResponse, error) {
-	out := new(PointCloudResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/PointCloud", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) ObjectPointClouds(ctx context.Context, in *ObjectPointCloudsRequest, opts ...grpc.CallOption) (*ObjectPointCloudsResponse, error) {
-	out := new(ObjectPointCloudsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ObjectPointClouds", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -890,19 +840,6 @@ type RobotServiceServer interface {
 	BaseStop(context.Context, *BaseStopRequest) (*BaseStopResponse, error)
 	// BaseWidthMillis returns the width of a base of the underlying robot.
 	BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error)
-	// CameraFrame returns a frame from a camera of the underlying robot. A specific MIME type
-	// can be requested but may not necessarily be the same one returned.
-	CameraFrame(context.Context, *CameraFrameRequest) (*CameraFrameResponse, error)
-	// CameraFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
-	// can be requested but may not necessarily be the same one returned.
-	CameraRenderFrame(context.Context, *CameraRenderFrameRequest) (*httpbody.HttpBody, error)
-	// PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
-	// can be requested but may not necessarily be the same one returned.
-	PointCloud(context.Context, *PointCloudRequest) (*PointCloudResponse, error)
-	// ObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
-	// as well as the 3-vector center of each of the found objects.
-	// A specific MIME type can be requested but may not necessarily be the same one returned.
-	ObjectPointClouds(context.Context, *ObjectPointCloudsRequest) (*ObjectPointCloudsResponse, error)
 	// LidarInfo returns the info of a lidar of the underlying robot.
 	LidarInfo(context.Context, *LidarInfoRequest) (*LidarInfoResponse, error)
 	// LidarStart starts a lidar of the underlying robot.
@@ -1042,18 +979,6 @@ func (UnimplementedRobotServiceServer) BaseStop(context.Context, *BaseStopReques
 }
 func (UnimplementedRobotServiceServer) BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BaseWidthMillis not implemented")
-}
-func (UnimplementedRobotServiceServer) CameraFrame(context.Context, *CameraFrameRequest) (*CameraFrameResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CameraFrame not implemented")
-}
-func (UnimplementedRobotServiceServer) CameraRenderFrame(context.Context, *CameraRenderFrameRequest) (*httpbody.HttpBody, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CameraRenderFrame not implemented")
-}
-func (UnimplementedRobotServiceServer) PointCloud(context.Context, *PointCloudRequest) (*PointCloudResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PointCloud not implemented")
-}
-func (UnimplementedRobotServiceServer) ObjectPointClouds(context.Context, *ObjectPointCloudsRequest) (*ObjectPointCloudsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ObjectPointClouds not implemented")
 }
 func (UnimplementedRobotServiceServer) LidarInfo(context.Context, *LidarInfoRequest) (*LidarInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LidarInfo not implemented")
@@ -1400,78 +1325,6 @@ func _RobotService_BaseWidthMillis_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).BaseWidthMillis(ctx, req.(*BaseWidthMillisRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_CameraFrame_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CameraFrameRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).CameraFrame(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/CameraFrame",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).CameraFrame(ctx, req.(*CameraFrameRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_CameraRenderFrame_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CameraRenderFrameRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).CameraRenderFrame(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/CameraRenderFrame",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).CameraRenderFrame(ctx, req.(*CameraRenderFrameRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_PointCloud_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PointCloudRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).PointCloud(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/PointCloud",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).PointCloud(ctx, req.(*PointCloudRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_ObjectPointClouds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ObjectPointCloudsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).ObjectPointClouds(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/ObjectPointClouds",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).ObjectPointClouds(ctx, req.(*ObjectPointCloudsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2546,22 +2399,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BaseWidthMillis",
 			Handler:    _RobotService_BaseWidthMillis_Handler,
-		},
-		{
-			MethodName: "CameraFrame",
-			Handler:    _RobotService_CameraFrame_Handler,
-		},
-		{
-			MethodName: "CameraRenderFrame",
-			Handler:    _RobotService_CameraRenderFrame_Handler,
-		},
-		{
-			MethodName: "PointCloud",
-			Handler:    _RobotService_PointCloud_Handler,
-		},
-		{
-			MethodName: "ObjectPointClouds",
-			Handler:    _RobotService_ObjectPointClouds_Handler,
 		},
 		{
 			MethodName: "LidarInfo",

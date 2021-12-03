@@ -8,7 +8,6 @@ import "google/protobuf/struct.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "google/api/annotations.proto";
-import "google/api/httpbody.proto";
 
 
 // A RobotService encompasses all functionality of some robot comprised of parts, local and remote.
@@ -77,41 +76,6 @@ service RobotService {
     option (google.api.http) = {
       get: "/api/v1/base/{name}/width_millis"
     };  
-  }
-
-  // Camera
-
-  // CameraFrame returns a frame from a camera of the underlying robot. A specific MIME type
-  // can be requested but may not necessarily be the same one returned.
-  rpc CameraFrame(CameraFrameRequest) returns (CameraFrameResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/camera/{name}/frame"
-    };
-  }
-
-  // CameraFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
-  // can be requested but may not necessarily be the same one returned.
-  rpc CameraRenderFrame(CameraRenderFrameRequest) returns (google.api.HttpBody) {
-    option (google.api.http) = {
-      get: "/api/v1/camera/{name}/render_frame"
-    };
-  }
-
-  // PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
-  // can be requested but may not necessarily be the same one returned.
-  rpc PointCloud(PointCloudRequest) returns (PointCloudResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/camera/{name}/pointcloud"
-    };
-  }
-
-  // ObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
-  // as well as the 3-vector center of each of the found objects.
-  // A specific MIME type can be requested but may not necessarily be the same one returned.
-  rpc ObjectPointClouds(ObjectPointCloudsRequest) returns (ObjectPointCloudsResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/camera/{name}/objectpointclouds"
-    };
   }
 
   // Lidar
@@ -682,60 +646,10 @@ message BaseWidthMillisResponse {
   int64 width_millis = 1;
 }
 
-// Camera
-
-message CameraFrameRequest {
-  string name = 1;
-  string mime_type = 2;
-}
-
-message CameraRenderFrameRequest {
-  string name = 1;
-  string mime_type = 2;
-}
-
-message CameraFrameResponse {
-  string mime_type = 1;
-  bytes frame = 2;
-  int64 dim_x = 3;
-  int64 dim_y = 4;
-}
-
-message PointCloudRequest {
-  string name = 1;
-  string mime_type = 2;
-}
-
-message PointCloudResponse {
-  string mime_type = 1;
-  bytes frame = 2;
-}
-
-message ObjectPointCloudsRequest {
-  string name = 1;
-  string mime_type = 2;
-  int64 min_points_in_plane = 3;
-  int64 min_points_in_segment = 4;
-  double clustering_radius = 5;
-}
-
 message Vector3 {
   double x = 1;
   double y = 2;
   double z = 3;
-}
-
-message BoxGeometry {
-  double width = 1;
-  double length = 2;
-  double depth = 3;
-}
-
-message ObjectPointCloudsResponse {
-  string mime_type = 1;
-  repeated bytes frames = 2;
-  repeated Vector3 centers = 3;
-  repeated BoxGeometry bounding_boxes = 4;
 }
 
 // Lidar

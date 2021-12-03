@@ -7,7 +7,6 @@ package proto.api.component.v1;
 import "google/api/annotations.proto";
 import "proto/api/common/v1/common.proto";
 
-
 // An ArmService services maintains all arms associated with a robot
 service ArmService {
   // CurrentPosition gets the current position of the mount point of the robot's end effector expressed as X,Y,Z,ox,oy,oz,theta

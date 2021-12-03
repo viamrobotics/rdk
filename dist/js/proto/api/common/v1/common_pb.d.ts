@@ -2,10 +2,6 @@
 // file: proto/api/common/v1/common.proto
 
 import * as jspb from "google-protobuf";
-import * as google_protobuf_struct_pb from "google-protobuf/google/protobuf/struct_pb";
-import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/duration_pb";
-import * as google_api_annotations_pb from "../../../../google/api/annotations_pb";
-import * as google_api_httpbody_pb from "../../../../google/api/httpbody_pb";
 
 export class Pose extends jspb.Message {
   getX(): number;
@@ -48,6 +44,34 @@ export namespace Pose {
     oY: number,
     oZ: number,
     theta: number,
+  }
+}
+
+export class Vector3 extends jspb.Message {
+  getX(): number;
+  setX(value: number): void;
+
+  getY(): number;
+  setY(value: number): void;
+
+  getZ(): number;
+  setZ(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): Vector3.AsObject;
+  static toObject(includeInstance: boolean, msg: Vector3): Vector3.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: Vector3, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): Vector3;
+  static deserializeBinaryFromReader(message: Vector3, reader: jspb.BinaryReader): Vector3;
+}
+
+export namespace Vector3 {
+  export type AsObject = {
+    x: number,
+    y: number,
+    z: number,
   }
 }
 

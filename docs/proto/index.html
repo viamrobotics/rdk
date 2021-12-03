@@ -182,6 +182,10 @@
                   <a href="#proto.api.common.v1.Pose"><span class="badge">M</span>Pose</a>
                 </li>
               
+                <li>
+                  <a href="#proto.api.common.v1.Vector3"><span class="badge">M</span>Vector3</a>
+                </li>
+              
               
               
               
@@ -242,6 +246,53 @@
               
                 <li>
                   <a href="#proto.api.component.v1.ArmService"><span class="badge">S</span>ArmService</a>
+                </li>
+              
+            </ul>
+          </li>
+        
+          
+          <li>
+            <a href="#proto%2fapi%2fcomponent%2fv1%2fcamera.proto">proto/api/component/v1/camera.proto</a>
+            <ul>
+              
+                <li>
+                  <a href="#proto.api.component.v1.CameraServiceBoxGeometry"><span class="badge">M</span>CameraServiceBoxGeometry</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.CameraServiceFrameRequest"><span class="badge">M</span>CameraServiceFrameRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.CameraServiceFrameResponse"><span class="badge">M</span>CameraServiceFrameResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.CameraServiceObjectPointCloudsRequest"><span class="badge">M</span>CameraServiceObjectPointCloudsRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.CameraServiceObjectPointCloudsResponse"><span class="badge">M</span>CameraServiceObjectPointCloudsResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.CameraServicePointCloudRequest"><span class="badge">M</span>CameraServicePointCloudRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.CameraServicePointCloudResponse"><span class="badge">M</span>CameraServicePointCloudResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.CameraServiceRenderFrameRequest"><span class="badge">M</span>CameraServiceRenderFrameRequest</a>
+                </li>
+              
+              
+              
+              
+                <li>
+                  <a href="#proto.api.component.v1.CameraService"><span class="badge">S</span>CameraService</a>
                 </li>
               
             </ul>
@@ -514,22 +565,6 @@
               
                 <li>
                   <a href="#proto.api.v1.BoardStatusResponse"><span class="badge">M</span>BoardStatusResponse</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.BoxGeometry"><span class="badge">M</span>BoxGeometry</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.CameraFrameRequest"><span class="badge">M</span>CameraFrameRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.CameraFrameResponse"><span class="badge">M</span>CameraFrameResponse</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.CameraRenderFrameRequest"><span class="badge">M</span>CameraRenderFrameRequest</a>
                 </li>
               
                 <li>
@@ -977,22 +1012,6 @@
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.ObjectPointCloudsRequest"><span class="badge">M</span>ObjectPointCloudsRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.ObjectPointCloudsResponse"><span class="badge">M</span>ObjectPointCloudsResponse</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.PointCloudRequest"><span class="badge">M</span>PointCloudRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.PointCloudResponse"><span class="badge">M</span>PointCloudResponse</a>
-                </li>
-              
-                <li>
                   <a href="#proto.api.v1.Pose"><span class="badge">M</span>Pose</a>
                 </li>
               
@@ -1189,6 +1208,44 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
               
                 <tr>
                   <td>theta</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.common.v1.Vector3">Vector3</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>x</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>y</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>z</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
                   <td><p> </p></td>
@@ -1573,6 +1630,427 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                 <td>JointMoveDelta</td>
                 <td>PUT</td>
                 <td>/api/v1/component/arm/{name}/joint_move_delta</td>
+                <td></td>
+              </tr>
+              
+            
+            </tbody>
+          </table>
+          
+        
+    
+      
+      <div class="file-heading">
+        <h2 id="proto/api/component/v1/camera.proto">proto/api/component/v1/camera.proto</h2><a href="#title">Top</a>
+      </div>
+      <p></p>
+
+      
+        <h3 id="proto.api.component.v1.CameraServiceBoxGeometry">CameraServiceBoxGeometry</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>width</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>length</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>depth</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.CameraServiceFrameRequest">CameraServiceFrameRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>mime_type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.CameraServiceFrameResponse">CameraServiceFrameResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>mime_type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>frame</td>
+                  <td><a href="#bytes">bytes</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>dim_x</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>dim_y</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.CameraServiceObjectPointCloudsRequest">CameraServiceObjectPointCloudsRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>mime_type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>min_points_in_plane</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>min_points_in_segment</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>clustering_radius</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.CameraServiceObjectPointCloudsResponse">CameraServiceObjectPointCloudsResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>mime_type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>frames</td>
+                  <td><a href="#bytes">bytes</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>centers</td>
+                  <td><a href="#proto.api.common.v1.Vector3">proto.api.common.v1.Vector3</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>bounding_boxes</td>
+                  <td><a href="#proto.api.component.v1.CameraServiceBoxGeometry">CameraServiceBoxGeometry</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.CameraServicePointCloudRequest">CameraServicePointCloudRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>mime_type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.CameraServicePointCloudResponse">CameraServicePointCloudResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>mime_type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>frame</td>
+                  <td><a href="#bytes">bytes</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.CameraServiceRenderFrameRequest">CameraServiceRenderFrameRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>mime_type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+
+      
+
+      
+
+      
+        <h3 id="proto.api.component.v1.CameraService">CameraService</h3>
+        <p>An CameraService services maintains all gantries associated with a robot</p>
+        <table class="enum-table">
+          <thead>
+            <tr><td>Method Name</td><td>Request Type</td><td>Response Type</td><td>Description</td></tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td>Frame</td>
+                <td><a href="#proto.api.component.v1.CameraServiceFrameRequest">CameraServiceFrameRequest</a></td>
+                <td><a href="#proto.api.component.v1.CameraServiceFrameResponse">CameraServiceFrameResponse</a></td>
+                <td><p>Frame returns a frame from a camera of the underlying robot. A specific MIME type
+can be requested but may not necessarily be the same one returned.</p></td>
+              </tr>
+            
+              <tr>
+                <td>RenderFrame</td>
+                <td><a href="#proto.api.component.v1.CameraServiceRenderFrameRequest">CameraServiceRenderFrameRequest</a></td>
+                <td><a href="#google.api.HttpBody">.google.api.HttpBody</a></td>
+                <td><p>RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
+can be requested but may not necessarily be the same one returned.</p></td>
+              </tr>
+            
+              <tr>
+                <td>PointCloud</td>
+                <td><a href="#proto.api.component.v1.CameraServicePointCloudRequest">CameraServicePointCloudRequest</a></td>
+                <td><a href="#proto.api.component.v1.CameraServicePointCloudResponse">CameraServicePointCloudResponse</a></td>
+                <td><p>PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
+can be requested but may not necessarily be the same one returned.</p></td>
+              </tr>
+            
+              <tr>
+                <td>ObjectPointClouds</td>
+                <td><a href="#proto.api.component.v1.CameraServiceObjectPointCloudsRequest">CameraServiceObjectPointCloudsRequest</a></td>
+                <td><a href="#proto.api.component.v1.CameraServiceObjectPointCloudsResponse">CameraServiceObjectPointCloudsResponse</a></td>
+                <td><p>ObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
+as well as the 3-vector center of each of the found objects.
+A specific MIME type can be requested but may not necessarily be the same one returned.</p></td>
+              </tr>
+            
+          </tbody>
+        </table>
+
+        
+          
+          
+          <h4>Methods with HTTP bindings</h4>
+          <table>
+            <thead>
+              <tr>
+                <td>Method Name</td>
+                <td>Method</td>
+                <td>Pattern</td>
+                <td>Body</td>
+              </tr>
+            </thead>
+            <tbody>
+            
+              
+              
+              <tr>
+                <td>Frame</td>
+                <td>GET</td>
+                <td>/api/v1/component/camera/{name}/frame</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>RenderFrame</td>
+                <td>GET</td>
+                <td>/api/v1/component/camera/{name}/render_frame</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>PointCloud</td>
+                <td>GET</td>
+                <td>/api/v1/component/camera/{name}/pointcloud</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>ObjectPointClouds</td>
+                <td>GET</td>
+                <td>/api/v1/component/camera/{name}/objectpointclouds</td>
                 <td></td>
               </tr>
               
@@ -3227,151 +3705,6 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                 <tr>
                   <td>status</td>
                   <td><a href="#proto.api.v1.BoardStatus">BoardStatus</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.BoxGeometry">BoxGeometry</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>width</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>length</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>depth</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.CameraFrameRequest">CameraFrameRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>name</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>mime_type</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.CameraFrameResponse">CameraFrameResponse</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>mime_type</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>frame</td>
-                  <td><a href="#bytes">bytes</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>dim_x</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>dim_y</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.CameraRenderFrameRequest">CameraRenderFrameRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>name</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>mime_type</td>
-                  <td><a href="#string">string</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -6055,165 +6388,6 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
-        <h3 id="proto.api.v1.ObjectPointCloudsRequest">ObjectPointCloudsRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>name</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>mime_type</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>min_points_in_plane</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>min_points_in_segment</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>clustering_radius</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.ObjectPointCloudsResponse">ObjectPointCloudsResponse</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>mime_type</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>frames</td>
-                  <td><a href="#bytes">bytes</a></td>
-                  <td>repeated</td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>centers</td>
-                  <td><a href="#proto.api.v1.Vector3">Vector3</a></td>
-                  <td>repeated</td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>bounding_boxes</td>
-                  <td><a href="#proto.api.v1.BoxGeometry">BoxGeometry</a></td>
-                  <td>repeated</td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.PointCloudRequest">PointCloudRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>name</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>mime_type</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.PointCloudResponse">PointCloudResponse</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>mime_type</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>frame</td>
-                  <td><a href="#bytes">bytes</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
         <h3 id="proto.api.v1.Pose">Pose</h3>
         <p></p>
 
@@ -7213,39 +7387,6 @@ And not the pieces relevant to local configuration (pins, security keys, etc...)
               </tr>
             
               <tr>
-                <td>CameraFrame</td>
-                <td><a href="#proto.api.v1.CameraFrameRequest">CameraFrameRequest</a></td>
-                <td><a href="#proto.api.v1.CameraFrameResponse">CameraFrameResponse</a></td>
-                <td><p>CameraFrame returns a frame from a camera of the underlying robot. A specific MIME type
-can be requested but may not necessarily be the same one returned.</p></td>
-              </tr>
-            
-              <tr>
-                <td>CameraRenderFrame</td>
-                <td><a href="#proto.api.v1.CameraRenderFrameRequest">CameraRenderFrameRequest</a></td>
-                <td><a href="#google.api.HttpBody">.google.api.HttpBody</a></td>
-                <td><p>CameraFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
-can be requested but may not necessarily be the same one returned.</p></td>
-              </tr>
-            
-              <tr>
-                <td>PointCloud</td>
-                <td><a href="#proto.api.v1.PointCloudRequest">PointCloudRequest</a></td>
-                <td><a href="#proto.api.v1.PointCloudResponse">PointCloudResponse</a></td>
-                <td><p>PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
-can be requested but may not necessarily be the same one returned.</p></td>
-              </tr>
-            
-              <tr>
-                <td>ObjectPointClouds</td>
-                <td><a href="#proto.api.v1.ObjectPointCloudsRequest">ObjectPointCloudsRequest</a></td>
-                <td><a href="#proto.api.v1.ObjectPointCloudsResponse">ObjectPointCloudsResponse</a></td>
-                <td><p>ObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
-as well as the 3-vector center of each of the found objects.
-A specific MIME type can be requested but may not necessarily be the same one returned.</p></td>
-              </tr>
-            
-              <tr>
                 <td>LidarInfo</td>
                 <td><a href="#proto.api.v1.LidarInfoRequest">LidarInfoRequest</a></td>
                 <td><a href="#proto.api.v1.LidarInfoResponse">LidarInfoResponse</a></td>
@@ -7753,46 +7894,6 @@ is reliant on having an encoder.</p></td>
                 <td>BaseWidthMillis</td>
                 <td>GET</td>
                 <td>/api/v1/base/{name}/width_millis</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>CameraFrame</td>
-                <td>GET</td>
-                <td>/api/v1/camera/{name}/frame</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>CameraRenderFrame</td>
-                <td>GET</td>
-                <td>/api/v1/camera/{name}/render_frame</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>PointCloud</td>
-                <td>GET</td>
-                <td>/api/v1/camera/{name}/pointcloud</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>ObjectPointClouds</td>
-                <td>GET</td>
-                <td>/api/v1/camera/{name}/objectpointclouds</td>
                 <td></td>
               </tr>
               
