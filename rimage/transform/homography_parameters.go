@@ -6,8 +6,8 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// RawDepthColorHomography is a structure that can be easily serialized and unserialized into JSON
-type RawDepthColorHomography struct {
+// RawPinholeCameraHomography is a structure that can be easily serialized and unserialized into JSON
+type RawPinholeCameraHomography struct {
 	ColorCamera  PinholeCameraIntrinsics `json:"color"`
 	Homography   []float64               `json:"transform"`
 	DepthToColor bool                    `json:"depth_to_color"`
@@ -15,9 +15,9 @@ type RawDepthColorHomography struct {
 }
 
 // CheckValid runs checks on the fields of the struct to see if the inputs are valid
-func (rdch *RawDepthColorHomography) CheckValid() error {
+func (rdch *RawPinholeCameraHomography) CheckValid() error {
 	if rdch == nil {
-		return errors.New("pointer to DepthColorHomography is nil")
+		return errors.New("pointer to PinholeCameraHomography is nil")
 	}
 	if rdch.Homography == nil {
 		return errors.New("pointer to Homography is nil")
