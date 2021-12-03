@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	//~ "fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"

@@ -8,9 +8,9 @@
   ],
   "components": [
     {
-      "host": "10.0.0.98",
-      "model": "xArm7",
-      "name": "xArm7",
+      "host": "10.0.0.97",
+      "model": "xArm6",
+      "name": "xArm6",
       "type": "arm",
       "frame" : {
           "parent" : "world"

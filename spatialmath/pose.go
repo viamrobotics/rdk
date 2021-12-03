@@ -52,7 +52,10 @@ func NewPoseFromOrientation(point r3.Vector, o Orientation) Pose {
 	if o == nil {
 		return NewPoseFromPoint(point)
 	}
-	return NewPoseFromOrientationVector(point, o.OrientationVectorRadians())
+	quat := newDualQuaternion()
+	quat.Real = o.Quaternion()
+	quat.SetTranslation(point.X, point.Y, point.Z)
+	return quat
 }
 
 // NewPoseFromOrientationVector takes in a position and orientation vector and returns a Pose.
