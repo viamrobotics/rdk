@@ -17,7 +17,12 @@ import (
 func newServer() (pb.GripperServiceServer, *inject.Gripper, *inject.Gripper, error) {
 	injectGripper := &inject.Gripper{}
 	injectGripper2 := &inject.Gripper{}
-	gripperSvc, err := subtype.New((map[resource.Name]interface{}{gripper.Named("gripper1"): injectGripper, gripper.Named("gripper2"): injectGripper2, gripper.Named("gripper3"): "notGripper"}))
+	grippers := map[resource.Name]interface{}{
+		gripper.Named("gripper1"): injectGripper,
+		gripper.Named("gripper2"): injectGripper2,
+		gripper.Named("gripper3"): "notGripper",
+	}
+	gripperSvc, err := subtype.New(grippers)
 	if err != nil {
 		return nil, nil, nil, err
 	}
