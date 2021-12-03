@@ -30,7 +30,9 @@ type CameraServiceFrameRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name     string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Name of a camera
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Requested MIME type of response
 	MimeType string `protobuf:"bytes,2,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
 }
 
@@ -85,10 +87,14 @@ type CameraServiceFrameResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Actual MIME type of response
 	MimeType string `protobuf:"bytes,1,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
-	Frame    []byte `protobuf:"bytes,2,opt,name=frame,proto3" json:"frame,omitempty"`
-	DimX     int64  `protobuf:"varint,3,opt,name=dim_x,json=dimX,proto3" json:"dim_x,omitempty"`
-	DimY     int64  `protobuf:"varint,4,opt,name=dim_y,json=dimY,proto3" json:"dim_y,omitempty"`
+	// Frame in bytes
+	Frame []byte `protobuf:"bytes,2,opt,name=frame,proto3" json:"frame,omitempty"`
+	// Width of frame
+	DimX int64 `protobuf:"varint,3,opt,name=dim_x,json=dimX,proto3" json:"dim_x,omitempty"`
+	// Height of frame
+	DimY int64 `protobuf:"varint,4,opt,name=dim_y,json=dimY,proto3" json:"dim_y,omitempty"`
 }
 
 func (x *CameraServiceFrameResponse) Reset() {
@@ -156,7 +162,9 @@ type CameraServiceRenderFrameRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name     string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Name of a camera
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Requested MIME type of response
 	MimeType string `protobuf:"bytes,2,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
 }
 
@@ -211,7 +219,9 @@ type CameraServicePointCloudRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name     string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Name of a camera
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Requested MIME type of response
 	MimeType string `protobuf:"bytes,2,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
 }
 
@@ -266,8 +276,10 @@ type CameraServicePointCloudResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Actual MIME type of response
 	MimeType string `protobuf:"bytes,1,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
-	Frame    []byte `protobuf:"bytes,2,opt,name=frame,proto3" json:"frame,omitempty"`
+	// Frame in bytes
+	Frame []byte `protobuf:"bytes,2,opt,name=frame,proto3" json:"frame,omitempty"`
 }
 
 func (x *CameraServicePointCloudResponse) Reset() {
@@ -321,11 +333,16 @@ type CameraServiceObjectPointCloudsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name               string  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	MimeType           string  `protobuf:"bytes,2,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
-	MinPointsInPlane   int64   `protobuf:"varint,3,opt,name=min_points_in_plane,json=minPointsInPlane,proto3" json:"min_points_in_plane,omitempty"`
-	MinPointsInSegment int64   `protobuf:"varint,4,opt,name=min_points_in_segment,json=minPointsInSegment,proto3" json:"min_points_in_segment,omitempty"`
-	ClusteringRadius   float64 `protobuf:"fixed64,5,opt,name=clustering_radius,json=clusteringRadius,proto3" json:"clustering_radius,omitempty"`
+	// Name of a camera
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Requested MIME type of response
+	MimeType string `protobuf:"bytes,2,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
+	// Minimum points in plane
+	MinPointsInPlane int64 `protobuf:"varint,3,opt,name=min_points_in_plane,json=minPointsInPlane,proto3" json:"min_points_in_plane,omitempty"`
+	// Minimum points in segment
+	MinPointsInSegment int64 `protobuf:"varint,4,opt,name=min_points_in_segment,json=minPointsInSegment,proto3" json:"min_points_in_segment,omitempty"`
+	// Clustering radius
+	ClusteringRadius float64 `protobuf:"fixed64,5,opt,name=clustering_radius,json=clusteringRadius,proto3" json:"clustering_radius,omitempty"`
 }
 
 func (x *CameraServiceObjectPointCloudsRequest) Reset() {
@@ -395,84 +412,25 @@ func (x *CameraServiceObjectPointCloudsRequest) GetClusteringRadius() float64 {
 	return 0
 }
 
-type CameraServiceBoxGeometry struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Width  float64 `protobuf:"fixed64,1,opt,name=width,proto3" json:"width,omitempty"`
-	Length float64 `protobuf:"fixed64,2,opt,name=length,proto3" json:"length,omitempty"`
-	Depth  float64 `protobuf:"fixed64,3,opt,name=depth,proto3" json:"depth,omitempty"`
-}
-
-func (x *CameraServiceBoxGeometry) Reset() {
-	*x = CameraServiceBoxGeometry{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_camera_proto_msgTypes[6]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *CameraServiceBoxGeometry) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CameraServiceBoxGeometry) ProtoMessage() {}
-
-func (x *CameraServiceBoxGeometry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_camera_proto_msgTypes[6]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CameraServiceBoxGeometry.ProtoReflect.Descriptor instead.
-func (*CameraServiceBoxGeometry) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_camera_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *CameraServiceBoxGeometry) GetWidth() float64 {
-	if x != nil {
-		return x.Width
-	}
-	return 0
-}
-
-func (x *CameraServiceBoxGeometry) GetLength() float64 {
-	if x != nil {
-		return x.Length
-	}
-	return 0
-}
-
-func (x *CameraServiceBoxGeometry) GetDepth() float64 {
-	if x != nil {
-		return x.Depth
-	}
-	return 0
-}
-
 type CameraServiceObjectPointCloudsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	MimeType      string                      `protobuf:"bytes,1,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
-	Frames        [][]byte                    `protobuf:"bytes,2,rep,name=frames,proto3" json:"frames,omitempty"`
-	Centers       []*v1.Vector3               `protobuf:"bytes,3,rep,name=centers,proto3" json:"centers,omitempty"`
-	BoundingBoxes []*CameraServiceBoxGeometry `protobuf:"bytes,4,rep,name=bounding_boxes,json=boundingBoxes,proto3" json:"bounding_boxes,omitempty"`
+	// Actual MIME type of response
+	MimeType string `protobuf:"bytes,1,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
+	// Frame of each object in bytes
+	Frames [][]byte `protobuf:"bytes,2,rep,name=frames,proto3" json:"frames,omitempty"`
+	// Center of each object in vector form
+	Centers []*v1.Vector3 `protobuf:"bytes,3,rep,name=centers,proto3" json:"centers,omitempty"`
+	// Bounding box of each object
+	BoundingBoxes []*v1.BoxGeometry `protobuf:"bytes,4,rep,name=bounding_boxes,json=boundingBoxes,proto3" json:"bounding_boxes,omitempty"`
 }
 
 func (x *CameraServiceObjectPointCloudsResponse) Reset() {
 	*x = CameraServiceObjectPointCloudsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_camera_proto_msgTypes[7]
+		mi := &file_proto_api_component_v1_camera_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -485,7 +443,7 @@ func (x *CameraServiceObjectPointCloudsResponse) String() string {
 func (*CameraServiceObjectPointCloudsResponse) ProtoMessage() {}
 
 func (x *CameraServiceObjectPointCloudsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_camera_proto_msgTypes[7]
+	mi := &file_proto_api_component_v1_camera_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -498,7 +456,7 @@ func (x *CameraServiceObjectPointCloudsResponse) ProtoReflect() protoreflect.Mes
 
 // Deprecated: Use CameraServiceObjectPointCloudsResponse.ProtoReflect.Descriptor instead.
 func (*CameraServiceObjectPointCloudsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_camera_proto_rawDescGZIP(), []int{7}
+	return file_proto_api_component_v1_camera_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CameraServiceObjectPointCloudsResponse) GetMimeType() string {
@@ -522,7 +480,7 @@ func (x *CameraServiceObjectPointCloudsResponse) GetCenters() []*v1.Vector3 {
 	return nil
 }
 
-func (x *CameraServiceObjectPointCloudsResponse) GetBoundingBoxes() []*CameraServiceBoxGeometry {
+func (x *CameraServiceObjectPointCloudsResponse) GetBoundingBoxes() []*v1.BoxGeometry {
 	if x != nil {
 		return x.BoundingBoxes
 	}
@@ -584,13 +542,7 @@ var file_proto_api_component_v1_camera_proto_rawDesc = []byte{
 	0x74, 0x73, 0x49, 0x6e, 0x53, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x2b, 0x0a, 0x11, 0x63,
 	0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x69, 0x6e, 0x67, 0x5f, 0x72, 0x61, 0x64, 0x69, 0x75, 0x73,
 	0x18, 0x05, 0x20, 0x01, 0x28, 0x01, 0x52, 0x10, 0x63, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x69,
-	0x6e, 0x67, 0x52, 0x61, 0x64, 0x69, 0x75, 0x73, 0x22, 0x5e, 0x0a, 0x18, 0x43, 0x61, 0x6d, 0x65,
-	0x72, 0x61, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x42, 0x6f, 0x78, 0x47, 0x65, 0x6f, 0x6d,
-	0x65, 0x74, 0x72, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x77, 0x69, 0x64, 0x74, 0x68, 0x18, 0x01, 0x20,
-	0x01, 0x28, 0x01, 0x52, 0x05, 0x77, 0x69, 0x64, 0x74, 0x68, 0x12, 0x16, 0x0a, 0x06, 0x6c, 0x65,
-	0x6e, 0x67, 0x74, 0x68, 0x18, 0x02, 0x20, 0x01, 0x28, 0x01, 0x52, 0x06, 0x6c, 0x65, 0x6e, 0x67,
-	0x74, 0x68, 0x12, 0x14, 0x0a, 0x05, 0x64, 0x65, 0x70, 0x74, 0x68, 0x18, 0x03, 0x20, 0x01, 0x28,
-	0x01, 0x52, 0x05, 0x64, 0x65, 0x70, 0x74, 0x68, 0x22, 0xee, 0x01, 0x0a, 0x26, 0x43, 0x61, 0x6d,
+	0x6e, 0x67, 0x52, 0x61, 0x64, 0x69, 0x75, 0x73, 0x22, 0xde, 0x01, 0x0a, 0x26, 0x43, 0x61, 0x6d,
 	0x65, 0x72, 0x61, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74,
 	0x50, 0x6f, 0x69, 0x6e, 0x74, 0x43, 0x6c, 0x6f, 0x75, 0x64, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f,
 	0x6e, 0x73, 0x65, 0x12, 0x1b, 0x0a, 0x09, 0x6d, 0x69, 0x6d, 0x65, 0x5f, 0x74, 0x79, 0x70, 0x65,
@@ -600,10 +552,9 @@ var file_proto_api_component_v1_camera_proto_rawDesc = []byte{
 	0x65, 0x72, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1c, 0x2e, 0x70, 0x72, 0x6f, 0x74,
 	0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x76, 0x31, 0x2e,
 	0x56, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x33, 0x52, 0x07, 0x63, 0x65, 0x6e, 0x74, 0x65, 0x72, 0x73,
-	0x12, 0x57, 0x0a, 0x0e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x5f, 0x62, 0x6f, 0x78,
-	0x65, 0x73, 0x18, 0x04, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x30, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x2e, 0x76,
-	0x31, 0x2e, 0x43, 0x61, 0x6d, 0x65, 0x72, 0x61, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x42,
+	0x12, 0x47, 0x0a, 0x0e, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x5f, 0x62, 0x6f, 0x78,
+	0x65, 0x73, 0x18, 0x04, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x76, 0x31, 0x2e, 0x42,
 	0x6f, 0x78, 0x47, 0x65, 0x6f, 0x6d, 0x65, 0x74, 0x72, 0x79, 0x52, 0x0d, 0x62, 0x6f, 0x75, 0x6e,
 	0x64, 0x69, 0x6e, 0x67, 0x42, 0x6f, 0x78, 0x65, 0x73, 0x32, 0xc8, 0x05, 0x0a, 0x0d, 0x43, 0x61,
 	0x6d, 0x65, 0x72, 0x61, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x9d, 0x01, 0x0a, 0x05,
@@ -670,7 +621,7 @@ func file_proto_api_component_v1_camera_proto_rawDescGZIP() []byte {
 	return file_proto_api_component_v1_camera_proto_rawDescData
 }
 
-var file_proto_api_component_v1_camera_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_proto_api_component_v1_camera_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_proto_api_component_v1_camera_proto_goTypes = []interface{}{
 	(*CameraServiceFrameRequest)(nil),              // 0: proto.api.component.v1.CameraServiceFrameRequest
 	(*CameraServiceFrameResponse)(nil),             // 1: proto.api.component.v1.CameraServiceFrameResponse
@@ -678,14 +629,14 @@ var file_proto_api_component_v1_camera_proto_goTypes = []interface{}{
 	(*CameraServicePointCloudRequest)(nil),         // 3: proto.api.component.v1.CameraServicePointCloudRequest
 	(*CameraServicePointCloudResponse)(nil),        // 4: proto.api.component.v1.CameraServicePointCloudResponse
 	(*CameraServiceObjectPointCloudsRequest)(nil),  // 5: proto.api.component.v1.CameraServiceObjectPointCloudsRequest
-	(*CameraServiceBoxGeometry)(nil),               // 6: proto.api.component.v1.CameraServiceBoxGeometry
-	(*CameraServiceObjectPointCloudsResponse)(nil), // 7: proto.api.component.v1.CameraServiceObjectPointCloudsResponse
-	(*v1.Vector3)(nil),                             // 8: proto.api.common.v1.Vector3
+	(*CameraServiceObjectPointCloudsResponse)(nil), // 6: proto.api.component.v1.CameraServiceObjectPointCloudsResponse
+	(*v1.Vector3)(nil),                             // 7: proto.api.common.v1.Vector3
+	(*v1.BoxGeometry)(nil),                         // 8: proto.api.common.v1.BoxGeometry
 	(*httpbody.HttpBody)(nil),                      // 9: google.api.HttpBody
 }
 var file_proto_api_component_v1_camera_proto_depIdxs = []int32{
-	8, // 0: proto.api.component.v1.CameraServiceObjectPointCloudsResponse.centers:type_name -> proto.api.common.v1.Vector3
-	6, // 1: proto.api.component.v1.CameraServiceObjectPointCloudsResponse.bounding_boxes:type_name -> proto.api.component.v1.CameraServiceBoxGeometry
+	7, // 0: proto.api.component.v1.CameraServiceObjectPointCloudsResponse.centers:type_name -> proto.api.common.v1.Vector3
+	8, // 1: proto.api.component.v1.CameraServiceObjectPointCloudsResponse.bounding_boxes:type_name -> proto.api.common.v1.BoxGeometry
 	0, // 2: proto.api.component.v1.CameraService.Frame:input_type -> proto.api.component.v1.CameraServiceFrameRequest
 	2, // 3: proto.api.component.v1.CameraService.RenderFrame:input_type -> proto.api.component.v1.CameraServiceRenderFrameRequest
 	3, // 4: proto.api.component.v1.CameraService.PointCloud:input_type -> proto.api.component.v1.CameraServicePointCloudRequest
@@ -693,7 +644,7 @@ var file_proto_api_component_v1_camera_proto_depIdxs = []int32{
 	1, // 6: proto.api.component.v1.CameraService.Frame:output_type -> proto.api.component.v1.CameraServiceFrameResponse
 	9, // 7: proto.api.component.v1.CameraService.RenderFrame:output_type -> google.api.HttpBody
 	4, // 8: proto.api.component.v1.CameraService.PointCloud:output_type -> proto.api.component.v1.CameraServicePointCloudResponse
-	7, // 9: proto.api.component.v1.CameraService.ObjectPointClouds:output_type -> proto.api.component.v1.CameraServiceObjectPointCloudsResponse
+	6, // 9: proto.api.component.v1.CameraService.ObjectPointClouds:output_type -> proto.api.component.v1.CameraServiceObjectPointCloudsResponse
 	6, // [6:10] is the sub-list for method output_type
 	2, // [2:6] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
@@ -780,18 +731,6 @@ func file_proto_api_component_v1_camera_proto_init() {
 			}
 		}
 		file_proto_api_component_v1_camera_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CameraServiceBoxGeometry); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_proto_api_component_v1_camera_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CameraServiceObjectPointCloudsResponse); i {
 			case 0:
 				return &v.state
@@ -810,7 +749,7 @@ func file_proto_api_component_v1_camera_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_proto_api_component_v1_camera_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

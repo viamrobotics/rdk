@@ -174,34 +174,6 @@ export namespace CameraServiceObjectPointCloudsRequest {
   }
 }
 
-export class CameraServiceBoxGeometry extends jspb.Message {
-  getWidth(): number;
-  setWidth(value: number): void;
-
-  getLength(): number;
-  setLength(value: number): void;
-
-  getDepth(): number;
-  setDepth(value: number): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): CameraServiceBoxGeometry.AsObject;
-  static toObject(includeInstance: boolean, msg: CameraServiceBoxGeometry): CameraServiceBoxGeometry.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: CameraServiceBoxGeometry, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): CameraServiceBoxGeometry;
-  static deserializeBinaryFromReader(message: CameraServiceBoxGeometry, reader: jspb.BinaryReader): CameraServiceBoxGeometry;
-}
-
-export namespace CameraServiceBoxGeometry {
-  export type AsObject = {
-    width: number,
-    length: number,
-    depth: number,
-  }
-}
-
 export class CameraServiceObjectPointCloudsResponse extends jspb.Message {
   getMimeType(): string;
   setMimeType(value: string): void;
@@ -219,9 +191,9 @@ export class CameraServiceObjectPointCloudsResponse extends jspb.Message {
   addCenters(value?: proto_api_common_v1_common_pb.Vector3, index?: number): proto_api_common_v1_common_pb.Vector3;
 
   clearBoundingBoxesList(): void;
-  getBoundingBoxesList(): Array<CameraServiceBoxGeometry>;
-  setBoundingBoxesList(value: Array<CameraServiceBoxGeometry>): void;
-  addBoundingBoxes(value?: CameraServiceBoxGeometry, index?: number): CameraServiceBoxGeometry;
+  getBoundingBoxesList(): Array<proto_api_common_v1_common_pb.BoxGeometry>;
+  setBoundingBoxesList(value: Array<proto_api_common_v1_common_pb.BoxGeometry>): void;
+  addBoundingBoxes(value?: proto_api_common_v1_common_pb.BoxGeometry, index?: number): proto_api_common_v1_common_pb.BoxGeometry;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): CameraServiceObjectPointCloudsResponse.AsObject;
@@ -238,7 +210,7 @@ export namespace CameraServiceObjectPointCloudsResponse {
     mimeType: string,
     framesList: Array<Uint8Array | string>,
     centersList: Array<proto_api_common_v1_common_pb.Vector3.AsObject>,
-    boundingBoxesList: Array<CameraServiceBoxGeometry.AsObject>,
+    boundingBoxesList: Array<proto_api_common_v1_common_pb.BoxGeometry.AsObject>,
   }
 }
 

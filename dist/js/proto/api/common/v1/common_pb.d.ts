@@ -75,3 +75,31 @@ export namespace Vector3 {
   }
 }
 
+export class BoxGeometry extends jspb.Message {
+  getWidth(): number;
+  setWidth(value: number): void;
+
+  getLength(): number;
+  setLength(value: number): void;
+
+  getDepth(): number;
+  setDepth(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BoxGeometry.AsObject;
+  static toObject(includeInstance: boolean, msg: BoxGeometry): BoxGeometry.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BoxGeometry, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoxGeometry;
+  static deserializeBinaryFromReader(message: BoxGeometry, reader: jspb.BinaryReader): BoxGeometry;
+}
+
+export namespace BoxGeometry {
+  export type AsObject = {
+    width: number,
+    length: number,
+    depth: number,
+  }
+}
+

@@ -32,3 +32,9 @@ message Vector3 {
   double y = 2;
   double z = 3;
 }
+
+message BoxGeometry {
+  double width = 1;
+  double length = 2;
+  double depth = 3;
+}

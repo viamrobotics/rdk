@@ -46,49 +46,64 @@ service CameraService {
 }
 
 message CameraServiceFrameRequest {
+  // Name of a camera
   string name = 1;
+  // Requested MIME type of response
   string mime_type = 2;
 }
 
 message CameraServiceFrameResponse {
+  // Actual MIME type of response
   string mime_type = 1;
+  // Frame in bytes
   bytes frame = 2;
+  // Width of frame
   int64 dim_x = 3;
+  // Height of frame
   int64 dim_y = 4;
 }
 
 message CameraServiceRenderFrameRequest {
+  // Name of a camera
   string name = 1;
+  // Requested MIME type of response
   string mime_type = 2;
 }
 
 message CameraServicePointCloudRequest {
+  // Name of a camera
   string name = 1;
+  // Requested MIME type of response
   string mime_type = 2;
 }
 
 message CameraServicePointCloudResponse {
+  // Actual MIME type of response
   string mime_type = 1;
+  // Frame in bytes
   bytes frame = 2;
 }
 
 message CameraServiceObjectPointCloudsRequest {
+  // Name of a camera
   string name = 1;
+  // Requested MIME type of response
   string mime_type = 2;
+  // Minimum points in plane
   int64 min_points_in_plane = 3;
+  // Minimum points in segment
   int64 min_points_in_segment = 4;
+  // Clustering radius
   double clustering_radius = 5;
 }
 
-message CameraServiceBoxGeometry {
-  double width = 1;
-  double length = 2;
-  double depth = 3;
-}
-
 message CameraServiceObjectPointCloudsResponse {
+  // Actual MIME type of response
   string mime_type = 1;
+  // Frame of each object in bytes
   repeated bytes frames = 2;
+  // Center of each object in vector form
   repeated common.v1.Vector3 centers = 3;
-  repeated CameraServiceBoxGeometry bounding_boxes = 4;
+  // Bounding box of each object
+  repeated common.v1.BoxGeometry bounding_boxes = 4;
 }
