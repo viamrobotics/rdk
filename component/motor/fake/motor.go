@@ -8,25 +8,29 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 )
 
 func init() {
-	registry.RegisterMotor(modelName, registry.Motor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error) {
-		mcfg := config.ConvertedAttributes.(*motor.Config)
-		if mcfg.PID != nil {
-			pid, err := motor.CreatePID(mcfg.PID)
-			if err != nil {
-				return nil, err
+	_motor := registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			mcfg := config.ConvertedAttributes.(*motor.Config)
+			if mcfg.PID != nil {
+				pid, err := motor.CreatePID(mcfg.PID)
+				if err != nil {
+					return nil, err
+				}
+				return &Motor{Name: config.Name, pid: pid}, nil
 			}
-			return &Motor{Name: config.Name, pid: pid}, nil
-		}
-		return &Motor{Name: config.Name, pid: nil}, nil
-	}})
-	motor.RegisterConfigAttributeConverter(modelName)
+			return &Motor{Name: config.Name, pid: nil}, nil
+		},
+	}
+	registry.RegisterComponent(motor.Subtype, "fake", _motor)
+
+	motor.RegisterConfigAttributeConverter("fake")
 }
 
 // A Motor allows setting and reading a set power percentage and
@@ -55,8 +59,8 @@ func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-// Power sets the given power percentage.
-func (m *Motor) Power(ctx context.Context, powerPct float64) error {
+// SetPower sets the given power percentage.
+func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.setPowerPct(powerPct)
@@ -123,8 +127,8 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 	return errors.New("unsupported")
 }
 
-// Zero always returns an error
-func (m *Motor) Zero(ctx context.Context, offset float64) error {
+// SetToZeroPosition always returns an error
+func (m *Motor) SetToZeroPosition(ctx context.Context, offset float64) error {
 	return errors.New("unsupported")
 }
 

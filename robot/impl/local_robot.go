@@ -16,12 +16,12 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/metadata/service"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
@@ -49,13 +49,11 @@ import (
 	_ "go.viam.com/core/component/gantry/register"  // for all gantries
 	_ "go.viam.com/core/component/gripper/register" // for all grippers
 	_ "go.viam.com/core/component/imu/register"     // for all IMU
+	_ "go.viam.com/core/component/motor/register"   // for all motors
 	_ "go.viam.com/core/component/servo/register"   // for a servo
 	_ "go.viam.com/core/input/gamepad"              // xbox controller and similar
 	_ "go.viam.com/core/input/mux"
 	_ "go.viam.com/core/input/webgamepad" // gamepads via webbrowser
-	_ "go.viam.com/core/motor/gpio"
-	_ "go.viam.com/core/motor/gpiostepper"
-	_ "go.viam.com/core/motor/tmcstepper"
 	_ "go.viam.com/core/platformdetector/pi"
 	_ "go.viam.com/core/robots/eva" // for eva
 	_ "go.viam.com/core/robots/fake"
@@ -392,14 +390,6 @@ func (r *localRobot) newSensor(ctx context.Context, config config.Component, sen
 	f := registry.SensorLookup(sensorType, config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown sensor model (type=%s): %s", sensorType, config.Model)
-	}
-	return f.Constructor(ctx, r, config, r.logger)
-}
-
-func (r *localRobot) newMotor(ctx context.Context, config config.Component) (motor.Motor, error) {
-	f := registry.MotorLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown motor model: %s", config.Model)
 	}
 	return f.Constructor(ctx, r, config, r.logger)
 }

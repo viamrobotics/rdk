@@ -26,13 +26,13 @@ import (
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/imu"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	metadataserver "go.viam.com/core/grpc/metadata/server"
 	"go.viam.com/core/grpc/server"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	componentpb "go.viam.com/core/proto/api/component/v1"
 	metadatapb "go.viam.com/core/proto/api/service/v1"
@@ -334,7 +334,7 @@ func TestClient(t *testing.T) {
 	injectBoard := &inject.Board{}
 	injectMotor := &inject.Motor{}
 	var capPowerMotorArgs []interface{}
-	injectMotor.PowerFunc = func(ctx context.Context, powerPct float64) error {
+	injectMotor.SetPowerFunc = func(ctx context.Context, powerPct float64) error {
 		capPowerMotorArgs = []interface{}{powerPct}
 		return nil
 	}
@@ -359,7 +359,7 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 	var capZeroMotorArgs []interface{}
-	injectMotor.ZeroFunc = func(ctx context.Context, offset float64) error {
+	injectMotor.SetToZeroPositionFunc = func(ctx context.Context, offset float64) error {
 		capZeroMotorArgs = []interface{}{offset}
 		return nil
 	}
@@ -819,7 +819,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
 
-	err = motor1.Power(context.Background(), 0)
+	err = motor1.SetPower(context.Background(), 0)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
 	_, err = motor1.Position(context.Background())
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
@@ -831,7 +831,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
 	err = motor1.GoTo(context.Background(), 0, 0)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-	err = motor1.Zero(context.Background(), 0)
+	err = motor1.SetToZeroPosition(context.Background(), 0)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
 	err = motor1.GoTillStop(context.Background(), 0, nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
@@ -990,7 +990,7 @@ func TestClient(t *testing.T) {
 	test.That(t, capGoMotorArgs, test.ShouldResemble, []interface{}{float64(1)})
 	test.That(t, capMotorName, test.ShouldEqual, "motor1")
 
-	err = motor1.Power(context.Background(), 1)
+	err = motor1.SetPower(context.Background(), 1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capPowerMotorArgs, test.ShouldResemble, []interface{}{float64(1)})
 	test.That(t, capMotorName, test.ShouldEqual, "motor1")
@@ -1035,11 +1035,11 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capGoForMotorArgs, test.ShouldResemble, []interface{}{-1.2, -3.4})
 
-	err = motor2.Power(context.Background(), 0.5)
+	err = motor2.SetPower(context.Background(), 0.5)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capPowerMotorArgs, test.ShouldResemble, []interface{}{float64(0.5)})
 
-	err = motor2.Power(context.Background(), -0.5)
+	err = motor2.SetPower(context.Background(), -0.5)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capPowerMotorArgs, test.ShouldResemble, []interface{}{float64(-0.5)})
 
@@ -1058,7 +1058,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capGoTillStopMotorArgs, test.ShouldResemble, []interface{}{41.1, (func(context.Context) bool)(nil)})
 
-	err = motor2.Zero(context.Background(), 5.1)
+	err = motor2.SetToZeroPosition(context.Background(), 5.1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capZeroMotorArgs, test.ShouldResemble, []interface{}{5.1})
 

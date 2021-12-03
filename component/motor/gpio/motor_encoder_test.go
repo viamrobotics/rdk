@@ -9,8 +9,9 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/motor"
+	fakemotor "go.viam.com/core/component/motor/fake"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/robots/fake"
 
@@ -28,7 +29,7 @@ func TestMotorEncoder1(t *testing.T) {
 	defer undo()
 
 	cfg := motor.Config{TicksPerRotation: 100}
-	real := &fake.Motor{}
+	real := &fakemotor.Motor{}
 	interrupt := &board.BasicDigitalInterrupt{}
 
 	motorIfc, err := NewEncodedMotor(config.Component{}, cfg, real, nil, logger)
@@ -219,7 +220,7 @@ func TestMotorEncoderHall(t *testing.T) {
 	defer undo()
 
 	cfg := motor.Config{TicksPerRotation: 100}
-	real := &fake.Motor{}
+	real := &fakemotor.Motor{}
 	encoderA := &board.BasicDigitalInterrupt{}
 	encoderB := &board.BasicDigitalInterrupt{}
 	encoder := board.NewHallEncoder(encoderA, encoderB)
@@ -366,7 +367,7 @@ func TestMotorEncoderHall(t *testing.T) {
 
 func TestWrapMotorWithEncoder(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	real := &fake.Motor{}
+	real := &fakemotor.Motor{}
 
 	t.Run("wrap motor no encoder", func(t *testing.T) {
 		m, err := WrapMotorWithEncoder(context.Background(), nil, config.Component{Name: "motor1"}, motor.Config{}, real, logger)
