@@ -5,14 +5,14 @@ import (
 	"testing"
 
 	"go.viam.com/core/rimage"
+	"go.viam.com/test"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
-	"go.viam.com/test"
 )
 
 type homographyTestHelper struct {
-	params *DepthColorHomography
+	params *PinholeCameraHomography
 }
 
 func (h *homographyTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
@@ -49,7 +49,7 @@ func TestNewHomography(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestDepthColorHomography(t *testing.T) {
+func TestPinholeCameraHomography(t *testing.T) {
 	intrinsics := PinholeCameraIntrinsics{ // color camera intrinsic parameters
 		Width:      1024,
 		Height:     768,
@@ -60,14 +60,14 @@ func TestDepthColorHomography(t *testing.T) {
 		Distortion: DistortionModel{0.11297234, -0.21375332, -0.01584774, -0.00302002, 0.19969297},
 	}
 
-	conf := &RawDepthColorHomography{
+	conf := &RawPinholeCameraHomography{
 		ColorCamera:  intrinsics,
 		Homography:   []float64{2.32700501e-01, -8.33535395e-03, -3.61894025e+01, -1.90671303e-03, 2.35303232e-01, 8.38582614e+00, -6.39101664e-05, -4.64582754e-05, 1.00000000e+00},
 		DepthToColor: false,
 		RotateDepth:  -90,
 	}
 
-	dch, err := NewDepthColorHomography(conf)
+	dch, err := NewPinholeCameraHomography(conf)
 	test.That(t, err, test.ShouldBeNil)
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
 	err = d.Process(t, &homographyTestHelper{dch})

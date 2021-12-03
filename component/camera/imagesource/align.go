@@ -70,7 +70,7 @@ func init() {
 	})
 
 	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "homography", func(val interface{}) (interface{}, error) {
-		homography := &transform.RawDepthColorHomography{}
+		homography := &transform.RawPinholeCameraHomography{}
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: homography})
 		if err != nil {
 			return nil, err
@@ -108,8 +108,8 @@ func NewDepthComposed(color, depth gostream.ImageSource, attrs config.AttributeM
 		}
 		projectCamera = alignCamera
 	} else if attrs.Has("homography") {
-		conf := attrs["homography"].(*transform.RawDepthColorHomography)
-		alignCamera, err = transform.NewDepthColorHomography(conf)
+		conf := attrs["homography"].(*transform.RawPinholeCameraHomography)
+		alignCamera, err = transform.NewPinholeCameraHomography(conf)
 		if err != nil {
 			return nil, err
 		}
