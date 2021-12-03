@@ -45,7 +45,7 @@ service RobotService {
 
   // Base
 
-  // BaseMoveStraight moves a robot's base in a straight line at a given distance, expressed in millimeters
+  // BaseMoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
   // and a given speed, expressed in millimeters per second 
   rpc BaseMoveStraight(BaseMoveStraightRequest) returns (BaseMoveStraightResponse) {
     option (google.api.http) = {
@@ -53,7 +53,7 @@ service RobotService {
     };  
   }
 
-// MoveArc moves the robot's base in an arc a given distance, expressed in millimeters,
+// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
 // a given speed, espressed in millimeters per second of movement, and a given angle exoressed in degrees
 // TO DO: Document what happens if block = true 
   rpc BaseMoveArc(BaseMoveArcRequest) returns (BaseMoveArcResponse) {
@@ -689,14 +689,20 @@ message BaseMoveStraightResponse {
 message BaseMoveArcRequest {
   // Name of a base
   string name = 1;
+  // Desired travel distance in millimeters
   int64 distance_millis = 2;
+  // Desired speed in millimeters per second 
   double millis_per_sec = 3;
+  // Desired angle in degrees
   double angle_deg = 4;
 }
 
 message BaseMoveArcResponse {
+  // Returns true if robot completed the requested method
   bool success = 1;
+  // If success = false, this provides a description of the error 
   string error = 2;
+
   int64 distance_millis = 3;
 }
 
@@ -713,8 +719,8 @@ message BaseSpinResponse {
   // Returns true if robot completed the requested method
   bool success = 1;
   // If success = false, this provides a description of the error 
- 
   string error = 2;
+  // Returns the actual distance travelled by the robot as a result of this method call
   double angle_deg = 3;
 }
 
@@ -726,10 +732,12 @@ message BaseStopRequest {
 message BaseStopResponse {}
 
 message BaseWidthMillisRequest {
+  // Name of a base
   string name = 1;
 }
 
 message BaseWidthMillisResponse {
+  // Width of the base represented in millimeters 
   int64 width_millis = 1;
 }
 

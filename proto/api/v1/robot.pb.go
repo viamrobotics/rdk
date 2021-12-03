@@ -1291,10 +1291,13 @@ type BaseMoveArcRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Name of a base
-	Name           string  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	DistanceMillis int64   `protobuf:"varint,2,opt,name=distance_millis,json=distanceMillis,proto3" json:"distance_millis,omitempty"`
-	MillisPerSec   float64 `protobuf:"fixed64,3,opt,name=millis_per_sec,json=millisPerSec,proto3" json:"millis_per_sec,omitempty"`
-	AngleDeg       float64 `protobuf:"fixed64,4,opt,name=angle_deg,json=angleDeg,proto3" json:"angle_deg,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Desired travel distance in millimeters
+	DistanceMillis int64 `protobuf:"varint,2,opt,name=distance_millis,json=distanceMillis,proto3" json:"distance_millis,omitempty"`
+	// Desired speed in millimeters per second
+	MillisPerSec float64 `protobuf:"fixed64,3,opt,name=millis_per_sec,json=millisPerSec,proto3" json:"millis_per_sec,omitempty"`
+	// Desired angle in degrees
+	AngleDeg float64 `protobuf:"fixed64,4,opt,name=angle_deg,json=angleDeg,proto3" json:"angle_deg,omitempty"`
 }
 
 func (x *BaseMoveArcRequest) Reset() {
@@ -1362,7 +1365,9 @@ type BaseMoveArcResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Success        bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Returns true if robot completed the requested method
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// If success = false, this provides a description of the error
 	Error          string `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	DistanceMillis int64  `protobuf:"varint,3,opt,name=distance_millis,json=distanceMillis,proto3" json:"distance_millis,omitempty"`
 }
@@ -1426,8 +1431,10 @@ type BaseSpinRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Name of a base
-	Name       string  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	AngleDeg   float64 `protobuf:"fixed64,2,opt,name=angle_deg,json=angleDeg,proto3" json:"angle_deg,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Desired angle
+	AngleDeg float64 `protobuf:"fixed64,2,opt,name=angle_deg,json=angleDeg,proto3" json:"angle_deg,omitempty"`
+	// Desired angular velocity
 	DegsPerSec float64 `protobuf:"fixed64,3,opt,name=degs_per_sec,json=degsPerSec,proto3" json:"degs_per_sec,omitempty"`
 }
 
@@ -1489,8 +1496,11 @@ type BaseSpinResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Success  bool    `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	Error    string  `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	// Returns true if robot completed the requested method
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// If success = false, this provides a description of the error
+	Error string `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	// Returns the actual distance travelled by the robot as a result of this method call
 	AngleDeg float64 `protobuf:"fixed64,3,opt,name=angle_deg,json=angleDeg,proto3" json:"angle_deg,omitempty"`
 }
 
@@ -1638,6 +1648,7 @@ type BaseWidthMillisRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Name of a base
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 }
 
@@ -1685,6 +1696,7 @@ type BaseWidthMillisResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Width of the base represented in millimeters
 	WidthMillis int64 `protobuf:"varint,1,opt,name=width_millis,json=widthMillis,proto3" json:"width_millis,omitempty"`
 }
 

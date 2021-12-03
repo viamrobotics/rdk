@@ -30,10 +30,10 @@ type RobotServiceClient interface {
 	Config(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error)
-	// BaseMoveStraight moves a robot's base in a straight line at a given distance, expressed in millimeters
+	// BaseMoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
 	// and a given speed, expressed in millimeters per second
 	BaseMoveStraight(ctx context.Context, in *BaseMoveStraightRequest, opts ...grpc.CallOption) (*BaseMoveStraightResponse, error)
-	// MoveArc moves the robot's base in an arc a given distance, expressed in millimeters,
+	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
 	// a given speed, espressed in millimeters per second of movement, and a given angle exoressed in degrees
 	// TO DO: Document what happens if block = true
 	BaseMoveArc(ctx context.Context, in *BaseMoveArcRequest, opts ...grpc.CallOption) (*BaseMoveArcResponse, error)
@@ -930,10 +930,10 @@ type RobotServiceServer interface {
 	Config(context.Context, *ConfigRequest) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error)
-	// BaseMoveStraight moves a robot's base in a straight line at a given distance, expressed in millimeters
+	// BaseMoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
 	// and a given speed, expressed in millimeters per second
 	BaseMoveStraight(context.Context, *BaseMoveStraightRequest) (*BaseMoveStraightResponse, error)
-	// MoveArc moves the robot's base in an arc a given distance, expressed in millimeters,
+	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
 	// a given speed, espressed in millimeters per second of movement, and a given angle exoressed in degrees
 	// TO DO: Document what happens if block = true
 	BaseMoveArc(context.Context, *BaseMoveArcRequest) (*BaseMoveArcResponse, error)

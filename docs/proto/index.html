@@ -2046,21 +2046,21 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>distance_millis</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Desired travel distance in millimeters </p></td>
                 </tr>
               
                 <tr>
                   <td>millis_per_sec</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Desired speed in millimeters per second </p></td>
                 </tr>
               
                 <tr>
                   <td>angle_deg</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Desired angle in degrees </p></td>
                 </tr>
               
             </tbody>
@@ -2084,14 +2084,14 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>success</td>
                   <td><a href="#bool">bool</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns true if robot completed the requested method </p></td>
                 </tr>
               
                 <tr>
                   <td>error</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>If success = false, this provides a description of the error </p></td>
                 </tr>
               
                 <tr>
@@ -2205,14 +2205,14 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>angle_deg</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Desired angle </p></td>
                 </tr>
               
                 <tr>
                   <td>degs_per_sec</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Desired angular velocity </p></td>
                 </tr>
               
             </tbody>
@@ -2236,21 +2236,21 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>success</td>
                   <td><a href="#bool">bool</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns true if robot completed the requested method </p></td>
                 </tr>
               
                 <tr>
                   <td>error</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>If success = false, this provides a description of the error </p></td>
                 </tr>
               
                 <tr>
                   <td>angle_deg</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns the actual distance travelled by the robot as a result of this method call </p></td>
                 </tr>
               
             </tbody>
@@ -2305,7 +2305,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a base </p></td>
                 </tr>
               
             </tbody>
@@ -2329,7 +2329,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>width_millis</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Width of the base represented in millimeters </p></td>
                 </tr>
               
             </tbody>
@@ -6995,7 +6995,7 @@ And not the pieces relevant to local configuration (pins, security keys, etc...)
                 <td>BaseMoveStraight</td>
                 <td><a href="#proto.api.v1.BaseMoveStraightRequest">BaseMoveStraightRequest</a></td>
                 <td><a href="#proto.api.v1.BaseMoveStraightResponse">BaseMoveStraightResponse</a></td>
-                <td><p>BaseMoveStraight moves a robot&#39;s base in a straight line at a given distance, expressed in millimeters
+                <td><p>BaseMoveStraight moves a robot&#39;s base in a straight line by a given distance, expressed in millimeters
 and a given speed, expressed in millimeters per second</p></td>
               </tr>
             
@@ -7003,7 +7003,7 @@ and a given speed, expressed in millimeters per second</p></td>
                 <td>BaseMoveArc</td>
                 <td><a href="#proto.api.v1.BaseMoveArcRequest">BaseMoveArcRequest</a></td>
                 <td><a href="#proto.api.v1.BaseMoveArcResponse">BaseMoveArcResponse</a></td>
-                <td><p>MoveArc moves the robot&#39;s base in an arc a given distance, expressed in millimeters,
+                <td><p>MoveArc moves the robot&#39;s base in an arc by a given distance, expressed in millimeters,
 a given speed, espressed in millimeters per second of movement, and a given angle exoressed in degrees
 TO DO: Document what happens if block = true</p></td>
               </tr>
