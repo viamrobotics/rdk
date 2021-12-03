@@ -1158,9 +1158,12 @@ type BaseMoveStraightRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name           string  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	DistanceMillis int64   `protobuf:"varint,2,opt,name=distance_millis,json=distanceMillis,proto3" json:"distance_millis,omitempty"`
-	MillisPerSec   float64 `protobuf:"fixed64,3,opt,name=millis_per_sec,json=millisPerSec,proto3" json:"millis_per_sec,omitempty"`
+	// Name of a base
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Desired travel distance in millimeters
+	DistanceMillis int64 `protobuf:"varint,2,opt,name=distance_millis,json=distanceMillis,proto3" json:"distance_millis,omitempty"`
+	// Desired travel velocity in millimeters/second
+	MillisPerSec float64 `protobuf:"fixed64,3,opt,name=millis_per_sec,json=millisPerSec,proto3" json:"millis_per_sec,omitempty"`
 }
 
 func (x *BaseMoveStraightRequest) Reset() {
@@ -1221,9 +1224,12 @@ type BaseMoveStraightResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Success        bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	Error          string `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
-	DistanceMillis int64  `protobuf:"varint,3,opt,name=distance_millis,json=distanceMillis,proto3" json:"distance_millis,omitempty"`
+	// Returns true if robot completed the requested method
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// If success = false, this provides a description of the error
+	Error string `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	// Returns the actual distance travelled by the robot as a result of this method call
+	DistanceMillis int64 `protobuf:"varint,3,opt,name=distance_millis,json=distanceMillis,proto3" json:"distance_millis,omitempty"`
 }
 
 func (x *BaseMoveStraightResponse) Reset() {
@@ -1284,6 +1290,7 @@ type BaseMoveArcRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Name of a base
 	Name           string  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	DistanceMillis int64   `protobuf:"varint,2,opt,name=distance_millis,json=distanceMillis,proto3" json:"distance_millis,omitempty"`
 	MillisPerSec   float64 `protobuf:"fixed64,3,opt,name=millis_per_sec,json=millisPerSec,proto3" json:"millis_per_sec,omitempty"`
@@ -1418,6 +1425,7 @@ type BaseSpinRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Name of a base
 	Name       string  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	AngleDeg   float64 `protobuf:"fixed64,2,opt,name=angle_deg,json=angleDeg,proto3" json:"angle_deg,omitempty"`
 	DegsPerSec float64 `protobuf:"fixed64,3,opt,name=degs_per_sec,json=degsPerSec,proto3" json:"degs_per_sec,omitempty"`
@@ -1544,6 +1552,7 @@ type BaseStopRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Name of a base
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 }
 

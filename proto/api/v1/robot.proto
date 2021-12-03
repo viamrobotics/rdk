@@ -45,34 +45,37 @@ service RobotService {
 
   // Base
 
-  // BaseMoveStraight moves a base of the underlying robot straight.
+  // MoveStraight moves the robot straight a given distance at a given speed. The method
+	// can be requested to stop via BaseStop until the movement is complete
   rpc BaseMoveStraight(BaseMoveStraightRequest) returns (BaseMoveStraightResponse) {
     option (google.api.http) = {
       post: "/api/v1/base/{name}/move_straight"
     };  
   }
 
+//MoveArc moves the robot in an arc a given distance at a given speed and degrees per second of movement
   rpc BaseMoveArc(BaseMoveArcRequest) returns (BaseMoveArcResponse) {
     option (google.api.http) = {
       post: "/api/v1/base/{name}/move_arc"
     };  
   }
 
-  // BaseSpin spins a base of the underlying robot.
+	// Spin spins the robot by a given angle in degrees at a given speed. The method
+	// can be requested to stop via BaseStop until the movement is complete
   rpc BaseSpin(BaseSpinRequest) returns (BaseSpinResponse) {
     option (google.api.http) = {
       post: "/api/v1/base/{name}/spin"
     };  
   }
 
-  // BaseSpin stops a base of the underlying robot.
+  // BaseStop stops the base
   rpc BaseStop(BaseStopRequest) returns (BaseStopResponse) {
     option (google.api.http) = {
       post: "/api/v1/base/{name}/stop"
     };  
   }
 
-  // BaseWidthMillis returns the width of a base of the underlying robot.
+  // BaseWidthMillis returns the width of the robot in millimeters
   rpc BaseWidthMillis(BaseWidthMillisRequest) returns (BaseWidthMillisResponse) {
     option (google.api.http) = {
       get: "/api/v1/base/{name}/width_millis"
@@ -664,18 +667,25 @@ message FrameServiceConfigResponse {
 // Base
 
 message BaseMoveStraightRequest {
+  // Name of a base
   string name = 1;
+  // Desired travel distance in millimeters
   int64 distance_millis = 2;
+  // Desired travel velocity in millimeters/second
   double millis_per_sec = 3;
 }
 
 message BaseMoveStraightResponse {
+  // Returns true if robot completed the requested method
   bool success = 1;
+  // If success = false, this provides a description of the error 
   string error = 2;
+  // Returns the actual distance travelled by the robot as a result of this method call
   int64 distance_millis = 3;
 }
 
 message BaseMoveArcRequest {
+  // Name of a base
   string name = 1;
   int64 distance_millis = 2;
   double millis_per_sec = 3;
@@ -689,18 +699,25 @@ message BaseMoveArcResponse {
 }
 
 message BaseSpinRequest {
+  // Name of a base
   string name = 1;
+  // Desired angle
   double angle_deg = 2;
+  // Desired angular velocity
   double degs_per_sec = 3;
 }
 
 message BaseSpinResponse {
+  // Returns true if robot completed the requested method
   bool success = 1;
+  // If success = false, this provides a description of the error 
+ 
   string error = 2;
   double angle_deg = 3;
 }
 
 message BaseStopRequest {
+  // Name of a base
   string name = 1;
 }
 

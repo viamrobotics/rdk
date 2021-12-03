@@ -2039,7 +2039,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a base </p></td>
                 </tr>
               
                 <tr>
@@ -2122,21 +2122,21 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a base </p></td>
                 </tr>
               
                 <tr>
                   <td>distance_millis</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Desired travel distance in millimeters </p></td>
                 </tr>
               
                 <tr>
                   <td>millis_per_sec</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Desired travel velocity in millimeters/second </p></td>
                 </tr>
               
             </tbody>
@@ -2160,21 +2160,21 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>success</td>
                   <td><a href="#bool">bool</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns true if robot completed the requested method </p></td>
                 </tr>
               
                 <tr>
                   <td>error</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>If success = false, this provides a description of the error </p></td>
                 </tr>
               
                 <tr>
                   <td>distance_millis</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns the actual distance travelled by the robot as a result of this method call </p></td>
                 </tr>
               
             </tbody>
@@ -2198,7 +2198,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a base </p></td>
                 </tr>
               
                 <tr>
@@ -2274,7 +2274,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a base </p></td>
                 </tr>
               
             </tbody>
@@ -6995,35 +6995,37 @@ And not the pieces relevant to local configuration (pins, security keys, etc...)
                 <td>BaseMoveStraight</td>
                 <td><a href="#proto.api.v1.BaseMoveStraightRequest">BaseMoveStraightRequest</a></td>
                 <td><a href="#proto.api.v1.BaseMoveStraightResponse">BaseMoveStraightResponse</a></td>
-                <td><p>BaseMoveStraight moves a base of the underlying robot straight.</p></td>
+                <td><p>MoveStraight moves the robot straight a given distance at a given speed. The method
+can be requested to stop via BaseStop until the movement is complete</p></td>
               </tr>
             
               <tr>
                 <td>BaseMoveArc</td>
                 <td><a href="#proto.api.v1.BaseMoveArcRequest">BaseMoveArcRequest</a></td>
                 <td><a href="#proto.api.v1.BaseMoveArcResponse">BaseMoveArcResponse</a></td>
-                <td><p></p></td>
+                <td><p>MoveArc moves the robot in an arc a given distance at a given speed and degrees per second of movement</p></td>
               </tr>
             
               <tr>
                 <td>BaseSpin</td>
                 <td><a href="#proto.api.v1.BaseSpinRequest">BaseSpinRequest</a></td>
                 <td><a href="#proto.api.v1.BaseSpinResponse">BaseSpinResponse</a></td>
-                <td><p>BaseSpin spins a base of the underlying robot.</p></td>
+                <td><p>Spin spins the robot by a given angle in degrees at a given speed. The method
+can be requested to stop via BaseStop until the movement is complete</p></td>
               </tr>
             
               <tr>
                 <td>BaseStop</td>
                 <td><a href="#proto.api.v1.BaseStopRequest">BaseStopRequest</a></td>
                 <td><a href="#proto.api.v1.BaseStopResponse">BaseStopResponse</a></td>
-                <td><p>BaseSpin stops a base of the underlying robot.</p></td>
+                <td><p>BaseStop stops the base</p></td>
               </tr>
             
               <tr>
                 <td>BaseWidthMillis</td>
                 <td><a href="#proto.api.v1.BaseWidthMillisRequest">BaseWidthMillisRequest</a></td>
                 <td><a href="#proto.api.v1.BaseWidthMillisResponse">BaseWidthMillisResponse</a></td>
-                <td><p>BaseWidthMillis returns the width of a base of the underlying robot.</p></td>
+                <td><p>BaseWidthMillis returns the width of the robot in millimeters</p></td>
               </tr>
             
               <tr>
