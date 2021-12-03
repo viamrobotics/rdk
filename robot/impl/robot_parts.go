@@ -28,7 +28,6 @@ import (
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
-	"go.viam.com/core/sensor/imu"
 )
 
 // robotParts are the actual parts that make up a robot.
@@ -118,8 +117,6 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 		parts.sensors[c.Name] = newProxyRelativeCompass(pType.actual)
 	case *proxyGPS:
 		parts.sensors[c.Name] = newProxyGPS(pType.actual)
-	case *proxyIMU:
-		parts.sensors[c.Name] = newProxyIMU(pType.actual)
 	default:
 		switch s.Desc().Type {
 		case compass.Type:
@@ -128,8 +125,6 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 			parts.sensors[c.Name] = newProxyRelativeCompass(s.(compass.RelativeCompass))
 		case gps.Type:
 			parts.sensors[c.Name] = newProxyGPS(s.(gps.GPS))
-		case imu.Type:
-			parts.sensors[c.Name] = newProxyIMU(s.(imu.IMU))
 		case forcematrix.Type:
 			parts.sensors[c.Name] = newProxyForceMatrix(s.(forcematrix.ForceMatrix))
 		default:
