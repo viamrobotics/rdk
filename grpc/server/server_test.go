@@ -13,12 +13,12 @@ import (
 	"go.viam.com/core/action"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/client"
 	grpcserver "go.viam.com/core/grpc/server"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"
@@ -1475,7 +1475,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{-2.3, (func(context.Context) bool)(nil)})
 
-		injectMotor.ZeroFunc = func(ctx context.Context, offset float64) error {
+		injectMotor.SetToZeroPositionFunc = func(ctx context.Context, offset float64) error {
 			capArgs = []interface{}{offset}
 			return nil
 		}
@@ -1488,7 +1488,7 @@ func TestServer(t *testing.T) {
 
 		ctx := context.Background()
 
-		injectMotor.PowerFunc = func(ctx context.Context, powerPct float64) error {
+		injectMotor.SetPowerFunc = func(ctx context.Context, powerPct float64) error {
 			capArgs = []interface{}{ctx, powerPct}
 			return err1
 		}
@@ -1499,7 +1499,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldEqual, err1)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, float64(1.23)})
 
-		injectMotor.PowerFunc = func(ctx context.Context, powerPct float64) error {
+		injectMotor.SetPowerFunc = func(ctx context.Context, powerPct float64) error {
 			capArgs = []interface{}{ctx, powerPct}
 			return nil
 		}

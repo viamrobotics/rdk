@@ -12,10 +12,10 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	"go.viam.com/core/motionplan"
-	"go.viam.com/core/motor"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	componentpb "go.viam.com/core/proto/api/component/v1"
 	frame "go.viam.com/core/referenceframe"

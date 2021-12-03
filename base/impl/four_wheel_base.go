@@ -10,8 +10,8 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/base"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 

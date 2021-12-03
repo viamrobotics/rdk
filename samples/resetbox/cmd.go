@@ -15,7 +15,7 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/component/arm"
-	"go.viam.com/core/motor"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/services/web"
 
 	"go.viam.com/core/component/gripper"
@@ -137,11 +137,11 @@ func (a *LinearAxis) Off(ctx context.Context) error {
 	return errs
 }
 
-// Zero resets the "home" point
-func (a *LinearAxis) Zero(ctx context.Context, offset float64) error {
+// SetToZeroPosition resets the "home" point
+func (a *LinearAxis) SetToZeroPosition(ctx context.Context, offset float64) error {
 	var errs error
 	for _, m := range a.m {
-		multierr.AppendInto(&errs, m.Zero(ctx, offset))
+		multierr.AppendInto(&errs, m.SetToZeroPosition(ctx, offset))
 	}
 	return errs
 }
@@ -514,10 +514,10 @@ func (b *ResetBox) home(ctx context.Context) error {
 		<-errPath,
 		<-errPath,
 		<-errPath,
-		b.gate.Zero(ctx, 0),
-		b.squeeze.Zero(ctx, 0),
-		b.elevator.Zero(ctx, 0),
-		b.hammer.Zero(ctx, 0),
+		b.gate.SetToZeroPosition(ctx, 0),
+		b.squeeze.SetToZeroPosition(ctx, 0),
+		b.elevator.SetToZeroPosition(ctx, 0),
+		b.hammer.SetToZeroPosition(ctx, 0),
 	)
 
 	if errs != nil {
@@ -531,7 +531,7 @@ func (b *ResetBox) home(ctx context.Context) error {
 		b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom),
 		b.hammer.GoTo(ctx, hammerSpeed, hammerOffset),
 		b.waitPosReached(ctx, b.hammer, hammerOffset),
-		b.hammer.Zero(ctx, 0),
+		b.hammer.SetToZeroPosition(ctx, 0),
 	)
 
 	if errs != nil {
@@ -661,7 +661,7 @@ func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
 	b.waitPosReached(ctx, b.hammer, float64(count))
 
 	// As we go in one direction indefinitely, this is an easy fix for register overflow
-	err = b.hammer.Zero(ctx, 0)
+	err = b.hammer.SetToZeroPosition(ctx, 0)
 	if err != nil {
 		return err
 	}

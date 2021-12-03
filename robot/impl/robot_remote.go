@@ -17,11 +17,11 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"
@@ -462,13 +462,6 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 		}
 		parts.AddSensor(part, config.Component{Name: name})
 	}
-	for _, name := range robot.MotorNames() {
-		part, ok := robot.MotorByName(name)
-		if !ok {
-			continue
-		}
-		parts.AddMotor(part, config.Component{Name: name})
-	}
 	for _, name := range robot.InputControllerNames() {
 		part, ok := robot.InputControllerByName(name)
 		if !ok {
@@ -503,7 +496,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	var oldLidarNames map[string]struct{}
 	var oldBaseNames map[string]struct{}
 	var oldSensorNames map[string]struct{}
-	var oldMotorNames map[string]struct{}
 	var oldInputControllerNames map[string]struct{}
 	var oldFunctionNames map[string]struct{}
 	var oldServiceNames map[string]struct{}
@@ -531,12 +523,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		oldSensorNames = make(map[string]struct{}, len(parts.sensors))
 		for name := range parts.sensors {
 			oldSensorNames[name] = struct{}{}
-		}
-	}
-	if len(parts.motors) != 0 {
-		oldMotorNames = make(map[string]struct{}, len(parts.motors))
-		for name := range parts.motors {
-			oldMotorNames[name] = struct{}{}
 		}
 	}
 	if len(parts.inputControllers) != 0 {
@@ -602,15 +588,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		}
 		parts.sensors[name] = newPart
 	}
-	for name, newPart := range newParts.motors {
-		oldPart, ok := parts.motors[name]
-		delete(oldMotorNames, name)
-		if ok {
-			oldPart.replace(newPart)
-			continue
-		}
-		parts.motors[name] = newPart
-	}
 	for name, newPart := range newParts.inputControllers {
 		oldPart, ok := parts.inputControllers[name]
 		delete(oldInputControllerNames, name)
@@ -670,9 +647,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	}
 	for name := range oldSensorNames {
 		delete(parts.sensors, name)
-	}
-	for name := range oldMotorNames {
-		delete(parts.motors, name)
 	}
 	for name := range oldInputControllerNames {
 		delete(parts.inputControllers, name)

@@ -3,30 +3,30 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/core/motor"
+	"go.viam.com/core/component/motor"
 )
 
 // Motor is an injected motor.
 type Motor struct {
 	motor.Motor
-	PowerFunc             func(ctx context.Context, powerPct float64) error
+	SetPowerFunc          func(ctx context.Context, powerPct float64) error
 	GoFunc                func(ctx context.Context, powerPct float64) error
 	GoForFunc             func(ctx context.Context, rpm float64, rotations float64) error
 	GoToFunc              func(ctx context.Context, rpm float64, position float64) error
 	GoTillStopFunc        func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
-	ZeroFunc              func(ctx context.Context, offset float64) error
+	SetToZeroPositionFunc func(ctx context.Context, offset float64) error
 	PositionFunc          func(ctx context.Context) (float64, error)
 	PositionSupportedFunc func(ctx context.Context) (bool, error)
 	OffFunc               func(ctx context.Context) error
 	IsOnFunc              func(ctx context.Context) (bool, error)
 }
 
-// Power calls the injected Power or the real version.
-func (m *Motor) Power(ctx context.Context, powerPct float64) error {
-	if m.PowerFunc == nil {
-		return m.Motor.Power(ctx, powerPct)
+// SetPower calls the injected Power or the real version.
+func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
+	if m.SetPowerFunc == nil {
+		return m.Motor.SetPower(ctx, powerPct)
 	}
-	return m.PowerFunc(ctx, powerPct)
+	return m.SetPowerFunc(ctx, powerPct)
 }
 
 // Go calls the injected Go or the real version.
@@ -61,12 +61,12 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 	return m.GoTillStopFunc(ctx, rpm, stopFunc)
 }
 
-// Zero calls the injected Zero or the real version.
-func (m *Motor) Zero(ctx context.Context, offset float64) error {
-	if m.ZeroFunc == nil {
-		return m.Motor.Zero(ctx, offset)
+// SetToZeroPosition calls the injected Zero or the real version.
+func (m *Motor) SetToZeroPosition(ctx context.Context, offset float64) error {
+	if m.SetToZeroPositionFunc == nil {
+		return m.Motor.SetToZeroPosition(ctx, offset)
 	}
-	return m.ZeroFunc(ctx, offset)
+	return m.SetToZeroPositionFunc(ctx, offset)
 }
 
 // Position calls the injected Position or the real version.

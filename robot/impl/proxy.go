@@ -15,7 +15,6 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/sensor"
@@ -794,98 +793,6 @@ func (p *proxyBoardDigitalInterrupt) Close() error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return utils.TryClose(p.actual)
-}
-
-type proxyMotor struct {
-	mu     sync.RWMutex
-	actual motor.Motor
-}
-
-func (p *proxyMotor) ProxyFor() interface{} {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual
-}
-
-func (p *proxyMotor) replace(newMotor motor.Motor) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newMotor.(*proxyMotor)
-	if !ok {
-		panic(fmt.Errorf("expected new motor to be %T but got %T", actual, newMotor))
-	}
-	if err := utils.TryClose(p.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = actual.actual
-}
-func (p *proxyMotor) PID() motor.PID {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.PID()
-}
-func (p *proxyMotor) Power(ctx context.Context, powerPct float64) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Power(ctx, powerPct)
-}
-
-func (p *proxyMotor) Go(ctx context.Context, powerPct float64) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Go(ctx, powerPct)
-}
-
-func (p *proxyMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.GoFor(ctx, rpm, revolutions)
-}
-
-func (p *proxyMotor) Position(ctx context.Context) (float64, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Position(ctx)
-}
-
-func (p *proxyMotor) PositionSupported(ctx context.Context) (bool, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.PositionSupported(ctx)
-}
-
-func (p *proxyMotor) Off(ctx context.Context) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Off(ctx)
-}
-
-func (p *proxyMotor) IsOn(ctx context.Context) (bool, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.IsOn(ctx)
-}
-
-func (p *proxyMotor) Close() error {
-	return utils.TryClose(p.actual)
-}
-
-func (p *proxyMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.GoTo(ctx, rpm, position)
-}
-
-func (p *proxyMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.GoTillStop(ctx, rpm, stopFunc)
-}
-
-func (p *proxyMotor) Zero(ctx context.Context, offset float64) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Zero(ctx, offset)
 }
 
 type proxyInputController struct {
