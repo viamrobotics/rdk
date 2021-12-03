@@ -252,7 +252,7 @@ func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golo
 	}
 	b.rc = &rcRemoteControl{bb}
 
-	tempIMU, ok := r.SensorByName("imu")
+	tempIMU, ok := r.ResourceByName(imu.Named("imu"))
 	if !ok {
 		return nil, errors.New("need imu")
 	}
