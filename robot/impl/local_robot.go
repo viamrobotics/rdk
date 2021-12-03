@@ -40,9 +40,6 @@ import (
 	_ "go.viam.com/core/function/vm/engines/javascript"
 
 	// These are the robot pieces we want by default
-	_ "go.viam.com/SensorExporter/go"
-
-	// These are the robot pieces we want by default
 	_ "go.viam.com/core/base/impl"
 	_ "go.viam.com/core/board/arduino"
 	_ "go.viam.com/core/board/jetson"
@@ -58,6 +55,7 @@ import (
 	_ "go.viam.com/core/component/gripper/vx300s"       // for a gripper
 	_ "go.viam.com/core/component/gripper/wx250s"       // for a gripper
 	_ "go.viam.com/core/component/gripper/yahboom"      // for a gripper
+	_ "go.viam.com/core/component/imu/register"         // for all IMU
 	_ "go.viam.com/core/component/servo/fake"           // for a servo
 	_ "go.viam.com/core/input/gamepad"                  // xbox controller and similar
 	_ "go.viam.com/core/input/mux"
