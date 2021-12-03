@@ -32,6 +32,9 @@ type ArmJointPositions struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// A list of joint positions represented in degrees
+	// The numbers are ordered spatially from the base toward the end effector
+	// This is used in ArmServiceCurrentJointPositionsResponse and ArmServiceMoveToJointPositionsRequest
 	Degrees []float64 `protobuf:"fixed64,1,rep,packed,name=degrees,proto3" json:"degrees,omitempty"`
 }
 
@@ -79,6 +82,7 @@ type ArmServiceCurrentPositionRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Name of an arm
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 }
 
@@ -126,6 +130,8 @@ type ArmServiceCurrentPositionResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Returns 6d pose of the end effector relative to the base, represented by X,Y,Z coordinates which express
+	// millimeters and theta, ox, oy, oz coordinates which express an orientation vector
 	Position *v1.Pose `protobuf:"bytes,1,opt,name=position,proto3" json:"position,omitempty"`
 }
 
@@ -173,6 +179,7 @@ type ArmServiceCurrentJointPositionsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Name of an arm
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 }
 
@@ -220,6 +227,7 @@ type ArmServiceCurrentJointPositionsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	//a list ArmJointPositions
 	Positions *ArmJointPositions `protobuf:"bytes,1,opt,name=positions,proto3" json:"positions,omitempty"`
 }
 
@@ -267,8 +275,10 @@ type ArmServiceMoveToPositionRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	To   *v1.Pose `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
+	// Name of an arm
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// X, Y, Z, ox, oy, ox, theta
+	To *v1.Pose `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
 }
 
 func (x *ArmServiceMoveToPositionRequest) Reset() {
@@ -360,8 +370,11 @@ type ArmServiceMoveToJointPositionsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name string             `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	To   *ArmJointPositions `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
+	// Name of an arm
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// A list of joint positions represented in degrees
+	// There should be 1 entry in the list per joint, ordered spatially from the base toward the end effector
+	To *ArmJointPositions `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
 }
 
 func (x *ArmServiceMoveToJointPositionsRequest) Reset() {
@@ -453,8 +466,11 @@ type ArmServiceJointMoveDeltaRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name       string  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Joint      int32   `protobuf:"varint,2,opt,name=joint,proto3" json:"joint,omitempty"`
+	// Name of an arm
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// To specify a joint, refer to base as 0 and count forwards up to the end effector
+	Joint int32 `protobuf:"varint,2,opt,name=joint,proto3" json:"joint,omitempty"`
+	// Specify degrees, can be positive or negative
 	AmountDegs float64 `protobuf:"fixed64,3,opt,name=amount_degs,json=amountDegs,proto3" json:"amount_degs,omitempty"`
 }
 

@@ -22,8 +22,6 @@ import (
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
-	"go.viam.com/core/sensor/imu"
-	"go.viam.com/core/spatialmath"
 )
 
 type proxyBase struct {
@@ -349,64 +347,6 @@ func (p *proxyGPS) ProxyFor() interface{} {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual
-}
-
-func newProxyIMU(actual imu.IMU) *proxyIMU {
-	return &proxyIMU{actual: actual}
-}
-
-type proxyIMU struct {
-	mu     sync.RWMutex
-	actual imu.IMU
-}
-
-func (p *proxyIMU) Readings(ctx context.Context) ([]interface{}, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Readings(ctx)
-}
-
-func (p *proxyIMU) Desc() sensor.Description {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Desc()
-}
-
-func (p *proxyIMU) Close() error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return utils.TryClose(p.actual)
-}
-
-func (p *proxyIMU) replace(newSensor sensor.Sensor) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newSensor.(*proxyIMU)
-	if !ok {
-		panic(fmt.Errorf("expected new sensor to be %T but got %T", actual, newSensor))
-	}
-	if err := utils.TryClose(p.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = actual.actual
-}
-
-func (p *proxyIMU) ProxyFor() interface{} {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual
-}
-
-func (p *proxyIMU) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.AngularVelocity(ctx)
-}
-
-func (p *proxyIMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Orientation(ctx)
 }
 
 type proxyForceMatrix struct {

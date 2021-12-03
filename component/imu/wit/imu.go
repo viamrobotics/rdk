@@ -10,11 +10,11 @@ import (
 
 	slib "github.com/jacobsa/go-serial/serial"
 
+	"go.viam.com/core/component/imu"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/spatialmath"
 
 	"go.viam.com/utils"
@@ -25,12 +25,18 @@ import (
 const model = "wit"
 
 func init() {
-	registry.RegisterSensor(imu.Type, model, registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-		return witIMU(ctx, r, config, logger)
-	}})
+	registry.RegisterComponent(imu.Subtype, model, registry.Component{
+		Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return NewWit(ctx, r, config, logger)
+		}})
 }
 
-type myIMU struct {
+type wit struct {
 	angularVelocity spatialmath.AngularVelocity
 	orientation     spatialmath.EulerAngles
 	lastError       error
@@ -41,31 +47,30 @@ type myIMU struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (i *myIMU) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (i *wit) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return i.angularVelocity, i.lastError
 }
 
-func (i *myIMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (i *wit) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return &i.orientation, i.lastError
 }
 
-func (i *myIMU) Readings(ctx context.Context) ([]interface{}, error) {
+func (i *wit) Readings(ctx context.Context) ([]interface{}, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return []interface{}{i.angularVelocity, i.orientation}, i.lastError
 }
 
-func (i *myIMU) Desc() sensor.Description {
-	return sensor.Description{imu.Type, model}
+func (i *wit) Desc() sensor.Description {
+	return sensor.Description{sensor.Type(imu.SubtypeName), model}
 }
 
-// -----
-
-func witIMU(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+// NewWit creates a new Wit IMU
+func NewWit(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 	options := slib.OpenOptions{
 		BaudRate:        9600, // 115200, wanted to set higher but windows software was being weird about it
 		DataBits:        8,
@@ -85,7 +90,7 @@ func witIMU(ctx context.Context, r robot.Robot, config config.Component, logger 
 
 	portReader := bufio.NewReader(port)
 
-	var i myIMU
+	var i wit
 
 	ctx, i.cancelFunc = context.WithCancel(context.Background())
 	i.activeBackgroundWorkers.Add(1)
@@ -128,7 +133,7 @@ func scale(a, b byte, r float64) float64 {
 	return x
 }
 
-func (i *myIMU) parseWIT(line string) error {
+func (i *wit) parseWIT(line string) error {
 	if line[0] == 0x52 {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu angularVelocity %d %v", len(line), line)
@@ -151,7 +156,7 @@ func (i *myIMU) parseWIT(line string) error {
 	return nil
 }
 
-func (i *myIMU) Close() error {
+func (i *wit) Close() error {
 	i.cancelFunc()
 	i.activeBackgroundWorkers.Wait()
 	return nil
