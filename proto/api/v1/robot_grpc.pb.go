@@ -30,17 +30,19 @@ type RobotServiceClient interface {
 	Config(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error)
-	// MoveStraight moves the robot straight a given distance at a given speed. The method
-	// can be requested to stop via BaseStop until the movement is complete
+	// BaseMoveStraight moves a robot's base in a straight line at a given distance, expressed in millimeters
+	// and a given speed, expressed in millimeters per second
 	BaseMoveStraight(ctx context.Context, in *BaseMoveStraightRequest, opts ...grpc.CallOption) (*BaseMoveStraightResponse, error)
-	//MoveArc moves the robot in an arc a given distance at a given speed and degrees per second of movement
+	// MoveArc moves the robot's base in an arc a given distance, expressed in millimeters,
+	// a given speed, espressed in millimeters per second of movement, and a given angle exoressed in degrees
+	// TO DO: Document what happens if block = true
 	BaseMoveArc(ctx context.Context, in *BaseMoveArcRequest, opts ...grpc.CallOption) (*BaseMoveArcResponse, error)
-	// Spin spins the robot by a given angle in degrees at a given speed. The method
-	// can be requested to stop via BaseStop until the movement is complete
+	// BaseSpin spins a robot's base by an given angle, expressed in degrees, and a given
+	// angular speed, expressed in degrees per second
 	BaseSpin(ctx context.Context, in *BaseSpinRequest, opts ...grpc.CallOption) (*BaseSpinResponse, error)
-	// BaseStop stops the base
+	// BaseStop stops a robot's base
 	BaseStop(ctx context.Context, in *BaseStopRequest, opts ...grpc.CallOption) (*BaseStopResponse, error)
-	// BaseWidthMillis returns the width of the robot in millimeters
+	// BaseWidthMillis returns the width of a robot's base expressed in millimeters
 	BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error)
 	// GripperOpen opens a gripper of the underlying robot.
 	GripperOpen(ctx context.Context, in *GripperOpenRequest, opts ...grpc.CallOption) (*GripperOpenResponse, error)
@@ -928,17 +930,19 @@ type RobotServiceServer interface {
 	Config(context.Context, *ConfigRequest) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error)
-	// MoveStraight moves the robot straight a given distance at a given speed. The method
-	// can be requested to stop via BaseStop until the movement is complete
+	// BaseMoveStraight moves a robot's base in a straight line at a given distance, expressed in millimeters
+	// and a given speed, expressed in millimeters per second
 	BaseMoveStraight(context.Context, *BaseMoveStraightRequest) (*BaseMoveStraightResponse, error)
-	//MoveArc moves the robot in an arc a given distance at a given speed and degrees per second of movement
+	// MoveArc moves the robot's base in an arc a given distance, expressed in millimeters,
+	// a given speed, espressed in millimeters per second of movement, and a given angle exoressed in degrees
+	// TO DO: Document what happens if block = true
 	BaseMoveArc(context.Context, *BaseMoveArcRequest) (*BaseMoveArcResponse, error)
-	// Spin spins the robot by a given angle in degrees at a given speed. The method
-	// can be requested to stop via BaseStop until the movement is complete
+	// BaseSpin spins a robot's base by an given angle, expressed in degrees, and a given
+	// angular speed, expressed in degrees per second
 	BaseSpin(context.Context, *BaseSpinRequest) (*BaseSpinResponse, error)
-	// BaseStop stops the base
+	// BaseStop stops a robot's base
 	BaseStop(context.Context, *BaseStopRequest) (*BaseStopResponse, error)
-	// BaseWidthMillis returns the width of the robot in millimeters
+	// BaseWidthMillis returns the width of a robot's base expressed in millimeters
 	BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error)
 	// GripperOpen opens a gripper of the underlying robot.
 	GripperOpen(context.Context, *GripperOpenRequest) (*GripperOpenResponse, error)
