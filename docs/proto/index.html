@@ -1199,7 +1199,9 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>degrees</td>
                   <td><a href="#double">double</a></td>
                   <td>repeated</td>
-                  <td><p> </p></td>
+                  <td><p>A list of joint positions represented in degrees
+The numbers are ordered spatially from the base toward the end effector
+This is used in ArmServiceCurrentJointPositionsResponse and ArmServiceMoveToJointPositionsRequest </p></td>
                 </tr>
               
             </tbody>
@@ -1223,7 +1225,7 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of an arm </p></td>
                 </tr>
               
             </tbody>
@@ -1247,7 +1249,7 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>positions</td>
                   <td><a href="#proto.api.component.v1.ArmJointPositions">ArmJointPositions</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>a list ArmJointPositions </p></td>
                 </tr>
               
             </tbody>
@@ -1271,7 +1273,7 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of an arm </p></td>
                 </tr>
               
             </tbody>
@@ -1295,7 +1297,8 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>position</td>
                   <td><a href="#proto.api.common.v1.Pose">proto.api.common.v1.Pose</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns 6d pose of the end effector relative to the base, represented by X,Y,Z coordinates which express
+millimeters and theta, ox, oy, oz coordinates which express an orientation vector </p></td>
                 </tr>
               
             </tbody>
@@ -1319,21 +1322,21 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of an arm </p></td>
                 </tr>
               
                 <tr>
                   <td>joint</td>
                   <td><a href="#int32">int32</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>To specify a joint, refer to base as 0 and count forwards up to the end effector </p></td>
                 </tr>
               
                 <tr>
                   <td>amount_degs</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Specify degrees, can be positive or negative </p></td>
                 </tr>
               
             </tbody>
@@ -1364,14 +1367,15 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of an arm </p></td>
                 </tr>
               
                 <tr>
                   <td>to</td>
                   <td><a href="#proto.api.component.v1.ArmJointPositions">ArmJointPositions</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>A list of joint positions represented in degrees
+There should be 1 entry in the list per joint, ordered spatially from the base toward the end effector </p></td>
                 </tr>
               
             </tbody>
@@ -1402,14 +1406,14 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of an arm </p></td>
                 </tr>
               
                 <tr>
                   <td>to</td>
                   <td><a href="#proto.api.common.v1.Pose">proto.api.common.v1.Pose</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>X, Y, Z, ox, oy, ox, theta </p></td>
                 </tr>
               
             </tbody>
@@ -1444,35 +1448,35 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                 <td>CurrentPosition</td>
                 <td><a href="#proto.api.component.v1.ArmServiceCurrentPositionRequest">ArmServiceCurrentPositionRequest</a></td>
                 <td><a href="#proto.api.component.v1.ArmServiceCurrentPositionResponse">ArmServiceCurrentPositionResponse</a></td>
-                <td><p>CurrentPosition gets the current position of an arm of the underlying robot.</p></td>
+                <td><p>CurrentPosition gets the current position of the mount point of the robot&#39;s end effector expressed as X,Y,Z,ox,oy,oz,theta</p></td>
               </tr>
             
               <tr>
                 <td>MoveToPosition</td>
                 <td><a href="#proto.api.component.v1.ArmServiceMoveToPositionRequest">ArmServiceMoveToPositionRequest</a></td>
                 <td><a href="#proto.api.component.v1.ArmServiceMoveToPositionResponse">ArmServiceMoveToPositionResponse</a></td>
-                <td><p>MoveToPosition moves an arm of the underlying robot to the requested position.</p></td>
+                <td><p>MoveToPosition moves the mount point of the robot&#39;s end effector to the requested position.</p></td>
               </tr>
             
               <tr>
                 <td>CurrentJointPositions</td>
                 <td><a href="#proto.api.component.v1.ArmServiceCurrentJointPositionsRequest">ArmServiceCurrentJointPositionsRequest</a></td>
                 <td><a href="#proto.api.component.v1.ArmServiceCurrentJointPositionsResponse">ArmServiceCurrentJointPositionsResponse</a></td>
-                <td><p>CurrentJointPositions gets the current joint position of an arm of the underlying robot.</p></td>
+                <td><p>CurrentJointPositions lists the joint positions (in degrees) of every joint on a robot</p></td>
               </tr>
             
               <tr>
                 <td>MoveToJointPositions</td>
                 <td><a href="#proto.api.component.v1.ArmServiceMoveToJointPositionsRequest">ArmServiceMoveToJointPositionsRequest</a></td>
                 <td><a href="#proto.api.component.v1.ArmServiceMoveToJointPositionsResponse">ArmServiceMoveToJointPositionsResponse</a></td>
-                <td><p>MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.</p></td>
+                <td><p>MoveToJointPositions moves every joint on a robot by the specified number of degrees</p></td>
               </tr>
             
               <tr>
                 <td>JointMoveDelta</td>
                 <td><a href="#proto.api.component.v1.ArmServiceJointMoveDeltaRequest">ArmServiceJointMoveDeltaRequest</a></td>
                 <td><a href="#proto.api.component.v1.ArmServiceJointMoveDeltaResponse">ArmServiceJointMoveDeltaResponse</a></td>
-                <td><p>JointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.</p></td>
+                <td><p>JointMoveDelta moves a specific joint of a robot by the the specified number of degrees</p></td>
               </tr>
             
           </tbody>
