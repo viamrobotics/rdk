@@ -617,24 +617,6 @@ type RobotServiceObjectManipulationServiceDoGrab = {
   readonly responseType: typeof proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabResponse;
 };
 
-type RobotServiceIMUAngularVelocity = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.IMUAngularVelocityRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.IMUAngularVelocityResponse;
-};
-
-type RobotServiceIMUOrientation = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.IMUOrientationRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.IMUOrientationResponse;
-};
-
 type RobotServiceGPSLocation = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -741,8 +723,6 @@ export class RobotService {
   static readonly NavigationServiceAddWaypoint: RobotServiceNavigationServiceAddWaypoint;
   static readonly NavigationServiceRemoveWaypoint: RobotServiceNavigationServiceRemoveWaypoint;
   static readonly ObjectManipulationServiceDoGrab: RobotServiceObjectManipulationServiceDoGrab;
-  static readonly IMUAngularVelocity: RobotServiceIMUAngularVelocity;
-  static readonly IMUOrientation: RobotServiceIMUOrientation;
   static readonly GPSLocation: RobotServiceGPSLocation;
   static readonly GPSAltitude: RobotServiceGPSAltitude;
   static readonly GPSSpeed: RobotServiceGPSSpeed;
@@ -1368,24 +1348,6 @@ export class RobotServiceClient {
   objectManipulationServiceDoGrab(
     requestMessage: proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabResponse|null) => void
-  ): UnaryResponse;
-  iMUAngularVelocity(
-    requestMessage: proto_api_v1_robot_pb.IMUAngularVelocityRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.IMUAngularVelocityResponse|null) => void
-  ): UnaryResponse;
-  iMUAngularVelocity(
-    requestMessage: proto_api_v1_robot_pb.IMUAngularVelocityRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.IMUAngularVelocityResponse|null) => void
-  ): UnaryResponse;
-  iMUOrientation(
-    requestMessage: proto_api_v1_robot_pb.IMUOrientationRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.IMUOrientationResponse|null) => void
-  ): UnaryResponse;
-  iMUOrientation(
-    requestMessage: proto_api_v1_robot_pb.IMUOrientationRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.IMUOrientationResponse|null) => void
   ): UnaryResponse;
   gPSLocation(
     requestMessage: proto_api_v1_robot_pb.GPSLocationRequest,

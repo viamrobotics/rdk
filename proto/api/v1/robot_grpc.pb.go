@@ -154,10 +154,6 @@ type RobotServiceClient interface {
 	NavigationServiceAddWaypoint(ctx context.Context, in *NavigationServiceAddWaypointRequest, opts ...grpc.CallOption) (*NavigationServiceAddWaypointResponse, error)
 	NavigationServiceRemoveWaypoint(ctx context.Context, in *NavigationServiceRemoveWaypointRequest, opts ...grpc.CallOption) (*NavigationServiceRemoveWaypointResponse, error)
 	ObjectManipulationServiceDoGrab(ctx context.Context, in *ObjectManipulationServiceDoGrabRequest, opts ...grpc.CallOption) (*ObjectManipulationServiceDoGrabResponse, error)
-	// IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
-	IMUAngularVelocity(ctx context.Context, in *IMUAngularVelocityRequest, opts ...grpc.CallOption) (*IMUAngularVelocityResponse, error)
-	// IMUOrientation returns the most recent orientation reading from the given IMU.
-	IMUOrientation(ctx context.Context, in *IMUOrientationRequest, opts ...grpc.CallOption) (*IMUOrientationResponse, error)
 	// GPSLocation returns the most recent location from the given GPS.
 	GPSLocation(ctx context.Context, in *GPSLocationRequest, opts ...grpc.CallOption) (*GPSLocationResponse, error)
 	// GPSAltitude returns the most recent altitude from the given GPS.
@@ -857,24 +853,6 @@ func (c *robotServiceClient) ObjectManipulationServiceDoGrab(ctx context.Context
 	return out, nil
 }
 
-func (c *robotServiceClient) IMUAngularVelocity(ctx context.Context, in *IMUAngularVelocityRequest, opts ...grpc.CallOption) (*IMUAngularVelocityResponse, error) {
-	out := new(IMUAngularVelocityResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/IMUAngularVelocity", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) IMUOrientation(ctx context.Context, in *IMUOrientationRequest, opts ...grpc.CallOption) (*IMUOrientationResponse, error) {
-	out := new(IMUOrientationResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/IMUOrientation", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *robotServiceClient) GPSLocation(ctx context.Context, in *GPSLocationRequest, opts ...grpc.CallOption) (*GPSLocationResponse, error) {
 	out := new(GPSLocationResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GPSLocation", in, out, opts...)
@@ -1049,10 +1027,6 @@ type RobotServiceServer interface {
 	NavigationServiceAddWaypoint(context.Context, *NavigationServiceAddWaypointRequest) (*NavigationServiceAddWaypointResponse, error)
 	NavigationServiceRemoveWaypoint(context.Context, *NavigationServiceRemoveWaypointRequest) (*NavigationServiceRemoveWaypointResponse, error)
 	ObjectManipulationServiceDoGrab(context.Context, *ObjectManipulationServiceDoGrabRequest) (*ObjectManipulationServiceDoGrabResponse, error)
-	// IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
-	IMUAngularVelocity(context.Context, *IMUAngularVelocityRequest) (*IMUAngularVelocityResponse, error)
-	// IMUOrientation returns the most recent orientation reading from the given IMU.
-	IMUOrientation(context.Context, *IMUOrientationRequest) (*IMUOrientationResponse, error)
 	// GPSLocation returns the most recent location from the given GPS.
 	GPSLocation(context.Context, *GPSLocationRequest) (*GPSLocationResponse, error)
 	// GPSAltitude returns the most recent altitude from the given GPS.
@@ -1271,12 +1245,6 @@ func (UnimplementedRobotServiceServer) NavigationServiceRemoveWaypoint(context.C
 }
 func (UnimplementedRobotServiceServer) ObjectManipulationServiceDoGrab(context.Context, *ObjectManipulationServiceDoGrabRequest) (*ObjectManipulationServiceDoGrabResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ObjectManipulationServiceDoGrab not implemented")
-}
-func (UnimplementedRobotServiceServer) IMUAngularVelocity(context.Context, *IMUAngularVelocityRequest) (*IMUAngularVelocityResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IMUAngularVelocity not implemented")
-}
-func (UnimplementedRobotServiceServer) IMUOrientation(context.Context, *IMUOrientationRequest) (*IMUOrientationResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IMUOrientation not implemented")
 }
 func (UnimplementedRobotServiceServer) GPSLocation(context.Context, *GPSLocationRequest) (*GPSLocationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GPSLocation not implemented")
@@ -2536,42 +2504,6 @@ func _RobotService_ObjectManipulationServiceDoGrab_Handler(srv interface{}, ctx 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_IMUAngularVelocity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IMUAngularVelocityRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).IMUAngularVelocity(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/IMUAngularVelocity",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).IMUAngularVelocity(ctx, req.(*IMUAngularVelocityRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_IMUOrientation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IMUOrientationRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).IMUOrientation(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/IMUOrientation",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).IMUOrientation(ctx, req.(*IMUOrientationRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _RobotService_GPSLocation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GPSLocationRequest)
 	if err := dec(in); err != nil {
@@ -2910,14 +2842,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ObjectManipulationServiceDoGrab",
 			Handler:    _RobotService_ObjectManipulationServiceDoGrab_Handler,
-		},
-		{
-			MethodName: "IMUAngularVelocity",
-			Handler:    _RobotService_IMUAngularVelocity_Handler,
-		},
-		{
-			MethodName: "IMUOrientation",
-			Handler:    _RobotService_IMUOrientation_Handler,
 		},
 		{
 			MethodName: "GPSLocation",
