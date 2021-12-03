@@ -4,10 +4,11 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/core/rimage"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/core/rimage"
 )
 
 func TestComputeSaddleMap(t *testing.T) {
