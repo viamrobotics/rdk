@@ -335,14 +335,14 @@
                       let req;
                       switch (action) {
                         case 'open':
-                          req = new robotApi.GripperOpenRequest();
+                          req = new gripperApi.GripperServiceOpenRequest();
                           req.setName(name);
-                          robotService.gripperOpen(req, {}, (err, resp) => grpcCallback(err, resp));
+                          gripperService.open(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
                         case 'grab':
-                          req = new robotApi.GripperGrabRequest();
+                          req = new gripperApi.GripperServiceGrabRequest();
                           req.setName(name);
-                          robotService.gripperGrab(req, {}, (err, resp) => grpcCallback(err, resp));
+                          gripperService.grab(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
                       }
                   },
@@ -1240,11 +1240,11 @@
       </div>
 
       <!-- ******* GRIPPER *******  -->
-      <div class="gripper" v-for="gripper in status.grippersMap" :key="gripper[0]">
-        <h3>Gripper ${ gripper[0] }</h3>
+      <div class="gripper" v-for="gripper in filterResources('core', 'component', 'gripper')" :key="gripper.name">
+        <h3>Gripper ${ gripper.name }</h3>
         <ul>
-          <li><button v-on:click="gripperAction( gripper[0], 'open')">Open</button></li>
-          <li><button v-on:click="gripperAction( gripper[0], 'grab')">Grab</button></li>
+          <li><button v-on:click="gripperAction( gripper.name, 'open')">Open</button></li>
+          <li><button v-on:click="gripperAction( gripper.name, 'grab')">Grab</button></li>
         </ul>
       </div>
 
