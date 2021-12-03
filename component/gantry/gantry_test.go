@@ -70,12 +70,12 @@ func TestReconfigurableGantry(t *testing.T) {
 	actualGantry2 := &mock{Name: "gantry2"}
 	fakeGantry2, err := WrapWithReconfigurable(actualGantry2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualGantry1.reconCount, test.ShouldEqual, 0)
+	test.That(t, actualGantry1.reconfCount, test.ShouldEqual, 0)
 
 	err = fakeGantry1.(*reconfigurableGantry).Reconfigure(fakeGantry2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeGantry1.(*reconfigurableGantry).actual, test.ShouldEqual, actualGantry2)
-	test.That(t, actualGantry1.reconCount, test.ShouldEqual, 1)
+	test.That(t, actualGantry1.reconfCount, test.ShouldEqual, 1)
 
 	err = fakeGantry1.(*reconfigurableGantry).Reconfigure(nil)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -84,8 +84,8 @@ func TestReconfigurableGantry(t *testing.T) {
 
 type mock struct {
 	Gantry
-	Name       string
-	reconCount int
+	Name        string
+	reconfCount int
 }
 
-func (m *mock) Close() error { m.reconCount++; return nil }
+func (m *mock) Close() error { m.reconfCount++; return nil }

@@ -542,7 +542,7 @@
 
                       if (type === "forcematrix") {
                         robotService.forceMatrixMatrix(req, {}, (err, resp) => animateForceMatrix(err, resp, animation_stuff_2D, animation_stuff_3D));
-                        robotService.forceMatrixSlipDetection(req, {}, (err, resp) => updateSlipDetectionResult(err, resp, id));
+                        robotService.forceMatrixSlipDetection(slipReq, {}, (err, resp) => updateSlipDetectionResult(err, resp, id));
                       } else {
                         console.log("error: unknown force matrix type");
                       }
@@ -1012,6 +1012,10 @@
         if (err) {
           console.log("error getting slip detection readings: ", err);
           return;
+        }
+        if (resp === null) {
+          console.log("response is null")
+          dispEl.innerText = "response is invalid"
         }
         let isSlipping = resp.getIsSlipping()
         let dispEl = document.getElementById("force-is-slipping-" + id);

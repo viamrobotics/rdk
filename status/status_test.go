@@ -8,8 +8,9 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/camera"
+	fakecamera "go.viam.com/core/component/camera/fake"
 	"go.viam.com/core/component/gripper"
 	fakegripper "go.viam.com/core/component/gripper/fake"
 	"go.viam.com/core/component/servo"
@@ -88,7 +89,7 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return &fakegripper.Gripper{Name: name}, true
 	}
 	injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
-		return &fake.Camera{Name: name}, true
+		return &fakecamera.Camera{Name: name}, true
 	}
 	injectRobot.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
 		return &fake.Lidar{Name: name}, true

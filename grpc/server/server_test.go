@@ -16,7 +16,7 @@ import (
 	"go.viam.com/core/action"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
@@ -28,6 +28,7 @@ import (
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	servicepkg "go.viam.com/core/services"
@@ -1631,8 +1632,8 @@ func TestServer(t *testing.T) {
 	t.Run("IMU", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-			capName = name
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			capName = name.Name
 			return nil, false
 		}
 
@@ -1640,13 +1641,13 @@ func TestServer(t *testing.T) {
 			Name: "imu1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no IMU")
 		test.That(t, capName, test.ShouldEqual, "imu1")
 
 		err1 := errors.New("whoops")
 
 		device := &inject.IMU{}
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return device, true
 		}
 
