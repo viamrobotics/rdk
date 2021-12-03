@@ -20,7 +20,6 @@ import (
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/imu"
-	_ "go.viam.com/core/component/imu/wit"
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
