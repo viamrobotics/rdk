@@ -3,6 +3,8 @@ package motionplan
 import (
 	"errors"
 	"math"
+	"time"
+	//~ "fmt"
 
 	"github.com/golang/geo/r3"
 
@@ -34,45 +36,65 @@ type constraintHandler struct {
 	constraints map[string]Constraint
 }
 
+var checkTime time.Duration
+var checkResolve1 time.Duration
+var checkResolve2 time.Duration
+
 // CheckConstraintPath will interpolate between two joint inputs and check that `true` is returned for all constraints
 // in all intermediate positions. If failing on an intermediate position, it will return that position.
 func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution float64) (bool, *ConstraintInput) {
 	// ensure we have cartesian positions
+	start1 := time.Now()
 	err := resolveInputsToPositions(ci)
+	checkResolve1 += time.Since(start1)
 	if err != nil {
 		return false, nil
 	}
 	steps := getSteps(ci.StartPos, ci.EndPos, resolution)
 
 	lastInterp := 0.
-
+	var lastGood []frame.Input
+	
+	
 	for i := 1; i <= steps; i++ {
 		interp := float64(i) / float64(steps)
+		start2 := time.Now()
 		interpC, err := interpolateInput(ci, lastInterp, interp)
+		checkResolve2 += time.Since(start2)
 		if err != nil {
 			return false, nil
 		}
 		lastInterp = interp
+		start := time.Now()
 		pass, _ := c.CheckConstraints(interpC)
+		checkTime += time.Since(start)
 		if !pass {
 			if i > 1 {
-				return false, interpC
+				return false, &ConstraintInput{StartInput: lastGood, EndInput: interpC.StartInput}
 			}
 			// fail on start pos
 			return false, nil
 		}
+		lastGood = interpC.StartInput
 	}
+	//~ elapsed := time.Since(start)
+	//~ time.Since(start)
+	//~ fmt.Println("steps took", elapsed)
 	// extra step to check the end
+	start2 := time.Now()
 	interpC, err := interpolateInput(ci, 1, 1)
+	checkResolve2 += time.Since(start2)
 	if err != nil {
 		return false, nil
 	}
-
+	start := time.Now()
 	pass, _ := c.CheckConstraints(interpC)
+	checkTime += time.Since(start)
 	if !pass {
-		return false, interpC
+		return false, &ConstraintInput{StartInput: lastGood, EndInput: interpC.StartInput}
 	}
 
+	//~ fmt.Println("total checking", checkTime)
 	return true, nil
 }
 

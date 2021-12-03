@@ -6,8 +6,6 @@ import (
 	"math/rand"
 
 	"go.viam.com/core/spatialmath"
-
-	"go.uber.org/multierr"
 )
 
 // ModelFramer has a method that returns the kinematics information needed to build a dynamic frame.
@@ -97,49 +95,31 @@ func (m *Model) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, e
 // jointRadToQuats takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of each of the links up to and including the end effector. This is useful for when conversions
 // between quaternions and OV are not needed.
-func (m *Model) jointRadToQuats(inputs []Input) ([]staticFrame, error) {
-	joints := InputsToFloats(inputs)
-	poses, err := m.getPoses(joints)
-	if err != nil && poses == nil {
-		return nil, err
-	}
+func (m *Model) jointRadToQuats(inputs []Input) ([]*staticFrame, error) {
+	poses := make([]*staticFrame, 0, len(m.OrdTransforms))
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
 	composedTransformation := spatialmath.NewZeroPose()
-	var transformations []staticFrame
-	for _, pose := range poses {
-		composedTransformation = spatialmath.Compose(composedTransformation, pose.transform)
-		pose.transform = composedTransformation
-		transformations = append(transformations, pose)
-	}
-	return transformations, err
-}
-
-// getPoses returns the list of Poses which, when multiplied together in order, will yield the
-// Pose representing the 6d cartesian position of the end effector.
-func (m *Model) getPoses(pos []float64) ([]staticFrame, error) {
-	quats := make([]staticFrame, len(m.OrdTransforms))
-	var errAll error
 	posIdx := 0
 	// OrdTransforms is ordered from end effector -> base, so we reverse the list to get quaternions from the base outwards.
 	for i := len(m.OrdTransforms) - 1; i >= 0; i-- {
 		transform := m.OrdTransforms[i]
 
 		dof := len(transform.DoF())
-		input := make([]Input, dof)
+		input := make([]Input, 0, dof)
 		for j := 0; j < dof; j++ {
-			input[j] = Input{pos[posIdx]}
+			input = append(input, inputs[posIdx])
 			posIdx++
 		}
 
-		quat, err := transform.Transform(input)
+		pose, err := transform.Transform(input)
 		// Fail if inputs are incorrect and pose is nil, but allow querying out-of-bounds positions
-		if err != nil && quat == nil {
+		if err != nil && pose == nil {
 			return nil, err
 		}
-		multierr.AppendInto(&errAll, err)
-		quats[len(quats)-i-1] = staticFrame{transform.Name(), quat}
+		composedTransformation = spatialmath.Compose(composedTransformation, pose)
+		poses = append(poses, &staticFrame{transform.Name(), composedTransformation})
 	}
-	return quats, errAll
+	return poses, nil
 }
 
 // AreJointPositionsValid checks whether the given array of joint positions violates any joint limits.
