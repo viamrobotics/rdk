@@ -1,0 +1,20 @@
+{
+  "services": [
+        {
+            "name": "frame_system",
+            "type": "frame_system"
+        }
+
+  ],
+  "components": [
+    {
+      "host": "10.0.0.98",
+      "model": "xArm7",
+      "name": "xArm7",
+      "type": "arm",
+      "frame" : {
+          "parent" : "world"
+      }
+    }
+  ]
+}
