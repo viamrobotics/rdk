@@ -10,12 +10,12 @@
         "size": 1036966
       },
       "align-test-1615761793.both.gz": {
-        "hash": "5e5744c5d1e6f9ebf713dc984568f150",
-        "size": 474009
+        "hash": "d4a8814121f88435e12e678f54377797",
+        "size": 1025703
       },
       "align-test-1615761796.both.gz": {
-        "hash": "86d64684c4ae3b37362ab8f2916e1732",
-        "size": 932757
+        "hash": "b6a14822a01c3459b9fafa984c855864",
+        "size": 1020491
       },
       "chess2.both.gz": {
         "hash": "6d4e08f5f954f725d8a07f129600c39f",
@@ -24,10 +24,6 @@
       "chess3.both.gz": {
         "hash": "9a5ba64331d22f7b454beb585b6bebf1",
         "size": 1036462
-      },
-      "both_2021-06-30-14-57-24.both.gz": {
-        "hash": "78b433c0d37f6273d61e9b32f817474f",
-        "size": 166470
       },
       "gripper-big1.both.gz": {
         "hash": "e09120e237eb6010ec4f9c9248abbbc0",
@@ -298,8 +294,8 @@
         "size": 1762863
       },
       "board5a.both.gz": {
-        "hash": "e8161ac5acc22782aa6b274309c1f09b",
-        "size": 1096598
+        "hash": "23ecd71cc2bdd35ae85df2807dcd9326",
+        "size": 1647279
       },
       "img-1605537751.png": {
         "hash": "b38fe6b761623a59b4ffc79c0afc06e1",
@@ -2834,8 +2830,8 @@
         "size": 271789
       },
       "20201218.1441.13.png": {
-        "hash": "55bc7b00c7b2801e50633e58de44e955",
-        "size": 1588127
+        "hash": "c7aefe2eaa7c5039744e956b0972bab2",
+        "size": 1747411
       },
       "20201218.1453.48.dat.gz": {
         "hash": "41352a7261588692a1631b8bd10ae7a9",
