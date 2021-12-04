@@ -71,14 +71,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 
 // ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix
 func (dcie *DepthColorIntrinsicsExtrinsics) ImagePointTo3DPoint(point image.Point, ii *rimage.ImageWithDepth) (r3.Vector, error) {
-	if !ii.IsAligned() {
-		return r3.Vector{}, errors.New("image with depth is not aligned. will not return correct 3D point")
-	}
-	if !(point.In(ii.Bounds())) {
-		return r3.Vector{}, fmt.Errorf("point (%d,%d) not in image bounds (%d,%d)", point.X, point.Y, ii.Width(), ii.Height())
-	}
-	px, py, pz := dcie.ColorCamera.PixelToPoint(float64(point.X), float64(point.Y), float64(ii.Depth.Get(point)))
-	return r3.Vector{px, py, pz}, nil
+	return colorIntrinsics2DPtTo3DPt(point, ii, dcie.ColorCamera)
 }
 
 // ImageWithDepthToPointCloud takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
@@ -101,24 +94,33 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(ii *rimag
 		return nil, errors.Errorf("depth map and color dimensions don't match %d,%d -> %d,%d",
 			iwd.Depth.Width(), iwd.Depth.Height(), iwd.Color.Width(), iwd.Color.Height())
 	}
-	pc := pointcloud.New()
-
-	for y := 0; y < iwd.Color.Height(); y++ {
-		for x := 0; x < iwd.Color.Width(); x++ {
-			px, py, pz := dcie.ColorCamera.PixelToPoint(float64(x), float64(y), float64(iwd.Depth.GetDepth(x, y)))
-			r, g, b := iwd.Color.GetXY(x, y).RGB255()
-			err = pc.Set(pointcloud.NewColoredPoint(px, py, pz, color.NRGBA{r, g, b, 255}))
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	return pc, nil
-
+	return colorIntrinsics2DTo3D(iwd, dcie.ColorCamera)
 }
 
 // PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth from the perspective of the color camera frame.
 func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(cloud pointcloud.PointCloud) (*rimage.ImageWithDepth, error) {
+	iwd, err := colorIntrinsics3DTo2D(cloud, dcie.ColorCamera)
+	if err != nil {
+		return nil, err
+	}
+	iwd.SetCameraSystem(dcie)
+	return iwd, nil
+}
+
+// colorIntrinsics2DPtTo3DPt takes in a image coordinate and returns the 3D point using the color camera's intrinsic matrix
+func colorIntrinsics2DPtTo3DPt(pt image.Point, ii *rimage.ImageWithDepth, pci PinholeCameraIntrinsics) (r3.Vector, error) {
+	if !ii.IsAligned() {
+		return r3.Vector{}, errors.New("image with depth is not aligned. will not return correct 3D point")
+	}
+	if !(pt.In(ii.Bounds())) {
+		return r3.Vector{}, fmt.Errorf("point (%d,%d) not in image bounds (%d,%d)", pt.X, pt.Y, ii.Width(), ii.Height())
+	}
+	px, py, pz := pci.PixelToPoint(float64(pt.X), float64(pt.Y), float64(ii.Depth.Get(pt)))
+	return r3.Vector{px, py, pz}, nil
+}
+
+// colorIntrinsics3Dto2D uses the color camera's intrinsic matrix to project the 3D pointcloud to a 2D image with depth.
+func colorIntrinsics3DTo2D(cloud pointcloud.PointCloud, pci PinholeCameraIntrinsics) (*rimage.ImageWithDepth, error) {
 	// Needs to be a pointcloud with color
 	if !cloud.HasColor() {
 		return nil, errors.New("pointcloud has no color information, cannot create an image with depth")
@@ -126,11 +128,11 @@ func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(cloud poi
 	// ImageWithDepth will be in the camera frame of the RGB camera.
 	// Points outside of the frame will be discarded.
 	// Assumption is that points in pointcloud are in mm.
-	width, height := dcie.ColorCamera.Width, dcie.ColorCamera.Height
+	width, height := pci.Width, pci.Height
 	color := rimage.NewImage(width, height)
 	depth := rimage.NewEmptyDepthMap(width, height)
 	cloud.Iterate(func(pt pointcloud.Point) bool {
-		j, i := dcie.ColorCamera.PointToPixel(pt.Position().X, pt.Position().Y, pt.Position().Z)
+		j, i := pci.PointToPixel(pt.Position().X, pt.Position().Y, pt.Position().Z)
 		x, y := int(math.Round(j)), int(math.Round(i))
 		z := int(pt.Position().Z)
 		// if point has color and is inside the RGB image bounds, add it to the images
@@ -141,8 +143,26 @@ func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(cloud poi
 		}
 		return true
 	})
-	return rimage.MakeImageWithDepth(color, depth, true, dcie), nil
+	return rimage.MakeImageWithDepth(color, depth, true, nil), nil
+}
 
+// colorIntrinsics2DTo3D uses the color camera's intrinsic matrix to project the 2D image with depth to a 3D point cloud.
+func colorIntrinsics2DTo3D(iwd *rimage.ImageWithDepth, pci PinholeCameraIntrinsics) (pointcloud.PointCloud, error) {
+	if !iwd.IsAligned() {
+		return nil, errors.New("image with depth is not aligned. Cannot project to Pointcloud")
+	}
+	pc := pointcloud.New()
+	for y := 0; y < iwd.Color.Height(); y++ {
+		for x := 0; x < iwd.Color.Width(); x++ {
+			px, py, pz := pci.PixelToPoint(float64(x), float64(y), float64(iwd.Depth.GetDepth(x, y)))
+			r, g, b := iwd.Color.GetXY(x, y).RGB255()
+			err := pc.Set(pointcloud.NewColoredPoint(px, py, pz, color.NRGBA{r, g, b, 255}))
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return pc, nil
 }
 
 // DepthMapToPointCloud converts a Depth Map to a PointCloud using the depth camera parameters
