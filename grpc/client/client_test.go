@@ -33,7 +33,6 @@ import (
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
-	"go.viam.com/core/pointcloud"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	componentpb "go.viam.com/core/proto/api/component/v1"
 	metadatapb "go.viam.com/core/proto/api/service/v1"
@@ -54,6 +53,7 @@ import (
 	"google.golang.org/grpc"
 
 	_ "go.viam.com/core/component/arm/register"
+	_ "go.viam.com/core/component/camera/register"
 	_ "go.viam.com/core/component/gripper/register"
 	_ "go.viam.com/core/component/servo/register"
 )
@@ -285,7 +285,6 @@ func TestClient(t *testing.T) {
 		capInputControllerName  string
 		capAnalogReaderName     string
 		capDigitalInterruptName string
-		capCameraName           string
 		capLidarName            string
 		capSensorName           string
 		capIMUName              string
@@ -466,21 +465,9 @@ func TestClient(t *testing.T) {
 	var imgBuf bytes.Buffer
 	test.That(t, jpeg.Encode(&imgBuf, img, nil), test.ShouldBeNil)
 
-	pcA := pointcloud.New()
-	err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
-	test.That(t, err, test.ShouldBeNil)
-
 	var imageReleased bool
 	injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 		return img, func() { imageReleased = true }, nil
-	}
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		return pcA, nil
-	}
-
-	injectRobot2.CameraByNameFunc = func(name string) (camera.Camera, bool) {
-		capCameraName = name
-		return injectCamera, true
 	}
 
 	injectLidarDev := &inject.Lidar{}
@@ -649,6 +636,14 @@ func TestClient(t *testing.T) {
 	servoSvc2, err := subtype.New((map[resource.Name]interface{}{servo.Named("servo1"): injectServo}))
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterServoServiceServer(gServer2, servo.NewServer(servoSvc2))
+
+	cameraSvc1, err := subtype.New((map[resource.Name]interface{}{}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterCameraServiceServer(gServer1, camera.NewServer(cameraSvc1))
+
+	cameraSvc2, err := subtype.New((map[resource.Name]interface{}{camera.Named("camera1"): injectCamera}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterCameraServiceServer(gServer2, camera.NewServer(cameraSvc2))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -1115,11 +1110,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 	test.That(t, imageReleased, test.ShouldBeTrue)
-	test.That(t, capCameraName, test.ShouldEqual, "camera1")
-
-	pcB, err := camera1.NextPointCloud(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pcB.At(5, 5, 5), test.ShouldNotBeNil)
 
 	lidarDev, ok := client.LidarByName("lidar1")
 	test.That(t, ok, test.ShouldBeTrue)

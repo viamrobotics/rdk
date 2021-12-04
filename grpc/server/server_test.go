@@ -1,10 +1,7 @@
 package server_test
 
 import (
-	"bytes"
 	"context"
-	"image"
-	"image/png"
 	"math"
 	"testing"
 	"time"
@@ -16,14 +13,12 @@ import (
 	"go.viam.com/core/action"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/component/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/client"
 	grpcserver "go.viam.com/core/grpc/server"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
-	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"
@@ -1003,236 +998,6 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, true, uint64(1028)})
-	})
-
-	t.Run("CameraFrame", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.CameraFrame(context.Background(), &pb.CameraFrameRequest{
-			Name: "camera1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
-		test.That(t, capName, test.ShouldEqual, "camera1")
-
-		injectCamera := &inject.Camera{}
-		injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
-			return injectCamera, true
-		}
-		err1 := errors.New("whoops")
-		injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-			return nil, nil, err1
-		}
-		_, err = server.CameraFrame(context.Background(), &pb.CameraFrameRequest{
-			Name: "camera1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-
-		img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
-		var imgBuf bytes.Buffer
-		test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
-
-		var released bool
-		injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-			return img, func() { released = true }, nil
-		}
-
-		resp, err := server.CameraFrame(context.Background(), &pb.CameraFrameRequest{
-			Name: "camera1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, released, test.ShouldBeTrue)
-		test.That(t, resp.MimeType, test.ShouldEqual, "image/png")
-		test.That(t, resp.Frame, test.ShouldResemble, imgBuf.Bytes())
-
-		released = false
-		resp, err = server.CameraFrame(context.Background(), &pb.CameraFrameRequest{
-			Name:     "camera1",
-			MimeType: "image/png",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, released, test.ShouldBeTrue)
-		test.That(t, resp.MimeType, test.ShouldEqual, "image/png")
-		test.That(t, resp.Frame, test.ShouldResemble, imgBuf.Bytes())
-
-		released = false
-		_, err = server.CameraFrame(context.Background(), &pb.CameraFrameRequest{
-			Name:     "camera1",
-			MimeType: "image/who",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
-		test.That(t, released, test.ShouldBeTrue)
-	})
-
-	t.Run("CameraRenderFrame", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.CameraRenderFrame(context.Background(), &pb.CameraRenderFrameRequest{
-			Name: "camera1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
-		test.That(t, capName, test.ShouldEqual, "camera1")
-
-		injectCamera := &inject.Camera{}
-		injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
-			return injectCamera, true
-		}
-		err1 := errors.New("whoops")
-		injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-			return nil, nil, err1
-		}
-		_, err = server.CameraRenderFrame(context.Background(), &pb.CameraRenderFrameRequest{
-			Name: "camera1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-
-		img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
-		var imgBuf bytes.Buffer
-		test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
-
-		var released bool
-		injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-			return img, func() { released = true }, nil
-		}
-
-		resp, err := server.CameraRenderFrame(context.Background(), &pb.CameraRenderFrameRequest{
-			Name: "camera1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, released, test.ShouldBeTrue)
-		test.That(t, resp.ContentType, test.ShouldEqual, "image/png")
-		test.That(t, resp.Data, test.ShouldResemble, imgBuf.Bytes())
-
-		released = false
-		resp, err = server.CameraRenderFrame(context.Background(), &pb.CameraRenderFrameRequest{
-			Name:     "camera1",
-			MimeType: "image/png",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, released, test.ShouldBeTrue)
-		test.That(t, resp.ContentType, test.ShouldEqual, "image/png")
-		test.That(t, resp.Data, test.ShouldResemble, imgBuf.Bytes())
-
-		released = false
-		_, err = server.CameraRenderFrame(context.Background(), &pb.CameraRenderFrameRequest{
-			Name:     "camera1",
-			MimeType: "image/who",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
-		test.That(t, released, test.ShouldBeTrue)
-	})
-
-	t.Run("PointCloud", func(t *testing.T) {
-		server, injectRobot := newServer()
-
-		injectCamera := &inject.Camera{}
-		injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
-			return injectCamera, true
-		}
-		err1 := errors.New("whoops")
-		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-			return nil, err1
-		}
-		_, err := server.PointCloud(context.Background(), &pb.PointCloudRequest{
-			Name: "camera1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-
-		pcA := pointcloud.New()
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
-		test.That(t, err, test.ShouldBeNil)
-
-		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-			return pcA, nil
-		}
-		_, err = server.PointCloud(context.Background(), &pb.PointCloudRequest{
-			Name: "camera1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-	})
-
-	t.Run("ObjectPointClouds", func(t *testing.T) {
-		server, injectRobot := newServer()
-
-		injectCamera := &inject.Camera{}
-		injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
-			return injectCamera, true
-		}
-		err1 := errors.New("whoops")
-
-		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-			return nil, err1
-		}
-		_, err := server.ObjectPointClouds(context.Background(), &pb.ObjectPointCloudsRequest{
-			Name:               "camera1",
-			MinPointsInPlane:   100,
-			MinPointsInSegment: 3,
-			ClusteringRadius:   5.,
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-
-		// request the two segments in the point cloud
-		pcA := pointcloud.New()
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 6))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 4))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 5))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 6))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 4))
-		test.That(t, err, test.ShouldBeNil)
-
-		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-			return pcA, nil
-		}
-		segs, err := server.ObjectPointClouds(context.Background(), &pb.ObjectPointCloudsRequest{
-			Name:               "camera1",
-			MinPointsInPlane:   100,
-			MinPointsInSegment: 3,
-			ClusteringRadius:   5.,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(segs.Frames), test.ShouldEqual, 2)
-		test.That(t, segs.Centers[0].Z, test.ShouldEqual, 5.)
-		test.That(t, segs.Centers[1].Z, test.ShouldEqual, 5.)
-		test.That(t, segs.BoundingBoxes[0].Width, test.ShouldEqual, 0)
-		test.That(t, segs.BoundingBoxes[0].Length, test.ShouldEqual, 0)
-		test.That(t, segs.BoundingBoxes[0].Depth, test.ShouldEqual, 2)
-		test.That(t, segs.BoundingBoxes[1].Width, test.ShouldEqual, 0)
-		test.That(t, segs.BoundingBoxes[1].Length, test.ShouldEqual, 0)
-		test.That(t, segs.BoundingBoxes[1].Depth, test.ShouldEqual, 2)
-
-		//empty pointcloud
-		pcB := pointcloud.New()
-
-		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-			return pcB, nil
-		}
-		segs, err = server.ObjectPointClouds(context.Background(), &pb.ObjectPointCloudsRequest{
-			Name:               "camera1",
-			MinPointsInPlane:   100,
-			MinPointsInSegment: 3,
-			ClusteringRadius:   5.,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(segs.Frames), test.ShouldEqual, 0)
 	})
 
 	t.Run("Lidar", func(t *testing.T) {

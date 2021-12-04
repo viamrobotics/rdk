@@ -2,10 +2,7 @@
 package client
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"image"
 	"math"
 	"runtime/debug"
 	"sync"
@@ -34,12 +31,10 @@ import (
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/motor"
-	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/resource"
-	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
@@ -315,7 +310,15 @@ func (rc *RobotClient) GripperByName(name string) (gripper.Gripper, bool) {
 // CameraByName returns a camera by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) CameraByName(name string) (camera.Camera, bool) {
-	return &cameraClient{rc, name}, true
+	resource, ok := rc.ResourceByName(camera.Named(name))
+	if !ok {
+		return nil, false
+	}
+	actual, ok := resource.(camera.Camera)
+	if !ok {
+		return nil, false
+	}
+	return actual, true
 }
 
 // LidarByName returns a lidar by name. It is assumed to exist on the
@@ -403,8 +406,6 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 		sensorType := rc.sensorTypes[name.Name]
 		sc := &sensorClient{rc, name.Name, sensorType}
 		return &imuClient{sc}, true
-	case camera.Subtype:
-		return &cameraClient{rc: rc, name: name.Name}, true
 	default:
 		c := registry.ResourceSubtypeLookup(name.Subtype)
 		if c == nil || c.RPCClient == nil {
@@ -983,55 +984,6 @@ func (dic *digitalInterruptClient) AddCallback(c chan bool) {
 func (dic *digitalInterruptClient) AddPostProcessor(pp board.PostProcessor) {
 	debug.PrintStack()
 	panic(errUnimplemented)
-}
-
-// cameraClient satisfies a gRPC based camera.Camera. Refer to the interface
-// for descriptions of its methods.
-type cameraClient struct {
-	rc   *RobotClient
-	name string
-}
-
-func (cc *cameraClient) Next(ctx context.Context) (image.Image, func(), error) {
-	resp, err := cc.rc.client.CameraFrame(ctx, &pb.CameraFrameRequest{
-		Name:     cc.name,
-		MimeType: grpc.MimeTypeViamBest,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-	switch resp.MimeType {
-	case grpc.MimeTypeRawRGBA:
-		img := image.NewNRGBA(image.Rect(0, 0, int(resp.DimX), int(resp.DimY)))
-		img.Pix = resp.Frame
-		return img, func() {}, nil
-	case grpc.MimeTypeRawIWD:
-		img, err := rimage.ImageWithDepthFromRawBytes(int(resp.DimX), int(resp.DimY), resp.Frame)
-		return img, func() {}, err
-	default:
-		return nil, nil, errors.Errorf("do not how to decode MimeType %s", resp.MimeType)
-	}
-
-}
-
-func (cc *cameraClient) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	resp, err := cc.rc.client.PointCloud(ctx, &pb.PointCloudRequest{
-		Name:     cc.name,
-		MimeType: grpc.MimeTypePCD,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.MimeType != grpc.MimeTypePCD {
-		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)
-	}
-
-	return pointcloud.ReadPCD(bytes.NewReader(resp.Frame))
-}
-
-func (cc *cameraClient) Close() error {
-	return nil
 }
 
 // lidarClient satisfies a gRPC based lidar.Lidar. Refer to the interface
