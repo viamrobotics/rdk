@@ -20,6 +20,8 @@ import (
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
+	"go.viam.com/core/input"
+	"go.viam.com/core/metadata/service"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
@@ -48,6 +50,13 @@ type remoteControl interface {
 type rcRemoteControl struct {
 	theBoard board.Board
 }
+
+const (
+	OFFMODE = iota
+	MANUALMODE
+	ROBOTMODE
+	PUSHMODE
+)
 
 func (rc *rcRemoteControl) Signal(ctx context.Context, name string) (int64, error) {
 	r, ok := rc.theBoard.DigitalInterruptByName(name)
@@ -428,6 +437,162 @@ func (b *boat) Close() error {
 	return b.Stop(context.Background())
 }
 
+func runRC2(ctx context.Context, myBoat *boat) {
+	var err error
+	rc, ok := myBoat.myRobot.InputControllerByName("WebGamepad")
+	if !ok {
+		return
+	}
+
+	pushFlag := 0
+	navModeNum := OFFMODE
+	speed := 0.0
+	dir := 0.0
+	squirtPower := 0.0
+	previousPushMode := false
+	pushDirection := 0.0
+
+	repFunc := func(ctx context.Context, event input.Event) {
+		// fmt.Printf("test %s:%s: %.4f\n", event.Control, event.Event, event.Value)
+		switch event.Control {
+		case input.ButtonNorth:
+			if event.Event == input.ButtonPress {
+				//reset pushmode on a mode switch, and make sure we are not overwriting last push
+				if navModeNum != PUSHMODE {
+					previousPushMode = false
+				}
+				//cannot access these modes unless the robot is on
+				if navModeNum != OFFMODE {
+					if pushFlag == 1 {
+						// push mode is activated with LT+North
+						navModeNum = PUSHMODE
+					} else if navModeNum == MANUALMODE {
+						//only pressing North will switch between Robot and Manual
+						//Can only access ROBOT mode if in manual currently
+						navModeNum = ROBOTMODE
+					} else {
+						navModeNum = MANUALMODE
+					}
+				}
+			}
+		case input.ButtonLT:
+			pushFlag = int(event.Value)
+		case input.AbsoluteY:
+			speed = -event.Value
+
+		case input.AbsoluteX:
+			dir = event.Value
+
+		case input.AbsoluteZ:
+			//only squirt if you actually press it
+			squirt := event.Value - .75
+			squirtPower = math.Max(0, squirt) + .75
+
+		case input.ButtonStart:
+			// if the robot is "on", turn it "off", if off then go into robot mode
+			if event.Event == input.ButtonPress {
+				if navModeNum != OFFMODE {
+					navModeNum = OFFMODE
+				} else {
+					navModeNum = MANUALMODE
+				}
+
+			}
+
+		}
+
+	}
+
+	// Expects auto_reconnect to be set in the config
+	for {
+		if !utils.SelectContextOrWait(ctx, time.Second) {
+			return
+		}
+		controls, err := rc.Controls(ctx)
+		if err != nil {
+			logger.Error(err)
+			return
+		}
+		for _, control := range controls {
+			err = rc.RegisterControlCallback(ctx, control, []input.EventType{input.AllEvents}, repFunc)
+			if err != nil {
+				return
+			}
+
+		}
+		break
+	}
+	for {
+
+		switch navModeNum {
+		case OFFMODE:
+			err = myBoat.navService.SetMode(ctx, navigation.ModeManual)
+			if err != nil {
+				logger.Errorw("error setting mode: %w", err)
+			}
+
+			err = myBoat.SteerAndMove(ctx, 0.0, 0.0)
+			if err != nil {
+				logger.Errorw("error moving: %w", err)
+				continue
+			}
+		case MANUALMODE:
+			err = myBoat.navService.SetMode(ctx, navigation.ModeManual)
+			if err != nil {
+				logger.Errorw("error setting mode: %w", err)
+			}
+
+			err = myBoat.SteerAndMove(ctx, dir, speed)
+			if err != nil {
+				logger.Errorw("error moving: %w", err)
+				continue
+			}
+		case ROBOTMODE:
+			err = myBoat.navService.SetMode(ctx, navigation.ModeWaypoint)
+			if err != nil {
+				logger.Errorw("error setting mode: %w", err)
+			}
+		case PUSHMODE:
+			now, err := myBoat.myImu.Orientation(ctx)
+			if err != nil {
+				logger.Errorw("error getting orientation: %w", err)
+				continue
+			}
+
+			if !previousPushMode {
+				pushDirection = now.EulerAngles().Yaw
+			}
+			previousPushMode = true
+
+			delta := pushDirection - now.EulerAngles().Yaw
+
+			steer := .5 * (delta / 180)
+			fmt.Printf("pushDirection: %0.1f now: %0.1f delta: %0.2f steer: %.2f\n",
+				pushDirection, now.EulerAngles().Yaw, delta, steer)
+
+			err = multierr.Combine(
+				myBoat.SteerAndMove(ctx, steer, 1.0),
+				myBoat.squirt.Power(ctx, 1.0),
+			)
+			if err != nil {
+				logger.Errorw("error in push mode: %w", err)
+			}
+		}
+
+		if navModeNum == OFFMODE {
+			err = myBoat.squirt.Power(ctx, float32(0))
+		} else {
+			err = myBoat.squirt.Power(ctx, float32(squirtPower))
+		}
+
+		if err != nil {
+			logger.Errorw("error turning on squirt: %w", err)
+			continue
+		}
+
+	}
+}
+
 func runRC(ctx context.Context, myBoat *boat) {
 	previousPushMode := false
 	pushDirection := 0.0
@@ -654,7 +819,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
-
+	metadataSvc, err := service.New()
+	if err != nil {
+		return err
+	}
+	ctx = service.ContextWithService(ctx, metadataSvc)
 	// register boat as base properly
 	registry.RegisterBase("viam-boat2", registry.Base{Constructor: newBoat})
 
@@ -684,7 +853,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return errors.New("navigation service isn't a nav service")
 	}
 
-	go runRC(ctx, myB)
+	go runRC2(ctx, myB)
 	go runAngularVelocityKeeper(ctx, myB)
 
 	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
