@@ -36,7 +36,7 @@ window.reconnect = async () => undefined;
 if (window.webrtcEnabled) {
 	let connect = async () => {
 		try {
-			let cc = await dial(window.webrtcSignalingAddress, window.webrtcHost, rtcConfig);
+			let cc = await dial(window.webrtcSignalingAddress, window.webrtcHost, { rtcConfig: rtcConfig });
 			window.robotService = new RobotServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
 			window.metadataService = new MetadataServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
 
