@@ -42,15 +42,6 @@ import (
 
 var logger = golog.NewDevelopmentLogger("boat2")
 
-type remoteControl interface {
-	Signal(ctx context.Context, name string) (int64, error)
-	Signals(ctx context.Context, name []string) (map[string]int64, error)
-}
-
-type rcRemoteControl struct {
-	theBoard board.Board
-}
-
 const (
 	OFFMODE = iota
 	MANUALMODE
@@ -58,35 +49,12 @@ const (
 	PUSHMODE
 )
 
-func (rc *rcRemoteControl) Signal(ctx context.Context, name string) (int64, error) {
-	r, ok := rc.theBoard.DigitalInterruptByName(name)
-	if !ok {
-		return 0, fmt.Errorf("no signal named %s", name)
-	}
-	return r.Value(ctx)
-}
-
-func (rc *rcRemoteControl) Signals(ctx context.Context, names []string) (map[string]int64, error) {
-	m := map[string]int64{}
-
-	for _, n := range names {
-		val, err := rc.Signal(ctx, n)
-		if err != nil {
-			return nil, fmt.Errorf("cannot read value of %s %w", n, err)
-		}
-		m[n] = val
-	}
-
-	return m, nil
-}
-
 func main() {
 	utils.ContextualMain(mainWithArgs, logger)
 }
 
 type boat struct {
 	myRobot robot.Robot
-	rc      remoteControl
 	myImu   imu.IMU
 
 	squirt, steering, thrust motor.Motor
@@ -255,12 +223,6 @@ func (b *boat) SteerAndMove(ctx context.Context, dir, speed float64) error {
 func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golog.Logger) (base.Base, error) {
 	var err error
 	b := &boat{myRobot: r}
-
-	bb, ok := r.BoardByName("local")
-	if !ok {
-		return nil, errors.New("no local board")
-	}
-	b.rc = &rcRemoteControl{bb}
 
 	tempIMU, ok := r.SensorByName("imu")
 	if !ok {
@@ -504,23 +466,18 @@ func runRC2(ctx context.Context, myBoat *boat) {
 	}
 
 	// Expects auto_reconnect to be set in the config
-	for {
-		if !utils.SelectContextOrWait(ctx, time.Second) {
-			return
-		}
-		controls, err := rc.Controls(ctx)
-		if err != nil {
-			logger.Error(err)
-			return
-		}
-		for _, control := range controls {
-			err = rc.RegisterControlCallback(ctx, control, []input.EventType{input.AllEvents}, repFunc)
-			if err != nil {
-				return
-			}
 
+	controls, err := rc.Controls(ctx)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	for _, control := range controls {
+		err = rc.RegisterControlCallback(ctx, control, []input.EventType{input.AllEvents}, repFunc)
+		if err != nil {
+			return
 		}
-		break
+
 	}
 	for {
 
@@ -587,88 +544,6 @@ func runRC2(ctx context.Context, myBoat *boat) {
 
 		if err != nil {
 			logger.Errorw("error turning on squirt: %w", err)
-			continue
-		}
-
-	}
-}
-
-func runRC(ctx context.Context, myBoat *boat) {
-	previousPushMode := false
-	pushDirection := 0.0
-
-	for {
-		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return
-		}
-
-		vals, err := myBoat.rc.Signals(ctx, []string{"throttle", "direction", "speed", "mode", "left-horizontal", "a"})
-		if err != nil {
-			logger.Errorw("error getting rc signal %w", err)
-			continue
-		}
-		//logger.Debugf("vals: %v", vals)
-
-		if vals["mode"] <= 1300 {
-			err = myBoat.navService.SetMode(ctx, navigation.ModeWaypoint)
-			if err != nil {
-				logger.Errorw("error setting mode: %w", err)
-			}
-			continue
-		}
-		err = myBoat.navService.SetMode(ctx, navigation.ModeManual)
-		if err != nil {
-			logger.Errorw("error setting mode: %w", err)
-		}
-
-		if vals["mode"] <= 1800 {
-			continue
-		}
-
-		if vals["a"] < 1500 {
-			// push mode
-
-			now, err := myBoat.myImu.Orientation(ctx)
-			if err != nil {
-				logger.Errorw("error getting orientation: %w", err)
-				continue
-			}
-
-			if !previousPushMode {
-				pushDirection = now.EulerAngles().Yaw
-			}
-			previousPushMode = true
-
-			delta := pushDirection - now.EulerAngles().Yaw
-
-			steer := .5 * (delta / 180)
-			fmt.Printf("pushDirection: %0.1f now: %0.1f delta: %0.2f steer: %.2f\n",
-				pushDirection, now.EulerAngles().Yaw, delta, steer)
-
-			err = multierr.Combine(
-				myBoat.SteerAndMove(ctx, steer, 1.0),
-				myBoat.squirt.Power(ctx, 1.0),
-			)
-			if err != nil {
-				logger.Errorw("error in push mode: %w", err)
-			}
-			continue
-		}
-		previousPushMode = false
-
-		squirtPower := float32(vals["throttle"]) / 100.0
-		err = myBoat.squirt.Power(ctx, squirtPower)
-		if err != nil {
-			logger.Errorw("error turning on squirt: %w", err)
-			continue
-		}
-
-		direction := float64(vals["direction"]) / 100.0
-		speed := float64(vals["speed"]) / 100.0
-
-		err = myBoat.SteerAndMove(ctx, direction, speed)
-		if err != nil {
-			logger.Errorw("error moving: %w", err)
 			continue
 		}
 
