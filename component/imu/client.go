@@ -45,7 +45,7 @@ func (sc *serviceClient) Close() error {
 	return sc.conn.Close()
 }
 
-// client is an arm client
+// client is an IMU client
 type client struct {
 	*serviceClient
 	name string
