@@ -21,6 +21,8 @@ import (
 	"go.viam.com/core/testutils/inject"
 
 	rpcclient "go.viam.com/utils/rpc/client"
+
+	_ "go.viam.com/core/component/arm/register"
 )
 
 var resources = []resource.Name{resource.NewName(resource.Namespace("acme"), resource.ResourceTypeComponent, arm.SubtypeName, "arm1")}

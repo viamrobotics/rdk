@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
@@ -33,12 +34,13 @@ func TestPartsForRemoteRobot(t *testing.T) {
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 	gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2")}
+	cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
 
 	test.That(t, parts.RemoteNames(), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(parts.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 	test.That(t, utils.NewStringSet(parts.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera1", "camera2"))
+	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(parts.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1", "lidar2"))
 	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2"))
 	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2"))
@@ -50,6 +52,7 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, coretestutils.NewResourceNameSet(parts.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
 		armNames,
 		gripperNames,
+		cameraNames,
 		servoNames,
 	)...))
 
@@ -66,9 +69,8 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = parts.GripperByName("gripper1_what")
 	test.That(t, ok, test.ShouldBeFalse)
-	camera1, ok := parts.CameraByName("camera1")
+	_, ok = parts.CameraByName("camera1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1")
 	_, ok = parts.CameraByName("camera1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 	lidar1, ok := parts.LidarByName("lidar1")
@@ -123,12 +125,13 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}
 	gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2"), gripper.Named("gripper1_r1"), gripper.Named("gripper2_r1"), gripper.Named("gripper1_r2"), gripper.Named("gripper2_r2")}
+	cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2"), camera.Named("camera1_r1"), camera.Named("camera2_r1"), camera.Named("camera1_r2"), camera.Named("camera2_r2")}
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2"), servo.Named("servo1_r1"), servo.Named("servo1_r2"), servo.Named("servo2_r1"), servo.Named("servo2_r2")}
 
 	test.That(t, utils.NewStringSet(parts.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
 	test.That(t, utils.NewStringSet(parts.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 	test.That(t, utils.NewStringSet(parts.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera1", "camera2", "camera1_r1", "camera2_r1", "camera1_r2", "camera2_r2"))
+	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(parts.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1", "lidar2", "lidar1_r1", "lidar2_r1", "lidar1_r2", "lidar2_r2"))
 	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
 	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
@@ -140,6 +143,7 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	test.That(t, coretestutils.NewResourceNameSet(parts.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
 		armNames,
 		gripperNames,
+		cameraNames,
 		servoNames,
 	)...))
 
@@ -173,15 +177,12 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	_, ok = parts.GripperByName("gripper1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
-	camera1, ok := parts.CameraByName("camera1")
+	_, ok = parts.CameraByName("camera1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1")
-	camera1, ok = parts.CameraByName("camera1_r1")
+	_, ok = parts.CameraByName("camera1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1_r1")
-	camera1, ok = parts.CameraByName("camera1_r2")
+	_, ok = parts.CameraByName("camera1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1_r2")
 	_, ok = parts.CameraByName("camera1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -299,8 +300,6 @@ func TestPartsClone(t *testing.T) {
 	// remove and delete parts to prove clone
 	delete(parts.remotes, "remote1")
 	parts.remotes = nil
-	delete(parts.cameras, "camera1")
-	parts.cameras = nil
 	delete(parts.lidars, "lidar1")
 	parts.lidars = nil
 	delete(parts.bases, "base1")
@@ -316,6 +315,7 @@ func TestPartsClone(t *testing.T) {
 	delete(parts.resources, arm.Named("arm1"))
 	delete(parts.resources, servo.Named("servo1"))
 	delete(parts.resources, gripper.Named("gripper1"))
+	delete(parts.resources, camera.Named("camera1"))
 	parts.resources = nil
 
 	_, ok := parts.processManager.RemoveProcessByID("1")
@@ -324,12 +324,13 @@ func TestPartsClone(t *testing.T) {
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}
 	gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2"), gripper.Named("gripper1_r1"), gripper.Named("gripper2_r1"), gripper.Named("gripper1_r2"), gripper.Named("gripper2_r2")}
+	cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2"), camera.Named("camera1_r1"), camera.Named("camera2_r1"), camera.Named("camera1_r2"), camera.Named("camera2_r2")}
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2"), servo.Named("servo1_r1"), servo.Named("servo1_r2"), servo.Named("servo2_r1"), servo.Named("servo2_r2")}
 
 	test.That(t, utils.NewStringSet(newParts.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
 	test.That(t, utils.NewStringSet(newParts.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 	test.That(t, utils.NewStringSet(newParts.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(newParts.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera1", "camera2", "camera1_r1", "camera2_r1", "camera1_r2", "camera2_r2"))
+	test.That(t, utils.NewStringSet(newParts.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(newParts.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1", "lidar2", "lidar1_r1", "lidar2_r1", "lidar1_r2", "lidar2_r2"))
 	test.That(t, utils.NewStringSet(newParts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
 	test.That(t, utils.NewStringSet(newParts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
@@ -341,6 +342,7 @@ func TestPartsClone(t *testing.T) {
 	test.That(t, coretestutils.NewResourceNameSet(newParts.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
 		armNames,
 		gripperNames,
+		cameraNames,
 		servoNames,
 	)...))
 	test.That(t, utils.NewStringSet(newParts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
@@ -375,15 +377,12 @@ func TestPartsClone(t *testing.T) {
 	_, ok = newParts.GripperByName("gripper1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
-	camera1, ok := newParts.CameraByName("camera1")
+	_, ok = newParts.CameraByName("camera1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1")
-	camera1, ok = newParts.CameraByName("camera1_r1")
+	_, ok = newParts.CameraByName("camera1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1_r1")
-	camera1, ok = newParts.CameraByName("camera1_r2")
+	_, ok = newParts.CameraByName("camera1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1_r2")
 	_, ok = newParts.CameraByName("camera1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -530,14 +529,6 @@ func TestPartsAdd(t *testing.T) {
 	parts.AddBoard(board1, config.Component{Name: "board1"})
 	test.That(t, board1.(*proxyBoard).actual, test.ShouldEqual, injectBoard)
 
-	injectCamera := &inject.Camera{}
-	parts.AddCamera(injectCamera, config.Component{Name: "camera1"})
-	camera1, ok := parts.CameraByName("camera1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual, test.ShouldEqual, injectCamera)
-	parts.AddCamera(camera1, config.Component{Name: "camera1"})
-	test.That(t, camera1.(*proxyCamera).actual, test.ShouldEqual, injectCamera)
-
 	injectLidar := &inject.Lidar{}
 	parts.AddLidar(injectLidar, config.Component{Name: "lidar1"})
 	lidar1, ok := parts.LidarByName("lidar1")
@@ -646,6 +637,17 @@ func TestPartsAdd(t *testing.T) {
 	resource1, ok = parts.ResourceByName(rName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resource1, test.ShouldEqual, injectGripper)
+
+	injectCamera := &inject.Camera{}
+	cfg = &config.Component{Type: config.ComponentTypeCamera, Name: "camera1"}
+	rName = cfg.ResourceName()
+	parts.addResource(rName, injectCamera)
+	camera1, ok := parts.CameraByName("camera1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, camera1, test.ShouldEqual, injectCamera)
+	resource1, ok = parts.ResourceByName(rName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resource1, test.ShouldEqual, injectCamera)
 }
 
 func TestPartsMergeAdd(t *testing.T) {
@@ -681,12 +683,13 @@ func TestPartsMergeAdd(t *testing.T) {
 		t.Helper()
 		armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}
 		gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2"), gripper.Named("gripper1_r1"), gripper.Named("gripper2_r1"), gripper.Named("gripper1_r2"), gripper.Named("gripper2_r2")}
+		cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2"), camera.Named("camera1_r1"), camera.Named("camera2_r1"), camera.Named("camera1_r2"), camera.Named("camera2_r2")}
 		servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2"), servo.Named("servo1_r1"), servo.Named("servo1_r2"), servo.Named("servo2_r1"), servo.Named("servo2_r2")}
 
 		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
 		test.That(t, utils.NewStringSet(toCheck.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 		test.That(t, utils.NewStringSet(toCheck.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera1", "camera2", "camera1_r1", "camera2_r1", "camera1_r2", "camera2_r2"))
+		test.That(t, utils.NewStringSet(toCheck.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 		test.That(t, utils.NewStringSet(toCheck.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1", "lidar2", "lidar1_r1", "lidar2_r1", "lidar1_r2", "lidar2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
@@ -698,6 +701,7 @@ func TestPartsMergeAdd(t *testing.T) {
 		test.That(t, coretestutils.NewResourceNameSet(toCheck.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
+			cameraNames,
 			servoNames,
 		)...))
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
@@ -718,12 +722,13 @@ func TestPartsMergeAdd(t *testing.T) {
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2"), arm.Named("arm1_other"), arm.Named("arm2_other"), arm.Named("arm1_other1"), arm.Named("arm2_other1")}
 	gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2"), gripper.Named("gripper1_r1"), gripper.Named("gripper2_r1"), gripper.Named("gripper1_r2"), gripper.Named("gripper2_r2"), gripper.Named("gripper1_other"), gripper.Named("gripper2_other"), gripper.Named("gripper1_other1"), gripper.Named("gripper2_other1")}
+	cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2"), camera.Named("camera1_r1"), camera.Named("camera2_r1"), camera.Named("camera1_r2"), camera.Named("camera2_r2"), camera.Named("camera1_other"), camera.Named("camera2_other"), camera.Named("camera1_other1"), camera.Named("camera2_other1")}
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2"), servo.Named("servo1_r1"), servo.Named("servo1_r2"), servo.Named("servo2_r1"), servo.Named("servo2_r2"), servo.Named("servo1_other"), servo.Named("servo2_other"), servo.Named("servo1_other1"), servo.Named("servo2_other1")}
 
 	test.That(t, utils.NewStringSet(parts.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2", "other1"))
 	test.That(t, utils.NewStringSet(parts.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 	test.That(t, utils.NewStringSet(parts.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera1", "camera2", "camera1_r1", "camera2_r1", "camera1_r2", "camera2_r2", "camera1_other", "camera2_other", "camera1_other1", "camera2_other1"))
+	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(parts.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1", "lidar2", "lidar1_r1", "lidar2_r1", "lidar1_r2", "lidar2_r2", "lidar1_other", "lidar2_other", "lidar1_other1", "lidar2_other1"))
 	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2", "base1_other", "base2_other", "base1_other1", "base2_other1"))
 	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2", "board1_other", "board2_other", "board1_other1", "board2_other1"))
@@ -735,6 +740,7 @@ func TestPartsMergeAdd(t *testing.T) {
 	test.That(t, coretestutils.NewResourceNameSet(parts.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
 		armNames,
 		gripperNames,
+		cameraNames,
 		servoNames,
 	)...))
 	test.That(t, utils.NewStringSet(parts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
@@ -757,7 +763,7 @@ func TestPartsMergeAdd(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2", "other1"))
 	test.That(t, utils.NewStringSet(parts.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 	test.That(t, utils.NewStringSet(parts.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera1", "camera2", "camera1_r1", "camera2_r1", "camera1_r2", "camera2_r2", "camera1_other", "camera2_other", "camera1_other1", "camera2_other1"))
+	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(parts.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1", "lidar2", "lidar1_r1", "lidar2_r1", "lidar1_r2", "lidar2_r2", "lidar1_other", "lidar2_other", "lidar1_other1", "lidar2_other1"))
 	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2", "base1_other", "base2_other", "base1_other1", "base2_other1"))
 	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2", "board1_other", "board2_other", "board1_other1", "board2_other1"))
@@ -769,6 +775,7 @@ func TestPartsMergeAdd(t *testing.T) {
 	test.That(t, coretestutils.NewResourceNameSet(parts.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
 		armNames,
 		gripperNames,
+		cameraNames,
 		servoNames,
 	)...))
 	test.That(t, utils.NewStringSet(parts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
@@ -811,12 +818,13 @@ func TestPartsMergeModify(t *testing.T) {
 		t.Helper()
 		armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}
 		gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2"), gripper.Named("gripper1_r1"), gripper.Named("gripper2_r1"), gripper.Named("gripper1_r2"), gripper.Named("gripper2_r2")}
+		cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2"), camera.Named("camera1_r1"), camera.Named("camera2_r1"), camera.Named("camera1_r2"), camera.Named("camera2_r2")}
 		servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2"), servo.Named("servo1_r1"), servo.Named("servo1_r2"), servo.Named("servo2_r1"), servo.Named("servo2_r2")}
 
 		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
 		test.That(t, utils.NewStringSet(toCheck.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 		test.That(t, utils.NewStringSet(toCheck.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera1", "camera2", "camera1_r1", "camera2_r1", "camera1_r2", "camera2_r2"))
+		test.That(t, utils.NewStringSet(toCheck.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 		test.That(t, utils.NewStringSet(toCheck.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1", "lidar2", "lidar1_r1", "lidar2_r1", "lidar1_r2", "lidar2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
@@ -828,6 +836,7 @@ func TestPartsMergeModify(t *testing.T) {
 		test.That(t, coretestutils.NewResourceNameSet(parts.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
+			cameraNames,
 			servoNames,
 		)...))
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
@@ -880,7 +889,6 @@ func TestPartsMergeModify(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	robotForRemote.parts.AddBoard(fakeBoardRemote, config.Component{Name: "board2_r1"})
 	robotForRemote.parts.AddLidar(&inject.Lidar{}, config.Component{Name: "lidar2_r1"})
-	robotForRemote.parts.AddCamera(&inject.Camera{}, config.Component{Name: "camera2_r1"})
 	robotForRemote.parts.AddBase(&inject.Base{}, config.Component{Name: "base2_r1"})
 	robotForRemote.parts.AddSensor(&inject.Compass{}, config.Component{Name: "sensor2_r1"})
 	robotForRemote.parts.AddMotor(&inject.Motor{}, config.Component{Name: "motor2_r1"})
@@ -898,6 +906,10 @@ func TestPartsMergeModify(t *testing.T) {
 	cfg = config.Component{Type: config.ComponentTypeGripper, Name: "gripper2_r1"}
 	rName = cfg.ResourceName()
 	robotForRemote.parts.addResource(rName, &inject.Gripper{})
+
+	cfg = config.Component{Type: config.ComponentTypeCamera, Name: "camera2_r1"}
+	rName = cfg.ResourceName()
+	robotForRemote.parts.addResource(rName, &inject.Camera{})
 
 	remote1Replacemenet := newRemoteRobot(robotForRemote, config.Remote{Name: "remote1"})
 	replacementParts.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
@@ -917,8 +929,6 @@ func TestPartsMergeModify(t *testing.T) {
 	replacementParts.AddBoard(fakeBoard, config.Component{Name: "board1"})
 	injectLidar := &inject.Lidar{}
 	replacementParts.AddLidar(injectLidar, config.Component{Name: "lidar1"})
-	injectCamera := &inject.Camera{}
-	replacementParts.AddCamera(injectCamera, config.Component{Name: "camera1"})
 	injectBase := &inject.Base{}
 	replacementParts.AddBase(injectBase, config.Component{Name: "base1"})
 	injectCompass := &inject.Compass{}
@@ -935,7 +945,10 @@ func TestPartsMergeModify(t *testing.T) {
 	replacementParts.addResource(rName, &inject.Servo{})
 	cfg = config.Component{Type: config.ComponentTypeGripper, Name: "gripper1"}
 	rName = cfg.ResourceName()
-	robotForRemote.parts.addResource(rName, &inject.Gripper{})
+	replacementParts.addResource(rName, &inject.Gripper{})
+	cfg = config.Component{Type: config.ComponentTypeCamera, Name: "camera1"}
+	rName = cfg.ResourceName()
+	replacementParts.addResource(rName, &inject.Camera{})
 	fp1 := &fakeProcess{id: "1"}
 	_, err = replacementParts.processManager.AddProcess(context.Background(), fp1, false)
 	test.That(t, err, test.ShouldBeNil)
@@ -957,12 +970,13 @@ func TestPartsMergeRemove(t *testing.T) {
 		t.Helper()
 		armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}
 		gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2"), gripper.Named("gripper1_r1"), gripper.Named("gripper2_r1"), gripper.Named("gripper1_r2"), gripper.Named("gripper2_r2")}
+		cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2"), camera.Named("camera1_r1"), camera.Named("camera2_r1"), camera.Named("camera1_r2"), camera.Named("camera2_r2")}
 		servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2"), servo.Named("servo1_r1"), servo.Named("servo1_r2"), servo.Named("servo2_r1"), servo.Named("servo2_r2")}
 
 		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
 		test.That(t, utils.NewStringSet(toCheck.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 		test.That(t, utils.NewStringSet(toCheck.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera1", "camera2", "camera1_r1", "camera2_r1", "camera1_r2", "camera2_r2"))
+		test.That(t, utils.NewStringSet(toCheck.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 		test.That(t, utils.NewStringSet(toCheck.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1", "lidar2", "lidar1_r1", "lidar2_r1", "lidar1_r2", "lidar2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
@@ -974,6 +988,7 @@ func TestPartsMergeRemove(t *testing.T) {
 		test.That(t, coretestutils.NewResourceNameSet(toCheck.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
+			cameraNames,
 			servoNames,
 		)...))
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
@@ -1178,12 +1193,13 @@ func TestPartsFilterFromConfig(t *testing.T) {
 
 	armNames := []resource.Name{arm.Named("arm2")}
 	gripperNames := []resource.Name{gripper.Named("gripper2")}
+	cameraNames := []resource.Name{camera.Named("camera2")}
 	servoNames := []resource.Name{servo.Named("servo2")}
 
 	test.That(t, utils.NewStringSet(filtered.RemoteNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(filtered.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 	test.That(t, utils.NewStringSet(filtered.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(filtered.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera2"))
+	test.That(t, utils.NewStringSet(filtered.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(filtered.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar2"))
 	test.That(t, utils.NewStringSet(filtered.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2"))
 	test.That(t, utils.NewStringSet(filtered.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2"))
@@ -1195,6 +1211,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, coretestutils.NewResourceNameSet(filtered.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
 		armNames,
 		gripperNames,
+		cameraNames,
 		servoNames,
 	)...))
 	test.That(t, utils.NewStringSet(filtered.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("2"))
@@ -1263,12 +1280,13 @@ func TestPartsFilterFromConfig(t *testing.T) {
 
 	armNames = []resource.Name{arm.Named("arm2"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}
 	gripperNames = []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper1_r2"), gripper.Named("gripper2_r2")}
+	cameraNames = []resource.Name{camera.Named("camera2"), camera.Named("camera1_r2"), camera.Named("camera2_r2")}
 	servoNames = []resource.Name{servo.Named("servo2"), servo.Named("servo1_r2"), servo.Named("servo2_r2")}
 
 	test.That(t, utils.NewStringSet(filtered.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote2"))
 	test.That(t, utils.NewStringSet(filtered.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 	test.That(t, utils.NewStringSet(filtered.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(filtered.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera2", "camera1_r2", "camera2_r2"))
+	test.That(t, utils.NewStringSet(filtered.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(filtered.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar2", "lidar1_r2", "lidar2_r2"))
 	test.That(t, utils.NewStringSet(filtered.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base1_r2", "base2_r2"))
 	test.That(t, utils.NewStringSet(filtered.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board1_r2", "board2_r2"))
@@ -1280,6 +1298,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, coretestutils.NewResourceNameSet(filtered.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
 		armNames,
 		gripperNames,
+		cameraNames,
 		servoNames,
 	)...))
 	test.That(t, utils.NewStringSet(filtered.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("2"))
@@ -1448,12 +1467,13 @@ func TestPartsFilterFromConfig(t *testing.T) {
 
 	armNames = []resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}
 	gripperNames = []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2"), gripper.Named("gripper1_r1"), gripper.Named("gripper2_r1"), gripper.Named("gripper1_r2"), gripper.Named("gripper2_r2")}
+	cameraNames = []resource.Name{camera.Named("camera1"), camera.Named("camera2"), camera.Named("camera1_r1"), camera.Named("camera2_r1"), camera.Named("camera1_r2"), camera.Named("camera2_r2")}
 	servoNames = []resource.Name{servo.Named("servo1"), servo.Named("servo2"), servo.Named("servo1_r1"), servo.Named("servo1_r2"), servo.Named("servo2_r1"), servo.Named("servo2_r2")}
 
 	test.That(t, utils.NewStringSet(filtered.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
 	test.That(t, utils.NewStringSet(filtered.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 	test.That(t, utils.NewStringSet(filtered.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(filtered.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera1", "camera2", "camera1_r1", "camera2_r1", "camera1_r2", "camera2_r2"))
+	test.That(t, utils.NewStringSet(filtered.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(filtered.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1", "lidar2", "lidar1_r1", "lidar2_r1", "lidar1_r2", "lidar2_r2"))
 	test.That(t, utils.NewStringSet(filtered.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
 	test.That(t, utils.NewStringSet(filtered.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
@@ -1465,6 +1485,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, coretestutils.NewResourceNameSet(filtered.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
 		armNames,
 		gripperNames,
+		cameraNames,
 		servoNames,
 	)...))
 	test.That(t, utils.NewStringSet(filtered.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))

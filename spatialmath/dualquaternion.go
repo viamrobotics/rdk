@@ -160,8 +160,11 @@ func (q *dualQuaternion) SetZ(z float64) {
 // Transformation multiplies the dual quat contained in this dualQuaternion by another dual quat.
 func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	// Ensure we are multiplying by a unit dual quaternion
-	if vecLen := quat.Abs(by.Real); vecLen != 1 {
-		by.Real = quat.Scale(1/vecLen, by.Real)
+	if vecLen := 1/quat.Abs(by.Real); vecLen != 1 {
+		by.Real.Real *= vecLen
+		by.Real.Imag *= vecLen
+		by.Real.Jmag *= vecLen
+		by.Real.Kmag *= vecLen
 	}
 
 	return dualquat.Mul(q.Number, by)

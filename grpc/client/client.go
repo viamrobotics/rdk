@@ -23,9 +23,10 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
+	"go.viam.com/core/component/imu"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc"
@@ -44,7 +45,6 @@ import (
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
-	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/spatialmath"
 
 	"github.com/edaniels/golog"
@@ -69,7 +69,6 @@ type RobotClient struct {
 	namesMu              *sync.RWMutex
 	baseNames            []string
 	boardNames           []boardInfo
-	cameraNames          []string
 	lidarNames           []string
 	sensorNames          []string
 	motorNames           []string
@@ -302,7 +301,15 @@ func (rc *RobotClient) BaseByName(name string) (base.Base, bool) {
 // GripperByName returns a gripper by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) GripperByName(name string) (gripper.Gripper, bool) {
-	return &gripperClient{rc, name}, true
+	resource, ok := rc.ResourceByName(gripper.Named(name))
+	if !ok {
+		return nil, false
+	}
+	actual, ok := resource.(gripper.Gripper)
+	if !ok {
+		return nil, false
+	}
+	return actual, true
 }
 
 // CameraByName returns a camera by name. It is assumed to exist on the
@@ -340,8 +347,6 @@ func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 		return &compassClient{sc}, true
 	case compass.RelativeType:
 		return &relativeCompassClient{&compassClient{sc}}, true
-	case imu.Type:
-		return &imuClient{sc}, true
 	case gps.Type:
 		return &gpsClient{sc}, true
 	case forcematrix.Type:
@@ -388,8 +393,12 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	switch name.Subtype {
-	case gripper.Subtype:
-		return &gripperClient{rc: rc, name: name.Name}, true
+	case imu.Subtype:
+		sensorType := rc.sensorTypes[name.Name]
+		sc := &sensorClient{rc, name.Name, sensorType}
+		return &imuClient{sc}, true
+	case camera.Subtype:
+		return &cameraClient{rc: rc, name: name.Name}, true
 	case servo.Subtype:
 		return &servoClient{rc: rc, name: name.Name}, true
 	default:
@@ -465,13 +474,6 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 				}
 			}
 			rc.boardNames = append(rc.boardNames, info)
-		}
-	}
-	rc.cameraNames = nil
-	if len(status.Cameras) != 0 {
-		rc.cameraNames = make([]string, 0, len(status.Cameras))
-		for name := range status.Cameras {
-			rc.cameraNames = append(rc.cameraNames, name)
 		}
 	}
 	rc.lidarNames = nil
@@ -563,7 +565,13 @@ func (rc *RobotClient) GripperNames() []string {
 func (rc *RobotClient) CameraNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.cameraNames)
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		if v.Subtype == camera.Subtype {
+			names = append(names, v.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // LidarNames returns the names of all known lidars.
@@ -776,35 +784,6 @@ func (bc *baseClient) WidthMillis(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	return int(resp.WidthMillis), nil
-}
-
-// gripperClient satisfies a gRPC based gripper.Gripper. Refer to the interface
-// for descriptions of its methods.
-type gripperClient struct {
-	rc   *RobotClient
-	name string
-}
-
-func (gc *gripperClient) Open(ctx context.Context) error {
-	_, err := gc.rc.client.GripperOpen(ctx, &pb.GripperOpenRequest{
-		Name: gc.name,
-	})
-	return err
-}
-
-func (gc *gripperClient) Grab(ctx context.Context) (bool, error) {
-	resp, err := gc.rc.client.GripperGrab(ctx, &pb.GripperGrabRequest{
-		Name: gc.name,
-	})
-	if err != nil {
-		return false, err
-	}
-	return resp.Grabbed, nil
-}
-
-func (gc *gripperClient) ModelFrame() *referenceframe.Model {
-	// TODO(erh): this feels wrong
-	return nil
 }
 
 // boardClient satisfies a gRPC based board.Board. Refer to the interface
@@ -1271,7 +1250,7 @@ func (ic *imuClient) Orientation(ctx context.Context) (spatialmath.Orientation, 
 }
 
 func (ic *imuClient) Desc() sensor.Description {
-	return sensor.Description{imu.Type, ""}
+	return sensor.Description{sensor.Type(imu.SubtypeName), ""}
 }
 
 // gpsClient satisfies a gRPC based gps.GPS. Refer to the interface
