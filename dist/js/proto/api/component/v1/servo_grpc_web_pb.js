@@ -16,15 +16,7 @@ const grpc = {};
 grpc.web = require('grpc-web');
 
 
-var google_protobuf_struct_pb = require('google-protobuf/google/protobuf/struct_pb.js')
-
-var google_protobuf_duration_pb = require('google-protobuf/google/protobuf/duration_pb.js')
-
 var google_api_annotations_pb = require('../../../../google/api/annotations_pb.js')
-
-var google_api_httpbody_pb = require('../../../../google/api/httpbody_pb.js')
-
-var proto_api_common_v1_common_pb = require('../../../../proto/api/common/v1/common_pb.js')
 const proto = {};
 proto.proto = {};
 proto.proto.api = {};
