@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/spatialmath"
+	pb "go.viam.com/core/proto/api/component/v1"
 
 	"go.viam.com/core/component/imu"
 	"go.viam.com/core/config"
@@ -39,8 +39,8 @@ func NewIMU(cfg config.Component) (imu.IMU, error) {
 		Name:            name,
 		Latitude:        0,
 		Longitude:       0,
-		angularVelocity: spatialmath.AngularVelocity{1, 2, 3},
-		orientation:     spatialmath.EulerAngles{1, 2, 3},
+		angularVelocity: &pb.AngularVelocity{X: 1, Y: 2, Z: 3},
+		orientation:     &pb.EulerAngles{Roll: 1, Pitch: 2, Yaw: 3},
 	}, nil
 }
 
@@ -49,22 +49,22 @@ type IMU struct {
 	Name            string
 	Latitude        float64
 	Longitude       float64
-	angularVelocity spatialmath.AngularVelocity
-	orientation     spatialmath.EulerAngles
+	angularVelocity *pb.AngularVelocity
+	orientation     *pb.EulerAngles
 
 	mu sync.Mutex
 }
 
 // AngularVelocity always returns the set value.
-func (i *IMU) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (i *IMU) AngularVelocity(ctx context.Context) (*pb.AngularVelocity, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return i.angularVelocity, nil
 }
 
 // Orientation always returns the set value.
-func (i *IMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (i *IMU) Orientation(ctx context.Context) (*pb.EulerAngles, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	return &i.orientation, nil
+	return i.orientation, nil
 }
