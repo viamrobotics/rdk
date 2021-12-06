@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	pb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/resource"
-	"go.viam.com/core/spatialmath"
 
 	"go.viam.com/test"
 )
@@ -91,7 +91,7 @@ func TestAngularVelocity(t *testing.T) {
 	test.That(t, actualIMU1.angularVelocityCalls, test.ShouldEqual, 0)
 	vel, err := fakeIMU1.(*reconfigurableIMU).AngularVelocity(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, vel, test.ShouldResemble, spatialmath.AngularVelocity{1, 2, 3})
+	test.That(t, vel, test.ShouldResemble, &pb.AngularVelocity{X: 1, Y: 2, Z: 3})
 	test.That(t, actualIMU1.angularVelocityCalls, test.ShouldEqual, 1)
 }
 
@@ -102,7 +102,7 @@ func TestOrientiation(t *testing.T) {
 	test.That(t, actualIMU1.orientationCalls, test.ShouldEqual, 0)
 	angles, err := fakeIMU1.(*reconfigurableIMU).Orientation(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, angles, test.ShouldResemble, &spatialmath.EulerAngles{4, 5, 6})
+	test.That(t, angles, test.ShouldResemble, &pb.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6})
 	test.That(t, actualIMU1.orientationCalls, test.ShouldEqual, 1)
 }
 
@@ -114,12 +114,12 @@ type mock struct {
 	reconfCalls          int
 }
 
-func (m *mock) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (m *mock) AngularVelocity(ctx context.Context) (*pb.AngularVelocity, error) {
 	m.angularVelocityCalls++
-	return spatialmath.AngularVelocity{1, 2, 3}, nil
+	return &pb.AngularVelocity{X: 1, Y: 2, Z: 3}, nil
 }
-func (m *mock) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (m *mock) Orientation(ctx context.Context) (*pb.EulerAngles, error) {
 	m.orientationCalls++
-	return &spatialmath.EulerAngles{4, 5, 6}, nil
+	return &pb.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}, nil
 }
 func (m *mock) Close() error { m.reconfCalls++; return nil }

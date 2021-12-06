@@ -9,7 +9,7 @@ import (
 	"github.com/go-errors/errors"
 	viamutils "go.viam.com/utils"
 
-	"go.viam.com/core/spatialmath"
+	pb "go.viam.com/core/proto/api/component/v1"
 
 	"go.viam.com/core/resource"
 	"go.viam.com/core/rlog"
@@ -32,8 +32,8 @@ func Named(name string) resource.Name {
 
 // An IMU represents a sensor that can report AngularVelocity and Orientation measurements.
 type IMU interface {
-	AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error)
-	Orientation(ctx context.Context) (spatialmath.Orientation, error)
+	AngularVelocity(ctx context.Context) (*pb.AngularVelocity, error)
+	Orientation(ctx context.Context) (*pb.EulerAngles, error)
 }
 
 var (
@@ -58,13 +58,13 @@ func (r *reconfigurableIMU) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableIMU) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (r *reconfigurableIMU) AngularVelocity(ctx context.Context) (*pb.AngularVelocity, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.AngularVelocity(ctx)
 }
 
-func (r *reconfigurableIMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (r *reconfigurableIMU) Orientation(ctx context.Context) (*pb.EulerAngles, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Orientation(ctx)
