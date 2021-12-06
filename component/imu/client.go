@@ -7,7 +7,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/core/grpc"
 	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/spatialmath"
 	rpcclient "go.viam.com/utils/rpc/client"
 	"go.viam.com/utils/rpc/dialer"
 )
@@ -70,28 +69,28 @@ func clientFromSvcClient(sc *serviceClient, name string) IMU {
 	return &client{sc, name}
 }
 
-func (c *client) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	resp, err := c.client.IMUAngularVelocity(ctx, &pb.IMUAngularVelocityRequest{
+func (c *client) AngularVelocity(ctx context.Context) (*pb.AngularVelocity, error) {
+	resp, err := c.client.AngularVelocity(ctx, &pb.IMUServiceAngularVelocityRequest{
 		Name: c.name,
 	})
 	if err != nil {
-		return spatialmath.AngularVelocity{}, err
+		return &pb.AngularVelocity{}, err
 	}
-	return spatialmath.AngularVelocity{
+	return &pb.AngularVelocity{
 		X: resp.AngularVelocity.X,
 		Y: resp.AngularVelocity.Y,
 		Z: resp.AngularVelocity.Z,
 	}, nil
 }
 
-func (c *client) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
-	resp, err := c.client.IMUOrientation(ctx, &pb.IMUOrientationRequest{
+func (c *client) Orientation(ctx context.Context) (*pb.EulerAngles, error) {
+	resp, err := c.client.Orientation(ctx, &pb.IMUServiceOrientationRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &spatialmath.EulerAngles{
+	return &pb.EulerAngles{
 		Roll:  resp.Orientation.Roll,
 		Pitch: resp.Orientation.Pitch,
 		Yaw:   resp.Orientation.Yaw,

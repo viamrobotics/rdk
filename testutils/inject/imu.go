@@ -6,20 +6,19 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/component/imu"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/spatialmath"
+	pb "go.viam.com/core/proto/api/component/v1"
 )
 
-// IMU is an injected imu.
+// IMU is an injected IMU.
 type IMU struct {
 	imu.IMU
-	AngularVelocityFunc func(ctx context.Context) (spatialmath.AngularVelocity, error)
-	OrientationFunc     func(ctx context.Context) (spatialmath.Orientation, error)
+	AngularVelocityFunc func(ctx context.Context) (*pb.AngularVelocity, error)
+	OrientationFunc     func(ctx context.Context) (*pb.EulerAngles, error)
 	CloseFunc           func() error
 }
 
 // AngularVelocity calls the injected AngularVelocity or the real version.
-func (i *IMU) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (i *IMU) AngularVelocity(ctx context.Context) (*pb.AngularVelocity, error) {
 	if i.AngularVelocityFunc == nil {
 		return i.IMU.AngularVelocity(ctx)
 	}
