@@ -54,6 +54,7 @@ import (
 	"google.golang.org/grpc"
 
 	_ "go.viam.com/core/component/arm/register"
+	_ "go.viam.com/core/component/gripper/register"
 )
 
 var emptyStatus = &pb.Status{
@@ -278,7 +279,6 @@ func TestClient(t *testing.T) {
 	}
 	var (
 		capBaseName             string
-		capGripperName          string
 		capBoardName            string
 		capMotorName            string
 		capInputControllerName  string
@@ -331,10 +331,6 @@ func TestClient(t *testing.T) {
 	injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
 		gripperGrabCalled = true
 		return true, nil
-	}
-	injectRobot2.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
-		capGripperName = name
-		return injectGripper, true
 	}
 	injectBoard := &inject.Board{}
 	injectMotor := &inject.Motor{}
@@ -641,6 +637,14 @@ func TestClient(t *testing.T) {
 	armSvc2, err := subtype.New((map[resource.Name]interface{}{arm.Named("arm1"): injectArm}))
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterArmServiceServer(gServer2, arm.NewServer(armSvc2))
+
+	gripperSvc1, err := subtype.New((map[resource.Name]interface{}{}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterGripperServiceServer(gServer1, gripper.NewServer(gripperSvc1))
+
+	gripperSvc2, err := subtype.New((map[resource.Name]interface{}{gripper.Named("gripper1"): injectGripper}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterGripperServiceServer(gServer2, gripper.NewServer(gripperSvc2))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -968,17 +972,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gripperOpenCalled, test.ShouldBeTrue)
 	test.That(t, gripperGrabCalled, test.ShouldBeFalse)
-	test.That(t, capGripperName, test.ShouldEqual, "gripper1")
 	gripperOpenCalled = false
-
-	gripper2, ok := client.GripperByName("gripper2")
-	test.That(t, ok, test.ShouldBeTrue)
-	grabbed, err := gripper2.Grab(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, grabbed, test.ShouldBeTrue)
-	test.That(t, gripperOpenCalled, test.ShouldBeFalse)
-	test.That(t, gripperGrabCalled, test.ShouldBeTrue)
-	test.That(t, capGripperName, test.ShouldEqual, "gripper2")
 
 	servo1, ok = client.ServoByName("servo1")
 	test.That(t, ok, test.ShouldBeTrue)

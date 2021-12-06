@@ -288,38 +288,30 @@
         
           
           <li>
-            <a href="#proto%2fapi%2fcomponent%2fv1%2fimu.proto">proto/api/component/v1/imu.proto</a>
+            <a href="#proto%2fapi%2fcomponent%2fv1%2fgripper.proto">proto/api/component/v1/gripper.proto</a>
             <ul>
               
                 <li>
-                  <a href="#proto.api.component.v1.AngularVelocity"><span class="badge">M</span>AngularVelocity</a>
+                  <a href="#proto.api.component.v1.GripperServiceGrabRequest"><span class="badge">M</span>GripperServiceGrabRequest</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.component.v1.EulerAngles"><span class="badge">M</span>EulerAngles</a>
+                  <a href="#proto.api.component.v1.GripperServiceGrabResponse"><span class="badge">M</span>GripperServiceGrabResponse</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.component.v1.IMUAngularVelocityRequest"><span class="badge">M</span>IMUAngularVelocityRequest</a>
+                  <a href="#proto.api.component.v1.GripperServiceOpenRequest"><span class="badge">M</span>GripperServiceOpenRequest</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.component.v1.IMUAngularVelocityResponse"><span class="badge">M</span>IMUAngularVelocityResponse</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.component.v1.IMUOrientationRequest"><span class="badge">M</span>IMUOrientationRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.component.v1.IMUOrientationResponse"><span class="badge">M</span>IMUOrientationResponse</a>
+                  <a href="#proto.api.component.v1.GripperServiceOpenResponse"><span class="badge">M</span>GripperServiceOpenResponse</a>
                 </li>
               
               
               
               
                 <li>
-                  <a href="#proto.api.component.v1.IMUService"><span class="badge">S</span>IMUService</a>
+                  <a href="#proto.api.component.v1.GripperService"><span class="badge">S</span>GripperService</a>
                 </li>
               
             </ul>
@@ -654,19 +646,19 @@
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.GripperGrabRequest"><span class="badge">M</span>GripperGrabRequest</a>
+                  <a href="#proto.api.v1.IMUAngularVelocityRequest"><span class="badge">M</span>IMUAngularVelocityRequest</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.GripperGrabResponse"><span class="badge">M</span>GripperGrabResponse</a>
+                  <a href="#proto.api.v1.IMUAngularVelocityResponse"><span class="badge">M</span>IMUAngularVelocityResponse</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.GripperOpenRequest"><span class="badge">M</span>GripperOpenRequest</a>
+                  <a href="#proto.api.v1.IMUOrientationRequest"><span class="badge">M</span>IMUOrientationRequest</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.GripperOpenResponse"><span class="badge">M</span>GripperOpenResponse</a>
+                  <a href="#proto.api.v1.IMUOrientationResponse"><span class="badge">M</span>IMUOrientationResponse</a>
                 </li>
               
                 <li>
@@ -1798,88 +1790,12 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
     
       
       <div class="file-heading">
-        <h2 id="proto/api/component/v1/imu.proto">proto/api/component/v1/imu.proto</h2><a href="#title">Top</a>
+        <h2 id="proto/api/component/v1/gripper.proto">proto/api/component/v1/gripper.proto</h2><a href="#title">Top</a>
       </div>
       <p></p>
 
       
-        <h3 id="proto.api.component.v1.AngularVelocity">AngularVelocity</h3>
-        <p>AngularVelocity contains angular velocity in deg/s across x/y/z axes.</p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>x</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>y</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>z</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.component.v1.EulerAngles">EulerAngles</h3>
-        <p>EulerAngles are three angles used to represent the rotation of an object in 3D Euclidean space</p><p>The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.</p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>roll</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>pitch</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>yaw</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.component.v1.IMUAngularVelocityRequest">IMUAngularVelocityRequest</h3>
+        <h3 id="proto.api.component.v1.GripperServiceGrabRequest">GripperServiceGrabRequest</h3>
         <p></p>
 
         
@@ -1903,7 +1819,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
-        <h3 id="proto.api.component.v1.IMUAngularVelocityResponse">IMUAngularVelocityResponse</h3>
+        <h3 id="proto.api.component.v1.GripperServiceGrabResponse">GripperServiceGrabResponse</h3>
         <p></p>
 
         
@@ -1914,8 +1830,8 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
             <tbody>
               
                 <tr>
-                  <td>angular_velocity</td>
-                  <td><a href="#proto.api.component.v1.AngularVelocity">AngularVelocity</a></td>
+                  <td>grabbed</td>
+                  <td><a href="#bool">bool</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -1927,7 +1843,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
-        <h3 id="proto.api.component.v1.IMUOrientationRequest">IMUOrientationRequest</h3>
+        <h3 id="proto.api.component.v1.GripperServiceOpenRequest">GripperServiceOpenRequest</h3>
         <p></p>
 
         
@@ -1951,27 +1867,10 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
-        <h3 id="proto.api.component.v1.IMUOrientationResponse">IMUOrientationResponse</h3>
+        <h3 id="proto.api.component.v1.GripperServiceOpenResponse">GripperServiceOpenResponse</h3>
         <p></p>
 
         
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>orientation</td>
-                  <td><a href="#proto.api.component.v1.EulerAngles">EulerAngles</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
 
         
       
@@ -1981,8 +1880,8 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
       
 
       
-        <h3 id="proto.api.component.v1.IMUService">IMUService</h3>
-        <p>IMUService encompasses all functionality of some robot comprised of parts, local and remote.</p>
+        <h3 id="proto.api.component.v1.GripperService">GripperService</h3>
+        <p>An GripperService services maintains all grippers associated with a robot</p>
         <table class="enum-table">
           <thead>
             <tr><td>Method Name</td><td>Request Type</td><td>Response Type</td><td>Description</td></tr>
@@ -1990,17 +1889,17 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
           <tbody>
             
               <tr>
-                <td>IMUAngularVelocity</td>
-                <td><a href="#proto.api.component.v1.IMUAngularVelocityRequest">IMUAngularVelocityRequest</a></td>
-                <td><a href="#proto.api.component.v1.IMUAngularVelocityResponse">IMUAngularVelocityResponse</a></td>
-                <td><p>IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.</p></td>
+                <td>Open</td>
+                <td><a href="#proto.api.component.v1.GripperServiceOpenRequest">GripperServiceOpenRequest</a></td>
+                <td><a href="#proto.api.component.v1.GripperServiceOpenResponse">GripperServiceOpenResponse</a></td>
+                <td><p>Open opens a gripper of the underlying robot.</p></td>
               </tr>
             
               <tr>
-                <td>IMUOrientation</td>
-                <td><a href="#proto.api.component.v1.IMUOrientationRequest">IMUOrientationRequest</a></td>
-                <td><a href="#proto.api.component.v1.IMUOrientationResponse">IMUOrientationResponse</a></td>
-                <td><p>IMUOrientation returns the most recent orientation reading from the given IMU.</p></td>
+                <td>Grab</td>
+                <td><a href="#proto.api.component.v1.GripperServiceGrabRequest">GripperServiceGrabRequest</a></td>
+                <td><a href="#proto.api.component.v1.GripperServiceGrabResponse">GripperServiceGrabResponse</a></td>
+                <td><p>Grab requests a gripper of the underlying robot to grab.</p></td>
               </tr>
             
           </tbody>
@@ -2024,9 +1923,9 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
               
               
               <tr>
-                <td>IMUAngularVelocity</td>
-                <td>GET</td>
-                <td>/api/v1/component/imu/{name}/angular_velocity</td>
+                <td>Open</td>
+                <td>PUT</td>
+                <td>/api/v1/component/gripper/{name}/open</td>
                 <td></td>
               </tr>
               
@@ -2034,9 +1933,9 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
               
               
               <tr>
-                <td>IMUOrientation</td>
-                <td>GET</td>
-                <td>/api/v1/component/imu/{name}/orientation</td>
+                <td>Grab</td>
+                <td>PUT</td>
+                <td>/api/v1/component/gripper/{name}/grab</td>
                 <td></td>
               </tr>
               
@@ -4164,7 +4063,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
-        <h3 id="proto.api.v1.GripperGrabRequest">GripperGrabRequest</h3>
+        <h3 id="proto.api.v1.IMUAngularVelocityRequest">IMUAngularVelocityRequest</h3>
         <p></p>
 
         
@@ -4188,7 +4087,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
-        <h3 id="proto.api.v1.GripperGrabResponse">GripperGrabResponse</h3>
+        <h3 id="proto.api.v1.IMUAngularVelocityResponse">IMUAngularVelocityResponse</h3>
         <p></p>
 
         
@@ -4199,8 +4098,8 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
             <tbody>
               
                 <tr>
-                  <td>grabbed</td>
-                  <td><a href="#bool">bool</a></td>
+                  <td>angular_velocity</td>
+                  <td><a href="#proto.api.v1.AngularVelocity">AngularVelocity</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -4212,7 +4111,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
-        <h3 id="proto.api.v1.GripperOpenRequest">GripperOpenRequest</h3>
+        <h3 id="proto.api.v1.IMUOrientationRequest">IMUOrientationRequest</h3>
         <p></p>
 
         
@@ -4236,10 +4135,27 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
-        <h3 id="proto.api.v1.GripperOpenResponse">GripperOpenResponse</h3>
+        <h3 id="proto.api.v1.IMUOrientationResponse">IMUOrientationResponse</h3>
         <p></p>
 
         
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>orientation</td>
+                  <td><a href="#proto.api.v1.EulerAngles">EulerAngles</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
 
         
       
@@ -7120,20 +7036,6 @@ And not the pieces relevant to local configuration (pins, security keys, etc...)
               </tr>
             
               <tr>
-                <td>GripperOpen</td>
-                <td><a href="#proto.api.v1.GripperOpenRequest">GripperOpenRequest</a></td>
-                <td><a href="#proto.api.v1.GripperOpenResponse">GripperOpenResponse</a></td>
-                <td><p>GripperOpen opens a gripper of the underlying robot.</p></td>
-              </tr>
-            
-              <tr>
-                <td>GripperGrab</td>
-                <td><a href="#proto.api.v1.GripperGrabRequest">GripperGrabRequest</a></td>
-                <td><a href="#proto.api.v1.GripperGrabResponse">GripperGrabResponse</a></td>
-                <td><p>GripperGrab requests a gripper of the underlying robot to grab.</p></td>
-              </tr>
-            
-              <tr>
                 <td>CameraFrame</td>
                 <td><a href="#proto.api.v1.CameraFrameRequest">CameraFrameRequest</a></td>
                 <td><a href="#proto.api.v1.CameraFrameResponse">CameraFrameResponse</a></td>
@@ -7674,26 +7576,6 @@ is reliant on having an encoder.</p></td>
                 <td>BaseWidthMillis</td>
                 <td>GET</td>
                 <td>/api/v1/base/{name}/width_millis</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>GripperOpen</td>
-                <td>PUT</td>
-                <td>/api/v1/gripper/{name}/open</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>GripperGrab</td>
-                <td>PUT</td>
-                <td>/api/v1/gripper/{name}/grab</td>
                 <td></td>
               </tr>
               

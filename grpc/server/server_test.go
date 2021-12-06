@@ -17,7 +17,6 @@ import (
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/camera"
-	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/client"
@@ -498,76 +497,6 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
 		test.That(t, widthResp.WidthMillis, test.ShouldEqual, 2)
-	})
-
-	t.Run("Gripper", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.GripperOpen(context.Background(), &pb.GripperOpenRequest{
-			Name: "gripper1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
-		test.That(t, capName, test.ShouldEqual, "gripper1")
-
-		_, err = server.GripperGrab(context.Background(), &pb.GripperGrabRequest{
-			Name: "gripper1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
-		test.That(t, capName, test.ShouldEqual, "gripper1")
-
-		injectGripper := &inject.Gripper{}
-		injectRobot.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
-			return injectGripper, true
-		}
-
-		err1 := errors.New("whoops")
-		injectGripper.OpenFunc = func(ctx context.Context) error {
-			return err1
-		}
-		_, err = server.GripperOpen(context.Background(), &pb.GripperOpenRequest{
-			Name: "gripper1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		injectGripper.OpenFunc = func(ctx context.Context) error {
-			return nil
-		}
-		_, err = server.GripperOpen(context.Background(), &pb.GripperOpenRequest{
-			Name: "gripper1",
-		})
-		test.That(t, err, test.ShouldEqual, nil)
-
-		injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
-			return false, err1
-		}
-		_, err = server.GripperGrab(context.Background(), &pb.GripperGrabRequest{
-			Name: "gripper1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
-			return false, nil
-		}
-
-		resp, err := server.GripperGrab(context.Background(), &pb.GripperGrabRequest{
-			Name: "gripper1",
-		})
-		test.That(t, err, test.ShouldEqual, nil)
-		test.That(t, resp.Grabbed, test.ShouldBeFalse)
-
-		injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
-			return true, nil
-		}
-		resp, err = server.GripperGrab(context.Background(), &pb.GripperGrabRequest{
-			Name: "gripper1",
-		})
-		test.That(t, err, test.ShouldEqual, nil)
-		test.That(t, resp.Grabbed, test.ShouldBeTrue)
 	})
 
 	t.Run("BoardStatus", func(t *testing.T) {

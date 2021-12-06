@@ -1,0 +1,33 @@
+{
+  "services": [
+    {
+    	"name": "frame_system",
+		"type": "frame_system"
+    },
+    {
+    	"name": "object_manipulation",
+		"type": "object_manipulation"
+    }
+  ],
+  "components": [
+    {
+      "frame": {
+        "parent": "world"
+      },
+      "host": "10.237.115.187",
+      "model": "ur",
+      "name": "theArm",
+      "type": "arm"
+    }
+  ],
+  "remotes": [
+    {
+      "address": "vg2105m01.local:8080",
+      "prefix": false,
+      "name": "gripper",
+      "frame" : {
+          "parent" : "theArm"
+      }
+    }
+  ]
+}

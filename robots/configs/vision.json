@@ -34,7 +34,7 @@
               "make": "intel515",
               "aligned": true,
               "debug": false,
-              "matrices": "$load{intel515_parameters.json}"
+              "intrinsic_extrinsic": "$load{intel515_parameters.json}"
           }
         },
         { "name" : "front-overlay",
