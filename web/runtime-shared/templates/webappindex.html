@@ -109,31 +109,6 @@
           return n;
       }
 
-      function fixServos(old) {
-        var n = [];
-          for (var i=0; i<old.length; i++) {
-              const [servoName, servoValue] = old[i];
-              var newArm = { name : servoName, pieces : [] };
-
-              var fieldSetters = [ ["x", "X"], ["y", "Y"], ["z", "Z"], ["theta", "Theta"], ["oX", "OX"], ["oY", "OY"], ["oZ", "OZ"]];
-              for (var j=0; j<fieldSetters.length; j++ ){
-                  let gridField = fieldSetters[j][0].split(".");
-                  let gridValue = servoValue.gridPosition[gridField[0]];
-                  for (let k = 1; k < gridField.length; k++) {
-                    gridValue = gridValue[gridField[k]];
-                  }
-                  newArm.pieces.push( { grid : fieldSetters[j],
-                                        joint : j,
-                                        gridValue : gridValue,
-                                        jointValue : servoValue.jointPositions.degreesList[j] || 0,
-                                      });
-              }
-
-              n.push(newArm);
-          }
-          return n;
-      }
-
       firstResult = false;
 
       async function updateStatus(rawStatus) {
@@ -371,12 +346,10 @@
                           break;
                       }
                   },
-                  servoMove : function(name, oldAngle, amount) {
+                  servoMove : function(name, amount) {
                       const servo = theData.rawStatus.getServosMap().get(name);
-                      // const servo = filterResources()
                       var oldAngle = servo.getAngle();
                       let angle = oldAngle + amount;
-                      console.log("old angle: " + angle);
                       const req = new servoApi.ServoServiceMoveRequest();
                       req.setName(name);
                       req.setAngleDeg(angle);
@@ -1283,10 +1256,10 @@
           <tr>
             <td></td>
             <td>
-              <button v-on:click="servoMove(servo.name, servo.angle, -10)">-10</button>
-              <button v-on:click="servoMove(servo.name, servo.angle, -1)">-1</button>
-              <button v-on:click="servoMove(servo.name, servo.angle, 1)">1</button>
-              <button v-on:click="servoMove(servo.name, servo.angle, 10)">10</button>
+              <button v-on:click="servoMove(servo.name, -10)">-10</button>
+              <button v-on:click="servoMove(servo.name, -1)">-1</button>
+              <button v-on:click="servoMove(servo.name, 1)">1</button>
+              <button v-on:click="servoMove(servo.name, 10)">10</button>
             </td>
           </tr>
         </table>
