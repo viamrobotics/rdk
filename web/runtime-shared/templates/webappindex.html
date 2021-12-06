@@ -527,6 +527,12 @@
                       canvas3DWidth: canvas3DWidth
                     }
 
+                    // Slip detection stuff
+                    let slipCanvas = document.getElementById('slip-id-' + id);
+                    var slip_animation_stuff = {
+                      ctx: slipCanvas.getContext('2d')
+                    }
+
                     // Allows moving the 3D scene using the mouse
                     controls = new trackLib.TrackballControls( camera, renderer.domElement);
                     controls.target.set( 0, 0, 0 )
@@ -542,9 +548,9 @@
                     
                     isFirstRender = true;
                     // Loop through grabbing data & visualizing it
-                    setTimeout(function getDataAndVisualizeIt(name, id, isFirstRender) {
+                    setTimeout(function getDataAndVisualizeIt(isFirstRender) {
                       robotService.forceMatrixMatrix(req, {}, (err, resp) => animateForceMatrix(err, resp, animation_stuff_2D, animation_stuff_3D, isFirstRender));
-                      robotService.forceMatrixSlipDetection(slipReq, {}, (err, resp) => updateSlipDetectionResult(err, resp, id));
+                      robotService.forceMatrixSlipDetection(slipReq, {}, (err, resp) => updateSlipDetectionResult(err, resp, slip_animation_stuff));
 
                       // Start the 3D game engine animation if it hasn't been started yet
                       if (!startedForceAnimation) {
@@ -557,8 +563,8 @@
                         animate();
                       }
 
-                      setTimeout(getDataAndVisualizeIt, timeInterval, name, id, false);
-                    }, timeInterval, name, id);
+                      setTimeout(getDataAndVisualizeIt, timeInterval, false);
+                    }, timeInterval, isFirstRender);
                   },
                   nonEmpty : function(d) {
                       for ( var k in d ) {
@@ -956,11 +962,6 @@
             canvas2D.width = Math.max(2 * squareSize * numCols + offsetToLeftMatrix + offsetBetweenMatrices, anim_3D.canvas3DWidth + 100);
           }
 
-          // TODO: The placing & sizing of everything that's displayed is hardcoded
-          // e.g. the canvas size, location of boxes, etc.
-          // To allow for any size of sensor, and to use the space on the screen
-          // more efficiently (plus make a mobile version available), changing to
-          // adaptive sizing would be great.
           for (let row = 0; row < numRows; row++) {
             for (let col = 0; col < numCols; col++) {
               let pressure = data[row * numCols + col];
@@ -1020,24 +1021,37 @@
           }
       }
 
-      function updateSlipDetectionResult (err, resp, id) {
+      function updateSlipDetectionResult (err, resp, slip_animation_stuff) {
         grpcCallback(err, resp);
         if (err) {
           console.log("error getting slip detection readings: ", err);
           return;
         }
 
-        let dispEl = document.getElementById("force-is-slipping-" + id);
         if (resp === null) {
+          slip_animation_stuff.ctx.fillStyle = 'orange';
+          slip_animation_stuff.ctx.fillRect(0, 0, 200, 50)
+
+          slip_animation_stuff.ctx.fillStyle = 'black'
+          slip_animation_stuff.ctx.font = '20px sans-serif';
+          slip_animation_stuff.ctx.fillText("response is invalid", 0, 0);
           console.log("response is null - this is an issue when running this in the cloud, but not on a device locally")
-          dispEl.innerText = "response is invalid"
         }
 
         let isSlipping = resp.getIsSlipping()
         if (isSlipping) {
-          dispEl.innerText = "SLIPPING";
+          slip_animation_stuff.ctx.fillStyle = 'red';
+          slip_animation_stuff.ctx.fillRect(0, 0, 150, 50)
+
+          slip_animation_stuff.ctx.fillStyle = 'white'
+          slip_animation_stuff.ctx.font = '20px sans-serif';
+          slip_animation_stuff.ctx.fillText("SLIPPING", 5, 25);
         } else {
-          dispEl.innerText = "NOT SLIPPING";
+          slip_animation_stuff.ctx.fillStyle = 'green';
+          slip_animation_stuff.ctx.fillRect(0, 0, 150, 50)
+          slip_animation_stuff.ctx.fillStyle = 'white'
+          slip_animation_stuff.ctx.font = '20px sans-serif';
+          slip_animation_stuff.ctx.fillText("NOT SLIPPING", 5, 25);
         }
       }
 
@@ -1373,10 +1387,10 @@
           <td>
             <template v-if="sensor[1].type === 'forcematrix'">
               <button :id="'force-button-id-' + x" v-on:click="visualizeForceMatrix(sensor[0], x)">Visualize Force Matrix</button>
-              <!-- canvas element is resized later upon arrival of sensor data (see animateForceMatrix)  -->
+              <!-- force 2d canvas element is resized later upon arrival of sensor data (see animateForceMatrix)  -->
               <canvas :id="'force-2d-id-' + x" width="100" height="100" style="margin-top: 20px;"></canvas>
+              <canvas :id="'slip-id-' + x" width="200" height="50"></canvas>
               <div :id="'force-3d-id-' + x"></div>
-              <div :id="'force-is-slipping-' + x">NO VALUE</div>
             </template>
             <button v-else v-on:click="doSensorReadings(sensor[0])">Get Readings</button>
           </td>
