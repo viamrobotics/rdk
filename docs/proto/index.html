@@ -319,6 +319,45 @@
         
           
           <li>
+            <a href="#proto%2fapi%2fcomponent%2fv1%2fimu.proto">proto/api/component/v1/imu.proto</a>
+            <ul>
+              
+                <li>
+                  <a href="#proto.api.component.v1.AngularVelocity"><span class="badge">M</span>AngularVelocity</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.EulerAngles"><span class="badge">M</span>EulerAngles</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.IMUServiceAngularVelocityRequest"><span class="badge">M</span>IMUServiceAngularVelocityRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.IMUServiceAngularVelocityResponse"><span class="badge">M</span>IMUServiceAngularVelocityResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.IMUServiceOrientationRequest"><span class="badge">M</span>IMUServiceOrientationRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.IMUServiceOrientationResponse"><span class="badge">M</span>IMUServiceOrientationResponse</a>
+                </li>
+              
+              
+              
+              
+                <li>
+                  <a href="#proto.api.component.v1.IMUService"><span class="badge">S</span>IMUService</a>
+                </li>
+              
+            </ul>
+          </li>
+        
+          
+          <li>
             <a href="#proto%2fapi%2fcomponent%2fv1%2fservo.proto">proto/api/component/v1/servo.proto</a>
             <ul>
               
@@ -1935,6 +1974,256 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                 <td>Grab</td>
                 <td>PUT</td>
                 <td>/api/v1/component/gripper/{name}/grab</td>
+                <td></td>
+              </tr>
+              
+            
+            </tbody>
+          </table>
+          
+        
+    
+      
+      <div class="file-heading">
+        <h2 id="proto/api/component/v1/imu.proto">proto/api/component/v1/imu.proto</h2><a href="#title">Top</a>
+      </div>
+      <p></p>
+
+      
+        <h3 id="proto.api.component.v1.AngularVelocity">AngularVelocity</h3>
+        <p>AngularVelocity contains angular velocity in deg/s across x/y/z axes.</p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>x</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>y</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>z</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.EulerAngles">EulerAngles</h3>
+        <p>EulerAngles are three angles used to represent the rotation of an object in 3D Euclidean space</p><p>The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.</p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>roll</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>pitch</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>yaw</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.IMUServiceAngularVelocityRequest">IMUServiceAngularVelocityRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.IMUServiceAngularVelocityResponse">IMUServiceAngularVelocityResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>angular_velocity</td>
+                  <td><a href="#proto.api.component.v1.AngularVelocity">AngularVelocity</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.IMUServiceOrientationRequest">IMUServiceOrientationRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.IMUServiceOrientationResponse">IMUServiceOrientationResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>orientation</td>
+                  <td><a href="#proto.api.component.v1.EulerAngles">EulerAngles</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+
+      
+
+      
+
+      
+        <h3 id="proto.api.component.v1.IMUService">IMUService</h3>
+        <p>IMUService encompasses all functionality of some robot comprised of parts, local and remote.</p>
+        <table class="enum-table">
+          <thead>
+            <tr><td>Method Name</td><td>Request Type</td><td>Response Type</td><td>Description</td></tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td>AngularVelocity</td>
+                <td><a href="#proto.api.component.v1.IMUServiceAngularVelocityRequest">IMUServiceAngularVelocityRequest</a></td>
+                <td><a href="#proto.api.component.v1.IMUServiceAngularVelocityResponse">IMUServiceAngularVelocityResponse</a></td>
+                <td><p>AngularVelocity returns the most recent angular velocity reading from the given IMU.</p></td>
+              </tr>
+            
+              <tr>
+                <td>Orientation</td>
+                <td><a href="#proto.api.component.v1.IMUServiceOrientationRequest">IMUServiceOrientationRequest</a></td>
+                <td><a href="#proto.api.component.v1.IMUServiceOrientationResponse">IMUServiceOrientationResponse</a></td>
+                <td><p>Orientation returns the most recent orientation reading from the given IMU.</p></td>
+              </tr>
+            
+          </tbody>
+        </table>
+
+        
+          
+          
+          <h4>Methods with HTTP bindings</h4>
+          <table>
+            <thead>
+              <tr>
+                <td>Method Name</td>
+                <td>Method</td>
+                <td>Pattern</td>
+                <td>Body</td>
+              </tr>
+            </thead>
+            <tbody>
+            
+              
+              
+              <tr>
+                <td>AngularVelocity</td>
+                <td>GET</td>
+                <td>/api/v1/component/imu/{name}/angular_velocity</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>Orientation</td>
+                <td>GET</td>
+                <td>/api/v1/component/imu/{name}/orientation</td>
                 <td></td>
               </tr>
               
