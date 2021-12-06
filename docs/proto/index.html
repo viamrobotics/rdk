@@ -1448,7 +1448,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                 <td>CurrentPosition</td>
                 <td><a href="#proto.api.component.v1.ArmServiceCurrentPositionRequest">ArmServiceCurrentPositionRequest</a></td>
                 <td><a href="#proto.api.component.v1.ArmServiceCurrentPositionResponse">ArmServiceCurrentPositionResponse</a></td>
-                <td><p>CurrentPosition gets the current position of the mount point of the robot&#39;s end effector expressed as X,Y,Z,ox,oy,oz,theta</p></td>
+                <td><p>CurrentPosition gets the current position the robot&#39;s end effector expressed as X,Y,Z,ox,oy,oz,theta</p></td>
               </tr>
             
               <tr>
@@ -1469,7 +1469,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                 <td>MoveToJointPositions</td>
                 <td><a href="#proto.api.component.v1.ArmServiceMoveToJointPositionsRequest">ArmServiceMoveToJointPositionsRequest</a></td>
                 <td><a href="#proto.api.component.v1.ArmServiceMoveToJointPositionsResponse">ArmServiceMoveToJointPositionsResponse</a></td>
-                <td><p>MoveToJointPositions moves every joint on a robot by the specified number of degrees</p></td>
+                <td><p>MoveToJointPositions moves every joint on a robot&#39;s arm to the specified number of degrees</p></td>
               </tr>
             
               <tr>
@@ -4873,7 +4873,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
             </tbody>
@@ -4921,28 +4921,28 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
                 <tr>
                   <td>direction</td>
                   <td><a href="#proto.api.v1.DirectionRelative">DirectionRelative</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Motor&#39;s travel direction </p></td>
                 </tr>
               
                 <tr>
                   <td>rpm</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Speed of motor travel in rotations per minute </p></td>
                 </tr>
               
                 <tr>
                   <td>revolutions</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Number of revolutions relative to motor&#39;s start position </p></td>
                 </tr>
               
             </tbody>
@@ -4973,21 +4973,21 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
                 <tr>
                   <td>direction</td>
                   <td><a href="#proto.api.v1.DirectionRelative">DirectionRelative</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Motor&#39;s travel direction </p></td>
                 </tr>
               
                 <tr>
                   <td>power_pct</td>
                   <td><a href="#float">float</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Percentage of motor&#39;s power, between 0-1 </p></td>
                 </tr>
               
             </tbody>
@@ -5018,21 +5018,21 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
                 <tr>
                   <td>direction</td>
                   <td><a href="#proto.api.v1.DirectionRelative">DirectionRelative</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Motor&#39;s travel direction </p></td>
                 </tr>
               
                 <tr>
                   <td>rpm</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Speed of motor travel in rotations per minute </p></td>
                 </tr>
               
             </tbody>
@@ -5063,21 +5063,21 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
                 <tr>
                   <td>rpm</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Speed of motor travel in rotations per minute </p></td>
                 </tr>
               
                 <tr>
                   <td>position</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Number of revolutions relative to motor&#39;s home home/zero </p></td>
                 </tr>
               
             </tbody>
@@ -5108,7 +5108,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
             </tbody>
@@ -5132,7 +5132,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>is_on</td>
                   <td><a href="#bool">bool</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns true if the motor is </p></td>
                 </tr>
               
             </tbody>
@@ -5156,7 +5156,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
             </tbody>
@@ -5256,7 +5256,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
             </tbody>
@@ -5280,7 +5280,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>position</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Current position of the motor relative to its home </p></td>
                 </tr>
               
             </tbody>
@@ -5304,7 +5304,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
             </tbody>
@@ -5328,7 +5328,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>supported</td>
                   <td><a href="#bool">bool</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns true if the motor supports reporting its position </p></td>
                 </tr>
               
             </tbody>
@@ -5352,14 +5352,14 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
                 <tr>
                   <td>power_pct</td>
                   <td><a href="#float">float</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Percentage of motor&#39;s power, between 0-1 </p></td>
                 </tr>
               
             </tbody>
@@ -5390,7 +5390,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
                 <tr>
@@ -5415,7 +5415,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
         
       
         <h3 id="proto.api.v1.MotorStatus">MotorStatus</h3>
-        <p></p>
+        <p>To Do (FA): Add field to MotorStatus for PowerPercentage</p>
 
         
           <table class="field-table">
@@ -5428,28 +5428,28 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>on</td>
                   <td><a href="#bool">bool</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>To D0 (FA): Delete this field </p></td>
                 </tr>
               
                 <tr>
                   <td>position_supported</td>
                   <td><a href="#bool">bool</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>To Do (FA): Delete this field </p></td>
                 </tr>
               
                 <tr>
                   <td>position</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns current position of the motor relative to its home </p></td>
                 </tr>
               
                 <tr>
                   <td>pid_config</td>
                   <td><a href="#google.protobuf.Struct">google.protobuf.Struct</a></td>
                   <td>optional</td>
-                  <td><p> </p></td>
+                  <td><p>To Do (FA): Delete this field </p></td>
                 </tr>
               
             </tbody>
@@ -5473,14 +5473,14 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
                 <tr>
                   <td>offset</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Motor position </p></td>
                 </tr>
               
             </tbody>
@@ -6031,7 +6031,7 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>resource_name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p>Note(erd): okay in v1 because names are unique. v2 should be a VRN. </p></td>
+                  <td><p>Note(erd): okay in v1 because names are unique. v2 should be a VRN </p></td>
                 </tr>
               
                 <tr>
@@ -7004,8 +7004,7 @@ and a given speed, expressed in millimeters per second</p></td>
                 <td><a href="#proto.api.v1.BaseMoveArcRequest">BaseMoveArcRequest</a></td>
                 <td><a href="#proto.api.v1.BaseMoveArcResponse">BaseMoveArcResponse</a></td>
                 <td><p>MoveArc moves the robot&#39;s base in an arc by a given distance, expressed in millimeters,
-a given speed, espressed in millimeters per second of movement, and a given angle exoressed in degrees
-TO DO: Document what happens if block = true</p></td>
+a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees</p></td>
               </tr>
             
               <tr>
@@ -7271,6 +7270,7 @@ A specific MIME type can be requested but may not necessarily be the same one re
                 <td><a href="#proto.api.v1.MotorGetPIDConfigRequest">MotorGetPIDConfigRequest</a></td>
                 <td><a href="#proto.api.v1.MotorGetPIDConfigResponse">MotorGetPIDConfigResponse</a></td>
                 <td><p>Motor
+TODO(FA): This will be removed in lieu of controls package 
 Return the PID configuration for a Motor</p></td>
               </tr>
             
@@ -7278,88 +7278,96 @@ Return the PID configuration for a Motor</p></td>
                 <td>MotorSetPIDConfig</td>
                 <td><a href="#proto.api.v1.MotorSetPIDConfigRequest">MotorSetPIDConfigRequest</a></td>
                 <td><a href="#proto.api.v1.MotorSetPIDConfigResponse">MotorSetPIDConfigResponse</a></td>
-                <td><p>Set the PID configuration for a Motor</p></td>
+                <td><p>Set the PID configuration for a Motor
+TODO(FA): This will be removed in lieu of controls package</p></td>
               </tr>
             
               <tr>
                 <td>MotorPIDStep</td>
                 <td><a href="#proto.api.v1.MotorPIDStepRequest">MotorPIDStepRequest</a></td>
                 <td><a href="#proto.api.v1.MotorPIDStepResponse">MotorPIDStepResponse</a> stream</td>
-                <td><p>Perform a step response on a motor</p></td>
+                <td><p>Perform a step response on a motor
+TODO(): This will be removed in lieu of controls package</p></td>
               </tr>
             
               <tr>
                 <td>MotorPower</td>
                 <td><a href="#proto.api.v1.MotorPowerRequest">MotorPowerRequest</a></td>
                 <td><a href="#proto.api.v1.MotorPowerResponse">MotorPowerResponse</a></td>
-                <td><p>MotorPower requests the motor of a board of the underlying robot to set its power.</p></td>
+                <td><p>MotorPower sets the percentage of the motor&#39;s total power that should be employed
+expressed a value between 0-1</p></td>
               </tr>
             
               <tr>
                 <td>MotorGo</td>
                 <td><a href="#proto.api.v1.MotorGoRequest">MotorGoRequest</a></td>
                 <td><a href="#proto.api.v1.MotorGoResponse">MotorGoResponse</a></td>
-                <td><p>MotorGo requests the motor of a board of the underlying robot to go.</p></td>
+                <td><p>MotorGo instructs the motor to turn in a specified direction using a specified
+percentage of its total power, expressed as a value between 0-1</p></td>
               </tr>
             
               <tr>
                 <td>MotorGoFor</td>
                 <td><a href="#proto.api.v1.MotorGoForRequest">MotorGoForRequest</a></td>
                 <td><a href="#proto.api.v1.MotorGoForResponse">MotorGoForResponse</a></td>
-                <td><p>MotorGoFor requests the motor of a board of the underlying robot to go for a certain amount based off
-the request.</p></td>
+                <td><p>MotorGoFor instructs the motor to turn in a specified direction and speed, which is expressed in RPM,
+for a specified number of rotations relative to its starting position</p></td>
               </tr>
             
               <tr>
                 <td>MotorGoTo</td>
                 <td><a href="#proto.api.v1.MotorGoToRequest">MotorGoToRequest</a></td>
                 <td><a href="#proto.api.v1.MotorGoToResponse">MotorGoToResponse</a></td>
-                <td><p>MotorGoTo requests the motor of a board of the underlying robot to move to a specific position.</p></td>
+                <td><p>MotorGoTo requests the robot&#39;s motor to move to a specific position that 
+is relative to its home position at a specified speed which is expressed in RPM</p></td>
               </tr>
             
               <tr>
                 <td>MotorGoTillStop</td>
                 <td><a href="#proto.api.v1.MotorGoTillStopRequest">MotorGoTillStopRequest</a></td>
                 <td><a href="#proto.api.v1.MotorGoTillStopResponse">MotorGoTillStopResponse</a></td>
-                <td><p>MotorGoTillStop requests the motor of a board of the underlying robot to move until stopped (either physically or by limit switch.)</p></td>
+                <td><p>MotorGoTillStop moves a motor until it is stopped. 
+The logic to trigger the &#34;stop&#34; mechanism is up to the underlying motor implementation
+To Do(FA): Add a MotorStop method</p></td>
               </tr>
             
               <tr>
                 <td>MotorZero</td>
                 <td><a href="#proto.api.v1.MotorZeroRequest">MotorZeroRequest</a></td>
                 <td><a href="#proto.api.v1.MotorZeroResponse">MotorZeroResponse</a></td>
-                <td><p>MotorZero requests the motor of a board of the underlying robot to set a new zero/home position.</p></td>
+                <td><p>MotorZero sets the current position of the motor as the new zero position</p></td>
               </tr>
             
               <tr>
                 <td>MotorPosition</td>
                 <td><a href="#proto.api.v1.MotorPositionRequest">MotorPositionRequest</a></td>
                 <td><a href="#proto.api.v1.MotorPositionResponse">MotorPositionResponse</a></td>
-                <td><p>MotorPosition reports the position of the motor of a board of the underlying robot based on its encoder. If it&#39;s not supported, the returned
-data is undefined. The unit returned is the number of revolutions which is intended to be fed
-back into calls of MotorGoFor.</p></td>
+                <td><p>MotorPosition reports the position of the robot&#39;s motor relative to its zero position</p></td>
               </tr>
             
               <tr>
                 <td>MotorPositionSupported</td>
                 <td><a href="#proto.api.v1.MotorPositionSupportedRequest">MotorPositionSupportedRequest</a></td>
                 <td><a href="#proto.api.v1.MotorPositionSupportedResponse">MotorPositionSupportedResponse</a></td>
-                <td><p>MotorPositionSupported returns whether or not the motor of a board of the underlying robot supports reporting of its position which
-is reliant on having an encoder.</p></td>
+                <td><p>MotorPositionSupported returns whether or not the robot&#39;s motor supports reporting of its position which
+is reliant on having an encoder
+To Do (FA): This will be deprecated</p></td>
               </tr>
             
               <tr>
                 <td>MotorOff</td>
                 <td><a href="#proto.api.v1.MotorOffRequest">MotorOffRequest</a></td>
                 <td><a href="#proto.api.v1.MotorOffResponse">MotorOffResponse</a></td>
-                <td><p>MotorOff turns the motor of a board of the underlying robot off.</p></td>
+                <td><p>MotorOff turns the robot&#39;s motor off
+To Do (FA): This will be deprecated</p></td>
               </tr>
             
               <tr>
                 <td>MotorIsOn</td>
                 <td><a href="#proto.api.v1.MotorIsOnRequest">MotorIsOnRequest</a></td>
                 <td><a href="#proto.api.v1.MotorIsOnResponse">MotorIsOnResponse</a></td>
-                <td><p></p></td>
+                <td><p>MotorisOn returns true if the robot&#39;s motor off
+To Do (FA): This will be deprecated</p></td>
               </tr>
             
               <tr>

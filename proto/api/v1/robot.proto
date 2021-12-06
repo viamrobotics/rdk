@@ -54,8 +54,7 @@ service RobotService {
   }
 
 // MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
-// a given speed, espressed in millimeters per second of movement, and a given angle exoressed in degrees
-// TO DO: Document what happens if block = true 
+// a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees
   rpc BaseMoveArc(BaseMoveArcRequest) returns (BaseMoveArcResponse) {
     option (google.api.http) = {
       post: "/api/v1/base/{name}/move_arc"
@@ -341,6 +340,7 @@ service RobotService {
   }
 
   //Motor
+  // TODO(FA): This will be removed in lieu of controls package 
   // Return the PID configuration for a Motor
   rpc MotorGetPIDConfig(MotorGetPIDConfigRequest) returns (MotorGetPIDConfigResponse){
     option (google.api.http) = {
@@ -348,84 +348,94 @@ service RobotService {
     };
   }
   // Set the PID configuration for a Motor
+  // TODO(FA): This will be removed in lieu of controls package 
   rpc MotorSetPIDConfig(MotorSetPIDConfigRequest) returns (MotorSetPIDConfigResponse){
     option (google.api.http) = {
       put: "/api/v1/board/motor/{name}/set_pid_config"
     };
   }
   // Perform a step response on a motor
+  // TODO(): This will be removed in lieu of controls package 
   rpc MotorPIDStep(MotorPIDStepRequest) returns (stream MotorPIDStepResponse){
     option (google.api.http) = {
       get: "/api/v1/board/motor/{name}/pid_step"
     };
   }
-  // MotorPower requests the motor of a board of the underlying robot to set its power.
+  // MotorPower sets the percentage of the motor's total power that should be employed
+  // expressed a value between 0-1
   rpc MotorPower(MotorPowerRequest) returns (MotorPowerResponse) {
     option (google.api.http) = {
       put: "/api/v1/motor/{name}/power"
     };
   }
 
-  // MotorGo requests the motor of a board of the underlying robot to go.
+  // To Do(FA): Add a MotorStop method
+  // MotorGo instructs the motor to turn in a specified direction using a specified
+  // percentage of its total power, expressed as a value between 0-1
   rpc MotorGo(MotorGoRequest) returns (MotorGoResponse) {
     option (google.api.http) = {
       put: "/api/v1/motor/{name}/go"
     };
   }
 
-  // MotorGoFor requests the motor of a board of the underlying robot to go for a certain amount based off
-  // the request.
+  // MotorGoFor instructs the motor to turn in a specified direction and speed, which is expressed in RPM,
+  // for a specified number of rotations relative to its starting position
   rpc MotorGoFor(MotorGoForRequest) returns (MotorGoForResponse) {
     option (google.api.http) = {
       put: "/api/v1/motor/{name}/go_for"
     };
   }
 
-  // MotorGoTo requests the motor of a board of the underlying robot to move to a specific position.
+  // MotorGoTo requests the robot's motor to move to a specific position that 
+  // is relative to its home position at a specified speed which is expressed in RPM
   rpc MotorGoTo(MotorGoToRequest) returns (MotorGoToResponse) {
     option (google.api.http) = {
       put: "/api/v1/motor/{name}/go_to"
     };
   }
 
-  // MotorGoTillStop requests the motor of a board of the underlying robot to move until stopped (either physically or by limit switch.)
+  // To Do(FA): Deprecate this 
+  // MotorGoTillStop moves a motor until it is stopped. 
+  // The logic to trigger the "stop" mechanism is up to the underlying motor implementation
   rpc MotorGoTillStop(MotorGoTillStopRequest) returns (MotorGoTillStopResponse) {
     option (google.api.http) = {
       put: "/api/v1/motor/{name}/go_till_stop"
     };
   }
 
-  // MotorZero requests the motor of a board of the underlying robot to set a new zero/home position.
+  // MotorZero sets the current position of the motor as the new zero position
   rpc MotorZero(MotorZeroRequest) returns (MotorZeroResponse) {
     option (google.api.http) = {
       put: "/api/v1/motor/{name}/zero"
     };
   }
 
-  // MotorPosition reports the position of the motor of a board of the underlying robot based on its encoder. If it's not supported, the returned
-  // data is undefined. The unit returned is the number of revolutions which is intended to be fed
-  // back into calls of MotorGoFor.
+  // MotorPosition reports the position of the robot's motor relative to its zero position
   rpc MotorPosition(MotorPositionRequest) returns (MotorPositionResponse) {
     option (google.api.http) = {
       get: "/api/v1/motor/{name}/position"
     };
   }
 
-  // MotorPositionSupported returns whether or not the motor of a board of the underlying robot supports reporting of its position which
-  // is reliant on having an encoder.
+  // MotorPositionSupported returns whether or not the robot's motor supports reporting of its position which
+  // is reliant on having an encoder
+  // To Do (FA): This will be deprecated 
   rpc MotorPositionSupported(MotorPositionSupportedRequest) returns (MotorPositionSupportedResponse) {
     option (google.api.http) = {
       get: "/api/v1/motor/{name}/position_supported"
     };
   }
 
-  // MotorOff turns the motor of a board of the underlying robot off.
+  // MotorOff turns the robot's motor off
+  // To Do (FA): This will be deprecated 
   rpc MotorOff(MotorOffRequest) returns (MotorOffResponse) {
     option (google.api.http) = {
       put: "/api/v1/motor/{name}/off"
     };
   }
-
+  
+  // MotorisOn returns true if the robot's motor off
+  // To Do (FA): This will be deprecated 
   rpc MotorIsOn(MotorIsOnRequest) returns (MotorIsOnResponse) {
     option (google.api.http) = {
       get: "/api/v1/motor/{name}/is_on"
@@ -1053,10 +1063,15 @@ message ExecuteSourceResponse {
   string std_err = 3;
 }
 
+// To Do (FA): Add field to MotorStatus for PowerPercentage
 message MotorStatus {
+  // To D0 (FA): Delete this field
   bool on = 1;
+  // To Do (FA): Delete this field 
   bool position_supported = 2;
+  // Returns current position of the motor relative to its home
   double position = 3;
+  // To Do (FA): Delete this field 
   optional google.protobuf.Struct pid_config = 4;
 }
 
@@ -1083,12 +1098,14 @@ message ServoCurrentResponse {
 
 // Motor
 message MotorGetPIDConfigRequest{
+  // Name of a motor
   string name = 1;
 }
 message MotorGetPIDConfigResponse{
   google.protobuf.Struct pid_config = 1;
 }
 message MotorSetPIDConfigRequest{
+  // Name of a motor
   string name = 1;
   google.protobuf.Struct pid_config = 2;
 }
@@ -1103,84 +1120,110 @@ message MotorPIDStepResponse{
   double ref_value = 3;
 }
 message MotorPowerRequest {
+  // Name of a motor
   string name = 1;
+  // Percentage of motor's power, between 0-1
   float power_pct = 2;
 }
 
 message MotorPowerResponse {}
 
 message MotorGoRequest {
+  // Name of a motor
   string name = 1;
+  // Motor's travel direction
+  // To Do (FA): This will be deprecated, following Jeremy's PR 324
   DirectionRelative direction = 2; 
+  // Percentage of motor's power, between 0-1
+  // To Do (FA): Following Jeremy's PR 324, this value can be between -1 and 1
   float power_pct = 3;
 }
 
 message MotorGoResponse {}
 
 message MotorGoForRequest {
+  // Name of a motor
   string name = 1;
+  // Motor's travel direction
   DirectionRelative direction = 2;
+  // Speed of motor travel in rotations per minute
   double rpm = 3;
+  // Number of revolutions relative to motor's start position 
   double revolutions = 4;
 }
 
 message MotorGoForResponse {}
 
 message MotorGoToRequest {
+  // Name of a motor
   string name = 1;
+  // Speed of motor travel in rotations per minute
   double rpm = 2;
+  // Number of revolutions relative to motor's home home/zero
   double position = 3;
 }
 
 message MotorGoToResponse {}
 
 message MotorGoTillStopRequest {
+  // Name of a motor
   string name = 1;
+  // Motor's travel direction
   DirectionRelative direction = 2;
+  // Speed of motor travel in rotations per minute
   double rpm = 3;
 }
 
 message MotorGoTillStopResponse {}
 
 message MotorZeroRequest {
+  // Name of a motor
   string name = 1;
+  // Motor position
   double offset = 2;
 }
 
 message MotorZeroResponse {}
 
 message MotorPositionRequest {
+  // Name of a motor
   string name = 1;
 }
 
 message MotorPositionResponse {
+  // Current position of the motor relative to its home
   double position = 1;
 }
 
 message MotorPositionSupportedRequest {
+  // Name of a motor
   string name = 1;
 }
 
 message MotorPositionSupportedResponse {
+  // Returns true if the motor supports reporting its position
   bool supported = 1;
 }
 
 message MotorOffRequest {
+  // Name of a motor
   string name = 1;
 }
 
 message MotorOffResponse {}
 
 message MotorIsOnRequest {
+  // Name of a motor
   string name = 1;
 }
 
 message MotorIsOnResponse {
+  // Returns true if the motor is 
   bool is_on = 1;
 }
 
 message ResourceRunCommandRequest {
-  // Note(erd): okay in v1 because names are unique. v2 should be a VRN.
+  // Note(erd): okay in v1 because names are unique. v2 should be a VRN
   string resource_name = 1;
   string command_name = 2;
   google.protobuf.Struct args = 3;
