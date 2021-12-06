@@ -28,7 +28,6 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/board"
-	"go.viam.com/core/component/imu"
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/grpc"
@@ -1274,14 +1273,6 @@ func (s *Server) ObjectManipulationServiceDoGrab(ctx context.Context, req *pb.Ob
 		return nil, err
 	}
 	return &pb.ObjectManipulationServiceDoGrabResponse{HasGrabbed: hasGrabbed}, nil
-}
-
-func (s *Server) imuByName(name string) (imu.IMU, error) {
-	imuDevice, ok := s.r.ResourceByName(imu.Named(name))
-	if !ok {
-		return nil, errors.Errorf("no IMU with name (%s)", name)
-	}
-	return imuDevice.(imu.IMU), nil
 }
 
 func (s *Server) gpsByName(name string) (gps.GPS, error) {
