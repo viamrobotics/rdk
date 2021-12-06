@@ -7,8 +7,8 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/robots/fake"

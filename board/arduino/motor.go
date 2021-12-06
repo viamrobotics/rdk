@@ -8,9 +8,9 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 
+	"go.viam.com/core/component/motor"
+	"go.viam.com/core/component/motor/gpio"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
-	"go.viam.com/core/motor/gpio"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -121,7 +121,7 @@ func (m *arduinoMotor) PID() motor.PID {
 }
 
 // Power sets the percentage of power the motor should employ between 0-1.
-func (m *arduinoMotor) Power(ctx context.Context, powerPct float32) error {
+func (m *arduinoMotor) SetPower(ctx context.Context, powerPct float32) error {
 	if powerPct <= .001 {
 		return m.Off(ctx)
 	}
@@ -217,7 +217,7 @@ func (m *arduinoMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, r
 	return errors.New("not supported")
 }
 
-func (m *arduinoMotor) Zero(ctx context.Context, offset float64) error {
+func (m *arduinoMotor) SetZeroPosition(ctx context.Context, offset float64) error {
 	offsetTicks := int64(offset * float64(m.cfg.TicksPerRotation))
 	_, err := m.b.runCommand(fmt.Sprintf("motor-zero %s %d", m.name, offsetTicks))
 	return err

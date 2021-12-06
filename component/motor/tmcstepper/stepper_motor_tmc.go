@@ -12,7 +12,7 @@ import (
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -38,13 +38,16 @@ const (
 )
 
 func init() {
-	registry.RegisterMotor(modelname, registry.Motor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error) {
-		m, err := NewMotor(ctx, r, config.ConvertedAttributes.(*TMC5072Config), logger)
-		if err != nil {
-			return nil, err
+	_motor := registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			m, err := NewMotor(ctx, r, config.ConvertedAttributes.(*TMC5072Config), logger)
+			if err != nil {
+				return nil, err
+			}
+			return m, nil
 		}
-		return m, nil
-	}})
+	}
+	registry.RegisterComponent(motor.Subtype, modelName, _motor)
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeMotor, modelname, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf TMC5072Config
@@ -302,7 +305,7 @@ func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 }
 
 // Power TODO (Should it be amps, not throttle?)
-func (m *Motor) Power(ctx context.Context, powerPct float32) error {
+func (m *Motor) SetPower(ctx context.Context, powerPct float32) error {
 	return errors.New("power not supported for stepper motors")
 }
 
@@ -463,7 +466,7 @@ func (m *Motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm floa
 }
 
 // Zero resets the current position to the offset given.
-func (m *Motor) Zero(ctx context.Context, offset float64) error {
+func (m *Motor) SetToZeroPosition(ctx context.Context, offset float64) error {
 	on, err := m.IsOn(ctx)
 	if err != nil {
 		return err

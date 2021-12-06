@@ -16,12 +16,12 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/metadata/service"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
@@ -58,13 +58,13 @@ import (
 	_ "go.viam.com/core/component/gripper/vx300s"       // for a gripper
 	_ "go.viam.com/core/component/gripper/wx250s"       // for a gripper
 	_ "go.viam.com/core/component/gripper/yahboom"      // for a gripper
-	_ "go.viam.com/core/component/servo/fake"           // for a servo
-	_ "go.viam.com/core/input/gamepad"                  // xbox controller and similar
+	_ "go.viam.com/core/component/motor/gpio"
+	_ "go.viam.com/core/component/motor/gpiostepper"
+	_ "go.viam.com/core/component/motor/tmcstepper"
+	_ "go.viam.com/core/component/servo/fake" // for a servo
+	_ "go.viam.com/core/input/gamepad"        // xbox controller and similar
 	_ "go.viam.com/core/input/mux"
 	_ "go.viam.com/core/input/webgamepad" // gamepads via webbrowser
-	_ "go.viam.com/core/motor/gpio"
-	_ "go.viam.com/core/motor/gpiostepper"
-	_ "go.viam.com/core/motor/tmcstepper"
 	_ "go.viam.com/core/platformdetector/pi"
 	_ "go.viam.com/core/robots/eva" // for eva
 	_ "go.viam.com/core/robots/fake"

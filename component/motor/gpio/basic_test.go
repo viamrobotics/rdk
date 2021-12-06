@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/core/motor"
+	"go.viam.com/core/component/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robots/fake"
 
@@ -44,7 +44,7 @@ func TestMotorABPWM(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, on, test.ShouldBeTrue)
 
-	test.That(t, m.Power(ctx, .45), test.ShouldBeNil)
+	test.That(t, m.SetPower(ctx, .45), test.ShouldBeNil)
 	test.That(t, b.PWM["3"], test.ShouldEqual, byte(114))
 
 	test.That(t, b.PWMFreq["3"], test.ShouldEqual, 4000)
@@ -107,7 +107,7 @@ func TestMotorDirPWM(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, on, test.ShouldBeTrue)
 
-	test.That(t, m.Power(ctx, .45), test.ShouldBeNil)
+	test.That(t, m.SetPower(ctx, .45), test.ShouldBeNil)
 	test.That(t, b.PWM["3"], test.ShouldEqual, byte(114))
 
 	test.That(t, b.PWMFreq["3"], test.ShouldEqual, 4000)
@@ -157,7 +157,7 @@ func TestMotorAB(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, on, test.ShouldBeTrue)
 
-	test.That(t, m.Power(ctx, .45), test.ShouldBeNil)
+	test.That(t, m.SetPower(ctx, .45), test.ShouldBeNil)
 	test.That(t, b.PWM["1"], test.ShouldEqual, byte(140))
 
 	test.That(t, b.PWMFreq["1"], test.ShouldEqual, 4000)

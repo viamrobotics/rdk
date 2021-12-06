@@ -3,7 +3,7 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/core/motor"
+	"go.viam.com/core/component/motor"
 	pb "go.viam.com/core/proto/api/v1"
 )
 
@@ -23,9 +23,9 @@ type Motor struct {
 }
 
 // Power calls the injected Power or the real version.
-func (m *Motor) Power(ctx context.Context, powerPct float32) error {
+func (m *Motor) SetPower(ctx context.Context, powerPct float32) error {
 	if m.PowerFunc == nil {
-		return m.Motor.Power(ctx, powerPct)
+		return m.Motor.SetPower(ctx, powerPct)
 	}
 	return m.PowerFunc(ctx, powerPct)
 }
@@ -63,9 +63,9 @@ func (m *Motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm floa
 }
 
 // Zero calls the injected Zero or the real version.
-func (m *Motor) Zero(ctx context.Context, offset float64) error {
+func (m *Motor) SetZeroPosition(ctx context.Context, offset float64) error {
 	if m.ZeroFunc == nil {
-		return m.Motor.Zero(ctx, offset)
+		return m.Motor.SetZeroPosition(ctx, offset)
 	}
 	return m.ZeroFunc(ctx, offset)
 }

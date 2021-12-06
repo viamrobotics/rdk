@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/core/motor"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/robots/fake"
 
 	"github.com/edaniels/golog"

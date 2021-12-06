@@ -6,7 +6,7 @@ import (
 	"github.com/go-errors/errors"
 
 	"go.viam.com/core/board"
-	"go.viam.com/core/motor"
+	"go.viam.com/core/component/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/utils"
 
@@ -88,7 +88,7 @@ func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 }
 
 // Power sets the associated pins (as discovered) and sets PWM to the given power percentage.
-func (m *Motor) Power(ctx context.Context, powerPct float32) error {
+func (m *Motor) SetPower(ctx context.Context, powerPct float32) error {
 	var errs error
 	if powerPct > m.maxPowerPct {
 		powerPct = m.maxPowerPct
@@ -152,30 +152,30 @@ func (m *Motor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32
 		if m.Dir != "" {
 			return multierr.Combine(
 				m.Board.GPIOSet(ctx, m.Dir, true),
-				m.Power(ctx, powerPct),
+				m.SetPower(ctx, powerPct),
 			)
 		}
 		if m.A != "" && m.B != "" {
 			return multierr.Combine(
 				m.Board.GPIOSet(ctx, m.A, true),
 				m.Board.GPIOSet(ctx, m.B, false),
-				m.Power(ctx, powerPct), // Must be last for A/B only drivers
+				m.SetPower(ctx, powerPct), // Must be last for A/B only drivers
 			)
 		}
-		return m.Power(ctx, powerPct)
+		return m.SetPower(ctx, powerPct)
 	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
 		m.curDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
 		if m.Dir != "" {
 			return multierr.Combine(
 				m.Board.GPIOSet(ctx, m.Dir, false),
-				m.Power(ctx, powerPct),
+				m.SetPower(ctx, powerPct),
 			)
 		}
 		if m.A != "" && m.B != "" {
 			return multierr.Combine(
 				m.Board.GPIOSet(ctx, m.A, false),
 				m.Board.GPIOSet(ctx, m.B, true),
-				m.Power(ctx, powerPct), // Must be last for A/B only motors (where PWM will take over one of A or B)
+				m.SetPower(ctx, powerPct), // Must be last for A/B only motors (where PWM will take over one of A or B)
 			)
 		}
 		return errors.New("trying to go backwards but don't have dir or a&b pins")
@@ -198,7 +198,7 @@ func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 func (m *Motor) Off(ctx context.Context) error {
 	m.on = false
 	m.curDirection = pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED
-	return m.Power(ctx, 0)
+	return m.SetPower(ctx, 0)
 }
 
 // GoTo is not supported
@@ -212,6 +212,6 @@ func (m *Motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm floa
 }
 
 // Zero is not supported
-func (m *Motor) Zero(ctx context.Context, offset float64) error {
+func (m *Motor) SetToZeroPosition(ctx context.Context, offset float64) error {
 	return errors.New("not supported")
 }

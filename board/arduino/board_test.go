@@ -14,8 +14,8 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 )
 
@@ -209,7 +209,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 
 	utils.SelectContextOrWait(ctx, 500*time.Millisecond)
 
-	err = m.Zero(ctx, 2.0)
+	err = m.SetZeroPosition(ctx, 2.0)
 	test.That(t, err, test.ShouldBeNil)
 
 	pos, err := m.Position(ctx)
@@ -284,7 +284,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 
 	utils.SelectContextOrWait(ctx, 500*time.Millisecond)
 
-	err = m.Zero(ctx, 2.0)
+	err = m.SetZeroPosition(ctx, 2.0)
 	test.That(t, err, test.ShouldBeNil)
 
 	pos, err := m.Position(ctx)
@@ -359,7 +359,7 @@ func TestArduinoMotorAB(t *testing.T) {
 
 	utils.SelectContextOrWait(ctx, 500*time.Millisecond)
 
-	err = m.Zero(ctx, 2.0)
+	err = m.SetZeroPosition(ctx, 2.0)
 	test.That(t, err, test.ShouldBeNil)
 
 	pos, err := m.Position(ctx)

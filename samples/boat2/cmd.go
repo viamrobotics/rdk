@@ -19,8 +19,8 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -482,7 +482,7 @@ func runRC(ctx context.Context, myBoat *boat) {
 
 			err = multierr.Combine(
 				myBoat.SteerAndMove(ctx, steer, 1.0),
-				myBoat.squirt.Power(ctx, 1.0),
+				myBoat.squirt.SetPower(ctx, 1.0),
 			)
 			if err != nil {
 				logger.Errorw("error in push mode: %w", err)
@@ -492,7 +492,7 @@ func runRC(ctx context.Context, myBoat *boat) {
 		previousPushMode = false
 
 		squirtPower := float32(vals["throttle"]) / 100.0
-		err = myBoat.squirt.Power(ctx, squirtPower)
+		err = myBoat.squirt.SetPower(ctx, squirtPower)
 		if err != nil {
 			logger.Errorw("error turning on squirt: %w", err)
 			continue

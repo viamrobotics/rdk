@@ -11,8 +11,8 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 
 	"github.com/edaniels/golog"
@@ -224,7 +224,7 @@ func (m *EncodedMotor) fixPowerPct(powerPct float32) float32 {
 }
 
 // Power sets the power of the motor to the given percentage value between 0 and 1.
-func (m *EncodedMotor) Power(ctx context.Context, powerPct float32) error {
+func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float32) error {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 	return m.setPower(ctx, powerPct, false)
@@ -236,7 +236,7 @@ func (m *EncodedMotor) setPower(ctx context.Context, powerPct float32, internal 
 		m.state.desiredRPM = 0 // if we're setting power externally, don't control RPM
 	}
 	m.state.lastPowerPct = m.fixPowerPct(powerPct)
-	return m.real.Power(ctx, m.state.lastPowerPct)
+	return m.real.SetPower(ctx, m.state.lastPowerPct)
 }
 
 // Go instructs the motor to go in a given direction at a given power level between 0 and 1.
@@ -618,6 +618,6 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, r
 }
 
 // Zero resets the position to zero/home
-func (m *EncodedMotor) Zero(ctx context.Context, offset float64) error {
-	return m.encoder.Zero(ctx, int64(offset*float64(m.cfg.TicksPerRotation)))
+func (m *EncodedMotor) SetToZeroPosition(ctx context.Context, offset float64) error {
+	return m.encoder.SetToZeroPosition(ctx, int64(offset*float64(m.cfg.TicksPerRotation)))
 }
