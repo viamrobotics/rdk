@@ -310,7 +310,7 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, err
 		rotAxis: r3.Vector{axis.RX, axis.RY, axis.RZ},
 		limit:   []Limit{limit},
 	}
-	
+
 	return &rf, nil
 }
 
@@ -327,7 +327,7 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	}
 	// Create a copy of the r4aa for thread safety
 
-	pose := spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, &spatial.R4AA{input[0].Value, rf.rotAxis.X,rf.rotAxis.Y,rf.rotAxis.Z})
+	pose := spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, &spatial.R4AA{input[0].Value, rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z})
 
 	return pose, err
 }
