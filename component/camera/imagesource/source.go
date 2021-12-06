@@ -189,6 +189,7 @@ func (hs *httpSource) Close() error {
 // StreamType specifies what kind of image stream is coming from the camera
 type StreamType string
 
+// The allowed types of streams that can come from an ImageSource
 const (
 	ColorStream = StreamType("color")
 	DepthStream = StreamType("depth")
