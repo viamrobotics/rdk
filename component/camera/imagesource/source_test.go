@@ -12,12 +12,13 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/go-errors/errors"
 )
 
 func TestHTTPSourceNoDepth(t *testing.T) {
 	s := httpSource{ColorURL: "http://placehold.it/120x120&text=image1", DepthURL: ""}
 	_, _, err := s.Next(context.Background())
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeError, errors.New("couldn't ready depth url: Get \"\": unsupported protocol scheme \"\""))
 }
 
 func doHTTPSourceTest(t *testing.T, s gostream.ImageSource) {
