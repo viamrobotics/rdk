@@ -7,8 +7,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -57,7 +57,7 @@ func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 }
 
 // Power sets the given power percentage.
-func (m *Motor) Power(ctx context.Context, powerPct float32) error {
+func (m *Motor) SetPower(ctx context.Context, powerPct float32) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.setPowerPct(powerPct)
@@ -115,7 +115,7 @@ func (m *Motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm floa
 }
 
 // Zero always returns an error
-func (m *Motor) Zero(ctx context.Context, offset float64) error {
+func (m *Motor) SetZeroPosition(ctx context.Context, offset float64) error {
 	return errors.New("unsupported")
 }
 

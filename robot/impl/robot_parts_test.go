@@ -95,9 +95,8 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = parts.ServoByName("servo1_what")
 	test.That(t, ok, test.ShouldBeFalse)
-	motor1, ok := parts.MotorByName("motor1")
+	_, ok = parts.MotorByName("motor1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, motor1.(*proxyMotor).actual.(*fake.Motor).Name, test.ShouldEqual, "motor1")
 	_, ok = parts.MotorByName("motor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 	inputController1, ok := parts.InputControllerByName("inputController1")
@@ -240,15 +239,12 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	_, ok = parts.ServoByName("servo1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
-	motor1, ok := parts.MotorByName("motor1")
+	_, ok = parts.MotorByName("motor1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, motor1.(*proxyMotor).actual.(*fake.Motor).Name, test.ShouldEqual, "motor1")
-	motor1, ok = parts.MotorByName("motor1_r1")
+	_, ok = parts.MotorByName("motor1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, motor1.(*proxyMotor).actual.(*fake.Motor).Name, test.ShouldEqual, "motor1_r1")
-	motor1, ok = parts.MotorByName("motor1_r2")
+	_, ok = parts.MotorByName("motor1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, motor1.(*proxyMotor).actual.(*fake.Motor).Name, test.ShouldEqual, "motor1_r2")
 	_, ok = parts.MotorByName("motor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -440,15 +436,12 @@ func TestPartsClone(t *testing.T) {
 	_, ok = newParts.ServoByName("servo1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
-	motor1, ok := newParts.MotorByName("motor1")
+	_, ok = newParts.MotorByName("motor1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, motor1.(*proxyMotor).actual.(*fake.Motor).Name, test.ShouldEqual, "motor1")
-	motor1, ok = newParts.MotorByName("motor1_r1")
+	_, ok = newParts.MotorByName("motor1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, motor1.(*proxyMotor).actual.(*fake.Motor).Name, test.ShouldEqual, "motor1_r1")
-	motor1, ok = newParts.MotorByName("motor1_r2")
+	_, ok = newParts.MotorByName("motor1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, motor1.(*proxyMotor).actual.(*fake.Motor).Name, test.ShouldEqual, "motor1_r2")
 	_, ok = newParts.MotorByName("motor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -575,14 +568,6 @@ func TestPartsAdd(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, fsm.(*proxyForceMatrix).actual, test.ShouldEqual, injectFsm)
 
-	injectMotor := &inject.Motor{}
-	parts.AddMotor(injectMotor, config.Component{Name: "motor1"})
-	motor1, ok := parts.MotorByName("motor1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, motor1.(*proxyMotor).actual, test.ShouldEqual, injectMotor)
-	parts.AddMotor(motor1, config.Component{Name: "motor1"})
-	test.That(t, motor1.(*proxyMotor).actual, test.ShouldEqual, injectMotor)
-
 	injectInputController := &inject.InputController{}
 	parts.AddInputController(injectInputController, config.Component{Name: "inputController1"})
 	inputController1, ok := parts.InputControllerByName("inputController1")
@@ -613,6 +598,19 @@ func TestPartsAdd(t *testing.T) {
 	resource1, ok := parts.ResourceByName(rName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resource1, test.ShouldEqual, injectArm)
+
+	injectMotor := &inject.Motor{}
+	cfg = &config.Component{Type: config.ComponentTypeMotor, Name: "motor1"}
+	rName = cfg.ResourceName()
+	parts.addResource(rName, injectMotor)
+	motor1, ok := parts.MotorByName("motor1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, motor1, test.ShouldEqual, injectMotor)
+	parts.addResource(rName, motor1)
+	test.That(t, motor1, test.ShouldEqual, injectMotor)
+	resource1, ok = parts.ResourceByName(rName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resource1, test.ShouldEqual, injectMotor)
 
 	injectServo := &inject.Servo{}
 	cfg = &config.Component{Type: config.ComponentTypeServo, Name: "servo1"}

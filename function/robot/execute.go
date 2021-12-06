@@ -77,7 +77,7 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 			return nil, err
 		}
 
-		return nil, motor.Power(context.TODO(), float32(powerPct))
+		return nil, motor.SetPower(context.TODO(), float32(powerPct))
 	}); err != nil {
 		return nil, err
 	}
@@ -202,7 +202,7 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 			return nil, err
 		}
 
-		return nil, motor.Zero(context.TODO(), offset)
+		return nil, motor.SetZeroPosition(context.TODO(), offset)
 	}); err != nil {
 		return nil, err
 	}

@@ -28,12 +28,12 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/motor"
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/grpc"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rimage"
@@ -976,7 +976,7 @@ func (s *Server) MotorPower(ctx context.Context, req *pb.MotorPowerRequest) (*pb
 		return nil, errors.Errorf("no motor with name (%s)", req.Name)
 	}
 
-	return &pb.MotorPowerResponse{}, theMotor.Power(ctx, req.PowerPct)
+	return &pb.MotorPowerResponse{}, theMotor.SetPower(ctx, req.PowerPct)
 }
 
 // MotorGo requests the motor of the underlying robot to go.
@@ -1089,7 +1089,7 @@ func (s *Server) MotorZero(ctx context.Context, req *pb.MotorZeroRequest) (*pb.M
 		return nil, errors.Errorf("no motor with name (%s)", req.Name)
 	}
 
-	return &pb.MotorZeroResponse{}, theMotor.Zero(ctx, req.Offset)
+	return &pb.MotorZeroResponse{}, theMotor.SetZeroPosition(ctx, req.Offset)
 }
 
 type runCommander interface {

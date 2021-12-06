@@ -7,9 +7,9 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/motor"
+	"go.viam.com/core/component/motor/tmcstepper"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
-	"go.viam.com/core/motor/tmcstepper"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robots/fake"
@@ -218,7 +218,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		{173, 0, 0, 0, 0},
 		{161, 0, 0, 0, 0},
 	})
-	test.That(t, m.Zero(ctx, 0), test.ShouldBeNil)
+	test.That(t, m.SetToZeroPosition(ctx, 0), test.ShouldBeNil)
 
 	// Test Zero with no offset (and when actually on)
 	go checkRx(t, c,
@@ -231,7 +231,7 @@ func TestTMCStepperMotor(t *testing.T) {
 			{0, 0, 128, 0, 0},
 		},
 	)
-	test.That(t, m.Zero(ctx, 0), test.ShouldNotBeNil)
+	test.That(t, m.SetToZeroPosition(ctx, 0), test.ShouldNotBeNil)
 
 	// Test Zero with 3.1 offset (and when actually off)
 	go checkTx(t, c, [][]byte{
@@ -241,7 +241,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		{173, 0, 2, 108, 0},
 		{161, 0, 2, 108, 0},
 	})
-	test.That(t, m.Zero(ctx, 3.1), test.ShouldBeNil)
+	test.That(t, m.SetToZeroPosition(ctx, 3.1), test.ShouldBeNil)
 
 	// Test GoTillStop with no extra stop func
 	go func() {

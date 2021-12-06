@@ -139,7 +139,7 @@ func (e *HallEncoder) Position(ctx context.Context) (int64, error) {
 }
 
 // Zero resets the position to zero/home
-func (e *HallEncoder) Zero(ctx context.Context, offset int64) error {
+func (e *HallEncoder) SetZeroPosition(ctx context.Context, offset int64) error {
 	atomic.StoreInt64(&e.position, offset)
 	return nil
 }
@@ -219,7 +219,7 @@ func (e *SingleEncoder) Position(ctx context.Context) (int64, error) {
 }
 
 // Zero resets the position to zero/home
-func (e *SingleEncoder) Zero(ctx context.Context, offset int64) error {
+func (e *SingleEncoder) SetZeroPosition(ctx context.Context, offset int64) error {
 	atomic.StoreInt64(&e.position, offset)
 	return nil
 }

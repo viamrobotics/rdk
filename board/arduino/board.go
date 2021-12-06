@@ -16,8 +16,8 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -318,7 +318,7 @@ func (e *encoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync
 	onStart()
 }
 
-func (e *encoder) Zero(ctx context.Context, offset int64) error {
+func (e *encoder) SetZeroPosition(ctx context.Context, offset int64) error {
 	_, err := e.b.runCommand(fmt.Sprintf("motor-zero %s %d", e.name, offset))
 	return err
 }
