@@ -27,7 +27,6 @@ func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-    // TODO(maximpertov): why test this twice?
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
 
