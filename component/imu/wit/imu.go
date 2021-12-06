@@ -59,16 +59,6 @@ func (i *wit) Orientation(ctx context.Context) (spatialmath.Orientation, error) 
 	return &i.orientation, i.lastError
 }
 
-func (i *wit) Readings(ctx context.Context) ([]interface{}, error) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	return []interface{}{i.angularVelocity, i.orientation}, i.lastError
-}
-
-func (i *wit) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(imu.SubtypeName), model}
-}
-
 // NewWit creates a new Wit IMU
 func NewWit(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 	options := slib.OpenOptions{

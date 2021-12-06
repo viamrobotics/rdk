@@ -582,9 +582,6 @@ func TestClient(t *testing.T) {
 	}
 
 	injectIMUDev := &inject.IMU{}
-	injectIMUDev.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
-		return []interface{}{1.2, 2.3}, nil
-	}
 	injectIMUDev.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
 		return spatialmath.AngularVelocity{1, 2, 3}, nil
 	}
@@ -1266,9 +1263,6 @@ func TestClient(t *testing.T) {
 	imuDev, ok := client.ResourceByName(imu.Named("imu1"))
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, imuDev, test.ShouldImplement, (*imu.IMU)(nil))
-	readings, err = imuDev.(imu.IMU).Readings(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings, test.ShouldResemble, []interface{}{float64(1), float64(2), float64(3), float64(1), float64(2), float64(3)})
 	vel, err := imuDev.(imu.IMU).AngularVelocity(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, vel, test.ShouldResemble, spatialmath.AngularVelocity{1, 2, 3})

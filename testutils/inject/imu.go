@@ -13,18 +13,9 @@ import (
 // IMU is an injected imu.
 type IMU struct {
 	imu.IMU
-	ReadingsFunc        func(ctx context.Context) ([]interface{}, error)
 	AngularVelocityFunc func(ctx context.Context) (spatialmath.AngularVelocity, error)
 	OrientationFunc     func(ctx context.Context) (spatialmath.Orientation, error)
 	CloseFunc           func() error
-}
-
-// Readings calls the injected Readings or the real version.
-func (i *IMU) Readings(ctx context.Context) ([]interface{}, error) {
-	if i.ReadingsFunc == nil {
-		return i.IMU.Readings(ctx)
-	}
-	return i.ReadingsFunc(ctx)
 }
 
 // AngularVelocity calls the injected AngularVelocity or the real version.
