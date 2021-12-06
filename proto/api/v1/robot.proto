@@ -79,22 +79,6 @@ service RobotService {
     };  
   }
 
-  // Gripper
-
-  // GripperOpen opens a gripper of the underlying robot.
-  rpc GripperOpen(GripperOpenRequest) returns (GripperOpenResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/gripper/{name}/open"
-    };  
-  }
-
-  // GripperGrab requests a gripper of the underlying robot to grab.
-  rpc GripperGrab(GripperGrabRequest) returns (GripperGrabResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/gripper/{name}/grab"
-    };  
-  }
-
   // Camera
 
   // CameraFrame returns a frame from a camera of the underlying robot. A specific MIME type
@@ -712,22 +696,6 @@ message BaseWidthMillisRequest {
 
 message BaseWidthMillisResponse {
   int64 width_millis = 1;
-}
-
-// Gripper
-
-message GripperOpenRequest {
-  string name = 1;
-}
-
-message GripperOpenResponse {}
-
-message GripperGrabRequest {
-  string name = 1;
-}
-
-message GripperGrabResponse {
-  bool grabbed = 1;
 }
 
 // Camera

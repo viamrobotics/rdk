@@ -70,12 +70,12 @@ func TestReconfigurableGripper(t *testing.T) {
 	actualGripper2 := &mock{Name: "gripper2"}
 	fakeGripper2, err := WrapWithReconfigurable(actualGripper2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualGripper1.reconCount, test.ShouldEqual, 0)
+	test.That(t, actualGripper1.reconfCount, test.ShouldEqual, 0)
 
 	err = fakeGripper1.(*reconfigurableGripper).Reconfigure(fakeGripper2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeGripper1.(*reconfigurableGripper).actual, test.ShouldEqual, actualGripper2)
-	test.That(t, actualGripper1.reconCount, test.ShouldEqual, 1)
+	test.That(t, actualGripper1.reconfCount, test.ShouldEqual, 1)
 
 	err = fakeGripper1.(*reconfigurableGripper).Reconfigure(nil)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -84,8 +84,8 @@ func TestReconfigurableGripper(t *testing.T) {
 
 type mock struct {
 	Gripper
-	Name       string
-	reconCount int
+	Name        string
+	reconfCount int
 }
 
-func (m *mock) Close() error { m.reconCount++; return nil }
+func (m *mock) Close() error { m.reconfCount++; return nil }

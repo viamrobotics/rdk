@@ -15,14 +15,8 @@ var jspb = require('google-protobuf');
 var goog = jspb;
 var global = Function('return this')();
 
-var google_protobuf_struct_pb = require('google-protobuf/google/protobuf/struct_pb.js');
-goog.object.extend(proto, google_protobuf_struct_pb);
-var google_protobuf_duration_pb = require('google-protobuf/google/protobuf/duration_pb.js');
-goog.object.extend(proto, google_protobuf_duration_pb);
 var google_api_annotations_pb = require('../../../../google/api/annotations_pb.js');
 goog.object.extend(proto, google_api_annotations_pb);
-var google_api_httpbody_pb = require('../../../../google/api/httpbody_pb.js');
-goog.object.extend(proto, google_api_httpbody_pb);
 var proto_api_common_v1_common_pb = require('../../../../proto/api/common/v1/common_pb.js');
 goog.object.extend(proto, proto_api_common_v1_common_pb);
 goog.exportSymbol('proto.proto.api.component.v1.ArmJointPositions', null, global);

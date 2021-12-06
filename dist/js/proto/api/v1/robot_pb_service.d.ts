@@ -86,24 +86,6 @@ type RobotServiceBaseWidthMillis = {
   readonly responseType: typeof proto_api_v1_robot_pb.BaseWidthMillisResponse;
 };
 
-type RobotServiceGripperOpen = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.GripperOpenRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.GripperOpenResponse;
-};
-
-type RobotServiceGripperGrab = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.GripperGrabRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.GripperGrabResponse;
-};
-
 type RobotServiceCameraFrame = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -682,8 +664,6 @@ export class RobotService {
   static readonly BaseSpin: RobotServiceBaseSpin;
   static readonly BaseStop: RobotServiceBaseStop;
   static readonly BaseWidthMillis: RobotServiceBaseWidthMillis;
-  static readonly GripperOpen: RobotServiceGripperOpen;
-  static readonly GripperGrab: RobotServiceGripperGrab;
   static readonly CameraFrame: RobotServiceCameraFrame;
   static readonly CameraRenderFrame: RobotServiceCameraRenderFrame;
   static readonly PointCloud: RobotServicePointCloud;
@@ -853,24 +833,6 @@ export class RobotServiceClient {
   baseWidthMillis(
     requestMessage: proto_api_v1_robot_pb.BaseWidthMillisRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BaseWidthMillisResponse|null) => void
-  ): UnaryResponse;
-  gripperOpen(
-    requestMessage: proto_api_v1_robot_pb.GripperOpenRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GripperOpenResponse|null) => void
-  ): UnaryResponse;
-  gripperOpen(
-    requestMessage: proto_api_v1_robot_pb.GripperOpenRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GripperOpenResponse|null) => void
-  ): UnaryResponse;
-  gripperGrab(
-    requestMessage: proto_api_v1_robot_pb.GripperGrabRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GripperGrabResponse|null) => void
-  ): UnaryResponse;
-  gripperGrab(
-    requestMessage: proto_api_v1_robot_pb.GripperGrabRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GripperGrabResponse|null) => void
   ): UnaryResponse;
   cameraFrame(
     requestMessage: proto_api_v1_robot_pb.CameraFrameRequest,

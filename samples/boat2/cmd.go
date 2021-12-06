@@ -19,6 +19,7 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/imu"
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
@@ -26,8 +27,6 @@ import (
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/imu"
-	_ "go.viam.com/core/sensor/imu/wit"
 	"go.viam.com/core/serial"
 	"go.viam.com/core/services/navigation"
 	"go.viam.com/core/services/web"
@@ -253,7 +252,7 @@ func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golo
 	}
 	b.rc = &rcRemoteControl{bb}
 
-	tempIMU, ok := r.SensorByName("imu")
+	tempIMU, ok := r.ResourceByName(imu.Named("imu"))
 	if !ok {
 		return nil, errors.New("need imu")
 	}
@@ -620,7 +619,7 @@ func (i *myIMU) Readings(ctx context.Context) ([]interface{}, error) {
 }
 
 func (i *myIMU) Desc() sensor.Description {
-	return sensor.Description{imu.Type, ""}
+	return sensor.Description{sensor.Type(imu.SubtypeName), ""}
 }
 
 func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
@@ -658,7 +657,15 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	// register boat as base properly
 	registry.RegisterBase("viam-boat2", registry.Base{Constructor: newBoat})
 
-	registry.RegisterSensor(imu.Type, "temp-imu", registry.Sensor{Constructor: newArduinoIMU})
+	registry.RegisterComponent(imu.Subtype, "temp-imu", registry.Component{
+		Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return newArduinoIMU(ctx, r, config, logger)
+		}})
 
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {

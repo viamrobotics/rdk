@@ -23,7 +23,7 @@ func TestDefaultMetric(t *testing.T) {
 
 func TestBasicMetric(t *testing.T) {
 	sqMet := func(from, to spatial.Pose) float64 {
-		return SquaredNorm(spatial.PoseDelta(from, to)[:3])
+		return spatial.PoseDelta(from, to).Point().Norm2()
 	}
 	p1 := spatial.NewPoseFromPoint(r3.Vector{0, 0, 0})
 	p2 := spatial.NewPoseFromPoint(r3.Vector{0, 0, 10})

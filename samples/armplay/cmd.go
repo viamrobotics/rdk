@@ -27,7 +27,7 @@ import (
 
 var logger = golog.NewDevelopmentLogger("armplay")
 
-var whiteboardY = -509.
+var whiteboardY = -409.
 
 func init() {
 	action.RegisterAction("play", func(ctx context.Context, r robot.Robot) {

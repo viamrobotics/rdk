@@ -96,6 +96,11 @@
             "type": "sensor",
             "subtype": "gps",
             "model": "fake"
+        }, 
+        {
+            "name": "imu1",
+            "type": "imu",
+            "model": "fake"
         }
     ],
     "processes":

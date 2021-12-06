@@ -288,6 +288,37 @@
         
           
           <li>
+            <a href="#proto%2fapi%2fcomponent%2fv1%2fgripper.proto">proto/api/component/v1/gripper.proto</a>
+            <ul>
+              
+                <li>
+                  <a href="#proto.api.component.v1.GripperServiceGrabRequest"><span class="badge">M</span>GripperServiceGrabRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.GripperServiceGrabResponse"><span class="badge">M</span>GripperServiceGrabResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.GripperServiceOpenRequest"><span class="badge">M</span>GripperServiceOpenRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.GripperServiceOpenResponse"><span class="badge">M</span>GripperServiceOpenResponse</a>
+                </li>
+              
+              
+              
+              
+                <li>
+                  <a href="#proto.api.component.v1.GripperService"><span class="badge">S</span>GripperService</a>
+                </li>
+              
+            </ul>
+          </li>
+        
+          
+          <li>
             <a href="#proto%2fapi%2fservice%2fv1%2fmetadata.proto">proto/api/service/v1/metadata.proto</a>
             <ul>
               
@@ -620,22 +651,6 @@
               
                 <li>
                   <a href="#proto.api.v1.GeoPoint"><span class="badge">M</span>GeoPoint</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.GripperGrabRequest"><span class="badge">M</span>GripperGrabRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.GripperGrabResponse"><span class="badge">M</span>GripperGrabResponse</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.GripperOpenRequest"><span class="badge">M</span>GripperOpenRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.GripperOpenResponse"><span class="badge">M</span>GripperOpenResponse</a>
                 </li>
               
                 <li>
@@ -1199,7 +1214,9 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>degrees</td>
                   <td><a href="#double">double</a></td>
                   <td>repeated</td>
-                  <td><p> </p></td>
+                  <td><p>A list of joint positions represented in degrees
+The numbers are ordered spatially from the base toward the end effector
+This is used in ArmServiceCurrentJointPositionsResponse and ArmServiceMoveToJointPositionsRequest </p></td>
                 </tr>
               
             </tbody>
@@ -1223,7 +1240,7 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of an arm </p></td>
                 </tr>
               
             </tbody>
@@ -1247,7 +1264,7 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>positions</td>
                   <td><a href="#proto.api.component.v1.ArmJointPositions">ArmJointPositions</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>a list ArmJointPositions </p></td>
                 </tr>
               
             </tbody>
@@ -1271,7 +1288,7 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of an arm </p></td>
                 </tr>
               
             </tbody>
@@ -1295,7 +1312,8 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>position</td>
                   <td><a href="#proto.api.common.v1.Pose">proto.api.common.v1.Pose</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns 6d pose of the end effector relative to the base, represented by X,Y,Z coordinates which express
+millimeters and theta, ox, oy, oz coordinates which express an orientation vector </p></td>
                 </tr>
               
             </tbody>
@@ -1319,21 +1337,21 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of an arm </p></td>
                 </tr>
               
                 <tr>
                   <td>joint</td>
                   <td><a href="#int32">int32</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>To specify a joint, refer to base as 0 and count forwards up to the end effector </p></td>
                 </tr>
               
                 <tr>
                   <td>amount_degs</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Specify degrees, can be positive or negative </p></td>
                 </tr>
               
             </tbody>
@@ -1364,14 +1382,15 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of an arm </p></td>
                 </tr>
               
                 <tr>
                   <td>to</td>
                   <td><a href="#proto.api.component.v1.ArmJointPositions">ArmJointPositions</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>A list of joint positions represented in degrees
+There should be 1 entry in the list per joint, ordered spatially from the base toward the end effector </p></td>
                 </tr>
               
             </tbody>
@@ -1402,14 +1421,14 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of an arm </p></td>
                 </tr>
               
                 <tr>
                   <td>to</td>
                   <td><a href="#proto.api.common.v1.Pose">proto.api.common.v1.Pose</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>X, Y, Z, ox, oy, ox, theta </p></td>
                 </tr>
               
             </tbody>
@@ -1444,35 +1463,35 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                 <td>CurrentPosition</td>
                 <td><a href="#proto.api.component.v1.ArmServiceCurrentPositionRequest">ArmServiceCurrentPositionRequest</a></td>
                 <td><a href="#proto.api.component.v1.ArmServiceCurrentPositionResponse">ArmServiceCurrentPositionResponse</a></td>
-                <td><p>CurrentPosition gets the current position of an arm of the underlying robot.</p></td>
+                <td><p>CurrentPosition gets the current position of the mount point of the robot&#39;s end effector expressed as X,Y,Z,ox,oy,oz,theta</p></td>
               </tr>
             
               <tr>
                 <td>MoveToPosition</td>
                 <td><a href="#proto.api.component.v1.ArmServiceMoveToPositionRequest">ArmServiceMoveToPositionRequest</a></td>
                 <td><a href="#proto.api.component.v1.ArmServiceMoveToPositionResponse">ArmServiceMoveToPositionResponse</a></td>
-                <td><p>MoveToPosition moves an arm of the underlying robot to the requested position.</p></td>
+                <td><p>MoveToPosition moves the mount point of the robot&#39;s end effector to the requested position.</p></td>
               </tr>
             
               <tr>
                 <td>CurrentJointPositions</td>
                 <td><a href="#proto.api.component.v1.ArmServiceCurrentJointPositionsRequest">ArmServiceCurrentJointPositionsRequest</a></td>
                 <td><a href="#proto.api.component.v1.ArmServiceCurrentJointPositionsResponse">ArmServiceCurrentJointPositionsResponse</a></td>
-                <td><p>CurrentJointPositions gets the current joint position of an arm of the underlying robot.</p></td>
+                <td><p>CurrentJointPositions lists the joint positions (in degrees) of every joint on a robot</p></td>
               </tr>
             
               <tr>
                 <td>MoveToJointPositions</td>
                 <td><a href="#proto.api.component.v1.ArmServiceMoveToJointPositionsRequest">ArmServiceMoveToJointPositionsRequest</a></td>
                 <td><a href="#proto.api.component.v1.ArmServiceMoveToJointPositionsResponse">ArmServiceMoveToJointPositionsResponse</a></td>
-                <td><p>MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.</p></td>
+                <td><p>MoveToJointPositions moves every joint on a robot by the specified number of degrees</p></td>
               </tr>
             
               <tr>
                 <td>JointMoveDelta</td>
                 <td><a href="#proto.api.component.v1.ArmServiceJointMoveDeltaRequest">ArmServiceJointMoveDeltaRequest</a></td>
                 <td><a href="#proto.api.component.v1.ArmServiceJointMoveDeltaResponse">ArmServiceJointMoveDeltaResponse</a></td>
-                <td><p>JointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.</p></td>
+                <td><p>JointMoveDelta moves a specific joint of a robot by the the specified number of degrees</p></td>
               </tr>
             
           </tbody>
@@ -1768,6 +1787,163 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                 <td>Lengths</td>
                 <td>GET</td>
                 <td>/api/v1/component/gantry/{name}/lengths</td>
+                <td></td>
+              </tr>
+              
+            
+            </tbody>
+          </table>
+          
+        
+    
+      
+      <div class="file-heading">
+        <h2 id="proto/api/component/v1/gripper.proto">proto/api/component/v1/gripper.proto</h2><a href="#title">Top</a>
+      </div>
+      <p></p>
+
+      
+        <h3 id="proto.api.component.v1.GripperServiceGrabRequest">GripperServiceGrabRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.GripperServiceGrabResponse">GripperServiceGrabResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>grabbed</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.GripperServiceOpenRequest">GripperServiceOpenRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.GripperServiceOpenResponse">GripperServiceOpenResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+
+      
+
+      
+
+      
+        <h3 id="proto.api.component.v1.GripperService">GripperService</h3>
+        <p>An GripperService services maintains all grippers associated with a robot</p>
+        <table class="enum-table">
+          <thead>
+            <tr><td>Method Name</td><td>Request Type</td><td>Response Type</td><td>Description</td></tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td>Open</td>
+                <td><a href="#proto.api.component.v1.GripperServiceOpenRequest">GripperServiceOpenRequest</a></td>
+                <td><a href="#proto.api.component.v1.GripperServiceOpenResponse">GripperServiceOpenResponse</a></td>
+                <td><p>Open opens a gripper of the underlying robot.</p></td>
+              </tr>
+            
+              <tr>
+                <td>Grab</td>
+                <td><a href="#proto.api.component.v1.GripperServiceGrabRequest">GripperServiceGrabRequest</a></td>
+                <td><a href="#proto.api.component.v1.GripperServiceGrabResponse">GripperServiceGrabResponse</a></td>
+                <td><p>Grab requests a gripper of the underlying robot to grab.</p></td>
+              </tr>
+            
+          </tbody>
+        </table>
+
+        
+          
+          
+          <h4>Methods with HTTP bindings</h4>
+          <table>
+            <thead>
+              <tr>
+                <td>Method Name</td>
+                <td>Method</td>
+                <td>Pattern</td>
+                <td>Body</td>
+              </tr>
+            </thead>
+            <tbody>
+            
+              
+              
+              <tr>
+                <td>Open</td>
+                <td>PUT</td>
+                <td>/api/v1/component/gripper/{name}/open</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>Grab</td>
+                <td>PUT</td>
+                <td>/api/v1/component/gripper/{name}/grab</td>
                 <td></td>
               </tr>
               
@@ -3968,85 +4144,6 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
           </table>
 
           
-
-        
-      
-        <h3 id="proto.api.v1.GripperGrabRequest">GripperGrabRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>name</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.GripperGrabResponse">GripperGrabResponse</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>grabbed</td>
-                  <td><a href="#bool">bool</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.GripperOpenRequest">GripperOpenRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>name</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.GripperOpenResponse">GripperOpenResponse</h3>
-        <p></p>
-
-        
 
         
       
@@ -7023,20 +7120,6 @@ And not the pieces relevant to local configuration (pins, security keys, etc...)
               </tr>
             
               <tr>
-                <td>GripperOpen</td>
-                <td><a href="#proto.api.v1.GripperOpenRequest">GripperOpenRequest</a></td>
-                <td><a href="#proto.api.v1.GripperOpenResponse">GripperOpenResponse</a></td>
-                <td><p>GripperOpen opens a gripper of the underlying robot.</p></td>
-              </tr>
-            
-              <tr>
-                <td>GripperGrab</td>
-                <td><a href="#proto.api.v1.GripperGrabRequest">GripperGrabRequest</a></td>
-                <td><a href="#proto.api.v1.GripperGrabResponse">GripperGrabResponse</a></td>
-                <td><p>GripperGrab requests a gripper of the underlying robot to grab.</p></td>
-              </tr>
-            
-              <tr>
                 <td>CameraFrame</td>
                 <td><a href="#proto.api.v1.CameraFrameRequest">CameraFrameRequest</a></td>
                 <td><a href="#proto.api.v1.CameraFrameResponse">CameraFrameResponse</a></td>
@@ -7591,26 +7674,6 @@ is reliant on having an encoder.</p></td>
                 <td>BaseWidthMillis</td>
                 <td>GET</td>
                 <td>/api/v1/base/{name}/width_millis</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>GripperOpen</td>
-                <td>PUT</td>
-                <td>/api/v1/gripper/{name}/open</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>GripperGrab</td>
-                <td>PUT</td>
-                <td>/api/v1/gripper/{name}/grab</td>
                 <td></td>
               </tr>
               
