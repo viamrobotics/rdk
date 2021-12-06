@@ -34,8 +34,11 @@ type AngularVelocity struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Velocity in deg/s across the x-axis
 	X float64 `protobuf:"fixed64,1,opt,name=x,proto3" json:"x,omitempty"`
+	// Velocity in deg/s across the y-axis
 	Y float64 `protobuf:"fixed64,2,opt,name=y,proto3" json:"y,omitempty"`
+	// Velocity in deg/s across the z-axis
 	Z float64 `protobuf:"fixed64,3,opt,name=z,proto3" json:"z,omitempty"`
 }
 
@@ -99,9 +102,12 @@ type EulerAngles struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Roll  float64 `protobuf:"fixed64,1,opt,name=roll,proto3" json:"roll,omitempty"`
+	// Rotation in deg around the x-axis
+	Roll float64 `protobuf:"fixed64,1,opt,name=roll,proto3" json:"roll,omitempty"`
+	// Rotation in deg around the y-axis
 	Pitch float64 `protobuf:"fixed64,2,opt,name=pitch,proto3" json:"pitch,omitempty"`
-	Yaw   float64 `protobuf:"fixed64,3,opt,name=yaw,proto3" json:"yaw,omitempty"`
+	// Rotation in deg around the z-axis
+	Yaw float64 `protobuf:"fixed64,3,opt,name=yaw,proto3" json:"yaw,omitempty"`
 }
 
 func (x *EulerAngles) Reset() {
@@ -162,6 +168,7 @@ type IMUServiceAngularVelocityRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Name of an IMU
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 }
 
@@ -209,6 +216,7 @@ type IMUServiceAngularVelocityResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// AngularVelocity contains angular velocity in deg/s across x/y/z axes.
 	AngularVelocity *AngularVelocity `protobuf:"bytes,1,opt,name=angular_velocity,json=angularVelocity,proto3" json:"angular_velocity,omitempty"`
 }
 
@@ -256,6 +264,7 @@ type IMUServiceOrientationRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Name of an IMU
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 }
 
@@ -303,6 +312,8 @@ type IMUServiceOrientationResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// EulerAngles are three angles used to represent the rotation of an object in 3D Euclidean space
+	// The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.
 	Orientation *EulerAngles `protobuf:"bytes,1,opt,name=orientation,proto3" json:"orientation,omitempty"`
 }
 
