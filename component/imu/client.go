@@ -74,6 +74,7 @@ func (c *client) AngularVelocity(ctx context.Context) (*pb.AngularVelocity, erro
 		Name: c.name,
 	})
 	if err != nil {
+        // TODO: would returning `nil` be sufficient here?
 		return &pb.AngularVelocity{}, err
 	}
 	return &pb.AngularVelocity{
