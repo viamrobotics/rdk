@@ -12,10 +12,9 @@ import (
 
 	"go.viam.com/core/component/imu"
 	"go.viam.com/core/config"
+	pb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/spatialmath"
 
 	"go.viam.com/utils"
 
@@ -37,8 +36,8 @@ func init() {
 }
 
 type wit struct {
-	angularVelocity spatialmath.AngularVelocity
-	orientation     spatialmath.EulerAngles
+	angularVelocity *pb.AngularVelocity
+	orientation     *pb.EulerAngles
 	lastError       error
 
 	mu sync.Mutex
@@ -47,20 +46,20 @@ type wit struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (i *wit) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (i *wit) AngularVelocity(ctx context.Context) (*pb.AngularVelocity, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return i.angularVelocity, i.lastError
 }
 
-func (i *wit) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (i *wit) Orientation(ctx context.Context) (*pb.EulerAngles, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	return &i.orientation, i.lastError
+	return i.orientation, i.lastError
 }
 
 // NewWit creates a new Wit IMU
-func NewWit(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+func NewWit(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (imu.IMU, error) {
 	options := slib.OpenOptions{
 		BaudRate:        9600, // 115200, wanted to set higher but windows software was being weird about it
 		DataBits:        8,
