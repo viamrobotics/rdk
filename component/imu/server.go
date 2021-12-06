@@ -35,7 +35,7 @@ func (s *subtypeServer) getIMU(name string) (IMU, error) {
 }
 
 // IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
-func (s *subtypeServer) IMUAngularVelocity(ctx context.Context, req *pb.IMUAngularVelocityRequest) (*pb.IMUAngularVelocityResponse, error) {
+func (s *subtypeServer) AngularVelocity(ctx context.Context, req *pb.IMUServiceAngularVelocityRequest) (*pb.IMUServiceAngularVelocityResponse, error) {
 	imuDevice, err := s.getIMU(req.Name)
 	if err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func (s *subtypeServer) IMUAngularVelocity(ctx context.Context, req *pb.IMUAngul
 	if err != nil {
 		return nil, err
 	}
-	return &pb.IMUAngularVelocityResponse{
+	return &pb.IMUServiceAngularVelocityResponse{
 		AngularVelocity: &pb.AngularVelocity{
 			X: vel.X,
 			Y: vel.Y,
@@ -54,17 +54,16 @@ func (s *subtypeServer) IMUAngularVelocity(ctx context.Context, req *pb.IMUAngul
 }
 
 // IMUOrientation returns the most recent angular velocity reading from the given IMU.
-func (s *subtypeServer) IMUOrientation(ctx context.Context, req *pb.IMUOrientationRequest) (*pb.IMUOrientationResponse, error) {
+func (s *subtypeServer) Orientation(ctx context.Context, req *pb.IMUServiceOrientationRequest) (*pb.IMUServiceOrientationResponse, error) {
 	imuDevice, err := s.getIMU(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	orientation, err := imuDevice.Orientation(ctx)
+	ea, err := imuDevice.Orientation(ctx)
 	if err != nil {
 		return nil, err
 	}
-	ea := orientation.EulerAngles()
-	return &pb.IMUOrientationResponse{
+	return &pb.IMUServiceOrientationResponse{
 		Orientation: &pb.EulerAngles{
 			Roll:  ea.Roll,
 			Pitch: ea.Pitch,

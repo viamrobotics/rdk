@@ -26,16 +26,11 @@ func (i *IMU) AngularVelocity(ctx context.Context) (*pb.AngularVelocity, error) 
 }
 
 // Orientation calls the injected Orientation or the real version.
-func (i *IMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (i *IMU) Orientation(ctx context.Context) (*pb.EulerAngles, error) {
 	if i.OrientationFunc == nil {
 		return i.IMU.Orientation(ctx)
 	}
 	return i.OrientationFunc(ctx)
-}
-
-// Desc returns that this is an IMU.
-func (i *IMU) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(imu.SubtypeName), ""}
 }
 
 // Close calls the injected Close or the real version.
