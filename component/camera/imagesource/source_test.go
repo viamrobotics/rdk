@@ -7,9 +7,10 @@ import (
 	"testing"
 
 	"go.viam.com/core/rimage"
-
-	"github.com/edaniels/gostream"
 	"go.viam.com/test"
+
+	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 )
 
 func TestHTTPSourceNoDepth(t *testing.T) {
@@ -52,6 +53,13 @@ func TestHTTPSource(t *testing.T) {
 
 func TestHTTPSource2(t *testing.T) {
 	s, err := NewIntelServerSource("127.0.0.1", 8181, nil)
+	test.That(t, err, test.ShouldBeNil)
+	doHTTPSourceTest(t, s)
+}
+
+func TestHTTPSource3(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	s, err := NewServerSource("127.0.0.1", 8181, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 	doHTTPSourceTest(t, s)
 }
