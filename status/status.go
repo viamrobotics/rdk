@@ -172,7 +172,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			if !ok {
 				return nil, fmt.Errorf("servo %q not found", name)
 			}
-			current, err := x.Current(ctx)
+			current, err := x.AngularOffset(ctx)
 			if err != nil {
 				return nil, err
 			}

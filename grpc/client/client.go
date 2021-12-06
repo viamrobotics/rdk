@@ -359,10 +359,16 @@ func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 // ServoByName returns a servo by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) ServoByName(name string) (servo.Servo, bool) {
-	return &servoClient{
-		rc:   rc,
-		name: name,
-	}, true
+	nameObj := servo.Named(name)
+	resource, ok := rc.ResourceByName(nameObj)
+	if !ok {
+		return nil, false
+	}
+	actualServo, ok := resource.(servo.Servo)
+	if !ok {
+		return nil, false
+	}
+	return actualServo, true
 }
 
 // MotorByName returns a motor by name. It is assumed to exist on the
@@ -399,8 +405,6 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 		return &imuClient{sc}, true
 	case camera.Subtype:
 		return &cameraClient{rc: rc, name: name.Name}, true
-	case servo.Subtype:
-		return &servoClient{rc: rc, name: name.Name}, true
 	default:
 		c := registry.ResourceSubtypeLookup(name.Subtype)
 		if c == nil || c.RPCClient == nil {
@@ -1325,31 +1329,6 @@ func (gc *gpsClient) Accuracy(ctx context.Context) (float64, float64, error) {
 
 func (gc *gpsClient) Valid(ctx context.Context) (bool, error) {
 	return true, nil
-}
-
-// servoClient satisfies a gRPC based servo.Servo. Refer to the interface
-// for descriptions of its methods.
-type servoClient struct {
-	rc   *RobotClient
-	name string
-}
-
-func (sc *servoClient) Move(ctx context.Context, angleDeg uint8) error {
-	_, err := sc.rc.client.ServoMove(ctx, &pb.ServoMoveRequest{
-		Name:     sc.name,
-		AngleDeg: uint32(angleDeg),
-	})
-	return err
-}
-
-func (sc *servoClient) Current(ctx context.Context) (uint8, error) {
-	resp, err := sc.rc.client.ServoCurrent(ctx, &pb.ServoCurrentRequest{
-		Name: sc.name,
-	})
-	if err != nil {
-		return 0, err
-	}
-	return uint8(resp.AngleDeg), nil
 }
 
 // motorClient satisfies a gRPC based motor.Motor. Refer to the interface
