@@ -12,6 +12,8 @@ import (
 	//~ "strings"
 
 	"go.viam.com/core/spatialmath"
+	
+	"go.uber.org/multierr"
 )
 
 // ModelFramer has a method that returns the kinematics information needed to build a dynamic frame.
@@ -125,6 +127,7 @@ func (m *Model) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, e
 // cartesian position of each of the links up to and including the end effector. This is useful for when conversions
 // between quaternions and OV are not needed.
 func (m *Model) jointRadToQuats(inputs []Input) ([]*staticFrame, error) {
+	var err error
 	poses := make([]*staticFrame, 0, len(m.OrdTransforms))
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
 	composedTransformation := spatialmath.NewZeroPose()
@@ -135,15 +138,16 @@ func (m *Model) jointRadToQuats(inputs []Input) ([]*staticFrame, error) {
 		input := inputs[posIdx: dof]
 		posIdx = dof
 
-		pose, err := transform.Transform(input)
+		pose, errNew := transform.Transform(input)
 		// Fail if inputs are incorrect and pose is nil, but allow querying out-of-bounds positions
-		if err != nil && pose == nil {
+		if pose == nil {
 			return nil, err
 		}
+		multierr.AppendInto(&err, errNew)
 		composedTransformation = spatialmath.Compose(composedTransformation, pose)
 		poses = append(poses, &staticFrame{transform.Name(), composedTransformation})
 	}
-	return poses, nil
+	return poses, err
 }
 
 // AreJointPositionsValid checks whether the given array of joint positions violates any joint limits.

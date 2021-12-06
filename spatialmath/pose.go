@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/quat"
+	"gonum.org/v1/gonum/num/dualquat"
 
 	commonpb "go.viam.com/core/proto/api/common/v1"
 )
@@ -123,11 +124,9 @@ func Compose(a, b Pose) Pose {
 // PoseDelta returns the difference between two dualQuaternion.
 // We use quaternion/angle axis for this because distances are well-defined.
 func PoseDelta(a, b Pose) Pose {
-	aQ := a.Orientation().Quaternion()
-	bQ := b.Orientation().Quaternion()
-	orientationDiff := quat.Mul(bQ, quat.Conj(aQ))
-	translationDiff := b.Point().Sub(a.Point())
-	return NewPoseFromOrientation(translationDiff, (*quaternion)(&orientationDiff))
+	aq := dualQuaternionFromPose(a)
+	bq := dualQuaternionFromPose(b)
+	return &dualQuaternion{dualquat.Mul(bq.Number, dualquat.ConjQuat(aq.Number))}
 }
 
 // PoseToProtobuf converts a pose to the pose format protobuf expects (which is as OrientationVectorDegrees)
