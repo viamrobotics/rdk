@@ -167,10 +167,6 @@ func (hs *httpSource) Next(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, err
 	}
 
-	if hs.DepthURL == "" {
-		return img, func() {}, nil
-	}
-
 	depthData, err := readyBytesFromURL(hs.client, hs.DepthURL)
 	if err != nil {
 		return nil, nil, errors.Errorf("couldn't ready depth url: %w", err)
