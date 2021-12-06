@@ -279,7 +279,7 @@ func NewServerSource(host string, port int, attrs config.AttributeMap, logger go
 }
 
 // NewIntelServerSource is the ImageSource for an Intel515 RGBD camera that streams both
-// color and depth information.
+// color and depth information. DEPRECATED: use NewServerSource directly instead.
 func NewIntelServerSource(host string, port int, attrs config.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
 	num := "0"
 	numString, has := attrs["num"]
