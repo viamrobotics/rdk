@@ -16,7 +16,7 @@ import (
 func newServer() (pb.IMUServiceServer, *inject.IMU, error) {
 	injectIMU := &inject.IMU{}
 	imus := map[resource.Name]interface{}{
-		imu.Named("imu"): injectIMU,
+		imu.Named("imu1"): injectIMU,
 		imu.Named("imu2"): "notIMU",
 	}
 	imuSvc, err := subtype.New(imus)
