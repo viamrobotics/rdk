@@ -61,7 +61,7 @@ func init() {
 	}})
 
 	registry.RegisterComponent(camera.Subtype, "intel", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		source, err := NewIntelServerSource(config.Host, config.Port, config.Attributes)
+		source, err := NewIntelServerSource(config.Host, config.Port, config.Attributes, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -154,14 +154,14 @@ type dualServerSource struct {
 
 // IsAligned returns true if the images returned from the two servers are already aligned
 // with each other.
-func (hs *dualServerSource) IsAligned() bool {
-	return hs.isAligned
+func (ds *dualServerSource) IsAligned() bool {
+	return ds.isAligned
 }
 
 // Next requests the next images from both the color and depth source, and combines them
 // together as an ImageWithDepth before returning them.
-func (hs *dualServerSource) Next(ctx context.Context) (image.Image, func(), error) {
-	colorData, err := readyBytesFromURL(hs.client, hs.ColorURL)
+func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), error) {
+	colorData, err := readyBytesFromURL(ds.client, ds.ColorURL)
 	if err != nil {
 		return nil, nil, errors.Errorf("couldn't ready color url: %w", err)
 	}
@@ -170,7 +170,7 @@ func (hs *dualServerSource) Next(ctx context.Context) (image.Image, func(), erro
 		return nil, nil, err
 	}
 
-	depthData, err := readyBytesFromURL(hs.client, hs.DepthURL)
+	depthData, err := readyBytesFromURL(ds.client, ds.DepthURL)
 	if err != nil {
 		return nil, nil, errors.Errorf("couldn't ready depth url: %w", err)
 	}
@@ -180,12 +180,12 @@ func (hs *dualServerSource) Next(ctx context.Context) (image.Image, func(), erro
 		return nil, nil, err
 	}
 
-	return rimage.MakeImageWithDepth(rimage.ConvertImage(img), depth, hs.IsAligned(), nil), func() {}, nil
+	return rimage.MakeImageWithDepth(rimage.ConvertImage(img), depth, ds.IsAligned(), nil), func() {}, nil
 }
 
 // Close closes the connection to both servers.
-func (hs *dualServerSource) Close() error {
-	hs.client.CloseIdleConnections()
+func (ds *dualServerSource) Close() error {
+	ds.client.CloseIdleConnections()
 	return nil
 }
 
@@ -280,7 +280,7 @@ func NewServerSource(host string, port int, attrs config.AttributeMap, logger go
 
 // NewIntelServerSource is the ImageSource for an Intel515 RGBD camera that streams both
 // color and depth information.
-func NewIntelServerSource(host string, port int, attrs config.AttributeMap) (gostream.ImageSource, error) {
+func NewIntelServerSource(host string, port int, attrs config.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
 	num := "0"
 	numString, has := attrs["num"]
 	if has {
@@ -290,11 +290,10 @@ func NewIntelServerSource(host string, port int, attrs config.AttributeMap) (gos
 	if err != nil {
 		return nil, err
 	}
-	return &serverSource{
-		URL:       fmt.Sprintf("http://%s:%d/both?num=%s", host, port, num),
-		host:      host,
-		stream:    BothStream,
-		isAligned: attrs.Bool("aligned", true),
-		camera:    camera,
-	}, nil
+	attrs["intrinsic_extrinsic"] = camera
+	attrs["stream"] = "both"
+	attrs["args"] = fmt.Sprintf("both?num=%s", num)
+	attrs["aligned"] = attrs.Bool("aligned", true)
+
+	return NewServerSource(host, port, attrs, logger)
 }
