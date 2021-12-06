@@ -23,7 +23,7 @@ service IMUService {
   }
 
   // Orientation returns the most recent orientation reading from the given IMU.
-  rpc Orientation(IMUServiceAngularVelocityRequest) returns (IMUServiceOrientationResponse) {
+  rpc Orientation(IMUServiceOrientationRequest) returns (IMUServiceOrientationResponse) {
       option (google.api.http) = {
       get: "/api/v1/component/imu/{name}/orientation"
     };
