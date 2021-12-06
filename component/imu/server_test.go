@@ -13,11 +13,15 @@ import (
 	"go.viam.com/core/testutils/inject"
 )
 
+const testIMUName = "imu1"
+const fakeIMUName = "imu2"
+const missingIMUName = "imu3"
+
 func newServer() (pb.IMUServiceServer, *inject.IMU, error) {
 	injectIMU := &inject.IMU{}
 	imus := map[resource.Name]interface{}{
-		imu.Named("imu1"): injectIMU,
-		imu.Named("imu2"): "notIMU",
+		imu.Named(testIMUName): injectIMU,
+		imu.Named(fakeIMUName): "notIMU",
 	}
 	imuSvc, err := subtype.New(imus)
 	if err != nil {
@@ -40,29 +44,29 @@ func TestServer(t *testing.T) {
 	}
 
 	t.Run("IMU angular velocity", func(t *testing.T) {
-		resp, err := imuServer.AngularVelocity(context.Background(), &pb.IMUServiceAngularVelocityRequest{Name: "imu1"})
+		resp, err := imuServer.AngularVelocity(context.Background(), &pb.IMUServiceAngularVelocityRequest{Name: testIMUName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.AngularVelocity.String(), test.ShouldResemble, av.String())
 
-		_, err = imuServer.AngularVelocity(context.Background(), &pb.IMUServiceAngularVelocityRequest{Name: "imu2"})
+		_, err = imuServer.AngularVelocity(context.Background(), &pb.IMUServiceAngularVelocityRequest{Name: fakeIMUName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not an IMU")
 
-		_, err = imuServer.AngularVelocity(context.Background(), &pb.IMUServiceAngularVelocityRequest{Name: "imu3"})
+		_, err = imuServer.AngularVelocity(context.Background(), &pb.IMUServiceAngularVelocityRequest{Name: missingIMUName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no IMU")
 	})
 
 	t.Run("IMU orientation", func(t *testing.T) {
-		resp, err := imuServer.Orientation(context.Background(), &pb.IMUServiceOrientationRequest{Name: "imu1"})
+		resp, err := imuServer.Orientation(context.Background(), &pb.IMUServiceOrientationRequest{Name: testIMUName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Orientation.String(), test.ShouldResemble, ea.String())
 
-		_, err = imuServer.Orientation(context.Background(), &pb.IMUServiceOrientationRequest{Name: "imu2"})
+		_, err = imuServer.Orientation(context.Background(), &pb.IMUServiceOrientationRequest{Name: fakeIMUName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not an IMU")
 
-		_, err = imuServer.Orientation(context.Background(), &pb.IMUServiceOrientationRequest{Name: "imu3"})
+		_, err = imuServer.Orientation(context.Background(), &pb.IMUServiceOrientationRequest{Name: missingIMUName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no IMU")
 	})
