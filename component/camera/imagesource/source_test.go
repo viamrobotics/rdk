@@ -6,19 +6,17 @@ import (
 	"strings"
 	"testing"
 
+	"go.viam.com/test"
+
+	"go.viam.com/core/config"
 	"go.viam.com/core/rimage"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"go.viam.com/test"
+	"github.com/go-errors/errors"
 )
 
-func TestHTTPSourceNoDepth(t *testing.T) {
-	s := httpSource{ColorURL: "http://placehold.it/120x120&text=image1", DepthURL: ""}
-	_, _, err := s.Next(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-}
-
-func doHTTPSourceTest(t *testing.T, s gostream.ImageSource) {
+func doServerSourceTest(t *testing.T, s gostream.ImageSource) {
 	a, _, err := s.Next(context.Background())
 	if err != nil {
 		if strings.Contains(err.Error(), "dial tcp 127.0.0.1:8181: connect: connection refused") {
@@ -36,9 +34,15 @@ func doHTTPSourceTest(t *testing.T, s gostream.ImageSource) {
 	test.That(t, bounds.Max.X, test.ShouldEqual, b.Width())
 }
 
-func TestHTTPSource(t *testing.T) {
+func TestDualServerSourceNoDepth(t *testing.T) {
+	s := dualServerSource{ColorURL: "http://placehold.it/120x120&text=image1", DepthURL: ""}
+	_, _, err := s.Next(context.Background())
+	test.That(t, err, test.ShouldBeError, errors.New("couldn't ready depth url: Get \"\": unsupported protocol scheme \"\""))
+}
+
+func TestDualServerSource(t *testing.T) {
 	root := "127.0.0.1:8181"
-	s := &httpSource{
+	s := &dualServerSource{
 		ColorURL:  fmt.Sprintf("http://%s/pic.ppm", root),
 		DepthURL:  fmt.Sprintf("http://%s/depth.dat", root),
 		isAligned: true,
@@ -47,11 +51,21 @@ func TestHTTPSource(t *testing.T) {
 		test.That(t, s.Close(), test.ShouldBeNil)
 	}()
 
-	doHTTPSourceTest(t, s)
+	doServerSourceTest(t, s)
 }
 
-func TestHTTPSource2(t *testing.T) {
-	s, err := NewIntelServerSource("127.0.0.1", 8181, nil)
+func TestIntelServerSource(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	attrs := config.AttributeMap{}
+	s, err := NewIntelServerSource("127.0.0.1", 8181, attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
-	doHTTPSourceTest(t, s)
+	doServerSourceTest(t, s)
+}
+
+func TestServerSource(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	attrs := config.AttributeMap{}
+	s, err := NewServerSource("127.0.0.1", 8181, attrs, logger)
+	test.That(t, err, test.ShouldBeNil)
+	doServerSourceTest(t, s)
 }

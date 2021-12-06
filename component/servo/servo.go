@@ -27,8 +27,8 @@ type Servo interface {
 	// Move moves the servo to the given angle (0-180 degrees)
 	Move(ctx context.Context, angleDegs uint8) error
 
-	// Current returns the current set angle (degrees) of the servo.
-	Current(ctx context.Context) (uint8, error)
+	// AngularOffset returns the current set angle (degrees) of the servo.
+	AngularOffset(ctx context.Context) (uint8, error)
 }
 
 // Named is a helper for getting the named Arm's typed resource name
@@ -58,10 +58,10 @@ func (r *reconfigurableServo) Move(ctx context.Context, angleDegs uint8) error {
 	return r.actual.Move(ctx, angleDegs)
 }
 
-func (r *reconfigurableServo) Current(ctx context.Context) (uint8, error) {
+func (r *reconfigurableServo) AngularOffset(ctx context.Context) (uint8, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Current(ctx)
+	return r.actual.AngularOffset(ctx)
 }
 
 func (r *reconfigurableServo) Close() error {
