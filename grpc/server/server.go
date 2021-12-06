@@ -230,28 +230,6 @@ func (s *Server) BaseWidthMillis(ctx context.Context, req *pb.BaseWidthMillisReq
 	return &pb.BaseWidthMillisResponse{WidthMillis: int64(width)}, nil
 }
 
-// GripperOpen opens a gripper of the underlying robot.
-func (s *Server) GripperOpen(ctx context.Context, req *pb.GripperOpenRequest) (*pb.GripperOpenResponse, error) {
-	gripper, ok := s.r.GripperByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no gripper with that name %s", req.Name)
-	}
-	return &pb.GripperOpenResponse{}, gripper.Open(ctx)
-}
-
-// GripperGrab requests a gripper of the underlying robot to grab.
-func (s *Server) GripperGrab(ctx context.Context, req *pb.GripperGrabRequest) (*pb.GripperGrabResponse, error) {
-	gripper, ok := s.r.GripperByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no gripper with that name %s", req.Name)
-	}
-	grabbed, err := gripper.Grab(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.GripperGrabResponse{Grabbed: grabbed}, nil
-}
-
 // PointCloud returns a frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
 func (s *Server) PointCloud(ctx context.Context, req *pb.PointCloudRequest) (*pb.PointCloudResponse, error) {

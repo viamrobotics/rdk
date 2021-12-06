@@ -44,20 +44,13 @@ import (
 	_ "go.viam.com/core/board/arduino"
 	_ "go.viam.com/core/board/jetson"
 	_ "go.viam.com/core/board/numato"
-	_ "go.viam.com/core/component/arm/register"         // for all arms TODO: #298
-	_ "go.viam.com/core/component/camera/register"      // for all cameras
-	_ "go.viam.com/core/component/gantry/register"      // for all gantries
-	_ "go.viam.com/core/component/gripper/fake"         // for a gripper
-	_ "go.viam.com/core/component/gripper/robotiq"      // for a gripper
-	_ "go.viam.com/core/component/gripper/softrobotics" // for a gripper
-	_ "go.viam.com/core/component/gripper/vgripper/v1"  // for a gripper with a single force sensor cell
-	_ "go.viam.com/core/component/gripper/vgripper/v2"  // for a gripper with a force matrix
-	_ "go.viam.com/core/component/gripper/vx300s"       // for a gripper
-	_ "go.viam.com/core/component/gripper/wx250s"       // for a gripper
-	_ "go.viam.com/core/component/gripper/yahboom"      // for a gripper
-	_ "go.viam.com/core/component/imu/register"         // for all IMU
-	_ "go.viam.com/core/component/servo/fake"           // for a servo
-	_ "go.viam.com/core/input/gamepad"                  // xbox controller and similar
+	_ "go.viam.com/core/component/arm/register"     // for all arms TODO: #298
+	_ "go.viam.com/core/component/camera/register"  // for all cameras
+	_ "go.viam.com/core/component/gantry/register"  // for all gantries
+	_ "go.viam.com/core/component/gripper/register" // for all grippers
+	_ "go.viam.com/core/component/imu/register"     // for all IMU
+	_ "go.viam.com/core/component/servo/fake"       // for a servo
+	_ "go.viam.com/core/input/gamepad"              // xbox controller and similar
 	_ "go.viam.com/core/input/mux"
 	_ "go.viam.com/core/input/webgamepad" // gamepads via webbrowser
 	_ "go.viam.com/core/motor/gpio"
