@@ -33,7 +33,7 @@ type serialNMEAGPS struct {
 	mu        sync.RWMutex
 	dev       io.ReadWriteCloser
 	logger    golog.Logger
-	urlStr    string
+	ntripURL  string
 	username  string
 	password  string
 	writepath string
@@ -46,17 +46,15 @@ type serialNMEAGPS struct {
 }
 
 const (
-	pathAttrName  = "path"
-	ntripAttrName = "ntrip"
-	userAttrName  = "username"
-	passAttrName  = "password"
-	wpathAttrName = "writepath"
-	wbaudAttrName = "writebaud"
+	pathAttrName      = "path"
+	ntripAddrAttrName = "ntripAddr"
+	ntripUserAttrName = "ntripUsername"
+	ntripPassAttrName = "ntripPassword"
+	ntripPathAttrName = "ntripPath"
+	ntripBaudAttrName = "ntripBaud"
 )
 
 func newSerialNMEAGPS(config config.Component, logger golog.Logger) (gps.GPS, error) {
-	var g *serialNMEAGPS
-	var wbaud int
 	serialPath := config.Attributes.String(pathAttrName)
 	if serialPath == "" {
 		return nil, fmt.Errorf("serialNMEAGPS expected non-empty string for %q", pathAttrName)
@@ -67,20 +65,19 @@ func newSerialNMEAGPS(config config.Component, logger golog.Logger) (gps.GPS, er
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	ntripPath := config.Attributes.String(ntripAttrName)
-	if ntripPath != "" {
-		username := config.Attributes.String(userAttrName)
-		password := config.Attributes.String(passAttrName)
-		writepath := config.Attributes.String(wpathAttrName)
-		wbaud = config.Attributes.Int(wbaudAttrName, wbaud)
-		if writepath == "" {
-			writepath = serialPath
+	g := &serialNMEAGPS{dev: dev, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g.ntripURL = config.Attributes.String(ntripAddrAttrName)
+	if g.ntripURL != "" {
+		g.username = config.Attributes.String(ntripUserAttrName)
+		g.password = config.Attributes.String(ntripPassAttrName)
+		g.writepath = config.Attributes.String(ntripPathAttrName)
+		g.wbaud = config.Attributes.Int(ntripBaudAttrName, g.wbaud)
+		if g.writepath == "" {
+			g.writepath = serialPath
 		}
-		g := &serialNMEAGPS{urlStr: ntripPath, username: username, password: password, writepath: writepath, wbaud: wbaud, dev: dev, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 		g.Start()
 		g.NtripClientRequest()
 	} else {
-		g := &serialNMEAGPS{dev: dev, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 		g.Start()
 	}
 
@@ -88,13 +85,15 @@ func newSerialNMEAGPS(config config.Component, logger golog.Logger) (gps.GPS, er
 }
 func (g *serialNMEAGPS) NtripClientRequest() {
 	var resp *http.Response
-	var err error
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer g.activeBackgroundWorkers.Done()
 
 		// talk to the gps network, looking for mount points
-		req, _ := ntrip.NewClientRequest(g.urlStr)
+		req, err := ntrip.NewClientRequest(g.ntripURL)
+		if err != nil {
+			g.logger.Fatalf("Error creating ntrip client request %s", err)
+		}
 		req.SetBasicAuth(g.username, g.password)
 
 		reconnFlag := 1
@@ -121,11 +120,14 @@ func (g *serialNMEAGPS) NtripClientRequest() {
 
 		options.PortName = g.writepath
 		port, err := slib.Open(options)
+		if err != nil {
+			g.logger.Fatalf("Can't Write to serial %s", err)
+		}
 		w := bufio.NewWriter(port)
 
 		// Read from resp.Body until EOF
 		r := io.TeeReader(resp.Body, w)
-		io.ReadAll(r)
+		_, err = io.ReadAll(r)
 
 		if err != nil {
 			g.logger.Fatalf("Error with RTCM stream: %s\n", err)
@@ -149,7 +151,6 @@ func (g *serialNMEAGPS) Start() {
 			if err != nil {
 				g.logger.Fatalf("can't read gps serial %s", err)
 			}
-			// fmt.Println(line)
 			// Update our struct's gps data in-place
 			g.mu.Lock()
 			err = parseAndUpdate(line, &g.data)
