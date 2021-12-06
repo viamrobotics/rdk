@@ -175,7 +175,7 @@
             "subtype" : "imu",
             "model" : "wit",
             "attributes" : {
-                "port" : "/dev/ttyUSB1"
+                "port" : "/dev/ttyUSB0"
             }
         },
         {
