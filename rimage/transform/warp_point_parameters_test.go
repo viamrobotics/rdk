@@ -14,7 +14,7 @@ import (
 
 func TestImageWithDepthToPointCloud(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	iwd, err := rimage.ReadBothFromFile(artifact.MustPath("align/gripper1/align-test-1615761790.both.gz"), false)
+	iwd, err := rimage.ReadBothFromFile(artifact.MustPath("align/gripper1/align-test-1615761793.both.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, iwd.IsAligned(), test.ShouldEqual, false)
 
@@ -38,7 +38,7 @@ func TestImageWithDepthToPointCloud(t *testing.T) {
 	test.That(t, iwd.CameraSystem(), test.ShouldBeNil)
 
 	// image with depth with depth missing should return error
-	img, err := rimage.NewImageFromFile(artifact.MustPath("align/gripper1/align-test-1615761790.both.gz"))
+	img, err := rimage.NewImageFromFile(artifact.MustPath("align/gripper1/align-test-1615761793.both.gz"))
 	test.That(t, err, test.ShouldBeNil)
 
 	iwdBad := rimage.MakeImageWithDepth(img, nil, false, nil)
@@ -50,7 +50,7 @@ func TestImageWithDepthToPointCloud(t *testing.T) {
 }
 func TestWarpPointsTo3D(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	iwd, err := rimage.ReadBothFromFile(artifact.MustPath("align/gripper1/align-test-1615761790.both.gz"), false)
+	iwd, err := rimage.ReadBothFromFile(artifact.MustPath("align/gripper1/align-test-1615761793.both.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, iwd.IsAligned(), test.ShouldEqual, false)
 

@@ -100,10 +100,6 @@ type RobotServiceClient interface {
 	// TODO(erd): refactor to functions service
 	ExecuteFunction(ctx context.Context, in *ExecuteFunctionRequest, opts ...grpc.CallOption) (*ExecuteFunctionResponse, error)
 	ExecuteSource(ctx context.Context, in *ExecuteSourceRequest, opts ...grpc.CallOption) (*ExecuteSourceResponse, error)
-	// ServoMove requests the servo of the underlying robot to move.
-	ServoMove(ctx context.Context, in *ServoMoveRequest, opts ...grpc.CallOption) (*ServoMoveResponse, error)
-	// ServoCurrent returns the current set angle (degrees) of the servo of the underlying robot.
-	ServoCurrent(ctx context.Context, in *ServoCurrentRequest, opts ...grpc.CallOption) (*ServoCurrentResponse, error)
 	//Motor
 	// Return the PID configuration for a Motor
 	MotorGetPIDConfig(ctx context.Context, in *MotorGetPIDConfigRequest, opts ...grpc.CallOption) (*MotorGetPIDConfigResponse, error)
@@ -537,24 +533,6 @@ func (c *robotServiceClient) ExecuteSource(ctx context.Context, in *ExecuteSourc
 	return out, nil
 }
 
-func (c *robotServiceClient) ServoMove(ctx context.Context, in *ServoMoveRequest, opts ...grpc.CallOption) (*ServoMoveResponse, error) {
-	out := new(ServoMoveResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ServoMove", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) ServoCurrent(ctx context.Context, in *ServoCurrentRequest, opts ...grpc.CallOption) (*ServoCurrentResponse, error) {
-	out := new(ServoCurrentResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ServoCurrent", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *robotServiceClient) MotorGetPIDConfig(ctx context.Context, in *MotorGetPIDConfigRequest, opts ...grpc.CallOption) (*MotorGetPIDConfigResponse, error) {
 	out := new(MotorGetPIDConfigResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/MotorGetPIDConfig", in, out, opts...)
@@ -973,10 +951,6 @@ type RobotServiceServer interface {
 	// TODO(erd): refactor to functions service
 	ExecuteFunction(context.Context, *ExecuteFunctionRequest) (*ExecuteFunctionResponse, error)
 	ExecuteSource(context.Context, *ExecuteSourceRequest) (*ExecuteSourceResponse, error)
-	// ServoMove requests the servo of the underlying robot to move.
-	ServoMove(context.Context, *ServoMoveRequest) (*ServoMoveResponse, error)
-	// ServoCurrent returns the current set angle (degrees) of the servo of the underlying robot.
-	ServoCurrent(context.Context, *ServoCurrentRequest) (*ServoCurrentResponse, error)
 	//Motor
 	// Return the PID configuration for a Motor
 	MotorGetPIDConfig(context.Context, *MotorGetPIDConfigRequest) (*MotorGetPIDConfigResponse, error)
@@ -1155,12 +1129,6 @@ func (UnimplementedRobotServiceServer) ExecuteFunction(context.Context, *Execute
 }
 func (UnimplementedRobotServiceServer) ExecuteSource(context.Context, *ExecuteSourceRequest) (*ExecuteSourceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecuteSource not implemented")
-}
-func (UnimplementedRobotServiceServer) ServoMove(context.Context, *ServoMoveRequest) (*ServoMoveResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ServoMove not implemented")
-}
-func (UnimplementedRobotServiceServer) ServoCurrent(context.Context, *ServoCurrentRequest) (*ServoCurrentResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ServoCurrent not implemented")
 }
 func (UnimplementedRobotServiceServer) MotorGetPIDConfig(context.Context, *MotorGetPIDConfigRequest) (*MotorGetPIDConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MotorGetPIDConfig not implemented")
@@ -1958,42 +1926,6 @@ func _RobotService_ExecuteSource_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_ServoMove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ServoMoveRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).ServoMove(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/ServoMove",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).ServoMove(ctx, req.(*ServoMoveRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_ServoCurrent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ServoCurrentRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).ServoCurrent(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/ServoCurrent",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).ServoCurrent(ctx, req.(*ServoCurrentRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _RobotService_MotorGetPIDConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MotorGetPIDConfigRequest)
 	if err := dec(in); err != nil {
@@ -2730,14 +2662,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExecuteSource",
 			Handler:    _RobotService_ExecuteSource_Handler,
-		},
-		{
-			MethodName: "ServoMove",
-			Handler:    _RobotService_ServoMove_Handler,
-		},
-		{
-			MethodName: "ServoCurrent",
-			Handler:    _RobotService_ServoCurrent_Handler,
 		},
 		{
 			MethodName: "MotorGetPIDConfig",

@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"go.viam.com/test"
+
+	"github.com/golang/geo/r2"
 )
 
 type rangeArrayHelper struct {
@@ -32,4 +34,42 @@ func TestStructuringElement(t *testing.T) {
 	got := makeStructuringElement(3)
 	test.That(t, expected, test.ShouldResemble, got)
 
+}
+
+func TestInterpolations(t *testing.T) {
+	dm := NewEmptyDepthMap(2, 2)
+	dm.Set(0, 0, 1)
+	dm.Set(1, 0, 2)
+	dm.Set(0, 1, 3)
+	dm.Set(1, 1, 4)
+
+	pt := r2.Point{0.25, 0.25}
+	d := NearestNeighborDepth(pt, dm)
+	test.That(t, *d, test.ShouldEqual, Depth(1))
+	d = BilinearInterpolationDepth(pt, dm) // 1.75
+	test.That(t, *d, test.ShouldEqual, Depth(2))
+
+	pt = r2.Point{0.25, 0.75}
+	d = NearestNeighborDepth(pt, dm)
+	test.That(t, *d, test.ShouldEqual, Depth(3))
+	d = BilinearInterpolationDepth(pt, dm) // 2.75
+	test.That(t, *d, test.ShouldEqual, Depth(3))
+
+	pt = r2.Point{0.5, 0.5}
+	d = NearestNeighborDepth(pt, dm)
+	test.That(t, *d, test.ShouldEqual, Depth(4))
+	d = BilinearInterpolationDepth(pt, dm) // 2.5
+	test.That(t, *d, test.ShouldEqual, Depth(3))
+
+	pt = r2.Point{1.0, 1.0}
+	d = NearestNeighborDepth(pt, dm)
+	test.That(t, *d, test.ShouldEqual, Depth(4))
+	d = BilinearInterpolationDepth(pt, dm) // 4
+	test.That(t, *d, test.ShouldEqual, Depth(4))
+
+	pt = r2.Point{1.1, 1.0}
+	d = NearestNeighborDepth(pt, dm)
+	test.That(t, d, test.ShouldBeNil)
+	d = BilinearInterpolationDepth(pt, dm)
+	test.That(t, d, test.ShouldBeNil)
 }

@@ -348,12 +348,12 @@
                   },
                   servoMove : function(name, amount) {
                       const servo = theData.rawStatus.getServosMap().get(name);
-                      var old = servo.getAngle();
-                      var angle = old + amount;
-                      const req = new robotApi.ServoMoveRequest();
+                      var oldAngle = servo.getAngle();
+                      let angle = oldAngle + amount;
+                      const req = new servoApi.ServoServiceMoveRequest();
                       req.setName(name);
                       req.setAngleDeg(angle);
-                      robotService.servoMove(req, {}, (err, resp) => grpcCallback(err, resp));
+                      servoService.move(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   motorCommand: function(motor, cmd) {
                     let req = cmd.request;
@@ -1249,17 +1249,17 @@
       </div>
 
       <!-- ******* SERVO *******  -->
-      <div class="servo" v-for="servo in status.servosMap" :key="servo[0]" style="margin-bottom: 64px;">
-        <h3>Servo ${ servo[0] }</h3>
+      <div class="servo" v-for="servo in filterResources('core', 'component', 'servo')" :key="servo.name" style="margin-bottom: 64px;">
+        <h3>Servo ${ servo.name }</h3>
         <table border="1">
-          <tr><th>Angle</th><td>${servo[1].angle}</td></tr>
+          <tr><th>Angle</th><td>${servo.angle}</td></tr>
           <tr>
             <td></td>
             <td>
-              <button v-on:click="servoMove(servo[0], -10)">-10</button>
-              <button v-on:click="servoMove(servo[0], -1)">-1</button>
-              <button v-on:click="servoMove(servo[0], 1)">1</button>
-              <button v-on:click="servoMove(servo[0], 10)">10</button>
+              <button v-on:click="servoMove(servo.name, -10)">-10</button>
+              <button v-on:click="servoMove(servo.name, -1)">-1</button>
+              <button v-on:click="servoMove(servo.name, 1)">1</button>
+              <button v-on:click="servoMove(servo.name, 10)">10</button>
             </td>
           </tr>
         </table>

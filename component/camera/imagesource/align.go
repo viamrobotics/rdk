@@ -47,16 +47,16 @@ func init() {
 		return &camera.ImageSource{ImageSource: dc}, nil
 	}})
 
-	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "config", func(val interface{}) (interface{}, error) {
-		config := &transform.AlignConfig{}
-		err := mapstructure.Decode(val, config)
+	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "warp", func(val interface{}) (interface{}, error) {
+		warp := &transform.AlignConfig{}
+		err := mapstructure.Decode(val, warp)
 		if err == nil {
-			err = config.CheckValid()
+			err = warp.CheckValid()
 		}
-		return config, err
+		return warp, err
 	})
 
-	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "matrices", func(val interface{}) (interface{}, error) {
+	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "intrinsic_extrinsic", func(val interface{}) (interface{}, error) {
 		matrices := &transform.DepthColorIntrinsicsExtrinsics{}
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: matrices})
 		if err != nil {
@@ -68,9 +68,54 @@ func init() {
 		}
 		return matrices, err
 	})
+
+	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "homography", func(val interface{}) (interface{}, error) {
+		homography := &transform.RawPinholeCameraHomography{}
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: homography})
+		if err != nil {
+			return nil, err
+		}
+		err = decoder.Decode(val)
+		if err == nil {
+			err = homography.CheckValid()
+		}
+		return homography, err
+	})
 }
 
 var alignCurrentlyWriting = false
+
+func getCameraSystems(attrs config.AttributeMap, logger golog.Logger) (rimage.CameraSystem, rimage.CameraSystem, error) {
+	var alignCamera rimage.CameraSystem
+	var projectCamera rimage.CameraSystem
+	var err error
+
+	if attrs.Has("intrinsic_extrinsic") {
+		alignCamera, err = transform.NewDepthColorIntrinsicsExtrinsics(attrs)
+		if err != nil {
+			return nil, nil, err
+		}
+		projectCamera = alignCamera
+	} else if attrs.Has("homography") {
+		conf := attrs["homography"].(*transform.RawPinholeCameraHomography)
+		alignCamera, err = transform.NewPinholeCameraHomography(conf)
+		if err != nil {
+			return nil, nil, err
+		}
+		projectCamera = alignCamera
+	} else if attrs.Has("warp") {
+		conf := attrs["warp"].(*transform.AlignConfig)
+		alignCamera, err = transform.NewDepthColorWarpTransforms(conf, logger)
+		if err != nil {
+			return nil, nil, err
+		}
+		projectCamera = alignCamera
+	} else { // default is no camera systems returned
+		return nil, nil, nil
+	}
+
+	return alignCamera, projectCamera, nil
+}
 
 // depthComposed TODO
 type depthComposed struct {
@@ -84,36 +129,14 @@ type depthComposed struct {
 
 // NewDepthComposed TODO
 func NewDepthComposed(color, depth gostream.ImageSource, attrs config.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
-	var alignCamera rimage.CameraSystem
-	var projectCamera rimage.CameraSystem
-	var err error
-
-	if attrs.Has("config") && attrs.Has("matrices") {
-		config := attrs["config"].(*transform.AlignConfig)
-		alignCamera, err = transform.NewDepthColorWarpTransforms(config, logger)
-		if err != nil {
-			return nil, err
-		}
-		projectCamera, err = transform.NewDepthColorIntrinsicsExtrinsics(attrs)
-		if err != nil {
-			return nil, err
-		}
-	} else if attrs.Has("config") {
-		config := attrs["config"].(*transform.AlignConfig)
-		alignCamera, err = transform.NewDepthColorWarpTransforms(config, logger)
-		if err != nil {
-			return nil, err
-		}
-		projectCamera = alignCamera
-	} else if attrs.Has("matrices") {
-		alignCamera, err = transform.NewDepthColorIntrinsicsExtrinsics(attrs)
-		if err != nil {
-			return nil, err
-		}
-		projectCamera = alignCamera
-	} else {
+	alignCamera, projectCamera, err := getCameraSystems(attrs, logger)
+	if err != nil {
+		return nil, err
+	}
+	if alignCamera == nil || projectCamera == nil {
 		return nil, errors.New("no camera system config")
 	}
+
 	return &depthComposed{color, depth, alignCamera, projectCamera, attrs.Bool("aligned", false), attrs.Bool("debug", false), logger}, nil
 }
 
@@ -163,6 +186,9 @@ func (dc *depthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 		}
 	}
 	aligned, err := dc.alignmentCamera.AlignImageWithDepth(ii)
+	if err != nil {
+		return nil, nil, err
+	}
 	aligned.SetCameraSystem(dc.projectionCamera)
 
 	return aligned, func() {}, err

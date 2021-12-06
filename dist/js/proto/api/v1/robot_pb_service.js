@@ -353,24 +353,6 @@ RobotService.ExecuteSource = {
   responseType: proto_api_v1_robot_pb.ExecuteSourceResponse
 };
 
-RobotService.ServoMove = {
-  methodName: "ServoMove",
-  service: RobotService,
-  requestStream: false,
-  responseStream: false,
-  requestType: proto_api_v1_robot_pb.ServoMoveRequest,
-  responseType: proto_api_v1_robot_pb.ServoMoveResponse
-};
-
-RobotService.ServoCurrent = {
-  methodName: "ServoCurrent",
-  service: RobotService,
-  requestStream: false,
-  responseStream: false,
-  requestType: proto_api_v1_robot_pb.ServoCurrentRequest,
-  responseType: proto_api_v1_robot_pb.ServoCurrentResponse
-};
-
 RobotService.MotorGetPIDConfig = {
   methodName: "MotorGetPIDConfig",
   service: RobotService,
@@ -1826,68 +1808,6 @@ RobotServiceClient.prototype.executeSource = function executeSource(requestMessa
     callback = arguments[1];
   }
   var client = grpc.unary(RobotService.ExecuteSource, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-RobotServiceClient.prototype.servoMove = function servoMove(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(RobotService.ServoMove, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-RobotServiceClient.prototype.servoCurrent = function servoCurrent(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(RobotService.ServoCurrent, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

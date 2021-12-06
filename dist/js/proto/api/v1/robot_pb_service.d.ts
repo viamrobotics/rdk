@@ -347,24 +347,6 @@ type RobotServiceExecuteSource = {
   readonly responseType: typeof proto_api_v1_robot_pb.ExecuteSourceResponse;
 };
 
-type RobotServiceServoMove = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.ServoMoveRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.ServoMoveResponse;
-};
-
-type RobotServiceServoCurrent = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.ServoCurrentRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.ServoCurrentResponse;
-};
-
 type RobotServiceMotorGetPIDConfig = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -693,8 +675,6 @@ export class RobotService {
   static readonly ForceMatrixSlipDetection: RobotServiceForceMatrixSlipDetection;
   static readonly ExecuteFunction: RobotServiceExecuteFunction;
   static readonly ExecuteSource: RobotServiceExecuteSource;
-  static readonly ServoMove: RobotServiceServoMove;
-  static readonly ServoCurrent: RobotServiceServoCurrent;
   static readonly MotorGetPIDConfig: RobotServiceMotorGetPIDConfig;
   static readonly MotorSetPIDConfig: RobotServiceMotorSetPIDConfig;
   static readonly MotorPIDStep: RobotServiceMotorPIDStep;
@@ -1094,24 +1074,6 @@ export class RobotServiceClient {
   executeSource(
     requestMessage: proto_api_v1_robot_pb.ExecuteSourceRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ExecuteSourceResponse|null) => void
-  ): UnaryResponse;
-  servoMove(
-    requestMessage: proto_api_v1_robot_pb.ServoMoveRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoMoveResponse|null) => void
-  ): UnaryResponse;
-  servoMove(
-    requestMessage: proto_api_v1_robot_pb.ServoMoveRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoMoveResponse|null) => void
-  ): UnaryResponse;
-  servoCurrent(
-    requestMessage: proto_api_v1_robot_pb.ServoCurrentRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoCurrentResponse|null) => void
-  ): UnaryResponse;
-  servoCurrent(
-    requestMessage: proto_api_v1_robot_pb.ServoCurrentRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoCurrentResponse|null) => void
   ): UnaryResponse;
   motorGetPIDConfig(
     requestMessage: proto_api_v1_robot_pb.MotorGetPIDConfigRequest,

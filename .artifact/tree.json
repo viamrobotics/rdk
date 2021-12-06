@@ -9,33 +9,59 @@
         "hash": "4d68902ed4ee155b4abcc0ff9ae3a800",
         "size": 1036966
       },
-      "align-test-1615761786.both.gz": {
-        "hash": "4780578bd9a056020e7c846a0359e0d2",
-        "size": 1041812
-      },
-      "align-test-1615761790.both.gz": {
-        "hash": "202e662ab789167159d3d7fe0a6cedf1",
-        "size": 1040134
-      },
       "align-test-1615761793.both.gz": {
         "hash": "d4a8814121f88435e12e678f54377797",
         "size": 1025703
       },
-      "align-test-1615761796.both.gz": {
-        "hash": "b6a14822a01c3459b9fafa984c855864",
-        "size": 1020491
+      "chess1.both.gz": {
+        "hash": "68685fe5b1899a5874df4092de0be4e1",
+        "size": 981318
       },
-      "align-test-1615761799.both.gz": {
-        "hash": "4bacef2b5032023628d5fd3786c1c31b",
-        "size": 1015743
+      "chess2.both.gz": {
+        "hash": "6d4e08f5f954f725d8a07f129600c39f",
+        "size": 978001
       },
-      "align-test-1615761802.both.gz": {
-        "hash": "6cd19e5c9fb75faeac4676ce2b26c9a3",
-        "size": 1028408
+      "chess3.both.gz": {
+        "hash": "9a5ba64331d22f7b454beb585b6bebf1",
+        "size": 1036462
       },
       "gripper-big1.both.gz": {
         "hash": "e09120e237eb6010ec4f9c9248abbbc0",
         "size": 1237456
+      }
+    },
+    "gripper_homography": {
+      "chess_center.both.gz": {
+        "hash": "d06cacb07ba007742f47791baa1c2d26",
+        "size": 1041998
+      },
+      "chess_center_color.png": {
+        "hash": "77099ae473344a9a3ac23d7df0f4c30e",
+        "size": 1623780
+      },
+      "chess_center_depth.png": {
+        "hash": "8146813de6c80b1f48bbfc4b501d3fa8",
+        "size": 10542
+      },
+      "chess_center_depth2.png": {
+        "hash": "8c75f830ca36429cad1930f5e0afedfd",
+        "size": 14291
+      },
+      "chess_corner.both.gz": {
+        "hash": "0b8f9be05d0c11e37e94d6e24665846d",
+        "size": 1044413
+      },
+      "chess_corner_color.png": {
+        "hash": "d7ceb2a06cbd261109aab3b9eba0f49e",
+        "size": 1631777
+      },
+      "chess_corner_depth.png": {
+        "hash": "11bedaf828e172e96f663f69d918a716",
+        "size": 10929
+      },
+      "chess_corner_depth2.png": {
+        "hash": "39beec0ee1036725436f4cc884bbe122",
+        "size": 14372
       }
     },
     "intel515": {
