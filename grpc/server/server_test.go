@@ -17,7 +17,6 @@ import (
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/camera"
-	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/client"
 	grpcserver "go.viam.com/core/grpc/server"
@@ -1557,94 +1556,59 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("ServoMove", func(t *testing.T) {
+	t.Run("IMU", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
-			capName = name
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			capName = name.Name
 			return nil, false
 		}
 
-		_, err := server.ServoMove(context.Background(), &pb.ServoMoveRequest{
-			Name: "servo1",
+		_, err := server.IMUAngularVelocity(context.Background(), &pb.IMUAngularVelocityRequest{
+			Name: "imu1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
-		test.That(t, capName, test.ShouldEqual, "servo1")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no IMU")
+		test.That(t, capName, test.ShouldEqual, "imu1")
 
-		injectServo := &inject.Servo{}
-		injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
-			return injectServo, true
-		}
-
-		var capAngle uint8
 		err1 := errors.New("whoops")
-		injectServo.MoveFunc = func(ctx context.Context, angle uint8) error {
-			capAngle = angle
-			return err1
+
+		device := &inject.IMU{}
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			return device, true
 		}
-		_, err = server.ServoMove(context.Background(), &pb.ServoMoveRequest{
-			Name:     "servo1",
-			AngleDeg: 5,
+
+		device.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
+			return spatialmath.AngularVelocity{}, err1
+		}
+		_, err = server.IMUAngularVelocity(context.Background(), &pb.IMUAngularVelocityRequest{
+			Name: "imu1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capAngle, test.ShouldEqual, 5)
-
-		injectServo.MoveFunc = func(ctx context.Context, angle uint8) error {
-			capAngle = angle
-			return nil
+		device.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
+			return spatialmath.AngularVelocity{1, 2, 3}, nil
 		}
-		_, err = server.ServoMove(context.Background(), &pb.ServoMoveRequest{
-			Name:     "servo1",
-			AngleDeg: 5,
+		velResp, err := server.IMUAngularVelocity(context.Background(), &pb.IMUAngularVelocityRequest{
+			Name: "imu1",
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capAngle, test.ShouldEqual, 5)
-	})
+		test.That(t, velResp.AngularVelocity, test.ShouldResemble, &pb.AngularVelocity{X: 1, Y: 2, Z: 3})
 
-	t.Run("ServoCurrent", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
-			capName = name
-			return nil, false
+		device.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
+			return nil, err1
 		}
-
-		_, err := server.ServoCurrent(context.Background(), &pb.ServoCurrentRequest{
-			Name: "servo1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
-		test.That(t, capName, test.ShouldEqual, "servo1")
-
-		injectServo := &inject.Servo{}
-		injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
-			return injectServo, true
-		}
-
-		var capCtx context.Context
-		err1 := errors.New("whoops")
-		injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
-			capCtx = ctx
-			return 0, err1
-		}
-		ctx := context.Background()
-		_, err = server.ServoCurrent(context.Background(), &pb.ServoCurrentRequest{
-			Name: "servo1",
+		_, err = server.IMUOrientation(context.Background(), &pb.IMUOrientationRequest{
+			Name: "imu1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capCtx, test.ShouldEqual, ctx)
-
-		injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
-			capCtx = ctx
-			return 8, nil
+		device.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
+			return &spatialmath.EulerAngles{1, 2, 3}, nil
 		}
-		currentResp, err := server.ServoCurrent(context.Background(), &pb.ServoCurrentRequest{
-			Name: "servo1",
+		orientResp, err := server.IMUOrientation(context.Background(), &pb.IMUOrientationRequest{
+			Name: "imu1",
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capCtx, test.ShouldEqual, ctx)
-		test.That(t, currentResp.AngleDeg, test.ShouldEqual, 8)
+		test.That(t, orientResp.Orientation, test.ShouldResemble, &pb.EulerAngles{Roll: 1, Pitch: 2, Yaw: 3})
 	})
 
 	t.Run("Motor", func(t *testing.T) {

@@ -319,38 +319,30 @@
         
           
           <li>
-            <a href="#proto%2fapi%2fcomponent%2fv1%2fimu.proto">proto/api/component/v1/imu.proto</a>
+            <a href="#proto%2fapi%2fcomponent%2fv1%2fservo.proto">proto/api/component/v1/servo.proto</a>
             <ul>
               
                 <li>
-                  <a href="#proto.api.component.v1.AngularVelocity"><span class="badge">M</span>AngularVelocity</a>
+                  <a href="#proto.api.component.v1.ServoServiceAngularOffsetRequest"><span class="badge">M</span>ServoServiceAngularOffsetRequest</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.component.v1.EulerAngles"><span class="badge">M</span>EulerAngles</a>
+                  <a href="#proto.api.component.v1.ServoServiceAngularOffsetResponse"><span class="badge">M</span>ServoServiceAngularOffsetResponse</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.component.v1.IMUServiceAngularVelocityRequest"><span class="badge">M</span>IMUServiceAngularVelocityRequest</a>
+                  <a href="#proto.api.component.v1.ServoServiceMoveRequest"><span class="badge">M</span>ServoServiceMoveRequest</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.component.v1.IMUServiceAngularVelocityResponse"><span class="badge">M</span>IMUServiceAngularVelocityResponse</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.component.v1.IMUServiceOrientationRequest"><span class="badge">M</span>IMUServiceOrientationRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.component.v1.IMUServiceOrientationResponse"><span class="badge">M</span>IMUServiceOrientationResponse</a>
+                  <a href="#proto.api.component.v1.ServoServiceMoveResponse"><span class="badge">M</span>ServoServiceMoveResponse</a>
                 </li>
               
               
               
               
                 <li>
-                  <a href="#proto.api.component.v1.IMUService"><span class="badge">S</span>IMUService</a>
+                  <a href="#proto.api.component.v1.ServoService"><span class="badge">S</span>ServoService</a>
                 </li>
               
             </ul>
@@ -998,22 +990,6 @@
               
                 <li>
                   <a href="#proto.api.v1.SensorStatus"><span class="badge">M</span>SensorStatus</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.ServoCurrentRequest"><span class="badge">M</span>ServoCurrentRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.ServoCurrentResponse"><span class="badge">M</span>ServoCurrentResponse</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.ServoMoveRequest"><span class="badge">M</span>ServoMoveRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.ServoMoveResponse"><span class="badge">M</span>ServoMoveResponse</a>
                 </li>
               
                 <li>
@@ -1970,88 +1946,12 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
     
       
       <div class="file-heading">
-        <h2 id="proto/api/component/v1/imu.proto">proto/api/component/v1/imu.proto</h2><a href="#title">Top</a>
+        <h2 id="proto/api/component/v1/servo.proto">proto/api/component/v1/servo.proto</h2><a href="#title">Top</a>
       </div>
       <p></p>
 
       
-        <h3 id="proto.api.component.v1.AngularVelocity">AngularVelocity</h3>
-        <p>AngularVelocity contains angular velocity in deg/s across x/y/z axes.</p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>x</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>y</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>z</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.component.v1.EulerAngles">EulerAngles</h3>
-        <p>EulerAngles are three angles used to represent the rotation of an object in 3D Euclidean space</p><p>The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.</p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>roll</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>pitch</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>yaw</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.component.v1.IMUServiceAngularVelocityRequest">IMUServiceAngularVelocityRequest</h3>
+        <h3 id="proto.api.component.v1.ServoServiceAngularOffsetRequest">ServoServiceAngularOffsetRequest</h3>
         <p></p>
 
         
@@ -2065,7 +1965,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>the name of the servo, as registered </p></td>
                 </tr>
               
             </tbody>
@@ -2075,7 +1975,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
-        <h3 id="proto.api.component.v1.IMUServiceAngularVelocityResponse">IMUServiceAngularVelocityResponse</h3>
+        <h3 id="proto.api.component.v1.ServoServiceAngularOffsetResponse">ServoServiceAngularOffsetResponse</h3>
         <p></p>
 
         
@@ -2086,10 +1986,10 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
             <tbody>
               
                 <tr>
-                  <td>angular_velocity</td>
-                  <td><a href="#proto.api.component.v1.AngularVelocity">AngularVelocity</a></td>
+                  <td>angle_deg</td>
+                  <td><a href="#uint32">uint32</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>the degrees from neutral by which the servo is currently rotated. Values are between 0 and 180 </p></td>
                 </tr>
               
             </tbody>
@@ -2099,7 +1999,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
-        <h3 id="proto.api.component.v1.IMUServiceOrientationRequest">IMUServiceOrientationRequest</h3>
+        <h3 id="proto.api.component.v1.ServoServiceMoveRequest">ServoServiceMoveRequest</h3>
         <p></p>
 
         
@@ -2113,7 +2013,14 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>the name of the servo, as registered </p></td>
+                </tr>
+              
+                <tr>
+                  <td>angle_deg</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>the degrees by which to rotate the servo. Accepted values are between 0 and 180 </p></td>
                 </tr>
               
             </tbody>
@@ -2123,27 +2030,10 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
-        <h3 id="proto.api.component.v1.IMUServiceOrientationResponse">IMUServiceOrientationResponse</h3>
+        <h3 id="proto.api.component.v1.ServoServiceMoveResponse">ServoServiceMoveResponse</h3>
         <p></p>
 
         
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>orientation</td>
-                  <td><a href="#proto.api.component.v1.EulerAngles">EulerAngles</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
 
         
       
@@ -2153,8 +2043,8 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
       
 
       
-        <h3 id="proto.api.component.v1.IMUService">IMUService</h3>
-        <p>IMUService encompasses all functionality of some robot comprised of parts, local and remote.</p>
+        <h3 id="proto.api.component.v1.ServoService">ServoService</h3>
+        <p>A ServoService maintains all servos associated with a robot</p>
         <table class="enum-table">
           <thead>
             <tr><td>Method Name</td><td>Request Type</td><td>Response Type</td><td>Description</td></tr>
@@ -2162,17 +2052,17 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
           <tbody>
             
               <tr>
-                <td>AngularVelocity</td>
-                <td><a href="#proto.api.component.v1.IMUServiceAngularVelocityRequest">IMUServiceAngularVelocityRequest</a></td>
-                <td><a href="#proto.api.component.v1.IMUServiceAngularVelocityResponse">IMUServiceAngularVelocityResponse</a></td>
-                <td><p>AngularVelocity returns the most recent angular velocity reading from the given IMU.</p></td>
+                <td>Move</td>
+                <td><a href="#proto.api.component.v1.ServoServiceMoveRequest">ServoServiceMoveRequest</a></td>
+                <td><a href="#proto.api.component.v1.ServoServiceMoveResponse">ServoServiceMoveResponse</a></td>
+                <td><p>Move requests the servo of the underlying robot to move.</p></td>
               </tr>
             
               <tr>
-                <td>Orientation</td>
-                <td><a href="#proto.api.component.v1.IMUServiceOrientationRequest">IMUServiceOrientationRequest</a></td>
-                <td><a href="#proto.api.component.v1.IMUServiceOrientationResponse">IMUServiceOrientationResponse</a></td>
-                <td><p>Orientation returns the most recent orientation reading from the given IMU.</p></td>
+                <td>AngularOffset</td>
+                <td><a href="#proto.api.component.v1.ServoServiceAngularOffsetRequest">ServoServiceAngularOffsetRequest</a></td>
+                <td><a href="#proto.api.component.v1.ServoServiceAngularOffsetResponse">ServoServiceAngularOffsetResponse</a></td>
+                <td><p>AngularOffset returns the current set angle (degrees) of the servo of the underlying robot.</p></td>
               </tr>
             
           </tbody>
@@ -2196,9 +2086,9 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
               
               
               <tr>
-                <td>AngularVelocity</td>
-                <td>GET</td>
-                <td>/api/v1/component/imu/{name}/angular_velocity</td>
+                <td>Move</td>
+                <td>PUT</td>
+                <td>/api/v1/component/servo/{name}/move</td>
                 <td></td>
               </tr>
               
@@ -2206,9 +2096,9 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
               
               
               <tr>
-                <td>Orientation</td>
+                <td>AngularOffset</td>
                 <td>GET</td>
-                <td>/api/v1/component/imu/{name}/orientation</td>
+                <td>/api/v1/componenet/servo/{name}/current</td>
                 <td></td>
               </tr>
               
@@ -6337,92 +6227,6 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
 
         
       
-        <h3 id="proto.api.v1.ServoCurrentRequest">ServoCurrentRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>name</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.ServoCurrentResponse">ServoCurrentResponse</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>angle_deg</td>
-                  <td><a href="#uint32">uint32</a></td>
-                  <td></td>
-                  <td><p>(0-180) </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.ServoMoveRequest">ServoMoveRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>name</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>angle_deg</td>
-                  <td><a href="#uint32">uint32</a></td>
-                  <td></td>
-                  <td><p>(0-180) </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.ServoMoveResponse">ServoMoveResponse</h3>
-        <p></p>
-
-        
-
-        
-      
         <h3 id="proto.api.v1.ServoStatus">ServoStatus</h3>
         <p></p>
 
@@ -7421,20 +7225,6 @@ A specific MIME type can be requested but may not necessarily be the same one re
               </tr>
             
               <tr>
-                <td>ServoMove</td>
-                <td><a href="#proto.api.v1.ServoMoveRequest">ServoMoveRequest</a></td>
-                <td><a href="#proto.api.v1.ServoMoveResponse">ServoMoveResponse</a></td>
-                <td><p>ServoMove requests the servo of the underlying robot to move.</p></td>
-              </tr>
-            
-              <tr>
-                <td>ServoCurrent</td>
-                <td><a href="#proto.api.v1.ServoCurrentRequest">ServoCurrentRequest</a></td>
-                <td><a href="#proto.api.v1.ServoCurrentResponse">ServoCurrentResponse</a></td>
-                <td><p>ServoCurrent returns the current set angle (degrees) of the servo of the underlying robot.</p></td>
-              </tr>
-            
-              <tr>
                 <td>MotorGetPIDConfig</td>
                 <td><a href="#proto.api.v1.MotorGetPIDConfigRequest">MotorGetPIDConfigRequest</a></td>
                 <td><a href="#proto.api.v1.MotorGetPIDConfigResponse">MotorGetPIDConfigResponse</a></td>
@@ -8043,26 +7833,6 @@ is reliant on having an encoder.</p></td>
                 <td>ExecuteSource</td>
                 <td>POST</td>
                 <td>/api/v1/functions/execute_code</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>ServoMove</td>
-                <td>PUT</td>
-                <td>/api/v1/servo/{name}/move</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>ServoCurrent</td>
-                <td>GET</td>
-                <td>/api/v1/servo/{name}/current</td>
                 <td></td>
               </tr>
               
