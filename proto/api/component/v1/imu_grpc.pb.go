@@ -19,10 +19,10 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type IMUServiceClient interface {
-	// IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
-	IMUAngularVelocity(ctx context.Context, in *IMUAngularVelocityRequest, opts ...grpc.CallOption) (*IMUAngularVelocityResponse, error)
-	// IMUOrientation returns the most recent orientation reading from the given IMU.
-	IMUOrientation(ctx context.Context, in *IMUOrientationRequest, opts ...grpc.CallOption) (*IMUOrientationResponse, error)
+	// AngularVelocity returns the most recent angular velocity reading from the given IMU.
+	AngularVelocity(ctx context.Context, in *IMUServiceAngularVelocityRequest, opts ...grpc.CallOption) (*IMUServiceAngularVelocityResponse, error)
+	// Orientation returns the most recent orientation reading from the given IMU.
+	Orientation(ctx context.Context, in *IMUServiceOrientationRequest, opts ...grpc.CallOption) (*IMUServiceOrientationResponse, error)
 }
 
 type iMUServiceClient struct {
@@ -33,18 +33,18 @@ func NewIMUServiceClient(cc grpc.ClientConnInterface) IMUServiceClient {
 	return &iMUServiceClient{cc}
 }
 
-func (c *iMUServiceClient) IMUAngularVelocity(ctx context.Context, in *IMUAngularVelocityRequest, opts ...grpc.CallOption) (*IMUAngularVelocityResponse, error) {
-	out := new(IMUAngularVelocityResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.IMUService/IMUAngularVelocity", in, out, opts...)
+func (c *iMUServiceClient) AngularVelocity(ctx context.Context, in *IMUServiceAngularVelocityRequest, opts ...grpc.CallOption) (*IMUServiceAngularVelocityResponse, error) {
+	out := new(IMUServiceAngularVelocityResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.IMUService/AngularVelocity", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *iMUServiceClient) IMUOrientation(ctx context.Context, in *IMUOrientationRequest, opts ...grpc.CallOption) (*IMUOrientationResponse, error) {
-	out := new(IMUOrientationResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.IMUService/IMUOrientation", in, out, opts...)
+func (c *iMUServiceClient) Orientation(ctx context.Context, in *IMUServiceOrientationRequest, opts ...grpc.CallOption) (*IMUServiceOrientationResponse, error) {
+	out := new(IMUServiceOrientationResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.IMUService/Orientation", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -55,10 +55,10 @@ func (c *iMUServiceClient) IMUOrientation(ctx context.Context, in *IMUOrientatio
 // All implementations must embed UnimplementedIMUServiceServer
 // for forward compatibility
 type IMUServiceServer interface {
-	// IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
-	IMUAngularVelocity(context.Context, *IMUAngularVelocityRequest) (*IMUAngularVelocityResponse, error)
-	// IMUOrientation returns the most recent orientation reading from the given IMU.
-	IMUOrientation(context.Context, *IMUOrientationRequest) (*IMUOrientationResponse, error)
+	// AngularVelocity returns the most recent angular velocity reading from the given IMU.
+	AngularVelocity(context.Context, *IMUServiceAngularVelocityRequest) (*IMUServiceAngularVelocityResponse, error)
+	// Orientation returns the most recent orientation reading from the given IMU.
+	Orientation(context.Context, *IMUServiceOrientationRequest) (*IMUServiceOrientationResponse, error)
 	mustEmbedUnimplementedIMUServiceServer()
 }
 
@@ -66,11 +66,11 @@ type IMUServiceServer interface {
 type UnimplementedIMUServiceServer struct {
 }
 
-func (UnimplementedIMUServiceServer) IMUAngularVelocity(context.Context, *IMUAngularVelocityRequest) (*IMUAngularVelocityResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IMUAngularVelocity not implemented")
+func (UnimplementedIMUServiceServer) AngularVelocity(context.Context, *IMUServiceAngularVelocityRequest) (*IMUServiceAngularVelocityResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AngularVelocity not implemented")
 }
-func (UnimplementedIMUServiceServer) IMUOrientation(context.Context, *IMUOrientationRequest) (*IMUOrientationResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IMUOrientation not implemented")
+func (UnimplementedIMUServiceServer) Orientation(context.Context, *IMUServiceOrientationRequest) (*IMUServiceOrientationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Orientation not implemented")
 }
 func (UnimplementedIMUServiceServer) mustEmbedUnimplementedIMUServiceServer() {}
 
@@ -85,38 +85,38 @@ func RegisterIMUServiceServer(s grpc.ServiceRegistrar, srv IMUServiceServer) {
 	s.RegisterService(&IMUService_ServiceDesc, srv)
 }
 
-func _IMUService_IMUAngularVelocity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IMUAngularVelocityRequest)
+func _IMUService_AngularVelocity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IMUServiceAngularVelocityRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(IMUServiceServer).IMUAngularVelocity(ctx, in)
+		return srv.(IMUServiceServer).AngularVelocity(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.IMUService/IMUAngularVelocity",
+		FullMethod: "/proto.api.component.v1.IMUService/AngularVelocity",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IMUServiceServer).IMUAngularVelocity(ctx, req.(*IMUAngularVelocityRequest))
+		return srv.(IMUServiceServer).AngularVelocity(ctx, req.(*IMUServiceAngularVelocityRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _IMUService_IMUOrientation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IMUOrientationRequest)
+func _IMUService_Orientation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IMUServiceOrientationRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(IMUServiceServer).IMUOrientation(ctx, in)
+		return srv.(IMUServiceServer).Orientation(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.IMUService/IMUOrientation",
+		FullMethod: "/proto.api.component.v1.IMUService/Orientation",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IMUServiceServer).IMUOrientation(ctx, req.(*IMUOrientationRequest))
+		return srv.(IMUServiceServer).Orientation(ctx, req.(*IMUServiceOrientationRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -129,12 +129,12 @@ var IMUService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*IMUServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "IMUAngularVelocity",
-			Handler:    _IMUService_IMUAngularVelocity_Handler,
+			MethodName: "AngularVelocity",
+			Handler:    _IMUService_AngularVelocity_Handler,
 		},
 		{
-			MethodName: "IMUOrientation",
-			Handler:    _IMUService_IMUOrientation_Handler,
+			MethodName: "Orientation",
+			Handler:    _IMUService_Orientation_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

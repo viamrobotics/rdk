@@ -65,85 +65,85 @@ export namespace EulerAngles {
   }
 }
 
-export class IMUAngularVelocityRequest extends jspb.Message {
+export class IMUServiceAngularVelocityRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): IMUAngularVelocityRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: IMUAngularVelocityRequest): IMUAngularVelocityRequest.AsObject;
+  toObject(includeInstance?: boolean): IMUServiceAngularVelocityRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: IMUServiceAngularVelocityRequest): IMUServiceAngularVelocityRequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: IMUAngularVelocityRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): IMUAngularVelocityRequest;
-  static deserializeBinaryFromReader(message: IMUAngularVelocityRequest, reader: jspb.BinaryReader): IMUAngularVelocityRequest;
+  static serializeBinaryToWriter(message: IMUServiceAngularVelocityRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): IMUServiceAngularVelocityRequest;
+  static deserializeBinaryFromReader(message: IMUServiceAngularVelocityRequest, reader: jspb.BinaryReader): IMUServiceAngularVelocityRequest;
 }
 
-export namespace IMUAngularVelocityRequest {
+export namespace IMUServiceAngularVelocityRequest {
   export type AsObject = {
     name: string,
   }
 }
 
-export class IMUAngularVelocityResponse extends jspb.Message {
+export class IMUServiceAngularVelocityResponse extends jspb.Message {
   hasAngularVelocity(): boolean;
   clearAngularVelocity(): void;
   getAngularVelocity(): AngularVelocity | undefined;
   setAngularVelocity(value?: AngularVelocity): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): IMUAngularVelocityResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: IMUAngularVelocityResponse): IMUAngularVelocityResponse.AsObject;
+  toObject(includeInstance?: boolean): IMUServiceAngularVelocityResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: IMUServiceAngularVelocityResponse): IMUServiceAngularVelocityResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: IMUAngularVelocityResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): IMUAngularVelocityResponse;
-  static deserializeBinaryFromReader(message: IMUAngularVelocityResponse, reader: jspb.BinaryReader): IMUAngularVelocityResponse;
+  static serializeBinaryToWriter(message: IMUServiceAngularVelocityResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): IMUServiceAngularVelocityResponse;
+  static deserializeBinaryFromReader(message: IMUServiceAngularVelocityResponse, reader: jspb.BinaryReader): IMUServiceAngularVelocityResponse;
 }
 
-export namespace IMUAngularVelocityResponse {
+export namespace IMUServiceAngularVelocityResponse {
   export type AsObject = {
     angularVelocity?: AngularVelocity.AsObject,
   }
 }
 
-export class IMUOrientationRequest extends jspb.Message {
+export class IMUServiceOrientationRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): IMUOrientationRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: IMUOrientationRequest): IMUOrientationRequest.AsObject;
+  toObject(includeInstance?: boolean): IMUServiceOrientationRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: IMUServiceOrientationRequest): IMUServiceOrientationRequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: IMUOrientationRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): IMUOrientationRequest;
-  static deserializeBinaryFromReader(message: IMUOrientationRequest, reader: jspb.BinaryReader): IMUOrientationRequest;
+  static serializeBinaryToWriter(message: IMUServiceOrientationRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): IMUServiceOrientationRequest;
+  static deserializeBinaryFromReader(message: IMUServiceOrientationRequest, reader: jspb.BinaryReader): IMUServiceOrientationRequest;
 }
 
-export namespace IMUOrientationRequest {
+export namespace IMUServiceOrientationRequest {
   export type AsObject = {
     name: string,
   }
 }
 
-export class IMUOrientationResponse extends jspb.Message {
+export class IMUServiceOrientationResponse extends jspb.Message {
   hasOrientation(): boolean;
   clearOrientation(): void;
   getOrientation(): EulerAngles | undefined;
   setOrientation(value?: EulerAngles): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): IMUOrientationResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: IMUOrientationResponse): IMUOrientationResponse.AsObject;
+  toObject(includeInstance?: boolean): IMUServiceOrientationResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: IMUServiceOrientationResponse): IMUServiceOrientationResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: IMUOrientationResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): IMUOrientationResponse;
-  static deserializeBinaryFromReader(message: IMUOrientationResponse, reader: jspb.BinaryReader): IMUOrientationResponse;
+  static serializeBinaryToWriter(message: IMUServiceOrientationResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): IMUServiceOrientationResponse;
+  static deserializeBinaryFromReader(message: IMUServiceOrientationResponse, reader: jspb.BinaryReader): IMUServiceOrientationResponse;
 }
 
-export namespace IMUOrientationResponse {
+export namespace IMUServiceOrientationResponse {
   export type AsObject = {
     orientation?: EulerAngles.AsObject,
   }

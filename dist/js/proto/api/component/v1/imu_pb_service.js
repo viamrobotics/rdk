@@ -10,22 +10,22 @@ var IMUService = (function () {
   return IMUService;
 }());
 
-IMUService.IMUAngularVelocity = {
-  methodName: "IMUAngularVelocity",
+IMUService.AngularVelocity = {
+  methodName: "AngularVelocity",
   service: IMUService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_component_v1_imu_pb.IMUAngularVelocityRequest,
-  responseType: proto_api_component_v1_imu_pb.IMUAngularVelocityResponse
+  requestType: proto_api_component_v1_imu_pb.IMUServiceAngularVelocityRequest,
+  responseType: proto_api_component_v1_imu_pb.IMUServiceAngularVelocityResponse
 };
 
-IMUService.IMUOrientation = {
-  methodName: "IMUOrientation",
+IMUService.Orientation = {
+  methodName: "Orientation",
   service: IMUService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_component_v1_imu_pb.IMUOrientationRequest,
-  responseType: proto_api_component_v1_imu_pb.IMUOrientationResponse
+  requestType: proto_api_component_v1_imu_pb.IMUServiceOrientationRequest,
+  responseType: proto_api_component_v1_imu_pb.IMUServiceOrientationResponse
 };
 
 exports.IMUService = IMUService;
@@ -35,11 +35,11 @@ function IMUServiceClient(serviceHost, options) {
   this.options = options || {};
 }
 
-IMUServiceClient.prototype.iMUAngularVelocity = function iMUAngularVelocity(requestMessage, metadata, callback) {
+IMUServiceClient.prototype.angularVelocity = function angularVelocity(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(IMUService.IMUAngularVelocity, {
+  var client = grpc.unary(IMUService.AngularVelocity, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -66,11 +66,11 @@ IMUServiceClient.prototype.iMUAngularVelocity = function iMUAngularVelocity(requ
   };
 };
 
-IMUServiceClient.prototype.iMUOrientation = function iMUOrientation(requestMessage, metadata, callback) {
+IMUServiceClient.prototype.orientation = function orientation(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(IMUService.IMUOrientation, {
+  var client = grpc.unary(IMUService.Orientation, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

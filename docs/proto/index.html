@@ -331,19 +331,19 @@
                 </li>
               
                 <li>
-                  <a href="#proto.api.component.v1.IMUAngularVelocityRequest"><span class="badge">M</span>IMUAngularVelocityRequest</a>
+                  <a href="#proto.api.component.v1.IMUServiceAngularVelocityRequest"><span class="badge">M</span>IMUServiceAngularVelocityRequest</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.component.v1.IMUAngularVelocityResponse"><span class="badge">M</span>IMUAngularVelocityResponse</a>
+                  <a href="#proto.api.component.v1.IMUServiceAngularVelocityResponse"><span class="badge">M</span>IMUServiceAngularVelocityResponse</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.component.v1.IMUOrientationRequest"><span class="badge">M</span>IMUOrientationRequest</a>
+                  <a href="#proto.api.component.v1.IMUServiceOrientationRequest"><span class="badge">M</span>IMUServiceOrientationRequest</a>
                 </li>
               
                 <li>
-                  <a href="#proto.api.component.v1.IMUOrientationResponse"><span class="badge">M</span>IMUOrientationResponse</a>
+                  <a href="#proto.api.component.v1.IMUServiceOrientationResponse"><span class="badge">M</span>IMUServiceOrientationResponse</a>
                 </li>
               
               
@@ -2051,7 +2051,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
-        <h3 id="proto.api.component.v1.IMUAngularVelocityRequest">IMUAngularVelocityRequest</h3>
+        <h3 id="proto.api.component.v1.IMUServiceAngularVelocityRequest">IMUServiceAngularVelocityRequest</h3>
         <p></p>
 
         
@@ -2075,7 +2075,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
-        <h3 id="proto.api.component.v1.IMUAngularVelocityResponse">IMUAngularVelocityResponse</h3>
+        <h3 id="proto.api.component.v1.IMUServiceAngularVelocityResponse">IMUServiceAngularVelocityResponse</h3>
         <p></p>
 
         
@@ -2099,7 +2099,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
-        <h3 id="proto.api.component.v1.IMUOrientationRequest">IMUOrientationRequest</h3>
+        <h3 id="proto.api.component.v1.IMUServiceOrientationRequest">IMUServiceOrientationRequest</h3>
         <p></p>
 
         
@@ -2123,7 +2123,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
-        <h3 id="proto.api.component.v1.IMUOrientationResponse">IMUOrientationResponse</h3>
+        <h3 id="proto.api.component.v1.IMUServiceOrientationResponse">IMUServiceOrientationResponse</h3>
         <p></p>
 
         
@@ -2162,17 +2162,17 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
           <tbody>
             
               <tr>
-                <td>IMUAngularVelocity</td>
-                <td><a href="#proto.api.component.v1.IMUAngularVelocityRequest">IMUAngularVelocityRequest</a></td>
-                <td><a href="#proto.api.component.v1.IMUAngularVelocityResponse">IMUAngularVelocityResponse</a></td>
-                <td><p>IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.</p></td>
+                <td>AngularVelocity</td>
+                <td><a href="#proto.api.component.v1.IMUServiceAngularVelocityRequest">IMUServiceAngularVelocityRequest</a></td>
+                <td><a href="#proto.api.component.v1.IMUServiceAngularVelocityResponse">IMUServiceAngularVelocityResponse</a></td>
+                <td><p>AngularVelocity returns the most recent angular velocity reading from the given IMU.</p></td>
               </tr>
             
               <tr>
-                <td>IMUOrientation</td>
-                <td><a href="#proto.api.component.v1.IMUOrientationRequest">IMUOrientationRequest</a></td>
-                <td><a href="#proto.api.component.v1.IMUOrientationResponse">IMUOrientationResponse</a></td>
-                <td><p>IMUOrientation returns the most recent orientation reading from the given IMU.</p></td>
+                <td>Orientation</td>
+                <td><a href="#proto.api.component.v1.IMUServiceOrientationRequest">IMUServiceOrientationRequest</a></td>
+                <td><a href="#proto.api.component.v1.IMUServiceOrientationResponse">IMUServiceOrientationResponse</a></td>
+                <td><p>Orientation returns the most recent orientation reading from the given IMU.</p></td>
               </tr>
             
           </tbody>
@@ -2196,7 +2196,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
               
               
               <tr>
-                <td>IMUAngularVelocity</td>
+                <td>AngularVelocity</td>
                 <td>GET</td>
                 <td>/api/v1/component/imu/{name}/angular_velocity</td>
                 <td></td>
@@ -2206,7 +2206,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
               
               
               <tr>
-                <td>IMUOrientation</td>
+                <td>Orientation</td>
                 <td>GET</td>
                 <td>/api/v1/component/imu/{name}/orientation</td>
                 <td></td>
