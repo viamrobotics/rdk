@@ -70,19 +70,6 @@ func clientFromSvcClient(sc *serviceClient, name string) IMU {
 	return &client{sc, name}
 }
 
-// func (ic *imuClient) Readings(ctx context.Context) ([]interface{}, error) {
-// 	vel, err := c.AngularVelocity(ctx)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	orientation, err := c.Orientation(ctx)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	ea := orientation.EulerAngles()
-// 	return []interface{}{vel.X, vel.Y, vel.Z, ea.Roll, ea.Pitch, ea.Yaw}, nil
-// }
-
 func (c *client) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	resp, err := c.client.IMUAngularVelocity(ctx, &pb.IMUAngularVelocityRequest{
 		Name: c.name,

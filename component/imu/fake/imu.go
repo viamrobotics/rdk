@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/sensor"
 	"go.viam.com/core/spatialmath"
 
 	"go.viam.com/core/component/imu"
@@ -54,18 +53,6 @@ type IMU struct {
 	orientation     spatialmath.EulerAngles
 
 	mu sync.Mutex
-}
-
-// Desc returns that this is an IMU.
-func (i *IMU) Desc() sensor.Description {
-	return sensor.Description{"imu", ""}
-}
-
-// Readings always returns the set values.
-func (i *IMU) Readings(ctx context.Context) ([]interface{}, error) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	return []interface{}{i.Latitude, i.Longitude}, nil
 }
 
 // AngularVelocity always returns the set value.
