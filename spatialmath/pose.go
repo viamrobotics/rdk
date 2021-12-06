@@ -7,11 +7,10 @@ package spatialmath
 
 import (
 	"math"
-	//~ "fmt"
 
 	"github.com/golang/geo/r3"
-	"gonum.org/v1/gonum/num/quat"
 	"gonum.org/v1/gonum/num/dualquat"
+	"gonum.org/v1/gonum/num/quat"
 
 	commonpb "go.viam.com/core/proto/api/common/v1"
 )
@@ -54,20 +53,20 @@ func NewPoseFromOrientation(point r3.Vector, o Orientation) Pose {
 	if o == nil {
 		return NewPoseFromPoint(point)
 	}
-	quat := newDualQuaternion()
-	quat.Real = o.Quaternion()
-	quat.SetTranslation(point.X, point.Y, point.Z)
-	return quat
+	q := newDualQuaternion()
+	q.Real = o.Quaternion()
+	q.SetTranslation(point)
+	return q
 }
 
 // NewPoseFromOrientationVector takes in a position and orientation vector and returns a Pose.
 func NewPoseFromOrientationVector(point r3.Vector, ov *OrientationVector) Pose {
-	quat := newDualQuaternion()
+	q := newDualQuaternion()
 	if ov != nil {
-		quat = newDualQuaternionFromRotation(ov)
+		q = newDualQuaternionFromRotation(ov)
 	}
-	quat.SetTranslation(point.X, point.Y, point.Z)
-	return quat
+	q.SetTranslation(point)
+	return q
 }
 
 // NewPoseFromAxisAngle takes in a position, rotationAxis, and angle and returns a Pose.
@@ -79,18 +78,18 @@ func NewPoseFromAxisAngle(point, rotationAxis r3.Vector, angle float64) Pose {
 	}
 	aa := R4AA{Theta: angle, RX: rotationAxis.X, RY: rotationAxis.Y, RZ: rotationAxis.Z}
 
-	quat := newDualQuaternion()
-	quat.Real = aa.ToQuat()
-	quat.SetTranslation(point.X, point.Y, point.Z)
-	return quat
+	q := newDualQuaternion()
+	q.Real = aa.ToQuat()
+	q.SetTranslation(point)
+	return q
 }
 
 // NewPoseFromPoint takes in a cartesian (x,y,z) and stores it as a vector.
 // It will have the same orientation as the frame it is in.
 func NewPoseFromPoint(point r3.Vector) Pose {
-	quat := newDualQuaternion()
-	quat.SetTranslation(point.X, point.Y, point.Z)
-	return quat
+	q := newDualQuaternion()
+	q.SetTranslation(point)
+	return q
 }
 
 // NewPoseFromProtobuf creates a new pose from a protobuf pose
@@ -112,7 +111,7 @@ func Compose(a, b Pose) Pose {
 	result := &dualQuaternion{aq.Transformation(bq.Number)}
 
 	// Normalization
-	if vecLen := 1/quat.Abs(result.Real); vecLen != 1 {
+	if vecLen := 1 / quat.Abs(result.Real); vecLen != 1 {
 		result.Real.Real *= vecLen
 		result.Real.Imag *= vecLen
 		result.Real.Jmag *= vecLen
@@ -159,9 +158,9 @@ func Interpolate(p1, p2 Pose, by float64) Pose {
 	intQ := newDualQuaternion()
 	intQ.Real = slerp(p1.Orientation().Quaternion(), p2.Orientation().Quaternion(), by)
 
-	intQ.SetTranslation((p1.Point().X + (p2.Point().X-p1.Point().X)*by),
+	intQ.SetTranslation(r3.Vector{(p1.Point().X + (p2.Point().X-p1.Point().X)*by),
 		(p1.Point().Y + (p2.Point().Y-p1.Point().Y)*by),
-		(p1.Point().Z + (p2.Point().Z-p1.Point().Z)*by))
+		(p1.Point().Z + (p2.Point().Z-p1.Point().Z)*by)})
 	return intQ
 }
 

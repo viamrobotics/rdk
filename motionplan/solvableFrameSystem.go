@@ -151,7 +151,7 @@ func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.I
 	i := 0
 	for _, frame := range sf.frames {
 		fLen := i + len(frame.DoF())
-		inputs[frame.Name()] = inputSlice[i : fLen]
+		inputs[frame.Name()] = inputSlice[i:fLen]
 		i = fLen
 	}
 	return inputs
