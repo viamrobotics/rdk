@@ -34,18 +34,16 @@ import (
 var intel515json []byte
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, "intel", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		source, err := NewIntelServerSource(config.Host, config.Port, config.Attributes)
+	registry.RegisterComponent(camera.Subtype, "single_stream", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		source, err := NewServerSource(config.Host, config.Port, config.Attributes, logger)
 		if err != nil {
 			return nil, err
 		}
 		return &camera.ImageSource{ImageSource: source}, nil
 	}})
-	registry.RegisterComponent(camera.Subtype, "eliot", *registry.ComponentLookup(camera.Subtype, "intel"))
-
-	registry.RegisterComponent(camera.Subtype, "url", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+	registry.RegisterComponent(camera.Subtype, "dual_stream", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		if len(config.Attributes) == 0 {
-			return nil, errors.New("camera 'url' needs a color attribute (and a depth if you have it)")
+			return nil, errors.New("camera 'dual_stream' needs a color and depth attribute")
 		}
 		x, has := config.Attributes["aligned"]
 		if !has {
@@ -62,6 +60,15 @@ func init() {
 		}}, nil
 	}})
 
+	registry.RegisterComponent(camera.Subtype, "intel", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		source, err := NewIntelServerSource(config.Host, config.Port, config.Attributes)
+		if err != nil {
+			return nil, err
+		}
+		return &camera.ImageSource{ImageSource: source}, nil
+	}})
+	registry.RegisterComponent(camera.Subtype, "eliot", *registry.ComponentLookup(camera.Subtype, "intel"))
+
 	registry.RegisterComponent(camera.Subtype, "file", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		x, has := config.Attributes["aligned"]
 		if !has {
@@ -73,6 +80,19 @@ func init() {
 		}
 		return &camera.ImageSource{ImageSource: &fileSource{config.Attributes.String("color"), config.Attributes.String("depth"), aligned}}, nil
 	}})
+}
+
+func decodeColor(colorData []byte) (image.Image, error) {
+	img, _, err := image.Decode(bytes.NewBuffer(colorData))
+	return img, err
+}
+
+func decodeDepth(depthData []byte) (*rimage.DepthMap, error) {
+	return rimage.ReadDepthMap(bufio.NewReader(bytes.NewReader(depthData)))
+}
+
+func decodeBoth(bothData []byte, aligned bool) (*rimage.ImageWithDepth, error) {
+	return rimage.ReadBothFromBytes(bothData, aligned)
 }
 
 // staticSource TODO
@@ -142,8 +162,7 @@ func (hs *httpSource) Next(ctx context.Context) (image.Image, func(), error) {
 	if err != nil {
 		return nil, nil, errors.Errorf("couldn't ready color url: %w", err)
 	}
-
-	img, _, err := image.Decode(bytes.NewBuffer(colorData))
+	img, err := decodeColor(colorData)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -156,12 +175,12 @@ func (hs *httpSource) Next(ctx context.Context) (image.Image, func(), error) {
 	if err != nil {
 		return nil, nil, errors.Errorf("couldn't ready depth url: %w", err)
 	}
-
 	// do this first and make sure ok before creating any mats
-	depth, err := rimage.ReadDepthMap(bufio.NewReader(bytes.NewReader(depthData)))
+	depth, err := decodeDepth(depthData)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	return rimage.MakeImageWithDepth(rimage.ConvertImage(img), depth, hs.IsAligned(), nil), func() {}, nil
 }
 
@@ -169,6 +188,94 @@ func (hs *httpSource) Next(ctx context.Context) (image.Image, func(), error) {
 func (hs *httpSource) Close() error {
 	hs.client.CloseIdleConnections()
 	return nil
+}
+
+// StreamType specifies what kind of image stream is coming from the camera
+type StreamType string
+
+const (
+	ColorStream = StreamType("color")
+	DepthStream = StreamType("depth")
+	BothStream  = StreamType("both")
+)
+
+// serverSource streams the color/depth/both camera data from an external server at a given URL.
+type serverSource struct {
+	client    http.Client
+	URL       string
+	host      string
+	stream    StreamType // specifies color, depth, or both stream
+	isAligned bool       // are the color and depth image already aligned
+	camera    rimage.CameraSystem
+}
+
+// IsAligned is a bool that returns true if both.gz image is already aligned. If the server is only returning a single stream
+// (either color or depth) IsAligned will return false.
+func (s *serverSource) IsAligned() bool {
+	return s.isAligned
+}
+
+// CameraSystem is the combined Aligner that aligns the depth and color images,
+// and the Projector which projects between 3D and 2D representations
+func (s *serverSource) CameraSystem() rimage.CameraSystem {
+	return s.camera
+}
+
+// NewServerSource creates the ImageSource that streams color/depth/both data from an external server at a given URL.
+func NewServerSource(host string, port int, attrs config.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
+	camera, _, err := getCameraSystems(attrs, logger)
+	if err != nil {
+		return nil, err
+	}
+	stream := attrs.String("stream")
+
+	return &serverSource{
+		URL:       fmt.Sprintf("http://%s:%d/%s", host, port, attrs.String("args")),
+		host:      host,
+		stream:    StreamType(stream),
+		isAligned: attrs.Bool("aligned", false),
+		camera:    camera,
+	}, nil
+}
+
+// Close closes the server connection
+func (s *serverSource) Close() error {
+	s.client.CloseIdleConnections()
+	return nil
+}
+
+// Next returns the next image in the queue from the server
+func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
+	allData, err := readyBytesFromURL(s.client, s.URL)
+	if err != nil {
+		return nil, nil, errors.Errorf("couldn't read url (%s): %w", s.URL, err)
+	}
+
+	var img *rimage.ImageWithDepth
+	switch s.stream {
+	case ColorStream:
+		color, err := decodeColor(allData)
+		if err != nil {
+			return nil, nil, err
+		}
+		img = rimage.MakeImageWithDepth(rimage.ConvertImage(color), nil, false, s.CameraSystem())
+	case DepthStream:
+		depth, err := decodeDepth(allData)
+		if err != nil {
+			return nil, nil, err
+		}
+		img = rimage.MakeImageWithDepth(nil, depth, false, s.CameraSystem())
+	case BothStream:
+		img, err := decodeBoth(allData, s.isAligned)
+		if err != nil {
+			return nil, nil, err
+		}
+		img.SetCameraSystem(s.CameraSystem())
+	default:
+		return nil, nil, errors.Errorf("do not know how to decode stream type %q", string(s.stream))
+	}
+
+	return img, func() {}, nil
 }
 
 // intelServerSource TODO
@@ -222,7 +329,7 @@ func (s *intelServerSource) Next(ctx context.Context) (image.Image, func(), erro
 		return nil, nil, errors.Errorf("couldn't read url (%s): %w", s.BothURL, err)
 	}
 
-	img, err := rimage.ReadBothFromBytes(allData, s.IsAligned())
+	img, err := decodeBoth(allData, s.IsAligned())
 	if err != nil {
 		return nil, nil, err
 	}
