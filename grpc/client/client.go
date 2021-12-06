@@ -26,7 +26,6 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/component/imu"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc"
@@ -393,10 +392,6 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	switch name.Subtype {
-	case imu.Subtype:
-		sensorType := rc.sensorTypes[name.Name]
-		sc := &sensorClient{rc, name.Name, sensorType}
-		return &imuClient{sc}, true
 	case camera.Subtype:
 		return &cameraClient{rc: rc, name: name.Name}, true
 	case servo.Subtype:
@@ -1201,7 +1196,6 @@ func (rcc *relativeCompassClient) Mark(ctx context.Context) error {
 func (rcc *relativeCompassClient) Desc() sensor.Description {
 	return sensor.Description{compass.RelativeType, ""}
 }
-
 
 // gpsClient satisfies a gRPC based gps.GPS. Refer to the interface
 // for descriptions of its methods.
