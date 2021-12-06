@@ -218,23 +218,6 @@ func (s *serverSource) CameraSystem() rimage.CameraSystem {
 	return s.camera
 }
 
-// NewServerSource creates the ImageSource that streams color/depth/both data from an external server at a given URL.
-func NewServerSource(host string, port int, attrs config.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
-	camera, _, err := getCameraSystems(attrs, logger)
-	if err != nil {
-		return nil, err
-	}
-	stream := attrs.String("stream")
-
-	return &serverSource{
-		URL:       fmt.Sprintf("http://%s:%d/%s", host, port, attrs.String("args")),
-		host:      host,
-		stream:    StreamType(stream),
-		isAligned: attrs.Bool("aligned", false),
-		camera:    camera,
-	}, nil
-}
-
 // Close closes the server connection
 func (s *serverSource) Close() error {
 	s.client.CloseIdleConnections()
@@ -275,26 +258,25 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 	return img, func() {}, nil
 }
 
-// intelServerSource TODO
-type intelServerSource struct {
-	client    http.Client
-	BothURL   string
-	host      string
-	isAligned bool // are the color and depth image already aligned
-	camera    rimage.CameraSystem
+// NewServerSource creates the ImageSource that streams color/depth/both data from an external server at a given URL.
+func NewServerSource(host string, port int, attrs config.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
+	camera, _, err := getCameraSystems(attrs, logger)
+	if err != nil {
+		return nil, err
+	}
+	stream := attrs.String("stream")
+
+	return &serverSource{
+		URL:       fmt.Sprintf("http://%s:%d/%s", host, port, attrs.String("args")),
+		host:      host,
+		stream:    StreamType(stream),
+		isAligned: attrs.Bool("aligned", false),
+		camera:    camera,
+	}, nil
 }
 
-// IsAligned TODO
-func (s *intelServerSource) IsAligned() bool {
-	return s.isAligned
-}
-
-// CameraSystem TODO
-func (s *intelServerSource) CameraSystem() rimage.CameraSystem {
-	return s.camera
-}
-
-// NewIntelServerSource TODO
+// NewIntelServerSource is the ImageSource for an Intel515 RGBD camera that streams both
+// color and depth information.
 func NewIntelServerSource(host string, port int, attrs config.AttributeMap) (gostream.ImageSource, error) {
 	num := "0"
 	numString, has := attrs["num"]
@@ -305,31 +287,11 @@ func NewIntelServerSource(host string, port int, attrs config.AttributeMap) (gos
 	if err != nil {
 		return nil, err
 	}
-	return &intelServerSource{
-		BothURL:   fmt.Sprintf("http://%s:%d/both?num=%s", host, port, num),
+	return &serverSource{
+		URL:       fmt.Sprintf("http://%s:%d/both?num=%s", host, port, num),
 		host:      host,
+		stream:    BothStream,
 		isAligned: attrs.Bool("aligned", true),
 		camera:    camera,
 	}, nil
-}
-
-// Close TODO
-func (s *intelServerSource) Close() error {
-	s.client.CloseIdleConnections()
-	return nil
-}
-
-// Next TODO
-func (s *intelServerSource) Next(ctx context.Context) (image.Image, func(), error) {
-	allData, err := readyBytesFromURL(s.client, s.BothURL)
-	if err != nil {
-		return nil, nil, errors.Errorf("couldn't read url (%s): %w", s.BothURL, err)
-	}
-
-	img, err := decodeBoth(allData, s.IsAligned())
-	if err != nil {
-		return nil, nil, err
-	}
-	img.SetCameraSystem(s.CameraSystem())
-	return img, func() {}, err
 }
