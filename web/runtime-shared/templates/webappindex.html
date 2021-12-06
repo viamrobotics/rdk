@@ -517,8 +517,8 @@
                     renderer.setSize(canvas3DWidth, canvas3DHeight);
                     var div_3d = document.getElementById('force-3d-id-' + id);
                     div_3d.appendChild(renderer.domElement);
-                    camera.position.z = 5;
-                    camera.position.y = -5;
+                    camera.position.z = 6;
+                    camera.position.y = -6;
 
                     var animation_stuff_3D = {
                       cubes: [],
@@ -527,6 +527,7 @@
                       canvas3DWidth: canvas3DWidth
                     }
 
+                    // [kat] TODO(https://github.com/viamrobotics/core/issues/336): slip detection works locally, but not on app.viam.com
                     // Slip detection stuff
                     let slipCanvas = document.getElementById('slip-id-' + id);
                     var slip_animation_stuff = {
@@ -947,15 +948,17 @@
                     const geometry = new THREE.BoxGeometry(1, 1, 0.1);
                     const material = new THREE.MeshBasicMaterial( { color: 0xffaebc} );
                     const cube = new THREE.Mesh( geometry, material );
-                    // [kat] TODO: Understand this, cause it makes no sense to me yet.
-                    cube.translateY(- row * 1.1 + numRows / 2);
-                    cube.translateX(col * 1.1 - numCols / 2);
-                    // cube.translateX(row * 1.1 - numRows / 2);
-                    // cube.translateY(col * 1.1 - numCols / 2);
+                    cube.translateX((col - (numCols-1)/2) * 1.1);
+                    cube.translateY((- row + (numRows-1)/2) * 1.1);
                     cubeRow.push(cube);
                     anim_3D.scene.add(cube);
                 }
                 anim_3D.cubes.push(cubeRow)
+
+                // [Debug] This helps for debugging & understanding the 3D space:
+                // var axesHelper = new THREE.AxesHelper( 5 );
+                // anim_3D.scene.add( axesHelper );
+
             }
             // resize the canvas to fit any size of matrix
             canvas2D.height = Math.max(squareSize * numRows + 20, gradientRate * gradientHeight + 20);
