@@ -15,15 +15,15 @@ import "proto/api/common/v1/common.proto";
 
 // IMUService encompasses all functionality of some robot comprised of parts, local and remote.
 service IMUService {
-  // IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
-  rpc IMUAngularVelocity(IMUAngularVelocityRequest) returns (IMUAngularVelocityResponse) {
+  // AngularVelocity returns the most recent angular velocity reading from the given IMU.
+  rpc AngularVelocity(IMUServiceAngularVelocityRequest) returns (IMUServiceAngularVelocityResponse) {
       option (google.api.http) = {
       get: "/api/v1/component/imu/{name}/angular_velocity"
     };
   }
 
-  // IMUOrientation returns the most recent orientation reading from the given IMU.
-  rpc IMUOrientation(IMUOrientationRequest) returns (IMUOrientationResponse) {
+  // Orientation returns the most recent orientation reading from the given IMU.
+  rpc Orientation(IMUServiceAngularVelocityRequest) returns (IMUServiceOrientationResponse) {
       option (google.api.http) = {
       get: "/api/v1/component/imu/{name}/orientation"
     };
@@ -45,18 +45,18 @@ message EulerAngles {
   double yaw = 3;
 }
 
-message IMUAngularVelocityRequest {
+message IMUServiceAngularVelocityRequest {
   string name = 1;
 }
 
-message IMUAngularVelocityResponse {
+message IMUServiceAngularVelocityResponse {
   AngularVelocity angular_velocity = 1;
 }
 
-message IMUOrientationRequest {
+message IMUServiceOrientationRequest {
   string name = 1;
 }
 
-message IMUOrientationResponse {
+message IMUServiceOrientationResponse {
   EulerAngles orientation = 1;
 }
