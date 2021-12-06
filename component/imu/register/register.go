@@ -5,10 +5,11 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/resource"
 	"go.viam.com/utils/rpc/dialer"
 	rpcserver "go.viam.com/utils/rpc/server"
+
+	"go.viam.com/core/registry"
+	"go.viam.com/core/resource"
 
 	"go.viam.com/core/component/imu"
 	_ "go.viam.com/core/component/imu/fake" // for imu
