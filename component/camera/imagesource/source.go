@@ -53,7 +53,7 @@ func init() {
 		if !ok {
 			return nil, errors.New("attribute 'aligned' must be a bool")
 		}
-		return &camera.ImageSource{ImageSource: &httpSource{
+		return &camera.ImageSource{ImageSource: &dualServerSource{
 			ColorURL:  config.Attributes.String("color"),
 			DepthURL:  config.Attributes.String("depth"),
 			isAligned: aligned,
@@ -82,6 +82,44 @@ func init() {
 	}})
 }
 
+// staticSource is a fixed, stored image
+type staticSource struct {
+	Img image.Image
+}
+
+// Next returns the stored image
+func (ss *staticSource) Next(ctx context.Context) (image.Image, func(), error) {
+	return ss.Img, func() {}, nil
+}
+
+// Close does nothing
+func (ss *staticSource) Close() error {
+	return nil
+}
+
+// fileSource stores the paths to a color and depth image.
+type fileSource struct {
+	ColorFN   string
+	DepthFN   string
+	isAligned bool // are color and depth image already aligned
+}
+
+// IsAligned returns a bool that is true if the color and depth images are aligned.
+func (fs *fileSource) IsAligned() bool {
+	return fs.isAligned
+}
+
+// Next returns the image stored in the color and depth files as an ImageWithDepth.
+func (fs *fileSource) Next(ctx context.Context) (image.Image, func(), error) {
+	img, err := rimage.NewImageWithDepth(fs.ColorFN, fs.DepthFN, fs.IsAligned())
+	return img, func() {}, err
+}
+
+// Close closes the source (does nothing)
+func (fs *fileSource) Close() error {
+	return nil
+}
+
 func decodeColor(colorData []byte) (image.Image, error) {
 	img, _, err := image.Decode(bytes.NewBuffer(colorData))
 	return img, err
@@ -95,57 +133,6 @@ func decodeBoth(bothData []byte, aligned bool) (*rimage.ImageWithDepth, error) {
 	return rimage.ReadBothFromBytes(bothData, aligned)
 }
 
-// staticSource TODO
-type staticSource struct {
-	Img image.Image
-}
-
-// Next TODO
-func (ss *staticSource) Next(ctx context.Context) (image.Image, func(), error) {
-	return ss.Img, func() {}, nil
-}
-
-// Close TODO
-func (ss *staticSource) Close() error {
-	return nil
-}
-
-// fileSource TODO
-type fileSource struct {
-	ColorFN   string
-	DepthFN   string
-	isAligned bool // are color and depth image already aligned
-}
-
-// IsAligned TODO
-func (fs *fileSource) IsAligned() bool {
-	return fs.isAligned
-}
-
-// Next TODO
-func (fs *fileSource) Next(ctx context.Context) (image.Image, func(), error) {
-	img, err := rimage.NewImageWithDepth(fs.ColorFN, fs.DepthFN, fs.IsAligned())
-	return img, func() {}, err
-}
-
-// Close TODO
-func (fs *fileSource) Close() error {
-	return nil
-}
-
-// httpSource TODO
-type httpSource struct {
-	client    http.Client
-	ColorURL  string // this is for a generic image
-	DepthURL  string // this is for my bizarre custom data format for depth data
-	isAligned bool   // are the color and depth image already aligned
-}
-
-// IsAligned TODO
-func (hs *httpSource) IsAligned() bool {
-	return hs.isAligned
-}
-
 func readyBytesFromURL(client http.Client, url string) ([]byte, error) {
 	resp, err := client.Get(url)
 	if err != nil {
@@ -156,8 +143,24 @@ func readyBytesFromURL(client http.Client, url string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-// Next TODO
-func (hs *httpSource) Next(ctx context.Context) (image.Image, func(), error) {
+// dualServerSource stores two URLs, one which points the color source and the other to the
+// depth source.
+type dualServerSource struct {
+	client    http.Client
+	ColorURL  string // this is for a generic image
+	DepthURL  string // this is for my bizarre custom data format for depth data
+	isAligned bool   // are the color and depth image already aligned
+}
+
+// IsAligned returns true if the images returned from the two servers are already aligned
+// with each other.
+func (hs *dualServerSource) IsAligned() bool {
+	return hs.isAligned
+}
+
+// Next requests the next images from both the color and depth source, and combines them
+// together as an ImageWithDepth before returning them.
+func (hs *dualServerSource) Next(ctx context.Context) (image.Image, func(), error) {
 	colorData, err := readyBytesFromURL(hs.client, hs.ColorURL)
 	if err != nil {
 		return nil, nil, errors.Errorf("couldn't ready color url: %w", err)
@@ -180,8 +183,8 @@ func (hs *httpSource) Next(ctx context.Context) (image.Image, func(), error) {
 	return rimage.MakeImageWithDepth(rimage.ConvertImage(img), depth, hs.IsAligned(), nil), func() {}, nil
 }
 
-// Close TODO
-func (hs *httpSource) Close() error {
+// Close closes the connection to both servers.
+func (hs *dualServerSource) Close() error {
 	hs.client.CloseIdleConnections()
 	return nil
 }

@@ -16,7 +16,7 @@ import (
 )
 
 func TestHTTPSourceNoDepth(t *testing.T) {
-	s := httpSource{ColorURL: "http://placehold.it/120x120&text=image1", DepthURL: ""}
+	s := dualServerSource{ColorURL: "http://placehold.it/120x120&text=image1", DepthURL: ""}
 	_, _, err := s.Next(context.Background())
 	test.That(t, err, test.ShouldBeError, errors.New("couldn't ready depth url: Get \"\": unsupported protocol scheme \"\""))
 }
@@ -41,7 +41,7 @@ func doHTTPSourceTest(t *testing.T, s gostream.ImageSource) {
 
 func TestHTTPSource(t *testing.T) {
 	root := "127.0.0.1:8181"
-	s := &httpSource{
+	s := &dualServerSource{
 		ColorURL:  fmt.Sprintf("http://%s/pic.ppm", root),
 		DepthURL:  fmt.Sprintf("http://%s/depth.dat", root),
 		isAligned: true,
