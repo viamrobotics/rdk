@@ -229,12 +229,14 @@ func (s *serverSource) Close() error {
 
 // Next returns the next image in the queue from the server
 func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
+	var img *rimage.ImageWithDepth
+	var err error
+
 	allData, err := readyBytesFromURL(s.client, s.URL)
 	if err != nil {
 		return nil, nil, errors.Errorf("couldn't read url (%s): %w", s.URL, err)
 	}
 
-	var img *rimage.ImageWithDepth
 	switch s.stream {
 	case ColorStream:
 		color, err := decodeColor(allData)
@@ -249,7 +251,7 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 		}
 		img = rimage.MakeImageWithDepth(nil, depth, false, s.CameraSystem())
 	case BothStream:
-		img, err := decodeBoth(allData, s.isAligned)
+		img, err = decodeBoth(allData, s.isAligned)
 		if err != nil {
 			return nil, nil, err
 		}
