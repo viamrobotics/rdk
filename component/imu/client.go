@@ -5,10 +5,11 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/core/grpc"
-	pb "go.viam.com/core/proto/api/component/v1"
 	rpcclient "go.viam.com/utils/rpc/client"
 	"go.viam.com/utils/rpc/dialer"
+
+	"go.viam.com/core/grpc"
+	pb "go.viam.com/core/proto/api/component/v1"
 )
 
 // serviceClient is a client satisfies the imu.proto contract.
@@ -74,7 +75,7 @@ func (c *client) AngularVelocity(ctx context.Context) (*pb.AngularVelocity, erro
 		Name: c.name,
 	})
 	if err != nil {
-        // TODO: would returning `nil` be sufficient here?
+		// TODO: would returning `nil` be sufficient here?
 		return &pb.AngularVelocity{}, err
 	}
 	return &pb.AngularVelocity{
