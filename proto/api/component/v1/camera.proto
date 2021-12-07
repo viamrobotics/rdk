@@ -8,7 +8,7 @@ import "google/api/annotations.proto";
 import "google/api/httpbody.proto";
 import "proto/api/common/v1/common.proto";
 
-// An CameraService services maintains all gantries associated with a robot
+// A CameraService services maintains all cameras associated with a robot
 service CameraService {
   // Frame returns a frame from a camera of the underlying robot. A specific MIME type
   // can be requested but may not necessarily be the same one returned.

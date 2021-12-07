@@ -96,5 +96,5 @@ func (c *client) ModelFrame() *referenceframe.Model {
 
 // Close cleanly closes the underlying connections
 func (c *client) Close() error {
-	return c.conn.Close()
+	return c.serviceClient.Close()
 }
