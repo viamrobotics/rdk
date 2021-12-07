@@ -22,7 +22,7 @@ func (f *movingAverageFilter) filterSample(x float64) float64 {
 			f.accumulator /= float64(f.smpCount)
 			return f.accumulator
 		}
-		return math.NaN()
+		return 0.0
 	}
 	f.accumulator = f.accumulator + (x-f.x[0])/float64(f.smpCount)
 	f.x = f.x[1:]
@@ -39,7 +39,7 @@ func (f *movingAverageFilter) Reset() error {
 
 func (f *movingAverageFilter) Next(x float64) (float64, bool) {
 	y := f.filterSample(x)
-	return y, math.IsNaN(y)
+	return y, !math.IsNaN(y)
 }
 
 type firSinc struct {
