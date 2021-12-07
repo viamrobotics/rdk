@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"go.viam.com/core/control"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
@@ -124,6 +125,18 @@ func newEncodedMotor(
 		rampRate:                motorConfig.RampRate,
 		maxPowerPct:             motorConfig.MaxPowerPct,
 		logger:                  logger,
+		loop:                    nil,
+	}
+
+	if len(motorConfig.ControlLoop.Blocks) != 0 {
+		cloop, err := control.NewControlLoop(cancelCtx, logger, motorConfig.ControlLoop, em)
+		if err != nil {
+			return nil, err
+		}
+		if cloop != nil {
+			cloop.Start(cancelCtx)
+		}
+		em.loop = cloop
 	}
 
 	if em.rampRate < 0 || em.rampRate > 1 {
@@ -172,6 +185,7 @@ type EncodedMotor struct {
 	logger          golog.Logger
 	cancelCtx       context.Context
 	cancel          func()
+	loop            *control.ControlLoop
 }
 
 // EncodedMotorState is the core, non-statistical state for the motor.
@@ -627,4 +641,8 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 // (adjusted by a given offset) to be its new zero position.
 func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return m.encoder.ResetZeroPosition(ctx, int64(offset*float64(m.cfg.TicksPerRotation)))
+}
+
+func (m *EncodedMotor) ControlLoop(ctx context.Context) *control.ControlLoop {
+	return m.loop
 }
