@@ -16,3 +16,10 @@ func makeSignal(name string, dimension int) Signal {
 	s.name = name
 	return s
 }
+
+func (s *Signal) GetValAt(i int) float64 {
+	if i > len(s.signal)-1 {
+		return 0.0
+	}
+	return s.signal[i]
+}
