@@ -16,9 +16,7 @@ import (
 	"go.viam.com/core/action"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
-	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/component/servo"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/client"
 	grpcserver "go.viam.com/core/grpc/server"
@@ -28,6 +26,7 @@ import (
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	servicepkg "go.viam.com/core/services"
@@ -497,76 +496,6 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
 		test.That(t, widthResp.WidthMillis, test.ShouldEqual, 2)
-	})
-
-	t.Run("Gripper", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.GripperOpen(context.Background(), &pb.GripperOpenRequest{
-			Name: "gripper1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
-		test.That(t, capName, test.ShouldEqual, "gripper1")
-
-		_, err = server.GripperGrab(context.Background(), &pb.GripperGrabRequest{
-			Name: "gripper1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
-		test.That(t, capName, test.ShouldEqual, "gripper1")
-
-		injectGripper := &inject.Gripper{}
-		injectRobot.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
-			return injectGripper, true
-		}
-
-		err1 := errors.New("whoops")
-		injectGripper.OpenFunc = func(ctx context.Context) error {
-			return err1
-		}
-		_, err = server.GripperOpen(context.Background(), &pb.GripperOpenRequest{
-			Name: "gripper1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		injectGripper.OpenFunc = func(ctx context.Context) error {
-			return nil
-		}
-		_, err = server.GripperOpen(context.Background(), &pb.GripperOpenRequest{
-			Name: "gripper1",
-		})
-		test.That(t, err, test.ShouldEqual, nil)
-
-		injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
-			return false, err1
-		}
-		_, err = server.GripperGrab(context.Background(), &pb.GripperGrabRequest{
-			Name: "gripper1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
-			return false, nil
-		}
-
-		resp, err := server.GripperGrab(context.Background(), &pb.GripperGrabRequest{
-			Name: "gripper1",
-		})
-		test.That(t, err, test.ShouldEqual, nil)
-		test.That(t, resp.Grabbed, test.ShouldBeFalse)
-
-		injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
-			return true, nil
-		}
-		resp, err = server.GripperGrab(context.Background(), &pb.GripperGrabRequest{
-			Name: "gripper1",
-		})
-		test.That(t, err, test.ShouldEqual, nil)
-		test.That(t, resp.Grabbed, test.ShouldBeTrue)
 	})
 
 	t.Run("BoardStatus", func(t *testing.T) {
@@ -1631,8 +1560,8 @@ func TestServer(t *testing.T) {
 	t.Run("IMU", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-			capName = name
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			capName = name.Name
 			return nil, false
 		}
 
@@ -1640,13 +1569,13 @@ func TestServer(t *testing.T) {
 			Name: "imu1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no IMU")
 		test.That(t, capName, test.ShouldEqual, "imu1")
 
 		err1 := errors.New("whoops")
 
 		device := &inject.IMU{}
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return device, true
 		}
 
@@ -1681,96 +1610,6 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, orientResp.Orientation, test.ShouldResemble, &pb.EulerAngles{Roll: 1, Pitch: 2, Yaw: 3})
-	})
-
-	t.Run("ServoMove", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.ServoMove(context.Background(), &pb.ServoMoveRequest{
-			Name: "servo1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
-		test.That(t, capName, test.ShouldEqual, "servo1")
-
-		injectServo := &inject.Servo{}
-		injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
-			return injectServo, true
-		}
-
-		var capAngle uint8
-		err1 := errors.New("whoops")
-		injectServo.MoveFunc = func(ctx context.Context, angle uint8) error {
-			capAngle = angle
-			return err1
-		}
-		_, err = server.ServoMove(context.Background(), &pb.ServoMoveRequest{
-			Name:     "servo1",
-			AngleDeg: 5,
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capAngle, test.ShouldEqual, 5)
-
-		injectServo.MoveFunc = func(ctx context.Context, angle uint8) error {
-			capAngle = angle
-			return nil
-		}
-		_, err = server.ServoMove(context.Background(), &pb.ServoMoveRequest{
-			Name:     "servo1",
-			AngleDeg: 5,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capAngle, test.ShouldEqual, 5)
-	})
-
-	t.Run("ServoCurrent", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.ServoCurrent(context.Background(), &pb.ServoCurrentRequest{
-			Name: "servo1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
-		test.That(t, capName, test.ShouldEqual, "servo1")
-
-		injectServo := &inject.Servo{}
-		injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
-			return injectServo, true
-		}
-
-		var capCtx context.Context
-		err1 := errors.New("whoops")
-		injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
-			capCtx = ctx
-			return 0, err1
-		}
-		ctx := context.Background()
-		_, err = server.ServoCurrent(context.Background(), &pb.ServoCurrentRequest{
-			Name: "servo1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capCtx, test.ShouldEqual, ctx)
-
-		injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
-			capCtx = ctx
-			return 8, nil
-		}
-		currentResp, err := server.ServoCurrent(context.Background(), &pb.ServoCurrentRequest{
-			Name: "servo1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capCtx, test.ShouldEqual, ctx)
-		test.That(t, currentResp.AngleDeg, test.ShouldEqual, 8)
 	})
 
 	t.Run("Motor", func(t *testing.T) {

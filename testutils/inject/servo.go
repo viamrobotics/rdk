@@ -21,10 +21,10 @@ func (s *Servo) Move(ctx context.Context, angle uint8) error {
 	return s.MoveFunc(ctx, angle)
 }
 
-// Current calls the injected Current or the real version.
-func (s *Servo) Current(ctx context.Context) (uint8, error) {
+// AngularOffset calls the injected Current or the real version.
+func (s *Servo) AngularOffset(ctx context.Context) (uint8, error) {
 	if s.CurrentFunc == nil {
-		return s.Servo.Current(ctx)
+		return s.Servo.AngularOffset(ctx)
 	}
 	return s.CurrentFunc(ctx)
 }

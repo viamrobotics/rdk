@@ -28,6 +28,7 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/imu"
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/grpc"
@@ -41,7 +42,6 @@ import (
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
-	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/services"
 	"go.viam.com/core/services/framesystem"
 	"go.viam.com/core/services/navigation"
@@ -228,28 +228,6 @@ func (s *Server) BaseWidthMillis(ctx context.Context, req *pb.BaseWidthMillisReq
 		return nil, err
 	}
 	return &pb.BaseWidthMillisResponse{WidthMillis: int64(width)}, nil
-}
-
-// GripperOpen opens a gripper of the underlying robot.
-func (s *Server) GripperOpen(ctx context.Context, req *pb.GripperOpenRequest) (*pb.GripperOpenResponse, error) {
-	gripper, ok := s.r.GripperByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no gripper with that name %s", req.Name)
-	}
-	return &pb.GripperOpenResponse{}, gripper.Open(ctx)
-}
-
-// GripperGrab requests a gripper of the underlying robot to grab.
-func (s *Server) GripperGrab(ctx context.Context, req *pb.GripperGrabRequest) (*pb.GripperGrabResponse, error) {
-	gripper, ok := s.r.GripperByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no gripper with that name %s", req.Name)
-	}
-	grabbed, err := gripper.Grab(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.GripperGrabResponse{Grabbed: grabbed}, nil
 }
 
 // PointCloud returns a frame from a camera of the underlying robot. A specific MIME type
@@ -842,30 +820,6 @@ func (s *Server) ExecuteSource(ctx context.Context, req *pb.ExecuteSourceRequest
 	}, nil
 }
 
-// ServoCurrent returns the current set angle (degrees) of the servo a board of the underlying robot.
-func (s *Server) ServoCurrent(ctx context.Context, req *pb.ServoCurrentRequest) (*pb.ServoCurrentResponse, error) {
-	theServo, ok := s.r.ServoByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no servo with name (%s)", req.Name)
-	}
-
-	angleDeg, err := theServo.Current(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.ServoCurrentResponse{AngleDeg: uint32(angleDeg)}, nil
-}
-
-// ServoMove requests the servo of a board of the underlying robot to move.
-func (s *Server) ServoMove(ctx context.Context, req *pb.ServoMoveRequest) (*pb.ServoMoveResponse, error) {
-	theServo, ok := s.r.ServoByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no servo with name (%s)", req.Name)
-	}
-
-	return &pb.ServoMoveResponse{}, theServo.Move(ctx, uint8(req.AngleDeg))
-}
-
 // MotorGetPIDConfig returns the config of the motor's PID
 func (s *Server) MotorGetPIDConfig(ctx context.Context, req *pb.MotorGetPIDConfigRequest) (*pb.MotorGetPIDConfigResponse, error) {
 	m, ok := s.r.MotorByName(req.Name)
@@ -1299,11 +1253,11 @@ func (s *Server) ObjectManipulationServiceDoGrab(ctx context.Context, req *pb.Ob
 }
 
 func (s *Server) imuByName(name string) (imu.IMU, error) {
-	sensorDevice, ok := s.r.SensorByName(name)
+	imuDevice, ok := s.r.ResourceByName(imu.Named(name))
 	if !ok {
-		return nil, errors.Errorf("no sensor with name (%s)", name)
+		return nil, errors.Errorf("no IMU with name (%s)", name)
 	}
-	return sensorDevice.(imu.IMU), nil
+	return imuDevice.(imu.IMU), nil
 }
 
 // IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.

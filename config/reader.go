@@ -314,7 +314,7 @@ func ReadFromCloud(cloudCfg *Cloud, readFromCache bool) (*Config, error) {
 		golog.Global.Errorw("failed to cache config", "error", err)
 	}
 
-	return cfg, err
+	return cfg, nil
 }
 
 // Read reads a config from the given file.

@@ -288,6 +288,68 @@
         
           
           <li>
+            <a href="#proto%2fapi%2fcomponent%2fv1%2fgripper.proto">proto/api/component/v1/gripper.proto</a>
+            <ul>
+              
+                <li>
+                  <a href="#proto.api.component.v1.GripperServiceGrabRequest"><span class="badge">M</span>GripperServiceGrabRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.GripperServiceGrabResponse"><span class="badge">M</span>GripperServiceGrabResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.GripperServiceOpenRequest"><span class="badge">M</span>GripperServiceOpenRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.GripperServiceOpenResponse"><span class="badge">M</span>GripperServiceOpenResponse</a>
+                </li>
+              
+              
+              
+              
+                <li>
+                  <a href="#proto.api.component.v1.GripperService"><span class="badge">S</span>GripperService</a>
+                </li>
+              
+            </ul>
+          </li>
+        
+          
+          <li>
+            <a href="#proto%2fapi%2fcomponent%2fv1%2fservo.proto">proto/api/component/v1/servo.proto</a>
+            <ul>
+              
+                <li>
+                  <a href="#proto.api.component.v1.ServoServiceAngularOffsetRequest"><span class="badge">M</span>ServoServiceAngularOffsetRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.ServoServiceAngularOffsetResponse"><span class="badge">M</span>ServoServiceAngularOffsetResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.ServoServiceMoveRequest"><span class="badge">M</span>ServoServiceMoveRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.ServoServiceMoveResponse"><span class="badge">M</span>ServoServiceMoveResponse</a>
+                </li>
+              
+              
+              
+              
+                <li>
+                  <a href="#proto.api.component.v1.ServoService"><span class="badge">S</span>ServoService</a>
+                </li>
+              
+            </ul>
+          </li>
+        
+          
+          <li>
             <a href="#proto%2fapi%2fservice%2fv1%2fmetadata.proto">proto/api/service/v1/metadata.proto</a>
             <ul>
               
@@ -623,22 +685,6 @@
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.GripperGrabRequest"><span class="badge">M</span>GripperGrabRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.GripperGrabResponse"><span class="badge">M</span>GripperGrabResponse</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.GripperOpenRequest"><span class="badge">M</span>GripperOpenRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.GripperOpenResponse"><span class="badge">M</span>GripperOpenResponse</a>
-                </li>
-              
-                <li>
                   <a href="#proto.api.v1.IMUAngularVelocityRequest"><span class="badge">M</span>IMUAngularVelocityRequest</a>
                 </li>
               
@@ -968,22 +1014,6 @@
               
                 <li>
                   <a href="#proto.api.v1.SensorStatus"><span class="badge">M</span>SensorStatus</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.ServoCurrentRequest"><span class="badge">M</span>ServoCurrentRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.ServoCurrentResponse"><span class="badge">M</span>ServoCurrentResponse</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.ServoMoveRequest"><span class="badge">M</span>ServoMoveRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.ServoMoveResponse"><span class="badge">M</span>ServoMoveResponse</a>
                 </li>
               
                 <li>
@@ -1413,7 +1443,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>to</td>
                   <td><a href="#proto.api.common.v1.Pose">proto.api.common.v1.Pose</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>X, Y, Z, ox, oy, ox, theta </p></td>
                 </tr>
               
             </tbody>
@@ -1772,6 +1802,327 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                 <td>Lengths</td>
                 <td>GET</td>
                 <td>/api/v1/component/gantry/{name}/lengths</td>
+                <td></td>
+              </tr>
+              
+            
+            </tbody>
+          </table>
+          
+        
+    
+      
+      <div class="file-heading">
+        <h2 id="proto/api/component/v1/gripper.proto">proto/api/component/v1/gripper.proto</h2><a href="#title">Top</a>
+      </div>
+      <p></p>
+
+      
+        <h3 id="proto.api.component.v1.GripperServiceGrabRequest">GripperServiceGrabRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.GripperServiceGrabResponse">GripperServiceGrabResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>grabbed</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.GripperServiceOpenRequest">GripperServiceOpenRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.GripperServiceOpenResponse">GripperServiceOpenResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+
+      
+
+      
+
+      
+        <h3 id="proto.api.component.v1.GripperService">GripperService</h3>
+        <p>An GripperService services maintains all grippers associated with a robot</p>
+        <table class="enum-table">
+          <thead>
+            <tr><td>Method Name</td><td>Request Type</td><td>Response Type</td><td>Description</td></tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td>Open</td>
+                <td><a href="#proto.api.component.v1.GripperServiceOpenRequest">GripperServiceOpenRequest</a></td>
+                <td><a href="#proto.api.component.v1.GripperServiceOpenResponse">GripperServiceOpenResponse</a></td>
+                <td><p>Open opens a gripper of the underlying robot.</p></td>
+              </tr>
+            
+              <tr>
+                <td>Grab</td>
+                <td><a href="#proto.api.component.v1.GripperServiceGrabRequest">GripperServiceGrabRequest</a></td>
+                <td><a href="#proto.api.component.v1.GripperServiceGrabResponse">GripperServiceGrabResponse</a></td>
+                <td><p>Grab requests a gripper of the underlying robot to grab.</p></td>
+              </tr>
+            
+          </tbody>
+        </table>
+
+        
+          
+          
+          <h4>Methods with HTTP bindings</h4>
+          <table>
+            <thead>
+              <tr>
+                <td>Method Name</td>
+                <td>Method</td>
+                <td>Pattern</td>
+                <td>Body</td>
+              </tr>
+            </thead>
+            <tbody>
+            
+              
+              
+              <tr>
+                <td>Open</td>
+                <td>PUT</td>
+                <td>/api/v1/component/gripper/{name}/open</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>Grab</td>
+                <td>PUT</td>
+                <td>/api/v1/component/gripper/{name}/grab</td>
+                <td></td>
+              </tr>
+              
+            
+            </tbody>
+          </table>
+          
+        
+    
+      
+      <div class="file-heading">
+        <h2 id="proto/api/component/v1/servo.proto">proto/api/component/v1/servo.proto</h2><a href="#title">Top</a>
+      </div>
+      <p></p>
+
+      
+        <h3 id="proto.api.component.v1.ServoServiceAngularOffsetRequest">ServoServiceAngularOffsetRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>the name of the servo, as registered </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.ServoServiceAngularOffsetResponse">ServoServiceAngularOffsetResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>angle_deg</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>the degrees from neutral by which the servo is currently rotated. Values are between 0 and 180 </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.ServoServiceMoveRequest">ServoServiceMoveRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>the name of the servo, as registered </p></td>
+                </tr>
+              
+                <tr>
+                  <td>angle_deg</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>the degrees by which to rotate the servo. Accepted values are between 0 and 180 </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.ServoServiceMoveResponse">ServoServiceMoveResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+
+      
+
+      
+
+      
+        <h3 id="proto.api.component.v1.ServoService">ServoService</h3>
+        <p>A ServoService maintains all servos associated with a robot</p>
+        <table class="enum-table">
+          <thead>
+            <tr><td>Method Name</td><td>Request Type</td><td>Response Type</td><td>Description</td></tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td>Move</td>
+                <td><a href="#proto.api.component.v1.ServoServiceMoveRequest">ServoServiceMoveRequest</a></td>
+                <td><a href="#proto.api.component.v1.ServoServiceMoveResponse">ServoServiceMoveResponse</a></td>
+                <td><p>Move requests the servo of the underlying robot to move.</p></td>
+              </tr>
+            
+              <tr>
+                <td>AngularOffset</td>
+                <td><a href="#proto.api.component.v1.ServoServiceAngularOffsetRequest">ServoServiceAngularOffsetRequest</a></td>
+                <td><a href="#proto.api.component.v1.ServoServiceAngularOffsetResponse">ServoServiceAngularOffsetResponse</a></td>
+                <td><p>AngularOffset returns the current set angle (degrees) of the servo of the underlying robot.</p></td>
+              </tr>
+            
+          </tbody>
+        </table>
+
+        
+          
+          
+          <h4>Methods with HTTP bindings</h4>
+          <table>
+            <thead>
+              <tr>
+                <td>Method Name</td>
+                <td>Method</td>
+                <td>Pattern</td>
+                <td>Body</td>
+              </tr>
+            </thead>
+            <tbody>
+            
+              
+              
+              <tr>
+                <td>Move</td>
+                <td>PUT</td>
+                <td>/api/v1/component/servo/{name}/move</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>AngularOffset</td>
+                <td>GET</td>
+                <td>/api/v1/componenet/servo/{name}/current</td>
                 <td></td>
               </tr>
               
@@ -3975,85 +4326,6 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
-        <h3 id="proto.api.v1.GripperGrabRequest">GripperGrabRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>name</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.GripperGrabResponse">GripperGrabResponse</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>grabbed</td>
-                  <td><a href="#bool">bool</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.GripperOpenRequest">GripperOpenRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>name</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.GripperOpenResponse">GripperOpenResponse</h3>
-        <p></p>
-
-        
-
-        
-      
         <h3 id="proto.api.v1.IMUAngularVelocityRequest">IMUAngularVelocityRequest</h3>
         <p></p>
 
@@ -6154,92 +6426,6 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
 
         
       
-        <h3 id="proto.api.v1.ServoCurrentRequest">ServoCurrentRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>name</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.ServoCurrentResponse">ServoCurrentResponse</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>angle_deg</td>
-                  <td><a href="#uint32">uint32</a></td>
-                  <td></td>
-                  <td><p>(0-180) </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.ServoMoveRequest">ServoMoveRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>name</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>angle_deg</td>
-                  <td><a href="#uint32">uint32</a></td>
-                  <td></td>
-                  <td><p>(0-180) </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.ServoMoveResponse">ServoMoveResponse</h3>
-        <p></p>
-
-        
-
-        
-      
         <h3 id="proto.api.v1.ServoStatus">ServoStatus</h3>
         <p></p>
 
@@ -7033,20 +7219,6 @@ angular speed, expressed in degrees per second</p></td>
               </tr>
             
               <tr>
-                <td>GripperOpen</td>
-                <td><a href="#proto.api.v1.GripperOpenRequest">GripperOpenRequest</a></td>
-                <td><a href="#proto.api.v1.GripperOpenResponse">GripperOpenResponse</a></td>
-                <td><p>GripperOpen opens a gripper of the underlying robot.</p></td>
-              </tr>
-            
-              <tr>
-                <td>GripperGrab</td>
-                <td><a href="#proto.api.v1.GripperGrabRequest">GripperGrabRequest</a></td>
-                <td><a href="#proto.api.v1.GripperGrabResponse">GripperGrabResponse</a></td>
-                <td><p>GripperGrab requests a gripper of the underlying robot to grab.</p></td>
-              </tr>
-            
-              <tr>
                 <td>CameraFrame</td>
                 <td><a href="#proto.api.v1.CameraFrameRequest">CameraFrameRequest</a></td>
                 <td><a href="#proto.api.v1.CameraFrameResponse">CameraFrameResponse</a></td>
@@ -7252,20 +7424,6 @@ A specific MIME type can be requested but may not necessarily be the same one re
                 <td><a href="#proto.api.v1.ExecuteSourceRequest">ExecuteSourceRequest</a></td>
                 <td><a href="#proto.api.v1.ExecuteSourceResponse">ExecuteSourceResponse</a></td>
                 <td><p></p></td>
-              </tr>
-            
-              <tr>
-                <td>ServoMove</td>
-                <td><a href="#proto.api.v1.ServoMoveRequest">ServoMoveRequest</a></td>
-                <td><a href="#proto.api.v1.ServoMoveResponse">ServoMoveResponse</a></td>
-                <td><p>ServoMove requests the servo of the underlying robot to move.</p></td>
-              </tr>
-            
-              <tr>
-                <td>ServoCurrent</td>
-                <td><a href="#proto.api.v1.ServoCurrentRequest">ServoCurrentRequest</a></td>
-                <td><a href="#proto.api.v1.ServoCurrentResponse">ServoCurrentResponse</a></td>
-                <td><p>ServoCurrent returns the current set angle (degrees) of the servo of the underlying robot.</p></td>
               </tr>
             
               <tr>
@@ -7619,26 +7777,6 @@ To Do (FA): This will be deprecated</p></td>
               
               
               <tr>
-                <td>GripperOpen</td>
-                <td>PUT</td>
-                <td>/api/v1/gripper/{name}/open</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>GripperGrab</td>
-                <td>PUT</td>
-                <td>/api/v1/gripper/{name}/grab</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
                 <td>CameraFrame</td>
                 <td>GET</td>
                 <td>/api/v1/camera/{name}/frame</td>
@@ -7922,26 +8060,6 @@ To Do (FA): This will be deprecated</p></td>
                 <td>ExecuteSource</td>
                 <td>POST</td>
                 <td>/api/v1/functions/execute_code</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>ServoMove</td>
-                <td>PUT</td>
-                <td>/api/v1/servo/{name}/move</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>ServoCurrent</td>
-                <td>GET</td>
-                <td>/api/v1/servo/{name}/current</td>
                 <td></td>
               </tr>
               

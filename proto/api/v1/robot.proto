@@ -83,22 +83,6 @@ service RobotService {
     };  
   }
 
-  // Gripper
-
-  // GripperOpen opens a gripper of the underlying robot.
-  rpc GripperOpen(GripperOpenRequest) returns (GripperOpenResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/gripper/{name}/open"
-    };  
-  }
-
-  // GripperGrab requests a gripper of the underlying robot to grab.
-  rpc GripperGrab(GripperGrabRequest) returns (GripperGrabResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/gripper/{name}/grab"
-    };  
-  }
-
   // Camera
 
   // CameraFrame returns a frame from a camera of the underlying robot. A specific MIME type
@@ -321,22 +305,6 @@ service RobotService {
     option (google.api.http) = {
       post: "/api/v1/functions/execute_code"
     }; 
-  }
-
-  // Servo
-
-  // ServoMove requests the servo of the underlying robot to move.
-  rpc ServoMove(ServoMoveRequest) returns (ServoMoveResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/servo/{name}/move"
-    };
-  }
-
-  // ServoCurrent returns the current set angle (degrees) of the servo of the underlying robot.
-  rpc ServoCurrent(ServoCurrentRequest) returns (ServoCurrentResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/servo/{name}/current"
-    };
   }
 
   //Motor
@@ -755,22 +723,6 @@ message BaseWidthMillisResponse {
   int64 width_millis = 1;
 }
 
-// Gripper
-
-message GripperOpenRequest {
-  string name = 1;
-}
-
-message GripperOpenResponse {}
-
-message GripperGrabRequest {
-  string name = 1;
-}
-
-message GripperGrabResponse {
-  bool grabbed = 1;
-}
-
 // Camera
 
 message CameraFrameRequest {
@@ -1081,23 +1033,6 @@ message MotorStatus {
 
 message ServoStatus {
   uint32 angle = 1;
-}
-
-// Servo
-
-message ServoMoveRequest {
-  string name = 1;
-  uint32 angle_deg = 2; // (0-180)
-}
-
-message ServoMoveResponse {}
-
-message ServoCurrentRequest {
-  string name = 1;
-}
-
-message ServoCurrentResponse {
-  uint32 angle_deg = 1; // (0-180)
 }
 
 // Motor

@@ -86,24 +86,6 @@ type RobotServiceBaseWidthMillis = {
   readonly responseType: typeof proto_api_v1_robot_pb.BaseWidthMillisResponse;
 };
 
-type RobotServiceGripperOpen = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.GripperOpenRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.GripperOpenResponse;
-};
-
-type RobotServiceGripperGrab = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.GripperGrabRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.GripperGrabResponse;
-};
-
 type RobotServiceCameraFrame = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -363,24 +345,6 @@ type RobotServiceExecuteSource = {
   readonly responseStream: false;
   readonly requestType: typeof proto_api_v1_robot_pb.ExecuteSourceRequest;
   readonly responseType: typeof proto_api_v1_robot_pb.ExecuteSourceResponse;
-};
-
-type RobotServiceServoMove = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.ServoMoveRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.ServoMoveResponse;
-};
-
-type RobotServiceServoCurrent = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.ServoCurrentRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.ServoCurrentResponse;
 };
 
 type RobotServiceMotorGetPIDConfig = {
@@ -682,8 +646,6 @@ export class RobotService {
   static readonly BaseSpin: RobotServiceBaseSpin;
   static readonly BaseStop: RobotServiceBaseStop;
   static readonly BaseWidthMillis: RobotServiceBaseWidthMillis;
-  static readonly GripperOpen: RobotServiceGripperOpen;
-  static readonly GripperGrab: RobotServiceGripperGrab;
   static readonly CameraFrame: RobotServiceCameraFrame;
   static readonly CameraRenderFrame: RobotServiceCameraRenderFrame;
   static readonly PointCloud: RobotServicePointCloud;
@@ -713,8 +675,6 @@ export class RobotService {
   static readonly ForceMatrixSlipDetection: RobotServiceForceMatrixSlipDetection;
   static readonly ExecuteFunction: RobotServiceExecuteFunction;
   static readonly ExecuteSource: RobotServiceExecuteSource;
-  static readonly ServoMove: RobotServiceServoMove;
-  static readonly ServoCurrent: RobotServiceServoCurrent;
   static readonly MotorGetPIDConfig: RobotServiceMotorGetPIDConfig;
   static readonly MotorSetPIDConfig: RobotServiceMotorSetPIDConfig;
   static readonly MotorPIDStep: RobotServiceMotorPIDStep;
@@ -854,24 +814,6 @@ export class RobotServiceClient {
     requestMessage: proto_api_v1_robot_pb.BaseWidthMillisRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BaseWidthMillisResponse|null) => void
   ): UnaryResponse;
-  gripperOpen(
-    requestMessage: proto_api_v1_robot_pb.GripperOpenRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GripperOpenResponse|null) => void
-  ): UnaryResponse;
-  gripperOpen(
-    requestMessage: proto_api_v1_robot_pb.GripperOpenRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GripperOpenResponse|null) => void
-  ): UnaryResponse;
-  gripperGrab(
-    requestMessage: proto_api_v1_robot_pb.GripperGrabRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GripperGrabResponse|null) => void
-  ): UnaryResponse;
-  gripperGrab(
-    requestMessage: proto_api_v1_robot_pb.GripperGrabRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GripperGrabResponse|null) => void
-  ): UnaryResponse;
   cameraFrame(
     requestMessage: proto_api_v1_robot_pb.CameraFrameRequest,
     metadata: grpc.Metadata,
@@ -1132,24 +1074,6 @@ export class RobotServiceClient {
   executeSource(
     requestMessage: proto_api_v1_robot_pb.ExecuteSourceRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ExecuteSourceResponse|null) => void
-  ): UnaryResponse;
-  servoMove(
-    requestMessage: proto_api_v1_robot_pb.ServoMoveRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoMoveResponse|null) => void
-  ): UnaryResponse;
-  servoMove(
-    requestMessage: proto_api_v1_robot_pb.ServoMoveRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoMoveResponse|null) => void
-  ): UnaryResponse;
-  servoCurrent(
-    requestMessage: proto_api_v1_robot_pb.ServoCurrentRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoCurrentResponse|null) => void
-  ): UnaryResponse;
-  servoCurrent(
-    requestMessage: proto_api_v1_robot_pb.ServoCurrentRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoCurrentResponse|null) => void
   ): UnaryResponse;
   motorGetPIDConfig(
     requestMessage: proto_api_v1_robot_pb.MotorGetPIDConfigRequest,

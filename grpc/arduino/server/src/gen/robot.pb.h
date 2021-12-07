@@ -49,9 +49,9 @@ typedef struct _proto_api_v1_BoardMotorGoResponse {
     char dummy_field;
 } proto_api_v1_BoardMotorGoResponse;
 
-typedef struct _proto_api_v1_BoardServoMoveResponse { 
+typedef struct _proto_api_v1_BoardServoServiceMoveResponse { 
     char dummy_field;
-} proto_api_v1_BoardServoMoveResponse;
+} proto_api_v1_BoardServoServiceMoveResponse;
 
 typedef struct _proto_api_v1_BoardStatus { 
     pb_callback_t motors; 
@@ -254,11 +254,11 @@ typedef struct _proto_api_v1_BoardMotorGoRequest {
     float power_pct; 
 } proto_api_v1_BoardMotorGoRequest;
 
-typedef struct _proto_api_v1_BoardServoMoveRequest { 
+typedef struct _proto_api_v1_BoardServoServiceMoveRequest { 
     pb_callback_t board_name; 
     pb_callback_t servo_name; 
     uint32_t angle_deg; 
-} proto_api_v1_BoardServoMoveRequest;
+} proto_api_v1_BoardServoServiceMoveRequest;
 
 typedef struct _proto_api_v1_BoardStatusResponse { 
     bool has_status;
@@ -553,8 +553,8 @@ extern "C" {
 #define proto_api_v1_BoardMotorGoResponse_init_default {0}
 #define proto_api_v1_BoardMotorGoForRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, _proto_api_v1_DirectionRelative_MIN, 0, 0}
 #define proto_api_v1_BoardMotorGoForResponse_init_default {0}
-#define proto_api_v1_BoardServoMoveRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, 0}
-#define proto_api_v1_BoardServoMoveResponse_init_default {0}
+#define proto_api_v1_BoardServoServiceMoveRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, 0}
+#define proto_api_v1_BoardServoServiceMoveResponse_init_default {0}
 #define proto_api_v1_CompassHeadingRequest_init_default {""}
 #define proto_api_v1_CompassHeadingResponse_init_default {0}
 #define proto_api_v1_CompassStartCalibrationRequest_init_default {{{NULL}, NULL}}
@@ -641,8 +641,8 @@ extern "C" {
 #define proto_api_v1_BoardMotorGoResponse_init_zero {0}
 #define proto_api_v1_BoardMotorGoForRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, _proto_api_v1_DirectionRelative_MIN, 0, 0}
 #define proto_api_v1_BoardMotorGoForResponse_init_zero {0}
-#define proto_api_v1_BoardServoMoveRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, 0}
-#define proto_api_v1_BoardServoMoveResponse_init_zero {0}
+#define proto_api_v1_BoardServoServiceMoveRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, 0}
+#define proto_api_v1_BoardServoServiceMoveResponse_init_zero {0}
 #define proto_api_v1_CompassHeadingRequest_init_zero {""}
 #define proto_api_v1_CompassHeadingResponse_init_zero {0}
 #define proto_api_v1_CompassStartCalibrationRequest_init_zero {{{NULL}, NULL}}
@@ -720,9 +720,9 @@ extern "C" {
 #define proto_api_v1_BoardMotorGoRequest_motor_name_tag 2
 #define proto_api_v1_BoardMotorGoRequest_direction_tag 3
 #define proto_api_v1_BoardMotorGoRequest_power_pct_tag 4
-#define proto_api_v1_BoardServoMoveRequest_board_name_tag 1
-#define proto_api_v1_BoardServoMoveRequest_servo_name_tag 2
-#define proto_api_v1_BoardServoMoveRequest_angle_deg_tag 3
+#define proto_api_v1_BoardServoServiceMoveRequest_board_name_tag 1
+#define proto_api_v1_BoardServoServiceMoveRequest_servo_name_tag 2
+#define proto_api_v1_BoardServoServiceMoveRequest_angle_deg_tag 3
 #define proto_api_v1_BoardStatusResponse_status_tag 1
 #define proto_api_v1_CameraFrameResponse_mime_type_tag 1
 #define proto_api_v1_CameraFrameResponse_frame_tag 2
@@ -1297,17 +1297,17 @@ X(a, STATIC,   SINGULAR, DOUBLE,   revolutions,       5)
 #define proto_api_v1_BoardMotorGoForResponse_CALLBACK NULL
 #define proto_api_v1_BoardMotorGoForResponse_DEFAULT NULL
 
-#define proto_api_v1_BoardServoMoveRequest_FIELDLIST(X, a) \
+#define proto_api_v1_BoardServoServiceMoveRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   board_name,        1) \
 X(a, CALLBACK, SINGULAR, STRING,   servo_name,        2) \
 X(a, STATIC,   SINGULAR, UINT32,   angle_deg,         3)
-#define proto_api_v1_BoardServoMoveRequest_CALLBACK pb_default_field_callback
-#define proto_api_v1_BoardServoMoveRequest_DEFAULT NULL
+#define proto_api_v1_BoardServoServiceMoveRequest_CALLBACK pb_default_field_callback
+#define proto_api_v1_BoardServoServiceMoveRequest_DEFAULT NULL
 
-#define proto_api_v1_BoardServoMoveResponse_FIELDLIST(X, a) \
+#define proto_api_v1_BoardServoServiceMoveResponse_FIELDLIST(X, a) \
 
-#define proto_api_v1_BoardServoMoveResponse_CALLBACK NULL
-#define proto_api_v1_BoardServoMoveResponse_DEFAULT NULL
+#define proto_api_v1_BoardServoServiceMoveResponse_CALLBACK NULL
+#define proto_api_v1_BoardServoServiceMoveResponse_DEFAULT NULL
 
 #define proto_api_v1_CompassHeadingRequest_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, STRING,   name,              1)
@@ -1427,8 +1427,8 @@ extern const pb_msgdesc_t proto_api_v1_BoardMotorGoRequest_msg;
 extern const pb_msgdesc_t proto_api_v1_BoardMotorGoResponse_msg;
 extern const pb_msgdesc_t proto_api_v1_BoardMotorGoForRequest_msg;
 extern const pb_msgdesc_t proto_api_v1_BoardMotorGoForResponse_msg;
-extern const pb_msgdesc_t proto_api_v1_BoardServoMoveRequest_msg;
-extern const pb_msgdesc_t proto_api_v1_BoardServoMoveResponse_msg;
+extern const pb_msgdesc_t proto_api_v1_BoardServoServiceMoveRequest_msg;
+extern const pb_msgdesc_t proto_api_v1_BoardServoServiceMoveResponse_msg;
 extern const pb_msgdesc_t proto_api_v1_CompassHeadingRequest_msg;
 extern const pb_msgdesc_t proto_api_v1_CompassHeadingResponse_msg;
 extern const pb_msgdesc_t proto_api_v1_CompassStartCalibrationRequest_msg;
@@ -1517,8 +1517,8 @@ extern const pb_msgdesc_t proto_api_v1_CompassMarkResponse_msg;
 #define proto_api_v1_BoardMotorGoResponse_fields &proto_api_v1_BoardMotorGoResponse_msg
 #define proto_api_v1_BoardMotorGoForRequest_fields &proto_api_v1_BoardMotorGoForRequest_msg
 #define proto_api_v1_BoardMotorGoForResponse_fields &proto_api_v1_BoardMotorGoForResponse_msg
-#define proto_api_v1_BoardServoMoveRequest_fields &proto_api_v1_BoardServoMoveRequest_msg
-#define proto_api_v1_BoardServoMoveResponse_fields &proto_api_v1_BoardServoMoveResponse_msg
+#define proto_api_v1_BoardServoServiceMoveRequest_fields &proto_api_v1_BoardServoServiceMoveRequest_msg
+#define proto_api_v1_BoardServoServiceMoveResponse_fields &proto_api_v1_BoardServoServiceMoveResponse_msg
 #define proto_api_v1_CompassHeadingRequest_fields &proto_api_v1_CompassHeadingRequest_msg
 #define proto_api_v1_CompassHeadingResponse_fields &proto_api_v1_CompassHeadingResponse_msg
 #define proto_api_v1_CompassStartCalibrationRequest_fields &proto_api_v1_CompassStartCalibrationRequest_msg
@@ -1582,7 +1582,7 @@ extern const pb_msgdesc_t proto_api_v1_CompassMarkResponse_msg;
 /* proto_api_v1_BoardStatusResponse_size depends on runtime parameters */
 /* proto_api_v1_BoardMotorGoRequest_size depends on runtime parameters */
 /* proto_api_v1_BoardMotorGoForRequest_size depends on runtime parameters */
-/* proto_api_v1_BoardServoMoveRequest_size depends on runtime parameters */
+/* proto_api_v1_BoardServoServiceMoveRequest_size depends on runtime parameters */
 /* proto_api_v1_CompassStartCalibrationRequest_size depends on runtime parameters */
 /* proto_api_v1_CompassStopCalibrationRequest_size depends on runtime parameters */
 /* proto_api_v1_CompassMarkRequest_size depends on runtime parameters */
@@ -1594,7 +1594,7 @@ extern const pb_msgdesc_t proto_api_v1_CompassMarkResponse_msg;
 #define proto_api_v1_BaseStopResponse_size       0
 #define proto_api_v1_BoardMotorGoForResponse_size 0
 #define proto_api_v1_BoardMotorGoResponse_size   0
-#define proto_api_v1_BoardServoMoveResponse_size 0
+#define proto_api_v1_BoardServoServiceMoveResponse_size 0
 #define proto_api_v1_CompassHeadingRequest_size  17
 #define proto_api_v1_CompassHeadingResponse_size 9
 #define proto_api_v1_CompassMarkResponse_size    0
