@@ -7,8 +7,9 @@ import (
 	"sync"
 
 	"github.com/go-errors/errors"
-	"go.viam.com/core/spatialmath"
 	viamutils "go.viam.com/utils"
+
+	"go.viam.com/core/spatialmath"
 
 	"go.viam.com/core/resource"
 	"go.viam.com/core/rlog"

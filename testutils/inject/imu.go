@@ -3,8 +3,9 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/core/spatialmath"
 	"go.viam.com/utils"
+
+	"go.viam.com/core/spatialmath"
 
 	"go.viam.com/core/component/imu"
 )

@@ -5,9 +5,10 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/core/spatialmath"
 	rpcclient "go.viam.com/utils/rpc/client"
 	"go.viam.com/utils/rpc/dialer"
+
+	"go.viam.com/core/spatialmath"
 
 	"go.viam.com/core/grpc"
 	pb "go.viam.com/core/proto/api/component/v1"
