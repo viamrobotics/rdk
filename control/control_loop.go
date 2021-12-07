@@ -17,7 +17,7 @@ type signalMapper struct {
 	s   []Signal
 }
 
-// ControlBlockInternal Holds internal variables to control de flow of signals between blocks
+// controlBlockInternal Holds internal variables to control the flow of data between blocks
 type controlBlockInternal struct {
 	mu        sync.Mutex
 	blockType controlBlockType
@@ -26,6 +26,7 @@ type controlBlockInternal struct {
 	blk       ControlBlock
 }
 
+// controlTicker Used to emit impulse on blocks which do not depend on inputs or are endpoints
 type controlTicker struct {
 	ticker *time.Ticker
 	stop   chan bool
@@ -206,6 +207,12 @@ func (c *ControlLoop) Start(ctx context.Context) error {
 		ts := c.ts
 		close(waitCh)
 		for {
+			if ctx.Err() != nil {
+				for _, c := range ts {
+					close(c)
+				}
+				return
+			}
 			select {
 			case t := <-ct.ticker.C:
 				for _, c := range ts {

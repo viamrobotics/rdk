@@ -1,6 +1,6 @@
 package control
 
-//Signal holds an data passed between blocks
+//Signal holds any data passed between blocks
 type Signal struct {
 	signal    []float64
 	time      []int

@@ -111,5 +111,5 @@ func createControlBlock(ctx context.Context, cfg ControlBlockConfig) (ControlBlo
 		}
 		return &b, nil
 	}
-	return nil, errors.Errorf("unsuported block type %s", t)
+	return nil, errors.Errorf("unsupported block type %s", t)
 }
