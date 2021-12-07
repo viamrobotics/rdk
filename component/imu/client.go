@@ -8,6 +8,8 @@ import (
 	rpcclient "go.viam.com/utils/rpc/client"
 	"go.viam.com/utils/rpc/dialer"
 
+	// "go.viam.com/core/component/imu"
+	"go.viam.com/core/sensor"
 	"go.viam.com/core/spatialmath"
 
 	"go.viam.com/core/grpc"
@@ -98,4 +100,23 @@ func (c *client) Orientation(ctx context.Context) (*spatialmath.EulerAngles, err
 		Pitch: resp.Orientation.Pitch,
 		Yaw:   resp.Orientation.Yaw,
 	}, nil
+}
+
+func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
+	vel, err := c.AngularVelocity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	orientation, err := c.Orientation(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ea := orientation.EulerAngles()
+	return []interface{}{vel.X, vel.Y, vel.Z, ea.Roll, ea.Pitch, ea.Yaw}, nil
+}
+
+func (c *client) Desc() sensor.Description {
+	// return sensor.Description{sensor.Type(imu.SubtypeName), ""}
+	// TODO(maximpertsov): fix circular import
+	return sensor.Description{sensor.Type("imu"), ""}
 }
