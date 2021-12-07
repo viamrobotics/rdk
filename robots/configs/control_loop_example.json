@@ -1,0 +1,108 @@
+{
+  "components":
+  [
+    {
+      "name": "local",
+      "model": "arduino",
+      "type": "board",
+      "attributes":
+      {
+        "analogs" : [
+          {
+            "name" : "j1p",
+            "pin" : "A1"
+          },
+          {
+            "name" : "j2p",
+            "pin" : "A0"
+          }
+        ]
+      }
+    },
+    {
+      "name": "m-j1",
+      "type": "motor",
+      "model": "arduino",
+      "attributes":
+      {
+        "name" : "m-j1",
+        "board": "local",
+        "pins": {
+          "a": "37",
+          "b": "39",
+          "pwm": "11"
+        },
+        "encoder": "20",
+        "encoderB": "21",
+        "ticksPerRotation": 1,
+        "PWMFreq" : 8000,
+        "controlLoop": {
+          "frequency": 100,
+          "blocks": [
+            {
+              "name": "SetPoint",
+              "type": "Constant",
+              "attributes":{
+                "ConstantVal": 0.0
+              }
+            },
+            {
+              "name":"TrapZ",
+              "type" : "TrapezoidalVelocityProfile",
+              "attributes":{
+                "MaxAcc":60000,
+                "MaxVel":5000
+              },
+              "depends_on":["SetPoint","Endpoint"]
+            },
+            {
+              "name": "Endpoint",
+              "type": "Endpoint",
+              "attributes":{
+                "MotorName":"m-j1"
+              },
+              "depends_on":["PID"]
+            },
+            {
+              "name": "Sum",
+              "type" : "Sum",
+              "attributes":{
+                "SumString":"+-"
+              },
+              "depends_on":["TrapZ","Filter"]
+            },
+            {
+              "name": "PID",
+              "type": "PID",
+              "attributes":{
+                "Kp":0.00003,
+                "Ki":0.00081,
+                "Kd":0.0
+              },
+              "depends_on":["Sum"]
+            },
+            {
+              "name" : "Filter",
+              "type": "Filter",
+              "attributes":{
+                "type":"FilterFIRWindowedSinc",
+                "fs":100,
+                "fc":9,
+                "kernel_size":5
+              },
+              "depends_on":["Derivative"]
+            },
+            {
+              "name": "Derivative",
+              "type": "Derivative",
+              "attributes":{
+                "DeriveType" : "Backward1st2"
+              },
+              "depends_on":["Endpoint"]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
