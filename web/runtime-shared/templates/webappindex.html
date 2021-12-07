@@ -938,9 +938,6 @@
           let canvas2D = document.getElementById(anim_2D.canvasId);
           // if this is the first render, initialize the 2D and 3D scene
           if (isFirstRender || anim_3D.cubes.length == 0) {
-            if (anim_3D.cubes.length == 0) {
-              console.log("something is up: cubes should have been already initialized but are not");
-            }
             // let's add cubes to the 3D view
             for (let row = 0; row < numRows; row++) {
                 cubeRow = []
