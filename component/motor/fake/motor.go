@@ -56,7 +56,7 @@ func (m *Motor) PID() motor.PID {
 func (m *Motor) Position(ctx context.Context) (float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return 0, nil
+	return 0.0, nil
 }
 
 // PositionSupported returns false.
@@ -150,4 +150,8 @@ func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return math.Abs(m.powerPct) >= 0.005, nil
+}
+
+func (m *Motor) ControlLoop(ctx context.Context) *control.ControlLoop {
+	return m.loop
 }

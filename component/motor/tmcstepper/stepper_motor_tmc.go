@@ -12,6 +12,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"go.viam.com/core/control"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
@@ -480,4 +481,7 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 		m.writeReg(ctx, xTarget, int32(offset*float64(m.stepsPerRev))),
 		m.writeReg(ctx, xActual, int32(offset*float64(m.stepsPerRev))),
 	)
+}
+func (m *Motor) ControlLoop(ctx context.Context) *control.ControlLoop {
+	return nil
 }
