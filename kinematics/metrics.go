@@ -14,7 +14,6 @@ func NewSquaredNormMetric() Metric {
 
 func weightedSqNormDist(from, to spatial.Pose) float64 {
 	delta := spatial.PoseDelta(from, to)
-	// convert to axis angles
 	// Increase weight for orientation since it's a small number
 	return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(10.).Norm2()
 }
