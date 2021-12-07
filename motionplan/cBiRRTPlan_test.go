@@ -48,7 +48,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 		X:  206,
 		Y:  100,
 		Z:  120.5,
-		OZ: -1,
+		OY: -1,
 	}
 
 	solutions, err := getSolutions(ctx, mp.opt, mp.solver, pos, home7, mp)
