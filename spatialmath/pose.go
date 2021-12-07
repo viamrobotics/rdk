@@ -126,11 +126,10 @@ func PoseBetween(a, b Pose) Pose {
 // PoseDelta returns the difference between two dualQuaternion.
 // We use quaternion/angle axis for this because distances are well-defined.
 func PoseDelta(a, b Pose) Pose {
-	aQ := a.Orientation().Quaternion()
-	bQ := b.Orientation().Quaternion()
-	orientationDiff := quat.Mul(bQ, quat.Conj(aQ))
-	translationDiff := b.Point().Sub(a.Point())
-	return &distancePose{translationDiff, (*quaternion)(&orientationDiff)}
+	return &distancePose{
+		orientation: quat.Mul(b.Orientation().Quaternion(), quat.Conj(a.Orientation().Quaternion())),
+		point:       b.Point().Sub(a.Point()),
+	}
 }
 
 // PoseToProtobuf converts a pose to the pose format protobuf expects (which is as OrientationVectorDegrees)
@@ -182,12 +181,12 @@ func AlmostCoincident(a, b Pose) bool {
 // A distancePose is useful when you need to return e.g. a computed point within a pose without converting back to a DQ.
 type distancePose struct {
 	point       r3.Vector
-	orientation Orientation
+	orientation quat.Number
 }
 
 func (d *distancePose) Point() r3.Vector {
 	return d.point
 }
 func (d *distancePose) Orientation() Orientation {
-	return d.orientation
+	return (*quaternion)(&d.orientation)
 }
