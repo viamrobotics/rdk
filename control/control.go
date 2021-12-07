@@ -6,11 +6,11 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 )
 
-// Controllable  A controllable type for a DC motor
+// Controllable controllable type for a DC motor
 type Controllable interface {
-	//Power set the power of the motor
+	// Go set the power and direction of the motor
 	Go(ctx context.Context, d pb.DirectionRelative, power float32) error
-	//Position returns the current encoder count value
+	// Position returns the current encoder count value
 	Position(ctx context.Context) (float64, error)
 }
 
@@ -20,18 +20,18 @@ type ControlConfig struct {
 	Frequency float64              `json:"frequency"` //Frequency loop Frequency
 }
 
-// Control control interface
+// Control control interface can be used to interfact with a control loop to query signals, change config, start/stop the loop etc...
 type Control interface {
 	// OutputAt returns the Signal at the block name, error when the block doesn't exist
 	OutputAt(ctx context.Context, name string) ([]Signal, error)
 	// ConfigAt returns the Configl at the block name, error when the block doesn't exist
 	ConfigAt(ctx context.Context, name string) (ControlBlockConfig, error)
-	//BlockList returns the list of blocks in a control loop error when the list is empty
+	// BlockList returns the list of blocks in a control loop error when the list is empty
 	BlockList(ctx context.Context) ([]string, error)
-	//Frequency returns the loop's frequency
+	// Frequency returns the loop's frequency
 	Frequency(ctx context.Context) (float64, error)
-	//Start starts the loop
+	// Start starts the loop
 	Start(ctx context.Context) error
-	//Stop stops then loop
+	// Stop stops then loop
 	Stop(ctx context.Context) error
 }
