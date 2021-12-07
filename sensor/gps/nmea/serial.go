@@ -108,8 +108,12 @@ func (g *serialNMEAGPS) NtripClientRequest() {
 			}
 		}
 
-		defer resp.Body.Close()
-
+		defer func() {
+			err = resp.Body.Close()
+			if err != nil {
+				g.logger.Errorf("Error closing ntrip resp %s", err)
+			}
+		}()
 		// setup port to write to
 		options := slib.OpenOptions{
 			BaudRate:        uint(g.wbaud),
