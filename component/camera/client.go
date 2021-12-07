@@ -117,5 +117,5 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 
 // Close cleanly closes the underlying connections
 func (c *client) Close() error {
-	return c.conn.Close()
+	return c.serviceClient.Close()
 }
