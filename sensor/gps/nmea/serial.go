@@ -124,15 +124,18 @@ func (g *serialNMEAGPS) NtripClientRequest() {
 			g.logger.Fatalf("Can't Write to serial %s", err)
 		}
 		w := bufio.NewWriter(port)
+		for {
+			//loop in case something breaks
+			r := io.TeeReader(resp.Body, w)
+			_, err = io.ReadAll(r)
 
-		// Read from resp.Body until EOF
-		r := io.TeeReader(resp.Body, w)
-		_, err = io.ReadAll(r)
+			if err != nil {
+				g.logger.Fatalf("Error with RTCM stream: %s\n", err)
 
-		if err != nil {
-			g.logger.Fatalf("Error with RTCM stream: %s\n", err)
-
+			}
 		}
+		// Read from resp.Body until EOF
+
 	})
 }
 func (g *serialNMEAGPS) Start() {
