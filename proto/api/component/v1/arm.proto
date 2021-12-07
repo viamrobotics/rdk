@@ -82,7 +82,6 @@ message ArmServiceCurrentJointPositionsResponse {
 message ArmServiceMoveToPositionRequest {
   // Name of an arm
   string name = 1;
-  // X, Y, Z, ox, oy, ox, theta
   common.v1.Pose to = 2;
 }
 
