@@ -3,22 +3,22 @@ package inject
 import (
 	"context"
 
+	"go.viam.com/core/spatialmath"
 	"go.viam.com/utils"
 
 	"go.viam.com/core/component/imu"
-	pb "go.viam.com/core/proto/api/component/v1"
 )
 
 // IMU is an injected IMU.
 type IMU struct {
 	imu.IMU
-	AngularVelocityFunc func(ctx context.Context) (*pb.AngularVelocity, error)
-	OrientationFunc     func(ctx context.Context) (*pb.EulerAngles, error)
+	AngularVelocityFunc func(ctx context.Context) (*spatialmath.AngularVelocity, error)
+	OrientationFunc     func(ctx context.Context) (*spatialmath.EulerAngles, error)
 	CloseFunc           func() error
 }
 
 // AngularVelocity calls the injected AngularVelocity or the real version.
-func (i *IMU) AngularVelocity(ctx context.Context) (*pb.AngularVelocity, error) {
+func (i *IMU) AngularVelocity(ctx context.Context) (*spatialmath.AngularVelocity, error) {
 	if i.AngularVelocityFunc == nil {
 		return i.IMU.AngularVelocity(ctx)
 	}
@@ -26,7 +26,7 @@ func (i *IMU) AngularVelocity(ctx context.Context) (*pb.AngularVelocity, error) 
 }
 
 // Orientation calls the injected Orientation or the real version.
-func (i *IMU) Orientation(ctx context.Context) (*pb.EulerAngles, error) {
+func (i *IMU) Orientation(ctx context.Context) (*spatialmath.EulerAngles, error) {
 	if i.OrientationFunc == nil {
 		return i.IMU.Orientation(ctx)
 	}
