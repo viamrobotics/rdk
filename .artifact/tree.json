@@ -49727,13 +49727,33 @@
       }
     },
     "gripper": {
+      "full_chess.both.gz": {
+        "hash": "36486342e42c45bee1d5734f862af696",
+        "size": 426443
+      },
       "full_game.both.gz": {
         "hash": "9db95d2d7d366f2a09456395a042900f",
         "size": 454815
       },
+      "full_game2.both.gz": {
+        "hash": "96f087cec5be0eb7d7281dd6bd1e90aa",
+        "size": 450288
+      },
+      "gripper_chessgame2.both.gz": {
+        "hash": "044dc968a5a1872f1d5a289bef816dfe",
+        "size": 434788
+      },
+      "gripper_chessgame3.both.gz": {
+        "hash": "45943bf49b315882cea99ec74111566f",
+        "size": 416431
+      },
       "gripper_chesspiece2.both.gz": {
         "hash": "136968c341f204169e91bb1cf0b34d8a",
         "size": 342709
+      },
+      "marker1.both.gz": {
+        "hash": "d84df9b723e4d0ce49b2136cb01773c6",
+        "size": 340808
       }
     },
     "planes": {
