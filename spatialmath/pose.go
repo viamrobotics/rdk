@@ -129,7 +129,7 @@ func PoseDelta(a, b Pose) Pose {
 	aQ := a.Orientation().Quaternion()
 	bQ := b.Orientation().Quaternion()
 	orientationDiff := quat.Mul(bQ, quat.Conj(aQ))
-	translationDiff := a.Point().Sub(b.Point())
+	translationDiff := b.Point().Sub(a.Point())
 	return &distancePose{translationDiff, (*quaternion)(&orientationDiff)}
 }
 

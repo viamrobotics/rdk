@@ -439,9 +439,9 @@ func UnmarshalFrameMap(m map[string]interface{}) (Frame, error) {
 		f := rotationalFrame{}
 		f.name = m["name"].(string)
 
-		f.rotAxis.X = m["rotAxis"].(map[string]interface{})["x"].(float64)
-		f.rotAxis.Y = m["rotAxis"].(map[string]interface{})["y"].(float64)
-		f.rotAxis.Z = m["rotAxis"].(map[string]interface{})["z"].(float64)
+		f.rotAxis.X = m["rotAxis"].(map[string]interface{})["X"].(float64)
+		f.rotAxis.Y = m["rotAxis"].(map[string]interface{})["Y"].(float64)
+		f.rotAxis.Z = m["rotAxis"].(map[string]interface{})["Z"].(float64)
 
 		err = mapstructure.Decode(m["limit"], &f.limit)
 		if err != nil {
