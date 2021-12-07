@@ -2,12 +2,14 @@ package control
 
 import (
 	"context"
+
+	pb "go.viam.com/core/proto/api/v1"
 )
 
 // Controllable  A controllable type for a DC motor
 type Controllable interface {
 	//Power set the power of the motor
-	Power(ctx context.Context, power float64) error
+	Go(ctx context.Context, d pb.DirectionRelative, power float32) error
 	//Position returns the current encoder count value
 	Position(ctx context.Context) (float64, error)
 }

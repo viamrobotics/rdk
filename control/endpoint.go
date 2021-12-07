@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
+	pb "go.viam.com/core/proto/api/v1"
 )
 
 type endpoint struct {
@@ -19,7 +20,7 @@ func (e *endpoint) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 	if len(x) == 1 {
 		power := x[0].signal[0]
 		if e.ctr != nil {
-			err := e.ctr.Power(ctx, power)
+			err := e.ctr.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(power))
 			if err != nil {
 				return []Signal{}, false
 			}
