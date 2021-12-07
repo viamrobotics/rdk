@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	pb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/spatialmath"
 
@@ -92,7 +91,7 @@ func TestAngularVelocity(t *testing.T) {
 	test.That(t, actualIMU1.angularVelocityCalls, test.ShouldEqual, 0)
 	vel, err := fakeIMU1.(*reconfigurableIMU).AngularVelocity(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, vel, test.ShouldResemble, &pb.AngularVelocity{X: 1, Y: 2, Z: 3})
+	test.That(t, vel, test.ShouldResemble, &spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3})
 	test.That(t, actualIMU1.angularVelocityCalls, test.ShouldEqual, 1)
 }
 
@@ -103,7 +102,7 @@ func TestOrientiation(t *testing.T) {
 	test.That(t, actualIMU1.orientationCalls, test.ShouldEqual, 0)
 	angles, err := fakeIMU1.(*reconfigurableIMU).Orientation(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, angles, test.ShouldResemble, &pb.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6})
+	test.That(t, angles, test.ShouldResemble, &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6})
 	test.That(t, actualIMU1.orientationCalls, test.ShouldEqual, 1)
 }
 

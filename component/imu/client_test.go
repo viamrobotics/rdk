@@ -12,6 +12,7 @@ import (
 	"go.viam.com/core/component/imu"
 	pb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/resource"
+	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/subtype"
 	"go.viam.com/core/testutils/inject"
 
@@ -30,14 +31,14 @@ func TestClient(t *testing.T) {
 
 	imu1 := "imu1"
 
-	av := &pb.AngularVelocity{X: 1, Y: 2, Z: 3}
-	ea := &pb.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
+	av := &spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
+	ea := &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
 
 	injectIMU := &inject.IMU{}
-	injectIMU.AngularVelocityFunc = func(ctx context.Context) (*pb.AngularVelocity, error) {
+	injectIMU.AngularVelocityFunc = func(ctx context.Context) (*spatialmath.AngularVelocity, error) {
 		return av, nil
 	}
-	injectIMU.OrientationFunc = func(ctx context.Context) (*pb.EulerAngles, error) {
+	injectIMU.OrientationFunc = func(ctx context.Context) (*spatialmath.EulerAngles, error) {
 		return ea, nil
 	}
 
@@ -64,11 +65,11 @@ func TestClient(t *testing.T) {
 	t.Run("IMU client 1", func(t *testing.T) {
 		av1, err := imu1Client.AngularVelocity(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, av1.String(), test.ShouldResemble, av.String())
+		test.That(t, av1, test.ShouldResemble, av)
 
 		ea1, err := imu1Client.Orientation(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ea1.String(), test.ShouldResemble, ea.String())
+		test.That(t, ea1, test.ShouldResemble, ea)
 	})
 
 	t.Run("IMU client 2", func(t *testing.T) {
@@ -79,11 +80,11 @@ func TestClient(t *testing.T) {
 
 		av2, err := imu1Client2.AngularVelocity(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, av2.String(), test.ShouldResemble, av.String())
+		test.That(t, av2, test.ShouldResemble, av)
 
 		ea2, err := imu1Client2.Orientation(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ea2.String(), test.ShouldResemble, ea.String())
+		test.That(t, ea2, test.ShouldResemble, ea)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
