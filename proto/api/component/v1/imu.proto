@@ -6,8 +6,7 @@ package proto.api.component.v1;
 
 import "google/api/annotations.proto";
 
-
-// IMUService encompasses all functionality of some robot comprised of parts, local and remote.
+// IMUService services maintains all IMUs associated with a robot
 service IMUService {
   // AngularVelocity returns the most recent angular velocity reading from the given IMU.
   rpc AngularVelocity(IMUServiceAngularVelocityRequest) returns (IMUServiceAngularVelocityResponse) {
