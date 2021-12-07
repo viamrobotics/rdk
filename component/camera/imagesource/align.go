@@ -85,6 +85,38 @@ func init() {
 
 var alignCurrentlyWriting = false
 
+func getCameraSystems(attrs config.AttributeMap, logger golog.Logger) (rimage.CameraSystem, rimage.CameraSystem, error) {
+	var alignCamera rimage.CameraSystem
+	var projectCamera rimage.CameraSystem
+	var err error
+
+	if attrs.Has("intrinsic_extrinsic") {
+		alignCamera, err = transform.NewDepthColorIntrinsicsExtrinsics(attrs)
+		if err != nil {
+			return nil, nil, err
+		}
+		projectCamera = alignCamera
+	} else if attrs.Has("homography") {
+		conf := attrs["homography"].(*transform.RawPinholeCameraHomography)
+		alignCamera, err = transform.NewPinholeCameraHomography(conf)
+		if err != nil {
+			return nil, nil, err
+		}
+		projectCamera = alignCamera
+	} else if attrs.Has("warp") {
+		conf := attrs["warp"].(*transform.AlignConfig)
+		alignCamera, err = transform.NewDepthColorWarpTransforms(conf, logger)
+		if err != nil {
+			return nil, nil, err
+		}
+		projectCamera = alignCamera
+	} else { // default is no camera systems returned
+		return nil, nil, nil
+	}
+
+	return alignCamera, projectCamera, nil
+}
+
 // depthComposed TODO
 type depthComposed struct {
 	color, depth     gostream.ImageSource
@@ -97,33 +129,14 @@ type depthComposed struct {
 
 // NewDepthComposed TODO
 func NewDepthComposed(color, depth gostream.ImageSource, attrs config.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
-	var alignCamera rimage.CameraSystem
-	var projectCamera rimage.CameraSystem
-	var err error
-
-	if attrs.Has("intrinsic_extrinsic") {
-		alignCamera, err = transform.NewDepthColorIntrinsicsExtrinsics(attrs)
-		if err != nil {
-			return nil, err
-		}
-		projectCamera = alignCamera
-	} else if attrs.Has("homography") {
-		conf := attrs["homography"].(*transform.RawPinholeCameraHomography)
-		alignCamera, err = transform.NewPinholeCameraHomography(conf)
-		if err != nil {
-			return nil, err
-		}
-		projectCamera = alignCamera
-	} else if attrs.Has("warp") {
-		conf := attrs["warp"].(*transform.AlignConfig)
-		alignCamera, err = transform.NewDepthColorWarpTransforms(conf, logger)
-		if err != nil {
-			return nil, err
-		}
-		projectCamera = alignCamera
-	} else {
+	alignCamera, projectCamera, err := getCameraSystems(attrs, logger)
+	if err != nil {
+		return nil, err
+	}
+	if alignCamera == nil || projectCamera == nil {
 		return nil, errors.New("no camera system config")
 	}
+
 	return &depthComposed{color, depth, alignCamera, projectCamera, attrs.Bool("aligned", false), attrs.Bool("debug", false), logger}, nil
 }
 
