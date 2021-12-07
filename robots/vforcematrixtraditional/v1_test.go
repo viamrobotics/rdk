@@ -13,6 +13,24 @@ import (
 	"go.viam.com/core/testutils/inject"
 )
 
+func createExpectedMatrix(component config.Component) ([][]int, error) {
+	analogChannels := component.Attributes.StringSlice("row_analog_channels_top_to_bottom")
+	numCols := len(component.Attributes.StringSlice("column_gpio_pins_left_to_right"))
+	numRows := len(analogChannels)
+	expectedMatrix := make([][]int, numRows)
+	for row := 0; row < numRows; row++ {
+		expectedMatrix[row] = make([]int, numCols)
+		val, err := strconv.ParseInt(analogChannels[row], 10, 64)
+		if err != nil {
+			return expectedMatrix, err
+		}
+		for col := 0; col < numCols; col++ {
+			expectedMatrix[row][col] = int(val)
+		}
+	}
+	return expectedMatrix, nil
+}
+
 func TestNew(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
@@ -21,7 +39,8 @@ func TestNew(t *testing.T) {
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return nil, false
 		}
-		_, err := New(context.Background(), fakeRobot, config.Component{Attributes: config.AttributeMap{"type": "what"}}, logger)
+		component := config.Component{Attributes: config.AttributeMap{"type": "what"}}
+		_, err := New(context.Background(), fakeRobot, component, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -35,9 +54,9 @@ func TestNew(t *testing.T) {
 			return fakeBoard, true
 		}
 		fakeRowReaders := []interface{}{"fakeRowReaderName"}
-		_, err := New(context.Background(), fakeRobot, config.Component{Attributes: config.AttributeMap{"row_analog_channels_top_to_bottom": fakeRowReaders}}, logger)
+		component := config.Component{Attributes: config.AttributeMap{"row_analog_channels_top_to_bottom": fakeRowReaders}}
+		_, err := New(context.Background(), fakeRobot, component, logger)
 		test.That(t, err, test.ShouldNotBeNil)
-
 	})
 
 	t.Run("expect the matrix function to return properly shaped object", func(t *testing.T) {
@@ -60,22 +79,83 @@ func TestNew(t *testing.T) {
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return fakeBoard, true
 		}
-		fakeRowReaders := []interface{}{"1", "2", "3", "4"}
-		fakeColumnGpioPins := []interface{}{"1", "2", "3", "4"}
-		fakeAttrMap := config.AttributeMap{
-			"row_analog_channels_top_to_bottom": fakeRowReaders,
-			"column_gpio_pins_left_to_right":    fakeColumnGpioPins,
-		}
-		component := config.Component{Attributes: fakeAttrMap}
-		fsm, _ := New(context.Background(), fakeRobot, component, logger)
-		matrix, err := fsm.Matrix(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		expectedMatrix := make([][]int, 4)
-		for i := 0; i < len(expectedMatrix); i++ {
-			val := i + 1
-			expectedMatrix[i] = []int{val, val, val, val}
-		}
-		test.That(t, matrix, test.ShouldResemble, expectedMatrix)
 
+		t.Run("given a square matrix with size (4x4)", func(t *testing.T) {
+			fakeAttrMap := config.AttributeMap{
+				"row_analog_channels_top_to_bottom":     []interface{}{"1", "2", "3", "4"},
+				"column_gpio_pins_left_to_right":        []interface{}{"1", "2", "3", "4"},
+				"slip_detection_window":                 2,
+				"slip_detection_signal_to_noise_cutoff": 150.,
+			}
+			component := config.Component{Attributes: fakeAttrMap}
+			expectedMatrix, err := createExpectedMatrix(component)
+			test.That(t, err, test.ShouldBeNil)
+
+			fsm, _ := New(context.Background(), fakeRobot, component, logger)
+			actualMatrix, err := fsm.Matrix(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
+
+			t.Run("expect slip detection to work and to return false at first", func(t *testing.T) {
+				fsm.Matrix(context.Background())
+				fsm.Matrix(context.Background())
+				fsm.Matrix(context.Background())
+				isSlipping, err := fsm.IsSlipping(context.Background())
+				test.That(t, isSlipping, test.ShouldBeFalse)
+				test.That(t, err, test.ShouldBeNil)
+			})
+		})
+
+		t.Run("given a rectangular matrix with size (3x7)", func(t *testing.T) {
+			fakeAttrMap := config.AttributeMap{
+				"row_analog_channels_top_to_bottom":     []interface{}{"1", "2", "3"},
+				"column_gpio_pins_left_to_right":        []interface{}{"1", "2", "3", "4", "5", "6", "7"},
+				"slip_detection_window":                 2,
+				"slip_detection_signal_to_noise_cutoff": 150.,
+			}
+			component := config.Component{Attributes: fakeAttrMap}
+			expectedMatrix, err := createExpectedMatrix(component)
+			test.That(t, err, test.ShouldBeNil)
+
+			fsm, _ := New(context.Background(), fakeRobot, component, logger)
+			actualMatrix, err := fsm.Matrix(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
+
+			t.Run("expect slip detection to work and to return false at first", func(t *testing.T) {
+				fsm.Matrix(context.Background())
+				fsm.Matrix(context.Background())
+				fsm.Matrix(context.Background())
+				isSlipping, err := fsm.IsSlipping(context.Background())
+				test.That(t, isSlipping, test.ShouldBeFalse)
+				test.That(t, err, test.ShouldBeNil)
+			})
+		})
+
+		t.Run("given a rectangular matrix with size (5x2)", func(t *testing.T) {
+			fakeAttrMap := config.AttributeMap{
+				"row_analog_channels_top_to_bottom":     []interface{}{"1", "2", "3", "4", "5"},
+				"column_gpio_pins_left_to_right":        []interface{}{"1", "2"},
+				"slip_detection_window":                 2,
+				"slip_detection_signal_to_noise_cutoff": 150.,
+			}
+			component := config.Component{Attributes: fakeAttrMap}
+			expectedMatrix, err := createExpectedMatrix(component)
+			test.That(t, err, test.ShouldBeNil)
+
+			fsm, _ := New(context.Background(), fakeRobot, component, logger)
+			actualMatrix, err := fsm.Matrix(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
+
+			t.Run("expect slip detection to work and to return false at first", func(t *testing.T) {
+				fsm.Matrix(context.Background())
+				fsm.Matrix(context.Background())
+				fsm.Matrix(context.Background())
+				isSlipping, err := fsm.IsSlipping(context.Background())
+				test.That(t, isSlipping, test.ShouldBeFalse)
+				test.That(t, err, test.ShouldBeNil)
+			})
+		})
 	})
 }

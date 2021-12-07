@@ -23,7 +23,7 @@ const ModelName = "forcematrixwithmux_v1"
 func init() {
 	registry.RegisterSensor(forcematrix.Type, ModelName, registry.Sensor{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-			return NewMux(ctx, r, config, logger)
+			return New(ctx, r, config, logger)
 		}})
 }
 
@@ -44,9 +44,9 @@ type ForceMatrixWithMux struct {
 	logger       golog.Logger
 }
 
-// NewMux returns a new ForceMatrixWithMux given column gpio pins, mux gpio pins, io pins, and
+// New returns a new ForceMatrixWithMux given column gpio pins, mux gpio pins, io pins, and
 // an analog channel.
-func NewMux(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*ForceMatrixWithMux, error) {
+func New(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*ForceMatrixWithMux, error) {
 	boardName := config.Attributes.String("board")
 	b, exists := r.BoardByName(boardName)
 	if !exists {
