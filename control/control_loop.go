@@ -51,6 +51,9 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 	c.logger = logger
 	c.blocks = make(map[string]*controlBlockInternal)
 	c.cfg = cfg
+	if c.cfg.Frequency == 0.0 || c.cfg.Frequency > 200 {
+		return nil, errors.New("loop frequency shouldn't be 0 or above 200Hz")
+	}
 	c.dt = time.Duration(float64(time.Second) * (1.0 / (c.cfg.Frequency)))
 	for _, bcfg := range cfg.Blocks {
 		blk, err := createControlBlock(ctx, bcfg)
