@@ -33,6 +33,7 @@ func TestClient(t *testing.T) {
 
 	av := &spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
 	ea := &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
+	rs := []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw}
 
 	injectIMU := &inject.IMU{}
 	injectIMU.AngularVelocityFunc = func(ctx context.Context) (*spatialmath.AngularVelocity, error) {
@@ -70,6 +71,10 @@ func TestClient(t *testing.T) {
 		ea1, err := imu1Client.Orientation(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ea1, test.ShouldResemble, ea)
+
+		rs1, err := imu1Client.Readings(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, rs1, test.ShouldResemble, rs)
 	})
 
 	t.Run("IMU client 2", func(t *testing.T) {
@@ -85,6 +90,10 @@ func TestClient(t *testing.T) {
 		ea2, err := imu1Client2.Orientation(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ea2, test.ShouldResemble, ea)
+
+		rs2, err := imu1Client.Readings(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, rs2, test.ShouldResemble, rs)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
