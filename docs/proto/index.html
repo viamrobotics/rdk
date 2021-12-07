@@ -1469,7 +1469,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                 <td>MoveToJointPositions</td>
                 <td><a href="#proto.api.component.v1.ArmServiceMoveToJointPositionsRequest">ArmServiceMoveToJointPositionsRequest</a></td>
                 <td><a href="#proto.api.component.v1.ArmServiceMoveToJointPositionsResponse">ArmServiceMoveToJointPositionsResponse</a></td>
-                <td><p>MoveToJointPositions moves every joint on a robot&#39;s arm to the specified number of degrees</p></td>
+                <td><p>MoveToJointPositions moves every joint on a robot&#39;s arm to specified angles which are expressed in degrees</p></td>
               </tr>
             
               <tr>
@@ -4928,7 +4928,8 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>direction</td>
                   <td><a href="#proto.api.v1.DirectionRelative">DirectionRelative</a></td>
                   <td></td>
-                  <td><p>Motor&#39;s travel direction </p></td>
+                  <td><p>Motor&#39;s travel direction
+To Do (FA): This will be deprecated, following Jeremy&#39;s PR 324 </p></td>
                 </tr>
               
                 <tr>
@@ -4980,14 +4981,16 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>direction</td>
                   <td><a href="#proto.api.v1.DirectionRelative">DirectionRelative</a></td>
                   <td></td>
-                  <td><p>Motor&#39;s travel direction </p></td>
+                  <td><p>Motor&#39;s travel direction
+To Do (FA): This will be deprecated, following Jeremy&#39;s PR 324 </p></td>
                 </tr>
               
                 <tr>
                   <td>power_pct</td>
                   <td><a href="#float">float</a></td>
                   <td></td>
-                  <td><p>Percentage of motor&#39;s power, between 0-1 </p></td>
+                  <td><p>Percentage of motor&#39;s power, between 0-1
+To Do (FA): Following Jeremy&#39;s PR 324, this value can be between -1 and 1 </p></td>
                 </tr>
               
             </tbody>
@@ -5132,7 +5135,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>is_on</td>
                   <td><a href="#bool">bool</a></td>
                   <td></td>
-                  <td><p>Returns true if the motor is </p></td>
+                  <td><p> </p></td>
                 </tr>
               
             </tbody>
@@ -5415,7 +5418,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
         
       
         <h3 id="proto.api.v1.MotorStatus">MotorStatus</h3>
-        <p>To Do (FA): Add field to MotorStatus for PowerPercentage</p>
+        <p></p>
 
         
           <table class="field-table">
@@ -5435,7 +5438,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>position_supported</td>
                   <td><a href="#bool">bool</a></td>
                   <td></td>
-                  <td><p>To Do (FA): Delete this field </p></td>
+                  <td><p>Returns true if the motor has position support </p></td>
                 </tr>
               
                 <tr>
@@ -7278,16 +7281,16 @@ Return the PID configuration for a Motor</p></td>
                 <td>MotorSetPIDConfig</td>
                 <td><a href="#proto.api.v1.MotorSetPIDConfigRequest">MotorSetPIDConfigRequest</a></td>
                 <td><a href="#proto.api.v1.MotorSetPIDConfigResponse">MotorSetPIDConfigResponse</a></td>
-                <td><p>Set the PID configuration for a Motor
-TODO(FA): This will be removed in lieu of controls package</p></td>
+                <td><p>TODO(FA): This will be removed in lieu of controls package 
+Set the PID configuration for a Motor</p></td>
               </tr>
             
               <tr>
                 <td>MotorPIDStep</td>
                 <td><a href="#proto.api.v1.MotorPIDStepRequest">MotorPIDStepRequest</a></td>
                 <td><a href="#proto.api.v1.MotorPIDStepResponse">MotorPIDStepResponse</a> stream</td>
-                <td><p>Perform a step response on a motor
-TODO(): This will be removed in lieu of controls package</p></td>
+                <td><p>TODO(): This will be removed in lieu of controls package 
+Perform a step response on a motor</p></td>
               </tr>
             
               <tr>
@@ -7311,7 +7314,8 @@ percentage of its total power, expressed as a value between 0-1</p></td>
                 <td><a href="#proto.api.v1.MotorGoForRequest">MotorGoForRequest</a></td>
                 <td><a href="#proto.api.v1.MotorGoForResponse">MotorGoForResponse</a></td>
                 <td><p>MotorGoFor instructs the motor to turn in a specified direction and speed, which is expressed in RPM,
-for a specified number of rotations relative to its starting position</p></td>
+for a specified number of rotations relative to its starting position
+This method will return an error if MotorPositionSupported is false</p></td>
               </tr>
             
               <tr>
@@ -7319,39 +7323,40 @@ for a specified number of rotations relative to its starting position</p></td>
                 <td><a href="#proto.api.v1.MotorGoToRequest">MotorGoToRequest</a></td>
                 <td><a href="#proto.api.v1.MotorGoToResponse">MotorGoToResponse</a></td>
                 <td><p>MotorGoTo requests the robot&#39;s motor to move to a specific position that 
-is relative to its home position at a specified speed which is expressed in RPM</p></td>
+is relative to its home position at a specified speed which is expressed in RPM
+This method will return an error if MotorPositionSupported is false</p></td>
               </tr>
             
               <tr>
                 <td>MotorGoTillStop</td>
                 <td><a href="#proto.api.v1.MotorGoTillStopRequest">MotorGoTillStopRequest</a></td>
                 <td><a href="#proto.api.v1.MotorGoTillStopResponse">MotorGoTillStopResponse</a></td>
-                <td><p>MotorGoTillStop moves a motor until it is stopped. 
-The logic to trigger the &#34;stop&#34; mechanism is up to the underlying motor implementation
-To Do(FA): Add a MotorStop method</p></td>
+                <td><p>To Do (FA): This will be deprecated in favor of a  MotorStop method
+MotorGoTillStop moves a motor until it is stopped 
+The logic to trigger the &#34;stop&#34; mechanism is up to the underlying motor implementation</p></td>
               </tr>
             
               <tr>
                 <td>MotorZero</td>
                 <td><a href="#proto.api.v1.MotorZeroRequest">MotorZeroRequest</a></td>
                 <td><a href="#proto.api.v1.MotorZeroResponse">MotorZeroResponse</a></td>
-                <td><p>MotorZero sets the current position of the motor as the new zero position</p></td>
+                <td><p>MotorZero sets the current position of the motor as the new zero position
+This method will return an error if MotorPositionSupported is false</p></td>
               </tr>
             
               <tr>
                 <td>MotorPosition</td>
                 <td><a href="#proto.api.v1.MotorPositionRequest">MotorPositionRequest</a></td>
                 <td><a href="#proto.api.v1.MotorPositionResponse">MotorPositionResponse</a></td>
-                <td><p>MotorPosition reports the position of the robot&#39;s motor relative to its zero position</p></td>
+                <td><p>MotorPosition reports the position of the robot&#39;s motor relative to its zero position
+This method will return an error if MotorPositionSupported is false</p></td>
               </tr>
             
               <tr>
                 <td>MotorPositionSupported</td>
                 <td><a href="#proto.api.v1.MotorPositionSupportedRequest">MotorPositionSupportedRequest</a></td>
                 <td><a href="#proto.api.v1.MotorPositionSupportedResponse">MotorPositionSupportedResponse</a></td>
-                <td><p>MotorPositionSupported returns whether or not the robot&#39;s motor supports reporting of its position which
-is reliant on having an encoder
-To Do (FA): This will be deprecated</p></td>
+                <td><p>MotorPositionSupported returns whether or not the robot&#39;s motor supports reporting of its position</p></td>
               </tr>
             
               <tr>

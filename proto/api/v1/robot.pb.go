@@ -5080,7 +5080,6 @@ func (x *ExecuteSourceResponse) GetStdErr() string {
 	return ""
 }
 
-// To Do (FA): Add field to MotorStatus for PowerPercentage
 type MotorStatus struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -5088,7 +5087,7 @@ type MotorStatus struct {
 
 	// To D0 (FA): Delete this field
 	On bool `protobuf:"varint,1,opt,name=on,proto3" json:"on,omitempty"`
-	// To Do (FA): Delete this field
+	// Returns true if the motor has position support
 	PositionSupported bool `protobuf:"varint,2,opt,name=position_supported,json=positionSupported,proto3" json:"position_supported,omitempty"`
 	// Returns current position of the motor relative to its home
 	Position float64 `protobuf:"fixed64,3,opt,name=position,proto3" json:"position,omitempty"`
@@ -5801,8 +5800,10 @@ type MotorGoRequest struct {
 	// Name of a motor
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Motor's travel direction
+	// To Do (FA): This will be deprecated, following Jeremy's PR 324
 	Direction DirectionRelative `protobuf:"varint,2,opt,name=direction,proto3,enum=proto.api.v1.DirectionRelative" json:"direction,omitempty"`
 	// Percentage of motor's power, between 0-1
+	// To Do (FA): Following Jeremy's PR 324, this value can be between -1 and 1
 	PowerPct float32 `protobuf:"fixed32,3,opt,name=power_pct,json=powerPct,proto3" json:"power_pct,omitempty"`
 }
 
@@ -5905,6 +5906,7 @@ type MotorGoForRequest struct {
 	// Name of a motor
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Motor's travel direction
+	// To Do (FA): This will be deprecated, following Jeremy's PR 324
 	Direction DirectionRelative `protobuf:"varint,2,opt,name=direction,proto3,enum=proto.api.v1.DirectionRelative" json:"direction,omitempty"`
 	// Speed of motor travel in rotations per minute
 	Rpm float64 `protobuf:"fixed64,3,opt,name=rpm,proto3" json:"rpm,omitempty"`
@@ -6644,7 +6646,6 @@ type MotorIsOnResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Returns true if the motor is
 	IsOn bool `protobuf:"varint,1,opt,name=is_on,json=isOn,proto3" json:"is_on,omitempty"`
 }
 

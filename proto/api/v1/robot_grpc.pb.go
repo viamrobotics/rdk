@@ -116,11 +116,11 @@ type RobotServiceClient interface {
 	// TODO(FA): This will be removed in lieu of controls package
 	// Return the PID configuration for a Motor
 	MotorGetPIDConfig(ctx context.Context, in *MotorGetPIDConfigRequest, opts ...grpc.CallOption) (*MotorGetPIDConfigResponse, error)
-	// Set the PID configuration for a Motor
 	// TODO(FA): This will be removed in lieu of controls package
+	// Set the PID configuration for a Motor
 	MotorSetPIDConfig(ctx context.Context, in *MotorSetPIDConfigRequest, opts ...grpc.CallOption) (*MotorSetPIDConfigResponse, error)
-	// Perform a step response on a motor
 	// TODO(): This will be removed in lieu of controls package
+	// Perform a step response on a motor
 	MotorPIDStep(ctx context.Context, in *MotorPIDStepRequest, opts ...grpc.CallOption) (RobotService_MotorPIDStepClient, error)
 	// MotorPower sets the percentage of the motor's total power that should be employed
 	// expressed a value between 0-1
@@ -130,21 +130,23 @@ type RobotServiceClient interface {
 	MotorGo(ctx context.Context, in *MotorGoRequest, opts ...grpc.CallOption) (*MotorGoResponse, error)
 	// MotorGoFor instructs the motor to turn in a specified direction and speed, which is expressed in RPM,
 	// for a specified number of rotations relative to its starting position
+	// This method will return an error if MotorPositionSupported is false
 	MotorGoFor(ctx context.Context, in *MotorGoForRequest, opts ...grpc.CallOption) (*MotorGoForResponse, error)
 	// MotorGoTo requests the robot's motor to move to a specific position that
 	// is relative to its home position at a specified speed which is expressed in RPM
+	// This method will return an error if MotorPositionSupported is false
 	MotorGoTo(ctx context.Context, in *MotorGoToRequest, opts ...grpc.CallOption) (*MotorGoToResponse, error)
-	// MotorGoTillStop moves a motor until it is stopped.
+	// To Do (FA): This will be deprecated in favor of a  MotorStop method
+	// MotorGoTillStop moves a motor until it is stopped
 	// The logic to trigger the "stop" mechanism is up to the underlying motor implementation
-	// To Do(FA): Add a MotorStop method
 	MotorGoTillStop(ctx context.Context, in *MotorGoTillStopRequest, opts ...grpc.CallOption) (*MotorGoTillStopResponse, error)
 	// MotorZero sets the current position of the motor as the new zero position
+	// This method will return an error if MotorPositionSupported is false
 	MotorZero(ctx context.Context, in *MotorZeroRequest, opts ...grpc.CallOption) (*MotorZeroResponse, error)
 	// MotorPosition reports the position of the robot's motor relative to its zero position
+	// This method will return an error if MotorPositionSupported is false
 	MotorPosition(ctx context.Context, in *MotorPositionRequest, opts ...grpc.CallOption) (*MotorPositionResponse, error)
-	// MotorPositionSupported returns whether or not the robot's motor supports reporting of its position which
-	// is reliant on having an encoder
-	// To Do (FA): This will be deprecated
+	// MotorPositionSupported returns whether or not the robot's motor supports reporting of its position
 	MotorPositionSupported(ctx context.Context, in *MotorPositionSupportedRequest, opts ...grpc.CallOption) (*MotorPositionSupportedResponse, error)
 	// MotorOff turns the robot's motor off
 	// To Do (FA): This will be deprecated
@@ -1025,11 +1027,11 @@ type RobotServiceServer interface {
 	// TODO(FA): This will be removed in lieu of controls package
 	// Return the PID configuration for a Motor
 	MotorGetPIDConfig(context.Context, *MotorGetPIDConfigRequest) (*MotorGetPIDConfigResponse, error)
-	// Set the PID configuration for a Motor
 	// TODO(FA): This will be removed in lieu of controls package
+	// Set the PID configuration for a Motor
 	MotorSetPIDConfig(context.Context, *MotorSetPIDConfigRequest) (*MotorSetPIDConfigResponse, error)
-	// Perform a step response on a motor
 	// TODO(): This will be removed in lieu of controls package
+	// Perform a step response on a motor
 	MotorPIDStep(*MotorPIDStepRequest, RobotService_MotorPIDStepServer) error
 	// MotorPower sets the percentage of the motor's total power that should be employed
 	// expressed a value between 0-1
@@ -1039,21 +1041,23 @@ type RobotServiceServer interface {
 	MotorGo(context.Context, *MotorGoRequest) (*MotorGoResponse, error)
 	// MotorGoFor instructs the motor to turn in a specified direction and speed, which is expressed in RPM,
 	// for a specified number of rotations relative to its starting position
+	// This method will return an error if MotorPositionSupported is false
 	MotorGoFor(context.Context, *MotorGoForRequest) (*MotorGoForResponse, error)
 	// MotorGoTo requests the robot's motor to move to a specific position that
 	// is relative to its home position at a specified speed which is expressed in RPM
+	// This method will return an error if MotorPositionSupported is false
 	MotorGoTo(context.Context, *MotorGoToRequest) (*MotorGoToResponse, error)
-	// MotorGoTillStop moves a motor until it is stopped.
+	// To Do (FA): This will be deprecated in favor of a  MotorStop method
+	// MotorGoTillStop moves a motor until it is stopped
 	// The logic to trigger the "stop" mechanism is up to the underlying motor implementation
-	// To Do(FA): Add a MotorStop method
 	MotorGoTillStop(context.Context, *MotorGoTillStopRequest) (*MotorGoTillStopResponse, error)
 	// MotorZero sets the current position of the motor as the new zero position
+	// This method will return an error if MotorPositionSupported is false
 	MotorZero(context.Context, *MotorZeroRequest) (*MotorZeroResponse, error)
 	// MotorPosition reports the position of the robot's motor relative to its zero position
+	// This method will return an error if MotorPositionSupported is false
 	MotorPosition(context.Context, *MotorPositionRequest) (*MotorPositionResponse, error)
-	// MotorPositionSupported returns whether or not the robot's motor supports reporting of its position which
-	// is reliant on having an encoder
-	// To Do (FA): This will be deprecated
+	// MotorPositionSupported returns whether or not the robot's motor supports reporting of its position
 	MotorPositionSupported(context.Context, *MotorPositionSupportedRequest) (*MotorPositionSupportedResponse, error)
 	// MotorOff turns the robot's motor off
 	// To Do (FA): This will be deprecated

@@ -25,7 +25,7 @@ type ArmServiceClient interface {
 	MoveToPosition(ctx context.Context, in *ArmServiceMoveToPositionRequest, opts ...grpc.CallOption) (*ArmServiceMoveToPositionResponse, error)
 	// CurrentJointPositions lists the joint positions (in degrees) of every joint on a robot
 	CurrentJointPositions(ctx context.Context, in *ArmServiceCurrentJointPositionsRequest, opts ...grpc.CallOption) (*ArmServiceCurrentJointPositionsResponse, error)
-	// MoveToJointPositions moves every joint on a robot's arm to the specified number of degrees
+	// MoveToJointPositions moves every joint on a robot's arm to specified angles which are expressed in degrees
 	MoveToJointPositions(ctx context.Context, in *ArmServiceMoveToJointPositionsRequest, opts ...grpc.CallOption) (*ArmServiceMoveToJointPositionsResponse, error)
 	// JointMoveDelta moves a specific joint of a robot by the the specified number of degrees
 	JointMoveDelta(ctx context.Context, in *ArmServiceJointMoveDeltaRequest, opts ...grpc.CallOption) (*ArmServiceJointMoveDeltaResponse, error)
@@ -94,7 +94,7 @@ type ArmServiceServer interface {
 	MoveToPosition(context.Context, *ArmServiceMoveToPositionRequest) (*ArmServiceMoveToPositionResponse, error)
 	// CurrentJointPositions lists the joint positions (in degrees) of every joint on a robot
 	CurrentJointPositions(context.Context, *ArmServiceCurrentJointPositionsRequest) (*ArmServiceCurrentJointPositionsResponse, error)
-	// MoveToJointPositions moves every joint on a robot's arm to the specified number of degrees
+	// MoveToJointPositions moves every joint on a robot's arm to specified angles which are expressed in degrees
 	MoveToJointPositions(context.Context, *ArmServiceMoveToJointPositionsRequest) (*ArmServiceMoveToJointPositionsResponse, error)
 	// JointMoveDelta moves a specific joint of a robot by the the specified number of degrees
 	JointMoveDelta(context.Context, *ArmServiceJointMoveDeltaRequest) (*ArmServiceJointMoveDeltaResponse, error)

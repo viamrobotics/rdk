@@ -35,7 +35,7 @@ service ArmService {
     };  
   }
 
-  // MoveToJointPositions moves every joint on a robot's arm to the specified number of degrees
+  // MoveToJointPositions moves every joint on a robot's arm to specified angles which are expressed in degrees
   rpc MoveToJointPositions(ArmServiceMoveToJointPositionsRequest) returns (ArmServiceMoveToJointPositionsResponse) {
     option (google.api.http) = {
       put: "/api/v1/component/arm/{name}/move_to_joint_positions"
