@@ -12,9 +12,9 @@ import (
 
 	"go.viam.com/core/component/imu"
 	"go.viam.com/core/config"
-	pb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
+	"go.viam.com/core/spatialmath"
 
 	"go.viam.com/utils"
 
@@ -36,8 +36,8 @@ func init() {
 }
 
 type wit struct {
-	angularVelocity *pb.AngularVelocity
-	orientation     *pb.EulerAngles
+	angularVelocity *spatialmath.AngularVelocity
+	orientation     *spatialmath.EulerAngles
 	lastError       error
 
 	mu sync.Mutex
@@ -46,13 +46,13 @@ type wit struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (i *wit) AngularVelocity(ctx context.Context) (*pb.AngularVelocity, error) {
+func (i *wit) AngularVelocity(ctx context.Context) (*spatialmath.AngularVelocity, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return i.angularVelocity, i.lastError
 }
 
-func (i *wit) Orientation(ctx context.Context) (*pb.EulerAngles, error) {
+func (i *wit) Orientation(ctx context.Context) (*spatialmath.EulerAngles, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return i.orientation, i.lastError
