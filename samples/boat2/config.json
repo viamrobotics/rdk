@@ -10,45 +10,6 @@
                 "digitalInterrupts":
                 [
                     {
-                        "name": "throttle",
-                        "note": "rc1",
-                        "pin": "33",
-                        "type": "servo",
-                        "formula": "(max 0 (/ (- raw 1150) 8))"
-                    },
-                    {
-                        "name": "direction",
-                        "pin": "35",
-                        "type": "servo",
-                        "formula": "(/ (- raw 1500) -4)"
-                    },
-                    {
-                        "name": "speed",
-                        "note": "rc3",
-                        "pin": "37",
-                        "type": "servo",
-                        "formula": "(/ (- raw 1500) 4)"
-                    },
-                    {
-                        "name": "left-horizontal",
-                        "note": "rc4",
-                        "pin": "36",
-                        "type": "servo",
-                        "formula": "(/ (- raw 1500) -4)"
-                    },
-                    {
-                        "name": "a",
-                        "note": "rc5",
-                        "pin": "38",
-                        "type": "servo"
-                    },
-                    {
-                        "name": "mode",
-                        "note": "rc6",
-                        "pin": "40",
-                        "type": "servo"
-                    },
-                    {
                         "name": "encoder-steering-a",
                         "pin": "io23"
                     },
@@ -193,7 +154,20 @@
             "name": "WebGamepad",
             "model": "webgamepad",
             "type": "input_controller"
-        }
+        },
+        {
+            "name": "BoatRC",
+            "model": "mux",
+            "type": "input_controller",
+            "depends_on": [
+              "WebGamepad"
+            ],
+            "attributes": {
+              "sources": [
+                "WebGamepad"
+              ]
+            }
+          }
     ],
     "services":
     [

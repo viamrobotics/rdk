@@ -395,7 +395,7 @@ func (b *boat) Close() error {
 
 func runRC2(ctx context.Context, myBoat *boat) {
 	var err error
-	rc, ok := myBoat.myRobot.InputControllerByName("WebGamepad")
+	rc, ok := myBoat.myRobot.InputControllerByName("BoatRC")
 	if !ok {
 		return
 	}
@@ -404,12 +404,15 @@ func runRC2(ctx context.Context, myBoat *boat) {
 	navModeNum := OFFMODE
 	speed := 0.0
 	dir := 0.0
-	squirtPower := 0.0
 	previousPushMode := false
 	pushDirection := 0.0
 
+	err = myBoat.navService.SetMode(ctx, navigation.ModeManual)
+	if err != nil {
+		logger.Errorw("error setting mode: %w", err)
+	}
+
 	repFunc := func(ctx context.Context, event input.Event) {
-		// fmt.Printf("test %s:%s: %.4f\n", event.Control, event.Event, event.Value)
 		switch event.Control {
 		case input.ButtonNorth:
 			if event.Event == input.ButtonPress {
@@ -422,12 +425,24 @@ func runRC2(ctx context.Context, myBoat *boat) {
 					if pushFlag == 1 {
 						// push mode is activated with LT+North
 						navModeNum = PUSHMODE
+						err = myBoat.navService.SetMode(ctx, navigation.ModeManual)
+						if err != nil {
+							logger.Errorw("error setting mode: %w", err)
+						}
 					} else if navModeNum == MANUALMODE {
 						//only pressing North will switch between Robot and Manual
 						//Can only access ROBOT mode if in manual currently
 						navModeNum = ROBOTMODE
+						err = myBoat.navService.SetMode(ctx, navigation.ModeWaypoint)
+						if err != nil {
+							logger.Errorw("error setting mode: %w", err)
+						}
 					} else {
 						navModeNum = MANUALMODE
+						err = myBoat.navService.SetMode(ctx, navigation.ModeManual)
+						if err != nil {
+							logger.Errorw("error setting mode: %w", err)
+						}
 					}
 				}
 			}
@@ -441,14 +456,22 @@ func runRC2(ctx context.Context, myBoat *boat) {
 
 		case input.AbsoluteZ:
 			//only squirt if you actually press it
-			squirt := event.Value - .75
-			squirtPower = math.Max(0, squirt) + .75
+			if event.Value > .75 && navModeNum != OFFMODE {
+				myBoat.squirt.Power(ctx, float32(event.Value))
+			} else {
+				myBoat.squirt.Power(ctx, float32(0))
+			}
 
 		case input.ButtonStart:
 			// if the robot is "on", turn it "off", if off then go into robot mode
 			if event.Event == input.ButtonPress {
 				if navModeNum != OFFMODE {
+					// make sure we are not using waypoints and turn off
 					navModeNum = OFFMODE
+					err = myBoat.navService.SetMode(ctx, navigation.ModeManual)
+					if err != nil {
+						logger.Errorw("error setting mode: %w", err)
+					}
 				} else {
 					navModeNum = MANUALMODE
 				}
@@ -474,13 +497,12 @@ func runRC2(ctx context.Context, myBoat *boat) {
 
 	}
 	for {
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return
+		}
 
 		switch navModeNum {
 		case OFFMODE:
-			err = myBoat.navService.SetMode(ctx, navigation.ModeManual)
-			if err != nil {
-				logger.Errorw("error setting mode: %w", err)
-			}
 
 			err = myBoat.SteerAndMove(ctx, 0.0, 0.0)
 			if err != nil {
@@ -488,10 +510,6 @@ func runRC2(ctx context.Context, myBoat *boat) {
 				continue
 			}
 		case MANUALMODE:
-			err = myBoat.navService.SetMode(ctx, navigation.ModeManual)
-			if err != nil {
-				logger.Errorw("error setting mode: %w", err)
-			}
 
 			err = myBoat.SteerAndMove(ctx, dir, speed)
 			if err != nil {
@@ -499,10 +517,7 @@ func runRC2(ctx context.Context, myBoat *boat) {
 				continue
 			}
 		case ROBOTMODE:
-			err = myBoat.navService.SetMode(ctx, navigation.ModeWaypoint)
-			if err != nil {
-				logger.Errorw("error setting mode: %w", err)
-			}
+			//navservice(waypoint) handles everything
 		case PUSHMODE:
 			now, err := myBoat.myImu.Orientation(ctx)
 			if err != nil {
@@ -521,19 +536,10 @@ func runRC2(ctx context.Context, myBoat *boat) {
 			fmt.Printf("pushDirection: %0.1f now: %0.1f delta: %0.2f steer: %.2f\n",
 				pushDirection, now.EulerAngles().Yaw, delta, steer)
 
-			err = multierr.Combine(
-				myBoat.SteerAndMove(ctx, steer, 1.0),
-				myBoat.squirt.Power(ctx, 1.0),
-			)
+			err = myBoat.SteerAndMove(ctx, steer, 1.0)
 			if err != nil {
 				logger.Errorw("error in push mode: %w", err)
 			}
-		}
-
-		if navModeNum == OFFMODE {
-			err = myBoat.squirt.Power(ctx, float32(0))
-		} else {
-			err = myBoat.squirt.Power(ctx, float32(squirtPower))
 		}
 
 		if err != nil {
