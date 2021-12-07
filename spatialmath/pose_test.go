@@ -137,3 +137,8 @@ func BenchmarkDeltaPose(b *testing.B) {
 		PoseDelta(p1b, p2b)
 	}
 }
+func BenchmarkPoseBetween(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		PoseBetween(p1b, p2b)
+	}
+}

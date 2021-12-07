@@ -27,6 +27,7 @@ type Model struct {
 	OrdTransforms []Frame
 	poseCache     *sync.Map
 	limits        []Limit
+	lock          sync.RWMutex
 }
 
 // NewModel constructs a new model.
@@ -165,9 +166,11 @@ func (m *Model) OperationalDoF() int {
 
 // DoF returns the number of degrees of freedom within an arm.
 func (m *Model) DoF() []Limit {
+	m.lock.RLock()
 	if len(m.limits) > 0 {
 		return m.limits
 	}
+	m.lock.RUnlock()
 
 	limits := make([]Limit, 0, len(m.OrdTransforms)-1)
 	for _, transform := range m.OrdTransforms {
@@ -175,7 +178,9 @@ func (m *Model) DoF() []Limit {
 			limits = append(limits, transform.DoF()...)
 		}
 	}
+	m.lock.Lock()
 	m.limits = limits
+	m.lock.Unlock()
 	return limits
 }
 
