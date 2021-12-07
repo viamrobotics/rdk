@@ -8,7 +8,6 @@ import (
 	rpcclient "go.viam.com/utils/rpc/client"
 	"go.viam.com/utils/rpc/dialer"
 
-	// "go.viam.com/core/component/imu"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/spatialmath"
 
@@ -116,7 +115,5 @@ func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
 }
 
 func (c *client) Desc() sensor.Description {
-	// return sensor.Description{sensor.Type(imu.SubtypeName), ""}
-	// TODO(maximpertsov): fix circular import
-	return sensor.Description{sensor.Type("imu"), ""}
+	return sensor.Description{sensor.Type(SubtypeName), ""}
 }
