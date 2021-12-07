@@ -41,6 +41,10 @@ type ControlLoop struct {
 	dt     time.Duration
 }
 
+func NewControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConfig, m Controllable) (*ControlLoop, error) {
+	return createControlLoop(ctx, logger, cfg, m)
+}
+
 func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConfig, m Controllable) (*ControlLoop, error) {
 	var c ControlLoop
 	c.logger = logger
@@ -53,6 +57,9 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 			return nil, err
 		}
 		c.blocks[bcfg.Name] = &controlBlockInternal{blk: blk, blockType: bcfg.Type}
+		if bcfg.Type == blockEndpoint {
+			c.blocks[bcfg.Name].blk.(*endpoint).ctr = m
+		}
 	}
 	for _, b := range c.blocks {
 		for _, dep := range b.blk.Config(ctx).DependsOn {
@@ -73,8 +80,8 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 				b := b
 				ctx := ctx
 				close(waitCh)
-				for d := range t {
-					logger.Debugf("Impulse on BLOCK %s %+v \r\n", b.blk.Config(ctx).Name, d)
+				for range t {
+					//logger.Debugf("Impulse on BLOCK %s %+v \r\n", b.blk.Config(ctx).Name, d)
 					v, _ := b.blk.Next(ctx, nil, c.dt)
 					for _, out := range b.outs {
 						out <- v
@@ -103,13 +110,14 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 				sw := make([]Signal, nInputs)
 				close(waitCh)
 				for {
-					ci, s, ok := reflect.Select(cases)
-					logger.Debugf("Running Block %s %+v %+v OK : %+v\r\n", b.blk.Config(ctx).Name, s.IsZero(), s, ok)
+					ci, s, _ := reflect.Select(cases)
+					//logger.Debugf("Running Block %s %+v %+v OK : %+v\r\n", b.blk.Config(ctx).Name, s.IsZero(), s, ok)
 					if s.IsZero() {
 						b.mu.Lock()
 						for _, out := range b.outs {
 							close(out)
 						}
+						//logger.Debugf("Closing outs for block %s %+v\r\n", b.blk.Config(ctx).Name, s.Interface().([]Signal))
 						b.outs = nil
 						b.mu.Unlock()
 						return
@@ -123,7 +131,7 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 					i++
 					if i == nInputs {
 						v, ok := b.blk.Next(ctx, sw, c.dt)
-						logger.Debugf("Have signals for Block %s ins %+v returned %v\r\n", b.blk.Config(ctx).Name, sw, ok)
+						//logger.Debugf("Have signals for Block %s ins %+v returned %v ok %v\r\n", b.blk.Config(ctx).Name, sw, v, ok)
 						if ok {
 							for _, out := range b.outs {
 								out <- v
@@ -156,6 +164,15 @@ func (c *ControlLoop) ConfigAt(ctx context.Context, name string) (ControlBlockCo
 		return ControlBlockConfig{}, errors.Errorf("cannot return Config for non existing block %s", name)
 	}
 	return blk.blk.Config(ctx), nil
+}
+
+// SetConfigAt returns the Configl at the block name, error when the block doesn't exist
+func (c *ControlLoop) SetConfigAt(ctx context.Context, name string, config ControlBlockConfig) error {
+	blk, ok := c.blocks[name]
+	if !ok {
+		return errors.Errorf("cannot return Config for non existing block %s", name)
+	}
+	return blk.blk.Configure(ctx, config)
 }
 
 //BlockList returns the list of blocks in a control loop error when the list is empty
@@ -216,4 +233,9 @@ func (c *ControlLoop) Stop(ctx context.Context) error {
 	c.ct.ticker.Stop()
 	close(c.ct.stop)
 	return nil
+}
+
+//Stop stops then loop
+func (c *ControlLoop) GetConfig(ctx context.Context) ControlConfig {
+	return c.cfg
 }
