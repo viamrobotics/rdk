@@ -17,6 +17,7 @@ type IMU struct {
 	AngularVelocityFunc func(ctx context.Context) (*spatialmath.AngularVelocity, error)
 	OrientationFunc     func(ctx context.Context) (*spatialmath.EulerAngles, error)
 	ReadingsFunc        func(ctx context.Context) ([]interface{}, error)
+	DescFunc            func() sensor.Description
 	CloseFunc           func() error
 }
 
@@ -46,7 +47,10 @@ func (i *IMU) Readings(ctx context.Context) ([]interface{}, error) {
 
 // Desc returns that this is an IMU.
 func (i *IMU) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(imu.SubtypeName), ""}
+	if i.DescFunc == nil {
+		return i.IMU.Desc()
+	}
+	return i.DescFunc()
 }
 
 // Close calls the injected Close or the real version.
