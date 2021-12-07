@@ -103,12 +103,10 @@ func NewPoseFromDH(a, d, alpha float64) Pose {
 }
 
 // Compose treats Poses as functions A(x) and B(x), and produces a new function C(x) = A(B(x)).
-// It converts the poses to dual quaternions and multiplies them together, normalizes the transformm and returns a new Pose.
+// It converts the poses to dual quaternions and multiplies them together, normalizes the transform and returns a new Pose.
 // Composition does not commute in general, i.e. you cannot guarantee ABx == BAx
 func Compose(a, b Pose) Pose {
-	aq := dualQuaternionFromPose(a)
-	bq := dualQuaternionFromPose(b)
-	result := &dualQuaternion{aq.Transformation(bq.Number)}
+	result := &dualQuaternion{dualQuaternionFromPose(a).Transformation(dualQuaternionFromPose(b).Number)}
 
 	// Normalization
 	if vecLen := 1 / quat.Abs(result.Real); vecLen != 1 {
@@ -120,12 +118,19 @@ func Compose(a, b Pose) Pose {
 	return result
 }
 
+// PoseBetween returns the difference between two dualQuaternions, that is, the dq which if multiplied by one will give the other.
+func PoseBetween(a, b Pose) Pose {
+	return &dualQuaternion{dualquat.Mul(dualQuaternionFromPose(b).Number, dualquat.ConjQuat(dualQuaternionFromPose(a).Number))}
+}
+
 // PoseDelta returns the difference between two dualQuaternion.
 // We use quaternion/angle axis for this because distances are well-defined.
 func PoseDelta(a, b Pose) Pose {
-	aq := dualQuaternionFromPose(a)
-	bq := dualQuaternionFromPose(b)
-	return &dualQuaternion{dualquat.Mul(bq.Number, dualquat.ConjQuat(aq.Number))}
+	aQ := a.Orientation().Quaternion()
+	bQ := b.Orientation().Quaternion()
+	orientationDiff := quat.Mul(bQ, quat.Conj(aQ))
+	translationDiff := a.Point().Sub(b.Point())
+	return &distancePose{translationDiff, (*quaternion)(&orientationDiff)}
 }
 
 // PoseToProtobuf converts a pose to the pose format protobuf expects (which is as OrientationVectorDegrees)
@@ -170,4 +175,19 @@ func AlmostCoincident(a, b Pose) bool {
 	ap := a.Point()
 	bp := b.Point()
 	return math.Abs(ap.X-bp.X) < epsilon && math.Abs(ap.Y-bp.Y) < epsilon && math.Abs(ap.Z-bp.Z) < epsilon
+}
+
+// distancePose holds an already computed pose and orientation. It is not efficient to do spatial math on a
+// distancePose, use a dualQuaternion instead.
+// A distancePose is useful when you need to return e.g. a computed point within a pose without converting back to a DQ.
+type distancePose struct {
+	point       r3.Vector
+	orientation Orientation
+}
+
+func (d *distancePose) Point() r3.Vector {
+	return d.point
+}
+func (d *distancePose) Orientation() Orientation {
+	return d.orientation
 }
