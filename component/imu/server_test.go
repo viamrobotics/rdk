@@ -9,6 +9,7 @@ import (
 	"go.viam.com/core/component/imu"
 	pb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/resource"
+	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/subtype"
 	"go.viam.com/core/testutils/inject"
 )
@@ -34,19 +35,19 @@ func TestServer(t *testing.T) {
 	imuServer, injectIMU, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	av := &pb.AngularVelocity{X: 1, Y: 2, Z: 3}
-	ea := &pb.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
-	injectIMU.AngularVelocityFunc = func(ctx context.Context) (*pb.AngularVelocity, error) {
+	av := &spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
+	ea := &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
+	injectIMU.AngularVelocityFunc = func(ctx context.Context) (*spatialmath.AngularVelocity, error) {
 		return av, nil
 	}
-	injectIMU.OrientationFunc = func(ctx context.Context) (*pb.EulerAngles, error) {
+	injectIMU.OrientationFunc = func(ctx context.Context) (*spatialmath.EulerAngles, error) {
 		return ea, nil
 	}
 
 	t.Run("IMU angular velocity", func(t *testing.T) {
 		resp, err := imuServer.AngularVelocity(context.Background(), &pb.IMUServiceAngularVelocityRequest{Name: testIMUName})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.AngularVelocity.String(), test.ShouldResemble, av.String())
+		test.That(t, resp.AngularVelocity, test.ShouldResemble, av)
 
 		_, err = imuServer.AngularVelocity(context.Background(), &pb.IMUServiceAngularVelocityRequest{Name: fakeIMUName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -60,7 +61,7 @@ func TestServer(t *testing.T) {
 	t.Run("IMU orientation", func(t *testing.T) {
 		resp, err := imuServer.Orientation(context.Background(), &pb.IMUServiceOrientationRequest{Name: testIMUName})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Orientation.String(), test.ShouldResemble, ea.String())
+		test.That(t, resp.Orientation, test.ShouldResemble, ea)
 
 		_, err = imuServer.Orientation(context.Background(), &pb.IMUServiceOrientationRequest{Name: fakeIMUName})
 		test.That(t, err, test.ShouldNotBeNil)
