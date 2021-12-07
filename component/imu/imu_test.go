@@ -6,6 +6,7 @@ import (
 
 	pb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/resource"
+	"go.viam.com/core/spatialmath"
 
 	"go.viam.com/test"
 )
@@ -114,12 +115,12 @@ type mock struct {
 	reconfCalls          int
 }
 
-func (m *mock) AngularVelocity(ctx context.Context) (*pb.AngularVelocity, error) {
+func (m *mock) AngularVelocity(ctx context.Context) (*spatialmath.AngularVelocity, error) {
 	m.angularVelocityCalls++
-	return &pb.AngularVelocity{X: 1, Y: 2, Z: 3}, nil
+	return &spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}, nil
 }
-func (m *mock) Orientation(ctx context.Context) (*pb.EulerAngles, error) {
+func (m *mock) Orientation(ctx context.Context) (*spatialmath.EulerAngles, error) {
 	m.orientationCalls++
-	return &pb.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}, nil
+	return &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}, nil
 }
 func (m *mock) Close() error { m.reconfCalls++; return nil }
