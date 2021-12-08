@@ -58,7 +58,7 @@ func TestDualQuatTransform(t *testing.T) {
 	// Start with point [3, 4, 5] - Rotate by 180 degrees around x-axis and then displace by [4,2,6]
 	pt := NewPoseFromPoint(r3.Vector{3., 4., 5.}) // starting point
 	tr := &dualQuaternion{dualquat.Number{Real: quat.Number{Real: 0, Imag: 1}}}
-	tr.SetTranslation(4., 2., 6.)
+	tr.SetTranslation(r3.Vector{4., 2., 6.})
 
 	trAA := NewPoseFromAxisAngle(r3.Vector{4., 2., 6.}, r3.Vector{1, 0, 0}, math.Pi) // same transformation from axis angle
 	// ensure transformation is the same between both definitions
@@ -126,4 +126,19 @@ func TestAlmostCoincident(t *testing.T) {
 	p3 := NewPoseFromPoint(r3.Vector{1.0000001, 2.999999, 3.0000001})
 	test.That(t, AlmostCoincident(p1, p2), test.ShouldBeTrue)
 	test.That(t, AlmostCoincident(p1, p3), test.ShouldBeFalse)
+}
+
+var ov = &OrientationVector{math.Pi / 2, 0, 0, -1}
+var p1b = NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, ov)
+var p2b = NewPoseFromOrientationVector(r3.Vector{2, 3, 4}, ov)
+
+func BenchmarkDeltaPose(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		PoseDelta(p1b, p2b)
+	}
+}
+func BenchmarkPoseBetween(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		PoseBetween(p1b, p2b)
+	}
 }
