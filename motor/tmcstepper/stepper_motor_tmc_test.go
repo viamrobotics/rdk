@@ -95,7 +95,6 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, utils.TryClose(m), test.ShouldBeNil)
 	}()
 
-	// Test Go both backwards and forwards
 	t.Run("motor Go testing", func(t *testing.T) {
 		// Test Go forward at half speed
 		go checkTx(t, c, [][]byte{
@@ -112,7 +111,6 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, m.Go(ctx, -0.25), test.ShouldBeNil)
 	})
 
-	// Test Off
 	t.Run("motor Off testing", func(t *testing.T) {
 		go checkTx(t, c, [][]byte{
 			{160, 0, 0, 0, 1},
@@ -121,7 +119,6 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, m.Off(ctx), test.ShouldBeNil)
 	})
 
-	// Test Position
 	t.Run("motor position testing", func(t *testing.T) {
 		// Check at 4.0 revolutions
 		go checkRx(t, c,
@@ -139,7 +136,6 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	// Test GoFor - RPM + and REV +
 	t.Run("motor GoFor with positive rpm and positive revolutions", func(t *testing.T) {
 		// Check with position at 0.0 revolutions
 		go checkTx(t, c, [][]byte{
@@ -190,7 +186,6 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, m.GoFor(ctx, 50.0, 6.6), test.ShouldBeNil)
 	})
 
-	// Test GoFor with RPM - and REV +
 	t.Run("motor GoFor with negative rpm and positive revolutions", func(t *testing.T) {
 		// Check with position at 0.0 revolutions
 		go checkTx(t, c, [][]byte{
@@ -241,7 +236,6 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, m.GoFor(ctx, -50.0, 6.6), test.ShouldBeNil)
 	})
 
-	// Test GoFor with RPM + and REV -
 	t.Run("motor GoFor with positive rpm and negative revolutions", func(t *testing.T) {
 		// Check with position at 0.0 revolutions
 		go checkTx(t, c, [][]byte{
@@ -292,7 +286,6 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, m.GoFor(ctx, 50.0, -6.6), test.ShouldBeNil)
 	})
 
-	// Test GoFor with RPM - and REV -
 	t.Run("motor GoFor with negative rpm and negative revolutions", func(t *testing.T) {
 		// Check with position at 0.0 revolutions
 		go checkTx(t, c, [][]byte{
@@ -343,7 +336,6 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, m.GoFor(ctx, -50.0, -6.6), test.ShouldBeNil)
 	})
 
-	// Test IsOn when off and on
 	t.Run("motor is on testing", func(t *testing.T) {
 		// Off
 		go checkRx(t, c,
@@ -376,7 +368,6 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	// Test Zero
 	t.Run("motor zero testing", func(t *testing.T) {
 		// No offset (and when actually off)
 		go checkTx(t, c, [][]byte{
@@ -412,7 +403,6 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, m.Zero(ctx, 3.1), test.ShouldBeNil)
 	})
 
-	// Test GoTillStop
 	t.Run("motor gotillstop testing", func(t *testing.T) {
 		go func() {
 			// GoFor
