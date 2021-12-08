@@ -137,5 +137,5 @@ func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 
 // Close cleanly closes the underlying connections
 func (c *client) Close() error {
-	return c.conn.Close()
+	return c.serviceClient.Close()
 }

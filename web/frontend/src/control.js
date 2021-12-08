@@ -11,6 +11,8 @@ window.gripperApi = require('proto/api/component/v1/gripper_pb.js');
 const { GripperServiceClient } = require('proto/api/component/v1/gripper_pb_service.js');
 window.servoApi = require('proto/api/component/v1/servo_pb.js');
 const { ServoServiceClient } = require('proto/api/component/v1/servo_pb_service.js');
+window.cameraApi = require('proto/api/component/v1/camera_pb.js');
+const { CameraServiceClient } = require('proto/api/component/v1/camera_pb_service.js');
 window.commonApi = require('proto/api/common/v1/common_pb.js');
 const { dial } = require("@viamrobotics/rpc");
 window.THREE = require("three/build/three.module.js")
@@ -47,6 +49,7 @@ if (window.webrtcEnabled) {
 			window.gantryService = new GantryServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
 			window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
 			window.servoService = new ServoServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
+			window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
 		} catch (e) {
 			console.error("error dialing:", e);
 			throw e;
@@ -64,6 +67,7 @@ if (window.webrtcEnabled) {
 	window.gantryService = new GantryServiceClient(url);
 	window.gripperService = new GripperServiceClient(url);
 	window.servoService = new ServoServiceClient(url);
+	window.cameraService = new CameraServiceClient(url);
 	pResolve(undefined);
 }
 
