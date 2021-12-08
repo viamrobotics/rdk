@@ -81,9 +81,9 @@ func (c *client) AngularVelocity(ctx context.Context) (*spatialmath.AngularVeloc
 		return nil, err
 	}
 	return &spatialmath.AngularVelocity{
-		X: resp.AngularVelocity.X,
-		Y: resp.AngularVelocity.Y,
-		Z: resp.AngularVelocity.Z,
+		X: *resp.AngularVelocity.X,
+		Y: *resp.AngularVelocity.Y,
+		Z: *resp.AngularVelocity.Z,
 	}, nil
 }
 
@@ -95,9 +95,9 @@ func (c *client) Orientation(ctx context.Context) (*spatialmath.EulerAngles, err
 		return nil, err
 	}
 	return &spatialmath.EulerAngles{
-		Roll:  resp.Orientation.Roll,
-		Pitch: resp.Orientation.Pitch,
-		Yaw:   resp.Orientation.Yaw,
+		Roll:  *resp.Orientation.Roll,
+		Pitch: *resp.Orientation.Pitch,
+		Yaw:   *resp.Orientation.Yaw,
 	}, nil
 }
 
