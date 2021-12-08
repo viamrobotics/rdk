@@ -10,7 +10,6 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/motor/tmcstepper"
-	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/testutils/inject"
@@ -96,272 +95,434 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, utils.TryClose(m), test.ShouldBeNil)
 	}()
 
-	// Test Go forward at half speed
-	go checkTx(t, c, [][]byte{
-		{160, 0, 0, 0, 1},
-		{167, 0, 4, 35, 42},
+	t.Run("motor Go testing", func(t *testing.T) {
+		// Test Go forward at half speed
+		go checkTx(t, c, [][]byte{
+			{160, 0, 0, 0, 1},
+			{167, 0, 4, 35, 42},
+		})
+		test.That(t, m.Go(ctx, 0.5), test.ShouldBeNil)
+
+		// Test Go backward at quarter speed
+		go checkTx(t, c, [][]byte{
+			{160, 0, 0, 0, 2},
+			{167, 0, 2, 17, 149},
+		})
+		test.That(t, m.Go(ctx, -0.25), test.ShouldBeNil)
 	})
-	test.That(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 0.5), test.ShouldBeNil)
 
-	// Test Go backward at quarter speed
-	go checkTx(t, c, [][]byte{
-		{160, 0, 0, 0, 2},
-		{167, 0, 2, 17, 149},
+	t.Run("motor Off testing", func(t *testing.T) {
+		go checkTx(t, c, [][]byte{
+			{160, 0, 0, 0, 1},
+			{167, 0, 0, 0, 0},
+		})
+		test.That(t, m.Off(ctx), test.ShouldBeNil)
 	})
-	test.That(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 0.25), test.ShouldBeNil)
 
-	// Test Off
-	go checkTx(t, c, [][]byte{
-		{160, 0, 0, 0, 1},
-		{167, 0, 0, 0, 0},
+	t.Run("motor position testing", func(t *testing.T) {
+		// Check at 4.0 revolutions
+		go checkRx(t, c,
+			[][]byte{
+				{33, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+			},
+			[][]byte{
+				{0, 1, 6, 18, 3}, // Can be gibberish, only second register is valid
+				{0, 0, 3, 32, 0},
+			},
+		)
+		pos, err := m.Position(ctx)
+		test.That(t, pos, test.ShouldEqual, 4.0)
+		test.That(t, err, test.ShouldBeNil)
 	})
-	test.That(t, m.Off(ctx), test.ShouldBeNil)
 
-	// Test GoFor (which calls Position and GoTo) with position at zero
-	go checkTx(t, c, [][]byte{
-		{33, 0, 0, 0, 0},
-		{33, 0, 0, 0, 0},
-		{160, 0, 0, 0, 0},
-		{167, 0, 0, 211, 213},
-		{173, 0, 2, 128, 0},
-	})
-	test.That(t, m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 50.0, 3.2), test.ShouldBeNil)
-
-	// Test Position at 4.0 revolutions
-	go checkRx(t, c,
-		[][]byte{
-			{33, 0, 0, 0, 0},
-			{33, 0, 0, 0, 0},
-		},
-		[][]byte{
-			{0, 1, 6, 18, 3}, // Can be gibberish, only second register is valid
-			{0, 0, 3, 32, 0},
-		},
-	)
-	pos, err := m.Position(ctx)
-	test.That(t, pos, test.ShouldEqual, 4.0)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Test GoFor (which calls Position and GoTo) with position at 4.0 revolutions
-	go checkRx(t, c,
-		[][]byte{
+	t.Run("motor GoFor with positive rpm and positive revolutions", func(t *testing.T) {
+		// Check with position at 0.0 revolutions
+		go checkTx(t, c, [][]byte{
 			{33, 0, 0, 0, 0},
 			{33, 0, 0, 0, 0},
 			{160, 0, 0, 0, 0},
 			{167, 0, 0, 211, 213},
-			{173, 0, 5, 160, 0},
-		},
-		[][]byte{
-			{0, 8, 98, 98, 7}, // Can be gibberish
-			{0, 0, 3, 32, 0},
-			{0, 0, 0, 0, 0},
-			{0, 0, 0, 0, 0},
-			{0, 0, 0, 0, 0},
-		},
-	)
-	test.That(t, m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 50.0, 3.2), test.ShouldBeNil)
+			{173, 0, 2, 128, 0},
+		})
+		test.That(t, m.GoFor(ctx, 50.0, 3.2), test.ShouldBeNil)
 
-	// Test GoFor (which calls Position and GoTo) with position at 1.2 revolutions
-	go checkRx(t, c,
-		[][]byte{
+		// Check with position at 4.0 revolutions
+		go checkRx(t, c,
+			[][]byte{
+				{33, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+				{160, 0, 0, 0, 0},
+				{167, 0, 0, 211, 213},
+				{173, 0, 5, 160, 0},
+			},
+			[][]byte{
+				{0, 8, 98, 98, 7}, // Can be gibberish
+				{0, 0, 3, 32, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+			},
+		)
+		test.That(t, m.GoFor(ctx, 50.0, 3.2), test.ShouldBeNil)
+
+		// Check with position at 1.2 revolutions
+		go checkRx(t, c,
+			[][]byte{
+				{33, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+				{160, 0, 0, 0, 0},
+				{167, 0, 0, 211, 213},
+				{173, 0, 6, 24, 0},
+			},
+			[][]byte{
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 240, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+			},
+		)
+		test.That(t, m.GoFor(ctx, 50.0, 6.6), test.ShouldBeNil)
+	})
+
+	t.Run("motor GoFor with negative rpm and positive revolutions", func(t *testing.T) {
+		// Check with position at 0.0 revolutions
+		go checkTx(t, c, [][]byte{
 			{33, 0, 0, 0, 0},
 			{33, 0, 0, 0, 0},
 			{160, 0, 0, 0, 0},
 			{167, 0, 0, 211, 213},
-			{173, 0, 6, 24, 0},
-		},
-		[][]byte{
-			{0, 0, 0, 0, 0},
-			{0, 0, 0, 240, 0},
-			{0, 0, 0, 0, 0},
-			{0, 0, 0, 0, 0},
-			{0, 0, 0, 0, 0},
-		},
-	)
-	test.That(t, m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 50.0, 6.6), test.ShouldBeNil)
+			{173, 255, 253, 128, 0},
+		})
+		test.That(t, m.GoFor(ctx, -50.0, 3.2), test.ShouldBeNil)
 
-	// Test IsOn when off
-	go checkRx(t, c,
-		[][]byte{
-			{34, 0, 0, 0, 0},
-			{34, 0, 0, 0, 0},
-		},
-		[][]byte{
-			{0, 0, 8, 18, 3}, // Can be gibberish
-			{0, 0, 0, 0, 0},  // Zero velocity == "off"
-		},
-	)
-	on, err := m.IsOn(ctx)
-	test.That(t, on, test.ShouldEqual, false)
-	test.That(t, err, test.ShouldBeNil)
+		// Check with position at 4.0 revolutions
+		go checkRx(t, c,
+			[][]byte{
+				{33, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+				{160, 0, 0, 0, 0},
+				{167, 0, 0, 211, 213},
+				{173, 0, 0, 159, 255},
+			},
+			[][]byte{
+				{0, 8, 98, 98, 7}, // Can be gibberish
+				{0, 0, 3, 32, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+			},
+		)
+		test.That(t, m.GoFor(ctx, -50.0, 3.2), test.ShouldBeNil)
 
-	// Test IsOn when on
-	go checkRx(t, c,
-		[][]byte{
-			{34, 0, 0, 0, 0},
-			{34, 0, 0, 0, 0},
-		},
-		[][]byte{
-			{0, 1, 6, 18, 3}, // Can be gibberish
-			{0, 0, 0, 50, 0}, // Non-Zero velocity == "on"
-		},
-	)
-	on, err = m.IsOn(ctx)
-	test.That(t, on, test.ShouldEqual, true)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Test Zero with no offset (and when actually off)
-	go checkTx(t, c, [][]byte{
-		{34, 0, 0, 0, 0},
-		{34, 0, 0, 0, 0},
-		{160, 0, 0, 0, 3},
-		{173, 0, 0, 0, 0},
-		{161, 0, 0, 0, 0},
+		// Check with position at 1.2 revolutions
+		go checkRx(t, c,
+			[][]byte{
+				{33, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+				{160, 0, 0, 0, 0},
+				{167, 0, 0, 211, 213},
+				{173, 255, 251, 200, 0},
+			},
+			[][]byte{
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 240, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+			},
+		)
+		test.That(t, m.GoFor(ctx, -50.0, 6.6), test.ShouldBeNil)
 	})
-	test.That(t, m.Zero(ctx, 0), test.ShouldBeNil)
 
-	// Test Zero with no offset (and when actually on)
-	go checkRx(t, c,
-		[][]byte{
-			{34, 0, 0, 0, 0},
-			{34, 0, 0, 0, 0},
-		},
-		[][]byte{
-			{0, 0, 128, 0, 0},
-			{0, 0, 128, 0, 0},
-		},
-	)
-	test.That(t, m.Zero(ctx, 0), test.ShouldNotBeNil)
+	t.Run("motor GoFor with positive rpm and negative revolutions", func(t *testing.T) {
+		// Check with position at 0.0 revolutions
+		go checkTx(t, c, [][]byte{
+			{33, 0, 0, 0, 0},
+			{33, 0, 0, 0, 0},
+			{160, 0, 0, 0, 0},
+			{167, 0, 0, 211, 213},
+			{173, 255, 253, 128, 0},
+		})
+		test.That(t, m.GoFor(ctx, 50.0, -3.2), test.ShouldBeNil)
 
-	// Test Zero with 3.1 offset (and when actually off)
-	go checkTx(t, c, [][]byte{
-		{34, 0, 0, 0, 0},
-		{34, 0, 0, 0, 0},
-		{160, 0, 0, 0, 3},
-		{173, 0, 2, 108, 0},
-		{161, 0, 2, 108, 0},
+		// Check with position at 4.0 revolutions
+		go checkRx(t, c,
+			[][]byte{
+				{33, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+				{160, 0, 0, 0, 0},
+				{167, 0, 0, 211, 213},
+				{173, 0, 0, 159, 255},
+			},
+			[][]byte{
+				{0, 8, 98, 98, 7}, // Can be gibberish
+				{0, 0, 3, 32, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+			},
+		)
+		test.That(t, m.GoFor(ctx, 50.0, -3.2), test.ShouldBeNil)
+
+		// Check with position at 1.2 revolutions
+		go checkRx(t, c,
+			[][]byte{
+				{33, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+				{160, 0, 0, 0, 0},
+				{167, 0, 0, 211, 213},
+				{173, 255, 251, 200, 0},
+			},
+			[][]byte{
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 240, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+			},
+		)
+		test.That(t, m.GoFor(ctx, 50.0, -6.6), test.ShouldBeNil)
 	})
-	test.That(t, m.Zero(ctx, 3.1), test.ShouldBeNil)
 
-	// Test GoTillStop with no extra stop func
-	go func() {
-		// GoFor
-		checkTx(t, c, [][]byte{
+	t.Run("motor GoFor with negative rpm and negative revolutions", func(t *testing.T) {
+		// Check with position at 0.0 revolutions
+		go checkTx(t, c, [][]byte{
 			{33, 0, 0, 0, 0},
 			{33, 0, 0, 0, 0},
 			{160, 0, 0, 0, 0},
-			{167, 0, 0, 105, 234},
-			{173, 252, 242, 192, 0},
+			{167, 0, 0, 211, 213},
+			{173, 0, 2, 128, 0},
 		})
+		test.That(t, m.GoFor(ctx, -50.0, -3.2), test.ShouldBeNil)
 
-		// RampStat (for velocity reached)
-		checkRx(t, c,
+		// Check with position at 4.0 revolutions
+		go checkRx(t, c,
 			[][]byte{
-				{53, 0, 0, 0, 0},
-				{53, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+				{160, 0, 0, 0, 0},
+				{167, 0, 0, 211, 213},
+				{173, 0, 5, 160, 0},
 			},
 			[][]byte{
-				{0, 0, 0, 1, 0},
-				{0, 0, 0, 1, 0},
-			},
-		)
-
-		// Enable SG
-		checkTx(t, c, [][]byte{
-			{180, 0, 0, 4, 0},
-		})
-
-		// RampStat (for velocity zero reached)
-		checkRx(t, c,
-			[][]byte{
-				{53, 0, 0, 0, 0},
-				{53, 0, 0, 0, 0},
-			},
-			[][]byte{
-				{0, 0, 0, 4, 0},
-				{0, 0, 0, 4, 0},
+				{0, 8, 98, 98, 7}, // Can be gibberish
+				{0, 0, 3, 32, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
 			},
 		)
+		test.That(t, m.GoFor(ctx, -50.0, -3.2), test.ShouldBeNil)
 
-		// Deferred off and SG disable
-		checkTx(t, c, [][]byte{
-			{180, 0, 0, 0, 0},
-			{160, 0, 0, 0, 1},
-			{167, 0, 0, 0, 0},
-		})
-
-	}()
-	test.That(t, m.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 25.0, nil), test.ShouldBeNil)
-
-	// Test GoTillStop with always-false stopFunc
-	go func() {
-		// GoFor
-		checkTx(t, c, [][]byte{
-			{33, 0, 0, 0, 0},
-			{33, 0, 0, 0, 0},
-			{160, 0, 0, 0, 0},
-			{167, 0, 0, 105, 234},
-			{173, 252, 242, 192, 0},
-		})
-
-		// RampStat (for velocity reached)
-		checkRx(t, c,
+		// Check with position at 1.2 revolutions
+		go checkRx(t, c,
 			[][]byte{
-				{53, 0, 0, 0, 0},
-				{53, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+				{160, 0, 0, 0, 0},
+				{167, 0, 0, 211, 213},
+				{173, 0, 6, 24, 0},
 			},
 			[][]byte{
-				{0, 0, 0, 1, 0},
-				{0, 0, 0, 1, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 240, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
+				{0, 0, 0, 0, 0},
 			},
 		)
+		test.That(t, m.GoFor(ctx, -50.0, -6.6), test.ShouldBeNil)
+	})
 
-		// Enable SG
-		checkTx(t, c, [][]byte{
-			{180, 0, 0, 4, 0},
-		})
-
-		// RampStat (for velocity zero reached)
-		checkRx(t, c,
+	t.Run("motor is on testing", func(t *testing.T) {
+		// Off
+		go checkRx(t, c,
 			[][]byte{
-				{53, 0, 0, 0, 0},
-				{53, 0, 0, 0, 0},
+				{34, 0, 0, 0, 0},
+				{34, 0, 0, 0, 0},
 			},
 			[][]byte{
-				{0, 0, 0, 4, 0},
-				{0, 0, 0, 4, 0},
+				{0, 0, 8, 18, 3}, // Can be gibberish
+				{0, 0, 0, 0, 0},  // Zero velocity == "off"
 			},
 		)
+		on, err := m.IsOn(ctx)
+		test.That(t, on, test.ShouldEqual, false)
+		test.That(t, err, test.ShouldBeNil)
 
-		// Deferred off and SG disable
-		checkTx(t, c, [][]byte{
-			{180, 0, 0, 0, 0},
-			{160, 0, 0, 0, 1},
-			{167, 0, 0, 0, 0},
+		// On
+		go checkRx(t, c,
+			[][]byte{
+				{34, 0, 0, 0, 0},
+				{34, 0, 0, 0, 0},
+			},
+			[][]byte{
+				{0, 1, 6, 18, 3}, // Can be gibberish
+				{0, 0, 0, 50, 0}, // Non-Zero velocity == "on"
+			},
+		)
+		on, err = m.IsOn(ctx)
+		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("motor zero testing", func(t *testing.T) {
+		// No offset (and when actually off)
+		go checkTx(t, c, [][]byte{
+			{34, 0, 0, 0, 0},
+			{34, 0, 0, 0, 0},
+			{160, 0, 0, 0, 3},
+			{173, 0, 0, 0, 0},
+			{161, 0, 0, 0, 0},
 		})
+		test.That(t, m.Zero(ctx, 0), test.ShouldBeNil)
 
-	}()
-	test.That(t, m.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 25.0, func(ctx context.Context) bool { return false }), test.ShouldBeNil)
+		// No offset (and when actually on)
+		go checkRx(t, c,
+			[][]byte{
+				{34, 0, 0, 0, 0},
+				{34, 0, 0, 0, 0},
+			},
+			[][]byte{
+				{0, 0, 128, 0, 0},
+				{0, 0, 128, 0, 0},
+			},
+		)
+		test.That(t, m.Zero(ctx, 0), test.ShouldNotBeNil)
 
-	// Test GoTillStop with always true stopFunc
-	go func() {
-		// GoFor
-		checkTx(t, c, [][]byte{
-			{33, 0, 0, 0, 0},
-			{33, 0, 0, 0, 0},
-			{160, 0, 0, 0, 0},
-			{167, 0, 0, 105, 234},
-			{173, 252, 242, 192, 0},
+		// 3.1 offset (and when actually off)
+		go checkTx(t, c, [][]byte{
+			{34, 0, 0, 0, 0},
+			{34, 0, 0, 0, 0},
+			{160, 0, 0, 0, 3},
+			{173, 0, 2, 108, 0},
+			{161, 0, 2, 108, 0},
 		})
+		test.That(t, m.Zero(ctx, 3.1), test.ShouldBeNil)
+	})
 
-		// Deferred off and SG disable
-		checkTx(t, c, [][]byte{
-			{180, 0, 0, 0, 0},
-			{160, 0, 0, 0, 1},
-			{167, 0, 0, 0, 0},
-		})
+	t.Run("motor gotillstop testing", func(t *testing.T) {
+		go func() {
+			// GoFor
+			checkTx(t, c, [][]byte{
+				{33, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+				{160, 0, 0, 0, 0},
+				{167, 0, 0, 105, 234},
+				{173, 252, 242, 192, 0},
+			})
 
-	}()
-	test.That(t, m.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 25.0, func(ctx context.Context) bool { return true }), test.ShouldBeNil)
+			// RampStat (for velocity reached)
+			checkRx(t, c,
+				[][]byte{
+					{53, 0, 0, 0, 0},
+					{53, 0, 0, 0, 0},
+				},
+				[][]byte{
+					{0, 0, 0, 1, 0},
+					{0, 0, 0, 1, 0},
+				},
+			)
 
+			// Enable SG
+			checkTx(t, c, [][]byte{
+				{180, 0, 0, 4, 0},
+			})
+
+			// RampStat (for velocity zero reached)
+			checkRx(t, c,
+				[][]byte{
+					{53, 0, 0, 0, 0},
+					{53, 0, 0, 0, 0},
+				},
+				[][]byte{
+					{0, 0, 0, 4, 0},
+					{0, 0, 0, 4, 0},
+				},
+			)
+
+			// Deferred off and SG disable
+			checkTx(t, c, [][]byte{
+				{180, 0, 0, 0, 0},
+				{160, 0, 0, 0, 1},
+				{167, 0, 0, 0, 0},
+			})
+
+		}()
+		// No stop func
+		test.That(t, m.GoTillStop(ctx, -25.0, nil), test.ShouldBeNil)
+
+		go func() {
+			// GoFor
+			checkTx(t, c, [][]byte{
+				{33, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+				{160, 0, 0, 0, 0},
+				{167, 0, 0, 105, 234},
+				{173, 252, 242, 192, 0},
+			})
+
+			// RampStat (for velocity reached)
+			checkRx(t, c,
+				[][]byte{
+					{53, 0, 0, 0, 0},
+					{53, 0, 0, 0, 0},
+				},
+				[][]byte{
+					{0, 0, 0, 1, 0},
+					{0, 0, 0, 1, 0},
+				},
+			)
+
+			// Enable SG
+			checkTx(t, c, [][]byte{
+				{180, 0, 0, 4, 0},
+			})
+
+			// RampStat (for velocity zero reached)
+			checkRx(t, c,
+				[][]byte{
+					{53, 0, 0, 0, 0},
+					{53, 0, 0, 0, 0},
+				},
+				[][]byte{
+					{0, 0, 0, 4, 0},
+					{0, 0, 0, 4, 0},
+				},
+			)
+
+			// Deferred off and SG disable
+			checkTx(t, c, [][]byte{
+				{180, 0, 0, 0, 0},
+				{160, 0, 0, 0, 1},
+				{167, 0, 0, 0, 0},
+			})
+
+		}()
+		// Always-false stopFunc
+		test.That(t, m.GoTillStop(ctx, -25.0, func(ctx context.Context) bool { return false }), test.ShouldBeNil)
+
+		go func() {
+			// GoFor
+			checkTx(t, c, [][]byte{
+				{33, 0, 0, 0, 0},
+				{33, 0, 0, 0, 0},
+				{160, 0, 0, 0, 0},
+				{167, 0, 0, 105, 234},
+				{173, 252, 242, 192, 0},
+			})
+
+			// Deferred off and SG disable
+			checkTx(t, c, [][]byte{
+				{180, 0, 0, 0, 0},
+				{160, 0, 0, 0, 1},
+				{167, 0, 0, 0, 0},
+			})
+
+		}()
+		// Always true stopFunc
+		test.That(t, m.GoTillStop(ctx, -25.0, func(ctx context.Context) bool { return true }), test.ShouldBeNil)
+	})
 }

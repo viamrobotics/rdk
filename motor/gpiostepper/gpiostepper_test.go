@@ -11,8 +11,6 @@ import (
 
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
-
-	pb "go.viam.com/core/proto/api/v1"
 )
 
 func Test1(t *testing.T) {
@@ -23,15 +21,21 @@ func Test1(t *testing.T) {
 
 	mc := motor.Config{}
 
-	_, err := newGPIOStepper(ctx, nil, mc, logger)
-	test.That(t, err, test.ShouldNotBeNil)
+	// Create motor with no board and default config
+	t.Run("gpiostepper initializing test with no board and default config", func(t *testing.T) {
+		_, err := newGPIOStepper(ctx, nil, mc, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
 
-	_, err = newGPIOStepper(ctx, b, mc, logger)
-	test.That(t, err, test.ShouldNotBeNil)
+	// Create motor with board and default config
+	t.Run("gpiostepper initializing test with board and default config", func(t *testing.T) {
+		_, err := newGPIOStepper(ctx, b, mc, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
 
 	mc.Pins = map[string]string{"dir": "b"}
 
-	_, err = newGPIOStepper(ctx, b, mc, logger)
+	_, err := newGPIOStepper(ctx, b, mc, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	mc.Pins["step"] = "c"
@@ -39,46 +43,110 @@ func Test1(t *testing.T) {
 	m, err := newGPIOStepper(ctx, b, mc, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	on, err := m.IsOn(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, on, test.ShouldEqual, false)
-
-	err = m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 100, 2)
-	test.That(t, err, test.ShouldBeNil)
-	on, err = m.IsOn(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, on, test.ShouldEqual, true)
-
-	testutils.WaitForAssertion(t, func(t testing.TB) {
-		on, err = m.IsOn(ctx)
+	t.Run("motor test isOn functionality", func(t *testing.T) {
+		on, err := m.IsOn(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, false)
 	})
 
-	pos, err := m.Position(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos, test.ShouldEqual, 2)
-
-	err = m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 100, 200)
-	test.That(t, err, test.ShouldBeNil)
-	on, err = m.IsOn(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, on, test.ShouldEqual, true)
-
-	testutils.WaitForAssertion(t, func(t testing.TB) {
-		pos, err = m.Position(ctx)
+	t.Run("motor testing with positive rpm and positive revolutions", func(t *testing.T) {
+		err = m.GoFor(ctx, 100, 2)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos, test.ShouldBeGreaterThan, 2)
+
+		on, err := m.IsOn(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, on, test.ShouldEqual, true)
+
+		testutils.WaitForAssertion(t, func(t testing.TB) {
+			on, err = m.IsOn(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, on, test.ShouldEqual, false)
+		})
+
+		pos, err := m.Position(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldEqual, 2)
 	})
 
-	err = m.Off(ctx)
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("motor testing with negative rpm and positive revolutions", func(t *testing.T) {
+		err = m.GoFor(ctx, -100, 2)
+		test.That(t, err, test.ShouldBeNil)
 
-	pos, err = m.Position(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos, test.ShouldBeGreaterThan, 2)
-	test.That(t, pos, test.ShouldBeLessThan, 202)
+		on, err := m.IsOn(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, on, test.ShouldEqual, true)
 
+		testutils.WaitForAssertion(t, func(t testing.TB) {
+			on, err = m.IsOn(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, on, test.ShouldEqual, false)
+		})
+
+		pos, err := m.Position(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldEqual, 0)
+	})
+
+	t.Run("motor testing with positive rpm and negative revolutions", func(t *testing.T) {
+		err = m.GoFor(ctx, 100, -2)
+		test.That(t, err, test.ShouldBeNil)
+
+		on, err := m.IsOn(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, on, test.ShouldEqual, true)
+
+		testutils.WaitForAssertion(t, func(t testing.TB) {
+			on, err = m.IsOn(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, on, test.ShouldEqual, false)
+		})
+
+		pos, err := m.Position(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldEqual, -2)
+	})
+
+	t.Run("motor testing with negative rpm and negative revolutions", func(t *testing.T) {
+		err = m.GoFor(ctx, -100, -2)
+		test.That(t, err, test.ShouldBeNil)
+
+		on, err := m.IsOn(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, on, test.ShouldEqual, true)
+
+		testutils.WaitForAssertion(t, func(t testing.TB) {
+			on, err = m.IsOn(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, on, test.ShouldEqual, false)
+		})
+
+		pos, err := m.Position(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldEqual, 0)
+	})
+
+	t.Run("motor testing with large # of revolutions", func(t *testing.T) {
+		err = m.GoFor(ctx, 100, 200)
+		test.That(t, err, test.ShouldBeNil)
+
+		on, err := m.IsOn(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, on, test.ShouldEqual, true)
+
+		testutils.WaitForAssertion(t, func(t testing.TB) {
+			pos, err := m.Position(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, pos, test.ShouldBeGreaterThan, 2)
+		})
+
+		err = m.Off(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		pos, err := m.Position(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldBeGreaterThan, 2)
+		test.That(t, pos, test.ShouldBeLessThan, 202)
+	})
 	cancel()
 
 }
