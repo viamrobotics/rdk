@@ -122,10 +122,10 @@ func (svc *remoteService) start(ctx context.Context) error {
 		// Set distance to large number as it will be overwritten (Note: could have a dependecy on speed)
 		var err error
 		if math.Abs(degPerSec) < 0.99 && math.Abs(millisPerSec) > 0.1 {
-			_, err = svc.base.MoveArc(context.Background(), maxSpeed*distRatio, millisPerSec*maxSpeed*-1, degPerSec*maxAngle, true)
+			err = svc.base.MoveArc(context.Background(), maxSpeed*distRatio, millisPerSec*maxSpeed*-1, degPerSec*maxAngle, true)
 
 		} else {
-			_, err = svc.base.MoveArc(context.Background(), maxSpeed*distRatio, 0, degPerSec*maxAngle, true)
+			err = svc.base.MoveArc(context.Background(), maxSpeed*distRatio, 0, degPerSec*maxAngle, true)
 		}
 		if err != nil {
 			svc.logger.Errorw("error with moving base to desired position", "error", err)

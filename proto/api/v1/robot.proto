@@ -630,8 +630,6 @@ message BaseMoveStraightResponse {
   bool success = 1;
   // If success = false, this provides a description of the error 
   string error = 2;
-  // Returns the actual distance travelled by the robot as a result of this method call
-  int64 distance_millis = 3;
 }
 
 message BaseMoveArcRequest {
@@ -650,8 +648,6 @@ message BaseMoveArcResponse {
   bool success = 1;
   // If success = false, this provides a description of the error 
   string error = 2;
-
-  int64 distance_millis = 3;
 }
 
 message BaseSpinRequest {
@@ -668,8 +664,6 @@ message BaseSpinResponse {
   bool success = 1;
   // If success = false, this provides a description of the error 
   string error = 2;
-  // Returns the actual distance travelled by the robot as a result of this method call
-  double angle_deg = 3;
 }
 
 message BaseStopRequest {
