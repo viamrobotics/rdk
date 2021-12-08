@@ -360,13 +360,8 @@ func (m *Motor) rpmsToA(acc float64) int32 {
 }
 
 // GoTo moves to the specified position in terms of (provided in revolutions from home/zero),
-// at a specific speed. If the direction of the desired position does not align with the direction
-// of RPM the function will error.
+// at a specific speed.
 func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
-
-	if math.Signbit(rpm) != math.Signbit(position) {
-		return errors.New("input rpm and desired target must be in the same direction in order complete")
-	}
 
 	position *= float64(m.stepsPerRev)
 	return multierr.Combine(
