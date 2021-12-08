@@ -67,11 +67,11 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
-	// working
-	imu1Client, err := imu.NewClient(context.Background(), imu1, listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
-	test.That(t, err, test.ShouldBeNil)
-
 	t.Run("IMU client 1", func(t *testing.T) {
+		// working
+		imu1Client, err := imu.NewClient(context.Background(), imu1, listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+		test.That(t, err, test.ShouldBeNil)
+
 		av1, err := imu1Client.AngularVelocity(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, av1, test.ShouldResemble, av)
@@ -86,6 +86,7 @@ func TestClient(t *testing.T) {
 
 		desc1 := imu1Client.Desc()
 		test.That(t, desc1, test.ShouldResemble, desc)
+		test.That(t, utils.TryClose(imu1Client), test.ShouldBeNil)
 	})
 
 	t.Run("IMU client 2", func(t *testing.T) {
@@ -111,7 +112,6 @@ func TestClient(t *testing.T) {
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-	test.That(t, utils.TryClose(imu1Client), test.ShouldBeNil)
 }
 
 func TestClientDialerOption(t *testing.T) {
