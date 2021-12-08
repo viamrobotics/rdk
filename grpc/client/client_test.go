@@ -299,14 +299,14 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 	var capBaseMoveArgs []interface{}
-	injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+	injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 		capBaseMoveArgs = []interface{}{distanceMillis, millisPerSec, block}
-		return distanceMillis, nil
+		return nil
 	}
 	var capBaseSpinArgs []interface{}
-	injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+	injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 		capBaseSpinArgs = []interface{}{angleDeg, degsPerSec, block}
-		return angleDeg, nil
+		return nil
 	}
 	injectRobot2.BaseByNameFunc = func(name string) (base.Base, bool) {
 		capBaseName = name
@@ -759,11 +759,11 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 
-	_, err = base1.MoveStraight(context.Background(), 5, 0, false)
+	err = base1.MoveStraight(context.Background(), 5, 0, false)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 
-	_, err = base1.Spin(context.Background(), 5.2, 0, false)
+	err = base1.Spin(context.Background(), 5.2, 0, false)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 
@@ -943,19 +943,17 @@ func TestClient(t *testing.T) {
 
 	base2, ok := client.BaseByName("base2")
 	test.That(t, ok, test.ShouldBeTrue)
-	moved, err := base2.MoveStraight(context.Background(), 5, 6.2, false)
+	err = base2.MoveStraight(context.Background(), 5, 6.2, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capBaseMoveArgs, test.ShouldResemble, []interface{}{5, 6.2, false})
 	test.That(t, capBaseName, test.ShouldEqual, "base2")
-	test.That(t, moved, test.ShouldEqual, 5)
 
 	base3, ok := client.BaseByName("base3")
 	test.That(t, ok, test.ShouldBeTrue)
-	spun, err := base3.Spin(context.Background(), 7.2, 33, false)
+	err = base3.Spin(context.Background(), 7.2, 33, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capBaseSpinArgs, test.ShouldResemble, []interface{}{7.2, 33.0, false})
 	test.That(t, capBaseName, test.ShouldEqual, "base3")
-	test.That(t, spun, test.ShouldEqual, 7.2)
 
 	test.That(t, func() { client.RemoteByName("remote1") }, test.ShouldPanic)
 

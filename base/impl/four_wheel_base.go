@@ -34,7 +34,7 @@ type FourWheelBase struct {
 }
 
 // Spin spins the base a specified angle (subset of Move Arc)
-func (base *FourWheelBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+func (base *FourWheelBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 
 	// Spin math
 	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
@@ -48,22 +48,20 @@ func (base *FourWheelBase) Spin(ctx context.Context, angleDeg float64, degsPerSe
 	)
 
 	if err != nil {
-		return math.NaN(), multierr.Combine(err, base.Stop(ctx))
+		return multierr.Combine(err, base.Stop(ctx))
 	}
 
 	if !block {
-		// TODO(erh): return how much it actually spun
-		return angleDeg, nil
+		return nil
 	}
 
-	// TODO(erh): return how much it actually spun
-	return angleDeg, base.WaitForMotorsToStop(ctx)
+	return base.WaitForMotorsToStop(ctx)
 }
 
 // MoveStraight moves the base a specified distance (subset of Move Arc)
-func (base *FourWheelBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+func (base *FourWheelBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	if distanceMillis == 0 && block {
-		return 0, errors.New("cannot block unless you have a distance")
+		return errors.New("cannot block unless you have a distance")
 	}
 
 	// Straight math
@@ -73,24 +71,21 @@ func (base *FourWheelBase) MoveStraight(ctx context.Context, distanceMillis int,
 	for _, m := range base.AllMotors {
 		err := m.GoFor(ctx, rpm, rotations)
 		if err != nil {
-			// TODO(erh): return how much it actually moved
-			return 0, multierr.Combine(err, base.Stop(ctx))
+			return multierr.Combine(err, base.Stop(ctx))
 		}
 	}
 
 	if !block {
-		// TODO(erh): return how much it actually moved
-		return distanceMillis, nil
+		return nil
 	}
 
-	// TODO(erh): return how much it actually moved
-	return distanceMillis, base.WaitForMotorsToStop(ctx)
+	return base.WaitForMotorsToStop(ctx)
 }
 
 // MoveArc moves the base a specified distance at a set speed and degs per sec
-func (base *FourWheelBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) (int, error) {
+func (base *FourWheelBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
 	if millisPerSec == 0 && block {
-		return distanceMillis, errors.New("cannot block unless you have a speed")
+		return errors.New("cannot block unless you have a speed")
 	}
 
 	// Arc math
@@ -105,16 +100,14 @@ func (base *FourWheelBase) MoveArc(ctx context.Context, distanceMillis int, mill
 	)
 
 	if err != nil {
-		return 0, multierr.Combine(err, base.Stop(ctx))
+		return multierr.Combine(err, base.Stop(ctx))
 	}
 
 	if !block {
-		// TODO(erh): return how much it actually moved
-		return distanceMillis, nil
+		return nil
 	}
 
-	// TODO(erh): return how much it actually moved
-	return distanceMillis, base.WaitForMotorsToStop(ctx)
+	return base.WaitForMotorsToStop(ctx)
 }
 
 // SpinMath returns rpm, revolutions for spin motion
