@@ -530,8 +530,8 @@ func (m *EncodedMotor) Close() error {
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
-// at a specific speed. If the direction of the desired position does not align with the direction
-// of RPM the function will error.
+// at a specific speed. Regardless of the directionality of the RPM this fucntion will move the motor
+// towards the specified target
 func (m *EncodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition float64) error {
 	curPos, err := m.Position(ctx)
 	if err != nil {
@@ -539,11 +539,7 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition flo
 	}
 	moveDistance := targetPosition - curPos
 
-	if math.Signbit(rpm) != math.Signbit(moveDistance) {
-		return errors.New("input rpm and desired target must be in the same direction in order complete")
-	}
-
-	return m.GoFor(ctx, rpm, moveDistance)
+	return m.GoFor(ctx, math.Abs(rpm), moveDistance)
 }
 
 // GoTillStop moves until physically stopped (though with a ten second timeout) or stopFunc() returns true.

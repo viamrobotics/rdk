@@ -50,7 +50,6 @@ func Test1(t *testing.T) {
 	})
 
 	t.Run("motor testing with positive rpm and positive revolutions", func(t *testing.T) {
-
 		err = m.GoFor(ctx, 100, 2)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -70,7 +69,6 @@ func Test1(t *testing.T) {
 	})
 
 	t.Run("motor testing with negative rpm and positive revolutions", func(t *testing.T) {
-
 		err = m.GoFor(ctx, -100, 2)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -90,7 +88,6 @@ func Test1(t *testing.T) {
 	})
 
 	t.Run("motor testing with positive rpm and negative revolutions", func(t *testing.T) {
-
 		err = m.GoFor(ctx, 100, -2)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -110,7 +107,6 @@ func Test1(t *testing.T) {
 	})
 
 	t.Run("motor testing with negative rpm and negative revolutions", func(t *testing.T) {
-
 		err = m.GoFor(ctx, -100, -2)
 		test.That(t, err, test.ShouldBeNil)
 
