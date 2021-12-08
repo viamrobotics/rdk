@@ -725,23 +725,22 @@ type baseClient struct {
 	name string
 }
 
-func (bc *baseClient) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+func (bc *baseClient) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	resp, err := bc.rc.client.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
 		Name:           bc.name,
 		MillisPerSec:   millisPerSec,
 		DistanceMillis: int64(distanceMillis),
 	})
 	if err != nil {
-		return 0, err
+		return err
 	}
-	moved := int(resp.DistanceMillis)
 	if resp.Success {
-		return moved, nil
+		return nil
 	}
-	return moved, errors.New(resp.Error)
+	return errors.New(resp.Error)
 }
 
-func (bc *baseClient) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) (int, error) {
+func (bc *baseClient) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) error {
 	resp, err := bc.rc.client.BaseMoveArc(ctx, &pb.BaseMoveArcRequest{
 		Name:           bc.name,
 		MillisPerSec:   millisPerSec,
@@ -749,29 +748,27 @@ func (bc *baseClient) MoveArc(ctx context.Context, distanceMillis int, millisPer
 		DistanceMillis: int64(distanceMillis),
 	})
 	if err != nil {
-		return 0, err
+		return err
 	}
-	moved := int(resp.DistanceMillis)
 	if resp.Success {
-		return moved, nil
+		return nil
 	}
-	return moved, errors.New(resp.Error)
+	return errors.New(resp.Error)
 }
 
-func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 	resp, err := bc.rc.client.BaseSpin(ctx, &pb.BaseSpinRequest{
 		Name:       bc.name,
 		AngleDeg:   angleDeg,
 		DegsPerSec: degsPerSec,
 	})
 	if err != nil {
-		return math.NaN(), err
+		return err
 	}
-	spun := resp.AngleDeg
 	if resp.Success {
-		return spun, nil
+		return nil
 	}
-	return spun, errors.New(resp.Error)
+	return errors.New(resp.Error)
 }
 
 func (bc *baseClient) Stop(ctx context.Context) error {
