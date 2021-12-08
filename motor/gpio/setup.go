@@ -30,6 +30,11 @@ func init() {
 			return nil, err
 		}
 
+		// Return basic motor if encoder is not defined
+		if motorConfig.Encoder == "" {
+			return m, nil
+		}
+
 		m, err = WrapMotorWithEncoder(ctx, actualBoard, config, *motorConfig, m, logger)
 		if err != nil {
 			return nil, err

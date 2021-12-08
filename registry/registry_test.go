@@ -17,7 +17,6 @@ import (
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
-
 	"go.viam.com/core/subtype"
 
 	"github.com/edaniels/golog"

@@ -2,12 +2,16 @@ package gpio
 
 import (
 	"context"
+	"math"
+	"sync"
+	"time"
 
 	"github.com/go-errors/errors"
 
+	goutils "go.viam.com/utils"
+
 	"go.viam.com/core/board"
 	"go.viam.com/core/motor"
-	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
@@ -32,6 +36,7 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 	} else if mc.MinPowerPct > 1.0 {
 		mc.MinPowerPct = 1.0
 	}
+
 	var pid motor.PID
 	if mc.PID != nil {
 		var err error
@@ -42,18 +47,20 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 	}
 
 	m = &Motor{
-		b,
-		pins["a"],
-		pins["b"],
-		pins["dir"],
-		pins["pwm"],
-		pins["en"],
-		false,
-		mc.PWMFreq,
-		pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED,
-		mc.MinPowerPct,
-		mc.MaxPowerPct,
-		pid,
+		Board:       b,
+		A:           pins["a"],
+		B:           pins["b"],
+		Dir:         pins["dir"],
+		PWM:         pins["pwm"],
+		En:          pins["en"],
+		on:          false,
+		pwmFreq:     mc.PWMFreq,
+		minPowerPct: mc.MinPowerPct,
+		maxPowerPct: mc.MaxPowerPct,
+		maxRPM:      mc.MaxRPM,
+		pid:         pid,
+		logger:      logger,
+		cancelMu:    &sync.Mutex{},
 	}
 	return m, nil
 }
@@ -66,10 +73,15 @@ type Motor struct {
 	A, B, Dir, PWM, En string
 	on                 bool
 	pwmFreq            uint
-	curDirection       pb.DirectionRelative
-	minPowerPct        float32
-	maxPowerPct        float32
+	minPowerPct        float64
+	maxPowerPct        float64
+	maxRPM             float64
 	pid                motor.PID
+
+	cancelMu      *sync.Mutex
+	cancelForFunc func()
+	waitCh        chan struct{}
+	logger        golog.Logger
 }
 
 // PID return the underlying PID
@@ -87,14 +99,14 @@ func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-// Power sets the associated pins (as discovered) and sets PWM to the given power percentage.
-func (m *Motor) Power(ctx context.Context, powerPct float32) error {
+// Power sets the associated pins (as discovered) and sets PWM to the given power percentage from -1 to 1
+// where the sign of the power dictates direction.
+func (m *Motor) Power(ctx context.Context, powerPct float64) error {
 	var errs error
-	if powerPct > m.maxPowerPct {
-		powerPct = m.maxPowerPct
-	}
+	powerPct = math.Min(powerPct, m.maxPowerPct)
+	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
 
-	if powerPct <= 0.001 {
+	if math.Abs(powerPct) <= 0.001 {
 		if m.En != "" {
 			errs = m.Board.GPIOSet(ctx, m.En, true)
 		}
@@ -121,72 +133,105 @@ func (m *Motor) Power(ctx context.Context, powerPct float32) error {
 	var pwmPin string
 	if m.PWM != "" {
 		pwmPin = m.PWM
-	} else if m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
+	} else if powerPct >= 0.001 {
 		pwmPin = m.B
-		powerPct = 1.0 - powerPct // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
-	} else if m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
+		powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
+	} else if powerPct <= -0.001 {
 		pwmPin = m.A
-		powerPct = 1.0 - powerPct // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
-	} else if m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
+		powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
+	} else {
 		return errors.New("can't set power when no direction is set")
 	}
 
-	if powerPct < m.minPowerPct {
-		powerPct = m.minPowerPct
-	}
-
+	powerPct = math.Max(math.Abs(powerPct), m.minPowerPct)
 	return multierr.Combine(
 		errs,
 		m.Board.PWMSetFreq(ctx, pwmPin, m.pwmFreq),
-		m.Board.PWMSet(ctx, pwmPin, byte(utils.ScaleByPct(255, float64(powerPct)))),
+		m.Board.PWMSet(ctx, pwmPin, byte(utils.ScaleByPct(255, powerPct))),
 	)
 }
 
-// Go instructs the motor to operate at a certain power percentage in a given direction.
-func (m *Motor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-	switch d {
-	case pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED:
+// Go instructs the motor to operate at a certain power percentage from -1 to 1
+// where the sign of the power dictates direction.
+func (m *Motor) Go(ctx context.Context, powerPct float64) error {
+
+	m.cancelMu.Lock()
+	m.cancelWaitProcesses()
+	m.cancelMu.Unlock()
+
+	if math.Abs(powerPct) <= 0.001 {
 		return m.Off(ctx)
-	case pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD:
-		m.curDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-		if m.Dir != "" {
-			return multierr.Combine(
-				m.Board.GPIOSet(ctx, m.Dir, true),
-				m.Power(ctx, powerPct),
-			)
-		}
-		if m.A != "" && m.B != "" {
-			return multierr.Combine(
-				m.Board.GPIOSet(ctx, m.A, true),
-				m.Board.GPIOSet(ctx, m.B, false),
-				m.Power(ctx, powerPct), // Must be last for A/B only drivers
-			)
-		}
-		return m.Power(ctx, powerPct)
-	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
-		m.curDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
-		if m.Dir != "" {
-			return multierr.Combine(
-				m.Board.GPIOSet(ctx, m.Dir, false),
-				m.Power(ctx, powerPct),
-			)
-		}
-		if m.A != "" && m.B != "" {
-			return multierr.Combine(
-				m.Board.GPIOSet(ctx, m.A, false),
-				m.Board.GPIOSet(ctx, m.B, true),
-				m.Power(ctx, powerPct), // Must be last for A/B only motors (where PWM will take over one of A or B)
-			)
-		}
-		return errors.New("trying to go backwards but don't have dir or a&b pins")
 	}
 
-	return errors.Errorf("unknown direction %v", d)
+	if m.Dir != "" {
+		return multierr.Combine(
+			m.Board.GPIOSet(ctx, m.Dir, !math.Signbit(powerPct)),
+			m.Power(ctx, powerPct),
+		)
+	}
+	if m.A != "" && m.B != "" {
+		return multierr.Combine(
+			m.Board.GPIOSet(ctx, m.A, !math.Signbit(powerPct)),
+			m.Board.GPIOSet(ctx, m.B, math.Signbit(powerPct)),
+			m.Power(ctx, powerPct), // Must be last for A/B only drivers
+		)
+	}
+
+	if !math.Signbit(powerPct) {
+		return m.Power(ctx, powerPct)
+	}
+
+	return errors.New("trying to go backwards but don't have dir or a&b pins")
 }
 
-// GoFor is not yet supported.
-func (m *Motor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
-	return errors.New("not supported")
+// GoFor moves an inputted number of revolutations at the given rpm, no encoder is present
+// for this so power is deteremiend via a linear relationship with the maxRPM and the distance
+// traveled is a time based estimation based on desired RPM.
+func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
+	if m.maxRPM == 0 {
+		return errors.New("not supported, define maxRPM attribute")
+	}
+
+	d := rpm * revolutions / math.Abs(revolutions*rpm)
+	powerPct := math.Abs(rpm) / m.maxRPM * d
+	waitDur := time.Duration(math.Abs(revolutions/rpm)*60*1000) * time.Millisecond
+	err := m.Go(ctx, powerPct)
+
+	if err != nil {
+		return err
+	}
+
+	// Begin go process to track timing and turn off motors after estimated distances has been traveled
+	ctxWithTimeout, cancelForFunc := context.WithTimeout(context.Background(), waitDur)
+	waitCh := make(chan struct{})
+
+	m.cancelMu.Lock()
+	m.cancelWaitProcesses()
+	m.waitCh = waitCh
+	m.cancelForFunc = cancelForFunc
+	m.cancelMu.Unlock()
+
+	goutils.PanicCapturingGo(func() {
+		defer close(m.waitCh)
+		<-ctxWithTimeout.Done()
+		if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
+			err := m.Off(ctx)
+
+			if err != nil {
+				m.logger.Errorw("failed to turn off motor", "error", err)
+			}
+		}
+	})
+
+	return nil
+}
+
+// cancelWaitProcesses provides the interrupt protocol for the time based GoFor implmenetation.
+func (m *Motor) cancelWaitProcesses() {
+	if m.cancelForFunc != nil {
+		m.cancelForFunc()
+		<-m.waitCh
+	}
 }
 
 // IsOn returns if the motor is currently on or off.
@@ -197,7 +242,6 @@ func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 // Off turns the motor off by setting the appropriate pins to low states.
 func (m *Motor) Off(ctx context.Context) error {
 	m.on = false
-	m.curDirection = pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED
 	return m.Power(ctx, 0)
 }
 
@@ -207,7 +251,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
 }
 
 // GoTillStop is not supported
-func (m *Motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	return errors.New("not supported")
 }
 

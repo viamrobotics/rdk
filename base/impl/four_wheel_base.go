@@ -10,10 +10,8 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/base"
-	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
-	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -39,15 +37,14 @@ type FourWheelBase struct {
 func (base *FourWheelBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 
 	// Spin math
-	leftDirection, rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
-	rightDirection := board.FlipDirection(leftDirection)
+	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
 
 	// Send motor commands
 	err := multierr.Combine(
-		base.frontLeft.GoFor(ctx, leftDirection, rpm, revolutions),
-		base.frontRight.GoFor(ctx, rightDirection, rpm, revolutions),
-		base.backLeft.GoFor(ctx, leftDirection, rpm, revolutions),
-		base.backRight.GoFor(ctx, rightDirection, rpm, revolutions),
+		base.frontLeft.GoFor(ctx, rpm, revolutions),
+		base.frontRight.GoFor(ctx, -1*rpm, revolutions),
+		base.backLeft.GoFor(ctx, rpm, revolutions),
+		base.backRight.GoFor(ctx, -1*rpm, revolutions),
 	)
 
 	if err != nil {
@@ -70,11 +67,11 @@ func (base *FourWheelBase) MoveStraight(ctx context.Context, distanceMillis int,
 	}
 
 	// Straight math
-	d, rpm, rotations := base.straightDistanceToMotorInfo(distanceMillis, millisPerSec)
+	rpm, rotations := base.straightDistanceToMotorInfo(distanceMillis, millisPerSec)
 
 	// Send motor commands
 	for _, m := range base.AllMotors {
-		err := m.GoFor(ctx, d, rpm, rotations)
+		err := m.GoFor(ctx, rpm, rotations)
 		if err != nil {
 			// TODO(erh): return how much it actually moved
 			return 0, multierr.Combine(err, base.Stop(ctx))
@@ -92,19 +89,19 @@ func (base *FourWheelBase) MoveStraight(ctx context.Context, distanceMillis int,
 
 // MoveArc moves the base a specified distance at a set speed and degs per sec
 func (base *FourWheelBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) (int, error) {
-	if distanceMillis == 0 && block {
-		return 0, errors.New("cannot block unless you have a distance")
+	if millisPerSec == 0 && block {
+		return distanceMillis, errors.New("cannot block unless you have a speed")
 	}
 
 	// Arc math
-	dirLR, rpmLR, revLR := base.arcMath(angleDeg, millisPerSec, distanceMillis)
+	rpmLR, revLR := base.arcMath(distanceMillis, millisPerSec, angleDeg)
 
 	// Send motor commands
 	err := multierr.Combine(
-		base.frontLeft.GoFor(ctx, dirLR[0], rpmLR[0], revLR[0]),
-		base.frontRight.GoFor(ctx, dirLR[1], rpmLR[1], revLR[1]),
-		base.backLeft.GoFor(ctx, dirLR[0], rpmLR[0], revLR[0]),
-		base.backRight.GoFor(ctx, dirLR[1], rpmLR[1], revLR[1]),
+		base.frontLeft.GoFor(ctx, rpmLR[0], revLR[0]),
+		base.frontRight.GoFor(ctx, rpmLR[1], revLR[1]),
+		base.backLeft.GoFor(ctx, rpmLR[0], revLR[0]),
+		base.backRight.GoFor(ctx, rpmLR[1], revLR[1]),
 	)
 
 	if err != nil {
@@ -120,58 +117,45 @@ func (base *FourWheelBase) MoveArc(ctx context.Context, distanceMillis int, mill
 	return distanceMillis, base.WaitForMotorsToStop(ctx)
 }
 
-// SpinMath returns direction, rpm, revolutions for spin motion
-func (base *FourWheelBase) spinMath(angleDeg float64, degsPerSec float64) (pb.DirectionRelative, float64, float64) {
-	leftDirection := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-	if angleDeg < 0 {
-		leftDirection = board.FlipDirection(leftDirection)
-		angleDeg *= -1
-	}
-
+// SpinMath returns rpm, revolutions for spin motion
+func (base *FourWheelBase) spinMath(angleDeg float64, degsPerSec float64) (float64, float64) {
 	wheelTravel := base.spinSlipFactor * float64(base.widthMillis) * math.Pi * angleDeg / 360.0
 	revolutions := wheelTravel / float64(base.wheelCircumferenceMillis)
 
 	// RPM = revolutions (unit) * deg/sec * (1 rot / 2pi deg) * (60 sec / 1 min) = rot/min
 	rpm := revolutions * degsPerSec * 30 / math.Pi
+	revolutions = math.Abs(revolutions)
 
-	return leftDirection, rpm, revolutions
+	return rpm, revolutions
 }
 
 // ArcMath performs calculations for arcing motion
-func (base *FourWheelBase) arcMath(degsPerSec float64, millisPerSec float64, distanceMillis int) ([]pb.DirectionRelative, []float64, []float64) {
-
-	if math.Abs(millisPerSec) < 0.01 {
-		leftDirection, rpm, revolutions := base.spinMath(float64(distanceMillis), degsPerSec)
-
-		dirs := []pb.DirectionRelative{leftDirection, board.FlipDirection(leftDirection)}
-		rpms := []float64{rpm, rpm}
+func (base *FourWheelBase) arcMath(distanceMillis int, millisPerSec float64, angleDeg float64) ([]float64, []float64) {
+	if distanceMillis == 0 {
+		rpm, revolutions := base.spinMath(angleDeg, millisPerSec)
+		rpms := []float64{rpm, -1 * rpm}
 		rots := []float64{revolutions, revolutions}
 
-		return dirs, rpms, rots
+		return rpms, rots
+	}
+
+	if distanceMillis < 0 {
+		distanceMillis *= -1
+		millisPerSec *= -1
 	}
 
 	// Base calculations
 	v := millisPerSec
-	w0 := degsPerSec / 180 * math.Pi
-	t := float64(distanceMillis) / math.Abs(millisPerSec)
+	t := float64(distanceMillis) / millisPerSec
 	r := float64(base.wheelCircumferenceMillis) / (2.0 * math.Pi)
 	l := float64(base.widthMillis)
 
+	degsPerSec := angleDeg / 10 /// t
+	w0 := degsPerSec / 180 * math.Pi
 	wL := (v / r) + (l * w0 / (2 * r))
 	wR := (v / r) - (l * w0 / (2 * r))
 
 	// Determine directions of each wheel
-	dirL := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-	if wL < 0 {
-		dirL = board.FlipDirection(dirL)
-		wL *= -1
-	}
-
-	dirR := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-	if wR < 0 {
-		dirR = board.FlipDirection(dirR)
-		wR *= -1
-	}
 
 	// Calculate # of rotations
 	rotL := wL * t / (2 * math.Pi)
@@ -181,32 +165,21 @@ func (base *FourWheelBase) arcMath(degsPerSec float64, millisPerSec float64, dis
 	rpmL := (wL / (2 * math.Pi)) * 60
 	rpmR := (wR / (2 * math.Pi)) * 60
 
-	dirs := []pb.DirectionRelative{dirL, dirR}
 	rpms := []float64{rpmL, rpmR}
 	rots := []float64{rotL, rotR}
 
-	return dirs, rpms, rots
+	return rpms, rots
 }
 
-// StraightDistanceToMotorInfo performs calculations to determeine direction, rpm and # of revolutions
-func (base *FourWheelBase) straightDistanceToMotorInfo(distanceMillis int, millisPerSec float64) (pb.DirectionRelative, float64, float64) {
-	var d pb.DirectionRelative = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-	if millisPerSec < 0 {
-		d = board.FlipDirection(d)
-		millisPerSec *= -1
-	}
-
-	if distanceMillis < 0 {
-		d = board.FlipDirection(d)
-		distanceMillis *= -1
-	}
+// StraightDistanceToMotorInfo performs calculations to determeine rpm and # of revolutions
+func (base *FourWheelBase) straightDistanceToMotorInfo(distanceMillis int, millisPerSec float64) (float64, float64) {
 
 	rotations := float64(distanceMillis) / float64(base.wheelCircumferenceMillis)
 
 	rotationsPerSec := millisPerSec / float64(base.wheelCircumferenceMillis)
 	rpm := 60 * rotationsPerSec
 
-	return d, rpm, rotations
+	return rpm, rotations
 }
 
 // WaitForMotorsToStop waits for motors to stop

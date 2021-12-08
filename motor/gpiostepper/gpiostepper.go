@@ -3,6 +3,7 @@ package gpiostepper
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -17,8 +18,6 @@ import (
 	"go.viam.com/core/motor"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
-
-	pb "go.viam.com/core/proto/api/v1"
 )
 
 const modelName = "gpiostepper"
@@ -116,8 +115,8 @@ func (m *gpioStepper) Validate() error {
 	return nil
 }
 
-// Power sets the percentage of power the motor should employ between 0-1.
-func (m *gpioStepper) Power(ctx context.Context, powerPct float32) error {
+// Power sets the percentage of power the motor should employ between -1 and 1.
+func (m *gpioStepper) Power(ctx context.Context, powerPct float64) error {
 	if powerPct <= .0001 {
 		m.stop()
 		return nil
@@ -126,10 +125,9 @@ func (m *gpioStepper) Power(ctx context.Context, powerPct float32) error {
 	return errors.New("gpioStepper doesn't support raw power mode")
 }
 
-// Go instructs the motor to go in a specific direction at a percentage
-// of power between 0-1.
-func (m *gpioStepper) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-	if powerPct <= .0001 {
+// Go instructs the motor to go in a specific direction at a percentage of power between -1 and 1.
+func (m *gpioStepper) Go(ctx context.Context, powerPct float64) error {
+	if math.Abs(powerPct) <= .0001 {
 		m.stop()
 		return nil
 	}
@@ -200,22 +198,24 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 }
 
 // GoFor instructs the motor to go in a specific direction for a specific amount of
-// revolutions at a given speed in revolutions per minute.
-func (m *gpioStepper) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
+// revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
+// can be assigned negative values to move in a backwards direction. Note: if both are negative
+// the motor will spin in the forward direction.
+func (m *gpioStepper) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
 	if revolutions == 0 {
 		return errors.New("revolutions can't be 0 for a stepper motor")
 	}
+	var d int64 = 1
 
-	if d == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
-		revolutions *= -1
+	if math.Signbit(revolutions) != math.Signbit(rpm) {
+		d = -1
 	}
 
-	if d == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED || rpm == 0 {
+	revolutions = math.Abs(revolutions)
+	rpm = math.Abs(rpm) * float64(d)
+
+	if math.Abs(rpm) < 0.1 {
 		return m.Off(ctx)
-	}
-
-	if rpm < 0 {
-		revolutions *= -1
 	}
 
 	m.lock.Lock()
@@ -225,7 +225,7 @@ func (m *gpioStepper) GoFor(ctx context.Context, d pb.DirectionRelative, rpm flo
 		return errors.New("thread not started")
 	}
 
-	m.targetStepPosition += int64(revolutions * float64(m.stepsPerRotation))
+	m.targetStepPosition += int64(float64(d) * revolutions * float64(m.stepsPerRotation))
 	m.targetStepsPerSecond = int64(rpm * float64(m.stepsPerRotation) / 60.0)
 	if m.targetStepsPerSecond == 0 {
 		m.targetStepsPerSecond = 1
@@ -234,20 +234,24 @@ func (m *gpioStepper) GoFor(ctx context.Context, d pb.DirectionRelative, rpm flo
 	return nil
 }
 
-// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero), at a specific speed.
+// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
+// at a specific RPM. Regardless of the directionality of the RPM this function will move the motor
+// towards the specified target
 func (m *gpioStepper) GoTo(ctx context.Context, rpm float64, position float64) error {
 	curPos, err := m.Position(ctx)
 	if err != nil {
 		return err
 	}
-	return m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, rpm, position-curPos)
+	moveDistance := position - curPos
+
+	return m.GoFor(ctx, math.Abs(rpm), moveDistance)
 }
 
 // GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.
 // Ex: EncodedMotor goes until physically stopped/stalled (detected by change in position being very small over a fixed time.)
 // Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
 // Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
-func (m *gpioStepper) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+func (m *gpioStepper) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	return errors.New("gpioStepper GoTillStop not done yet")
 }
 

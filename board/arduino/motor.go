@@ -3,6 +3,7 @@ package arduino
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/edaniels/golog"
@@ -11,7 +12,6 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
 	"go.viam.com/core/motor/gpio"
-	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/utils"
@@ -120,51 +120,51 @@ func (m *arduinoMotor) PID() motor.PID {
 	return m.pid
 }
 
-// Power sets the percentage of power the motor should employ between 0-1.
-func (m *arduinoMotor) Power(ctx context.Context, powerPct float32) error {
-	if powerPct <= .001 {
+// Power sets the percentage of power the motor should employ between -1 and 1.
+func (m *arduinoMotor) Power(ctx context.Context, powerPct float64) error {
+	if math.Abs(powerPct) <= .001 {
 		return m.Off(ctx)
 	}
 
-	_, err := m.b.runCommand(fmt.Sprintf("motor-power %s %d", m.name, int(255.0*powerPct)))
+	_, err := m.b.runCommand(fmt.Sprintf("motor-power %s %d", m.name, int(255.0*math.Abs(powerPct))))
 	return err
 }
 
-// Go instructs the motor to go in a specific direction at a percentage
-// of power between 0-1.
-func (m *arduinoMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-	if powerPct <= 0 {
+// Go instructs the motor to go in a specific direction at a percentage of power between -1 and 1.
+func (m *arduinoMotor) Go(ctx context.Context, powerPct float64) error {
+
+	if math.Abs(powerPct) < 0.0001 {
 		return m.Off(ctx)
 	}
-
 	var dir string
-	switch d {
-	case pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD:
+	if !math.Signbit(powerPct) {
 		dir = "f"
-	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
+	} else {
 		dir = "n"
-	default:
-		return m.Off(ctx)
 	}
 
-	_, err := m.b.runCommand(fmt.Sprintf("motor-go %s %s %d", m.name, dir, int(255.0*powerPct)))
+	_, err := m.b.runCommand(fmt.Sprintf("motor-go %s %s %d", m.name, dir, int(255.0*math.Abs(powerPct))))
 	return err
 }
 
 // GoFor instructs the motor to go in a specific direction for a specific amount of
 // revolutions at a given speed in revolutions per minute.
-func (m *arduinoMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
-	ticks := int(revolutions * float64(m.cfg.TicksPerRotation))
-	ticksPerSecond := int(rpm * float64(m.cfg.TicksPerRotation) / 60.0)
-	if d == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
-		// no-op
-	} else if d == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
+func (m *arduinoMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
+	ticks := int(math.Abs(revolutions) * float64(m.cfg.TicksPerRotation))
+	ticksPerSecond := int(math.Abs(rpm) * float64(m.cfg.TicksPerRotation) / 60.0)
+
+	powerPct := 0.003
+	if math.Signbit(rpm) != math.Signbit(revolutions) {
 		ticks *= -1
-	} else {
-		return errors.New("unknown direction")
+		powerPct *= -1
+		//ticksPerSecond *= 1
 	}
 
-	_, err := m.b.runCommand(fmt.Sprintf("motor-gofor %s %d %d", m.name, ticks, ticksPerSecond))
+	err := m.Go(ctx, powerPct)
+	if err != nil {
+		return err
+	}
+	_, err = m.b.runCommand(fmt.Sprintf("motor-gofor %s %d %d", m.name, ticks, ticksPerSecond))
 	return err
 }
 
@@ -206,17 +206,24 @@ func (m *arduinoMotor) IsOn(ctx context.Context) (bool, error) {
 	return res[0] == 't', nil
 }
 
+// GoTo instructs motor to go to a given position at a given RPM. Regardless of the directionality of
+// the RPM this function will move the motor towards the specified target
 func (m *arduinoMotor) GoTo(ctx context.Context, rpm float64, target float64) error {
+
 	ticks := int(target * float64(m.cfg.TicksPerRotation))
-	ticksPerSecond := int(rpm * float64(m.cfg.TicksPerRotation) / 60.0)
+	ticksPerSecond := int(math.Abs(rpm) * float64(m.cfg.TicksPerRotation) / 60.0)
+
 	_, err := m.b.runCommand(fmt.Sprintf("motor-goto %s %d %d", m.name, ticks, ticksPerSecond))
 	return err
 }
 
-func (m *arduinoMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+// GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.
+// This is currently not supported for ardunio controlled motors.
+func (m *arduinoMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	return errors.New("not supported")
 }
 
+// Set the current position (+/- offset) to be the new zero (home) position.
 func (m *arduinoMotor) Zero(ctx context.Context, offset float64) error {
 	offsetTicks := int64(offset * float64(m.cfg.TicksPerRotation))
 	_, err := m.b.runCommand(fmt.Sprintf("motor-zero %s %d", m.name, offsetTicks))
