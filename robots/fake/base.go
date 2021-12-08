@@ -23,17 +23,17 @@ type Base struct {
 	CloseCount int
 }
 
-// MoveStraight returns that it moved the given distance.
+// MoveStraight does nothing
 func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	return nil
 }
 
-// MoveArc returns that it moved the given distance at a certain angle.
+// MoveArc does nothing
 func (b *Base) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
 	return nil
 }
 
-// Spin returns that it spun the given angle.
+// Spin does nothing
 func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 	return nil
 }
