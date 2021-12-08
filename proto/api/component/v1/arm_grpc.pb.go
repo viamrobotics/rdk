@@ -19,7 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ArmServiceClient interface {
-	// CurrentPosition gets the current position the robot's end effector expressed as X,Y,Z,ox,oy,oz,theta
+	// CurrentPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
 	CurrentPosition(ctx context.Context, in *ArmServiceCurrentPositionRequest, opts ...grpc.CallOption) (*ArmServiceCurrentPositionResponse, error)
 	// MoveToPosition moves the mount point of the robot's end effector to the requested position.
 	MoveToPosition(ctx context.Context, in *ArmServiceMoveToPositionRequest, opts ...grpc.CallOption) (*ArmServiceMoveToPositionResponse, error)
@@ -88,7 +88,7 @@ func (c *armServiceClient) JointMoveDelta(ctx context.Context, in *ArmServiceJoi
 // All implementations must embed UnimplementedArmServiceServer
 // for forward compatibility
 type ArmServiceServer interface {
-	// CurrentPosition gets the current position the robot's end effector expressed as X,Y,Z,ox,oy,oz,theta
+	// CurrentPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
 	CurrentPosition(context.Context, *ArmServiceCurrentPositionRequest) (*ArmServiceCurrentPositionResponse, error)
 	// MoveToPosition moves the mount point of the robot's end effector to the requested position.
 	MoveToPosition(context.Context, *ArmServiceMoveToPositionRequest) (*ArmServiceMoveToPositionResponse, error)
