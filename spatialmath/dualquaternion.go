@@ -63,7 +63,7 @@ func newDualQuaternionFromDH(a, d, alpha float64) *dualQuaternion {
 	qRot := mgl64.Mat4ToQuat(m)
 	q := newDualQuaternion()
 	q.Real = quat.Number{qRot.W, qRot.X(), qRot.Y(), qRot.Z()}
-	q.SetTranslation(a, 0, d)
+	q.SetTranslation(r3.Vector{a, 0, d})
 	return q
 }
 
@@ -71,7 +71,7 @@ func newDualQuaternionFromDH(a, d, alpha float64) *dualQuaternion {
 // protobuf pose.
 func newDualQuaternionFromProtobuf(pos *commonpb.Pose) *dualQuaternion {
 	q := newDualQuaternionFromRotation(&OrientationVectorDegrees{pos.Theta, pos.OX, pos.OY, pos.OZ})
-	q.SetTranslation(pos.X, pos.Y, pos.Z)
+	q.SetTranslation(r3.Vector{pos.X, pos.Y, pos.Z})
 	return q
 }
 
@@ -82,8 +82,7 @@ func newDualQuaternionFromPose(p Pose) *dualQuaternion {
 		return q.Clone()
 	}
 	q := newDualQuaternionFromRotation(p.Orientation())
-	pt := p.Point()
-	q.SetTranslation(pt.X, pt.Y, pt.Z)
+	q.SetTranslation(p.Point())
 	return q
 }
 
@@ -94,8 +93,7 @@ func dualQuaternionFromPose(p Pose) *dualQuaternion {
 		return q
 	}
 	q := newDualQuaternionFromRotation(p.Orientation().OrientationVectorRadians())
-	pt := p.Point()
-	q.SetTranslation(pt.X, pt.Y, pt.Z)
+	q.SetTranslation(p.Point())
 	return q
 }
 
@@ -131,13 +129,12 @@ func (q *dualQuaternion) Point() r3.Vector {
 
 // Orientation returns the rotation quaternion as an Orientation.
 func (q *dualQuaternion) Orientation() Orientation {
-	qq := quaternion(q.Real)
-	return &qq
+	return (*quaternion)(&q.Real)
 }
 
 // SetTranslation correctly sets the translation quaternion against the rotation.
-func (q *dualQuaternion) SetTranslation(x, y, z float64) {
-	q.Dual = quat.Number{0, x / 2, y / 2, z / 2}
+func (q *dualQuaternion) SetTranslation(pt r3.Vector) {
+	q.Dual = quat.Number{0, pt.X / 2, pt.Y / 2, pt.Z / 2}
 	q.rotate()
 }
 
@@ -160,8 +157,11 @@ func (q *dualQuaternion) SetZ(z float64) {
 // Transformation multiplies the dual quat contained in this dualQuaternion by another dual quat.
 func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	// Ensure we are multiplying by a unit dual quaternion
-	if vecLen := quat.Abs(by.Real); vecLen != 1 {
-		by.Real = quat.Scale(1/vecLen, by.Real)
+	if vecLen := 1 / quat.Abs(by.Real); vecLen != 1 {
+		by.Real.Real *= vecLen
+		by.Real.Imag *= vecLen
+		by.Real.Jmag *= vecLen
+		by.Real.Kmag *= vecLen
 	}
 
 	return dualquat.Mul(q.Number, by)

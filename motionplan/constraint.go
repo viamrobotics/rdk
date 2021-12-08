@@ -44,33 +44,38 @@ func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution 
 	}
 	steps := getSteps(ci.StartPos, ci.EndPos, resolution)
 
-	lastInterp := 0.
+	var lastGood []frame.Input
+	interpC := ci
 
 	for i := 1; i <= steps; i++ {
 		interp := float64(i) / float64(steps)
-		interpC, err := interpolateInput(ci, lastInterp, interp)
+		interpC, err = cachedInterpolateInput(ci, interp, interpC.EndInput, interpC.EndPos)
 		if err != nil {
 			return false, nil
 		}
-		lastInterp = interp
 		pass, _ := c.CheckConstraints(interpC)
 		if !pass {
 			if i > 1 {
-				return false, interpC
+				return false, &ConstraintInput{StartInput: lastGood, EndInput: interpC.StartInput}
 			}
 			// fail on start pos
 			return false, nil
 		}
+		lastGood = interpC.StartInput
 	}
 	// extra step to check the end
-	interpC, err := interpolateInput(ci, 1, 1)
 	if err != nil {
 		return false, nil
 	}
-
-	pass, _ := c.CheckConstraints(interpC)
+	pass, _ := c.CheckConstraints(&ConstraintInput{
+		StartPos:   ci.EndPos,
+		EndPos:     ci.EndPos,
+		StartInput: ci.EndInput,
+		EndInput:   ci.EndInput,
+		Frame:      ci.Frame,
+	})
 	if !pass {
-		return false, interpC
+		return false, &ConstraintInput{StartInput: lastGood, EndInput: interpC.StartInput}
 	}
 
 	return true, nil
@@ -351,11 +356,13 @@ func resolveInputsToPositions(ci *ConstraintInput) error {
 	return nil
 }
 
-func interpolateInput(ci *ConstraintInput, by1, by2 float64) (*ConstraintInput, error) {
+// Prevents recalculation of startPos. If no startPos has been calculated, just pass nil
+func cachedInterpolateInput(ci *ConstraintInput, by float64, startInput []frame.Input, startPos spatial.Pose) (*ConstraintInput, error) {
 	new := &ConstraintInput{}
 	new.Frame = ci.Frame
-	new.StartInput = frame.InterpolateInputs(ci.StartInput, ci.EndInput, by1)
-	new.EndInput = frame.InterpolateInputs(ci.StartInput, ci.EndInput, by2)
+	new.StartInput = startInput
+	new.StartPos = startPos
+	new.EndInput = frame.InterpolateInputs(ci.StartInput, ci.EndInput, by)
 
 	return new, resolveInputsToPositions(new)
 }

@@ -25,8 +25,8 @@ func TestAngleAxisConversion1(t *testing.T) {
 func TestAngleAxisConversion2(t *testing.T) {
 	// Test that we can convert back and forth losslessly between r4 and r3 angle axis
 	startAA := R4AA{2.5980762, 0.577350, 0.577350, 0.577350}
-	r3 := startAA.ToR3()
-	end1 := r3.ToR4()
+	r3aa := startAA.ToR3()
+	end1 := R3ToR4(r3aa)
 	test.That(t, math.Abs(end1.Theta-startAA.Theta), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(end1.RX-startAA.RX), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(end1.RY-startAA.RZ), test.ShouldBeLessThan, 0.001)

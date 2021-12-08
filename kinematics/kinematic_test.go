@@ -64,7 +64,7 @@ func TestForwardKinematics(t *testing.T) {
 	expect = []float64{258.0935, -258.0935, 360.25, utils.RadToDeg(0.7854), 0.707, -0.707, 0}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
 
-	// Test out of bounds
+	// Test out of bounds. Note that ComputePosition will return nil on OOB.
 	newPos = []float64{-45, 0, 0, 0, 0, 999}
 	pos, err = ComputePosition(m, &pb.ArmJointPositions{Degrees: newPos})
 	test.That(t, pos, test.ShouldBeNil)
