@@ -11,7 +11,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/core/board"
-	"go.viam.com/core/motor"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
@@ -99,9 +99,8 @@ func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-// Power sets the associated pins (as discovered) and sets PWM to the given power percentage from -1 to 1
-// where the sign of the power dictates direction.
-func (m *Motor) Power(ctx context.Context, powerPct float64) error {
+// SetPower sets the associated pins (as discovered) and sets PWM to the given power percentage.
+func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	var errs error
 	powerPct = math.Min(powerPct, m.maxPowerPct)
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
@@ -166,19 +165,19 @@ func (m *Motor) Go(ctx context.Context, powerPct float64) error {
 	if m.Dir != "" {
 		return multierr.Combine(
 			m.Board.GPIOSet(ctx, m.Dir, !math.Signbit(powerPct)),
-			m.Power(ctx, powerPct),
+			m.SetPower(ctx, powerPct),
 		)
 	}
 	if m.A != "" && m.B != "" {
 		return multierr.Combine(
 			m.Board.GPIOSet(ctx, m.A, !math.Signbit(powerPct)),
 			m.Board.GPIOSet(ctx, m.B, math.Signbit(powerPct)),
-			m.Power(ctx, powerPct), // Must be last for A/B only drivers
+			m.SetPower(ctx, powerPct), // Must be last for A/B only drivers
 		)
 	}
 
 	if !math.Signbit(powerPct) {
-		return m.Power(ctx, powerPct)
+		return m.SetPower(ctx, powerPct)
 	}
 
 	return errors.New("trying to go backwards but don't have dir or a&b pins")
@@ -242,7 +241,7 @@ func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 // Off turns the motor off by setting the appropriate pins to low states.
 func (m *Motor) Off(ctx context.Context) error {
 	m.on = false
-	return m.Power(ctx, 0)
+	return m.SetPower(ctx, 0)
 }
 
 // GoTo is not supported
@@ -255,7 +254,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 	return errors.New("not supported")
 }
 
-// Zero is not supported
-func (m *Motor) Zero(ctx context.Context, offset float64) error {
+// SetToZeroPosition is not supported
+func (m *Motor) SetToZeroPosition(ctx context.Context, offset float64) error {
 	return errors.New("not supported")
 }

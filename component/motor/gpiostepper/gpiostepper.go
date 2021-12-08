@@ -14,8 +14,8 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 )
@@ -23,14 +23,17 @@ import (
 const modelName = "gpiostepper"
 
 func init() {
-	registry.RegisterMotor(modelName, registry.Motor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error) {
-		actualBoard, motorConfig, err := getBoardFromRobotConfig(r, config)
-		if err != nil {
-			return nil, err
-		}
+	_motor := registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			actualBoard, motorConfig, err := getBoardFromRobotConfig(r, config)
+			if err != nil {
+				return nil, err
+			}
 
-		return newGPIOStepper(ctx, actualBoard, *motorConfig, logger)
-	}})
+			return newGPIOStepper(ctx, actualBoard, *motorConfig, logger)
+		},
+	}
+	registry.RegisterComponent(motor.Subtype, modelName, _motor)
 	motor.RegisterConfigAttributeConverter(modelName)
 }
 
@@ -115,8 +118,8 @@ func (m *gpioStepper) Validate() error {
 	return nil
 }
 
-// Power sets the percentage of power the motor should employ between -1 and 1.
-func (m *gpioStepper) Power(ctx context.Context, powerPct float64) error {
+// SetPower sets the percentage of power the motor should employ between 0-1.
+func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64) error {
 	if powerPct <= .0001 {
 		m.stop()
 		return nil
@@ -256,7 +259,7 @@ func (m *gpioStepper) GoTillStop(ctx context.Context, rpm float64, stopFunc func
 }
 
 // Set the current position (+/- offset) to be the new zero (home) position.
-func (m *gpioStepper) Zero(ctx context.Context, offset float64) error {
+func (m *gpioStepper) SetToZeroPosition(ctx context.Context, offset float64) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.stepPosition = int64(offset * float64(m.stepsPerRotation))

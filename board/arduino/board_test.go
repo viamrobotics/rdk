@@ -12,8 +12,8 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
 )
 
 func TestArduinoPWM(t *testing.T) {
@@ -29,7 +29,7 @@ func TestArduinoPWM(t *testing.T) {
 				Components: []config.Component{
 					{
 						Name:  "m1",
-						Model: modelName,
+						Model: "arduino",
 						Type:  config.ComponentTypeMotor,
 						ConvertedAttributes: &motor.Config{
 							Pins: map[string]string{
@@ -53,7 +53,7 @@ func TestArduinoPWM(t *testing.T) {
 				Components: []config.Component{
 					{
 						Name:  "m1",
-						Model: modelName,
+						Model: "arduino",
 						Type:  config.ComponentTypeMotor,
 						ConvertedAttributes: &motor.Config{
 							Pins: map[string]string{
@@ -76,7 +76,7 @@ func TestArduinoPWM(t *testing.T) {
 				Components: []config.Component{
 					{
 						Name:  "m1",
-						Model: modelName,
+						Model: "arduino",
 						Type:  config.ComponentTypeMotor,
 						ConvertedAttributes: &motor.Config{
 							Pins: map[string]string{
@@ -98,7 +98,7 @@ func TestArduinoPWM(t *testing.T) {
 				Components: []config.Component{
 					{
 						Name:  "m1",
-						Model: modelName,
+						Model: "arduino",
 						Type:  config.ComponentTypeMotor,
 						ConvertedAttributes: &motor.Config{
 							Pins: map[string]string{
@@ -127,7 +127,7 @@ func TestArduinoPWM(t *testing.T) {
 			}
 			test.That(t, err, test.ShouldBeNil)
 
-			_, err = b.configureMotor(tc.conf.Components[0], tc.conf.Components[0].ConvertedAttributes.(*motor.Config))
+			_, err = configureMotorForBoard(context.Background(), b, tc.conf.Components[0], tc.conf.Components[0].ConvertedAttributes.(*motor.Config))
 
 			if tc.err == "" {
 				test.That(t, err, test.ShouldBeNil)
@@ -156,7 +156,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "m1",
-				Model: modelName,
+				Model: "arduino",
 				Type:  config.ComponentTypeMotor,
 				ConvertedAttributes: &motor.Config{
 					Pins: map[string]string{
@@ -181,7 +181,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close()
 
-	m, err := b.configureMotor(cfg.Components[0], cfg.Components[0].ConvertedAttributes.(*motor.Config))
+	m, err := configureMotorForBoard(context.Background(), b, cfg.Components[0], cfg.Components[0].ConvertedAttributes.(*motor.Config))
 	test.That(t, err, test.ShouldBeNil)
 
 	arduinoMotorTests(ctx, t, m)
@@ -196,7 +196,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "m1",
-				Model: modelName,
+				Model: "arduino",
 				Type:  config.ComponentTypeMotor,
 				ConvertedAttributes: &motor.Config{
 					Pins: map[string]string{
@@ -221,7 +221,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close()
 
-	m, err := b.configureMotor(cfg.Components[0], cfg.Components[0].ConvertedAttributes.(*motor.Config))
+	m, err := configureMotorForBoard(context.Background(), b, cfg.Components[0], cfg.Components[0].ConvertedAttributes.(*motor.Config))
 	test.That(t, err, test.ShouldBeNil)
 
 	arduinoMotorTests(ctx, t, m)
@@ -235,7 +235,7 @@ func TestArduinoMotorAB(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "m1",
-				Model: modelName,
+				Model: "arduino",
 				Type:  config.ComponentTypeMotor,
 				ConvertedAttributes: &motor.Config{
 					Pins: map[string]string{
@@ -260,7 +260,7 @@ func TestArduinoMotorAB(t *testing.T) {
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close()
 
-	m, err := b.configureMotor(cfg.Components[0], cfg.Components[0].ConvertedAttributes.(*motor.Config))
+	m, err := configureMotorForBoard(context.Background(), b, cfg.Components[0], cfg.Components[0].ConvertedAttributes.(*motor.Config))
 	test.That(t, err, test.ShouldBeNil)
 
 	arduinoMotorTests(ctx, t, m)
@@ -381,7 +381,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 	})
 
 	t.Run("ardunio motor Zero with positive offset", func(t *testing.T) {
-		err := m.Zero(ctx, 2.0)
+		err := m.SetToZeroPosition(ctx, 2.0)
 		test.That(t, err, test.ShouldBeNil)
 
 		pos, err := m.Position(ctx)
@@ -390,7 +390,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 	})
 
 	t.Run("ardunio motor Zero with negative offset", func(t *testing.T) {
-		err := m.Zero(ctx, -2.0)
+		err := m.SetToZeroPosition(ctx, -2.0)
 		test.That(t, err, test.ShouldBeNil)
 
 		pos, err := m.Position(ctx)
