@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+	"sync"
 
 	"github.com/edaniels/golog"
 
@@ -51,6 +52,7 @@ type cBiRRTMotionPlanner struct {
 type nearestNeighbor struct {
 	nnKeys    chan *solution
 	neighbors chan *neighbor
+	nnLock    sync.RWMutex
 	seedPos   *solution
 	ready     bool
 }
@@ -447,12 +449,15 @@ func (mp *cBiRRTMotionPlanner) parallelNearestNeighbor(seed *solution, rrtMap ma
 	mp.startNNworkers()
 	defer close(mp.nn.nnKeys)
 	defer close(mp.nn.neighbors)
+	mp.nn.nnLock.Lock()
 	mp.nn.seedPos = seed
 
 	for k := range rrtMap {
 		mp.nn.nnKeys <- k
 	}
+	mp.nn.nnLock.Lock()
 	mp.nn.ready = true
+	mp.nn.nnLock.Unlock()
 	var best *solution
 	bestDist := math.Inf(1)
 	returned := 0
@@ -488,17 +493,22 @@ func (mp *cBiRRTMotionPlanner) nnWorker(id int) {
 		select {
 		case k := <-mp.nn.nnKeys:
 			if k != nil {
+				mp.nn.nnLock.RLock()
 				dist := inputDist(mp.nn.seedPos.inputs, k.inputs)
+				mp.nn.nnLock.RUnlock()
 				if dist < bestDist {
 					bestDist = dist
 					best = k
 				}
 			}
 		default:
+			mp.nn.nnLock.RLock()
 			if mp.nn.ready {
+				mp.nn.nnLock.RUnlock()
 				mp.nn.neighbors <- &neighbor{bestDist, best}
 				return
 			}
+			mp.nn.nnLock.RUnlock()
 		}
 	}
 }
