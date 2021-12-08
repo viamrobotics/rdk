@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rimage/transform"
+	"go.viam.com/core/utils"
 )
 
 // ChessGreedyConfiguration stores the parameters for the iterative refinement of the grid
@@ -22,90 +23,20 @@ var (
 	quadI = []r2.Point{{0, 0}, {1, 0}, {1, 1}, {0, 1}}
 )
 
-// Single generates an n-dimensional Grid using a single set of values.
-// dim specifies the number of dimensions, the entries in x specify the gridded values.
-func Single(dim int, x []float64) [][]float64 {
-	dims := make([]int, dim)
-	for i := range dims {
-		dims[i] = len(x)
-	}
-	sz := size(dims)
-	pts := make([][]float64, sz)
-	sub := make([]int, dim)
-	for i := 0; i < sz; i++ {
-		SubFor(sub, i, dims)
-		pt := make([]float64, dim)
-		for j := range pt {
-			pt[j] = x[sub[j]]
-		}
-		pts[i] = pt
-	}
-	return pts
-}
-
-func size(dims []int) int {
-	n := 1
-	for _, v := range dims {
-		n *= v
-	}
-	return n
-}
-
-// SubFor constructs the multi-dimensional subscript for the input linear index.
-// dims specifies the maximum size in each dimension. SubFor is the converse of
-// IdxFor.
-//
-// If sub is non-nil the result is stored in-place into sub. If it is nil a new
-// slice of the appropriate length is allocated.
-func SubFor(sub []int, idx int, dims []int) []int {
-	for _, v := range dims {
-		if v <= 0 {
-			panic("bad dims")
-		}
-	}
-	if sub == nil {
-		sub = make([]int, len(dims))
-	}
-	if len(sub) != len(dims) {
-		panic("size mismatch")
-	}
-	if idx < 0 {
-		panic("bad index")
-	}
-	stride := 1
-	for i := len(dims) - 1; i >= 1; i-- {
-		stride *= dims[i]
-	}
-	for i := 0; i < len(dims)-1; i++ {
-		v := idx / stride
-		if v >= dims[i] {
-			panic("bad index")
-		}
-		sub[i] = v
-		idx -= v * stride
-		stride /= dims[i+1]
-	}
-	if idx > dims[len(sub)-1] {
-		panic("bad dims")
-	}
-	sub[len(sub)-1] = idx
-	return sub
-}
-
 // getIdentityGrid returns a n x n 2D Grid with coordinates offset,..., offset+n-1,
-func getIdentityGrid(n, offset int) []r2.Point {
+func getIdentityGrid(n, offset int) MeshGrid {
 	// create n x n 2D Grid 0...n-1
 	x := make([]float64, n)
 	floats.Span(x, 0, float64(n-1))
-	pts := Single(2, x)
+	pts := utils.Single(2, x)
 
 	// add offset
 	for _, points := range pts {
 		floats.AddConst(float64(offset), points)
 
 	}
-	// output slice of r2.Point
-	outPoints := make([]r2.Point, 0)
+	// output slice of r2.Point / MeshGrid
+	outPoints := make(MeshGrid, 0)
 	for i := 0; i < len(pts); i++ {
 		pt := r2.Point{X: pts[i][1], Y: pts[i][0]}
 		outPoints = append(outPoints, pt)
@@ -114,7 +45,7 @@ func getIdentityGrid(n, offset int) []r2.Point {
 }
 
 // makeChessGrid returns an identity Grid and its transformation with homography H
-func makeChessGrid(H rimage.Matrix, n int) ([]r2.Point, []r2.Point) {
+func makeChessGrid(H rimage.Matrix, n int) (MeshGrid, MeshGrid) {
 	unitGrid := getIdentityGrid(2+2*n, -n)
 	grid := transform.ApplyHomography(H, unitGrid)
 	return unitGrid, grid
@@ -122,7 +53,7 @@ func makeChessGrid(H rimage.Matrix, n int) ([]r2.Point, []r2.Point) {
 
 // getInitialChessGrid returns an ideal grid, the homography H from the unit quad to current quad
 // and the ideal grid transformed by H
-func getInitialChessGrid(quad []r2.Point) ([]r2.Point, []r2.Point, *mat.Dense, error) {
+func getInitialChessGrid(quad []r2.Point) (MeshGrid, MeshGrid, *mat.Dense, error) {
 	// order points ccw
 	quad = rimage.SortPointCounterClockwise(quad)
 	// estimate exact homography
@@ -139,7 +70,7 @@ func getInitialChessGrid(quad []r2.Point) ([]r2.Point, []r2.Point, *mat.Dense, e
 }
 
 // GenerateNewBestFit gets the homography that gets the most inliers in current Grid
-func GenerateNewBestFit(gridIdeal, grid []r2.Point, gridGood []int) (*mat.Dense, error) {
+func GenerateNewBestFit(gridIdeal, grid MeshGrid, gridGood []int) (*mat.Dense, error) {
 	// select valid chessboard corner points in ideal Grid
 	ptsA := make([]r2.Point, 0)
 	for i, pt := range gridIdeal {
@@ -164,7 +95,7 @@ func GenerateNewBestFit(gridIdeal, grid []r2.Point, gridGood []int) (*mat.Dense,
 
 // findGoodPoints returns points from a detected Grid that are close to a saddle point and replace these points
 // with the saddle points coordinates
-func findGoodPoints(grid, saddlePoints []r2.Point, maxPointDist float64) ([]r2.Point, []int) {
+func findGoodPoints(grid MeshGrid, saddlePoints []r2.Point, maxPointDist float64) ([]r2.Point, []int) {
 	// for each Grid point, get the closest saddle point within range
 	newGrid := make([]r2.Point, len(grid))
 	copy(newGrid, grid)
@@ -189,11 +120,14 @@ func findGoodPoints(grid, saddlePoints []r2.Point, maxPointDist float64) ([]r2.P
 	return newGrid, gridGood
 }
 
+// MeshGrid is a slice of r2.point that contains grid organized points
+type MeshGrid []r2.Point
+
 // ChessGrid stores the data necessary to get the chess grid points in an image
 type ChessGrid struct {
 	M            *mat.Dense // homography from ideal Grid to estimated Grid
-	IdealGrid    []r2.Point // ideal Grid
-	Grid         []r2.Point // detected chessboard Grid
+	IdealGrid    MeshGrid   // ideal Grid
+	Grid         MeshGrid   // detected chessboard Grid
 	GoodPoints   []int      // if point in Grid is valid, GoodPoints[point] = 1, otherwise 0
 	SaddlePoints []r2.Point // slice of saddle points detected in the first step of the chessboard detection algorithm
 }
@@ -208,12 +142,12 @@ func sumGoodPoints(goodPoints []int) int {
 }
 
 // GreedyIterations performs greedy iterations to find the best fitted grid for chess board
-func GreedyIterations(contours [][]r2.Point, saddlePoints []r2.Point, cfg ChessGreedyConfiguration) (*ChessGrid, error) {
+func GreedyIterations(contours []rimage.ContourFloat, saddlePoints rimage.ContourFloat, cfg ChessGreedyConfiguration) (*ChessGrid, error) {
 	currentNGood := 0
-	currentGridNext := make([]r2.Point, 0)
+	currentGridNext := make(MeshGrid, 0)
 	currentGridGood := make([]int, 0)
 	currentM := mat.NewDense(3, 3, nil)
-	var currentGrid []r2.Point
+	var currentGrid MeshGrid
 	var M *mat.Dense
 	var err error
 	// iterate through contours
@@ -223,11 +157,14 @@ func GreedyIterations(contours [][]r2.Point, saddlePoints []r2.Point, cfg ChessG
 			return nil, err
 		}
 		nGood := 0
-		nextGrid := make([]r2.Point, 0)
+		nextGrid := make(MeshGrid, 0)
 		goodGrid := make([]int, 0)
 		if M != nil {
 			nGood = 0
 			// iterate through possible positions of the Grid
+			// when gridI = 0, we are looking for relevant saddle points in a subset of 4 chess squares
+			// (the minimum to be able to observe a chessboard)
+			// when gridI = 7, we are looking for relevant saddle points in the whole 8x8 chess squares grid
 			for gridI := 0; gridI < 7; gridI++ {
 				_, currentGrid = makeChessGrid(M, gridI+1)
 				nextGrid, goodGrid = findGoodPoints(currentGrid, saddlePoints, 15.0)

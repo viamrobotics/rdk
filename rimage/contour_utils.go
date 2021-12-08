@@ -2,15 +2,10 @@ package rimage
 
 import (
 	"image"
-	"image/color"
-	"image/png"
 	"math"
-	"os"
 
-	"github.com/fogleman/gg"
 	"github.com/golang/geo/r2"
-
-	"go.viam.com/utils"
+	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -24,55 +19,6 @@ import (
 
 // NPixelNeighbors stores the number of neighbors for each pixel (should be 4 or 8)
 var NPixelNeighbors = 8
-
-// Border stores the ID of a Border and its type (Hole or Outer)
-type Border struct {
-	segNum, borderType int
-}
-
-// enumeration for Border types
-const (
-	Hole = iota + 1
-	Outer
-)
-
-// CreateHoleBorder creates a Hole Border
-func CreateHoleBorder() Border {
-	return Border{
-		segNum:     0,
-		borderType: Hole,
-	}
-}
-
-// CreateOuterBorder creates an Outer Border
-func CreateOuterBorder() Border {
-	return Border{
-		segNum:     0,
-		borderType: Outer,
-	}
-}
-
-// PointMat stores a point in matrix coordinates convention
-type PointMat struct {
-	Row, Col int
-}
-
-// Set sets a current point to new coordinates (r,c)
-func (p *PointMat) Set(r, c int) {
-	p.Col = c
-	p.Row = r
-}
-
-// SetTo sets a current point to new coordinates (r,c)
-func (p *PointMat) SetTo(p2 PointMat) {
-	p.Col = p2.Col
-	p.Row = p2.Row
-}
-
-// SamePoint returns true if a point q is equal to the point p
-func (p *PointMat) SamePoint(q *PointMat) bool {
-	return p.Row == q.Row && p.Col == q.Col
-}
 
 // Node is a structure storing data from each contour to form a tree
 type Node struct {
@@ -340,11 +286,11 @@ func (l Line) Coefficients() (a, b, c float64) {
 
 // ApproxContourDP accepts a slice of points and a threshold epsilon, and approximates a contour by
 // a succession of segments
-func ApproxContourDP(points []r2.Point, ep float64) []r2.Point {
+func ApproxContourDP(points ContourFloat, ep float64) ContourFloat {
 	if len(points) <= 2 {
 		return points
 	}
-	points2 := make([]r2.Point, len(points))
+	points2 := make(ContourFloat, len(points))
 	copy(points2, points)
 
 	if IsContourClosed(points, 5) {
@@ -360,11 +306,11 @@ func ApproxContourDP(points []r2.Point, ep float64) []r2.Point {
 	}
 
 	// If the most distant point fails to pass the threshold test, then just return the two points
-	return []r2.Point{points[0], points[len(points)-1]}
+	return ContourFloat{points[0], points[len(points)-1]}
 }
 
 // seekMostDistantPoint finds the point that is the most distant from the line defined by 2 points
-func seekMostDistantPoint(l Line, points []r2.Point) (idx int, maxDist float64) {
+func seekMostDistantPoint(l Line, points ContourFloat) (idx int, maxDist float64) {
 	for i := 0; i < len(points); i++ {
 		d := l.DistanceToPoint(points[i])
 		if d > maxDist {
@@ -377,130 +323,67 @@ func seekMostDistantPoint(l Line, points []r2.Point) (idx int, maxDist float64) 
 }
 
 // SimplifyContours iterates through a slice of contours and performs the contour approximation from ApproxContourDP
-func SimplifyContours(contours [][]image.Point) [][]r2.Point {
-	simplifiedContours := make([][]r2.Point, len(contours))
+func SimplifyContours(contours [][]image.Point) []ContourFloat {
+	simplifiedContours := make([]ContourFloat, len(contours))
 
 	for i, c := range contours {
-		cf := ConvertSliceImagePointToSliceVec(c)
+		cf := ConvertContourIntToContourFloat(c)
 		sc := ApproxContourDP(cf, 0.03*float64(len(c)))
 		simplifiedContours[i] = sc
 	}
 	return simplifiedContours
 }
 
-// ContourPoint is a simple structure for readability
-type ContourPoint struct {
-	Point r2.Point
-	Idx   int
-}
-
-// GetPairOfFarthestPointsContour take an ordered contour and returns the 2 farthest points and their respective
-// indices in that contour
-func GetPairOfFarthestPointsContour(points []r2.Point) (ContourPoint, ContourPoint) {
-	start := ContourPoint{points[0], 0}
-	end := ContourPoint{points[1], 1}
-	distMax := 0.0
-	for i, p := range points {
-		for j, q := range points {
-			d := p.Sub(q).Norm()
-			if d > distMax {
-				start = ContourPoint{p, i}
-				end = ContourPoint{q, j}
-				distMax = d
-			}
-		}
-	}
-	return start, end
-}
-
-// IsContourClosed takes a sorted contour, and returns true if the first and last points of it are spatially epsilon-close
-func IsContourClosed(points []r2.Point, eps float64) bool {
-	start := points[0]
-	end := points[len(points)-1]
-	d := end.Sub(start).Norm()
-
-	return d < eps
-}
-
-// ReorderClosedContourWithFarthestPoints takes a closed ordered contour and reorders the points in it so that all the
-// points from p1 to p2 are in the first part of the contour and points from p2 to p1 in the second part
-func ReorderClosedContourWithFarthestPoints(points []r2.Point) []r2.Point {
-	start, end := GetPairOfFarthestPointsContour(points)
-	if start.Idx > end.Idx {
-		start, end = end, start
-	}
-	c1 := points[start.Idx:end.Idx]
-	c2 := points[end.Idx:]
-	c2 = append(c2, points[:start.Idx]...)
-	reorderedContour := append(c1, c2...)
-	return reorderedContour
-}
-
-// helpers
-// convertImagePointToVec converts an image.Point to a r2.Point
-func convertImagePointToVec(p image.Point) r2.Point {
-	return r2.Point{X: float64(p.X), Y: float64(p.Y)}
-}
-
-// ConvertSliceImagePointToSliceVec converts a slice of image.Point to a slice of r2.Point
-func ConvertSliceImagePointToSliceVec(pts []image.Point) []r2.Point {
+// SortPointCounterClockwise sorts a slice of image.Point in counterclockwise order, starting from point closest to -pi
+func SortPointCounterClockwise(pts []r2.Point) []r2.Point {
+	// create new slice of points
 	out := make([]r2.Point, len(pts))
-	for i, pt := range pts {
-		out[i] = convertImagePointToVec(pt)
+	xs, ys := SliceVecsToXsYs(pts)
+	xMin := floats.Min(xs)
+	xMax := floats.Max(xs)
+	yMin := floats.Min(ys)
+	yMax := floats.Max(ys)
+	centerX := xMin + (xMax-xMin)/2
+	centerY := yMin + (yMax-yMin)/2
+	floats.AddConst(-centerX, xs)
+	floats.AddConst(-centerY, ys)
+	angles := make([]float64, len(pts))
+	for i := range xs {
+		angles[i] = math.Atan2(ys[i], xs[i])
+	}
+	inds := make([]int, len(pts))
+	floats.Argsort(angles, inds)
+
+	for i := 0; i < len(pts); i++ {
+		idx := inds[i]
+		x := math.Round(xs[idx] + centerX)
+		y := math.Round(ys[idx] + centerY)
+		out[i] = r2.Point{X: x, Y: y}
 	}
 	return out
 }
 
-// savePNG takes an image.Image and saves it to a png file fn
-func savePNG(fn string, m image.Image) error {
-	f, err := os.Create(fn)
-	if err != nil {
-		return err
+// SortImagePointCounterClockwise sorts a slice of image.Point in counterclockwise order, starting from point closest to -pi
+func SortImagePointCounterClockwise(pts []image.Point) []image.Point {
+	// create new slice of points
+	out := make([]image.Point, len(pts))
+	xs, ys := SlicePointsToXsYs(pts)
+	centerX := floats.Sum(xs) / float64(len(xs))
+	centerY := floats.Sum(ys) / float64(len(ys))
+	floats.AddConst(-centerX, xs)
+	floats.AddConst(-centerY, ys)
+	angles := make([]float64, len(pts))
+	for i := range xs {
+		angles[i] = math.Atan2(ys[i], xs[i])
 	}
-	defer utils.UncheckedErrorFunc(f.Close)
-	return png.Encode(f, m)
-}
+	inds := make([]int, len(pts))
+	floats.Argsort(angles, inds)
 
-// Visualization functions
-
-// DrawContours draws the contours in a black image and saves it in outFile
-func DrawContours(img *mat.Dense, contours [][]image.Point, outFile string) *image.Gray16 {
-	h, w := img.Dims()
-	g := image.NewGray16(image.Rect(0, 0, w, h))
-
-	for i, cnt := range contours {
-		for _, pt := range cnt {
-			g.SetGray16(pt.X, pt.Y, color.Gray16{uint16(i)})
-		}
+	for i := 0; i < len(pts); i++ {
+		idx := inds[i]
+		x := math.Round(xs[idx] + centerX)
+		y := math.Round(ys[idx] + centerY)
+		out[i] = image.Point{X: int(x), Y: int(y)}
 	}
-
-	if err := savePNG(outFile, g); err != nil {
-		panic(err)
-	}
-	return g
-}
-
-// DrawContoursSimplified draws the simplified polygonal contours in a black image and saves it in outFile
-func DrawContoursSimplified(img *mat.Dense, contours [][]r2.Point, outFile string) error {
-	h, w := img.Dims()
-	dc := gg.NewContext(h, w)
-	dc.SetRGB(0, 0, 0)
-	dc.Clear()
-	for _, cnt := range contours {
-		nPoints := len(cnt)
-		for i, pt := range cnt {
-			x1, y1 := pt.X, pt.Y
-			x2, y2 := cnt[(i+1)%nPoints].X, cnt[(i+1)%nPoints].Y
-			r := 1.0
-			g := 1.0
-			b := 1.0
-			a := 1.0
-			dc.SetRGBA(r, g, b, a)
-			dc.SetLineWidth(1)
-			dc.DrawLine(y1, x1, y2, x2)
-			dc.Stroke()
-		}
-	}
-	err := dc.SavePNG(outFile)
-	return err
+	return out
 }

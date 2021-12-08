@@ -128,7 +128,12 @@ func TestEstimateLeastSquaresHomography(t *testing.T) {
 	// create grid of points
 	x := make([]float64, 9)
 	floats.Span(x, 0, 200)
-	pts1 := utils.Single(2, x)
+	pts1Slice := utils.Single(2, x)
+	pts1 := mat.NewDense(len(pts1Slice), len(pts1Slice[0]), nil)
+	for i, pt := range pts1Slice {
+		pts1.Set(i, 0, pt[0])
+		pts1.Set(i, 1, pt[1])
+	}
 	// rotate point with H
 	r, c := pts1.Dims()
 	pts2 := mat.NewDense(c, r, nil)

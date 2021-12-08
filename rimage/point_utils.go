@@ -154,60 +154,6 @@ func TranslateR2Rect(rect r2.Rect, pt r2.Point) r2.Rect {
 	return r2.RectFromCenterSize(rect.Center().Add(pt), rect.Size())
 }
 
-// SortPointCounterClockwise sorts a slice of image.Point in counterclockwise order, starting from point closest to -pi
-func SortPointCounterClockwise(pts []r2.Point) []r2.Point {
-	// create new slice of points
-	out := make([]r2.Point, len(pts))
-	xs, ys := SliceVecsToXsYs(pts)
-	xMin := floats.Min(xs)
-	xMax := floats.Max(xs)
-	yMin := floats.Min(ys)
-	yMax := floats.Max(ys)
-	centerX := xMin + (xMax-xMin)/2
-	centerY := yMin + (yMax-yMin)/2
-	floats.AddConst(-centerX, xs)
-	floats.AddConst(-centerY, ys)
-	angles := make([]float64, len(pts))
-	for i := range xs {
-		angles[i] = math.Atan2(ys[i], xs[i])
-	}
-	inds := make([]int, len(pts))
-	floats.Argsort(angles, inds)
-
-	for i := 0; i < len(pts); i++ {
-		idx := inds[i]
-		x := math.Round(xs[idx] + centerX)
-		y := math.Round(ys[idx] + centerY)
-		out[i] = r2.Point{X: x, Y: y}
-	}
-	return out
-}
-
-// SortImagePointCounterClockwise sorts a slice of image.Point in counterclockwise order, starting from point closest to -pi
-func SortImagePointCounterClockwise(pts []image.Point) []image.Point {
-	// create new slice of points
-	out := make([]image.Point, len(pts))
-	xs, ys := SlicePointsToXsYs(pts)
-	centerX := floats.Sum(xs) / float64(len(xs))
-	centerY := floats.Sum(ys) / float64(len(ys))
-	floats.AddConst(-centerX, xs)
-	floats.AddConst(-centerY, ys)
-	angles := make([]float64, len(pts))
-	for i := range xs {
-		angles[i] = math.Atan2(ys[i], xs[i])
-	}
-	inds := make([]int, len(pts))
-	floats.Argsort(angles, inds)
-
-	for i := 0; i < len(pts); i++ {
-		idx := inds[i]
-		x := math.Round(xs[idx] + centerX)
-		y := math.Round(ys[idx] + centerY)
-		out[i] = image.Point{X: int(x), Y: int(y)}
-	}
-	return out
-}
-
 // SliceVecsToXsYs converts a slice of r2.Point to 2 slices floats containing x and y coordinates
 func SliceVecsToXsYs(pts []r2.Point) ([]float64, []float64) {
 	xs := make([]float64, len(pts))

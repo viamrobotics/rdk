@@ -10,16 +10,6 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-func TestBorderType(t *testing.T) {
-	test.That(t, Hole, test.ShouldEqual, 1)
-	test.That(t, Outer, test.ShouldEqual, 2)
-}
-
-func TestCreateHoleBorder(t *testing.T) {
-	border := CreateHoleBorder()
-	test.That(t, border.borderType, test.ShouldEqual, Hole)
-}
-
 func TestFindContours(t *testing.T) {
 	img, err := readImageFromFile(artifact.MustPath("rimage/binary_image.jpg"), false)
 	test.That(t, err, test.ShouldBeNil)

@@ -81,25 +81,6 @@ func TestSliceVecsToXsYs(t *testing.T) {
 	test.That(t, ys[1], test.ShouldEqual, 4)
 }
 
-func TestSortPointCounterClockwise(t *testing.T) {
-	pts := []r2.Point{{0, 0}, {0, 1}, {1, 0}, {1, 1}}
-	ptsSorted := SortPointCounterClockwise(pts)
-	test.That(t, len(ptsSorted), test.ShouldEqual, 4)
-	test.That(t, ptsSorted[0], test.ShouldResemble, r2.Point{0, 0})
-	test.That(t, ptsSorted[1], test.ShouldResemble, r2.Point{1, 0})
-	test.That(t, ptsSorted[2], test.ShouldResemble, r2.Point{1, 1})
-	test.That(t, ptsSorted[3], test.ShouldResemble, r2.Point{0, 1})
-
-	pts2 := []r2.Point{{0, -20}, {15, -15}, {-15, -15}, {-20, 0}, {20, 0}}
-	ptsSorted2 := SortPointCounterClockwise(pts2)
-	test.That(t, len(ptsSorted2), test.ShouldEqual, 5)
-	test.That(t, ptsSorted2[0], test.ShouldResemble, r2.Point{-15, -15})
-	test.That(t, ptsSorted2[1], test.ShouldResemble, r2.Point{0, -20})
-	test.That(t, ptsSorted2[2], test.ShouldResemble, r2.Point{15, -15})
-	test.That(t, ptsSorted2[3], test.ShouldResemble, r2.Point{20, 0})
-	test.That(t, ptsSorted2[4], test.ShouldResemble, r2.Point{-20, 0})
-}
-
 func TestAreCollinear(t *testing.T) {
 	a := r2.Point{0, 0}
 	b := r2.Point{1, 0}
