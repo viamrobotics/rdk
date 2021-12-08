@@ -5,12 +5,18 @@ import * as jspb from "google-protobuf";
 import * as google_api_annotations_pb from "../../../../google/api/annotations_pb";
 
 export class AngularVelocity extends jspb.Message {
+  hasX(): boolean;
+  clearX(): void;
   getX(): number;
   setX(value: number): void;
 
+  hasY(): boolean;
+  clearY(): void;
   getY(): number;
   setY(value: number): void;
 
+  hasZ(): boolean;
+  clearZ(): void;
   getZ(): number;
   setZ(value: number): void;
 
@@ -33,12 +39,18 @@ export namespace AngularVelocity {
 }
 
 export class EulerAngles extends jspb.Message {
+  hasRoll(): boolean;
+  clearRoll(): void;
   getRoll(): number;
   setRoll(value: number): void;
 
+  hasPitch(): boolean;
+  clearPitch(): void;
   getPitch(): number;
   setPitch(value: number): void;
 
+  hasYaw(): boolean;
+  clearYaw(): void;
   getYaw(): number;
   setYaw(value: number): void;
 

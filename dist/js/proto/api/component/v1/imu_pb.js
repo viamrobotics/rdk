@@ -261,22 +261,22 @@ proto.proto.api.component.v1.AngularVelocity.prototype.serializeBinary = functio
  */
 proto.proto.api.component.v1.AngularVelocity.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getX();
-  if (f !== 0.0) {
+  f = /** @type {number} */ (jspb.Message.getField(message, 1));
+  if (f != null) {
     writer.writeDouble(
       1,
       f
     );
   }
-  f = message.getY();
-  if (f !== 0.0) {
+  f = /** @type {number} */ (jspb.Message.getField(message, 2));
+  if (f != null) {
     writer.writeDouble(
       2,
       f
     );
   }
-  f = message.getZ();
-  if (f !== 0.0) {
+  f = /** @type {number} */ (jspb.Message.getField(message, 3));
+  if (f != null) {
     writer.writeDouble(
       3,
       f
@@ -299,7 +299,25 @@ proto.proto.api.component.v1.AngularVelocity.prototype.getX = function() {
  * @return {!proto.proto.api.component.v1.AngularVelocity} returns this
  */
 proto.proto.api.component.v1.AngularVelocity.prototype.setX = function(value) {
-  return jspb.Message.setProto3FloatField(this, 1, value);
+  return jspb.Message.setField(this, 1, value);
+};
+
+
+/**
+ * Clears the field making it undefined.
+ * @return {!proto.proto.api.component.v1.AngularVelocity} returns this
+ */
+proto.proto.api.component.v1.AngularVelocity.prototype.clearX = function() {
+  return jspb.Message.setField(this, 1, undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.proto.api.component.v1.AngularVelocity.prototype.hasX = function() {
+  return jspb.Message.getField(this, 1) != null;
 };
 
 
@@ -317,7 +335,25 @@ proto.proto.api.component.v1.AngularVelocity.prototype.getY = function() {
  * @return {!proto.proto.api.component.v1.AngularVelocity} returns this
  */
 proto.proto.api.component.v1.AngularVelocity.prototype.setY = function(value) {
-  return jspb.Message.setProto3FloatField(this, 2, value);
+  return jspb.Message.setField(this, 2, value);
+};
+
+
+/**
+ * Clears the field making it undefined.
+ * @return {!proto.proto.api.component.v1.AngularVelocity} returns this
+ */
+proto.proto.api.component.v1.AngularVelocity.prototype.clearY = function() {
+  return jspb.Message.setField(this, 2, undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.proto.api.component.v1.AngularVelocity.prototype.hasY = function() {
+  return jspb.Message.getField(this, 2) != null;
 };
 
 
@@ -335,7 +371,25 @@ proto.proto.api.component.v1.AngularVelocity.prototype.getZ = function() {
  * @return {!proto.proto.api.component.v1.AngularVelocity} returns this
  */
 proto.proto.api.component.v1.AngularVelocity.prototype.setZ = function(value) {
-  return jspb.Message.setProto3FloatField(this, 3, value);
+  return jspb.Message.setField(this, 3, value);
+};
+
+
+/**
+ * Clears the field making it undefined.
+ * @return {!proto.proto.api.component.v1.AngularVelocity} returns this
+ */
+proto.proto.api.component.v1.AngularVelocity.prototype.clearZ = function() {
+  return jspb.Message.setField(this, 3, undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.proto.api.component.v1.AngularVelocity.prototype.hasZ = function() {
+  return jspb.Message.getField(this, 3) != null;
 };
 
 
@@ -451,22 +505,22 @@ proto.proto.api.component.v1.EulerAngles.prototype.serializeBinary = function() 
  */
 proto.proto.api.component.v1.EulerAngles.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getRoll();
-  if (f !== 0.0) {
+  f = /** @type {number} */ (jspb.Message.getField(message, 1));
+  if (f != null) {
     writer.writeDouble(
       1,
       f
     );
   }
-  f = message.getPitch();
-  if (f !== 0.0) {
+  f = /** @type {number} */ (jspb.Message.getField(message, 2));
+  if (f != null) {
     writer.writeDouble(
       2,
       f
     );
   }
-  f = message.getYaw();
-  if (f !== 0.0) {
+  f = /** @type {number} */ (jspb.Message.getField(message, 3));
+  if (f != null) {
     writer.writeDouble(
       3,
       f
@@ -489,7 +543,25 @@ proto.proto.api.component.v1.EulerAngles.prototype.getRoll = function() {
  * @return {!proto.proto.api.component.v1.EulerAngles} returns this
  */
 proto.proto.api.component.v1.EulerAngles.prototype.setRoll = function(value) {
-  return jspb.Message.setProto3FloatField(this, 1, value);
+  return jspb.Message.setField(this, 1, value);
+};
+
+
+/**
+ * Clears the field making it undefined.
+ * @return {!proto.proto.api.component.v1.EulerAngles} returns this
+ */
+proto.proto.api.component.v1.EulerAngles.prototype.clearRoll = function() {
+  return jspb.Message.setField(this, 1, undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.proto.api.component.v1.EulerAngles.prototype.hasRoll = function() {
+  return jspb.Message.getField(this, 1) != null;
 };
 
 
@@ -507,7 +579,25 @@ proto.proto.api.component.v1.EulerAngles.prototype.getPitch = function() {
  * @return {!proto.proto.api.component.v1.EulerAngles} returns this
  */
 proto.proto.api.component.v1.EulerAngles.prototype.setPitch = function(value) {
-  return jspb.Message.setProto3FloatField(this, 2, value);
+  return jspb.Message.setField(this, 2, value);
+};
+
+
+/**
+ * Clears the field making it undefined.
+ * @return {!proto.proto.api.component.v1.EulerAngles} returns this
+ */
+proto.proto.api.component.v1.EulerAngles.prototype.clearPitch = function() {
+  return jspb.Message.setField(this, 2, undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.proto.api.component.v1.EulerAngles.prototype.hasPitch = function() {
+  return jspb.Message.getField(this, 2) != null;
 };
 
 
@@ -525,7 +615,25 @@ proto.proto.api.component.v1.EulerAngles.prototype.getYaw = function() {
  * @return {!proto.proto.api.component.v1.EulerAngles} returns this
  */
 proto.proto.api.component.v1.EulerAngles.prototype.setYaw = function(value) {
-  return jspb.Message.setProto3FloatField(this, 3, value);
+  return jspb.Message.setField(this, 3, value);
+};
+
+
+/**
+ * Clears the field making it undefined.
+ * @return {!proto.proto.api.component.v1.EulerAngles} returns this
+ */
+proto.proto.api.component.v1.EulerAngles.prototype.clearYaw = function() {
+  return jspb.Message.setField(this, 3, undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.proto.api.component.v1.EulerAngles.prototype.hasYaw = function() {
+  return jspb.Message.getField(this, 3) != null;
 };
 
 
