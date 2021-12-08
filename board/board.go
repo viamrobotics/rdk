@@ -119,17 +119,3 @@ type AnalogReader interface {
 // Multiple post processors can be stacked on each other. This is currently
 // only used in DigitalInterrupt readings.
 type PostProcessor func(raw int64) int64
-
-// FlipDirection flips over a relative direction. For example, forward
-// flips to backward.
-// TODO(erh): should this move to motor?
-func FlipDirection(d pb.DirectionRelative) pb.DirectionRelative {
-	switch d {
-	case pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD:
-		return pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
-	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
-		return pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-	}
-
-	return d
-}

@@ -6,8 +6,6 @@ import (
 	"sync/atomic"
 
 	"go.viam.com/utils"
-
-	pb "go.viam.com/core/proto/api/v1"
 )
 
 // Encoder keeps track of a motor position
@@ -160,8 +158,9 @@ func (e *HallEncoder) dec() {
 // ---------
 
 // DirectionAware lets you ask what direction something is moving. Only used for SingleEncoder for now, unclear future.
+// DirectionMoving returns -1 if the motor is currently turning backwards, 1 if forwards and 0 if off
 type DirectionAware interface {
-	DirectionMoving() pb.DirectionRelative
+	DirectionMoving() int64
 }
 
 // NewSingleEncoder creates a new SingleEncoder (da begins as nil)
@@ -202,12 +201,8 @@ func (e *SingleEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers
 			}
 
 			dir := e.m.DirectionMoving()
-			if dir == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
-				atomic.AddInt64(&e.position, 1)
-				//stop = m.state.regulated && m.state.curPosition >= m.state.setPoint
-			} else if dir == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
-				atomic.AddInt64(&e.position, -1)
-				//stop = m.state.regulated && m.state.curPosition <= m.state.setPoint
+			if dir == 1 || dir == -1 {
+				atomic.AddInt64(&e.position, dir)
 			}
 		}
 	}, activeBackgroundWorkers.Done)

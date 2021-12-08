@@ -17,8 +17,6 @@ import (
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
-
-	pb "go.viam.com/core/proto/api/v1"
 )
 
 func init() {
@@ -114,12 +112,13 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 		return g.motor.Off(ctx)
 	})
 
-	dir := pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
+	d := -1
 	if !zero {
-		dir = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
+		d = 1
 	}
 
-	err := g.motor.GoFor(ctx, dir, g.rpm, 10000)
+	err := g.motor.GoFor(ctx, g.rpm, float64(d*10000))
+
 	if err != nil {
 		return 0, err
 	}
