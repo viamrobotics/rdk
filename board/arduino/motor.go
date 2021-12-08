@@ -126,7 +126,7 @@ func (m *arduinoMotor) PID() motor.PID {
 	return m.pid
 }
 
-// SetPower sets the percentage of power the motor should employ between 0-1.
+// SetPower sets the percentage of power the motor should employ between -1 and 1.
 func (m *arduinoMotor) SetPower(ctx context.Context, powerPct float64) error {
 	if math.Abs(powerPct) <= .001 {
 		return m.Off(ctx)
