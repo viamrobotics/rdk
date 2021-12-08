@@ -240,6 +240,16 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 		return err
 	}
 
+	pathD := 0.05
+	// orientation distance wiggle allowable
+	pathO := 0.3
+	destO := 0.2
+	// No orientation wiggle for eraser
+	if moveFrameName == "eraser" {
+		pathO = 0.01
+		destO = 0.
+	}
+
 	done := make(chan struct{})
 	waypoints := make(chan map[string][]frame.Input, 9999)
 
@@ -249,8 +259,8 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 
 		curPos, _ = fs.TransformFrame(seedMap, moveFrame, fs.World())
 
-		validFunc, gradFunc := motionplan.NewLineConstraintAndGradient(curPos.Point(), goal.Point(), validOV, 0.3, 0.05)
-		destGrad := motionplan.NewPoseFlexOVMetric(goal, 0.2)
+		validFunc, gradFunc := motionplan.NewLineConstraintAndGradient(curPos.Point(), goal.Point(), validOV, pathO, pathD)
+		destGrad := motionplan.NewPoseFlexOVMetric(goal, destO)
 
 		// update constraints
 		mpFunc := func(f frame.Frame, ncpu int, logger golog.Logger) (motionplan.MotionPlanner, error) {
@@ -279,11 +289,41 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 		return waysteps[len(waysteps)-1]
 	}
 
+	finish := func(seedMap map[string][]frame.Input) map[string][]frame.Input {
+
+		goal := spatial.NewPoseFromProtobuf(&pb.Pose{X: 260, Y: whiteboardY + 150, Z: 520, OY: -1})
+
+		curPos, _ = fs.TransformFrame(seedMap, moveFrame, fs.World())
+
+		// update constraints
+		mpFunc := func(f frame.Frame, ncpu int, logger golog.Logger) (motionplan.MotionPlanner, error) {
+			// just in case frame changed
+			mp, err := motionplan.NewCBiRRTMotionPlanner(f, 4, logger)
+			opt := motionplan.NewDefaultPlannerOptions()
+			opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY))
+
+			mp.SetOptions(opt)
+
+			return mp, err
+		}
+		fss.SetPlannerGen(mpFunc)
+
+		waysteps, err := fss.SolvePose(ctx, seedMap, goal, moveFrame, fs.World())
+		if err != nil {
+			return map[string][]frame.Input{}
+		}
+		for _, waystep := range waysteps {
+			waypoints <- waystep
+		}
+		return waysteps[len(waysteps)-1]
+	}
+
 	go func() {
 		seed := steps[len(steps)-1]
 		for _, goal = range points {
 			seed = goToGoal(seed, goal)
 		}
+		finish(seed)
 		close(done)
 	}()
 
@@ -386,7 +426,6 @@ var viamPoints = []spatial.Pose{
 	spatial.NewPoseFromProtobuf(&pb.Pose{X: 200, Y: whiteboardY, Z: 500, OY: -1}),
 	spatial.NewPoseFromProtobuf(&pb.Pose{X: 170, Y: whiteboardY, Z: 600, OY: -1}),
 	spatial.NewPoseFromProtobuf(&pb.Pose{X: 140, Y: whiteboardY, Z: 500, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 140, Y: whiteboardY + 150, Z: 500, OY: -1}),
 }
 
 // ViamLogo writes out the word "VIAM" in a stylized font
@@ -439,17 +478,16 @@ var viamLogo = []spatial.Pose{
 	spatial.NewPoseFromProtobuf(&pb.Pose{X: 245, Y: whiteboardY, Z: 560, OY: -1}),
 	spatial.NewPoseFromProtobuf(&pb.Pose{X: 245, Y: whiteboardY, Z: 520, OY: -1}),
 	spatial.NewPoseFromProtobuf(&pb.Pose{X: 260, Y: whiteboardY, Z: 520, OY: -1}),
-
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 260, Y: whiteboardY + 150, Z: 520, OY: -1}),
 }
 
 // Erase where VIAM was written
 var eraserPoints = []spatial.Pose{
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: whiteboardY, Z: 580, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: whiteboardY, Z: 580, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: whiteboardY, Z: 500, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: whiteboardY, Z: 500, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: whiteboardY + 150, Z: 500, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: whiteboardY + 1.5, Z: 595, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: whiteboardY + 1.5, Z: 595, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: whiteboardY + 1.5, Z: 555, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: whiteboardY + 1.5, Z: 555, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: whiteboardY + 1.5, Z: 515, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: whiteboardY + 1.5, Z: 515, OY: -1}),
 }
 
 // DontHitPetersWallConstraint defines some obstacles that nothing should intersect with
