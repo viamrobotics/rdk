@@ -35,6 +35,13 @@ var intel515json []byte
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, "single_stream", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+		if len(config.Attributes) == 0 {
+			return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth, or both)")
+		}
+		_, has := config.Attributes["stream"]
+		if !has {
+			return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth, or both)")
+		}
 		source, err := NewServerSource(config.Host, config.Port, config.Attributes, logger)
 		if err != nil {
 			return nil, err
@@ -47,7 +54,7 @@ func init() {
 		}
 		x, has := config.Attributes["aligned"]
 		if !has {
-			return nil, errors.New("camera 'url' needs bool attribute 'aligned'")
+			return nil, errors.New("camera 'dual_stream' needs bool attribute 'aligned'")
 		}
 		aligned, ok := x.(bool)
 		if !ok {
@@ -281,7 +288,8 @@ func NewServerSource(host string, port int, attrs config.AttributeMap, logger go
 }
 
 // NewIntelServerSource is the ImageSource for an Intel515 RGBD camera that streams both
-// color and depth information. DEPRECATED: use NewServerSource directly instead.
+// color and depth information.
+// DEPRECATED: use NewServerSource directly instead with 'single_stream' model.
 func NewIntelServerSource(host string, port int, attrs config.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
 	num := "0"
 	numString, has := attrs["num"]
@@ -292,10 +300,11 @@ func NewIntelServerSource(host string, port int, attrs config.AttributeMap, logg
 	if err != nil {
 		return nil, err
 	}
-	attrs["intrinsic_extrinsic"] = camera
-	attrs["stream"] = "both"
-	attrs["args"] = fmt.Sprintf("both?num=%s", num)
-	attrs["aligned"] = attrs.Bool("aligned", true)
+	conf := config.AttributeMap{}
+	conf["intrinsic_extrinsic"] = camera
+	conf["stream"] = "both"
+	conf["args"] = fmt.Sprintf("both?num=%s", num)
+	conf["aligned"] = attrs.Bool("aligned", true)
 
-	return NewServerSource(host, port, attrs, logger)
+	return NewServerSource(host, port, conf, logger)
 }

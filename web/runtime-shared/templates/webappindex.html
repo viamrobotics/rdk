@@ -421,11 +421,11 @@
                       }
                   },
                   renderFrame : function(cameraName) {
-                      req = new robotApi.CameraFrameRequest();
+                      req = new cameraApi.CameraServiceFrameRequest();
                       req.setName(cameraName);
                       const mimeType = 'image/png';
                       req.setMimeType(mimeType)
-                      robotService.cameraFrame(req,  {}, (err, resp) => {
+                      cameraService.frame(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           return;
@@ -440,11 +440,11 @@
                       initPCDIfNeeded();
                       pcdGlobal.cameraName = cameraName;
 
-                      req = new robotApi.PointCloudRequest();
+                      req = new cameraApi.CameraServicePointCloudRequest();
                       req.setName(cameraName);
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType)
-                      robotService.pointCloud(req,  {}, (err, resp) => {
+                      cameraService.pointCloud(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           return;
@@ -631,7 +631,7 @@
                   },
                   findSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
                       theData.pcdClick.calculatingSegments = true;
-                      req = new robotApi.ObjectPointCloudsRequest();
+                      req = new cameraApi.CameraServiceObjectPointCloudsRequest();
                       console.log("camera name: "+pcdGlobal.cameraName);
                       req.setName(pcdGlobal.cameraName);
                       req.setMinPointsInPlane(minPointsPlane);
@@ -640,7 +640,7 @@
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType);
                       console.log("finding object segments...");
-                      robotService.objectPointClouds(req,  {}, (err, resp) => {
+                      cameraService.objectPointClouds(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           console.log("error getting segments");
@@ -1325,7 +1325,7 @@
         </table>
       </div> <!-- end boards -->
       <!-- cameras -->
-      <table border="1" v-if="nonEmpty(status.camerasMap)">
+      <table border="1" v-if="nonEmpty(filterResources('core', 'component', 'camera'))">
         <tr>
           <th colspan="3">
             Cameras
@@ -1336,10 +1336,10 @@
           <th>Frame</th>
           <th>PCD</th>
         </tr>
-        <tr v-for="(cam,x) in status.camerasMap">
-          <td>${cam[0]}</td>
-          <td><a href="#" v-on:click.prevent="renderFrame(cam[0])">frame</a></td>
-          <td><button v-on:click="renderPCD(cam[0])">GO</button></td>
+        <tr v-for="camera in filterResources('core', 'component', 'camera')">
+          <td>${camera.name}</td>
+          <td><a href="#" v-on:click.prevent="renderFrame(camera.name)">frame</a></td>
+          <td><button v-on:click="renderPCD(camera.name)">GO</button></td>
         </tr>
       </table>
 
