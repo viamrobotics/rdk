@@ -235,7 +235,7 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm float64, revolutions float6
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
-// at a specific RPM. Regardless of the directionality of the RPM this fucntion will move the motor
+// at a specific RPM. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target
 func (m *gpioStepper) GoTo(ctx context.Context, rpm float64, position float64) error {
 	curPos, err := m.Position(ctx)

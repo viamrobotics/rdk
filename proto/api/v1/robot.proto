@@ -297,22 +297,24 @@ service RobotService {
   }
  
   // MotorPower sets the percentage of the motor's total power that should be employed
-  // expressed a value between 0-1
+  // expressed a value between -1 and 1 where negative values indiciate a backwards 
+  // direction and positive values a forward direction
   rpc MotorPower(MotorPowerRequest) returns (MotorPowerResponse) {
     option (google.api.http) = {
       put: "/api/v1/motor/{name}/power"
     };
   }
 
-  // MotorGo instructs the motor to turn in a specified direction using a specified
-  // percentage of its total power, expressed as a value between 0-1
+  // MotorGo instructs the motor to turn using a specified percentage of its total power, 
+  // expressed as a value between -1 and 1 where negative values indiciate a backwards 
+  // direction and positive values a forward direction
   rpc MotorGo(MotorGoRequest) returns (MotorGoResponse) {
     option (google.api.http) = {
       put: "/api/v1/motor/{name}/go"
     };
   }
 
-  // MotorGoFor instructs the motor to turn in a specified direction and speed, which is expressed in RPM,
+  // MotorGoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
   // for a specified number of rotations relative to its starting position
   // This method will return an error if MotorPositionSupported is false 
   rpc MotorGoFor(MotorGoForRequest) returns (MotorGoForResponse) {
@@ -969,12 +971,8 @@ message MotorPIDStepResponse{
 message MotorPowerRequest {
   // Name of a motor
   string name = 1;
-<<<<<<< HEAD
-  // Percentage of motor's power, between 0-1
-  float power_pct = 2;
-=======
+  // Percentage of motor's power, between -1 and 1
   double power_pct = 2;
->>>>>>> 6539d212 (Squashed commit of the following:)
 }
 
 message MotorPowerResponse {}
@@ -982,16 +980,8 @@ message MotorPowerResponse {}
 message MotorGoRequest {
   // Name of a motor
   string name = 1;
-<<<<<<< HEAD
-  // Motor's travel direction
-  // To Do (FA): This will be deprecated, following Jeremy's PR 324
-  DirectionRelative direction = 2; 
-  // Percentage of motor's power, between 0-1
-  // To Do (FA): Following Jeremy's PR 324, this value can be between -1 and 1
-  float power_pct = 3;
-=======
+  // Percentage of motor's power, between -1 and 1
   double power_pct = 2;
->>>>>>> 6539d212 (Squashed commit of the following:)
 }
 
 message MotorGoResponse {}
@@ -999,18 +989,10 @@ message MotorGoResponse {}
 message MotorGoForRequest {
   // Name of a motor
   string name = 1;
-<<<<<<< HEAD
-  // Motor's travel direction
-  // To Do (FA): This will be deprecated, following Jeremy's PR 324
-  DirectionRelative direction = 2;
   // Speed of motor travel in rotations per minute
-  double rpm = 3;
-  // Number of revolutions relative to motor's start position 
-  double revolutions = 4;
-=======
   double rpm = 2;
+  // Number of revolutions relative to motor's start position 
   double revolutions = 3;
->>>>>>> 6539d212 (Squashed commit of the following:)
 }
 
 message MotorGoForResponse {}
@@ -1029,14 +1011,8 @@ message MotorGoToResponse {}
 message MotorGoTillStopRequest {
   // Name of a motor
   string name = 1;
-<<<<<<< HEAD
-  // Motor's travel direction
-  DirectionRelative direction = 2;
   // Speed of motor travel in rotations per minute
-  double rpm = 3;
-=======
   double rpm = 2;
->>>>>>> 6539d212 (Squashed commit of the following:)
 }
 
 message MotorGoTillStopResponse {}

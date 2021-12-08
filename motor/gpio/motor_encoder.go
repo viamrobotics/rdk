@@ -530,7 +530,7 @@ func (m *EncodedMotor) Close() error {
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
-// at a specific speed. Regardless of the directionality of the RPM this fucntion will move the motor
+// at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target
 func (m *EncodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition float64) error {
 	curPos, err := m.Position(ctx)

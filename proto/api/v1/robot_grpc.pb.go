@@ -101,12 +101,14 @@ type RobotServiceClient interface {
 	// Perform a step response on a motor
 	MotorPIDStep(ctx context.Context, in *MotorPIDStepRequest, opts ...grpc.CallOption) (RobotService_MotorPIDStepClient, error)
 	// MotorPower sets the percentage of the motor's total power that should be employed
-	// expressed a value between 0-1
+	// expressed a value between -1 and 1 where negative values indiciate a backwards
+	// direction and positive values a forward direction
 	MotorPower(ctx context.Context, in *MotorPowerRequest, opts ...grpc.CallOption) (*MotorPowerResponse, error)
-	// MotorGo instructs the motor to turn in a specified direction using a specified
-	// percentage of its total power, expressed as a value between 0-1
+	// MotorGo instructs the motor to turn using a specified percentage of its total power,
+	// expressed as a value between -1 and 1 where negative values indiciate a backwards
+	// direction and positive values a forward direction
 	MotorGo(ctx context.Context, in *MotorGoRequest, opts ...grpc.CallOption) (*MotorGoResponse, error)
-	// MotorGoFor instructs the motor to turn in a specified direction and speed, which is expressed in RPM,
+	// MotorGoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
 	// for a specified number of rotations relative to its starting position
 	// This method will return an error if MotorPositionSupported is false
 	MotorGoFor(ctx context.Context, in *MotorGoForRequest, opts ...grpc.CallOption) (*MotorGoForResponse, error)
@@ -919,12 +921,14 @@ type RobotServiceServer interface {
 	// Perform a step response on a motor
 	MotorPIDStep(*MotorPIDStepRequest, RobotService_MotorPIDStepServer) error
 	// MotorPower sets the percentage of the motor's total power that should be employed
-	// expressed a value between 0-1
+	// expressed a value between -1 and 1 where negative values indiciate a backwards
+	// direction and positive values a forward direction
 	MotorPower(context.Context, *MotorPowerRequest) (*MotorPowerResponse, error)
-	// MotorGo instructs the motor to turn in a specified direction using a specified
-	// percentage of its total power, expressed as a value between 0-1
+	// MotorGo instructs the motor to turn using a specified percentage of its total power,
+	// expressed as a value between -1 and 1 where negative values indiciate a backwards
+	// direction and positive values a forward direction
 	MotorGo(context.Context, *MotorGoRequest) (*MotorGoResponse, error)
-	// MotorGoFor instructs the motor to turn in a specified direction and speed, which is expressed in RPM,
+	// MotorGoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
 	// for a specified number of rotations relative to its starting position
 	// This method will return an error if MotorPositionSupported is false
 	MotorGoFor(context.Context, *MotorGoForRequest) (*MotorGoForResponse, error)

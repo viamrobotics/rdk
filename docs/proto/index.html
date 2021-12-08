@@ -5526,17 +5526,6 @@ A specific MIME type can be requested but may not necessarily be the same one re
                 </tr>
               
                 <tr>
-<<<<<<< HEAD
-                  <td>direction</td>
-                  <td><a href="#proto.api.v1.DirectionRelative">DirectionRelative</a></td>
-                  <td></td>
-                  <td><p>Motor&#39;s travel direction
-To Do (FA): This will be deprecated, following Jeremy&#39;s PR 324 </p></td>
-                </tr>
-              
-                <tr>
-=======
->>>>>>> 6539d212 (Squashed commit of the following:)
                   <td>rpm</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
@@ -5582,22 +5571,10 @@ To Do (FA): This will be deprecated, following Jeremy&#39;s PR 324 </p></td>
                 </tr>
               
                 <tr>
-<<<<<<< HEAD
-                  <td>direction</td>
-                  <td><a href="#proto.api.v1.DirectionRelative">DirectionRelative</a></td>
-                  <td></td>
-                  <td><p>Motor&#39;s travel direction
-To Do (FA): This will be deprecated, following Jeremy&#39;s PR 324 </p></td>
-                </tr>
-              
-                <tr>
-=======
->>>>>>> 6539d212 (Squashed commit of the following:)
                   <td>power_pct</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p>Percentage of motor&#39;s power, between 0-1
-To Do (FA): Following Jeremy&#39;s PR 324, this value can be between -1 and 1 </p></td>
+                  <td><p>Percentage of motor&#39;s power, between -1 and 1 </p></td>
                 </tr>
               
             </tbody>
@@ -5632,16 +5609,6 @@ To Do (FA): Following Jeremy&#39;s PR 324, this value can be between -1 and 1 </
                 </tr>
               
                 <tr>
-<<<<<<< HEAD
-                  <td>direction</td>
-                  <td><a href="#proto.api.v1.DirectionRelative">DirectionRelative</a></td>
-                  <td></td>
-                  <td><p>Motor&#39;s travel direction </p></td>
-                </tr>
-              
-                <tr>
-=======
->>>>>>> 6539d212 (Squashed commit of the following:)
                   <td>rpm</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
@@ -5972,7 +5939,7 @@ To Do (FA): Following Jeremy&#39;s PR 324, this value can be between -1 and 1 </
                   <td>power_pct</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p>Percentage of motor&#39;s power, between 0-1 </p></td>
+                  <td><p>Percentage of motor&#39;s power, between -1 and 1 </p></td>
                 </tr>
               
             </tbody>
@@ -7573,22 +7540,24 @@ Perform a step response on a motor</p></td>
                 <td><a href="#proto.api.v1.MotorPowerRequest">MotorPowerRequest</a></td>
                 <td><a href="#proto.api.v1.MotorPowerResponse">MotorPowerResponse</a></td>
                 <td><p>MotorPower sets the percentage of the motor&#39;s total power that should be employed
-expressed a value between 0-1</p></td>
+expressed a value between -1 and 1 where negative values indiciate a backwards 
+direction and positive values a forward direction</p></td>
               </tr>
             
               <tr>
                 <td>MotorGo</td>
                 <td><a href="#proto.api.v1.MotorGoRequest">MotorGoRequest</a></td>
                 <td><a href="#proto.api.v1.MotorGoResponse">MotorGoResponse</a></td>
-                <td><p>MotorGo instructs the motor to turn in a specified direction using a specified
-percentage of its total power, expressed as a value between 0-1</p></td>
+                <td><p>MotorGo instructs the motor to turn using a specified percentage of its total power, 
+expressed as a value between -1 and 1 where negative values indiciate a backwards 
+direction and positive values a forward direction</p></td>
               </tr>
             
               <tr>
                 <td>MotorGoFor</td>
                 <td><a href="#proto.api.v1.MotorGoForRequest">MotorGoForRequest</a></td>
                 <td><a href="#proto.api.v1.MotorGoForResponse">MotorGoForResponse</a></td>
-                <td><p>MotorGoFor instructs the motor to turn in a specified direction and speed, which is expressed in RPM,
+                <td><p>MotorGoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
 for a specified number of rotations relative to its starting position
 This method will return an error if MotorPositionSupported is false</p></td>
               </tr>

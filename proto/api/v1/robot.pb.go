@@ -4782,15 +4782,10 @@ type MotorPowerRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-<<<<<<< HEAD
 	// Name of a motor
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Percentage of motor's power, between 0-1
-	PowerPct float32 `protobuf:"fixed32,2,opt,name=power_pct,json=powerPct,proto3" json:"power_pct,omitempty"`
-=======
-	Name     string  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Percentage of motor's power, between -1 and 1
 	PowerPct float64 `protobuf:"fixed64,2,opt,name=power_pct,json=powerPct,proto3" json:"power_pct,omitempty"`
->>>>>>> 6539d212 (Squashed commit of the following:)
 }
 
 func (x *MotorPowerRequest) Reset() {
@@ -4882,19 +4877,10 @@ type MotorGoRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-<<<<<<< HEAD
 	// Name of a motor
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Motor's travel direction
-	// To Do (FA): This will be deprecated, following Jeremy's PR 324
-	Direction DirectionRelative `protobuf:"varint,2,opt,name=direction,proto3,enum=proto.api.v1.DirectionRelative" json:"direction,omitempty"`
-	// Percentage of motor's power, between 0-1
-	// To Do (FA): Following Jeremy's PR 324, this value can be between -1 and 1
-	PowerPct float32 `protobuf:"fixed32,3,opt,name=power_pct,json=powerPct,proto3" json:"power_pct,omitempty"`
-=======
-	Name     string  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Percentage of motor's power, between -1 and 1
 	PowerPct float64 `protobuf:"fixed64,2,opt,name=power_pct,json=powerPct,proto3" json:"power_pct,omitempty"`
->>>>>>> 6539d212 (Squashed commit of the following:)
 }
 
 func (x *MotorGoRequest) Reset() {
@@ -4986,21 +4972,12 @@ type MotorGoForRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-<<<<<<< HEAD
 	// Name of a motor
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Motor's travel direction
-	// To Do (FA): This will be deprecated, following Jeremy's PR 324
-	Direction DirectionRelative `protobuf:"varint,2,opt,name=direction,proto3,enum=proto.api.v1.DirectionRelative" json:"direction,omitempty"`
 	// Speed of motor travel in rotations per minute
-	Rpm float64 `protobuf:"fixed64,3,opt,name=rpm,proto3" json:"rpm,omitempty"`
+	Rpm float64 `protobuf:"fixed64,2,opt,name=rpm,proto3" json:"rpm,omitempty"`
 	// Number of revolutions relative to motor's start position
-	Revolutions float64 `protobuf:"fixed64,4,opt,name=revolutions,proto3" json:"revolutions,omitempty"`
-=======
-	Name        string  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Rpm         float64 `protobuf:"fixed64,2,opt,name=rpm,proto3" json:"rpm,omitempty"`
 	Revolutions float64 `protobuf:"fixed64,3,opt,name=revolutions,proto3" json:"revolutions,omitempty"`
->>>>>>> 6539d212 (Squashed commit of the following:)
 }
 
 func (x *MotorGoForRequest) Reset() {
@@ -5203,17 +5180,10 @@ type MotorGoTillStopRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-<<<<<<< HEAD
 	// Name of a motor
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Motor's travel direction
-	Direction DirectionRelative `protobuf:"varint,2,opt,name=direction,proto3,enum=proto.api.v1.DirectionRelative" json:"direction,omitempty"`
 	// Speed of motor travel in rotations per minute
-	Rpm float64 `protobuf:"fixed64,3,opt,name=rpm,proto3" json:"rpm,omitempty"`
-=======
-	Name string  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Rpm  float64 `protobuf:"fixed64,2,opt,name=rpm,proto3" json:"rpm,omitempty"`
->>>>>>> 6539d212 (Squashed commit of the following:)
+	Rpm float64 `protobuf:"fixed64,2,opt,name=rpm,proto3" json:"rpm,omitempty"`
 }
 
 func (x *MotorGoTillStopRequest) Reset() {
