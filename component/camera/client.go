@@ -1,23 +1,28 @@
-// Package gantry contains a gRPC based gantry client.
-package gantry
+// Package camera contains a gRPC based camera client.
+package camera
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"image"
 
 	rpcclient "go.viam.com/utils/rpc/client"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc/dialer"
 
 	"go.viam.com/core/grpc"
+	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/rimage"
 )
 
-// serviceClient is a client satisfies the gantry.proto contract.
+// serviceClient is a client satisfies the camera.proto contract.
 type serviceClient struct {
 	conn   dialer.ClientConn
-	client pb.GantryServiceClient
+	client pb.CameraServiceClient
 	logger golog.Logger
 }
 
@@ -33,7 +38,7 @@ func newServiceClient(ctx context.Context, address string, opts rpcclient.DialOp
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
 func newSvcClientFromConn(conn dialer.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewGantryServiceClient(conn)
+	client := pb.NewCameraServiceClient(conn)
 	sc := &serviceClient{
 		conn:   conn,
 		client: client,
@@ -47,14 +52,14 @@ func (sc *serviceClient) Close() error {
 	return sc.conn.Close()
 }
 
-// client is an gantry client
+// client is an camera client
 type client struct {
 	*serviceClient
 	name string
 }
 
 // NewClient constructs a new client that is served at the given address.
-func NewClient(ctx context.Context, name string, address string, opts rpcclient.DialOptions, logger golog.Logger) (Gantry, error) {
+func NewClient(ctx context.Context, name string, address string, opts rpcclient.DialOptions, logger golog.Logger) (Camera, error) {
 	sc, err := newServiceClient(ctx, address, opts, logger)
 	if err != nil {
 		return nil, err
@@ -63,58 +68,51 @@ func NewClient(ctx context.Context, name string, address string, opts rpcclient.
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(conn dialer.ClientConn, name string, logger golog.Logger) Gantry {
+func NewClientFromConn(conn dialer.ClientConn, name string, logger golog.Logger) Camera {
 	sc := newSvcClientFromConn(conn, logger)
 	return clientFromSvcClient(sc, name)
 }
 
-func clientFromSvcClient(sc *serviceClient, name string) Gantry {
+func clientFromSvcClient(sc *serviceClient, name string) Camera {
 	return &client{sc, name}
 }
 
-func (c *client) CurrentPosition(ctx context.Context) ([]float64, error) {
-	resp, err := c.client.CurrentPosition(ctx, &pb.GantryServiceCurrentPositionRequest{
-		Name: c.name,
+func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
+	resp, err := c.client.Frame(ctx, &pb.CameraServiceFrameRequest{
+		Name:     c.name,
+		MimeType: grpc.MimeTypeViamBest,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	switch resp.MimeType {
+	case grpc.MimeTypeRawRGBA:
+		img := image.NewNRGBA(image.Rect(0, 0, int(resp.DimX), int(resp.DimY)))
+		img.Pix = resp.Frame
+		return img, func() {}, nil
+	case grpc.MimeTypeRawIWD:
+		img, err := rimage.ImageWithDepthFromRawBytes(int(resp.DimX), int(resp.DimY), resp.Frame)
+		return img, func() {}, err
+	default:
+		return nil, nil, errors.Errorf("do not how to decode MimeType %s", resp.MimeType)
+	}
+
+}
+
+func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	resp, err := c.client.PointCloud(ctx, &pb.CameraServicePointCloudRequest{
+		Name:     c.name,
+		MimeType: grpc.MimeTypePCD,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Positions, nil
-}
 
-func (c *client) Lengths(ctx context.Context) ([]float64, error) {
-	lengths, err := c.client.Lengths(ctx, &pb.GantryServiceLengthsRequest{
-		Name: c.name,
-	})
-	if err != nil {
-		return nil, err
+	if resp.MimeType != grpc.MimeTypePCD {
+		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)
 	}
-	return lengths.Lengths, nil
-}
 
-func (c *client) MoveToPosition(ctx context.Context, positions []float64) error {
-	_, err := c.client.MoveToPosition(ctx, &pb.GantryServiceMoveToPositionRequest{
-		Name:      c.name,
-		Positions: positions,
-	})
-	return err
-}
-
-func (c *client) ModelFrame() *referenceframe.Model {
-	// TODO(erh): this feels wrong
-	return nil
-}
-
-func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := c.CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return referenceframe.FloatsToInputs(res), nil
-}
-
-func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
+	return pointcloud.ReadPCD(bytes.NewReader(resp.Frame))
 }
 
 // Close cleanly closes the underlying connections
