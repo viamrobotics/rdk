@@ -13,9 +13,9 @@
         "hash": "d4a8814121f88435e12e678f54377797",
         "size": 1025703
       },
-      "align-test-1615761796.both.gz": {
-        "hash": "b6a14822a01c3459b9fafa984c855864",
-        "size": 1020491
+      "chess1.both.gz": {
+        "hash": "68685fe5b1899a5874df4092de0be4e1",
+        "size": 981318
       },
       "chess2.both.gz": {
         "hash": "6d4e08f5f954f725d8a07f129600c39f",
@@ -3446,6 +3446,10 @@
       "hash": "53edaff91ae8023a7c187d6381d8fd22",
       "size": 567
     },
+    "edges.png": {
+      "hash": "e2312d7894650417014479fce5f6d0c5",
+      "size": 22340
+    },
     "hsvdistancechess3.txt": {
       "hash": "09f3023223cf3a19822c513082cb4ccd",
       "size": 6761
@@ -3461,6 +3465,34 @@
     "image_2021-07-16-15-59-18.png": {
       "hash": "f27042a34cfe41042900c5de6356a282",
       "size": 765155
+    },
+    "image_2021-07-16-16-10-41.png": {
+      "hash": "4cf5af7cdcf7d2b1eb1360c6cec735d2",
+      "size": 577179
+    },
+    "morpho_test_dilation_cross_3x3.png": {
+      "hash": "faa0b6c7259f9449bb451a596a5fa77c",
+      "size": 180
+    },
+    "morpho_test_dilation_square_3x3.png": {
+      "hash": "753e3bedebb00c8653d17f5736c627d1",
+      "size": 171
+    },
+    "morpho_test_erosion_cross_3x3.png": {
+      "hash": "8e15d0ff67aba5b0e683f9a15996bbdb",
+      "size": 169
+    },
+    "morpho_test_erosion_square_3x3.png": {
+      "hash": "8e15d0ff67aba5b0e683f9a15996bbdb",
+      "size": 169
+    },
+    "morpho_test_gradient_cross_3x3.png": {
+      "hash": "10c78ae3f063f7435d88dfd4e326f262",
+      "size": 194
+    },
+    "morpho_test_original.png": {
+      "hash": "45fcb8901d011e8e6985f7aa8a198bd7",
+      "size": 170
     },
     "nms_test_50_100_100_150.png": {
       "hash": "f0c80a313587b7f01e7ff3db151c457f",

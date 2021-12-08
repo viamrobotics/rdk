@@ -4,8 +4,8 @@
 The command line tool is at `rimage/cmd/chessboard/main.go`
 In order to build and run the command line tool:
 ```shell
-go build rimage/cmd/chessboard/main.go
-./chessboard [--path <path/to/image>] [--conf <path/to/config/file>]
+go build -o bin/chessboard rimage/cmd/chessboard/main.go 
+./chessboard [-path <path/to/image>] [-pathEdges <path/to/edges/image>] [-conf <path/to/config/file>]
 ```
 
 ## Description of algorithm

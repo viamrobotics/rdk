@@ -41,7 +41,7 @@ func TestNonMaxSuppression(t *testing.T) {
 	img := rimage.ConvertImage(imgPng)
 	m := rimage.ConvertColorImageToLuminanceFloat(*img)
 
-	nonMaxSuppressed := NonMaxSuppression(m, 10)
+	nonMaxSuppressed := nonMaxSuppression(m, 10)
 	h1, w1 := nonMaxSuppressed.Dims()
 	test.That(t, h, test.ShouldEqual, h1)
 	test.That(t, w, test.ShouldEqual, w1)

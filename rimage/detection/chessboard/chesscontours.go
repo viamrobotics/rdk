@@ -13,9 +13,11 @@ import (
 
 // ChessContoursConfiguration stores the parameters needed for contour precessing in chessboard detection
 type ChessContoursConfiguration struct {
-	CannyLow  float64 `json:"canny-low"`  // low threshold for Canny contours detection
-	CannyHigh float64 `json:"canny-high"` // high threshold for Canny contours detection
-	WinSize   int     `json:"win-size"`   // half window size for looking for saddle points in a chess corner neighborhood
+	CannyLow       float64 `json:"canny-low"`        // low threshold for Canny contours detection
+	CannyHigh      float64 `json:"canny-high"`       // high threshold for Canny contours detection
+	WinSize        int     `json:"win-size"`         // half window size for looking for saddle points in a chess corner neighborhood
+	MinContourArea int     `json:"min-contour-area"` // minimum contour area to be considered for chessboard squares
+	MinSidePolygon float64 `json:"min-side-poly"`    // if a polygon side is smaller than this value, it can be removed
 }
 
 // BinarizeMat take a mat.Dense and returns a binary mat.Dense according to threshold value
@@ -38,7 +40,7 @@ func BinarizeMat(m mat.Matrix, thresh float64) *mat.Dense {
 func GetAngle(a, b, c float64) float64 {
 	k := (a*a + b*b - c*c) / (2 * a * b)
 	// handle floating point issues
-	k = utils.ClampF64(k, -1, 1)
+	k = utils.Clamp(k, -1, 1)
 	return math.Acos(k) * 180 / math.Pi
 }
 
@@ -146,8 +148,8 @@ func getContourBoundingBoxArea(contour []r2.Point) float64 {
 }
 
 // PruneContours keeps contours that correspond to a chessboard square
-func PruneContours(contours [][]r2.Point, hierarchy []rimage.Node, saddleScoreMap *mat.Dense, winSize int) [][]r2.Point {
-	newContours := make([][]r2.Point, 0)
+func PruneContours(contours []rimage.ContourFloat, hierarchy []rimage.Node, saddleScoreMap *mat.Dense, winSize, minContourArea int, eps float64) []rimage.ContourFloat {
+	newContours := make([]rimage.ContourFloat, 0)
 	for i, c := range contours {
 		cSorted := rimage.SortPointCounterClockwise(c)
 		h := hierarchy[i+1]
@@ -156,14 +158,13 @@ func PruneContours(contours [][]r2.Point, hierarchy []rimage.Node, saddleScoreMa
 			continue
 		}
 		// if a polygon contour has a very small side, remove it
-		cnt := RemoveSmallSidePolygon(cSorted, 2.0)
+		cnt := RemoveSmallSidePolygon(cSorted, eps)
 		// select only quadrilaterals
 		if len(cnt) != 4 {
 			continue
 		}
 		// select contours that caver an area bigger than 64 pixels (8x8 pixel square).
-		//TODO(louise): add this area in configuration file?
-		if getContourBoundingBoxArea(cnt) < 64 {
+		if getContourBoundingBoxArea(cnt) < float64(minContourArea) {
 			continue
 		}
 		if !IsContourSquare(cnt) {

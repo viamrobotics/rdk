@@ -31,8 +31,8 @@ func GetSobelY() Kernel {
 		{0, 0, 0},
 		{1, 2, 1},
 	},
-		3, //bias
-		3, //factor
+		3,
+		3,
 	}
 }
 
@@ -44,8 +44,8 @@ func GetBlur3() Kernel {
 		{1, 1, 1},
 		{1, 1, 1},
 	},
-		3, //bias
-		3, //factor
+		3,
+		3,
 	}
 }
 
@@ -73,7 +73,7 @@ func ConvolveGray(img *image.Gray, kernel *Kernel, anchor image.Point, border Bo
 				sum += float64(pixel.Y) * kE
 			}
 		}
-		sum = utils.ClampF64(sum, 0, 255)
+		sum = utils.Clamp(sum, 0, 255)
 		resultImage.Set(x, y, color.Gray{uint8(sum)})
 	})
 	return resultImage, nil

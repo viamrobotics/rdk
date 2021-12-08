@@ -6,7 +6,6 @@ import (
 	"math"
 
 	"github.com/fogleman/gg"
-	"github.com/golang/geo/r2"
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/core/rimage"
@@ -74,7 +73,7 @@ func SumPositive(i, j int, val float64) float64 {
 	return 0.
 }
 
-// PruneSaddle prunes the saddle points map until the number of non-zero points reaches a value <= 10000
+// PruneSaddle prunes the saddle points map until the number of non-zero points reaches a value <= cfg.ScoreThresholdMin
 func PruneSaddle(s mat.Matrix, cfg *SaddleConfiguration) *mat.Dense {
 	thresh := cfg.GrayThreshold
 
@@ -100,8 +99,8 @@ func PruneSaddle(s mat.Matrix, cfg *SaddleConfiguration) *mat.Dense {
 	return pruned
 }
 
-// NonMaxSuppression performs a non-maximum suppression in a mat.Dense, with a window of size winSize
-func NonMaxSuppression(img *mat.Dense, winSize int) *mat.Dense {
+// nonMaxSuppression performs a non-maximum suppression in a mat.Dense, with a window of size winSize
+func nonMaxSuppression(img *mat.Dense, winSize int) *mat.Dense {
 	h, w := img.Dims()
 	kernel := rimage.GetBlur3()
 	imgBlur, err := rimage.ConvolveGrayFloat64(img, &kernel)
@@ -133,11 +132,6 @@ func NonMaxSuppression(img *mat.Dense, winSize int) *mat.Dense {
 func GetSaddleMapPoints(img *mat.Dense, conf *SaddleConfiguration) (*mat.Dense, []image.Point, error) {
 	nRows, nCols := img.Dims()
 	originalSize := image.Point{nCols, nRows}
-	//kernel := rimage.GetBlur3()
-	//imgBlur,err := rimage.ConvolveGrayFloat64(img, &kernel)
-	//if err != nil {
-	//	return nil, nil, err
-	//}
 	hessian, err := computePixelWiseHessianDeterminant(img)
 	if err != nil {
 		return nil, nil, err
@@ -158,7 +152,7 @@ func GetSaddleMapPoints(img *mat.Dense, conf *SaddleConfiguration) (*mat.Dense, 
 	// pruning saddle point map
 	saddleMap = PruneSaddle(saddleMap, conf)
 	// non maximum suppression
-	nms := NonMaxSuppression(saddleMap, conf.NMSWindowSize)
+	nms := nonMaxSuppression(saddleMap, conf.NMSWindowSize)
 	// threshold nms saddle map to get saddle points
 	saddlePoints := make([]image.Point, 0)
 	utils.ParallelForEachPixel(originalSize, func(x int, y int) {
@@ -173,7 +167,7 @@ func GetSaddleMapPoints(img *mat.Dense, conf *SaddleConfiguration) (*mat.Dense, 
 // visualization functions
 
 // PlotSaddleMap plots polygonal contours and saddle points on a black image and saves it to a png file : outFile
-func PlotSaddleMap(saddlePoints []image.Point, contours [][]r2.Point, outFile string, iw, ih int) {
+func PlotSaddleMap(saddlePoints rimage.ContourInt, contours []rimage.ContourFloat, outFile string, iw, ih int) error {
 
 	dc := gg.NewContext(iw, ih)
 
@@ -205,6 +199,7 @@ func PlotSaddleMap(saddlePoints []image.Point, contours [][]r2.Point, outFile st
 
 	err := dc.SavePNG(outFile)
 	if err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
