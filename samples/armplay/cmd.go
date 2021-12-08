@@ -25,9 +25,10 @@ import (
 	"go.uber.org/multierr"
 )
 
-var logger = golog.NewDevelopmentLogger("armplay")
-
-const whiteboardY = -409.
+var (
+	logger      = golog.NewDevelopmentLogger("armplay")
+	whiteboardY = -509.
+)
 
 func init() {
 	action.RegisterAction("play", func(ctx context.Context, r robot.Robot) {
@@ -52,7 +53,21 @@ func init() {
 	})
 
 	action.RegisterAction("writeViam", func(ctx context.Context, r robot.Robot) {
-		err := writeViam(ctx, r)
+		err := followPoints(ctx, r, viamPoints, "marker")
+		if err != nil {
+			logger.Errorf("error writeViam: %s", err)
+		}
+	})
+
+	action.RegisterAction("writeViamLogo", func(ctx context.Context, r robot.Robot) {
+		err := followPoints(ctx, r, viamLogo, "marker")
+		if err != nil {
+			logger.Errorf("error writeViam: %s", err)
+		}
+	})
+
+	action.RegisterAction("eraseViam", func(ctx context.Context, r robot.Robot) {
+		err := followPoints(ctx, r, eraserPoints, "eraser")
 		if err != nil {
 			logger.Errorf("error writeViam: %s", err)
 		}
@@ -144,13 +159,13 @@ func play(ctx context.Context, r robot.Robot) error {
 func mpFuncBasic(f frame.Frame, ncpu int, logger golog.Logger) (motionplan.MotionPlanner, error) {
 	mp, err := motionplan.NewCBiRRTMotionPlanner(f, 4, logger)
 	opt := motionplan.NewDefaultPlannerOptions()
-	opt.AddConstraint("officewall", DontHitPetersWallConstraint)
+	opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY+15))
 	mp.SetOptions(opt)
 
 	return mp, err
 }
 
-func writeViam(ctx context.Context, r robot.Robot) error {
+func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, moveFrameName string) error {
 	resources, err := getInputEnabled(ctx, r)
 	if err != nil {
 		return err
@@ -169,6 +184,23 @@ func writeViam(ctx context.Context, r robot.Robot) error {
 	if err != nil {
 		return err
 	}
+
+	eraserOffFrame, err := frame.NewStaticFrame("eraser_offset", spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY: -1, OZ: 1}))
+	if err != nil {
+		return err
+	}
+	eraserFrame, err := frame.NewStaticFrame("eraser", spatial.NewPoseFromPoint(r3.Vector{0, 0, 160}))
+	if err != nil {
+		return err
+	}
+	err = fs.AddFrame(eraserOffFrame, armFrame)
+	if err != nil {
+		return err
+	}
+	err = fs.AddFrame(eraserFrame, eraserOffFrame)
+	if err != nil {
+		return err
+	}
 	err = fs.AddFrame(markerOffFrame, armFrame)
 	if err != nil {
 		return err
@@ -177,6 +209,12 @@ func writeViam(ctx context.Context, r robot.Robot) error {
 	if err != nil {
 		return err
 	}
+
+	moveFrame := fs.GetFrame(moveFrameName)
+	if moveFrame == nil {
+		return fmt.Errorf("frame does not exist %s", moveFrameName)
+	}
+
 	fss := motionplan.NewSolvableFrameSystem(fs, logger)
 
 	fss.SetPlannerGen(mpFuncBasic)
@@ -192,11 +230,24 @@ func writeViam(ctx context.Context, r robot.Robot) error {
 		return err
 	}
 
-	curPos, _ := fs.TransformFrame(seedMap, markerFrame, fs.World())
-
-	steps, err := fss.SolvePose(ctx, seedMap, goal, markerFrame, fs.World())
+	curPos, err := fs.TransformFrame(seedMap, moveFrame, fs.World())
 	if err != nil {
 		return err
+	}
+
+	steps, err := fss.SolvePose(ctx, seedMap, goal, moveFrame, fs.World())
+	if err != nil {
+		return err
+	}
+
+	pathD := 0.05
+	// orientation distance wiggle allowable
+	pathO := 0.3
+	destO := 0.2
+	// No orientation wiggle for eraser
+	if moveFrameName == "eraser" {
+		pathO = 0.01
+		destO = 0.
 	}
 
 	done := make(chan struct{})
@@ -206,17 +257,17 @@ func writeViam(ctx context.Context, r robot.Robot) error {
 
 	goToGoal := func(seedMap map[string][]frame.Input, goal spatial.Pose) map[string][]frame.Input {
 
-		curPos, _ = fs.TransformFrame(seedMap, markerFrame, fs.World())
+		curPos, _ = fs.TransformFrame(seedMap, moveFrame, fs.World())
 
-		validFunc, gradFunc := motionplan.NewLineConstraintAndGradient(curPos.Point(), goal.Point(), validOV, 0.3, 0.05)
-		destGrad := motionplan.NewPoseFlexOVMetric(goal, 0.2)
+		validFunc, gradFunc := motionplan.NewLineConstraintAndGradient(curPos.Point(), goal.Point(), validOV, pathO, pathD)
+		destGrad := motionplan.NewPoseFlexOVMetric(goal, destO)
 
 		// update constraints
 		mpFunc := func(f frame.Frame, ncpu int, logger golog.Logger) (motionplan.MotionPlanner, error) {
 			// just in case frame changed
 			mp, err := motionplan.NewCBiRRTMotionPlanner(f, 4, logger)
 			opt := motionplan.NewDefaultPlannerOptions()
-			opt.AddConstraint("officewall", DontHitPetersWallConstraint)
+			opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY))
 
 			opt.SetPathDist(gradFunc)
 			opt.SetMetric(destGrad)
@@ -228,7 +279,36 @@ func writeViam(ctx context.Context, r robot.Robot) error {
 		}
 		fss.SetPlannerGen(mpFunc)
 
-		waysteps, err := fss.SolvePose(ctx, seedMap, goal, markerFrame, fs.World())
+		waysteps, err := fss.SolvePose(ctx, seedMap, goal, moveFrame, fs.World())
+		if err != nil {
+			return map[string][]frame.Input{}
+		}
+		for _, waystep := range waysteps {
+			waypoints <- waystep
+		}
+		return waysteps[len(waysteps)-1]
+	}
+
+	finish := func(seedMap map[string][]frame.Input) map[string][]frame.Input {
+
+		goal := spatial.NewPoseFromProtobuf(&pb.Pose{X: 260, Y: whiteboardY + 150, Z: 520, OY: -1})
+
+		curPos, _ = fs.TransformFrame(seedMap, moveFrame, fs.World())
+
+		// update constraints
+		mpFunc := func(f frame.Frame, ncpu int, logger golog.Logger) (motionplan.MotionPlanner, error) {
+			// just in case frame changed
+			mp, err := motionplan.NewCBiRRTMotionPlanner(f, 4, logger)
+			opt := motionplan.NewDefaultPlannerOptions()
+			opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY))
+
+			mp.SetOptions(opt)
+
+			return mp, err
+		}
+		fss.SetPlannerGen(mpFunc)
+
+		waysteps, err := fss.SolvePose(ctx, seedMap, goal, moveFrame, fs.World())
 		if err != nil {
 			return map[string][]frame.Input{}
 		}
@@ -240,15 +320,10 @@ func writeViam(ctx context.Context, r robot.Robot) error {
 
 	go func() {
 		seed := steps[len(steps)-1]
-		for _, goal = range viamPoints {
+		for _, goal = range points {
 			seed = goToGoal(seed, goal)
 		}
-		if false {
-			// erasing not yet implemented, waiting for better hardware
-			for _, goal = range eraserPoints {
-				seed = goToGoal(seed, goal)
-			}
-		}
+		finish(seed)
 		close(done)
 	}()
 
@@ -351,63 +426,118 @@ var viamPoints = []spatial.Pose{
 	spatial.NewPoseFromProtobuf(&pb.Pose{X: 200, Y: whiteboardY, Z: 500, OY: -1}),
 	spatial.NewPoseFromProtobuf(&pb.Pose{X: 170, Y: whiteboardY, Z: 600, OY: -1}),
 	spatial.NewPoseFromProtobuf(&pb.Pose{X: 140, Y: whiteboardY, Z: 500, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 140, Y: whiteboardY + 150, Z: 500, OY: -1}),
+}
+
+// ViamLogo writes out the word "VIAM" in a stylized font
+var viamLogo = []spatial.Pose{
+	// V
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: whiteboardY, Z: 600, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 440, Y: whiteboardY, Z: 520, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 400, Y: whiteboardY, Z: 600, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 420, Y: whiteboardY, Z: 600, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 440, Y: whiteboardY, Z: 560, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 460, Y: whiteboardY, Z: 600, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: whiteboardY, Z: 600, OY: -1}),
+
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: whiteboardY + 10, Z: 600, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 390, Y: whiteboardY + 10, Z: 600, OY: -1}),
+
+	// I
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 390, Y: whiteboardY, Z: 600, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 390, Y: whiteboardY, Z: 520, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 370, Y: whiteboardY, Z: 520, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 370, Y: whiteboardY, Z: 600, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 390, Y: whiteboardY, Z: 600, OY: -1}),
+
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 390, Y: whiteboardY + 10, Z: 600, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 360, Y: whiteboardY + 10, Z: 520, OY: -1}),
+
+	// A
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 360, Y: whiteboardY, Z: 520, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 320, Y: whiteboardY, Z: 600, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 280, Y: whiteboardY, Z: 520, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 300, Y: whiteboardY, Z: 520, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 320, Y: whiteboardY, Z: 560, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 340, Y: whiteboardY, Z: 520, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 360, Y: whiteboardY, Z: 520, OY: -1}),
+
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 360, Y: whiteboardY + 10, Z: 520, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 270, Y: whiteboardY + 10, Z: 520, OY: -1}),
+
+	// M
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 260, Y: whiteboardY, Z: 520, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 260, Y: whiteboardY, Z: 600, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 240, Y: whiteboardY, Z: 600, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 220, Y: whiteboardY, Z: 560, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 200, Y: whiteboardY, Z: 600, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 180, Y: whiteboardY, Z: 600, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 180, Y: whiteboardY, Z: 520, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 195, Y: whiteboardY, Z: 520, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 195, Y: whiteboardY, Z: 560, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 220, Y: whiteboardY, Z: 520, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 245, Y: whiteboardY, Z: 560, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 245, Y: whiteboardY, Z: 520, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 260, Y: whiteboardY, Z: 520, OY: -1}),
 }
 
 // Erase where VIAM was written
 var eraserPoints = []spatial.Pose{
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: whiteboardY, Z: 580, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: whiteboardY, Z: 580, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: whiteboardY, Z: 500, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: whiteboardY, Z: 500, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: whiteboardY + 150, Z: 500, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: whiteboardY + 1.5, Z: 595, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: whiteboardY + 1.5, Z: 595, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: whiteboardY + 1.5, Z: 555, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: whiteboardY + 1.5, Z: 555, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: whiteboardY + 1.5, Z: 515, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: whiteboardY + 1.5, Z: 515, OY: -1}),
 }
 
 // DontHitPetersWallConstraint defines some obstacles that nothing should intersect with
-func DontHitPetersWallConstraint(ci *motionplan.ConstraintInput) (bool, float64) {
+func DontHitPetersWallConstraint(wbY float64) func(ci *motionplan.ConstraintInput) (bool, float64) {
 
-	checkPt := func(pose spatial.Pose) bool {
-		pt := pose.Point()
+	f := func(ci *motionplan.ConstraintInput) (bool, float64) {
+		checkPt := func(pose spatial.Pose) bool {
+			pt := pose.Point()
 
-		// wall in Peter's office
-		if pt.Y < whiteboardY-10 {
-			return false
-		}
-		if pt.X < -600 {
-			return false
-		}
-		// shelf in Peter's office
-		if pt.Z < 5 && pt.Y < 260 && pt.X < 140 {
-			return false
-		}
+			// wall in Peter's office
+			if pt.Y < wbY-10 {
+				return false
+			}
+			if pt.X < -600 {
+				return false
+			}
+			// shelf in Peter's office
+			if pt.Z < 5 && pt.Y < 260 && pt.X < 140 {
+				return false
+			}
 
-		return true
+			return true
+		}
+		if ci.StartPos != nil {
+			if !checkPt(ci.StartPos) {
+				return false, 0
+			}
+		} else if ci.StartInput != nil {
+			pos, err := ci.Frame.Transform(ci.StartInput)
+			if err != nil {
+				return false, 0
+			}
+			if !checkPt(pos) {
+				return false, 0
+			}
+		}
+		if ci.EndPos != nil {
+			if !checkPt(ci.EndPos) {
+				return false, 0
+			}
+		} else if ci.EndInput != nil {
+			pos, err := ci.Frame.Transform(ci.EndInput)
+			if err != nil {
+				return false, 0
+			}
+			if !checkPt(pos) {
+				return false, 0
+			}
+		}
+		return true, 0
 	}
-	if ci.StartPos != nil {
-		if !checkPt(ci.StartPos) {
-			return false, 0
-		}
-	} else if ci.StartInput != nil {
-		pos, err := ci.Frame.Transform(ci.StartInput)
-		if err != nil {
-			return false, 0
-		}
-		if !checkPt(pos) {
-			return false, 0
-		}
-	}
-	if ci.EndPos != nil {
-		if !checkPt(ci.EndPos) {
-			return false, 0
-		}
-	} else if ci.EndInput != nil {
-		pos, err := ci.Frame.Transform(ci.EndInput)
-		if err != nil {
-			return false, 0
-		}
-		if !checkPt(pos) {
-			return false, 0
-		}
-	}
-	return true, 0
+	return f
 }

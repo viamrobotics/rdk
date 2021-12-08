@@ -23,7 +23,7 @@ const ModelName = "forcematrixwithmux_v1"
 func init() {
 	registry.RegisterSensor(forcematrix.Type, ModelName, registry.Sensor{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-			return NewMux(ctx, r, config, logger)
+			return New(ctx, r, config, logger)
 		}})
 }
 
@@ -44,9 +44,9 @@ type ForceMatrixWithMux struct {
 	logger       golog.Logger
 }
 
-// NewMux returns a new ForceMatrixWithMux given column gpio pins, mux gpio pins, io pins, and
+// New returns a new ForceMatrixWithMux given column gpio pins, mux gpio pins, io pins, and
 // an analog channel.
-func NewMux(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*ForceMatrixWithMux, error) {
+func New(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*ForceMatrixWithMux, error) {
 	boardName := config.Attributes.String("board")
 	b, exists := r.BoardByName(boardName)
 	if !exists {
@@ -128,14 +128,23 @@ func (fmsm *ForceMatrixWithMux) addToPreviousMatricesWindow(matrix [][]int) {
 
 // Matrix returns a matrix of measurements from the force sensor.
 func (fmsm *ForceMatrixWithMux) Matrix(ctx context.Context) ([][]int, error) {
-	matrix := make([][]int, len(fmsm.columnGpioPins))
-	for i := 0; i < len(fmsm.columnGpioPins); i++ {
-		if err := fmsm.board.GPIOSet(ctx, fmsm.columnGpioPins[i], true); err != nil {
+	numRows := len(fmsm.ioPins)
+	numCols := len(fmsm.columnGpioPins)
+
+	matrix := make([][]int, numRows)
+	for row := range matrix {
+		matrix[row] = make([]int, numCols)
+	}
+
+	for col := 0; col < numCols; col++ {
+		// set the correct GPIO to high
+		if err := fmsm.board.GPIOSet(ctx, fmsm.columnGpioPins[col], true); err != nil {
 			return nil, err
 		}
 
-		for j, pin := range fmsm.columnGpioPins {
-			if i != j {
+		// set all other GPIO pins to low
+		for c, pin := range fmsm.columnGpioPins {
+			if c != col {
 				err := fmsm.board.GPIOSet(ctx, pin, false)
 				if err != nil {
 					return nil, err
@@ -143,7 +152,8 @@ func (fmsm *ForceMatrixWithMux) Matrix(ctx context.Context) ([][]int, error) {
 			}
 		}
 
-		for _, ioPin := range fmsm.ioPins {
+		// read out the pressure values
+		for row, ioPin := range fmsm.ioPins {
 			if err := fmsm.setMuxGpioPins(ctx, ioPin); err != nil {
 				return nil, err
 			}
@@ -151,7 +161,7 @@ func (fmsm *ForceMatrixWithMux) Matrix(ctx context.Context) ([][]int, error) {
 			if err != nil {
 				return nil, err
 			}
-			matrix[i] = append(matrix[i], val)
+			matrix[row][col] = val
 
 		}
 	}
@@ -165,10 +175,14 @@ func (fmsm *ForceMatrixWithMux) Readings(ctx context.Context) ([]interface{}, er
 	if err != nil {
 		return nil, err
 	}
-	readings := make([]interface{}, 0, len(fmsm.columnGpioPins)*len(fmsm.ioPins))
-	for i := 0; i < len(fmsm.columnGpioPins); i++ {
-		for j := 0; j < len(fmsm.ioPins); j++ {
-			readings = append(readings, matrix[i][j])
+
+	numRows := len(fmsm.ioPins)
+	numCols := len(fmsm.columnGpioPins)
+
+	readings := make([]interface{}, 0, numRows*numCols)
+	for row := 0; row < numRows; row++ {
+		for col := 0; col < numCols; col++ {
+			readings = append(readings, matrix[row][col])
 		}
 	}
 	return readings, nil

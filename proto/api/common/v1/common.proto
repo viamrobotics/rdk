@@ -5,12 +5,6 @@ option java_package = "com.viam.core.proto.api.common.v1";
 
 package proto.api.common.v1;
 
-import "google/protobuf/struct.proto";
-import "google/protobuf/duration.proto";
-import "google/api/annotations.proto";
-import "google/api/httpbody.proto";
-
-
 message Pose {
   // millimeters of the end effector from the base
   double x = 1;
@@ -31,4 +25,16 @@ message Pose {
   double o_y = 5;
   double o_z = 6;
   double theta = 7;
+}
+
+message Vector3 {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+}
+
+message BoxGeometry {
+  double width = 1;
+  double length = 2;
+  double depth = 3;
 }

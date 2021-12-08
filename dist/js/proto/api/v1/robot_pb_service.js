@@ -2,7 +2,6 @@
 // file: proto/api/v1/robot.proto
 
 var proto_api_v1_robot_pb = require("../../../proto/api/v1/robot_pb");
-var google_api_httpbody_pb = require("../../../google/api/httpbody_pb");
 var grpc = require("@improbable-eng/grpc-web").grpc;
 
 var RobotService = (function () {
@@ -90,42 +89,6 @@ RobotService.BaseWidthMillis = {
   responseStream: false,
   requestType: proto_api_v1_robot_pb.BaseWidthMillisRequest,
   responseType: proto_api_v1_robot_pb.BaseWidthMillisResponse
-};
-
-RobotService.CameraFrame = {
-  methodName: "CameraFrame",
-  service: RobotService,
-  requestStream: false,
-  responseStream: false,
-  requestType: proto_api_v1_robot_pb.CameraFrameRequest,
-  responseType: proto_api_v1_robot_pb.CameraFrameResponse
-};
-
-RobotService.CameraRenderFrame = {
-  methodName: "CameraRenderFrame",
-  service: RobotService,
-  requestStream: false,
-  responseStream: false,
-  requestType: proto_api_v1_robot_pb.CameraRenderFrameRequest,
-  responseType: google_api_httpbody_pb.HttpBody
-};
-
-RobotService.PointCloud = {
-  methodName: "PointCloud",
-  service: RobotService,
-  requestStream: false,
-  responseStream: false,
-  requestType: proto_api_v1_robot_pb.PointCloudRequest,
-  responseType: proto_api_v1_robot_pb.PointCloudResponse
-};
-
-RobotService.ObjectPointClouds = {
-  methodName: "ObjectPointClouds",
-  service: RobotService,
-  requestStream: false,
-  responseStream: false,
-  requestType: proto_api_v1_robot_pb.ObjectPointCloudsRequest,
-  responseType: proto_api_v1_robot_pb.ObjectPointCloudsResponse
 };
 
 RobotService.LidarInfo = {
@@ -909,130 +872,6 @@ RobotServiceClient.prototype.baseWidthMillis = function baseWidthMillis(requestM
     callback = arguments[1];
   }
   var client = grpc.unary(RobotService.BaseWidthMillis, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-RobotServiceClient.prototype.cameraFrame = function cameraFrame(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(RobotService.CameraFrame, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-RobotServiceClient.prototype.cameraRenderFrame = function cameraRenderFrame(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(RobotService.CameraRenderFrame, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-RobotServiceClient.prototype.pointCloud = function pointCloud(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(RobotService.PointCloud, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-RobotServiceClient.prototype.objectPointClouds = function objectPointClouds(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(RobotService.ObjectPointClouds, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

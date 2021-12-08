@@ -73,7 +73,7 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error)
 
 		// TODO(pl): Might need to check if any of x is +/- Inf
 		eePos, err := ik.model.Transform(frame.FloatsToInputs(x))
-		if err != nil && eePos == nil {
+		if eePos == nil {
 			ik.logger.Errorf("error calculating eePos in nlopt %q", err)
 			err = ik.opt.ForceStop()
 			ik.logger.Errorf("forcestop error %q", err)
@@ -82,18 +82,19 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error)
 		dist := ik.metric(eePos, ik.goal.GoalTransform)
 
 		if len(gradient) > 0 {
+			xBak := append([]float64{}, x...)
 			for i := range gradient {
-				xBak := append([]float64{}, x...)
 				xBak[i] += ik.jump
 				eePos, err := ik.model.Transform(frame.FloatsToInputs(xBak))
-				if err != nil && eePos == nil {
+				xBak[i] -= ik.jump
+				if eePos == nil {
 					ik.logger.Errorf("error calculating eePos in nlopt %q", err)
 					err = ik.opt.ForceStop()
 					ik.logger.Errorf("forcestop error %q", err)
 				}
 				dist2 := ik.metric(eePos, ik.goal.GoalTransform)
 
-				gradient[i] = (dist2 - dist) / (2 * ik.jump)
+				gradient[i] = (dist2 - dist) / ik.jump
 			}
 		}
 		return dist

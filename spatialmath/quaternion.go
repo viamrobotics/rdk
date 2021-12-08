@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/go-gl/mathgl/mgl64"
+	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/quat"
 )
 
@@ -160,7 +161,7 @@ func QuatToR4AA(q quat.Number) *R4AA {
 
 // QuatToR3AA converts a quat to an R3 axis angle in the same way the C++ Eigen library does.
 // https://eigen.tuxfamily.org/dox/AngleAxis_8h_source.html
-func QuatToR3AA(q quat.Number) R3AA {
+func QuatToR3AA(q quat.Number) r3.Vector {
 	denom := Norm(q)
 
 	angle := 2 * math.Atan2(denom, math.Abs(q.Real))
@@ -169,9 +170,9 @@ func QuatToR3AA(q quat.Number) R3AA {
 	}
 
 	if denom < 1e-6 {
-		return R3AA{1, 0, 0}
+		return r3.Vector{0, 0, 0}
 	}
-	return R3AA{angle * q.Imag / denom, angle * q.Jmag / denom, angle * q.Kmag / denom}
+	return r3.Vector{angle * q.Imag / denom, angle * q.Jmag / denom, angle * q.Kmag / denom}
 }
 
 // QuatToRotationMatrix converts a quat to a Rotation Matrix

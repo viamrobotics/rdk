@@ -83,7 +83,7 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 	xA := xArm{dof: dof,
 		tid:      0,
 		conn:     conn,
-		speed:    0.25,
+		speed:    0.3,
 		accel:    8.7,
 		moveHZ:   100.,
 		moveLock: mutex,
