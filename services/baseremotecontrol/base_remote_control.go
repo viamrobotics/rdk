@@ -19,9 +19,10 @@ import (
 const (
 	oneJoyStickControl = controlMode(iota)
 	triggerSpeedControl
-	Type     = config.ServiceType("base_remote_control")
-	maxSpeed = 100.0
-	maxAngle = 40.0
+	Type      = config.ServiceType("base_remote_control")
+	maxSpeed  = 1000.0
+	maxAngle  = 360.0
+	distRatio = 10
 )
 
 func init() {
@@ -119,8 +120,13 @@ func (svc *remoteService) start(ctx context.Context) error {
 		}
 
 		// Set distance to large number as it will be overwritten (Note: could have a dependecy on speed)
-		_, err := svc.base.MoveArc(context.Background(), 1000, millisPerSec*maxSpeed*-1, degPerSec*maxAngle, true)
+		var err error
+		if math.Abs(degPerSec) < 0.99 && math.Abs(millisPerSec) > 0.1 {
+			_, err = svc.base.MoveArc(context.Background(), maxSpeed*distRatio, millisPerSec*maxSpeed*-1, degPerSec*maxAngle, true)
 
+		} else {
+			_, err = svc.base.MoveArc(context.Background(), maxSpeed*distRatio, 0, degPerSec*maxAngle, true)
+		}
 		if err != nil {
 			svc.logger.Errorw("error with moving base to desired position", "error", err)
 		}
@@ -207,8 +213,11 @@ func (svc *remoteService) speedAndAngleMathMag(speed float64, angle float64, old
 
 	mag := math.Sqrt(speed*speed + angle*angle)
 
-	if math.Abs(speed) < 0.5 && mag > 0.5 {
+	if math.Abs(speed) < 0.25 && mag > 0.25 {
 		newSpeed = oldSpeed
+		newAngle = angle
+	} else if math.Abs(speed) < 0.25 {
+		newSpeed = 0
 		newAngle = angle
 	} else {
 		newSpeed = speed

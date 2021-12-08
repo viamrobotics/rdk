@@ -23,13 +23,14 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
+	"go.viam.com/core/component/imu"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc"
 	metadataclient "go.viam.com/core/grpc/metadata/client"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
@@ -1238,7 +1239,7 @@ type motorClient struct {
 func (mc *motorClient) PID() motor.PID {
 	return nil
 }
-func (mc *motorClient) Power(ctx context.Context, powerPct float32) error {
+func (mc *motorClient) SetPower(ctx context.Context, powerPct float64) error {
 	_, err := mc.rc.client.MotorPower(ctx, &pb.MotorPowerRequest{
 		Name:     mc.name,
 		PowerPct: powerPct,
@@ -1246,19 +1247,17 @@ func (mc *motorClient) Power(ctx context.Context, powerPct float32) error {
 	return err
 }
 
-func (mc *motorClient) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+func (mc *motorClient) Go(ctx context.Context, powerPct float64) error {
 	_, err := mc.rc.client.MotorGo(ctx, &pb.MotorGoRequest{
-		Name:      mc.name,
-		Direction: d,
-		PowerPct:  powerPct,
+		Name:     mc.name,
+		PowerPct: powerPct,
 	})
 	return err
 }
 
-func (mc *motorClient) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
+func (mc *motorClient) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
 	_, err := mc.rc.client.MotorGoFor(ctx, &pb.MotorGoForRequest{
 		Name:        mc.name,
-		Direction:   d,
 		Rpm:         rpm,
 		Revolutions: revolutions,
 	})
@@ -1311,19 +1310,18 @@ func (mc *motorClient) GoTo(ctx context.Context, rpm float64, position float64) 
 	return err
 }
 
-func (mc *motorClient) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+func (mc *motorClient) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	if stopFunc != nil {
 		return errors.New("stopFunc must be nil when using gRPC")
 	}
 	_, err := mc.rc.client.MotorGoTillStop(ctx, &pb.MotorGoTillStopRequest{
-		Name:      mc.name,
-		Direction: d,
-		Rpm:       rpm,
+		Name: mc.name,
+		Rpm:  rpm,
 	})
 	return err
 }
 
-func (mc *motorClient) Zero(ctx context.Context, offset float64) error {
+func (mc *motorClient) SetToZeroPosition(ctx context.Context, offset float64) error {
 	_, err := mc.rc.client.MotorZero(ctx, &pb.MotorZeroRequest{
 		Name:   mc.name,
 		Offset: offset,

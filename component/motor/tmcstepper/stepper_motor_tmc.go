@@ -11,12 +11,10 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
-
-	pb "go.viam.com/core/proto/api/v1"
 
 	"github.com/edaniels/golog"
 
@@ -38,13 +36,16 @@ const (
 )
 
 func init() {
-	registry.RegisterMotor(modelname, registry.Motor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error) {
-		m, err := NewMotor(ctx, r, config.ConvertedAttributes.(*TMC5072Config), logger)
-		if err != nil {
-			return nil, err
-		}
-		return m, nil
-	}})
+	_motor := registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			m, err := NewMotor(ctx, r, config.ConvertedAttributes.(*TMC5072Config), logger)
+			if err != nil {
+				return nil, err
+			}
+			return m, nil
+		},
+	}
+	registry.RegisterComponent(motor.Subtype, modelname, _motor)
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeMotor, modelname, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf TMC5072Config
@@ -301,18 +302,20 @@ func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-// Power TODO (Should it be amps, not throttle?)
-func (m *Motor) Power(ctx context.Context, powerPct float32) error {
+// SetPower exists on the motor interface but is unsupported for
+// stepper motors. TODO (Should it be amps, not throttle?)
+func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	return errors.New("power not supported for stepper motors")
 }
 
 // Go sets a velocity as a percentage of maximum
-func (m *Motor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+func (m *Motor) Go(ctx context.Context, powerPct float64) error {
 	mode := modeVelPos
-	if d == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
+	if powerPct < 0 {
 		mode = modeVelNeg
 	}
-	speed := m.rpmToV(float64(powerPct) * m.maxRPM)
+
+	speed := m.rpmToV(math.Abs(powerPct) * m.maxRPM)
 
 	return multierr.Combine(
 		m.writeReg(ctx, rampMode, mode),
@@ -321,15 +324,22 @@ func (m *Motor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32
 }
 
 // GoFor turns in the given direction the given number of times at the given speed. Does not block.
-func (m *Motor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
+// Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
+// Note: if both are negative the motor will spin in the forward direction.
+func (m *Motor) GoFor(ctx context.Context, rpm float64, rotations float64) error {
 	curPos, err := m.Position(ctx)
 	if err != nil {
 		return err
 	}
 
-	if d == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
-		rotations *= -1
+	var d int64 = 1
+	if math.Signbit(rotations) != math.Signbit(rpm) {
+		d *= -1
 	}
+
+	rotations = math.Abs(rotations) * float64(d)
+	rpm = math.Abs(rpm)
+
 	target := curPos + rotations
 	return m.GoTo(ctx, rpm, target)
 }
@@ -353,12 +363,15 @@ func (m *Motor) rpmsToA(acc float64) int32 {
 	return int32(rawMaxAcc)
 }
 
-// GoTo moves to the specified position in terms of rotations.
+// GoTo moves to the specified position in terms of (provided in revolutions from home/zero),
+// at a specific speed. Regardless of the directionality of the RPM this function will move the
+// motor towards the specified target
 func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
+
 	position *= float64(m.stepsPerRev)
 	return multierr.Combine(
 		m.writeReg(ctx, rampMode, modePosition),
-		m.writeReg(ctx, vMax, m.rpmToV(rpm)),
+		m.writeReg(ctx, vMax, m.rpmToV(math.Abs(rpm))),
 		m.writeReg(ctx, xTarget, int32(position)),
 	)
 }
@@ -377,12 +390,12 @@ func (m *Motor) Enable(ctx context.Context, turnOn bool) error {
 
 // Off stops the motor.
 func (m *Motor) Off(ctx context.Context) error {
-	return m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 0)
+	return m.Go(ctx, 0)
 }
 
 // GoTillStop enables StallGuard detection, then moves in the direction/speed given until resistance (endstop) is detected.
-func (m *Motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	if err := m.GoFor(ctx, d, rpm, 1000); err != nil {
+func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+	if err := m.GoFor(ctx, rpm, 1000); err != nil {
 		return err
 	}
 
@@ -399,9 +412,6 @@ func (m *Motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm floa
 	// Get up to speed
 	var fails int
 	for {
-		// sg, _ := m.GetSG(ctx)
-		// m.logger.Debugf("SGValueSpeed: %d", sg)
-
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return errors.New("context cancelled during GoTillStop")
 		}
@@ -433,9 +443,6 @@ func (m *Motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm floa
 	// Wait for motion to stop at endstop
 	fails = 0
 	for {
-		// sg, _ := m.GetSG(ctx)
-		// m.logger.Debugf("SGValueReady: %d", sg)
-
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return errors.New("context cancelled during GoTillStop")
 		}
@@ -462,8 +469,8 @@ func (m *Motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm floa
 	return nil
 }
 
-// Zero resets the current position to the offset given.
-func (m *Motor) Zero(ctx context.Context, offset float64) error {
+// SetToZeroPosition resets the current position to the offset given.
+func (m *Motor) SetToZeroPosition(ctx context.Context, offset float64) error {
 	on, err := m.IsOn(ctx)
 	if err != nil {
 		return err

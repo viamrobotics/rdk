@@ -22,11 +22,12 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/imu"
+	"go.viam.com/core/component/motor"
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor/compass"
@@ -174,6 +175,27 @@ func (s *Server) BaseMoveStraight(ctx context.Context, req *pb.BaseMoveStraightR
 		return &pb.BaseMoveStraightResponse{Success: false, Error: err.Error(), DistanceMillis: int64(moved)}, nil
 	}
 	return &pb.BaseMoveStraightResponse{Success: true, DistanceMillis: int64(moved)}, nil
+}
+
+// BaseMoveArc moves a base of the underlying robotin an arc.
+func (s *Server) BaseMoveArc(ctx context.Context, req *pb.BaseMoveArcRequest) (*pb.BaseMoveArcResponse, error) {
+	base, ok := s.r.BaseByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no base with name (%s)", req.Name)
+	}
+	millisPerSec := 500.0 // TODO(erh): this is probably the wrong default
+	if req.MillisPerSec != 0 {
+		millisPerSec = req.MillisPerSec
+	}
+	moved, err := base.MoveArc(ctx, int(req.DistanceMillis), millisPerSec, req.AngleDeg, false)
+	if err != nil {
+		if moved == 0 {
+			return nil, err
+		}
+		return &pb.BaseMoveArcResponse{Success: false, Error: err.Error(), DistanceMillis: int64(moved)}, nil
+	}
+	return &pb.BaseMoveArcResponse{Success: true, DistanceMillis: int64(moved)}, nil
+
 }
 
 // BaseSpin spins a base of the underlying robot.
@@ -675,7 +697,7 @@ func (s *Server) MotorPIDStep(req *pb.MotorPIDStepRequest, server pb.RobotServic
 	if err := pid.Reset(); err != nil {
 		return err
 	}
-	d := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
+
 	lastTime := time.Now()
 	lastPos, err := m.Position(server.Context())
 	totalTime := 0.0
@@ -707,7 +729,7 @@ func (s *Server) MotorPIDStep(req *pb.MotorPIDStepRequest, server pb.RobotServic
 		effort, ok := pid.Output(server.Context(), dt, setPoint, vel)
 		lastPos = currPos
 		if ok {
-			if err = m.Go(server.Context(), d, float32(effort/100)); err != nil {
+			if err = m.Go(server.Context(), effort/100); err != nil {
 				return err
 			}
 		}
@@ -726,7 +748,7 @@ func (s *Server) MotorPower(ctx context.Context, req *pb.MotorPowerRequest) (*pb
 		return nil, errors.Errorf("no motor with name (%s)", req.Name)
 	}
 
-	return &pb.MotorPowerResponse{}, theMotor.Power(ctx, req.PowerPct)
+	return &pb.MotorPowerResponse{}, theMotor.SetPower(ctx, req.PowerPct)
 }
 
 // MotorGo requests the motor of the underlying robot to go.
@@ -736,7 +758,7 @@ func (s *Server) MotorGo(ctx context.Context, req *pb.MotorGoRequest) (*pb.Motor
 		return nil, errors.Errorf("no motor with name (%s)", req.Name)
 	}
 
-	return &pb.MotorGoResponse{}, theMotor.Go(ctx, req.Direction, req.PowerPct)
+	return &pb.MotorGoResponse{}, theMotor.Go(ctx, req.PowerPct)
 }
 
 // MotorGoFor requests the motor of the underlying robot to go for a certain amount based off
@@ -754,7 +776,7 @@ func (s *Server) MotorGoFor(ctx context.Context, req *pb.MotorGoForRequest) (*pb
 		rVal = req.Revolutions
 	}
 
-	return &pb.MotorGoForResponse{}, theMotor.GoFor(ctx, req.Direction, req.Rpm, rVal)
+	return &pb.MotorGoForResponse{}, theMotor.GoFor(ctx, req.Rpm, rVal)
 }
 
 // MotorPosition reports the position of the motor of the underlying robot based on its encoder. If it's not supported, the returned
@@ -829,7 +851,7 @@ func (s *Server) MotorGoTillStop(ctx context.Context, req *pb.MotorGoTillStopReq
 		return nil, errors.Errorf("no motor with name (%s)", req.Name)
 	}
 
-	return &pb.MotorGoTillStopResponse{}, theMotor.GoTillStop(ctx, req.Direction, req.Rpm, nil)
+	return &pb.MotorGoTillStopResponse{}, theMotor.GoTillStop(ctx, req.Rpm, nil)
 }
 
 // MotorZero requests the motor of the underlying robot to reset it's zero/home position.
@@ -839,7 +861,7 @@ func (s *Server) MotorZero(ctx context.Context, req *pb.MotorZeroRequest) (*pb.M
 		return nil, errors.Errorf("no motor with name (%s)", req.Name)
 	}
 
-	return &pb.MotorZeroResponse{}, theMotor.Zero(ctx, req.Offset)
+	return &pb.MotorZeroResponse{}, theMotor.SetToZeroPosition(ctx, req.Offset)
 }
 
 type runCommander interface {

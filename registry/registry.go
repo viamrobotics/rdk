@@ -14,10 +14,10 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
@@ -102,7 +102,6 @@ var (
 	lidarRegistry           = map[string]Lidar{}
 	sensorRegistry          = map[sensor.Type]map[string]Sensor{}
 	boardRegistry           = map[string]Board{}
-	motorRegistry           = map[string]Motor{}
 	inputControllerRegistry = map[string]InputController{}
 	serviceRegistry         = map[config.ServiceType]Service{}
 )
@@ -171,19 +170,6 @@ func RegisterBoard(model string, creator Board) {
 	boardRegistry[model] = creator
 }
 
-// RegisterMotor registers a motor model to a creator.
-func RegisterMotor(model string, creator Motor) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := motorRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two motors with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	motorRegistry[model] = creator
-}
-
 // RegisterInputController registers an input controller model to a creator.
 func RegisterInputController(model string, creator InputController) {
 	creator.RegistrarLoc = getCallerName()
@@ -245,15 +231,6 @@ func SensorLookup(sensorType sensor.Type, model string) *Sensor {
 // there is no creator registered.
 func BoardLookup(model string) *Board {
 	if registration, ok := boardRegistry[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// MotorLookup looks up a motor creator by the given model. nil is returned if
-// there is no creator registered.
-func MotorLookup(model string) *Motor {
-	if registration, ok := motorRegistry[model]; ok {
 		return &registration
 	}
 	return nil
@@ -396,15 +373,6 @@ func RegisteredBoards() map[string]Board {
 		panic(err)
 	}
 	return copied.(map[string]Board)
-}
-
-// RegisteredMotors returns a copy of the registered motors.
-func RegisteredMotors() map[string]Motor {
-	copied, err := copystructure.Copy(motorRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]Motor)
 }
 
 // RegisteredInputControllers returns a copy of the registered input controllers.
