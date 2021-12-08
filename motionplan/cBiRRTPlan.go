@@ -28,6 +28,8 @@ const (
 	stepSize = 2
 	// Name of joint swing scorer
 	jointConstraint = "defaultJointSwingConstraint"
+	// Max number of iterations of path smoothing to run
+	smoothIter = 500
 )
 
 // cBiRRTMotionPlanner an object able to solve constrained paths around obstacles to some goal for a given frame.
@@ -326,7 +328,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(opt *PlannerOptions, seedInputs, ta
 // them, which will cut off randomly-chosen points with odd joint angles into something that is a more intuitive motion.
 func (mp *cBiRRTMotionPlanner) SmoothPath(ctx context.Context, opt *PlannerOptions, inputSteps [][]frame.Input) [][]frame.Input {
 
-	toIter := int(math.Min(float64(len(inputSteps)*len(inputSteps)), 500.))
+	toIter := int(math.Min(float64(len(inputSteps)*len(inputSteps)), smoothIter))
 
 	for iter := 0; iter < toIter && len(inputSteps) > 2; iter++ {
 		select {
