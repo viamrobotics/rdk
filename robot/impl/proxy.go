@@ -824,22 +824,22 @@ func (p *proxyMotor) PID() motor.PID {
 	defer p.mu.RUnlock()
 	return p.actual.PID()
 }
-func (p *proxyMotor) Power(ctx context.Context, powerPct float32) error {
+func (p *proxyMotor) Power(ctx context.Context, powerPct float64) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.Power(ctx, powerPct)
 }
 
-func (p *proxyMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+func (p *proxyMotor) Go(ctx context.Context, powerPct float64) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.actual.Go(ctx, d, powerPct)
+	return p.actual.Go(ctx, powerPct)
 }
 
-func (p *proxyMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
+func (p *proxyMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.actual.GoFor(ctx, d, rpm, revolutions)
+	return p.actual.GoFor(ctx, rpm, revolutions)
 }
 
 func (p *proxyMotor) Position(ctx context.Context) (float64, error) {
@@ -876,10 +876,10 @@ func (p *proxyMotor) GoTo(ctx context.Context, rpm float64, position float64) er
 	return p.actual.GoTo(ctx, rpm, position)
 }
 
-func (p *proxyMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+func (p *proxyMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.actual.GoTillStop(ctx, d, rpm, stopFunc)
+	return p.actual.GoTillStop(ctx, rpm, stopFunc)
 }
 
 func (p *proxyMotor) Zero(ctx context.Context, offset float64) error {

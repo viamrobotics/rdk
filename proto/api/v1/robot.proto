@@ -905,12 +905,6 @@ message CompassMarkRequest {
 
 message CompassMarkResponse {}
 
-enum DirectionRelative {
-  DIRECTION_RELATIVE_UNSPECIFIED = 0;
-  DIRECTION_RELATIVE_FORWARD = 1;
-  DIRECTION_RELATIVE_BACKWARD = 2;
-}
-
 message ExecuteFunctionRequest {
   string name = 1;
   // TODO(erd): arguments
@@ -975,8 +969,12 @@ message MotorPIDStepResponse{
 message MotorPowerRequest {
   // Name of a motor
   string name = 1;
+<<<<<<< HEAD
   // Percentage of motor's power, between 0-1
   float power_pct = 2;
+=======
+  double power_pct = 2;
+>>>>>>> 6539d212 (Squashed commit of the following:)
 }
 
 message MotorPowerResponse {}
@@ -984,12 +982,16 @@ message MotorPowerResponse {}
 message MotorGoRequest {
   // Name of a motor
   string name = 1;
+<<<<<<< HEAD
   // Motor's travel direction
   // To Do (FA): This will be deprecated, following Jeremy's PR 324
   DirectionRelative direction = 2; 
   // Percentage of motor's power, between 0-1
   // To Do (FA): Following Jeremy's PR 324, this value can be between -1 and 1
   float power_pct = 3;
+=======
+  double power_pct = 2;
+>>>>>>> 6539d212 (Squashed commit of the following:)
 }
 
 message MotorGoResponse {}
@@ -997,6 +999,7 @@ message MotorGoResponse {}
 message MotorGoForRequest {
   // Name of a motor
   string name = 1;
+<<<<<<< HEAD
   // Motor's travel direction
   // To Do (FA): This will be deprecated, following Jeremy's PR 324
   DirectionRelative direction = 2;
@@ -1004,6 +1007,10 @@ message MotorGoForRequest {
   double rpm = 3;
   // Number of revolutions relative to motor's start position 
   double revolutions = 4;
+=======
+  double rpm = 2;
+  double revolutions = 3;
+>>>>>>> 6539d212 (Squashed commit of the following:)
 }
 
 message MotorGoForResponse {}
@@ -1022,10 +1029,14 @@ message MotorGoToResponse {}
 message MotorGoTillStopRequest {
   // Name of a motor
   string name = 1;
+<<<<<<< HEAD
   // Motor's travel direction
   DirectionRelative direction = 2;
   // Speed of motor travel in rotations per minute
   double rpm = 3;
+=======
+  double rpm = 2;
+>>>>>>> 6539d212 (Squashed commit of the following:)
 }
 
 message MotorGoTillStopResponse {}

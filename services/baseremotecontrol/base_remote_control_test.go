@@ -117,7 +117,7 @@ func TestBaseRemoteControl(t *testing.T) {
 
 	t.Run("full speed to gentle turn", func(t *testing.T) {
 		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 0.4, 1.0, 0.0)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.1, .001)
+		test.That(t, millisPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.4, .001)
 	})
 
@@ -142,7 +142,7 @@ func TestBaseRemoteControl(t *testing.T) {
 
 	t.Run("slow arc to slow turn", func(t *testing.T) {
 		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 0.4, 0.2, 0.2)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.1, .001)
+		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.2, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.4, .001)
 	})
 
@@ -223,7 +223,7 @@ func TestBaseRemoteControl(t *testing.T) {
 
 	t.Run("one joy stick control mode for input Y", func(t *testing.T) {
 		millisPerSec, degsPerSec := svc.triggerSpeedEvent(eventZ, 0.5, 0.6)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.5, .001)
+		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.45, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.6, .001)
 	})
 

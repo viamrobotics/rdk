@@ -18,7 +18,6 @@ import (
 	"go.viam.com/core/motor"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	componentpb "go.viam.com/core/proto/api/component/v1"
-	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -112,9 +111,9 @@ func motorOffError(ctx context.Context, m motor.Motor, other error) error {
 	return multierr.Combine(other, m.Off(ctx))
 }
 
-func testJointLimit(ctx context.Context, m motor.Motor, dir pb.DirectionRelative, logger golog.Logger) (float64, error) {
+func testJointLimit(ctx context.Context, m motor.Motor, dir int64, logger golog.Logger) (float64, error) {
 	logger.Debugf("testJointLimit dir: %v", dir)
-	err := m.GoFor(ctx, dir, TestingRPM, 0)
+	err := m.GoFor(ctx, float64(dir)*TestingRPM, 0)
 	if err != nil {
 		return 0.0, err
 	}
@@ -149,7 +148,7 @@ func testJointLimit(ctx context.Context, m motor.Motor, dir pb.DirectionRelative
 				}
 				bigger = true
 				positions = []float64{}
-				err := m.Go(ctx, dir, TestingForce)
+				err := m.Go(ctx, float64(dir)*TestingForce)
 				if err != nil {
 					return math.NaN(), motorOffError(ctx, m, err)
 				}
@@ -194,22 +193,17 @@ func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.Arm,
 		return nil, err
 	}
 
-	newArm.j0.posMax, err = testJointLimit(ctx, newArm.j0Motor, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, logger)
-	if err != nil {
-		return nil, err
-	}
-	/*
-		newArm.j1.posMax, err = testJointLimit(ctx, newArm.j1Motor, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, logger)
-		if err != nil {
-			return nil, err
-		}
-	*/
-	newArm.j0.posMin, err = testJointLimit(ctx, newArm.j0Motor, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, logger)
+	newArm.j0.posMax, err = testJointLimit(ctx, newArm.j0Motor, 1, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	newArm.j1.posMin, err = testJointLimit(ctx, newArm.j1Motor, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, logger)
+	newArm.j0.posMin, err = testJointLimit(ctx, newArm.j0Motor, -1, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	newArm.j1.posMin, err = testJointLimit(ctx, newArm.j1Motor, -1, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +255,7 @@ func (a *armV1) moveJointToDegrees(ctx context.Context, m motor.Motor, j joint, 
 		return nil
 	}
 
-	return m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 10.0, delta)
+	return m.GoFor(ctx, 10.0, delta)
 
 }
 

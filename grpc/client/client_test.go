@@ -334,18 +334,18 @@ func TestClient(t *testing.T) {
 	injectBoard := &inject.Board{}
 	injectMotor := &inject.Motor{}
 	var capPowerMotorArgs []interface{}
-	injectMotor.PowerFunc = func(ctx context.Context, powerPct float32) error {
+	injectMotor.PowerFunc = func(ctx context.Context, powerPct float64) error {
 		capPowerMotorArgs = []interface{}{powerPct}
 		return nil
 	}
 	var capGoMotorArgs []interface{}
-	injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-		capGoMotorArgs = []interface{}{d, powerPct}
+	injectMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
+		capGoMotorArgs = []interface{}{powerPct}
 		return nil
 	}
 	var capGoForMotorArgs []interface{}
-	injectMotor.GoForFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
-		capGoForMotorArgs = []interface{}{d, rpm, rotations}
+	injectMotor.GoForFunc = func(ctx context.Context, rpm float64, rotations float64) error {
+		capGoForMotorArgs = []interface{}{rpm, rotations}
 		return nil
 	}
 	var capGoToMotorArgs []interface{}
@@ -354,8 +354,8 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 	var capGoTillStopMotorArgs []interface{}
-	injectMotor.GoTillStopFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
-		capGoTillStopMotorArgs = []interface{}{d, rpm, stopFunc}
+	injectMotor.GoTillStopFunc = func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+		capGoTillStopMotorArgs = []interface{}{rpm, stopFunc}
 		return nil
 	}
 	var capZeroMotorArgs []interface{}
@@ -812,10 +812,10 @@ func TestClient(t *testing.T) {
 
 	motor1, ok := client.MotorByName("motor1")
 	test.That(t, ok, test.ShouldBeTrue)
-	err = motor1.Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, 0)
+	err = motor1.Go(context.Background(), 0)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-	err = motor1.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, 0, 0)
+	err = motor1.GoFor(context.Background(), 0, 0)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
 
@@ -833,7 +833,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
 	err = motor1.Zero(context.Background(), 0)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-	err = motor1.GoTillStop(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, 0, nil)
+	err = motor1.GoTillStop(context.Background(), 0, nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
 
 	board1, ok := client.BoardByName("board1")
@@ -985,14 +985,14 @@ func TestClient(t *testing.T) {
 
 	motor1, ok = client.MotorByName("motor1")
 	test.That(t, ok, test.ShouldBeTrue)
-	err = motor1.Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1)
+	err = motor1.Go(context.Background(), 1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capGoMotorArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(1)})
+	test.That(t, capGoMotorArgs, test.ShouldResemble, []interface{}{float64(1)})
 	test.That(t, capMotorName, test.ShouldEqual, "motor1")
 
 	err = motor1.Power(context.Background(), 1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capPowerMotorArgs, test.ShouldResemble, []interface{}{float32(1)})
+	test.That(t, capPowerMotorArgs, test.ShouldResemble, []interface{}{float64(1)})
 	test.That(t, capMotorName, test.ShouldEqual, "motor1")
 
 	motor1Pos, err := motor1.Position(context.Background())
@@ -1018,25 +1018,45 @@ func TestClient(t *testing.T) {
 	motor2, ok := client.MotorByName("motor2")
 	test.That(t, ok, test.ShouldBeTrue)
 
-	err = motor2.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1.2, 3.4)
+	err = motor2.GoFor(context.Background(), 1.2, 3.4)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capGoForMotorArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1.2, 3.4})
+	test.That(t, capGoForMotorArgs, test.ShouldResemble, []interface{}{1.2, 3.4})
 	test.That(t, capMotorName, test.ShouldEqual, "motor2")
+
+	err = motor2.GoFor(context.Background(), 1.2, -3.4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capGoForMotorArgs, test.ShouldResemble, []interface{}{1.2, -3.4})
+
+	err = motor2.GoFor(context.Background(), -1.2, 3.4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capGoForMotorArgs, test.ShouldResemble, []interface{}{-1.2, 3.4})
+
+	err = motor2.GoFor(context.Background(), -1.2, -3.4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capGoForMotorArgs, test.ShouldResemble, []interface{}{-1.2, -3.4})
 
 	err = motor2.Power(context.Background(), 0.5)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capPowerMotorArgs, test.ShouldResemble, []interface{}{float32(0.5)})
+	test.That(t, capPowerMotorArgs, test.ShouldResemble, []interface{}{float64(0.5)})
+
+	err = motor2.Power(context.Background(), -0.5)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capPowerMotorArgs, test.ShouldResemble, []interface{}{float64(-0.5)})
 
 	err = motor2.GoTo(context.Background(), 50.1, 27.5)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capGoToMotorArgs, test.ShouldResemble, []interface{}{50.1, 27.5})
 
-	err = motor2.GoTillStop(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 41.1, func(ctx context.Context) bool { return false })
+	err = motor2.GoTo(context.Background(), -50.1, -27.5)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capGoToMotorArgs, test.ShouldResemble, []interface{}{-50.1, -27.5})
+
+	err = motor2.GoTillStop(context.Background(), 41.1, func(ctx context.Context) bool { return false })
 	test.That(t, err.Error(), test.ShouldEqual, "stopFunc must be nil when using gRPC")
 
-	err = motor2.GoTillStop(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 41.1, nil)
+	err = motor2.GoTillStop(context.Background(), 41.1, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capGoTillStopMotorArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 41.1, (func(context.Context) bool)(nil)})
+	test.That(t, capGoTillStopMotorArgs, test.ShouldResemble, []interface{}{41.1, (func(context.Context) bool)(nil)})
 
 	err = motor2.Zero(context.Background(), 5.1)
 	test.That(t, err, test.ShouldBeNil)

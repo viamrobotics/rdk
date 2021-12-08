@@ -171,7 +171,6 @@
 import { Component, Prop, Vue } from "vue-property-decorator";
 import {
   MotorStatus,
-  DirectionRelative,
   MotorGoRequest,
   MotorGoForRequest,
   MotorGoToRequest,
@@ -232,12 +231,10 @@ class MotorCommand {
   type = MotorCommandType.Go;
   position = 0;
   speed = 0;
-  direction: 0 | 1 | 2 = DirectionRelative.DIRECTION_RELATIVE_FORWARD;
   revolutions = 0;
 
   static get STOP(): MotorCommand {
     const cmd = new MotorCommand();
-    cmd.direction = DirectionRelative.DIRECTION_RELATIVE_UNSPECIFIED;
     return cmd;
   }
 
@@ -245,9 +242,7 @@ class MotorCommand {
     revolutions = Number.parseFloat(revolutions.toString());
     if (Number.isNaN(revolutions)) {
       return "Input is not a number";
-    } else if (revolutions < 0) {
-      return "Number of revolutions cannot be less than zero";
-    }
+    } 
     return "";
   }
 
@@ -255,9 +250,7 @@ class MotorCommand {
     rpm = Number.parseFloat(rpm.toString());
     if (Number.isNaN(rpm)) {
       return "Input is not a number";
-    } else if (rpm < 0) {
-      return "RPM cannot be less than zero";
-    }
+    } 
     return "";
   }
 
@@ -265,10 +258,10 @@ class MotorCommand {
     power = Number.parseFloat(power.toString());
     if (Number.isNaN(power)) {
       return "Input is not a number";
-    } else if (power < 0) {
-      return "Power cannot be less than zero";
     } else if (power > 100) {
       return "Power cannot be greater than 100%";
+    } else if (power < -100) {
+      return "Power cannot be less than -100%";
     }
     return "";
   }
@@ -313,12 +306,10 @@ class MotorCommand {
     switch (this.type) {
       case MotorCommandType.Go:
         req = new MotorGoRequest();
-        req.setDirection(this.direction);
         req.setPowerPct(this.speed / 100);
         break;
       case MotorCommandType.GoFor:
         req = new MotorGoForRequest();
-        req.setDirection(this.direction);
         req.setRpm(this.speed);
         req.setRevolutions(this.revolutions);
         break;
@@ -383,14 +374,8 @@ export default class MotorDetail extends Vue {
 
   get isGoingForward(): boolean {
     return (
-      this.motorCommand.direction ===
-      DirectionRelative.DIRECTION_RELATIVE_FORWARD
+      (this.motorCommand.speed > 0)
     );
-  }
-  set isGoingForward(forward: boolean) {
-    this.motorCommand.direction = forward
-      ? DirectionRelative.DIRECTION_RELATIVE_FORWARD
-      : DirectionRelative.DIRECTION_RELATIVE_BACKWARD;
   }
 
   get position(): number {

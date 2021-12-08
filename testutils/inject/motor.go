@@ -4,17 +4,16 @@ import (
 	"context"
 
 	"go.viam.com/core/motor"
-	pb "go.viam.com/core/proto/api/v1"
 )
 
 // Motor is an injected motor.
 type Motor struct {
 	motor.Motor
-	PowerFunc             func(ctx context.Context, powerPct float32) error
-	GoFunc                func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error
-	GoForFunc             func(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error
+	PowerFunc             func(ctx context.Context, powerPct float64) error
+	GoFunc                func(ctx context.Context, powerPct float64) error
+	GoForFunc             func(ctx context.Context, rpm float64, rotations float64) error
 	GoToFunc              func(ctx context.Context, rpm float64, position float64) error
-	GoTillStopFunc        func(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error
+	GoTillStopFunc        func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
 	ZeroFunc              func(ctx context.Context, offset float64) error
 	PositionFunc          func(ctx context.Context) (float64, error)
 	PositionSupportedFunc func(ctx context.Context) (bool, error)
@@ -23,7 +22,7 @@ type Motor struct {
 }
 
 // Power calls the injected Power or the real version.
-func (m *Motor) Power(ctx context.Context, powerPct float32) error {
+func (m *Motor) Power(ctx context.Context, powerPct float64) error {
 	if m.PowerFunc == nil {
 		return m.Motor.Power(ctx, powerPct)
 	}
@@ -31,19 +30,19 @@ func (m *Motor) Power(ctx context.Context, powerPct float32) error {
 }
 
 // Go calls the injected Go or the real version.
-func (m *Motor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+func (m *Motor) Go(ctx context.Context, powerPct float64) error {
 	if m.GoFunc == nil {
-		return m.Motor.Go(ctx, d, powerPct)
+		return m.Motor.Go(ctx, powerPct)
 	}
-	return m.GoFunc(ctx, d, powerPct)
+	return m.GoFunc(ctx, powerPct)
 }
 
 // GoFor calls the injected GoFor or the real version.
-func (m *Motor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
+func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
 	if m.GoForFunc == nil {
-		return m.Motor.GoFor(ctx, d, rpm, revolutions)
+		return m.Motor.GoFor(ctx, rpm, revolutions)
 	}
-	return m.GoForFunc(ctx, d, rpm, revolutions)
+	return m.GoForFunc(ctx, rpm, revolutions)
 }
 
 // GoTo calls the injected GoTo or the real version.
@@ -55,11 +54,11 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
 }
 
 // GoTillStop calls the injected GoTillStop or the real version.
-func (m *Motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	if m.GoTillStopFunc == nil {
-		return m.Motor.GoTillStop(ctx, d, rpm, stopFunc)
+		return m.Motor.GoTillStop(ctx, rpm, stopFunc)
 	}
-	return m.GoTillStopFunc(ctx, d, rpm, stopFunc)
+	return m.GoTillStopFunc(ctx, rpm, stopFunc)
 }
 
 // Zero calls the injected Zero or the real version.

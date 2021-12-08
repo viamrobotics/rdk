@@ -1404,56 +1404,53 @@ func TestServer(t *testing.T) {
 
 		var capArgs []interface{}
 		err1 := errors.New("whoops")
-		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-			capArgs = []interface{}{d, powerPct}
+		injectMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
+			capArgs = []interface{}{powerPct}
 			return err1
 		}
 		_, err = server.MotorGo(context.Background(), &pb.MotorGoRequest{
 			Name: "motor1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, float32(0)})
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{float64(0)})
 
-		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-			capArgs = []interface{}{d, powerPct}
+		injectMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
+			capArgs = []interface{}{powerPct}
 			return nil
 		}
 		_, err = server.MotorGo(context.Background(), &pb.MotorGoRequest{
-			Name:      "motor1",
-			Direction: pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD,
-			PowerPct:  2,
+			Name:     "motor1",
+			PowerPct: 2,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(2)})
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{float64(2)})
 
-		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+		injectMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
 			return errors.New("no")
 		}
-		injectMotor.GoForFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
-			capArgs = []interface{}{d, rpm, revolutions}
+		injectMotor.GoForFunc = func(ctx context.Context, rpm float64, revolutions float64) error {
+			capArgs = []interface{}{rpm, revolutions}
 			return err1
 		}
 		_, err = server.MotorGoFor(context.Background(), &pb.MotorGoForRequest{
 			Name:        "motor1",
-			Direction:   pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
-			Rpm:         2.3,
+			Rpm:         -2.3,
 			Revolutions: 4.5,
 		})
 		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3, 4.5})
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{-2.3, 4.5})
 
-		injectMotor.GoForFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
-			capArgs = []interface{}{d, rpm, revolutions}
+		injectMotor.GoForFunc = func(ctx context.Context, rpm float64, revolutions float64) error {
+			capArgs = []interface{}{rpm, revolutions}
 			return nil
 		}
 		_, err = server.MotorGoFor(context.Background(), &pb.MotorGoForRequest{
 			Name:        "motor1",
-			Direction:   pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
 			Rpm:         2.3,
-			Revolutions: 4.5,
+			Revolutions: -4.5,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3, 4.5})
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{2.3, -4.5})
 
 		injectMotor.GoToFunc = func(ctx context.Context, rpm float64, revolutions float64) error {
 			capArgs = []interface{}{rpm, revolutions}
@@ -1467,17 +1464,16 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{2.3, 4.5})
 
-		injectMotor.GoTillStopFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
-			capArgs = []interface{}{d, rpm, stopFunc}
+		injectMotor.GoTillStopFunc = func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+			capArgs = []interface{}{rpm, stopFunc}
 			return nil
 		}
 		_, err = server.MotorGoTillStop(context.Background(), &pb.MotorGoTillStopRequest{
-			Name:      "motor1",
-			Direction: pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
-			Rpm:       2.3,
+			Name: "motor1",
+			Rpm:  -2.3,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3, (func(context.Context) bool)(nil)})
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{-2.3, (func(context.Context) bool)(nil)})
 
 		injectMotor.ZeroFunc = func(ctx context.Context, offset float64) error {
 			capArgs = []interface{}{offset}
@@ -1492,7 +1488,7 @@ func TestServer(t *testing.T) {
 
 		ctx := context.Background()
 
-		injectMotor.PowerFunc = func(ctx context.Context, powerPct float32) error {
+		injectMotor.PowerFunc = func(ctx context.Context, powerPct float64) error {
 			capArgs = []interface{}{ctx, powerPct}
 			return err1
 		}
@@ -1501,9 +1497,9 @@ func TestServer(t *testing.T) {
 			PowerPct: 1.23,
 		})
 		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, float32(1.23)})
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, float64(1.23)})
 
-		injectMotor.PowerFunc = func(ctx context.Context, powerPct float32) error {
+		injectMotor.PowerFunc = func(ctx context.Context, powerPct float64) error {
 			capArgs = []interface{}{ctx, powerPct}
 			return nil
 		}
@@ -1512,7 +1508,7 @@ func TestServer(t *testing.T) {
 			PowerPct: 1.23,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, float32(1.23)})
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, float64(1.23)})
 
 		injectMotor.PositionFunc = func(ctx context.Context) (float64, error) {
 			capArgs = []interface{}{ctx}

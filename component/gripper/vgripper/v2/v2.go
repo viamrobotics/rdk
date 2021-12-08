@@ -16,7 +16,6 @@ import (
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
-	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -60,7 +59,7 @@ type gripperV2 struct {
 
 	// parameters that are set by the user
 	startHoldingPressure               float64
-	startGripPowerPct                  float32 // percentage of power the gripper uses to hold an item; range: [0-1]
+	startGripPowerPct                  float64 // percentage of power the gripper uses to hold an item; range: [0-1]
 	hasPressureThreshold               float64
 	calibrationMinPressureDifference   float64
 	antiSlipTimeStepSizeInMilliseconds float64
@@ -75,7 +74,7 @@ type gripperV2 struct {
 
 	// determined during the calibration
 	openPos, closedPos             float64
-	closedDirection, openDirection pb.DirectionRelative
+	closedDirection, openDirection int64
 
 	// other
 	model                 *referenceframe.Model
@@ -143,7 +142,7 @@ func new(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		forceMatrix: forceMatrixDevice,
 		// parameters that are set by the user
 		startHoldingPressure:               startHoldingPressure,
-		startGripPowerPct:                  float32(startGripPowerPct),
+		startGripPowerPct:                  startGripPowerPct,
 		hasPressureThreshold:               hasPressureThreshold,
 		calibrationMinPressureDifference:   calibrationMinPressureDifference,
 		antiSlipTimeStepSizeInMilliseconds: antiSlipTimeStepSizeInMilliseconds,
@@ -291,8 +290,8 @@ func (vg *gripperV2) antiSlipForceControl(ctx context.Context) error {
 			return err
 		}
 		if objectIsSlipping {
-			gripPowerPct += float32(vg.antiSlipGripPowerPctStepSize)
-			err = vg.motor.Go(ctx, vg.closedDirection, gripPowerPct)
+			gripPowerPct += vg.antiSlipGripPowerPctStepSize
+			err = vg.motor.Go(ctx, float64(vg.closedDirection)*gripPowerPct)
 			if err != nil {
 				return err
 			}
@@ -332,7 +331,7 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 
 	// Test forward motion for pressure/endpoint
 	vg.logger.Debug("init: moving forward")
-	err := vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, vg.targetRPM/2, stopFuncHighCurrent)
+	err := vg.motor.GoTillStop(ctx, vg.targetRPM/2, stopFuncHighCurrent)
 	if err != nil {
 		return err
 	}
@@ -348,17 +347,17 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 	var pressureOpen, pressureClosed float64
 	if pressure > vg.hasPressureThreshold {
 		vg.closedPos = position
-		vg.closedDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
+		vg.closedDirection = 1
 		pressureClosed = pressure
 	} else {
 		vg.openPos = position
-		vg.openDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
+		vg.openDirection = 1
 		pressureOpen = pressure
 	}
 
 	// Test backward motion for pressure/endpoint
 	vg.logger.Debug("init: moving backward")
-	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, vg.targetRPM/2, stopFuncHighCurrent)
+	err = vg.motor.GoTillStop(ctx, -1*vg.targetRPM/2, stopFuncHighCurrent)
 	if err != nil {
 		return err
 	}
@@ -372,19 +371,19 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 	}
 	if pressure > vg.hasPressureThreshold {
 		vg.closedPos = position
-		vg.closedDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
+		vg.closedDirection = -1
 		pressureClosed = pressure
 	} else {
 		vg.openPos = position
-		vg.openDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
+		vg.openDirection = -1
 		pressureOpen = pressure
 	}
 
 	// Sanity check; if the pressure difference between open & closed position is too small,
 	// something went wrong
 	if math.Abs(pressureOpen-pressureClosed) < vg.calibrationMinPressureDifference ||
-		vg.closedDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED ||
-		vg.openDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
+		vg.closedDirection == 0 ||
+		vg.openDirection == 0 {
 		return errors.Errorf("init: open and closed positions can't be distinguished: "+
 			"positions (closed, open): %f %f, pressures (closed, open): %f %f, "+
 			"open direction: %v, closed direction: %v",
@@ -546,7 +545,7 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 				return false, err
 			}
 			vg.logger.Debugf("i think i grabbed something, have pressure, pos: %f closedPos: %v", now, vg.closedPos)
-			err = vg.motor.Go(ctx, vg.closedDirection, vg.startGripPowerPct)
+			err = vg.motor.Go(ctx, float64(vg.closedDirection)*vg.startGripPowerPct)
 			return err == nil, err
 		}
 

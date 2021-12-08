@@ -22,7 +22,6 @@ import (
 	"go.viam.com/core/component/imu"
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
-	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
@@ -122,56 +121,24 @@ func (b *boat) steerColumn(ctx context.Context, dir float64) error {
 	return b.steering.GoTo(ctx, rpm, dir)
 }
 
-func max32(a, b float32) float32 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func min32(a, b float32) float32 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func (b *boat) SteerAndMoveHelp(ctx context.Context,
-	thrustDir pb.DirectionRelative,
-	thrustSpeed float32,
-	portDir pb.DirectionRelative,
-	portSpeed float32,
-	starboardDir pb.DirectionRelative,
-	starboardSpeed float32) error {
+	thrustSpeed float64,
+	portSpeed float64,
+	starboardSpeed float64) error {
 
-	thrustSpeed = max32(0, thrustSpeed)
+	thrustSpeed = math.Max(0, thrustSpeed)
 
-	if portSpeed < 0 {
-		portSpeed *= -1
-		portDir = board.FlipDirection(portDir)
-	}
-	if starboardSpeed < 0 {
-		starboardSpeed *= -1
-		starboardDir = board.FlipDirection(starboardDir)
-	}
-
-	thrustSpeed = min32(1, thrustSpeed)
-	portSpeed = min32(1, portSpeed)
-	starboardSpeed = min32(1, starboardSpeed)
+	thrustSpeed = math.Min(1, thrustSpeed)
+	portSpeed = math.Min(1, portSpeed)
+	starboardSpeed = math.Min(1, starboardSpeed)
 
 	if false {
-		fmt.Printf("SteerAndMoveHelp %v %0.2f %v %0.2f %v %0.2f\n",
-			thrustDir,
-			thrustSpeed,
-			portDir,
-			portSpeed,
-			starboardDir,
-			starboardSpeed)
+		fmt.Printf("SteerAndMoveHelp %0.2f %0.2f %0.2f\n", thrustSpeed, portSpeed, starboardSpeed)
 	}
 	return multierr.Combine(
-		b.thrust.Go(ctx, thrustDir, thrustSpeed),
-		b.port.Go(ctx, portDir, portSpeed),
-		b.starboard.Go(ctx, starboardDir, starboardSpeed),
+		b.thrust.Go(ctx, thrustSpeed),
+		b.port.Go(ctx, portSpeed),
+		b.starboard.Go(ctx, starboardSpeed),
 	)
 
 }
@@ -187,58 +154,41 @@ func (b *boat) SteerAndMove(ctx context.Context, dir, speed float64) error {
 		fmt.Printf("SteerAndMove %0.2f %0.2f \n", dir, speed)
 	}
 
-	if speed > .4 {
+	if speed > 0.4 {
 		// forwards
-
-		if dir > 0 {
-			return b.SteerAndMoveHelp(ctx,
-				pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(speed-dir/3),
-				pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(speed),
-				pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(math.Max(0, speed-dir*1.5)))
+		if dir < 0 {
+			return b.SteerAndMoveHelp(ctx, speed-dir/3, speed, math.Max(0, speed-dir*1.5))
 		}
 		dir *= -1
-		return b.SteerAndMoveHelp(ctx,
-			pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(speed-dir/3),
-			pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(math.Max(0, speed-dir*1.5)),
-			pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(speed),
-		)
+		return b.SteerAndMoveHelp(ctx, speed-dir/3, math.Max(0, speed-dir*1.5), speed)
 	}
 
-	if speed < -.4 {
+	if speed < -0.4 {
 		speed *= -1
 		// backwards
 		if dir < 0 {
 			dir *= -1
-			return b.SteerAndMoveHelp(ctx,
-				pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, float32(speed),
-				pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, float32(speed),
-				pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, float32(math.Max(0, speed-dir)),
-			)
+			return b.SteerAndMoveHelp(ctx, speed, speed, math.Max(0, speed-dir))
 		}
 
-		return b.SteerAndMoveHelp(ctx,
-			pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, float32(speed),
-			pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, float32(math.Max(0, speed-dir)),
-			pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, float32(speed),
-		)
+		return b.SteerAndMoveHelp(ctx, speed, math.Max(0, speed-dir), speed)
 	}
 
 	// we really want to spin with a little straight movement
 
-	//fmt.Printf("spinning\n")
 	if dir > 0 {
 		return multierr.Combine(
 			b.thrust.Off(ctx),
-			b.port.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(dir)),
-			b.starboard.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, float32(dir)),
+			b.port.Go(ctx, dir),
+			b.starboard.Go(ctx, dir),
 		)
 	}
 
 	dir *= -1
 	return multierr.Combine(
 		b.thrust.Off(ctx),
-		b.port.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, float32(dir)),
-		b.starboard.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(dir)),
+		b.port.Go(ctx, dir),
+		b.starboard.Go(ctx, dir),
 	)
 }
 
@@ -295,7 +245,7 @@ func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golo
 
 	if false {
 		// calibrate steering
-		err = b.steering.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 50, nil)
+		err = b.steering.GoTillStop(ctx, -50, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -305,7 +255,7 @@ func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golo
 			return nil, err
 		}
 
-		err = b.steering.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 50, nil)
+		err = b.steering.GoTillStop(ctx, 50, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -490,7 +440,7 @@ func runRC(ctx context.Context, myBoat *boat) {
 		}
 		previousPushMode = false
 
-		squirtPower := float32(vals["throttle"]) / 100.0
+		squirtPower := float64(vals["throttle"]) / 100.0
 		err = myBoat.squirt.Power(ctx, squirtPower)
 		if err != nil {
 			logger.Errorw("error turning on squirt: %w", err)

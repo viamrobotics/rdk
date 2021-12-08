@@ -2112,9 +2112,6 @@ export class MotorGoRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
-  getDirection(): DirectionRelativeMap[keyof DirectionRelativeMap];
-  setDirection(value: DirectionRelativeMap[keyof DirectionRelativeMap]): void;
-
   getPowerPct(): number;
   setPowerPct(value: number): void;
 
@@ -2131,7 +2128,6 @@ export class MotorGoRequest extends jspb.Message {
 export namespace MotorGoRequest {
   export type AsObject = {
     name: string,
-    direction: DirectionRelativeMap[keyof DirectionRelativeMap],
     powerPct: number,
   }
 }
@@ -2156,9 +2152,6 @@ export class MotorGoForRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
-  getDirection(): DirectionRelativeMap[keyof DirectionRelativeMap];
-  setDirection(value: DirectionRelativeMap[keyof DirectionRelativeMap]): void;
-
   getRpm(): number;
   setRpm(value: number): void;
 
@@ -2178,7 +2171,6 @@ export class MotorGoForRequest extends jspb.Message {
 export namespace MotorGoForRequest {
   export type AsObject = {
     name: string,
-    direction: DirectionRelativeMap[keyof DirectionRelativeMap],
     rpm: number,
     revolutions: number,
   }
@@ -2248,9 +2240,6 @@ export class MotorGoTillStopRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
-  getDirection(): DirectionRelativeMap[keyof DirectionRelativeMap];
-  setDirection(value: DirectionRelativeMap[keyof DirectionRelativeMap]): void;
-
   getRpm(): number;
   setRpm(value: number): void;
 
@@ -2267,7 +2256,6 @@ export class MotorGoTillStopRequest extends jspb.Message {
 export namespace MotorGoTillStopRequest {
   export type AsObject = {
     name: string,
-    direction: DirectionRelativeMap[keyof DirectionRelativeMap],
     rpm: number,
   }
 }
@@ -3519,14 +3507,6 @@ export namespace ForceMatrixSlipDetectionResponse {
     isSlipping: boolean,
   }
 }
-
-export interface DirectionRelativeMap {
-  DIRECTION_RELATIVE_UNSPECIFIED: 0;
-  DIRECTION_RELATIVE_FORWARD: 1;
-  DIRECTION_RELATIVE_BACKWARD: 2;
-}
-
-export const DirectionRelative: DirectionRelativeMap;
 
 export interface NavigationServiceModeMap {
   NAVIGATION_SERVICE_MODE_UNSPECIFIED: 0;

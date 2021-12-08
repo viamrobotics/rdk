@@ -68,7 +68,6 @@ goog.exportSymbol('proto.proto.api.v1.ConfigRequest', null, global);
 goog.exportSymbol('proto.proto.api.v1.ConfigResponse', null, global);
 goog.exportSymbol('proto.proto.api.v1.DigitalInterruptConfig', null, global);
 goog.exportSymbol('proto.proto.api.v1.DigitalInterruptStatus', null, global);
-goog.exportSymbol('proto.proto.api.v1.DirectionRelative', null, global);
 goog.exportSymbol('proto.proto.api.v1.DoActionRequest', null, global);
 goog.exportSymbol('proto.proto.api.v1.DoActionResponse', null, global);
 goog.exportSymbol('proto.proto.api.v1.EulerAngles', null, global);
@@ -17597,7 +17596,7 @@ proto.proto.api.v1.MotorPowerRequest.deserializeBinaryFromReader = function(msg,
       msg.setName(value);
       break;
     case 2:
-      var value = /** @type {number} */ (reader.readFloat());
+      var value = /** @type {number} */ (reader.readDouble());
       msg.setPowerPct(value);
       break;
     default:
@@ -17638,7 +17637,7 @@ proto.proto.api.v1.MotorPowerRequest.serializeBinaryToWriter = function(message,
   }
   f = message.getPowerPct();
   if (f !== 0.0) {
-    writer.writeFloat(
+    writer.writeDouble(
       2,
       f
     );
@@ -17665,7 +17664,7 @@ proto.proto.api.v1.MotorPowerRequest.prototype.setName = function(value) {
 
 
 /**
- * optional float power_pct = 2;
+ * optional double power_pct = 2;
  * @return {number}
  */
 proto.proto.api.v1.MotorPowerRequest.prototype.getPowerPct = function() {
@@ -17816,8 +17815,7 @@ proto.proto.api.v1.MotorGoRequest.prototype.toObject = function(opt_includeInsta
 proto.proto.api.v1.MotorGoRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    direction: jspb.Message.getFieldWithDefault(msg, 2, 0),
-    powerPct: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0)
+    powerPct: jspb.Message.getFloatingPointFieldWithDefault(msg, 2, 0.0)
   };
 
   if (includeInstance) {
@@ -17859,11 +17857,7 @@ proto.proto.api.v1.MotorGoRequest.deserializeBinaryFromReader = function(msg, re
       msg.setName(value);
       break;
     case 2:
-      var value = /** @type {!proto.proto.api.v1.DirectionRelative} */ (reader.readEnum());
-      msg.setDirection(value);
-      break;
-    case 3:
-      var value = /** @type {number} */ (reader.readFloat());
+      var value = /** @type {number} */ (reader.readDouble());
       msg.setPowerPct(value);
       break;
     default:
@@ -17902,17 +17896,10 @@ proto.proto.api.v1.MotorGoRequest.serializeBinaryToWriter = function(message, wr
       f
     );
   }
-  f = message.getDirection();
-  if (f !== 0.0) {
-    writer.writeEnum(
-      2,
-      f
-    );
-  }
   f = message.getPowerPct();
   if (f !== 0.0) {
-    writer.writeFloat(
-      3,
+    writer.writeDouble(
+      2,
       f
     );
   }
@@ -17938,29 +17925,11 @@ proto.proto.api.v1.MotorGoRequest.prototype.setName = function(value) {
 
 
 /**
- * optional DirectionRelative direction = 2;
- * @return {!proto.proto.api.v1.DirectionRelative}
- */
-proto.proto.api.v1.MotorGoRequest.prototype.getDirection = function() {
-  return /** @type {!proto.proto.api.v1.DirectionRelative} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
-};
-
-
-/**
- * @param {!proto.proto.api.v1.DirectionRelative} value
- * @return {!proto.proto.api.v1.MotorGoRequest} returns this
- */
-proto.proto.api.v1.MotorGoRequest.prototype.setDirection = function(value) {
-  return jspb.Message.setProto3EnumField(this, 2, value);
-};
-
-
-/**
- * optional float power_pct = 3;
+ * optional double power_pct = 2;
  * @return {number}
  */
 proto.proto.api.v1.MotorGoRequest.prototype.getPowerPct = function() {
-  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 2, 0.0));
 };
 
 
@@ -17969,7 +17938,7 @@ proto.proto.api.v1.MotorGoRequest.prototype.getPowerPct = function() {
  * @return {!proto.proto.api.v1.MotorGoRequest} returns this
  */
 proto.proto.api.v1.MotorGoRequest.prototype.setPowerPct = function(value) {
-  return jspb.Message.setProto3FloatField(this, 3, value);
+  return jspb.Message.setProto3FloatField(this, 2, value);
 };
 
 
@@ -18107,9 +18076,8 @@ proto.proto.api.v1.MotorGoForRequest.prototype.toObject = function(opt_includeIn
 proto.proto.api.v1.MotorGoForRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    direction: jspb.Message.getFieldWithDefault(msg, 2, 0),
-    rpm: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0),
-    revolutions: jspb.Message.getFloatingPointFieldWithDefault(msg, 4, 0.0)
+    rpm: jspb.Message.getFloatingPointFieldWithDefault(msg, 2, 0.0),
+    revolutions: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0)
   };
 
   if (includeInstance) {
@@ -18151,14 +18119,10 @@ proto.proto.api.v1.MotorGoForRequest.deserializeBinaryFromReader = function(msg,
       msg.setName(value);
       break;
     case 2:
-      var value = /** @type {!proto.proto.api.v1.DirectionRelative} */ (reader.readEnum());
-      msg.setDirection(value);
-      break;
-    case 3:
       var value = /** @type {number} */ (reader.readDouble());
       msg.setRpm(value);
       break;
-    case 4:
+    case 3:
       var value = /** @type {number} */ (reader.readDouble());
       msg.setRevolutions(value);
       break;
@@ -18198,24 +18162,17 @@ proto.proto.api.v1.MotorGoForRequest.serializeBinaryToWriter = function(message,
       f
     );
   }
-  f = message.getDirection();
-  if (f !== 0.0) {
-    writer.writeEnum(
-      2,
-      f
-    );
-  }
   f = message.getRpm();
   if (f !== 0.0) {
     writer.writeDouble(
-      3,
+      2,
       f
     );
   }
   f = message.getRevolutions();
   if (f !== 0.0) {
     writer.writeDouble(
-      4,
+      3,
       f
     );
   }
@@ -18241,29 +18198,11 @@ proto.proto.api.v1.MotorGoForRequest.prototype.setName = function(value) {
 
 
 /**
- * optional DirectionRelative direction = 2;
- * @return {!proto.proto.api.v1.DirectionRelative}
- */
-proto.proto.api.v1.MotorGoForRequest.prototype.getDirection = function() {
-  return /** @type {!proto.proto.api.v1.DirectionRelative} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
-};
-
-
-/**
- * @param {!proto.proto.api.v1.DirectionRelative} value
- * @return {!proto.proto.api.v1.MotorGoForRequest} returns this
- */
-proto.proto.api.v1.MotorGoForRequest.prototype.setDirection = function(value) {
-  return jspb.Message.setProto3EnumField(this, 2, value);
-};
-
-
-/**
- * optional double rpm = 3;
+ * optional double rpm = 2;
  * @return {number}
  */
 proto.proto.api.v1.MotorGoForRequest.prototype.getRpm = function() {
-  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 2, 0.0));
 };
 
 
@@ -18272,16 +18211,16 @@ proto.proto.api.v1.MotorGoForRequest.prototype.getRpm = function() {
  * @return {!proto.proto.api.v1.MotorGoForRequest} returns this
  */
 proto.proto.api.v1.MotorGoForRequest.prototype.setRpm = function(value) {
-  return jspb.Message.setProto3FloatField(this, 3, value);
+  return jspb.Message.setProto3FloatField(this, 2, value);
 };
 
 
 /**
- * optional double revolutions = 4;
+ * optional double revolutions = 3;
  * @return {number}
  */
 proto.proto.api.v1.MotorGoForRequest.prototype.getRevolutions = function() {
-  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 4, 0.0));
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
 };
 
 
@@ -18290,7 +18229,7 @@ proto.proto.api.v1.MotorGoForRequest.prototype.getRevolutions = function() {
  * @return {!proto.proto.api.v1.MotorGoForRequest} returns this
  */
 proto.proto.api.v1.MotorGoForRequest.prototype.setRevolutions = function(value) {
-  return jspb.Message.setProto3FloatField(this, 4, value);
+  return jspb.Message.setProto3FloatField(this, 3, value);
 };
 
 
@@ -18719,8 +18658,7 @@ proto.proto.api.v1.MotorGoTillStopRequest.prototype.toObject = function(opt_incl
 proto.proto.api.v1.MotorGoTillStopRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    direction: jspb.Message.getFieldWithDefault(msg, 2, 0),
-    rpm: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0)
+    rpm: jspb.Message.getFloatingPointFieldWithDefault(msg, 2, 0.0)
   };
 
   if (includeInstance) {
@@ -18762,10 +18700,6 @@ proto.proto.api.v1.MotorGoTillStopRequest.deserializeBinaryFromReader = function
       msg.setName(value);
       break;
     case 2:
-      var value = /** @type {!proto.proto.api.v1.DirectionRelative} */ (reader.readEnum());
-      msg.setDirection(value);
-      break;
-    case 3:
       var value = /** @type {number} */ (reader.readDouble());
       msg.setRpm(value);
       break;
@@ -18805,17 +18739,10 @@ proto.proto.api.v1.MotorGoTillStopRequest.serializeBinaryToWriter = function(mes
       f
     );
   }
-  f = message.getDirection();
-  if (f !== 0.0) {
-    writer.writeEnum(
-      2,
-      f
-    );
-  }
   f = message.getRpm();
   if (f !== 0.0) {
     writer.writeDouble(
-      3,
+      2,
       f
     );
   }
@@ -18841,29 +18768,11 @@ proto.proto.api.v1.MotorGoTillStopRequest.prototype.setName = function(value) {
 
 
 /**
- * optional DirectionRelative direction = 2;
- * @return {!proto.proto.api.v1.DirectionRelative}
- */
-proto.proto.api.v1.MotorGoTillStopRequest.prototype.getDirection = function() {
-  return /** @type {!proto.proto.api.v1.DirectionRelative} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
-};
-
-
-/**
- * @param {!proto.proto.api.v1.DirectionRelative} value
- * @return {!proto.proto.api.v1.MotorGoTillStopRequest} returns this
- */
-proto.proto.api.v1.MotorGoTillStopRequest.prototype.setDirection = function(value) {
-  return jspb.Message.setProto3EnumField(this, 2, value);
-};
-
-
-/**
- * optional double rpm = 3;
+ * optional double rpm = 2;
  * @return {number}
  */
 proto.proto.api.v1.MotorGoTillStopRequest.prototype.getRpm = function() {
-  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 2, 0.0));
 };
 
 
@@ -18872,7 +18781,7 @@ proto.proto.api.v1.MotorGoTillStopRequest.prototype.getRpm = function() {
  * @return {!proto.proto.api.v1.MotorGoTillStopRequest} returns this
  */
 proto.proto.api.v1.MotorGoTillStopRequest.prototype.setRpm = function(value) {
-  return jspb.Message.setProto3FloatField(this, 3, value);
+  return jspb.Message.setProto3FloatField(this, 2, value);
 };
 
 
@@ -27256,15 +27165,6 @@ proto.proto.api.v1.ForceMatrixSlipDetectionResponse.prototype.setIsSlipping = fu
   return jspb.Message.setProto3BooleanField(this, 1, value);
 };
 
-
-/**
- * @enum {number}
- */
-proto.proto.api.v1.DirectionRelative = {
-  DIRECTION_RELATIVE_UNSPECIFIED: 0,
-  DIRECTION_RELATIVE_FORWARD: 1,
-  DIRECTION_RELATIVE_BACKWARD: 2
-};
 
 /**
  * @enum {number}

@@ -21,7 +21,6 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/motor"
-	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
@@ -58,12 +57,6 @@ type Boat struct {
 
 // MoveStraight TODO
 func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
-	dir := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-	if distanceMillis < 0 {
-		dir = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
-		distanceMillis *= -1
-	}
-
 	if block {
 		return 0, errors.New("boat can't block for move straight yet")
 	}
@@ -73,8 +66,8 @@ func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 
 	// TODO(erh): return how much it actually moved
 	return distanceMillis, multierr.Combine(
-		b.starboard.GoFor(ctx, dir, speed, rotations),
-		b.port.GoFor(ctx, dir, speed, rotations),
+		b.starboard.GoFor(ctx, speed, rotations),
+		b.port.GoFor(ctx, speed, rotations),
 	)
 
 }
@@ -131,9 +124,6 @@ func (b *Boat) StartRC(ctx context.Context) {
 
 			var port, starboard float64
 
-			var portDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-			var starboardDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-
 			direction := 0.0
 
 			aSwitchVal, err := b.aSwitch.Value(ctx)
@@ -166,19 +156,10 @@ func (b *Boat) StartRC(ctx context.Context) {
 					direction = float64(rightHorizontalVal)
 				}
 
-				if port < 0 {
-					portDirection = board.FlipDirection(portDirection)
-					port = -1 * port
-				}
-				if starboard < 0 {
-					starboardDirection = board.FlipDirection(starboardDirection)
-					starboard = -1 * starboard
-				}
-
 			} else {
 				if mode == 2 {
-					portDirection = board.FlipDirection(portDirection)
-					starboardDirection = board.FlipDirection(starboardDirection)
+					port *= -1
+					starboard *= -1
 				}
 
 				throttleVal, err := b.throttle.Value(ctx)
@@ -211,8 +192,8 @@ func (b *Boat) StartRC(ctx context.Context) {
 				err = b.Stop(ctx)
 			} else {
 				err = multierr.Combine(
-					b.starboard.GoFor(ctx, starboardDirection, starboard, 0),
-					b.port.GoFor(ctx, portDirection, port, 0),
+					b.starboard.GoFor(ctx, starboard, 0),
+					b.port.GoFor(ctx, port, 0),
 				)
 			}
 
