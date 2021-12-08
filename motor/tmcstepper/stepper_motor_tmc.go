@@ -360,13 +360,14 @@ func (m *Motor) rpmsToA(acc float64) int32 {
 }
 
 // GoTo moves to the specified position in terms of (provided in revolutions from home/zero),
-// at a specific speed.
+// at a specific speed. Regardless of the directionality of the RPM this fucntion will move the
+// motor towards the specified target
 func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
 
 	position *= float64(m.stepsPerRev)
 	return multierr.Combine(
 		m.writeReg(ctx, rampMode, modePosition),
-		m.writeReg(ctx, vMax, m.rpmToV(rpm)),
+		m.writeReg(ctx, vMax, m.rpmToV(math.Abs(rpm))),
 		m.writeReg(ctx, xTarget, int32(position)),
 	)
 }

@@ -25,8 +25,8 @@ type Motor interface {
 	GoFor(ctx context.Context, rpm float64, revolutions float64) error
 
 	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
-	// at a specific speed. If the direction of the desired position does not align with the direction
-	// of RPM the function will error.
+	// at a specific speed. Regardless of the directionality of the RPM this fucntion will move the motor
+	// towards the specified target/position
 	GoTo(ctx context.Context, rpm float64, position float64) error
 
 	// GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.

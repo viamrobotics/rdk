@@ -206,15 +206,12 @@ func (m *arduinoMotor) IsOn(ctx context.Context) (bool, error) {
 	return res[0] == 't', nil
 }
 
-// GoTo instructs motor to go to a given position at a given RPM. If the direction of the RPM and target
-// are not the same, the function will error out.
+// GoTo instructs motor to go to a given position at a given RPM. Regardless of the directionality of
+// the RPM this fucntion will move the motor towards the specified target
 func (m *arduinoMotor) GoTo(ctx context.Context, rpm float64, target float64) error {
-	if math.Signbit(rpm) != math.Signbit(target) {
-		return errors.New("input rpm and desired target must be in the same direction in order complete")
-	}
 
 	ticks := int(target * float64(m.cfg.TicksPerRotation))
-	ticksPerSecond := int(rpm * float64(m.cfg.TicksPerRotation) / 60.0)
+	ticksPerSecond := int(math.Abs(rpm) * float64(m.cfg.TicksPerRotation) / 60.0)
 
 	_, err := m.b.runCommand(fmt.Sprintf("motor-goto %s %d %d", m.name, ticks, ticksPerSecond))
 	return err
