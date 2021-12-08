@@ -37,8 +37,8 @@ func init() {
 }
 
 type wit struct {
-	angularVelocity *spatialmath.AngularVelocity
-	orientation     *spatialmath.EulerAngles
+	angularVelocity spatialmath.AngularVelocity
+	orientation     spatialmath.EulerAngles
 	lastError       error
 
 	mu sync.Mutex
@@ -50,13 +50,13 @@ type wit struct {
 func (i *wit) AngularVelocity(ctx context.Context) (*spatialmath.AngularVelocity, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	return i.angularVelocity, i.lastError
+	return &i.angularVelocity, i.lastError
 }
 
 func (i *wit) Orientation(ctx context.Context) (*spatialmath.EulerAngles, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	return i.orientation, i.lastError
+	return &i.orientation, i.lastError
 }
 
 func (i *wit) Readings(ctx context.Context) ([]interface{}, error) {
