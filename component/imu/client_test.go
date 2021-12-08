@@ -32,16 +32,16 @@ func TestClient(t *testing.T) {
 
 	imu1 := "imu1"
 
-	av := &spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
+	av := spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
 	ea := &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
 	rs := []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw}
 	desc := sensor.Description{sensor.Type("imu"), ""}
 
 	injectIMU := &inject.IMU{}
-	injectIMU.AngularVelocityFunc = func(ctx context.Context) (*spatialmath.AngularVelocity, error) {
+	injectIMU.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
 		return av, nil
 	}
-	injectIMU.OrientationFunc = func(ctx context.Context) (*spatialmath.EulerAngles, error) {
+	injectIMU.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
 		return ea, nil
 	}
 	injectIMU.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {

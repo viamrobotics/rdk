@@ -47,13 +47,13 @@ type wit struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (i *wit) AngularVelocity(ctx context.Context) (*spatialmath.AngularVelocity, error) {
+func (i *wit) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	return &i.angularVelocity, i.lastError
+	return i.angularVelocity, i.lastError
 }
 
-func (i *wit) Orientation(ctx context.Context) (*spatialmath.EulerAngles, error) {
+func (i *wit) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return &i.orientation, i.lastError
