@@ -392,9 +392,10 @@ func (r *localRobot) newSensor(ctx context.Context, config config.Component, sen
 }
 
 func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
-	f := registry.ServiceLookup(config.Type)
+	rName := config.ResourceName()
+	f := registry.ServiceLookup(rName.Subtype)
 	if f == nil {
-		return nil, errors.Errorf("unknown service type: %s", config.Type)
+		return nil, errors.Errorf("unknown service type: %s", rName.Subtype)
 	}
 	return f.Constructor(ctx, r, config, r.logger)
 }

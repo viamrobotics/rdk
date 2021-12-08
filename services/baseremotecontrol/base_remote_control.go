@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
@@ -21,14 +22,36 @@ import (
 const (
 	oneJoyStickControl = controlMode(iota)
 	triggerSpeedControl
-	Type      = config.ServiceType("base_remote_control")
-	maxSpeed  = 1000.0
-	maxAngle  = 360.0
-	distRatio = 10
+	Type        = config.ServiceType("base_remote_control")
+	SubtypeName = resource.SubtypeName("base_remote_control")
+	maxSpeed    = 100.0
+	maxAngle    = 40.0
+	distRatio   = 10
+)
+
+// Subtype is a constant that identifies the remote control resource subtype
+var Subtype = resource.NewSubtype(
+	resource.ResourceNamespaceRDK,
+	resource.ResourceTypeService,
+	SubtypeName,
 )
 
 func init() {
-	registry.RegisterService(Type, registry.Service{Constructor: New})
+	// TODO: Services do not require reconfigurability. A future commit
+	// implementing a grpc service for this service will add RegisterRPCService
+	// and RPCClient to the ResourceSubtype initialization here - GV
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		Reconfigurable: func(resource interface{}) (resource.Reconfigurable, error) {
+			service, ok := resource.(Service)
+			if !ok {
+				return nil, errors.Errorf(
+					"expected resource to be a Service but got %T", resource,
+				)
+			}
+			return service, nil
+		},
+	})
+	registry.RegisterService(Subtype, registry.Service{Constructor: New})
 
 	config.RegisterServiceAttributeMapConverter(Type, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
@@ -53,7 +76,13 @@ type Config struct {
 	JoyStickModeName    string `json:"joystick_mode"`
 }
 
-// RemoteService is the structure of the remote service.
+// Service describes the public implementation of a remote control service
+type Service interface {
+	resource.Reconfigurable
+	Close(ctx context.Context) error
+}
+
+// RemoteService is the structure of the remote service
 type remoteService struct {
 	base            base.Base
 	inputController input.Controller
@@ -63,7 +92,7 @@ type remoteService struct {
 }
 
 // New returns a new remote control service for the given robot.
-func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
+func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
 	svcConfig, ok := config.ConvertedAttributes.(*Config)
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
@@ -228,4 +257,10 @@ func (svc *remoteService) speedAndAngleMathMag(speed float64, angle float64, old
 		newAngle = angle
 	}
 	return newSpeed, newAngle
+}
+
+// Reconfigure returns nil because resource registration requires
+// reconfigurability but services do not for now
+func (svc *remoteService) Reconfigure(ctx context.Context, newR resource.Reconfigurable) error {
+	return nil
 }
