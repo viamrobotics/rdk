@@ -69,7 +69,9 @@
           "a4",
           "a3",
           "a2"
-        ]
+        ],
+        "slip_detection_window": 100,
+        "slip_detection_signal_to_noise_cutoff": 150
       }
     },
     {
@@ -94,7 +96,9 @@
           6,
           5
         ],
-        "analog_channel": "a6"
+        "analog_channel": "a6",
+        "slip_detection_window": 100,
+        "slip_detection_signal_to_noise_cutoff": 150
       }
     }
   ]

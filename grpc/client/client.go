@@ -1715,13 +1715,14 @@ var _ = forcematrix.ForceMatrix(&forcematrixClient{})
 
 // protoToMatrix is a helper function to convert protobuf matrix values into a 2-dimensional int slice.
 func protoToMatrix(matrixResponse *pb.ForceMatrixMatrixResponse) [][]int {
-	rows := matrixResponse.Matrix.Rows
-	cols := matrixResponse.Matrix.Cols
-	matrix := make([][]int, rows)
-	for r := range matrix {
-		matrix[r] = make([]int, cols)
-		for c := range matrix[r] {
-			matrix[r][c] = int(matrixResponse.Matrix.Data[r*int(cols)+c])
+	numRows := matrixResponse.Matrix.Rows
+	numCols := matrixResponse.Matrix.Cols
+
+	matrix := make([][]int, numRows)
+	for row := range matrix {
+		matrix[row] = make([]int, numCols)
+		for col := range matrix[row] {
+			matrix[row][col] = int(matrixResponse.Matrix.Data[row*int(numCols)+col])
 		}
 	}
 	return matrix
