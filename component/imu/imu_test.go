@@ -98,7 +98,7 @@ func TestAngularVelocity(t *testing.T) {
 	test.That(t, actualIMU1.angularVelocityCalls, test.ShouldEqual, 0)
 	vel, err := fakeIMU1.(*reconfigurableIMU).AngularVelocity(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, vel, test.ShouldResemble, &spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3})
+	test.That(t, vel, test.ShouldResemble, spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3})
 	test.That(t, actualIMU1.angularVelocityCalls, test.ShouldEqual, 1)
 }
 
