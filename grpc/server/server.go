@@ -168,7 +168,7 @@ func (s *Server) BaseMoveStraight(ctx context.Context, req *pb.BaseMoveStraightR
 	}
 	err := base.MoveStraight(ctx, int(req.DistanceMillis), millisPerSec, false)
 	if err != nil {
-		return &pb.BaseMoveStraightResponse{Success: false, Error: err.Error()}, nil
+		return nil, err
 	}
 	return &pb.BaseMoveStraightResponse{Success: true}, nil
 }
@@ -185,7 +185,7 @@ func (s *Server) BaseMoveArc(ctx context.Context, req *pb.BaseMoveArcRequest) (*
 	}
 	err := base.MoveArc(ctx, int(req.DistanceMillis), millisPerSec, req.AngleDeg, false)
 	if err != nil {
-		return &pb.BaseMoveArcResponse{Success: false, Error: err.Error()}, nil
+		return nil, err
 	}
 	return &pb.BaseMoveArcResponse{Success: true}, nil
 
@@ -203,7 +203,7 @@ func (s *Server) BaseSpin(ctx context.Context, req *pb.BaseSpinRequest) (*pb.Bas
 	}
 	err := base.Spin(ctx, req.AngleDeg, degsPerSec, false)
 	if err != nil {
-		return &pb.BaseSpinResponse{Success: false, Error: err.Error()}, nil
+		return nil, err
 	}
 	return &pb.BaseSpinResponse{Success: true}, nil
 

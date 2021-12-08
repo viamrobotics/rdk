@@ -419,20 +419,17 @@ func TestServer(t *testing.T) {
 			capArgs = []interface{}{ctx, distanceMillis, millisPerSec, block}
 			return err1
 		}
-		resp, err := server.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
+		_, err = server.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
 			Name:           "base1",
 			DistanceMillis: 1,
 		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 1, 500.0, false})
-		test.That(t, resp.Success, test.ShouldBeFalse)
-		test.That(t, resp.Error, test.ShouldEqual, err1.Error())
+		test.That(t, err, test.ShouldNotBeNil)
 
 		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 			capArgs = []interface{}{ctx, distanceMillis, millisPerSec, block}
 			return nil
 		}
-		resp, err = server.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
+		resp, err := server.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
 			Name:           "base1",
 			MillisPerSec:   2.3,
 			DistanceMillis: 1,
@@ -445,20 +442,17 @@ func TestServer(t *testing.T) {
 			capArgs = []interface{}{ctx, angleDeg, degsPerSec, block}
 			return err1
 		}
-		spinResp, err := server.BaseSpin(ctx, &pb.BaseSpinRequest{
+		_, err = server.BaseSpin(ctx, &pb.BaseSpinRequest{
 			Name:     "base1",
 			AngleDeg: 4.5,
 		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 4.5, 64.0, false})
-		test.That(t, spinResp.Success, test.ShouldBeFalse)
-		test.That(t, spinResp.Error, test.ShouldEqual, err1.Error())
+		test.That(t, err, test.ShouldNotBeNil)
 
 		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 			capArgs = []interface{}{ctx, angleDeg, degsPerSec, block}
 			return nil
 		}
-		spinResp, err = server.BaseSpin(ctx, &pb.BaseSpinRequest{
+		spinResp, err := server.BaseSpin(ctx, &pb.BaseSpinRequest{
 			Name:       "base1",
 			AngleDeg:   4.5,
 			DegsPerSec: 20.3,
