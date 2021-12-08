@@ -26,22 +26,22 @@ service IMUService {
 // AngularVelocity contains angular velocity in deg/s across x/y/z axes.
 message AngularVelocity {
   // Velocity in deg/s across the x-axis
-  optional double x = 1;
+  double x = 1;
   // Velocity in deg/s across the y-axis
-  optional double y = 2;
+  double y = 2;
   // Velocity in deg/s across the z-axis
-  optional double z = 3;
+  double z = 3;
 }
 
 // EulerAngles are three angles used to represent the rotation of an object in 3D Euclidean space
 // The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.
 message EulerAngles {
   // Rotation in deg around the x-axis
-  optional double roll = 1;
+  double roll = 1;
   // Rotation in deg around the y-axis
-  optional double pitch = 2;
+  double pitch = 2;
   // Rotation in deg around the z-axis
-  optional double yaw = 3;
+  double yaw = 3;
 }
 
 message IMUServiceAngularVelocityRequest {

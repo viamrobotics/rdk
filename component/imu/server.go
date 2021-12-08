@@ -46,9 +46,9 @@ func (s *subtypeServer) AngularVelocity(ctx context.Context, req *pb.IMUServiceA
 	}
 	return &pb.IMUServiceAngularVelocityResponse{
 		AngularVelocity: &pb.AngularVelocity{
-			X: &vel.X,
-			Y: &vel.Y,
-			Z: &vel.Z,
+			X: vel.X,
+			Y: vel.Y,
+			Z: vel.Z,
 		},
 	}, nil
 }
@@ -65,9 +65,9 @@ func (s *subtypeServer) Orientation(ctx context.Context, req *pb.IMUServiceOrien
 	}
 	return &pb.IMUServiceOrientationResponse{
 		Orientation: &pb.EulerAngles{
-			Roll:  &ea.Roll,
-			Pitch: &ea.Pitch,
-			Yaw:   &ea.Yaw,
+			Roll:  ea.Roll,
+			Pitch: ea.Pitch,
+			Yaw:   ea.Yaw,
 		},
 	}, nil
 }

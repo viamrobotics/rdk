@@ -31,31 +31,22 @@ func newServer() (pb.IMUServiceServer, *inject.IMU, error) {
 	return imu.NewServer(imuSvc), injectIMU, nil
 }
 
-var (
-	velX  = 1.0
-	velY  = 2.0
-	velZ  = 3.0
-	roll  = 4.0
-	pitch = 5.0
-	yaw   = 6.0
-)
-
 func TestServer(t *testing.T) {
 	imuServer, injectIMU, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
 	injectIMU.AngularVelocityFunc = func(ctx context.Context) (*spatialmath.AngularVelocity, error) {
 
-		return &spatialmath.AngularVelocity{X: velX, Y: velY, Z: velZ}, nil
+		return &spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}, nil
 	}
 	injectIMU.OrientationFunc = func(ctx context.Context) (*spatialmath.EulerAngles, error) {
-		return &spatialmath.EulerAngles{Roll: roll, Pitch: pitch, Yaw: yaw}, nil
+		return &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}, nil
 	}
 
 	t.Run("IMU angular velocity", func(t *testing.T) {
 		resp, err := imuServer.AngularVelocity(context.Background(), &pb.IMUServiceAngularVelocityRequest{Name: testIMUName})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.AngularVelocity, test.ShouldResemble, &pb.AngularVelocity{X: &velX, Y: &velY, Z: &velZ})
+		test.That(t, resp.AngularVelocity, test.ShouldResemble, &pb.AngularVelocity{X: 1, Y: 2, Z: 3})
 
 		_, err = imuServer.AngularVelocity(context.Background(), &pb.IMUServiceAngularVelocityRequest{Name: fakeIMUName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -69,7 +60,7 @@ func TestServer(t *testing.T) {
 	t.Run("IMU orientation", func(t *testing.T) {
 		resp, err := imuServer.Orientation(context.Background(), &pb.IMUServiceOrientationRequest{Name: testIMUName})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Orientation, test.ShouldResemble, &pb.EulerAngles{Roll: &roll, Pitch: &pitch, Yaw: &yaw})
+		test.That(t, resp.Orientation, test.ShouldResemble, &pb.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6})
 
 		_, err = imuServer.Orientation(context.Background(), &pb.IMUServiceOrientationRequest{Name: fakeIMUName})
 		test.That(t, err, test.ShouldNotBeNil)
