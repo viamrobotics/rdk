@@ -7,10 +7,10 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/core/component/motor"
+	"go.viam.com/core/component/motor/fake"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
 	"go.viam.com/core/rlog"
-	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/testutils/inject"
 
 	"go.viam.com/test"

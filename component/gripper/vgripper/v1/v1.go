@@ -13,8 +13,8 @@ import (
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/gripper"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -250,7 +250,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	if err != nil {
 		return nil, err
 	}
-	err = vg.motor.Zero(ctx, curPos-vg.closePos)
+	err = vg.motor.SetToZeroPosition(ctx, curPos-vg.closePos)
 	if err != nil {
 		return nil, err
 	}
