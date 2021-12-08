@@ -50,7 +50,7 @@ func TestIMUName(t *testing.T) {
 }
 
 var (
-	av   = &spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
+	av   = spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
 	ea   = &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
 	desc = sensor.Description{sensor.Type("imu"), ""}
 )
@@ -144,11 +144,11 @@ type mock struct {
 	reconfCalls          int
 }
 
-func (m *mock) AngularVelocity(ctx context.Context) (*spatialmath.AngularVelocity, error) {
+func (m *mock) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	m.angularVelocityCalls++
 	return av, nil
 }
-func (m *mock) Orientation(ctx context.Context) (*spatialmath.EulerAngles, error) {
+func (m *mock) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	m.orientationCalls++
 	return ea, nil
 }

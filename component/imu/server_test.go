@@ -35,11 +35,11 @@ func TestServer(t *testing.T) {
 	imuServer, injectIMU, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	injectIMU.AngularVelocityFunc = func(ctx context.Context) (*spatialmath.AngularVelocity, error) {
+	injectIMU.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
 
-		return &spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}, nil
+		return spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}, nil
 	}
-	injectIMU.OrientationFunc = func(ctx context.Context) (*spatialmath.EulerAngles, error) {
+	injectIMU.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
 		return &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}, nil
 	}
 

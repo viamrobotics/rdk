@@ -14,15 +14,15 @@ import (
 // IMU is an injected IMU.
 type IMU struct {
 	imu.IMU
-	AngularVelocityFunc func(ctx context.Context) (*spatialmath.AngularVelocity, error)
-	OrientationFunc     func(ctx context.Context) (*spatialmath.EulerAngles, error)
+	AngularVelocityFunc func(ctx context.Context) (spatialmath.AngularVelocity, error)
+	OrientationFunc     func(ctx context.Context) (spatialmath.Orientation, error)
 	ReadingsFunc        func(ctx context.Context) ([]interface{}, error)
 	DescFunc            func() sensor.Description
 	CloseFunc           func() error
 }
 
 // AngularVelocity calls the injected AngularVelocity or the real version.
-func (i *IMU) AngularVelocity(ctx context.Context) (*spatialmath.AngularVelocity, error) {
+func (i *IMU) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	if i.AngularVelocityFunc == nil {
 		return i.IMU.AngularVelocity(ctx)
 	}
@@ -30,7 +30,7 @@ func (i *IMU) AngularVelocity(ctx context.Context) (*spatialmath.AngularVelocity
 }
 
 // Orientation calls the injected Orientation or the real version.
-func (i *IMU) Orientation(ctx context.Context) (*spatialmath.EulerAngles, error) {
+func (i *IMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	if i.OrientationFunc == nil {
 		return i.IMU.Orientation(ctx)
 	}

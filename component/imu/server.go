@@ -59,10 +59,11 @@ func (s *subtypeServer) Orientation(ctx context.Context, req *pb.IMUServiceOrien
 	if err != nil {
 		return nil, err
 	}
-	ea, err := imuDevice.Orientation(ctx)
+	o, err := imuDevice.Orientation(ctx)
 	if err != nil {
 		return nil, err
 	}
+	ea := o.EulerAngles()
 	return &pb.IMUServiceOrientationResponse{
 		Orientation: &pb.EulerAngles{
 			Roll:  ea.Roll,
