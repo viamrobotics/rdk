@@ -3,17 +3,18 @@ package objectmanipulation
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -21,7 +22,21 @@ import (
 const frameSystemName = "move_gripper"
 
 func init() {
-	registry.RegisterService(Type, registry.Service{
+	// TODO: Services do not require reconfigurability. A future commit
+	// implementing a grpc service for this service will add RegisterRPCService
+	// and RPCClient to the ResourceSubtype initialization here - GV
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		Reconfigurable: func(resource interface{}) (resource.Reconfigurable, error) {
+			service, ok := resource.(Service)
+			if !ok {
+				return nil, errors.Errorf(
+					"expected resource to be a Service but got %T", resource,
+				)
+			}
+			return service, nil
+		},
+	})
+	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
 		},
@@ -30,11 +45,22 @@ func init() {
 
 // A Service controls the flow of manipulating other objects with a robot's gripper.
 type Service interface {
+	resource.Reconfigurable
 	DoGrab(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error)
 }
 
 // Type is the type of service.
 const Type = config.ServiceType("object_manipulation")
+
+// SubtypeName is the name of the type of service
+const SubtypeName = resource.SubtypeName("object_manipulation")
+
+// Subtype is a constant that identifies the object manipulation service resource subtype
+var Subtype = resource.NewSubtype(
+	resource.ResourceNamespaceRDK,
+	resource.ResourceTypeService,
+	SubtypeName,
+)
 
 // New returns a new move and grab service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
@@ -165,5 +191,11 @@ func (mgs objectMService) moveGripper(
 			}
 		}
 	}
+	return nil
+}
+
+// Reconfigure returns nil because resource registration requires
+// reconfigurability but services do not for now
+func (svc *objectMService) Reconfigure(ctx context.Context, newR resource.Reconfigurable) error {
 	return nil
 }
