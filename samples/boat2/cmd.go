@@ -336,7 +336,7 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 		if err != nil {
 			return 0, err
 		}
-		startAngle := start.Yaw
+		startAngle := start.EulerAngles().Yaw
 
 		dir := 1.0
 		if angleDeg < 0 {
@@ -358,8 +358,8 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 				return 0, err
 			}
 
-			left := math.Abs(angleDeg) - coreutils.AngleDiffDeg(startAngle, now.Yaw)
-			fmt.Printf("\t left %v (%#v %#v)\n", left, startAngle, now.Yaw)
+			left := math.Abs(angleDeg) - coreutils.AngleDiffDeg(startAngle, now.EulerAngles().Yaw)
+			fmt.Printf("\t left %v (%#v %#v)\n", left, startAngle, now.EulerAngles().Yaw)
 			if left < 5 || left > 180 {
 				return 0, b.Stop(ctx)
 			}
@@ -419,15 +419,15 @@ func runRC(ctx context.Context, myBoat *boat) {
 			}
 
 			if !previousPushMode {
-				pushDirection = now.Yaw
+				pushDirection = now.EulerAngles().Yaw
 			}
 			previousPushMode = true
 
-			delta := pushDirection - now.Yaw
+			delta := pushDirection - now.EulerAngles().Yaw
 
 			steer := .5 * (delta / 180)
 			fmt.Printf("pushDirection: %0.1f now: %0.1f delta: %0.2f steer: %.2f\n",
-				pushDirection, now.Yaw, delta, steer)
+				pushDirection, now.EulerAngles().Yaw, delta, steer)
 
 			err = multierr.Combine(
 				myBoat.SteerAndMove(ctx, steer, 1.0),

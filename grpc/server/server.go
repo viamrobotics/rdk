@@ -22,7 +22,6 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/board"
-	"go.viam.com/core/component/imu"
 	"go.viam.com/core/component/motor"
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"
