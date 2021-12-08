@@ -46,17 +46,17 @@ type cBiRRTMotionPlanner struct {
 	stepSize        float64
 	randseed        *rand.Rand
 	opt             *PlannerOptions
-	nn              *nearestNeighbor
-	nCPU            int
+	nn              *neighborManager
 }
 
 // Used for coordinating parallel computations of nearestNeighbor
-type nearestNeighbor struct {
+type neighborManager struct {
 	nnKeys    chan *solution
 	neighbors chan *neighbor
 	nnLock    sync.RWMutex
 	seedPos   *solution
 	ready     bool
+	nCPU      int
 }
 
 type neighbor struct {
@@ -81,8 +81,8 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, nCPU int, logger golog.Logger) (M
 	}
 	// nlopt should try only once
 	nlopt.SetMaxIter(1)
-	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: jointSolveDist, nCPU: nCPU}
-	mp.nn = &nearestNeighbor{}
+	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: jointSolveDist}
+	mp.nn = &neighborManager{nCPU: nCPU}
 
 	mp.qstep = getFrameSteps(frame, frameStep)
 	mp.iter = planIter
@@ -172,13 +172,13 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 		// Alternate which tree we extend
 		if addSeed {
 			// extend seed tree first
-			nearest := mp.nearestNeighbor(target, seedMap)
+			nearest := mp.nn.nearestNeighbor(target, seedMap)
 
 			seedReached, goalReached = mp.constrainedExtendWrapper(opt, seedMap, goalMap, nearest, target)
 			rSeed = seedReached
 		} else {
 			// extend goal tree first
-			nearest := mp.nearestNeighbor(target, goalMap)
+			nearest := mp.nn.nearestNeighbor(target, goalMap)
 
 			goalReached, seedReached = mp.constrainedExtendWrapper(opt, goalMap, seedMap, nearest, target)
 			rSeed = goalReached
@@ -222,7 +222,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtendWrapper(opt *PlannerOptions, m1,
 	m1reach := mp.constrainedExtend(opt, m1, near1, target)
 
 	// Find the nearest point in m2 to the furthest point reached in m1
-	near2 := mp.nearestNeighbor(m1reach, m2)
+	near2 := mp.nn.nearestNeighbor(m1reach, m2)
 
 	// extend m2 towards the point in m1
 	m2reach := mp.constrainedExtend(opt, m2, near2, m1reach)
@@ -429,10 +429,10 @@ func getFrameSteps(f frame.Frame, by float64) []float64 {
 	return pos
 }
 
-func (mp *cBiRRTMotionPlanner) nearestNeighbor(seed *solution, rrtMap map[*solution]*solution) *solution {
+func (nm *neighborManager) nearestNeighbor(seed *solution, rrtMap map[*solution]*solution) *solution {
 	if len(rrtMap) > 1000 {
 		// If the map is large, calculate distances in parallel
-		return mp.parallelNearestNeighbor(seed, rrtMap)
+		return nm.parallelNearestNeighbor(seed, rrtMap)
 	}
 	bestDist := math.Inf(1)
 	var best *solution
@@ -446,27 +446,28 @@ func (mp *cBiRRTMotionPlanner) nearestNeighbor(seed *solution, rrtMap map[*solut
 	return best
 }
 
-func (mp *cBiRRTMotionPlanner) parallelNearestNeighbor(seed *solution, rrtMap map[*solution]*solution) *solution {
-	mp.nn.ready = false
-	mp.startNNworkers()
-	defer close(mp.nn.nnKeys)
-	defer close(mp.nn.neighbors)
-	mp.nn.nnLock.Lock()
-	mp.nn.seedPos = seed
+func (nm *neighborManager) parallelNearestNeighbor(seed *solution, rrtMap map[*solution]*solution) *solution {
+	nm.ready = false
+	nm.startNNworkers()
+	defer close(nm.nnKeys)
+	defer close(nm.neighbors)
+	nm.nnLock.Lock()
+	nm.seedPos = seed
+	nm.nnLock.Unlock()
 
 	for k := range rrtMap {
-		mp.nn.nnKeys <- k
+		nm.nnKeys <- k
 	}
-	mp.nn.nnLock.Lock()
-	mp.nn.ready = true
-	mp.nn.nnLock.Unlock()
+	nm.nnLock.Lock()
+	nm.ready = true
+	nm.nnLock.Unlock()
 	var best *solution
 	bestDist := math.Inf(1)
 	returned := 0
-	for returned < mp.nCPU {
+	for returned < nm.nCPU {
 
 		select {
-		case nn := <-mp.nn.neighbors:
+		case nn := <-nm.neighbors:
 			returned++
 			if nn.dist < bestDist {
 				bestDist = nn.dist
@@ -478,39 +479,39 @@ func (mp *cBiRRTMotionPlanner) parallelNearestNeighbor(seed *solution, rrtMap ma
 	return best
 }
 
-func (mp *cBiRRTMotionPlanner) startNNworkers() {
-	mp.nn.neighbors = make(chan *neighbor, mp.nCPU)
-	mp.nn.nnKeys = make(chan *solution, mp.nCPU)
-	for i := 0; i < mp.nCPU; i++ {
-		go mp.nnWorker(i)
+func (nm *neighborManager) startNNworkers() {
+	nm.neighbors = make(chan *neighbor, nm.nCPU)
+	nm.nnKeys = make(chan *solution, nm.nCPU)
+	for i := 0; i < nm.nCPU; i++ {
+		go nm.nnWorker(i)
 	}
 }
 
-func (mp *cBiRRTMotionPlanner) nnWorker(id int) {
+func (nm *neighborManager) nnWorker(id int) {
 
 	var best *solution
 	bestDist := math.Inf(1)
 
 	for {
 		select {
-		case k := <-mp.nn.nnKeys:
+		case k := <-nm.nnKeys:
 			if k != nil {
-				mp.nn.nnLock.RLock()
-				dist := inputDist(mp.nn.seedPos.inputs, k.inputs)
-				mp.nn.nnLock.RUnlock()
+				nm.nnLock.RLock()
+				dist := inputDist(nm.seedPos.inputs, k.inputs)
+				nm.nnLock.RUnlock()
 				if dist < bestDist {
 					bestDist = dist
 					best = k
 				}
 			}
 		default:
-			mp.nn.nnLock.RLock()
-			if mp.nn.ready {
-				mp.nn.nnLock.RUnlock()
-				mp.nn.neighbors <- &neighbor{bestDist, best}
+			nm.nnLock.RLock()
+			if nm.ready {
+				nm.nnLock.RUnlock()
+				nm.neighbors <- &neighbor{bestDist, best}
 				return
 			}
-			mp.nn.nnLock.RUnlock()
+			nm.nnLock.RUnlock()
 		}
 	}
 }
