@@ -360,7 +360,7 @@ func (m *Motor) rpmsToA(acc float64) int32 {
 }
 
 // GoTo moves to the specified position in terms of (provided in revolutions from home/zero),
-// at a specific speed. Regardless of the directionality of the RPM this fucntion will move the
+// at a specific speed. Regardless of the directionality of the RPM this function will move the
 // motor towards the specified target
 func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
 
