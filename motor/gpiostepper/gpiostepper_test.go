@@ -43,20 +43,17 @@ func Test1(t *testing.T) {
 	m, err := newGPIOStepper(ctx, b, mc, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Motor testing of isOn
 	t.Run("motor test isOn functionality", func(t *testing.T) {
 		on, err := m.IsOn(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, false)
 	})
 
-	// Motor testing with RPM + and REV +
 	t.Run("motor testing with positive rpm and positive revolutions", func(t *testing.T) {
-		// Check GoFor
+
 		err = m.GoFor(ctx, 100, 2)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Check isOn
 		on, err := m.IsOn(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
@@ -67,19 +64,16 @@ func Test1(t *testing.T) {
 			test.That(t, on, test.ShouldEqual, false)
 		})
 
-		// Check Position
 		pos, err := m.Position(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 2)
 	})
 
-	// Motor testing with RPM - and REV +
 	t.Run("motor testing with negative rpm and positive revolutions", func(t *testing.T) {
-		// Check GoFor
+
 		err = m.GoFor(ctx, -100, 2)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Check isOn
 		on, err := m.IsOn(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
@@ -90,19 +84,16 @@ func Test1(t *testing.T) {
 			test.That(t, on, test.ShouldEqual, false)
 		})
 
-		// Check Position
 		pos, err := m.Position(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0)
 	})
 
-	// Motor testing with RPM + and REV -
 	t.Run("motor testing with positive rpm and negative revolutions", func(t *testing.T) {
-		// Check GoFor
+
 		err = m.GoFor(ctx, 100, -2)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Check isOn
 		on, err := m.IsOn(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
@@ -113,19 +104,16 @@ func Test1(t *testing.T) {
 			test.That(t, on, test.ShouldEqual, false)
 		})
 
-		// Check Position
 		pos, err := m.Position(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, -2)
 	})
 
-	// Motor testing with RPM - and REV -
 	t.Run("motor testing with negative rpm and negative revolutions", func(t *testing.T) {
-		// Check GoFor
+
 		err = m.GoFor(ctx, -100, -2)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Check isOn
 		on, err := m.IsOn(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
@@ -136,13 +124,11 @@ func Test1(t *testing.T) {
 			test.That(t, on, test.ShouldEqual, false)
 		})
 
-		// Check Position
 		pos, err := m.Position(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0)
 	})
 
-	// Test Motor with high number of revolutions
 	t.Run("motor testing with large # of revolutions", func(t *testing.T) {
 		err = m.GoFor(ctx, 100, 200)
 		test.That(t, err, test.ShouldBeNil)
