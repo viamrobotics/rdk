@@ -5,7 +5,6 @@ package server
 
 import (
 	"context"
-	"math"
 	"sync"
 	"time"
 
@@ -167,14 +166,11 @@ func (s *Server) BaseMoveStraight(ctx context.Context, req *pb.BaseMoveStraightR
 	if req.MillisPerSec != 0 {
 		millisPerSec = req.MillisPerSec
 	}
-	moved, err := base.MoveStraight(ctx, int(req.DistanceMillis), millisPerSec, false)
+	err := base.MoveStraight(ctx, int(req.DistanceMillis), millisPerSec, false)
 	if err != nil {
-		if moved == 0 {
-			return nil, err
-		}
-		return &pb.BaseMoveStraightResponse{Success: false, Error: err.Error(), DistanceMillis: int64(moved)}, nil
+		return nil, err
 	}
-	return &pb.BaseMoveStraightResponse{Success: true, DistanceMillis: int64(moved)}, nil
+	return &pb.BaseMoveStraightResponse{Success: true}, nil
 }
 
 // BaseMoveArc moves a base of the underlying robotin an arc.
@@ -187,14 +183,11 @@ func (s *Server) BaseMoveArc(ctx context.Context, req *pb.BaseMoveArcRequest) (*
 	if req.MillisPerSec != 0 {
 		millisPerSec = req.MillisPerSec
 	}
-	moved, err := base.MoveArc(ctx, int(req.DistanceMillis), millisPerSec, req.AngleDeg, false)
+	err := base.MoveArc(ctx, int(req.DistanceMillis), millisPerSec, req.AngleDeg, false)
 	if err != nil {
-		if moved == 0 {
-			return nil, err
-		}
-		return &pb.BaseMoveArcResponse{Success: false, Error: err.Error(), DistanceMillis: int64(moved)}, nil
+		return nil, err
 	}
-	return &pb.BaseMoveArcResponse{Success: true, DistanceMillis: int64(moved)}, nil
+	return &pb.BaseMoveArcResponse{Success: true}, nil
 
 }
 
@@ -208,14 +201,11 @@ func (s *Server) BaseSpin(ctx context.Context, req *pb.BaseSpinRequest) (*pb.Bas
 	if req.DegsPerSec != 0 {
 		degsPerSec = req.DegsPerSec
 	}
-	spun, err := base.Spin(ctx, req.AngleDeg, degsPerSec, false)
+	err := base.Spin(ctx, req.AngleDeg, degsPerSec, false)
 	if err != nil {
-		if math.IsNaN(spun) || spun == 0 {
-			return nil, err
-		}
-		return &pb.BaseSpinResponse{Success: false, Error: err.Error(), AngleDeg: spun}, nil
+		return nil, err
 	}
-	return &pb.BaseSpinResponse{Success: true, AngleDeg: spun}, nil
+	return &pb.BaseSpinResponse{Success: true}, nil
 
 }
 
