@@ -9,13 +9,6 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
-/* Enum definitions */
-typedef enum _proto_api_v1_DirectionRelative { 
-    proto_api_v1_DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED = 0, 
-    proto_api_v1_DirectionRelative_DIRECTION_RELATIVE_FORWARD = 1, 
-    proto_api_v1_DirectionRelative_DIRECTION_RELATIVE_BACKWARD = 2 
-} proto_api_v1_DirectionRelative;
-
 /* Struct definitions */
 typedef struct _proto_api_v1_ArmCurrentJointPositionsRequest { 
     pb_callback_t name; 
@@ -241,16 +234,14 @@ typedef struct _proto_api_v1_BaseSpinResponse {
 
 typedef struct _proto_api_v1_BoardMotorGoForRequest { 
     pb_callback_t board_name; 
-    pb_callback_t motor_name; 
-    proto_api_v1_DirectionRelative direction; 
+    pb_callback_t motor_name;
     double rpm; 
     double revolutions; 
 } proto_api_v1_BoardMotorGoForRequest;
 
 typedef struct _proto_api_v1_BoardMotorGoRequest { 
     pb_callback_t board_name; 
-    pb_callback_t motor_name; 
-    proto_api_v1_DirectionRelative direction; 
+    pb_callback_t motor_name;
     float power_pct; 
 } proto_api_v1_BoardMotorGoRequest;
 
@@ -463,13 +454,6 @@ typedef struct _proto_api_v1_StatusStreamResponse {
     proto_api_v1_Status status; 
 } proto_api_v1_StatusStreamResponse;
 
-
-/* Helper constants for enums */
-#define _proto_api_v1_DirectionRelative_MIN proto_api_v1_DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED
-#define _proto_api_v1_DirectionRelative_MAX proto_api_v1_DirectionRelative_DIRECTION_RELATIVE_BACKWARD
-#define _proto_api_v1_DirectionRelative_ARRAYSIZE ((proto_api_v1_DirectionRelative)(proto_api_v1_DirectionRelative_DIRECTION_RELATIVE_BACKWARD+1))
-
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -549,9 +533,9 @@ extern "C" {
 #define proto_api_v1_SensorStatus_init_default   {""}
 #define proto_api_v1_BoardStatusRequest_init_default {{{NULL}, NULL}}
 #define proto_api_v1_BoardStatusResponse_init_default {false, proto_api_v1_BoardStatus_init_default}
-#define proto_api_v1_BoardMotorGoRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, _proto_api_v1_DirectionRelative_MIN, 0}
+#define proto_api_v1_BoardMotorGoRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, 0}
 #define proto_api_v1_BoardMotorGoResponse_init_default {0}
-#define proto_api_v1_BoardMotorGoForRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, _proto_api_v1_DirectionRelative_MIN, 0, 0}
+#define proto_api_v1_BoardMotorGoForRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, 0, 0}
 #define proto_api_v1_BoardMotorGoForResponse_init_default {0}
 #define proto_api_v1_BoardServoServiceMoveRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, 0}
 #define proto_api_v1_BoardServoServiceMoveResponse_init_default {0}
@@ -637,9 +621,9 @@ extern "C" {
 #define proto_api_v1_SensorStatus_init_zero      {""}
 #define proto_api_v1_BoardStatusRequest_init_zero {{{NULL}, NULL}}
 #define proto_api_v1_BoardStatusResponse_init_zero {false, proto_api_v1_BoardStatus_init_zero}
-#define proto_api_v1_BoardMotorGoRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, _proto_api_v1_DirectionRelative_MIN, 0}
+#define proto_api_v1_BoardMotorGoRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, 0}
 #define proto_api_v1_BoardMotorGoResponse_init_zero {0}
-#define proto_api_v1_BoardMotorGoForRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, _proto_api_v1_DirectionRelative_MIN, 0, 0}
+#define proto_api_v1_BoardMotorGoForRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, 0, 0}
 #define proto_api_v1_BoardMotorGoForResponse_init_zero {0}
 #define proto_api_v1_BoardServoServiceMoveRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, 0}
 #define proto_api_v1_BoardServoServiceMoveResponse_init_zero {0}

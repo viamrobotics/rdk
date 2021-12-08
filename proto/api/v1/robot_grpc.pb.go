@@ -29,14 +29,18 @@ type RobotServiceClient interface {
 	Config(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error)
-	// BaseMoveStraight moves a base of the underlying robot straight.
+	// BaseMoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
+	// and a given speed, expressed in millimeters per second
 	BaseMoveStraight(ctx context.Context, in *BaseMoveStraightRequest, opts ...grpc.CallOption) (*BaseMoveStraightResponse, error)
+	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
+	// a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees
 	BaseMoveArc(ctx context.Context, in *BaseMoveArcRequest, opts ...grpc.CallOption) (*BaseMoveArcResponse, error)
-	// BaseSpin spins a base of the underlying robot.
+	// BaseSpin spins a robot's base by an given angle, expressed in degrees, and a given
+	// angular speed, expressed in degrees per second
 	BaseSpin(ctx context.Context, in *BaseSpinRequest, opts ...grpc.CallOption) (*BaseSpinResponse, error)
-	// BaseSpin stops a base of the underlying robot.
+	// BaseStop stops a robot's base
 	BaseStop(ctx context.Context, in *BaseStopRequest, opts ...grpc.CallOption) (*BaseStopResponse, error)
-	// BaseWidthMillis returns the width of a base of the underlying robot.
+	// BaseWidthMillis returns the width of a robot's base expressed in millimeters
 	BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error)
 	// LidarInfo returns the info of a lidar of the underlying robot.
 	LidarInfo(ctx context.Context, in *LidarInfoRequest, opts ...grpc.CallOption) (*LidarInfoResponse, error)
@@ -87,34 +91,48 @@ type RobotServiceClient interface {
 	ExecuteFunction(ctx context.Context, in *ExecuteFunctionRequest, opts ...grpc.CallOption) (*ExecuteFunctionResponse, error)
 	ExecuteSource(ctx context.Context, in *ExecuteSourceRequest, opts ...grpc.CallOption) (*ExecuteSourceResponse, error)
 	//Motor
+	// TODO(FA): This will be removed in lieu of controls package
 	// Return the PID configuration for a Motor
 	MotorGetPIDConfig(ctx context.Context, in *MotorGetPIDConfigRequest, opts ...grpc.CallOption) (*MotorGetPIDConfigResponse, error)
+	// TODO(FA): This will be removed in lieu of controls package
 	// Set the PID configuration for a Motor
 	MotorSetPIDConfig(ctx context.Context, in *MotorSetPIDConfigRequest, opts ...grpc.CallOption) (*MotorSetPIDConfigResponse, error)
+	// TODO(): This will be removed in lieu of controls package
 	// Perform a step response on a motor
 	MotorPIDStep(ctx context.Context, in *MotorPIDStepRequest, opts ...grpc.CallOption) (RobotService_MotorPIDStepClient, error)
-	// MotorPower requests the motor of a board of the underlying robot to set its power.
+	// MotorPower sets the percentage of the motor's total power that should be employed
+	// expressed a value between -1 and 1 where negative values indiciate a backwards
+	// direction and positive values a forward direction
 	MotorPower(ctx context.Context, in *MotorPowerRequest, opts ...grpc.CallOption) (*MotorPowerResponse, error)
-	// MotorGo requests the motor of a board of the underlying robot to go.
+	// MotorGo instructs the motor to turn using a specified percentage of its total power,
+	// expressed as a value between -1 and 1 where negative values indiciate a backwards
+	// direction and positive values a forward direction
 	MotorGo(ctx context.Context, in *MotorGoRequest, opts ...grpc.CallOption) (*MotorGoResponse, error)
-	// MotorGoFor requests the motor of a board of the underlying robot to go for a certain amount based off
-	// the request.
+	// MotorGoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
+	// for a specified number of rotations relative to its starting position
+	// This method will return an error if MotorPositionSupported is false
 	MotorGoFor(ctx context.Context, in *MotorGoForRequest, opts ...grpc.CallOption) (*MotorGoForResponse, error)
-	// MotorGoTo requests the motor of a board of the underlying robot to move to a specific position.
+	// MotorGoTo requests the robot's motor to move to a specific position that
+	// is relative to its home position at a specified speed which is expressed in RPM
+	// This method will return an error if MotorPositionSupported is false
 	MotorGoTo(ctx context.Context, in *MotorGoToRequest, opts ...grpc.CallOption) (*MotorGoToResponse, error)
-	// MotorGoTillStop requests the motor of a board of the underlying robot to move until stopped (either physically or by limit switch.)
+	// To Do (FA): This will be deprecated in favor of a  MotorStop method
+	// MotorGoTillStop moves a motor until it is stopped
+	// The logic to trigger the "stop" mechanism is up to the underlying motor implementation
 	MotorGoTillStop(ctx context.Context, in *MotorGoTillStopRequest, opts ...grpc.CallOption) (*MotorGoTillStopResponse, error)
-	// MotorZero requests the motor of a board of the underlying robot to set a new zero/home position.
+	// MotorZero sets the current position of the motor as the new zero position
+	// This method will return an error if MotorPositionSupported is false
 	MotorZero(ctx context.Context, in *MotorZeroRequest, opts ...grpc.CallOption) (*MotorZeroResponse, error)
-	// MotorPosition reports the position of the motor of a board of the underlying robot based on its encoder. If it's not supported, the returned
-	// data is undefined. The unit returned is the number of revolutions which is intended to be fed
-	// back into calls of MotorGoFor.
+	// MotorPosition reports the position of the robot's motor relative to its zero position
+	// This method will return an error if MotorPositionSupported is false
 	MotorPosition(ctx context.Context, in *MotorPositionRequest, opts ...grpc.CallOption) (*MotorPositionResponse, error)
-	// MotorPositionSupported returns whether or not the motor of a board of the underlying robot supports reporting of its position which
-	// is reliant on having an encoder.
+	// MotorPositionSupported returns whether or not the robot's motor supports reporting of its position
 	MotorPositionSupported(ctx context.Context, in *MotorPositionSupportedRequest, opts ...grpc.CallOption) (*MotorPositionSupportedResponse, error)
-	// MotorOff turns the motor of a board of the underlying robot off.
+	// MotorOff turns the robot's motor off
+	// To Do (FA): This will be deprecated
 	MotorOff(ctx context.Context, in *MotorOffRequest, opts ...grpc.CallOption) (*MotorOffResponse, error)
+	// MotorisOn returns true if the robot's motor off
+	// To Do (FA): This will be deprecated
 	MotorIsOn(ctx context.Context, in *MotorIsOnRequest, opts ...grpc.CallOption) (*MotorIsOnResponse, error)
 	InputControllerControls(ctx context.Context, in *InputControllerControlsRequest, opts ...grpc.CallOption) (*InputControllerControlsResponse, error)
 	InputControllerLastEvents(ctx context.Context, in *InputControllerLastEventsRequest, opts ...grpc.CallOption) (*InputControllerLastEventsResponse, error)
@@ -809,14 +827,18 @@ type RobotServiceServer interface {
 	Config(context.Context, *ConfigRequest) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error)
-	// BaseMoveStraight moves a base of the underlying robot straight.
+	// BaseMoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
+	// and a given speed, expressed in millimeters per second
 	BaseMoveStraight(context.Context, *BaseMoveStraightRequest) (*BaseMoveStraightResponse, error)
+	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
+	// a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees
 	BaseMoveArc(context.Context, *BaseMoveArcRequest) (*BaseMoveArcResponse, error)
-	// BaseSpin spins a base of the underlying robot.
+	// BaseSpin spins a robot's base by an given angle, expressed in degrees, and a given
+	// angular speed, expressed in degrees per second
 	BaseSpin(context.Context, *BaseSpinRequest) (*BaseSpinResponse, error)
-	// BaseSpin stops a base of the underlying robot.
+	// BaseStop stops a robot's base
 	BaseStop(context.Context, *BaseStopRequest) (*BaseStopResponse, error)
-	// BaseWidthMillis returns the width of a base of the underlying robot.
+	// BaseWidthMillis returns the width of a robot's base expressed in millimeters
 	BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error)
 	// LidarInfo returns the info of a lidar of the underlying robot.
 	LidarInfo(context.Context, *LidarInfoRequest) (*LidarInfoResponse, error)
@@ -867,34 +889,48 @@ type RobotServiceServer interface {
 	ExecuteFunction(context.Context, *ExecuteFunctionRequest) (*ExecuteFunctionResponse, error)
 	ExecuteSource(context.Context, *ExecuteSourceRequest) (*ExecuteSourceResponse, error)
 	//Motor
+	// TODO(FA): This will be removed in lieu of controls package
 	// Return the PID configuration for a Motor
 	MotorGetPIDConfig(context.Context, *MotorGetPIDConfigRequest) (*MotorGetPIDConfigResponse, error)
+	// TODO(FA): This will be removed in lieu of controls package
 	// Set the PID configuration for a Motor
 	MotorSetPIDConfig(context.Context, *MotorSetPIDConfigRequest) (*MotorSetPIDConfigResponse, error)
+	// TODO(): This will be removed in lieu of controls package
 	// Perform a step response on a motor
 	MotorPIDStep(*MotorPIDStepRequest, RobotService_MotorPIDStepServer) error
-	// MotorPower requests the motor of a board of the underlying robot to set its power.
+	// MotorPower sets the percentage of the motor's total power that should be employed
+	// expressed a value between -1 and 1 where negative values indiciate a backwards
+	// direction and positive values a forward direction
 	MotorPower(context.Context, *MotorPowerRequest) (*MotorPowerResponse, error)
-	// MotorGo requests the motor of a board of the underlying robot to go.
+	// MotorGo instructs the motor to turn using a specified percentage of its total power,
+	// expressed as a value between -1 and 1 where negative values indiciate a backwards
+	// direction and positive values a forward direction
 	MotorGo(context.Context, *MotorGoRequest) (*MotorGoResponse, error)
-	// MotorGoFor requests the motor of a board of the underlying robot to go for a certain amount based off
-	// the request.
+	// MotorGoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
+	// for a specified number of rotations relative to its starting position
+	// This method will return an error if MotorPositionSupported is false
 	MotorGoFor(context.Context, *MotorGoForRequest) (*MotorGoForResponse, error)
-	// MotorGoTo requests the motor of a board of the underlying robot to move to a specific position.
+	// MotorGoTo requests the robot's motor to move to a specific position that
+	// is relative to its home position at a specified speed which is expressed in RPM
+	// This method will return an error if MotorPositionSupported is false
 	MotorGoTo(context.Context, *MotorGoToRequest) (*MotorGoToResponse, error)
-	// MotorGoTillStop requests the motor of a board of the underlying robot to move until stopped (either physically or by limit switch.)
+	// To Do (FA): This will be deprecated in favor of a  MotorStop method
+	// MotorGoTillStop moves a motor until it is stopped
+	// The logic to trigger the "stop" mechanism is up to the underlying motor implementation
 	MotorGoTillStop(context.Context, *MotorGoTillStopRequest) (*MotorGoTillStopResponse, error)
-	// MotorZero requests the motor of a board of the underlying robot to set a new zero/home position.
+	// MotorZero sets the current position of the motor as the new zero position
+	// This method will return an error if MotorPositionSupported is false
 	MotorZero(context.Context, *MotorZeroRequest) (*MotorZeroResponse, error)
-	// MotorPosition reports the position of the motor of a board of the underlying robot based on its encoder. If it's not supported, the returned
-	// data is undefined. The unit returned is the number of revolutions which is intended to be fed
-	// back into calls of MotorGoFor.
+	// MotorPosition reports the position of the robot's motor relative to its zero position
+	// This method will return an error if MotorPositionSupported is false
 	MotorPosition(context.Context, *MotorPositionRequest) (*MotorPositionResponse, error)
-	// MotorPositionSupported returns whether or not the motor of a board of the underlying robot supports reporting of its position which
-	// is reliant on having an encoder.
+	// MotorPositionSupported returns whether or not the robot's motor supports reporting of its position
 	MotorPositionSupported(context.Context, *MotorPositionSupportedRequest) (*MotorPositionSupportedResponse, error)
-	// MotorOff turns the motor of a board of the underlying robot off.
+	// MotorOff turns the robot's motor off
+	// To Do (FA): This will be deprecated
 	MotorOff(context.Context, *MotorOffRequest) (*MotorOffResponse, error)
+	// MotorisOn returns true if the robot's motor off
+	// To Do (FA): This will be deprecated
 	MotorIsOn(context.Context, *MotorIsOnRequest) (*MotorIsOnResponse, error)
 	InputControllerControls(context.Context, *InputControllerControlsRequest) (*InputControllerControlsResponse, error)
 	InputControllerLastEvents(context.Context, *InputControllerLastEventsRequest) (*InputControllerLastEventsResponse, error)

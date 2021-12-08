@@ -70,4 +70,3 @@ if (window.webrtcEnabled) {
 	window.cameraService = new CameraServiceClient(url);
 	pResolve(undefined);
 }
-

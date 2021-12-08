@@ -1132,10 +1132,6 @@
               
               
                 <li>
-                  <a href="#proto.api.v1.DirectionRelative"><span class="badge">E</span>DirectionRelative</a>
-                </li>
-              
-                <li>
                   <a href="#proto.api.v1.NavigationServiceMode"><span class="badge">E</span>NavigationServiceMode</a>
                 </li>
               
@@ -1553,7 +1549,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td>to</td>
                   <td><a href="#proto.api.common.v1.Pose">proto.api.common.v1.Pose</a></td>
                   <td></td>
-                  <td><p>X, Y, Z, ox, oy, ox, theta </p></td>
+                  <td><p> </p></td>
                 </tr>
               
             </tbody>
@@ -1588,7 +1584,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                 <td>CurrentPosition</td>
                 <td><a href="#proto.api.component.v1.ArmServiceCurrentPositionRequest">ArmServiceCurrentPositionRequest</a></td>
                 <td><a href="#proto.api.component.v1.ArmServiceCurrentPositionResponse">ArmServiceCurrentPositionResponse</a></td>
-                <td><p>CurrentPosition gets the current position of the mount point of the robot&#39;s end effector expressed as X,Y,Z,ox,oy,oz,theta</p></td>
+                <td><p>CurrentPosition gets the current position the end of the robot&#39;s arm expressed as X,Y,Z,ox,oy,oz,theta</p></td>
               </tr>
             
               <tr>
@@ -1609,7 +1605,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                 <td>MoveToJointPositions</td>
                 <td><a href="#proto.api.component.v1.ArmServiceMoveToJointPositionsRequest">ArmServiceMoveToJointPositionsRequest</a></td>
                 <td><a href="#proto.api.component.v1.ArmServiceMoveToJointPositionsResponse">ArmServiceMoveToJointPositionsResponse</a></td>
-                <td><p>MoveToJointPositions moves every joint on a robot by the specified number of degrees</p></td>
+                <td><p>MoveToJointPositions moves every joint on a robot&#39;s arm to specified angles which are expressed in degrees</p></td>
               </tr>
             
               <tr>
@@ -3096,28 +3092,28 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a base </p></td>
                 </tr>
               
                 <tr>
                   <td>distance_millis</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Desired travel distance in millimeters </p></td>
                 </tr>
               
                 <tr>
                   <td>millis_per_sec</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Desired speed in millimeters per second </p></td>
                 </tr>
               
                 <tr>
                   <td>angle_deg</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Desired angle in degrees </p></td>
                 </tr>
               
             </tbody>
@@ -3141,14 +3137,14 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>success</td>
                   <td><a href="#bool">bool</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns true if robot completed the requested method </p></td>
                 </tr>
               
                 <tr>
                   <td>error</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>If success = false, this provides a description of the error </p></td>
                 </tr>
               
                 <tr>
@@ -3179,21 +3175,21 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a base </p></td>
                 </tr>
               
                 <tr>
                   <td>distance_millis</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Desired travel distance in millimeters </p></td>
                 </tr>
               
                 <tr>
                   <td>millis_per_sec</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Desired travel velocity in millimeters/second </p></td>
                 </tr>
               
             </tbody>
@@ -3217,21 +3213,21 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>success</td>
                   <td><a href="#bool">bool</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns true if robot completed the requested method </p></td>
                 </tr>
               
                 <tr>
                   <td>error</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>If success = false, this provides a description of the error </p></td>
                 </tr>
               
                 <tr>
                   <td>distance_millis</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns the actual distance travelled by the robot as a result of this method call </p></td>
                 </tr>
               
             </tbody>
@@ -3255,21 +3251,21 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a base </p></td>
                 </tr>
               
                 <tr>
                   <td>angle_deg</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Desired angle </p></td>
                 </tr>
               
                 <tr>
                   <td>degs_per_sec</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Desired angular velocity </p></td>
                 </tr>
               
             </tbody>
@@ -3293,21 +3289,21 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>success</td>
                   <td><a href="#bool">bool</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns true if robot completed the requested method </p></td>
                 </tr>
               
                 <tr>
                   <td>error</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>If success = false, this provides a description of the error </p></td>
                 </tr>
               
                 <tr>
                   <td>angle_deg</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns the actual distance travelled by the robot as a result of this method call </p></td>
                 </tr>
               
             </tbody>
@@ -3331,7 +3327,7 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a base </p></td>
                 </tr>
               
             </tbody>
@@ -3362,7 +3358,7 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a base </p></td>
                 </tr>
               
             </tbody>
@@ -3386,7 +3382,7 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>width_millis</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Width of the base represented in millimeters </p></td>
                 </tr>
               
             </tbody>
@@ -5572,7 +5568,7 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
             </tbody>
@@ -5620,28 +5616,21 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>direction</td>
-                  <td><a href="#proto.api.v1.DirectionRelative">DirectionRelative</a></td>
-                  <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
                 <tr>
                   <td>rpm</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Speed of motor travel in rotations per minute </p></td>
                 </tr>
               
                 <tr>
                   <td>revolutions</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Number of revolutions relative to motor&#39;s start position </p></td>
                 </tr>
               
             </tbody>
@@ -5672,21 +5661,14 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>direction</td>
-                  <td><a href="#proto.api.v1.DirectionRelative">DirectionRelative</a></td>
-                  <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
                 <tr>
                   <td>power_pct</td>
-                  <td><a href="#float">float</a></td>
+                  <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Percentage of motor&#39;s power, between -1 and 1 </p></td>
                 </tr>
               
             </tbody>
@@ -5717,21 +5699,14 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>direction</td>
-                  <td><a href="#proto.api.v1.DirectionRelative">DirectionRelative</a></td>
-                  <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
                 <tr>
                   <td>rpm</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Speed of motor travel in rotations per minute </p></td>
                 </tr>
               
             </tbody>
@@ -5762,21 +5737,21 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
                 <tr>
                   <td>rpm</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Speed of motor travel in rotations per minute </p></td>
                 </tr>
               
                 <tr>
                   <td>position</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Number of revolutions relative to motor&#39;s home home/zero </p></td>
                 </tr>
               
             </tbody>
@@ -5807,7 +5782,7 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
             </tbody>
@@ -5855,7 +5830,7 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
             </tbody>
@@ -5955,7 +5930,7 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
             </tbody>
@@ -5979,7 +5954,7 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>position</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Current position of the motor relative to its home </p></td>
                 </tr>
               
             </tbody>
@@ -6003,7 +5978,7 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
             </tbody>
@@ -6027,7 +6002,7 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>supported</td>
                   <td><a href="#bool">bool</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns true if the motor supports reporting its position </p></td>
                 </tr>
               
             </tbody>
@@ -6051,14 +6026,14 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
                 <tr>
                   <td>power_pct</td>
-                  <td><a href="#float">float</a></td>
+                  <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Percentage of motor&#39;s power, between -1 and 1 </p></td>
                 </tr>
               
             </tbody>
@@ -6089,7 +6064,7 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
                 <tr>
@@ -6127,28 +6102,28 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>on</td>
                   <td><a href="#bool">bool</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>To D0 (FA): Delete this field </p></td>
                 </tr>
               
                 <tr>
                   <td>position_supported</td>
                   <td><a href="#bool">bool</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns true if the motor has position support </p></td>
                 </tr>
               
                 <tr>
                   <td>position</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Returns current position of the motor relative to its home </p></td>
                 </tr>
               
                 <tr>
                   <td>pid_config</td>
                   <td><a href="#google.protobuf.Struct">google.protobuf.Struct</a></td>
                   <td>optional</td>
-                  <td><p> </p></td>
+                  <td><p>To Do (FA): Delete this field </p></td>
                 </tr>
               
             </tbody>
@@ -6172,14 +6147,14 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td>name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a motor </p></td>
                 </tr>
               
                 <tr>
                   <td>offset</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Motor position </p></td>
                 </tr>
               
             </tbody>
@@ -6571,7 +6546,7 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
                   <td>resource_name</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p>Note(erd): okay in v1 because names are unique. v2 should be a VRN. </p></td>
+                  <td><p>Note(erd): okay in v1 because names are unique. v2 should be a VRN </p></td>
                 </tr>
               
                 <tr>
@@ -7345,35 +7320,6 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
       
 
       
-        <h3 id="proto.api.v1.DirectionRelative">DirectionRelative</h3>
-        <p></p>
-        <table class="enum-table">
-          <thead>
-            <tr><td>Name</td><td>Number</td><td>Description</td></tr>
-          </thead>
-          <tbody>
-            
-              <tr>
-                <td>DIRECTION_RELATIVE_UNSPECIFIED</td>
-                <td>0</td>
-                <td><p></p></td>
-              </tr>
-            
-              <tr>
-                <td>DIRECTION_RELATIVE_FORWARD</td>
-                <td>1</td>
-                <td><p></p></td>
-              </tr>
-            
-              <tr>
-                <td>DIRECTION_RELATIVE_BACKWARD</td>
-                <td>2</td>
-                <td><p></p></td>
-              </tr>
-            
-          </tbody>
-        </table>
-      
         <h3 id="proto.api.v1.NavigationServiceMode">NavigationServiceMode</h3>
         <p></p>
         <table class="enum-table">
@@ -7449,35 +7395,38 @@ And not the pieces relevant to local configuration (pins, security keys, etc...)
                 <td>BaseMoveStraight</td>
                 <td><a href="#proto.api.v1.BaseMoveStraightRequest">BaseMoveStraightRequest</a></td>
                 <td><a href="#proto.api.v1.BaseMoveStraightResponse">BaseMoveStraightResponse</a></td>
-                <td><p>BaseMoveStraight moves a base of the underlying robot straight.</p></td>
+                <td><p>BaseMoveStraight moves a robot&#39;s base in a straight line by a given distance, expressed in millimeters
+and a given speed, expressed in millimeters per second</p></td>
               </tr>
             
               <tr>
                 <td>BaseMoveArc</td>
                 <td><a href="#proto.api.v1.BaseMoveArcRequest">BaseMoveArcRequest</a></td>
                 <td><a href="#proto.api.v1.BaseMoveArcResponse">BaseMoveArcResponse</a></td>
-                <td><p></p></td>
+                <td><p>MoveArc moves the robot&#39;s base in an arc by a given distance, expressed in millimeters,
+a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees</p></td>
               </tr>
             
               <tr>
                 <td>BaseSpin</td>
                 <td><a href="#proto.api.v1.BaseSpinRequest">BaseSpinRequest</a></td>
                 <td><a href="#proto.api.v1.BaseSpinResponse">BaseSpinResponse</a></td>
-                <td><p>BaseSpin spins a base of the underlying robot.</p></td>
+                <td><p>BaseSpin spins a robot&#39;s base by an given angle, expressed in degrees, and a given 
+angular speed, expressed in degrees per second</p></td>
               </tr>
             
               <tr>
                 <td>BaseStop</td>
                 <td><a href="#proto.api.v1.BaseStopRequest">BaseStopRequest</a></td>
                 <td><a href="#proto.api.v1.BaseStopResponse">BaseStopResponse</a></td>
-                <td><p>BaseSpin stops a base of the underlying robot.</p></td>
+                <td><p>BaseStop stops a robot&#39;s base</p></td>
               </tr>
             
               <tr>
                 <td>BaseWidthMillis</td>
                 <td><a href="#proto.api.v1.BaseWidthMillisRequest">BaseWidthMillisRequest</a></td>
                 <td><a href="#proto.api.v1.BaseWidthMillisResponse">BaseWidthMillisResponse</a></td>
-                <td><p>BaseWidthMillis returns the width of a base of the underlying robot.</p></td>
+                <td><p>BaseWidthMillis returns the width of a robot&#39;s base expressed in millimeters</p></td>
               </tr>
             
               <tr>
@@ -7660,6 +7609,7 @@ And not the pieces relevant to local configuration (pins, security keys, etc...)
                 <td><a href="#proto.api.v1.MotorGetPIDConfigRequest">MotorGetPIDConfigRequest</a></td>
                 <td><a href="#proto.api.v1.MotorGetPIDConfigResponse">MotorGetPIDConfigResponse</a></td>
                 <td><p>Motor
+TODO(FA): This will be removed in lieu of controls package 
 Return the PID configuration for a Motor</p></td>
               </tr>
             
@@ -7667,88 +7617,100 @@ Return the PID configuration for a Motor</p></td>
                 <td>MotorSetPIDConfig</td>
                 <td><a href="#proto.api.v1.MotorSetPIDConfigRequest">MotorSetPIDConfigRequest</a></td>
                 <td><a href="#proto.api.v1.MotorSetPIDConfigResponse">MotorSetPIDConfigResponse</a></td>
-                <td><p>Set the PID configuration for a Motor</p></td>
+                <td><p>TODO(FA): This will be removed in lieu of controls package 
+Set the PID configuration for a Motor</p></td>
               </tr>
             
               <tr>
                 <td>MotorPIDStep</td>
                 <td><a href="#proto.api.v1.MotorPIDStepRequest">MotorPIDStepRequest</a></td>
                 <td><a href="#proto.api.v1.MotorPIDStepResponse">MotorPIDStepResponse</a> stream</td>
-                <td><p>Perform a step response on a motor</p></td>
+                <td><p>TODO(): This will be removed in lieu of controls package 
+Perform a step response on a motor</p></td>
               </tr>
             
               <tr>
                 <td>MotorPower</td>
                 <td><a href="#proto.api.v1.MotorPowerRequest">MotorPowerRequest</a></td>
                 <td><a href="#proto.api.v1.MotorPowerResponse">MotorPowerResponse</a></td>
-                <td><p>MotorPower requests the motor of a board of the underlying robot to set its power.</p></td>
+                <td><p>MotorPower sets the percentage of the motor&#39;s total power that should be employed
+expressed a value between -1 and 1 where negative values indiciate a backwards 
+direction and positive values a forward direction</p></td>
               </tr>
             
               <tr>
                 <td>MotorGo</td>
                 <td><a href="#proto.api.v1.MotorGoRequest">MotorGoRequest</a></td>
                 <td><a href="#proto.api.v1.MotorGoResponse">MotorGoResponse</a></td>
-                <td><p>MotorGo requests the motor of a board of the underlying robot to go.</p></td>
+                <td><p>MotorGo instructs the motor to turn using a specified percentage of its total power, 
+expressed as a value between -1 and 1 where negative values indiciate a backwards 
+direction and positive values a forward direction</p></td>
               </tr>
             
               <tr>
                 <td>MotorGoFor</td>
                 <td><a href="#proto.api.v1.MotorGoForRequest">MotorGoForRequest</a></td>
                 <td><a href="#proto.api.v1.MotorGoForResponse">MotorGoForResponse</a></td>
-                <td><p>MotorGoFor requests the motor of a board of the underlying robot to go for a certain amount based off
-the request.</p></td>
+                <td><p>MotorGoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
+for a specified number of rotations relative to its starting position
+This method will return an error if MotorPositionSupported is false</p></td>
               </tr>
             
               <tr>
                 <td>MotorGoTo</td>
                 <td><a href="#proto.api.v1.MotorGoToRequest">MotorGoToRequest</a></td>
                 <td><a href="#proto.api.v1.MotorGoToResponse">MotorGoToResponse</a></td>
-                <td><p>MotorGoTo requests the motor of a board of the underlying robot to move to a specific position.</p></td>
+                <td><p>MotorGoTo requests the robot&#39;s motor to move to a specific position that 
+is relative to its home position at a specified speed which is expressed in RPM
+This method will return an error if MotorPositionSupported is false</p></td>
               </tr>
             
               <tr>
                 <td>MotorGoTillStop</td>
                 <td><a href="#proto.api.v1.MotorGoTillStopRequest">MotorGoTillStopRequest</a></td>
                 <td><a href="#proto.api.v1.MotorGoTillStopResponse">MotorGoTillStopResponse</a></td>
-                <td><p>MotorGoTillStop requests the motor of a board of the underlying robot to move until stopped (either physically or by limit switch.)</p></td>
+                <td><p>To Do (FA): This will be deprecated in favor of a  MotorStop method
+MotorGoTillStop moves a motor until it is stopped 
+The logic to trigger the &#34;stop&#34; mechanism is up to the underlying motor implementation</p></td>
               </tr>
             
               <tr>
                 <td>MotorZero</td>
                 <td><a href="#proto.api.v1.MotorZeroRequest">MotorZeroRequest</a></td>
                 <td><a href="#proto.api.v1.MotorZeroResponse">MotorZeroResponse</a></td>
-                <td><p>MotorZero requests the motor of a board of the underlying robot to set a new zero/home position.</p></td>
+                <td><p>MotorZero sets the current position of the motor as the new zero position
+This method will return an error if MotorPositionSupported is false</p></td>
               </tr>
             
               <tr>
                 <td>MotorPosition</td>
                 <td><a href="#proto.api.v1.MotorPositionRequest">MotorPositionRequest</a></td>
                 <td><a href="#proto.api.v1.MotorPositionResponse">MotorPositionResponse</a></td>
-                <td><p>MotorPosition reports the position of the motor of a board of the underlying robot based on its encoder. If it&#39;s not supported, the returned
-data is undefined. The unit returned is the number of revolutions which is intended to be fed
-back into calls of MotorGoFor.</p></td>
+                <td><p>MotorPosition reports the position of the robot&#39;s motor relative to its zero position
+This method will return an error if MotorPositionSupported is false</p></td>
               </tr>
             
               <tr>
                 <td>MotorPositionSupported</td>
                 <td><a href="#proto.api.v1.MotorPositionSupportedRequest">MotorPositionSupportedRequest</a></td>
                 <td><a href="#proto.api.v1.MotorPositionSupportedResponse">MotorPositionSupportedResponse</a></td>
-                <td><p>MotorPositionSupported returns whether or not the motor of a board of the underlying robot supports reporting of its position which
-is reliant on having an encoder.</p></td>
+                <td><p>MotorPositionSupported returns whether or not the robot&#39;s motor supports reporting of its position</p></td>
               </tr>
             
               <tr>
                 <td>MotorOff</td>
                 <td><a href="#proto.api.v1.MotorOffRequest">MotorOffRequest</a></td>
                 <td><a href="#proto.api.v1.MotorOffResponse">MotorOffResponse</a></td>
-                <td><p>MotorOff turns the motor of a board of the underlying robot off.</p></td>
+                <td><p>MotorOff turns the robot&#39;s motor off
+To Do (FA): This will be deprecated</p></td>
               </tr>
             
               <tr>
                 <td>MotorIsOn</td>
                 <td><a href="#proto.api.v1.MotorIsOnRequest">MotorIsOnRequest</a></td>
                 <td><a href="#proto.api.v1.MotorIsOnResponse">MotorIsOnResponse</a></td>
-                <td><p></p></td>
+                <td><p>MotorisOn returns true if the robot&#39;s motor off
+To Do (FA): This will be deprecated</p></td>
               </tr>
             
               <tr>

@@ -150,8 +150,9 @@ func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.I
 	inputs := frame.StartPositions(sf.fss)
 	i := 0
 	for _, frame := range sf.frames {
-		inputs[frame.Name()] = inputSlice[i : i+len(frame.DoF())]
-		i += len(frame.DoF())
+		fLen := i + len(frame.DoF())
+		inputs[frame.Name()] = inputSlice[i:fLen]
+		i = fLen
 	}
 	return inputs
 }
