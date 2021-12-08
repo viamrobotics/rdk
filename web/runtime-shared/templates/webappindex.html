@@ -493,36 +493,45 @@
                     req.setEngine('javascript');
                     robotService.executeSource(req, {}, this.processFunctionResults);
                   },
-                  visualizeForceMatrix: function(name, type, id) {
-                    document.getElementById('force-button-id-' + id).style.visibility = 'hidden';
+                  visualizeForceMatrix: function(name, id) {
+                    document.getElementById('force-button-id-' + id).style.display = 'none';
 
                     // 2D animation stuff
                     let canvas2D = document.getElementById('force-2d-id-' + id);
                     var animation_stuff_2D = {
                       ctx: canvas2D.getContext('2d'),
                       squareWidth: 50,
-                      maxValue: 1,
+                      maxPressure: 1,
                       canvasId: 'force-2d-id-' + id
                     }
 
                     // 3D animation stuff
-                    var width = 500;
-                    var height = 500;
+                    var canvas3DWidth = 500;
+                    var canvas3DHeight = 500;
 
                     const scene = new THREE.Scene();
                     scene.background = new THREE.Color( 0xFBE7C6 );
-                    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+                    const camera = new THREE.PerspectiveCamera(75, canvas3DWidth / canvas3DHeight, 0.1, 1000);
 
                     const renderer = new THREE.WebGLRenderer();
-                    renderer.setSize(width, height);
+                    renderer.setSize(canvas3DWidth, canvas3DHeight);
                     var div_3d = document.getElementById('force-3d-id-' + id);
                     div_3d.appendChild(renderer.domElement);
-                    camera.position.z = 4;
-                    camera.position.y = -4;
+                    camera.position.z = 6;
+                    camera.position.y = -6;
 
                     var animation_stuff_3D = {
                       cubes: [],
-                      scene: scene
+                      scene: scene,
+                      canvas3DHeight: canvas3DHeight,
+                      canvas3DWidth: canvas3DWidth
+                    }
+
+                    // [kat] TODO(https://github.com/viamrobotics/core/issues/336): slip detection works locally, but not on app.viam.com
+                    // Slip detection stuff
+                    let slipCanvas = document.getElementById('slip-id-' + id);
+                    var slip_animation_stuff = {
+                      ctx: slipCanvas.getContext('2d')
                     }
 
                     // Allows moving the 3D scene using the mouse
@@ -532,20 +541,17 @@
 
                     let startedForceAnimation = false;
                     const timeInterval = 10; // in milliseconds
+                    let req = new robotApi.ForceMatrixMatrixRequest();
+                    req.setName(name);
+
+                    let slipReq = new robotApi.ForceMatrixSlipDetectionRequest();
+                    slipReq.setName(name);
+                    
+                    isFirstRender = true;
                     // Loop through grabbing data & visualizing it
-                    setTimeout(function getDataAndVisualizeIt(name, id) {
-                      let req = new robotApi.ForceMatrixMatrixRequest();
-                      req.setName(name);
-
-                      let slipReq = new robotApi.ForceMatrixSlipDetectionRequest();
-                      slipReq.setName(name);
-
-                      if (type === "forcematrix") {
-                        robotService.forceMatrixMatrix(req, {}, (err, resp) => animateForceMatrix(err, resp, animation_stuff_2D, animation_stuff_3D));
-                        robotService.forceMatrixSlipDetection(slipReq, {}, (err, resp) => updateSlipDetectionResult(err, resp, id));
-                      } else {
-                        console.log("error: unknown force matrix type");
-                      }
+                    setTimeout(function getDataAndVisualizeIt(isFirstRender) {
+                      robotService.forceMatrixMatrix(req, {}, (err, resp) => animateForceMatrix(err, resp, animation_stuff_2D, animation_stuff_3D, isFirstRender));
+                      robotService.forceMatrixSlipDetection(slipReq, {}, (err, resp) => updateSlipDetectionResult(err, resp, slip_animation_stuff));
 
                       // Start the 3D game engine animation if it hasn't been started yet
                       if (!startedForceAnimation) {
@@ -558,8 +564,8 @@
                         animate();
                       }
 
-                      setTimeout(getDataAndVisualizeIt, 10, name, id);
-                    }, timeInterval, name, id);
+                      setTimeout(getDataAndVisualizeIt, timeInterval, false);
+                    }, timeInterval, isFirstRender);
                   },
                   nonEmpty : function(d) {
                       for ( var k in d ) {
@@ -908,122 +914,144 @@
           pcdGlobal.scene.add(cube);
       }
 
-      function animateForceMatrix(err, resp, anim_2D, anim_3D) {
+
+      function animateForceMatrix(err, resp, anim_2D, anim_3D, isFirstRender) {
           grpcCallback(err, resp);
           if (err) {
             console.log("error getting force sensor readings: ", err);
             return;
           }
-          var [rows, cols, data] = resp.getMatrix().array;
-          if (data.length !== rows * cols) {
+          var [numRows, numCols, data] = resp.getMatrix().array;
+          if (data.length !== numRows * numCols || numRows === 0 || numCols === 0) {
             console.log("corrupt force sensor data");
             return;
           }
 
-          // 3D animation stuff: If this is the first time we're receiving data,
-          // let's add cubes to the 3D view
-          if (anim_3D.cubes.length == 0) {
-              for (let i = 0; i < rows; i++) {
-                  cubeRow = []
-                  for (let j = 0; j < cols; j++) {
-                      const geometry = new THREE.BoxGeometry(1, 1, 0.1);
-                      const material = new THREE.MeshBasicMaterial( { color: 0xffaebc} );
-                      const cube = new THREE.Mesh( geometry, material );
-                      cube.translateX(i * 1.1 - rows / 2);
-                      cube.translateY(- j * 1.1 + cols / 2);
-                      cubeRow.push(cube);
-                      anim_3D.scene.add(cube);
-                  }
-                  anim_3D.cubes.push(cubeRow)
-              }
-          }
-          const offset = 100;
-          let canvas2D = document.getElementById(anim_2D.canvasId);
-          let canvasHeight = (50 * rows) + 20;
-          let canvasWidth = 150 * cols + offset;
-          let currentHeight = canvas2D.height;
-          let currentWidth = canvas2D.width;
-          if ((canvasHeight !== currentHeight) || (canvasWidth !== currentWidth)) {
-            canvas2D.height = canvasHeight;
-            canvas2D.width = canvasWidth;
-          }
-
-
-          // TODO: The placing & sizing of everything that's displayed is hardcoded
-          // e.g. the canvas size, location of boxes, etc.
-          // To allow for any size of sensor, and to use the space on the screen
-          // more efficiently (plus make a mobile version available), changing to
-          // adaptive sizing would be great.
           const gradientRate = 10;
           const gradientHeight = 20;
+          const gradientWidth = 40;
           const spaceBetweenTextAndGradient = 35;
-          for (let i = 0; i < rows; i++) {
-            for (let j = 0; j < cols; j++) {
-              let value = data[i * cols + j];
-              if (value > anim_2D.maxValue) {
-                  anim_2D.maxValue = value
+          const offsetToLeftMatrix = 120;
+          const offsetBetweenMatrices = 30;
+          const squareSize = anim_2D.squareWidth
+
+          let canvas2D = document.getElementById(anim_2D.canvasId);
+          // if this is the first render, initialize the 2D and 3D scene
+          if (isFirstRender || anim_3D.cubes.length == 0) {
+            // let's add cubes to the 3D view
+            for (let row = 0; row < numRows; row++) {
+                cubeRow = []
+                for (let col = 0; col < numCols; col++) {
+                    const geometry = new THREE.BoxGeometry(1, 1, 0.1);
+                    const material = new THREE.MeshBasicMaterial( { color: 0xffaebc} );
+                    const cube = new THREE.Mesh( geometry, material );
+                    cube.translateX((col - (numCols-1)/2) * 1.1);
+                    cube.translateY((- row + (numRows-1)/2) * 1.1);
+                    cubeRow.push(cube);
+                    anim_3D.scene.add(cube);
+                }
+                anim_3D.cubes.push(cubeRow)
+
+                // [Debug] This helps for debugging & understanding the 3D space:
+                // var axesHelper = new THREE.AxesHelper( 5 );
+                // anim_3D.scene.add( axesHelper );
+
+            }
+            // resize the canvas to fit any size of matrix
+            canvas2D.height = Math.max(squareSize * numRows + 20, gradientRate * gradientHeight + 20);
+            canvas2D.width = Math.max(2 * squareSize * numCols + offsetToLeftMatrix + offsetBetweenMatrices, anim_3D.canvas3DWidth + 100);
+          }
+
+          for (let row = 0; row < numRows; row++) {
+            for (let col = 0; col < numCols; col++) {
+              let pressure = data[row * numCols + col];
+              if (pressure > anim_2D.maxPressure) {
+                  anim_2D.maxPressure = pressure
               }
 
-              greenShade = 255/anim_2D.maxValue * value;
               // --- 2D animation stuff ---
-              anim_2D.ctx.fillStyle = 'rgb(0, ' + greenShade + ', 0)'; // old version with just green color
-              anim_2D.ctx.fillRect(offset + i * anim_2D.squareWidth, j * anim_2D.squareWidth, anim_2D.squareWidth, anim_2D.squareWidth);
-
-              // Write out raw values
-              anim_2D.ctx.fillStyle = 'white'
-              anim_2D.ctx.font = '20px sans-serif';
-              anim_2D.ctx.fillText(value, offset + i * anim_2D.squareWidth, (j+0.6) * anim_2D.squareWidth);
-
-              // Add gradient to the left of 2D animation stuff
+              // Visualize gradient to the left of 2D animation stuff
               for (let g = 0; g < gradientRate; g++) {
                 // Create colored boxes
-                let greenShade = 255/gradientRate * g;
-                anim_2D.ctx.fillStyle = 'rgb(0, ' + greenShade + ', 0)'; // old version with just green color
-                anim_2D.ctx.fillRect(spaceBetweenTextAndGradient, g * gradientHeight, 40, gradientHeight);
+                let greenShadeGradient = 255/gradientRate * g;
+                anim_2D.ctx.fillStyle = 'rgb(0, ' + greenShadeGradient + ', 0)'; // old version with just green color
+                anim_2D.ctx.fillRect(spaceBetweenTextAndGradient, g * gradientHeight, gradientWidth, gradientHeight);
 
                 // Label the boxes
                 anim_2D.ctx.fillStyle = 'white';
                 anim_2D.ctx.fillRect(0, g * gradientHeight, spaceBetweenTextAndGradient, gradientHeight);
                 anim_2D.ctx.fillStyle = 'black'
                 anim_2D.ctx.font = '15px sans-serif';
-                anim_2D.ctx.fillText(Math.floor(anim_2D.maxValue/(gradientRate - 1) * g) ,0, gradientHeight * (g + 1));
+                anim_2D.ctx.fillText(Math.floor(anim_2D.maxPressure/(gradientRate - 1) * g) ,0, gradientHeight * (g + 1));
               }
 
-              // Write the out separately in black so it's easy to read
+              // greenShade is the color used to represent the pressure in both the 2D and 3D visualization
+              let greenShade = 255/anim_2D.maxPressure * pressure;
+
+              let xPos = offsetToLeftMatrix + col * squareSize;
+              let yPos = row * squareSize;
+              let yTextOffset = 0.6 * squareSize;
+              // Visualize black box with green colors indicating the pressure
+              anim_2D.ctx.fillStyle = 'rgb(0, ' + greenShade + ', 0)';
+              anim_2D.ctx.fillRect(xPos, yPos, squareSize, squareSize);
+
+              // Inscribe raw pressure values in white
               anim_2D.ctx.fillStyle = 'white'
-              anim_2D.ctx.fillRect(offset + (i + 2) * anim_2D.squareWidth + 300, j * anim_2D.squareWidth, anim_2D.squareWidth, anim_2D.squareWidth);
-              anim_2D.ctx.fillStyle = 'black'
               anim_2D.ctx.font = '20px sans-serif';
-              anim_2D.ctx.strokeRect(offset + (i + 2) * anim_2D.squareWidth + 300, j * anim_2D.squareWidth, anim_2D.squareWidth, anim_2D.squareWidth);
-              anim_2D.ctx.fillText(value, offset + (i + 2) * anim_2D.squareWidth + 300, (j+0.6) * anim_2D.squareWidth);
+              anim_2D.ctx.fillText(pressure, xPos, yPos + yTextOffset);
+
+
+              let offsetToRightMatrix = offsetBetweenMatrices + numCols * squareSize;
+              // Visualize pressure values only in a separate matrix for better reading of raw values
+              anim_2D.ctx.fillStyle = 'white'
+              anim_2D.ctx.fillRect(xPos + offsetToRightMatrix, yPos, squareSize, squareSize);
+              anim_2D.ctx.fillStyle = 'black'
+              anim_2D.ctx.strokeRect(xPos + offsetToRightMatrix, yPos, squareSize, squareSize);
+
+              // Inscribe raw pressure values in black
+              anim_2D.ctx.font = '20px sans-serif';
+              anim_2D.ctx.fillText(pressure, xPos + offsetToRightMatrix, yPos + yTextOffset);
 
               // --- 3D animation stuff ---
-              anim_3D.cubes[i][j].material.color.setRGB(0, greenShade/255, 0)
-              anim_3D.cubes[i][j].scale.setZ(value / anim_2D.maxValue * 14)
-              anim_3D.cubes[i][j].position.setZ(0)
-              anim_3D.cubes[i][j].translateZ(value/anim_2D.maxValue * 7 * 0.1)
+              anim_3D.cubes[row][col].material.color.setRGB(0, greenShade/255, 0)
+              anim_3D.cubes[row][col].scale.setZ(pressure/anim_2D.maxPressure * 14)
+              anim_3D.cubes[row][col].position.setZ(0)
+              anim_3D.cubes[row][col].translateZ(pressure/anim_2D.maxPressure * 7 * 0.1)
             }
           }
       }
 
-      function updateSlipDetectionResult (err, resp, id) {
+      function updateSlipDetectionResult (err, resp, slip_animation_stuff) {
         grpcCallback(err, resp);
         if (err) {
           console.log("error getting slip detection readings: ", err);
           return;
         }
 
-        let dispEl = document.getElementById("force-is-slipping-" + id);
         if (resp === null) {
+          slip_animation_stuff.ctx.fillStyle = 'orange';
+          slip_animation_stuff.ctx.fillRect(0, 0, 200, 50)
+
+          slip_animation_stuff.ctx.fillStyle = 'black'
+          slip_animation_stuff.ctx.font = '20px sans-serif';
+          slip_animation_stuff.ctx.fillText("response is invalid", 0, 0);
           console.log("response is null - this is an issue when running this in the cloud, but not on a device locally")
-          dispEl.innerText = "response is invalid"
         }
 
         let isSlipping = resp.getIsSlipping()
         if (isSlipping) {
-          dispEl.innerText = "SLIPPING";
+          slip_animation_stuff.ctx.fillStyle = 'red';
+          slip_animation_stuff.ctx.fillRect(0, 0, 150, 50)
+
+          slip_animation_stuff.ctx.fillStyle = 'white'
+          slip_animation_stuff.ctx.font = '20px sans-serif';
+          slip_animation_stuff.ctx.fillText("SLIPPING", 5, 25);
         } else {
-          dispEl.innerText = "NOT SLIPPING";
+          slip_animation_stuff.ctx.fillStyle = 'green';
+          slip_animation_stuff.ctx.fillRect(0, 0, 150, 50)
+          slip_animation_stuff.ctx.fillStyle = 'white'
+          slip_animation_stuff.ctx.font = '20px sans-serif';
+          slip_animation_stuff.ctx.fillText("NOT SLIPPING", 5, 25);
         }
       }
 
@@ -1358,11 +1386,11 @@
           <td>${sensor[1].type}</td>
           <td>
             <template v-if="sensor[1].type === 'forcematrix'">
-              <button :id="'force-button-id-' + x" v-on:click="visualizeForceMatrix(sensor[0], sensor[1].type, x)">Visualize Force Matrix</button>
-              <!-- canvas element is resized later upon arrival of sensor data (see animateForceMatrix)  -->
-              <canvas :id="'force-2d-id-' + x" width="1000" height="300" style="margin-top: 20px;"></canvas>
+              <button :id="'force-button-id-' + x" v-on:click="visualizeForceMatrix(sensor[0], x)">Visualize Force Matrix</button>
+              <!-- force 2d canvas element is resized later upon arrival of sensor data (see animateForceMatrix)  -->
+              <canvas :id="'force-2d-id-' + x" width="100" height="100" style="margin-top: 20px;"></canvas>
+              <canvas :id="'slip-id-' + x" width="200" height="50"></canvas>
               <div :id="'force-3d-id-' + x"></div>
-              <div :id="'force-is-slipping-' + x">NO VALUE</div>
             </template>
             <button v-else v-on:click="doSensorReadings(sensor[0])">Get Readings</button>
           </td>
