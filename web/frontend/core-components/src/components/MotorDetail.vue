@@ -231,7 +231,7 @@ class MotorCommand {
   type = MotorCommandType.Go;
   position = 0;
   speed = 0;
-  direction: 0 | 1 = 1;
+  direction: -1 | 1 = 1;
   revolutions = 0;
 
   static get STOP(): MotorCommand {
@@ -380,9 +380,9 @@ export default class MotorDetail extends Vue {
   }
 
   set isGoingForward(forward: boolean) {
-  this.motorCommand.direction = forward
-    ? 1
-    : -1;
+    this.motorCommand.direction = forward
+      ? 1
+      : -1;
   }
 
   get position(): number {
