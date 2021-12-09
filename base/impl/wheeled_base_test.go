@@ -41,7 +41,7 @@ func TestFourWheelBase1(t *testing.T) {
 	baseBase, err := CreateFourWheelBase(context.Background(), fakeRobot, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
-	base, ok := baseBase.(*fourWheelBase)
+	base, ok := baseBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("basics", func(t *testing.T) {
@@ -307,7 +307,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	}
 	baseBase, err := CreateWheeledBase(ctx, fakeRobot, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
-	base, ok := baseBase.(*fourWheelBase)
+	base, ok := baseBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, len(base.left), test.ShouldEqual, 2)
 	test.That(t, len(base.right), test.ShouldEqual, 2)
