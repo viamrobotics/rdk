@@ -120,7 +120,7 @@ func (m *gpioStepper) Validate() error {
 
 // SetPower sets the percentage of power the motor should employ between 0-1.
 func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64) error {
-	if powerPct <= .0001 {
+	if math.Abs(powerPct) <= .0001 {
 		m.stop()
 		return nil
 	}
