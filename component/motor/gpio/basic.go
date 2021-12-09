@@ -206,7 +206,7 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 // traveled is a time based estimation based on desired RPM.
 func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
 	if m.maxRPM == 0 {
-		return errors.New("not supported, define maxRPM attribute")
+		return errors.New("not supported, define max_rpm attribute")
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)

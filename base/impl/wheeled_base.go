@@ -82,9 +82,6 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMillis int, m
 }
 
 func (base *wheeledBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
-	if millisPerSec == 0 && block {
-		return errors.New("cannot block unless you have a speed")
-	}
 
 	// Arc math
 	rpmLR, revLR := base.arcMath(distanceMillis, millisPerSec, angleDeg)
