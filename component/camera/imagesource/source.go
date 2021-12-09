@@ -223,8 +223,8 @@ func (s *serverSource) IsAligned() bool {
 	return s.isAligned
 }
 
-// Camera is the  Projector which projects between 3D and 2D representations
-func (s *serverSource) Camera() rimage.Projector {
+// Projector is the  Projector which projects between 3D and 2D representations
+func (s *serverSource) Projector() rimage.Projector {
 	return s.camera
 }
 
@@ -250,19 +250,19 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		img = rimage.MakeImageWithDepth(rimage.ConvertImage(color), nil, false, s.Camera())
+		img = rimage.MakeImageWithDepth(rimage.ConvertImage(color), nil, false, s.Projector())
 	case DepthStream:
 		depth, err := decodeDepth(allData)
 		if err != nil {
 			return nil, nil, err
 		}
-		img = rimage.MakeImageWithDepth(rimage.ConvertImage(depth.ToGray16Picture()), depth, false, s.Camera())
+		img = rimage.MakeImageWithDepth(rimage.ConvertImage(depth.ToGray16Picture()), depth, false, s.Projector())
 	case BothStream:
 		img, err = decodeBoth(allData, s.isAligned)
 		if err != nil {
 			return nil, nil, err
 		}
-		img.SetCamera(s.Camera())
+		img.SetProjector(s.Projector())
 	default:
 		return nil, nil, errors.Errorf("do not know how to decode stream type %q", string(s.stream))
 	}

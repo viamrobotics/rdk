@@ -207,7 +207,7 @@ func (dc *depthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 	if err != nil {
 		return nil, nil, err
 	}
-	aligned.SetCamera(dc.projectionCamera)
+	aligned.SetProjector(dc.projectionCamera)
 
 	return aligned, func() {}, err
 

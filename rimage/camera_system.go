@@ -34,13 +34,13 @@ func (i *ImageWithDepth) IsAligned() bool {
 	return i.aligned
 }
 
-// Camera returns the camera Projector that transforms between 2D and 3D images.
-func (i *ImageWithDepth) Camera() Projector {
+// Projector returns the camera Projector that transforms between 2D and 3D images.
+func (i *ImageWithDepth) Projector() Projector {
 	return i.camera
 }
 
-// SetCamera sets the camera Projector that transforms between 2D and 3D images.
-func (i *ImageWithDepth) SetCamera(p Projector) {
+// SetProjector sets the camera Projector that transforms between 2D and 3D images.
+func (i *ImageWithDepth) SetProjector(p Projector) {
 	i.camera = p
 }
 

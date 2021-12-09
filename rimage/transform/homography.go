@@ -110,7 +110,7 @@ func (dch *PinholeCameraHomography) PointCloudToImageWithDepth(cloud pointcloud.
 	if err != nil {
 		return nil, err
 	}
-	iwd.SetCamera(dch)
+	iwd.SetProjector(dch)
 	return iwd, nil
 }
 
