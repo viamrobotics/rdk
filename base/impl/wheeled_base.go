@@ -35,6 +35,16 @@ type wheeledBase struct {
 }
 
 func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+
+	// Stop the motors if the speed is 0
+	if math.Abs(degsPerSec) < 0.0001 {
+		err := base.Stop(ctx)
+		if err != nil {
+			return errors.Errorf("error when trying to spin a speed of 0: %v", err)
+		}
+		return err
+	}
+
 	// Spin math
 	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
 
@@ -60,6 +70,15 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec 
 
 func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 
+	// Stop the motors if the speed or distance are 0
+	if math.Abs(millisPerSec) < 0.0001 || distanceMillis == 0 {
+		err := base.Stop(ctx)
+		if err != nil {
+			return errors.Errorf("error when trying to mvoe straight a speed and/or distance of 0: %v", err)
+		}
+		return err
+	}
+
 	// Straight math
 	rpm, rotations := base.straightDistanceToMotorInfo(distanceMillis, millisPerSec)
 
@@ -79,6 +98,15 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMillis int, m
 }
 
 func (base *wheeledBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
+
+	// Stop the motors if the speed is 0
+	if math.Abs(millisPerSec) < 0.0001 {
+		err := base.Stop(ctx)
+		if err != nil {
+			return errors.Errorf("error when trying to arc at a speed of 0: %v", err)
+		}
+		return err
+	}
 
 	// Arc math
 	rpmLR, revLR := base.arcMath(distanceMillis, millisPerSec, angleDeg)
@@ -104,7 +132,7 @@ func (base *wheeledBase) MoveArc(ctx context.Context, distanceMillis int, millis
 	return base.WaitForMotorsToStop(ctx)
 }
 
-// returns rpm, revolutions for spin motion.
+// returns rpm, revolutions for a spin motion
 func (base *wheeledBase) spinMath(angleDeg float64, degsPerSec float64) (float64, float64) {
 	wheelTravel := base.spinSlipFactor * float64(base.widthMillis) * math.Pi * angleDeg / 360.0
 	revolutions := wheelTravel / float64(base.wheelCircumferenceMillis)
@@ -117,6 +145,7 @@ func (base *wheeledBase) spinMath(angleDeg float64, degsPerSec float64) (float64
 }
 
 func (base *wheeledBase) arcMath(distanceMillis int, millisPerSec float64, angleDeg float64) ([]float64, []float64) {
+	// Spin the base if the distance is 0
 	if distanceMillis == 0 {
 		rpm, revolutions := base.spinMath(angleDeg, millisPerSec)
 		rpms := []float64{rpm, -1 * rpm}
@@ -140,8 +169,6 @@ func (base *wheeledBase) arcMath(distanceMillis int, millisPerSec float64, angle
 	w0 := degsPerSec / 180 * math.Pi
 	wL := (v / r) + (l * w0 / (2 * r))
 	wR := (v / r) - (l * w0 / (2 * r))
-
-	// Determine directions of each wheel
 
 	// Calculate # of rotations
 	rotL := wL * t / (2 * math.Pi)
