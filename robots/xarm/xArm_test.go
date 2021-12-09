@@ -3,6 +3,7 @@ package xarm
 import (
 	"context"
 	"testing"
+	"fmt"
 
 	pb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
@@ -57,8 +58,8 @@ func TestWriteViam(t *testing.T) {
 
 	// draw pos start
 	goal := spatial.NewPoseFromProtobuf(&pb.Pose{
-		X:  480,
-		Y:  wbY,
+		X:  230,
+		Y:  wbY+10,
 		Z:  600,
 		OY: -1,
 	})
@@ -78,8 +79,8 @@ func TestWriteViam(t *testing.T) {
 
 		curPos, _ = fs.TransformFrame(seedMap, moveFrame, fs.World())
 
-		validFunc, gradFunc := motionplan.NewLineConstraintAndGradient(curPos.Point(), goal.Point(), validOV, 0.3, 0.05)
-		destGrad := motionplan.NewPoseFlexOVMetric(goal, 0.2)
+		validFunc, gradFunc := motionplan.NewLineConstraintAndGradient(curPos.Point(), goal.Point(), validOV, 0.01, 0.05)
+		destGrad := motionplan.NewPoseFlexOVMetric(goal, 0.)
 
 		// update constraints
 		mpFunc := func(f frame.Frame, ncpu int, logger golog.Logger) (motionplan.MotionPlanner, error) {
@@ -105,15 +106,18 @@ func TestWriteViam(t *testing.T) {
 
 	seed := steps[len(steps)-1]
 	for _, goal = range viamPoints {
+		fmt.Println("solving")
 		seed = goToGoal(seed, goal)
+		fmt.Println("solved")
 	}
 
 }
 
 var viamPoints = []spatial.Pose{
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 230, Y: wbY, Z: 600, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 200, Y: wbY, Z: 500, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 170, Y: wbY, Z: 600, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 140, Y: wbY, Z: 500, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 440, Y: wbY, Z: 500, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: wbY + 1.5, Z: 595, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: wbY + 1.5, Z: 595, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: wbY + 1.5, Z: 555, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: wbY + 1.5, Z: 555, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: wbY + 1.5, Z: 515, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: wbY + 1.5, Z: 515, OY: -1}),
 }
