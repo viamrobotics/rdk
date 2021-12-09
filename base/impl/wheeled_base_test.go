@@ -26,7 +26,6 @@ func TestFourWheelBase1(t *testing.T) {
 	}
 
 	_, err := CreateFourWheelBase(context.Background(), fakeRobot, config.Component{}, rlog.Logger)
-
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfg := config.Component{
@@ -42,7 +41,7 @@ func TestFourWheelBase1(t *testing.T) {
 	baseBase, err := CreateFourWheelBase(context.Background(), fakeRobot, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
-	base, ok := baseBase.(*FourWheelBase)
+	base, ok := baseBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("basics", func(t *testing.T) {
@@ -73,16 +72,16 @@ func TestFourWheelBase1(t *testing.T) {
 		err := base.Stop(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = base.AllMotors[0].Go(context.Background(), 1)
+		err = base.allMotors[0].Go(context.Background(), 1)
 		test.That(t, err, test.ShouldBeNil)
-		isOn, err := base.AllMotors[0].IsOn(context.Background())
+		isOn, err := base.allMotors[0].IsOn(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isOn, test.ShouldBeTrue)
 
 		err = base.WaitForMotorsToStop(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
-		for _, m := range base.AllMotors {
+		for _, m := range base.allMotors {
 			isOn, err := m.IsOn(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
@@ -91,7 +90,7 @@ func TestFourWheelBase1(t *testing.T) {
 		err = base.WaitForMotorsToStop(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
-		for _, m := range base.AllMotors {
+		for _, m := range base.allMotors {
 			isOn, err := m.IsOn(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
@@ -103,7 +102,7 @@ func TestFourWheelBase1(t *testing.T) {
 	t.Run("go no block", func(t *testing.T) {
 		err := base.MoveStraight(ctx, 10000, 1000, false)
 		test.That(t, err, test.ShouldBeNil)
-		for _, m := range base.AllMotors {
+		for _, m := range base.allMotors {
 			isOn, err := m.IsOn(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeTrue)
@@ -125,7 +124,7 @@ func TestFourWheelBase1(t *testing.T) {
 		err := base.MoveStraight(ctx, 10000, 1000, true)
 		test.That(t, err, test.ShouldBeNil)
 
-		for _, m := range base.AllMotors {
+		for _, m := range base.allMotors {
 			isOn, err := m.IsOn(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
@@ -155,7 +154,7 @@ func TestFourWheelBase1(t *testing.T) {
 		err := base.Spin(ctx, 5, 5, false)
 		test.That(t, err, test.ShouldBeNil)
 
-		for _, m := range base.AllMotors {
+		for _, m := range base.allMotors {
 			isOn, err := m.IsOn(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeTrue)
@@ -177,7 +176,7 @@ func TestFourWheelBase1(t *testing.T) {
 		err := base.Spin(ctx, 5, 5, true)
 		test.That(t, err, test.ShouldBeNil)
 
-		for _, m := range base.AllMotors {
+		for _, m := range base.allMotors {
 			isOn, err := m.IsOn(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
@@ -273,5 +272,45 @@ func TestFourWheelBase1(t *testing.T) {
 		err := base.MoveArc(ctx, 1, 0, 1, true)
 		test.That(t, err, test.ShouldBeError, errors.New("cannot block unless you have a speed"))
 	})
+
+}
+
+func TestWheeledBaseConstructor(t *testing.T) {
+	ctx := context.Background()
+
+	fakeRobot := &inject.Robot{}
+	fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
+		return &fake.Motor{}, true
+	}
+
+	_, err := CreateWheeledBase(context.Background(), fakeRobot, config.Component{}, rlog.Logger)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	cfg := config.Component{
+		Attributes: config.AttributeMap{
+			"widthMillis":              100,
+			"wheelCircumferenceMillis": 1000,
+			"left":                     []string{"fl-m", "bl-m"},
+			"right":                    []string{"fr-m"},
+		},
+	}
+	_, err = CreateWheeledBase(ctx, fakeRobot, cfg, rlog.Logger)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	cfg = config.Component{
+		Attributes: config.AttributeMap{
+			"widthMillis":              100,
+			"wheelCircumferenceMillis": 1000,
+			"left":                     []string{"fl-m", "bl-m"},
+			"right":                    []string{"fr-m", "br-m"},
+		},
+	}
+	baseBase, err := CreateWheeledBase(ctx, fakeRobot, cfg, rlog.Logger)
+	test.That(t, err, test.ShouldBeNil)
+	base, ok := baseBase.(*wheeledBase)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, len(base.left), test.ShouldEqual, 2)
+	test.That(t, len(base.right), test.ShouldEqual, 2)
+	test.That(t, len(base.allMotors), test.ShouldEqual, 4)
 
 }
