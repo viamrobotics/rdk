@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"image"
 	"image/jpeg"
 	"math"
@@ -25,7 +24,6 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/component/imu"
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
@@ -287,7 +285,6 @@ func TestClient(t *testing.T) {
 		capDigitalInterruptName string
 		capLidarName            string
 		capSensorName           string
-		capIMUName              string
 	)
 	injectBase := &inject.Base{}
 	injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
@@ -562,25 +559,6 @@ func TestClient(t *testing.T) {
 	}
 	injectRelCompassDev.StopCalibrationFunc = func(ctx context.Context) error {
 		return nil
-	}
-
-	injectIMUDev := &inject.IMU{}
-	injectIMUDev.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
-		return []interface{}{1.2, 2.3}, nil
-	}
-	injectIMUDev.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
-		return spatialmath.AngularVelocity{1, 2, 3}, nil
-	}
-	injectIMUDev.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
-		return &spatialmath.EulerAngles{1, 2, 3}, nil
-	}
-	injectRobot2.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		switch name.Subtype {
-		case imu.Subtype:
-			capIMUName = name.Name
-			return injectIMUDev, true
-		}
-		panic(fmt.Sprintf("no resource of subtype %v\n", name.Subtype))
 	}
 
 	injectInputDev := &inject.InputController{}
@@ -1272,21 +1250,6 @@ func TestClient(t *testing.T) {
 	err = compassRelDev.Mark(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capSensorName, test.ShouldEqual, "compass2")
-
-	imuDev, ok := client.ResourceByName(imu.Named("imu1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, imuDev, test.ShouldImplement, (*imu.IMU)(nil))
-	readings, err = imuDev.(imu.IMU).Readings(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings, test.ShouldResemble, []interface{}{float64(1), float64(2), float64(3), float64(1), float64(2), float64(3)})
-	vel, err := imuDev.(imu.IMU).AngularVelocity(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, vel, test.ShouldResemble, spatialmath.AngularVelocity{1, 2, 3})
-	orientation, err := imuDev.(imu.IMU).Orientation(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	ea := orientation.EulerAngles()
-	test.That(t, ea, test.ShouldResemble, &spatialmath.EulerAngles{1, 2, 3})
-	test.That(t, capIMUName, test.ShouldEqual, "imu1")
 
 	resource1, ok = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)

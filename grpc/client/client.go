@@ -23,7 +23,6 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/component/imu"
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
@@ -401,11 +400,8 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
+	// TODO(maximpertsov): remove this switch statement after the V2 migration is done
 	switch name.Subtype {
-	case imu.Subtype:
-		sensorType := rc.sensorTypes[name.Name]
-		sc := &sensorClient{rc, name.Name, sensorType}
-		return &imuClient{sc}, true
 	default:
 		c := registry.ResourceSubtypeLookup(name.Subtype)
 		if c == nil || c.RPCClient == nil {
@@ -1153,57 +1149,6 @@ func (rcc *relativeCompassClient) Mark(ctx context.Context) error {
 
 func (rcc *relativeCompassClient) Desc() sensor.Description {
 	return sensor.Description{compass.RelativeType, ""}
-}
-
-// imuClient satisfies a gRPC based imu.IMU. Refer to the interface
-// for descriptions of its methods.
-type imuClient struct {
-	*sensorClient
-}
-
-func (ic *imuClient) Readings(ctx context.Context) ([]interface{}, error) {
-	vel, err := ic.AngularVelocity(ctx)
-	if err != nil {
-		return nil, err
-	}
-	orientation, err := ic.Orientation(ctx)
-	if err != nil {
-		return nil, err
-	}
-	ea := orientation.EulerAngles()
-	return []interface{}{vel.X, vel.Y, vel.Z, ea.Roll, ea.Pitch, ea.Yaw}, nil
-}
-
-func (ic *imuClient) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	resp, err := ic.rc.client.IMUAngularVelocity(ctx, &pb.IMUAngularVelocityRequest{
-		Name: ic.name,
-	})
-	if err != nil {
-		return spatialmath.AngularVelocity{}, err
-	}
-	return spatialmath.AngularVelocity{
-		X: resp.AngularVelocity.X,
-		Y: resp.AngularVelocity.Y,
-		Z: resp.AngularVelocity.Z,
-	}, nil
-}
-
-func (ic *imuClient) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
-	resp, err := ic.rc.client.IMUOrientation(ctx, &pb.IMUOrientationRequest{
-		Name: ic.name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &spatialmath.EulerAngles{
-		Roll:  resp.Orientation.Roll,
-		Pitch: resp.Orientation.Pitch,
-		Yaw:   resp.Orientation.Yaw,
-	}, nil
-}
-
-func (ic *imuClient) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(imu.SubtypeName), ""}
 }
 
 // gpsClient satisfies a gRPC based gps.GPS. Refer to the interface
