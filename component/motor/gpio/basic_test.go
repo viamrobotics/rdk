@@ -20,14 +20,7 @@ func TestMotorABPWM(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	t.Run("motor (A/B/PWM) initialization errors", func(t *testing.T) {
-		m, err := NewMotor(b, motor.Config{Pins: map[string]string{"a": "1", "b": "2", "pwm": "3"}, PWMFreq: 4000}, logger)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, m.GoFor(ctx, 50, 10), test.ShouldBeError, errors.New("not supported, define maxRPM attribute"))
-
-		test.That(t, m.SetPower(ctx, .45), test.ShouldBeNil)
-		test.That(t, b.PWM["3"], test.ShouldEqual, byte(114))
-
-		m, err = NewMotor(b, motor.Config{Pins: map[string]string{"a": "1", "b": "2", "pwm": "3"}, MaxPowerPct: 100, PWMFreq: 4000}, logger)
+		m, err := NewMotor(b, motor.Config{Pins: map[string]string{"a": "1", "b": "2", "pwm": "3"}, MaxPowerPct: 100, PWMFreq: 4000}, logger)
 		test.That(t, m, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New("max_power_pct must be between 0.06 and 1.0"))
 	})
@@ -130,7 +123,7 @@ func TestMotorDirPWM(t *testing.T) {
 		m, err := NewMotor(b, motor.Config{Pins: map[string]string{"dir": "1", "en": "2", "pwm": "3"}, PWMFreq: 4000}, logger)
 
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, m.GoFor(ctx, 50, 10), test.ShouldBeError, errors.New("not supported, define maxRPM attribute"))
+		test.That(t, m.GoFor(ctx, 50, 10), test.ShouldBeError, errors.New("not supported, define max_rpm attribute"))
 
 		_, err = NewMotor(
 			b,

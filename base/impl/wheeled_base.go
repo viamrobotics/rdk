@@ -59,9 +59,6 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec 
 }
 
 func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-	if distanceMillis == 0 && block {
-		return errors.New("cannot block unless you have a distance")
-	}
 
 	// Straight math
 	rpm, rotations := base.straightDistanceToMotorInfo(distanceMillis, millisPerSec)
