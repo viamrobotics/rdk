@@ -157,47 +157,6 @@ type reconfigurableBoard struct {
 	digitals map[string]*reconfigurableBoardDigitalInterrupt
 }
 
-func newProxyBoard(actual Board) *reconfigurableBoard {
-	r := &reconfigurableBoard{
-		actual:   actual,
-		spis:     map[string]*reconfigurableBoardSPI{},
-		i2cs:     map[string]*reconfigurableBoardI2C{},
-		analogs:  map[string]*reconfigurableBoardAnalogReader{},
-		digitals: map[string]*reconfigurableBoardDigitalInterrupt{},
-	}
-
-	for _, name := range actual.SPINames() {
-		actualPart, ok := actual.SPIByName(name)
-		if !ok {
-			continue
-		}
-		r.spis[name] = &reconfigurableBoardSPI{actual: actualPart}
-	}
-	for _, name := range actual.I2CNames() {
-		actualPart, ok := actual.I2CByName(name)
-		if !ok {
-			continue
-		}
-		r.i2cs[name] = &reconfigurableBoardI2C{actual: actualPart}
-	}
-	for _, name := range actual.AnalogReaderNames() {
-		actualPart, ok := actual.AnalogReaderByName(name)
-		if !ok {
-			continue
-		}
-		r.analogs[name] = &reconfigurableBoardAnalogReader{actual: actualPart}
-	}
-	for _, name := range actual.DigitalInterruptNames() {
-		actualPart, ok := actual.DigitalInterruptByName(name)
-		if !ok {
-			continue
-		}
-		r.digitals[name] = &reconfigurableBoardDigitalInterrupt{actual: actualPart}
-	}
-
-	return r
-}
-
 func (r *reconfigurableBoard) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
