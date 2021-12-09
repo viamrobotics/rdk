@@ -114,6 +114,54 @@ func TestClient(t *testing.T) {
 	})
 }
 
+func TestClientZeroValues(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+
+	imu1 := "imu1"
+
+	av := spatialmath.AngularVelocity{X: 0, Y: 0, Z: 0}
+	ea := &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: 0}
+	rs := []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw}
+
+	injectIMU := &inject.IMU{}
+	injectIMU.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
+		return av, nil
+	}
+	injectIMU.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
+		return ea, nil
+	}
+	injectIMU.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+		return rs, nil
+	}
+
+	imuSvc, err := subtype.New((map[resource.Name]interface{}{imu.Named(imu1): injectIMU}))
+	test.That(t, err, test.ShouldBeNil)
+	pb.RegisterIMUServiceServer(gServer, imu.NewServer(imuSvc))
+
+	go gServer.Serve(listener1)
+	defer gServer.Stop()
+
+	t.Run("IMU client", func(t *testing.T) {
+		imu1Client, err := imu.NewClient(context.Background(), imu1, listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		av1, err := imu1Client.AngularVelocity(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, av1, test.ShouldResemble, av)
+
+		ea1, err := imu1Client.Orientation(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, ea1, test.ShouldResemble, ea)
+
+		rs1, err := imu1Client.Readings(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, rs1, test.ShouldResemble, rs)
+	})
+}
+
 func TestClientDialerOption(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
