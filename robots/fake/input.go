@@ -7,8 +7,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 
+	"go.viam.com/core/component/input"
 	"go.viam.com/core/config"
-	"go.viam.com/core/input"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 

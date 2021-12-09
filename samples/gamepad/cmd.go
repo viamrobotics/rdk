@@ -8,8 +8,8 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/component/input"
 	"go.viam.com/core/config"
-	"go.viam.com/core/input"
 	"go.viam.com/core/metadata/service"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/services/web"

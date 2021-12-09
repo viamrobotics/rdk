@@ -13,7 +13,7 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/input"
+	"go.viam.com/core/component/input"
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rlog"
