@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/motor"
@@ -253,11 +252,6 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, rotations[0], test.ShouldEqual, 1.0)
 		test.That(t, rpms[1], test.ShouldEqual, -60.0)
 		test.That(t, rotations[1], test.ShouldEqual, 1.0)
-	})
-
-	t.Run("arc math zero speed", func(t *testing.T) {
-		err := base.MoveArc(ctx, 1, 0, 1, true)
-		test.That(t, err, test.ShouldBeError, errors.New("cannot block unless you have a speed"))
 	})
 }
 
