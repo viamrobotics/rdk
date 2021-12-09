@@ -2,6 +2,7 @@ package baseimpl
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -21,31 +22,32 @@ import (
 
 func init() {
 	registry.RegisterBase("four-wheel", registry.Base{Constructor: CreateFourWheelBase})
+	registry.RegisterBase("wheeled", registry.Base{Constructor: CreateWheeledBase})
 }
 
-// FourWheelBase implements a four wheeled base
-type FourWheelBase struct {
+type wheeledBase struct {
 	widthMillis              int
 	wheelCircumferenceMillis int
 	spinSlipFactor           float64
 
-	frontLeft, frontRight, backRight, backLeft motor.Motor
-	AllMotors                                  []motor.Motor
+	left      []motor.Motor
+	right     []motor.Motor
+	allMotors []motor.Motor
 }
 
-// Spin spins the base a specified angle (subset of Move Arc)
-func (base *FourWheelBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 
 	// Spin math
 	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
 
 	// Send motor commands
-	err := multierr.Combine(
-		base.frontLeft.GoFor(ctx, rpm, revolutions),
-		base.frontRight.GoFor(ctx, -1*rpm, revolutions),
-		base.backLeft.GoFor(ctx, rpm, revolutions),
-		base.backRight.GoFor(ctx, -1*rpm, revolutions),
-	)
+	var err error
+	for _, m := range base.left {
+		err = multierr.Combine(err, m.GoFor(ctx, rpm, revolutions))
+	}
+	for _, m := range base.right {
+		err = multierr.Combine(err, m.GoFor(ctx, -1*rpm, revolutions))
+	}
 
 	if err != nil {
 		return multierr.Combine(err, base.Stop(ctx))
@@ -58,8 +60,7 @@ func (base *FourWheelBase) Spin(ctx context.Context, angleDeg float64, degsPerSe
 	return base.WaitForMotorsToStop(ctx)
 }
 
-// MoveStraight moves the base a specified distance (subset of Move Arc)
-func (base *FourWheelBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
+func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	if distanceMillis == 0 && block {
 		return errors.New("cannot block unless you have a distance")
 	}
@@ -68,7 +69,7 @@ func (base *FourWheelBase) MoveStraight(ctx context.Context, distanceMillis int,
 	rpm, rotations := base.straightDistanceToMotorInfo(distanceMillis, millisPerSec)
 
 	// Send motor commands
-	for _, m := range base.AllMotors {
+	for _, m := range base.allMotors {
 		err := m.GoFor(ctx, rpm, rotations)
 		if err != nil {
 			return multierr.Combine(err, base.Stop(ctx))
@@ -82,8 +83,7 @@ func (base *FourWheelBase) MoveStraight(ctx context.Context, distanceMillis int,
 	return base.WaitForMotorsToStop(ctx)
 }
 
-// MoveArc moves the base a specified distance at a set speed and degs per sec
-func (base *FourWheelBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
+func (base *wheeledBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
 	if millisPerSec == 0 && block {
 		return errors.New("cannot block unless you have a speed")
 	}
@@ -92,12 +92,14 @@ func (base *FourWheelBase) MoveArc(ctx context.Context, distanceMillis int, mill
 	rpmLR, revLR := base.arcMath(distanceMillis, millisPerSec, angleDeg)
 
 	// Send motor commands
-	err := multierr.Combine(
-		base.frontLeft.GoFor(ctx, rpmLR[0], revLR[0]),
-		base.frontRight.GoFor(ctx, rpmLR[1], revLR[1]),
-		base.backLeft.GoFor(ctx, rpmLR[0], revLR[0]),
-		base.backRight.GoFor(ctx, rpmLR[1], revLR[1]),
-	)
+	var err error
+	for _, m := range base.left {
+		err = multierr.Combine(err, m.GoFor(ctx, rpmLR[0], revLR[0]))
+	}
+
+	for _, m := range base.right {
+		err = multierr.Combine(err, m.GoFor(ctx, rpmLR[1], revLR[1]))
+	}
 
 	if err != nil {
 		return multierr.Combine(err, base.Stop(ctx))
@@ -110,8 +112,8 @@ func (base *FourWheelBase) MoveArc(ctx context.Context, distanceMillis int, mill
 	return base.WaitForMotorsToStop(ctx)
 }
 
-// SpinMath returns rpm, revolutions for spin motion
-func (base *FourWheelBase) spinMath(angleDeg float64, degsPerSec float64) (float64, float64) {
+// returns rpm, revolutions for spin motion
+func (base *wheeledBase) spinMath(angleDeg float64, degsPerSec float64) (float64, float64) {
 	wheelTravel := base.spinSlipFactor * float64(base.widthMillis) * math.Pi * angleDeg / 360.0
 	revolutions := wheelTravel / float64(base.wheelCircumferenceMillis)
 
@@ -122,8 +124,7 @@ func (base *FourWheelBase) spinMath(angleDeg float64, degsPerSec float64) (float
 	return rpm, revolutions
 }
 
-// ArcMath performs calculations for arcing motion
-func (base *FourWheelBase) arcMath(distanceMillis int, millisPerSec float64, angleDeg float64) ([]float64, []float64) {
+func (base *wheeledBase) arcMath(distanceMillis int, millisPerSec float64, angleDeg float64) ([]float64, []float64) {
 	if distanceMillis == 0 {
 		rpm, revolutions := base.spinMath(angleDeg, millisPerSec)
 		rpms := []float64{rpm, -1 * rpm}
@@ -164,8 +165,7 @@ func (base *FourWheelBase) arcMath(distanceMillis int, millisPerSec float64, ang
 	return rpms, rots
 }
 
-// StraightDistanceToMotorInfo performs calculations to determeine rpm and # of revolutions
-func (base *FourWheelBase) straightDistanceToMotorInfo(distanceMillis int, millisPerSec float64) (float64, float64) {
+func (base *wheeledBase) straightDistanceToMotorInfo(distanceMillis int, millisPerSec float64) (float64, float64) {
 
 	rotations := float64(distanceMillis) / float64(base.wheelCircumferenceMillis)
 
@@ -175,8 +175,7 @@ func (base *FourWheelBase) straightDistanceToMotorInfo(distanceMillis int, milli
 	return rpm, rotations
 }
 
-// WaitForMotorsToStop waits for motors to stop
-func (base *FourWheelBase) WaitForMotorsToStop(ctx context.Context) error {
+func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return ctx.Err()
@@ -185,7 +184,7 @@ func (base *FourWheelBase) WaitForMotorsToStop(ctx context.Context) error {
 		anyOn := false
 		anyOff := false
 
-		for _, m := range base.AllMotors {
+		for _, m := range base.allMotors {
 			isOn, err := m.IsOn(ctx)
 			if err != nil {
 				return err
@@ -208,23 +207,19 @@ func (base *FourWheelBase) WaitForMotorsToStop(ctx context.Context) error {
 	}
 }
 
-// Stop stops motors
-func (base *FourWheelBase) Stop(ctx context.Context) error {
-	return multierr.Combine(
-		base.frontLeft.Off(ctx),
-		base.frontRight.Off(ctx),
-		base.backLeft.Off(ctx),
-		base.backRight.Off(ctx),
-	)
+func (base *wheeledBase) Stop(ctx context.Context) error {
+	var err error
+	for _, m := range base.allMotors {
+		err = multierr.Combine(err, m.Off(ctx))
+	}
+	return err
 }
 
-// Close closes out background processes
-func (base *FourWheelBase) Close() error {
+func (base *wheeledBase) Close() error {
 	return base.Stop(context.Background())
 }
 
-// WidthMillis returns width of base
-func (base *FourWheelBase) WidthMillis(ctx context.Context) (int, error) {
+func (base *wheeledBase) WidthMillis(ctx context.Context) (int, error) {
 	return base.widthMillis, nil
 }
 
@@ -247,14 +242,12 @@ func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Compo
 		return nil, errors.New("backRight motor not found")
 	}
 
-	base := &FourWheelBase{
+	base := &wheeledBase{
 		widthMillis:              config.Attributes.Int("widthMillis", 0),
 		wheelCircumferenceMillis: config.Attributes.Int("wheelCircumferenceMillis", 0),
 		spinSlipFactor:           config.Attributes.Float64("spinSlipFactor", 1.0),
-		frontLeft:                frontLeft,
-		frontRight:               frontRight,
-		backLeft:                 backLeft,
-		backRight:                backRight,
+		left:                     []motor.Motor{frontLeft, backLeft},
+		right:                    []motor.Motor{frontRight, backRight},
 	}
 
 	if base.widthMillis == 0 {
@@ -265,14 +258,55 @@ func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Compo
 		return nil, errors.New("need a wheelCircumferenceMillis for a four-wheel base")
 	}
 
-	if base.frontLeft == nil || base.frontRight == nil || base.backLeft == nil || base.backRight == nil {
-		return nil, errors.New("need valid motors for frontLeft, frontRight, backLeft, backRight")
+	base.allMotors = append(base.allMotors, base.left...)
+	base.allMotors = append(base.allMotors, base.right...)
+
+	return base, nil
+}
+
+// CreateWheeledBase returns a new wheeled base defined by the given config.
+func CreateWheeledBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error) {
+
+	base := &wheeledBase{
+		widthMillis:              config.Attributes.Int("widthMillis", 0),
+		wheelCircumferenceMillis: config.Attributes.Int("wheelCircumferenceMillis", 0),
+		spinSlipFactor:           config.Attributes.Float64("spinSlipFactor", 1.0),
 	}
 
-	base.AllMotors = append(base.AllMotors, base.frontLeft)
-	base.AllMotors = append(base.AllMotors, base.frontRight)
-	base.AllMotors = append(base.AllMotors, base.backLeft)
-	base.AllMotors = append(base.AllMotors, base.backRight)
+	if base.widthMillis == 0 {
+		return nil, errors.New("need a widthMillis for a wheeled base")
+	}
+
+	if base.wheelCircumferenceMillis == 0 {
+		return nil, errors.New("need a wheelCircumferenceMillis for a wheeled base")
+	}
+
+	for _, name := range config.Attributes.StringSlice("left") {
+		m, ok := r.MotorByName(name)
+		if !ok {
+			return nil, fmt.Errorf("no left motor named (%s)", name)
+		}
+		base.left = append(base.left, m)
+	}
+
+	for _, name := range config.Attributes.StringSlice("right") {
+		m, ok := r.MotorByName(name)
+		if !ok {
+			return nil, fmt.Errorf("no right motor named (%s)", name)
+		}
+		base.right = append(base.right, m)
+	}
+
+	if len(base.left) == 0 {
+		return nil, errors.New("need left and right motors")
+	}
+
+	if len(base.left) != len(base.right) {
+		return nil, fmt.Errorf("left and right need to have the same number of motors, not %d vs %d", len(base.left), len(base.right))
+	}
+
+	base.allMotors = append(base.allMotors, base.left...)
+	base.allMotors = append(base.allMotors, base.right...)
 
 	return base, nil
 }
