@@ -3,6 +3,7 @@ package gpio
 import (
 	"context"
 	"testing"
+	"time"
 
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/robots/fake"
@@ -322,4 +323,27 @@ func TestMotorAB(t *testing.T) {
 		test.That(t, b.PWMSetFreq(ctx, "2", 8000), test.ShouldBeNil)
 		test.That(t, b.PWMFreq["2"], test.ShouldEqual, 8000)
 	})
+}
+
+func TestGoForMath(t *testing.T) {
+	powerPct, waitDur := goForMath(100, 100, 100)
+	test.That(t, powerPct, test.ShouldEqual, 1)
+	test.That(t, waitDur, test.ShouldEqual, time.Minute)
+
+	powerPct, waitDur = goForMath(100, -100, 100)
+	test.That(t, powerPct, test.ShouldEqual, -1)
+	test.That(t, waitDur, test.ShouldEqual, time.Minute)
+
+	powerPct, waitDur = goForMath(100, -1000, 100)
+	test.That(t, powerPct, test.ShouldEqual, -1)
+	test.That(t, waitDur, test.ShouldEqual, time.Minute)
+
+	powerPct, waitDur = goForMath(100, 1000, 200)
+	test.That(t, powerPct, test.ShouldEqual, 1)
+	test.That(t, waitDur, test.ShouldEqual, 2*time.Minute)
+
+	powerPct, waitDur = goForMath(100, 1000, 50)
+	test.That(t, powerPct, test.ShouldEqual, 1)
+	test.That(t, waitDur, test.ShouldEqual, 30*time.Second)
+
 }

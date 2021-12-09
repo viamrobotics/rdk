@@ -159,6 +159,8 @@ func TestClientZeroValues(t *testing.T) {
 		rs1, err := imu1Client.Readings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
+
+		test.That(t, utils.TryClose(imu1Client), test.ShouldBeNil)
 	})
 }
 

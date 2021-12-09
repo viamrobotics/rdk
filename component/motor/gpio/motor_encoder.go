@@ -180,7 +180,10 @@ func (m *EncodedMotor) Position(ctx context.Context) (float64, error) {
 func (m *EncodedMotor) DirectionMoving() int64 {
 	m.stateMu.RLock()
 	defer m.stateMu.RUnlock()
+	return m.directionMovingInLock()
+}
 
+func (m *EncodedMotor) directionMovingInLock() int64 {
 	if !math.Signbit(m.state.lastPowerPct) {
 		return 1
 	}
@@ -348,7 +351,7 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 
 	var ticksLeft int64
 
-	if !m.state.regulated && m.state.desiredRPM > 0 {
+	if !m.state.regulated && math.Abs(m.state.desiredRPM) > 0.001 {
 		m.rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime, m.state.desiredRPM, -1, rpmDebug)
 		return
 	}
@@ -391,7 +394,7 @@ func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime in
 
 	var newPowerPct float64
 
-	if currentRPM == 0 {
+	if math.Abs(currentRPM) <= 0.001 {
 		if math.Abs(lastPowerPct) < 0.01 {
 			newPowerPct = .01 * desiredRPM / math.Abs(desiredRPM)
 		} else {
@@ -460,7 +463,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 		m.stateMu.Lock()
 		oldRpm := m.state.desiredRPM
 		m.state.desiredRPM = rpm
-		if oldRpm > 0 && d == m.DirectionMoving() {
+		if math.Abs(oldRpm) > 0.001 && d == m.directionMovingInLock() {
 			m.stateMu.Unlock()
 			return nil
 		}
@@ -566,7 +569,7 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 		m.stateMu.RLock()
 		curRPM := m.state.currentRPM
 		m.stateMu.RUnlock()
-		if curRPM >= rpm/10 {
+		if math.Abs(curRPM) >= math.Abs(rpm)/10 {
 			rpmCount++
 		} else {
 			rpmCount = 0
@@ -592,7 +595,7 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 		curRPM := m.state.currentRPM
 		m.stateMu.RUnlock()
 
-		if curRPM <= rpm/10 {
+		if math.Abs(curRPM) <= math.Abs(rpm)/10 {
 			rpmCount++
 		} else {
 			rpmCount = 0

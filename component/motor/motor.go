@@ -206,6 +206,7 @@ type Config struct {
 	MaxAcceleration  float64           `json:"max_acceleration"` // RPM per second
 	PWMFreq          uint              `json:"pwmFreq"`
 	StepperDelay     uint              `json:"stepperDelay"` // When using stepper motors, the time to remain high
+	DirFlip          bool              `json:"dir_flip"`     // Flip the direction of the signal sent if there is a Dir pin
 	PID              *PIDConfig        `json:"pid,omitempty"`
 }
 
