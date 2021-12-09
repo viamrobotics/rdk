@@ -189,6 +189,21 @@ func (m *Motor) Go(ctx context.Context, powerPct float64) error {
 	return errors.New("trying to go backwards but don't have dir or a&b pins")
 }
 
+func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
+
+	// need to do this so time is reasonable
+	if rpm > maxRPM {
+		rpm = maxRPM
+	} else if rpm < -1*maxRPM {
+		rpm = -1 * maxRPM
+	}
+
+	dir := rpm * revolutions / math.Abs(revolutions*rpm)
+	powerPct := math.Abs(rpm) / maxRPM * dir
+	waitDur := time.Duration(math.Abs(revolutions/rpm)*60*1000) * time.Millisecond
+	return powerPct, waitDur
+}
+
 // GoFor moves an inputted number of revolutations at the given rpm, no encoder is present
 // for this so power is deteremiend via a linear relationship with the maxRPM and the distance
 // traveled is a time based estimation based on desired RPM.
@@ -197,9 +212,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 		return errors.New("not supported, define maxRPM attribute")
 	}
 
-	d := rpm * revolutions / math.Abs(revolutions*rpm)
-	powerPct := math.Abs(rpm) / m.maxRPM * d
-	waitDur := time.Duration(math.Abs(revolutions/rpm)*60*1000) * time.Millisecond
+	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
 	err := m.Go(ctx, powerPct)
 
 	if err != nil {
