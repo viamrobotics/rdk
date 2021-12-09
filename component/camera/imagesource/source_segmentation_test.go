@@ -32,7 +32,7 @@ func (h *segmentationSourceTestHelper) Process(t *testing.T, pCtx *rimage.Proces
 	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "aligned-depth")
 
 	// change to use projection camera
-	fixed.SetCameraSystem(dc.projectionCamera)
+	fixed.SetCamera(dc.projectionCamera)
 
 	//
 	source := &staticSource{fixed}

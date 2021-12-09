@@ -34,14 +34,14 @@ func (i *ImageWithDepth) IsAligned() bool {
 	return i.aligned
 }
 
-// CameraSystem returns the camera system that captured the image.
-func (i *ImageWithDepth) CameraSystem() CameraSystem {
+// Camera returns the camera Projector that transforms between 2D and 3D images.
+func (i *ImageWithDepth) Camera() Projector {
 	return i.camera
 }
 
-// SetCameraSystem sets the camera system that captured the image.
-func (i *ImageWithDepth) SetCameraSystem(s CameraSystem) {
-	i.camera = s
+// SetCamera sets the camera Projector that transforms between 2D and 3D images.
+func (i *ImageWithDepth) SetCamera(p Projector) {
+	i.camera = p
 }
 
 // ToPointCloud takes a 2D ImageWithDepth and projects it to a 3D PointCloud. If no CameraSystem

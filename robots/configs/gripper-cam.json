@@ -43,7 +43,7 @@
               "depth" : "depth",
               "homography": {
                   "color": {
-                    "height": 786,
+                    "height": 768,
                     "width": 1024,
                     "fx": 821.32642889,
                     "fy": 821.68607359,
