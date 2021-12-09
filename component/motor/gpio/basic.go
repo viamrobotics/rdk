@@ -58,6 +58,7 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 		minPowerPct: mc.MinPowerPct,
 		maxPowerPct: mc.MaxPowerPct,
 		maxRPM:      mc.MaxRPM,
+		dirFlip:     mc.DirFlip,
 		pid:         pid,
 		logger:      logger,
 		cancelMu:    &sync.Mutex{},
@@ -76,6 +77,7 @@ type Motor struct {
 	minPowerPct        float64
 	maxPowerPct        float64
 	maxRPM             float64
+	dirFlip            bool
 	pid                motor.PID
 
 	cancelMu      *sync.Mutex
@@ -163,8 +165,12 @@ func (m *Motor) Go(ctx context.Context, powerPct float64) error {
 	}
 
 	if m.Dir != "" {
+		x := !math.Signbit(powerPct)
+		if m.dirFlip {
+			x = !x
+		}
 		return multierr.Combine(
-			m.Board.GPIOSet(ctx, m.Dir, !math.Signbit(powerPct)),
+			m.Board.GPIOSet(ctx, m.Dir, x),
 			m.SetPower(ctx, powerPct),
 		)
 	}
