@@ -505,9 +505,6 @@ export class BaseMoveStraightResponse extends jspb.Message {
   getError(): string;
   setError(value: string): void;
 
-  getDistanceMillis(): number;
-  setDistanceMillis(value: number): void;
-
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): BaseMoveStraightResponse.AsObject;
   static toObject(includeInstance: boolean, msg: BaseMoveStraightResponse): BaseMoveStraightResponse.AsObject;
@@ -522,7 +519,6 @@ export namespace BaseMoveStraightResponse {
   export type AsObject = {
     success: boolean,
     error: string,
-    distanceMillis: number,
   }
 }
 
@@ -565,9 +561,6 @@ export class BaseMoveArcResponse extends jspb.Message {
   getError(): string;
   setError(value: string): void;
 
-  getDistanceMillis(): number;
-  setDistanceMillis(value: number): void;
-
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): BaseMoveArcResponse.AsObject;
   static toObject(includeInstance: boolean, msg: BaseMoveArcResponse): BaseMoveArcResponse.AsObject;
@@ -582,7 +575,6 @@ export namespace BaseMoveArcResponse {
   export type AsObject = {
     success: boolean,
     error: string,
-    distanceMillis: number,
   }
 }
 
@@ -621,9 +613,6 @@ export class BaseSpinResponse extends jspb.Message {
   getError(): string;
   setError(value: string): void;
 
-  getAngleDeg(): number;
-  setAngleDeg(value: number): void;
-
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): BaseSpinResponse.AsObject;
   static toObject(includeInstance: boolean, msg: BaseSpinResponse): BaseSpinResponse.AsObject;
@@ -638,7 +627,6 @@ export namespace BaseSpinResponse {
   export type AsObject = {
     success: boolean,
     error: string,
-    angleDeg: number,
   }
 }
 

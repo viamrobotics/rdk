@@ -6919,8 +6919,7 @@ proto.proto.api.v1.BaseMoveStraightResponse.prototype.toObject = function(opt_in
 proto.proto.api.v1.BaseMoveStraightResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     success: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
-    error: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    distanceMillis: jspb.Message.getFieldWithDefault(msg, 3, 0)
+    error: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
   if (includeInstance) {
@@ -6965,10 +6964,6 @@ proto.proto.api.v1.BaseMoveStraightResponse.deserializeBinaryFromReader = functi
       var value = /** @type {string} */ (reader.readString());
       msg.setError(value);
       break;
-    case 3:
-      var value = /** @type {number} */ (reader.readInt64());
-      msg.setDistanceMillis(value);
-      break;
     default:
       reader.skipField();
       break;
@@ -7012,13 +7007,6 @@ proto.proto.api.v1.BaseMoveStraightResponse.serializeBinaryToWriter = function(m
       f
     );
   }
-  f = message.getDistanceMillis();
-  if (f !== 0) {
-    writer.writeInt64(
-      3,
-      f
-    );
-  }
 };
 
 
@@ -7055,24 +7043,6 @@ proto.proto.api.v1.BaseMoveStraightResponse.prototype.getError = function() {
  */
 proto.proto.api.v1.BaseMoveStraightResponse.prototype.setError = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
-};
-
-
-/**
- * optional int64 distance_millis = 3;
- * @return {number}
- */
-proto.proto.api.v1.BaseMoveStraightResponse.prototype.getDistanceMillis = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.proto.api.v1.BaseMoveStraightResponse} returns this
- */
-proto.proto.api.v1.BaseMoveStraightResponse.prototype.setDistanceMillis = function(value) {
-  return jspb.Message.setProto3IntField(this, 3, value);
 };
 
 
@@ -7329,8 +7299,7 @@ proto.proto.api.v1.BaseMoveArcResponse.prototype.toObject = function(opt_include
 proto.proto.api.v1.BaseMoveArcResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     success: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
-    error: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    distanceMillis: jspb.Message.getFieldWithDefault(msg, 3, 0)
+    error: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
   if (includeInstance) {
@@ -7375,10 +7344,6 @@ proto.proto.api.v1.BaseMoveArcResponse.deserializeBinaryFromReader = function(ms
       var value = /** @type {string} */ (reader.readString());
       msg.setError(value);
       break;
-    case 3:
-      var value = /** @type {number} */ (reader.readInt64());
-      msg.setDistanceMillis(value);
-      break;
     default:
       reader.skipField();
       break;
@@ -7422,13 +7387,6 @@ proto.proto.api.v1.BaseMoveArcResponse.serializeBinaryToWriter = function(messag
       f
     );
   }
-  f = message.getDistanceMillis();
-  if (f !== 0) {
-    writer.writeInt64(
-      3,
-      f
-    );
-  }
 };
 
 
@@ -7465,24 +7423,6 @@ proto.proto.api.v1.BaseMoveArcResponse.prototype.getError = function() {
  */
 proto.proto.api.v1.BaseMoveArcResponse.prototype.setError = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
-};
-
-
-/**
- * optional int64 distance_millis = 3;
- * @return {number}
- */
-proto.proto.api.v1.BaseMoveArcResponse.prototype.getDistanceMillis = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.proto.api.v1.BaseMoveArcResponse} returns this
- */
-proto.proto.api.v1.BaseMoveArcResponse.prototype.setDistanceMillis = function(value) {
-  return jspb.Message.setProto3IntField(this, 3, value);
 };
 
 
@@ -7709,8 +7649,7 @@ proto.proto.api.v1.BaseSpinResponse.prototype.toObject = function(opt_includeIns
 proto.proto.api.v1.BaseSpinResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     success: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
-    error: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    angleDeg: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0)
+    error: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
   if (includeInstance) {
@@ -7755,10 +7694,6 @@ proto.proto.api.v1.BaseSpinResponse.deserializeBinaryFromReader = function(msg, 
       var value = /** @type {string} */ (reader.readString());
       msg.setError(value);
       break;
-    case 3:
-      var value = /** @type {number} */ (reader.readDouble());
-      msg.setAngleDeg(value);
-      break;
     default:
       reader.skipField();
       break;
@@ -7802,13 +7737,6 @@ proto.proto.api.v1.BaseSpinResponse.serializeBinaryToWriter = function(message, 
       f
     );
   }
-  f = message.getAngleDeg();
-  if (f !== 0.0) {
-    writer.writeDouble(
-      3,
-      f
-    );
-  }
 };
 
 
@@ -7845,24 +7773,6 @@ proto.proto.api.v1.BaseSpinResponse.prototype.getError = function() {
  */
 proto.proto.api.v1.BaseSpinResponse.prototype.setError = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
-};
-
-
-/**
- * optional double angle_deg = 3;
- * @return {number}
- */
-proto.proto.api.v1.BaseSpinResponse.prototype.getAngleDeg = function() {
-  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.proto.api.v1.BaseSpinResponse} returns this
- */
-proto.proto.api.v1.BaseSpinResponse.prototype.setAngleDeg = function(value) {
-  return jspb.Message.setProto3FloatField(this, 3, value);
 };
 
 

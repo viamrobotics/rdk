@@ -34,19 +34,19 @@ func (p *proxyBase) ProxyFor() interface{} {
 	return p.actual
 }
 
-func (p *proxyBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+func (p *proxyBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.MoveStraight(ctx, distanceMillis, millisPerSec, block)
 }
 
-func (p *proxyBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) (int, error) {
+func (p *proxyBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.MoveArc(ctx, distanceMillis, millisPerSec, degsPerSec, block)
 }
 
-func (p *proxyBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+func (p *proxyBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.Spin(ctx, angleDeg, degsPerSec, block)

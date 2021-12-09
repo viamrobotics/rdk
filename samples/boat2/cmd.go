@@ -283,7 +283,7 @@ func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golo
 	return b, nil
 }
 
-func (b *boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+func (b *boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	speed := 0.7
 	if distanceMillis >= 9*1000 {
 		speed = 1.0
@@ -292,7 +292,7 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 	if true {
 		err := b.SteerAndMove(ctx, 0, speed)
 		utils.SelectContextOrWait(ctx, 10000*time.Millisecond)
-		return 0, err
+		return err
 	}
 
 	if math.Abs(b.lastSpin) > 90 {
@@ -314,27 +314,27 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 	}
 
 	//fmt.Printf("MoveStraight steeringDir: %0.2f speed: %v distanceMillis: %v lastSpin: %v\n", steeringDir, speed, distanceMillis, b.lastSpin)
-	return 0, b.SteerAndMove(ctx, dir, speed)
+	return b.SteerAndMove(ctx, dir, speed)
 }
 
 // MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD)
-func (b *boat) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) (int, error) {
-	return 1, errors.New("boat can't move in arc yet")
+func (b *boat) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
+	return errors.New("boat can't move in arc yet")
 }
 
-func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 	b.lastSpin = angleDeg
 	b.previousSpins = append(b.previousSpins, b.lastSpin)
 
 	if angleDeg < 3 && angleDeg > -3 {
-		return 0, nil
+		return nil
 	}
 
 	if true { // try to spin now
 		fmt.Printf("want to turn %v\n", angleDeg)
 		start, err := b.myImu.Orientation(ctx)
 		if err != nil {
-			return 0, err
+			return err
 		}
 		startAngle := start.EulerAngles().Yaw
 
@@ -344,29 +344,29 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 		}
 		err = b.SteerAndMove(ctx, dir, 0)
 		if err != nil {
-			return 0, err
+			return err
 		}
 
 		// chek how much we've spinned till we've spin the righ amount
 		for i := 0; i < 1000; i++ {
 			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
-				return 0, nil
+				return nil
 			}
 
 			now, err := b.myImu.Orientation(ctx)
 			if err != nil {
-				return 0, err
+				return err
 			}
 
 			left := math.Abs(angleDeg) - coreutils.AngleDiffDeg(startAngle, now.EulerAngles().Yaw)
 			fmt.Printf("\t left %v (%#v %#v)\n", left, startAngle, now.EulerAngles().Yaw)
 			if left < 5 || left > 180 {
-				return 0, b.Stop(ctx)
+				return b.Stop(ctx)
 			}
 		}
 	}
 
-	return 0, nil
+	return nil
 }
 
 func (b *boat) WidthMillis(ctx context.Context) (int, error) {

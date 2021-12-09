@@ -11,15 +11,15 @@ import (
 // Base is an injected base.
 type Base struct {
 	base.Base
-	MoveStraightFunc func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error)
-	SpinFunc         func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error)
+	MoveStraightFunc func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error
+	SpinFunc         func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error
 	WidthMillisFunc  func(ctx context.Context) (int, error)
 	StopFunc         func(ctx context.Context) error
 	CloseFunc        func() error
 }
 
 // MoveStraight calls the injected MoveStraight or the real version.
-func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	if b.MoveStraightFunc == nil {
 		return b.Base.MoveStraight(ctx, distanceMillis, millisPerSec, block)
 	}
@@ -27,7 +27,7 @@ func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 }
 
 // Spin calls the injected Spin or the real version.
-func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 	if b.SpinFunc == nil {
 		return b.Base.Spin(ctx, angleDeg, degsPerSec, block)
 	}

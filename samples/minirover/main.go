@@ -90,14 +90,14 @@ func dock(ctx context.Context, r robot.Robot) error {
 
 		angle := x * -15
 		logger.Debugf("turning %v degrees", angle)
-		_, err = base.Spin(ctx, angle, 10, true)
+		err = base.Spin(ctx, angle, 10, true)
 		if err != nil {
 			return err
 		}
 
 		amount := 100.0 - (100.0 * y)
 		logger.Debugf("moved %v millis", amount)
-		_, err = base.MoveStraight(ctx, int(-1*amount), 50, true)
+		err = base.MoveStraight(ctx, int(-1*amount), 50, true)
 		if err != nil {
 			return err
 		}

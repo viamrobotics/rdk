@@ -56,16 +56,15 @@ type Boat struct {
 }
 
 // MoveStraight TODO
-func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	if block {
-		return 0, errors.New("boat can't block for move straight yet")
+		return errors.New("boat can't block for move straight yet")
 	}
 
 	speed := (millisPerSec * 60.0) / float64(millisPerRotation)
 	rotations := float64(distanceMillis) / millisPerRotation
 
-	// TODO(erh): return how much it actually moved
-	return distanceMillis, multierr.Combine(
+	return multierr.Combine(
 		b.starboard.GoFor(ctx, speed, rotations),
 		b.port.GoFor(ctx, speed, rotations),
 	)
@@ -73,13 +72,13 @@ func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 }
 
 // MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD)
-func (b *Boat) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) (int, error) {
-	return 1, errors.New("boat can't move in arc yet")
+func (b *Boat) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
+	return errors.New("boat can't move in arc yet")
 }
 
 // Spin TODO
-func (b *Boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
-	return math.NaN(), errors.New("boat can't spin yet")
+func (b *Boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+	return errors.New("boat can't spin yet")
 }
 
 // WidthMillis TODO
