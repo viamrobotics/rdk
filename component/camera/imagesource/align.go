@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, "depthComposed", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+	registry.RegisterComponent(camera.Subtype, "depth_composed", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		attrs := config.Attributes
 
 		colorName := attrs.String("color")
@@ -47,7 +47,7 @@ func init() {
 		return &camera.ImageSource{ImageSource: dc}, nil
 	}})
 
-	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "warp", func(val interface{}) (interface{}, error) {
+	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depth_composed", "warp", func(val interface{}) (interface{}, error) {
 		warp := &transform.AlignConfig{}
 		err := mapstructure.Decode(val, warp)
 		if err == nil {
@@ -56,7 +56,7 @@ func init() {
 		return warp, err
 	})
 
-	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "intrinsic_extrinsic", func(val interface{}) (interface{}, error) {
+	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depth_composed", "intrinsic_extrinsic", func(val interface{}) (interface{}, error) {
 		matrices := &transform.DepthColorIntrinsicsExtrinsics{}
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: matrices})
 		if err != nil {
@@ -69,7 +69,7 @@ func init() {
 		return matrices, err
 	})
 
-	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depthComposed", "homography", func(val interface{}) (interface{}, error) {
+	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depth_composed", "homography", func(val interface{}) (interface{}, error) {
 		homography := &transform.RawPinholeCameraHomography{}
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: homography})
 		if err != nil {

@@ -19,7 +19,7 @@
         },
         { "name" : "depth-pretty-awkward",
           "type" : "camera",
-          "model" : "depthToPretty",
+          "model" : "depth_to_pretty",
           "attributes" : {
               "source" : "depth",
               "hide" : true
@@ -36,7 +36,7 @@
         },
         { "name" : "combined",
           "type" : "camera",
-          "model" : "depthComposed",
+          "model" : "depth_composed",
           "attributes" : {
               "debug" : false,
               "color" : "color",
@@ -75,7 +75,7 @@
         },
         { "name" : "depth-after-align",
           "type" : "camera",
-          "model" : "depthToPretty",
+          "model" : "depth_to_pretty",
           "attributes" : {
               "source" : "combined",
               "hide" : true

@@ -19,7 +19,7 @@ import (
 )
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, "colorSegments", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+	registry.RegisterComponent(camera.Subtype, "color_segments", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		return newColorSegmentsSource(r, config)
 	}})
 }
