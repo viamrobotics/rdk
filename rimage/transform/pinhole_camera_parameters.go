@@ -9,10 +9,11 @@ import (
 	"math"
 	"os"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/config"
 	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/rimage"
-	"go.viam.com/utils"
 
 	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
