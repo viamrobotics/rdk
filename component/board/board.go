@@ -432,6 +432,7 @@ type reconfigurableBoardSPI struct {
 	actual SPI
 }
 
+// TODO(maximpertsov): replace "replace" with Reconfigure?
 func (r *reconfigurableBoardSPI) replace(newSPI SPI) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -460,6 +461,7 @@ func (r *reconfigurableBoardI2C) ProxyFor() interface{} {
 	return r.actual
 }
 
+// TODO(maximpertsov): replace "replace" with Reconfigure?
 func (r *reconfigurableBoardI2C) replace(newI2C I2C) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -482,6 +484,7 @@ type reconfigurableBoardAnalogReader struct {
 	actual AnalogReader
 }
 
+// TODO(maximpertsov): replace "replace" with Reconfigure?
 func (r *reconfigurableBoardAnalogReader) replace(newAnalogReader AnalogReader) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -522,6 +525,7 @@ func (r *reconfigurableBoardDigitalInterrupt) ProxyFor() interface{} {
 	return r.actual
 }
 
+// TODO(maximpertsov): replace "replace" with Reconfigure?
 func (r *reconfigurableBoardDigitalInterrupt) replace(newDigitalInterrupt DigitalInterrupt) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
