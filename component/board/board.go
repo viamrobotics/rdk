@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/go-errors/errors"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/rlog"
@@ -140,24 +141,29 @@ type AnalogReader interface {
 // only used in DigitalInterrupt readings.
 type PostProcessor func(raw int64) int64
 
+var (
+	_ = Board(&reconfigurableBoard{})
+	_ = resource.Reconfigurable(&reconfigurableBoard{})
+)
+
 // IMPORTED FROM robot/impl/proxy.go
 
-type proxyBoard struct {
+type reconfigurableBoard struct {
 	mu       sync.RWMutex
 	actual   Board
-	spis     map[string]*proxyBoardSPI
-	i2cs     map[string]*proxyBoardI2C
-	analogs  map[string]*proxyBoardAnalogReader
-	digitals map[string]*proxyBoardDigitalInterrupt
+	spis     map[string]*reconfigurableBoardSPI
+	i2cs     map[string]*reconfigurableBoardI2C
+	analogs  map[string]*reconfigurableBoardAnalogReader
+	digitals map[string]*reconfigurableBoardDigitalInterrupt
 }
 
-func newProxyBoard(actual Board) *proxyBoard {
-	p := &proxyBoard{
+func newProxyBoard(actual Board) *reconfigurableBoard {
+	r := &reconfigurableBoard{
 		actual:   actual,
-		spis:     map[string]*proxyBoardSPI{},
-		i2cs:     map[string]*proxyBoardI2C{},
-		analogs:  map[string]*proxyBoardAnalogReader{},
-		digitals: map[string]*proxyBoardDigitalInterrupt{},
+		spis:     map[string]*reconfigurableBoardSPI{},
+		i2cs:     map[string]*reconfigurableBoardI2C{},
+		analogs:  map[string]*reconfigurableBoardAnalogReader{},
+		digitals: map[string]*reconfigurableBoardDigitalInterrupt{},
 	}
 
 	for _, name := range actual.SPINames() {
@@ -165,145 +171,145 @@ func newProxyBoard(actual Board) *proxyBoard {
 		if !ok {
 			continue
 		}
-		p.spis[name] = &proxyBoardSPI{actual: actualPart}
+		r.spis[name] = &reconfigurableBoardSPI{actual: actualPart}
 	}
 	for _, name := range actual.I2CNames() {
 		actualPart, ok := actual.I2CByName(name)
 		if !ok {
 			continue
 		}
-		p.i2cs[name] = &proxyBoardI2C{actual: actualPart}
+		r.i2cs[name] = &reconfigurableBoardI2C{actual: actualPart}
 	}
 	for _, name := range actual.AnalogReaderNames() {
 		actualPart, ok := actual.AnalogReaderByName(name)
 		if !ok {
 			continue
 		}
-		p.analogs[name] = &proxyBoardAnalogReader{actual: actualPart}
+		r.analogs[name] = &reconfigurableBoardAnalogReader{actual: actualPart}
 	}
 	for _, name := range actual.DigitalInterruptNames() {
 		actualPart, ok := actual.DigitalInterruptByName(name)
 		if !ok {
 			continue
 		}
-		p.digitals[name] = &proxyBoardDigitalInterrupt{actual: actualPart}
+		r.digitals[name] = &reconfigurableBoardDigitalInterrupt{actual: actualPart}
 	}
 
-	return p
+	return r
 }
 
-func (p *proxyBoard) ProxyFor() interface{} {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual
+func (r *reconfigurableBoard) ProxyFor() interface{} {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual
 }
 
-func (p *proxyBoard) SPIByName(name string) (SPI, bool) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	s, ok := p.spis[name]
+func (r *reconfigurableBoard) SPIByName(name string) (SPI, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	s, ok := r.spis[name]
 	return s, ok
 }
 
-func (p *proxyBoard) I2CByName(name string) (I2C, bool) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	s, ok := p.i2cs[name]
+func (r *reconfigurableBoard) I2CByName(name string) (I2C, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	s, ok := r.i2cs[name]
 	return s, ok
 }
 
-func (p *proxyBoard) AnalogReaderByName(name string) (AnalogReader, bool) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	a, ok := p.analogs[name]
+func (r *reconfigurableBoard) AnalogReaderByName(name string) (AnalogReader, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	a, ok := r.analogs[name]
 	return a, ok
 }
 
-func (p *proxyBoard) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	d, ok := p.digitals[name]
+func (r *reconfigurableBoard) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	d, ok := r.digitals[name]
 	return d, ok
 }
 
-func (p *proxyBoard) GPIOSet(ctx context.Context, pin string, high bool) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.GPIOSet(ctx, pin, high)
+func (r *reconfigurableBoard) GPIOSet(ctx context.Context, pin string, high bool) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.GPIOSet(ctx, pin, high)
 }
 
-func (p *proxyBoard) GPIOGet(ctx context.Context, pin string) (bool, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.GPIOGet(ctx, pin)
+func (r *reconfigurableBoard) GPIOGet(ctx context.Context, pin string) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.GPIOGet(ctx, pin)
 }
 
-func (p *proxyBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.PWMSet(ctx, pin, dutyCycle)
+func (r *reconfigurableBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.PWMSet(ctx, pin, dutyCycle)
 }
 
-func (p *proxyBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.PWMSetFreq(ctx, pin, freq)
+func (r *reconfigurableBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.PWMSetFreq(ctx, pin, freq)
 }
 
-func (p *proxyBoard) SPINames() []string {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+func (r *reconfigurableBoard) SPINames() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	names := []string{}
-	for k := range p.spis {
+	for k := range r.spis {
 		names = append(names, k)
 	}
 	return names
 }
 
-func (p *proxyBoard) I2CNames() []string {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+func (r *reconfigurableBoard) I2CNames() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	names := []string{}
-	for k := range p.i2cs {
+	for k := range r.i2cs {
 		names = append(names, k)
 	}
 	return names
 }
 
-func (p *proxyBoard) AnalogReaderNames() []string {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+func (r *reconfigurableBoard) AnalogReaderNames() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	names := []string{}
-	for k := range p.analogs {
+	for k := range r.analogs {
 		names = append(names, k)
 	}
 	return names
 }
 
-func (p *proxyBoard) DigitalInterruptNames() []string {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+func (r *reconfigurableBoard) DigitalInterruptNames() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	names := []string{}
-	for k := range p.digitals {
+	for k := range r.digitals {
 		names = append(names, k)
 	}
 	return names
 }
 
-func (p *proxyBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	if p.actual.ModelAttributes().Remote {
-		return p.actual.Status(ctx)
+func (r *reconfigurableBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.actual.ModelAttributes().Remote {
+		return r.actual.Status(ctx)
 	}
-	return CreateStatus(ctx, p)
+	return CreateStatus(ctx, r)
 }
 
-func (p *proxyBoard) replace(newBoard Board) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (r *reconfigurableBoard) replace(newBoard Board) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	actual, ok := newBoard.(*proxyBoard)
+	actual, ok := newBoard.(*reconfigurableBoard)
 	if !ok {
 		panic(fmt.Errorf("expected new board to be %T but got %T", actual, newBoard))
 	}
@@ -313,237 +319,251 @@ func (p *proxyBoard) replace(newBoard Board) {
 	var oldAnalogReaderNames map[string]struct{}
 	var oldDigitalInterruptNames map[string]struct{}
 
-	if len(p.spis) != 0 {
-		oldSPINames = make(map[string]struct{}, len(p.spis))
-		for name := range p.spis {
+	if len(r.spis) != 0 {
+		oldSPINames = make(map[string]struct{}, len(r.spis))
+		for name := range r.spis {
 			oldSPINames[name] = struct{}{}
 		}
 	}
-	if len(p.i2cs) != 0 {
-		oldI2CNames = make(map[string]struct{}, len(p.i2cs))
-		for name := range p.i2cs {
+	if len(r.i2cs) != 0 {
+		oldI2CNames = make(map[string]struct{}, len(r.i2cs))
+		for name := range r.i2cs {
 			oldI2CNames[name] = struct{}{}
 		}
 	}
-	if len(p.analogs) != 0 {
-		oldAnalogReaderNames = make(map[string]struct{}, len(p.analogs))
-		for name := range p.analogs {
+	if len(r.analogs) != 0 {
+		oldAnalogReaderNames = make(map[string]struct{}, len(r.analogs))
+		for name := range r.analogs {
 			oldAnalogReaderNames[name] = struct{}{}
 		}
 	}
-	if len(p.digitals) != 0 {
-		oldDigitalInterruptNames = make(map[string]struct{}, len(p.digitals))
-		for name := range p.digitals {
+	if len(r.digitals) != 0 {
+		oldDigitalInterruptNames = make(map[string]struct{}, len(r.digitals))
+		for name := range r.digitals {
 			oldDigitalInterruptNames[name] = struct{}{}
 		}
 	}
 
 	for name, newPart := range actual.spis {
-		oldPart, ok := p.spis[name]
+		oldPart, ok := r.spis[name]
 		delete(oldSPINames, name)
 		if ok {
 			oldPart.replace(newPart)
 			continue
 		}
-		p.spis[name] = newPart
+		r.spis[name] = newPart
 	}
 	for name, newPart := range actual.i2cs {
-		oldPart, ok := p.i2cs[name]
+		oldPart, ok := r.i2cs[name]
 		delete(oldI2CNames, name)
 		if ok {
 			oldPart.replace(newPart)
 			continue
 		}
-		p.i2cs[name] = newPart
+		r.i2cs[name] = newPart
 	}
 	for name, newPart := range actual.analogs {
-		oldPart, ok := p.analogs[name]
+		oldPart, ok := r.analogs[name]
 		delete(oldAnalogReaderNames, name)
 		if ok {
 			oldPart.replace(newPart)
 			continue
 		}
-		p.analogs[name] = newPart
+		r.analogs[name] = newPart
 	}
 	for name, newPart := range actual.digitals {
-		oldPart, ok := p.digitals[name]
+		oldPart, ok := r.digitals[name]
 		delete(oldDigitalInterruptNames, name)
 		if ok {
 			oldPart.replace(newPart)
 			continue
 		}
-		p.digitals[name] = newPart
+		r.digitals[name] = newPart
 	}
 
 	for name := range oldSPINames {
-		delete(p.spis, name)
+		delete(r.spis, name)
 	}
 	for name := range oldI2CNames {
-		delete(p.i2cs, name)
+		delete(r.i2cs, name)
 	}
 	for name := range oldAnalogReaderNames {
-		delete(p.analogs, name)
+		delete(r.analogs, name)
 	}
 	for name := range oldDigitalInterruptNames {
-		delete(p.digitals, name)
+		delete(r.digitals, name)
 	}
 
-	p.actual = actual.actual
+	r.actual = actual.actual
 }
 
-func (p *proxyBoard) ModelAttributes() ModelAttributes {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.ModelAttributes()
+func (r *reconfigurableBoard) ModelAttributes() ModelAttributes {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.ModelAttributes()
 }
 
 // Close attempts to cleanly close each part of the board.
-func (p *proxyBoard) Close() error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return utils.TryClose(p.actual)
+func (r *reconfigurableBoard) Close() error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return utils.TryClose(r.actual)
 }
 
-type proxyBoardSPI struct {
+func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	actual, ok := newBoard.(*reconfigurableBoard)
+	if !ok {
+		return errors.Errorf("expected new board to be %T but got %T", r, newBoard)
+	}
+	if err := utils.TryClose(r.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	r.actual = actual.actual
+	return nil
+}
+
+type reconfigurableBoardSPI struct {
 	mu     sync.RWMutex
 	actual SPI
 }
 
-func (p *proxyBoardSPI) replace(newSPI SPI) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newSPI.(*proxyBoardSPI)
+func (r *reconfigurableBoardSPI) replace(newSPI SPI) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	actual, ok := newSPI.(*reconfigurableBoardSPI)
 	if !ok {
 		panic(fmt.Errorf("expected new SPI to be %T but got %T", actual, newSPI))
 	}
-	if err := utils.TryClose(p.actual); err != nil {
+	if err := utils.TryClose(r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
-	p.actual = actual.actual
+	r.actual = actual.actual
 }
 
-func (p *proxyBoardSPI) OpenHandle() (SPIHandle, error) {
-	return p.actual.OpenHandle()
+func (r *reconfigurableBoardSPI) OpenHandle() (SPIHandle, error) {
+	return r.actual.OpenHandle()
 }
 
-type proxyBoardI2C struct {
+type reconfigurableBoardI2C struct {
 	mu     sync.RWMutex
 	actual I2C
 }
 
-func (p *proxyBoardI2C) ProxyFor() interface{} {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual
+func (r *reconfigurableBoardI2C) ProxyFor() interface{} {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual
 }
 
-func (p *proxyBoardI2C) replace(newI2C I2C) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newI2C.(*proxyBoardI2C)
+func (r *reconfigurableBoardI2C) replace(newI2C I2C) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	actual, ok := newI2C.(*reconfigurableBoardI2C)
 	if !ok {
 		panic(fmt.Errorf("expected new I2C to be %T but got %T", actual, newI2C))
 	}
-	if err := utils.TryClose(p.actual); err != nil {
+	if err := utils.TryClose(r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
-	p.actual = actual.actual
+	r.actual = actual.actual
 }
 
-func (p *proxyBoardI2C) OpenHandle(addr byte) (I2CHandle, error) {
-	return p.actual.OpenHandle(addr)
+func (r *reconfigurableBoardI2C) OpenHandle(addr byte) (I2CHandle, error) {
+	return r.actual.OpenHandle(addr)
 }
 
-type proxyBoardAnalogReader struct {
+type reconfigurableBoardAnalogReader struct {
 	mu     sync.RWMutex
 	actual AnalogReader
 }
 
-func (p *proxyBoardAnalogReader) replace(newAnalogReader AnalogReader) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newAnalogReader.(*proxyBoardAnalogReader)
+func (r *reconfigurableBoardAnalogReader) replace(newAnalogReader AnalogReader) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	actual, ok := newAnalogReader.(*reconfigurableBoardAnalogReader)
 	if !ok {
 		panic(fmt.Errorf("expected new analog reader to be %T but got %T", actual, newAnalogReader))
 	}
-	if err := utils.TryClose(p.actual); err != nil {
+	if err := utils.TryClose(r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
-	p.actual = actual.actual
+	r.actual = actual.actual
 }
 
-func (p *proxyBoardAnalogReader) Read(ctx context.Context) (int, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Read(ctx)
+func (r *reconfigurableBoardAnalogReader) Read(ctx context.Context) (int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Read(ctx)
 }
 
-func (p *proxyBoardAnalogReader) ProxyFor() interface{} {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual
+func (r *reconfigurableBoardAnalogReader) ProxyFor() interface{} {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual
 }
 
-func (p *proxyBoardAnalogReader) Close() error {
-	return utils.TryClose(p.actual)
+func (r *reconfigurableBoardAnalogReader) Close() error {
+	return utils.TryClose(r.actual)
 }
 
-type proxyBoardDigitalInterrupt struct {
+type reconfigurableBoardDigitalInterrupt struct {
 	mu     sync.RWMutex
 	actual DigitalInterrupt
 }
 
-func (p *proxyBoardDigitalInterrupt) ProxyFor() interface{} {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual
+func (r *reconfigurableBoardDigitalInterrupt) ProxyFor() interface{} {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual
 }
 
-func (p *proxyBoardDigitalInterrupt) replace(newDigitalInterrupt DigitalInterrupt) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newDigitalInterrupt.(*proxyBoardDigitalInterrupt)
+func (r *reconfigurableBoardDigitalInterrupt) replace(newDigitalInterrupt DigitalInterrupt) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	actual, ok := newDigitalInterrupt.(*reconfigurableBoardDigitalInterrupt)
 	if !ok {
 		panic(fmt.Errorf("expected new digital interrupt to be %T but got %T", actual, newDigitalInterrupt))
 	}
-	if err := utils.TryClose(p.actual); err != nil {
+	if err := utils.TryClose(r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
-	p.actual = actual.actual
+	r.actual = actual.actual
 }
 
-func (p *proxyBoardDigitalInterrupt) Config(ctx context.Context) (DigitalInterruptConfig, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Config(ctx)
+func (r *reconfigurableBoardDigitalInterrupt) Config(ctx context.Context) (DigitalInterruptConfig, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Config(ctx)
 }
 
-func (p *proxyBoardDigitalInterrupt) Value(ctx context.Context) (int64, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Value(ctx)
+func (r *reconfigurableBoardDigitalInterrupt) Value(ctx context.Context) (int64, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Value(ctx)
 }
 
-func (p *proxyBoardDigitalInterrupt) Tick(ctx context.Context, high bool, nanos uint64) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Tick(ctx, high, nanos)
+func (r *reconfigurableBoardDigitalInterrupt) Tick(ctx context.Context, high bool, nanos uint64) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Tick(ctx, high, nanos)
 }
 
-func (p *proxyBoardDigitalInterrupt) AddCallback(c chan bool) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	p.actual.AddCallback(c)
+func (r *reconfigurableBoardDigitalInterrupt) AddCallback(c chan bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	r.actual.AddCallback(c)
 }
 
-func (p *proxyBoardDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	p.actual.AddPostProcessor(pp)
+func (r *reconfigurableBoardDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	r.actual.AddPostProcessor(pp)
 }
 
-func (p *proxyBoardDigitalInterrupt) Close() error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return utils.TryClose(p.actual)
+func (r *reconfigurableBoardDigitalInterrupt) Close() error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return utils.TryClose(r.actual)
 }
