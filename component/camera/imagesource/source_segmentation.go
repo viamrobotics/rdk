@@ -46,7 +46,7 @@ func (cs *colorSegmentsSource) Next(ctx context.Context) (image.Image, func(), e
 	if ii.Depth == nil {
 		return nil, nil, errors.New("no depth")
 	}
-	if ii.Camera() == nil {
+	if ii.Projector() == nil {
 		return nil, nil, errors.New("no camera system")
 	}
 	cloud, err := ii.ToPointCloud()
@@ -61,7 +61,7 @@ func (cs *colorSegmentsSource) Next(ctx context.Context) (image.Image, func(), e
 	if err != nil {
 		return nil, nil, err
 	}
-	segmentedIwd, err := ii.Camera().PointCloudToImageWithDepth(colorCloud)
+	segmentedIwd, err := ii.Projector().PointCloudToImageWithDepth(colorCloud)
 	if err != nil {
 		return nil, nil, err
 	}

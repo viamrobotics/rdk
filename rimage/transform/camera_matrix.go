@@ -102,7 +102,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(cloud poi
 	if err != nil {
 		return nil, err
 	}
-	iwd.SetCamera(dcie)
+	iwd.SetProjector(dcie)
 	return iwd, nil
 }
 
