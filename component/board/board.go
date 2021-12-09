@@ -305,13 +305,16 @@ func (r *reconfigurableBoard) Status(ctx context.Context) (*pb.BoardStatus, erro
 	return CreateStatus(ctx, r)
 }
 
-func (r *reconfigurableBoard) replace(newBoard Board) {
+func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	actual, ok := newBoard.(*reconfigurableBoard)
 	if !ok {
-		panic(fmt.Errorf("expected new board to be %T but got %T", actual, newBoard))
+		return errors.Errorf("expected new board to be %T but got %T", r, newBoard)
+	}
+	if err := utils.TryClose(r.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 
 	var oldSPINames map[string]struct{}
@@ -395,6 +398,7 @@ func (r *reconfigurableBoard) replace(newBoard Board) {
 	}
 
 	r.actual = actual.actual
+	return nil
 }
 
 func (r *reconfigurableBoard) ModelAttributes() ModelAttributes {
@@ -410,18 +414,17 @@ func (r *reconfigurableBoard) Close() error {
 	return utils.TryClose(r.actual)
 }
 
-func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	actual, ok := newBoard.(*reconfigurableBoard)
+// WrapWithReconfigurable converts a regular Board implementation to a reconfigurableBoard.
+// If board is already a reconfigurableBoard, then nothing is done.
+func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
+	arm, ok := r.(Board)
 	if !ok {
-		return errors.Errorf("expected new board to be %T but got %T", r, newBoard)
+		return nil, errors.Errorf("expected resource to be Board but got %T", r)
 	}
-	if err := utils.TryClose(r.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+	if reconfigurable, ok := arm.(*reconfigurableBoard); ok {
+		return reconfigurable, nil
 	}
-	r.actual = actual.actual
-	return nil
+	return &reconfigurableBoard{actual: arm}, nil
 }
 
 type reconfigurableBoardSPI struct {
