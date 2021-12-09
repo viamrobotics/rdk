@@ -12,10 +12,8 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/base"
-	"go.viam.com/core/board"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"
-	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
