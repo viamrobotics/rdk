@@ -1,4 +1,4 @@
-package webgamepad
+package mux
 
 import (
 	"context"
@@ -6,40 +6,55 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/component/input"
 	"go.viam.com/core/config"
-	"go.viam.com/core/input"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
+	"github.com/mitchellh/mapstructure"
+	"go.uber.org/multierr"
 )
 
 const (
-	modelname = "webgamepad"
-	// NOTE: Component NAME (in config file) must also be set to "WebGamepad" exactly
-	// This is because there's no way to get a component's model from a robot.Robot
+	modelname = "mux"
 )
 
 func init() {
 	registry.RegisterInputController(modelname, registry.InputController{Constructor: NewController})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelname, func(attributes config.AttributeMap) (interface{}, error) {
+		var conf Config
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+		if err != nil {
+			return nil, err
+		}
+		if err := decoder.Decode(attributes); err != nil {
+			return nil, err
+		}
+		return &conf, nil
+	}, &Config{})
+
+}
+
+// Config is used for converting config attributes
+type Config struct {
+	Sources []string `json:"sources"`
 }
 
 // Controller is an input.Controller
 type Controller struct {
-	controls                []input.Control
-	lastEvents              map[input.Control]input.Event
+	sources                 []input.Controller
 	mu                      sync.RWMutex
 	activeBackgroundWorkers sync.WaitGroup
 	ctxWithCancel           context.Context
 	cancelFunc              func()
 	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
+	eventsChan              chan input.Event
 }
 
 func (g *Controller) makeCallbacks(ctx context.Context, eventOut input.Event) {
-	g.mu.Lock()
-	g.lastEvents[eventOut.Control] = eventOut
-	g.mu.Unlock()
-
 	g.mu.RLock()
 	_, ok := g.callbacks[eventOut.Control]
 	g.mu.RUnlock()
@@ -70,21 +85,37 @@ func (g *Controller) makeCallbacks(ctx context.Context, eventOut input.Event) {
 	}
 }
 
-// NewController creates a new gamepad
+// NewController returns a new multiplexed input.Controller
 func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
 	var g Controller
 	g.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
-	g.lastEvents = make(map[input.Control]input.Event)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	g.cancelFunc = cancel
 	g.ctxWithCancel = ctxWithCancel
-	g.controls = []input.Control{
-		input.AbsoluteX, input.AbsoluteY, input.AbsoluteRX, input.AbsoluteRY,
-		input.AbsoluteZ, input.AbsoluteRZ, input.AbsoluteHat0X, input.AbsoluteHat0Y,
-		input.ButtonSouth, input.ButtonEast, input.ButtonWest, input.ButtonNorth,
-		input.ButtonLT, input.ButtonRT, input.ButtonLThumb, input.ButtonRThumb,
-		input.ButtonSelect, input.ButtonStart, input.ButtonMenu,
+
+	for _, s := range config.ConvertedAttributes.(*Config).Sources {
+		c, ok := r.InputControllerByName(s)
+		if !ok {
+			return nil, errors.Errorf("cannot find input.Controller named: %s", s)
+		}
+		g.sources = append(g.sources, c)
 	}
+
+	g.eventsChan = make(chan input.Event, 1024)
+
+	g.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer g.activeBackgroundWorkers.Done()
+		for {
+			select {
+			case eventIn := <-g.eventsChan:
+				g.makeCallbacks(ctxWithCancel, eventIn)
+			case <-ctxWithCancel.Done():
+				return
+			}
+		}
+	})
+
 	return &g, nil
 }
 
@@ -95,21 +126,56 @@ func (g *Controller) Close() error {
 	return nil
 }
 
-// Controls lists the inputs of the gamepad
+// Controls lists the unique input.Controls for the combined sources
 func (g *Controller) Controls(ctx context.Context) ([]input.Control, error) {
-	out := append([]input.Control(nil), g.controls...)
-	return out, nil
+	controlMap := make(map[input.Control]bool)
+	var ok bool
+	var errs error
+	for _, c := range g.sources {
+		controls, err := c.Controls(ctx)
+		if err != nil {
+			errs = multierr.Combine(errs, err)
+			continue
+		}
+		ok = true
+		for _, ctrl := range controls {
+			controlMap[ctrl] = true
+		}
+	}
+	if !ok {
+		return nil, errs
+	}
+	var controlsOut []input.Control
+	for c := range controlMap {
+		controlsOut = append(controlsOut, c)
+	}
+
+	return controlsOut, nil
 }
 
 // LastEvents returns the last input.Event (the current state)
 func (g *Controller) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	out := make(map[input.Control]input.Event)
-	for key, value := range g.lastEvents {
-		out[key] = value
+	eventsOut := make(map[input.Control]input.Event)
+	var ok bool
+	var errs error
+	for _, c := range g.sources {
+		eventList, err := c.LastEvents(ctx)
+		if err != nil {
+			errs = multierr.Combine(errs, err)
+			continue
+		}
+		ok = true
+		for ctrl, eventA := range eventList {
+			eventB, ok := eventsOut[ctrl]
+			if !ok || eventA.Time.After(eventB.Time) {
+				eventsOut[ctrl] = eventA
+			}
+		}
 	}
-	return out, nil
+	if !ok {
+		return nil, errs
+	}
+	return eventsOut, nil
 }
 
 // RegisterControlCallback registers a callback function to be executed on the specified control's trigger Events
@@ -128,11 +194,26 @@ func (g *Controller) RegisterControlCallback(ctx context.Context, control input.
 			g.callbacks[control][trigger] = ctrlFunc
 		}
 	}
-	return nil
-}
 
-// InjectEvent allows directly sending an Event (such as a button press) from external code
-func (g *Controller) InjectEvent(ctx context.Context, event input.Event) error {
-	g.makeCallbacks(ctx, event)
+	relayFunc := func(ctx context.Context, eventIn input.Event) {
+		select {
+		case g.eventsChan <- eventIn:
+		case <-ctx.Done():
+		}
+	}
+
+	var ok bool
+	var errs error
+	for _, c := range g.sources {
+		err := c.RegisterControlCallback(ctx, control, triggers, relayFunc)
+		if err != nil {
+			errs = multierr.Combine(errs, err)
+			continue
+		}
+		ok = true
+	}
+	if !ok {
+		return errs
+	}
 	return nil
 }

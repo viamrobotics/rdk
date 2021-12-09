@@ -6,7 +6,7 @@ package gamepad
 import (
 	"github.com/viamrobotics/evdev"
 
-	"go.viam.com/core/input"
+	"go.viam.com/core/component/input"
 )
 
 // GamepadMappings contains all the axes/button translations for each model
