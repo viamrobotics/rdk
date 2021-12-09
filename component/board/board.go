@@ -10,9 +10,25 @@ import (
 	"sync"
 
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/resource"
 	"go.viam.com/core/rlog"
 	"go.viam.com/utils"
 )
+
+// SubtypeName is a constant that identifies the component resource subtype string "board"
+const SubtypeName = resource.SubtypeName("board")
+
+// Subtype is a constant that identifies the component resource subtype
+var Subtype = resource.NewSubtype(
+	resource.ResourceNamespaceCore,
+	resource.ResourceTypeComponent,
+	SubtypeName,
+)
+
+// Named is a helper for getting the named board's typed resource name
+func Named(name string) resource.Name {
+	return resource.NewFromSubtype(Subtype, name)
+}
 
 // A Board represents a physical general purpose board that contains various
 // components such as analog readers, and digital interrupts.
