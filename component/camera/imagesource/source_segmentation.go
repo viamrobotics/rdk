@@ -19,7 +19,7 @@ import (
 )
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, "colorSegments", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+	registry.RegisterComponent(camera.Subtype, "color_segments", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		return newColorSegmentsSource(r, config)
 	}})
 }
@@ -46,7 +46,7 @@ func (cs *colorSegmentsSource) Next(ctx context.Context) (image.Image, func(), e
 	if ii.Depth == nil {
 		return nil, nil, errors.New("no depth")
 	}
-	if ii.CameraSystem() == nil {
+	if ii.Projector() == nil {
 		return nil, nil, errors.New("no camera system")
 	}
 	cloud, err := ii.ToPointCloud()
@@ -61,7 +61,7 @@ func (cs *colorSegmentsSource) Next(ctx context.Context) (image.Image, func(), e
 	if err != nil {
 		return nil, nil, err
 	}
-	segmentedIwd, err := ii.CameraSystem().PointCloudToImageWithDepth(colorCloud)
+	segmentedIwd, err := ii.Projector().PointCloudToImageWithDepth(colorCloud)
 	if err != nil {
 		return nil, nil, err
 	}

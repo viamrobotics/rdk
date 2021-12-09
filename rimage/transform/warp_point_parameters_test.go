@@ -35,7 +35,7 @@ func TestImageWithDepthToPointCloud(t *testing.T) {
 	test.That(t, pc, test.ShouldNotBeNil)
 	// the underlying iwd was not changed
 	test.That(t, iwd.IsAligned(), test.ShouldEqual, false)
-	test.That(t, iwd.CameraSystem(), test.ShouldBeNil)
+	test.That(t, iwd.Projector(), test.ShouldBeNil)
 
 	// image with depth with depth missing should return error
 	img, err := rimage.NewImageFromFile(artifact.MustPath("align/gripper1/align-test-1615761793.both.gz"))
