@@ -51,7 +51,7 @@ func TestArmName(t *testing.T) {
 	}
 }
 
-func TestWrapWtihReconfigurable(t *testing.T) {
+func TestWrapWithReconfigurable(t *testing.T) {
 	var actualArm1 Arm = &mockArm{Name: "arm1"}
 	fakeArm1, err := WrapWithReconfigurable(actualArm1)
 	test.That(t, err, test.ShouldBeNil)

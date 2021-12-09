@@ -46,7 +46,7 @@ func TestCameraName(t *testing.T) {
 	}
 }
 
-func TestWrapWtihReconfigurable(t *testing.T) {
+func TestWrapWithReconfigurable(t *testing.T) {
 	var actualCamera1 Camera = &mock{Name: "camera1"}
 	fakeCamera1, err := WrapWithReconfigurable(actualCamera1)
 	test.That(t, err, test.ShouldBeNil)
