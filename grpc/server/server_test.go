@@ -21,7 +21,6 @@ import (
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	servicepkg "go.viam.com/core/services"
@@ -1310,61 +1309,6 @@ func TestServer(t *testing.T) {
 			Name: "compass1",
 		})
 		test.That(t, err, test.ShouldBeNil)
-	})
-
-	t.Run("IMU", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			capName = name.Name
-			return nil, false
-		}
-
-		_, err := server.IMUAngularVelocity(context.Background(), &pb.IMUAngularVelocityRequest{
-			Name: "imu1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no IMU")
-		test.That(t, capName, test.ShouldEqual, "imu1")
-
-		err1 := errors.New("whoops")
-
-		device := &inject.IMU{}
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return device, true
-		}
-
-		device.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
-			return spatialmath.AngularVelocity{}, err1
-		}
-		_, err = server.IMUAngularVelocity(context.Background(), &pb.IMUAngularVelocityRequest{
-			Name: "imu1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		device.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
-			return spatialmath.AngularVelocity{1, 2, 3}, nil
-		}
-		velResp, err := server.IMUAngularVelocity(context.Background(), &pb.IMUAngularVelocityRequest{
-			Name: "imu1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, velResp.AngularVelocity, test.ShouldResemble, &pb.AngularVelocity{X: 1, Y: 2, Z: 3})
-
-		device.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
-			return nil, err1
-		}
-		_, err = server.IMUOrientation(context.Background(), &pb.IMUOrientationRequest{
-			Name: "imu1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		device.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
-			return &spatialmath.EulerAngles{1, 2, 3}, nil
-		}
-		orientResp, err := server.IMUOrientation(context.Background(), &pb.IMUOrientationRequest{
-			Name: "imu1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, orientResp.Orientation, test.ShouldResemble, &pb.EulerAngles{Roll: 1, Pitch: 2, Yaw: 3})
 	})
 
 	t.Run("Motor", func(t *testing.T) {

@@ -21,7 +21,6 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/board"
-	"go.viam.com/core/component/imu"
 	"go.viam.com/core/component/motor"
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"
@@ -1058,53 +1057,6 @@ func (s *Server) ObjectManipulationServiceDoGrab(ctx context.Context, req *pb.Ob
 		return nil, err
 	}
 	return &pb.ObjectManipulationServiceDoGrabResponse{HasGrabbed: hasGrabbed}, nil
-}
-
-func (s *Server) imuByName(name string) (imu.IMU, error) {
-	imuDevice, ok := s.r.ResourceByName(imu.Named(name))
-	if !ok {
-		return nil, errors.Errorf("no IMU with name (%s)", name)
-	}
-	return imuDevice.(imu.IMU), nil
-}
-
-// IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
-func (s *Server) IMUAngularVelocity(ctx context.Context, req *pb.IMUAngularVelocityRequest) (*pb.IMUAngularVelocityResponse, error) {
-	imuDevice, err := s.imuByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	vel, err := imuDevice.AngularVelocity(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.IMUAngularVelocityResponse{
-		AngularVelocity: &pb.AngularVelocity{
-			X: vel.X,
-			Y: vel.Y,
-			Z: vel.Z,
-		},
-	}, nil
-}
-
-// IMUOrientation returns the most recent angular velocity reading from the given IMU.
-func (s *Server) IMUOrientation(ctx context.Context, req *pb.IMUOrientationRequest) (*pb.IMUOrientationResponse, error) {
-	imuDevice, err := s.imuByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	orientation, err := imuDevice.Orientation(ctx)
-	if err != nil {
-		return nil, err
-	}
-	ea := orientation.EulerAngles()
-	return &pb.IMUOrientationResponse{
-		Orientation: &pb.EulerAngles{
-			Roll:  ea.Roll,
-			Pitch: ea.Pitch,
-			Yaw:   ea.Yaw,
-		},
-	}, nil
 }
 
 func (s *Server) gpsByName(name string) (gps.GPS, error) {
