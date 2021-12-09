@@ -49,9 +49,7 @@ import (
 	_ "go.viam.com/core/component/gantry/register"  // for all gantries
 	_ "go.viam.com/core/component/gripper/register" // for all grippers
 	_ "go.viam.com/core/component/imu/register"     // for all IMU
-	_ "go.viam.com/core/component/input/gamepad"    // xbox controller and similar
-	_ "go.viam.com/core/component/input/mux"
-	_ "go.viam.com/core/component/input/webgamepad" // gamepads via webbrowser
+	_ "go.viam.com/core/component/input/register"   // for all input
 	_ "go.viam.com/core/component/motor/register"   // for all motors
 	_ "go.viam.com/core/component/servo/register"   // for a servo
 	_ "go.viam.com/core/platformdetector/pi"

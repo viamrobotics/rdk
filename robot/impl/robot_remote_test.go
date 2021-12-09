@@ -18,6 +18,7 @@ import (
 	"go.viam.com/core/component/gripper"
 	fakegripper "go.viam.com/core/component/gripper/fake"
 	"go.viam.com/core/component/input"
+	fakeinput "go.viam.com/core/component/input/fake"
 	"go.viam.com/core/component/motor"
 	fakemotor "go.viam.com/core/component/motor/fake"
 	"go.viam.com/core/component/servo"
@@ -199,7 +200,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		if _, ok := utils.NewStringSet(injectRobot.InputControllerNames()...)[name]; !ok {
 			return nil, false
 		}
-		return &fake.InputController{Name: name}, true
+		return &fakeinput.InputController{Name: name}, true
 	}
 	injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.ServiceNames()...)[name]; !ok {

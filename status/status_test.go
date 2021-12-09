@@ -14,6 +14,7 @@ import (
 	"go.viam.com/core/component/gripper"
 	fakegripper "go.viam.com/core/component/gripper/fake"
 	"go.viam.com/core/component/input"
+	fakeinput "go.viam.com/core/component/input/fake"
 	"go.viam.com/core/component/motor"
 	fakemotor "go.viam.com/core/component/motor/fake"
 	"go.viam.com/core/component/servo"
@@ -108,7 +109,7 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return &fakemotor.Motor{Name: name}, true
 	}
 	injectRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
-		return &fake.InputController{Name: name}, true
+		return &fakeinput.InputController{Name: name}, true
 	}
 
 	if withRemotes {
