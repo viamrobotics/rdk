@@ -65,6 +65,10 @@ func (am AttributeMap) StringSlice(name string) []string {
 		return strings
 	}
 
+	if slice, ok := x.([]string); ok {
+		return slice
+	}
+
 	panic(errors.Errorf("wanted a []string for (%s) but got (%v) %T", name, x, x))
 }
 
