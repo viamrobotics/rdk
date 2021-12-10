@@ -1,0 +1,72 @@
+{
+    "components":[
+        {
+            "model": "pi",
+            "name": "local",
+            "type": "board"
+          },
+        {
+            "model": "gpiostepper",
+            "name": "xmotor",
+            "type": "motor",
+            "attributes": {
+              "board": "local",
+              "pins": {
+                "dir": "io21",
+                "enHigh": "io26",
+                "step": "io13"
+            },
+              "stepperDelay": 50,
+              "ticksPerRotation": 200
+                }
+        },
+        {
+                "model": "gpiostepper",
+                "name": "ymotor",
+                "type": "motor",
+                "attributes": {
+                  "board": "local",
+                  "pins": {
+                    "dir": "io21",
+                    "enHigh": "io26",
+                    "step": "io13"
+                  },
+                  "stepperDelay": 50,
+                  "ticksPerRotation": 200
+                }
+        },        
+        {
+            "model": "gpiostepper",
+            "name": "zmotor",
+            "type": "motor",
+            "attributes": {
+              "board": "local",
+              "pins": {
+                "dir": "io21",
+                "enHigh": "io26",
+                "step": "io13"
+              },
+              "stepperDelay": 50,
+              "ticksPerRotation": 200
+            }
+    },
+    {
+        "model": "simpleoneaxis",
+        "name": "armmover",
+        "type": "gantry",
+        "attributes": {
+          "lengthMeters": 1.5,
+          "limitBoard": "local",
+          "limitHigh": false,
+          "limitPins": [
+            "io17",
+            "io18"
+          ],
+          "motor": "xmotor",
+          "rpm": [300, 300, 300]
+        },
+        "depends_on":
+          "xmotor"
+    }
+    ]
+}

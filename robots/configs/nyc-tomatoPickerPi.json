@@ -1,15 +1,9 @@
 {
     "components" : [
-        { "name" : "arm",
+        { "name" : "tomato-arm",
           "type": "arm",
           "model": "ur",
-<<<<<<< HEAD
-          "attributes": {
-              "host" : "10.237.115.66"
-          }
-=======
           "host" : "10.237.115.232"
->>>>>>> 10dc0889 (Add files)
         },
         {
             "model": "pi",
@@ -28,7 +22,7 @@
               "ticksPerRotation": 200
             },
             "model": "gpiostepper",
-            "name": "xmotor",
+            "name": "tomato-motor",
             "type": "motor"
           },
           {
@@ -47,13 +41,5 @@
             "name": "tomato-gantry",
             "type": "gantry"
           }
-    ],
-    "remotes" : [
-        {
-            "name": "tomato",
-            "address": "local.tomato1.60758fe0f6.viam.cloud:8080",
-            "prefix": false
-        }
     ]
 }
-    
