@@ -16,8 +16,7 @@ import (
 )
 
 func init() {
-
-	registry.RegisterInputController("fake", registry.InputController{Constructor: NewInputController})
+	registry.RegisterComponent(input.Subtype, "fake", registry.Component{Constructor: NewInputController})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "fake", func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
@@ -33,7 +32,7 @@ func init() {
 }
 
 // NewInputController returns a fake input.Controller
-func NewInputController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
+func NewInputController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 	c := &InputController{}
 	c.controls = config.ConvertedAttributes.(*Config).controls
 	return c, nil

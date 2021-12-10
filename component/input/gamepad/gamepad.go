@@ -19,7 +19,8 @@ import (
 const modelname = "gamepad"
 
 func init() {
-	registry.RegisterInputController(modelname, registry.InputController{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
-		return nil, errors.New("gamepad input currently only supported on linux")
-	}})
+	registry.RegisterComponent(input.Subtype, modelname, registry.Component{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return nil, errors.New("gamepad input currently only supported on linux")
+		}})
 }

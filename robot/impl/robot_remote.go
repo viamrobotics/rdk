@@ -462,13 +462,6 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 		}
 		parts.AddSensor(part, config.Component{Name: name})
 	}
-	for _, name := range robot.InputControllerNames() {
-		part, ok := robot.InputControllerByName(name)
-		if !ok {
-			continue
-		}
-		parts.AddInputController(part, config.Component{Name: name})
-	}
 	for _, name := range robot.FunctionNames() {
 		parts.addFunction(name)
 	}
@@ -496,7 +489,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	var oldLidarNames map[string]struct{}
 	var oldBaseNames map[string]struct{}
 	var oldSensorNames map[string]struct{}
-	var oldInputControllerNames map[string]struct{}
 	var oldFunctionNames map[string]struct{}
 	var oldServiceNames map[string]struct{}
 	var oldResources map[resource.Name]struct{}
@@ -523,12 +515,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		oldSensorNames = make(map[string]struct{}, len(parts.sensors))
 		for name := range parts.sensors {
 			oldSensorNames[name] = struct{}{}
-		}
-	}
-	if len(parts.inputControllers) != 0 {
-		oldInputControllerNames = make(map[string]struct{}, len(parts.inputControllers))
-		for name := range parts.inputControllers {
-			oldInputControllerNames[name] = struct{}{}
 		}
 	}
 	if len(parts.functions) != 0 {
@@ -588,15 +574,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		}
 		parts.sensors[name] = newPart
 	}
-	for name, newPart := range newParts.inputControllers {
-		oldPart, ok := parts.inputControllers[name]
-		delete(oldInputControllerNames, name)
-		if ok {
-			oldPart.replace(newPart)
-			continue
-		}
-		parts.inputControllers[name] = newPart
-	}
 	for name, newPart := range newParts.functions {
 		_, ok := parts.functions[name]
 		delete(oldFunctionNames, name)
@@ -647,9 +624,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	}
 	for name := range oldSensorNames {
 		delete(parts.sensors, name)
-	}
-	for name := range oldInputControllerNames {
-		delete(parts.inputControllers, name)
 	}
 	for name := range oldFunctionNames {
 		delete(parts.functions, name)

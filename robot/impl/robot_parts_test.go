@@ -572,14 +572,6 @@ func TestPartsAdd(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, fsm.(*proxyForceMatrix).actual, test.ShouldEqual, injectFsm)
 
-	injectInputController := &inject.InputController{}
-	parts.AddInputController(injectInputController, config.Component{Name: "inputController1"})
-	inputController1, ok := parts.InputControllerByName("inputController1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, inputController1.(*proxyInputController).actual, test.ShouldEqual, injectInputController)
-	parts.AddInputController(inputController1, config.Component{Name: "inputController1"})
-	test.That(t, inputController1.(*proxyInputController).actual, test.ShouldEqual, injectInputController)
-
 	injectObjectManipulationService := &inject.ObjectManipulationService{}
 	injectObjectManipulationService.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
 		return false, nil
@@ -650,6 +642,17 @@ func TestPartsAdd(t *testing.T) {
 	resource1, ok = parts.ResourceByName(rName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resource1, test.ShouldEqual, injectCamera)
+
+	injectInputController := &inject.InputController{}
+	cfg = &config.Component{Type: config.ComponentTypeInputController, Name: "inputController1"}
+	rName = cfg.ResourceName()
+	parts.addResource(rName, &inject.InputController{})
+	inputController1, ok := parts.InputControllerByName("inputController1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, inputController1, test.ShouldEqual, injectInputController)
+	resource1, ok = parts.ResourceByName(rName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resource1, test.ShouldEqual, injectInputController)
 }
 
 func TestPartsMergeAdd(t *testing.T) {
@@ -910,7 +913,6 @@ func TestPartsMergeModify(t *testing.T) {
 	robotForRemote.parts.AddLidar(&inject.Lidar{}, config.Component{Name: "lidar2_r1"})
 	robotForRemote.parts.AddBase(&inject.Base{}, config.Component{Name: "base2_r1"})
 	robotForRemote.parts.AddSensor(&inject.Compass{}, config.Component{Name: "sensor2_r1"})
-	robotForRemote.parts.AddInputController(&inject.InputController{}, config.Component{Name: "inputController2_r1"})
 	robotForRemote.parts.addFunction("func2_r1")
 
 	cfg := config.Component{Type: config.ComponentTypeArm, Name: "arm2_r1"}
@@ -932,6 +934,10 @@ func TestPartsMergeModify(t *testing.T) {
 	cfg = config.Component{Type: config.ComponentTypeCamera, Name: "camera2_r1"}
 	rName = cfg.ResourceName()
 	robotForRemote.parts.addResource(rName, &inject.Camera{})
+
+	cfg = config.Component{Type: config.ComponentTypeInputController, Name: "inputController2_r1"}
+	rName = cfg.ResourceName()
+	robotForRemote.parts.addResource(rName, &inject.InputController{})
 
 	remote1Replacemenet := newRemoteRobot(robotForRemote, config.Remote{Name: "remote1"})
 	replacementParts.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
@@ -955,23 +961,31 @@ func TestPartsMergeModify(t *testing.T) {
 	replacementParts.AddBase(injectBase, config.Component{Name: "base1"})
 	injectCompass := &inject.Compass{}
 	replacementParts.AddSensor(injectCompass, config.Component{Name: "sensor1"})
-	injectInputController := &inject.InputController{}
-	replacementParts.AddInputController(injectInputController, config.Component{Name: "inputController1"})
+
 	cfg = config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
 	rName = cfg.ResourceName()
 	replacementParts.addResource(rName, &inject.Arm{})
+
 	cfg = config.Component{Type: config.ComponentTypeMotor, Name: "motor1"}
 	rName = cfg.ResourceName()
 	replacementParts.addResource(rName, &inject.Motor{})
+
 	cfg = config.Component{Type: config.ComponentTypeServo, Name: "servo1"}
 	rName = cfg.ResourceName()
 	replacementParts.addResource(rName, &inject.Servo{})
+
 	cfg = config.Component{Type: config.ComponentTypeGripper, Name: "gripper1"}
 	rName = cfg.ResourceName()
 	replacementParts.addResource(rName, &inject.Gripper{})
+
 	cfg = config.Component{Type: config.ComponentTypeCamera, Name: "camera1"}
 	rName = cfg.ResourceName()
 	replacementParts.addResource(rName, &inject.Camera{})
+
+	cfg = config.Component{Type: config.ComponentTypeInputController, Name: "inputController1"}
+	rName = cfg.ResourceName()
+	replacementParts.addResource(rName, &inject.InputController{})
+
 	fp1 := &fakeProcess{id: "1"}
 	_, err = replacementParts.processManager.AddProcess(context.Background(), fp1, false)
 	test.That(t, err, test.ShouldBeNil)
