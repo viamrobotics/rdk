@@ -377,14 +377,14 @@ func (r *reconfigurableBoard) Close() error {
 // WrapWithReconfigurable converts a regular Board implementation to a reconfigurableBoard.
 // If board is already a reconfigurableBoard, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	arm, ok := r.(Board)
+	board, ok := r.(Board)
 	if !ok {
 		return nil, errors.Errorf("expected resource to be Board but got %T", r)
 	}
-	if reconfigurable, ok := arm.(*reconfigurableBoard); ok {
+	if reconfigurable, ok := board.(*reconfigurableBoard); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableBoard{actual: arm}, nil
+	return &reconfigurableBoard{actual: board}, nil
 }
 
 type reconfigurableBoardSPI struct {
