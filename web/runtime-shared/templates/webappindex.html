@@ -576,6 +576,8 @@
                         pResolve2(null);
                         updateSlipDetectionResult(err, resp, slip_animation_stuff)
                       });
+                      await p1;
+                      await p2;
 
                       // Start the 3D game engine animation if it hasn't been started yet
                       if (!startedForceAnimation) {
