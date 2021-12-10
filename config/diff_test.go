@@ -7,7 +7,7 @@ import (
 
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/config"
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/testutils/inject"

@@ -8,7 +8,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/motor"
 	fakemotor "go.viam.com/core/component/motor/fake"
 	"go.viam.com/core/config"

@@ -6,7 +6,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/motor/tmcstepper"
 	"go.viam.com/core/config"

@@ -8,7 +8,7 @@ import (
 	"github.com/go-errors/errors"
 	"go.viam.com/test"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
 	"go.viam.com/core/sensor"
