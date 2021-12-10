@@ -449,15 +449,6 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 		)
 		resources = append(resources, res)
 	}
-	for _, name := range r.BoardNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceCore,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeBoard,
-			name,
-		)
-		resources = append(resources, res)
-	}
 	for _, name := range r.FunctionNames() {
 		res := resource.NewName(
 			resource.ResourceNamespaceCore,
