@@ -402,6 +402,8 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	// TODO(maximpertsov): remove this switch statement after the V2 migration is done
 	switch name.Subtype {
+	case board.Subtype:
+		return &boardClient{rc: rc, name: name.Name}, true
 	case motor.Subtype:
 		return &motorClient{rc: rc, name: name.Name}, true
 	default:
