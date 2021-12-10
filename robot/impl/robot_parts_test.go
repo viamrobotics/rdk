@@ -885,7 +885,7 @@ func TestPartsMergeModify(t *testing.T) {
 
 	replacementParts := newRobotParts(logger)
 	robotForRemote := &localRobot{parts: newRobotParts(logger), logger: logger}
-    // TODO(maximpertsov): is this test still valuable?
+	// TODO(maximpertsov): is this test still valuable?
 	// _, err = fake.NewBoard(context.Background(), config.Component{
 	// 	Name: "board2",
 	// 	ConvertedAttributes: &board.Config{
@@ -927,7 +927,7 @@ func TestPartsMergeModify(t *testing.T) {
 	remote1Replacemenet := newRemoteRobot(robotForRemote, config.Remote{Name: "remote1"})
 	replacementParts.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
 
-    // TODO(maximpertsov): is this test still valuable?
+	// TODO(maximpertsov): is this test still valuable?
 	// _, err = fake.NewBoard(context.Background(), config.Component{
 	// 	Name: "board1",
 	// 	ConvertedAttributes: &board.Config{

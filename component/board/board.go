@@ -10,10 +10,11 @@ import (
 	"sync"
 
 	"github.com/go-errors/errors"
+	"go.viam.com/utils"
+
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/rlog"
-	"go.viam.com/utils"
 )
 
 // SubtypeName is a constant that identifies the component resource subtype string "board"

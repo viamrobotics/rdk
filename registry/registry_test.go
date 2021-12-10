@@ -8,8 +8,8 @@ import (
 	rpcserver "go.viam.com/utils/rpc/server"
 
 	"go.viam.com/core/base"
-	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
 	"go.viam.com/core/lidar"

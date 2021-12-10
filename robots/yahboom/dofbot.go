@@ -10,8 +10,8 @@ import (
 
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	"go.viam.com/core/motionplan"
