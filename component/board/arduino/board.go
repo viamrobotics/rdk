@@ -15,7 +15,7 @@ import (
 	slib "github.com/jacobsa/go-serial/serial"
 	"go.uber.org/multierr"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/config"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"

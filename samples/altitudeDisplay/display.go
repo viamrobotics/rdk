@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 )
 
 /*	Values from the original arduino C library that I did not use, if you need them

@@ -23,7 +23,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/config"
 	piutils "go.viam.com/core/lib/pi"
 	"go.viam.com/core/registry"

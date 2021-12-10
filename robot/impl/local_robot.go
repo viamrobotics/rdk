@@ -12,8 +12,8 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/core/base"
-	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/motor"
@@ -41,9 +41,9 @@ import (
 
 	// These are the robot pieces we want by default
 	_ "go.viam.com/core/base/impl"
-	_ "go.viam.com/core/board/arduino"
-	_ "go.viam.com/core/board/jetson"
-	_ "go.viam.com/core/board/numato"
+	_ "go.viam.com/core/component/board/arduino"
+	_ "go.viam.com/core/component/board/jetson"
+	_ "go.viam.com/core/component/board/numato"
 	_ "go.viam.com/core/component/arm/register"     // for all arms TODO: #298
 	_ "go.viam.com/core/component/camera/register"  // for all cameras
 	_ "go.viam.com/core/component/gantry/register"  // for all gantries

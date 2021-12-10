@@ -10,7 +10,7 @@ import (
 
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
 	functionvm "go.viam.com/core/function/vm"

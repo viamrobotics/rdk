@@ -14,7 +14,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/core/action"
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/lidar"
