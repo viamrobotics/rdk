@@ -1,0 +1,78 @@
+{
+    "components":[
+        {
+            "model": "pi",
+            "name": "local",
+            "type": "board"
+          },
+        {
+            "model": "gpiostepper",
+            "name": "xmotor",
+            "type": "motor",
+            "attributes": {
+              "board": "local",
+              "pins": {
+                "dir": "io21",
+                "enHigh": "io26",
+                "step": "io13"
+            },
+              "stepperDelay": 50,
+              "ticksPerRotation": 200
+                }
+        },
+        {
+                "model": "gpiostepper",
+                "name": "ymotor",
+                "type": "motor",
+                "attributes": {
+                  "board": "local",
+                  "pins": {
+                    "dir": "io21",
+                    "enHigh": "io26",
+                    "step": "io13"
+                  },
+                  "stepperDelay": 50,
+                  "ticksPerRotation": 200
+                }
+        },        
+        {
+            "model": "gpiostepper",
+            "name": "zmotor",
+            "type": "motor",
+            "attributes": {
+              "board": "local",
+              "pins": {
+                "dir": "io21",
+                "enHigh": "io26",
+                "step": "io13"
+              },
+              "stepperDelay": 50,
+              "ticksPerRotation": 200
+            }
+    },
+    {
+        "model": "mutliaxis",
+        "name": "armmover",
+        "type": "gantry",
+        "attributes": {
+          "lengthMeters": [1.5, 1.5, 1.5],
+            "axes": [true, true, true],
+          "limitBoard": "local",
+          "limitHigh": false,
+          "limitPins": [
+            "io17",
+            "io18",
+            "io17",
+            "io18",
+            "io17",
+            "io18"
+          ],
+          "motor": ["xmotor", "ymotor", "zmotor"],
+          "rpm": [300, 300, 300]
+        },
+        "depends_on": [
+          "xmotor", "ymotor", "zmotor"
+        ]
+    }
+    ]
+}

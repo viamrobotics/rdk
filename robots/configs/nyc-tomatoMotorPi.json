@@ -1,0 +1,24 @@
+{
+"components": [
+    {
+    "model": "pi",
+    "name": "local",
+    "type": "board"
+    },
+    {
+    "attributes": {
+      "board": "local",
+      "pins": {
+        "dir": "io21",
+        "enHigh": "io26",
+        "step": "io13"
+      },
+      "stepperDelay": 50,
+      "ticksPerRotation": 200
+    },
+    "model": "gpiostepper",
+    "name": "tomato-motor",
+    "type": "motor"
+  }
+]
+}
