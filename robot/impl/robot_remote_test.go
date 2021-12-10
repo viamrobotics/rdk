@@ -59,6 +59,10 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		motor.Named(fmt.Sprintf("motor1%s", suffix)),
 		motor.Named(fmt.Sprintf("motor2%s", suffix)),
 	}
+	inputNames := []resource.Name{
+		input.Named(fmt.Sprintf("inputController1%s", suffix)),
+		input.Named(fmt.Sprintf("inputController2%s", suffix)),
+	}
 
 	injectRobot.RemoteNamesFunc = func() []string {
 		return []string{fmt.Sprintf("remote1%s", suffix), fmt.Sprintf("remote2%s", suffix)}
@@ -91,7 +95,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		return coretestutils.ExtractNames(motorNames...)
 	}
 	injectRobot.InputControllerNamesFunc = func() []string {
-		return []string{fmt.Sprintf("inputController1%s", suffix), fmt.Sprintf("inputController2%s", suffix)}
+		return coretestutils.ExtractNames(inputNames...)
 	}
 	injectRobot.FunctionNamesFunc = func() []string {
 		return []string{fmt.Sprintf("func1%s", suffix), fmt.Sprintf("func2%s", suffix)}
@@ -106,6 +110,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 			cameraNames,
 			servoNames,
 			motorNames,
+			inputNames,
 		)
 	}
 	injectRobot.LoggerFunc = func() golog.Logger {
@@ -223,8 +228,9 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 					return &fakecamera.Camera{Name: name.Name}, true
 				case motor.Subtype:
 					return &fakemotor.Motor{Name: name.Name}, true
+				case input.Subtype:
+					return &fakeinput.InputController{Name: name.Name}, true
 				}
-
 			}
 		}
 		return nil, false
@@ -308,6 +314,13 @@ func TestRemoteRobot(t *testing.T) {
 	robot.conf.Prefix = true
 	test.That(t, utils.NewStringSet(robot.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(prefixedMotorNames...)...))
 
+	inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
+	prefixedInputNames := []resource.Name{input.Named("one.inputController1"), input.Named("one.inputController2")}
+	robot.conf.Prefix = false
+	test.That(t, utils.NewStringSet(robot.InputControllerNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...))
+	robot.conf.Prefix = true
+	test.That(t, utils.NewStringSet(robot.InputControllerNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(prefixedInputNames...)...))
+
 	robot.conf.Prefix = false
 	test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2"))
 	robot.conf.Prefix = true
@@ -321,6 +334,7 @@ func TestRemoteRobot(t *testing.T) {
 			cameraNames,
 			servoNames,
 			motorNames,
+			inputNames,
 		)...))
 	robot.conf.Prefix = true
 	test.That(t, coretestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
@@ -330,6 +344,7 @@ func TestRemoteRobot(t *testing.T) {
 			prefixedCameraNames,
 			prefixedServoNames,
 			prefixedMotorNames,
+			prefixedInputNames,
 		)...))
 
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
