@@ -4,10 +4,8 @@ package register
 import (
 	"go.viam.com/core/component/board"
 
-	// TODO(maximpertsov): add fake board
-	// _ "go.viam.com/core/component/board/fake"
-
 	_ "go.viam.com/core/component/board/arduino" // for board
+	_ "go.viam.com/core/component/board/fake"    // for board
 	_ "go.viam.com/core/component/board/jetson"  // for board
 	_ "go.viam.com/core/component/board/numato"  // for board
 
