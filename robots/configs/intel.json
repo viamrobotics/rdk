@@ -23,7 +23,7 @@
         },
         { "name" : "front",
           "type" : "camera",
-          "model" : "depthComposed",
+          "model" : "depth_composed",
           "attributes" : {
 	          "hide" : true,
               "color" : "front-color",

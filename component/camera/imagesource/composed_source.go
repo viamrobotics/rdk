@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, "depthToPretty", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+	registry.RegisterComponent(camera.Subtype, "depth_to_pretty", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		return newDepthToPretty(r, config)
 	}})
 

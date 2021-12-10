@@ -233,7 +233,8 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 		defer close(m.waitCh)
 		<-ctxWithTimeout.Done()
 		if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-			err := m.Off(ctx)
+			// this has to be new context as previous one is likely timedout
+			err := m.Off(context.Background())
 
 			if err != nil {
 				m.logger.Errorw("failed to turn off motor", "error", err)

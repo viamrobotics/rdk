@@ -2,15 +2,21 @@ package transform
 
 import (
 	"encoding/json"
+	"fmt"
+	"image"
+	"image/color"
 	"io/ioutil"
 	"math"
 	"os"
 
-	"github.com/go-errors/errors"
-
 	"go.viam.com/utils"
 
 	"go.viam.com/core/config"
+	"go.viam.com/core/pointcloud"
+	"go.viam.com/core/rimage"
+
+	"github.com/go-errors/errors"
+	"github.com/golang/geo/r3"
 )
 
 // DistortionModel TODO
@@ -44,6 +50,17 @@ type DepthColorIntrinsicsExtrinsics struct {
 	ColorCamera  PinholeCameraIntrinsics `json:"color"`
 	DepthCamera  PinholeCameraIntrinsics `json:"depth"`
 	ExtrinsicD2C Extrinsics              `json:"extrinsicsDepthToColor"`
+}
+
+// CheckValid checks if the fields for PinholeCameraIntrinsics have valid inputs
+func (params *PinholeCameraIntrinsics) CheckValid() error {
+	if params == nil {
+		return errors.New("pointer to PinholeCameraIntrinsics is nil")
+	}
+	if params.Width == 0 || params.Height == 0 {
+		return errors.Errorf("invalid size (%#v, %#v)", params.Width, params.Height)
+	}
+	return nil
 }
 
 // CheckValid TODO
@@ -165,6 +182,25 @@ func (params *PinholeCameraIntrinsics) PointToPixel(x, y, z float64) (float64, f
 	return -1.0, -1.0
 }
 
+// ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix
+func (params *PinholeCameraIntrinsics) ImagePointTo3DPoint(point image.Point, ii *rimage.ImageWithDepth) (r3.Vector, error) {
+	return intrinsics2DPtTo3DPt(point, ii, params)
+}
+
+// ImageWithDepthToPointCloud takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
+func (params *PinholeCameraIntrinsics) ImageWithDepthToPointCloud(ii *rimage.ImageWithDepth) (pointcloud.PointCloud, error) {
+	// color and depth images need to already be aligned
+	if !ii.IsAligned() {
+		return nil, errors.New("color and depth channels are not aligned. Cannot project to pointcloud")
+	}
+	return intrinsics2DTo3D(ii, params)
+}
+
+// PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth from the perspective of the camera frame.
+func (params *PinholeCameraIntrinsics) PointCloudToImageWithDepth(cloud pointcloud.PointCloud) (*rimage.ImageWithDepth, error) {
+	return intrinsics3DTo2D(cloud, params)
+}
+
 // TransformPointToPoint applies a rigid body transform between two cameras to a 3D point.
 func (params *Extrinsics) TransformPointToPoint(x, y, z float64) (float64, float64, float64) {
 	rotationMatrix := params.RotationMatrix
@@ -180,14 +216,60 @@ func (params *Extrinsics) TransformPointToPoint(x, y, z float64) (float64, float
 	return xTransformed, yTransformed, zTransformed
 }
 
-// DepthPixelToColorPixel takes a pixel+depth (x,y, depth) from the depth camera and output is the coordinates
-// of the color camera. Extrinsic matrices in meters, points are in mm, need to convert to m and then back.
-func (dcie *DepthColorIntrinsicsExtrinsics) DepthPixelToColorPixel(dx, dy, dz float64) (float64, float64, float64) {
-	m2mm := 1000.0
-	x, y, z := dcie.DepthCamera.PixelToPoint(dx, dy, dz)
-	x, y, z = x/m2mm, y/m2mm, z/m2mm
-	x, y, z = dcie.ExtrinsicD2C.TransformPointToPoint(x, y, z)
-	x, y, z = x*m2mm, y*m2mm, z*m2mm
-	cx, cy := dcie.ColorCamera.PointToPixel(x, y, z)
-	return cx, cy, z
+// intrinsics2DPtTo3DPt takes in a image coordinate and returns the 3D point using the camera's intrinsic matrix
+func intrinsics2DPtTo3DPt(pt image.Point, ii *rimage.ImageWithDepth, pci *PinholeCameraIntrinsics) (r3.Vector, error) {
+	if !ii.IsAligned() {
+		return r3.Vector{}, errors.New("image with depth is not aligned. will not return correct 3D point")
+	}
+	if !(pt.In(ii.Bounds())) {
+		return r3.Vector{}, fmt.Errorf("point (%d,%d) not in image bounds (%d,%d)", pt.X, pt.Y, ii.Width(), ii.Height())
+	}
+	px, py, pz := pci.PixelToPoint(float64(pt.X), float64(pt.Y), float64(ii.Depth.Get(pt)))
+	return r3.Vector{px, py, pz}, nil
+}
+
+// intrinsics3DTo2D uses the camera's intrinsic matrix to project the 3D pointcloud to a 2D image with depth.
+func intrinsics3DTo2D(cloud pointcloud.PointCloud, pci *PinholeCameraIntrinsics) (*rimage.ImageWithDepth, error) {
+	// Needs to be a pointcloud with color
+	if !cloud.HasColor() {
+		return nil, errors.New("pointcloud has no color information, cannot create an image with depth")
+	}
+	// ImageWithDepth will be in the camera frame of the camera specified by PinholeCameraIntrinsics.
+	// Points outside of the frame will be discarded.
+	// Assumption is that points in pointcloud are in mm.
+	width, height := pci.Width, pci.Height
+	color := rimage.NewImage(width, height)
+	depth := rimage.NewEmptyDepthMap(width, height)
+	cloud.Iterate(func(pt pointcloud.Point) bool {
+		j, i := pci.PointToPixel(pt.Position().X, pt.Position().Y, pt.Position().Z)
+		x, y := int(math.Round(j)), int(math.Round(i))
+		z := int(pt.Position().Z)
+		// if point has color and is inside the image bounds, add it to the images
+		if x >= 0 && x < width && y >= 0 && y < height && pt.HasColor() {
+			r, g, b := pt.RGB255()
+			color.Set(image.Point{x, y}, rimage.NewColor(r, g, b))
+			depth.Set(x, y, rimage.Depth(z))
+		}
+		return true
+	})
+	return rimage.MakeImageWithDepth(color, depth, true, pci), nil
+}
+
+// intrinsics2DTo3D uses the camera's intrinsic matrix to project the 2D image with depth to a 3D point cloud.
+func intrinsics2DTo3D(iwd *rimage.ImageWithDepth, pci *PinholeCameraIntrinsics) (pointcloud.PointCloud, error) {
+	if !iwd.IsAligned() {
+		return nil, errors.New("image with depth is not aligned. Cannot project to Pointcloud")
+	}
+	pc := pointcloud.New()
+	for y := 0; y < pci.Height; y++ {
+		for x := 0; x < pci.Width; x++ {
+			px, py, pz := pci.PixelToPoint(float64(x), float64(y), float64(iwd.Depth.GetDepth(x, y)))
+			r, g, b := iwd.Color.GetXY(x, y).RGB255()
+			err := pc.Set(pointcloud.NewColoredPoint(px, py, pz, color.NRGBA{r, g, b, 255}))
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return pc, nil
 }
