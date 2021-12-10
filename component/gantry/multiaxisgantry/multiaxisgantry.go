@@ -284,7 +284,7 @@ func (g *multiAxis) limitHit(ctx context.Context, offset int) (bool, error) {
 func (g *multiAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
 	count := 0
 	posOut := []float64{}
-	for idx := 0; idx < len(g.motorList); idx++ {
+	for idx := 0; idx < len(g.motors); idx++ {
 		pos, err := g.motors[idx].Position(ctx)
 		if err != nil {
 			return nil, err
@@ -294,8 +294,8 @@ func (g *multiAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
 		// can change into x, y, z explicitly without a for loop if preferable.
 		targetPos := g.positionLimits[idx+count] + (pos * theRange)
 
-		limit1, err := g.limitHit(ctx, idx+count)
-		limit2, err := g.limitHit(ctx, idx+count+1)
+		limit1, _ := g.limitHit(ctx, idx+count)
+		limit2, _ := g.limitHit(ctx, idx+count+1)
 
 		g.logger.Debugf("oneAxis CurrentPosition %.02f -> %.02f. limSwitch1: %t, limSwitch2: %t", pos, targetPos, limit1, limit2)
 
@@ -307,17 +307,15 @@ func (g *multiAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
 
 func (g *multiAxis) Lengths(ctx context.Context) ([]float64, error) {
 	lengthsout := []float64{}
-	for idx := 0; idx < len(g.motorList); idx++ {
+	for idx := 0; idx < len(g.motors); idx++ {
 		return append(lengthsout, g.lengthMeters[idx]), nil
 	}
 	return lengthsout, nil
 }
 
-// position is in meters
-// change this to multi-axis function
 func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) error {
-	if len(positions) != len(g.motorList) {
-		return fmt.Errorf(" gantry MoveToPosition needs %v positions, got: %v", positions)
+	if len(positions) != len(g.motors) {
+		return fmt.Errorf(" gantry MoveToPosition needs %v positions, got: %v", len(g.motorList), len(positions))
 	}
 
 	for idx := 0; idx < len(g.motorList); idx++ {
@@ -367,15 +365,15 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 					return g.motors[idx].Off(ctx)
 				}
 			}
+			count++
 
 			return g.motors[idx].GoTo(ctx, g.rpm[idx], targetPos)
-			count++
 		}
 
 	case "encoder":
 		//unsupported - have to think about what encoders will do or support here,
 		// or if it is useful to have our own calibration of an encoder gantry anyway.
-		return fmt.Errorf("No encoders. Sorry not sorry.")
+		return fmt.Errorf("no encoders supported")
 	}
 	return nil
 }
@@ -392,7 +390,7 @@ func (g *multiAxis) ModelFrame() *referenceframe.Model {
 			[]referenceframe.Limit{{0, g.lengthMeters[idx]}},
 		)
 		if err != nil {
-			panic(fmt.Errorf("error creating frame %v, should be impossible %w", err))
+			panic(fmt.Errorf("error creating frame %v, should be impossible %w", idx, err))
 		}
 		m.OrdTransforms = append(m.OrdTransforms, f)
 	}
