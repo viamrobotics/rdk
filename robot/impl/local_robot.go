@@ -392,14 +392,6 @@ func (r *localRobot) newSensor(ctx context.Context, config config.Component, sen
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *localRobot) newInputController(ctx context.Context, config config.Component) (input.Controller, error) {
-	f := registry.InputControllerLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown input controller model: %s", config.Model)
-	}
-	return f.Constructor(ctx, r, config, r.logger)
-}
-
 func (r *localRobot) newBoard(ctx context.Context, config config.Component) (board.Board, error) {
 	f := registry.BoardLookup(config.Model)
 	if f == nil {
@@ -499,25 +491,6 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 			name,
 		)
 
-		resources = append(resources, res)
-	}
-	for _, name := range r.MotorNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceCore,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeMotor,
-			name,
-		)
-		resources = append(resources, res)
-	}
-
-	for _, name := range r.InputControllerNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceCore,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeInputController,
-			name,
-		)
 		resources = append(resources, res)
 	}
 

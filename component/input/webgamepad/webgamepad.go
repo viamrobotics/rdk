@@ -21,11 +21,29 @@ const (
 )
 
 func init() {
-	registry.RegisterInputController(modelname, registry.InputController{Constructor: NewController})
+	registry.RegisterComponent(input.Subtype, modelname, registry.Component{Constructor: NewController})
 }
 
-// Controller is an input.Controller
-type Controller struct {
+// NewController creates a new gamepad
+func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+	var w webGamepad
+	w.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
+	w.lastEvents = make(map[input.Control]input.Event)
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	w.cancelFunc = cancel
+	w.ctxWithCancel = ctxWithCancel
+	w.controls = []input.Control{
+		input.AbsoluteX, input.AbsoluteY, input.AbsoluteRX, input.AbsoluteRY,
+		input.AbsoluteZ, input.AbsoluteRZ, input.AbsoluteHat0X, input.AbsoluteHat0Y,
+		input.ButtonSouth, input.ButtonEast, input.ButtonWest, input.ButtonNorth,
+		input.ButtonLT, input.ButtonRT, input.ButtonLThumb, input.ButtonRThumb,
+		input.ButtonSelect, input.ButtonStart, input.ButtonMenu,
+	}
+	return &w, nil
+}
+
+// webGamepad is an input.Controller
+type webGamepad struct {
 	controls                []input.Control
 	lastEvents              map[input.Control]input.Event
 	mu                      sync.RWMutex
@@ -35,104 +53,86 @@ type Controller struct {
 	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
 }
 
-func (g *Controller) makeCallbacks(ctx context.Context, eventOut input.Event) {
-	g.mu.Lock()
-	g.lastEvents[eventOut.Control] = eventOut
-	g.mu.Unlock()
+func (w *webGamepad) makeCallbacks(ctx context.Context, eventOut input.Event) {
+	w.mu.Lock()
+	w.lastEvents[eventOut.Control] = eventOut
+	w.mu.Unlock()
 
-	g.mu.RLock()
-	_, ok := g.callbacks[eventOut.Control]
-	g.mu.RUnlock()
+	w.mu.RLock()
+	_, ok := w.callbacks[eventOut.Control]
+	w.mu.RUnlock()
 	if !ok {
-		g.mu.Lock()
-		g.callbacks[eventOut.Control] = make(map[input.EventType]input.ControlFunction)
-		g.mu.Unlock()
+		w.mu.Lock()
+		w.callbacks[eventOut.Control] = make(map[input.EventType]input.ControlFunction)
+		w.mu.Unlock()
 	}
-	g.mu.RLock()
-	defer g.mu.RUnlock()
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 
-	ctrlFunc, ok := g.callbacks[eventOut.Control][eventOut.Event]
+	ctrlFunc, ok := w.callbacks[eventOut.Control][eventOut.Event]
 	if ok && ctrlFunc != nil {
-		g.activeBackgroundWorkers.Add(1)
+		w.activeBackgroundWorkers.Add(1)
 		utils.PanicCapturingGo(func() {
-			defer g.activeBackgroundWorkers.Done()
-			ctrlFunc(g.ctxWithCancel, eventOut)
+			defer w.activeBackgroundWorkers.Done()
+			ctrlFunc(w.ctxWithCancel, eventOut)
 		})
 	}
 
-	ctrlFuncAll, ok := g.callbacks[eventOut.Control][input.AllEvents]
+	ctrlFuncAll, ok := w.callbacks[eventOut.Control][input.AllEvents]
 	if ok && ctrlFuncAll != nil {
-		g.activeBackgroundWorkers.Add(1)
+		w.activeBackgroundWorkers.Add(1)
 		utils.PanicCapturingGo(func() {
-			defer g.activeBackgroundWorkers.Done()
-			ctrlFuncAll(g.ctxWithCancel, eventOut)
+			defer w.activeBackgroundWorkers.Done()
+			ctrlFuncAll(w.ctxWithCancel, eventOut)
 		})
 	}
-}
-
-// NewController creates a new gamepad
-func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
-	var g Controller
-	g.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
-	g.lastEvents = make(map[input.Control]input.Event)
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	g.cancelFunc = cancel
-	g.ctxWithCancel = ctxWithCancel
-	g.controls = []input.Control{
-		input.AbsoluteX, input.AbsoluteY, input.AbsoluteRX, input.AbsoluteRY,
-		input.AbsoluteZ, input.AbsoluteRZ, input.AbsoluteHat0X, input.AbsoluteHat0Y,
-		input.ButtonSouth, input.ButtonEast, input.ButtonWest, input.ButtonNorth,
-		input.ButtonLT, input.ButtonRT, input.ButtonLThumb, input.ButtonRThumb,
-		input.ButtonSelect, input.ButtonStart, input.ButtonMenu,
-	}
-	return &g, nil
 }
 
 // Close terminates background worker threads
-func (g *Controller) Close() error {
-	g.cancelFunc()
-	g.activeBackgroundWorkers.Wait()
+func (w *webGamepad) Close() error {
+	w.cancelFunc()
+	w.activeBackgroundWorkers.Wait()
 	return nil
 }
 
 // Controls lists the inputs of the gamepad
-func (g *Controller) Controls(ctx context.Context) ([]input.Control, error) {
-	out := append([]input.Control(nil), g.controls...)
+func (w *webGamepad) Controls(ctx context.Context) ([]input.Control, error) {
+	out := append([]input.Control(nil), w.controls...)
 	return out, nil
 }
 
 // LastEvents returns the last input.Event (the current state)
-func (g *Controller) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
+func (w *webGamepad) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	out := make(map[input.Control]input.Event)
-	for key, value := range g.lastEvents {
+	for key, value := range w.lastEvents {
 		out[key] = value
 	}
 	return out, nil
 }
 
 // RegisterControlCallback registers a callback function to be executed on the specified control's trigger Events
-func (g *Controller) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	if g.callbacks[control] == nil {
-		g.callbacks[control] = make(map[input.EventType]input.ControlFunction)
+func (w *webGamepad) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.callbacks[control] == nil {
+		w.callbacks[control] = make(map[input.EventType]input.ControlFunction)
 	}
 
 	for _, trigger := range triggers {
 		if trigger == input.ButtonChange {
-			g.callbacks[control][input.ButtonRelease] = ctrlFunc
-			g.callbacks[control][input.ButtonPress] = ctrlFunc
+			w.callbacks[control][input.ButtonRelease] = ctrlFunc
+			w.callbacks[control][input.ButtonPress] = ctrlFunc
 		} else {
-			g.callbacks[control][trigger] = ctrlFunc
+			w.callbacks[control][trigger] = ctrlFunc
 		}
 	}
 	return nil
 }
 
 // InjectEvent allows directly sending an Event (such as a button press) from external code
-func (g *Controller) InjectEvent(ctx context.Context, event input.Event) error {
-	g.makeCallbacks(ctx, event)
+func (w *webGamepad) InjectEvent(ctx context.Context, event input.Event) error {
+	w.makeCallbacks(ctx, event)
 	return nil
 }
