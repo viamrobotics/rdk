@@ -19,8 +19,8 @@ import (
 	rpcclient "go.viam.com/utils/rpc/client"
 
 	"go.viam.com/core/base"
-	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/motor"

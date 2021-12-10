@@ -7,8 +7,8 @@ import (
 	"github.com/go-errors/errors"
 
 	"go.viam.com/core/base"
-	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/camera"
 	fakecamera "go.viam.com/core/component/camera/fake"
 	"go.viam.com/core/component/gripper"
