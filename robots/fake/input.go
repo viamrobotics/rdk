@@ -15,6 +15,8 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+const modelName = "fake"
+
 func init() {
 
 	registry.RegisterInputController(modelName, registry.InputController{Constructor: NewInputController})
