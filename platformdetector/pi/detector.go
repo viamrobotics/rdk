@@ -5,6 +5,8 @@
 // on other platforms.
 package pi
 
+// TODO(maximpertsov): add to board component?
+
 import (
 	_ "go.viam.com/core/component/board/pi"
 )
