@@ -87,6 +87,7 @@ func init() {
 		}
 		return &camera.ImageSource{ImageSource: &fileSource{config.Attributes.String("color"), config.Attributes.String("depth"), aligned}}, nil
 	}})
+
 }
 
 // staticSource is a fixed, stored image
@@ -213,7 +214,7 @@ type serverSource struct {
 	host      string
 	stream    StreamType // specifies color, depth, or both stream
 	isAligned bool       // are the color and depth image already aligned
-	camera    rimage.CameraSystem
+	camera    rimage.Projector
 }
 
 // IsAligned is a bool that returns true if both.gz image is already aligned. If the server is only returning a single stream
@@ -222,9 +223,8 @@ func (s *serverSource) IsAligned() bool {
 	return s.isAligned
 }
 
-// CameraSystem is the combined Aligner that aligns the depth and color images,
-// and the Projector which projects between 3D and 2D representations
-func (s *serverSource) CameraSystem() rimage.CameraSystem {
+// Projector is the  Projector which projects between 3D and 2D representations
+func (s *serverSource) Projector() rimage.Projector {
 	return s.camera
 }
 
@@ -250,19 +250,19 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		img = rimage.MakeImageWithDepth(rimage.ConvertImage(color), nil, false, s.CameraSystem())
+		img = rimage.MakeImageWithDepth(rimage.ConvertImage(color), nil, false, s.Projector())
 	case DepthStream:
 		depth, err := decodeDepth(allData)
 		if err != nil {
 			return nil, nil, err
 		}
-		img = rimage.MakeImageWithDepth(rimage.ConvertImage(depth.ToGray16Picture()), depth, false, s.CameraSystem())
+		img = rimage.MakeImageWithDepth(rimage.ConvertImage(depth.ToGray16Picture()), depth, false, s.Projector())
 	case BothStream:
 		img, err = decodeBoth(allData, s.isAligned)
 		if err != nil {
 			return nil, nil, err
 		}
-		img.SetCameraSystem(s.CameraSystem())
+		img.SetProjector(s.Projector())
 	default:
 		return nil, nil, errors.Errorf("do not know how to decode stream type %q", string(s.stream))
 	}
@@ -272,7 +272,7 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 
 // NewServerSource creates the ImageSource that streams color/depth/both data from an external server at a given URL.
 func NewServerSource(host string, port int, attrs config.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
-	camera, _, err := getCameraSystems(attrs, logger)
+	_, camera, err := getCameraSystems(attrs, logger)
 	if err != nil {
 		return nil, err
 	}
