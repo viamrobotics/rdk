@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/board"
+	fakeboard "go.viam.com/core/component/board/fake"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/motor"
@@ -511,7 +512,7 @@ func TestPartsAdd(t *testing.T) {
 		return &inject.I2C{}, true
 	}
 	injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-		return &fake.Analog{}, true
+		return &fakeboard.Analog{}, true
 	}
 	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
 		return &board.BasicDigitalInterrupt{}, true
