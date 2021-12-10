@@ -13,7 +13,6 @@ import (
 	rpcserver "go.viam.com/utils/rpc/server"
 
 	"go.viam.com/core/base"
-	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
@@ -33,9 +32,6 @@ type (
 
 	// A CreateSensor creates a sensor from a given config.
 	CreateSensor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error)
-
-	// A CreateBoard creates a board from a given config.
-	CreateBoard func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error)
 
 	// A CreateMotor creates a motor from a given config.
 	CreateMotor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error)
@@ -71,12 +67,6 @@ type Sensor struct {
 	Constructor CreateSensor
 }
 
-// Board stores a Board constructor function (mandatory)
-type Board struct {
-	RegDebugInfo
-	Constructor CreateBoard
-}
-
 // Motor stores a Motor constructor function (mandatory)
 type Motor struct {
 	RegDebugInfo
@@ -101,7 +91,6 @@ var (
 	baseRegistry            = map[string]Base{}
 	lidarRegistry           = map[string]Lidar{}
 	sensorRegistry          = map[sensor.Type]map[string]Sensor{}
-	boardRegistry           = map[string]Board{}
 	inputControllerRegistry = map[string]InputController{}
 	serviceRegistry         = map[config.ServiceType]Service{}
 )
@@ -157,19 +146,6 @@ func RegisterSensor(sensorType sensor.Type, model string, creator Sensor) {
 	sensorRegistry[sensorType][model] = creator
 }
 
-// RegisterBoard registers a board model to a creator.
-func RegisterBoard(model string, creator Board) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := boardRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two boards with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	boardRegistry[model] = creator
-}
-
 // RegisterInputController registers an input controller model to a creator.
 func RegisterInputController(model string, creator InputController) {
 	creator.RegistrarLoc = getCallerName()
@@ -222,15 +198,6 @@ func SensorLookup(sensorType sensor.Type, model string) *Sensor {
 		return nil
 	}
 	if registration, ok := subTyped[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// BoardLookup looks up a board creator by the given model. nil is returned if
-// there is no creator registered.
-func BoardLookup(model string) *Board {
-	if registration, ok := boardRegistry[model]; ok {
 		return &registration
 	}
 	return nil
@@ -364,15 +331,6 @@ func RegisteredSensors() map[sensor.Type]map[string]Sensor {
 		panic(err)
 	}
 	return copied.(map[sensor.Type]map[string]Sensor)
-}
-
-// RegisteredBoards returns a copy of the registered boards.
-func RegisteredBoards() map[string]Board {
-	copied, err := copystructure.Copy(boardRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]Board)
 }
 
 // RegisteredInputControllers returns a copy of the registered input controllers.
