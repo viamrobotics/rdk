@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+
 	"go.viam.com/core/config"
 	"go.viam.com/core/testutils/inject"
 
@@ -61,7 +62,7 @@ func TestNewMultiAxis(t *testing.T) {
 		},
 	}
 
-	g, err := NewMultiAxis(ctx, shamRobot, shamcfg, logger)
-	test.That(t, err, test.ShouldBeNil)
+	_, err = NewMultiAxis(ctx, shamRobot, shamcfg, logger)
+	test.That(t, err, test.ShouldNotBeNil)
 
 }
