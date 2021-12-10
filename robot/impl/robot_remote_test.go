@@ -11,8 +11,8 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/base"
-	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/camera"
 	fakecamera "go.viam.com/core/component/camera/fake"
 	"go.viam.com/core/component/gripper"
@@ -552,13 +552,11 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
-	board1, ok := robot.BoardByName("board1")
+	_, ok = robot.BoardByName("board1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1")
 	robot.conf.Prefix = true
-	board1, ok = robot.BoardByName("one.board1")
+	_, ok = robot.BoardByName("one.board1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1")
 	_, ok = robot.BoardByName("board1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 

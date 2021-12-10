@@ -12,8 +12,8 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/core/base"
-	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/motor"
@@ -33,7 +33,6 @@ import (
 // robotParts are the actual parts that make up a robot.
 type robotParts struct {
 	remotes          map[string]*remoteRobot
-	boards           map[string]*proxyBoard
 	lidars           map[string]*proxyLidar
 	bases            map[string]*proxyBase
 	sensors          map[string]sensor.Sensor
@@ -48,7 +47,6 @@ type robotParts struct {
 func newRobotParts(logger golog.Logger) *robotParts {
 	return &robotParts{
 		remotes:          map[string]*remoteRobot{},
-		boards:           map[string]*proxyBoard{},
 		lidars:           map[string]*proxyLidar{},
 		bases:            map[string]*proxyBase{},
 		sensors:          map[string]sensor.Sensor{},
@@ -73,14 +71,6 @@ func fixType(c config.Component, whichType config.ComponentType, pos int) config
 // addRemote adds a remote to the parts.
 func (parts *robotParts) addRemote(r *remoteRobot, c config.Remote) {
 	parts.remotes[c.Name] = r
-}
-
-// AddBoard adds a board to the parts.
-func (parts *robotParts) AddBoard(b board.Board, c config.Component) {
-	if proxy, ok := b.(*proxyBoard); ok {
-		b = proxy.actual
-	}
-	parts.boards[c.Name] = newProxyBoard(b)
 }
 
 // AddLidar adds a lidar to the parts.
@@ -258,8 +248,8 @@ func (parts *robotParts) BaseNames() []string {
 // BoardNames returns the names of all boards in the parts.
 func (parts *robotParts) BoardNames() []string {
 	names := []string{}
-	for k := range parts.boards {
-		names = append(names, k)
+	for _, n := range parts.ResourceNames() {
+		names = append(names, n.Name)
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.BoardNames)
 }
@@ -338,12 +328,6 @@ func (parts *robotParts) Clone() *robotParts {
 		clonedParts.remotes = make(map[string]*remoteRobot, len(parts.remotes))
 		for k, v := range parts.remotes {
 			clonedParts.remotes[k] = v
-		}
-	}
-	if len(parts.boards) != 0 {
-		clonedParts.boards = make(map[string]*proxyBoard, len(parts.boards))
-		for k, v := range parts.boards {
-			clonedParts.boards[k] = v
 		}
 	}
 	if len(parts.lidars) != 0 {
@@ -434,12 +418,6 @@ func (parts *robotParts) Close() error {
 	for _, x := range parts.inputControllers {
 		if err := utils.TryClose(x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing input controller: %w", err))
-		}
-	}
-
-	for _, x := range parts.boards {
-		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing board: %w", err))
 		}
 	}
 
@@ -557,12 +535,6 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 				return err
 			}
 			parts.AddSensor(sensorDevice, c)
-		case config.ComponentTypeBoard:
-			board, err := r.newBoard(ctx, c)
-			if err != nil {
-				return err
-			}
-			parts.AddBoard(board, c)
 		case config.ComponentTypeInputController:
 			controller, err := r.newInputController(ctx, c)
 			if err != nil {
@@ -614,9 +586,13 @@ func (parts *robotParts) RemoteByName(name string) (robot.Robot, bool) {
 // BoardByName returns the given board by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) BoardByName(name string) (board.Board, bool) {
-	part, ok := parts.boards[name]
+	rName := board.Named(name)
+	r, ok := parts.resources[rName]
 	if ok {
-		return part, true
+		part, ok := r.(board.Board)
+		if ok {
+			return part, true
+		}
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.BoardByName(name)
@@ -850,15 +826,6 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 	}
 
-	if len(toAdd.boards) != 0 {
-		if parts.boards == nil {
-			parts.boards = make(map[string]*proxyBoard, len(toAdd.boards))
-		}
-		for k, v := range toAdd.boards {
-			parts.boards[k] = v
-		}
-	}
-
 	if len(toAdd.lidars) != 0 {
 		if parts.lidars == nil {
 			parts.lidars = make(map[string]*proxyLidar, len(toAdd.lidars))
@@ -962,17 +929,6 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 		}
 	}
 
-	if len(toModify.boards) != 0 {
-		for k, v := range toModify.boards {
-			old, ok := parts.boards[k]
-			if !ok {
-				// should not happen
-				continue
-			}
-			old.replace(v)
-		}
-	}
-
 	if len(toModify.lidars) != 0 {
 		for k, v := range toModify.lidars {
 			old, ok := parts.lidars[k]
@@ -1049,12 +1005,6 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 	if len(toRemove.remotes) != 0 {
 		for k := range toRemove.remotes {
 			delete(parts.remotes, k)
-		}
-	}
-
-	if len(toRemove.boards) != 0 {
-		for k := range toRemove.boards {
-			delete(parts.boards, k)
 		}
 	}
 
@@ -1144,12 +1094,6 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 				continue
 			}
 			filtered.AddLidar(part, compConf)
-		case config.ComponentTypeBoard:
-			part, ok := parts.BoardByName(compConf.Name)
-			if !ok {
-				continue
-			}
-			filtered.AddBoard(part, compConf)
 		case config.ComponentTypeSensor:
 			part, ok := parts.SensorByName(compConf.Name)
 			if !ok {

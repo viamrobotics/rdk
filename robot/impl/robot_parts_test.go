@@ -7,8 +7,8 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/motor"
@@ -81,9 +81,8 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, lidar1.(*proxyLidar).actual.(*fake.Lidar).Name, test.ShouldEqual, "lidar1")
 	_, ok = parts.LidarByName("lidar1_what")
 	test.That(t, ok, test.ShouldBeFalse)
-	board1, ok := parts.BoardByName("board1")
+	_, ok = parts.BoardByName("board1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1")
 	_, ok = parts.BoardByName("board1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 	sensor1, ok := parts.SensorByName("sensor1")
@@ -205,15 +204,12 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	_, ok = parts.LidarByName("lidar1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
-	board1, ok := parts.BoardByName("board1")
+	_, ok = parts.BoardByName("board1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1")
-	board1, ok = parts.BoardByName("board1_r1")
+	_, ok = parts.BoardByName("board1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1_r1")
-	board1, ok = parts.BoardByName("board1_r2")
+	_, ok = parts.BoardByName("board1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1_r2")
 	_, ok = parts.BoardByName("board1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -308,8 +304,6 @@ func TestPartsClone(t *testing.T) {
 	parts.lidars = nil
 	delete(parts.bases, "base1")
 	parts.bases = nil
-	delete(parts.boards, "board1")
-	parts.boards = nil
 	delete(parts.sensors, "sensor1")
 	parts.sensors = nil
 	delete(parts.functions, "func1")
@@ -405,15 +399,12 @@ func TestPartsClone(t *testing.T) {
 	_, ok = newParts.LidarByName("lidar1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
-	board1, ok := newParts.BoardByName("board1")
+	_, ok = newParts.BoardByName("board1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1")
-	board1, ok = newParts.BoardByName("board1_r1")
+	_, ok = newParts.BoardByName("board1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1_r1")
-	board1, ok = newParts.BoardByName("board1_r2")
+	_, ok = newParts.BoardByName("board1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual.(*fake.Board).Name, test.ShouldEqual, "board1_r2")
 	_, ok = newParts.BoardByName("board1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -525,13 +516,6 @@ func TestPartsAdd(t *testing.T) {
 	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
 		return &board.BasicDigitalInterrupt{}, true
 	}
-
-	parts.AddBoard(injectBoard, config.Component{Name: "board1"})
-	board1, ok := parts.BoardByName("board1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual, test.ShouldEqual, injectBoard)
-	parts.AddBoard(board1, config.Component{Name: "board1"})
-	test.That(t, board1.(*proxyBoard).actual, test.ShouldEqual, injectBoard)
 
 	injectLidar := &inject.Lidar{}
 	parts.AddLidar(injectLidar, config.Component{Name: "lidar1"})
@@ -901,19 +885,19 @@ func TestPartsMergeModify(t *testing.T) {
 
 	replacementParts := newRobotParts(logger)
 	robotForRemote := &localRobot{parts: newRobotParts(logger), logger: logger}
-	fakeBoardRemote, err := fake.NewBoard(context.Background(), config.Component{
-		Name: "board2",
-		ConvertedAttributes: &board.Config{
-			Analogs: []board.AnalogConfig{
-				{Name: "analog2"},
-			},
-			DigitalInterrupts: []board.DigitalInterruptConfig{
-				{Name: "digital2"},
-			},
-		},
-	}, logger)
-	test.That(t, err, test.ShouldBeNil)
-	robotForRemote.parts.AddBoard(fakeBoardRemote, config.Component{Name: "board2_r1"})
+    // TODO(maximpertsov): is this test still valuable?
+	// _, err = fake.NewBoard(context.Background(), config.Component{
+	// 	Name: "board2",
+	// 	ConvertedAttributes: &board.Config{
+	// 		Analogs: []board.AnalogConfig{
+	// 			{Name: "analog2"},
+	// 		},
+	// 		DigitalInterrupts: []board.DigitalInterruptConfig{
+	// 			{Name: "digital2"},
+	// 		},
+	// 	},
+	// }, logger)
+	// test.That(t, err, test.ShouldBeNil)
 	robotForRemote.parts.AddLidar(&inject.Lidar{}, config.Component{Name: "lidar2_r1"})
 	robotForRemote.parts.AddBase(&inject.Base{}, config.Component{Name: "base2_r1"})
 	robotForRemote.parts.AddSensor(&inject.Compass{}, config.Component{Name: "sensor2_r1"})
@@ -943,19 +927,19 @@ func TestPartsMergeModify(t *testing.T) {
 	remote1Replacemenet := newRemoteRobot(robotForRemote, config.Remote{Name: "remote1"})
 	replacementParts.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
 
-	fakeBoard, err := fake.NewBoard(context.Background(), config.Component{
-		Name: "board1",
-		ConvertedAttributes: &board.Config{
-			Analogs: []board.AnalogConfig{
-				{Name: "analog2"},
-			},
-			DigitalInterrupts: []board.DigitalInterruptConfig{
-				{Name: "digital2"},
-			},
-		},
-	}, logger)
-	test.That(t, err, test.ShouldBeNil)
-	replacementParts.AddBoard(fakeBoard, config.Component{Name: "board1"})
+    // TODO(maximpertsov): is this test still valuable?
+	// _, err = fake.NewBoard(context.Background(), config.Component{
+	// 	Name: "board1",
+	// 	ConvertedAttributes: &board.Config{
+	// 		Analogs: []board.AnalogConfig{
+	// 			{Name: "analog2"},
+	// 		},
+	// 		DigitalInterrupts: []board.DigitalInterruptConfig{
+	// 			{Name: "digital2"},
+	// 		},
+	// 	},
+	// }, logger)
+	// test.That(t, err, test.ShouldBeNil)
 	injectLidar := &inject.Lidar{}
 	replacementParts.AddLidar(injectLidar, config.Component{Name: "lidar1"})
 	injectBase := &inject.Base{}

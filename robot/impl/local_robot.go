@@ -41,10 +41,10 @@ import (
 
 	// These are the robot pieces we want by default
 	_ "go.viam.com/core/base/impl"
+	_ "go.viam.com/core/component/arm/register" // for all arms TODO: #298
 	_ "go.viam.com/core/component/board/arduino"
 	_ "go.viam.com/core/component/board/jetson"
 	_ "go.viam.com/core/component/board/numato"
-	_ "go.viam.com/core/component/arm/register"     // for all arms TODO: #298
 	_ "go.viam.com/core/component/camera/register"  // for all cameras
 	_ "go.viam.com/core/component/gantry/register"  // for all gantries
 	_ "go.viam.com/core/component/gripper/register" // for all grippers
@@ -398,14 +398,6 @@ func (r *localRobot) newInputController(ctx context.Context, config config.Compo
 	f := registry.InputControllerLookup(config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown input controller model: %s", config.Model)
-	}
-	return f.Constructor(ctx, r, config, r.logger)
-}
-
-func (r *localRobot) newBoard(ctx context.Context, config config.Component) (board.Board, error) {
-	f := registry.BoardLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown board model: %s", config.Model)
 	}
 	return f.Constructor(ctx, r, config, r.logger)
 }
