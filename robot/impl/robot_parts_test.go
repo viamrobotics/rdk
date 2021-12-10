@@ -35,6 +35,7 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	parts := partsForRemoteRobot(injectRobot)
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
+	boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
 	gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2")}
 	cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
@@ -46,7 +47,7 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(parts.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1", "lidar2"))
 	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2"))
-	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2"))
+	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(boardNames...)...))
 	test.That(t, utils.NewStringSet(parts.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix"))
 	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
 	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
@@ -54,6 +55,7 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2"))
 	test.That(t, coretestutils.NewResourceNameSet(parts.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
 		armNames,
+		boardNames,
 		gripperNames,
 		cameraNames,
 		servoNames,
