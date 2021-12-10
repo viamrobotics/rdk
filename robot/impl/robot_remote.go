@@ -441,13 +441,6 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 		}
 		parts.AddBase(part, config.Component{Name: name})
 	}
-	for _, name := range robot.BoardNames() {
-		part, ok := robot.BoardByName(name)
-		if !ok {
-			continue
-		}
-		parts.AddBoard(part, config.Component{Name: name})
-	}
 	for _, name := range robot.LidarNames() {
 		part, ok := robot.LidarByName(name)
 		if !ok {
@@ -492,7 +485,6 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 
 // replaceForRemote replaces these parts with the given parts coming from a remote.
 func (parts *robotParts) replaceForRemote(newParts *robotParts) {
-	var oldBoardNames map[string]struct{}
 	var oldLidarNames map[string]struct{}
 	var oldBaseNames map[string]struct{}
 	var oldSensorNames map[string]struct{}
@@ -501,12 +493,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	var oldServiceNames map[string]struct{}
 	var oldResources map[resource.Name]struct{}
 
-	if len(parts.boards) != 0 {
-		oldBoardNames = make(map[string]struct{}, len(parts.boards))
-		for name := range parts.boards {
-			oldBoardNames[name] = struct{}{}
-		}
-	}
 	if len(parts.lidars) != 0 {
 		oldLidarNames = make(map[string]struct{}, len(parts.lidars))
 		for name := range parts.lidars {
@@ -549,16 +535,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		for name := range parts.resources {
 			oldResources[name] = struct{}{}
 		}
-	}
-
-	for name, newPart := range newParts.boards {
-		oldPart, ok := parts.boards[name]
-		delete(oldBoardNames, name)
-		if ok {
-			oldPart.replace(newPart)
-			continue
-		}
-		parts.boards[name] = newPart
 	}
 
 	for name, newPart := range newParts.lidars {
@@ -636,9 +612,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		parts.resources[name] = newPart
 	}
 
-	for name := range oldBoardNames {
-		delete(parts.boards, name)
-	}
 	for name := range oldLidarNames {
 		delete(parts.lidars, name)
 	}
