@@ -130,13 +130,14 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 	armNames = append(armNames, coretestutils.AddSuffixes(armNames, "_r1", "_r2")...)
-	gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2"), gripper.Named("gripper1_r1"), gripper.Named("gripper2_r1"), gripper.Named("gripper1_r2"), gripper.Named("gripper2_r2")}
-	cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2"), camera.Named("camera1_r1"), camera.Named("camera2_r1"), camera.Named("camera1_r2"), camera.Named("camera2_r2")}
-	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2"), servo.Named("servo1_r1"), servo.Named("servo1_r2"), servo.Named("servo2_r1"), servo.Named("servo2_r2")}
-	motorNames := []resource.Name{
-		motor.Named("motor1"), motor.Named("motor2"), motor.Named("motor1_r1"), motor.Named("motor2_r1"),
-		motor.Named("motor1_r2"), motor.Named("motor2_r2"),
-	}
+	gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2")}
+	gripperNames = append(gripperNames, coretestutils.AddSuffixes(gripperNames, "_r1", "_r2")...)
+	cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
+	cameraNames = append(cameraNames, coretestutils.AddSuffixes(cameraNames, "_r1", "_r2")...)
+	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
+	servoNames = append(servoNames, coretestutils.AddSuffixes(servoNames, "_r1", "_r2")...)
+	motorNames := []resource.Name{motor.Named("motor1"), motor.Named("motor2")}
+	motorNames = append(motorNames, coretestutils.AddSuffixes(motorNames, "_r1", "_r2")...)
 	inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 	inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
@@ -329,14 +330,16 @@ func TestPartsClone(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	parts.processManager.Stop()
 
-	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}
-	gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2"), gripper.Named("gripper1_r1"), gripper.Named("gripper2_r1"), gripper.Named("gripper1_r2"), gripper.Named("gripper2_r2")}
-	cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2"), camera.Named("camera1_r1"), camera.Named("camera2_r1"), camera.Named("camera1_r2"), camera.Named("camera2_r2")}
-	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2"), servo.Named("servo1_r1"), servo.Named("servo1_r2"), servo.Named("servo2_r1"), servo.Named("servo2_r2")}
-	motorNames := []resource.Name{
-		motor.Named("motor1"), motor.Named("motor2"), motor.Named("motor1_r1"), motor.Named("motor2_r1"),
-		motor.Named("motor1_r2"), motor.Named("motor2_r2"),
-	}
+	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
+	armNames = append(armNames, coretestutils.AddSuffixes(armNames, "_r1", "_r2")...)
+	gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2")}
+	gripperNames = append(gripperNames, coretestutils.AddSuffixes(gripperNames, "_r1", "_r2")...)
+	cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
+	cameraNames = append(cameraNames, coretestutils.AddSuffixes(cameraNames, "_r1", "_r2")...)
+	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
+	servoNames = append(servoNames, coretestutils.AddSuffixes(servoNames, "_r1", "_r2")...)
+	motorNames := []resource.Name{motor.Named("motor1"), motor.Named("motor2")}
+	motorNames = append(motorNames, coretestutils.AddSuffixes(motorNames, "_r1", "_r2")...)
 	inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 	inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
@@ -698,14 +701,16 @@ func TestPartsMergeAdd(t *testing.T) {
 	}
 	checkSame := func(toCheck *robotParts) {
 		t.Helper()
-		armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}
-		gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2"), gripper.Named("gripper1_r1"), gripper.Named("gripper2_r1"), gripper.Named("gripper1_r2"), gripper.Named("gripper2_r2")}
-		cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2"), camera.Named("camera1_r1"), camera.Named("camera2_r1"), camera.Named("camera1_r2"), camera.Named("camera2_r2")}
-		servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2"), servo.Named("servo1_r1"), servo.Named("servo1_r2"), servo.Named("servo2_r1"), servo.Named("servo2_r2")}
-		motorNames := []resource.Name{
-			motor.Named("motor1"), motor.Named("motor2"), motor.Named("motor1_r1"), motor.Named("motor2_r1"),
-			motor.Named("motor1_r2"), motor.Named("motor2_r2"),
-		}
+		armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
+		armNames = append(armNames, coretestutils.AddSuffixes(armNames, "_r1", "_r2")...)
+		gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2")}
+		gripperNames = append(gripperNames, coretestutils.AddSuffixes(gripperNames, "_r1", "_r2")...)
+		cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
+		cameraNames = append(cameraNames, coretestutils.AddSuffixes(cameraNames, "_r1", "_r2")...)
+		servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
+		servoNames = append(servoNames, coretestutils.AddSuffixes(servoNames, "_r1", "_r2")...)
+		motorNames := []resource.Name{motor.Named("motor1"), motor.Named("motor2")}
+		motorNames = append(motorNames, coretestutils.AddSuffixes(motorNames, "_r1", "_r2")...)
 		inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 		inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
@@ -746,15 +751,16 @@ func TestPartsMergeAdd(t *testing.T) {
 	result, err = parts.MergeAdd(otherParts)
 	test.That(t, err, test.ShouldBeNil)
 
-	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2"), arm.Named("arm1_other"), arm.Named("arm2_other"), arm.Named("arm1_other1"), arm.Named("arm2_other1")}
-	gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2"), gripper.Named("gripper1_r1"), gripper.Named("gripper2_r1"), gripper.Named("gripper1_r2"), gripper.Named("gripper2_r2"), gripper.Named("gripper1_other"), gripper.Named("gripper2_other"), gripper.Named("gripper1_other1"), gripper.Named("gripper2_other1")}
-	cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2"), camera.Named("camera1_r1"), camera.Named("camera2_r1"), camera.Named("camera1_r2"), camera.Named("camera2_r2"), camera.Named("camera1_other"), camera.Named("camera2_other"), camera.Named("camera1_other1"), camera.Named("camera2_other1")}
-	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2"), servo.Named("servo1_r1"), servo.Named("servo1_r2"), servo.Named("servo2_r1"), servo.Named("servo2_r2"), servo.Named("servo1_other"), servo.Named("servo2_other"), servo.Named("servo1_other1"), servo.Named("servo2_other1")}
-	motorNames := []resource.Name{
-		motor.Named("motor1"), motor.Named("motor2"), motor.Named("motor1_r1"), motor.Named("motor2_r1"), motor.Named("motor1_r2"),
-		motor.Named("motor2_r2"), motor.Named("motor1_other"), motor.Named("motor2_other"),
-		motor.Named("motor1_other"), motor.Named("motor2_other"), motor.Named("motor1_other1"), motor.Named("motor2_other1"),
-	}
+	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
+	armNames = append(armNames, coretestutils.AddSuffixes(armNames, "_r1", "_r2", "_other", "_other1")...)
+	gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2")}
+	gripperNames = append(gripperNames, coretestutils.AddSuffixes(gripperNames, "_r1", "_r2", "_other", "_other1")...)
+	cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
+	cameraNames = append(cameraNames, coretestutils.AddSuffixes(cameraNames, "_r1", "_r2", "_other", "_other1")...)
+	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
+	servoNames = append(servoNames, coretestutils.AddSuffixes(servoNames, "_r1", "_r2", "_other", "_other1")...)
+	motorNames := []resource.Name{motor.Named("motor1"), motor.Named("motor2")}
+	motorNames = append(motorNames, coretestutils.AddSuffixes(motorNames, "_r1", "_r2", "_other", "_other1")...)
 	inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 	inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2", "_other", "_other1")...)
 
@@ -853,14 +859,16 @@ func TestPartsMergeModify(t *testing.T) {
 
 	checkSame := func(toCheck *robotParts) {
 		t.Helper()
-		armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}
-		gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2"), gripper.Named("gripper1_r1"), gripper.Named("gripper2_r1"), gripper.Named("gripper1_r2"), gripper.Named("gripper2_r2")}
-		cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2"), camera.Named("camera1_r1"), camera.Named("camera2_r1"), camera.Named("camera1_r2"), camera.Named("camera2_r2")}
-		servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2"), servo.Named("servo1_r1"), servo.Named("servo1_r2"), servo.Named("servo2_r1"), servo.Named("servo2_r2")}
-		motorNames := []resource.Name{
-			motor.Named("motor1"), motor.Named("motor2"), motor.Named("motor1_r1"), motor.Named("motor2_r1"), motor.Named("motor1_r2"),
-			motor.Named("motor2_r2"),
-		}
+		armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
+		armNames = append(armNames, coretestutils.AddSuffixes(armNames, "_r1", "_r2")...)
+		gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2")}
+		gripperNames = append(gripperNames, coretestutils.AddSuffixes(gripperNames, "_r1", "_r2")...)
+		cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
+		cameraNames = append(cameraNames, coretestutils.AddSuffixes(cameraNames, "_r1", "_r2")...)
+		servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
+		servoNames = append(servoNames, coretestutils.AddSuffixes(servoNames, "_r1", "_r2")...)
+		motorNames := []resource.Name{motor.Named("motor1"), motor.Named("motor2")}
+		motorNames = append(motorNames, coretestutils.AddSuffixes(motorNames, "_r1", "_r2")...)
 		inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 		inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
@@ -1028,14 +1036,16 @@ func TestPartsMergeRemove(t *testing.T) {
 
 	checkSame := func(toCheck *robotParts) {
 		t.Helper()
-		armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}
-		gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2"), gripper.Named("gripper1_r1"), gripper.Named("gripper2_r1"), gripper.Named("gripper1_r2"), gripper.Named("gripper2_r2")}
-		cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2"), camera.Named("camera1_r1"), camera.Named("camera2_r1"), camera.Named("camera1_r2"), camera.Named("camera2_r2")}
-		servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2"), servo.Named("servo1_r1"), servo.Named("servo1_r2"), servo.Named("servo2_r1"), servo.Named("servo2_r2")}
-		motorNames := []resource.Name{
-			motor.Named("motor1"), motor.Named("motor2"), motor.Named("motor1_r1"), motor.Named("motor2_r1"), motor.Named("motor1_r2"),
-			motor.Named("motor2_r2"),
-		}
+		armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
+		armNames = append(armNames, coretestutils.AddSuffixes(armNames, "_r1", "_r2")...)
+		gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2")}
+		gripperNames = append(gripperNames, coretestutils.AddSuffixes(gripperNames, "_r1", "_r2")...)
+		cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
+		cameraNames = append(cameraNames, coretestutils.AddSuffixes(cameraNames, "_r1", "_r2")...)
+		servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
+		servoNames = append(servoNames, coretestutils.AddSuffixes(servoNames, "_r1", "_r2")...)
+		motorNames := []resource.Name{motor.Named("motor1"), motor.Named("motor2")}
+		motorNames = append(motorNames, coretestutils.AddSuffixes(motorNames, "_r1", "_r2")...)
 		inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 		inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
@@ -1541,14 +1551,16 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	armNames = []resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("arm1_r1"), arm.Named("arm2_r1"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}
-	gripperNames = []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2"), gripper.Named("gripper1_r1"), gripper.Named("gripper2_r1"), gripper.Named("gripper1_r2"), gripper.Named("gripper2_r2")}
-	cameraNames = []resource.Name{camera.Named("camera1"), camera.Named("camera2"), camera.Named("camera1_r1"), camera.Named("camera2_r1"), camera.Named("camera1_r2"), camera.Named("camera2_r2")}
-	servoNames = []resource.Name{servo.Named("servo1"), servo.Named("servo2"), servo.Named("servo1_r1"), servo.Named("servo1_r2"), servo.Named("servo2_r1"), servo.Named("servo2_r2")}
-	motorNames = []resource.Name{
-		motor.Named("motor1"), motor.Named("motor2"), motor.Named("motor1_r1"), motor.Named("motor2_r1"), motor.Named("motor1_r2"),
-		motor.Named("motor2_r2"),
-	}
+	armNames = []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
+	armNames = append(armNames, coretestutils.AddSuffixes(armNames, "_r1", "_r2")...)
+	gripperNames = []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2")}
+	gripperNames = append(gripperNames, coretestutils.AddSuffixes(gripperNames, "_r1", "_r2")...)
+	cameraNames = []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
+	cameraNames = append(cameraNames, coretestutils.AddSuffixes(cameraNames, "_r1", "_r2")...)
+	servoNames = []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
+	servoNames = append(servoNames, coretestutils.AddSuffixes(servoNames, "_r1", "_r2")...)
+	motorNames = []resource.Name{motor.Named("motor1"), motor.Named("motor2")}
+	motorNames = append(motorNames, coretestutils.AddSuffixes(motorNames, "_r1", "_r2")...)
 	inputNames = []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 	inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
