@@ -252,7 +252,24 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm float64, position float64) e
 // Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
 // Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
 func (m *gpioStepper) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return errors.New("gpioStepper GoTillStop not done yet")
+	if err := m.GoFor(ctx, rpm, 0); err != nil {
+		return err
+	}
+	defer func() {
+		if err := m.Off(ctx); err != nil {
+			m.logger.Error("failed to turn off motor")
+		}
+	}()
+	for {
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return errors.New("context cancelled during GoTillStop")
+		}
+		if stopFunc != nil && stopFunc(ctx) {
+			return nil
+		}
+
+	}
+	return nil
 }
 
 // Set the current position (+/- offset) to be the new zero (home) position.

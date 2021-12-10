@@ -105,7 +105,7 @@ func (g *oneAxis) init(ctx context.Context) error {
 	g.positionLimits = []float64{positionA, positionB}
 
 	// Go backwards so limit stops are not hit.
-	g.motor.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, g.rpm, 2)
+	g.motor.GoFor(ctx, -1*g.rpm, 2)
 
 	return nil
 }
@@ -233,8 +233,8 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 	// Hits backwards limit switch, goes in forwards direction for two revolutions
 	if hit {
 		if x < g.positionLimits[0] {
-			dir := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-			return g.motor.GoFor(ctx, dir, g.rpm, 2)
+			dir := float64(1)
+			return g.motor.GoFor(ctx, dir*g.rpm, 2)
 		} else {
 			return g.motor.Off(ctx)
 		}
@@ -244,8 +244,8 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 	hit, err = g.limitHit(ctx, false)
 	if hit {
 		if x > g.positionLimits[1] {
-			dir := pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
-			return g.motor.GoFor(ctx, dir, g.rpm, 2)
+			dir := float64(-1)
+			return g.motor.GoFor(ctx, dir*g.rpm, 2)
 		} else {
 			return g.motor.Off(ctx)
 		}
