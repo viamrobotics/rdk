@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/component/board"
+	"go.viam.com/core/component/imu"
 	"go.viam.com/core/config"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
@@ -21,9 +22,17 @@ import (
 const modelName = "fake"
 
 func init() {
-	registry.RegisterBoard(modelName, registry.Board{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error) {
-		return NewBoard(ctx, config, logger)
-	}})
+	registry.RegisterComponent(
+		imu.Subtype,
+		modelName,
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return NewBoard(ctx, config, logger)
+		}})
 	board.RegisterConfigAttributeConverter(modelName)
 }
 
