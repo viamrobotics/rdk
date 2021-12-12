@@ -30,7 +30,6 @@ import (
 	metadataserver "go.viam.com/core/grpc/metadata/server"
 	"go.viam.com/core/grpc/server"
 	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	componentpb "go.viam.com/core/proto/api/component/v1"
 	metadatapb "go.viam.com/core/proto/api/service/v1"
@@ -46,7 +45,6 @@ import (
 	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r2"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 
@@ -81,9 +79,6 @@ var emptyStatus = &pb.Status{
 	},
 	Cameras: map[string]bool{
 		"camera1": true,
-	},
-	Lidars: map[string]bool{
-		"lidar1": true,
 	},
 	Sensors: map[string]*pb.SensorStatus{
 		"compass1": {
@@ -166,10 +161,6 @@ var finalStatus = &pb.Status{
 	Cameras: map[string]bool{
 		"camera2": true,
 		"camera3": true,
-	},
-	Lidars: map[string]bool{
-		"lidar2": true,
-		"lidar3": true,
 	},
 	Sensors: map[string]*pb.SensorStatus{
 		"compass2": {
@@ -255,9 +246,6 @@ func TestClient(t *testing.T) {
 	injectRobot1.CameraByNameFunc = func(name string) (camera.Camera, bool) {
 		return nil, false
 	}
-	injectRobot1.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
-		return nil, false
-	}
 	injectRobot1.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 		return nil, false
 	}
@@ -283,7 +271,6 @@ func TestClient(t *testing.T) {
 		capInputControllerName  string
 		capAnalogReaderName     string
 		capDigitalInterruptName string
-		capLidarName            string
 		capSensorName           string
 	)
 	injectBase := &inject.Base{}
@@ -465,36 +452,6 @@ func TestClient(t *testing.T) {
 	var imageReleased bool
 	injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 		return img, func() { imageReleased = true }, nil
-	}
-
-	injectLidarDev := &inject.Lidar{}
-	injectLidarDev.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return map[string]interface{}{"hello": "world"}, nil
-	}
-	injectLidarDev.StartFunc = func(ctx context.Context) error {
-		return nil
-	}
-	injectLidarDev.StopFunc = func(ctx context.Context) error {
-		return nil
-	}
-	injectLidarDev.CloseFunc = func() error {
-		return nil
-	}
-	injectLidarDev.ScanFunc = func(ctx context.Context, opts lidar.ScanOptions) (lidar.Measurements, error) {
-		return lidar.Measurements{lidar.NewMeasurement(2, 40)}, nil
-	}
-	injectLidarDev.RangeFunc = func(ctx context.Context) (float64, error) {
-		return 25, nil
-	}
-	injectLidarDev.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
-		return r2.Point{4, 5}, nil
-	}
-	injectLidarDev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
-		return 5.2, nil
-	}
-	injectRobot2.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
-		capLidarName = name
-		return injectLidarDev, true
 	}
 
 	injectFsm := &inject.ForceMatrix{}
@@ -1107,31 +1064,6 @@ func TestClient(t *testing.T) {
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 	test.That(t, imageReleased, test.ShouldBeTrue)
 
-	lidarDev, ok := client.LidarByName("lidar1")
-	test.That(t, ok, test.ShouldBeTrue)
-	info, err := lidarDev.Info(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, info, test.ShouldResemble, map[string]interface{}{"hello": "world"})
-	err = lidarDev.Start(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	err = lidarDev.Stop(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	scan, err := lidarDev.Scan(context.Background(), lidar.ScanOptions{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, scan, test.ShouldResemble, lidar.Measurements{lidar.NewMeasurement(2, 40)})
-	devRange, err := lidarDev.Range(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, devRange, test.ShouldEqual, 25)
-	bounds, err := lidarDev.Bounds(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, bounds, test.ShouldResemble, r2.Point{4, 5})
-	angRes, err := lidarDev.AngularResolution(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, angRes, test.ShouldEqual, 5.2)
-	err = utils.TryClose(lidarDev)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capLidarName, test.ShouldEqual, "lidar1")
-
 	inputDev, ok := client.InputControllerByName("inputController1")
 	test.That(t, ok, test.ShouldBeTrue)
 	controlList, err := inputDev.Controls(context.Background())
@@ -1344,7 +1276,6 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
 	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
-	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar2", "lidar3"))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4", "fsm1", "fsm2"))
@@ -1382,7 +1313,6 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
 	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
-	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1"))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass1", "compass2", "fsm1", "fsm2"))
@@ -1409,7 +1339,6 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
 	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
-	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar2", "lidar3"))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4", "fsm1", "fsm2"))

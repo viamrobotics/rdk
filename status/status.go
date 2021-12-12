@@ -145,13 +145,6 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.LidarNames(); len(names) != 0 {
-		status.Lidars = make(map[string]bool, len(names))
-		for _, name := range names {
-			status.Lidars[name] = true
-		}
-	}
-
 	if names := r.SensorNames(); len(names) != 0 {
 		status.Sensors = make(map[string]*pb.SensorStatus, len(names))
 		for _, name := range names {

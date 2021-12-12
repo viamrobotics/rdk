@@ -42,20 +42,6 @@ type RobotServiceClient interface {
 	BaseStop(ctx context.Context, in *BaseStopRequest, opts ...grpc.CallOption) (*BaseStopResponse, error)
 	// BaseWidthMillis returns the width of a robot's base expressed in millimeters
 	BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error)
-	// LidarInfo returns the info of a lidar of the underlying robot.
-	LidarInfo(ctx context.Context, in *LidarInfoRequest, opts ...grpc.CallOption) (*LidarInfoResponse, error)
-	// LidarStart starts a lidar of the underlying robot.
-	LidarStart(ctx context.Context, in *LidarStartRequest, opts ...grpc.CallOption) (*LidarStartResponse, error)
-	// LidarStop stops a lidar of the underlying robot.
-	LidarStop(ctx context.Context, in *LidarStopRequest, opts ...grpc.CallOption) (*LidarStopResponse, error)
-	// LidarScan returns a scan from a lidar of the underlying robot.
-	LidarScan(ctx context.Context, in *LidarScanRequest, opts ...grpc.CallOption) (*LidarScanResponse, error)
-	// LidarRange returns the range of a lidar of the underlying robot.
-	LidarRange(ctx context.Context, in *LidarRangeRequest, opts ...grpc.CallOption) (*LidarRangeResponse, error)
-	// LidarBounds returns the scan bounds of a lidar of the underlying robot.
-	LidarBounds(ctx context.Context, in *LidarBoundsRequest, opts ...grpc.CallOption) (*LidarBoundsResponse, error)
-	// LidarAngularResolution returns the scan angular resolution of a lidar of the underlying robot.
-	LidarAngularResolution(ctx context.Context, in *LidarAngularResolutionRequest, opts ...grpc.CallOption) (*LidarAngularResolutionResponse, error)
 	// BoardStatus returns the status of a board of the underlying robot.
 	BoardStatus(ctx context.Context, in *BoardStatusRequest, opts ...grpc.CallOption) (*BoardStatusResponse, error)
 	// BoardGPIOSet sets the given pin of a board of the underlying robot to either low or high.
@@ -266,69 +252,6 @@ func (c *robotServiceClient) BaseStop(ctx context.Context, in *BaseStopRequest, 
 func (c *robotServiceClient) BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error) {
 	out := new(BaseWidthMillisResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseWidthMillis", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) LidarInfo(ctx context.Context, in *LidarInfoRequest, opts ...grpc.CallOption) (*LidarInfoResponse, error) {
-	out := new(LidarInfoResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/LidarInfo", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) LidarStart(ctx context.Context, in *LidarStartRequest, opts ...grpc.CallOption) (*LidarStartResponse, error) {
-	out := new(LidarStartResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/LidarStart", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) LidarStop(ctx context.Context, in *LidarStopRequest, opts ...grpc.CallOption) (*LidarStopResponse, error) {
-	out := new(LidarStopResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/LidarStop", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) LidarScan(ctx context.Context, in *LidarScanRequest, opts ...grpc.CallOption) (*LidarScanResponse, error) {
-	out := new(LidarScanResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/LidarScan", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) LidarRange(ctx context.Context, in *LidarRangeRequest, opts ...grpc.CallOption) (*LidarRangeResponse, error) {
-	out := new(LidarRangeResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/LidarRange", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) LidarBounds(ctx context.Context, in *LidarBoundsRequest, opts ...grpc.CallOption) (*LidarBoundsResponse, error) {
-	out := new(LidarBoundsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/LidarBounds", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) LidarAngularResolution(ctx context.Context, in *LidarAngularResolutionRequest, opts ...grpc.CallOption) (*LidarAngularResolutionResponse, error) {
-	out := new(LidarAngularResolutionResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/LidarAngularResolution", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -840,20 +763,6 @@ type RobotServiceServer interface {
 	BaseStop(context.Context, *BaseStopRequest) (*BaseStopResponse, error)
 	// BaseWidthMillis returns the width of a robot's base expressed in millimeters
 	BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error)
-	// LidarInfo returns the info of a lidar of the underlying robot.
-	LidarInfo(context.Context, *LidarInfoRequest) (*LidarInfoResponse, error)
-	// LidarStart starts a lidar of the underlying robot.
-	LidarStart(context.Context, *LidarStartRequest) (*LidarStartResponse, error)
-	// LidarStop stops a lidar of the underlying robot.
-	LidarStop(context.Context, *LidarStopRequest) (*LidarStopResponse, error)
-	// LidarScan returns a scan from a lidar of the underlying robot.
-	LidarScan(context.Context, *LidarScanRequest) (*LidarScanResponse, error)
-	// LidarRange returns the range of a lidar of the underlying robot.
-	LidarRange(context.Context, *LidarRangeRequest) (*LidarRangeResponse, error)
-	// LidarBounds returns the scan bounds of a lidar of the underlying robot.
-	LidarBounds(context.Context, *LidarBoundsRequest) (*LidarBoundsResponse, error)
-	// LidarAngularResolution returns the scan angular resolution of a lidar of the underlying robot.
-	LidarAngularResolution(context.Context, *LidarAngularResolutionRequest) (*LidarAngularResolutionResponse, error)
 	// BoardStatus returns the status of a board of the underlying robot.
 	BoardStatus(context.Context, *BoardStatusRequest) (*BoardStatusResponse, error)
 	// BoardGPIOSet sets the given pin of a board of the underlying robot to either low or high.
@@ -989,27 +898,6 @@ func (UnimplementedRobotServiceServer) BaseStop(context.Context, *BaseStopReques
 }
 func (UnimplementedRobotServiceServer) BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BaseWidthMillis not implemented")
-}
-func (UnimplementedRobotServiceServer) LidarInfo(context.Context, *LidarInfoRequest) (*LidarInfoResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LidarInfo not implemented")
-}
-func (UnimplementedRobotServiceServer) LidarStart(context.Context, *LidarStartRequest) (*LidarStartResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LidarStart not implemented")
-}
-func (UnimplementedRobotServiceServer) LidarStop(context.Context, *LidarStopRequest) (*LidarStopResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LidarStop not implemented")
-}
-func (UnimplementedRobotServiceServer) LidarScan(context.Context, *LidarScanRequest) (*LidarScanResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LidarScan not implemented")
-}
-func (UnimplementedRobotServiceServer) LidarRange(context.Context, *LidarRangeRequest) (*LidarRangeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LidarRange not implemented")
-}
-func (UnimplementedRobotServiceServer) LidarBounds(context.Context, *LidarBoundsRequest) (*LidarBoundsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LidarBounds not implemented")
-}
-func (UnimplementedRobotServiceServer) LidarAngularResolution(context.Context, *LidarAngularResolutionRequest) (*LidarAngularResolutionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LidarAngularResolution not implemented")
 }
 func (UnimplementedRobotServiceServer) BoardStatus(context.Context, *BoardStatusRequest) (*BoardStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BoardStatus not implemented")
@@ -1329,132 +1217,6 @@ func _RobotService_BaseWidthMillis_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).BaseWidthMillis(ctx, req.(*BaseWidthMillisRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_LidarInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LidarInfoRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).LidarInfo(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/LidarInfo",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).LidarInfo(ctx, req.(*LidarInfoRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_LidarStart_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LidarStartRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).LidarStart(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/LidarStart",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).LidarStart(ctx, req.(*LidarStartRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_LidarStop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LidarStopRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).LidarStop(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/LidarStop",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).LidarStop(ctx, req.(*LidarStopRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_LidarScan_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LidarScanRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).LidarScan(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/LidarScan",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).LidarScan(ctx, req.(*LidarScanRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_LidarRange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LidarRangeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).LidarRange(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/LidarRange",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).LidarRange(ctx, req.(*LidarRangeRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_LidarBounds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LidarBoundsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).LidarBounds(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/LidarBounds",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).LidarBounds(ctx, req.(*LidarBoundsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_LidarAngularResolution_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LidarAngularResolutionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).LidarAngularResolution(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/LidarAngularResolution",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).LidarAngularResolution(ctx, req.(*LidarAngularResolutionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2367,34 +2129,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BaseWidthMillis",
 			Handler:    _RobotService_BaseWidthMillis_Handler,
-		},
-		{
-			MethodName: "LidarInfo",
-			Handler:    _RobotService_LidarInfo_Handler,
-		},
-		{
-			MethodName: "LidarStart",
-			Handler:    _RobotService_LidarStart_Handler,
-		},
-		{
-			MethodName: "LidarStop",
-			Handler:    _RobotService_LidarStop_Handler,
-		},
-		{
-			MethodName: "LidarScan",
-			Handler:    _RobotService_LidarScan_Handler,
-		},
-		{
-			MethodName: "LidarRange",
-			Handler:    _RobotService_LidarRange_Handler,
-		},
-		{
-			MethodName: "LidarBounds",
-			Handler:    _RobotService_LidarBounds_Handler,
-		},
-		{
-			MethodName: "LidarAngularResolution",
-			Handler:    _RobotService_LidarAngularResolution_Handler,
 		},
 		{
 			MethodName: "BoardStatus",

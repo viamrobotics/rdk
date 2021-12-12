@@ -21,7 +21,6 @@ import (
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"
@@ -156,12 +155,6 @@ func (rr *remoteRobot) CameraNames() []string {
 	return rr.prefixNames(rr.parts.CameraNames())
 }
 
-func (rr *remoteRobot) LidarNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.LidarNames())
-}
-
 func (rr *remoteRobot) BaseNames() []string {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
@@ -248,12 +241,6 @@ func (rr *remoteRobot) CameraByName(name string) (camera.Camera, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.CameraByName(rr.unprefixName(name))
-}
-
-func (rr *remoteRobot) LidarByName(name string) (lidar.Lidar, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.LidarByName(rr.unprefixName(name))
 }
 
 func (rr *remoteRobot) BoardByName(name string) (board.Board, bool) {
@@ -374,12 +361,6 @@ func (rr *remoteRobot) Status(ctx context.Context) (*pb.Status, error) {
 			rewrittenStatus.Cameras[rr.prefixName(k)] = v
 		}
 	}
-	if len(status.Lidars) != 0 {
-		rewrittenStatus.Lidars = make(map[string]bool, len(status.Lidars))
-		for k, v := range status.Lidars {
-			rewrittenStatus.Lidars[rr.prefixName(k)] = v
-		}
-	}
 	if len(status.Sensors) != 0 {
 		rewrittenStatus.Sensors = make(map[string]*pb.SensorStatus, len(status.Sensors))
 		for k, v := range status.Sensors {
@@ -448,13 +429,6 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 		}
 		parts.AddBoard(part, config.Component{Name: name})
 	}
-	for _, name := range robot.LidarNames() {
-		part, ok := robot.LidarByName(name)
-		if !ok {
-			continue
-		}
-		parts.AddLidar(part, config.Component{Name: name})
-	}
 	for _, name := range robot.SensorNames() {
 		part, ok := robot.SensorByName(name)
 		if !ok {
@@ -493,7 +467,6 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 // replaceForRemote replaces these parts with the given parts coming from a remote.
 func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	var oldBoardNames map[string]struct{}
-	var oldLidarNames map[string]struct{}
 	var oldBaseNames map[string]struct{}
 	var oldSensorNames map[string]struct{}
 	var oldInputControllerNames map[string]struct{}
@@ -505,12 +478,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		oldBoardNames = make(map[string]struct{}, len(parts.boards))
 		for name := range parts.boards {
 			oldBoardNames[name] = struct{}{}
-		}
-	}
-	if len(parts.lidars) != 0 {
-		oldLidarNames = make(map[string]struct{}, len(parts.lidars))
-		for name := range parts.lidars {
-			oldLidarNames[name] = struct{}{}
 		}
 	}
 	if len(parts.bases) != 0 {
@@ -559,16 +526,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 			continue
 		}
 		parts.boards[name] = newPart
-	}
-
-	for name, newPart := range newParts.lidars {
-		oldPart, ok := parts.lidars[name]
-		delete(oldLidarNames, name)
-		if ok {
-			oldPart.replace(newPart)
-			continue
-		}
-		parts.lidars[name] = newPart
 	}
 	for name, newPart := range newParts.bases {
 		oldPart, ok := parts.bases[name]
@@ -638,9 +595,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 
 	for name := range oldBoardNames {
 		delete(parts.boards, name)
-	}
-	for name := range oldLidarNames {
-		delete(parts.lidars, name)
 	}
 	for name := range oldBaseNames {
 		delete(parts.bases, name)

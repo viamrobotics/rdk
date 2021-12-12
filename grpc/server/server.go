@@ -25,7 +25,6 @@ import (
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor/compass"
@@ -228,128 +227,6 @@ func (s *Server) BaseWidthMillis(ctx context.Context, req *pb.BaseWidthMillisReq
 		return nil, err
 	}
 	return &pb.BaseWidthMillisResponse{WidthMillis: int64(width)}, nil
-}
-
-// LidarInfo returns the info of a lidar of the underlying robot.
-func (s *Server) LidarInfo(ctx context.Context, req *pb.LidarInfoRequest) (*pb.LidarInfoResponse, error) {
-	lidar, ok := s.r.LidarByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
-	}
-	info, err := lidar.Info(ctx)
-	if err != nil {
-		return nil, err
-	}
-	str, err := structpb.NewStruct(info)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.LidarInfoResponse{Info: str}, nil
-}
-
-// LidarStart starts a lidar of the underlying robot.
-func (s *Server) LidarStart(ctx context.Context, req *pb.LidarStartRequest) (*pb.LidarStartResponse, error) {
-	lidar, ok := s.r.LidarByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
-	}
-	err := lidar.Start(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.LidarStartResponse{}, nil
-}
-
-// LidarStop stops a lidar of the underlying robot.
-func (s *Server) LidarStop(ctx context.Context, req *pb.LidarStopRequest) (*pb.LidarStopResponse, error) {
-	lidar, ok := s.r.LidarByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
-	}
-	err := lidar.Stop(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.LidarStopResponse{}, nil
-}
-
-// LidarScan returns a scan from a lidar of the underlying robot.
-func (s *Server) LidarScan(ctx context.Context, req *pb.LidarScanRequest) (*pb.LidarScanResponse, error) {
-	lidar, ok := s.r.LidarByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
-	}
-	opts := scanOptionsFromProto(req)
-	ms, err := lidar.Scan(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.LidarScanResponse{Measurements: measurementsToProto(ms)}, nil
-}
-
-// LidarRange returns the range of a lidar of the underlying robot.
-func (s *Server) LidarRange(ctx context.Context, req *pb.LidarRangeRequest) (*pb.LidarRangeResponse, error) {
-	lidar, ok := s.r.LidarByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
-	}
-	r, err := lidar.Range(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.LidarRangeResponse{Range: int64(r)}, nil
-}
-
-// LidarBounds returns the scan bounds of a lidar of the underlying robot.
-func (s *Server) LidarBounds(ctx context.Context, req *pb.LidarBoundsRequest) (*pb.LidarBoundsResponse, error) {
-	lidar, ok := s.r.LidarByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
-	}
-	bounds, err := lidar.Bounds(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.LidarBoundsResponse{X: int64(bounds.X), Y: int64(bounds.Y)}, nil
-}
-
-// LidarAngularResolution returns the scan angular resolution of a lidar of the underlying robot.
-func (s *Server) LidarAngularResolution(ctx context.Context, req *pb.LidarAngularResolutionRequest) (*pb.LidarAngularResolutionResponse, error) {
-	lidar, ok := s.r.LidarByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
-	}
-	angRes, err := lidar.AngularResolution(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.LidarAngularResolutionResponse{AngularResolution: angRes}, nil
-}
-
-func scanOptionsFromProto(req *pb.LidarScanRequest) lidar.ScanOptions {
-	return lidar.ScanOptions{
-		Count:    int(req.Count),
-		NoFilter: req.NoFilter,
-	}
-}
-
-func measurementToProto(m *lidar.Measurement) *pb.LidarMeasurement {
-	x, y := m.Coords()
-	return &pb.LidarMeasurement{
-		Angle:    m.AngleRad(),
-		AngleDeg: m.AngleDeg(),
-		Distance: m.Distance(),
-		X:        x,
-		Y:        y,
-	}
-}
-
-func measurementsToProto(ms lidar.Measurements) []*pb.LidarMeasurement {
-	pms := make([]*pb.LidarMeasurement, 0, len(ms))
-	for _, m := range ms {
-		pms = append(pms, measurementToProto(m))
-	}
-	return pms
 }
 
 // BoardStatus returns the status of a board of the underlying robot.

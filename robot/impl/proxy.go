@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/golang/geo/r2"
 	geo "github.com/kellydunn/golang-geo"
 
 	"go.viam.com/utils"
@@ -14,7 +13,6 @@ import (
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/sensor"
@@ -76,78 +74,6 @@ func (p *proxyBase) replace(newBase base.Base) {
 	actual, ok := newBase.(*proxyBase)
 	if !ok {
 		panic(fmt.Errorf("expected new base to be %T but got %T", actual, newBase))
-	}
-	if err := utils.TryClose(p.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = actual.actual
-}
-
-type proxyLidar struct {
-	mu     sync.RWMutex
-	actual lidar.Lidar
-}
-
-func (p *proxyLidar) ProxyFor() interface{} {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual
-}
-
-func (p *proxyLidar) Info(ctx context.Context) (map[string]interface{}, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Info(ctx)
-}
-
-func (p *proxyLidar) Start(ctx context.Context) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Start(ctx)
-}
-
-func (p *proxyLidar) Stop(ctx context.Context) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Stop(ctx)
-}
-
-func (p *proxyLidar) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Scan(ctx, options)
-}
-
-func (p *proxyLidar) Range(ctx context.Context) (float64, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Range(ctx)
-}
-
-func (p *proxyLidar) Bounds(ctx context.Context) (r2.Point, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Bounds(ctx)
-}
-
-func (p *proxyLidar) AngularResolution(ctx context.Context) (float64, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.AngularResolution(ctx)
-}
-
-func (p *proxyLidar) Close() error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return utils.TryClose(p.actual)
-}
-
-func (p *proxyLidar) replace(newLidar lidar.Lidar) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newLidar.(*proxyLidar)
-	if !ok {
-		panic(fmt.Errorf("expected new lidar to be %T but got %T", actual, newLidar))
 	}
 	if err := utils.TryClose(p.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)

@@ -17,7 +17,6 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
-	"go.viam.com/core/lidar"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
@@ -26,7 +25,6 @@ import (
 	webserver "go.viam.com/core/web/server"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/erh/egoutil"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
@@ -50,64 +48,68 @@ func init() {
 }
 
 func dock(ctx context.Context, r robot.Robot) error {
-	logger.Info("docking started")
+	return errors.New("no dock")
+	/*
+		logger.Info("docking started")
 
-	cam, ok := r.CameraByName("back")
-	if !ok {
-		return errors.New("no back camera")
-	}
-
-	base, ok := r.BaseByName("pierre")
-	if !ok {
-		return errors.New("no pierre")
-	}
-
-	theLidar, ok := r.LidarByName("lidarOnBase")
-	if !ok {
-		return errors.New("no lidar lidarOnBase")
-	}
-
-	for tries := 0; tries < 5; tries++ {
-
-		ms, err := theLidar.Scan(ctx, lidar.ScanOptions{})
-		if err != nil {
-			return err
-		}
-		back := ms.ClosestToDegree(180)
-		logger.Debugf("distance to back: %#v", back)
-
-		if back.Distance() < .55 {
-			logger.Info("docking close enough")
-			return nil
+		cam, ok := r.CameraByName("back")
+		if !ok {
+			return errors.New("no back camera")
 		}
 
-		x, y, err := dockNextMoveCompute(ctx, cam)
-		if err != nil {
-			logger.Infof("failed to compute, will try again: %s", err)
-			continue
-		}
-		logger.Debugf("x: %v y: %v\n", x, y)
-
-		angle := x * -15
-		logger.Debugf("turning %v degrees", angle)
-		err = base.Spin(ctx, angle, 10, true)
-		if err != nil {
-			return err
+		base, ok := r.BaseByName("pierre")
+		if !ok {
+			return errors.New("no pierre")
 		}
 
-		amount := 100.0 - (100.0 * y)
-		logger.Debugf("moved %v millis", amount)
-		err = base.MoveStraight(ctx, int(-1*amount), 50, true)
-		if err != nil {
-			return err
+		theLidar, ok := r.LidarByName("lidarOnBase")
+		if !ok {
+			return errors.New("no lidar lidarOnBase")
 		}
 
-		tries = 0
-	}
+		for tries := 0; tries < 5; tries++ {
 
-	return errors.New("failed to dock")
+			ms, err := theLidar.Scan(ctx, lidar.ScanOptions{})
+			if err != nil {
+				return err
+			}
+			back := ms.ClosestToDegree(180)
+			logger.Debugf("distance to back: %#v", back)
+
+			if back.Distance() < .55 {
+				logger.Info("docking close enough")
+				return nil
+			}
+
+			x, y, err := dockNextMoveCompute(ctx, cam)
+			if err != nil {
+				logger.Infof("failed to compute, will try again: %s", err)
+				continue
+			}
+			logger.Debugf("x: %v y: %v\n", x, y)
+
+			angle := x * -15
+			logger.Debugf("turning %v degrees", angle)
+			err = base.Spin(ctx, angle, 10, true)
+			if err != nil {
+				return err
+			}
+
+			amount := 100.0 - (100.0 * y)
+			logger.Debugf("moved %v millis", amount)
+			err = base.MoveStraight(ctx, int(-1*amount), 50, true)
+			if err != nil {
+				return err
+			}
+
+			tries = 0
+		}
+
+		return errors.New("failed to dock")
+	*/
 }
 
+/*
 // return delta x, delta y, error
 func dockNextMoveCompute(ctx context.Context, cam gostream.ImageSource) (float64, float64, error) {
 	ctx, span := trace.StartSpan(ctx, "dockNextMoveCompute")
@@ -135,7 +137,7 @@ func dockNextMoveCompute(ctx context.Context, cam gostream.ImageSource) (float64
 	y := 2 * float64((ri.Height()/2)-p.Y) / float64(ri.Height())
 	return x, y, nil
 }
-
+*/
 func findTopInSegment(img *segmentation.SegmentedImage, segment int) image.Point {
 	mid := img.Width() / 2
 	for y := 0; y < img.Height(); y++ {
@@ -300,25 +302,6 @@ func NewRover(ctx context.Context, r robot.Robot, theBoard board.Board) (*Rover,
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	theLidar, ok := r.LidarByName("lidarBase")
-	if false && ok {
-		utils.PanicCapturingGo(func() {
-			for {
-				if !utils.SelectContextOrWait(ctx, time.Second) {
-					return
-				}
-
-				ms, err := theLidar.Scan(ctx, lidar.ScanOptions{})
-				if err != nil {
-					logger.Infof("theLidar scan failed: %s", err)
-					continue
-				}
-
-				logger.Debugf("fowrad distance %#v", ms[0])
-			}
-		})
 	}
 
 	logger.Debug("rover ready")
