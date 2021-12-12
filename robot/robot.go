@@ -15,7 +15,6 @@ import (
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"
@@ -41,9 +40,6 @@ type Robot interface {
 
 	// CameraByName returns a camera by name.
 	CameraByName(name string) (camera.Camera, bool)
-
-	// LidarByName returns a lidar by name.
-	LidarByName(name string) (lidar.Lidar, bool)
 
 	// BoardByName returns a board by name.
 	BoardByName(name string) (board.Board, bool)
@@ -78,9 +74,6 @@ type Robot interface {
 
 	// CameraNames returns the name of all known cameras.
 	CameraNames() []string
-
-	// LidarNames returns the name of all known lidars.
-	LidarNames() []string
 
 	// BaseNames returns the name of all known bases.
 	BaseNames() []string
