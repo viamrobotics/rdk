@@ -3658,43 +3658,43 @@ proto.proto.api.v1.Status.deserializeBinaryFromReader = function(msg, reader) {
         jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readBool, null, "", false);
          });
       break;
-    case 7:
+    case 6:
       var value = msg.getSensorsMap();
       reader.readMessage(value, function(message, reader) {
         jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.proto.api.v1.SensorStatus.deserializeBinaryFromReader, "", new proto.proto.api.v1.SensorStatus());
          });
       break;
-    case 8:
+    case 7:
       var value = msg.getFunctionsMap();
       reader.readMessage(value, function(message, reader) {
         jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readBool, null, "", false);
          });
       break;
-    case 9:
+    case 8:
       var value = msg.getServosMap();
       reader.readMessage(value, function(message, reader) {
         jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.proto.api.v1.ServoStatus.deserializeBinaryFromReader, "", new proto.proto.api.v1.ServoStatus());
          });
       break;
-    case 10:
+    case 9:
       var value = msg.getMotorsMap();
       reader.readMessage(value, function(message, reader) {
         jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.proto.api.v1.MotorStatus.deserializeBinaryFromReader, "", new proto.proto.api.v1.MotorStatus());
          });
       break;
-    case 11:
+    case 10:
       var value = msg.getServicesMap();
       reader.readMessage(value, function(message, reader) {
         jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readBool, null, "", false);
          });
       break;
-    case 12:
+    case 11:
       var value = msg.getInputControllersMap();
       reader.readMessage(value, function(message, reader) {
         jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.proto.api.v1.InputControllerStatus.deserializeBinaryFromReader, "", new proto.proto.api.v1.InputControllerStatus());
          });
       break;
-    case 13:
+    case 12:
       var value = msg.getGantriesMap();
       reader.readMessage(value, function(message, reader) {
         jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.proto.api.v1.GantryStatus.deserializeBinaryFromReader, "", new proto.proto.api.v1.GantryStatus());
@@ -3751,31 +3751,31 @@ proto.proto.api.v1.Status.serializeBinaryToWriter = function(message, writer) {
   }
   f = message.getSensorsMap(true);
   if (f && f.getLength() > 0) {
-    f.serializeBinary(7, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.SensorStatus.serializeBinaryToWriter);
+    f.serializeBinary(6, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.SensorStatus.serializeBinaryToWriter);
   }
   f = message.getFunctionsMap(true);
   if (f && f.getLength() > 0) {
-    f.serializeBinary(8, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeBool);
+    f.serializeBinary(7, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeBool);
   }
   f = message.getServosMap(true);
   if (f && f.getLength() > 0) {
-    f.serializeBinary(9, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.ServoStatus.serializeBinaryToWriter);
+    f.serializeBinary(8, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.ServoStatus.serializeBinaryToWriter);
   }
   f = message.getMotorsMap(true);
   if (f && f.getLength() > 0) {
-    f.serializeBinary(10, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.MotorStatus.serializeBinaryToWriter);
+    f.serializeBinary(9, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.MotorStatus.serializeBinaryToWriter);
   }
   f = message.getServicesMap(true);
   if (f && f.getLength() > 0) {
-    f.serializeBinary(11, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeBool);
+    f.serializeBinary(10, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeBool);
   }
   f = message.getInputControllersMap(true);
   if (f && f.getLength() > 0) {
-    f.serializeBinary(12, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.InputControllerStatus.serializeBinaryToWriter);
+    f.serializeBinary(11, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.InputControllerStatus.serializeBinaryToWriter);
   }
   f = message.getGantriesMap(true);
   if (f && f.getLength() > 0) {
-    f.serializeBinary(13, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.GantryStatus.serializeBinaryToWriter);
+    f.serializeBinary(12, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.GantryStatus.serializeBinaryToWriter);
   }
 };
 
@@ -3891,14 +3891,14 @@ proto.proto.api.v1.Status.prototype.clearCamerasMap = function() {
 
 
 /**
- * map<string, SensorStatus> sensors = 7;
+ * map<string, SensorStatus> sensors = 6;
  * @param {boolean=} opt_noLazyCreate Do not create the map if
  * empty, instead returning `undefined`
  * @return {!jspb.Map<string,!proto.proto.api.v1.SensorStatus>}
  */
 proto.proto.api.v1.Status.prototype.getSensorsMap = function(opt_noLazyCreate) {
   return /** @type {!jspb.Map<string,!proto.proto.api.v1.SensorStatus>} */ (
-      jspb.Message.getMapField(this, 7, opt_noLazyCreate,
+      jspb.Message.getMapField(this, 6, opt_noLazyCreate,
       proto.proto.api.v1.SensorStatus));
 };
 
@@ -3913,14 +3913,14 @@ proto.proto.api.v1.Status.prototype.clearSensorsMap = function() {
 
 
 /**
- * map<string, bool> functions = 8;
+ * map<string, bool> functions = 7;
  * @param {boolean=} opt_noLazyCreate Do not create the map if
  * empty, instead returning `undefined`
  * @return {!jspb.Map<string,boolean>}
  */
 proto.proto.api.v1.Status.prototype.getFunctionsMap = function(opt_noLazyCreate) {
   return /** @type {!jspb.Map<string,boolean>} */ (
-      jspb.Message.getMapField(this, 8, opt_noLazyCreate,
+      jspb.Message.getMapField(this, 7, opt_noLazyCreate,
       null));
 };
 
@@ -3935,14 +3935,14 @@ proto.proto.api.v1.Status.prototype.clearFunctionsMap = function() {
 
 
 /**
- * map<string, ServoStatus> servos = 9;
+ * map<string, ServoStatus> servos = 8;
  * @param {boolean=} opt_noLazyCreate Do not create the map if
  * empty, instead returning `undefined`
  * @return {!jspb.Map<string,!proto.proto.api.v1.ServoStatus>}
  */
 proto.proto.api.v1.Status.prototype.getServosMap = function(opt_noLazyCreate) {
   return /** @type {!jspb.Map<string,!proto.proto.api.v1.ServoStatus>} */ (
-      jspb.Message.getMapField(this, 9, opt_noLazyCreate,
+      jspb.Message.getMapField(this, 8, opt_noLazyCreate,
       proto.proto.api.v1.ServoStatus));
 };
 
@@ -3957,14 +3957,14 @@ proto.proto.api.v1.Status.prototype.clearServosMap = function() {
 
 
 /**
- * map<string, MotorStatus> motors = 10;
+ * map<string, MotorStatus> motors = 9;
  * @param {boolean=} opt_noLazyCreate Do not create the map if
  * empty, instead returning `undefined`
  * @return {!jspb.Map<string,!proto.proto.api.v1.MotorStatus>}
  */
 proto.proto.api.v1.Status.prototype.getMotorsMap = function(opt_noLazyCreate) {
   return /** @type {!jspb.Map<string,!proto.proto.api.v1.MotorStatus>} */ (
-      jspb.Message.getMapField(this, 10, opt_noLazyCreate,
+      jspb.Message.getMapField(this, 9, opt_noLazyCreate,
       proto.proto.api.v1.MotorStatus));
 };
 
@@ -3979,14 +3979,14 @@ proto.proto.api.v1.Status.prototype.clearMotorsMap = function() {
 
 
 /**
- * map<string, bool> services = 11;
+ * map<string, bool> services = 10;
  * @param {boolean=} opt_noLazyCreate Do not create the map if
  * empty, instead returning `undefined`
  * @return {!jspb.Map<string,boolean>}
  */
 proto.proto.api.v1.Status.prototype.getServicesMap = function(opt_noLazyCreate) {
   return /** @type {!jspb.Map<string,boolean>} */ (
-      jspb.Message.getMapField(this, 11, opt_noLazyCreate,
+      jspb.Message.getMapField(this, 10, opt_noLazyCreate,
       null));
 };
 
@@ -4001,14 +4001,14 @@ proto.proto.api.v1.Status.prototype.clearServicesMap = function() {
 
 
 /**
- * map<string, InputControllerStatus> input_controllers = 12;
+ * map<string, InputControllerStatus> input_controllers = 11;
  * @param {boolean=} opt_noLazyCreate Do not create the map if
  * empty, instead returning `undefined`
  * @return {!jspb.Map<string,!proto.proto.api.v1.InputControllerStatus>}
  */
 proto.proto.api.v1.Status.prototype.getInputControllersMap = function(opt_noLazyCreate) {
   return /** @type {!jspb.Map<string,!proto.proto.api.v1.InputControllerStatus>} */ (
-      jspb.Message.getMapField(this, 12, opt_noLazyCreate,
+      jspb.Message.getMapField(this, 11, opt_noLazyCreate,
       proto.proto.api.v1.InputControllerStatus));
 };
 
@@ -4023,14 +4023,14 @@ proto.proto.api.v1.Status.prototype.clearInputControllersMap = function() {
 
 
 /**
- * map<string, GantryStatus> gantries = 13;
+ * map<string, GantryStatus> gantries = 12;
  * @param {boolean=} opt_noLazyCreate Do not create the map if
  * empty, instead returning `undefined`
  * @return {!jspb.Map<string,!proto.proto.api.v1.GantryStatus>}
  */
 proto.proto.api.v1.Status.prototype.getGantriesMap = function(opt_noLazyCreate) {
   return /** @type {!jspb.Map<string,!proto.proto.api.v1.GantryStatus>} */ (
-      jspb.Message.getMapField(this, 13, opt_noLazyCreate,
+      jspb.Message.getMapField(this, 12, opt_noLazyCreate,
       proto.proto.api.v1.GantryStatus));
 };
 
