@@ -16,7 +16,6 @@ import (
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"
@@ -34,7 +33,6 @@ type Robot struct {
 	BaseByNameFunc            func(name string) (base.Base, bool)
 	GripperByNameFunc         func(name string) (gripper.Gripper, bool)
 	CameraByNameFunc          func(name string) (camera.Camera, bool)
-	LidarByNameFunc           func(name string) (lidar.Lidar, bool)
 	BoardByNameFunc           func(name string) (board.Board, bool)
 	SensorByNameFunc          func(name string) (sensor.Sensor, bool)
 	ServoByNameFunc           func(name string) (servo.Servo, bool)
@@ -46,7 +44,6 @@ type Robot struct {
 	ArmNamesFunc              func() []string
 	GripperNamesFunc          func() []string
 	CameraNamesFunc           func() []string
-	LidarNamesFunc            func() []string
 	BaseNamesFunc             func() []string
 	BoardNamesFunc            func() []string
 	SensorNamesFunc           func() []string
@@ -103,14 +100,6 @@ func (r *Robot) CameraByName(name string) (camera.Camera, bool) {
 		return r.Robot.CameraByName(name)
 	}
 	return r.CameraByNameFunc(name)
-}
-
-// LidarByName calls the injected LidarByName or the real version.
-func (r *Robot) LidarByName(name string) (lidar.Lidar, bool) {
-	if r.LidarByNameFunc == nil {
-		return r.Robot.LidarByName(name)
-	}
-	return r.LidarByNameFunc(name)
 }
 
 // BoardByName calls the injected BoardByName or the real version.
@@ -199,14 +188,6 @@ func (r *Robot) CameraNames() []string {
 		return r.Robot.CameraNames()
 	}
 	return r.CameraNamesFunc()
-}
-
-// LidarNames calls the injected LidarNames or the real version.
-func (r *Robot) LidarNames() []string {
-	if r.LidarNamesFunc == nil {
-		return r.Robot.LidarNames()
-	}
-	return r.LidarNamesFunc()
 }
 
 // BaseNames calls the injected BaseNames or the real version.
