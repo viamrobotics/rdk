@@ -556,6 +556,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, mock2.(*mockFake2).reconfCount, test.ShouldEqual, 0)
 
 		armNames = []resource.Name{arm.Named("arm1")}
+		boardNames = []resource.Name{board.Named("board1"), board.Named("board2")}
 		mockNames = []resource.Name{mockNamed("mock1")}
 		test.That(t, robot.Reconfigure(context.Background(), conf3), test.ShouldBeNil)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
@@ -563,13 +564,14 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2"))
-		test.That(t, utils.NewStringSet(robot.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2"))
+		test.That(t, utils.NewStringSet(robot.BoardNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(boardNames...)...))
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, coretestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 			coretestutils.ConcatResourceNames(
 				armNames,
+                boardNames,
 				mockNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "3"))
