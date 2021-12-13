@@ -487,13 +487,6 @@ func TestPartsAdd(t *testing.T) {
 		return &board.BasicDigitalInterrupt{}, true
 	}
 
-	parts.AddBoard(injectBoard, config.Component{Name: "board1"})
-	board1, ok := parts.BoardByName("board1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1.(*proxyBoard).actual, test.ShouldEqual, injectBoard)
-	parts.AddBoard(board1, config.Component{Name: "board1"})
-	test.That(t, board1.(*proxyBoard).actual, test.ShouldEqual, injectBoard)
-
 	injectBase := &inject.Base{}
 	parts.AddBase(injectBase, config.Component{Name: "base1"})
 	base1, ok := parts.BaseByName("base1")
@@ -860,19 +853,6 @@ func TestPartsMergeModify(t *testing.T) {
 	// 	},
 	// }, logger)
 	// test.That(t, err, test.ShouldBeNil)
-	fakeBoardRemote, err := fake.NewBoard(context.Background(), config.Component{
-		Name: "board2",
-		ConvertedAttributes: &board.Config{
-			Analogs: []board.AnalogConfig{
-				{Name: "analog2"},
-			},
-			DigitalInterrupts: []board.DigitalInterruptConfig{
-				{Name: "digital2"},
-			},
-		},
-	}, logger)
-	test.That(t, err, test.ShouldBeNil)
-	robotForRemote.parts.AddBoard(fakeBoardRemote, config.Component{Name: "board2_r1"})
 	robotForRemote.parts.AddBase(&inject.Base{}, config.Component{Name: "base2_r1"})
 	robotForRemote.parts.AddSensor(&inject.Compass{}, config.Component{Name: "sensor2_r1"})
 	robotForRemote.parts.AddInputController(&inject.InputController{}, config.Component{Name: "inputController2_r1"})
@@ -914,19 +894,6 @@ func TestPartsMergeModify(t *testing.T) {
 	// 	},
 	// }, logger)
 	// test.That(t, err, test.ShouldBeNil)
-	fakeBoard, err := fake.NewBoard(context.Background(), config.Component{
-		Name: "board1",
-		ConvertedAttributes: &board.Config{
-			Analogs: []board.AnalogConfig{
-				{Name: "analog2"},
-			},
-			DigitalInterrupts: []board.DigitalInterruptConfig{
-				{Name: "digital2"},
-			},
-		},
-	}, logger)
-	test.That(t, err, test.ShouldBeNil)
-	replacementParts.AddBoard(fakeBoard, config.Component{Name: "board1"})
 	injectBase := &inject.Base{}
 	replacementParts.AddBase(injectBase, config.Component{Name: "base1"})
 	injectCompass := &inject.Compass{}
