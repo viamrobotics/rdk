@@ -31,7 +31,7 @@ const (
 	// Name of joint swing scorer
 	jointConstraint = "defaultJointSwingConstraint"
 	// Max number of iterations of path smoothing to run
-	smoothIter = 200
+	smoothIter = 250
 	// Number of iterations to mrun before beginning to accept randomly seeded locations
 	iterBeforeRand = 50
 )
@@ -529,12 +529,12 @@ func (nm *neighborManager) startNNworkers(ctx context.Context) {
 	nm.nnKeys = make(chan *solution, nm.nCPU)
 	for i := 0; i < nm.nCPU; i++ {
 		utils.PanicCapturingGo(func() {
-			nm.nnWorker(ctx, i)
+			nm.nnWorker(ctx)
 		})
 	}
 }
 
-func (nm *neighborManager) nnWorker(ctx context.Context, id int) {
+func (nm *neighborManager) nnWorker(ctx context.Context) {
 
 	var best *solution
 	bestDist := math.Inf(1)
