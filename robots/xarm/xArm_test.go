@@ -3,7 +3,6 @@ package xarm
 import (
 	"context"
 	"testing"
-	"fmt"
 
 	pb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
@@ -59,7 +58,7 @@ func TestWriteViam(t *testing.T) {
 	// draw pos start
 	goal := spatial.NewPoseFromProtobuf(&pb.Pose{
 		X:  230,
-		Y:  wbY+10,
+		Y:  wbY + 10,
 		Z:  600,
 		OY: -1,
 	})
@@ -106,9 +105,7 @@ func TestWriteViam(t *testing.T) {
 
 	seed := steps[len(steps)-1]
 	for _, goal = range viamPoints {
-		fmt.Println("solving")
 		seed = goToGoal(seed, goal)
-		fmt.Println("solved")
 	}
 
 }

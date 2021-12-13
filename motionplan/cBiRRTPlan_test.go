@@ -84,7 +84,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	goalReached := mp.constrainedExtend(mp.opt, goalMap, near2, seedReached)
 
 	test.That(t, inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist, test.ShouldBeTrue)
-	
+
 	corners[seedReached] = true
 	corners[goalReached] = true
 

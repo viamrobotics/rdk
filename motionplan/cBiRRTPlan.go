@@ -7,16 +7,13 @@ import (
 	"math/rand"
 	"sort"
 	"sync"
-	"fmt"
-	
-	"time"
 
 	"github.com/edaniels/golog"
 
 	"go.viam.com/core/kinematics"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
-	
+
 	"go.viam.com/utils"
 )
 
@@ -74,10 +71,6 @@ type solution struct {
 	inputs []frame.Input
 }
 
-var waitTime time.Duration
-var smoothTime time.Duration
-var extendTime time.Duration
-
 // NewCBiRRTMotionPlanner creates a cBiRRTMotionPlanner object
 func NewCBiRRTMotionPlanner(frame frame.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
 	ik, err := kinematics.CreateCombinedIKSolver(frame, logger, nCPU)
@@ -127,31 +120,19 @@ func (mp *cBiRRTMotionPlanner) SetOptions(opt *PlannerOptions) {
 
 func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, seed []frame.Input) ([][]frame.Input, error) {
 	var inputSteps []*solution
-	
+
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
-	
+
 	// Store copy of planner options for duration of solve
 	opt := mp.opt
-	
+
 	nextRandInput := make(chan *solution, planIter)
 	seeds := make(chan *solution, planIter*2)
 	defer cancel()
 	utils.PanicCapturingGo(func() {
 		mp.randPosGen(ctxWithCancel, opt, nextRandInput, seeds, true)
 	})
-	//~ utils.PanicCapturingGo(func() {
-		//~ mp.randPosGen(ctxWithCancel, opt, nextRandInput, seeds, false)
-	//~ })
-	//~ utils.PanicCapturingGo(func() {
-		//~ mp.randPosGen(ctxWithCancel, opt, nextRandInput, seeds, false)
-	//~ })
-	//~ utils.PanicCapturingGo(func() {
-		//~ mp.randPosGen(ctxWithCancel, opt, nextRandInput, seeds, false)
-	//~ })
-	//~ utils.PanicCapturingGo(func() {
-		//~ mp.randPosGen(ctxWithCancel, opt, nextRandInput, seeds, false)
-	//~ })
 
 	// How many of the top solutions to try
 	// Solver will terminate after getting this many to save time
@@ -183,7 +164,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 	for _, k := range keys[:nSolutions] {
 		goalMap[&solution{solutions[k]}] = nil
 	}
-	
+
 	corners := map[*solution]bool{}
 
 	seedMap := make(map[*solution]*solution)
@@ -193,7 +174,6 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
 	addSeed := true
 	target := &solution{frame.InterpolateInputs(seed, solutions[keys[0]], 0.5)}
-	
 
 	for i := 0; i < mp.iter; i++ {
 		//~ fmt.Println("iter", i, len(seedMap), len(goalMap))
@@ -206,7 +186,6 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 		var seedReached, goalReached *solution
 
 		// Alternate which tree we extend
-		start := time.Now()
 		if addSeed {
 			// extend seed tree first
 			nearest := mp.nn.nearestNeighbor(ctxWithCancel, target, seedMap)
@@ -217,8 +196,6 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 			// extend goalMap towards the point in seedMap
 			goalReached = mp.constrainedExtend(opt, goalMap, near2, seedReached)
 			seeds <- seedReached
-			//~ seeds <- goalReached
-			//~ rSeed = seedReached
 		} else {
 			// extend goal tree first
 			nearest := mp.nn.nearestNeighbor(ctxWithCancel, target, goalMap)
@@ -228,12 +205,9 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 			near2 := mp.nn.nearestNeighbor(ctxWithCancel, goalReached, seedMap)
 			// extend seedMap towards the point in goalMap
 			seedReached = mp.constrainedExtend(opt, seedMap, near2, goalReached)
-			//~ seeds <- seedReached
 			seeds <- goalReached
-			//~ rSeed = goalReached
 		}
-		extendTime += time.Since(start)
-		
+
 		corners[seedReached] = true
 		corners[goalReached] = true
 
@@ -255,24 +229,11 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 				inputSteps = append(inputSteps, goalReached)
 				goalReached = goalMap[goalReached]
 			}
-			fmt.Println("path len", len(inputSteps))
-			start := time.Now()
 			finalSteps := mp.SmoothPath(ctx, opt, inputSteps, corners)
-			smoothTime += time.Since(start)
-			
-			fmt.Println("wait time", waitTime, "smooth time", smoothTime, "extend", extendTime)
-			fmt.Println("final path len", len(finalSteps))
 			return finalSteps, nil
 		}
 
-		start = time.Now()
-		target = <- nextRandInput
-					//~ target = &solution{frame.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
-					//~ for j, v := range rSeed.inputs {
-						//~ target.inputs[j].Value += v.Value
-					//~ }
-		waitTime += time.Since(start)
-
+		target = <-nextRandInput
 		addSeed = !addSeed
 	}
 
@@ -391,9 +352,6 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(ctx context.Context, opt *PlannerOptio
 
 		ok, hitCorners := smoothable(inputSteps, i, j, corners)
 		if !ok {
-			if len(hitCorners) == 0 {
-				fmt.Println("skip")
-			}
 			continue
 		}
 
@@ -409,7 +367,7 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(ctx context.Context, opt *PlannerOptio
 		// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 		// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
 		// so we allow elongation here.
-		if inputDist(inputSteps[i].inputs, reached.inputs) < mp.solDist && len(reached.inputs) < j - i{
+		if inputDist(inputSteps[i].inputs, reached.inputs) < mp.solDist && len(reached.inputs) < j-i {
 			corners[iSol] = true
 			corners[jSol] = true
 			for _, hitCorner := range hitCorners {
@@ -428,21 +386,21 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(ctx context.Context, opt *PlannerOptio
 	for _, sol := range inputSteps {
 		finalSteps = append(finalSteps, sol.inputs)
 	}
-	
+
 	return finalSteps
 }
 
-func (mp *cBiRRTMotionPlanner) randPosGen(ctx context.Context, opt *PlannerOptions, nextRandInput, seeds chan *solution, seeded bool){
+func (mp *cBiRRTMotionPlanner) randPosGen(ctx context.Context, opt *PlannerOptions, nextRandInput, seeds chan *solution, seeded bool) {
 	var target, rSeed *solution
 	var rPos []frame.Input
-	for{
+	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 			if seeded {
 				// Seed our next random position off a known-good position
-				rSeed = <- seeds
+				rSeed = <-seeds
 				if rSeed != nil {
 					target = &solution{frame.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
 					for j, v := range rSeed.inputs {
@@ -450,8 +408,8 @@ func (mp *cBiRRTMotionPlanner) randPosGen(ctx context.Context, opt *PlannerOptio
 					}
 					nextRandInput <- target
 				}
-			}else{
-				// Completely random 
+			} else {
+				// Completely random
 				rPos = frame.RandomFrameInputs(mp.frame, mp.randseed)
 				target = &solution{mp.constrainNear(opt, rPos, rPos)}
 				for target.inputs == nil {
@@ -472,14 +430,13 @@ func smoothable(inputSteps []*solution, i, j int, corners map[*solution]bool) (b
 	// Whether joints are increasing
 	incDir := make([]int, 0, len(startPos.inputs))
 	hitCorners := []*solution{}
-	
+
 	if corners[startPos] {
 		hitCorners = append(hitCorners, startPos)
 	}
 	if corners[nextPos] {
 		hitCorners = append(hitCorners, nextPos)
 	}
-	
 
 	check := func(v1, v2 float64) int {
 		if v1 > v2 {
@@ -595,7 +552,7 @@ func (nm *neighborManager) parallelNearestNeighbor(ctx context.Context, seed *so
 	return best
 }
 
-func (nm *neighborManager) startNNworkers(ctx context.Context, ) {
+func (nm *neighborManager) startNNworkers(ctx context.Context) {
 	nm.neighbors = make(chan *neighbor, nm.nCPU)
 	nm.nnKeys = make(chan *solution, nm.nCPU)
 	for i := 0; i < nm.nCPU; i++ {
@@ -616,7 +573,7 @@ func (nm *neighborManager) nnWorker(ctx context.Context, id int) {
 			return
 		default:
 		}
-		
+
 		select {
 		case k := <-nm.nnKeys:
 			if k != nil {
