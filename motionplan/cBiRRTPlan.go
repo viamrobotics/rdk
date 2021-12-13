@@ -31,7 +31,9 @@ const (
 	// Name of joint swing scorer
 	jointConstraint = "defaultJointSwingConstraint"
 	// Max number of iterations of path smoothing to run
-	smoothIter = 400
+	smoothIter = 200
+	// Number of iterations to mrun before beginning to accept randomly seeded locations
+	iterBeforeRand = 50
 )
 
 // cBiRRTMotionPlanner an object able to solve constrained paths around obstacles to some goal for a given frame.
@@ -175,6 +177,8 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 	addSeed := true
 	target := &solution{frame.InterpolateInputs(seed, solutions[keys[0]], 0.5)}
 
+	var rSeed *solution
+
 	for i := 0; i < mp.iter; i++ {
 		//~ fmt.Println("iter", i, len(seedMap), len(goalMap))
 		select {
@@ -195,7 +199,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 			near2 := mp.nn.nearestNeighbor(ctxWithCancel, seedReached, goalMap)
 			// extend goalMap towards the point in seedMap
 			goalReached = mp.constrainedExtend(opt, goalMap, near2, seedReached)
-			seeds <- seedReached
+			rSeed = seedReached
 		} else {
 			// extend goal tree first
 			nearest := mp.nn.nearestNeighbor(ctxWithCancel, target, goalMap)
@@ -205,7 +209,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 			near2 := mp.nn.nearestNeighbor(ctxWithCancel, goalReached, seedMap)
 			// extend seedMap towards the point in goalMap
 			seedReached = mp.constrainedExtend(opt, seedMap, near2, goalReached)
-			seeds <- goalReached
+			rSeed = goalReached
 		}
 
 		corners[seedReached] = true
@@ -233,7 +237,18 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 			return finalSteps, nil
 		}
 
-		target = <-nextRandInput
+		// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
+		// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
+		if i >= iterBeforeRand && i%4 >= 2 {
+			target = <-nextRandInput
+		} else {
+			// Seeding nearby to valid points results in much faster convergence in less constrained space
+			target = &solution{frame.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
+			for j, v := range rSeed.inputs {
+				target.inputs[j].Value += v.Value
+			}
+		}
+
 		addSeed = !addSeed
 	}
 
@@ -391,34 +406,22 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(ctx context.Context, opt *PlannerOptio
 }
 
 func (mp *cBiRRTMotionPlanner) randPosGen(ctx context.Context, opt *PlannerOptions, nextRandInput, seeds chan *solution, seeded bool) {
-	var target, rSeed *solution
+	var target *solution
 	var rPos []frame.Input
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			if seeded {
-				// Seed our next random position off a known-good position
-				rSeed = <-seeds
-				if rSeed != nil {
-					target = &solution{frame.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
-					for j, v := range rSeed.inputs {
-						target.inputs[j].Value += v.Value
-					}
-					nextRandInput <- target
-				}
-			} else {
-				// Completely random
+			// Completely random
+			rPos = frame.RandomFrameInputs(mp.frame, mp.randseed)
+			target = &solution{mp.constrainNear(opt, rPos, rPos)}
+			for target.inputs == nil {
 				rPos = frame.RandomFrameInputs(mp.frame, mp.randseed)
 				target = &solution{mp.constrainNear(opt, rPos, rPos)}
-				for target.inputs == nil {
-					rPos = frame.RandomFrameInputs(mp.frame, mp.randseed)
-					target = &solution{mp.constrainNear(opt, rPos, rPos)}
-				}
-				// Write out target to main thread
-				nextRandInput <- target
 			}
+			// Write out target to main thread
+			nextRandInput <- target
 		}
 	}
 }
