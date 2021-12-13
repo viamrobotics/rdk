@@ -18,9 +18,9 @@ import (
 const modelName = "fake"
 
 func init() {
-	registry.RegisterComponent(input.Subtype, "fake", registry.Component{Constructor: NewInputController})
+	registry.RegisterComponent(input.Subtype, modelName, registry.Component{Constructor: NewInputController})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "fake", func(attributes config.AttributeMap) (interface{}, error) {
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelName, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
 		if err != nil {
