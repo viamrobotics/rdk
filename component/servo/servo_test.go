@@ -49,7 +49,7 @@ func TestServoName(t *testing.T) {
 	}
 }
 
-func TestWrapWtihReconfigurable(t *testing.T) {
+func TestWrapWithReconfigurable(t *testing.T) {
 	actualServo1 := &mockServo{Name: "servo1"}
 	fakeServo1, err := WrapWithReconfigurable(actualServo1)
 	test.That(t, err, test.ShouldBeNil)

@@ -1,4 +1,4 @@
-package camera
+package input
 
 import (
 	"testing"
@@ -8,7 +8,7 @@ import (
 	"go.viam.com/test"
 )
 
-func TestCameraName(t *testing.T) {
+func TestInputControllerName(t *testing.T) {
 	for _, tc := range []struct {
 		TestName string
 		Name     string
@@ -18,7 +18,7 @@ func TestCameraName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "cf359663-1ffd-553f-8d2a-bd99656aa19a",
+				UUID: "6c851c39-bb5d-5f94-b09d-8b84043c327d",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
@@ -28,14 +28,14 @@ func TestCameraName(t *testing.T) {
 		},
 		{
 			"all fields included",
-			"camera1",
+			"input1",
 			resource.Name{
-				UUID: "6543c4be-b3dd-56ab-976a-48cd37c91501",
+				UUID: "954e620a-f0e5-5f24-b065-2847b26fe006",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
-				Name: "camera1",
+				Name: "input1",
 			},
 		},
 	} {
@@ -47,43 +47,43 @@ func TestCameraName(t *testing.T) {
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualCamera1 Camera = &mock{Name: "camera1"}
-	fakeCamera1, err := WrapWithReconfigurable(actualCamera1)
+	var actualInput1 Controller = &mock{Name: "input1"}
+	fakeInput1, err := WrapWithReconfigurable(actualInput1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeCamera1.(*reconfigurableCamera).actual, test.ShouldEqual, actualCamera1)
+	test.That(t, fakeInput1.(*reconfigurableInputController).actual, test.ShouldEqual, actualInput1)
 
 	_, err = WrapWithReconfigurable(nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
 
-	fakeCamera2, err := WrapWithReconfigurable(fakeCamera1)
+	fakeInput2, err := WrapWithReconfigurable(fakeInput1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeCamera2, test.ShouldEqual, fakeCamera1)
+	test.That(t, fakeInput2, test.ShouldEqual, fakeInput1)
 }
 
-func TestReconfigurableCamera(t *testing.T) {
-	actualCamera1 := &mock{Name: "camera1"}
-	fakeCamera1, err := WrapWithReconfigurable(actualCamera1)
+func TestReconfigurableInputController(t *testing.T) {
+	actualInput1 := &mock{Name: "input1"}
+	fakeInput1, err := WrapWithReconfigurable(actualInput1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeCamera1.(*reconfigurableCamera).actual, test.ShouldEqual, actualCamera1)
+	test.That(t, fakeInput1.(*reconfigurableInputController).actual, test.ShouldEqual, actualInput1)
 
-	actualCamera2 := &mock{Name: "camera2"}
-	fakeCamera2, err := WrapWithReconfigurable(actualCamera2)
+	actualInput2 := &mock{Name: "input2"}
+	fakeInput2, err := WrapWithReconfigurable(actualInput2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 0)
+	test.That(t, actualInput1.reconfCount, test.ShouldEqual, 0)
 
-	err = fakeCamera1.(*reconfigurableCamera).Reconfigure(fakeCamera2)
+	err = fakeInput1.(*reconfigurableInputController).Reconfigure(fakeInput2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeCamera1.(*reconfigurableCamera).actual, test.ShouldEqual, actualCamera2)
-	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 1)
+	test.That(t, fakeInput1.(*reconfigurableInputController).actual, test.ShouldEqual, actualInput2)
+	test.That(t, actualInput1.reconfCount, test.ShouldEqual, 1)
 
-	err = fakeCamera1.(*reconfigurableCamera).Reconfigure(nil)
+	err = fakeInput1.(*reconfigurableInputController).Reconfigure(nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new camera")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new Controller")
 }
 
 type mock struct {
-	Camera
+	Controller
 	Name        string
 	reconfCount int
 }

@@ -16,11 +16,11 @@ import (
 	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
+	"go.viam.com/core/component/input"
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/client"
-	"go.viam.com/core/input"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
@@ -31,27 +31,25 @@ import (
 
 // robotParts are the actual parts that make up a robot.
 type robotParts struct {
-	remotes          map[string]*remoteRobot
-	bases            map[string]*proxyBase
-	sensors          map[string]sensor.Sensor
-	inputControllers map[string]*proxyInputController
-	services         map[string]interface{}
-	functions        map[string]struct{}
-	resources        map[resource.Name]interface{}
-	processManager   pexec.ProcessManager
+	remotes        map[string]*remoteRobot
+	bases          map[string]*proxyBase
+	sensors        map[string]sensor.Sensor
+	services       map[string]interface{}
+	functions      map[string]struct{}
+	resources      map[resource.Name]interface{}
+	processManager pexec.ProcessManager
 }
 
 // newRobotParts returns a properly initialized set of parts.
 func newRobotParts(logger golog.Logger) *robotParts {
 	return &robotParts{
-		remotes:          map[string]*remoteRobot{},
-		bases:            map[string]*proxyBase{},
-		sensors:          map[string]sensor.Sensor{},
-		inputControllers: map[string]*proxyInputController{},
-		services:         map[string]interface{}{},
-		functions:        map[string]struct{}{},
-		resources:        map[resource.Name]interface{}{},
-		processManager:   pexec.NewProcessManager(logger),
+		remotes:        map[string]*remoteRobot{},
+		bases:          map[string]*proxyBase{},
+		sensors:        map[string]sensor.Sensor{},
+		services:       map[string]interface{}{},
+		functions:      map[string]struct{}{},
+		resources:      map[resource.Name]interface{}{},
+		processManager: pexec.NewProcessManager(logger),
 	}
 }
 
@@ -107,15 +105,6 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 			parts.sensors[c.Name] = &proxySensor{actual: s}
 		}
 	}
-}
-
-// AddInputController adds a controller to the parts.
-func (parts *robotParts) AddInputController(ic input.Controller, c config.Component) {
-	c = fixType(c, config.ComponentTypeInputController, len(parts.inputControllers))
-	if proxy, ok := ic.(*proxyInputController); ok {
-		ic = proxy.actual
-	}
-	parts.inputControllers[c.Name] = &proxyInputController{actual: ic}
 }
 
 // AddService adds a service to the parts.
@@ -269,8 +258,10 @@ func (parts *robotParts) MotorNames() []string {
 // InputControllerNames returns the names of all controllers in the parts.
 func (parts *robotParts) InputControllerNames() []string {
 	names := []string{}
-	for k := range parts.inputControllers {
-		names = append(names, k)
+	for _, n := range parts.ResourceNames() {
+		if n.Subtype == input.Subtype {
+			names = append(names, n.Name)
+		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.InputControllerNames)
 }
@@ -321,12 +312,6 @@ func (parts *robotParts) Clone() *robotParts {
 		clonedParts.sensors = make(map[string]sensor.Sensor, len(parts.sensors))
 		for k, v := range parts.sensors {
 			clonedParts.sensors[k] = v
-		}
-	}
-	if len(parts.inputControllers) != 0 {
-		clonedParts.inputControllers = make(map[string]*proxyInputController, len(parts.inputControllers))
-		for k, v := range parts.inputControllers {
-			clonedParts.inputControllers[k] = v
 		}
 	}
 	if len(parts.functions) != 0 {
@@ -381,12 +366,6 @@ func (parts *robotParts) Close() error {
 	for _, x := range parts.sensors {
 		if err := utils.TryClose(x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing sensor: %w", err))
-		}
-	}
-
-	for _, x := range parts.inputControllers {
-		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing input controller: %w", err))
 		}
 	}
 
@@ -498,12 +477,6 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 				return err
 			}
 			parts.AddSensor(sensorDevice, c)
-		case config.ComponentTypeInputController:
-			controller, err := r.newInputController(ctx, c)
-			if err != nil {
-				return err
-			}
-			parts.AddInputController(controller, c)
 		default:
 			r, err := r.newResource(ctx, c)
 			if err != nil {
@@ -701,9 +674,13 @@ func (parts *robotParts) MotorByName(name string) (motor.Motor, bool) {
 // InputControllerByName returns the given input.Controller by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) InputControllerByName(name string) (input.Controller, bool) {
-	part, ok := parts.inputControllers[name]
+	rName := input.Named(name)
+	resource, ok := parts.resources[rName]
 	if ok {
-		return part, true
+		part, ok := resource.(input.Controller)
+		if ok {
+			return part, true
+		}
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.InputControllerByName(name)
@@ -788,15 +765,6 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 		for k, v := range toAdd.sensors {
 			parts.sensors[k] = v
-		}
-	}
-
-	if len(toAdd.inputControllers) != 0 {
-		if parts.inputControllers == nil {
-			parts.inputControllers = make(map[string]*proxyInputController, len(toAdd.inputControllers))
-		}
-		for k, v := range toAdd.inputControllers {
-			parts.inputControllers[k] = v
 		}
 	}
 
@@ -889,17 +857,6 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 		}
 	}
 
-	if len(toModify.inputControllers) != 0 {
-		for k, v := range toModify.inputControllers {
-			old, ok := parts.inputControllers[k]
-			if !ok {
-				// should not happen
-				continue
-			}
-			old.replace(v)
-		}
-	}
-
 	// TODO(erd): how to handle service replacement?
 
 	if len(toModify.resources) != 0 {
@@ -944,12 +901,6 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 	if len(toRemove.sensors) != 0 {
 		for k := range toRemove.sensors {
 			delete(parts.sensors, k)
-		}
-	}
-
-	if len(toRemove.inputControllers) != 0 {
-		for k := range toRemove.inputControllers {
-			delete(parts.inputControllers, k)
 		}
 	}
 
@@ -1015,12 +966,6 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 				continue
 			}
 			filtered.AddSensor(part, compConf)
-		case config.ComponentTypeInputController:
-			part, ok := parts.InputControllerByName(compConf.Name)
-			if !ok {
-				continue
-			}
-			filtered.AddInputController(part, compConf)
 		default:
 			rName := compConf.ResourceName()
 			resource, ok := parts.ResourceByName(rName)
