@@ -10,7 +10,6 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/core/kinematics"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
 
@@ -41,8 +40,8 @@ const (
 // https://ieeexplore.ieee.org/document/5152399/
 type cBiRRTMotionPlanner struct {
 	solDist         float64
-	solver          kinematics.InverseKinematics
-	fastGradDescent *kinematics.NloptIK
+	solver          InverseKinematics
+	fastGradDescent *NloptIK
 	frame           frame.Frame
 	logger          golog.Logger
 	qstep           []float64
@@ -75,11 +74,11 @@ type solution struct {
 
 // NewCBiRRTMotionPlanner creates a cBiRRTMotionPlanner object
 func NewCBiRRTMotionPlanner(frame frame.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
-	ik, err := kinematics.CreateCombinedIKSolver(frame, logger, nCPU)
+	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
 		return nil, err
 	}
-	nlopt, err := kinematics.CreateNloptIKSolver(frame, logger)
+	nlopt, err := CreateNloptIKSolver(frame, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -98,11 +97,11 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, nCPU int, logger golog.Logger) (M
 	return mp, nil
 }
 
-func (mp *cBiRRTMotionPlanner) SetMetric(m kinematics.Metric) {
+func (mp *cBiRRTMotionPlanner) SetMetric(m Metric) {
 	mp.solver.SetMetric(m)
 }
 
-func (mp *cBiRRTMotionPlanner) SetPathDistFunc(m kinematics.Metric) {
+func (mp *cBiRRTMotionPlanner) SetPathDistFunc(m Metric) {
 	mp.fastGradDescent.SetMetric(m)
 }
 

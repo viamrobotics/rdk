@@ -6,7 +6,6 @@ import (
 
 	"github.com/golang/geo/r3"
 
-	"go.viam.com/core/kinematics"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
 )
@@ -124,7 +123,7 @@ func interpolationCheck(cInput *ConstraintInput, by, epsilon float64) bool {
 		return false
 	}
 	interp := spatial.Interpolate(cInput.StartPos, cInput.EndPos, by)
-	metric := kinematics.NewSquaredNormMetric()
+	metric := NewSquaredNormMetric()
 	dist := metric(iPos, interp)
 	return dist <= epsilon
 }
@@ -201,7 +200,7 @@ func orientDistToRegion(goal spatial.Orientation, alpha float64) func(spatial.Or
 // NewPoseFlexOVMetric will provide a distance function which will converge on an OV within an arclength of `alpha`
 // of the ov of the goal given. The 3d point of the goal given is discarded, and the function will converge on the
 // 3d point of the `to` pose (this is probably what you want).
-func NewPoseFlexOVMetric(goal spatial.Pose, alpha float64) kinematics.Metric {
+func NewPoseFlexOVMetric(goal spatial.Pose, alpha float64) Metric {
 	oDistFunc := orientDistToRegion(goal.Orientation(), alpha)
 	return func(from, to spatial.Pose) float64 {
 		pDist := from.Point().Distance(to.Point())
@@ -215,7 +214,7 @@ func NewPoseFlexOVMetric(goal spatial.Pose, alpha float64) kinematics.Metric {
 // which will bring a pose into the valid constraint space. The plane normal is assumed to point towards the valid area.
 // angle refers to the maximum unit sphere arc length deviation from the ov
 // epsilon refers to the closeness to the plane necessary to be a valid pose
-func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Constraint, kinematics.Metric) {
+func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Constraint, Metric) {
 	// get the constant value for the plane
 	pConst := -pt.Dot(pNorm)
 
@@ -257,7 +256,7 @@ func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector, writingAngle, epsilon fl
 // which will bring a pose into the valid constraint space. The OV passed in defines the center of the valid orientation area.
 // angle refers to the maximum unit sphere arc length deviation from the ov
 // epsilon refers to the closeness to the line necessary to be a valid pose
-func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, orient spatial.Orientation, writingAngle, epsilon float64) (Constraint, kinematics.Metric) {
+func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, orient spatial.Orientation, writingAngle, epsilon float64) (Constraint, Metric) {
 	// invert the normal to get the valid AOA OV
 	ov := orient.OrientationVectorRadians()
 
@@ -307,7 +306,7 @@ func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, orient spatial.Orientation
 }
 
 // NewPositionOnlyMetric returns a Metric that reports the point-wise distance between two poses.
-func NewPositionOnlyMetric() kinematics.Metric {
+func NewPositionOnlyMetric() Metric {
 	return positionOnlyDist
 }
 

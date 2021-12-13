@@ -7,7 +7,6 @@ import (
 
 	"testing"
 
-	"go.viam.com/core/kinematics"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/utils"
@@ -27,9 +26,9 @@ func TestSimpleLinearMotion(t *testing.T) {
 	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	ik, err := kinematics.CreateCombinedIKSolver(m, logger, nCPU)
+	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
-	nlopt, err := kinematics.CreateNloptIKSolver(m, logger)
+	nlopt, err := CreateNloptIKSolver(m, logger)
 	test.That(t, err, test.ShouldBeNil)
 	// nlopt should try only once
 	nlopt.SetMaxIter(1)

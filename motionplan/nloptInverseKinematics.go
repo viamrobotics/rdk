@@ -1,4 +1,4 @@
-package kinematics
+package motionplan
 
 import (
 	"context"
