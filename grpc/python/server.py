@@ -18,100 +18,117 @@ class RobotService(RobotServiceBase):
         status.bases['base1'] = True
         await stream.send_message(StatusResponse(status=status))
 
-    async def StatusStream(self, stream) -> None:
+    async def BaseMoveArc(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def Config(self, stream) -> None:
-        raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def DoAction(self, stream) -> None:
-        raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def ArmCurrentPosition(self, stream) -> None:
-        raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def ArmMoveToPosition(self, stream) -> None:
-        raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def ArmCurrentJointPositions(self, stream) -> None:
-        raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def ArmMoveToJointPositions(self, stream) -> None:
-        raise GRPCError(Status.UNIMPLEMENTED)
-
     async def BaseMoveStraight(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
-
     async def BaseSpin(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
-
     async def BaseStop(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def GripperOpen(self, stream) -> None:
+    async def BaseWidthMillis(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def GripperGrab(self, stream) -> None:
+    async def BoardAnalogReaderRead(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def CameraFrame(self, stream) -> None:
+    async def BoardDigitalInterruptConfig(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def CameraRenderFrame(self, stream) -> None:
+    async def BoardDigitalInterruptTick(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def PointCloud(self, stream) -> None:
+    async def BoardDigitalInterruptValue(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def ObjectPointClouds(self, stream) -> None:
+    async def BoardGPIOGet(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def LidarInfo(self, stream) -> None:
+    async def BoardGPIOSet(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def LidarStart(self, stream) -> None:
+    async def BoardPWMSet(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def LidarStop(self, stream) -> None:
+    async def BoardPWMSetFrequency(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def LidarScan(self, stream) -> None:
-        raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def LidarRange(self, stream) -> None:
-        raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def LidarBounds(self, stream) -> None:
-        raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def LidarAngularResolution(self, stream) -> None:
-        raise GRPCError(Status.UNIMPLEMENTED)
-
     async def BoardStatus(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def BoardMotorGo(self, stream) -> None:
-        raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def BoardMotorGoFor(self, stream) -> None:
-        raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def BoardServoMove(self, stream) -> None:
-        raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def SensorReadings(self, stream) -> None:
-        raise GRPCError(Status.UNIMPLEMENTED)
-
     async def CompassHeading(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
-
+    async def CompassMark(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
     async def CompassStartCalibration(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
-
     async def CompassStopCalibration(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
-
-    async def CompassMark(self, stream) -> None:
+    async def Config(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def DoAction(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def ExecuteFunction(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def ExecuteSource(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def ForceMatrixMatrix(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def ForceMatrixSlipDetection(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def FrameServiceConfig(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def GPSAccuracy(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def GPSAltitude(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def GPSLocation(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def GPSSpeed(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def InputControllerControls(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def InputControllerEventStream(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def InputControllerInjectEvent(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def InputControllerLastEvents(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def MotorGetPIDConfig(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def MotorGo(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def MotorGoFor(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def MotorGoTillStop(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def MotorGoTo(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def MotorIsOn(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def MotorOff(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def MotorPIDStep(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def MotorPosition(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def MotorPositionSupported(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def MotorPower(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def MotorSetPIDConfig(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def MotorZero(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def NavigationServiceAddWaypoint(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def NavigationServiceLocation(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def NavigationServiceMode(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def NavigationServiceRemoveWaypoint(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def NavigationServiceSetMode(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def NavigationServiceWaypoints(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def ObjectManipulationServiceDoGrab(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def ResourceRunCommand(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def SensorReadings(self, stream) -> None:
+        raise GRPCError(Status.UNIMPLEMENTED)
+    async def StatusStream(self, stream) -> None:
         raise GRPCError(Status.UNIMPLEMENTED)
 
 

@@ -82,57 +82,6 @@ service RobotService {
     };  
   }
 
-  // Lidar
-
-  // LidarInfo returns the info of a lidar of the underlying robot.
-  rpc LidarInfo(LidarInfoRequest) returns (LidarInfoResponse) {
-      option (google.api.http) = {
-      get: "/api/v1/lidar/{name}/info"
-    };
-  }
-
-  // LidarStart starts a lidar of the underlying robot.
-  rpc LidarStart(LidarStartRequest) returns (LidarStartResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/lidar/{name}/start"
-    };
-  }
-
-  // LidarStop stops a lidar of the underlying robot.
-  rpc LidarStop(LidarStopRequest) returns (LidarStopResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/lidar/{name}/stop"
-    };
-  }
-
-  // LidarScan returns a scan from a lidar of the underlying robot.
-  rpc LidarScan(LidarScanRequest) returns (LidarScanResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/lidar/{name}/scan"
-    };
-  }
-
-  // LidarRange returns the range of a lidar of the underlying robot.
-  rpc LidarRange(LidarRangeRequest) returns (LidarRangeResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/lidar/{name}/range"
-    };
-  }
-
-  // LidarBounds returns the scan bounds of a lidar of the underlying robot.
-  rpc LidarBounds(LidarBoundsRequest) returns (LidarBoundsResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/lidar/{name}/bounds"
-    };
-  }
-
-  // LidarAngularResolution returns the scan angular resolution of a lidar of the underlying robot.
-  rpc LidarAngularResolution(LidarAngularResolutionRequest) returns (LidarAngularResolutionResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/lidar/{name}/angular_resolution"
-    };
-  }
-
   // Board
 
   // BoardStatus returns the status of a board of the underlying robot.
@@ -514,14 +463,13 @@ message Status {
   map<string, bool> grippers = 3;
   map<string, BoardStatus> boards = 4;
   map<string, bool> cameras = 5;
-  map<string, bool> lidars = 6;
-  map<string, SensorStatus> sensors = 7;
-  map<string, bool> functions = 8;
-  map<string, ServoStatus> servos = 9;
-  map<string, MotorStatus> motors = 10;
-  map<string, bool> services = 11;
-  map<string, InputControllerStatus> input_controllers = 12;
-  map<string, GantryStatus> gantries = 13;
+  map<string, SensorStatus> sensors = 6;
+  map<string, bool> functions = 7;
+  map<string, ServoStatus> servos = 8;
+  map<string, MotorStatus> motors = 9;
+  map<string, bool> services = 10;
+  map<string, InputControllerStatus> input_controllers = 11;
+  map<string, GantryStatus> gantries = 12;
 }
 
 message ComponentConfig {
@@ -671,71 +619,6 @@ message Vector3 {
   double x = 1;
   double y = 2;
   double z = 3;
-}
-
-// Lidar
-
-message LidarMeasurement  {
-  double angle = 1;
-  double angle_deg = 2;
-  double distance = 3;
-  double x = 4;
-  double y = 5;
-}
-
-message LidarInfoRequest {
-  string name = 1;
-}
-
-message LidarInfoResponse {
-  google.protobuf.Struct info = 1;
-}
-
-message LidarStartRequest {
-  string name = 1;
-}
-
-message LidarStartResponse {}
-
-message LidarStopRequest {
-  string name = 1;
-}
-
-message LidarStopResponse {}
-
-message LidarScanRequest {
-  string name = 1;
-  int32 count = 2;
-  bool no_filter = 3;
-}
-
-message LidarScanResponse {
-  repeated LidarMeasurement measurements = 1;
-}
-
-message LidarRangeRequest {
-  string name = 1;
-}
-
-message LidarRangeResponse {
-  int64 range = 1;
-}
-
-message LidarBoundsRequest {
-  string name = 1;
-}
-
-message LidarBoundsResponse {
-  int64 x = 1;
-  int64 y = 2;
-}
-
-message LidarAngularResolutionRequest {
-  string name = 1;
-}
-
-message LidarAngularResolutionResponse {
-  double angular_resolution = 1;
 }
 
 // Board
