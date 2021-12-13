@@ -11,12 +11,11 @@ import (
 func TestSelfCollision(t *testing.T) {
 	modelUR5e, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
+	inputs := []frame.Input{{0.0}, {0.0}, {0.0}, {0.0}, {0.0}, {0.0}}
 
-	poses, err := modelUR5e.VerboseTransform([]frame.Input{{0.0}, {0.0}, {0.0}, {0.0}, {0.0}, {0.0}})
+	collisions, err := SelfCollision(modelUR5e, inputs)
+	test.That(t, collisions, test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
-
-	collisions := SelfCollision(poses)
-	test.That(t, len(collisions) > 0, test.ShouldBeTrue)
 
 	// shoulderExpect := spatialmath.NewPoseFromPoint(r3.Vector{0.0, 0.0, 110.25})
 	// test.That(t, spatialmath.AlmostCoincident(poses["wx250s:shoulder"], shoulderExpect), test.ShouldBeTrue)
