@@ -329,30 +329,6 @@ service RobotService {
     };
   }
 
-  rpc InputControllerControls(InputControllerControlsRequest) returns (InputControllerControlsResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/input/{controller}/controls"
-    };
-  }
-
-  rpc InputControllerLastEvents(InputControllerLastEventsRequest) returns (InputControllerLastEventsResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/input/{controller}/last_events"
-    };
-  }
-
-  rpc InputControllerEventStream(InputControllerEventStreamRequest) returns (stream InputControllerEvent) {
-    option (google.api.http) = {
-      get: "/api/v1/input/{controller}/event_stream"
-    };
-  }
-
-  rpc InputControllerInjectEvent(InputControllerInjectEventRequest) returns (InputControllerInjectEventResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/input/{controller}/inject_event"
-    };
-  }
-
   // ResourceRunCommand runs an arbitrary command on a resource if it supports it.
   rpc ResourceRunCommand(ResourceRunCommandRequest) returns (ResourceRunCommandResponse) {
     option (google.api.http) = {
@@ -1012,34 +988,6 @@ message ObjectManipulationServiceDoGrabResponse {
 
 // End Object Manipulation Service
 
-message InputControllerControlsRequest {
-  string controller = 1;
-}
-
-message InputControllerControlsResponse {
-  repeated string controls = 1;
-}
-
-message InputControllerLastEventsRequest {
-  string controller = 1;
-}
-
-message InputControllerLastEventsResponse {
-  repeated InputControllerEvent events = 1;
-}
-
-message InputControllerStatus {
-  repeated InputControllerEvent events = 1;
-}
-
-message InputControllerInjectEventRequest {
-  string controller = 1;
-  InputControllerEvent event = 2;
-}
-
-message InputControllerInjectEventResponse {
-}
-
 message InputControllerEvent {
   google.protobuf.Timestamp time = 1;
   string event = 2;
@@ -1047,14 +995,8 @@ message InputControllerEvent {
   double value = 4;
 }
 
-message InputControllerEventStreamRequest {
-  message Events {
-    string control = 1;
-    repeated string events = 2;
-    repeated string cancelled_events = 3;
-  }
-  string controller = 1;
-  repeated Events events = 2;
+message InputControllerStatus {
+  repeated InputControllerEvent events = 1;
 }
 
 message GPSLocationRequest {

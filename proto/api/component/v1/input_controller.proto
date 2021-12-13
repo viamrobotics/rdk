@@ -1,0 +1,87 @@
+syntax = "proto3";
+option go_package = "go.viam.com/core/proto/api/component/v1";
+option java_package = "com.viam.core.proto.api.component.v1";
+
+package proto.api.component.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+// InputControllerService services maintains all input controller associated with a robot
+service InputControllerService {
+  rpc Controls(InputControllerServiceControlsRequest) returns (InputControllerServiceControlsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/component/input/{controller}/controls"
+    };
+  }
+
+  rpc LastEvents(InputControllerServiceLastEventsRequest) returns (InputControllerServiceLastEventsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/component/input/{controller}/last_events"
+    };
+  }
+
+  rpc EventStream(InputControllerServiceEventStreamRequest) returns (InputControllerServiceEventStreamResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/component/input/{controller}/event_stream"
+    };
+  }
+
+  rpc InjectEvent(InputControllerServiceInjectEventRequest) returns (InputControllerServiceInjectEventResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/component/input/{controller}/inject_event"
+    };
+  }
+}
+
+message InputControllerServiceControlsRequest {
+  string controller = 1;
+}
+
+message InputControllerServiceControlsResponse {
+  repeated string controls = 1;
+}
+
+message InputControllerServiceLastEventsRequest {
+  string controller = 1;
+}
+
+message InputControllerServiceLastEventsResponse {
+  repeated InputControllerServiceEvent events = 1;
+}
+
+message InputControllerServiceInjectEventRequest {
+  string controller = 1;
+  InputControllerServiceEvent event = 2;
+}
+
+message InputControllerServiceInjectEventResponse {
+}
+
+message InputControllerServiceEventS {
+  google.protobuf.Timestamp time = 1;
+  string event = 2;
+  string control = 3;
+  double value = 4;
+}
+
+message InputControllerServiceEvent {
+  google.protobuf.Timestamp time = 1;
+  string event = 2;
+  string control = 3;
+  double value = 4;
+}
+
+message InputControllerServiceEventStreamResponse {
+  repeated InputControllerServiceEvent event = 1;
+}
+
+message InputControllerServiceEventStreamRequest {
+  message Events {
+    string control = 1;
+    repeated string events = 2;
+    repeated string cancelled_events = 3;
+  }
+  string controller = 1;
+  repeated Events events = 2;
+}
