@@ -21,7 +21,7 @@ var interp = frame.FloatsToInputs([]float64{0.22034293025523666, 0.0233018603670
 // This should test a simple linear motion
 func TestSimpleLinearMotion(t *testing.T) {
 	nSolutions := 5
-	inputSteps := [][]frame.Input{}
+	inputSteps := []*solution{}
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
@@ -50,6 +50,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 		Z:  120.5,
 		OY: -1,
 	}
+	corners := map[*solution]bool{}
 
 	solutions, err := getSolutions(ctx, mp.opt, mp.solver, pos, home7, mp)
 	test.That(t, err, test.ShouldBeNil)
@@ -75,13 +76,21 @@ func TestSimpleLinearMotion(t *testing.T) {
 		goalMap[&solution{solutions[k]}] = nil
 	}
 
-	seedReached, goalReached := mp.constrainedExtendWrapper(mp.opt, seedMap, goalMap, near1, target)
+	// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
+	seedReached := mp.constrainedExtend(mp.opt, seedMap, near1, target)
+	// Find the nearest point in goalMap to the furthest point reached in seedMap
+	near2 := mp.nn.nearestNeighbor(ctx, seedReached, goalMap)
+	// extend goalMap towards the point in seedMap
+	goalReached := mp.constrainedExtend(mp.opt, goalMap, near2, seedReached)
 
 	test.That(t, inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist, test.ShouldBeTrue)
 
+	corners[seedReached] = true
+	corners[goalReached] = true
+
 	// extract the path to the seed
 	for seedReached != nil {
-		inputSteps = append(inputSteps, seedReached.inputs)
+		inputSteps = append(inputSteps, seedReached)
 		seedReached = seedMap[seedReached]
 	}
 	// reverse the slice
@@ -90,14 +99,14 @@ func TestSimpleLinearMotion(t *testing.T) {
 	}
 	// extract the path to the goal
 	for goalReached != nil {
-		inputSteps = append(inputSteps, goalReached.inputs)
+		inputSteps = append(inputSteps, goalReached)
 		goalReached = goalMap[goalReached]
 	}
 
-	// Test that smoothing shortens the path
+	// Test that smoothing succeeds and does not lengthen the path (it may be the same length)
 	unsmoothLen := len(inputSteps)
-	inputSteps = mp.SmoothPath(ctx, mp.opt, inputSteps)
-	test.That(t, len(inputSteps), test.ShouldBeLessThan, unsmoothLen)
+	finalSteps := mp.SmoothPath(ctx, mp.opt, inputSteps, corners)
+	test.That(t, len(finalSteps), test.ShouldBeLessThanOrEqualTo, unsmoothLen)
 }
 
 func TestNearestNeighbor(t *testing.T) {
@@ -110,10 +119,11 @@ func TestNearestNeighbor(t *testing.T) {
 		rrtMap[iSol] = j
 		j = iSol
 	}
+	ctx := context.Background()
 
 	seed := &solution{[]frame.Input{{23.1}}}
 	// test serial NN
-	nn := nm.nearestNeighbor(seed, rrtMap)
+	nn := nm.nearestNeighbor(ctx, seed, rrtMap)
 	test.That(t, nn.inputs[0].Value, test.ShouldAlmostEqual, 23.0)
 
 	for i := 120.0; i < 1100.0; i++ {
@@ -123,6 +133,6 @@ func TestNearestNeighbor(t *testing.T) {
 	}
 	seed = &solution{[]frame.Input{{723.6}}}
 	// test parallel NN
-	nn = nm.nearestNeighbor(seed, rrtMap)
+	nn = nm.nearestNeighbor(ctx, seed, rrtMap)
 	test.That(t, nn.inputs[0].Value, test.ShouldAlmostEqual, 724.0)
 }
