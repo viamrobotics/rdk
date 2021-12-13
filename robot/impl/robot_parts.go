@@ -228,7 +228,9 @@ func (parts *robotParts) BaseNames() []string {
 func (parts *robotParts) BoardNames() []string {
 	names := []string{}
 	for _, n := range parts.ResourceNames() {
-		names = append(names, n.Name)
+		if n.Subtype == board.Subtype {
+			names = append(names, n.Name)
+		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.BoardNames)
 }
