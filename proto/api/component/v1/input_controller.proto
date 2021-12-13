@@ -9,24 +9,28 @@ import "google/protobuf/timestamp.proto";
 
 // InputControllerService services maintains all input controller associated with a robot
 service InputControllerService {
+  // Controls returns a list of Controls provided by the Controller
   rpc Controls(InputControllerServiceControlsRequest) returns (InputControllerServiceControlsResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/input/{controller}/controls"
     };
   }
 
+	// LastEvent returns most recent Event for each controller
   rpc LastEvents(InputControllerServiceLastEventsRequest) returns (InputControllerServiceLastEventsResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/input/{controller}/last_events"
     };
   }
 
+  // EventStream returns a stream of Events
   rpc EventStream(InputControllerServiceEventStreamRequest) returns (InputControllerServiceEventStreamResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/input/{controller}/event_stream"
     };
   }
 
+  // InjectEvent allows directly sending an Event (such as a button press) over grpc
   rpc InjectEvent(InputControllerServiceInjectEventRequest) returns (InputControllerServiceInjectEventResponse) {
     option (google.api.http) = {
       post: "/api/v1/component/input/{controller}/inject_event"
@@ -35,45 +39,44 @@ service InputControllerService {
 }
 
 message InputControllerServiceControlsRequest {
+  // Name of a controller
   string controller = 1;
 }
 
 message InputControllerServiceControlsResponse {
+  // Inputs of a controller
   repeated string controls = 1;
 }
 
 message InputControllerServiceLastEventsRequest {
+  // Name of a controller
   string controller = 1;
 }
 
 message InputControllerServiceLastEventsResponse {
-  repeated InputControllerServiceEvent events = 1;
+  // Last recorded event for each control
+  repeated Event events = 1;
 }
 
 message InputControllerServiceInjectEventRequest {
+  // Name of a controller
   string controller = 1;
-  InputControllerServiceEvent event = 2;
+  // Event to be injected
+  Event event = 2;
 }
 
 message InputControllerServiceInjectEventResponse {
 }
 
-message InputControllerServiceEventS {
+message Event {
+  // Timestamp of event
   google.protobuf.Timestamp time = 1;
+  // Event recorded
   string event = 2;
+  // Control event recorded for
   string control = 3;
+  // Value of event
   double value = 4;
-}
-
-message InputControllerServiceEvent {
-  google.protobuf.Timestamp time = 1;
-  string event = 2;
-  string control = 3;
-  double value = 4;
-}
-
-message InputControllerServiceEventStreamResponse {
-  repeated InputControllerServiceEvent event = 1;
 }
 
 message InputControllerServiceEventStreamRequest {
@@ -82,6 +85,13 @@ message InputControllerServiceEventStreamRequest {
     repeated string events = 2;
     repeated string cancelled_events = 3;
   }
+  // Name of a controller
   string controller = 1;
+  // Events to be mapped for a controller
   repeated Events events = 2;
+}
+
+message InputControllerServiceEventStreamResponse {
+  // Events for a controller
+  repeated Event events = 1;
 }
