@@ -1,0 +1,6 @@
+{
+    "color_points" : [{"x": 1, "y": 1}, {"x": 2, "y": 2}],
+    "depth_points" : [{"x": 1, "y": 1}, {"x": 2, "y": 2}],
+    "color_intrinsics" : {},
+    "depth_intrinsics" : {}
+}
