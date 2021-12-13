@@ -591,14 +591,26 @@ func (rc *RobotClient) ServoNames() []string {
 func (rc *RobotClient) MotorNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.motorNames)
+	names := []string{}
+	for _, res := range rc.ResourceNames() {
+		if res.Subtype == motor.Subtype {
+			names = append(names, res.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // InputControllerNames returns the names of all known input controllers.
 func (rc *RobotClient) InputControllerNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
-	return copyStringSlice(rc.inputControllerNames)
+	names := []string{}
+	for _, res := range rc.ResourceNames() {
+		if res.Subtype == input.Subtype {
+			names = append(names, res.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // FunctionNames returns the names of all known functions.
