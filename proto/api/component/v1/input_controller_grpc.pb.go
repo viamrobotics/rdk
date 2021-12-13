@@ -21,11 +21,11 @@ const _ = grpc.SupportPackageIsVersion7
 type InputControllerServiceClient interface {
 	// Controls returns a list of Controls provided by the Controller
 	Controls(ctx context.Context, in *InputControllerServiceControlsRequest, opts ...grpc.CallOption) (*InputControllerServiceControlsResponse, error)
-	// LastEvent returns most recent Event for each controller
+	// LastEvent returns most recent InputControllerServiceEvent for each controller
 	LastEvents(ctx context.Context, in *InputControllerServiceLastEventsRequest, opts ...grpc.CallOption) (*InputControllerServiceLastEventsResponse, error)
 	// EventStream returns a stream of Events
 	EventStream(ctx context.Context, in *InputControllerServiceEventStreamRequest, opts ...grpc.CallOption) (*InputControllerServiceEventStreamResponse, error)
-	// InjectEvent allows directly sending an Event (such as a button press) over grpc
+	// InjectEvent allows directly sending an InputControllerServiceEvent (such as a button press) over grpc
 	InjectEvent(ctx context.Context, in *InputControllerServiceInjectEventRequest, opts ...grpc.CallOption) (*InputControllerServiceInjectEventResponse, error)
 }
 
@@ -79,11 +79,11 @@ func (c *inputControllerServiceClient) InjectEvent(ctx context.Context, in *Inpu
 type InputControllerServiceServer interface {
 	// Controls returns a list of Controls provided by the Controller
 	Controls(context.Context, *InputControllerServiceControlsRequest) (*InputControllerServiceControlsResponse, error)
-	// LastEvent returns most recent Event for each controller
+	// LastEvent returns most recent InputControllerServiceEvent for each controller
 	LastEvents(context.Context, *InputControllerServiceLastEventsRequest) (*InputControllerServiceLastEventsResponse, error)
 	// EventStream returns a stream of Events
 	EventStream(context.Context, *InputControllerServiceEventStreamRequest) (*InputControllerServiceEventStreamResponse, error)
-	// InjectEvent allows directly sending an Event (such as a button press) over grpc
+	// InjectEvent allows directly sending an InputControllerServiceEvent (such as a button press) over grpc
 	InjectEvent(context.Context, *InputControllerServiceInjectEventRequest) (*InputControllerServiceInjectEventResponse, error)
 	mustEmbedUnimplementedInputControllerServiceServer()
 }

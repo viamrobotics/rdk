@@ -413,15 +413,15 @@
             <ul>
               
                 <li>
-                  <a href="#proto.api.component.v1.Event"><span class="badge">M</span>Event</a>
-                </li>
-              
-                <li>
                   <a href="#proto.api.component.v1.InputControllerServiceControlsRequest"><span class="badge">M</span>InputControllerServiceControlsRequest</a>
                 </li>
               
                 <li>
                   <a href="#proto.api.component.v1.InputControllerServiceControlsResponse"><span class="badge">M</span>InputControllerServiceControlsResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.InputControllerServiceEvent"><span class="badge">M</span>InputControllerServiceEvent</a>
                 </li>
               
                 <li>
@@ -2674,51 +2674,6 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
       <p></p>
 
       
-        <h3 id="proto.api.component.v1.Event">Event</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>time</td>
-                  <td><a href="#google.protobuf.Timestamp">google.protobuf.Timestamp</a></td>
-                  <td></td>
-                  <td><p>Timestamp of event </p></td>
-                </tr>
-              
-                <tr>
-                  <td>event</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p>Event recorded </p></td>
-                </tr>
-              
-                <tr>
-                  <td>control</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p>Control event recorded for </p></td>
-                </tr>
-              
-                <tr>
-                  <td>value</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p>Value of event </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
         <h3 id="proto.api.component.v1.InputControllerServiceControlsRequest">InputControllerServiceControlsRequest</h3>
         <p></p>
 
@@ -2758,6 +2713,51 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                   <td><a href="#string">string</a></td>
                   <td>repeated</td>
                   <td><p>Inputs of a controller </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.InputControllerServiceEvent">InputControllerServiceEvent</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>time</td>
+                  <td><a href="#google.protobuf.Timestamp">google.protobuf.Timestamp</a></td>
+                  <td></td>
+                  <td><p>Timestamp of event </p></td>
+                </tr>
+              
+                <tr>
+                  <td>event</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Event recorded </p></td>
+                </tr>
+              
+                <tr>
+                  <td>control</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Control event recorded for </p></td>
+                </tr>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p>Value of event </p></td>
                 </tr>
               
             </tbody>
@@ -2848,7 +2848,7 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
               
                 <tr>
                   <td>events</td>
-                  <td><a href="#proto.api.component.v1.Event">Event</a></td>
+                  <td><a href="#proto.api.component.v1.InputControllerServiceEvent">InputControllerServiceEvent</a></td>
                   <td>repeated</td>
                   <td><p>Events for a controller </p></td>
                 </tr>
@@ -2879,9 +2879,9 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
               
                 <tr>
                   <td>event</td>
-                  <td><a href="#proto.api.component.v1.Event">Event</a></td>
+                  <td><a href="#proto.api.component.v1.InputControllerServiceEvent">InputControllerServiceEvent</a></td>
                   <td></td>
-                  <td><p>Event to be injected </p></td>
+                  <td><p>event to be injected </p></td>
                 </tr>
               
             </tbody>
@@ -2934,7 +2934,7 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
               
                 <tr>
                   <td>events</td>
-                  <td><a href="#proto.api.component.v1.Event">Event</a></td>
+                  <td><a href="#proto.api.component.v1.InputControllerServiceEvent">InputControllerServiceEvent</a></td>
                   <td>repeated</td>
                   <td><p>Last recorded event for each control </p></td>
                 </tr>
@@ -2971,7 +2971,7 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                 <td>LastEvents</td>
                 <td><a href="#proto.api.component.v1.InputControllerServiceLastEventsRequest">InputControllerServiceLastEventsRequest</a></td>
                 <td><a href="#proto.api.component.v1.InputControllerServiceLastEventsResponse">InputControllerServiceLastEventsResponse</a></td>
-                <td><p>LastEvent returns most recent Event for each controller</p></td>
+                <td><p>LastEvent returns most recent InputControllerServiceEvent for each controller</p></td>
               </tr>
             
               <tr>
@@ -2985,7 +2985,7 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                 <td>InjectEvent</td>
                 <td><a href="#proto.api.component.v1.InputControllerServiceInjectEventRequest">InputControllerServiceInjectEventRequest</a></td>
                 <td><a href="#proto.api.component.v1.InputControllerServiceInjectEventResponse">InputControllerServiceInjectEventResponse</a></td>
-                <td><p>InjectEvent allows directly sending an Event (such as a button press) over grpc</p></td>
+                <td><p>InjectEvent allows directly sending an InputControllerServiceEvent (such as a button press) over grpc</p></td>
               </tr>
             
           </tbody>

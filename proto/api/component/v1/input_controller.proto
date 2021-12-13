@@ -16,7 +16,7 @@ service InputControllerService {
     };
   }
 
-	// LastEvent returns most recent Event for each controller
+	// LastEvent returns most recent InputControllerServiceEvent for each controller
   rpc LastEvents(InputControllerServiceLastEventsRequest) returns (InputControllerServiceLastEventsResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/input/{controller}/last_events"
@@ -30,7 +30,7 @@ service InputControllerService {
     };
   }
 
-  // InjectEvent allows directly sending an Event (such as a button press) over grpc
+  // InjectEvent allows directly sending an InputControllerServiceEvent (such as a button press) over grpc
   rpc InjectEvent(InputControllerServiceInjectEventRequest) returns (InputControllerServiceInjectEventResponse) {
     option (google.api.http) = {
       post: "/api/v1/component/input/{controller}/inject_event"
@@ -55,20 +55,20 @@ message InputControllerServiceLastEventsRequest {
 
 message InputControllerServiceLastEventsResponse {
   // Last recorded event for each control
-  repeated Event events = 1;
+  repeated InputControllerServiceEvent events = 1;
 }
 
 message InputControllerServiceInjectEventRequest {
   // Name of a controller
   string controller = 1;
-  // Event to be injected
-  Event event = 2;
+  // event to be injected
+  InputControllerServiceEvent event = 2;
 }
 
 message InputControllerServiceInjectEventResponse {
 }
 
-message Event {
+message InputControllerServiceEvent {
   // Timestamp of event
   google.protobuf.Timestamp time = 1;
   // Event recorded
@@ -93,5 +93,5 @@ message InputControllerServiceEventStreamRequest {
 
 message InputControllerServiceEventStreamResponse {
   // Events for a controller
-  repeated Event events = 1;
+  repeated InputControllerServiceEvent events = 1;
 }

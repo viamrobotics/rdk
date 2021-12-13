@@ -69,9 +69,9 @@ export namespace InputControllerServiceLastEventsRequest {
 
 export class InputControllerServiceLastEventsResponse extends jspb.Message {
   clearEventsList(): void;
-  getEventsList(): Array<Event>;
-  setEventsList(value: Array<Event>): void;
-  addEvents(value?: Event, index?: number): Event;
+  getEventsList(): Array<InputControllerServiceEvent>;
+  setEventsList(value: Array<InputControllerServiceEvent>): void;
+  addEvents(value?: InputControllerServiceEvent, index?: number): InputControllerServiceEvent;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): InputControllerServiceLastEventsResponse.AsObject;
@@ -85,7 +85,7 @@ export class InputControllerServiceLastEventsResponse extends jspb.Message {
 
 export namespace InputControllerServiceLastEventsResponse {
   export type AsObject = {
-    eventsList: Array<Event.AsObject>,
+    eventsList: Array<InputControllerServiceEvent.AsObject>,
   }
 }
 
@@ -95,8 +95,8 @@ export class InputControllerServiceInjectEventRequest extends jspb.Message {
 
   hasEvent(): boolean;
   clearEvent(): void;
-  getEvent(): Event | undefined;
-  setEvent(value?: Event): void;
+  getEvent(): InputControllerServiceEvent | undefined;
+  setEvent(value?: InputControllerServiceEvent): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): InputControllerServiceInjectEventRequest.AsObject;
@@ -111,7 +111,7 @@ export class InputControllerServiceInjectEventRequest extends jspb.Message {
 export namespace InputControllerServiceInjectEventRequest {
   export type AsObject = {
     controller: string,
-    event?: Event.AsObject,
+    event?: InputControllerServiceEvent.AsObject,
   }
 }
 
@@ -131,7 +131,7 @@ export namespace InputControllerServiceInjectEventResponse {
   }
 }
 
-export class Event extends jspb.Message {
+export class InputControllerServiceEvent extends jspb.Message {
   hasTime(): boolean;
   clearTime(): void;
   getTime(): google_protobuf_timestamp_pb.Timestamp | undefined;
@@ -147,16 +147,16 @@ export class Event extends jspb.Message {
   setValue(value: number): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): Event.AsObject;
-  static toObject(includeInstance: boolean, msg: Event): Event.AsObject;
+  toObject(includeInstance?: boolean): InputControllerServiceEvent.AsObject;
+  static toObject(includeInstance: boolean, msg: InputControllerServiceEvent): InputControllerServiceEvent.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: Event, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): Event;
-  static deserializeBinaryFromReader(message: Event, reader: jspb.BinaryReader): Event;
+  static serializeBinaryToWriter(message: InputControllerServiceEvent, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): InputControllerServiceEvent;
+  static deserializeBinaryFromReader(message: InputControllerServiceEvent, reader: jspb.BinaryReader): InputControllerServiceEvent;
 }
 
-export namespace Event {
+export namespace InputControllerServiceEvent {
   export type AsObject = {
     time?: google_protobuf_timestamp_pb.Timestamp.AsObject,
     event: string,
@@ -225,9 +225,9 @@ export namespace InputControllerServiceEventStreamRequest {
 
 export class InputControllerServiceEventStreamResponse extends jspb.Message {
   clearEventsList(): void;
-  getEventsList(): Array<Event>;
-  setEventsList(value: Array<Event>): void;
-  addEvents(value?: Event, index?: number): Event;
+  getEventsList(): Array<InputControllerServiceEvent>;
+  setEventsList(value: Array<InputControllerServiceEvent>): void;
+  addEvents(value?: InputControllerServiceEvent, index?: number): InputControllerServiceEvent;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): InputControllerServiceEventStreamResponse.AsObject;
@@ -241,7 +241,7 @@ export class InputControllerServiceEventStreamResponse extends jspb.Message {
 
 export namespace InputControllerServiceEventStreamResponse {
   export type AsObject = {
-    eventsList: Array<Event.AsObject>,
+    eventsList: Array<InputControllerServiceEvent.AsObject>,
   }
 }
 
