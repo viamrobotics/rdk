@@ -16,7 +16,6 @@ import (
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
 	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
@@ -26,9 +25,6 @@ import (
 type (
 	// A CreateBase creates a base from a given config.
 	CreateBase func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error)
-
-	// A CreateLidar creates a lidar from a given config.
-	CreateLidar func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error)
 
 	// A CreateSensor creates a sensor from a given config.
 	CreateSensor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error)
@@ -53,12 +49,6 @@ type RegDebugInfo struct {
 type Base struct {
 	RegDebugInfo
 	Constructor CreateBase
-}
-
-// Lidar stores a Lidar constructor function (mandatory)
-type Lidar struct {
-	RegDebugInfo
-	Constructor CreateLidar
 }
 
 // Sensor stores a Sensor constructor function (mandatory)
@@ -89,7 +79,6 @@ type Service struct {
 // all registries
 var (
 	baseRegistry            = map[string]Base{}
-	lidarRegistry           = map[string]Lidar{}
 	sensorRegistry          = map[sensor.Type]map[string]Sensor{}
 	inputControllerRegistry = map[string]InputController{}
 	serviceRegistry         = map[config.ServiceType]Service{}
@@ -115,19 +104,6 @@ func RegisterBase(model string, creator Base) {
 		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
 	}
 	baseRegistry[model] = creator
-}
-
-// RegisterLidar registers a lidar model to a creator.
-func RegisterLidar(model string, creator Lidar) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := lidarRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two lidars with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	lidarRegistry[model] = creator
 }
 
 // RegisterSensor registers a sensor type and model to a creator.
@@ -176,15 +152,6 @@ func RegisterService(typeName config.ServiceType, registration Service) {
 // there is no creator registered.
 func BaseLookup(model string) *Base {
 	if registration, ok := baseRegistry[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// LidarLookup looks up a lidar creator by the given model. nil is returned if
-// there is no creator registered.
-func LidarLookup(model string) *Lidar {
-	if registration, ok := lidarRegistry[model]; ok {
 		return &registration
 	}
 	return nil
@@ -313,15 +280,6 @@ func RegisteredBases() map[string]Base {
 		panic(err)
 	}
 	return copied.(map[string]Base)
-}
-
-// RegisteredLidars returns a copy of the registered lidars.
-func RegisteredLidars() map[string]Lidar {
-	copied, err := copystructure.Copy(lidarRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]Lidar)
 }
 
 // RegisteredSensors returns a copy of the registered sensors.

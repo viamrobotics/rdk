@@ -101,6 +101,12 @@
             "name": "imu1",
             "type": "imu",
             "model": "fake"
+        },
+        {
+            "name": "forcematrix1",
+            "type": "sensor",
+            "subtype": "forcematrix",
+            "model": "fake"
         }
     ],
     "processes":
