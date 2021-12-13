@@ -153,7 +153,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		if _, ok := utils.NewStringSet(injectRobot.BoardNames()...)[name]; !ok {
 			return nil, false
 		}
-		fakeBoard, err := fake.NewBoard(context.Background(), config.Component{
+		fakeBoard, err := fakeboard.NewBoard(context.Background(), config.Component{
 			Name: name,
 			ConvertedAttributes: &board.Config{
 				Analogs: []board.AnalogConfig{
