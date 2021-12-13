@@ -320,12 +320,15 @@ func (rc *RobotClient) CameraByName(name string) (camera.Camera, bool) {
 // BoardByName returns a board by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
-	for _, info := range rc.boardNames {
-		if info.name == name {
-			return &boardClient{rc, info}, true
-		}
+	resource, ok := rc.ResourceByName(board.Named(name))
+	if !ok {
+		return nil, false
 	}
-	return nil, false
+	actualBoard, ok := resource.(board.Board)
+	if !ok {
+		return nil, false
+	}
+	return actualBoard, true
 }
 
 // SensorByName returns a sensor by name. It is assumed to exist on the
