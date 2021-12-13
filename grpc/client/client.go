@@ -397,7 +397,12 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	// TODO(maximpertsov): remove this switch statement after the V2 migration is done
 	switch name.Subtype {
 	case board.Subtype:
-		return rc.BoardByName(name.Name)
+		for _, info := range rc.boardNames {
+			if info.name == name.Name {
+				return &boardClient{rc, info}, true
+			}
+		}
+		return nil, false
 	case input.Subtype:
 		return &inputControllerClient{rc: rc, name: name.Name}, true
 	case motor.Subtype:
