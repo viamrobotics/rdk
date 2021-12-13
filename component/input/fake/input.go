@@ -7,8 +7,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 
+	"go.viam.com/core/component/input"
 	"go.viam.com/core/config"
-	"go.viam.com/core/input"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -16,10 +16,9 @@ import (
 )
 
 func init() {
+	registry.RegisterComponent(input.Subtype, "fake", registry.Component{Constructor: NewInputController})
 
-	registry.RegisterInputController(modelName, registry.InputController{Constructor: NewInputController})
-
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelName, func(attributes config.AttributeMap) (interface{}, error) {
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "fake", func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
 		if err != nil {
@@ -33,7 +32,7 @@ func init() {
 }
 
 // NewInputController returns a fake input.Controller
-func NewInputController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
+func NewInputController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 	c := &InputController{}
 	c.controls = config.ConvertedAttributes.(*Config).controls
 	return c, nil

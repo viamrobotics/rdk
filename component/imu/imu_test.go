@@ -55,7 +55,7 @@ var (
 	desc = sensor.Description{sensor.Type("imu"), ""}
 )
 
-func TestWrapWtihReconfigurable(t *testing.T) {
+func TestWrapWithReconfigurable(t *testing.T) {
 	var actualIMU1 IMU = &mock{Name: "imu1"}
 	fakeIMU1, err := WrapWithReconfigurable(actualIMU1)
 	test.That(t, err, test.ShouldBeNil)

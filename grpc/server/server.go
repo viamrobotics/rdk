@@ -21,10 +21,10 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/input"
 	"go.viam.com/core/component/motor"
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"
-	"go.viam.com/core/input"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor/compass"

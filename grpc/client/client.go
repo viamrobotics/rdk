@@ -23,12 +23,12 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
+	"go.viam.com/core/component/input"
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc"
 	metadataclient "go.viam.com/core/grpc/metadata/client"
-	"go.viam.com/core/input"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
@@ -393,6 +393,8 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	// TODO(maximpertsov): remove this switch statement after the V2 migration is done
 	switch name.Subtype {
+	case input.Subtype:
+		return &inputControllerClient{rc: rc, name: name.Name}, true
 	case motor.Subtype:
 		return &motorClient{rc: rc, name: name.Name}, true
 	default:
@@ -476,20 +478,6 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 		for name, sensorStatus := range status.Sensors {
 			rc.sensorNames = append(rc.sensorNames, name)
 			rc.sensorTypes[name] = sensor.Type(sensorStatus.Type)
-		}
-	}
-	rc.motorNames = nil
-	if len(status.Motors) != 0 {
-		rc.motorNames = make([]string, 0, len(status.Motors))
-		for name := range status.Motors {
-			rc.motorNames = append(rc.motorNames, name)
-		}
-	}
-	rc.inputControllerNames = nil
-	if len(status.InputControllers) != 0 {
-		rc.inputControllerNames = make([]string, 0, len(status.InputControllers))
-		for name := range status.InputControllers {
-			rc.inputControllerNames = append(rc.inputControllerNames, name)
 		}
 	}
 	rc.functionNames = nil

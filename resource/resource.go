@@ -25,20 +25,16 @@ type (
 
 // Placeholder definitions for a few known constants
 const (
-	ResourceNamespaceCore          = Namespace("core")
-	ResourceTypeComponent          = TypeName("component")
-	ResourceTypeService            = TypeName("service")
-	ResourceSubtypeBase            = SubtypeName("base")
-	ResourceSubtypeBoard           = SubtypeName("board")
-	ResourceSubtypeCamera          = SubtypeName("camera")
-	ResourceSubtypeCompass         = SubtypeName("compass")
-	ResourceSubtypeFunction        = SubtypeName("function")
-	ResourceSubtypeLidar           = SubtypeName("lidar")
-	ResourceSubtypeRemote          = SubtypeName("remote")
-	ResourceSubtypeSensor          = SubtypeName("sensor")
-	ResourceSubtypeServo           = SubtypeName("servo")
-	ResourceSubtypeMotor           = SubtypeName("motor")
-	ResourceSubtypeInputController = SubtypeName("input_controller")
+	ResourceNamespaceCore   = Namespace("core")
+	ResourceTypeComponent   = TypeName("component")
+	ResourceTypeService     = TypeName("service")
+	ResourceSubtypeBase     = SubtypeName("base")
+	ResourceSubtypeBoard    = SubtypeName("board")
+	ResourceSubtypeCompass  = SubtypeName("compass")
+	ResourceSubtypeFunction = SubtypeName("function")
+	ResourceSubtypeLidar    = SubtypeName("lidar")
+	ResourceSubtypeRemote   = SubtypeName("remote")
+	ResourceSubtypeSensor   = SubtypeName("sensor")
 )
 
 // Type represents a known component/service type of a robot.
