@@ -30,6 +30,9 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
+			if config.Attributes.Bool("fail_new", false) {
+				return nil, errors.New("whoops")
+			}
 			return NewBoard(ctx, config, logger)
 		}})
 	board.RegisterConfigAttributeConverter(modelName)
