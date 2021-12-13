@@ -129,13 +129,6 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 	// Store copy of planner options for duration of solve
 	opt := mp.opt
 
-	nextRandInput := make(chan *solution, planIter)
-	seeds := make(chan *solution, planIter*2)
-	defer cancel()
-	utils.PanicCapturingGo(func() {
-		mp.randPosGen(ctxWithCancel, opt, nextRandInput, seeds, true)
-	})
-
 	// How many of the top solutions to try
 	// Solver will terminate after getting this many to save time
 	nSolutions := solutionsToSeed
@@ -237,7 +230,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 		// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 		// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
 		if i >= iterBeforeRand && i%4 >= 2 {
-			target = <-nextRandInput
+			target = &solution{frame.RandomFrameInputs(mp.frame, mp.randseed)}
 		} else {
 			// Seeding nearby to valid points results in much faster convergence in less constrained space
 			target = &solution{frame.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
@@ -400,27 +393,6 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(ctx context.Context, opt *PlannerOptio
 	}
 
 	return finalSteps
-}
-
-func (mp *cBiRRTMotionPlanner) randPosGen(ctx context.Context, opt *PlannerOptions, nextRandInput, seeds chan *solution, seeded bool) {
-	var target *solution
-	var rPos []frame.Input
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			// Completely random
-			rPos = frame.RandomFrameInputs(mp.frame, mp.randseed)
-			target = &solution{mp.constrainNear(opt, rPos, rPos)}
-			for target.inputs == nil {
-				rPos = frame.RandomFrameInputs(mp.frame, mp.randseed)
-				target = &solution{mp.constrainNear(opt, rPos, rPos)}
-			}
-			// Write out target to main thread
-			nextRandInput <- target
-		}
-	}
 }
 
 // Check if there is more than one joint direction change. If not, then not a good candidate for smoothing
