@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
 	"go.viam.com/core/metadata/service"
@@ -353,26 +354,14 @@ func TestMetadataUpdate(t *testing.T) {
 			Name: "",
 		}: {},
 		{
-			UUID: "0ecee0a4-3d25-5bfa-ba5d-4c2f765cef6a",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceCore,
-					ResourceType: resource.ResourceTypeComponent,
-				},
-				ResourceSubtype: arm.SubtypeName,
-			},
-			Name: "pieceArm",
+			UUID:    "0ecee0a4-3d25-5bfa-ba5d-4c2f765cef6a",
+			Subtype: arm.Subtype,
+			Name:    "pieceArm",
 		}: {},
 		{
-			UUID: "06f7a658-e502-5a3b-a160-af023795b49a",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceCore,
-					ResourceType: resource.ResourceTypeComponent,
-				},
-				ResourceSubtype: resource.ResourceSubtypeCamera,
-			},
-			Name: "cameraOver",
+			UUID:    "06f7a658-e502-5a3b-a160-af023795b49a",
+			Subtype: camera.Subtype,
+			Name:    "cameraOver",
 		}: {},
 		{
 			UUID: "064a7e85-c5d6-524c-a6c4-d050bca20da9",
@@ -397,15 +386,9 @@ func TestMetadataUpdate(t *testing.T) {
 			Name: "func2",
 		}: {},
 		{
-			UUID: "813681b8-d6af-5e1c-b22a-8960ccf204fb",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceCore,
-					ResourceType: resource.ResourceTypeComponent,
-				},
-				ResourceSubtype: gripper.SubtypeName,
-			},
-			Name: "pieceGripper",
+			UUID:    "813681b8-d6af-5e1c-b22a-8960ccf204fb",
+			Subtype: gripper.Subtype,
+			Name:    "pieceGripper",
 		}: {},
 		{
 			UUID: "d1587bf0-8655-5eb3-95af-e2f83d872ce8",

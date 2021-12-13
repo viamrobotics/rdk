@@ -148,7 +148,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	dumpComponentsInfo(registry.RegisteredBases(), resource.SubtypeName(config.ComponentTypeBase))
 	dumpComponentsInfo(registry.RegisteredSensors(), resource.SubtypeName(config.ComponentTypeSensor))
 	dumpComponentsInfo(registry.RegisteredBoards(), resource.SubtypeName(config.ComponentTypeBoard))
-	dumpComponentsInfo(registry.RegisteredInputControllers(), resource.SubtypeName(config.ComponentTypeInputController))
 
 	for svcType, reg := range registry.RegisteredServices() {
 		resName := resource.NewName(

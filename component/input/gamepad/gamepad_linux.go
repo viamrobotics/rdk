@@ -14,8 +14,8 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/component/input"
 	"go.viam.com/core/config"
-	"go.viam.com/core/input"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -37,7 +37,7 @@ type Config struct {
 }
 
 func init() {
-	registry.RegisterInputController(modelname, registry.InputController{Constructor: NewController})
+	registry.RegisterComponent(input.Subtype, modelname, registry.Component{Constructor: NewController})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelname, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
@@ -52,8 +52,48 @@ func init() {
 	}, &Config{})
 }
 
-// Controller is an input.Controller
-type Controller struct {
+func createController(ctx context.Context, logger golog.Logger, devFile string, reconnect bool) (input.Controller, error) {
+	var g gamepad
+	g.logger = logger
+	g.reconnect = reconnect
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	g.cancelFunc = cancel
+	g.devFile = devFile
+	g.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
+	g.lastEvents = make(map[input.Control]input.Event)
+
+	g.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer g.activeBackgroundWorkers.Done()
+		for {
+			if !utils.SelectContextOrWait(ctxWithCancel, 250*time.Millisecond) {
+				return
+			}
+			err := g.connectDev(ctxWithCancel)
+			if err != nil {
+				if g.reconnect {
+					if !strings.Contains(err.Error(), "no gamepad found") {
+						g.logger.Error(err)
+					}
+					continue
+				} else {
+					g.logger.Fatal(err)
+					return
+				}
+			}
+			g.eventDispatcher(ctxWithCancel)
+		}
+	})
+	return &g, nil
+}
+
+// NewController creates a new gamepad
+func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+	return createController(ctx, logger, config.ConvertedAttributes.(*Config).DevFile, config.ConvertedAttributes.(*Config).AutoReconnect)
+}
+
+// gamepad is an input.Controller
+type gamepad struct {
 	dev                     *evdev.Evdev
 	Model                   string
 	Mapping                 Mapping
@@ -82,7 +122,7 @@ func scaleAxis(x int32, inMin int32, inMax int32, outMin float64, outMax float64
 	return float64(x-inMin)*(outMax-outMin)/float64(inMax-inMin) + outMin
 }
 
-func (g *Controller) eventDispatcher(ctx context.Context) {
+func (g *gamepad) eventDispatcher(ctx context.Context) {
 	evChan := g.dev.Poll(ctx)
 	for {
 		select {
@@ -172,7 +212,7 @@ func (g *Controller) eventDispatcher(ctx context.Context) {
 	}
 }
 
-func (g *Controller) sendConnectionStatus(ctx context.Context, connected bool) {
+func (g *gamepad) sendConnectionStatus(ctx context.Context, connected bool) {
 	evType := input.Disconnect
 	now := time.Now()
 	if connected {
@@ -192,7 +232,7 @@ func (g *Controller) sendConnectionStatus(ctx context.Context, connected bool) {
 	}
 }
 
-func (g *Controller) makeCallbacks(ctx context.Context, eventOut input.Event) {
+func (g *gamepad) makeCallbacks(ctx context.Context, eventOut input.Event) {
 	g.mu.Lock()
 	g.lastEvents[eventOut.Control] = eventOut
 	g.mu.Unlock()
@@ -227,7 +267,7 @@ func (g *Controller) makeCallbacks(ctx context.Context, eventOut input.Event) {
 	}
 }
 
-func (g *Controller) connectDev(ctx context.Context) error {
+func (g *gamepad) connectDev(ctx context.Context) error {
 	g.mu.Lock()
 	var devs []string
 	devs = []string{g.devFile}
@@ -294,55 +334,15 @@ func (g *Controller) connectDev(ctx context.Context) error {
 	return nil
 }
 
-func createController(ctx context.Context, logger golog.Logger, devFile string, reconnect bool) (input.Controller, error) {
-	var g Controller
-	g.logger = logger
-	g.reconnect = reconnect
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	g.cancelFunc = cancel
-	g.devFile = devFile
-	g.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
-	g.lastEvents = make(map[input.Control]input.Event)
-
-	g.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer g.activeBackgroundWorkers.Done()
-		for {
-			if !utils.SelectContextOrWait(ctxWithCancel, 250*time.Millisecond) {
-				return
-			}
-			err := g.connectDev(ctxWithCancel)
-			if err != nil {
-				if g.reconnect {
-					if !strings.Contains(err.Error(), "no gamepad found") {
-						g.logger.Error(err)
-					}
-					continue
-				} else {
-					g.logger.Fatal(err)
-					return
-				}
-			}
-			g.eventDispatcher(ctxWithCancel)
-		}
-	})
-	return &g, nil
-}
-
-// NewController creates a new gamepad
-func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
-	return createController(ctx, logger, config.ConvertedAttributes.(*Config).DevFile, config.ConvertedAttributes.(*Config).AutoReconnect)
-}
-
 // Close terminates background worker threads
-func (g *Controller) Close() error {
+func (g *gamepad) Close() error {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
 	return nil
 }
 
 // Controls lists the inputs of the gamepad
-func (g *Controller) Controls(ctx context.Context) ([]input.Control, error) {
+func (g *gamepad) Controls(ctx context.Context) ([]input.Control, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	if g.dev == nil && len(g.controls) == 0 {
@@ -353,7 +353,7 @@ func (g *Controller) Controls(ctx context.Context) ([]input.Control, error) {
 }
 
 // LastEvents returns the last input.Event (the current state)
-func (g *Controller) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+func (g *gamepad) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	out := make(map[input.Control]input.Event)
@@ -364,7 +364,7 @@ func (g *Controller) LastEvents(ctx context.Context) (map[input.Control]input.Ev
 }
 
 // RegisterControlCallback registers a callback function to be executed on the specified control's trigger Events
-func (g *Controller) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+func (g *gamepad) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if g.callbacks[control] == nil {

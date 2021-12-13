@@ -11,7 +11,6 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
-	"go.viam.com/core/input"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
@@ -34,21 +33,15 @@ func TestRegistry(t *testing.T) {
 		return nil, nil
 	}
 
-	inputf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error) {
-		return nil, nil
-	}
-
 	// test panics
 	test.That(t, func() { RegisterBase("x", Base{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterSensor(sensor.Type("x"), "y", Sensor{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterBoard("x", Board{}) }, test.ShouldPanic)
-	test.That(t, func() { RegisterInputController("x", InputController{}) }, test.ShouldPanic)
 
 	// test register
 	RegisterBase("x", Base{Constructor: bf})
 	RegisterSensor(sensor.Type("x"), "y", Sensor{Constructor: sf})
 	RegisterBoard("x", Board{Constructor: bbf})
-	RegisterInputController("x", InputController{Constructor: inputf})
 
 	// test look up
 	test.That(t, BaseLookup("x"), test.ShouldNotBeNil)
@@ -62,10 +55,6 @@ func TestRegistry(t *testing.T) {
 	test.That(t, BoardLookup("x"), test.ShouldNotBeNil)
 	test.That(t, BoardLookup("z"), test.ShouldBeNil)
 	test.That(t, BoardLookup("x").Constructor, test.ShouldNotBeNil)
-
-	test.That(t, InputControllerLookup("x"), test.ShouldNotBeNil)
-	test.That(t, InputControllerLookup("z"), test.ShouldBeNil)
-	test.That(t, InputControllerLookup("x").Constructor, test.ShouldNotBeNil)
 }
 
 func TestComponentRegistry(t *testing.T) {

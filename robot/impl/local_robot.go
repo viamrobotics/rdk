@@ -16,10 +16,10 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
+	"go.viam.com/core/component/input"
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
-	"go.viam.com/core/input"
 	"go.viam.com/core/metadata/service"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
@@ -48,11 +48,9 @@ import (
 	_ "go.viam.com/core/component/gantry/register"  // for all gantries
 	_ "go.viam.com/core/component/gripper/register" // for all grippers
 	_ "go.viam.com/core/component/imu/register"     // for all IMU
+	_ "go.viam.com/core/component/input/register"   // for all input
 	_ "go.viam.com/core/component/motor/register"   // for all motors
 	_ "go.viam.com/core/component/servo/register"   // for a servo
-	_ "go.viam.com/core/input/gamepad"              // xbox controller and similar
-	_ "go.viam.com/core/input/mux"
-	_ "go.viam.com/core/input/webgamepad" // gamepads via webbrowser
 	_ "go.viam.com/core/platformdetector/pi"
 	_ "go.viam.com/core/robots/eva" // for eva
 	_ "go.viam.com/core/robots/fake"
@@ -373,14 +371,6 @@ func (r *localRobot) newSensor(ctx context.Context, config config.Component, sen
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *localRobot) newInputController(ctx context.Context, config config.Component) (input.Controller, error) {
-	f := registry.InputControllerLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown input controller model: %s", config.Model)
-	}
-	return f.Constructor(ctx, r, config, r.logger)
-}
-
 func (r *localRobot) newBoard(ctx context.Context, config config.Component) (board.Board, error) {
 	f := registry.BoardLookup(config.Model)
 	if f == nil {
@@ -471,25 +461,6 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 			name,
 		)
 
-		resources = append(resources, res)
-	}
-	for _, name := range r.MotorNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceCore,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeMotor,
-			name,
-		)
-		resources = append(resources, res)
-	}
-
-	for _, name := range r.InputControllerNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceCore,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeInputController,
-			name,
-		)
 		resources = append(resources, res)
 	}
 

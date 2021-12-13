@@ -16,7 +16,6 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/input"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
@@ -35,9 +34,6 @@ type (
 
 	// A CreateMotor creates a motor from a given config.
 	CreateMotor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error)
-
-	// A CreateInputController creates an input.Controller from a given config.
-	CreateInputController func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error)
 
 	// A CreateService creates a service from a given config.
 	CreateService func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error)
@@ -73,12 +69,6 @@ type Motor struct {
 	Constructor CreateMotor
 }
 
-// InputController stores an input.Controller constructor (mandatory)
-type InputController struct {
-	RegDebugInfo
-	Constructor CreateInputController
-}
-
 // Service stores a Service constructor (mandatory) and an attribute converter
 type Service struct {
 	RegDebugInfo
@@ -88,11 +78,10 @@ type Service struct {
 
 // all registries
 var (
-	baseRegistry            = map[string]Base{}
-	sensorRegistry          = map[sensor.Type]map[string]Sensor{}
-	boardRegistry           = map[string]Board{}
-	inputControllerRegistry = map[string]InputController{}
-	serviceRegistry         = map[config.ServiceType]Service{}
+	baseRegistry    = map[string]Base{}
+	sensorRegistry  = map[sensor.Type]map[string]Sensor{}
+	boardRegistry   = map[string]Board{}
+	serviceRegistry = map[config.ServiceType]Service{}
 )
 
 func getCallerName() string {
@@ -146,19 +135,6 @@ func RegisterBoard(model string, creator Board) {
 	boardRegistry[model] = creator
 }
 
-// RegisterInputController registers an input controller model to a creator.
-func RegisterInputController(model string, creator InputController) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := inputControllerRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two input controllers with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	inputControllerRegistry[model] = creator
-}
-
 // RegisterService registers a service type to a registration.
 func RegisterService(typeName config.ServiceType, registration Service) {
 	registration.RegistrarLoc = getCallerName()
@@ -198,15 +174,6 @@ func SensorLookup(sensorType sensor.Type, model string) *Sensor {
 // there is no creator registered.
 func BoardLookup(model string) *Board {
 	if registration, ok := boardRegistry[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// InputControllerLookup looks up an input.Controller creator by the given model. nil is returned if
-// there is no creator registered.
-func InputControllerLookup(model string) *InputController {
-	if registration, ok := inputControllerRegistry[model]; ok {
 		return &registration
 	}
 	return nil
@@ -331,15 +298,6 @@ func RegisteredBoards() map[string]Board {
 		panic(err)
 	}
 	return copied.(map[string]Board)
-}
-
-// RegisteredInputControllers returns a copy of the registered input controllers.
-func RegisteredInputControllers() map[string]InputController {
-	copied, err := copystructure.Copy(inputControllerRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]InputController)
 }
 
 // RegisteredServices returns a copy of the registered services.

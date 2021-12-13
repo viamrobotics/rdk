@@ -13,11 +13,12 @@ import (
 	fakecamera "go.viam.com/core/component/camera/fake"
 	"go.viam.com/core/component/gripper"
 	fakegripper "go.viam.com/core/component/gripper/fake"
+	"go.viam.com/core/component/input"
+	fakeinput "go.viam.com/core/component/input/fake"
 	"go.viam.com/core/component/motor"
 	fakemotor "go.viam.com/core/component/motor/fake"
 	"go.viam.com/core/component/servo"
 	fakeservo "go.viam.com/core/component/servo/fake"
-	"go.viam.com/core/input"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
@@ -101,7 +102,7 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return &fakemotor.Motor{Name: name}, true
 	}
 	injectRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
-		return &fake.InputController{Name: name}, true
+		return &fakeinput.InputController{Name: name}, true
 	}
 
 	if withRemotes {
