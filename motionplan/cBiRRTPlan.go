@@ -159,8 +159,6 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 	if len(keys) < nSolutions {
 		nSolutions = len(keys)
 	}
-	//~ var rSeed *solution
-
 	goalMap := make(map[*solution]*solution, nSolutions)
 
 	for _, k := range keys[:nSolutions] {
@@ -180,7 +178,6 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 	var rSeed *solution
 
 	for i := 0; i < mp.iter; i++ {
-		//~ fmt.Println("iter", i, len(seedMap), len(goalMap))
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
