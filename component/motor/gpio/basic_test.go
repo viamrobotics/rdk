@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	fakeboard "go.viam.com/core/component/board/fake"
 	"go.viam.com/core/component/motor"
-	"go.viam.com/core/robots/fake"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
@@ -16,7 +16,7 @@ import (
 // Test the A/B/PWM style IO
 func TestMotorABPWM(t *testing.T) {
 	ctx := context.Background()
-	b := &fake.Board{}
+	b := &fakeboard.Board{}
 	logger := golog.NewTestLogger(t)
 
 	t.Run("motor (A/B/PWM) initialization errors", func(t *testing.T) {
@@ -123,7 +123,7 @@ func TestMotorABPWM(t *testing.T) {
 // Test the DIR/PWM style IO
 func TestMotorDirPWM(t *testing.T) {
 	ctx := context.Background()
-	b := &fake.Board{}
+	b := &fakeboard.Board{}
 	logger := golog.NewTestLogger(t)
 
 	t.Run("motor (DIR/PWM) initialization errors", func(t *testing.T) {
@@ -225,7 +225,7 @@ func TestMotorDirPWM(t *testing.T) {
 // Test the A/B only style IO
 func TestMotorAB(t *testing.T) {
 	ctx := context.Background()
-	b := &fake.Board{}
+	b := &fakeboard.Board{}
 	logger := golog.NewTestLogger(t)
 
 	m, err := NewMotor(b, motor.Config{Pins: map[string]string{"a": "1", "b": "2", "en": "3"}, MaxRPM: 100, PWMFreq: 4000}, logger)
