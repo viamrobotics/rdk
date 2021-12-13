@@ -135,7 +135,7 @@ func (m *arduinoMotor) PID() motor.PID {
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 func (m *arduinoMotor) SetPower(ctx context.Context, powerPct float64) error {
 	if math.Abs(powerPct) <= .001 {
-		return m.Off(ctx)
+		return m.Stop(ctx)
 	}
 
 	_, err := m.b.runCommand(fmt.Sprintf("motor-power %s %d", m.name, int(255.0*math.Abs(powerPct))))
@@ -146,7 +146,7 @@ func (m *arduinoMotor) SetPower(ctx context.Context, powerPct float64) error {
 func (m *arduinoMotor) Go(ctx context.Context, powerPct float64) error {
 
 	if math.Abs(powerPct) < 0.0001 {
-		return m.Off(ctx)
+		return m.Stop(ctx)
 	}
 	var dir string
 	if !math.Signbit(powerPct) {
@@ -203,8 +203,8 @@ func (m *arduinoMotor) PositionSupported(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-// Off turns the motor off.
-func (m *arduinoMotor) Off(ctx context.Context) error {
+// Stop turns the power to the motor off immediately, without any gradual step down.
+func (m *arduinoMotor) Stop(ctx context.Context) error {
 	_, err := m.b.runCommand("motor-off " + m.name)
 	return err
 }
@@ -235,14 +235,14 @@ func (m *arduinoMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 	return errors.New("not supported")
 }
 
-func (m *arduinoMotor) SetToZeroPosition(ctx context.Context, offset float64) error {
+func (m *arduinoMotor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	offsetTicks := int64(offset * float64(m.cfg.TicksPerRotation))
 	_, err := m.b.runCommand(fmt.Sprintf("motor-zero %s %d", m.name, offsetTicks))
 	return err
 }
 
 func (m *arduinoMotor) Close() error {
-	return m.Off(context.Background())
+	return m.Stop(context.Background())
 }
 
 type encoder struct {
@@ -272,7 +272,7 @@ func (e *encoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync
 	onStart()
 }
 
-func (e *encoder) SetToZeroPosition(ctx context.Context, offset int64) error {
+func (e *encoder) ResetZeroPosition(ctx context.Context, offset int64) error {
 	_, err := e.b.runCommand(fmt.Sprintf("motor-zero %s %d", e.name, offset))
 	return err
 }

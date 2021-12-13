@@ -60,7 +60,6 @@ type RobotClient struct {
 	baseNames            []string
 	boardNames           []boardInfo
 	sensorNames          []string
-	motorNames           []string
 	inputControllerNames []string
 	functionNames        []string
 	serviceNames         []string
@@ -343,10 +342,16 @@ func (rc *RobotClient) ServoByName(name string) (servo.Servo, bool) {
 // MotorByName returns a motor by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) MotorByName(name string) (motor.Motor, bool) {
-	return &motorClient{
-		rc:   rc,
-		name: name,
-	}, true
+	nameObj := motor.Named(name)
+	resource, ok := rc.ResourceByName(nameObj)
+	if !ok {
+		return nil, false
+	}
+	actualMotor, ok := resource.(motor.Motor)
+	if !ok {
+		return nil, false
+	}
+	return actualMotor, true
 }
 
 // InputControllerByName returns an input.Controller by name. It is assumed to exist on the
@@ -371,8 +376,6 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	switch name.Subtype {
 	case input.Subtype:
 		return &inputControllerClient{rc: rc, name: name.Name}, true
-	case motor.Subtype:
-		return &motorClient{rc: rc, name: name.Name}, true
 	default:
 		c := registry.ResourceSubtypeLookup(name.Subtype)
 		if c == nil || c.RPCClient == nil {
@@ -567,7 +570,13 @@ func (rc *RobotClient) ServoNames() []string {
 func (rc *RobotClient) MotorNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.motorNames)
+	names := []string{}
+	for _, res := range rc.ResourceNames() {
+		if res.Subtype == motor.Subtype {
+			names = append(names, res.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // InputControllerNames returns the names of all known input controllers.
@@ -1079,106 +1088,6 @@ func (gc *gpsClient) Accuracy(ctx context.Context) (float64, float64, error) {
 
 func (gc *gpsClient) Valid(ctx context.Context) (bool, error) {
 	return true, nil
-}
-
-// motorClient satisfies a gRPC based motor.Motor. Refer to the interface
-// for descriptions of its methods.
-type motorClient struct {
-	rc   *RobotClient
-	name string
-}
-
-func (mc *motorClient) PID() motor.PID {
-	return nil
-}
-func (mc *motorClient) SetPower(ctx context.Context, powerPct float64) error {
-	_, err := mc.rc.client.MotorPower(ctx, &pb.MotorPowerRequest{
-		Name:     mc.name,
-		PowerPct: powerPct,
-	})
-	return err
-}
-
-func (mc *motorClient) Go(ctx context.Context, powerPct float64) error {
-	_, err := mc.rc.client.MotorGo(ctx, &pb.MotorGoRequest{
-		Name:     mc.name,
-		PowerPct: powerPct,
-	})
-	return err
-}
-
-func (mc *motorClient) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
-	_, err := mc.rc.client.MotorGoFor(ctx, &pb.MotorGoForRequest{
-		Name:        mc.name,
-		Rpm:         rpm,
-		Revolutions: revolutions,
-	})
-	return err
-}
-
-func (mc *motorClient) Position(ctx context.Context) (float64, error) {
-	resp, err := mc.rc.client.MotorPosition(ctx, &pb.MotorPositionRequest{
-		Name: mc.name,
-	})
-	if err != nil {
-		return math.NaN(), err
-	}
-	return resp.Position, nil
-}
-
-func (mc *motorClient) PositionSupported(ctx context.Context) (bool, error) {
-	resp, err := mc.rc.client.MotorPositionSupported(ctx, &pb.MotorPositionSupportedRequest{
-		Name: mc.name,
-	})
-	if err != nil {
-		return false, err
-	}
-	return resp.Supported, nil
-}
-
-func (mc *motorClient) Off(ctx context.Context) error {
-	_, err := mc.rc.client.MotorOff(ctx, &pb.MotorOffRequest{
-		Name: mc.name,
-	})
-	return err
-}
-
-func (mc *motorClient) IsOn(ctx context.Context) (bool, error) {
-	resp, err := mc.rc.client.MotorIsOn(ctx, &pb.MotorIsOnRequest{
-		Name: mc.name,
-	})
-	if err != nil {
-		return false, err
-	}
-	return resp.IsOn, nil
-}
-
-func (mc *motorClient) GoTo(ctx context.Context, rpm float64, position float64) error {
-	_, err := mc.rc.client.MotorGoTo(ctx, &pb.MotorGoToRequest{
-		Name:     mc.name,
-		Rpm:      rpm,
-		Position: position,
-	})
-	return err
-}
-
-func (mc *motorClient) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	if stopFunc != nil {
-		return errors.New("stopFunc must be nil when using gRPC")
-	}
-	_, err := mc.rc.client.MotorGoTillStop(ctx, &pb.MotorGoTillStopRequest{
-		Name: mc.name,
-		Rpm:  rpm,
-	})
-	return err
-}
-
-func (mc *motorClient) SetToZeroPosition(ctx context.Context, offset float64) error {
-	_, err := mc.rc.client.MotorZero(ctx, &pb.MotorZeroRequest{
-		Name:   mc.name,
-		Offset: offset,
-	})
-	return err
 }
 
 // inputControllerClient satisfies a gRPC based input.Controller. Refer to the interface

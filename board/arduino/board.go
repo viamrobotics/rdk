@@ -97,10 +97,6 @@ type arduinoBoard struct {
 	analogs map[string]board.AnalogReader
 }
 
-// func (b *arduinoBoard) Logger() golog.Logger {
-// 	return b.logger
-// }
-
 func (b *arduinoBoard) runCommand(cmd string) (string, error) {
 	b.cmdLock.Lock()
 	defer b.cmdLock.Unlock()

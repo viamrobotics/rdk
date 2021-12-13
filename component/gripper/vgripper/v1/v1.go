@@ -257,7 +257,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	if err != nil {
 		return nil, err
 	}
-	err = vg.motor.SetToZeroPosition(ctx, curPos-vg.closePos)
+	err = vg.motor.ResetZeroPosition(ctx, curPos-vg.closePos)
 	if err != nil {
 		return nil, err
 	}
@@ -399,12 +399,12 @@ func (vg *gripperV1) Close() error {
 }
 
 func (vg *gripperV1) stopAfterError(ctx context.Context, other error) error {
-	return multierr.Combine(other, vg.motor.Off(ctx))
+	return multierr.Combine(other, vg.motor.Stop(ctx))
 }
 
 // Stop stops the motors
 func (vg *gripperV1) Stop(ctx context.Context) error {
-	return vg.motor.Off(ctx)
+	return vg.motor.Stop(ctx)
 }
 
 func (vg *gripperV1) readCurrent(ctx context.Context) (int, error) {
