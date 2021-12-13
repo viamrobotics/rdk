@@ -68,9 +68,9 @@ type Service struct {
 
 // all registries
 var (
-	baseRegistry            = map[string]Base{}
-	sensorRegistry          = map[sensor.Type]map[string]Sensor{}
-	serviceRegistry         = map[config.ServiceType]Service{}
+	baseRegistry    = map[string]Base{}
+	sensorRegistry  = map[sensor.Type]map[string]Sensor{}
+	serviceRegistry = map[config.ServiceType]Service{}
 )
 
 func getCallerName() string {
