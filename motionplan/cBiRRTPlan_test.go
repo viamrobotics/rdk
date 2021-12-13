@@ -103,10 +103,10 @@ func TestSimpleLinearMotion(t *testing.T) {
 		goalReached = goalMap[goalReached]
 	}
 
-	// Test that smoothing shortens the path
+	// Test that smoothing succeeds and does not lengthen the path (it may be the same length)
 	unsmoothLen := len(inputSteps)
 	finalSteps := mp.SmoothPath(ctx, mp.opt, inputSteps, corners)
-	test.That(t, len(finalSteps), test.ShouldBeLessThan, unsmoothLen)
+	test.That(t, len(finalSteps), test.ShouldBeLessThanOrEqualTo, unsmoothLen)
 }
 
 func TestNearestNeighbor(t *testing.T) {
