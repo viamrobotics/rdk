@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"go.viam.com/core/vision/detection/chessboard"
 	"image"
 	"os"
 
@@ -10,7 +11,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/rimage"
-	"go.viam.com/core/rimage/detection/chessboard"
 )
 
 var (
