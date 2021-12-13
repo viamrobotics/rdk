@@ -19,7 +19,6 @@ import (
 	fakemotor "go.viam.com/core/component/motor/fake"
 	"go.viam.com/core/component/servo"
 	fakeservo "go.viam.com/core/component/servo/fake"
-	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
@@ -46,9 +45,6 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	}
 	injectRobot.CameraNamesFunc = func() []string {
 		return []string{"camera1", "camera2"}
-	}
-	injectRobot.LidarNamesFunc = func() []string {
-		return []string{"lidar1", "lidar2"}
 	}
 	injectRobot.BaseNamesFunc = func() []string {
 		return []string{"base1", "base2"}
@@ -92,9 +88,6 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	}
 	injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
 		return &fakecamera.Camera{Name: name}, true
-	}
-	injectRobot.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
-		return &fake.Lidar{Name: name}, true
 	}
 	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 		return &fake.Board{Name: name}, true
@@ -175,10 +168,6 @@ func TestCreateStatus(t *testing.T) {
 				"camera1": true,
 				"camera2": true,
 			},
-			Lidars: map[string]bool{
-				"lidar1": true,
-				"lidar2": true,
-			},
 			Sensors: map[string]*pb.SensorStatus{
 				"sensor1": {
 					Type: "compass",
@@ -246,10 +235,6 @@ func TestCreateStatus(t *testing.T) {
 			Cameras: map[string]bool{
 				"camera1": true,
 				"camera2": true,
-			},
-			Lidars: map[string]bool{
-				"lidar1": true,
-				"lidar2": true,
 			},
 			Sensors: map[string]*pb.SensorStatus{
 				"sensor1": {

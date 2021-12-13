@@ -20,7 +20,6 @@ import (
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
-	"go.viam.com/core/lidar"
 	"go.viam.com/core/metadata/service"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
@@ -64,7 +63,6 @@ import (
 	_ "go.viam.com/core/robots/xarm"                    // for an arm
 	_ "go.viam.com/core/robots/yahboom"                 // for an arm
 	_ "go.viam.com/core/sensor/compass/gy511"
-	_ "go.viam.com/core/sensor/compass/lidar"
 	_ "go.viam.com/core/sensor/forcematrix"
 	_ "go.viam.com/core/sensor/gps/merge"
 	_ "go.viam.com/core/sensor/gps/nmea"
@@ -124,12 +122,6 @@ func (r *localRobot) CameraByName(name string) (camera.Camera, bool) {
 	return r.parts.CameraByName(name)
 }
 
-// LidarByName returns a lidar by name. If it does not exist
-// nil is returned.
-func (r *localRobot) LidarByName(name string) (lidar.Lidar, bool) {
-	return r.parts.LidarByName(name)
-}
-
 // SensorByName returns a sensor by name. If it does not exist
 // nil is returned.
 func (r *localRobot) SensorByName(name string) (sensor.Sensor, bool) {
@@ -182,11 +174,6 @@ func (r *localRobot) GripperNames() []string {
 // CameraNames returns the name of all known cameras.
 func (r *localRobot) CameraNames() []string {
 	return r.parts.CameraNames()
-}
-
-// LidarNames returns the name of all known lidars.
-func (r *localRobot) LidarNames() []string {
-	return r.parts.LidarNames()
 }
 
 // BaseNames returns the name of all known bases.
@@ -376,14 +363,6 @@ func (r *localRobot) newBase(ctx context.Context, config config.Component) (base
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *localRobot) newLidar(ctx context.Context, config config.Component) (lidar.Lidar, error) {
-	f := registry.LidarLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown lidar model: %s", config.Model)
-	}
-	return f.Constructor(ctx, r, config, r.logger)
-}
-
 func (r *localRobot) newSensor(ctx context.Context, config config.Component, sensorType sensor.Type) (sensor.Sensor, error) {
 	f := registry.SensorLookup(sensorType, config.Model)
 	if f == nil {
@@ -461,15 +440,6 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeService,
 			resource.ResourceSubtypeFunction,
-			name,
-		)
-		resources = append(resources, res)
-	}
-	for _, name := range r.LidarNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceCore,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeLidar,
 			name,
 		)
 		resources = append(resources, res)
