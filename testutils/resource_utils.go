@@ -1,6 +1,8 @@
 package testutils
 
-import "go.viam.com/core/resource"
+import (
+	"go.viam.com/core/resource"
+)
 
 // NewResourceNameSet returns a flattened set of name strings from
 // a collection of resource.Name objects for the purposes of comparison
@@ -31,6 +33,20 @@ func ConcatResourceNames(values ...[]resource.Name) []resource.Name {
 	var rNames []resource.Name
 	for _, v := range values {
 		rNames = append(rNames, v...)
+	}
+	return rNames
+}
+
+// AddSuffixes takes a slice of resource.Name objects and for each suffix,
+// adds the suffix to every object, then returns the entire list
+func AddSuffixes(values []resource.Name, suffixes ...string) []resource.Name {
+	var rNames []resource.Name
+
+	for _, s := range suffixes {
+		for _, v := range values {
+			newName := resource.NewFromSubtype(v.Subtype, v.Name+s)
+			rNames = append(rNames, newName)
+		}
 	}
 	return rNames
 }

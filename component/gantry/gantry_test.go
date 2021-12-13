@@ -46,7 +46,7 @@ func TestGantryName(t *testing.T) {
 	}
 }
 
-func TestWrapWtihReconfigurable(t *testing.T) {
+func TestWrapWithReconfigurable(t *testing.T) {
 	var actualGantry1 Gantry = &mock{Name: "gantry1"}
 	fakeGantry1, err := WrapWithReconfigurable(actualGantry1)
 	test.That(t, err, test.ShouldBeNil)
