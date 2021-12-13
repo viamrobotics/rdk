@@ -78,8 +78,8 @@ func TestWriteViam(t *testing.T) {
 
 		curPos, _ = fs.TransformFrame(seedMap, moveFrame, fs.World())
 
-		validFunc, gradFunc := motionplan.NewLineConstraintAndGradient(curPos.Point(), goal.Point(), validOV, 0.01, 0.05)
-		destGrad := motionplan.NewPoseFlexOVMetric(goal, 0.)
+		validFunc, gradFunc := motionplan.NewLineConstraintAndGradient(curPos.Point(), goal.Point(), validOV, 0.3, 0.05)
+		destGrad := motionplan.NewPoseFlexOVMetric(goal, 0.2)
 
 		// update constraints
 		mpFunc := func(f frame.Frame, ncpu int, logger golog.Logger) (motionplan.MotionPlanner, error) {
@@ -113,8 +113,4 @@ func TestWriteViam(t *testing.T) {
 var viamPoints = []spatial.Pose{
 	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: wbY + 1.5, Z: 595, OY: -1}),
 	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: wbY + 1.5, Z: 595, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: wbY + 1.5, Z: 555, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: wbY + 1.5, Z: 555, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: wbY + 1.5, Z: 515, OY: -1}),
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: wbY + 1.5, Z: 515, OY: -1}),
 }
