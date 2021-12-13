@@ -368,7 +368,6 @@ func TestPartsClone(t *testing.T) {
 	_, ok = newParts.CameraByName("camera1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
-
 	_, ok = newParts.BoardByName("board1")
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = newParts.BoardByName("board1_r1")
