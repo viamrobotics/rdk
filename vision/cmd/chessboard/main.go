@@ -3,9 +3,10 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"go.viam.com/core/vision/detection/chessboard"
 	"image"
 	"os"
+
+	"go.viam.com/core/vision/detection/chessboard"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
