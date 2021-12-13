@@ -24,7 +24,7 @@ service InputControllerService {
   }
 
   // EventStream returns a stream of Events
-  rpc EventStream(InputControllerServiceEventStreamRequest) returns (InputControllerServiceEventStreamResponse) {
+  rpc EventStream(InputControllerServiceEventStreamRequest) returns (stream InputControllerServiceEventStreamResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/input/{controller}/event_stream"
     };
@@ -92,6 +92,6 @@ message InputControllerServiceEventStreamRequest {
 }
 
 message InputControllerServiceEventStreamResponse {
-  // Events for a controller
-  repeated InputControllerServiceEvent events = 1;
+  // Event for a controller
+  InputControllerServiceEvent event = 1;
 }

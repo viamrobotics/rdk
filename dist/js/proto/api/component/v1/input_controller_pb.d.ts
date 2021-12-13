@@ -224,10 +224,10 @@ export namespace InputControllerServiceEventStreamRequest {
 }
 
 export class InputControllerServiceEventStreamResponse extends jspb.Message {
-  clearEventsList(): void;
-  getEventsList(): Array<InputControllerServiceEvent>;
-  setEventsList(value: Array<InputControllerServiceEvent>): void;
-  addEvents(value?: InputControllerServiceEvent, index?: number): InputControllerServiceEvent;
+  hasEvent(): boolean;
+  clearEvent(): void;
+  getEvent(): InputControllerServiceEvent | undefined;
+  setEvent(value?: InputControllerServiceEvent): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): InputControllerServiceEventStreamResponse.AsObject;
@@ -241,7 +241,7 @@ export class InputControllerServiceEventStreamResponse extends jspb.Message {
 
 export namespace InputControllerServiceEventStreamResponse {
   export type AsObject = {
-    eventsList: Array<InputControllerServiceEvent.AsObject>,
+    event?: InputControllerServiceEvent.AsObject,
   }
 }
 

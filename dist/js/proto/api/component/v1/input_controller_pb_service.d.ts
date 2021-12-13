@@ -26,7 +26,7 @@ type InputControllerServiceEventStream = {
   readonly methodName: string;
   readonly service: typeof InputControllerService;
   readonly requestStream: false;
-  readonly responseStream: false;
+  readonly responseStream: true;
   readonly requestType: typeof proto_api_component_v1_input_controller_pb.InputControllerServiceEventStreamRequest;
   readonly responseType: typeof proto_api_component_v1_input_controller_pb.InputControllerServiceEventStreamResponse;
 };
@@ -98,15 +98,7 @@ export class InputControllerServiceClient {
     requestMessage: proto_api_component_v1_input_controller_pb.InputControllerServiceLastEventsRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_input_controller_pb.InputControllerServiceLastEventsResponse|null) => void
   ): UnaryResponse;
-  eventStream(
-    requestMessage: proto_api_component_v1_input_controller_pb.InputControllerServiceEventStreamRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_input_controller_pb.InputControllerServiceEventStreamResponse|null) => void
-  ): UnaryResponse;
-  eventStream(
-    requestMessage: proto_api_component_v1_input_controller_pb.InputControllerServiceEventStreamRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_input_controller_pb.InputControllerServiceEventStreamResponse|null) => void
-  ): UnaryResponse;
+  eventStream(requestMessage: proto_api_component_v1_input_controller_pb.InputControllerServiceEventStreamRequest, metadata?: grpc.Metadata): ResponseStream<proto_api_component_v1_input_controller_pb.InputControllerServiceEventStreamResponse>;
   injectEvent(
     requestMessage: proto_api_component_v1_input_controller_pb.InputControllerServiceInjectEventRequest,
     metadata: grpc.Metadata,

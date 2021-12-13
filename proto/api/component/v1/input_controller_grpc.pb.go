@@ -24,7 +24,7 @@ type InputControllerServiceClient interface {
 	// LastEvent returns most recent InputControllerServiceEvent for each controller
 	LastEvents(ctx context.Context, in *InputControllerServiceLastEventsRequest, opts ...grpc.CallOption) (*InputControllerServiceLastEventsResponse, error)
 	// EventStream returns a stream of Events
-	EventStream(ctx context.Context, in *InputControllerServiceEventStreamRequest, opts ...grpc.CallOption) (*InputControllerServiceEventStreamResponse, error)
+	EventStream(ctx context.Context, in *InputControllerServiceEventStreamRequest, opts ...grpc.CallOption) (InputControllerService_EventStreamClient, error)
 	// InjectEvent allows directly sending an InputControllerServiceEvent (such as a button press) over grpc
 	InjectEvent(ctx context.Context, in *InputControllerServiceInjectEventRequest, opts ...grpc.CallOption) (*InputControllerServiceInjectEventResponse, error)
 }
@@ -55,13 +55,36 @@ func (c *inputControllerServiceClient) LastEvents(ctx context.Context, in *Input
 	return out, nil
 }
 
-func (c *inputControllerServiceClient) EventStream(ctx context.Context, in *InputControllerServiceEventStreamRequest, opts ...grpc.CallOption) (*InputControllerServiceEventStreamResponse, error) {
-	out := new(InputControllerServiceEventStreamResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.InputControllerService/EventStream", in, out, opts...)
+func (c *inputControllerServiceClient) EventStream(ctx context.Context, in *InputControllerServiceEventStreamRequest, opts ...grpc.CallOption) (InputControllerService_EventStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &InputControllerService_ServiceDesc.Streams[0], "/proto.api.component.v1.InputControllerService/EventStream", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &inputControllerServiceEventStreamClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type InputControllerService_EventStreamClient interface {
+	Recv() (*InputControllerServiceEventStreamResponse, error)
+	grpc.ClientStream
+}
+
+type inputControllerServiceEventStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *inputControllerServiceEventStreamClient) Recv() (*InputControllerServiceEventStreamResponse, error) {
+	m := new(InputControllerServiceEventStreamResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *inputControllerServiceClient) InjectEvent(ctx context.Context, in *InputControllerServiceInjectEventRequest, opts ...grpc.CallOption) (*InputControllerServiceInjectEventResponse, error) {
@@ -82,7 +105,7 @@ type InputControllerServiceServer interface {
 	// LastEvent returns most recent InputControllerServiceEvent for each controller
 	LastEvents(context.Context, *InputControllerServiceLastEventsRequest) (*InputControllerServiceLastEventsResponse, error)
 	// EventStream returns a stream of Events
-	EventStream(context.Context, *InputControllerServiceEventStreamRequest) (*InputControllerServiceEventStreamResponse, error)
+	EventStream(*InputControllerServiceEventStreamRequest, InputControllerService_EventStreamServer) error
 	// InjectEvent allows directly sending an InputControllerServiceEvent (such as a button press) over grpc
 	InjectEvent(context.Context, *InputControllerServiceInjectEventRequest) (*InputControllerServiceInjectEventResponse, error)
 	mustEmbedUnimplementedInputControllerServiceServer()
@@ -98,8 +121,8 @@ func (UnimplementedInputControllerServiceServer) Controls(context.Context, *Inpu
 func (UnimplementedInputControllerServiceServer) LastEvents(context.Context, *InputControllerServiceLastEventsRequest) (*InputControllerServiceLastEventsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LastEvents not implemented")
 }
-func (UnimplementedInputControllerServiceServer) EventStream(context.Context, *InputControllerServiceEventStreamRequest) (*InputControllerServiceEventStreamResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method EventStream not implemented")
+func (UnimplementedInputControllerServiceServer) EventStream(*InputControllerServiceEventStreamRequest, InputControllerService_EventStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method EventStream not implemented")
 }
 func (UnimplementedInputControllerServiceServer) InjectEvent(context.Context, *InputControllerServiceInjectEventRequest) (*InputControllerServiceInjectEventResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InjectEvent not implemented")
@@ -154,22 +177,25 @@ func _InputControllerService_LastEvents_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
-func _InputControllerService_EventStream_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InputControllerServiceEventStreamRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _InputControllerService_EventStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(InputControllerServiceEventStreamRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(InputControllerServiceServer).EventStream(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.component.v1.InputControllerService/EventStream",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(InputControllerServiceServer).EventStream(ctx, req.(*InputControllerServiceEventStreamRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(InputControllerServiceServer).EventStream(m, &inputControllerServiceEventStreamServer{stream})
+}
+
+type InputControllerService_EventStreamServer interface {
+	Send(*InputControllerServiceEventStreamResponse) error
+	grpc.ServerStream
+}
+
+type inputControllerServiceEventStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *inputControllerServiceEventStreamServer) Send(m *InputControllerServiceEventStreamResponse) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _InputControllerService_InjectEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -206,14 +232,16 @@ var InputControllerService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _InputControllerService_LastEvents_Handler,
 		},
 		{
-			MethodName: "EventStream",
-			Handler:    _InputControllerService_EventStream_Handler,
-		},
-		{
 			MethodName: "InjectEvent",
 			Handler:    _InputControllerService_InjectEvent_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "EventStream",
+			Handler:       _InputControllerService_EventStream_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "proto/api/component/v1/input_controller.proto",
 }

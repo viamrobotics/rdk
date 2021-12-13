@@ -229,7 +229,7 @@ if (goog.DEBUG && !COMPILED) {
  * @constructor
  */
 proto.proto.api.component.v1.InputControllerServiceEventStreamResponse = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.proto.api.component.v1.InputControllerServiceEventStreamResponse.repeatedFields_, null);
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
 goog.inherits(proto.proto.api.component.v1.InputControllerServiceEventStreamResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
@@ -1764,13 +1764,6 @@ proto.proto.api.component.v1.InputControllerServiceEventStreamRequest.prototype.
 
 
 
-/**
- * List of repeated fields within this message type.
- * @private {!Array<number>}
- * @const
- */
-proto.proto.api.component.v1.InputControllerServiceEventStreamResponse.repeatedFields_ = [1];
-
 
 
 if (jspb.Message.GENERATE_TO_OBJECT) {
@@ -1802,8 +1795,7 @@ proto.proto.api.component.v1.InputControllerServiceEventStreamResponse.prototype
  */
 proto.proto.api.component.v1.InputControllerServiceEventStreamResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    eventsList: jspb.Message.toObjectList(msg.getEventsList(),
-    proto.proto.api.component.v1.InputControllerServiceEvent.toObject, includeInstance)
+    event: (f = msg.getEvent()) && proto.proto.api.component.v1.InputControllerServiceEvent.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -1843,7 +1835,7 @@ proto.proto.api.component.v1.InputControllerServiceEventStreamResponse.deseriali
     case 1:
       var value = new proto.proto.api.component.v1.InputControllerServiceEvent;
       reader.readMessage(value,proto.proto.api.component.v1.InputControllerServiceEvent.deserializeBinaryFromReader);
-      msg.addEvents(value);
+      msg.setEvent(value);
       break;
     default:
       reader.skipField();
@@ -1874,9 +1866,9 @@ proto.proto.api.component.v1.InputControllerServiceEventStreamResponse.prototype
  */
 proto.proto.api.component.v1.InputControllerServiceEventStreamResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getEventsList();
-  if (f.length > 0) {
-    writer.writeRepeatedMessage(
+  f = message.getEvent();
+  if (f != null) {
+    writer.writeMessage(
       1,
       f,
       proto.proto.api.component.v1.InputControllerServiceEvent.serializeBinaryToWriter
@@ -1886,40 +1878,39 @@ proto.proto.api.component.v1.InputControllerServiceEventStreamResponse.serialize
 
 
 /**
- * repeated InputControllerServiceEvent events = 1;
- * @return {!Array<!proto.proto.api.component.v1.InputControllerServiceEvent>}
+ * optional InputControllerServiceEvent event = 1;
+ * @return {?proto.proto.api.component.v1.InputControllerServiceEvent}
  */
-proto.proto.api.component.v1.InputControllerServiceEventStreamResponse.prototype.getEventsList = function() {
-  return /** @type{!Array<!proto.proto.api.component.v1.InputControllerServiceEvent>} */ (
-    jspb.Message.getRepeatedWrapperField(this, proto.proto.api.component.v1.InputControllerServiceEvent, 1));
+proto.proto.api.component.v1.InputControllerServiceEventStreamResponse.prototype.getEvent = function() {
+  return /** @type{?proto.proto.api.component.v1.InputControllerServiceEvent} */ (
+    jspb.Message.getWrapperField(this, proto.proto.api.component.v1.InputControllerServiceEvent, 1));
 };
 
 
 /**
- * @param {!Array<!proto.proto.api.component.v1.InputControllerServiceEvent>} value
+ * @param {?proto.proto.api.component.v1.InputControllerServiceEvent|undefined} value
  * @return {!proto.proto.api.component.v1.InputControllerServiceEventStreamResponse} returns this
 */
-proto.proto.api.component.v1.InputControllerServiceEventStreamResponse.prototype.setEventsList = function(value) {
-  return jspb.Message.setRepeatedWrapperField(this, 1, value);
+proto.proto.api.component.v1.InputControllerServiceEventStreamResponse.prototype.setEvent = function(value) {
+  return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
 /**
- * @param {!proto.proto.api.component.v1.InputControllerServiceEvent=} opt_value
- * @param {number=} opt_index
- * @return {!proto.proto.api.component.v1.InputControllerServiceEvent}
- */
-proto.proto.api.component.v1.InputControllerServiceEventStreamResponse.prototype.addEvents = function(opt_value, opt_index) {
-  return jspb.Message.addToRepeatedWrapperField(this, 1, opt_value, proto.proto.api.component.v1.InputControllerServiceEvent, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
+ * Clears the message field making it undefined.
  * @return {!proto.proto.api.component.v1.InputControllerServiceEventStreamResponse} returns this
  */
-proto.proto.api.component.v1.InputControllerServiceEventStreamResponse.prototype.clearEventsList = function() {
-  return this.setEventsList([]);
+proto.proto.api.component.v1.InputControllerServiceEventStreamResponse.prototype.clearEvent = function() {
+  return this.setEvent(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.proto.api.component.v1.InputControllerServiceEventStreamResponse.prototype.hasEvent = function() {
+  return jspb.Message.getField(this, 1) != null;
 };
 
 

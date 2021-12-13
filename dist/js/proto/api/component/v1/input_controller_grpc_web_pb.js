@@ -207,7 +207,7 @@ proto.proto.api.component.v1.InputControllerServicePromiseClient.prototype.lastE
  */
 const methodDescriptor_InputControllerService_EventStream = new grpc.web.MethodDescriptor(
   '/proto.api.component.v1.InputControllerService/EventStream',
-  grpc.web.MethodType.UNARY,
+  grpc.web.MethodType.SERVER_STREAMING,
   proto.proto.api.component.v1.InputControllerServiceEventStreamRequest,
   proto.proto.api.component.v1.InputControllerServiceEventStreamResponse,
   /**
@@ -222,37 +222,32 @@ const methodDescriptor_InputControllerService_EventStream = new grpc.web.MethodD
 
 
 /**
- * @param {!proto.proto.api.component.v1.InputControllerServiceEventStreamRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
+ * @param {!proto.proto.api.component.v1.InputControllerServiceEventStreamRequest} request The request proto
+ * @param {?Object<string, string>=} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.InputControllerServiceEventStreamResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.InputControllerServiceEventStreamResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.InputControllerServiceEventStreamResponse>}
  *     The XHR Node Readable Stream
  */
 proto.proto.api.component.v1.InputControllerServiceClient.prototype.eventStream =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
+    function(request, metadata) {
+  return this.client_.serverStreaming(this.hostname_ +
       '/proto.api.component.v1.InputControllerService/EventStream',
       request,
       metadata || {},
-      methodDescriptor_InputControllerService_EventStream,
-      callback);
+      methodDescriptor_InputControllerService_EventStream);
 };
 
 
 /**
- * @param {!proto.proto.api.component.v1.InputControllerServiceEventStreamRequest} request The
- *     request proto
+ * @param {!proto.proto.api.component.v1.InputControllerServiceEventStreamRequest} request The request proto
  * @param {?Object<string, string>=} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.component.v1.InputControllerServiceEventStreamResponse>}
- *     Promise that resolves to the response
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.InputControllerServiceEventStreamResponse>}
+ *     The XHR Node Readable Stream
  */
 proto.proto.api.component.v1.InputControllerServicePromiseClient.prototype.eventStream =
     function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
+  return this.client_.serverStreaming(this.hostname_ +
       '/proto.api.component.v1.InputControllerService/EventStream',
       request,
       metadata || {},
