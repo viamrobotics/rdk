@@ -840,7 +840,7 @@ func TestPartsMergeModify(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
 		test.That(t, coretestutils.NewResourceNameSet(parts.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
 			armNames,
-            boardNames,
+			boardNames,
 			gripperNames,
 			cameraNames,
 			servoNames,
@@ -883,18 +883,19 @@ func TestPartsMergeModify(t *testing.T) {
 	replacementParts := newRobotParts(logger)
 	robotForRemote := &localRobot{parts: newRobotParts(logger), logger: logger}
 	// TODO(maximpertsov): is this test still valuable?
-	// _, err = fake.NewBoard(context.Background(), config.Component{
-	// 	Name: "board2",
-	// 	ConvertedAttributes: &board.Config{
-	// 		Analogs: []board.AnalogConfig{
-	// 			{Name: "analog2"},
-	// 		},
-	// 		DigitalInterrupts: []board.DigitalInterruptConfig{
-	// 			{Name: "digital2"},
-	// 		},
-	// 	},
-	// }, logger)
-	// test.That(t, err, test.ShouldBeNil)
+	_, err = fakeboard.NewBoard(context.Background(), config.Component{
+		Name: "board2",
+		ConvertedAttributes: &board.Config{
+			Analogs: []board.AnalogConfig{
+				{Name: "analog2"},
+			},
+			DigitalInterrupts: []board.DigitalInterruptConfig{
+				{Name: "digital2"},
+			},
+		},
+	}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
 	robotForRemote.parts.AddBase(&inject.Base{}, config.Component{Name: "base2_r1"})
 	robotForRemote.parts.AddSensor(&inject.Compass{}, config.Component{Name: "sensor2_r1"})
 	robotForRemote.parts.addFunction("func2_r1")
@@ -927,18 +928,19 @@ func TestPartsMergeModify(t *testing.T) {
 	replacementParts.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
 
 	// TODO(maximpertsov): is this test still valuable?
-	// _, err = fake.NewBoard(context.Background(), config.Component{
-	// 	Name: "board1",
-	// 	ConvertedAttributes: &board.Config{
-	// 		Analogs: []board.AnalogConfig{
-	// 			{Name: "analog2"},
-	// 		},
-	// 		DigitalInterrupts: []board.DigitalInterruptConfig{
-	// 			{Name: "digital2"},
-	// 		},
-	// 	},
-	// }, logger)
-	// test.That(t, err, test.ShouldBeNil)
+	_, err = fakeboard.NewBoard(context.Background(), config.Component{
+		Name: "board1",
+		ConvertedAttributes: &board.Config{
+			Analogs: []board.AnalogConfig{
+				{Name: "analog2"},
+			},
+			DigitalInterrupts: []board.DigitalInterruptConfig{
+				{Name: "digital2"},
+			},
+		},
+	}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
 	injectBase := &inject.Base{}
 	replacementParts.AddBase(injectBase, config.Component{Name: "base1"})
 	injectCompass := &inject.Compass{}
@@ -1015,7 +1017,7 @@ func TestPartsMergeRemove(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
 		test.That(t, coretestutils.NewResourceNameSet(toCheck.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
 			armNames,
-            boardNames,
+			boardNames,
 			gripperNames,
 			cameraNames,
 			servoNames,
@@ -1233,7 +1235,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, utils.NewStringSet(filtered.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func2"))
 	test.That(t, coretestutils.NewResourceNameSet(filtered.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
 		armNames,
-        boardNames,
+		boardNames,
 		gripperNames,
 		cameraNames,
 		servoNames,
