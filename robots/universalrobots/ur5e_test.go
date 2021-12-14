@@ -14,7 +14,6 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/kinematics"
 	"go.viam.com/core/motionplan"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
@@ -34,9 +33,9 @@ func TestUR5eForwardKinementsSVAvsDH(t *testing.T) {
 	for i := 0; i < numTests; i++ {
 		joints := frame.JointPositionsFromRadians(mSVA.GenerateRandomJointPositions(seed))
 
-		posSVA, err := kinematics.ComputePosition(mSVA, joints)
+		posSVA, err := motionplan.ComputePosition(mSVA, joints)
 		test.That(t, err, test.ShouldBeNil)
-		posDH, err := kinematics.ComputePosition(mDH, joints)
+		posDH, err := motionplan.ComputePosition(mDH, joints)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, posSVA.X, test.ShouldAlmostEqual, posDH.X, .01)
@@ -54,7 +53,7 @@ func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *com
 	m, err := frame.ParseJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
 
-	pos, err := kinematics.ComputePosition(m, frame.JointPositionsFromRadians(jointRadians))
+	pos, err := motionplan.ComputePosition(m, frame.JointPositionsFromRadians(jointRadians))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.X, test.ShouldAlmostEqual, correct.X, .01)
 	test.That(t, pos.Y, test.ShouldAlmostEqual, correct.Y, .01)
