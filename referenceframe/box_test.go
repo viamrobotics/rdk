@@ -112,5 +112,5 @@ func TestBoxVsBox(t *testing.T) {
 
 func makeBox(pose spatial.Pose, halfsize r3.Vector) *box {
 	b, _ := NewBox(halfsize).NewVolume(pose)
-	return b
+	return b.(*box)
 }

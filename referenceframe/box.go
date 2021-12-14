@@ -9,8 +9,8 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 )
 
-// boxCreator implements the VolumeCreator interface for box structs
-type boxCreator struct {
+// BoxCreator implements the VolumeCreator interface for box structs
+type BoxCreator struct {
 	halfSize r3.Vector
 	offset   r3.Vector
 }
@@ -21,20 +21,20 @@ type box struct {
 	halfSize r3.Vector
 }
 
-// NewBox instantiates a boxCreator class, which allows instantiating boxes given only a pose.
+// NewBox instantiates a BoxCreator class, which allows instantiating boxes given only a pose.
 // These boxes have dimensions given by the provided halfSize vector
-func NewBox(halfSize r3.Vector) *boxCreator {
-	return &boxCreator{halfSize, r3.Vector{}}
+func NewBox(halfSize r3.Vector) *BoxCreator {
+	return &BoxCreator{halfSize, r3.Vector{}}
 }
 
-// NewBoxFromOffset instantiates a boxCreator class, which allows instantiating boxes given only a pose which is applied
+// NewBoxFromOffset instantiates a BoxCreator class, which allows instantiating boxes given only a pose which is applied
 // at the specified offset from the pose. These boxes have dimensions given by the provided halfSize vector
-func NewBoxFromOffset(halfSize, offset r3.Vector) *boxCreator {
-	return &boxCreator{halfSize, offset}
+func NewBoxFromOffset(halfSize, offset r3.Vector) *BoxCreator {
+	return &BoxCreator{halfSize, offset}
 }
 
-// NewVolme instantiates a new box from a boxCreator class
-func (bc *boxCreator) NewVolume(pose spatial.Pose) (*box, error) {
+// NewVolume instantiates a new box from a BoxCreator class
+func (bc *BoxCreator) NewVolume(pose spatial.Pose) (Volume, error) {
 	fs := NewEmptySimpleFrameSystem("")
 	link, err := NewStaticFrame("", pose)
 	if err != nil {
