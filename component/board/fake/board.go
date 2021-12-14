@@ -50,6 +50,10 @@ func NewBoard(ctx context.Context, config config.Component, logger golog.Logger)
 		Digitals: map[string]board.DigitalInterrupt{},
 	}
 
+	for _, c := range boardConfig.I2Cs {
+		b.I2Cs[c.Name] = &I2C{}
+	}
+
 	for _, c := range boardConfig.SPIs {
 		b.SPIs[c.Name] = &SPI{}
 	}
