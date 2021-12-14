@@ -147,8 +147,6 @@ var (
 	_ = resource.Reconfigurable(&reconfigurableBoard{})
 )
 
-// IMPORTED FROM robot/impl/proxy.go
-
 type reconfigurableBoard struct {
 	mu       sync.RWMutex
 	actual   Board
