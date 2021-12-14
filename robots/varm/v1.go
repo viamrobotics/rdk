@@ -14,7 +14,6 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/kinematics"
 	"go.viam.com/core/motionplan"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	componentpb "go.viam.com/core/proto/api/component/v1"
@@ -229,7 +228,7 @@ func (a *armV1) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(a.mp.Frame(), joints)
+	return motionplan.ComputePosition(a.mp.Frame(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.

@@ -8,7 +8,6 @@ import (
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
-	"go.viam.com/core/kinematics"
 	"go.viam.com/core/motionplan"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	pb "go.viam.com/core/proto/api/component/v1"
@@ -80,7 +79,7 @@ func (a *ArmIK) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kinematics.ComputePosition(a.mp.Frame(), joints)
+	return motionplan.ComputePosition(a.mp.Frame(), joints)
 }
 
 // MoveToPosition sets the position.

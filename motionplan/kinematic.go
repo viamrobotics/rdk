@@ -1,6 +1,4 @@
-// Package kinematics implements various kinematics methods for use with
-// robotic parts needing to describe motion.
-package kinematics
+package motionplan
 
 import (
 	"math"

@@ -9,7 +9,6 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/kinematics"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
@@ -19,8 +18,8 @@ import (
 // PlannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem
 type PlannerOptions struct {
 	constraintHandler
-	metric   kinematics.Metric
-	pathDist kinematics.Metric
+	metric   Metric
+	pathDist Metric
 	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
 	// Max number of ik solutions to consider
 	maxSolutions int
@@ -32,18 +31,18 @@ type PlannerOptions struct {
 func NewDefaultPlannerOptions() *PlannerOptions {
 	opt := &PlannerOptions{}
 	opt.AddConstraint(jointConstraint, NewJointConstraint(math.Inf(1)))
-	opt.metric = kinematics.NewSquaredNormMetric()
-	opt.pathDist = kinematics.NewSquaredNormMetric()
+	opt.metric = NewSquaredNormMetric()
+	opt.pathDist = NewSquaredNormMetric()
 	return opt
 }
 
 // SetMetric sets the distance metric for the solver
-func (p *PlannerOptions) SetMetric(m kinematics.Metric) {
+func (p *PlannerOptions) SetMetric(m Metric) {
 	p.metric = m
 }
 
 // SetPathDist sets the distance metric for the solver to move a constraint-violating point into a valid manifold
-func (p *PlannerOptions) SetPathDist(m kinematics.Metric) {
+func (p *PlannerOptions) SetPathDist(m Metric) {
 	p.pathDist = m
 }
 
@@ -72,7 +71,7 @@ type MotionPlanner interface {
 // Assuming a direct motion is possible, it should find a valid path. It cannot navigate around obstacles.
 // Probably cBiRRT should be used instead- it should give nearly as good results
 func NewLinearMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (MotionPlanner, error) {
-	ik, err := kinematics.CreateCombinedIKSolver(frame, logger, nCPU)
+	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +85,7 @@ func NewLinearMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (M
 // A straightforward motion planner that will path a straight line from start to end
 type linearMotionPlanner struct {
 	constraintHandler
-	solver             kinematics.InverseKinematics
+	solver             InverseKinematics
 	frame              frame.Frame
 	logger             golog.Logger
 	idealMovementScore float64
@@ -235,7 +234,7 @@ func fixOvIncrement(pos, seed *commonpb.Pose) *commonpb.Pose {
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
-func getSolutions(ctx context.Context, opt *PlannerOptions, solver kinematics.InverseKinematics, goal *commonpb.Pose, seed []frame.Input, mp MotionPlanner) (map[float64][]frame.Input, error) {
+func getSolutions(ctx context.Context, opt *PlannerOptions, solver InverseKinematics, goal *commonpb.Pose, seed []frame.Input, mp MotionPlanner) (map[float64][]frame.Input, error) {
 
 	seedPos, err := mp.Frame().Transform(seed)
 	if err != nil {
