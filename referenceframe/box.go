@@ -14,15 +14,8 @@ type boxCreator struct {
 }
 
 type box struct {
-	position r3.Vector
-	axes     axes
+	pose     spatial.Pose
 	halfSize r3.Vector
-}
-
-type axes struct {
-	x r3.Vector
-	y r3.Vector
-	z r3.Vector
 }
 
 func NewBox(halfSize r3.Vector) *boxCreator {
@@ -46,13 +39,8 @@ func (bc *boxCreator) NewVolume(pose spatial.Pose) (*box, error) {
 		return nil, err
 	}
 
-	rm := pose.Orientation().RotationMatrix()
-
 	b := &box{}
-	b.position = center
-	b.axes.x = rm.Row(0)
-	b.axes.y = rm.Row(1)
-	b.axes.z = rm.Row(2)
+	b.pose = spatial.NewPoseFromOrientation(center, pose.Orientation())
 	b.halfSize = bc.halfSize
 	return b, nil
 }
@@ -67,31 +55,35 @@ func (b box) CollidesWith(v Volume) (bool, error) {
 // boxVsBox takes two Boxes as arguments and returns a bool describing if they are in collision
 // reference: https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
 func boxVsBox(a, b *box) bool {
-	positionDelta := a.position.Sub(b.position)
-	return !(separatingPlaneTest(positionDelta, a.axes.x, a, b) ||
-		separatingPlaneTest(positionDelta, a.axes.y, a, b) ||
-		separatingPlaneTest(positionDelta, a.axes.z, a, b) ||
-		separatingPlaneTest(positionDelta, b.axes.x, a, b) ||
-		separatingPlaneTest(positionDelta, b.axes.y, a, b) ||
-		separatingPlaneTest(positionDelta, b.axes.z, a, b) ||
-		separatingPlaneTest(positionDelta, a.axes.x.Cross(b.axes.x), a, b) ||
-		separatingPlaneTest(positionDelta, a.axes.x.Cross(b.axes.y), a, b) ||
-		separatingPlaneTest(positionDelta, a.axes.x.Cross(b.axes.z), a, b) ||
-		separatingPlaneTest(positionDelta, a.axes.y.Cross(b.axes.x), a, b) ||
-		separatingPlaneTest(positionDelta, a.axes.y.Cross(b.axes.y), a, b) ||
-		separatingPlaneTest(positionDelta, a.axes.y.Cross(b.axes.z), a, b) ||
-		separatingPlaneTest(positionDelta, a.axes.z.Cross(b.axes.x), a, b) ||
-		separatingPlaneTest(positionDelta, a.axes.z.Cross(b.axes.y), a, b) ||
-		separatingPlaneTest(positionDelta, a.axes.z.Cross(b.axes.z), a, b))
+	positionDelta := spatial.PoseDelta(a.pose, b.pose).Point()
+	rmA := a.pose.Orientation().RotationMatrix()
+	rmB := b.pose.Orientation().RotationMatrix()
+	return !(separatingPlaneTest(positionDelta, rmA.Row(0), a, b) ||
+		separatingPlaneTest(positionDelta, rmA.Row(1), a, b) ||
+		separatingPlaneTest(positionDelta, rmA.Row(2), a, b) ||
+		separatingPlaneTest(positionDelta, rmB.Row(0), a, b) ||
+		separatingPlaneTest(positionDelta, rmB.Row(1), a, b) ||
+		separatingPlaneTest(positionDelta, rmB.Row(2), a, b) ||
+		separatingPlaneTest(positionDelta, rmA.Row(0).Cross(rmB.Row(0)), a, b) ||
+		separatingPlaneTest(positionDelta, rmA.Row(0).Cross(rmB.Row(1)), a, b) ||
+		separatingPlaneTest(positionDelta, rmA.Row(0).Cross(rmB.Row(2)), a, b) ||
+		separatingPlaneTest(positionDelta, rmA.Row(1).Cross(rmB.Row(0)), a, b) ||
+		separatingPlaneTest(positionDelta, rmA.Row(1).Cross(rmB.Row(1)), a, b) ||
+		separatingPlaneTest(positionDelta, rmA.Row(1).Cross(rmB.Row(2)), a, b) ||
+		separatingPlaneTest(positionDelta, rmA.Row(2).Cross(rmB.Row(0)), a, b) ||
+		separatingPlaneTest(positionDelta, rmA.Row(2).Cross(rmB.Row(1)), a, b) ||
+		separatingPlaneTest(positionDelta, rmA.Row(2).Cross(rmB.Row(2)), a, b))
 }
 
 // Helper function to check if there is a separating plane in between the selected axes
 // reference: https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
 func separatingPlaneTest(positionDelta, plane r3.Vector, a, b *box) bool {
-	return math.Abs(positionDelta.Dot(plane)) > (math.Abs(a.axes.x.Mul(a.halfSize.X).Dot(plane)) +
-		math.Abs(a.axes.y.Mul(a.halfSize.Y).Dot(plane)) +
-		math.Abs(a.axes.z.Mul(a.halfSize.Z).Dot(plane)) +
-		math.Abs(b.axes.x.Mul(b.halfSize.X).Dot(plane)) +
-		math.Abs(b.axes.y.Mul(b.halfSize.Y).Dot(plane)) +
-		math.Abs(b.axes.z.Mul(b.halfSize.Z).Dot(plane)))
+	rmA := a.pose.Orientation().RotationMatrix()
+	rmB := b.pose.Orientation().RotationMatrix()
+	return math.Abs(positionDelta.Dot(plane)) > (math.Abs(rmA.Row(0).Mul(a.halfSize.X).Dot(plane)) +
+		math.Abs(rmA.Row(1).Mul(a.halfSize.Y).Dot(plane)) +
+		math.Abs(rmA.Row(2).Mul(a.halfSize.Z).Dot(plane)) +
+		math.Abs(rmB.Row(0).Mul(b.halfSize.X).Dot(plane)) +
+		math.Abs(rmB.Row(1).Mul(b.halfSize.Y).Dot(plane)) +
+		math.Abs(rmB.Row(2).Mul(b.halfSize.Z).Dot(plane)))
 }
