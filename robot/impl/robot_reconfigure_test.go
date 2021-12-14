@@ -78,7 +78,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, coretestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 			coretestutils.ConcatResourceNames(
 				armNames,
-                boardNames,
+				boardNames,
 				mockNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
@@ -96,7 +96,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, coretestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 			coretestutils.ConcatResourceNames(
 				armNames,
-                boardNames,
+				boardNames,
 				mockNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
@@ -182,7 +182,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, coretestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 			coretestutils.ConcatResourceNames(
 				armNames,
-                boardNames,
+				boardNames,
 				mockNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
@@ -245,7 +245,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, coretestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 			coretestutils.ConcatResourceNames(
 				armNames,
-                boardNames,
+				boardNames,
 				mockNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
@@ -264,7 +264,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, coretestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 			coretestutils.ConcatResourceNames(
 				armNames,
-                boardNames,
+				boardNames,
 				mockNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
@@ -332,7 +332,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, coretestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 			coretestutils.ConcatResourceNames(
 				armNames,
-                boardNames,
+				boardNames,
 				mockNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
@@ -408,7 +408,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, coretestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 			coretestutils.ConcatResourceNames(
 				armNames,
-                boardNames,
+				boardNames,
 				mockNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
@@ -460,7 +460,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, coretestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 			coretestutils.ConcatResourceNames(
 				armNames,
-                boardNames,
+				boardNames,
 				mockNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
@@ -525,7 +525,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, coretestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 			coretestutils.ConcatResourceNames(
 				armNames,
-                boardNames,
+				boardNames,
 				mockNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
@@ -571,7 +571,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, coretestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 			coretestutils.ConcatResourceNames(
 				armNames,
-                boardNames,
+				boardNames,
 				mockNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "3"))
@@ -642,7 +642,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, coretestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 			coretestutils.ConcatResourceNames(
 				armNames,
-                boardNames,
+				boardNames,
 				mockNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
@@ -686,7 +686,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, coretestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 			coretestutils.ConcatResourceNames(
 				armNames,
-                boardNames,
+				boardNames,
 				mockNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
