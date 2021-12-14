@@ -17,7 +17,6 @@ import (
 //    David Douglas & Thomas Peucker, "Algorithms for the reduction of the number of points required to represent a
 //   digitized line or its caricature", The Canadian Cartographer 10(2), 112–122 (1973)
 
-
 // ContourNode is a structure storing data from each contour to form a tree
 type ContourNode struct {
 	Parent      int
@@ -149,7 +148,7 @@ func followBorder(img *mat.Dense, row, col int, p2 PointMat, nbp Border) []image
 		Col: 0,
 	}
 	p2.SetTo(p1)
-	checked := make([]bool, 8)  // we proceed in 8-connectivity
+	checked := make([]bool, 8) // we proceed in 8-connectivity
 	for {
 		current.SetTo(p2)
 		for ok := true; ok; ok = isPointOutOfBounds(&current, nRows, nCols) || img.At(current.Row, current.Col) == 0. {
