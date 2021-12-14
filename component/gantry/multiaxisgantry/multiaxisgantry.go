@@ -220,7 +220,7 @@ func (g *multiAxis) homeOneLimSwitch(ctx context.Context, motorID int, limitID [
 
 // Not supported.
 func (g *multiAxis) homeEncoder(ctx context.Context, motorID int) error {
-	return fmt.Errorf("encoder currently not supported")
+	return errors.New("encoder currently not supported")
 }
 
 func (g *multiAxis) testLimit(ctx context.Context, motorID int, limitID []int, zero bool) (float64, error) {
