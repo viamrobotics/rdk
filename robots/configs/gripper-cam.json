@@ -19,7 +19,7 @@
         },
         { "name" : "depth-pretty-awkward",
           "type" : "camera",
-          "model" : "depthToPretty",
+          "model" : "depth_to_pretty",
           "attributes" : {
               "source" : "depth",
               "hide" : true
@@ -36,14 +36,14 @@
         },
         { "name" : "combined",
           "type" : "camera",
-          "model" : "depthComposed",
+          "model" : "depth_composed",
           "attributes" : {
               "debug" : false,
               "color" : "color",
               "depth" : "depth",
               "homography": {
                   "color": {
-                    "height": 786,
+                    "height": 768,
                     "width": 1024,
                     "fx": 821.32642889,
                     "fy": 821.68607359,
@@ -75,7 +75,7 @@
         },
         { "name" : "depth-after-align",
           "type" : "camera",
-          "model" : "depthToPretty",
+          "model" : "depth_to_pretty",
           "attributes" : {
               "source" : "combined",
               "hide" : true

@@ -50,19 +50,6 @@
         },
         {
           "model": "fake",
-          "name": "lidar1",
-          "type": "lidar",
-          "frame" : {
-              "parent": "cameraOver",
-              "translation": {
-                  "x" : 0,
-                  "y" : 0,
-                  "z" : 200
-              }
-          }
-        },
-        {
-          "model": "fake",
           "name": "compass1",
           "type": "sensor",
           "subtype": "compass"

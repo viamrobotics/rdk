@@ -46,7 +46,7 @@ func TestGripperName(t *testing.T) {
 	}
 }
 
-func TestWrapWtihReconfigurable(t *testing.T) {
+func TestWrapWithReconfigurable(t *testing.T) {
 	var actualGripper1 Gripper = &mock{Name: "gripper1"}
 	fakeGripper1, err := WrapWithReconfigurable(actualGripper1)
 	test.That(t, err, test.ShouldBeNil)
