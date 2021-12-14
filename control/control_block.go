@@ -16,10 +16,12 @@ const (
 	blockFilter                      controlBlockType = "Filter"
 	blockTrapezoidaleVelocityProfile controlBlockType = "TrapezoidalVelocityProfile"
 	blockPID                         controlBlockType = "PID"
+	blockTunePID                     controlBlockType = "TunePID"
 	blockGain                        controlBlockType = "Gain"
 	blockDerivative                  controlBlockType = "Derivative"
 	blockSum                         controlBlockType = "Sum"
 	blockConstant                    controlBlockType = "Constant"
+	blockEncoderToRPM                controlBlockType = "EncoderToRpm"
 )
 
 //ControlBlockConfig configuration of a given block
@@ -96,6 +98,13 @@ func createControlBlock(ctx context.Context, cfg ControlBlockConfig) (ControlBlo
 			return nil, err
 		}
 		return &b, nil
+	case blockTunePID:
+		var b tunePID
+		err := b.Configure(ctx, cfg)
+		if err != nil {
+			return nil, err
+		}
+		return &b, nil
 	case blockFilter:
 		var b filterStruct
 		err := b.Configure(ctx, cfg)
@@ -105,6 +114,13 @@ func createControlBlock(ctx context.Context, cfg ControlBlockConfig) (ControlBlo
 		return &b, nil
 	case blockConstant:
 		var b constant
+		err := b.Configure(ctx, cfg)
+		if err != nil {
+			return nil, err
+		}
+		return &b, nil
+	case blockEncoderToRPM:
+		var b encoderToRPM
 		err := b.Configure(ctx, cfg)
 		if err != nil {
 			return nil, err
