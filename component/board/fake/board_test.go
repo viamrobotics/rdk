@@ -13,6 +13,7 @@ import (
 
 func TestFakeBoard(t *testing.T) {
 	boardConfig := board.Config{
+		// TODO(maximpertsov): add test for adding other subcomponents
 		Analogs: []board.AnalogConfig{{Name: "blue", Pin: "0"}},
 		DigitalInterrupts: []board.DigitalInterruptConfig{
 			{Name: "i1", Pin: "35"},
