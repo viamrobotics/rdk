@@ -382,7 +382,44 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := board.(*reconfigurableBoard); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableBoard{actual: board}, nil
+	rb := reconfigurableBoard{
+		actual:   board,
+		spis:     map[string]*reconfigurableBoardSPI{},
+		i2cs:     map[string]*reconfigurableBoardI2C{},
+		analogs:  map[string]*reconfigurableBoardAnalogReader{},
+		digitals: map[string]*reconfigurableBoardDigitalInterrupt{},
+	}
+
+	for _, name := range rb.actual.SPINames() {
+		actualPart, ok := rb.actual.SPIByName(name)
+		if !ok {
+			continue
+		}
+		rb.spis[name] = &reconfigurableBoardSPI{actual: actualPart}
+	}
+	for _, name := range rb.actual.I2CNames() {
+		actualPart, ok := rb.actual.I2CByName(name)
+		if !ok {
+			continue
+		}
+		rb.i2cs[name] = &reconfigurableBoardI2C{actual: actualPart}
+	}
+	for _, name := range rb.actual.AnalogReaderNames() {
+		actualPart, ok := rb.actual.AnalogReaderByName(name)
+		if !ok {
+			continue
+		}
+		rb.analogs[name] = &reconfigurableBoardAnalogReader{actual: actualPart}
+	}
+	for _, name := range rb.actual.DigitalInterruptNames() {
+		actualPart, ok := rb.actual.DigitalInterruptByName(name)
+		if !ok {
+			continue
+		}
+		rb.digitals[name] = &reconfigurableBoardDigitalInterrupt{actual: actualPart}
+	}
+
+	return &rb, nil
 }
 
 type reconfigurableBoardSPI struct {
