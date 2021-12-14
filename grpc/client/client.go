@@ -57,15 +57,13 @@ type RobotClient struct {
 	client         pb.RobotServiceClient
 	metadataClient *metadataclient.MetadataServiceClient
 
-	namesMu              *sync.RWMutex
-	baseNames            []string
-	boardNames           []boardInfo
-	sensorNames          []string
-	motorNames           []string
-	inputControllerNames []string
-	functionNames        []string
-	serviceNames         []string
-	resourceNames        []resource.Name
+	namesMu       *sync.RWMutex
+	baseNames     []string
+	boardNames    []boardInfo
+	sensorNames   []string
+	functionNames []string
+	serviceNames  []string
+	resourceNames []resource.Name
 
 	sensorTypes map[string]sensor.Type
 
