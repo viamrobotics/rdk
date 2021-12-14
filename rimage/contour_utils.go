@@ -20,16 +20,16 @@ import (
 // NPixelNeighbors stores the number of neighbors for each pixel (should be 4 or 8)
 var NPixelNeighbors = 8
 
-// Node is a structure storing data from each contour to form a tree
-type Node struct {
+// ContourNode is a structure storing data from each contour to form a tree
+type ContourNode struct {
 	Parent      int
 	FirstChild  int
 	NextSibling int
 	Border      Border
 }
 
-// reset resets a Node to default values
-func (n *Node) reset() {
+// reset resets a ContourNode to default values
+func (n *ContourNode) reset() {
 	n.Parent = -1
 	n.FirstChild = -1
 	n.NextSibling = -1
@@ -176,8 +176,8 @@ func followBorder(img *mat.Dense, row, col int, p2 PointMat, nbp Border) []image
 }
 
 // FindContours implements the contour hierarchy finding from Suzuki et al.
-func FindContours(img *mat.Dense) ([][]image.Point, []Node) {
-	hierarchy := make([]Node, 0)
+func FindContours(img *mat.Dense) ([][]image.Point, []ContourNode) {
+	hierarchy := make([]ContourNode, 0)
 	nRows, nCols := img.Dims()
 	nbd := CreateHoleBorder()
 	nbd.segNum = 1
@@ -186,7 +186,7 @@ func FindContours(img *mat.Dense) ([][]image.Point, []Node) {
 	for i := range contours {
 		contours[i] = make([]image.Point, 0)
 	}
-	tmpNode := Node{
+	tmpNode := ContourNode{
 		Parent:      -1,
 		FirstChild:  -1,
 		NextSibling: -1,

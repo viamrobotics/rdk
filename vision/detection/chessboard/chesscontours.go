@@ -148,7 +148,7 @@ func getContourBoundingBoxArea(contour []r2.Point) float64 {
 }
 
 // PruneContours keeps contours that correspond to a chessboard square
-func PruneContours(contours []rimage.ContourFloat, hierarchy []rimage.Node, saddleScoreMap *mat.Dense, winSize, minContourArea int, eps float64) []rimage.ContourFloat {
+func PruneContours(contours []rimage.ContourFloat, hierarchy []rimage.ContourNode, saddleScoreMap *mat.Dense, winSize, minContourArea int, eps float64) []rimage.ContourFloat {
 	newContours := make([]rimage.ContourFloat, 0)
 	for i, c := range contours {
 		cSorted := rimage.SortPointCounterClockwise(c)
