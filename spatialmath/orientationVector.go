@@ -76,6 +76,17 @@ func (ov *OrientationVector) ToQuat() quat.Number {
 }
 
 // Normalize scales the x, y, and z components of an Orientation Vector to be on the unit sphere
+func (ov *OrientationVectorDegrees) Normalize() {
+	norm := math.Sqrt(ov.OX*ov.OX + ov.OY*ov.OY + ov.OZ*ov.OZ)
+	if norm == 0.0 { // avoid division by zero
+		panic("orientation vec has length of 0")
+	}
+	ov.OX /= norm
+	ov.OY /= norm
+	ov.OZ /= norm
+}
+
+// Normalize scales the x, y, and z components of an Orientation Vector to be on the unit sphere
 func (ov *OrientationVector) Normalize() {
 	norm := math.Sqrt(ov.OX*ov.OX + ov.OY*ov.OY + ov.OZ*ov.OZ)
 	if norm == 0.0 { // avoid division by zero
