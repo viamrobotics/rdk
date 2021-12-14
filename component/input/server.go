@@ -2,243 +2,164 @@
 package input
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"image"
-	"image/draw"
-	"image/jpeg"
-	"image/png"
 
 	"github.com/pkg/errors"
-	"google.golang.org/genproto/googleapis/api/httpbody"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/core/grpc"
-	"go.viam.com/core/pointcloud"
-	commonpb "go.viam.com/core/proto/api/common/v1"
 	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/rimage"
 	"go.viam.com/core/subtype"
-	"go.viam.com/core/vision/segmentation"
 )
 
-// subtypeServer implements the contract from input.proto
+// subtypeServer implements the contract from proto
 type subtypeServer struct {
-	pb.UnimplementedCameraServiceServer
+	pb.UnimplementedInputControllerServiceServer
 	s subtype.Service
 }
 
 // NewServer constructs an input controller gRPC service server.
-func NewServer(s subtype.Service) pb.CameraServiceServer {
+func NewServer(s subtype.Service) pb.InputControllerServiceServer {
 	return &subtypeServer{s: s}
 }
 
-// getCamera returns the camera specified, nil if not.
-func (s *subtypeServer) getCamera(name string) (Camera, error) {
+// getInputController returns the input controller specified, nil if not.
+func (s *subtypeServer) getInputController(name string) (Controller, error) {
 	resource := s.s.Resource(name)
 	if resource == nil {
-		return nil, errors.Errorf("no camera with name (%s)", name)
+		return nil, errors.Errorf("no input controller with name (%s)", name)
 	}
-	camera, ok := resource.(Camera)
+	input, ok := resource.(Controller)
 	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a camera", name)
+		return nil, errors.Errorf("resource with name (%s) is not an input controller", name)
 	}
-	return camera, nil
+	return input, nil
 }
 
-// Frame returns a frame from a camera of the underlying robot. A specific MIME type
-// can be requested but may not necessarily be the same one returned.
-func (s *subtypeServer) Frame(ctx context.Context, req *pb.CameraServiceFrameRequest) (*pb.CameraServiceFrameResponse, error) {
-	camera, err := s.getCamera(req.Name)
+// Controls lists the inputs of an Controller
+func (s *subtypeServer) Controls(ctx context.Context, req *pb.InputControllerServiceControlsRequest) (*pb.InputControllerServiceControlsResponse, error) {
+	controller, err := s.getInputController(req.Controller)
 	if err != nil {
 		return nil, err
 	}
 
-	img, release, err := camera.Next(ctx)
+	controlList, err := controller.Controls(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if release != nil {
-			release()
-		}
-	}()
 
-	// choose the best/fastest representation
-	if req.MimeType == grpc.MimeTypeViamBest {
-		iwd, ok := img.(*rimage.ImageWithDepth)
-		if ok && iwd.Depth != nil && iwd.Color != nil {
-			req.MimeType = grpc.MimeTypeRawIWD
-		} else {
-			req.MimeType = grpc.MimeTypeRawRGBA
-		}
+	resp := &pb.InputControllerServiceControlsResponse{}
+
+	for _, control := range controlList {
+		resp.Controls = append(resp.Controls, string(control))
 	}
 
-	bounds := img.Bounds()
-	resp := pb.CameraServiceFrameResponse{
-		MimeType: req.MimeType,
-		DimX:     int64(bounds.Dx()),
-		DimY:     int64(bounds.Dy()),
-	}
-
-	var buf bytes.Buffer
-	switch req.MimeType {
-	case grpc.MimeTypeRawRGBA:
-		resp.MimeType = grpc.MimeTypeRawRGBA
-		imgCopy := image.NewRGBA(bounds)
-		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
-		buf.Write(imgCopy.Pix)
-	case grpc.MimeTypeRawIWD:
-		resp.MimeType = grpc.MimeTypeRawIWD
-		iwd, ok := img.(*rimage.ImageWithDepth)
-		if !ok {
-			return nil, errors.Errorf("want %s but don't have %T", grpc.MimeTypeRawIWD, iwd)
-		}
-		err := iwd.RawBytesWrite(&buf)
-		if err != nil {
-			return nil, fmt.Errorf("error writing %s: %w", grpc.MimeTypeRawIWD, err)
-		}
-
-	case grpc.MimeTypeBoth:
-		resp.MimeType = grpc.MimeTypeBoth
-		iwd, ok := img.(*rimage.ImageWithDepth)
-		if !ok {
-			return nil, errors.Errorf("want %s but don't have %T", grpc.MimeTypeBoth, iwd)
-		}
-		if iwd.Color == nil || iwd.Depth == nil {
-			return nil, errors.Errorf("for %s need depth and color info", grpc.MimeTypeBoth)
-		}
-		if err := rimage.EncodeBoth(iwd, &buf); err != nil {
-			return nil, err
-		}
-	case grpc.MimeTypeJPEG:
-		resp.MimeType = grpc.MimeTypeJPEG
-		if err := jpeg.Encode(&buf, img, nil); err != nil {
-			return nil, err
-		}
-	case "", grpc.MimeTypePNG:
-		resp.MimeType = grpc.MimeTypePNG
-		if err := png.Encode(&buf, img); err != nil {
-			return nil, err
-		}
-	default:
-		return nil, errors.Errorf("do not know how to encode %q", req.MimeType)
-	}
-	resp.Frame = buf.Bytes()
-	return &resp, nil
+	return resp, nil
 }
 
-// RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
-// can be requested but may not necessarily be the same one returned.
-func (s *subtypeServer) RenderFrame(ctx context.Context, req *pb.CameraServiceRenderFrameRequest) (*httpbody.HttpBody, error) {
-	resp, err := s.Frame(ctx, (*pb.CameraServiceFrameRequest)(req))
+// LastEvents returns the last Event (current state) of each control
+func (s *subtypeServer) LastEvents(ctx context.Context, req *pb.InputControllerServiceLastEventsRequest) (*pb.InputControllerServiceLastEventsResponse, error) {
+	controller, err := s.getInputController(req.Controller)
 	if err != nil {
 		return nil, err
 	}
 
-	return &httpbody.HttpBody{
-		ContentType: resp.MimeType,
-		Data:        resp.Frame,
-	}, nil
+	eventsIn, err := controller.LastEvents(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &pb.InputControllerServiceLastEventsResponse{}
+
+	for _, eventIn := range eventsIn {
+		resp.Events = append(resp.Events, &pb.InputControllerServiceEvent{
+			Time:    timestamppb.New(eventIn.Time),
+			Event:   string(eventIn.Event),
+			Control: string(eventIn.Control),
+			Value:   eventIn.Value,
+		})
+	}
+
+	return resp, nil
 }
 
-// PointCloud returns a frame from a camera of the underlying robot. A specific MIME type
-// can be requested but may not necessarily be the same one returned.
-func (s *subtypeServer) PointCloud(ctx context.Context, req *pb.CameraServicePointCloudRequest) (*pb.CameraServicePointCloudResponse, error) {
-	camera, err := s.getCamera(req.Name)
+// InjectEvent allows directly sending an Event (such as a button press) from external code
+func (s *subtypeServer) InjectEvent(ctx context.Context, req *pb.InputControllerServiceInjectEventRequest) (*pb.InputControllerServiceInjectEventResponse, error) {
+	controller, err := s.getInputController(req.Controller)
+	if err != nil {
+		return nil, err
+	}
+	injectController, ok := controller.(Injectable)
+	if !ok {
+		return nil, errors.Errorf("input controller is not of type Injectable (%s)", req.Controller)
+	}
+
+	err = injectController.InjectEvent(ctx, Event{
+		Time:    req.Event.Time.AsTime(),
+		Event:   EventType(req.Event.Event),
+		Control: Control(req.Event.Control),
+		Value:   req.Event.Value,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	pc, err := camera.NextPointCloud(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	var buf bytes.Buffer
-	err = pc.ToPCD(&buf)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.CameraServicePointCloudResponse{
-		MimeType: grpc.MimeTypePCD,
-		Frame:    buf.Bytes(),
-	}, nil
+	return &pb.InputControllerServiceInjectEventResponse{}, nil
 }
 
-// ObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
-// can be requested but may not necessarily be the same one returned. Also returns a Vector3 array of the center points of each object.
-func (s *subtypeServer) ObjectPointClouds(ctx context.Context, req *pb.CameraServiceObjectPointCloudsRequest) (*pb.CameraServiceObjectPointCloudsResponse, error) {
-	camera, err := s.getCamera(req.Name)
+// EventStream returns a stream of Event
+func (s *subtypeServer) EventStream(req *pb.InputControllerServiceEventStreamRequest, server pb.InputControllerService_EventStreamServer) error {
+	controller, err := s.getInputController(req.Controller)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	eventsChan := make(chan *pb.InputControllerServiceEvent, 1024)
 
-	pc, err := camera.NextPointCloud(ctx)
-	if err != nil {
-		return nil, err
-	}
-	config := segmentation.ObjectConfig{
-		MinPtsInPlane:    int(req.MinPointsInPlane),
-		MinPtsInSegment:  int(req.MinPointsInSegment),
-		ClusteringRadius: req.ClusteringRadius,
-	}
-	segments, err := segmentation.NewObjectSegmentation(ctx, pc, config)
-	if err != nil {
-		return nil, err
-	}
-
-	frames := make([][]byte, segments.N())
-	centers := make([]pointcloud.Vec3, segments.N())
-	boundingBoxes := make([]pointcloud.BoxGeometry, segments.N())
-	for i, seg := range segments.Objects {
-		var buf bytes.Buffer
-		err := seg.ToPCD(&buf)
-		if err != nil {
-			return nil, err
+	ctrlFunc := func(ctx context.Context, eventIn Event) {
+		resp := &pb.InputControllerServiceEvent{
+			Time:    timestamppb.New(eventIn.Time),
+			Event:   string(eventIn.Event),
+			Control: string(eventIn.Control),
+			Value:   eventIn.Value,
 		}
-		frames[i] = buf.Bytes()
-		centers[i] = seg.Center
-		boundingBoxes[i] = seg.BoundingBox
+		select {
+		case eventsChan <- resp:
+		case <-ctx.Done():
+		}
 	}
 
-	return &pb.CameraServiceObjectPointCloudsResponse{
-		MimeType:      grpc.MimeTypePCD,
-		Frames:        frames,
-		Centers:       pointsToProto(centers),
-		BoundingBoxes: boxesToProto(boundingBoxes),
-	}, nil
-}
+	for _, ev := range req.Events {
+		var triggers []EventType
+		for _, v := range ev.Events {
+			triggers = append(triggers, EventType(v))
+		}
+		if len(triggers) > 0 {
+			err := controller.RegisterControlCallback(server.Context(), Control(ev.Control), triggers, ctrlFunc)
+			if err != nil {
+				return err
+			}
+		}
 
-func pointToProto(p pointcloud.Vec3) *commonpb.Vector3 {
-	return &commonpb.Vector3{
-		X: p.X,
-		Y: p.Y,
-		Z: p.Z,
+		var cancelledTriggers []EventType
+		for _, v := range ev.CancelledEvents {
+			cancelledTriggers = append(cancelledTriggers, EventType(v))
+		}
+		if len(cancelledTriggers) > 0 {
+			err := controller.RegisterControlCallback(server.Context(), Control(ev.Control), cancelledTriggers, nil)
+			if err != nil {
+				return err
+			}
+		}
 	}
-}
 
-func pointsToProto(vs []pointcloud.Vec3) []*commonpb.Vector3 {
-	pvs := make([]*commonpb.Vector3, 0, len(vs))
-	for _, v := range vs {
-		pvs = append(pvs, pointToProto(v))
+	for {
+		select {
+		case <-server.Context().Done():
+			return server.Context().Err()
+		case msg := <-eventsChan:
+			err := server.Send(&pb.InputControllerServiceEventStreamResponse{Event: msg})
+			if err != nil {
+				return err
+			}
+		}
 	}
-	return pvs
-}
-
-func boxToProto(b pointcloud.BoxGeometry) *commonpb.BoxGeometry {
-	return &commonpb.BoxGeometry{
-		Width:  b.Width,
-		Length: b.Length,
-		Depth:  b.Depth,
-	}
-}
-
-func boxesToProto(bs []pointcloud.BoxGeometry) []*commonpb.BoxGeometry {
-	pbs := make([]*commonpb.BoxGeometry, 0, len(bs))
-	for _, v := range bs {
-		pbs = append(pbs, boxToProto(v))
-	}
-	return pbs
 }
