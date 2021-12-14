@@ -5,27 +5,35 @@ import (
 
 	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
+
 	spatial "go.viam.com/core/spatialmath"
 )
 
+// boxCreator implements the VolumeCreator interface for box structs
 type boxCreator struct {
 	halfSize r3.Vector
 	offset   r3.Vector
 }
 
+// box is a collision geometry that represents a 3D rectangular prism, it has a pose and half size that fully define it
 type box struct {
 	pose     spatial.Pose
 	halfSize r3.Vector
 }
 
+// NewBox instantiates a boxCreator class, which allows instantiating boxes given only a pose.
+// These boxes have dimensions given by the provided halfSize vector
 func NewBox(halfSize r3.Vector) *boxCreator {
 	return &boxCreator{halfSize, r3.Vector{}}
 }
 
+// NewBoxFromOffset instantiates a boxCreator class, which allows instantiating boxes given only a pose which is applied
+// at the specified offset from the pose. These boxes have dimensions given by the provided halfSize vector
 func NewBoxFromOffset(halfSize, offset r3.Vector) *boxCreator {
 	return &boxCreator{halfSize, offset}
 }
 
+// NewVolme instantiates a new box from a boxCreator class
 func (bc *boxCreator) NewVolume(pose spatial.Pose) (*box, error) {
 	fs := NewEmptySimpleFrameSystem("")
 	link, err := NewStaticFrame("", pose)
@@ -33,7 +41,11 @@ func (bc *boxCreator) NewVolume(pose spatial.Pose) (*box, error) {
 		return nil, err
 	}
 
-	fs.AddFrame(link, fs.World())
+	err = fs.AddFrame(link, fs.World())
+	if err != nil {
+		return nil, err
+	}
+
 	center, err := fs.TransformPoint(nil, bc.offset, link, fs.World())
 	if err != nil {
 		return nil, err
@@ -45,6 +57,7 @@ func (bc *boxCreator) NewVolume(pose spatial.Pose) (*box, error) {
 	return b, nil
 }
 
+// CollidesWith checks if the given box collides with the given volume and returns true if it does
 func (b box) CollidesWith(v Volume) (bool, error) {
 	if other, ok := v.(box); ok {
 		return boxVsBox(&b, &other), nil
