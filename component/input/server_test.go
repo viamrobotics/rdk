@@ -1,229 +1,258 @@
 package input_test
 
 import (
-	"bytes"
 	"context"
-	"errors"
-	"image"
-	"image/png"
 	"testing"
+	"time"
 
+	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/core/component/camera"
-	"go.viam.com/core/pointcloud"
+	"go.viam.com/core/component/input"
 	pb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/subtype"
 	"go.viam.com/core/testutils/inject"
 )
 
-func newServer() (pb.CameraServiceServer, *inject.Camera, *inject.Camera, error) {
-	injectCamera := &inject.Camera{}
-	injectCamera2 := &inject.Camera{}
-	cameras := map[resource.Name]interface{}{
-		camera.Named("camera1"): injectCamera,
-		camera.Named("camera2"): injectCamera2,
-		camera.Named("camera3"): "notCamera",
+type streamServer struct {
+	grpc.ServerStream
+	ctx       context.Context
+	messageCh chan<- *pb.InputControllerServiceEventStreamResponse
+	fail      bool
+}
+
+func (x *streamServer) Context() context.Context {
+	return x.ctx
+}
+
+func (x *streamServer) Send(m *pb.InputControllerServiceEventStreamResponse) error {
+	if x.fail {
+		return errors.New("send fail")
 	}
-	cameraSvc, err := subtype.New(cameras)
+	if x.messageCh == nil {
+		return nil
+	}
+	x.messageCh <- m
+	return nil
+}
+
+func newServer() (pb.InputControllerServiceServer, *inject.InjectableInputController, *inject.InputController, error) {
+	injectInputController := &inject.InjectableInputController{}
+	injectInputController2 := &inject.InputController{}
+	inputControllers := map[resource.Name]interface{}{
+		input.Named("inputController1"): injectInputController,
+		input.Named("inputController2"): injectInputController2,
+		input.Named("inputController3"): "notInputController",
+	}
+	inputControllerSvc, err := subtype.New(inputControllers)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return camera.NewServer(cameraSvc), injectCamera, injectCamera2, nil
+	return input.NewServer(inputControllerSvc), injectInputController, injectInputController2, nil
 }
 
 func TestServer(t *testing.T) {
-	cameraServer, injectCamera, injectCamera2, err := newServer()
+	inputControllerServer, injectInputController, injectInputController2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	camera1 := "camera1"
-	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
-	var imgBuf bytes.Buffer
-	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
+	inputController1 := "inputController1"
+	injectInputController.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
+	}
+	injectInputController.LastEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+		eventsOut := make(map[input.Control]input.Event)
+		eventsOut[input.AbsoluteX] = input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
+		eventsOut[input.ButtonStart] = input.Event{Time: time.Now(), Event: input.ButtonPress, Control: input.ButtonStart, Value: 1.0}
+		return eventsOut, nil
+	}
+	injectInputController.RegisterControlCallbackFunc = func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+		outEvent := input.Event{Time: time.Now(), Event: triggers[0], Control: input.ButtonStart, Value: 0.0}
+		ctrlFunc(ctx, outEvent)
+		return nil
+	}
 
-	pcA := pointcloud.New()
-	err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
-	test.That(t, err, test.ShouldBeNil)
+	inputController2 := "inputController2"
+	injectInputController2.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+		return nil, errors.New("can't get controls")
+	}
+	injectInputController2.LastEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+		return nil, errors.New("can't get last events")
+	}
+	injectInputController2.RegisterControlCallbackFunc = func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+		return errors.New("can't register callbacks")
+	}
 
-	var imageReleased bool
-	injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-		return img, func() { imageReleased = true }, nil
-	}
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		return pcA, nil
-	}
-
-	camera2 := "camera2"
-	injectCamera2.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-		return nil, nil, errors.New("can't generate next frame")
-	}
-	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		return nil, errors.New("can't generate next point cloud")
-	}
-	t.Run("Frame", func(t *testing.T) {
-		_, err := cameraServer.Frame(context.Background(), &pb.CameraServiceFrameRequest{Name: "g4"})
+	t.Run("Controls", func(t *testing.T) {
+		_, err := inputControllerServer.Controls(context.Background(), &pb.InputControllerServiceControlsRequest{Controller: "i4"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
 
-		_, err = cameraServer.Frame(context.Background(), &pb.CameraServiceFrameRequest{Name: "camera3"})
+		_, err = inputControllerServer.Controls(context.Background(), &pb.InputControllerServiceControlsRequest{Controller: "inputController3"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a camera")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not an input controller")
 
-		resp, err := cameraServer.Frame(context.Background(), &pb.CameraServiceFrameRequest{Name: camera1})
+		resp, err := inputControllerServer.Controls(context.Background(), &pb.InputControllerServiceControlsRequest{Controller: inputController1})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, imageReleased, test.ShouldBeTrue)
-		test.That(t, resp.MimeType, test.ShouldEqual, "image/png")
-		test.That(t, resp.Frame, test.ShouldResemble, imgBuf.Bytes())
+		test.That(t, resp.Controls, test.ShouldResemble, []string{"AbsoluteX", "ButtonStart"})
 
-		imageReleased = false
-		resp, err = cameraServer.Frame(context.Background(), &pb.CameraServiceFrameRequest{
-			Name:     camera1,
-			MimeType: "image/png",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, imageReleased, test.ShouldBeTrue)
-		test.That(t, resp.MimeType, test.ShouldEqual, "image/png")
-		test.That(t, resp.Frame, test.ShouldResemble, imgBuf.Bytes())
-
-		imageReleased = false
-		_, err = cameraServer.Frame(context.Background(), &pb.CameraServiceFrameRequest{
-			Name:     camera1,
-			MimeType: "image/who",
-		})
+		_, err = inputControllerServer.Controls(context.Background(), &pb.InputControllerServiceControlsRequest{Controller: inputController2})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
-		test.That(t, imageReleased, test.ShouldBeTrue)
-
-		_, err = cameraServer.Frame(context.Background(), &pb.CameraServiceFrameRequest{Name: camera2})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next frame")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get controls")
 	})
 
-	t.Run("RenderFrame", func(t *testing.T) {
-		_, err := cameraServer.RenderFrame(context.Background(), &pb.CameraServiceRenderFrameRequest{Name: "g4"})
+	t.Run("LastEvents", func(t *testing.T) {
+		_, err := inputControllerServer.LastEvents(context.Background(), &pb.InputControllerServiceLastEventsRequest{Controller: "i4"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
 
-		resp, err := cameraServer.RenderFrame(context.Background(), &pb.CameraServiceRenderFrameRequest{
-			Name: camera1,
-		})
+		startTime := time.Now()
+		resp, err := inputControllerServer.LastEvents(context.Background(), &pb.InputControllerServiceLastEventsRequest{Controller: inputController1})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, imageReleased, test.ShouldBeTrue)
-		test.That(t, resp.ContentType, test.ShouldEqual, "image/png")
-		test.That(t, resp.Data, test.ShouldResemble, imgBuf.Bytes())
-
-		imageReleased = false
-		resp, err = cameraServer.RenderFrame(context.Background(), &pb.CameraServiceRenderFrameRequest{
-			Name:     camera1,
-			MimeType: "image/png",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, imageReleased, test.ShouldBeTrue)
-		test.That(t, resp.ContentType, test.ShouldEqual, "image/png")
-		test.That(t, resp.Data, test.ShouldResemble, imgBuf.Bytes())
-
-		imageReleased = false
-		_, err = cameraServer.RenderFrame(context.Background(), &pb.CameraServiceRenderFrameRequest{
-			Name:     camera1,
-			MimeType: "image/who",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
-		test.That(t, imageReleased, test.ShouldBeTrue)
-
-		_, err = cameraServer.RenderFrame(context.Background(), &pb.CameraServiceRenderFrameRequest{Name: camera2})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next frame")
-	})
-
-	t.Run("PointCloud", func(t *testing.T) {
-		_, err := cameraServer.PointCloud(context.Background(), &pb.CameraServicePointCloudRequest{Name: "g4"})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
-
-		pcA := pointcloud.New()
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
-		test.That(t, err, test.ShouldBeNil)
-
-		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-			return pcA, nil
+		var absEv, buttonEv *pb.InputControllerServiceEvent
+		if resp.Events[0].Control == "AbsoluteX" {
+			absEv = resp.Events[0]
+			buttonEv = resp.Events[1]
+		} else {
+			absEv = resp.Events[1]
+			buttonEv = resp.Events[0]
 		}
-		_, err = cameraServer.PointCloud(context.Background(), &pb.CameraServicePointCloudRequest{
-			Name: camera1,
-		})
-		test.That(t, err, test.ShouldBeNil)
 
-		_, err = cameraServer.PointCloud(context.Background(), &pb.CameraServicePointCloudRequest{
-			Name: camera2,
-		})
+		test.That(t, absEv.Event, test.ShouldEqual, input.PositionChangeAbs)
+		test.That(t, absEv.Control, test.ShouldEqual, input.AbsoluteX)
+		test.That(t, absEv.Value, test.ShouldEqual, 0.7)
+		test.That(t, absEv.Time.AsTime().After(startTime), test.ShouldBeTrue)
+		test.That(t, absEv.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
+
+		test.That(t, buttonEv.Event, test.ShouldEqual, input.ButtonPress)
+		test.That(t, buttonEv.Control, test.ShouldEqual, input.ButtonStart)
+		test.That(t, buttonEv.Value, test.ShouldEqual, 1)
+		test.That(t, buttonEv.Time.AsTime().After(startTime), test.ShouldBeTrue)
+		test.That(t, buttonEv.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
+
+		_, err = inputControllerServer.LastEvents(context.Background(), &pb.InputControllerServiceLastEventsRequest{Controller: inputController2})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next point cloud")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get last events")
 	})
 
-	t.Run("ObjectPointClouds", func(t *testing.T) {
-		_, err := cameraServer.ObjectPointClouds(context.Background(), &pb.CameraServiceObjectPointCloudsRequest{Name: "g4"})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
-
-		// request the two segments in the point cloud
-		pcA := pointcloud.New()
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 6))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 4))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 5))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 6))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 4))
-		test.That(t, err, test.ShouldBeNil)
-
-		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-			return pcA, nil
+	t.Run("EventStream", func(t *testing.T) {
+		cancelCtx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		messageCh := make(chan *pb.InputControllerServiceEventStreamResponse, 1024)
+		s := &streamServer{
+			ctx:       cancelCtx,
+			messageCh: messageCh,
 		}
-		segs, err := cameraServer.ObjectPointClouds(context.Background(), &pb.CameraServiceObjectPointCloudsRequest{
-			Name:               camera1,
-			MinPointsInPlane:   100,
-			MinPointsInSegment: 3,
-			ClusteringRadius:   5.,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(segs.Frames), test.ShouldEqual, 2)
-		test.That(t, segs.Centers[0].Z, test.ShouldEqual, 5.)
-		test.That(t, segs.Centers[1].Z, test.ShouldEqual, 5.)
-		test.That(t, segs.BoundingBoxes[0].Width, test.ShouldEqual, 0)
-		test.That(t, segs.BoundingBoxes[0].Length, test.ShouldEqual, 0)
-		test.That(t, segs.BoundingBoxes[0].Depth, test.ShouldEqual, 2)
-		test.That(t, segs.BoundingBoxes[1].Width, test.ShouldEqual, 0)
-		test.That(t, segs.BoundingBoxes[1].Length, test.ShouldEqual, 0)
-		test.That(t, segs.BoundingBoxes[1].Depth, test.ShouldEqual, 2)
 
-		//empty pointcloud
-		pcB := pointcloud.New()
-
-		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-			return pcB, nil
-		}
-		segs, err = cameraServer.ObjectPointClouds(context.Background(), &pb.CameraServiceObjectPointCloudsRequest{
-			Name:               camera1,
-			MinPointsInPlane:   100,
-			MinPointsInSegment: 3,
-			ClusteringRadius:   5.,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(segs.Frames), test.ShouldEqual, 0)
-
-		_, err = cameraServer.ObjectPointClouds(context.Background(), &pb.CameraServiceObjectPointCloudsRequest{
-			Name:               camera2,
-			MinPointsInPlane:   100,
-			MinPointsInSegment: 3,
-			ClusteringRadius:   5.,
-		})
+		startTime := time.Now()
+		err := inputControllerServer.EventStream(&pb.InputControllerServiceEventStreamRequest{Controller: "i4"}, s)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next point cloud")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
+
+		eventReqList := &pb.InputControllerServiceEventStreamRequest{
+			Controller: inputController1,
+			Events: []*pb.InputControllerServiceEventStreamRequest_Events{
+				{
+					Control: string(input.ButtonStart),
+					Events: []string{
+						string(input.ButtonRelease),
+					},
+				},
+			},
+		}
+		relayFunc := func(ctx context.Context, event input.Event) {
+			messageCh <- &pb.InputControllerServiceEventStreamResponse{
+				Event: &pb.InputControllerServiceEvent{
+					Time:    timestamppb.New(event.Time),
+					Event:   string(event.Event),
+					Control: string(event.Control),
+					Value:   event.Value,
+				}}
+		}
+
+		err = injectInputController.RegisterControlCallback(cancelCtx, input.ButtonStart, []input.EventType{input.ButtonRelease}, relayFunc)
+		test.That(t, err, test.ShouldBeNil)
+
+		s.fail = true
+
+		err = inputControllerServer.EventStream(eventReqList, s)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "send fail")
+
+		var streamErr error
+		done := make(chan struct{})
+		s.fail = false
+
+		go func() {
+			streamErr = inputControllerServer.EventStream(eventReqList, s)
+			close(done)
+		}()
+
+		resp := <-messageCh
+		event := resp.Event
+		test.That(t, event.Control, test.ShouldEqual, string(input.ButtonStart))
+		test.That(t, event.Event, test.ShouldEqual, input.ButtonRelease)
+		test.That(t, event.Value, test.ShouldEqual, 0)
+		test.That(t, event.Time.AsTime().After(startTime), test.ShouldBeTrue)
+		test.That(t, event.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
+
+		cancel()
+		<-done
+		test.That(t, streamErr, test.ShouldEqual, context.Canceled)
+
+		eventReqList.Controller = inputController2
+		err = inputControllerServer.EventStream(eventReqList, s)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't register callbacks")
 	})
 
+	t.Run("InjectEvent", func(t *testing.T) {
+		_, err := inputControllerServer.InjectEvent(context.Background(), &pb.InputControllerServiceInjectEventRequest{Controller: "i4"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
+
+		injectInputController.InjectEventFunc = func(ctx context.Context, event input.Event) error {
+			return errors.New("can't inject event")
+		}
+
+		event1 := input.Event{
+			Time:    time.Now().UTC(),
+			Event:   input.PositionChangeAbs,
+			Control: input.AbsoluteX,
+			Value:   0.7,
+		}
+		pbEvent := &pb.InputControllerServiceEvent{
+			Time:    timestamppb.New(event1.Time),
+			Event:   string(event1.Event),
+			Control: string(event1.Control),
+			Value:   event1.Value,
+		}
+		_, err = inputControllerServer.InjectEvent(
+			context.Background(),
+			&pb.InputControllerServiceInjectEventRequest{
+				Controller: inputController1,
+				Event:      pbEvent,
+			},
+		)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't inject event")
+
+		var injectedEvent input.Event
+
+		injectInputController.InjectEventFunc = func(ctx context.Context, event input.Event) error {
+			injectedEvent = event
+			return nil
+		}
+
+		_, err = inputControllerServer.InjectEvent(context.Background(), &pb.InputControllerServiceInjectEventRequest{Controller: inputController1, Event: pbEvent})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, injectedEvent, test.ShouldResemble, event1)
+		injectInputController.InjectEventFunc = nil
+
+		_, err = inputControllerServer.InjectEvent(context.Background(), &pb.InputControllerServiceInjectEventRequest{Controller: inputController2, Event: pbEvent})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "is not of type Injectable")
+	})
 }
