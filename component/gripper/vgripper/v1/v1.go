@@ -13,9 +13,8 @@ import (
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/gripper"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
-	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -61,11 +60,11 @@ type gripperV1 struct {
 
 	openPos, closePos float64
 
-	holdingPressure float32
+	holdingPressure float64
 
 	pressureLimit int
 
-	closeDirection, openDirection pb.DirectionRelative
+	closeDirection, openDirection int64
 	logger                        golog.Logger
 
 	model                 *referenceframe.Model
@@ -174,7 +173,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 
 	// Test forward motion for pressure/endpoint
 	logger.Debug("init: moving forward")
-	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, TargetRPM/2, stopFunc)
+	err = vg.motor.GoTillStop(ctx, TargetRPM/2, stopFunc)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +189,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	// Test backward motion for pressure/endpoint
 	localTest = &movementTest{}
 	logger.Debug("init: moving backward")
-	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, TargetRPM/2, stopFunc)
+	err = vg.motor.GoTillStop(ctx, -1*TargetRPM/2, stopFunc)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +207,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	if !hasPressureA && !hasPressureB {
 		localTest = &movementTest{}
 		logger.Debug("init: moving forward (2nd try)")
-		err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, TargetRPM/2, stopFunc)
+		err = vg.motor.GoTillStop(ctx, TargetRPM/2, stopFunc)
 		if err != nil {
 			return nil, err
 		}
@@ -228,13 +227,13 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	}
 
 	if hasPressureA {
-		vg.closeDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-		vg.openDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
+		vg.closeDirection = 1
+		vg.openDirection = -1
 		vg.openPos = posB
 		vg.closePos = posA
 	} else {
-		vg.closeDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
-		vg.openDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
+		vg.closeDirection = -1
+		vg.openDirection = 1
 		vg.openPos = posA
 		vg.closePos = posB
 	}
@@ -251,7 +250,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	if err != nil {
 		return nil, err
 	}
-	err = vg.motor.Zero(ctx, curPos-vg.closePos)
+	err = vg.motor.SetToZeroPosition(ctx, curPos-vg.closePos)
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +355,7 @@ func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 				return false, err
 			}
 			vg.logger.Debugf("i think i grabbed something, have pressure, pos: %f closePos: %v", now, vg.closePos)
-			err = vg.motor.Go(ctx, vg.closeDirection, vg.holdingPressure)
+			err = vg.motor.Go(ctx, float64(vg.closeDirection)*vg.holdingPressure)
 			return true, err
 		}
 

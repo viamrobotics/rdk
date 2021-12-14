@@ -273,9 +273,8 @@ type ArmServiceMoveToPositionRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Name of an arm
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// X, Y, Z, ox, oy, ox, theta
-	To *v1.Pose `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
+	Name string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	To   *v1.Pose `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
 }
 
 func (x *ArmServiceMoveToPositionRequest) Reset() {

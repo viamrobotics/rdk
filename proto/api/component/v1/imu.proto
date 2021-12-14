@@ -1,0 +1,66 @@
+syntax = "proto3";
+option go_package = "go.viam.com/core/proto/api/component/v1";
+option java_package = "com.viam.core.proto.api.component.v1";
+
+package proto.api.component.v1;
+
+import "google/api/annotations.proto";
+
+// IMUService services maintains all IMUs associated with a robot
+service IMUService {
+  // AngularVelocity returns the most recent angular velocity reading from the given IMU.
+  rpc AngularVelocity(IMUServiceAngularVelocityRequest) returns (IMUServiceAngularVelocityResponse) {
+      option (google.api.http) = {
+      get: "/api/v1/component/imu/{name}/angular_velocity"
+    };
+  }
+
+  // Orientation returns the most recent orientation reading from the given IMU.
+  rpc Orientation(IMUServiceOrientationRequest) returns (IMUServiceOrientationResponse) {
+      option (google.api.http) = {
+      get: "/api/v1/component/imu/{name}/orientation"
+    };
+  }
+}
+
+// AngularVelocity contains angular velocity in deg/s across x/y/z axes.
+message AngularVelocity {
+  // Velocity in deg/s across the x-axis
+  double x = 1;
+  // Velocity in deg/s across the y-axis
+  double y = 2;
+  // Velocity in deg/s across the z-axis
+  double z = 3;
+}
+
+// EulerAngles are three angles used to represent the rotation of an object in 3D Euclidean space
+// The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.
+message EulerAngles {
+  // Rotation in deg around the x-axis
+  double roll = 1;
+  // Rotation in deg around the y-axis
+  double pitch = 2;
+  // Rotation in deg around the z-axis
+  double yaw = 3;
+}
+
+message IMUServiceAngularVelocityRequest {
+  // Name of an IMU
+  string name = 1;
+}
+
+message IMUServiceAngularVelocityResponse {
+  // AngularVelocity contains angular velocity in deg/s across x/y/z axes.
+  AngularVelocity angular_velocity = 1;
+}
+
+message IMUServiceOrientationRequest {
+  // Name of an IMU
+  string name = 1;
+}
+
+message IMUServiceOrientationResponse {
+  // EulerAngles are three angles used to represent the rotation of an object in 3D Euclidean space
+  // The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.
+  EulerAngles orientation = 1;
+}

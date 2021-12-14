@@ -5,7 +5,6 @@ package server
 
 import (
 	"context"
-	"math"
 	"sync"
 	"time"
 
@@ -22,12 +21,10 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/board"
-	"go.viam.com/core/component/imu"
+	"go.viam.com/core/component/input"
+	"go.viam.com/core/component/motor"
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"
-	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor/compass"
@@ -167,14 +164,29 @@ func (s *Server) BaseMoveStraight(ctx context.Context, req *pb.BaseMoveStraightR
 	if req.MillisPerSec != 0 {
 		millisPerSec = req.MillisPerSec
 	}
-	moved, err := base.MoveStraight(ctx, int(req.DistanceMillis), millisPerSec, false)
+	err := base.MoveStraight(ctx, int(req.DistanceMillis), millisPerSec, false)
 	if err != nil {
-		if moved == 0 {
-			return nil, err
-		}
-		return &pb.BaseMoveStraightResponse{Success: false, Error: err.Error(), DistanceMillis: int64(moved)}, nil
+		return nil, err
 	}
-	return &pb.BaseMoveStraightResponse{Success: true, DistanceMillis: int64(moved)}, nil
+	return &pb.BaseMoveStraightResponse{Success: true}, nil
+}
+
+// BaseMoveArc moves a base of the underlying robotin an arc.
+func (s *Server) BaseMoveArc(ctx context.Context, req *pb.BaseMoveArcRequest) (*pb.BaseMoveArcResponse, error) {
+	base, ok := s.r.BaseByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no base with name (%s)", req.Name)
+	}
+	millisPerSec := 500.0 // TODO(erh): this is probably the wrong default
+	if req.MillisPerSec != 0 {
+		millisPerSec = req.MillisPerSec
+	}
+	err := base.MoveArc(ctx, int(req.DistanceMillis), millisPerSec, req.AngleDeg, false)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.BaseMoveArcResponse{Success: true}, nil
+
 }
 
 // BaseSpin spins a base of the underlying robot.
@@ -187,14 +199,11 @@ func (s *Server) BaseSpin(ctx context.Context, req *pb.BaseSpinRequest) (*pb.Bas
 	if req.DegsPerSec != 0 {
 		degsPerSec = req.DegsPerSec
 	}
-	spun, err := base.Spin(ctx, req.AngleDeg, degsPerSec, false)
+	err := base.Spin(ctx, req.AngleDeg, degsPerSec, false)
 	if err != nil {
-		if math.IsNaN(spun) || spun == 0 {
-			return nil, err
-		}
-		return &pb.BaseSpinResponse{Success: false, Error: err.Error(), AngleDeg: spun}, nil
+		return nil, err
 	}
-	return &pb.BaseSpinResponse{Success: true, AngleDeg: spun}, nil
+	return &pb.BaseSpinResponse{Success: true}, nil
 
 }
 
@@ -218,128 +227,6 @@ func (s *Server) BaseWidthMillis(ctx context.Context, req *pb.BaseWidthMillisReq
 		return nil, err
 	}
 	return &pb.BaseWidthMillisResponse{WidthMillis: int64(width)}, nil
-}
-
-// LidarInfo returns the info of a lidar of the underlying robot.
-func (s *Server) LidarInfo(ctx context.Context, req *pb.LidarInfoRequest) (*pb.LidarInfoResponse, error) {
-	lidar, ok := s.r.LidarByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
-	}
-	info, err := lidar.Info(ctx)
-	if err != nil {
-		return nil, err
-	}
-	str, err := structpb.NewStruct(info)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.LidarInfoResponse{Info: str}, nil
-}
-
-// LidarStart starts a lidar of the underlying robot.
-func (s *Server) LidarStart(ctx context.Context, req *pb.LidarStartRequest) (*pb.LidarStartResponse, error) {
-	lidar, ok := s.r.LidarByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
-	}
-	err := lidar.Start(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.LidarStartResponse{}, nil
-}
-
-// LidarStop stops a lidar of the underlying robot.
-func (s *Server) LidarStop(ctx context.Context, req *pb.LidarStopRequest) (*pb.LidarStopResponse, error) {
-	lidar, ok := s.r.LidarByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
-	}
-	err := lidar.Stop(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.LidarStopResponse{}, nil
-}
-
-// LidarScan returns a scan from a lidar of the underlying robot.
-func (s *Server) LidarScan(ctx context.Context, req *pb.LidarScanRequest) (*pb.LidarScanResponse, error) {
-	lidar, ok := s.r.LidarByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
-	}
-	opts := scanOptionsFromProto(req)
-	ms, err := lidar.Scan(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.LidarScanResponse{Measurements: measurementsToProto(ms)}, nil
-}
-
-// LidarRange returns the range of a lidar of the underlying robot.
-func (s *Server) LidarRange(ctx context.Context, req *pb.LidarRangeRequest) (*pb.LidarRangeResponse, error) {
-	lidar, ok := s.r.LidarByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
-	}
-	r, err := lidar.Range(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.LidarRangeResponse{Range: int64(r)}, nil
-}
-
-// LidarBounds returns the scan bounds of a lidar of the underlying robot.
-func (s *Server) LidarBounds(ctx context.Context, req *pb.LidarBoundsRequest) (*pb.LidarBoundsResponse, error) {
-	lidar, ok := s.r.LidarByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
-	}
-	bounds, err := lidar.Bounds(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.LidarBoundsResponse{X: int64(bounds.X), Y: int64(bounds.Y)}, nil
-}
-
-// LidarAngularResolution returns the scan angular resolution of a lidar of the underlying robot.
-func (s *Server) LidarAngularResolution(ctx context.Context, req *pb.LidarAngularResolutionRequest) (*pb.LidarAngularResolutionResponse, error) {
-	lidar, ok := s.r.LidarByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
-	}
-	angRes, err := lidar.AngularResolution(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.LidarAngularResolutionResponse{AngularResolution: angRes}, nil
-}
-
-func scanOptionsFromProto(req *pb.LidarScanRequest) lidar.ScanOptions {
-	return lidar.ScanOptions{
-		Count:    int(req.Count),
-		NoFilter: req.NoFilter,
-	}
-}
-
-func measurementToProto(m *lidar.Measurement) *pb.LidarMeasurement {
-	x, y := m.Coords()
-	return &pb.LidarMeasurement{
-		Angle:    m.AngleRad(),
-		AngleDeg: m.AngleDeg(),
-		Distance: m.Distance(),
-		X:        x,
-		Y:        y,
-	}
-}
-
-func measurementsToProto(ms lidar.Measurements) []*pb.LidarMeasurement {
-	pms := make([]*pb.LidarMeasurement, 0, len(ms))
-	for _, m := range ms {
-		pms = append(pms, measurementToProto(m))
-	}
-	return pms
 }
 
 // BoardStatus returns the status of a board of the underlying robot.
@@ -676,7 +563,7 @@ func (s *Server) MotorPIDStep(req *pb.MotorPIDStepRequest, server pb.RobotServic
 	if err := pid.Reset(); err != nil {
 		return err
 	}
-	d := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
+
 	lastTime := time.Now()
 	lastPos, err := m.Position(server.Context())
 	totalTime := 0.0
@@ -708,7 +595,7 @@ func (s *Server) MotorPIDStep(req *pb.MotorPIDStepRequest, server pb.RobotServic
 		effort, ok := pid.Output(server.Context(), dt, setPoint, vel)
 		lastPos = currPos
 		if ok {
-			if err = m.Go(server.Context(), d, float32(effort/100)); err != nil {
+			if err = m.Go(server.Context(), effort/100); err != nil {
 				return err
 			}
 		}
@@ -727,7 +614,7 @@ func (s *Server) MotorPower(ctx context.Context, req *pb.MotorPowerRequest) (*pb
 		return nil, errors.Errorf("no motor with name (%s)", req.Name)
 	}
 
-	return &pb.MotorPowerResponse{}, theMotor.Power(ctx, req.PowerPct)
+	return &pb.MotorPowerResponse{}, theMotor.SetPower(ctx, req.PowerPct)
 }
 
 // MotorGo requests the motor of the underlying robot to go.
@@ -737,7 +624,7 @@ func (s *Server) MotorGo(ctx context.Context, req *pb.MotorGoRequest) (*pb.Motor
 		return nil, errors.Errorf("no motor with name (%s)", req.Name)
 	}
 
-	return &pb.MotorGoResponse{}, theMotor.Go(ctx, req.Direction, req.PowerPct)
+	return &pb.MotorGoResponse{}, theMotor.Go(ctx, req.PowerPct)
 }
 
 // MotorGoFor requests the motor of the underlying robot to go for a certain amount based off
@@ -755,7 +642,7 @@ func (s *Server) MotorGoFor(ctx context.Context, req *pb.MotorGoForRequest) (*pb
 		rVal = req.Revolutions
 	}
 
-	return &pb.MotorGoForResponse{}, theMotor.GoFor(ctx, req.Direction, req.Rpm, rVal)
+	return &pb.MotorGoForResponse{}, theMotor.GoFor(ctx, req.Rpm, rVal)
 }
 
 // MotorPosition reports the position of the motor of the underlying robot based on its encoder. If it's not supported, the returned
@@ -830,7 +717,7 @@ func (s *Server) MotorGoTillStop(ctx context.Context, req *pb.MotorGoTillStopReq
 		return nil, errors.Errorf("no motor with name (%s)", req.Name)
 	}
 
-	return &pb.MotorGoTillStopResponse{}, theMotor.GoTillStop(ctx, req.Direction, req.Rpm, nil)
+	return &pb.MotorGoTillStopResponse{}, theMotor.GoTillStop(ctx, req.Rpm, nil)
 }
 
 // MotorZero requests the motor of the underlying robot to reset it's zero/home position.
@@ -840,7 +727,7 @@ func (s *Server) MotorZero(ctx context.Context, req *pb.MotorZeroRequest) (*pb.M
 		return nil, errors.Errorf("no motor with name (%s)", req.Name)
 	}
 
-	return &pb.MotorZeroResponse{}, theMotor.Zero(ctx, req.Offset)
+	return &pb.MotorZeroResponse{}, theMotor.SetToZeroPosition(ctx, req.Offset)
 }
 
 type runCommander interface {
@@ -1047,53 +934,6 @@ func (s *Server) ObjectManipulationServiceDoGrab(ctx context.Context, req *pb.Ob
 		return nil, err
 	}
 	return &pb.ObjectManipulationServiceDoGrabResponse{HasGrabbed: hasGrabbed}, nil
-}
-
-func (s *Server) imuByName(name string) (imu.IMU, error) {
-	imuDevice, ok := s.r.ResourceByName(imu.Named(name))
-	if !ok {
-		return nil, errors.Errorf("no IMU with name (%s)", name)
-	}
-	return imuDevice.(imu.IMU), nil
-}
-
-// IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
-func (s *Server) IMUAngularVelocity(ctx context.Context, req *pb.IMUAngularVelocityRequest) (*pb.IMUAngularVelocityResponse, error) {
-	imuDevice, err := s.imuByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	vel, err := imuDevice.AngularVelocity(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.IMUAngularVelocityResponse{
-		AngularVelocity: &pb.AngularVelocity{
-			X: vel.X,
-			Y: vel.Y,
-			Z: vel.Z,
-		},
-	}, nil
-}
-
-// IMUOrientation returns the most recent angular velocity reading from the given IMU.
-func (s *Server) IMUOrientation(ctx context.Context, req *pb.IMUOrientationRequest) (*pb.IMUOrientationResponse, error) {
-	imuDevice, err := s.imuByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	orientation, err := imuDevice.Orientation(ctx)
-	if err != nil {
-		return nil, err
-	}
-	ea := orientation.EulerAngles()
-	return &pb.IMUOrientationResponse{
-		Orientation: &pb.EulerAngles{
-			Roll:  ea.Roll,
-			Pitch: ea.Pitch,
-			Yaw:   ea.Yaw,
-		},
-	}, nil
 }
 
 func (s *Server) gpsByName(name string) (gps.GPS, error) {

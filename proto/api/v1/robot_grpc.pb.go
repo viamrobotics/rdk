@@ -29,29 +29,19 @@ type RobotServiceClient interface {
 	Config(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error)
-	// BaseMoveStraight moves a base of the underlying robot straight.
+	// BaseMoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
+	// and a given speed, expressed in millimeters per second
 	BaseMoveStraight(ctx context.Context, in *BaseMoveStraightRequest, opts ...grpc.CallOption) (*BaseMoveStraightResponse, error)
+	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
+	// a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees
 	BaseMoveArc(ctx context.Context, in *BaseMoveArcRequest, opts ...grpc.CallOption) (*BaseMoveArcResponse, error)
-	// BaseSpin spins a base of the underlying robot.
+	// BaseSpin spins a robot's base by an given angle, expressed in degrees, and a given
+	// angular speed, expressed in degrees per second
 	BaseSpin(ctx context.Context, in *BaseSpinRequest, opts ...grpc.CallOption) (*BaseSpinResponse, error)
-	// BaseSpin stops a base of the underlying robot.
+	// BaseStop stops a robot's base
 	BaseStop(ctx context.Context, in *BaseStopRequest, opts ...grpc.CallOption) (*BaseStopResponse, error)
-	// BaseWidthMillis returns the width of a base of the underlying robot.
+	// BaseWidthMillis returns the width of a robot's base expressed in millimeters
 	BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error)
-	// LidarInfo returns the info of a lidar of the underlying robot.
-	LidarInfo(ctx context.Context, in *LidarInfoRequest, opts ...grpc.CallOption) (*LidarInfoResponse, error)
-	// LidarStart starts a lidar of the underlying robot.
-	LidarStart(ctx context.Context, in *LidarStartRequest, opts ...grpc.CallOption) (*LidarStartResponse, error)
-	// LidarStop stops a lidar of the underlying robot.
-	LidarStop(ctx context.Context, in *LidarStopRequest, opts ...grpc.CallOption) (*LidarStopResponse, error)
-	// LidarScan returns a scan from a lidar of the underlying robot.
-	LidarScan(ctx context.Context, in *LidarScanRequest, opts ...grpc.CallOption) (*LidarScanResponse, error)
-	// LidarRange returns the range of a lidar of the underlying robot.
-	LidarRange(ctx context.Context, in *LidarRangeRequest, opts ...grpc.CallOption) (*LidarRangeResponse, error)
-	// LidarBounds returns the scan bounds of a lidar of the underlying robot.
-	LidarBounds(ctx context.Context, in *LidarBoundsRequest, opts ...grpc.CallOption) (*LidarBoundsResponse, error)
-	// LidarAngularResolution returns the scan angular resolution of a lidar of the underlying robot.
-	LidarAngularResolution(ctx context.Context, in *LidarAngularResolutionRequest, opts ...grpc.CallOption) (*LidarAngularResolutionResponse, error)
 	// BoardStatus returns the status of a board of the underlying robot.
 	BoardStatus(ctx context.Context, in *BoardStatusRequest, opts ...grpc.CallOption) (*BoardStatusResponse, error)
 	// BoardGPIOSet sets the given pin of a board of the underlying robot to either low or high.
@@ -87,34 +77,48 @@ type RobotServiceClient interface {
 	ExecuteFunction(ctx context.Context, in *ExecuteFunctionRequest, opts ...grpc.CallOption) (*ExecuteFunctionResponse, error)
 	ExecuteSource(ctx context.Context, in *ExecuteSourceRequest, opts ...grpc.CallOption) (*ExecuteSourceResponse, error)
 	//Motor
+	// TODO(FA): This will be removed in lieu of controls package
 	// Return the PID configuration for a Motor
 	MotorGetPIDConfig(ctx context.Context, in *MotorGetPIDConfigRequest, opts ...grpc.CallOption) (*MotorGetPIDConfigResponse, error)
+	// TODO(FA): This will be removed in lieu of controls package
 	// Set the PID configuration for a Motor
 	MotorSetPIDConfig(ctx context.Context, in *MotorSetPIDConfigRequest, opts ...grpc.CallOption) (*MotorSetPIDConfigResponse, error)
+	// TODO(): This will be removed in lieu of controls package
 	// Perform a step response on a motor
 	MotorPIDStep(ctx context.Context, in *MotorPIDStepRequest, opts ...grpc.CallOption) (RobotService_MotorPIDStepClient, error)
-	// MotorPower requests the motor of a board of the underlying robot to set its power.
+	// MotorPower sets the percentage of the motor's total power that should be employed
+	// expressed a value between -1 and 1 where negative values indiciate a backwards
+	// direction and positive values a forward direction
 	MotorPower(ctx context.Context, in *MotorPowerRequest, opts ...grpc.CallOption) (*MotorPowerResponse, error)
-	// MotorGo requests the motor of a board of the underlying robot to go.
+	// MotorGo instructs the motor to turn using a specified percentage of its total power,
+	// expressed as a value between -1 and 1 where negative values indiciate a backwards
+	// direction and positive values a forward direction
 	MotorGo(ctx context.Context, in *MotorGoRequest, opts ...grpc.CallOption) (*MotorGoResponse, error)
-	// MotorGoFor requests the motor of a board of the underlying robot to go for a certain amount based off
-	// the request.
+	// MotorGoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
+	// for a specified number of rotations relative to its starting position
+	// This method will return an error if MotorPositionSupported is false
 	MotorGoFor(ctx context.Context, in *MotorGoForRequest, opts ...grpc.CallOption) (*MotorGoForResponse, error)
-	// MotorGoTo requests the motor of a board of the underlying robot to move to a specific position.
+	// MotorGoTo requests the robot's motor to move to a specific position that
+	// is relative to its home position at a specified speed which is expressed in RPM
+	// This method will return an error if MotorPositionSupported is false
 	MotorGoTo(ctx context.Context, in *MotorGoToRequest, opts ...grpc.CallOption) (*MotorGoToResponse, error)
-	// MotorGoTillStop requests the motor of a board of the underlying robot to move until stopped (either physically or by limit switch.)
+	// To Do (FA): This will be deprecated in favor of a  MotorStop method
+	// MotorGoTillStop moves a motor until it is stopped
+	// The logic to trigger the "stop" mechanism is up to the underlying motor implementation
 	MotorGoTillStop(ctx context.Context, in *MotorGoTillStopRequest, opts ...grpc.CallOption) (*MotorGoTillStopResponse, error)
-	// MotorZero requests the motor of a board of the underlying robot to set a new zero/home position.
+	// MotorZero sets the current position of the motor as the new zero position
+	// This method will return an error if MotorPositionSupported is false
 	MotorZero(ctx context.Context, in *MotorZeroRequest, opts ...grpc.CallOption) (*MotorZeroResponse, error)
-	// MotorPosition reports the position of the motor of a board of the underlying robot based on its encoder. If it's not supported, the returned
-	// data is undefined. The unit returned is the number of revolutions which is intended to be fed
-	// back into calls of MotorGoFor.
+	// MotorPosition reports the position of the robot's motor relative to its zero position
+	// This method will return an error if MotorPositionSupported is false
 	MotorPosition(ctx context.Context, in *MotorPositionRequest, opts ...grpc.CallOption) (*MotorPositionResponse, error)
-	// MotorPositionSupported returns whether or not the motor of a board of the underlying robot supports reporting of its position which
-	// is reliant on having an encoder.
+	// MotorPositionSupported returns whether or not the robot's motor supports reporting of its position
 	MotorPositionSupported(ctx context.Context, in *MotorPositionSupportedRequest, opts ...grpc.CallOption) (*MotorPositionSupportedResponse, error)
-	// MotorOff turns the motor of a board of the underlying robot off.
+	// MotorOff turns the robot's motor off
+	// To Do (FA): This will be deprecated
 	MotorOff(ctx context.Context, in *MotorOffRequest, opts ...grpc.CallOption) (*MotorOffResponse, error)
+	// MotorisOn returns true if the robot's motor off
+	// To Do (FA): This will be deprecated
 	MotorIsOn(ctx context.Context, in *MotorIsOnRequest, opts ...grpc.CallOption) (*MotorIsOnResponse, error)
 	InputControllerControls(ctx context.Context, in *InputControllerControlsRequest, opts ...grpc.CallOption) (*InputControllerControlsResponse, error)
 	InputControllerLastEvents(ctx context.Context, in *InputControllerLastEventsRequest, opts ...grpc.CallOption) (*InputControllerLastEventsResponse, error)
@@ -132,10 +136,6 @@ type RobotServiceClient interface {
 	NavigationServiceAddWaypoint(ctx context.Context, in *NavigationServiceAddWaypointRequest, opts ...grpc.CallOption) (*NavigationServiceAddWaypointResponse, error)
 	NavigationServiceRemoveWaypoint(ctx context.Context, in *NavigationServiceRemoveWaypointRequest, opts ...grpc.CallOption) (*NavigationServiceRemoveWaypointResponse, error)
 	ObjectManipulationServiceDoGrab(ctx context.Context, in *ObjectManipulationServiceDoGrabRequest, opts ...grpc.CallOption) (*ObjectManipulationServiceDoGrabResponse, error)
-	// IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
-	IMUAngularVelocity(ctx context.Context, in *IMUAngularVelocityRequest, opts ...grpc.CallOption) (*IMUAngularVelocityResponse, error)
-	// IMUOrientation returns the most recent orientation reading from the given IMU.
-	IMUOrientation(ctx context.Context, in *IMUOrientationRequest, opts ...grpc.CallOption) (*IMUOrientationResponse, error)
 	// GPSLocation returns the most recent location from the given GPS.
 	GPSLocation(ctx context.Context, in *GPSLocationRequest, opts ...grpc.CallOption) (*GPSLocationResponse, error)
 	// GPSAltitude returns the most recent altitude from the given GPS.
@@ -252,69 +252,6 @@ func (c *robotServiceClient) BaseStop(ctx context.Context, in *BaseStopRequest, 
 func (c *robotServiceClient) BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error) {
 	out := new(BaseWidthMillisResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseWidthMillis", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) LidarInfo(ctx context.Context, in *LidarInfoRequest, opts ...grpc.CallOption) (*LidarInfoResponse, error) {
-	out := new(LidarInfoResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/LidarInfo", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) LidarStart(ctx context.Context, in *LidarStartRequest, opts ...grpc.CallOption) (*LidarStartResponse, error) {
-	out := new(LidarStartResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/LidarStart", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) LidarStop(ctx context.Context, in *LidarStopRequest, opts ...grpc.CallOption) (*LidarStopResponse, error) {
-	out := new(LidarStopResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/LidarStop", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) LidarScan(ctx context.Context, in *LidarScanRequest, opts ...grpc.CallOption) (*LidarScanResponse, error) {
-	out := new(LidarScanResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/LidarScan", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) LidarRange(ctx context.Context, in *LidarRangeRequest, opts ...grpc.CallOption) (*LidarRangeResponse, error) {
-	out := new(LidarRangeResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/LidarRange", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) LidarBounds(ctx context.Context, in *LidarBoundsRequest, opts ...grpc.CallOption) (*LidarBoundsResponse, error) {
-	out := new(LidarBoundsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/LidarBounds", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) LidarAngularResolution(ctx context.Context, in *LidarAngularResolutionRequest, opts ...grpc.CallOption) (*LidarAngularResolutionResponse, error) {
-	out := new(LidarAngularResolutionResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/LidarAngularResolution", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -763,24 +700,6 @@ func (c *robotServiceClient) ObjectManipulationServiceDoGrab(ctx context.Context
 	return out, nil
 }
 
-func (c *robotServiceClient) IMUAngularVelocity(ctx context.Context, in *IMUAngularVelocityRequest, opts ...grpc.CallOption) (*IMUAngularVelocityResponse, error) {
-	out := new(IMUAngularVelocityResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/IMUAngularVelocity", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) IMUOrientation(ctx context.Context, in *IMUOrientationRequest, opts ...grpc.CallOption) (*IMUOrientationResponse, error) {
-	out := new(IMUOrientationResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/IMUOrientation", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *robotServiceClient) GPSLocation(ctx context.Context, in *GPSLocationRequest, opts ...grpc.CallOption) (*GPSLocationResponse, error) {
 	out := new(GPSLocationResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GPSLocation", in, out, opts...)
@@ -831,29 +750,19 @@ type RobotServiceServer interface {
 	Config(context.Context, *ConfigRequest) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error)
-	// BaseMoveStraight moves a base of the underlying robot straight.
+	// BaseMoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
+	// and a given speed, expressed in millimeters per second
 	BaseMoveStraight(context.Context, *BaseMoveStraightRequest) (*BaseMoveStraightResponse, error)
+	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
+	// a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees
 	BaseMoveArc(context.Context, *BaseMoveArcRequest) (*BaseMoveArcResponse, error)
-	// BaseSpin spins a base of the underlying robot.
+	// BaseSpin spins a robot's base by an given angle, expressed in degrees, and a given
+	// angular speed, expressed in degrees per second
 	BaseSpin(context.Context, *BaseSpinRequest) (*BaseSpinResponse, error)
-	// BaseSpin stops a base of the underlying robot.
+	// BaseStop stops a robot's base
 	BaseStop(context.Context, *BaseStopRequest) (*BaseStopResponse, error)
-	// BaseWidthMillis returns the width of a base of the underlying robot.
+	// BaseWidthMillis returns the width of a robot's base expressed in millimeters
 	BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error)
-	// LidarInfo returns the info of a lidar of the underlying robot.
-	LidarInfo(context.Context, *LidarInfoRequest) (*LidarInfoResponse, error)
-	// LidarStart starts a lidar of the underlying robot.
-	LidarStart(context.Context, *LidarStartRequest) (*LidarStartResponse, error)
-	// LidarStop stops a lidar of the underlying robot.
-	LidarStop(context.Context, *LidarStopRequest) (*LidarStopResponse, error)
-	// LidarScan returns a scan from a lidar of the underlying robot.
-	LidarScan(context.Context, *LidarScanRequest) (*LidarScanResponse, error)
-	// LidarRange returns the range of a lidar of the underlying robot.
-	LidarRange(context.Context, *LidarRangeRequest) (*LidarRangeResponse, error)
-	// LidarBounds returns the scan bounds of a lidar of the underlying robot.
-	LidarBounds(context.Context, *LidarBoundsRequest) (*LidarBoundsResponse, error)
-	// LidarAngularResolution returns the scan angular resolution of a lidar of the underlying robot.
-	LidarAngularResolution(context.Context, *LidarAngularResolutionRequest) (*LidarAngularResolutionResponse, error)
 	// BoardStatus returns the status of a board of the underlying robot.
 	BoardStatus(context.Context, *BoardStatusRequest) (*BoardStatusResponse, error)
 	// BoardGPIOSet sets the given pin of a board of the underlying robot to either low or high.
@@ -889,34 +798,48 @@ type RobotServiceServer interface {
 	ExecuteFunction(context.Context, *ExecuteFunctionRequest) (*ExecuteFunctionResponse, error)
 	ExecuteSource(context.Context, *ExecuteSourceRequest) (*ExecuteSourceResponse, error)
 	//Motor
+	// TODO(FA): This will be removed in lieu of controls package
 	// Return the PID configuration for a Motor
 	MotorGetPIDConfig(context.Context, *MotorGetPIDConfigRequest) (*MotorGetPIDConfigResponse, error)
+	// TODO(FA): This will be removed in lieu of controls package
 	// Set the PID configuration for a Motor
 	MotorSetPIDConfig(context.Context, *MotorSetPIDConfigRequest) (*MotorSetPIDConfigResponse, error)
+	// TODO(): This will be removed in lieu of controls package
 	// Perform a step response on a motor
 	MotorPIDStep(*MotorPIDStepRequest, RobotService_MotorPIDStepServer) error
-	// MotorPower requests the motor of a board of the underlying robot to set its power.
+	// MotorPower sets the percentage of the motor's total power that should be employed
+	// expressed a value between -1 and 1 where negative values indiciate a backwards
+	// direction and positive values a forward direction
 	MotorPower(context.Context, *MotorPowerRequest) (*MotorPowerResponse, error)
-	// MotorGo requests the motor of a board of the underlying robot to go.
+	// MotorGo instructs the motor to turn using a specified percentage of its total power,
+	// expressed as a value between -1 and 1 where negative values indiciate a backwards
+	// direction and positive values a forward direction
 	MotorGo(context.Context, *MotorGoRequest) (*MotorGoResponse, error)
-	// MotorGoFor requests the motor of a board of the underlying robot to go for a certain amount based off
-	// the request.
+	// MotorGoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
+	// for a specified number of rotations relative to its starting position
+	// This method will return an error if MotorPositionSupported is false
 	MotorGoFor(context.Context, *MotorGoForRequest) (*MotorGoForResponse, error)
-	// MotorGoTo requests the motor of a board of the underlying robot to move to a specific position.
+	// MotorGoTo requests the robot's motor to move to a specific position that
+	// is relative to its home position at a specified speed which is expressed in RPM
+	// This method will return an error if MotorPositionSupported is false
 	MotorGoTo(context.Context, *MotorGoToRequest) (*MotorGoToResponse, error)
-	// MotorGoTillStop requests the motor of a board of the underlying robot to move until stopped (either physically or by limit switch.)
+	// To Do (FA): This will be deprecated in favor of a  MotorStop method
+	// MotorGoTillStop moves a motor until it is stopped
+	// The logic to trigger the "stop" mechanism is up to the underlying motor implementation
 	MotorGoTillStop(context.Context, *MotorGoTillStopRequest) (*MotorGoTillStopResponse, error)
-	// MotorZero requests the motor of a board of the underlying robot to set a new zero/home position.
+	// MotorZero sets the current position of the motor as the new zero position
+	// This method will return an error if MotorPositionSupported is false
 	MotorZero(context.Context, *MotorZeroRequest) (*MotorZeroResponse, error)
-	// MotorPosition reports the position of the motor of a board of the underlying robot based on its encoder. If it's not supported, the returned
-	// data is undefined. The unit returned is the number of revolutions which is intended to be fed
-	// back into calls of MotorGoFor.
+	// MotorPosition reports the position of the robot's motor relative to its zero position
+	// This method will return an error if MotorPositionSupported is false
 	MotorPosition(context.Context, *MotorPositionRequest) (*MotorPositionResponse, error)
-	// MotorPositionSupported returns whether or not the motor of a board of the underlying robot supports reporting of its position which
-	// is reliant on having an encoder.
+	// MotorPositionSupported returns whether or not the robot's motor supports reporting of its position
 	MotorPositionSupported(context.Context, *MotorPositionSupportedRequest) (*MotorPositionSupportedResponse, error)
-	// MotorOff turns the motor of a board of the underlying robot off.
+	// MotorOff turns the robot's motor off
+	// To Do (FA): This will be deprecated
 	MotorOff(context.Context, *MotorOffRequest) (*MotorOffResponse, error)
+	// MotorisOn returns true if the robot's motor off
+	// To Do (FA): This will be deprecated
 	MotorIsOn(context.Context, *MotorIsOnRequest) (*MotorIsOnResponse, error)
 	InputControllerControls(context.Context, *InputControllerControlsRequest) (*InputControllerControlsResponse, error)
 	InputControllerLastEvents(context.Context, *InputControllerLastEventsRequest) (*InputControllerLastEventsResponse, error)
@@ -934,10 +857,6 @@ type RobotServiceServer interface {
 	NavigationServiceAddWaypoint(context.Context, *NavigationServiceAddWaypointRequest) (*NavigationServiceAddWaypointResponse, error)
 	NavigationServiceRemoveWaypoint(context.Context, *NavigationServiceRemoveWaypointRequest) (*NavigationServiceRemoveWaypointResponse, error)
 	ObjectManipulationServiceDoGrab(context.Context, *ObjectManipulationServiceDoGrabRequest) (*ObjectManipulationServiceDoGrabResponse, error)
-	// IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
-	IMUAngularVelocity(context.Context, *IMUAngularVelocityRequest) (*IMUAngularVelocityResponse, error)
-	// IMUOrientation returns the most recent orientation reading from the given IMU.
-	IMUOrientation(context.Context, *IMUOrientationRequest) (*IMUOrientationResponse, error)
 	// GPSLocation returns the most recent location from the given GPS.
 	GPSLocation(context.Context, *GPSLocationRequest) (*GPSLocationResponse, error)
 	// GPSAltitude returns the most recent altitude from the given GPS.
@@ -979,27 +898,6 @@ func (UnimplementedRobotServiceServer) BaseStop(context.Context, *BaseStopReques
 }
 func (UnimplementedRobotServiceServer) BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BaseWidthMillis not implemented")
-}
-func (UnimplementedRobotServiceServer) LidarInfo(context.Context, *LidarInfoRequest) (*LidarInfoResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LidarInfo not implemented")
-}
-func (UnimplementedRobotServiceServer) LidarStart(context.Context, *LidarStartRequest) (*LidarStartResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LidarStart not implemented")
-}
-func (UnimplementedRobotServiceServer) LidarStop(context.Context, *LidarStopRequest) (*LidarStopResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LidarStop not implemented")
-}
-func (UnimplementedRobotServiceServer) LidarScan(context.Context, *LidarScanRequest) (*LidarScanResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LidarScan not implemented")
-}
-func (UnimplementedRobotServiceServer) LidarRange(context.Context, *LidarRangeRequest) (*LidarRangeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LidarRange not implemented")
-}
-func (UnimplementedRobotServiceServer) LidarBounds(context.Context, *LidarBoundsRequest) (*LidarBoundsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LidarBounds not implemented")
-}
-func (UnimplementedRobotServiceServer) LidarAngularResolution(context.Context, *LidarAngularResolutionRequest) (*LidarAngularResolutionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LidarAngularResolution not implemented")
 }
 func (UnimplementedRobotServiceServer) BoardStatus(context.Context, *BoardStatusRequest) (*BoardStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BoardStatus not implemented")
@@ -1132,12 +1030,6 @@ func (UnimplementedRobotServiceServer) NavigationServiceRemoveWaypoint(context.C
 }
 func (UnimplementedRobotServiceServer) ObjectManipulationServiceDoGrab(context.Context, *ObjectManipulationServiceDoGrabRequest) (*ObjectManipulationServiceDoGrabResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ObjectManipulationServiceDoGrab not implemented")
-}
-func (UnimplementedRobotServiceServer) IMUAngularVelocity(context.Context, *IMUAngularVelocityRequest) (*IMUAngularVelocityResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IMUAngularVelocity not implemented")
-}
-func (UnimplementedRobotServiceServer) IMUOrientation(context.Context, *IMUOrientationRequest) (*IMUOrientationResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IMUOrientation not implemented")
 }
 func (UnimplementedRobotServiceServer) GPSLocation(context.Context, *GPSLocationRequest) (*GPSLocationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GPSLocation not implemented")
@@ -1325,132 +1217,6 @@ func _RobotService_BaseWidthMillis_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).BaseWidthMillis(ctx, req.(*BaseWidthMillisRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_LidarInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LidarInfoRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).LidarInfo(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/LidarInfo",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).LidarInfo(ctx, req.(*LidarInfoRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_LidarStart_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LidarStartRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).LidarStart(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/LidarStart",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).LidarStart(ctx, req.(*LidarStartRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_LidarStop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LidarStopRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).LidarStop(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/LidarStop",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).LidarStop(ctx, req.(*LidarStopRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_LidarScan_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LidarScanRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).LidarScan(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/LidarScan",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).LidarScan(ctx, req.(*LidarScanRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_LidarRange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LidarRangeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).LidarRange(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/LidarRange",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).LidarRange(ctx, req.(*LidarRangeRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_LidarBounds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LidarBoundsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).LidarBounds(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/LidarBounds",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).LidarBounds(ctx, req.(*LidarBoundsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_LidarAngularResolution_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LidarAngularResolutionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).LidarAngularResolution(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/LidarAngularResolution",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).LidarAngularResolution(ctx, req.(*LidarAngularResolutionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2253,42 +2019,6 @@ func _RobotService_ObjectManipulationServiceDoGrab_Handler(srv interface{}, ctx 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_IMUAngularVelocity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IMUAngularVelocityRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).IMUAngularVelocity(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/IMUAngularVelocity",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).IMUAngularVelocity(ctx, req.(*IMUAngularVelocityRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_IMUOrientation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IMUOrientationRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).IMUOrientation(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/IMUOrientation",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).IMUOrientation(ctx, req.(*IMUOrientationRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _RobotService_GPSLocation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GPSLocationRequest)
 	if err := dec(in); err != nil {
@@ -2399,34 +2129,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BaseWidthMillis",
 			Handler:    _RobotService_BaseWidthMillis_Handler,
-		},
-		{
-			MethodName: "LidarInfo",
-			Handler:    _RobotService_LidarInfo_Handler,
-		},
-		{
-			MethodName: "LidarStart",
-			Handler:    _RobotService_LidarStart_Handler,
-		},
-		{
-			MethodName: "LidarStop",
-			Handler:    _RobotService_LidarStop_Handler,
-		},
-		{
-			MethodName: "LidarScan",
-			Handler:    _RobotService_LidarScan_Handler,
-		},
-		{
-			MethodName: "LidarRange",
-			Handler:    _RobotService_LidarRange_Handler,
-		},
-		{
-			MethodName: "LidarBounds",
-			Handler:    _RobotService_LidarBounds_Handler,
-		},
-		{
-			MethodName: "LidarAngularResolution",
-			Handler:    _RobotService_LidarAngularResolution_Handler,
 		},
 		{
 			MethodName: "BoardStatus",
@@ -2595,14 +2297,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ObjectManipulationServiceDoGrab",
 			Handler:    _RobotService_ObjectManipulationServiceDoGrab_Handler,
-		},
-		{
-			MethodName: "IMUAngularVelocity",
-			Handler:    _RobotService_IMUAngularVelocity_Handler,
-		},
-		{
-			MethodName: "IMUOrientation",
-			Handler:    _RobotService_IMUOrientation_Handler,
 		},
 		{
 			MethodName: "GPSLocation",

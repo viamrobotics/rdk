@@ -40,7 +40,7 @@ func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 	pCtx.GotDebugImage(fixed.Overlay(), "overlay_"+h.name)
 
 	// get pointcloud
-	fixed.SetCameraSystem(dc.projectionCamera)
+	fixed.SetProjector(dc.projectionCamera)
 	pc, err := fixed.ToPointCloud()
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(pc, "aligned-pointcloud_"+h.name)

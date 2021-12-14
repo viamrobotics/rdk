@@ -13,22 +13,19 @@ import (
 	"go.viam.com/core/action"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/input"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/client"
 	grpcserver "go.viam.com/core/grpc/server"
-	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	servicepkg "go.viam.com/core/services"
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/testutils/inject"
 
-	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
@@ -67,9 +64,6 @@ var emptyStatus = &pb.StatusResponse{
 		},
 		Cameras: map[string]bool{
 			"camera1": true,
-		},
-		Lidars: map[string]bool{
-			"lidar1": true,
 		},
 		Servos: map[string]*pb.ServoStatus{
 			"servo1": {},
@@ -415,25 +409,21 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		var capArgs []interface{}
-		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 			capArgs = []interface{}{ctx, distanceMillis, millisPerSec, block}
-			return 2, err1
+			return err1
 		}
-		resp, err := server.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
+		_, err = server.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
 			Name:           "base1",
 			DistanceMillis: 1,
 		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 1, 500.0, false})
-		test.That(t, resp.Success, test.ShouldBeFalse)
-		test.That(t, resp.Error, test.ShouldEqual, err1.Error())
-		test.That(t, resp.DistanceMillis, test.ShouldEqual, 2)
+		test.That(t, err, test.ShouldNotBeNil)
 
-		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 			capArgs = []interface{}{ctx, distanceMillis, millisPerSec, block}
-			return distanceMillis, nil
+			return nil
 		}
-		resp, err = server.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
+		resp, err := server.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
 			Name:           "base1",
 			MillisPerSec:   2.3,
 			DistanceMillis: 1,
@@ -441,35 +431,29 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 1, 2.3, false})
 		test.That(t, resp.Success, test.ShouldBeTrue)
-		test.That(t, resp.DistanceMillis, test.ShouldEqual, 1)
 
-		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 			capArgs = []interface{}{ctx, angleDeg, degsPerSec, block}
-			return 2.2, err1
+			return err1
 		}
-		spinResp, err := server.BaseSpin(ctx, &pb.BaseSpinRequest{
+		_, err = server.BaseSpin(ctx, &pb.BaseSpinRequest{
 			Name:     "base1",
 			AngleDeg: 4.5,
 		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 4.5, 64.0, false})
-		test.That(t, spinResp.Success, test.ShouldBeFalse)
-		test.That(t, spinResp.Error, test.ShouldEqual, err1.Error())
-		test.That(t, spinResp.AngleDeg, test.ShouldEqual, 2.2)
+		test.That(t, err, test.ShouldNotBeNil)
 
-		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 			capArgs = []interface{}{ctx, angleDeg, degsPerSec, block}
-			return angleDeg, nil
+			return nil
 		}
-		spinResp, err = server.BaseSpin(ctx, &pb.BaseSpinRequest{
+		spinResp, err := server.BaseSpin(ctx, &pb.BaseSpinRequest{
 			Name:       "base1",
-			DegsPerSec: 20.3,
 			AngleDeg:   4.5,
+			DegsPerSec: 20.3,
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 4.5, 20.3, false})
 		test.That(t, spinResp.Success, test.ShouldBeTrue)
-		test.That(t, spinResp.AngleDeg, test.ShouldEqual, 4.5)
 
 		injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
 			capArgs = []interface{}{ctx}
@@ -1000,144 +984,6 @@ func TestServer(t *testing.T) {
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, true, uint64(1028)})
 	})
 
-	t.Run("Lidar", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.LidarInfo(context.Background(), &pb.LidarInfoRequest{
-			Name: "lidar1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no lidar")
-		test.That(t, capName, test.ShouldEqual, "lidar1")
-
-		err1 := errors.New("whoops")
-
-		device := &inject.Lidar{}
-		injectRobot.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
-			return device, true
-		}
-
-		device.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
-			return nil, err1
-		}
-		_, err = server.LidarInfo(context.Background(), &pb.LidarInfoRequest{
-			Name: "lidar1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		device.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
-			return map[string]interface{}{"hello": true}, nil
-		}
-		infoResp, err := server.LidarInfo(context.Background(), &pb.LidarInfoRequest{
-			Name: "lidar1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, infoResp.GetInfo().AsMap(), test.ShouldResemble, map[string]interface{}{"hello": true})
-
-		device.StartFunc = func(ctx context.Context) error {
-			return err1
-		}
-		_, err = server.LidarStart(context.Background(), &pb.LidarStartRequest{
-			Name: "lidar1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		device.StartFunc = func(ctx context.Context) error {
-			return nil
-		}
-		_, err = server.LidarStart(context.Background(), &pb.LidarStartRequest{
-			Name: "lidar1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-
-		device.StopFunc = func(ctx context.Context) error {
-			return err1
-		}
-		_, err = server.LidarStop(context.Background(), &pb.LidarStopRequest{
-			Name: "lidar1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		device.StopFunc = func(ctx context.Context) error {
-			return nil
-		}
-		_, err = server.LidarStop(context.Background(), &pb.LidarStopRequest{
-			Name: "lidar1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-
-		device.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
-			return nil, err1
-		}
-		_, err = server.LidarScan(context.Background(), &pb.LidarScanRequest{
-			Name: "lidar1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		var capOptions lidar.ScanOptions
-		ms := lidar.Measurements{lidar.NewMeasurement(0, 1), lidar.NewMeasurement(1, 2)}
-		device.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
-			capOptions = options
-			return ms, nil
-		}
-		scanResp, err := server.LidarScan(context.Background(), &pb.LidarScanRequest{
-			Name:  "lidar1",
-			Count: 4, NoFilter: true})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, client.MeasurementsFromProto(scanResp.GetMeasurements()), test.ShouldResemble, ms)
-		test.That(t, capOptions, test.ShouldResemble, lidar.ScanOptions{Count: 4, NoFilter: true})
-
-		device.RangeFunc = func(ctx context.Context) (float64, error) {
-			return 0, err1
-		}
-		_, err = server.LidarRange(context.Background(), &pb.LidarRangeRequest{
-			Name: "lidar1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		device.RangeFunc = func(ctx context.Context) (float64, error) {
-			return 5, nil
-		}
-		rangeResp, err := server.LidarRange(context.Background(), &pb.LidarRangeRequest{
-			Name: "lidar1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, rangeResp.GetRange(), test.ShouldEqual, 5)
-
-		device.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
-			return r2.Point{}, err1
-		}
-		_, err = server.LidarBounds(context.Background(), &pb.LidarBoundsRequest{
-			Name: "lidar1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		device.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
-			return r2.Point{4, 5}, nil
-		}
-		boundsResp, err := server.LidarBounds(context.Background(), &pb.LidarBoundsRequest{
-			Name: "lidar1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, boundsResp.GetX(), test.ShouldEqual, 4)
-		test.That(t, boundsResp.GetY(), test.ShouldEqual, 5)
-
-		device.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
-			return math.NaN(), err1
-		}
-		_, err = server.LidarAngularResolution(context.Background(), &pb.LidarAngularResolutionRequest{
-			Name: "lidar1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		device.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
-			return 6.2, nil
-		}
-		angResp, err := server.LidarAngularResolution(context.Background(), &pb.LidarAngularResolutionRequest{
-			Name: "lidar1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, angResp.GetAngularResolution(), test.ShouldEqual, 6.2)
-	})
-
 	t.Run("Sensor", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
@@ -1322,61 +1168,6 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("IMU", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			capName = name.Name
-			return nil, false
-		}
-
-		_, err := server.IMUAngularVelocity(context.Background(), &pb.IMUAngularVelocityRequest{
-			Name: "imu1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no IMU")
-		test.That(t, capName, test.ShouldEqual, "imu1")
-
-		err1 := errors.New("whoops")
-
-		device := &inject.IMU{}
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return device, true
-		}
-
-		device.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
-			return spatialmath.AngularVelocity{}, err1
-		}
-		_, err = server.IMUAngularVelocity(context.Background(), &pb.IMUAngularVelocityRequest{
-			Name: "imu1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		device.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
-			return spatialmath.AngularVelocity{1, 2, 3}, nil
-		}
-		velResp, err := server.IMUAngularVelocity(context.Background(), &pb.IMUAngularVelocityRequest{
-			Name: "imu1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, velResp.AngularVelocity, test.ShouldResemble, &pb.AngularVelocity{X: 1, Y: 2, Z: 3})
-
-		device.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
-			return nil, err1
-		}
-		_, err = server.IMUOrientation(context.Background(), &pb.IMUOrientationRequest{
-			Name: "imu1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		device.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
-			return &spatialmath.EulerAngles{1, 2, 3}, nil
-		}
-		orientResp, err := server.IMUOrientation(context.Background(), &pb.IMUOrientationRequest{
-			Name: "imu1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, orientResp.Orientation, test.ShouldResemble, &pb.EulerAngles{Roll: 1, Pitch: 2, Yaw: 3})
-	})
-
 	t.Run("Motor", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
@@ -1404,56 +1195,53 @@ func TestServer(t *testing.T) {
 
 		var capArgs []interface{}
 		err1 := errors.New("whoops")
-		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-			capArgs = []interface{}{d, powerPct}
+		injectMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
+			capArgs = []interface{}{powerPct}
 			return err1
 		}
 		_, err = server.MotorGo(context.Background(), &pb.MotorGoRequest{
 			Name: "motor1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, float32(0)})
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{float64(0)})
 
-		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-			capArgs = []interface{}{d, powerPct}
+		injectMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
+			capArgs = []interface{}{powerPct}
 			return nil
 		}
 		_, err = server.MotorGo(context.Background(), &pb.MotorGoRequest{
-			Name:      "motor1",
-			Direction: pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD,
-			PowerPct:  2,
+			Name:     "motor1",
+			PowerPct: 2,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(2)})
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{float64(2)})
 
-		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+		injectMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
 			return errors.New("no")
 		}
-		injectMotor.GoForFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
-			capArgs = []interface{}{d, rpm, revolutions}
+		injectMotor.GoForFunc = func(ctx context.Context, rpm float64, revolutions float64) error {
+			capArgs = []interface{}{rpm, revolutions}
 			return err1
 		}
 		_, err = server.MotorGoFor(context.Background(), &pb.MotorGoForRequest{
 			Name:        "motor1",
-			Direction:   pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
-			Rpm:         2.3,
+			Rpm:         -2.3,
 			Revolutions: 4.5,
 		})
 		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3, 4.5})
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{-2.3, 4.5})
 
-		injectMotor.GoForFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
-			capArgs = []interface{}{d, rpm, revolutions}
+		injectMotor.GoForFunc = func(ctx context.Context, rpm float64, revolutions float64) error {
+			capArgs = []interface{}{rpm, revolutions}
 			return nil
 		}
 		_, err = server.MotorGoFor(context.Background(), &pb.MotorGoForRequest{
 			Name:        "motor1",
-			Direction:   pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
 			Rpm:         2.3,
-			Revolutions: 4.5,
+			Revolutions: -4.5,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3, 4.5})
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{2.3, -4.5})
 
 		injectMotor.GoToFunc = func(ctx context.Context, rpm float64, revolutions float64) error {
 			capArgs = []interface{}{rpm, revolutions}
@@ -1467,19 +1255,18 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{2.3, 4.5})
 
-		injectMotor.GoTillStopFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
-			capArgs = []interface{}{d, rpm, stopFunc}
+		injectMotor.GoTillStopFunc = func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+			capArgs = []interface{}{rpm, stopFunc}
 			return nil
 		}
 		_, err = server.MotorGoTillStop(context.Background(), &pb.MotorGoTillStopRequest{
-			Name:      "motor1",
-			Direction: pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
-			Rpm:       2.3,
+			Name: "motor1",
+			Rpm:  -2.3,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3, (func(context.Context) bool)(nil)})
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{-2.3, (func(context.Context) bool)(nil)})
 
-		injectMotor.ZeroFunc = func(ctx context.Context, offset float64) error {
+		injectMotor.SetToZeroPositionFunc = func(ctx context.Context, offset float64) error {
 			capArgs = []interface{}{offset}
 			return nil
 		}
@@ -1492,7 +1279,7 @@ func TestServer(t *testing.T) {
 
 		ctx := context.Background()
 
-		injectMotor.PowerFunc = func(ctx context.Context, powerPct float32) error {
+		injectMotor.SetPowerFunc = func(ctx context.Context, powerPct float64) error {
 			capArgs = []interface{}{ctx, powerPct}
 			return err1
 		}
@@ -1501,9 +1288,9 @@ func TestServer(t *testing.T) {
 			PowerPct: 1.23,
 		})
 		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, float32(1.23)})
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, float64(1.23)})
 
-		injectMotor.PowerFunc = func(ctx context.Context, powerPct float32) error {
+		injectMotor.SetPowerFunc = func(ctx context.Context, powerPct float64) error {
 			capArgs = []interface{}{ctx, powerPct}
 			return nil
 		}
@@ -1512,7 +1299,7 @@ func TestServer(t *testing.T) {
 			PowerPct: 1.23,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, float32(1.23)})
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, float64(1.23)})
 
 		injectMotor.PositionFunc = func(ctx context.Context) (float64, error) {
 			capArgs = []interface{}{ctx}

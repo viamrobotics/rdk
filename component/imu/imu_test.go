@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"go.viam.com/core/resource"
+	"go.viam.com/core/sensor"
 	"go.viam.com/core/spatialmath"
 
 	"go.viam.com/test"
@@ -48,7 +49,13 @@ func TestIMUName(t *testing.T) {
 	}
 }
 
-func TestWrapWtihReconfigurable(t *testing.T) {
+var (
+	av   = spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
+	ea   = &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
+	desc = sensor.Description{sensor.Type("imu"), ""}
+)
+
+func TestWrapWithReconfigurable(t *testing.T) {
 	var actualIMU1 IMU = &mock{Name: "imu1"}
 	fakeIMU1, err := WrapWithReconfigurable(actualIMU1)
 	test.That(t, err, test.ShouldBeNil)
@@ -91,7 +98,7 @@ func TestAngularVelocity(t *testing.T) {
 	test.That(t, actualIMU1.angularVelocityCalls, test.ShouldEqual, 0)
 	vel, err := fakeIMU1.(*reconfigurableIMU).AngularVelocity(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, vel, test.ShouldResemble, spatialmath.AngularVelocity{1, 2, 3})
+	test.That(t, vel, test.ShouldResemble, spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3})
 	test.That(t, actualIMU1.angularVelocityCalls, test.ShouldEqual, 1)
 }
 
@@ -102,8 +109,29 @@ func TestOrientiation(t *testing.T) {
 	test.That(t, actualIMU1.orientationCalls, test.ShouldEqual, 0)
 	angles, err := fakeIMU1.(*reconfigurableIMU).Orientation(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, angles, test.ShouldResemble, &spatialmath.EulerAngles{4, 5, 6})
+	test.That(t, angles, test.ShouldResemble, &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6})
 	test.That(t, actualIMU1.orientationCalls, test.ShouldEqual, 1)
+}
+
+func TestReadings(t *testing.T) {
+	actualIMU1 := &mock{Name: "imu1"}
+	fakeIMU1, _ := WrapWithReconfigurable(actualIMU1)
+
+	test.That(t, actualIMU1.readingsCalls, test.ShouldEqual, 0)
+	result, err := fakeIMU1.(*reconfigurableIMU).Readings(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, []interface{}{av, ea})
+	test.That(t, actualIMU1.readingsCalls, test.ShouldEqual, 1)
+}
+
+func TestDesc(t *testing.T) {
+	actualIMU1 := &mock{Name: "imu1"}
+	fakeIMU1, _ := WrapWithReconfigurable(actualIMU1)
+
+	test.That(t, actualIMU1.descCalls, test.ShouldEqual, 0)
+	result := fakeIMU1.(*reconfigurableIMU).Desc()
+	test.That(t, result, test.ShouldResemble, desc)
+	test.That(t, actualIMU1.descCalls, test.ShouldEqual, 1)
 }
 
 type mock struct {
@@ -111,15 +139,25 @@ type mock struct {
 	Name                 string
 	angularVelocityCalls int
 	orientationCalls     int
+	readingsCalls        int
+	descCalls            int
 	reconfCalls          int
 }
 
 func (m *mock) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	m.angularVelocityCalls++
-	return spatialmath.AngularVelocity{1, 2, 3}, nil
+	return av, nil
 }
 func (m *mock) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	m.orientationCalls++
-	return &spatialmath.EulerAngles{4, 5, 6}, nil
+	return ea, nil
+}
+func (m *mock) Readings(ctx context.Context) ([]interface{}, error) {
+	m.readingsCalls++
+	return []interface{}{av, ea}, nil
+}
+func (m *mock) Desc() sensor.Description {
+	m.descCalls++
+	return desc
 }
 func (m *mock) Close() error { m.reconfCalls++; return nil }

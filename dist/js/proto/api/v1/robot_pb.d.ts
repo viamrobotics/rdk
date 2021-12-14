@@ -100,8 +100,6 @@ export class Status extends jspb.Message {
   clearBoardsMap(): void;
   getCamerasMap(): jspb.Map<string, boolean>;
   clearCamerasMap(): void;
-  getLidarsMap(): jspb.Map<string, boolean>;
-  clearLidarsMap(): void;
   getSensorsMap(): jspb.Map<string, SensorStatus>;
   clearSensorsMap(): void;
   getFunctionsMap(): jspb.Map<string, boolean>;
@@ -133,7 +131,6 @@ export namespace Status {
     grippersMap: Array<[string, boolean]>,
     boardsMap: Array<[string, BoardStatus.AsObject]>,
     camerasMap: Array<[string, boolean]>,
-    lidarsMap: Array<[string, boolean]>,
     sensorsMap: Array<[string, SensorStatus.AsObject]>,
     functionsMap: Array<[string, boolean]>,
     servosMap: Array<[string, ServoStatus.AsObject]>,
@@ -505,9 +502,6 @@ export class BaseMoveStraightResponse extends jspb.Message {
   getError(): string;
   setError(value: string): void;
 
-  getDistanceMillis(): number;
-  setDistanceMillis(value: number): void;
-
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): BaseMoveStraightResponse.AsObject;
   static toObject(includeInstance: boolean, msg: BaseMoveStraightResponse): BaseMoveStraightResponse.AsObject;
@@ -522,7 +516,6 @@ export namespace BaseMoveStraightResponse {
   export type AsObject = {
     success: boolean,
     error: string,
-    distanceMillis: number,
   }
 }
 
@@ -565,9 +558,6 @@ export class BaseMoveArcResponse extends jspb.Message {
   getError(): string;
   setError(value: string): void;
 
-  getDistanceMillis(): number;
-  setDistanceMillis(value: number): void;
-
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): BaseMoveArcResponse.AsObject;
   static toObject(includeInstance: boolean, msg: BaseMoveArcResponse): BaseMoveArcResponse.AsObject;
@@ -582,7 +572,6 @@ export namespace BaseMoveArcResponse {
   export type AsObject = {
     success: boolean,
     error: string,
-    distanceMillis: number,
   }
 }
 
@@ -621,9 +610,6 @@ export class BaseSpinResponse extends jspb.Message {
   getError(): string;
   setError(value: string): void;
 
-  getAngleDeg(): number;
-  setAngleDeg(value: number): void;
-
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): BaseSpinResponse.AsObject;
   static toObject(includeInstance: boolean, msg: BaseSpinResponse): BaseSpinResponse.AsObject;
@@ -638,7 +624,6 @@ export namespace BaseSpinResponse {
   export type AsObject = {
     success: boolean,
     error: string,
-    angleDeg: number,
   }
 }
 
@@ -743,330 +728,6 @@ export namespace Vector3 {
     x: number,
     y: number,
     z: number,
-  }
-}
-
-export class LidarMeasurement extends jspb.Message {
-  getAngle(): number;
-  setAngle(value: number): void;
-
-  getAngleDeg(): number;
-  setAngleDeg(value: number): void;
-
-  getDistance(): number;
-  setDistance(value: number): void;
-
-  getX(): number;
-  setX(value: number): void;
-
-  getY(): number;
-  setY(value: number): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LidarMeasurement.AsObject;
-  static toObject(includeInstance: boolean, msg: LidarMeasurement): LidarMeasurement.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: LidarMeasurement, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): LidarMeasurement;
-  static deserializeBinaryFromReader(message: LidarMeasurement, reader: jspb.BinaryReader): LidarMeasurement;
-}
-
-export namespace LidarMeasurement {
-  export type AsObject = {
-    angle: number,
-    angleDeg: number,
-    distance: number,
-    x: number,
-    y: number,
-  }
-}
-
-export class LidarInfoRequest extends jspb.Message {
-  getName(): string;
-  setName(value: string): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LidarInfoRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: LidarInfoRequest): LidarInfoRequest.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: LidarInfoRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): LidarInfoRequest;
-  static deserializeBinaryFromReader(message: LidarInfoRequest, reader: jspb.BinaryReader): LidarInfoRequest;
-}
-
-export namespace LidarInfoRequest {
-  export type AsObject = {
-    name: string,
-  }
-}
-
-export class LidarInfoResponse extends jspb.Message {
-  hasInfo(): boolean;
-  clearInfo(): void;
-  getInfo(): google_protobuf_struct_pb.Struct | undefined;
-  setInfo(value?: google_protobuf_struct_pb.Struct): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LidarInfoResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: LidarInfoResponse): LidarInfoResponse.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: LidarInfoResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): LidarInfoResponse;
-  static deserializeBinaryFromReader(message: LidarInfoResponse, reader: jspb.BinaryReader): LidarInfoResponse;
-}
-
-export namespace LidarInfoResponse {
-  export type AsObject = {
-    info?: google_protobuf_struct_pb.Struct.AsObject,
-  }
-}
-
-export class LidarStartRequest extends jspb.Message {
-  getName(): string;
-  setName(value: string): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LidarStartRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: LidarStartRequest): LidarStartRequest.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: LidarStartRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): LidarStartRequest;
-  static deserializeBinaryFromReader(message: LidarStartRequest, reader: jspb.BinaryReader): LidarStartRequest;
-}
-
-export namespace LidarStartRequest {
-  export type AsObject = {
-    name: string,
-  }
-}
-
-export class LidarStartResponse extends jspb.Message {
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LidarStartResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: LidarStartResponse): LidarStartResponse.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: LidarStartResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): LidarStartResponse;
-  static deserializeBinaryFromReader(message: LidarStartResponse, reader: jspb.BinaryReader): LidarStartResponse;
-}
-
-export namespace LidarStartResponse {
-  export type AsObject = {
-  }
-}
-
-export class LidarStopRequest extends jspb.Message {
-  getName(): string;
-  setName(value: string): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LidarStopRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: LidarStopRequest): LidarStopRequest.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: LidarStopRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): LidarStopRequest;
-  static deserializeBinaryFromReader(message: LidarStopRequest, reader: jspb.BinaryReader): LidarStopRequest;
-}
-
-export namespace LidarStopRequest {
-  export type AsObject = {
-    name: string,
-  }
-}
-
-export class LidarStopResponse extends jspb.Message {
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LidarStopResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: LidarStopResponse): LidarStopResponse.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: LidarStopResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): LidarStopResponse;
-  static deserializeBinaryFromReader(message: LidarStopResponse, reader: jspb.BinaryReader): LidarStopResponse;
-}
-
-export namespace LidarStopResponse {
-  export type AsObject = {
-  }
-}
-
-export class LidarScanRequest extends jspb.Message {
-  getName(): string;
-  setName(value: string): void;
-
-  getCount(): number;
-  setCount(value: number): void;
-
-  getNoFilter(): boolean;
-  setNoFilter(value: boolean): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LidarScanRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: LidarScanRequest): LidarScanRequest.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: LidarScanRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): LidarScanRequest;
-  static deserializeBinaryFromReader(message: LidarScanRequest, reader: jspb.BinaryReader): LidarScanRequest;
-}
-
-export namespace LidarScanRequest {
-  export type AsObject = {
-    name: string,
-    count: number,
-    noFilter: boolean,
-  }
-}
-
-export class LidarScanResponse extends jspb.Message {
-  clearMeasurementsList(): void;
-  getMeasurementsList(): Array<LidarMeasurement>;
-  setMeasurementsList(value: Array<LidarMeasurement>): void;
-  addMeasurements(value?: LidarMeasurement, index?: number): LidarMeasurement;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LidarScanResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: LidarScanResponse): LidarScanResponse.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: LidarScanResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): LidarScanResponse;
-  static deserializeBinaryFromReader(message: LidarScanResponse, reader: jspb.BinaryReader): LidarScanResponse;
-}
-
-export namespace LidarScanResponse {
-  export type AsObject = {
-    measurementsList: Array<LidarMeasurement.AsObject>,
-  }
-}
-
-export class LidarRangeRequest extends jspb.Message {
-  getName(): string;
-  setName(value: string): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LidarRangeRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: LidarRangeRequest): LidarRangeRequest.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: LidarRangeRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): LidarRangeRequest;
-  static deserializeBinaryFromReader(message: LidarRangeRequest, reader: jspb.BinaryReader): LidarRangeRequest;
-}
-
-export namespace LidarRangeRequest {
-  export type AsObject = {
-    name: string,
-  }
-}
-
-export class LidarRangeResponse extends jspb.Message {
-  getRange(): number;
-  setRange(value: number): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LidarRangeResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: LidarRangeResponse): LidarRangeResponse.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: LidarRangeResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): LidarRangeResponse;
-  static deserializeBinaryFromReader(message: LidarRangeResponse, reader: jspb.BinaryReader): LidarRangeResponse;
-}
-
-export namespace LidarRangeResponse {
-  export type AsObject = {
-    range: number,
-  }
-}
-
-export class LidarBoundsRequest extends jspb.Message {
-  getName(): string;
-  setName(value: string): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LidarBoundsRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: LidarBoundsRequest): LidarBoundsRequest.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: LidarBoundsRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): LidarBoundsRequest;
-  static deserializeBinaryFromReader(message: LidarBoundsRequest, reader: jspb.BinaryReader): LidarBoundsRequest;
-}
-
-export namespace LidarBoundsRequest {
-  export type AsObject = {
-    name: string,
-  }
-}
-
-export class LidarBoundsResponse extends jspb.Message {
-  getX(): number;
-  setX(value: number): void;
-
-  getY(): number;
-  setY(value: number): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LidarBoundsResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: LidarBoundsResponse): LidarBoundsResponse.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: LidarBoundsResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): LidarBoundsResponse;
-  static deserializeBinaryFromReader(message: LidarBoundsResponse, reader: jspb.BinaryReader): LidarBoundsResponse;
-}
-
-export namespace LidarBoundsResponse {
-  export type AsObject = {
-    x: number,
-    y: number,
-  }
-}
-
-export class LidarAngularResolutionRequest extends jspb.Message {
-  getName(): string;
-  setName(value: string): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LidarAngularResolutionRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: LidarAngularResolutionRequest): LidarAngularResolutionRequest.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: LidarAngularResolutionRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): LidarAngularResolutionRequest;
-  static deserializeBinaryFromReader(message: LidarAngularResolutionRequest, reader: jspb.BinaryReader): LidarAngularResolutionRequest;
-}
-
-export namespace LidarAngularResolutionRequest {
-  export type AsObject = {
-    name: string,
-  }
-}
-
-export class LidarAngularResolutionResponse extends jspb.Message {
-  getAngularResolution(): number;
-  setAngularResolution(value: number): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): LidarAngularResolutionResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: LidarAngularResolutionResponse): LidarAngularResolutionResponse.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: LidarAngularResolutionResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): LidarAngularResolutionResponse;
-  static deserializeBinaryFromReader(message: LidarAngularResolutionResponse, reader: jspb.BinaryReader): LidarAngularResolutionResponse;
-}
-
-export namespace LidarAngularResolutionResponse {
-  export type AsObject = {
-    angularResolution: number,
   }
 }
 
@@ -2112,9 +1773,6 @@ export class MotorGoRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
-  getDirection(): DirectionRelativeMap[keyof DirectionRelativeMap];
-  setDirection(value: DirectionRelativeMap[keyof DirectionRelativeMap]): void;
-
   getPowerPct(): number;
   setPowerPct(value: number): void;
 
@@ -2131,7 +1789,6 @@ export class MotorGoRequest extends jspb.Message {
 export namespace MotorGoRequest {
   export type AsObject = {
     name: string,
-    direction: DirectionRelativeMap[keyof DirectionRelativeMap],
     powerPct: number,
   }
 }
@@ -2156,9 +1813,6 @@ export class MotorGoForRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
-  getDirection(): DirectionRelativeMap[keyof DirectionRelativeMap];
-  setDirection(value: DirectionRelativeMap[keyof DirectionRelativeMap]): void;
-
   getRpm(): number;
   setRpm(value: number): void;
 
@@ -2178,7 +1832,6 @@ export class MotorGoForRequest extends jspb.Message {
 export namespace MotorGoForRequest {
   export type AsObject = {
     name: string,
-    direction: DirectionRelativeMap[keyof DirectionRelativeMap],
     rpm: number,
     revolutions: number,
   }
@@ -2248,9 +1901,6 @@ export class MotorGoTillStopRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
-  getDirection(): DirectionRelativeMap[keyof DirectionRelativeMap];
-  setDirection(value: DirectionRelativeMap[keyof DirectionRelativeMap]): void;
-
   getRpm(): number;
   setRpm(value: number): void;
 
@@ -2267,7 +1917,6 @@ export class MotorGoTillStopRequest extends jspb.Message {
 export namespace MotorGoTillStopRequest {
   export type AsObject = {
     name: string,
-    direction: DirectionRelativeMap[keyof DirectionRelativeMap],
     rpm: number,
   }
 }
@@ -3102,146 +2751,6 @@ export namespace InputControllerEventStreamRequest {
   }
 }
 
-export class AngularVelocity extends jspb.Message {
-  getX(): number;
-  setX(value: number): void;
-
-  getY(): number;
-  setY(value: number): void;
-
-  getZ(): number;
-  setZ(value: number): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): AngularVelocity.AsObject;
-  static toObject(includeInstance: boolean, msg: AngularVelocity): AngularVelocity.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: AngularVelocity, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): AngularVelocity;
-  static deserializeBinaryFromReader(message: AngularVelocity, reader: jspb.BinaryReader): AngularVelocity;
-}
-
-export namespace AngularVelocity {
-  export type AsObject = {
-    x: number,
-    y: number,
-    z: number,
-  }
-}
-
-export class EulerAngles extends jspb.Message {
-  getRoll(): number;
-  setRoll(value: number): void;
-
-  getPitch(): number;
-  setPitch(value: number): void;
-
-  getYaw(): number;
-  setYaw(value: number): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): EulerAngles.AsObject;
-  static toObject(includeInstance: boolean, msg: EulerAngles): EulerAngles.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: EulerAngles, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): EulerAngles;
-  static deserializeBinaryFromReader(message: EulerAngles, reader: jspb.BinaryReader): EulerAngles;
-}
-
-export namespace EulerAngles {
-  export type AsObject = {
-    roll: number,
-    pitch: number,
-    yaw: number,
-  }
-}
-
-export class IMUAngularVelocityRequest extends jspb.Message {
-  getName(): string;
-  setName(value: string): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): IMUAngularVelocityRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: IMUAngularVelocityRequest): IMUAngularVelocityRequest.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: IMUAngularVelocityRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): IMUAngularVelocityRequest;
-  static deserializeBinaryFromReader(message: IMUAngularVelocityRequest, reader: jspb.BinaryReader): IMUAngularVelocityRequest;
-}
-
-export namespace IMUAngularVelocityRequest {
-  export type AsObject = {
-    name: string,
-  }
-}
-
-export class IMUAngularVelocityResponse extends jspb.Message {
-  hasAngularVelocity(): boolean;
-  clearAngularVelocity(): void;
-  getAngularVelocity(): AngularVelocity | undefined;
-  setAngularVelocity(value?: AngularVelocity): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): IMUAngularVelocityResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: IMUAngularVelocityResponse): IMUAngularVelocityResponse.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: IMUAngularVelocityResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): IMUAngularVelocityResponse;
-  static deserializeBinaryFromReader(message: IMUAngularVelocityResponse, reader: jspb.BinaryReader): IMUAngularVelocityResponse;
-}
-
-export namespace IMUAngularVelocityResponse {
-  export type AsObject = {
-    angularVelocity?: AngularVelocity.AsObject,
-  }
-}
-
-export class IMUOrientationRequest extends jspb.Message {
-  getName(): string;
-  setName(value: string): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): IMUOrientationRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: IMUOrientationRequest): IMUOrientationRequest.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: IMUOrientationRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): IMUOrientationRequest;
-  static deserializeBinaryFromReader(message: IMUOrientationRequest, reader: jspb.BinaryReader): IMUOrientationRequest;
-}
-
-export namespace IMUOrientationRequest {
-  export type AsObject = {
-    name: string,
-  }
-}
-
-export class IMUOrientationResponse extends jspb.Message {
-  hasOrientation(): boolean;
-  clearOrientation(): void;
-  getOrientation(): EulerAngles | undefined;
-  setOrientation(value?: EulerAngles): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): IMUOrientationResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: IMUOrientationResponse): IMUOrientationResponse.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: IMUOrientationResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): IMUOrientationResponse;
-  static deserializeBinaryFromReader(message: IMUOrientationResponse, reader: jspb.BinaryReader): IMUOrientationResponse;
-}
-
-export namespace IMUOrientationResponse {
-  export type AsObject = {
-    orientation?: EulerAngles.AsObject,
-  }
-}
-
 export class GPSLocationRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
@@ -3519,14 +3028,6 @@ export namespace ForceMatrixSlipDetectionResponse {
     isSlipping: boolean,
   }
 }
-
-export interface DirectionRelativeMap {
-  DIRECTION_RELATIVE_UNSPECIFIED: 0;
-  DIRECTION_RELATIVE_FORWARD: 1;
-  DIRECTION_RELATIVE_BACKWARD: 2;
-}
-
-export const DirectionRelative: DirectionRelativeMap;
 
 export interface NavigationServiceModeMap {
   NAVIGATION_SERVICE_MODE_UNSPECIFIED: 0;

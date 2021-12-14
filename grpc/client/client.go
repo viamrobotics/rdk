@@ -23,14 +23,12 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/component/imu"
+	"go.viam.com/core/component/input"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc"
 	metadataclient "go.viam.com/core/grpc/metadata/client"
-	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
@@ -43,7 +41,6 @@ import (
 	"go.viam.com/core/spatialmath"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r2"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -64,7 +61,6 @@ type RobotClient struct {
 	namesMu              *sync.RWMutex
 	baseNames            []string
 	boardNames           []boardInfo
-	lidarNames           []string
 	sensorNames          []string
 	motorNames           []string
 	inputControllerNames []string
@@ -321,12 +317,6 @@ func (rc *RobotClient) CameraByName(name string) (camera.Camera, bool) {
 	return actual, true
 }
 
-// LidarByName returns a lidar by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) LidarByName(name string) (lidar.Lidar, bool) {
-	return &lidarClient{rc, name}, true
-}
-
 // BoardByName returns a board by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
@@ -401,11 +391,12 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
+	// TODO(maximpertsov): remove this switch statement after the V2 migration is done
 	switch name.Subtype {
-	case imu.Subtype:
-		sensorType := rc.sensorTypes[name.Name]
-		sc := &sensorClient{rc, name.Name, sensorType}
-		return &imuClient{sc}, true
+	case input.Subtype:
+		return &inputControllerClient{rc: rc, name: name.Name}, true
+	case motor.Subtype:
+		return &motorClient{rc: rc, name: name.Name}, true
 	default:
 		c := registry.ResourceSubtypeLookup(name.Subtype)
 		if c == nil || c.RPCClient == nil {
@@ -481,33 +472,12 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 			rc.boardNames = append(rc.boardNames, info)
 		}
 	}
-	rc.lidarNames = nil
-	if len(status.Lidars) != 0 {
-		rc.lidarNames = make([]string, 0, len(status.Lidars))
-		for name := range status.Lidars {
-			rc.lidarNames = append(rc.lidarNames, name)
-		}
-	}
 	rc.sensorNames = nil
 	if len(status.Sensors) != 0 {
 		rc.sensorNames = make([]string, 0, len(status.Sensors))
 		for name, sensorStatus := range status.Sensors {
 			rc.sensorNames = append(rc.sensorNames, name)
 			rc.sensorTypes[name] = sensor.Type(sensorStatus.Type)
-		}
-	}
-	rc.motorNames = nil
-	if len(status.Motors) != 0 {
-		rc.motorNames = make([]string, 0, len(status.Motors))
-		for name := range status.Motors {
-			rc.motorNames = append(rc.motorNames, name)
-		}
-	}
-	rc.inputControllerNames = nil
-	if len(status.InputControllers) != 0 {
-		rc.inputControllerNames = make([]string, 0, len(status.InputControllers))
-		for name := range status.InputControllers {
-			rc.inputControllerNames = append(rc.inputControllerNames, name)
 		}
 	}
 	rc.functionNames = nil
@@ -577,13 +547,6 @@ func (rc *RobotClient) CameraNames() []string {
 		}
 	}
 	return copyStringSlice(names)
-}
-
-// LidarNames returns the names of all known lidars.
-func (rc *RobotClient) LidarNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.lidarNames)
 }
 
 // BaseNames returns the names of all known bases.
@@ -725,23 +688,22 @@ type baseClient struct {
 	name string
 }
 
-func (bc *baseClient) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+func (bc *baseClient) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	resp, err := bc.rc.client.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
 		Name:           bc.name,
 		MillisPerSec:   millisPerSec,
 		DistanceMillis: int64(distanceMillis),
 	})
 	if err != nil {
-		return 0, err
+		return err
 	}
-	moved := int(resp.DistanceMillis)
 	if resp.Success {
-		return moved, nil
+		return nil
 	}
-	return moved, errors.New(resp.Error)
+	return errors.New(resp.Error)
 }
 
-func (bc *baseClient) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) (int, error) {
+func (bc *baseClient) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) error {
 	resp, err := bc.rc.client.BaseMoveArc(ctx, &pb.BaseMoveArcRequest{
 		Name:           bc.name,
 		MillisPerSec:   millisPerSec,
@@ -749,29 +711,27 @@ func (bc *baseClient) MoveArc(ctx context.Context, distanceMillis int, millisPer
 		DistanceMillis: int64(distanceMillis),
 	})
 	if err != nil {
-		return 0, err
+		return err
 	}
-	moved := int(resp.DistanceMillis)
 	if resp.Success {
-		return moved, nil
+		return nil
 	}
-	return moved, errors.New(resp.Error)
+	return errors.New(resp.Error)
 }
 
-func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 	resp, err := bc.rc.client.BaseSpin(ctx, &pb.BaseSpinRequest{
 		Name:       bc.name,
 		AngleDeg:   angleDeg,
 		DegsPerSec: degsPerSec,
 	})
 	if err != nil {
-		return math.NaN(), err
+		return err
 	}
-	spun := resp.AngleDeg
 	if resp.Success {
-		return spun, nil
+		return nil
 	}
-	return spun, errors.New(resp.Error)
+	return errors.New(resp.Error)
 }
 
 func (bc *baseClient) Stop(ctx context.Context) error {
@@ -986,93 +946,6 @@ func (dic *digitalInterruptClient) AddPostProcessor(pp board.PostProcessor) {
 	panic(errUnimplemented)
 }
 
-// lidarClient satisfies a gRPC based lidar.Lidar. Refer to the interface
-// for descriptions of its methods.
-type lidarClient struct {
-	rc   *RobotClient
-	name string
-}
-
-func (ldc *lidarClient) Info(ctx context.Context) (map[string]interface{}, error) {
-	resp, err := ldc.rc.client.LidarInfo(ctx, &pb.LidarInfoRequest{
-		Name: ldc.name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Info.AsMap(), nil
-}
-
-func (ldc *lidarClient) Start(ctx context.Context) error {
-	_, err := ldc.rc.client.LidarStart(ctx, &pb.LidarStartRequest{
-		Name: ldc.name,
-	})
-	return err
-}
-
-func (ldc *lidarClient) Stop(ctx context.Context) error {
-	_, err := ldc.rc.client.LidarStop(ctx, &pb.LidarStopRequest{
-		Name: ldc.name,
-	})
-	return err
-}
-
-func (ldc *lidarClient) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
-	resp, err := ldc.rc.client.LidarScan(ctx, &pb.LidarScanRequest{
-		Name:     ldc.name,
-		Count:    int32(options.Count),
-		NoFilter: options.NoFilter,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return MeasurementsFromProto(resp.Measurements), nil
-}
-
-func (ldc *lidarClient) Range(ctx context.Context) (float64, error) {
-	resp, err := ldc.rc.client.LidarRange(ctx, &pb.LidarRangeRequest{
-		Name: ldc.name,
-	})
-	if err != nil {
-		return 0, err
-	}
-	return float64(resp.Range), nil
-}
-
-func (ldc *lidarClient) Bounds(ctx context.Context) (r2.Point, error) {
-	resp, err := ldc.rc.client.LidarBounds(ctx, &pb.LidarBoundsRequest{
-		Name: ldc.name,
-	})
-	if err != nil {
-		return r2.Point{}, err
-	}
-	return r2.Point{float64(resp.X), float64(resp.Y)}, nil
-}
-
-func (ldc *lidarClient) AngularResolution(ctx context.Context) (float64, error) {
-	resp, err := ldc.rc.client.LidarAngularResolution(ctx, &pb.LidarAngularResolutionRequest{
-		Name: ldc.name,
-	})
-	if err != nil {
-		return math.NaN(), err
-	}
-	return resp.AngularResolution, nil
-}
-
-func measurementFromProto(pm *pb.LidarMeasurement) *lidar.Measurement {
-	return lidar.NewMeasurement(pm.AngleDeg, pm.Distance)
-}
-
-// MeasurementsFromProto converts proto based LiDAR measurements to the
-// interface.
-func MeasurementsFromProto(pms []*pb.LidarMeasurement) lidar.Measurements {
-	ms := make(lidar.Measurements, 0, len(pms))
-	for _, pm := range pms {
-		ms = append(ms, measurementFromProto(pm))
-	}
-	return ms
-}
-
 // sensorClient satisfies a gRPC based sensor.Sensor. Refer to the interface
 // for descriptions of its methods.
 type sensorClient struct {
@@ -1156,57 +1029,6 @@ func (rcc *relativeCompassClient) Mark(ctx context.Context) error {
 
 func (rcc *relativeCompassClient) Desc() sensor.Description {
 	return sensor.Description{compass.RelativeType, ""}
-}
-
-// imuClient satisfies a gRPC based imu.IMU. Refer to the interface
-// for descriptions of its methods.
-type imuClient struct {
-	*sensorClient
-}
-
-func (ic *imuClient) Readings(ctx context.Context) ([]interface{}, error) {
-	vel, err := ic.AngularVelocity(ctx)
-	if err != nil {
-		return nil, err
-	}
-	orientation, err := ic.Orientation(ctx)
-	if err != nil {
-		return nil, err
-	}
-	ea := orientation.EulerAngles()
-	return []interface{}{vel.X, vel.Y, vel.Z, ea.Roll, ea.Pitch, ea.Yaw}, nil
-}
-
-func (ic *imuClient) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	resp, err := ic.rc.client.IMUAngularVelocity(ctx, &pb.IMUAngularVelocityRequest{
-		Name: ic.name,
-	})
-	if err != nil {
-		return spatialmath.AngularVelocity{}, err
-	}
-	return spatialmath.AngularVelocity{
-		X: resp.AngularVelocity.X,
-		Y: resp.AngularVelocity.Y,
-		Z: resp.AngularVelocity.Z,
-	}, nil
-}
-
-func (ic *imuClient) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
-	resp, err := ic.rc.client.IMUOrientation(ctx, &pb.IMUOrientationRequest{
-		Name: ic.name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &spatialmath.EulerAngles{
-		Roll:  resp.Orientation.Roll,
-		Pitch: resp.Orientation.Pitch,
-		Yaw:   resp.Orientation.Yaw,
-	}, nil
-}
-
-func (ic *imuClient) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(imu.SubtypeName), ""}
 }
 
 // gpsClient satisfies a gRPC based gps.GPS. Refer to the interface
@@ -1293,7 +1115,7 @@ type motorClient struct {
 func (mc *motorClient) PID() motor.PID {
 	return nil
 }
-func (mc *motorClient) Power(ctx context.Context, powerPct float32) error {
+func (mc *motorClient) SetPower(ctx context.Context, powerPct float64) error {
 	_, err := mc.rc.client.MotorPower(ctx, &pb.MotorPowerRequest{
 		Name:     mc.name,
 		PowerPct: powerPct,
@@ -1301,19 +1123,17 @@ func (mc *motorClient) Power(ctx context.Context, powerPct float32) error {
 	return err
 }
 
-func (mc *motorClient) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+func (mc *motorClient) Go(ctx context.Context, powerPct float64) error {
 	_, err := mc.rc.client.MotorGo(ctx, &pb.MotorGoRequest{
-		Name:      mc.name,
-		Direction: d,
-		PowerPct:  powerPct,
+		Name:     mc.name,
+		PowerPct: powerPct,
 	})
 	return err
 }
 
-func (mc *motorClient) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
+func (mc *motorClient) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
 	_, err := mc.rc.client.MotorGoFor(ctx, &pb.MotorGoForRequest{
 		Name:        mc.name,
-		Direction:   d,
 		Rpm:         rpm,
 		Revolutions: revolutions,
 	})
@@ -1366,19 +1186,18 @@ func (mc *motorClient) GoTo(ctx context.Context, rpm float64, position float64) 
 	return err
 }
 
-func (mc *motorClient) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+func (mc *motorClient) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	if stopFunc != nil {
 		return errors.New("stopFunc must be nil when using gRPC")
 	}
 	_, err := mc.rc.client.MotorGoTillStop(ctx, &pb.MotorGoTillStopRequest{
-		Name:      mc.name,
-		Direction: d,
-		Rpm:       rpm,
+		Name: mc.name,
+		Rpm:  rpm,
 	})
 	return err
 }
 
-func (mc *motorClient) Zero(ctx context.Context, offset float64) error {
+func (mc *motorClient) SetToZeroPosition(ctx context.Context, offset float64) error {
 	_, err := mc.rc.client.MotorZero(ctx, &pb.MotorZeroRequest{
 		Name:   mc.name,
 		Offset: offset,
