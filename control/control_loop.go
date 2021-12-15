@@ -34,12 +34,13 @@ type controlTicker struct {
 
 // ControlLoop holds the loop config
 type ControlLoop struct {
-	cfg    ControlConfig
-	blocks map[string]*controlBlockInternal
-	ct     controlTicker
-	logger golog.Logger
-	ts     []chan time.Time
-	dt     time.Duration
+	cfg                     ControlConfig
+	blocks                  map[string]*controlBlockInternal
+	ct                      controlTicker
+	logger                  golog.Logger
+	ts                      []chan time.Time
+	dt                      time.Duration
+	activeBackgroundWorkers *sync.WaitGroup
 }
 
 func NewControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConfig, m Controllable) (*ControlLoop, error) {
@@ -47,16 +48,18 @@ func NewControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConfig,
 }
 
 func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConfig, m Controllable) (*ControlLoop, error) {
-	var c ControlLoop
-	c.logger = logger
-	c.blocks = make(map[string]*controlBlockInternal)
-	c.cfg = cfg
+	c := ControlLoop{
+		logger:                  logger,
+		activeBackgroundWorkers: &sync.WaitGroup{},
+		cfg:                     cfg,
+		blocks:                  make(map[string]*controlBlockInternal),
+	}
 	if c.cfg.Frequency == 0.0 || c.cfg.Frequency > 200 {
 		return nil, errors.New("loop frequency shouldn't be 0 or above 200Hz")
 	}
 	c.dt = time.Duration(float64(time.Second) * (1.0 / (c.cfg.Frequency)))
 	for _, bcfg := range cfg.Blocks {
-		blk, err := createControlBlock(ctx, bcfg)
+		blk, err := createControlBlock(ctx, bcfg, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -79,7 +82,8 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 		if len(b.blk.Config(ctx).DependsOn) == 0 || b.blk.Config(ctx).Type == blockEndpoint {
 			waitCh := make(chan struct{})
 			c.ts = append(c.ts, make(chan time.Time))
-			utils.PanicCapturingGo(func() {
+			c.activeBackgroundWorkers.Add(1)
+			utils.ManagedGo(func() {
 				t := c.ts[len(c.ts)-1]
 				b := b
 				ctx := ctx
@@ -97,12 +101,13 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 					close(out)
 				}
 				b.outs = nil
-			})
+			}, c.activeBackgroundWorkers.Done)
 			<-waitCh
 		}
 		if len(b.blk.Config(ctx).DependsOn) != 0 {
 			waitCh := make(chan struct{})
-			utils.PanicCapturingGo(func() {
+			c.activeBackgroundWorkers.Add(1)
+			utils.ManagedGo(func() {
 				b := b
 				nInputs := len(b.ins)
 				i := 0
@@ -145,7 +150,7 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 						sw = make([]Signal, nInputs)
 					}
 				}
-			})
+			}, c.activeBackgroundWorkers.Done)
 			<-waitCh
 		}
 	}
@@ -204,7 +209,8 @@ func (c *ControlLoop) Start(ctx context.Context) error {
 		stop:   make(chan bool, 1),
 	}
 	waitCh := make(chan struct{})
-	utils.PanicCapturingGo(func() {
+	c.activeBackgroundWorkers.Add(1)
+	utils.ManagedGo(func() {
 		ct := c.ct
 		ctx := ctx
 		ts := c.ts
@@ -233,7 +239,7 @@ func (c *ControlLoop) Start(ctx context.Context) error {
 				return
 			}
 		}
-	})
+	}, c.activeBackgroundWorkers.Done)
 	<-waitCh
 	return nil
 }
@@ -242,6 +248,7 @@ func (c *ControlLoop) Start(ctx context.Context) error {
 func (c *ControlLoop) Stop(ctx context.Context) error {
 	c.ct.ticker.Stop()
 	close(c.ct.stop)
+	c.activeBackgroundWorkers.Wait()
 	return nil
 }
 
