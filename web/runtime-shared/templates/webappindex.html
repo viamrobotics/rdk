@@ -371,8 +371,11 @@
                         break;
                     }
                   },
+                  inputControllerByName : function(name) {
+                    return theData.status.inputControllersMap.find(elem => elem[0] == name) || {}
+                  },
                   inputInject: function(req) {
-                    robotService.inputControllerInjectEvent(req, {}, (err, resp) => grpcCallback(err, resp));
+                    inputControllerService.InjectEvent(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   pidCommand: function(motor,cmd){
                       let req = cmd.request;
@@ -1332,16 +1335,16 @@
 
       <!-- ******* INPUT VIEW *******  -->
       <input-controller
-        v-for="controller in status.inputControllersMap"
-        :key="'new-' + controller[0]"
-        v-bind:controller-name="controller[0]"
-        v-bind:controller-status="controller[1]"
+        v-for="controller in filterResources('core', 'component', 'input_controller')"
+        :key="'new-' + controller.name"
+        v-bind:controller-name="controller.name"
+        v-bind:controller-status="inputControllerByName(controller.name)[1]"
         style="max-width: 1080px;">
       </input-controller>
 
       <!-- ******* WEB CONTROLS *******  -->
       <web-gamepad
-        v-if="status.webGamepad"
+        v-if="Object.keys(inputControllerByName('WebGamepad')).length !== 0"
         v-on:execute="inputInject($event)"
         style="max-width: 1080px;">
       </web-gamepad>
