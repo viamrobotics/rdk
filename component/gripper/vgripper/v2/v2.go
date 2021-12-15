@@ -41,7 +41,7 @@ func init() {
 
 // Parameters for calibration & operating the gripper.
 const (
-	maxCurrent              = 300
+	maxCurrent              = 3.2
 	currentBadReadingCounts = 50
 	openPosOffset           = 0.4  // Reduce maximum opening width, keeps out of mechanical binding region
 	numMeasurementsCalib    = 10   // Number of measurements at each end position taken when calibrating the gripper
@@ -282,7 +282,7 @@ func (vg *gripperV2) antiSlipForceControl(ctx context.Context) error {
 		default:
 			return nil
 		}
-		vg.logger.Debugf("antiSlipForceControl, state: %v", vg.state.String())
+		//vg.logger.Debugf("antiSlipForceControl, state: %v", vg.state.String())
 
 		// Adjust grip strength
 		objectIsSlipping, err := vg.forceMatrix.IsSlipping(ctx)
@@ -394,7 +394,23 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 		return errors.New("openDirection and vg.closedDirection have to be opposed")
 	}
 
+	vg.logger.Debugf("init: orig openPos: %f, closedPos: %f", vg.openPos, vg.closedPos)
 	vg.openPos += math.Copysign(openPosOffset, (vg.closedPos - vg.openPos))
+	vg.logger.Debugf("init: offset openPos: %f, closedPos: %f", vg.openPos, vg.closedPos)
+
+	// Zero to closed position
+	curPos, err := vg.motor.Position(ctx)
+	if err != nil {
+		return err
+	}
+	err = vg.motor.SetToZeroPosition(ctx, curPos-vg.closedPos)
+	if err != nil {
+		return err
+	}
+	vg.openPos -= vg.closedPos
+	vg.closedPos = 0
+
+	vg.logger.Debugf("init: final openPos: %f, closedPos: %f", vg.openPos, vg.closedPos)
 
 	vg.state = gripperStateIdle
 	return nil
@@ -427,7 +443,7 @@ func (vg *gripperV2) open(ctx context.Context) error {
 	msPer := 10
 	total := 0
 	for {
-		vg.logger.Debugf("Opening, state: %v", vg.state.String())
+		//vg.logger.Debugf("Opening, state: %v", vg.state.String())
 
 		switch vg.State() {
 		case gripperStateUnspecified:
@@ -497,7 +513,7 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 	msPer := 10
 	total := 0
 	for {
-		vg.logger.Debugf("Grabbing, state: %v", vg.state.String())
+		//vg.logger.Debugf("Grabbing, state: %v", vg.state.String())
 		switch vg.State() {
 		case gripperStateUnspecified:
 			return false, errors.New("gripper state is unspecified")
@@ -566,8 +582,9 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 }
 
 // checkCurrentInAcceptableRange checks if the current is within a healthy range or not.
-func (vg *gripperV2) checkCurrentInAcceptableRange(ctx context.Context, current int, where string) error {
-	if current < maxCurrent {
+func (vg *gripperV2) checkCurrentInAcceptableRange(ctx context.Context, current float64, where string) error {
+	//vg.logger.Debugf("Motor Current: %f", current)
+	if math.Abs(current) < maxCurrent {
 		vg.numBadCurrentReadings = 0
 		return nil
 	}
@@ -575,7 +592,7 @@ func (vg *gripperV2) checkCurrentInAcceptableRange(ctx context.Context, current 
 	if vg.numBadCurrentReadings < currentBadReadingCounts {
 		return nil
 	}
-	return errors.Errorf("current too high for too long, currently %d during %s", current, where)
+	return errors.Errorf("current too high for too long, currently %f during %s", current, where)
 }
 
 // Close stops the motors.
@@ -593,9 +610,19 @@ func (vg *gripperV2) Stop(ctx context.Context) error {
 	return vg.motor.Off(ctx)
 }
 
-// readCurrent reads the current.
-func (vg *gripperV2) readCurrent(ctx context.Context) (int, error) {
-	return vg.current.Read(ctx)
+// readCurrent reads the current and returns signed (bidirectional) amperage
+func (vg *gripperV2) readCurrent(ctx context.Context) (float64, error) {
+	raw, err := vg.current.Read(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	// 3.3v / 10-bit adc, raw adc value, -1.65 offset to center of 3.3v, 200mV/A current sensor
+	// ACTUAL grippers have magnetic interference from the motor in the current (Dec. 2021) iteration
+	// Offset is set to -1.12 (instead of -1.65) to compensate
+	current := (((3.3 / 1023) * float64(raw)) - 1.12) / 0.2
+
+	return current, nil
 }
 
 // readRobustAveragePressure reads the pressure multiple times and returns the average over
@@ -644,7 +671,7 @@ func (vg *gripperV2) hasPressure(ctx context.Context) (bool, float64, error) {
 // analogs returns measurements such as: boolean that indicates if the average
 // pressure is above the pressure limit, the average pressure from the ForceMatrix,
 // and the current in the motor.
-func (vg *gripperV2) analogs(ctx context.Context) (bool, float64, int, error) {
+func (vg *gripperV2) analogs(ctx context.Context) (bool, float64, float64, error) {
 	hasPressure, pressure, errP := vg.hasPressure(ctx)
 	current, errC := vg.readCurrent(ctx)
 	err := multierr.Combine(errP, errC)
