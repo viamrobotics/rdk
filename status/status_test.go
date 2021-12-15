@@ -13,11 +13,12 @@ import (
 	fakecamera "go.viam.com/core/component/camera/fake"
 	"go.viam.com/core/component/gripper"
 	fakegripper "go.viam.com/core/component/gripper/fake"
+	"go.viam.com/core/component/input"
+	fakeinput "go.viam.com/core/component/input/fake"
+	"go.viam.com/core/component/motor"
+	fakemotor "go.viam.com/core/component/motor/fake"
 	"go.viam.com/core/component/servo"
 	fakeservo "go.viam.com/core/component/servo/fake"
-	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
@@ -44,9 +45,6 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	}
 	injectRobot.CameraNamesFunc = func() []string {
 		return []string{"camera1", "camera2"}
-	}
-	injectRobot.LidarNamesFunc = func() []string {
-		return []string{"lidar1", "lidar2"}
 	}
 	injectRobot.BaseNamesFunc = func() []string {
 		return []string{"base1", "base2"}
@@ -91,9 +89,6 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
 		return &fakecamera.Camera{Name: name}, true
 	}
-	injectRobot.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
-		return &fake.Lidar{Name: name}, true
-	}
 	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 		return &fake.Board{Name: name}, true
 	}
@@ -104,10 +99,10 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return &fakeservo.Servo{Name: name}, true
 	}
 	injectRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		return &fake.Motor{Name: name}, true
+		return &fakemotor.Motor{Name: name}, true
 	}
 	injectRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
-		return &fake.InputController{Name: name}, true
+		return &fakeinput.InputController{Name: name}, true
 	}
 
 	if withRemotes {
@@ -172,10 +167,6 @@ func TestCreateStatus(t *testing.T) {
 			Cameras: map[string]bool{
 				"camera1": true,
 				"camera2": true,
-			},
-			Lidars: map[string]bool{
-				"lidar1": true,
-				"lidar2": true,
 			},
 			Sensors: map[string]*pb.SensorStatus{
 				"sensor1": {
@@ -244,10 +235,6 @@ func TestCreateStatus(t *testing.T) {
 			Cameras: map[string]bool{
 				"camera1": true,
 				"camera2": true,
-			},
-			Lidars: map[string]bool{
-				"lidar1": true,
-				"lidar2": true,
 			},
 			Sensors: map[string]*pb.SensorStatus{
 				"sensor1": {

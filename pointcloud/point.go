@@ -71,8 +71,8 @@ type Point interface {
 	// Value returns the intesity value, or 0 if it doesn't exist
 	Intensity() uint16
 
-	// SetIntesnity sets the intensity on the point.
-	SetIntesnity(v uint16) Point
+	// SetIntensity sets the intensity on the point.
+	SetIntensity(v uint16) Point
 }
 
 type basicPoint struct {
@@ -142,7 +142,7 @@ func (bp *basicPoint) Value() int {
 	return bp.value
 }
 
-func (bp *basicPoint) SetIntesnity(v uint16) Point {
+func (bp *basicPoint) SetIntensity(v uint16) Point {
 	bp.intensity = v
 	return bp
 }

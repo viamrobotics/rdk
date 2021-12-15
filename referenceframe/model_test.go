@@ -42,7 +42,12 @@ func TestTransform(t *testing.T) {
 	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	joints := m.Joints()
+	joints := []Frame{}
+	for _, tform := range m.OrdTransforms {
+		if len(tform.DoF()) > 0 {
+			joints = append(joints, tform)
+		}
+	}
 	test.That(t, len(joints), test.ShouldEqual, 6)
 	pose, err := joints[0].Transform([]Input{{0}})
 	test.That(t, err, test.ShouldBeNil)

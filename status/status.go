@@ -145,13 +145,6 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.LidarNames(); len(names) != 0 {
-		status.Lidars = make(map[string]bool, len(names))
-		for _, name := range names {
-			status.Lidars[name] = true
-		}
-	}
-
 	if names := r.SensorNames(); len(names) != 0 {
 		status.Sensors = make(map[string]*pb.SensorStatus, len(names))
 		for _, name := range names {
@@ -172,7 +165,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			if !ok {
 				return nil, fmt.Errorf("servo %q not found", name)
 			}
-			current, err := x.Current(ctx)
+			current, err := x.AngularOffset(ctx)
 			if err != nil {
 				return nil, err
 			}

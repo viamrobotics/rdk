@@ -14,33 +14,17 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/component/gripper"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/subtype"
 )
 
-// TODO: currently here because of import cycles. get rid of this block at conclusion of Core v2 migration.
-//these registrations should happen in the subtype's go package instead.
-func init() {
-	RegisterResourceSubtype(gripper.Subtype, ResourceSubtype{
-		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
-			return gripper.WrapWithReconfigurable(r)
-		},
-	})
-}
-
 type (
 	// A CreateBase creates a base from a given config.
 	CreateBase func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error)
-
-	// A CreateLidar creates a lidar from a given config.
-	CreateLidar func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error)
 
 	// A CreateSensor creates a sensor from a given config.
 	CreateSensor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error)
@@ -50,9 +34,6 @@ type (
 
 	// A CreateMotor creates a motor from a given config.
 	CreateMotor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error)
-
-	// A CreateInputController creates an input.Controller from a given config.
-	CreateInputController func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error)
 
 	// A CreateService creates a service from a given config.
 	CreateService func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error)
@@ -68,12 +49,6 @@ type RegDebugInfo struct {
 type Base struct {
 	RegDebugInfo
 	Constructor CreateBase
-}
-
-// Lidar stores a Lidar constructor function (mandatory)
-type Lidar struct {
-	RegDebugInfo
-	Constructor CreateLidar
 }
 
 // Sensor stores a Sensor constructor function (mandatory)
@@ -94,12 +69,6 @@ type Motor struct {
 	Constructor CreateMotor
 }
 
-// InputController stores an input.Controller constructor (mandatory)
-type InputController struct {
-	RegDebugInfo
-	Constructor CreateInputController
-}
-
 // Service stores a Service constructor (mandatory) and an attribute converter
 type Service struct {
 	RegDebugInfo
@@ -109,13 +78,10 @@ type Service struct {
 
 // all registries
 var (
-	baseRegistry            = map[string]Base{}
-	lidarRegistry           = map[string]Lidar{}
-	sensorRegistry          = map[sensor.Type]map[string]Sensor{}
-	boardRegistry           = map[string]Board{}
-	motorRegistry           = map[string]Motor{}
-	inputControllerRegistry = map[string]InputController{}
-	serviceRegistry         = map[config.ServiceType]Service{}
+	baseRegistry    = map[string]Base{}
+	sensorRegistry  = map[sensor.Type]map[string]Sensor{}
+	boardRegistry   = map[string]Board{}
+	serviceRegistry = map[config.ServiceType]Service{}
 )
 
 func getCallerName() string {
@@ -138,19 +104,6 @@ func RegisterBase(model string, creator Base) {
 		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
 	}
 	baseRegistry[model] = creator
-}
-
-// RegisterLidar registers a lidar model to a creator.
-func RegisterLidar(model string, creator Lidar) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := lidarRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two lidars with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	lidarRegistry[model] = creator
 }
 
 // RegisterSensor registers a sensor type and model to a creator.
@@ -182,32 +135,6 @@ func RegisterBoard(model string, creator Board) {
 	boardRegistry[model] = creator
 }
 
-// RegisterMotor registers a motor model to a creator.
-func RegisterMotor(model string, creator Motor) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := motorRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two motors with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	motorRegistry[model] = creator
-}
-
-// RegisterInputController registers an input controller model to a creator.
-func RegisterInputController(model string, creator InputController) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := inputControllerRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two input controllers with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	inputControllerRegistry[model] = creator
-}
-
 // RegisterService registers a service type to a registration.
 func RegisterService(typeName config.ServiceType, registration Service) {
 	registration.RegistrarLoc = getCallerName()
@@ -230,15 +157,6 @@ func BaseLookup(model string) *Base {
 	return nil
 }
 
-// LidarLookup looks up a lidar creator by the given model. nil is returned if
-// there is no creator registered.
-func LidarLookup(model string) *Lidar {
-	if registration, ok := lidarRegistry[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
 // SensorLookup looks up a sensor creator by the given model. nil is returned if
 // there is no creator registered.
 func SensorLookup(sensorType sensor.Type, model string) *Sensor {
@@ -256,24 +174,6 @@ func SensorLookup(sensorType sensor.Type, model string) *Sensor {
 // there is no creator registered.
 func BoardLookup(model string) *Board {
 	if registration, ok := boardRegistry[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// MotorLookup looks up a motor creator by the given model. nil is returned if
-// there is no creator registered.
-func MotorLookup(model string) *Motor {
-	if registration, ok := motorRegistry[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// InputControllerLookup looks up an input.Controller creator by the given model. nil is returned if
-// there is no creator registered.
-func InputControllerLookup(model string) *InputController {
-	if registration, ok := inputControllerRegistry[model]; ok {
 		return &registration
 	}
 	return nil
@@ -382,15 +282,6 @@ func RegisteredBases() map[string]Base {
 	return copied.(map[string]Base)
 }
 
-// RegisteredLidars returns a copy of the registered lidars.
-func RegisteredLidars() map[string]Lidar {
-	copied, err := copystructure.Copy(lidarRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]Lidar)
-}
-
 // RegisteredSensors returns a copy of the registered sensors.
 func RegisteredSensors() map[sensor.Type]map[string]Sensor {
 	copied, err := copystructure.Copy(sensorRegistry)
@@ -407,24 +298,6 @@ func RegisteredBoards() map[string]Board {
 		panic(err)
 	}
 	return copied.(map[string]Board)
-}
-
-// RegisteredMotors returns a copy of the registered motors.
-func RegisteredMotors() map[string]Motor {
-	copied, err := copystructure.Copy(motorRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]Motor)
-}
-
-// RegisteredInputControllers returns a copy of the registered input controllers.
-func RegisteredInputControllers() map[string]InputController {
-	copied, err := copystructure.Copy(inputControllerRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]InputController)
 }
 
 // RegisteredServices returns a copy of the registered services.

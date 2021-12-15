@@ -30,7 +30,7 @@ func (h *depthSourceTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorCont
 	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "aligned-depth")
 
 	// change to use projection camera
-	fixed.SetCameraSystem(dc.projectionCamera)
+	fixed.SetProjector(dc.projectionCamera)
 	// create edge map
 	source := &staticSource{fixed}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)

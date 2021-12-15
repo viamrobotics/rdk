@@ -7,6 +7,8 @@ import (
 	"math"
 
 	"go.viam.com/core/utils"
+
+	"github.com/golang/geo/r2"
 )
 
 // PreprocessDepthMap applies data cleaning and smoothing procedures to an input imagewithdepth
@@ -82,6 +84,50 @@ func MissingDepthData(dm *DepthMap) *image.Gray {
 }
 
 // Smoothing Functions
+
+// BilinearInterpolationDepth approximates the Depth value between pixels according to a bilinear
+// interpolation. A nil return value means the interpolation is out of bounds.
+func BilinearInterpolationDepth(pt r2.Point, dm *DepthMap) *Depth {
+	width, height := float64(dm.Width()), float64(dm.Height())
+	if pt.X < 0 || pt.Y < 0 || pt.X > width-1 || pt.Y > height-1 { // point out of bounds - skip it
+		return nil
+	}
+	xmin := int(math.Floor(pt.X))
+	xmax := int(math.Ceil(pt.X))
+	ymin := int(math.Floor(pt.Y))
+	ymax := int(math.Ceil(pt.Y))
+	// get depth values
+	d00 := float64(dm.GetDepth(xmin, ymin))
+	d10 := float64(dm.GetDepth(xmax, ymin))
+	d01 := float64(dm.GetDepth(xmin, ymax))
+	d11 := float64(dm.GetDepth(xmax, ymax))
+	// calculate weights
+	area := float64((xmax - xmin) * (ymax - ymin))
+	if area == 0.0 { // exactly on a pixel
+		result := dm.GetDepth(int(pt.X), int(pt.Y))
+		return &result
+	}
+	w00 := ((float64(xmax) - pt.X) * (float64(ymax) - pt.Y)) / area
+	w10 := ((pt.X - float64(xmin)) * (float64(ymax) - pt.Y)) / area
+	w01 := ((float64(xmax) - pt.X) * (pt.Y - float64(ymin))) / area
+	w11 := ((pt.X - float64(xmin)) * (pt.Y - float64(ymin))) / area
+
+	result := Depth(math.Round(d00*w00 + d01*w01 + d10*w10 + d11*w11))
+	return &result
+}
+
+// NearestNeighborDepth takes the value of the closest point to the intermediate pixel
+func NearestNeighborDepth(pt r2.Point, dm *DepthMap) *Depth {
+	width, height := float64(dm.Width()), float64(dm.Height())
+	if pt.X < 0 || pt.Y < 0 || pt.X > width-1 || pt.Y > height-1 { // point out of bounds - skip it
+		return nil
+	}
+	x := int(math.Round(pt.X))
+	y := int(math.Round(pt.Y))
+	// get depth value
+	result := dm.GetDepth(x, y)
+	return &result
+}
 
 // GaussianSmoothing smoothes a depth map affect by noise by using a weighted average of the pixel values in a window according
 // to a gaussian distribution with a given sigma.
