@@ -82,6 +82,7 @@ func debugOut(ctx context.Context, r robot.Robot) {
 			fmt.Printf("%s:%s: %.4f\n", event.Control, event.Event, event.Value)
 			err = g.RegisterControlCallback(ctx, control, []input.EventType{input.AllEvents}, repFunc)
 			if err != nil {
+				logger.Error(err)
 				return
 			}
 		}
