@@ -289,12 +289,7 @@ func (c *client) connectStream(ctx context.Context) {
 					break
 				}
 				c.sendConnectionStatus(ctx, false)
-				if utils.SelectContextOrWait(ctx, 3*time.Second) {
-					c.logger.Error(err)
-					break
-				} else {
-					return
-				}
+				return
 			}
 			if err != nil {
 				c.logger.Error(err)
