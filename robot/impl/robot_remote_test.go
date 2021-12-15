@@ -212,7 +212,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 				case arm.Subtype:
 					return &fake.Arm{Name: name.Name}, true
 				case board.Subtype:
-					return &fakeboard.Board{Name: name.Name}, true
+					return injectRobot.BoardByNameFunc(name.Name)
 				case servo.Subtype:
 					return &fakeservo.Servo{Name: name.Name}, true
 				case gripper.Subtype:
