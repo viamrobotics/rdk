@@ -104,11 +104,11 @@ func TestBoxVsBox(t *testing.T) {
 		if !c.Expected {
 			fn = test.ShouldBeFalse
 		}
-		test.That(t, boxVsBox(c.A, c.B), fn)
+		test.That(t, boxVsBoxCollision(c.A, c.B), fn)
 	}
 }
 
 func makeBox(pose Pose, halfsize r3.Vector) *box {
-	b, _ := NewBoxFromOffset(halfsize, pose).NewVolume(NewZeroPose())
+	b := NewBoxFromOffset(halfsize, pose).NewVolume(NewZeroPose())
 	return b.(*box)
 }
