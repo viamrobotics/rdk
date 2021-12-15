@@ -32,6 +32,9 @@ func createWorkingMotor() *inject.Motor {
 	injectMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
 		return nil
 	}
+	injectMotor.SetToZeroPositionFunc = func(ctx context.Context, offset float64) error {
+		return nil
+	}
 	return injectMotor
 }
 
@@ -530,7 +533,7 @@ func TestReadCurrent(t *testing.T) {
 	}
 	current, err := injectedGripper.readCurrent(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, current, test.ShouldAlmostEqual, ((float64(measuredCurrent)*(3.3/1023))-1.65)/0.2)
+	test.That(t, current, test.ShouldAlmostEqual, ((float64(measuredCurrent)*(3.3/1023))-1.12)/0.2)
 }
 
 func TestReadRobustAveragePressure(t *testing.T) {
@@ -688,7 +691,7 @@ func TestAnalogs(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, hasPressure, test.ShouldBeTrue)
 		test.That(t, pressure, test.ShouldAlmostEqual, 5)
-		test.That(t, current, test.ShouldAlmostEqual, (((float64(rawCurrent) * (3.3 / 1023)) - 1.65) / 0.2))
+		test.That(t, current, test.ShouldAlmostEqual, (((float64(rawCurrent) * (3.3 / 1023)) - 1.12) / 0.2))
 	})
 
 	t.Run("return error when reading the pressure went wrong", func(t *testing.T) {
