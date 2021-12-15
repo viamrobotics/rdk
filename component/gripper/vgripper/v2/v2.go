@@ -41,7 +41,7 @@ func init() {
 
 // Parameters for calibration & operating the gripper.
 const (
-	maxCurrent              = 6.0
+	maxCurrent              = 3.2
 	currentBadReadingCounts = 50
 	openPosOffset           = 0.4  // Reduce maximum opening width, keeps out of mechanical binding region
 	numMeasurementsCalib    = 10   // Number of measurements at each end position taken when calibrating the gripper
@@ -282,7 +282,7 @@ func (vg *gripperV2) antiSlipForceControl(ctx context.Context) error {
 		default:
 			return nil
 		}
-		vg.logger.Debugf("antiSlipForceControl, state: %v", vg.state.String())
+		//vg.logger.Debugf("antiSlipForceControl, state: %v", vg.state.String())
 
 		// Adjust grip strength
 		objectIsSlipping, err := vg.forceMatrix.IsSlipping(ctx)
@@ -394,7 +394,29 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 		return errors.New("openDirection and vg.closedDirection have to be opposed")
 	}
 
-	vg.openPos += math.Copysign(openPosOffset, (vg.closedPos - vg.openPos))
+	vg.logger.Debugf("init: orig openPos: %f, closedPos: %f", vg.openPos, vg.closedPos)
+
+	if math.Signbit(vg.openPos - vg.closedPos) {
+		vg.openPos += openPosOffset
+	} else {
+		vg.openPos -= openPosOffset
+	}
+
+	vg.logger.Debugf("init: offset openPos: %f, closedPos: %f", vg.openPos, vg.closedPos)
+
+	// Zero to closed position
+	curPos, err := vg.motor.Position(ctx)
+	if err != nil {
+		return err
+	}
+	err = vg.motor.SetToZeroPosition(ctx, curPos-vg.closedPos)
+	if err != nil {
+		return err
+	}
+	vg.openPos -= vg.closedPos
+	vg.closedPos = 0
+
+	vg.logger.Debugf("init: final openPos: %f, closedPos: %f", vg.openPos, vg.closedPos)
 
 	vg.state = gripperStateIdle
 	return nil
@@ -602,7 +624,9 @@ func (vg *gripperV2) readCurrent(ctx context.Context) (float64, error) {
 	}
 
 	// 3.3v / 10-bit adc, raw adc value, -1.65 offset to center of 3.3v, 200mV/A current sensor
-	current := (((3.3 / 1023) * float64(raw)) - 1.65) / 0.2
+	// ACTUAL grippers have magnetic interference from the motor in the current (Dec. 2021) iteration
+	// Offset is set to -1.12 (instead of -1.65) to compensate
+	current := (((3.3 / 1023) * float64(raw)) - 1.12) / 0.2
 
 	return current, nil
 }
