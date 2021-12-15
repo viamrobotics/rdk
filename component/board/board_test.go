@@ -125,7 +125,18 @@ func TestI2Cs(t *testing.T) {
 	fakeI2C, ok := fakeBoard.(*reconfigurableBoard).I2CByName("i2c1")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, fakeI2C, test.ShouldResemble, &reconfigurableBoardI2C{actual: &mockI2C{}})
+}
 
+func TestAnalogReaders(t *testing.T) {
+	actualBoard := &mock{Name: "board1"}
+	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
+
+	fakeAnalogReaderNames := fakeBoard.(*reconfigurableBoard).AnalogReaderNames()
+	test.That(t, fakeAnalogReaderNames, test.ShouldResemble, []string{"analog1"})
+
+	fakeAnalogReader, ok := fakeBoard.(*reconfigurableBoard).AnalogReaderByName("analog1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, fakeAnalogReader, test.ShouldResemble, &reconfigurableBoardAnalogReader{actual: &mockAnalogReader{}})
 }
 
 type mock struct {
@@ -142,8 +153,7 @@ func (m *mock) I2CNames() []string {
 	return []string{"i2c1"}
 }
 func (m *mock) AnalogReaderNames() []string {
-	// return []string{"analog1"}
-	return []string{}
+	return []string{"analog1"}
 }
 func (m *mock) DigitalInterruptNames() []string {
 	// return []string{"digital1"}
@@ -158,9 +168,10 @@ func (m *mock) I2CByName(name string) (I2C, bool) {
 	return &mockI2C{}, true
 }
 
-// func (m *mock) AnalogReaderByName(name string) (AnalogReader, bool) {
-// 	return &fake.Analog{}, true
-// }
+func (m *mock) AnalogReaderByName(name string) (AnalogReader, bool) {
+	return &mockAnalogReader{}, true
+}
+
 // func (m *mock) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
 // 	return &BasicDigitalInterrupt{}, true
 // }
@@ -176,7 +187,7 @@ func (m *mock) Status(ctx context.Context) (*pb.BoardStatus, error) {
 
 func (m *mock) Close() error { m.reconfCalls++; return nil }
 
-// Mock SPIs
+// Mock SPI
 
 type mockSPI struct{}
 
@@ -193,7 +204,7 @@ func (m *mockSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect string, 
 
 func (m *mockSPIHandle) Close() error { return nil }
 
-// Mock I2Cs
+// Mock I2C
 
 type mockI2C struct{}
 
@@ -223,3 +234,11 @@ func (m *mockI2CHandle) WriteWordData(ctx context.Context, register byte, data u
 	return nil
 }
 func (m *mockI2CHandle) Close() error { return nil }
+
+// Mock AnalogReader
+
+type mockAnalogReader struct{}
+
+func (m *mockAnalogReader) Read(ctx context.Context) (int, error) {
+	return 0, nil
+}
