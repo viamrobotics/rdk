@@ -3,7 +3,6 @@ package input
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
@@ -184,19 +183,13 @@ func (c *client) RegisterControlCallback(ctx context.Context, control Control, t
 		ready := c.streamReady
 		c.mu.RUnlock()
 
-		// try connecting 3 times
-		retryCt := 0
-		for !ready && retryCt < 3 {
+		for !ready {
 			c.mu.RLock()
 			ready = c.streamReady
 			c.mu.RUnlock()
 			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
 				return ctx.Err()
 			}
-			retryCt++
-		}
-		if !ready {
-			return errors.New("failed to connect")
 		}
 	}
 
@@ -284,6 +277,7 @@ func (c *client) connectStream(ctx context.Context) {
 
 			c.mu.Lock()
 			c.streamHUP = false
+			c.streamReady = true
 			c.mu.Unlock()
 			streamResp, err := stream.Recv()
 
@@ -305,10 +299,6 @@ func (c *client) connectStream(ctx context.Context) {
 			if err != nil {
 				c.logger.Error(err)
 			}
-			// stream ready when we receive first non-error response
-			c.mu.Lock()
-			c.streamReady = true
-			c.mu.Unlock()
 			eventIn := streamResp.Event
 			eventOut := Event{
 				Time:    eventIn.Time.AsTime(),

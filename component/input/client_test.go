@@ -64,9 +64,6 @@ func TestClient(t *testing.T) {
 	injectInputController2.LastEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
 		return nil, errors.New("can't get last events")
 	}
-	injectInputController2.RegisterControlCallbackFunc = func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
-		return errors.New("can't register callbacks")
-	}
 
 	resources := map[resource.Name]interface{}{
 		input.Named(inputController1): injectInputController,
@@ -210,15 +207,6 @@ func TestClient(t *testing.T) {
 		_, err = inputController2Client.LastEvents(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get last events")
-
-		err = inputController2Client.RegisterControlCallback(
-			context.Background(),
-			input.AbsoluteX,
-			[]input.EventType{input.PositionChangeAbs},
-			func(ctx context.Context, ev input.Event) {},
-		)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "failed to connect")
 
 		event1 := input.Event{
 			Time:    time.Now().UTC(),
