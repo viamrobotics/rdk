@@ -135,7 +135,23 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		if _, ok := utils.NewStringSet(injectRobot.BoardNames()...)[name]; !ok {
 			return nil, false
 		}
-		return &fakeboard.Board{Name: name}, true
+		fakeBoard, err := fakeboard.NewBoard(context.Background(), config.Component{
+			Name: name,
+			ConvertedAttributes: &board.Config{
+				Analogs: []board.AnalogConfig{
+					{Name: "analog1"},
+					{Name: "analog2"},
+				},
+				DigitalInterrupts: []board.DigitalInterruptConfig{
+					{Name: "digital1"},
+					{Name: "digital2"},
+				},
+			},
+		}, logger)
+		if err != nil {
+			panic(err)
+		}
+		return fakeBoard, true
 	}
 	injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.BaseNames()...)[name]; !ok {
@@ -154,28 +170,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 			return nil, false
 		}
 		return &fakecamera.Camera{Name: name}, true
-	}
-	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-		if _, ok := utils.NewStringSet(injectRobot.BoardNames()...)[name]; !ok {
-			return nil, false
-		}
-		fakeBoard, err := fakeboard.NewBoard(context.Background(), config.Component{
-			Name: name,
-			ConvertedAttributes: &board.Config{
-				Analogs: []board.AnalogConfig{
-					{Name: "analog1"},
-					{Name: "analog2"},
-				},
-				DigitalInterrupts: []board.DigitalInterruptConfig{
-					{Name: "digital1"},
-					{Name: "digital2"},
-				},
-			},
-		}, logger)
-		if err != nil {
-			panic(err)
-		}
-		return fakeBoard, true
 	}
 	injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.SensorNames()...)[name]; !ok {
