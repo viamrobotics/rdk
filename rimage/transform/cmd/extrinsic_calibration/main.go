@@ -47,12 +47,16 @@ func main() {
 		logger.Fatal(err)
 	}
 	// solve the problem
-	method := &optimize.GradientDescent{}
+	method := &optimize.GradientDescent{GradStopThreshold: 1e-8}
 	params := make([]float64, 6) // initial value for rotation euler angles(3) and translation(3)
 	for i := range params {
 		params[i] = (rand.Float64() - 0.5) / 10.
 	}
-	res, err := optimize.Minimize(problem, params, nil, method)
+	settings := &optimize.Settings{
+		GradientThreshold: 0,
+		Converger:         &optimize.FunctionConverge{Absolute: 1e-8, Iterations: 100},
+	}
+	res, err := optimize.Minimize(problem, params, settings, method)
 	if err != nil {
 		fmt.Printf("optimization status code: %+v\n", res.Status)
 		fmt.Printf("optimization stats: %+v\n", res.Stats)
