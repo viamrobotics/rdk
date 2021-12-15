@@ -103,6 +103,15 @@ func TestStatus(t *testing.T) {
 	test.That(t, actualBoard.statusCalls, test.ShouldEqual, 1)
 }
 
+func TestSPIByName(t *testing.T) {
+	actualBoard := &mock{Name: "board1"}
+	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
+
+	fakeSPI, ok := fakeBoard.(*reconfigurableBoard).SPIByName("spi1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, fakeSPI, test.ShouldResemble, &reconfigurableBoardSPI{actual: &mockSPI{}})
+}
+
 type mock struct {
 	Board
 	Name        string
@@ -112,8 +121,7 @@ type mock struct {
 
 // TODO(maximpertsov): add board subcomponents
 func (m *mock) SPINames() []string {
-	// return []string{"spi1"}
-	return []string{}
+	return []string{"spi1"}
 }
 func (m *mock) I2CNames() []string {
 	// return []string{"i2c1"}
@@ -128,10 +136,10 @@ func (m *mock) DigitalInterruptNames() []string {
 	return []string{}
 }
 
-// TODO(maximpertsov): add board subcomponents
-// func (m *mock) SPIByName(name string) (SPI, bool) {
-// 	return inject.SPI{}, true
-// }
+func (m *mock) SPIByName(name string) (SPI, bool) {
+	return &mockSPI{}, true
+}
+
 // func (m *mock) I2CByNameFunc(name string) (I2C, bool) {
 // 	return inject.I2C{}, true
 // }
@@ -148,7 +156,28 @@ func (m *mock) ModelAttributes() ModelAttributes {
 
 func (m *mock) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	m.statusCalls++
-	return nil, nil
+	return mockStatus, nil
 }
 
 func (m *mock) Close() error { m.reconfCalls++; return nil }
+
+type mockSPI struct{}
+
+func (m *mockSPI) OpenHandle() (SPIHandle, error) {
+	return &mockSPIHandle{}, nil
+}
+
+type mockSPIHandle struct {
+	xferCalls  int
+	closeCalls int
+}
+
+func (m *mockSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) {
+	m.xferCalls++
+	return []byte{}, nil
+}
+
+func (m *mockSPIHandle) Close() error {
+	m.closeCalls++
+	return nil
+}
