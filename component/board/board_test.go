@@ -168,16 +168,10 @@ func (m *mockSPI) OpenHandle() (SPIHandle, error) {
 }
 
 type mockSPIHandle struct {
-	xferCalls  int
-	closeCalls int
 }
 
 func (m *mockSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) {
-	m.xferCalls++
 	return []byte{}, nil
 }
 
-func (m *mockSPIHandle) Close() error {
-	m.closeCalls++
-	return nil
-}
+func (m *mockSPIHandle) Close() error { return nil }
