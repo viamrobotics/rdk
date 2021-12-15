@@ -5,7 +5,6 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/input"
 	pb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/registry"
@@ -35,7 +34,7 @@ func init() {
 			)
 		},
 		RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
-			return camera.NewClientFromConn(conn, name, logger)
+			return input.NewClientFromConn(conn, name, logger)
 		},
 	})
 }
