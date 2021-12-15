@@ -16,12 +16,11 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
+	"go.viam.com/core/component/input"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
-	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
 	"go.viam.com/core/metadata/service"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
@@ -44,25 +43,14 @@ import (
 	_ "go.viam.com/core/board/arduino"
 	_ "go.viam.com/core/board/jetson"
 	_ "go.viam.com/core/board/numato"
-	_ "go.viam.com/core/component/arm/register"         // for all arms TODO: #298
-	_ "go.viam.com/core/component/camera/register"      // for all cameras
-	_ "go.viam.com/core/component/gantry/register"      // for all gantries
-	_ "go.viam.com/core/component/gripper/fake"         // for a gripper
-	_ "go.viam.com/core/component/gripper/robotiq"      // for a gripper
-	_ "go.viam.com/core/component/gripper/softrobotics" // for a gripper
-	_ "go.viam.com/core/component/gripper/vgripper/v1"  // for a gripper with a single force sensor cell
-	_ "go.viam.com/core/component/gripper/vgripper/v2"  // for a gripper with a force matrix
-	_ "go.viam.com/core/component/gripper/vx300s"       // for a gripper
-	_ "go.viam.com/core/component/gripper/wx250s"       // for a gripper
-	_ "go.viam.com/core/component/gripper/yahboom"      // for a gripper
-	_ "go.viam.com/core/component/imu/register"         // for all IMU
-	_ "go.viam.com/core/component/servo/fake"           // for a servo
-	_ "go.viam.com/core/input/gamepad"                  // xbox controller and similar
-	_ "go.viam.com/core/input/mux"
-	_ "go.viam.com/core/input/webgamepad" // gamepads via webbrowser
-	_ "go.viam.com/core/motor/gpio"
-	_ "go.viam.com/core/motor/gpiostepper"
-	_ "go.viam.com/core/motor/tmcstepper"
+	_ "go.viam.com/core/component/arm/register"     // for all arms TODO: #298
+	_ "go.viam.com/core/component/camera/register"  // for all cameras
+	_ "go.viam.com/core/component/gantry/register"  // for all gantries
+	_ "go.viam.com/core/component/gripper/register" // for all grippers
+	_ "go.viam.com/core/component/imu/register"     // for all IMU
+	_ "go.viam.com/core/component/input/register"   // for all input
+	_ "go.viam.com/core/component/motor/register"   // for all motors
+	_ "go.viam.com/core/component/servo/register"   // for a servo
 	_ "go.viam.com/core/platformdetector/pi"
 	_ "go.viam.com/core/robots/eva" // for eva
 	_ "go.viam.com/core/robots/fake"
@@ -75,7 +63,6 @@ import (
 	_ "go.viam.com/core/robots/xarm"                    // for an arm
 	_ "go.viam.com/core/robots/yahboom"                 // for an arm
 	_ "go.viam.com/core/sensor/compass/gy511"
-	_ "go.viam.com/core/sensor/compass/lidar"
 	_ "go.viam.com/core/sensor/forcematrix"
 	_ "go.viam.com/core/sensor/gps/merge"
 	_ "go.viam.com/core/sensor/gps/nmea"
@@ -135,12 +122,6 @@ func (r *localRobot) CameraByName(name string) (camera.Camera, bool) {
 	return r.parts.CameraByName(name)
 }
 
-// LidarByName returns a lidar by name. If it does not exist
-// nil is returned.
-func (r *localRobot) LidarByName(name string) (lidar.Lidar, bool) {
-	return r.parts.LidarByName(name)
-}
-
 // SensorByName returns a sensor by name. If it does not exist
 // nil is returned.
 func (r *localRobot) SensorByName(name string) (sensor.Sensor, bool) {
@@ -193,11 +174,6 @@ func (r *localRobot) GripperNames() []string {
 // CameraNames returns the name of all known cameras.
 func (r *localRobot) CameraNames() []string {
 	return r.parts.CameraNames()
-}
-
-// LidarNames returns the name of all known lidars.
-func (r *localRobot) LidarNames() []string {
-	return r.parts.LidarNames()
 }
 
 // BaseNames returns the name of all known bases.
@@ -387,34 +363,10 @@ func (r *localRobot) newBase(ctx context.Context, config config.Component) (base
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *localRobot) newLidar(ctx context.Context, config config.Component) (lidar.Lidar, error) {
-	f := registry.LidarLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown lidar model: %s", config.Model)
-	}
-	return f.Constructor(ctx, r, config, r.logger)
-}
-
 func (r *localRobot) newSensor(ctx context.Context, config config.Component, sensorType sensor.Type) (sensor.Sensor, error) {
 	f := registry.SensorLookup(sensorType, config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown sensor model (type=%s): %s", sensorType, config.Model)
-	}
-	return f.Constructor(ctx, r, config, r.logger)
-}
-
-func (r *localRobot) newMotor(ctx context.Context, config config.Component) (motor.Motor, error) {
-	f := registry.MotorLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown motor model: %s", config.Model)
-	}
-	return f.Constructor(ctx, r, config, r.logger)
-}
-
-func (r *localRobot) newInputController(ctx context.Context, config config.Component) (input.Controller, error) {
-	f := registry.InputControllerLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown input controller model: %s", config.Model)
 	}
 	return f.Constructor(ctx, r, config, r.logger)
 }
@@ -492,15 +444,6 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 		)
 		resources = append(resources, res)
 	}
-	for _, name := range r.LidarNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceCore,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeLidar,
-			name,
-		)
-		resources = append(resources, res)
-	}
 	for _, name := range r.RemoteNames() {
 		res := resource.NewName(
 			resource.ResourceNamespaceCore,
@@ -518,25 +461,6 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 			name,
 		)
 
-		resources = append(resources, res)
-	}
-	for _, name := range r.MotorNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceCore,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeMotor,
-			name,
-		)
-		resources = append(resources, res)
-	}
-
-	for _, name := range r.InputControllerNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceCore,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeInputController,
-			name,
-		)
 		resources = append(resources, res)
 	}
 

@@ -70,7 +70,7 @@ func (i *wit) Desc() sensor.Description {
 }
 
 // NewWit creates a new Wit IMU
-func NewWit(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+func NewWit(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (imu.IMU, error) {
 	options := slib.OpenOptions{
 		BaudRate:        9600, // 115200, wanted to set higher but windows software was being weird about it
 		DataBits:        8,

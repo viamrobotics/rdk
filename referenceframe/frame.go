@@ -297,19 +297,19 @@ func (pf *translationalFrame) AlmostEquals(otherFrame Frame) bool {
 
 type rotationalFrame struct {
 	name    string
-	rotAxis spatial.R4AA
+	rotAxis r3.Vector
 	limit   []Limit
 }
 
 // NewRotationalFrame creates a new rotationalFrame struct.
 // A standard revolute joint will have 1 DoF
 func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, error) {
+	axis.Normalize()
 	rf := rotationalFrame{
 		name:    name,
-		rotAxis: axis,
+		rotAxis: r3.Vector{axis.RX, axis.RY, axis.RZ},
 		limit:   []Limit{limit},
 	}
-	rf.rotAxis.Normalize()
 
 	return &rf, nil
 }
@@ -327,7 +327,7 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	}
 	// Create a copy of the r4aa for thread safety
 
-	pose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{rf.rotAxis.RX, rf.rotAxis.RY, rf.rotAxis.RZ}, input[0].Value)
+	pose := spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, &spatial.R4AA{input[0].Value, rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z})
 
 	return pose, err
 }
@@ -367,10 +367,9 @@ func (rf *rotationalFrame) AlmostEquals(otherFrame Frame) bool {
 
 	return rf.name == other.name &&
 		limitsALmostTheSame(rf.limit, other.limit) &&
-		float64AlmostEqual(rf.rotAxis.RX, other.rotAxis.RX) &&
-		float64AlmostEqual(rf.rotAxis.RY, other.rotAxis.RY) &&
-		float64AlmostEqual(rf.rotAxis.RZ, other.rotAxis.RZ) &&
-		float64AlmostEqual(rf.rotAxis.Theta, other.rotAxis.Theta)
+		float64AlmostEqual(rf.rotAxis.X, other.rotAxis.X) &&
+		float64AlmostEqual(rf.rotAxis.Y, other.rotAxis.Y) &&
+		float64AlmostEqual(rf.rotAxis.Z, other.rotAxis.Z)
 }
 
 func decodePose(m map[string]interface{}) (spatial.Pose, error) {
@@ -440,10 +439,9 @@ func UnmarshalFrameMap(m map[string]interface{}) (Frame, error) {
 		f := rotationalFrame{}
 		f.name = m["name"].(string)
 
-		f.rotAxis.RX = m["rotAxis"].(map[string]interface{})["x"].(float64)
-		f.rotAxis.RY = m["rotAxis"].(map[string]interface{})["y"].(float64)
-		f.rotAxis.RZ = m["rotAxis"].(map[string]interface{})["z"].(float64)
-		f.rotAxis.Theta = m["rotAxis"].(map[string]interface{})["th"].(float64)
+		f.rotAxis.X = m["rotAxis"].(map[string]interface{})["X"].(float64)
+		f.rotAxis.Y = m["rotAxis"].(map[string]interface{})["Y"].(float64)
+		f.rotAxis.Z = m["rotAxis"].(map[string]interface{})["Z"].(float64)
 
 		err = mapstructure.Decode(m["limit"], &f.limit)
 		if err != nil {

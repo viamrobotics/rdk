@@ -49,7 +49,7 @@ func TestServoName(t *testing.T) {
 	}
 }
 
-func TestWrapWtihReconfigurable(t *testing.T) {
+func TestWrapWithReconfigurable(t *testing.T) {
 	actualServo1 := &mockServo{Name: "servo1"}
 	fakeServo1, err := WrapWithReconfigurable(actualServo1)
 	test.That(t, err, test.ShouldBeNil)
@@ -82,7 +82,7 @@ func (mServo *mockServo) Move(ctx context.Context, angleDegs uint8) error {
 	return nil
 }
 
-func (mServo *mockServo) Current(ctx context.Context) (uint8, error) {
+func (mServo *mockServo) AngularOffset(ctx context.Context) (uint8, error) {
 	return 0, nil
 }
 

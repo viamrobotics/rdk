@@ -466,16 +466,26 @@ func (dm *DepthMap) Rotate90(clockwise bool) *DepthMap {
 		data:   make([]Depth, newWidth*newHeight),
 	}
 
-	// these are new coordinates
-	for x := 0; x < newWidth; x++ {
-		for y := 0; y < newHeight; y++ {
-			var val Depth
-			if clockwise {
-				val = dm.GetDepth(y, x)
-			} else {
-				val = dm.GetDepth(dm.width-y-1, dm.height-x-1)
+	newCol, newRow := 0, 0
+	if clockwise {
+		for oldRow := dm.height - 1; oldRow >= 0; oldRow-- {
+			newRow = 0
+			for oldCol := 0; oldCol < dm.width; oldCol++ {
+				val := dm.GetDepth(oldCol, oldRow)
+				dm2.Set(newCol, newRow, val)
+				newRow++
 			}
-			dm2.Set(x, y, val)
+			newCol++
+		}
+	} else { // counter-clockwise
+		for oldCol := dm.width - 1; oldCol >= 0; oldCol-- {
+			newCol = 0
+			for oldRow := 0; oldRow < dm.height; oldRow++ {
+				val := dm.GetDepth(oldCol, oldRow)
+				dm2.Set(newCol, newRow, val)
+				newCol++
+			}
+			newRow++
 		}
 	}
 	return dm2

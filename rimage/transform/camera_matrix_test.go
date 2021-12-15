@@ -71,7 +71,7 @@ func TestCameraMatrixTo3D(t *testing.T) {
 	jsonFilePath := "../../robots/configs/intel515_parameters.json"
 	cameraMatrices, err := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonFilePath)
 	test.That(t, err, test.ShouldBeNil)
-	iwd.SetCameraSystem(cameraMatrices)
+	iwd.SetProjector(cameraMatrices)
 
 	// test To3D
 	testPoint := image.Point{0, 0}

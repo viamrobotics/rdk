@@ -30,7 +30,7 @@ func (s *Servo) Move(ctx context.Context, angle uint8) error {
 	return nil
 }
 
-// Current returns the set angle.
-func (s *Servo) Current(ctx context.Context) (uint8, error) {
+// AngularOffset returns the set angle.
+func (s *Servo) AngularOffset(ctx context.Context) (uint8, error) {
 	return s.angle, nil
 }

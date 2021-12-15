@@ -48,18 +48,6 @@ type reconfigurableIMU struct {
 	actual IMU
 }
 
-func (r *reconfigurableIMU) Readings(ctx context.Context) ([]interface{}, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Readings(ctx)
-}
-
-func (r *reconfigurableIMU) Desc() sensor.Description {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Desc()
-}
-
 func (r *reconfigurableIMU) Close() error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -82,6 +70,18 @@ func (r *reconfigurableIMU) Orientation(ctx context.Context) (spatialmath.Orient
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Orientation(ctx)
+}
+
+func (r *reconfigurableIMU) Readings(ctx context.Context) ([]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Readings(ctx)
+}
+
+func (r *reconfigurableIMU) Desc() sensor.Description {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Desc()
 }
 
 func (r *reconfigurableIMU) Reconfigure(newIMU resource.Reconfigurable) error {

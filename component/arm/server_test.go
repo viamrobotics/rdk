@@ -8,7 +8,6 @@ import (
 
 	"go.viam.com/core/component/arm"
 	commonpb "go.viam.com/core/proto/api/common/v1"
-	componentpb "go.viam.com/core/proto/api/component/v1"
 	pb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/subtype"
@@ -18,7 +17,12 @@ import (
 func newServer() (pb.ArmServiceServer, *inject.Arm, *inject.Arm, error) {
 	injectArm := &inject.Arm{}
 	injectArm2 := &inject.Arm{}
-	armSvc, err := subtype.New((map[resource.Name]interface{}{arm.Named("arm1"): injectArm, arm.Named("arm2"): injectArm2, arm.Named("arm3"): "notArm"}))
+	arms := map[resource.Name]interface{}{
+		arm.Named("arm1"): injectArm,
+		arm.Named("arm2"): injectArm2,
+		arm.Named("arm3"): "notArm",
+	}
+	armSvc, err := subtype.New(arms)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -31,18 +35,18 @@ func TestServer(t *testing.T) {
 
 	var (
 		capArmPos           *commonpb.Pose
-		capArmJointPos      *componentpb.ArmJointPositions
+		capArmJointPos      *pb.ArmJointPositions
 		capArmJoint         int
 		capArmJointAngleDeg float64
 	)
 
 	arm1 := "arm1"
 	pos1 := &commonpb.Pose{X: 1, Y: 2, Z: 3}
-	jointPos1 := &componentpb.ArmJointPositions{Degrees: []float64{1.0, 2.0, 3.0}}
+	jointPos1 := &pb.ArmJointPositions{Degrees: []float64{1.0, 2.0, 3.0}}
 	injectArm.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pos1, nil
 	}
-	injectArm.CurrentJointPositionsFunc = func(ctx context.Context) (*componentpb.ArmJointPositions, error) {
+	injectArm.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
 		return jointPos1, nil
 	}
 	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
@@ -50,7 +54,7 @@ func TestServer(t *testing.T) {
 		return nil
 	}
 
-	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.ArmJointPositions) error {
+	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.ArmJointPositions) error {
 		capArmJointPos = jp
 		return nil
 	}
@@ -63,11 +67,11 @@ func TestServer(t *testing.T) {
 
 	arm2 := "arm2"
 	pos2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
-	jointPos2 := &componentpb.ArmJointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
+	jointPos2 := &pb.ArmJointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
 	injectArm2.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pos2, nil
 	}
-	injectArm2.CurrentJointPositionsFunc = func(ctx context.Context) (*componentpb.ArmJointPositions, error) {
+	injectArm2.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
 		return jointPos2, nil
 	}
 	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
@@ -75,7 +79,7 @@ func TestServer(t *testing.T) {
 		return nil
 	}
 
-	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.ArmJointPositions) error {
+	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.ArmJointPositions) error {
 		capArmJointPos = jp
 		return nil
 	}

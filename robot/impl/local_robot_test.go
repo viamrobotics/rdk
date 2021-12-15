@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
 	"go.viam.com/core/metadata/service"
@@ -186,11 +187,6 @@ func TestConfigRemote(t *testing.T) {
 			"foo.cameraOver": true,
 			"bar.cameraOver": true,
 		},
-		Lidars: map[string]bool{
-			"lidar1":     true,
-			"foo.lidar1": true,
-			"bar.lidar1": true,
-		},
 		Sensors: map[string]*pb.SensorStatus{
 			"compass1": {
 				Type: "compass",
@@ -229,32 +225,23 @@ func TestConfigRemote(t *testing.T) {
 
 	cfg2, err := r2.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, 19, test.ShouldEqual, len(cfg2.Components))
+	test.That(t, 16, test.ShouldEqual, len(cfg2.Components))
 
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Parent, test.ShouldEqual, "squee.world")
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.Translation{500, 500, 1000})
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
-	test.That(t, cfg2.FindComponent("lidar1").Frame.Parent, test.ShouldEqual, "cameraOver")
-	test.That(t, cfg2.FindComponent("lidar1").Frame.Translation, test.ShouldResemble, spatialmath.Translation{0, 0, 200})
-	test.That(t, cfg2.FindComponent("lidar1").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
 	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "foo.world")
 	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.Translation{500, 500, 1000})
 	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
-	test.That(t, cfg2.FindComponent("foo.lidar1").Frame.Parent, test.ShouldEqual, "foo.cameraOver")
-	test.That(t, cfg2.FindComponent("foo.lidar1").Frame.Translation, test.ShouldResemble, spatialmath.Translation{0, 0, 200})
-	test.That(t, cfg2.FindComponent("foo.lidar1").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
 	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Parent, test.ShouldEqual, "bar.world")
 	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.Translation{500, 500, 1000})
 	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
-	test.That(t, cfg2.FindComponent("bar.lidar1").Frame.Parent, test.ShouldEqual, "bar.cameraOver")
-	test.That(t, cfg2.FindComponent("bar.lidar1").Frame.Translation, test.ShouldResemble, spatialmath.Translation{0, 0, 200})
-	test.That(t, cfg2.FindComponent("bar.lidar1").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
 	fs, err := r2.FrameSystem(context.Background(), "test", "")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 35)
+	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 29)
 	t.Logf("frames: %v\n", fs.FrameNames())
 
 	test.That(t, r.Close(), test.ShouldBeNil)
@@ -352,7 +339,7 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(), test.ShouldBeNil)
 
-	test.That(t, len(svc.All()), test.ShouldEqual, 9)
+	test.That(t, len(svc.All()), test.ShouldEqual, 8)
 
 	resources := map[resource.Name]struct{}{
 		{
@@ -367,26 +354,14 @@ func TestMetadataUpdate(t *testing.T) {
 			Name: "",
 		}: {},
 		{
-			UUID: "0ecee0a4-3d25-5bfa-ba5d-4c2f765cef6a",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceCore,
-					ResourceType: resource.ResourceTypeComponent,
-				},
-				ResourceSubtype: arm.SubtypeName,
-			},
-			Name: "pieceArm",
+			UUID:    "0ecee0a4-3d25-5bfa-ba5d-4c2f765cef6a",
+			Subtype: arm.Subtype,
+			Name:    "pieceArm",
 		}: {},
 		{
-			UUID: "06f7a658-e502-5a3b-a160-af023795b49a",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceCore,
-					ResourceType: resource.ResourceTypeComponent,
-				},
-				ResourceSubtype: resource.ResourceSubtypeCamera,
-			},
-			Name: "cameraOver",
+			UUID:    "06f7a658-e502-5a3b-a160-af023795b49a",
+			Subtype: camera.Subtype,
+			Name:    "cameraOver",
 		}: {},
 		{
 			UUID: "064a7e85-c5d6-524c-a6c4-d050bca20da9",
@@ -411,26 +386,9 @@ func TestMetadataUpdate(t *testing.T) {
 			Name: "func2",
 		}: {},
 		{
-			UUID: "813681b8-d6af-5e1c-b22a-8960ccf204fb",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceCore,
-					ResourceType: resource.ResourceTypeComponent,
-				},
-				ResourceSubtype: gripper.SubtypeName,
-			},
-			Name: "pieceGripper",
-		}: {},
-		{
-			UUID: "b0e1e671-fa92-5d84-b6c1-d50d17e5e2ac",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceCore,
-					ResourceType: resource.ResourceTypeComponent,
-				},
-				ResourceSubtype: resource.ResourceSubtypeLidar,
-			},
-			Name: "lidar1",
+			UUID:    "813681b8-d6af-5e1c-b22a-8960ccf204fb",
+			Subtype: gripper.Subtype,
+			Name:    "pieceGripper",
 		}: {},
 		{
 			UUID: "d1587bf0-8655-5eb3-95af-e2f83d872ce8",

@@ -1,0 +1,109 @@
+syntax = "proto3";
+option go_package = "go.viam.com/core/proto/api/component/v1";
+option java_package = "com.viam.core.proto.api.component.v1";
+
+package proto.api.component.v1;
+
+import "google/api/annotations.proto";
+import "google/api/httpbody.proto";
+import "proto/api/common/v1/common.proto";
+
+// A CameraService services maintains all cameras associated with a robot
+service CameraService {
+  // Frame returns a frame from a camera of the underlying robot. A specific MIME type
+  // can be requested but may not necessarily be the same one returned.
+  rpc Frame(CameraServiceFrameRequest) returns (CameraServiceFrameResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/component/camera/{name}/frame"
+    };
+  }
+
+  // RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
+  // can be requested but may not necessarily be the same one returned.
+  rpc RenderFrame(CameraServiceRenderFrameRequest) returns (google.api.HttpBody) {
+    option (google.api.http) = {
+      get: "/api/v1/component/camera/{name}/render_frame"
+    };
+  }
+
+  // PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
+  // can be requested but may not necessarily be the same one returned.
+  rpc PointCloud(CameraServicePointCloudRequest) returns (CameraServicePointCloudResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/component/camera/{name}/pointcloud"
+    };
+  }
+
+  // ObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
+  // as well as the 3-vector center of each of the found objects.
+  // A specific MIME type can be requested but may not necessarily be the same one returned.
+  rpc ObjectPointClouds(CameraServiceObjectPointCloudsRequest) returns (CameraServiceObjectPointCloudsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/component/camera/{name}/objectpointclouds"
+    };
+  }
+
+}
+
+message CameraServiceFrameRequest {
+  // Name of a camera
+  string name = 1;
+  // Requested MIME type of response
+  string mime_type = 2;
+}
+
+message CameraServiceFrameResponse {
+  // Actual MIME type of response
+  string mime_type = 1;
+  // Frame in bytes
+  bytes frame = 2;
+  // Width of frame
+  int64 dim_x = 3;
+  // Height of frame
+  int64 dim_y = 4;
+}
+
+message CameraServiceRenderFrameRequest {
+  // Name of a camera
+  string name = 1;
+  // Requested MIME type of response
+  string mime_type = 2;
+}
+
+message CameraServicePointCloudRequest {
+  // Name of a camera
+  string name = 1;
+  // Requested MIME type of response
+  string mime_type = 2;
+}
+
+message CameraServicePointCloudResponse {
+  // Actual MIME type of response
+  string mime_type = 1;
+  // Frame in bytes
+  bytes frame = 2;
+}
+
+message CameraServiceObjectPointCloudsRequest {
+  // Name of a camera
+  string name = 1;
+  // Requested MIME type of response
+  string mime_type = 2;
+  // Minimum points in plane
+  int64 min_points_in_plane = 3;
+  // Minimum points in segment
+  int64 min_points_in_segment = 4;
+  // Clustering radius
+  double clustering_radius = 5;
+}
+
+message CameraServiceObjectPointCloudsResponse {
+  // Actual MIME type of response
+  string mime_type = 1;
+  // Frame of each object in bytes
+  repeated bytes frames = 2;
+  // Center of each object in vector form
+  repeated common.v1.Vector3 centers = 3;
+  // Bounding box of each object
+  repeated common.v1.BoxGeometry bounding_boxes = 4;
+}
