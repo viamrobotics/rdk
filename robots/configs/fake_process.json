@@ -35,11 +35,6 @@
         },
         {
             "model": "fake",
-            "name": "lidar1",
-            "type": "lidar"
-        },
-        {
-            "model": "fake",
             "name": "compass1",
             "type": "sensor",
             "subtype": "compass"
