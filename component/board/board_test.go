@@ -103,13 +103,29 @@ func TestStatus(t *testing.T) {
 	test.That(t, actualBoard.statusCalls, test.ShouldEqual, 1)
 }
 
-func TestSPIByName(t *testing.T) {
+func TestSPIs(t *testing.T) {
 	actualBoard := &mock{Name: "board1"}
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
+
+	fakeSPINames := fakeBoard.(*reconfigurableBoard).SPINames()
+	test.That(t, fakeSPINames, test.ShouldResemble, []string{"spi1"})
 
 	fakeSPI, ok := fakeBoard.(*reconfigurableBoard).SPIByName("spi1")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, fakeSPI, test.ShouldResemble, &reconfigurableBoardSPI{actual: &mockSPI{}})
+}
+
+func TestI2Cs(t *testing.T) {
+	actualBoard := &mock{Name: "board1"}
+	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
+
+	fakeI2CNames := fakeBoard.(*reconfigurableBoard).I2CNames()
+	test.That(t, fakeI2CNames, test.ShouldResemble, []string{"i2c1"})
+
+	fakeI2C, ok := fakeBoard.(*reconfigurableBoard).I2CByName("i2c1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, fakeI2C, test.ShouldResemble, &reconfigurableBoardI2C{actual: &mockI2C{}})
+
 }
 
 type mock struct {
@@ -119,13 +135,11 @@ type mock struct {
 	statusCalls int
 }
 
-// TODO(maximpertsov): add board subcomponents
 func (m *mock) SPINames() []string {
 	return []string{"spi1"}
 }
 func (m *mock) I2CNames() []string {
-	// return []string{"i2c1"}
-	return []string{}
+	return []string{"i2c1"}
 }
 func (m *mock) AnalogReaderNames() []string {
 	// return []string{"analog1"}
@@ -140,13 +154,14 @@ func (m *mock) SPIByName(name string) (SPI, bool) {
 	return &mockSPI{}, true
 }
 
-// func (m *mock) I2CByNameFunc(name string) (I2C, bool) {
-// 	return inject.I2C{}, true
-// }
-// func (m *mock) AnalogReaderByNameFunc(name string) (AnalogReader, bool) {
+func (m *mock) I2CByName(name string) (I2C, bool) {
+	return &mockI2C{}, true
+}
+
+// func (m *mock) AnalogReaderByName(name string) (AnalogReader, bool) {
 // 	return &fake.Analog{}, true
 // }
-// func (m *mock) DigitalInterruptByNameFunc(name string) (DigitalInterrupt, bool) {
+// func (m *mock) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
 // 	return &BasicDigitalInterrupt{}, true
 // }
 
@@ -160,6 +175,8 @@ func (m *mock) Status(ctx context.Context) (*pb.BoardStatus, error) {
 }
 
 func (m *mock) Close() error { m.reconfCalls++; return nil }
+
+// Mock SPIs
 
 type mockSPI struct{}
 
@@ -175,3 +192,34 @@ func (m *mockSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect string, 
 }
 
 func (m *mockSPIHandle) Close() error { return nil }
+
+// Mock I2Cs
+
+type mockI2C struct{}
+
+func (m *mockI2C) OpenHandle(addr byte) (I2CHandle, error) {
+	return &mockI2CHandle{}, nil
+}
+
+type mockI2CHandle struct {
+}
+
+func (m *mockI2CHandle) Read(ctx context.Context, count int) ([]byte, error) {
+	return []byte{}, nil
+}
+func (m *mockI2CHandle) Write(ctx context.Context, tx []byte) error {
+	return nil
+}
+func (m *mockI2CHandle) ReadByteData(ctx context.Context, register byte) (byte, error) {
+	return 0, nil
+}
+func (m *mockI2CHandle) WriteByteData(ctx context.Context, register byte, data byte) error {
+	return nil
+}
+func (m *mockI2CHandle) ReadWordData(ctx context.Context, register byte) (uint16, error) {
+	return 0, nil
+}
+func (m *mockI2CHandle) WriteWordData(ctx context.Context, register byte, data uint16) error {
+	return nil
+}
+func (m *mockI2CHandle) Close() error { return nil }
