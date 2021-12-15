@@ -116,6 +116,21 @@ func (m *Model) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, e
 	return poseMap, err
 }
 
+func (m *Model) Volume(inputs []Input) (map[string]spatialmath.Volume, error) {
+	frames, err := m.jointRadToQuats(inputs, true)
+	if err != nil && frames == nil {
+		return nil, err
+	}
+	var errAll error
+	volumeMap := make(map[string]spatialmath.Volume)
+	for _, frame := range frames {
+		vol, err := frame.Volume([]Input{})
+		multierr.AppendInto(&errAll, err)
+		volumeMap[m.name+":"+frame.Name()] = vol[frame.Name()]
+	}
+	return volumeMap, errAll
+}
+
 // jointRadToQuats takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of each of the links up to and including the end effector. This is useful for when conversions
 // between quaternions and OV are not needed.
@@ -139,11 +154,11 @@ func (m *Model) jointRadToQuats(inputs []Input, collectAll bool) ([]*staticFrame
 		multierr.AppendInto(&err, errNew)
 		composedTransformation = spatialmath.Compose(composedTransformation, pose)
 		if collectAll {
-			poses = append(poses, &staticFrame{transform.Name(), composedTransformation})
+			poses = append(poses, &staticFrame{transform.Name(), composedTransformation, nil})
 		}
 	}
 	if !collectAll {
-		poses = append(poses, &staticFrame{"", composedTransformation})
+		poses = append(poses, &staticFrame{"", composedTransformation, nil})
 	}
 	return poses, err
 }

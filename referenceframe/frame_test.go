@@ -17,7 +17,8 @@ import (
 func TestStaticFrame(t *testing.T) {
 	// define a static transform
 	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{1, 2, 3}, r3.Vector{0, 0, 1}, math.Pi/2)
-	frame := &staticFrame{"test", expPose}
+	frame, err := NewStaticFrame("test", expPose)
+	test.That(t, err, test.ShouldNotBeNil)
 	// get expected transform back
 	emptyInput := FloatsToInputs([]float64{})
 	pose, err := frame.Transform(emptyInput)
