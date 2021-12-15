@@ -139,6 +139,18 @@ func TestAnalogReaders(t *testing.T) {
 	test.That(t, fakeAnalogReader, test.ShouldResemble, &reconfigurableBoardAnalogReader{actual: &mockAnalogReader{}})
 }
 
+func TestDigitalInterrupts(t *testing.T) {
+	actualBoard := &mock{Name: "board1"}
+	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
+
+	fakeDigitalInterruptNames := fakeBoard.(*reconfigurableBoard).DigitalInterruptNames()
+	test.That(t, fakeDigitalInterruptNames, test.ShouldResemble, []string{"digital1"})
+
+	fakeDigitalInterrupt, ok := fakeBoard.(*reconfigurableBoard).DigitalInterruptByName("digital1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, fakeDigitalInterrupt, test.ShouldResemble, &reconfigurableBoardDigitalInterrupt{actual: &mockDigitalInterrupt{}})
+}
+
 type mock struct {
 	Board
 	Name        string
@@ -156,8 +168,7 @@ func (m *mock) AnalogReaderNames() []string {
 	return []string{"analog1"}
 }
 func (m *mock) DigitalInterruptNames() []string {
-	// return []string{"digital1"}
-	return []string{}
+	return []string{"digital1"}
 }
 
 func (m *mock) SPIByName(name string) (SPI, bool) {
@@ -172,9 +183,9 @@ func (m *mock) AnalogReaderByName(name string) (AnalogReader, bool) {
 	return &mockAnalogReader{}, true
 }
 
-// func (m *mock) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
-// 	return &BasicDigitalInterrupt{}, true
-// }
+func (m *mock) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
+	return &mockDigitalInterrupt{}, true
+}
 
 func (m *mock) ModelAttributes() ModelAttributes {
 	return ModelAttributes{Remote: true}
@@ -242,3 +253,19 @@ type mockAnalogReader struct{}
 func (m *mockAnalogReader) Read(ctx context.Context) (int, error) {
 	return 0, nil
 }
+
+// Mock DigitalInterrupt
+
+type mockDigitalInterrupt struct{}
+
+func (m *mockDigitalInterrupt) Config(ctx context.Context) (DigitalInterruptConfig, error) {
+	return DigitalInterruptConfig{}, nil
+}
+func (m *mockDigitalInterrupt) Value(ctx context.Context) (int64, error) {
+	return 0, nil
+}
+func (m *mockDigitalInterrupt) Tick(ctx context.Context, high bool, nanos uint64) error {
+	return nil
+}
+func (m *mockDigitalInterrupt) AddCallback(c chan bool)           {}
+func (m *mockDigitalInterrupt) AddPostProcessor(pp PostProcessor) {}
