@@ -3,6 +3,7 @@ package input
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -61,8 +62,8 @@ type client struct {
 	streamMu      sync.Mutex
 	mu            sync.RWMutex
 
-	activeBackgroundWorkers *sync.WaitGroup
-	cancelBackgroundWorkers func()
+	activeBackgroundWorkers sync.WaitGroup
+	cancelBackgroundWorkers context.CancelFunc
 	callbackWait            sync.WaitGroup
 	callbacks               map[Control]map[EventType]ControlFunction
 }
@@ -83,7 +84,6 @@ func NewClientFromConn(conn dialer.ClientConn, name string, logger golog.Logger)
 }
 
 func clientFromSvcClient(sc *serviceClient, name string) Controller {
-	closeCtx, cancel := context.WithCancel(context.Background())
 	return &client{serviceClient: sc, name: name}
 }
 
@@ -174,20 +174,29 @@ func (c *client) RegisterControlCallback(ctx context.Context, control Control, t
 	} else {
 		c.streamRunning = true
 		c.activeBackgroundWorkers.Add(1)
+		closeContext, cancel := context.WithCancel(context.Background())
+		c.cancelBackgroundWorkers = cancel
 		utils.PanicCapturingGo(func() {
 			defer c.activeBackgroundWorkers.Done()
-			c.connectStream(c.closeContext)
+			c.connectStream(closeContext)
 		})
 		c.mu.RLock()
 		ready := c.streamReady
 		c.mu.RUnlock()
-		for !ready {
+
+		// try connecting 3 times
+		retryCt := 0
+		for !ready && retryCt < 3 {
 			c.mu.RLock()
 			ready = c.streamReady
 			c.mu.RUnlock()
 			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
 				return ctx.Err()
 			}
+			retryCt++
+		}
+		if !ready {
+			return errors.New("failed to connect")
 		}
 	}
 
@@ -275,11 +284,10 @@ func (c *client) connectStream(ctx context.Context) {
 
 			c.mu.Lock()
 			c.streamHUP = false
-			c.streamReady = true
 			c.mu.Unlock()
 			streamResp, err := stream.Recv()
-			eventIn := streamResp.Event
-			if err != nil && eventIn == nil {
+
+			if err != nil && streamResp == nil {
 				c.mu.RLock()
 				hup := c.streamHUP
 				c.mu.RUnlock()
@@ -297,7 +305,11 @@ func (c *client) connectStream(ctx context.Context) {
 			if err != nil {
 				c.logger.Error(err)
 			}
-
+			// stream ready when we receive first non-error response
+			c.mu.Lock()
+			c.streamReady = true
+			c.mu.Unlock()
+			eventIn := streamResp.Event
 			eventOut := Event{
 				Time:    eventIn.Time.AsTime(),
 				Event:   EventType(eventIn.Event),
