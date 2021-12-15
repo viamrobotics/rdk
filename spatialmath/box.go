@@ -51,17 +51,18 @@ func (b *box) CollidesWith(v Volume) (bool, error) {
 // true == collision, false == no collision
 // reference: https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
 func boxVsBoxCollision(a, b *box) bool {
+	positionDelta := PoseDelta(a.pose, b.pose).Point()
 	rmA := a.pose.Orientation().RotationMatrix()
 	rmB := b.pose.Orientation().RotationMatrix()
 	for i := 0; i < 3; i++ {
-		if hasSeparatingPlane(rmA.Row(i), a, b) {
+		if hasSeparatingPlane(positionDelta, rmA.Row(i), a, b) {
 			return false
 		}
-		if hasSeparatingPlane(rmB.Row(i), a, b) {
+		if hasSeparatingPlane(positionDelta, rmB.Row(i), a, b) {
 			return false
 		}
 		for j := 0; j < 3; j++ {
-			if hasSeparatingPlane(rmA.Row(i).Cross(rmB.Row(j)), a, b) {
+			if hasSeparatingPlane(positionDelta, rmA.Row(i).Cross(rmB.Row(j)), a, b) {
 				return false
 			}
 		}
@@ -73,8 +74,7 @@ func boxVsBoxCollision(a, b *box) bool {
 // theorem, if such a plane exists (and true is returned) this proves that there is no collision between the boxes
 // references: https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
 //             https://gamedev.stackexchange.com/questions/25397/obb-vs-obb-collision-detection
-func hasSeparatingPlane(plane r3.Vector, a, b *box) bool {
-	positionDelta := PoseDelta(a.pose, b.pose).Point()
+func hasSeparatingPlane(positionDelta, plane r3.Vector, a, b *box) bool {
 	rmA := a.pose.Orientation().RotationMatrix()
 	rmB := b.pose.Orientation().RotationMatrix()
 	return math.Abs(positionDelta.Dot(plane)) > (math.Abs(rmA.Row(0).Mul(a.halfSize.X).Dot(plane)) +
