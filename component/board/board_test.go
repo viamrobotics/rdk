@@ -48,9 +48,9 @@ func TestBoardName(t *testing.T) {
 	}
 }
 
-// var (
-// 	mockStatus *pb.BoardStatus
-// )
+var (
+	mockStatus *pb.BoardStatus
+)
 
 func TestWrapWithReconfigurable(t *testing.T) {
 	var actualBoard Board = &mock{Name: "board1"}
@@ -92,23 +92,22 @@ func TestReconfigurableBoard(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new board")
 }
 
-// func TestStatus(t *testing.T) {
-// 	actualBoard := &mock{Name: "board1"}
-// 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
-//
-// 	test.That(t, actualBoard.statusCalls, test.ShouldEqual, 0)
-// 	status, err := fakeBoard.(*reconfigurableBoard).Status(context.Background())
-// 	test.That(t, err, test.ShouldBeNil)
-// 	test.That(t, status, test.ShouldResemble, mockStatus)
-// 	test.That(t, actualBoard.statusCalls, test.ShouldEqual, 1)
-// }
+func TestStatus(t *testing.T) {
+	actualBoard := &mock{Name: "board1"}
+	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
+
+	test.That(t, actualBoard.statusCalls, test.ShouldEqual, 0)
+	status, err := fakeBoard.(*reconfigurableBoard).Status(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, status, test.ShouldResemble, mockStatus)
+	test.That(t, actualBoard.statusCalls, test.ShouldEqual, 1)
+}
 
 type mock struct {
 	Board
-	Name            string
-	// ModelAttributes struct{ Remote bool }
-	reconfCalls     int
-	statusCalls     int
+	Name        string
+	reconfCalls int
+	statusCalls int
 }
 
 // TODO(maximpertsov): add board subcomponents
@@ -142,6 +141,10 @@ func (m *mock) DigitalInterruptNames() []string {
 // func (m *mock) DigitalInterruptByNameFunc(name string) (DigitalInterrupt, bool) {
 // 	return &BasicDigitalInterrupt{}, true
 // }
+
+func (m *mock) ModelAttributes() ModelAttributes {
+	return ModelAttributes{Remote: true}
+}
 
 func (m *mock) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	m.statusCalls++
