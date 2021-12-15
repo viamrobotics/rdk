@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 )
 
@@ -61,6 +62,15 @@ type derivative struct {
 	y       []Signal
 }
 
+func newDerivative(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+	d := &derivative{cfg: config}
+	err := d.reset()
+	if err != nil {
+		return nil, err
+	}
+	return d, nil
+}
+
 func derive(x []float64, dt time.Duration, stencil *derivativeStencil) (float64, error) {
 	if len(x) != len(stencil.Coeffs) {
 		return 0.0, errors.Errorf("expected %d inputs got %d", len(stencil.Coeffs), len(x))
@@ -88,7 +98,7 @@ func (d *derivative) Next(ctx context.Context, x []Signal, dt time.Duration) ([]
 	return d.y, false
 }
 
-func (d *derivative) reset(ctx context.Context) error {
+func (d *derivative) reset() error {
 	if !d.cfg.Attribute.Has("DeriveType") {
 		return errors.Errorf("derive block %s doesn't have a DerivType field", d.cfg.Name)
 	}
@@ -122,19 +132,19 @@ func (d *derivative) Configure(ctx context.Context, config ControlBlockConfig) e
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.cfg = config
-	return d.reset(ctx)
+	return d.reset()
 }
 func (d *derivative) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.cfg = config
-	return d.reset(ctx)
+	return d.reset()
 }
 
 func (d *derivative) Reset(ctx context.Context) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	return d.reset(ctx)
+	return d.reset()
 }
 
 func (d *derivative) Output(ctx context.Context) []Signal {

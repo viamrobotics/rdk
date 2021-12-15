@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 	pb "go.viam.com/core/proto/api/v1"
 )
@@ -14,6 +15,15 @@ type endpoint struct {
 	ctr Controllable
 	cfg ControlBlockConfig
 	y   []Signal
+}
+
+func newEndpoint(config ControlBlockConfig, logger golog.Logger, ctr Controllable) (ControlBlock, error) {
+	e := &endpoint{cfg: config}
+	err := e.reset()
+	if err != nil {
+		return nil, err
+	}
+	return e, nil
 }
 
 func (e *endpoint) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
@@ -40,7 +50,7 @@ func (e *endpoint) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 	return e.y, false
 }
 
-func (e *endpoint) reset(ctx context.Context) error {
+func (e *endpoint) reset() error {
 	if !e.cfg.Attribute.Has("MotorName") {
 		return errors.Errorf("endpoint %s should have a MotorName field", e.cfg.Name)
 	}
@@ -53,18 +63,18 @@ func (e *endpoint) Configure(ctx context.Context, config ControlBlockConfig) err
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.cfg = config
-	return e.reset(ctx)
+	return e.reset()
 }
 func (e *endpoint) Reset(ctx context.Context) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.reset(ctx)
+	return e.reset()
 }
 func (e *endpoint) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.cfg = config
-	return e.reset(ctx)
+	return e.reset()
 }
 func (e *endpoint) Output(ctx context.Context) []Signal {
 	return e.y

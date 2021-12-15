@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 )
 
@@ -20,6 +21,15 @@ type sum struct {
 	cfg       ControlBlockConfig
 	y         []Signal
 	operation map[string]sumOperand
+}
+
+func newSum(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+	s := &sum{cfg: config}
+	err := s.reset()
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 func (b *sum) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
@@ -43,7 +53,7 @@ func (b *sum) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal,
 	}
 	return b.y, true
 }
-func (b *sum) reset(ctx context.Context) error {
+func (b *sum) reset() error {
 	if !b.cfg.Attribute.Has("SumString") {
 		return errors.Errorf("sum block %s doesn't have a SumString", b.cfg.Name)
 	}
@@ -66,20 +76,20 @@ func (b *sum) Configure(ctx context.Context, config ControlBlockConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.cfg = config
-	return b.reset(ctx)
+	return b.reset()
 }
 
 func (b *sum) Reset(ctx context.Context) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.reset(ctx)
+	return b.reset()
 }
 
 func (b *sum) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.cfg = config
-	return b.reset(ctx)
+	return b.reset()
 }
 
 func (b *sum) Output(ctx context.Context) []Signal {

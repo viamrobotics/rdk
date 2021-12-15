@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 )
 
@@ -30,6 +31,14 @@ type filterStruct struct {
 	y      []Signal
 }
 
+func newFilter(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+	f := &filterStruct{cfg: config}
+	err := f.initFilter()
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
 func (f *filterStruct) initFilter() error {
 	if !f.cfg.Attribute.Has("type") {
 		return errors.Errorf("filter %s config should have a type field", f.cfg.Name)
