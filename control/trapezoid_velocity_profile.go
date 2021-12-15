@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 )
 
@@ -26,6 +27,15 @@ type trapezoidVelocityGenerator struct {
 	y            []Signal
 	currentPhase int
 	lastSetPoint float64
+}
+
+func newTrapezoidVelocityProfile(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+	t := &trapezoidVelocityGenerator{cfg: config}
+	err := t.reset()
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
 }
 
 func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
@@ -86,7 +96,7 @@ func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []Signal, dt ti
 	return s.y, true
 }
 
-func (s *trapezoidVelocityGenerator) reset(ctx context.Context) error {
+func (s *trapezoidVelocityGenerator) reset() error {
 	if !s.cfg.Attribute.Has("MaxAcc") {
 		return errors.Errorf("trapezoidale velocity profile block %s needs MaxAcc field", s.cfg.Name)
 	}
@@ -108,20 +118,20 @@ func (s *trapezoidVelocityGenerator) Configure(ctx context.Context, config Contr
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.cfg = config
-	return s.reset(ctx)
+	return s.reset()
 }
 
 func (s *trapezoidVelocityGenerator) Reset(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.reset(ctx)
+	return s.reset()
 }
 
 func (s *trapezoidVelocityGenerator) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.cfg = config
-	return s.reset(ctx)
+	return s.reset()
 }
 func (s *trapezoidVelocityGenerator) Output(ctx context.Context) []Signal {
 	return s.y

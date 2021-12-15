@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 
 	"go.viam.com/core/config"
@@ -53,44 +54,39 @@ type ControlBlock interface {
 	Config(ctx context.Context) ControlBlockConfig
 }
 
-func createControlBlock(ctx context.Context, cfg ControlBlockConfig) (ControlBlock, error) {
+func createControlBlock(ctx context.Context, cfg ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
 	t := cfg.Type
 	switch t {
 	case blockEndpoint:
-		var b endpoint
-		err := b.Configure(ctx, cfg)
+		b, err := newEndpoint(cfg, logger, nil)
 		if err != nil {
 			return nil, err
 		}
-		return &b, nil
+		return b, nil
 	case blockSum:
-		var b sum
-		err := b.Configure(ctx, cfg)
+		b, err := newSum(cfg, logger)
 		if err != nil {
 			return nil, err
 		}
-		return &b, nil
+		return b, nil
 	case blockDerivative:
-		var b derivative
-		err := b.Configure(ctx, cfg)
+		b, err := newDerivative(cfg, logger)
 		if err != nil {
 			return nil, err
 		}
-		return &b, nil
+		return b, nil
 	case blockTrapezoidaleVelocityProfile:
-		var b trapezoidVelocityGenerator
-		err := b.Configure(ctx, cfg)
+		b, err := newTrapezoidVelocityProfile(cfg, logger)
 		if err != nil {
 			return nil, err
 		}
-		return &b, nil
+		return b, nil
 	case blockGain:
-		var b gain
-		err := b.Configure(ctx, cfg)
+		b, err := newGain(cfg, logger)
 		if err != nil {
 			return nil, err
 		}
-		return &b, nil
+		return b, nil
 	case blockPID:
 		var b basicPID
 		err := b.Configure(ctx, cfg)
@@ -106,26 +102,23 @@ func createControlBlock(ctx context.Context, cfg ControlBlockConfig) (ControlBlo
 		}
 		return &b, nil
 	case blockFilter:
-		var b filterStruct
-		err := b.Configure(ctx, cfg)
+		b, err := newFilter(cfg, logger)
 		if err != nil {
 			return nil, err
 		}
-		return &b, nil
+		return b, nil
 	case blockConstant:
-		var b constant
-		err := b.Configure(ctx, cfg)
+		b, err := newConstant(cfg, logger)
 		if err != nil {
 			return nil, err
 		}
-		return &b, nil
+		return b, nil
 	case blockEncoderToRPM:
-		var b encoderToRPM
-		err := b.Configure(ctx, cfg)
+		b, err := newEncoderSpeed(cfg, logger)
 		if err != nil {
 			return nil, err
 		}
-		return &b, nil
+		return b, nil
 	}
 	return nil, errors.Errorf("unsupported block type %s", t)
 }

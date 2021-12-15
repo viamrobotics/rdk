@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 )
 
@@ -16,13 +17,22 @@ type encoderToRPM struct {
 	prevEncCount       int
 }
 
+func newEncoderSpeed(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+	e := &encoderToRPM{cfg: config}
+	err := e.reset()
+	if err != nil {
+		return nil, err
+	}
+	return e, nil
+}
+
 func (b *encoderToRPM) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
 	currEncCount := int(x[0].signal[0])
 	b.y[0].signal[0] = (float64(currEncCount-b.prevEncCount) / float64(b.pulsesPerReolution)) * 60.0 / (dt.Seconds())
 	b.prevEncCount = currEncCount
 	return b.y, true
 }
-func (b *encoderToRPM) reset(ctx context.Context) error {
+func (b *encoderToRPM) reset() error {
 	if !b.cfg.Attribute.Has("PulsesPerRevolution") {
 		return errors.Errorf("encoderToRPM block %s doesn't have a PulsesPerRevolution field", b.cfg.Name)
 	}
@@ -40,18 +50,18 @@ func (b *encoderToRPM) Configure(ctx context.Context, config ControlBlockConfig)
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.cfg = config
-	return b.reset(ctx)
+	return b.reset()
 }
 func (b *encoderToRPM) Reset(ctx context.Context) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.reset(ctx)
+	return b.reset()
 }
 func (b *encoderToRPM) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.cfg = config
-	return b.reset(ctx)
+	return b.reset()
 }
 
 func (b *encoderToRPM) Output(ctx context.Context) []Signal {

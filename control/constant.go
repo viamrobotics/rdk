@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 )
 
@@ -15,11 +16,20 @@ type constant struct {
 	constant float64
 }
 
+func newConstant(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+	c := &constant{cfg: config}
+	err := c.reset()
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
 func (b *constant) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
 	b.y[0].signal[0] = b.constant
 	return b.y, true
 }
-func (b *constant) reset(ctx context.Context) error {
+func (b *constant) reset() error {
 	if !b.cfg.Attribute.Has("ConstantVal") {
 		return errors.Errorf("constant block %s doesn't have a ConstantVal field", b.cfg.Name)
 	}
@@ -36,18 +46,18 @@ func (b *constant) Configure(ctx context.Context, config ControlBlockConfig) err
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.cfg = config
-	return b.reset(ctx)
+	return b.reset()
 }
 func (b *constant) Reset(ctx context.Context) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.reset(ctx)
+	return b.reset()
 }
 func (b *constant) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.cfg = config
-	return b.reset(ctx)
+	return b.reset()
 }
 
 func (b *constant) Output(ctx context.Context) []Signal {

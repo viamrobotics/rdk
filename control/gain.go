@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 )
 
@@ -13,6 +14,15 @@ type gain struct {
 	cfg  ControlBlockConfig
 	y    []Signal
 	gain float64
+}
+
+func newGain(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+	g := &gain{cfg: config}
+	err := g.reset()
+	if err != nil {
+		return nil, err
+	}
+	return g, nil
 }
 
 func (b *gain) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
@@ -25,7 +35,7 @@ func (b *gain) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal
 	}
 	return b.y, true
 }
-func (b *gain) reset(ctx context.Context) error {
+func (b *gain) reset() error {
 	if !b.cfg.Attribute.Has("Gain") {
 		return errors.Errorf("gain block %s doesn't have a Gain field", b.cfg.Name)
 	}
@@ -42,18 +52,18 @@ func (b *gain) Configure(ctx context.Context, config ControlBlockConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.cfg = config
-	return b.reset(ctx)
+	return b.reset()
 }
 func (b *gain) Reset(ctx context.Context) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.reset(ctx)
+	return b.reset()
 }
 func (b *gain) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.cfg = config
-	return b.reset(ctx)
+	return b.reset()
 }
 
 func (b *gain) Output(ctx context.Context) []Signal {
