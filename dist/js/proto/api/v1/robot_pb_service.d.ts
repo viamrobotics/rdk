@@ -2,7 +2,6 @@
 // file: proto/api/v1/robot.proto
 
 import * as proto_api_v1_robot_pb from "../../../proto/api/v1/robot_pb";
-import * as google_api_httpbody_pb from "../../../google/api/httpbody_pb";
 import {grpc} from "@improbable-eng/grpc-web";
 
 type RobotServiceStatus = {
@@ -84,123 +83,6 @@ type RobotServiceBaseWidthMillis = {
   readonly responseStream: false;
   readonly requestType: typeof proto_api_v1_robot_pb.BaseWidthMillisRequest;
   readonly responseType: typeof proto_api_v1_robot_pb.BaseWidthMillisResponse;
-};
-
-type RobotServiceGripperOpen = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.GripperOpenRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.GripperOpenResponse;
-};
-
-type RobotServiceGripperGrab = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.GripperGrabRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.GripperGrabResponse;
-};
-
-type RobotServiceCameraFrame = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.CameraFrameRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.CameraFrameResponse;
-};
-
-type RobotServiceCameraRenderFrame = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.CameraRenderFrameRequest;
-  readonly responseType: typeof google_api_httpbody_pb.HttpBody;
-};
-
-type RobotServicePointCloud = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.PointCloudRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.PointCloudResponse;
-};
-
-type RobotServiceObjectPointClouds = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.ObjectPointCloudsRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.ObjectPointCloudsResponse;
-};
-
-type RobotServiceLidarInfo = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.LidarInfoRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.LidarInfoResponse;
-};
-
-type RobotServiceLidarStart = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.LidarStartRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.LidarStartResponse;
-};
-
-type RobotServiceLidarStop = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.LidarStopRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.LidarStopResponse;
-};
-
-type RobotServiceLidarScan = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.LidarScanRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.LidarScanResponse;
-};
-
-type RobotServiceLidarRange = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.LidarRangeRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.LidarRangeResponse;
-};
-
-type RobotServiceLidarBounds = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.LidarBoundsRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.LidarBoundsResponse;
-};
-
-type RobotServiceLidarAngularResolution = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.LidarAngularResolutionRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.LidarAngularResolutionResponse;
 };
 
 type RobotServiceBoardStatus = {
@@ -363,24 +245,6 @@ type RobotServiceExecuteSource = {
   readonly responseStream: false;
   readonly requestType: typeof proto_api_v1_robot_pb.ExecuteSourceRequest;
   readonly responseType: typeof proto_api_v1_robot_pb.ExecuteSourceResponse;
-};
-
-type RobotServiceServoMove = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.ServoMoveRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.ServoMoveResponse;
-};
-
-type RobotServiceServoCurrent = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.ServoCurrentRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.ServoCurrentResponse;
 };
 
 type RobotServiceMotorGetPIDConfig = {
@@ -617,24 +481,6 @@ type RobotServiceObjectManipulationServiceDoGrab = {
   readonly responseType: typeof proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabResponse;
 };
 
-type RobotServiceIMUAngularVelocity = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.IMUAngularVelocityRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.IMUAngularVelocityResponse;
-};
-
-type RobotServiceIMUOrientation = {
-  readonly methodName: string;
-  readonly service: typeof RobotService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_v1_robot_pb.IMUOrientationRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.IMUOrientationResponse;
-};
-
 type RobotServiceGPSLocation = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -682,19 +528,6 @@ export class RobotService {
   static readonly BaseSpin: RobotServiceBaseSpin;
   static readonly BaseStop: RobotServiceBaseStop;
   static readonly BaseWidthMillis: RobotServiceBaseWidthMillis;
-  static readonly GripperOpen: RobotServiceGripperOpen;
-  static readonly GripperGrab: RobotServiceGripperGrab;
-  static readonly CameraFrame: RobotServiceCameraFrame;
-  static readonly CameraRenderFrame: RobotServiceCameraRenderFrame;
-  static readonly PointCloud: RobotServicePointCloud;
-  static readonly ObjectPointClouds: RobotServiceObjectPointClouds;
-  static readonly LidarInfo: RobotServiceLidarInfo;
-  static readonly LidarStart: RobotServiceLidarStart;
-  static readonly LidarStop: RobotServiceLidarStop;
-  static readonly LidarScan: RobotServiceLidarScan;
-  static readonly LidarRange: RobotServiceLidarRange;
-  static readonly LidarBounds: RobotServiceLidarBounds;
-  static readonly LidarAngularResolution: RobotServiceLidarAngularResolution;
   static readonly BoardStatus: RobotServiceBoardStatus;
   static readonly BoardGPIOSet: RobotServiceBoardGPIOSet;
   static readonly BoardGPIOGet: RobotServiceBoardGPIOGet;
@@ -713,8 +546,6 @@ export class RobotService {
   static readonly ForceMatrixSlipDetection: RobotServiceForceMatrixSlipDetection;
   static readonly ExecuteFunction: RobotServiceExecuteFunction;
   static readonly ExecuteSource: RobotServiceExecuteSource;
-  static readonly ServoMove: RobotServiceServoMove;
-  static readonly ServoCurrent: RobotServiceServoCurrent;
   static readonly MotorGetPIDConfig: RobotServiceMotorGetPIDConfig;
   static readonly MotorSetPIDConfig: RobotServiceMotorSetPIDConfig;
   static readonly MotorPIDStep: RobotServiceMotorPIDStep;
@@ -741,8 +572,6 @@ export class RobotService {
   static readonly NavigationServiceAddWaypoint: RobotServiceNavigationServiceAddWaypoint;
   static readonly NavigationServiceRemoveWaypoint: RobotServiceNavigationServiceRemoveWaypoint;
   static readonly ObjectManipulationServiceDoGrab: RobotServiceObjectManipulationServiceDoGrab;
-  static readonly IMUAngularVelocity: RobotServiceIMUAngularVelocity;
-  static readonly IMUOrientation: RobotServiceIMUOrientation;
   static readonly GPSLocation: RobotServiceGPSLocation;
   static readonly GPSAltitude: RobotServiceGPSAltitude;
   static readonly GPSSpeed: RobotServiceGPSSpeed;
@@ -854,123 +683,6 @@ export class RobotServiceClient {
     requestMessage: proto_api_v1_robot_pb.BaseWidthMillisRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BaseWidthMillisResponse|null) => void
   ): UnaryResponse;
-  gripperOpen(
-    requestMessage: proto_api_v1_robot_pb.GripperOpenRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GripperOpenResponse|null) => void
-  ): UnaryResponse;
-  gripperOpen(
-    requestMessage: proto_api_v1_robot_pb.GripperOpenRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GripperOpenResponse|null) => void
-  ): UnaryResponse;
-  gripperGrab(
-    requestMessage: proto_api_v1_robot_pb.GripperGrabRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GripperGrabResponse|null) => void
-  ): UnaryResponse;
-  gripperGrab(
-    requestMessage: proto_api_v1_robot_pb.GripperGrabRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.GripperGrabResponse|null) => void
-  ): UnaryResponse;
-  cameraFrame(
-    requestMessage: proto_api_v1_robot_pb.CameraFrameRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.CameraFrameResponse|null) => void
-  ): UnaryResponse;
-  cameraFrame(
-    requestMessage: proto_api_v1_robot_pb.CameraFrameRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.CameraFrameResponse|null) => void
-  ): UnaryResponse;
-  cameraRenderFrame(
-    requestMessage: proto_api_v1_robot_pb.CameraRenderFrameRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: google_api_httpbody_pb.HttpBody|null) => void
-  ): UnaryResponse;
-  cameraRenderFrame(
-    requestMessage: proto_api_v1_robot_pb.CameraRenderFrameRequest,
-    callback: (error: ServiceError|null, responseMessage: google_api_httpbody_pb.HttpBody|null) => void
-  ): UnaryResponse;
-  pointCloud(
-    requestMessage: proto_api_v1_robot_pb.PointCloudRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.PointCloudResponse|null) => void
-  ): UnaryResponse;
-  pointCloud(
-    requestMessage: proto_api_v1_robot_pb.PointCloudRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.PointCloudResponse|null) => void
-  ): UnaryResponse;
-  objectPointClouds(
-    requestMessage: proto_api_v1_robot_pb.ObjectPointCloudsRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ObjectPointCloudsResponse|null) => void
-  ): UnaryResponse;
-  objectPointClouds(
-    requestMessage: proto_api_v1_robot_pb.ObjectPointCloudsRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ObjectPointCloudsResponse|null) => void
-  ): UnaryResponse;
-  lidarInfo(
-    requestMessage: proto_api_v1_robot_pb.LidarInfoRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.LidarInfoResponse|null) => void
-  ): UnaryResponse;
-  lidarInfo(
-    requestMessage: proto_api_v1_robot_pb.LidarInfoRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.LidarInfoResponse|null) => void
-  ): UnaryResponse;
-  lidarStart(
-    requestMessage: proto_api_v1_robot_pb.LidarStartRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.LidarStartResponse|null) => void
-  ): UnaryResponse;
-  lidarStart(
-    requestMessage: proto_api_v1_robot_pb.LidarStartRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.LidarStartResponse|null) => void
-  ): UnaryResponse;
-  lidarStop(
-    requestMessage: proto_api_v1_robot_pb.LidarStopRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.LidarStopResponse|null) => void
-  ): UnaryResponse;
-  lidarStop(
-    requestMessage: proto_api_v1_robot_pb.LidarStopRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.LidarStopResponse|null) => void
-  ): UnaryResponse;
-  lidarScan(
-    requestMessage: proto_api_v1_robot_pb.LidarScanRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.LidarScanResponse|null) => void
-  ): UnaryResponse;
-  lidarScan(
-    requestMessage: proto_api_v1_robot_pb.LidarScanRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.LidarScanResponse|null) => void
-  ): UnaryResponse;
-  lidarRange(
-    requestMessage: proto_api_v1_robot_pb.LidarRangeRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.LidarRangeResponse|null) => void
-  ): UnaryResponse;
-  lidarRange(
-    requestMessage: proto_api_v1_robot_pb.LidarRangeRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.LidarRangeResponse|null) => void
-  ): UnaryResponse;
-  lidarBounds(
-    requestMessage: proto_api_v1_robot_pb.LidarBoundsRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.LidarBoundsResponse|null) => void
-  ): UnaryResponse;
-  lidarBounds(
-    requestMessage: proto_api_v1_robot_pb.LidarBoundsRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.LidarBoundsResponse|null) => void
-  ): UnaryResponse;
-  lidarAngularResolution(
-    requestMessage: proto_api_v1_robot_pb.LidarAngularResolutionRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.LidarAngularResolutionResponse|null) => void
-  ): UnaryResponse;
-  lidarAngularResolution(
-    requestMessage: proto_api_v1_robot_pb.LidarAngularResolutionRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.LidarAngularResolutionResponse|null) => void
-  ): UnaryResponse;
   boardStatus(
     requestMessage: proto_api_v1_robot_pb.BoardStatusRequest,
     metadata: grpc.Metadata,
@@ -1132,24 +844,6 @@ export class RobotServiceClient {
   executeSource(
     requestMessage: proto_api_v1_robot_pb.ExecuteSourceRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ExecuteSourceResponse|null) => void
-  ): UnaryResponse;
-  servoMove(
-    requestMessage: proto_api_v1_robot_pb.ServoMoveRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoMoveResponse|null) => void
-  ): UnaryResponse;
-  servoMove(
-    requestMessage: proto_api_v1_robot_pb.ServoMoveRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoMoveResponse|null) => void
-  ): UnaryResponse;
-  servoCurrent(
-    requestMessage: proto_api_v1_robot_pb.ServoCurrentRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoCurrentResponse|null) => void
-  ): UnaryResponse;
-  servoCurrent(
-    requestMessage: proto_api_v1_robot_pb.ServoCurrentRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ServoCurrentResponse|null) => void
   ): UnaryResponse;
   motorGetPIDConfig(
     requestMessage: proto_api_v1_robot_pb.MotorGetPIDConfigRequest,
@@ -1368,24 +1062,6 @@ export class RobotServiceClient {
   objectManipulationServiceDoGrab(
     requestMessage: proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.ObjectManipulationServiceDoGrabResponse|null) => void
-  ): UnaryResponse;
-  iMUAngularVelocity(
-    requestMessage: proto_api_v1_robot_pb.IMUAngularVelocityRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.IMUAngularVelocityResponse|null) => void
-  ): UnaryResponse;
-  iMUAngularVelocity(
-    requestMessage: proto_api_v1_robot_pb.IMUAngularVelocityRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.IMUAngularVelocityResponse|null) => void
-  ): UnaryResponse;
-  iMUOrientation(
-    requestMessage: proto_api_v1_robot_pb.IMUOrientationRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.IMUOrientationResponse|null) => void
-  ): UnaryResponse;
-  iMUOrientation(
-    requestMessage: proto_api_v1_robot_pb.IMUOrientationRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.IMUOrientationResponse|null) => void
   ): UnaryResponse;
   gPSLocation(
     requestMessage: proto_api_v1_robot_pb.GPSLocationRequest,

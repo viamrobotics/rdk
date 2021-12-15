@@ -52,7 +52,7 @@ func (h *segmentObjectTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorCo
 	ii := rimage.ConvertToImageWithDepth(img)
 	test.That(t, ii.IsAligned(), test.ShouldEqual, true)
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
-	ii.SetCameraSystem(h.cameraParams)
+	ii.SetProjector(h.cameraParams)
 
 	pCtx.GotDebugImage(ii.Overlay(), "overlay")
 

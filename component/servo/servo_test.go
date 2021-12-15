@@ -49,7 +49,7 @@ func TestServoName(t *testing.T) {
 	}
 }
 
-func TestWrapWtihReconfigurable(t *testing.T) {
+func TestWrapWithReconfigurable(t *testing.T) {
 	actualServo1 := &mockServo{Name: "servo1"}
 	fakeServo1, err := WrapWithReconfigurable(actualServo1)
 	test.That(t, err, test.ShouldBeNil)
@@ -65,25 +65,25 @@ func TestReconfigurableServo(t *testing.T) {
 	actualServo2 := &mockServo{Name: "servo2"}
 	fakeServo2, err := WrapWithReconfigurable(actualServo2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualServo1.reconCount, test.ShouldEqual, 0)
+	test.That(t, actualServo1.reconfCount, test.ShouldEqual, 0)
 
 	err = fakeServo1.(*reconfigurableServo).Reconfigure(fakeServo2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeServo1.(*reconfigurableServo).actual, test.ShouldEqual, actualServo2)
-	test.That(t, actualServo1.reconCount, test.ShouldEqual, 1)
+	test.That(t, actualServo1.reconfCount, test.ShouldEqual, 1)
 }
 
 type mockServo struct {
-	Name       string
-	reconCount int
+	Name        string
+	reconfCount int
 }
 
 func (mServo *mockServo) Move(ctx context.Context, angleDegs uint8) error {
 	return nil
 }
 
-func (mServo *mockServo) Current(ctx context.Context) (uint8, error) {
+func (mServo *mockServo) AngularOffset(ctx context.Context) (uint8, error) {
 	return 0, nil
 }
 
-func (mServo *mockServo) Close() error { mServo.reconCount++; return nil }
+func (mServo *mockServo) Close() error { mServo.reconfCount++; return nil }

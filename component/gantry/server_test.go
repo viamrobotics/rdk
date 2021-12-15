@@ -16,7 +16,12 @@ import (
 func newServer() (pb.GantryServiceServer, *inject.Gantry, *inject.Gantry, error) {
 	injectGantry := &inject.Gantry{}
 	injectGantry2 := &inject.Gantry{}
-	gantrySvc, err := subtype.New((map[resource.Name]interface{}{gantry.Named("gantry1"): injectGantry, gantry.Named("gantry2"): injectGantry2, gantry.Named("gantry3"): "notGantry"}))
+	gantries := map[resource.Name]interface{}{
+		gantry.Named("gantry1"): injectGantry,
+		gantry.Named("gantry2"): injectGantry2,
+		gantry.Named("gantry3"): "notGantry",
+	}
+	gantrySvc, err := subtype.New(gantries)
 	if err != nil {
 		return nil, nil, nil, err
 	}

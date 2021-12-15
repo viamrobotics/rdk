@@ -21,17 +21,15 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
+	"go.viam.com/core/component/input"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
 	metadataserver "go.viam.com/core/grpc/metadata/server"
 	"go.viam.com/core/grpc/server"
-	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
-	"go.viam.com/core/pointcloud"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	componentpb "go.viam.com/core/proto/api/component/v1"
 	metadatapb "go.viam.com/core/proto/api/service/v1"
@@ -41,16 +39,19 @@ import (
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/sensor/imu"
 	servicepkg "go.viam.com/core/services"
 	"go.viam.com/core/spatialmath"
 	coretestutils "go.viam.com/core/testutils"
 	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r2"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
+
+	_ "go.viam.com/core/component/arm/register"
+	_ "go.viam.com/core/component/camera/register"
+	_ "go.viam.com/core/component/gripper/register"
+	_ "go.viam.com/core/component/servo/register"
 )
 
 var emptyStatus = &pb.Status{
@@ -79,18 +80,12 @@ var emptyStatus = &pb.Status{
 	Cameras: map[string]bool{
 		"camera1": true,
 	},
-	Lidars: map[string]bool{
-		"lidar1": true,
-	},
 	Sensors: map[string]*pb.SensorStatus{
 		"compass1": {
 			Type: compass.Type,
 		},
 		"compass2": {
 			Type: compass.RelativeType,
-		},
-		"imu1": {
-			Type: imu.Type,
 		},
 		"fsm1": {
 			Type: forcematrix.Type,
@@ -122,7 +117,7 @@ var emptyStatus = &pb.Status{
 	},
 }
 
-var emptyResources = []resource.Name{arm.Named("arm1"), gripper.Named("gripper1")}
+var emptyResources = []resource.Name{arm.Named("arm1"), gripper.Named("gripper1"), camera.Named("camera1")}
 
 var finalStatus = &pb.Status{
 	Arms: map[string]*pb.ArmStatus{
@@ -166,10 +161,6 @@ var finalStatus = &pb.Status{
 	Cameras: map[string]bool{
 		"camera2": true,
 		"camera3": true,
-	},
-	Lidars: map[string]bool{
-		"lidar2": true,
-		"lidar3": true,
 	},
 	Sensors: map[string]*pb.SensorStatus{
 		"compass2": {
@@ -222,7 +213,7 @@ var finalStatus = &pb.Status{
 	},
 }
 
-var finalResources = []resource.Name{arm.Named("arm2"), arm.Named("arm3"), servo.Named("servo2"), servo.Named("servo3"), gripper.Named("gripper2"), gripper.Named("gripper3")}
+var finalResources = []resource.Name{arm.Named("arm2"), arm.Named("arm3"), servo.Named("servo2"), servo.Named("servo3"), gripper.Named("gripper2"), gripper.Named("gripper3"), camera.Named("camera2"), camera.Named("camera3")}
 
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -255,10 +246,10 @@ func TestClient(t *testing.T) {
 	injectRobot1.CameraByNameFunc = func(name string) (camera.Camera, bool) {
 		return nil, false
 	}
-	injectRobot1.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
+	injectRobot1.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 		return nil, false
 	}
-	injectRobot1.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		return nil, false
 	}
 	injectRobot1.ServoByNameFunc = func(name string) (servo.Servo, bool) {
@@ -275,15 +266,11 @@ func TestClient(t *testing.T) {
 	}
 	var (
 		capBaseName             string
-		capGripperName          string
 		capBoardName            string
 		capMotorName            string
 		capInputControllerName  string
-		capServoName            string
 		capAnalogReaderName     string
 		capDigitalInterruptName string
-		capCameraName           string
-		capLidarName            string
 		capSensorName           string
 	)
 	injectBase := &inject.Base{}
@@ -296,14 +283,14 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 	var capBaseMoveArgs []interface{}
-	injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+	injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 		capBaseMoveArgs = []interface{}{distanceMillis, millisPerSec, block}
-		return distanceMillis, nil
+		return nil
 	}
 	var capBaseSpinArgs []interface{}
-	injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+	injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 		capBaseSpinArgs = []interface{}{angleDeg, degsPerSec, block}
-		return angleDeg, nil
+		return nil
 	}
 	injectRobot2.BaseByNameFunc = func(name string) (base.Base, bool) {
 		capBaseName = name
@@ -328,25 +315,21 @@ func TestClient(t *testing.T) {
 		gripperGrabCalled = true
 		return true, nil
 	}
-	injectRobot2.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
-		capGripperName = name
-		return injectGripper, true
-	}
 	injectBoard := &inject.Board{}
 	injectMotor := &inject.Motor{}
 	var capPowerMotorArgs []interface{}
-	injectMotor.PowerFunc = func(ctx context.Context, powerPct float32) error {
+	injectMotor.SetPowerFunc = func(ctx context.Context, powerPct float64) error {
 		capPowerMotorArgs = []interface{}{powerPct}
 		return nil
 	}
 	var capGoMotorArgs []interface{}
-	injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-		capGoMotorArgs = []interface{}{d, powerPct}
+	injectMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
+		capGoMotorArgs = []interface{}{powerPct}
 		return nil
 	}
 	var capGoForMotorArgs []interface{}
-	injectMotor.GoForFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
-		capGoForMotorArgs = []interface{}{d, rpm, rotations}
+	injectMotor.GoForFunc = func(ctx context.Context, rpm float64, rotations float64) error {
+		capGoForMotorArgs = []interface{}{rpm, rotations}
 		return nil
 	}
 	var capGoToMotorArgs []interface{}
@@ -355,12 +338,12 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 	var capGoTillStopMotorArgs []interface{}
-	injectMotor.GoTillStopFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
-		capGoTillStopMotorArgs = []interface{}{d, rpm, stopFunc}
+	injectMotor.GoTillStopFunc = func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+		capGoTillStopMotorArgs = []interface{}{rpm, stopFunc}
 		return nil
 	}
 	var capZeroMotorArgs []interface{}
-	injectMotor.ZeroFunc = func(ctx context.Context, offset float64) error {
+	injectMotor.SetToZeroPositionFunc = func(ctx context.Context, offset float64) error {
 		capZeroMotorArgs = []interface{}{offset}
 		return nil
 	}
@@ -449,10 +432,6 @@ func TestClient(t *testing.T) {
 		capMotorName = name
 		return injectMotor, true
 	}
-	injectRobot2.ServoByNameFunc = func(name string) (servo.Servo, bool) {
-		capServoName = name
-		return injectServo, true
-	}
 	injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 		capAnalogReaderName = name
 		return injectAnalogReader, true
@@ -470,51 +449,9 @@ func TestClient(t *testing.T) {
 	var imgBuf bytes.Buffer
 	test.That(t, jpeg.Encode(&imgBuf, img, nil), test.ShouldBeNil)
 
-	pcA := pointcloud.New()
-	err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
-	test.That(t, err, test.ShouldBeNil)
-
 	var imageReleased bool
 	injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 		return img, func() { imageReleased = true }, nil
-	}
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		return pcA, nil
-	}
-
-	injectRobot2.CameraByNameFunc = func(name string) (camera.Camera, bool) {
-		capCameraName = name
-		return injectCamera, true
-	}
-
-	injectLidarDev := &inject.Lidar{}
-	injectLidarDev.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return map[string]interface{}{"hello": "world"}, nil
-	}
-	injectLidarDev.StartFunc = func(ctx context.Context) error {
-		return nil
-	}
-	injectLidarDev.StopFunc = func(ctx context.Context) error {
-		return nil
-	}
-	injectLidarDev.CloseFunc = func() error {
-		return nil
-	}
-	injectLidarDev.ScanFunc = func(ctx context.Context, opts lidar.ScanOptions) (lidar.Measurements, error) {
-		return lidar.Measurements{lidar.NewMeasurement(2, 40)}, nil
-	}
-	injectLidarDev.RangeFunc = func(ctx context.Context) (float64, error) {
-		return 25, nil
-	}
-	injectLidarDev.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
-		return r2.Point{4, 5}, nil
-	}
-	injectLidarDev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
-		return 5.2, nil
-	}
-	injectRobot2.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
-		capLidarName = name
-		return injectLidarDev, true
 	}
 
 	injectFsm := &inject.ForceMatrix{}
@@ -539,14 +476,11 @@ func TestClient(t *testing.T) {
 
 	injectCompassDev := &inject.Compass{}
 	injectRelCompassDev := &inject.RelativeCompass{}
-	injectIMUDev := &inject.IMU{}
 	injectRobot2.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 		capSensorName = name
 		switch name {
 		case "compass2":
 			return injectRelCompassDev, true
-		case "imu1":
-			return injectIMUDev, true
 		case "fsm1":
 			return injectFsm, true
 		case "fsm2":
@@ -582,15 +516,6 @@ func TestClient(t *testing.T) {
 	}
 	injectRelCompassDev.StopCalibrationFunc = func(ctx context.Context) error {
 		return nil
-	}
-	injectIMUDev.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
-		return []interface{}{1.2, 2.3}, nil
-	}
-	injectIMUDev.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
-		return spatialmath.AngularVelocity{1, 2, 3}, nil
-	}
-	injectIMUDev.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
-		return &spatialmath.EulerAngles{1, 2, 3}, nil
 	}
 
 	injectInputDev := &inject.InputController{}
@@ -630,6 +555,30 @@ func TestClient(t *testing.T) {
 	armSvc2, err := subtype.New((map[resource.Name]interface{}{arm.Named("arm1"): injectArm}))
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterArmServiceServer(gServer2, arm.NewServer(armSvc2))
+
+	gripperSvc1, err := subtype.New((map[resource.Name]interface{}{}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterGripperServiceServer(gServer1, gripper.NewServer(gripperSvc1))
+
+	gripperSvc2, err := subtype.New((map[resource.Name]interface{}{gripper.Named("gripper1"): injectGripper}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterGripperServiceServer(gServer2, gripper.NewServer(gripperSvc2))
+
+	servoSvc, err := subtype.New((map[resource.Name]interface{}{}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterServoServiceServer(gServer1, servo.NewServer(servoSvc))
+
+	servoSvc2, err := subtype.New((map[resource.Name]interface{}{servo.Named("servo1"): injectServo}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterServoServiceServer(gServer2, servo.NewServer(servoSvc2))
+
+	cameraSvc1, err := subtype.New((map[resource.Name]interface{}{}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterCameraServiceServer(gServer1, camera.NewServer(cameraSvc1))
+
+	cameraSvc2, err := subtype.New((map[resource.Name]interface{}{camera.Named("camera1"): injectCamera}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterCameraServiceServer(gServer2, camera.NewServer(cameraSvc2))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -745,11 +694,11 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 
-	_, err = base1.MoveStraight(context.Background(), 5, 0, false)
+	err = base1.MoveStraight(context.Background(), 5, 0, false)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 
-	_, err = base1.Spin(context.Background(), 5.2, 0, false)
+	err = base1.Spin(context.Background(), 5.2, 0, false)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 
@@ -793,19 +742,19 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
-	_, err = servo1.Current(context.Background())
+	_, err = servo1.AngularOffset(context.Background())
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
 	motor1, ok := client.MotorByName("motor1")
 	test.That(t, ok, test.ShouldBeTrue)
-	err = motor1.Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, 0)
+	err = motor1.Go(context.Background(), 0)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-	err = motor1.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, 0, 0)
+	err = motor1.GoFor(context.Background(), 0, 0)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
 
-	err = motor1.Power(context.Background(), 0)
+	err = motor1.SetPower(context.Background(), 0)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
 	_, err = motor1.Position(context.Background())
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
@@ -817,9 +766,9 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
 	err = motor1.GoTo(context.Background(), 0, 0)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-	err = motor1.Zero(context.Background(), 0)
+	err = motor1.SetToZeroPosition(context.Background(), 0)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-	err = motor1.GoTillStop(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, 0, nil)
+	err = motor1.GoTillStop(context.Background(), 0, nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
 
 	board1, ok := client.BoardByName("board1")
@@ -929,19 +878,17 @@ func TestClient(t *testing.T) {
 
 	base2, ok := client.BaseByName("base2")
 	test.That(t, ok, test.ShouldBeTrue)
-	moved, err := base2.MoveStraight(context.Background(), 5, 6.2, false)
+	err = base2.MoveStraight(context.Background(), 5, 6.2, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capBaseMoveArgs, test.ShouldResemble, []interface{}{5, 6.2, false})
 	test.That(t, capBaseName, test.ShouldEqual, "base2")
-	test.That(t, moved, test.ShouldEqual, 5)
 
 	base3, ok := client.BaseByName("base3")
 	test.That(t, ok, test.ShouldBeTrue)
-	spun, err := base3.Spin(context.Background(), 7.2, 33, false)
+	err = base3.Spin(context.Background(), 7.2, 33, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capBaseSpinArgs, test.ShouldResemble, []interface{}{7.2, 33.0, false})
 	test.That(t, capBaseName, test.ShouldEqual, "base3")
-	test.That(t, spun, test.ShouldEqual, 7.2)
 
 	test.That(t, func() { client.RemoteByName("remote1") }, test.ShouldPanic)
 
@@ -957,40 +904,28 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gripperOpenCalled, test.ShouldBeTrue)
 	test.That(t, gripperGrabCalled, test.ShouldBeFalse)
-	test.That(t, capGripperName, test.ShouldEqual, "gripper1")
 	gripperOpenCalled = false
-
-	gripper2, ok := client.GripperByName("gripper2")
-	test.That(t, ok, test.ShouldBeTrue)
-	grabbed, err := gripper2.Grab(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, grabbed, test.ShouldBeTrue)
-	test.That(t, gripperOpenCalled, test.ShouldBeFalse)
-	test.That(t, gripperGrabCalled, test.ShouldBeTrue)
-	test.That(t, capGripperName, test.ShouldEqual, "gripper2")
 
 	servo1, ok = client.ServoByName("servo1")
 	test.That(t, ok, test.ShouldBeTrue)
 	err = servo1.Move(context.Background(), 4)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capServoAngle, test.ShouldEqual, 4)
-	test.That(t, capServoName, test.ShouldEqual, "servo1")
 
-	currentVal, err := servo1.Current(context.Background())
+	currentVal, err := servo1.AngularOffset(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, currentVal, test.ShouldEqual, 5)
-	test.That(t, capServoName, test.ShouldEqual, "servo1")
 
 	motor1, ok = client.MotorByName("motor1")
 	test.That(t, ok, test.ShouldBeTrue)
-	err = motor1.Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1)
+	err = motor1.Go(context.Background(), 1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capGoMotorArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(1)})
+	test.That(t, capGoMotorArgs, test.ShouldResemble, []interface{}{float64(1)})
 	test.That(t, capMotorName, test.ShouldEqual, "motor1")
 
-	err = motor1.Power(context.Background(), 1)
+	err = motor1.SetPower(context.Background(), 1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capPowerMotorArgs, test.ShouldResemble, []interface{}{float32(1)})
+	test.That(t, capPowerMotorArgs, test.ShouldResemble, []interface{}{float64(1)})
 	test.That(t, capMotorName, test.ShouldEqual, "motor1")
 
 	motor1Pos, err := motor1.Position(context.Background())
@@ -1016,27 +951,47 @@ func TestClient(t *testing.T) {
 	motor2, ok := client.MotorByName("motor2")
 	test.That(t, ok, test.ShouldBeTrue)
 
-	err = motor2.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1.2, 3.4)
+	err = motor2.GoFor(context.Background(), 1.2, 3.4)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capGoForMotorArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1.2, 3.4})
+	test.That(t, capGoForMotorArgs, test.ShouldResemble, []interface{}{1.2, 3.4})
 	test.That(t, capMotorName, test.ShouldEqual, "motor2")
 
-	err = motor2.Power(context.Background(), 0.5)
+	err = motor2.GoFor(context.Background(), 1.2, -3.4)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capPowerMotorArgs, test.ShouldResemble, []interface{}{float32(0.5)})
+	test.That(t, capGoForMotorArgs, test.ShouldResemble, []interface{}{1.2, -3.4})
+
+	err = motor2.GoFor(context.Background(), -1.2, 3.4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capGoForMotorArgs, test.ShouldResemble, []interface{}{-1.2, 3.4})
+
+	err = motor2.GoFor(context.Background(), -1.2, -3.4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capGoForMotorArgs, test.ShouldResemble, []interface{}{-1.2, -3.4})
+
+	err = motor2.SetPower(context.Background(), 0.5)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capPowerMotorArgs, test.ShouldResemble, []interface{}{float64(0.5)})
+
+	err = motor2.SetPower(context.Background(), -0.5)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capPowerMotorArgs, test.ShouldResemble, []interface{}{float64(-0.5)})
 
 	err = motor2.GoTo(context.Background(), 50.1, 27.5)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capGoToMotorArgs, test.ShouldResemble, []interface{}{50.1, 27.5})
 
-	err = motor2.GoTillStop(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 41.1, func(ctx context.Context) bool { return false })
+	err = motor2.GoTo(context.Background(), -50.1, -27.5)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capGoToMotorArgs, test.ShouldResemble, []interface{}{-50.1, -27.5})
+
+	err = motor2.GoTillStop(context.Background(), 41.1, func(ctx context.Context) bool { return false })
 	test.That(t, err.Error(), test.ShouldEqual, "stopFunc must be nil when using gRPC")
 
-	err = motor2.GoTillStop(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 41.1, nil)
+	err = motor2.GoTillStop(context.Background(), 41.1, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capGoTillStopMotorArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 41.1, (func(context.Context) bool)(nil)})
+	test.That(t, capGoTillStopMotorArgs, test.ShouldResemble, []interface{}{41.1, (func(context.Context) bool)(nil)})
 
-	err = motor2.Zero(context.Background(), 5.1)
+	err = motor2.SetToZeroPosition(context.Background(), 5.1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capZeroMotorArgs, test.ShouldResemble, []interface{}{5.1})
 
@@ -1108,36 +1063,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 	test.That(t, imageReleased, test.ShouldBeTrue)
-	test.That(t, capCameraName, test.ShouldEqual, "camera1")
-
-	pcB, err := camera1.NextPointCloud(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pcB.At(5, 5, 5), test.ShouldNotBeNil)
-
-	lidarDev, ok := client.LidarByName("lidar1")
-	test.That(t, ok, test.ShouldBeTrue)
-	info, err := lidarDev.Info(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, info, test.ShouldResemble, map[string]interface{}{"hello": "world"})
-	err = lidarDev.Start(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	err = lidarDev.Stop(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	scan, err := lidarDev.Scan(context.Background(), lidar.ScanOptions{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, scan, test.ShouldResemble, lidar.Measurements{lidar.NewMeasurement(2, 40)})
-	devRange, err := lidarDev.Range(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, devRange, test.ShouldEqual, 25)
-	bounds, err := lidarDev.Bounds(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, bounds, test.ShouldResemble, r2.Point{4, 5})
-	angRes, err := lidarDev.AngularResolution(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, angRes, test.ShouldEqual, 5.2)
-	err = utils.TryClose(lidarDev)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capLidarName, test.ShouldEqual, "lidar1")
 
 	inputDev, ok := client.InputControllerByName("inputController1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -1258,22 +1183,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capSensorName, test.ShouldEqual, "compass2")
 
-	sensorDev, ok = client.SensorByName("imu1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensorDev, test.ShouldImplement, (*imu.IMU)(nil))
-	readings, err = sensorDev.Readings(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings, test.ShouldResemble, []interface{}{float64(1), float64(2), float64(3), float64(1), float64(2), float64(3)})
-	imuDev := sensorDev.(imu.IMU)
-	vel, err := imuDev.AngularVelocity(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, vel, test.ShouldResemble, spatialmath.AngularVelocity{1, 2, 3})
-	orientation, err := imuDev.Orientation(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	ea := orientation.EulerAngles()
-	test.That(t, ea, test.ShouldResemble, &spatialmath.EulerAngles{1, 2, 3})
-	test.That(t, capSensorName, test.ShouldEqual, "imu1")
-
 	resource1, ok = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
 	pos, err = resource1.(arm.Arm).CurrentPosition(context.Background())
@@ -1361,12 +1270,12 @@ func TestClientRefresh(t *testing.T) {
 
 	armNames := []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
 	gripperNames := []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
+	cameraNames := []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
 	servoNames := []resource.Name{servo.Named("servo2"), servo.Named("servo3")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera2", "camera3"))
-	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar2", "lidar3"))
+	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4", "fsm1", "fsm2"))
@@ -1375,6 +1284,7 @@ func TestClientRefresh(t *testing.T) {
 		coretestutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
+			cameraNames,
 			servoNames,
 		)...))
 
@@ -1398,19 +1308,20 @@ func TestClientRefresh(t *testing.T) {
 
 	armNames = []resource.Name{arm.Named("arm1")}
 	gripperNames = []resource.Name{gripper.Named("gripper1")}
+	cameraNames = []resource.Name{camera.Named("camera1")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera1"))
-	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1"))
+	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board3"))
-	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass1", "compass2", "imu1", "fsm1", "fsm2"))
+	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass1", "compass2", "fsm1", "fsm2"))
 	test.That(t, utils.NewStringSet(client.ServoNames()...), test.ShouldBeEmpty)
 	test.That(t, coretestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 		coretestutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
+			cameraNames,
 		)...))
 
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
@@ -1423,11 +1334,11 @@ func TestClientRefresh(t *testing.T) {
 
 	armNames = []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
 	gripperNames = []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
+	cameraNames = []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
 	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera2", "camera3"))
-	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar2", "lidar3"))
+	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4", "fsm1", "fsm2"))
@@ -1436,6 +1347,7 @@ func TestClientRefresh(t *testing.T) {
 		coretestutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
+			cameraNames,
 			servoNames,
 		)...))
 

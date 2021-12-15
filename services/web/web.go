@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"image"
 	"io/fs"
 	"net"
 	"net/http"
@@ -27,7 +26,6 @@ import (
 	"go.viam.com/core/grpc"
 	grpcmetadata "go.viam.com/core/grpc/metadata/server"
 	grpcserver "go.viam.com/core/grpc/server"
-	"go.viam.com/core/lidar"
 	"go.viam.com/core/metadata/service"
 	metadatapb "go.viam.com/core/proto/api/service/v1"
 	pb "go.viam.com/core/proto/api/v1"
@@ -169,25 +167,6 @@ func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.
 		}
 
 		sources = append(sources, cam)
-		names = append(names, name)
-	}
-
-	for _, name := range theRobot.LidarNames() {
-		device, ok := theRobot.LidarByName(name)
-		if !ok {
-			continue
-		}
-		cmp := conf.FindComponent(name)
-		if cmp != nil && cmp.Attributes.Bool("hide", false) {
-			continue
-		}
-
-		if err := device.Start(ctx); err != nil {
-			return nil, nil, err
-		}
-		source := lidar.NewImageSource(image.Point{600, 600}, device)
-
-		sources = append(sources, source)
 		names = append(names, name)
 	}
 

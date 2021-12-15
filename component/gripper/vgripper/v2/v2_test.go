@@ -9,9 +9,8 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
-	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/testutils/inject"
 )
@@ -21,7 +20,7 @@ func createWorkingMotor() *inject.Motor {
 	injectMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
 		return true, nil
 	}
-	injectMotor.GoTillStopFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+	injectMotor.GoTillStopFunc = func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 		return nil
 	}
 	injectMotor.OffFunc = func(ctx context.Context) error {
@@ -30,7 +29,7 @@ func createWorkingMotor() *inject.Motor {
 	injectMotor.GoToFunc = func(ctx context.Context, rpm float64, position float64) error {
 		return nil
 	}
-	injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+	injectMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
 		return nil
 	}
 	return injectMotor

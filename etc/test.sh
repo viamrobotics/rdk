@@ -9,9 +9,9 @@ if [[ "$1" == "cover" ]]; then
 	COVER2=-coverprofile=coverage2.txt
 fi
 
-go test -tags=no_skip -race $COVER1 `go list ./... | grep -Ev "go.viam.com/core/(vision|rimage)"` &
+go test -tags=no_skip -race $COVER1 `go list ./... | grep -Ev "go.viam.com/core/(vision|rimage|component/camera/imagesource)"` &
 PID1=$!
-go test -tags=no_skip $COVER2 go.viam.com/core/vision/... go.viam.com/core/rimage/... &
+go test -tags=no_skip $COVER2 go.viam.com/core/vision/... go.viam.com/core/rimage/... go.viam.com/core/component/camera/imagesource &
 PID2=$!
 
 trap "kill -9 $PID1 $PID2" INT

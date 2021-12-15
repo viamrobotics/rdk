@@ -2,31 +2,21 @@ package robotimpl
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"image"
 	"sync"
 
-	"github.com/golang/geo/r2"
 	geo "github.com/kellydunn/golang-geo"
 
 	"go.viam.com/utils"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
-	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
-	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
-	"go.viam.com/core/sensor/imu"
-	"go.viam.com/core/spatialmath"
 )
 
 type proxyBase struct {
@@ -40,19 +30,19 @@ func (p *proxyBase) ProxyFor() interface{} {
 	return p.actual
 }
 
-func (p *proxyBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+func (p *proxyBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.MoveStraight(ctx, distanceMillis, millisPerSec, block)
 }
 
-func (p *proxyBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) (int, error) {
+func (p *proxyBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.MoveArc(ctx, distanceMillis, millisPerSec, degsPerSec, block)
 }
 
-func (p *proxyBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+func (p *proxyBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.Spin(ctx, angleDeg, degsPerSec, block)
@@ -82,120 +72,6 @@ func (p *proxyBase) replace(newBase base.Base) {
 	actual, ok := newBase.(*proxyBase)
 	if !ok {
 		panic(fmt.Errorf("expected new base to be %T but got %T", actual, newBase))
-	}
-	if err := utils.TryClose(p.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = actual.actual
-}
-
-type proxyCamera struct {
-	mu     sync.RWMutex
-	actual camera.Camera
-}
-
-func (p *proxyCamera) ProxyFor() interface{} {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual
-}
-
-func (p *proxyCamera) Next(ctx context.Context) (image.Image, func(), error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Next(ctx)
-}
-
-func (p *proxyCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.NextPointCloud(ctx)
-}
-
-func (p *proxyCamera) Close() error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return utils.TryClose(p.actual)
-}
-
-func (p *proxyCamera) replace(newCamera camera.Camera) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newCamera.(*proxyCamera)
-	if !ok {
-		panic(fmt.Errorf("expected new camera to be %T but got %T", actual, newCamera))
-	}
-	if err := utils.TryClose(p.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = actual.actual
-}
-
-type proxyLidar struct {
-	mu     sync.RWMutex
-	actual lidar.Lidar
-}
-
-func (p *proxyLidar) ProxyFor() interface{} {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual
-}
-
-func (p *proxyLidar) Info(ctx context.Context) (map[string]interface{}, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Info(ctx)
-}
-
-func (p *proxyLidar) Start(ctx context.Context) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Start(ctx)
-}
-
-func (p *proxyLidar) Stop(ctx context.Context) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Stop(ctx)
-}
-
-func (p *proxyLidar) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Scan(ctx, options)
-}
-
-func (p *proxyLidar) Range(ctx context.Context) (float64, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Range(ctx)
-}
-
-func (p *proxyLidar) Bounds(ctx context.Context) (r2.Point, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Bounds(ctx)
-}
-
-func (p *proxyLidar) AngularResolution(ctx context.Context) (float64, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.AngularResolution(ctx)
-}
-
-func (p *proxyLidar) Close() error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return utils.TryClose(p.actual)
-}
-
-func (p *proxyLidar) replace(newLidar lidar.Lidar) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newLidar.(*proxyLidar)
-	if !ok {
-		panic(fmt.Errorf("expected new lidar to be %T but got %T", actual, newLidar))
 	}
 	if err := utils.TryClose(p.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
@@ -394,64 +270,6 @@ func (p *proxyGPS) ProxyFor() interface{} {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual
-}
-
-func newProxyIMU(actual imu.IMU) *proxyIMU {
-	return &proxyIMU{actual: actual}
-}
-
-type proxyIMU struct {
-	mu     sync.RWMutex
-	actual imu.IMU
-}
-
-func (p *proxyIMU) Readings(ctx context.Context) ([]interface{}, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Readings(ctx)
-}
-
-func (p *proxyIMU) Desc() sensor.Description {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Desc()
-}
-
-func (p *proxyIMU) Close() error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return utils.TryClose(p.actual)
-}
-
-func (p *proxyIMU) replace(newSensor sensor.Sensor) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newSensor.(*proxyIMU)
-	if !ok {
-		panic(fmt.Errorf("expected new sensor to be %T but got %T", actual, newSensor))
-	}
-	if err := utils.TryClose(p.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = actual.actual
-}
-
-func (p *proxyIMU) ProxyFor() interface{} {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual
-}
-
-func (p *proxyIMU) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.AngularVelocity(ctx)
-}
-
-func (p *proxyIMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Orientation(ctx)
 }
 
 type proxyForceMatrix struct {
@@ -896,151 +714,6 @@ func (p *proxyBoardDigitalInterrupt) AddPostProcessor(pp board.PostProcessor) {
 }
 
 func (p *proxyBoardDigitalInterrupt) Close() error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return utils.TryClose(p.actual)
-}
-
-type proxyMotor struct {
-	mu     sync.RWMutex
-	actual motor.Motor
-}
-
-func (p *proxyMotor) ProxyFor() interface{} {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual
-}
-
-func (p *proxyMotor) replace(newMotor motor.Motor) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newMotor.(*proxyMotor)
-	if !ok {
-		panic(fmt.Errorf("expected new motor to be %T but got %T", actual, newMotor))
-	}
-	if err := utils.TryClose(p.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = actual.actual
-}
-func (p *proxyMotor) PID() motor.PID {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.PID()
-}
-func (p *proxyMotor) Power(ctx context.Context, powerPct float32) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Power(ctx, powerPct)
-}
-
-func (p *proxyMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Go(ctx, d, powerPct)
-}
-
-func (p *proxyMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.GoFor(ctx, d, rpm, revolutions)
-}
-
-func (p *proxyMotor) Position(ctx context.Context) (float64, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Position(ctx)
-}
-
-func (p *proxyMotor) PositionSupported(ctx context.Context) (bool, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.PositionSupported(ctx)
-}
-
-func (p *proxyMotor) Off(ctx context.Context) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Off(ctx)
-}
-
-func (p *proxyMotor) IsOn(ctx context.Context) (bool, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.IsOn(ctx)
-}
-
-func (p *proxyMotor) Close() error {
-	return utils.TryClose(p.actual)
-}
-
-func (p *proxyMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.GoTo(ctx, rpm, position)
-}
-
-func (p *proxyMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.GoTillStop(ctx, d, rpm, stopFunc)
-}
-
-func (p *proxyMotor) Zero(ctx context.Context, offset float64) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Zero(ctx, offset)
-}
-
-type proxyInputController struct {
-	mu     sync.RWMutex
-	actual input.Controller
-}
-
-func (p *proxyInputController) replace(newController input.Controller) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newController.(*proxyInputController)
-	if !ok {
-		panic(fmt.Errorf("expected new input controller to be %T but got %T", actual, newController))
-	}
-	if err := utils.TryClose(p.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = actual.actual
-}
-
-func (p *proxyInputController) Controls(ctx context.Context) ([]input.Control, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Controls(ctx)
-}
-
-func (p *proxyInputController) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.LastEvents(ctx)
-}
-
-// InjectEvent allows directly sending an Event (such as a button press) from external code
-func (p *proxyInputController) InjectEvent(ctx context.Context, event input.Event) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	iActual, ok := p.actual.(input.Injectable)
-	if !ok {
-		return errors.New("controller is not input.Injectable")
-	}
-	return iActual.InjectEvent(ctx, event)
-}
-
-func (p *proxyInputController) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.RegisterControlCallback(ctx, control, triggers, ctrlFunc)
-}
-
-func (p *proxyInputController) Close() error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return utils.TryClose(p.actual)

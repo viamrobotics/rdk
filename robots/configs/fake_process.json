@@ -96,7 +96,23 @@
             "type": "sensor",
             "subtype": "gps",
             "model": "fake"
-        }
+        }, 
+        {
+            "name": "imu1",
+            "type": "imu",
+            "model": "fake"
+        },
+        {
+            "name": "input",
+            "model": "fake",
+            "type": "input_controller"
+          },
+          {
+              "name": "forcematrix1",
+              "type": "sensor",
+              "subtype": "forcematrix",
+              "model": "fake"
+          }
     ],
     "processes":
     [

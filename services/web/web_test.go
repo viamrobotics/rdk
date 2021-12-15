@@ -21,6 +21,8 @@ import (
 	"go.viam.com/core/testutils/inject"
 
 	rpcclient "go.viam.com/utils/rpc/client"
+
+	_ "go.viam.com/core/component/arm/register"
 )
 
 var resources = []resource.Name{resource.NewName(resource.Namespace("acme"), resource.ResourceTypeComponent, arm.SubtypeName, "arm1")}
@@ -183,7 +185,6 @@ func setupRobotCtx() (context.Context, robot.Robot) {
 	injectRobot := &inject.Robot{}
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return nil, nil }
 	injectRobot.CameraNamesFunc = func() []string { return []string{} }
-	injectRobot.LidarNamesFunc = func() []string { return []string{} }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) { return name, false }
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) { return &pb.Status{}, nil }
