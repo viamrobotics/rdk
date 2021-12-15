@@ -22,7 +22,7 @@ import (
 )
 
 func init() {
-	registry.RegisterResourceSubtype(camera.Subtype, registry.ResourceSubtype{
+	registry.RegisterResourceSubtype(input.Subtype, registry.ResourceSubtype{
 		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
 			return input.WrapWithReconfigurable(r)
 		},
@@ -30,7 +30,7 @@ func init() {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&pb.InputControllerService_ServiceDesc,
-				camera.NewServer(subtypeSvc),
+				input.NewServer(subtypeSvc),
 				pb.RegisterInputControllerServiceHandlerFromEndpoint,
 			)
 		},
