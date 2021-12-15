@@ -48,7 +48,7 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
 	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2"))
-	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(boardNames...)...))
+	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2"))
 	test.That(t, utils.NewStringSet(parts.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix"))
 	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
 	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
@@ -144,7 +144,7 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
 	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
-	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(boardNames...)...))
+	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
 	test.That(t, utils.NewStringSet(parts.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix", "sensor1_r1", "sensor2_r1", "forcematrix_r1", "sensor1_r2", "sensor2_r2", "forcematrix_r2"))
 	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
 	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
@@ -329,7 +329,7 @@ func TestPartsClone(t *testing.T) {
 	test.That(t, utils.NewStringSet(newParts.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
 	test.That(t, utils.NewStringSet(newParts.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(newParts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
-	test.That(t, utils.NewStringSet(newParts.BoardNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(boardNames...)...))
+	test.That(t, utils.NewStringSet(newParts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
 	test.That(t, utils.NewStringSet(newParts.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix", "sensor1_r1", "sensor2_r1", "forcematrix_r1", "sensor1_r2", "sensor2_r2", "forcematrix_r2"))
 	test.That(t, utils.NewStringSet(newParts.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
 	test.That(t, utils.NewStringSet(newParts.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
@@ -500,6 +500,16 @@ func TestPartsAdd(t *testing.T) {
 		return &board.BasicDigitalInterrupt{}, true
 	}
 
+	cfg := &config.Component{Type: config.ComponentTypeBoard, Name: "board1"}
+	rName := cfg.ResourceName()
+	parts.addResource(rName, injectBoard)
+	board1, ok := parts.BoardByName("board1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, board1, test.ShouldEqual, injectBoard)
+	resource1, ok := parts.ResourceByName(rName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resource1, test.ShouldEqual, injectBoard)
+
 	injectBase := &inject.Base{}
 	parts.AddBase(injectBase, config.Component{Name: "base1"})
 	base1, ok := parts.BaseByName("base1")
@@ -548,16 +558,15 @@ func TestPartsAdd(t *testing.T) {
 	test.That(t, objectManipulationService, test.ShouldEqual, injectObjectManipulationService)
 
 	injectArm := &inject.Arm{}
-	cfg := &config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
-
-	rName := cfg.ResourceName()
+	cfg = &config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
+	rName = cfg.ResourceName()
 	parts.addResource(rName, injectArm)
 	arm1, ok := parts.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, arm1, test.ShouldEqual, injectArm)
 	parts.addResource(rName, arm1)
 	test.That(t, arm1, test.ShouldEqual, injectArm)
-	resource1, ok := parts.ResourceByName(rName)
+	resource1, ok = parts.ResourceByName(rName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resource1, test.ShouldEqual, injectArm)
 
@@ -671,7 +680,7 @@ func TestPartsMergeAdd(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
 		test.That(t, utils.NewStringSet(toCheck.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
-		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(boardNames...)...))
+		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix", "sensor1_r1", "sensor2_r1", "forcematrix_r1", "sensor1_r2", "sensor2_r2", "forcematrix_r2"))
 		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
 		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
@@ -723,7 +732,7 @@ func TestPartsMergeAdd(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
 	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2", "base1_other", "base2_other", "base1_other1", "base2_other1"))
-	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(boardNames...)...))
+	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2", "board1_other", "board2_other", "board1_other1", "board2_other1"))
 	test.That(t, utils.NewStringSet(parts.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix", "sensor1_r1", "sensor2_r1", "forcematrix_r1", "sensor1_r2", "sensor2_r2", "forcematrix_r2", "sensor1_other", "sensor2_other", "forcematrix_other", "sensor1_other1", "sensor2_other1", "forcematrix_other1"))
 	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
 	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
@@ -832,7 +841,7 @@ func TestPartsMergeModify(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
 		test.That(t, utils.NewStringSet(toCheck.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
-		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(boardNames...)...))
+		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix", "sensor1_r1", "sensor2_r1", "forcematrix_r1", "sensor1_r2", "sensor2_r2", "forcematrix_r2"))
 		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
 		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
@@ -882,7 +891,6 @@ func TestPartsMergeModify(t *testing.T) {
 
 	replacementParts := newRobotParts(logger)
 	robotForRemote := &localRobot{parts: newRobotParts(logger), logger: logger}
-	// TODO(maximpertsov): is this test still valuable?
 	_, err = fakeboard.NewBoard(context.Background(), config.Component{
 		Name: "board2",
 		ConvertedAttributes: &board.Config{
@@ -896,6 +904,8 @@ func TestPartsMergeModify(t *testing.T) {
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	// TODO(maximpertsov): does board still need to be added?
+	// robotForRemote.parts.AddBoard(fakeBoardRemote, config.Component{Name: "board2_r1"})
 	robotForRemote.parts.AddBase(&inject.Base{}, config.Component{Name: "base2_r1"})
 	robotForRemote.parts.AddSensor(&inject.Compass{}, config.Component{Name: "sensor2_r1"})
 	robotForRemote.parts.addFunction("func2_r1")
@@ -903,6 +913,10 @@ func TestPartsMergeModify(t *testing.T) {
 	cfg := config.Component{Type: config.ComponentTypeArm, Name: "arm2_r1"}
 	rName := cfg.ResourceName()
 	robotForRemote.parts.addResource(rName, &inject.Arm{})
+
+	cfg = config.Component{Type: config.ComponentTypeBoard, Name: "board2_r1"}
+	rName = cfg.ResourceName()
+	robotForRemote.parts.addResource(rName, &inject.Board{})
 
 	cfg = config.Component{Type: config.ComponentTypeMotor, Name: "motor2_r1"}
 	rName = cfg.ResourceName()
@@ -927,7 +941,6 @@ func TestPartsMergeModify(t *testing.T) {
 	remote1Replacemenet := newRemoteRobot(robotForRemote, config.Remote{Name: "remote1"})
 	replacementParts.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
 
-	// TODO(maximpertsov): is this test still valuable?
 	_, err = fakeboard.NewBoard(context.Background(), config.Component{
 		Name: "board1",
 		ConvertedAttributes: &board.Config{
@@ -941,6 +954,10 @@ func TestPartsMergeModify(t *testing.T) {
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	// TODO(maximpertsov): does board still need to be added?
+	// robotForRemote.parts.AddBoard(fakeBoardRemote, config.Component{Name: "board2_r1"})
+	// replacementParts.AddBoard(fakeBoard, config.Component{Name: "board1"})
+
 	injectBase := &inject.Base{}
 	replacementParts.AddBase(injectBase, config.Component{Name: "base1"})
 	injectCompass := &inject.Compass{}
@@ -949,6 +966,10 @@ func TestPartsMergeModify(t *testing.T) {
 	cfg = config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
 	rName = cfg.ResourceName()
 	replacementParts.addResource(rName, &inject.Arm{})
+
+	cfg = config.Component{Type: config.ComponentTypeBoard, Name: "board1"}
+	rName = cfg.ResourceName()
+	replacementParts.addResource(rName, &inject.Board{})
 
 	cfg = config.Component{Type: config.ComponentTypeMotor, Name: "motor1"}
 	rName = cfg.ResourceName()
@@ -1009,7 +1030,7 @@ func TestPartsMergeRemove(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
 		test.That(t, utils.NewStringSet(toCheck.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
-		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(boardNames...)...))
+		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix", "sensor1_r1", "sensor2_r1", "forcematrix_r1", "sensor1_r2", "sensor2_r2", "forcematrix_r2"))
 		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
 		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
@@ -1227,7 +1248,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, utils.NewStringSet(filtered.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
 	test.That(t, utils.NewStringSet(filtered.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(filtered.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2"))
-	test.That(t, utils.NewStringSet(filtered.BoardNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(boardNames...)...))
+	test.That(t, utils.NewStringSet(filtered.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2"))
 	test.That(t, utils.NewStringSet(filtered.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor2"))
 	test.That(t, utils.NewStringSet(filtered.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
 	test.That(t, utils.NewStringSet(filtered.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
@@ -1315,7 +1336,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, utils.NewStringSet(filtered.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
 	test.That(t, utils.NewStringSet(filtered.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(filtered.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base1_r2", "base2_r2"))
-	test.That(t, utils.NewStringSet(filtered.BoardNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(boardNames...)...))
+	test.That(t, utils.NewStringSet(filtered.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board1_r2", "board2_r2"))
 	test.That(t, utils.NewStringSet(filtered.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor2", "sensor1_r2", "sensor2_r2", "forcematrix_r2"))
 	test.That(t, utils.NewStringSet(filtered.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
 	test.That(t, utils.NewStringSet(filtered.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
@@ -1502,7 +1523,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, utils.NewStringSet(filtered.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
 	test.That(t, utils.NewStringSet(filtered.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	test.That(t, utils.NewStringSet(filtered.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
-	test.That(t, utils.NewStringSet(filtered.BoardNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(boardNames...)...))
+	test.That(t, utils.NewStringSet(filtered.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
 	test.That(t, utils.NewStringSet(filtered.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "sensor1_r1", "sensor2_r1", "forcematrix_r1", "sensor1_r2", "sensor2_r2", "forcematrix_r2"))
 	test.That(t, utils.NewStringSet(filtered.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
 	test.That(t, utils.NewStringSet(filtered.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
