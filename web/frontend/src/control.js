@@ -52,6 +52,7 @@ if (window.webrtcEnabled) {
 			window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
 			window.servoService = new ServoServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
 			window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
+			window.inputControllerService = new InputControllerServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
 		} catch (e) {
 			console.error("error dialing:", e);
 			throw e;
@@ -70,5 +71,6 @@ if (window.webrtcEnabled) {
 	window.gripperService = new GripperServiceClient(url);
 	window.servoService = new ServoServiceClient(url);
 	window.cameraService = new CameraServiceClient(url);
+	window.inputControllerService = new InputControllerServiceClient(url);
 	pResolve(undefined);
 }
