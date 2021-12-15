@@ -395,13 +395,7 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 	}
 
 	vg.logger.Debugf("init: orig openPos: %f, closedPos: %f", vg.openPos, vg.closedPos)
-
-	if math.Signbit(vg.openPos - vg.closedPos) {
-		vg.openPos += openPosOffset
-	} else {
-		vg.openPos -= openPosOffset
-	}
-
+	vg.openPos += math.Copysign(openPosOffset, (vg.closedPos - vg.openPos))
 	vg.logger.Debugf("init: offset openPos: %f, closedPos: %f", vg.openPos, vg.closedPos)
 
 	// Zero to closed position
