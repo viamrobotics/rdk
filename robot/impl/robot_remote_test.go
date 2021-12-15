@@ -12,16 +12,18 @@ import (
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/camera"
+	fakecamera "go.viam.com/core/component/camera/fake"
 	"go.viam.com/core/component/gripper"
 	fakegripper "go.viam.com/core/component/gripper/fake"
+	"go.viam.com/core/component/input"
+	fakeinput "go.viam.com/core/component/input/fake"
+	"go.viam.com/core/component/motor"
+	fakemotor "go.viam.com/core/component/motor/fake"
 	"go.viam.com/core/component/servo"
 	fakeservo "go.viam.com/core/component/servo/fake"
 	"go.viam.com/core/config"
-	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
@@ -44,9 +46,21 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		gripper.Named(fmt.Sprintf("gripper1%s", suffix)),
 		gripper.Named(fmt.Sprintf("gripper2%s", suffix)),
 	}
+	cameraNames := []resource.Name{
+		camera.Named(fmt.Sprintf("camera1%s", suffix)),
+		camera.Named(fmt.Sprintf("camera2%s", suffix)),
+	}
 	servoNames := []resource.Name{
 		servo.Named(fmt.Sprintf("servo1%s", suffix)),
 		servo.Named(fmt.Sprintf("servo2%s", suffix)),
+	}
+	motorNames := []resource.Name{
+		motor.Named(fmt.Sprintf("motor1%s", suffix)),
+		motor.Named(fmt.Sprintf("motor2%s", suffix)),
+	}
+	inputNames := []resource.Name{
+		input.Named(fmt.Sprintf("inputController1%s", suffix)),
+		input.Named(fmt.Sprintf("inputController2%s", suffix)),
 	}
 
 	injectRobot.RemoteNamesFunc = func() []string {
@@ -59,10 +73,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		return coretestutils.ExtractNames(gripperNames...)
 	}
 	injectRobot.CameraNamesFunc = func() []string {
-		return []string{fmt.Sprintf("camera1%s", suffix), fmt.Sprintf("camera2%s", suffix)}
-	}
-	injectRobot.LidarNamesFunc = func() []string {
-		return []string{fmt.Sprintf("lidar1%s", suffix), fmt.Sprintf("lidar2%s", suffix)}
+		return coretestutils.ExtractNames(cameraNames...)
 	}
 	injectRobot.BaseNamesFunc = func() []string {
 		return []string{fmt.Sprintf("base1%s", suffix), fmt.Sprintf("base2%s", suffix)}
@@ -77,10 +88,10 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		return coretestutils.ExtractNames(servoNames...)
 	}
 	injectRobot.MotorNamesFunc = func() []string {
-		return []string{fmt.Sprintf("motor1%s", suffix), fmt.Sprintf("motor2%s", suffix)}
+		return coretestutils.ExtractNames(motorNames...)
 	}
 	injectRobot.InputControllerNamesFunc = func() []string {
-		return []string{fmt.Sprintf("inputController1%s", suffix), fmt.Sprintf("inputController2%s", suffix)}
+		return coretestutils.ExtractNames(inputNames...)
 	}
 	injectRobot.FunctionNamesFunc = func() []string {
 		return []string{fmt.Sprintf("func1%s", suffix), fmt.Sprintf("func2%s", suffix)}
@@ -92,7 +103,10 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		return coretestutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
+			cameraNames,
 			servoNames,
+			motorNames,
+			inputNames,
 		)
 	}
 	injectRobot.LoggerFunc = func() golog.Logger {
@@ -127,18 +141,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		if _, ok := utils.NewStringSet(injectRobot.CameraNames()...)[name]; !ok {
 			return nil, false
 		}
-		return &fake.Camera{Name: name}, true
-	}
-	injectRobot.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
-		if _, ok := utils.NewStringSet(injectRobot.LidarNames()...)[name]; !ok {
-			return nil, false
-		}
-
-		l, err := fake.NewLidar(config.Component{Name: name})
-		if err != nil {
-			return nil, false
-		}
-		return l, true
+		return &fakecamera.Camera{Name: name}, true
 	}
 	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.BoardNames()...)[name]; !ok {
@@ -181,13 +184,13 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		if _, ok := utils.NewStringSet(injectRobot.MotorNames()...)[name]; !ok {
 			return nil, false
 		}
-		return &fake.Motor{Name: name}, true
+		return &fakemotor.Motor{Name: name}, true
 	}
 	injectRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.InputControllerNames()...)[name]; !ok {
 			return nil, false
 		}
-		return &fake.InputController{Name: name}, true
+		return &fakeinput.InputController{Name: name}, true
 	}
 	injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.ServiceNames()...)[name]; !ok {
@@ -206,6 +209,12 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 					return &fakeservo.Servo{Name: name.Name}, true
 				case gripper.Subtype:
 					return &fakegripper.Gripper{Name: name.Name}, true
+				case camera.Subtype:
+					return &fakecamera.Camera{Name: name.Name}, true
+				case motor.Subtype:
+					return &fakemotor.Motor{Name: name.Name}, true
+				case input.Subtype:
+					return &fakeinput.InputController{Name: name.Name}, true
 				}
 			}
 		}
@@ -249,15 +258,12 @@ func TestRemoteRobot(t *testing.T) {
 	robot.conf.Prefix = true
 	test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(prefixedGripperNames...)...))
 
+	cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
+	prefixedCameraNames := []resource.Name{camera.Named("one.camera1"), camera.Named("one.camera2")}
 	robot.conf.Prefix = false
-	test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera1", "camera2"))
+	test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
 	robot.conf.Prefix = true
-	test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldResemble, utils.NewStringSet("one.camera1", "one.camera2"))
-
-	robot.conf.Prefix = false
-	test.That(t, utils.NewStringSet(robot.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1", "lidar2"))
-	robot.conf.Prefix = true
-	test.That(t, utils.NewStringSet(robot.LidarNames()...), test.ShouldResemble, utils.NewStringSet("one.lidar1", "one.lidar2"))
+	test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(prefixedCameraNames...)...))
 
 	robot.conf.Prefix = false
 	test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2"))
@@ -281,6 +287,20 @@ func TestRemoteRobot(t *testing.T) {
 	robot.conf.Prefix = true
 	test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(prefixedServoNames...)...))
 
+	motorNames := []resource.Name{motor.Named("motor1"), motor.Named("motor2")}
+	prefixedMotorNames := []resource.Name{motor.Named("one.motor1"), motor.Named("one.motor2")}
+	robot.conf.Prefix = false
+	test.That(t, utils.NewStringSet(robot.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
+	robot.conf.Prefix = true
+	test.That(t, utils.NewStringSet(robot.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(prefixedMotorNames...)...))
+
+	inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
+	prefixedInputNames := []resource.Name{input.Named("one.inputController1"), input.Named("one.inputController2")}
+	robot.conf.Prefix = false
+	test.That(t, utils.NewStringSet(robot.InputControllerNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...))
+	robot.conf.Prefix = true
+	test.That(t, utils.NewStringSet(robot.InputControllerNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(prefixedInputNames...)...))
+
 	robot.conf.Prefix = false
 	test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2"))
 	robot.conf.Prefix = true
@@ -291,14 +311,20 @@ func TestRemoteRobot(t *testing.T) {
 		coretestutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
+			cameraNames,
 			servoNames,
+			motorNames,
+			inputNames,
 		)...))
 	robot.conf.Prefix = true
 	test.That(t, coretestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 		coretestutils.ConcatResourceNames(
 			prefixedArmNames,
 			prefixedGripperNames,
+			prefixedCameraNames,
 			prefixedServoNames,
+			prefixedMotorNames,
+			prefixedInputNames,
 		)...))
 
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
@@ -404,10 +430,6 @@ func TestRemoteRobot(t *testing.T) {
 			"camera1": true,
 			"camera2": true,
 		},
-		Lidars: map[string]bool{
-			"lidar1": true,
-			"lidar2": true,
-		},
 		Sensors: map[string]*pb.SensorStatus{
 			"sensor1":     {},
 			"sensor2":     {},
@@ -452,10 +474,6 @@ func TestRemoteRobot(t *testing.T) {
 		Cameras: map[string]bool{
 			"one.camera1": true,
 			"one.camera2": true,
-		},
-		Lidars: map[string]bool{
-			"one.lidar1": true,
-			"one.lidar2": true,
 		},
 		Sensors: map[string]*pb.SensorStatus{
 			"one.sensor1":     {},
@@ -502,25 +520,12 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
-	camera1, ok := robot.CameraByName("camera1")
+	_, ok = robot.CameraByName("camera1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1")
 	robot.conf.Prefix = true
-	camera1, ok = robot.CameraByName("one.camera1")
+	_, ok = robot.CameraByName("one.camera1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1")
 	_, ok = robot.CameraByName("camera1_what")
-	test.That(t, ok, test.ShouldBeFalse)
-
-	robot.conf.Prefix = false
-	lidar1, ok := robot.LidarByName("lidar1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, lidar1.(*proxyLidar).actual.(*fake.Lidar).Name, test.ShouldEqual, "lidar1")
-	robot.conf.Prefix = true
-	lidar1, ok = robot.LidarByName("one.lidar1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, lidar1.(*proxyLidar).actual.(*fake.Lidar).Name, test.ShouldEqual, "lidar1")
-	_, ok = robot.LidarByName("lidar1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false

@@ -17,12 +17,12 @@ type ImageWithDepth struct {
 	Color   *Image
 	Depth   *DepthMap
 	aligned bool
-	camera  CameraSystem
+	camera  Projector
 }
 
 // MakeImageWithDepth returns a new image with depth from the given color and depth arguments. It
 // is also associated with a camera that captured the color and depth.
-func MakeImageWithDepth(img *Image, dm *DepthMap, aligned bool, camera CameraSystem) *ImageWithDepth {
+func MakeImageWithDepth(img *Image, dm *DepthMap, aligned bool, camera Projector) *ImageWithDepth {
 	return &ImageWithDepth{img, dm, aligned, camera}
 }
 

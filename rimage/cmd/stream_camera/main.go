@@ -6,8 +6,8 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/core/component/camera/imagesource"
 	"go.viam.com/core/config"
-	"go.viam.com/core/rimage/imagesource"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"

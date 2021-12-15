@@ -17,7 +17,6 @@ import (
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -90,6 +89,10 @@ type arduinoBoard struct {
 
 	analogs map[string]board.AnalogReader
 }
+
+// func (b *arduinoBoard) Logger() golog.Logger {
+// 	return b.logger
+// }
 
 func (b *arduinoBoard) runCommand(cmd string) (string, error) {
 	b.cmdLock.Lock()
@@ -289,38 +292,6 @@ func (b *arduinoBoard) Close() error {
 	}
 
 	return b.port.Close()
-}
-
-type encoder struct {
-	b    *arduinoBoard
-	cfg  motor.Config
-	name string
-}
-
-// Position returns the current position in terms of ticks
-func (e *encoder) Position(ctx context.Context) (int64, error) {
-	res, err := e.b.runCommand("motor-position " + e.name)
-	if err != nil {
-		return 0, err
-	}
-
-	ticks, err := strconv.ParseInt(res, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("couldn't parse # ticks (%s) : %w", res, err)
-	}
-
-	return ticks, nil
-}
-
-// Start starts a background thread to run the encoder, if there is none needed this is a no-op
-func (e *encoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync.WaitGroup, onStart func()) {
-	// no-op for arduino
-	onStart()
-}
-
-func (e *encoder) Zero(ctx context.Context, offset int64) error {
-	_, err := e.b.runCommand(fmt.Sprintf("motor-zero %s %d", e.name, offset))
-	return err
 }
 
 type analogReader struct {

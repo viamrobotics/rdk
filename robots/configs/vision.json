@@ -26,7 +26,7 @@
         },
 		{ "name" : "front-composed",
           "type" : "camera",
-          "model" : "depthComposed",
+          "model" : "depth_composed",
           "attributes" : {
               "hide" : true,
               "color": "color",
@@ -34,7 +34,7 @@
               "make": "intel515",
               "aligned": true,
               "debug": false,
-              "matrices": "$load{intel515_parameters.json}"
+              "intrinsic_extrinsic": "$load{intel515_parameters.json}"
           }
         },
         { "name" : "front-overlay",
@@ -46,7 +46,7 @@
         },
         { "name" : "front-preprocess",
           "type" : "camera",
-          "model" : "preprocessDepth",
+          "model" : "preprocess_depth",
           "host" : "127.0.0.1",
           "attributes" : {
               "source" : "front-composed",
@@ -64,7 +64,7 @@
         },
         { "name" : "depth-edges",
           "type" : "camera",
-          "model" : "depthEdges",
+          "model" : "depth_edges",
           "host" : "127.0.0.1",
           "attributes" : {
               "source" : "front-preprocess",
@@ -73,7 +73,7 @@
         },
         { "name" : "depth-pretty-awkward",
           "type" : "camera",
-          "model" : "depthToPretty",
+          "model" : "depth_to_pretty",
           "host" : "127.0.0.1",
           "attributes" : {
               "source" : "depth",
@@ -91,7 +91,7 @@
         },
         { "name" : "segmentation",
           "type" : "camera",
-          "model" : "colorSegments",
+          "model" : "color_segments",
           "attributes" : {
               "source" : "front-composed",
               "cluster_radius" : 10.0,

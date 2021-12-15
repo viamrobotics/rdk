@@ -9,10 +9,9 @@ import (
 	"time"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
-	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -106,7 +105,7 @@ func TestPiPigpio(t *testing.T) {
 		err := servo1.Move(ctx, 90)
 		test.That(t, err, test.ShouldBeNil)
 
-		v, err := servo1.Current(ctx)
+		v, err := servo1.AngularOffset(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, int(v), test.ShouldEqual, 90)
 
@@ -124,7 +123,7 @@ func TestPiPigpio(t *testing.T) {
 		return pp, true
 	}
 
-	motorCtor := registry.MotorLookup(modelName)
+	motorCtor := registry.ComponentLookup(motor.Subtype, modelName)
 	motor1, err := motorCtor(ctx, &injectRobot, config.Component{Name: "motor1", ConvertedAttributes: &motor.Config{
 		Pins: map[string]string{
 			"a":   "13", // bcom 27
@@ -144,7 +143,7 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, pos, test.ShouldAlmostEqual, .0, 01)
 
 		// 15 rpm is about what we can get from 5v. 2 rotations should take 8 seconds
-		err = motor1.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 15, 2)
+		err = motor1.GoFor(ctx, 15, 2)
 		test.That(t, err, test.ShouldBeNil)
 		on, err := motor1.IsOn(ctx)
 		test.That(t, err, test.ShouldBeNil)
@@ -185,7 +184,7 @@ func TestPiPigpio(t *testing.T) {
 
 	t.Run("motor backward", func(t *testing.T) {
 		// 15 rpm is about what we can get from 5v. 2 rotations should take 8 seconds
-		err := motor1.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 15, 2)
+		err := motor1.GoFor(ctx, -15, 2)
 		test.That(t, err, test.ShouldBeNil)
 
 		on, err := motor1.IsOn(ctx)

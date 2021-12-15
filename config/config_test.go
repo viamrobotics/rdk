@@ -11,12 +11,13 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
 	functionvm "go.viam.com/core/function/vm"
-	"go.viam.com/core/motor"
 	"go.viam.com/core/testutils/inject"
 
-	_ "go.viam.com/core/robots/fake" // attribute converters
+	_ "go.viam.com/core/component/motor/fake" // motor attribute converters
+	_ "go.viam.com/core/robots/fake"          // attribute converters
 )
 
 func TestConfigRobot(t *testing.T) {
@@ -72,7 +73,6 @@ func TestConfig3(t *testing.T) {
 			{Name: "encoder", Pin: "14"},
 		},
 	})
-
 	test.That(t, cfg.Components[2].ConvertedAttributes, test.ShouldResemble, &motor.Config{
 		Pins: map[string]string{
 			"dir": "io17",
