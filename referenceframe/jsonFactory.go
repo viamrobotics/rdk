@@ -11,6 +11,12 @@ import (
 	"go.viam.com/core/spatialmath"
 )
 
+type vector3 struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	Z float64 `json:"z"`
+}
+
 // ModelJSON represents all supported fields in a kinematics JSON file.
 type ModelJSON struct {
 	Name         string `json:"name"`
@@ -20,18 +26,15 @@ type ModelJSON struct {
 		Parent      string                     `json:"parent"`
 		Translation spatialmath.Translation    `json:"translation"`
 		Orientation spatialmath.RawOrientation `json:"orientation"`
+		Volume      vector3                    `json:"volume"`
 	} `json:"links"`
 	Joints []struct {
-		ID     string `json:"id"`
-		Type   string `json:"type"`
-		Parent string `json:"parent"`
-		Axis   struct {
-			X float64 `json:"x"`
-			Y float64 `json:"y"`
-			Z float64 `json:"z"`
-		} `json:"axis"`
-		Max float64 `json:"max"`
-		Min float64 `json:"min"`
+		ID     string  `json:"id"`
+		Type   string  `json:"type"`
+		Parent string  `json:"parent"`
+		Axis   vector3 `json:"axis"`
+		Max    float64 `json:"max"`
+		Min    float64 `json:"min"`
 	} `json:"joints"`
 	DHParams []struct {
 		ID     string  `json:"id"`
@@ -41,18 +44,17 @@ type ModelJSON struct {
 		Alpha  float64 `json:"alpha"`
 		Max    float64 `json:"max"`
 		Min    float64 `json:"min"`
+		Volume vector3 `json:"volume"`
 	} `json:"dhParams"`
 	RawFrames []map[string]interface{} `json:"frames"`
 }
 
 // Model turns the ModelJSON struct into a full Model with the name modelName
 func (m *ModelJSON) Model(modelName string) (*Model, error) {
-	model := NewModel()
-
+	model := &Model{}
+	model.name = modelName
 	if modelName == "" {
 		model.name = m.Name
-	} else {
-		model.name = modelName
 	}
 
 	transforms := map[string]Frame{}
@@ -60,15 +62,18 @@ func (m *ModelJSON) Model(modelName string) (*Model, error) {
 	// Make a map of parents for each element for post-process, to allow items to be processed out of order
 	parentMap := map[string]string{}
 
+	// Make a list of Volumes
+	// volumes := []Volume{}
+
 	if m.KinParamType == "SVA" || m.KinParamType == "" {
 		for _, link := range m.Links {
 			if link.ID == World {
-				return model, errors.New("reserved word: cannot name a link 'world'")
+				return nil, errors.New("reserved word: cannot name a link 'world'")
 			}
 		}
 		for _, joint := range m.Joints {
 			if joint.ID == World {
-				return model, errors.New("reserved word: cannot name a joint 'world'")
+				return nil, errors.New("reserved word: cannot name a joint 'world'")
 			}
 		}
 
@@ -86,6 +91,13 @@ func (m *ModelJSON) Model(modelName string) (*Model, error) {
 			transforms[link.ID], err = NewStaticFrame(link.ID, q)
 			if err != nil {
 				return nil, err
+			}
+
+			if link.Volume.X != 0 && link.Volume.Y != 0 && link.Volume.Z != 0 {
+				// dims := r3.Vector{link.Volume.X, link.Volume.Y, link.Volume.Z}.Mul(0.5)
+				// offset := r3.Vector{0, 0, dims.Z}
+				// var vol Volume = NewBoxFromOffset(offset, dims)
+				// volumes = append(volumes, vol)
 			}
 		}
 
@@ -130,14 +142,15 @@ func (m *ModelJSON) Model(modelName string) (*Model, error) {
 			parentMap[linkID] = jointID
 		}
 	} else if m.KinParamType == "frames" {
+		orderedTransforms := []Frame{}
 		for _, x := range m.RawFrames {
 			f, err := UnmarshalFrameMap(x)
 			if err != nil {
 				return nil, err
 			}
-			model.OrdTransforms = append(model.OrdTransforms, f)
+			orderedTransforms = append(orderedTransforms, f)
 		}
-
+		model.OrdTransforms = orderedTransforms
 		return model, nil
 	} else {
 		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", m.KinParamType)
@@ -190,7 +203,6 @@ func (m *ModelJSON) Model(modelName string) (*Model, error) {
 		orderedTransforms[i], orderedTransforms[j] = orderedTransforms[j], orderedTransforms[i]
 	}
 	model.OrdTransforms = orderedTransforms
-
 	return model, nil
 }
 

@@ -144,17 +144,6 @@ func (sfs *simpleFrameSystem) checkName(name string, parent Frame) error {
 	return nil
 }
 
-// AddFrameFromPose adds an input staticFrame to the system given a parent and a pose.
-// It can only be added if the parent of the input frame already exists in the system,
-// and there is no frame with the input's name already.
-func (sfs *simpleFrameSystem) AddFrameFromPose(name string, parent Frame, pose spatial.Pose) error {
-	frame, err := NewStaticFrame(name, pose)
-	if err != nil {
-		return err
-	}
-	return sfs.AddFrame(frame, parent)
-}
-
 // AddFrame sets an already defined Frame into the system.
 func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
 	err := sfs.checkName(frame.Name(), parent)
