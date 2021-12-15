@@ -2,6 +2,7 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"go.viam.com/utils"
@@ -10,6 +11,8 @@ import (
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/board"
 	fakeboard "go.viam.com/core/component/board/fake"
+
+	// fakeboard "go.viam.com/core/component/board/fake"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/input"
@@ -802,7 +805,13 @@ func TestPartsMergeModify(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
+	fmt.Printf(">>> inject robot: %#v\n", injectRobot)
+	board1, _ := injectRobot.BoardByName("board1")
+	fmt.Printf(">>> board: %#v\n", board1)
+
 	parts := partsForRemoteRobot(injectRobot)
+	fmt.Printf(">>> parts: %#v\n", parts)
+
 	parts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}), config.Remote{Name: "remote1"})
 	parts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}), config.Remote{Name: "remote2"})
 	_, err := parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
@@ -812,6 +821,9 @@ func TestPartsMergeModify(t *testing.T) {
 
 	checkSame := func(toCheck *robotParts) {
 		t.Helper()
+
+		fmt.Printf(">>> to check: %#v\n", *toCheck)
+
 		armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 		armNames = append(armNames, coretestutils.AddSuffixes(armNames, "_r1", "_r2")...)
 		boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
@@ -850,6 +862,9 @@ func TestPartsMergeModify(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
 		board1, ok := toCheck.BoardByName("board1")
+
+		fmt.Printf(">>> board: %#v\n", board1)
+
 		test.That(t, ok, test.ShouldBeTrue)
 		board2r1, ok := toCheck.BoardByName("board2_r1")
 		test.That(t, ok, test.ShouldBeTrue)

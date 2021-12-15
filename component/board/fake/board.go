@@ -42,6 +42,8 @@ func init() {
 func NewBoard(ctx context.Context, config config.Component, logger golog.Logger) (*Board, error) {
 	boardConfig := config.ConvertedAttributes.(*board.Config)
 
+	// fmt.Printf("%#v\n", boardConfig)
+
 	b := &Board{
 		Name:     config.Name,
 		I2Cs:     map[string]*I2C{},
