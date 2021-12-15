@@ -48,23 +48,35 @@ func main() {
 	}
 	// solve the problem
 	method := &optimize.GradientDescent{}
-	//method := &optimize.Newton{}
 	params := make([]float64, 6) // initial value for rotation euler angles(3) and translation(3)
 	for i := range params {
-		params[i] = rand.Float64() - 0.5
+		params[i] = (rand.Float64() - 0.5) / 10.
 	}
 	res, err := optimize.Minimize(problem, params, nil, method)
 	if err != nil {
+		fmt.Printf("optimization status code: %+v\n", res.Status)
+		fmt.Printf("optimization stats: %+v\n", res.Stats)
+		rotation := &spatialmath.EulerAngles{res.X[0], res.X[1], res.X[2]}
+		translation := res.X[3:]
+		fmt.Printf(" rotation:\n%v\n translation:\n%.3f\n", printEulerToRot(rotation), translation)
 		logger.Fatal(err)
 	}
-	fmt.Printf("optimization status code: %v\n", res.Status)
-	fmt.Printf("optimization stats: %v\n", res.Stats)
+	fmt.Printf("optimization status code: %+v\n", res.Status)
+	fmt.Printf("optimization stats: %+v\n", res.Stats)
 	fmt.Printf("function value at end: %v\n", res.F)
 	// return depth-to-color rotations and translation
 	rotation := &spatialmath.EulerAngles{res.X[0], res.X[1], res.X[2]}
 	translation := res.X[3:]
-	final := rotation.RotationMatrix()
-	fmt.Printf(" rotation:\n%v\n%v\n%v\n translation:\n%v\n", final.Row(0), final.Row(1), final.Row(2), translation)
+	fmt.Printf(" rotation:\n%v\n translation:\n%.3f\n", printEulerToRot(rotation), translation)
+}
+
+func printEulerToRot(ea *spatialmath.EulerAngles) string {
+	final := ea.RotationMatrix()
+	r1, r2, r3 := final.Row(0), final.Row(1), final.Row(2)
+	w1 := fmt.Sprintf("⸢ %.3f %.3f %.3f ⸣\n", r1.X, r1.Y, r1.Z)
+	w2 := fmt.Sprintf("| %.3f %.3f %.3f |\n", r2.X, r2.Y, r2.Z)
+	w3 := fmt.Sprintf("⸤ %.3f %.3f %.3f ⸥", r3.X, r3.Y, r3.Z)
+	return w1 + w2 + w3
 }
 
 func readConfig(cfgPath string) (*CalibrationConfig, error) {
@@ -105,23 +117,28 @@ func createProblem(cfg *CalibrationConfig) (optimize.Problem, error) {
 	depthFx, depthFy := cfg.DepthIntrinsics.Fx, cfg.DepthIntrinsics.Fy
 	colorPx, colorPy := cfg.ColorIntrinsics.Ppx, cfg.ColorIntrinsics.Ppy
 	colorFx, colorFy := cfg.ColorIntrinsics.Fx, cfg.ColorIntrinsics.Fy
+	N := len(cfg.ColorPoints)
 	m2mm := 1000.0
 	fcn := func(p []float64) float64 {
-		// p[0] - roll(3), p[1] - pitch(2), p[2] - yaw(1)
-		rotation := []float64{
-			math.Cos(p[2]) * math.Cos(p[1]),
-			math.Cos(p[2])*math.Sin(p[1])*math.Sin(p[0]) - math.Cos(p[0])*math.Cos(p[2]),
-			math.Sin(p[2])*math.Sin(p[0]) + math.Cos(p[2])*math.Cos(p[0])*math.Sin(p[1]),
-			math.Cos(p[1]) * math.Sin(p[2]),
-			math.Cos(p[2])*math.Cos(p[0]) + math.Sin(p[2])*math.Sin(p[1])*math.Sin(p[0]),
-			math.Cos(p[0])*math.Sin(p[2])*math.Sin(p[1]) - math.Cos(p[2])*math.Sin(p[0]),
-			-math.Sin(p[1]),
-			math.Cos(p[1]) * math.Sin(p[0]),
-			math.Cos(p[1]) * math.Cos(p[0]),
+		// p[0] - roll-x, p[1] - pitch-y, p[2] - yaw-z
+		rollRot := []float64{
+			1, 0, 0,
+			0, math.Cos(p[0]), -math.Sin(p[0]),
+			0, math.Sin(p[0]), math.Cos(p[0]),
+		}
+		pitchRot := []float64{
+			math.Cos(p[1]), 0, math.Sin(p[1]),
+			0, 1, 0,
+			-math.Sin(p[1]), 0, math.Cos(p[1]),
+		}
+		yawRot := []float64{
+			math.Cos(p[2]), -math.Sin(p[2]), 0,
+			math.Sin(p[2]), math.Cos(p[2]), 0,
+			0, 0, 1,
 		}
 		translation := p[3:]
 		mse := 0.0
-		for i := range cfg.ColorPoints {
+		for i := 0; i < N; i++ {
 			cPt := cfg.ColorPoints[i]
 			dPt := cfg.DepthPoints[i]
 			z := dPt.Z
@@ -129,10 +146,23 @@ func createProblem(cfg *CalibrationConfig) (optimize.Problem, error) {
 			x := z * (dPt.X - depthPx) / depthFx
 			y := z * (dPt.Y - depthPy) / depthFy
 			// use parameters to rigid transform points to color 3D
-			x, y, z = x/m2mm, y/m2mm, z/m2mm
-			x = rotation[0]*x + rotation[1]*y + rotation[2]*z + translation[0]
-			y = rotation[3]*x + rotation[4]*y + rotation[5]*z + translation[1]
-			z = rotation[6]*x + rotation[7]*y + rotation[8]*z + translation[2]
+			x, y, z = x/m2mm, y/m2mm, -z/m2mm
+			// first roll rollRot
+			x = rollRot[0]*x + rollRot[1]*y + rollRot[2]*z
+			y = rollRot[3]*x + rollRot[4]*y + rollRot[5]*z
+			z = rollRot[6]*x + rollRot[7]*y + rollRot[8]*z
+			// then pitch rotation
+			x = pitchRot[0]*x + pitchRot[1]*y + pitchRot[2]*z
+			y = pitchRot[3]*x + pitchRot[4]*y + pitchRot[5]*z
+			z = pitchRot[6]*x + pitchRot[7]*y + pitchRot[8]*z
+			// then yaw rotation
+			x = yawRot[0]*x + yawRot[1]*y + yawRot[2]*z
+			y = yawRot[3]*x + yawRot[4]*y + yawRot[5]*z
+			z = yawRot[6]*x + yawRot[7]*y + yawRot[8]*z
+			// then translation
+			x += translation[0]
+			y += translation[1]
+			z += translation[2]
 			x, y, z = x*m2mm, y*m2mm, z*m2mm
 			// color 3D to 2D point
 			x = (x/z)*colorFx + colorPx
@@ -141,8 +171,7 @@ func createProblem(cfg *CalibrationConfig) (optimize.Problem, error) {
 			mse += math.Pow(x-cPt.X, 2)
 			mse += math.Pow(y-cPt.Y, 2)
 		}
-		mse = mse / float64(len(cfg.ColorPoints))
-		// add constraints of an orthogonal matrix to the rotation parameters
+		mse = mse / float64(N)
 		return mse
 	}
 	grad := func(grad, x []float64) {
