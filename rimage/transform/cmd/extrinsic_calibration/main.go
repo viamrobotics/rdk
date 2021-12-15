@@ -146,7 +146,7 @@ func createProblem(cfg *CalibrationConfig) (optimize.Problem, error) {
 			x := z * (dPt.X - depthPx) / depthFx
 			y := z * (dPt.Y - depthPy) / depthFy
 			// use parameters to rigid transform points to color 3D
-			x, y, z = x/m2mm, y/m2mm, -z/m2mm
+			x, y, z = x/m2mm, y/m2mm, z/m2mm
 			// first roll rollRot
 			x = rollRot[0]*x + rollRot[1]*y + rollRot[2]*z
 			y = rollRot[3]*x + rollRot[4]*y + rollRot[5]*z
