@@ -467,7 +467,7 @@ func (parts *robotParts) newProcesses(ctx context.Context, processes []pexec.Pro
 // newRemotes constructs all remotes defined and integrates their parts in.
 func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote, logger golog.Logger) error {
 	for _, config := range remotes {
-		robotClient, err := client.NewClient(ctx, config.Address, logger)
+		robotClient, err := client.New(ctx, config.Address, logger)
 		if err != nil {
 			return errors.Errorf("couldn't connect to robot remote (%s): %w", config.Address, err)
 		}
