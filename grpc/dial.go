@@ -10,7 +10,7 @@ import (
 
 // Dial dials a gRPC server.
 func Dial(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (rpc.ClientConn, error) {
-	optsCopy := make([]rpc.DialOption, 0, len(opts)+1)
+	optsCopy := make([]rpc.DialOption, len(opts)+1)
 	optsCopy[0] = rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
 		Config: &DefaultWebRTCConfiguration,
 	})
