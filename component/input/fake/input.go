@@ -66,8 +66,7 @@ func (c *InputController) LastEvents(ctx context.Context) (map[input.Control]inp
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	eventsOut := make(map[input.Control]input.Event)
-	eventsOut[input.AbsoluteX] = input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
-	eventsOut[input.ButtonStart] = input.Event{Time: time.Now(), Event: input.ButtonPress, Control: input.ButtonStart, Value: 1.0}
+	eventsOut[input.AbsoluteX] = input.Event{Time: time.Time{}, Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
 	return eventsOut, nil
 }
 

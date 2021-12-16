@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/go-errors/errors"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -185,8 +186,12 @@ func TestCreateStatus(t *testing.T) {
 				"motor2": {},
 			},
 			InputControllers: map[string]*pb.InputControllerStatus{
-				"inputController1": {},
-				"inputController2": {},
+				"inputController1": {Events: []*pb.InputControllerEvent{
+					{Time: &timestamppb.Timestamp{Seconds: -62135596800}, Event: "PositionChangeAbs", Control: "AbsoluteX", Value: 0.7},
+				}},
+				"inputController2": {Events: []*pb.InputControllerEvent{
+					{Time: &timestamppb.Timestamp{Seconds: -62135596800}, Event: "PositionChangeAbs", Control: "AbsoluteX", Value: 0.7},
+				}},
 			},
 			Functions: map[string]bool{
 				"func1": true,
@@ -253,8 +258,12 @@ func TestCreateStatus(t *testing.T) {
 				"motor2": {},
 			},
 			InputControllers: map[string]*pb.InputControllerStatus{
-				"inputController1": {},
-				"inputController2": {},
+				"inputController1": {Events: []*pb.InputControllerEvent{
+					{Time: &timestamppb.Timestamp{Seconds: -62135596800}, Event: "PositionChangeAbs", Control: "AbsoluteX", Value: 0.7},
+				}},
+				"inputController2": {Events: []*pb.InputControllerEvent{
+					{Time: &timestamppb.Timestamp{Seconds: -62135596800}, Event: "PositionChangeAbs", Control: "AbsoluteX", Value: 0.7},
+				}},
 			},
 			Functions: map[string]bool{
 				"func1": true,
