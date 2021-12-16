@@ -20,6 +20,7 @@ import (
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
+	"go.viam.com/core/grpc/client"
 	"go.viam.com/core/metadata/service"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
@@ -314,9 +315,9 @@ func (r *localRobot) Logger() golog.Logger {
 }
 
 // New returns a new robot with parts sourced from the given config.
-func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
+func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...client.RobotClientOption) (robot.LocalRobot, error) {
 	r := &localRobot{
-		parts:  newRobotParts(logger),
+		parts:  newRobotParts(logger, opts...),
 		logger: logger,
 	}
 

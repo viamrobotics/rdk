@@ -11,12 +11,14 @@ import (
 	"github.com/go-errors/errors"
 
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
+	"go.viam.com/core/grpc/client"
 	"go.viam.com/core/metadata/service"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
@@ -73,7 +75,7 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ctx := service.ContextWithService(context.Background(), metadataSvc)
 
-	r, err := robotimpl.New(ctx, cfg, logger)
+	r, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r.Close(), test.ShouldBeNil)
@@ -135,7 +137,7 @@ func TestConfigRemote(t *testing.T) {
 		},
 	}
 
-	r2, err := robotimpl.New(context.Background(), remoteConfig, logger)
+	r2, err := robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 
 	status, err := r2.Status(context.Background())
