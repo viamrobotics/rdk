@@ -32,6 +32,9 @@ func createWorkingMotor() *inject.Motor {
 	injectMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
 		return nil
 	}
+	injectMotor.SetToZeroPositionFunc = func(ctx context.Context, offset float64) error {
+		return nil
+	}
 	return injectMotor
 }
 
@@ -452,10 +455,10 @@ func TestGrab(t *testing.T) {
 }
 
 func TestProcessCurrentReading(t *testing.T) {
-	// MaxCurrent = 300
+	// MaxCurrent = 6.0
 	// CurrentBadReadingCounts = 50
 	t.Run("when current is too high but not too often yet", func(t *testing.T) {
-		current := maxCurrent + 10
+		current := maxCurrent + 1.0
 		injectedGripper := &gripperV2{
 			numBadCurrentReadings: currentBadReadingCounts - 2,
 		}
@@ -464,7 +467,7 @@ func TestProcessCurrentReading(t *testing.T) {
 	})
 
 	t.Run("return error when the current is too high for too long", func(t *testing.T) {
-		current := maxCurrent + 10
+		current := maxCurrent + 1.0
 		injectedGripper := &gripperV2{
 			numBadCurrentReadings: currentBadReadingCounts - 1,
 		}
@@ -473,7 +476,7 @@ func TestProcessCurrentReading(t *testing.T) {
 	})
 
 	t.Run("reset numBadCurrentReadings when current is in the healthy range", func(t *testing.T) {
-		current := 0
+		current := 0.0
 		injectedGripper := &gripperV2{
 			numBadCurrentReadings: currentBadReadingCounts - 5,
 		}
@@ -520,7 +523,7 @@ func TestStop(t *testing.T) {
 }
 
 func TestReadCurrent(t *testing.T) {
-	measuredCurrent := 10
+	measuredCurrent := 768
 	fakeCurrent := &inject.AnalogReader{}
 	fakeCurrent.ReadFunc = func(ctx context.Context) (int, error) {
 		return measuredCurrent, nil
@@ -530,7 +533,7 @@ func TestReadCurrent(t *testing.T) {
 	}
 	current, err := injectedGripper.readCurrent(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, current, test.ShouldEqual, measuredCurrent)
+	test.That(t, current, test.ShouldAlmostEqual, ((float64(measuredCurrent)*(3.3/1023))-1.12)/0.2)
 }
 
 func TestReadRobustAveragePressure(t *testing.T) {
@@ -669,9 +672,10 @@ func TestHasPressure(t *testing.T) {
 
 func TestAnalogs(t *testing.T) {
 	t.Run("no error when everything reads successfully", func(t *testing.T) {
+		rawCurrent := 256
 		fakeCurrent := &inject.AnalogReader{}
 		fakeCurrent.ReadFunc = func(ctx context.Context) (int, error) {
-			return 10, nil
+			return rawCurrent, nil
 		}
 		hasPressureThreshold := 4.
 		fakeForceMatrix := &inject.ForceMatrix{}
@@ -687,7 +691,7 @@ func TestAnalogs(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, hasPressure, test.ShouldBeTrue)
 		test.That(t, pressure, test.ShouldAlmostEqual, 5)
-		test.That(t, current, test.ShouldAlmostEqual, 10)
+		test.That(t, current, test.ShouldAlmostEqual, (((float64(rawCurrent) * (3.3 / 1023)) - 1.12) / 0.2))
 	})
 
 	t.Run("return error when reading the pressure went wrong", func(t *testing.T) {
