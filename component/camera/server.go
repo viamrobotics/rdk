@@ -13,12 +13,12 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
-	"go.viam.com/core/grpc"
 	"go.viam.com/core/pointcloud"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	pb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/subtype"
+	"go.viam.com/core/utils"
 	"go.viam.com/core/vision/segmentation"
 )
 
@@ -65,12 +65,12 @@ func (s *subtypeServer) Frame(ctx context.Context, req *pb.CameraServiceFrameReq
 	}()
 
 	// choose the best/fastest representation
-	if req.MimeType == grpc.MimeTypeViamBest {
+	if req.MimeType == utils.MimeTypeViamBest {
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if ok && iwd.Depth != nil && iwd.Color != nil {
-			req.MimeType = grpc.MimeTypeRawIWD
+			req.MimeType = utils.MimeTypeRawIWD
 		} else {
-			req.MimeType = grpc.MimeTypeRawRGBA
+			req.MimeType = utils.MimeTypeRawRGBA
 		}
 	}
 
@@ -83,41 +83,41 @@ func (s *subtypeServer) Frame(ctx context.Context, req *pb.CameraServiceFrameReq
 
 	var buf bytes.Buffer
 	switch req.MimeType {
-	case grpc.MimeTypeRawRGBA:
-		resp.MimeType = grpc.MimeTypeRawRGBA
+	case utils.MimeTypeRawRGBA:
+		resp.MimeType = utils.MimeTypeRawRGBA
 		imgCopy := image.NewRGBA(bounds)
 		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
 		buf.Write(imgCopy.Pix)
-	case grpc.MimeTypeRawIWD:
-		resp.MimeType = grpc.MimeTypeRawIWD
+	case utils.MimeTypeRawIWD:
+		resp.MimeType = utils.MimeTypeRawIWD
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if !ok {
-			return nil, errors.Errorf("want %s but don't have %T", grpc.MimeTypeRawIWD, iwd)
+			return nil, errors.Errorf("want %s but don't have %T", utils.MimeTypeRawIWD, iwd)
 		}
 		err := iwd.RawBytesWrite(&buf)
 		if err != nil {
-			return nil, fmt.Errorf("error writing %s: %w", grpc.MimeTypeRawIWD, err)
+			return nil, fmt.Errorf("error writing %s: %w", utils.MimeTypeRawIWD, err)
 		}
 
-	case grpc.MimeTypeBoth:
-		resp.MimeType = grpc.MimeTypeBoth
+	case utils.MimeTypeBoth:
+		resp.MimeType = utils.MimeTypeBoth
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if !ok {
-			return nil, errors.Errorf("want %s but don't have %T", grpc.MimeTypeBoth, iwd)
+			return nil, errors.Errorf("want %s but don't have %T", utils.MimeTypeBoth, iwd)
 		}
 		if iwd.Color == nil || iwd.Depth == nil {
-			return nil, errors.Errorf("for %s need depth and color info", grpc.MimeTypeBoth)
+			return nil, errors.Errorf("for %s need depth and color info", utils.MimeTypeBoth)
 		}
 		if err := rimage.EncodeBoth(iwd, &buf); err != nil {
 			return nil, err
 		}
-	case grpc.MimeTypeJPEG:
-		resp.MimeType = grpc.MimeTypeJPEG
+	case utils.MimeTypeJPEG:
+		resp.MimeType = utils.MimeTypeJPEG
 		if err := jpeg.Encode(&buf, img, nil); err != nil {
 			return nil, err
 		}
-	case "", grpc.MimeTypePNG:
-		resp.MimeType = grpc.MimeTypePNG
+	case "", utils.MimeTypePNG:
+		resp.MimeType = utils.MimeTypePNG
 		if err := png.Encode(&buf, img); err != nil {
 			return nil, err
 		}
@@ -162,7 +162,7 @@ func (s *subtypeServer) PointCloud(ctx context.Context, req *pb.CameraServicePoi
 	}
 
 	return &pb.CameraServicePointCloudResponse{
-		MimeType: grpc.MimeTypePCD,
+		MimeType: utils.MimeTypePCD,
 		Frame:    buf.Bytes(),
 	}, nil
 }
@@ -204,7 +204,7 @@ func (s *subtypeServer) ObjectPointClouds(ctx context.Context, req *pb.CameraSer
 	}
 
 	return &pb.CameraServiceObjectPointCloudsResponse{
-		MimeType:      grpc.MimeTypePCD,
+		MimeType:      utils.MimeTypePCD,
 		Frames:        frames,
 		Centers:       pointsToProto(centers),
 		BoundingBoxes: boxesToProto(boundingBoxes),

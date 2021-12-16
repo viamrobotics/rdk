@@ -14,9 +14,7 @@ import (
 
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/rpc/dialer"
-
-	rpcclient "go.viam.com/utils/rpc/client"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -54,7 +52,7 @@ var errUnimplemented = errors.New("unimplemented")
 // client conforming to the robot.proto contract.
 type RobotClient struct {
 	address        string
-	conn           dialer.ClientConn
+	conn           rpc.ClientConn
 	client         pb.RobotServiceClient
 	metadataClient *metadataclient.MetadataServiceClient
 
@@ -81,31 +79,28 @@ type RobotClient struct {
 	closeContext context.Context
 }
 
-// RobotClientOptions are extra construction time options.
-type RobotClientOptions struct {
-	// RefreshEvery is how often to refresh the status/parts of the
-	// robot. If unset, it will not be refreshed automatically.
-	RefreshEvery time.Duration
-
-	// DialOptions are options using for clients dialing gRPC servers.
-	DialOptions rpcclient.DialOptions
+type boardInfo struct {
+	name                  string
+	spiNames              []string
+	i2cNames              []string
+	analogReaderNames     []string
+	digitalInterruptNames []string
 }
 
-// NewClientWithOptions constructs a new RobotClient that is served at the given address. The given
-// context can be used to cancel the operation. Additionally, construction time options can be given.
-func NewClientWithOptions(ctx context.Context, address string, opts RobotClientOptions, logger golog.Logger) (*RobotClient, error) {
-	conn, err := grpc.Dial(ctx, address, opts.DialOptions, logger)
+// New constructs a new RobotClient that is served at the given address. The given
+// context can be used to cancel the operation.
+func New(ctx context.Context, address string, logger golog.Logger, opts ...RobotClientOption) (*RobotClient, error) {
+	var rOpts robotClientOpts
+	for _, opt := range opts {
+		opt.apply(&rOpts)
+	}
+
+	conn, err := grpc.Dial(ctx, address, logger, rOpts.dialOptions...)
 	if err != nil {
 		return nil, err
 	}
 
-	metadataClient, err := metadataclient.NewClient(
-		ctx,
-		address,
-		// TODO(https://github.com/viamrobotics/core/issues/237): configurable
-		rpcclient.DialOptions{Insecure: true},
-		logger,
-	)
+	metadataClient, err := metadataclient.New(ctx, address, logger, rOpts.dialOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -129,33 +124,14 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 	if err := rc.Refresh(ctx); err != nil {
 		return nil, err
 	}
-	if opts.RefreshEvery != 0 {
+	if rOpts.refreshEvery != 0 {
 		rc.cachingStatus = true
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
-			rc.RefreshEvery(closeCtx, opts.RefreshEvery)
+			rc.RefreshEvery(closeCtx, rOpts.refreshEvery)
 		}, rc.activeBackgroundWorkers.Done)
 	}
 	return rc, nil
-}
-
-type boardInfo struct {
-	name                  string
-	spiNames              []string
-	i2cNames              []string
-	analogReaderNames     []string
-	digitalInterruptNames []string
-}
-
-// NewClient constructs a new RobotClient that is served at the given address. The given
-// context can be used to cancel the operation.
-func NewClient(ctx context.Context, address string, logger golog.Logger) (*RobotClient, error) {
-	return NewClientWithOptions(ctx, address, RobotClientOptions{
-		DialOptions: rpcclient.DialOptions{
-			// TODO(https://github.com/viamrobotics/core/issues/237): configurable
-			Insecure: true,
-		},
-	}, logger)
 }
 
 // Close cleanly closes the underlying connections and stops the refresh goroutine

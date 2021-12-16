@@ -9,8 +9,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 	"github.com/mitchellh/copystructure"
-	"go.viam.com/utils/rpc/dialer"
-	rpcserver "go.viam.com/utils/rpc/server"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -198,11 +197,11 @@ type (
 	CreateReconfigurable func(resource interface{}) (resource.Reconfigurable, error)
 
 	// A RegisterSubtypeRPCService will register the subtype service to the grpc server
-	RegisterSubtypeRPCService func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error
+	RegisterSubtypeRPCService func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error
 
 	// A CreateRPCClient will create the client for the resource.
 	// TODO: Remove as part of #227
-	CreateRPCClient func(conn dialer.ClientConn, name string, logger golog.Logger) interface{}
+	CreateRPCClient func(conn rpc.ClientConn, name string, logger golog.Logger) interface{}
 )
 
 // Component stores a resource constructor (mandatory) and a Frame building function (optional)
