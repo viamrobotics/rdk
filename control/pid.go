@@ -6,57 +6,82 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 )
 
+func newPID(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+	p := &basicPID{cfg: config}
+	err := p.reset()
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
 // BasicPID is the standard implementation of a PID controller
 type basicPID struct {
-	mu     sync.Mutex
-	cfg    ControlBlockConfig
-	error  float64
-	Ki     float64
-	Kd     float64
-	Kp     float64
-	int    float64
-	sat    int
-	y      []Signal
-	satLim float64
-	lim    float64
+	mu       sync.Mutex
+	cfg      ControlBlockConfig
+	error    float64
+	Ki       float64
+	Kd       float64
+	Kp       float64
+	int      float64
+	sat      int
+	y        []Signal
+	satLimUp float64
+	limUp    float64
+	satLimLo float64
+	limLo    float64
+	tuner    pidTuner
+	tuning   bool
 }
 
 // Output returns the discrete step of the PID controller, dt is the delta time between two subsequent call, setPoint is the desired value, measured is the measured value. Returns false when the output is invalid (the integral is saturating) in this case continue to use the last valid value
 func (p *basicPID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	dtS := dt.Seconds()
-	error := x[0].signal[0]
-	if (p.sat > 0 && error > 0) || (p.sat < 0 && error < 0) {
-		return p.y, false
-	}
-	p.int += p.Ki * p.error * dtS
-	if p.int > p.satLim {
-		p.int = p.satLim
-		p.sat = 1
-	} else if p.int < 0 {
-		p.int = 0
-		p.sat = -1
+	if p.tuning {
+		out, done := p.tuner.pidTunerStep(x[0].signal[0], dt)
+		if done == true {
+			p.Kd = p.tuner.Kd
+			p.Ki = p.tuner.Ki
+			p.Kp = p.tuner.Kp
+			p.tuning = false
+		}
+		p.y[0].signal[0] = out
 	} else {
-		p.sat = 0
+		dtS := dt.Seconds()
+		error := x[0].signal[0]
+		if (p.sat > 0 && error > 0) || (p.sat < 0 && error < 0) {
+			return p.y, false
+		}
+		p.int += p.Ki * p.error * dtS
+		if p.int > p.satLimUp {
+			p.int = p.satLimUp
+			p.sat = 1
+		} else if p.int < p.satLimLo {
+			p.int = p.limLo
+			p.sat = -1
+		} else {
+			p.sat = 0
+		}
+		deriv := (error - p.error) / dtS
+		output := p.Kp*error + p.int + p.Kd*deriv
+		p.error = error
+		if output > p.limUp {
+			output = p.limUp
+		} else if output < p.limLo {
+			output = p.limLo
+		}
+		p.y[0].signal[0] = output
 	}
-	deriv := (error - p.error) / dtS
-	output := p.Kp*error + p.int + p.Kd*deriv
-	p.error = error
-	if output > p.lim {
-		output = p.lim
-	} else if output < 0 {
-		output = 0
-	}
-	p.y[0].signal[0] = output
 	return p.y, true
 
 }
 
-func (p *basicPID) reset(ctx context.Context) error {
+func (p *basicPID) reset() error {
 	p.int = 0
 	p.error = 0
 	p.sat = 0
@@ -72,8 +97,25 @@ func (p *basicPID) reset(ctx context.Context) error {
 	p.Ki = p.cfg.Attribute.Float64("Ki", 0.0)
 	p.Kd = p.cfg.Attribute.Float64("Kd", 0.0)
 	p.Kp = p.cfg.Attribute.Float64("Kp", 0.0)
-	p.satLim = p.cfg.Attribute.Float64("IntSatLim", 255.0)
-	p.lim = p.cfg.Attribute.Float64("Limit", 255.0)
+	p.satLimUp = p.cfg.Attribute.Float64("IntSatLimUp", 255.0)
+	p.limUp = p.cfg.Attribute.Float64("LimitUp", 255.0)
+	p.satLimLo = p.cfg.Attribute.Float64("IntSatLimLo", 0)
+	p.limLo = p.cfg.Attribute.Float64("LimitLo", 0)
+	p.tuning = false
+	if p.Ki == 0.0 && p.Kd == 0.0 && p.Kp == 0.0 {
+		p.tuner = pidTuner{
+			limUp:      p.limUp,
+			limLo:      p.limLo,
+			ssRValue:   p.cfg.Attribute.Float64("TunessRValue", 2.0),
+			tuneMethod: tuneCalcMethod(p.cfg.Attribute.String("TuneMethod")),
+			stepPct:    p.cfg.Attribute.Float64("TuneStepPct", 0.35),
+		}
+		p.tuner.reset()
+		if p.tuner.stepPct > 1 || p.tuner.stepPct < 0 {
+			return errors.Errorf("tuner pid block %s should have a percentage value between 0-1 for TuneStepPct", p.cfg.Name)
+		}
+		p.tuning = true
+	}
 	p.y = make([]Signal, 1)
 	p.y[0] = makeSignal(p.cfg.Name, 1)
 	return nil
@@ -82,20 +124,20 @@ func (p *basicPID) reset(ctx context.Context) error {
 func (p *basicPID) Reset(ctx context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return p.reset(ctx)
+	return p.reset()
 }
 
 func (p *basicPID) Configure(ctx context.Context, config ControlBlockConfig) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.cfg = config
-	return p.reset(ctx)
+	return p.reset()
 }
 func (p *basicPID) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.cfg = config
-	return p.reset(ctx)
+	return p.reset()
 }
 
 func (p *basicPID) Output(ctx context.Context) []Signal {
@@ -126,15 +168,10 @@ const (
 	end
 )
 
-type tunePID struct {
-	mu           sync.Mutex
-	cfg          ControlBlockConfig
-	error        float64
+type pidTuner struct {
 	Ki           float64
 	Kd           float64
 	Kp           float64
-	int          float64
-	y            []Signal
 	currentPhase int
 	stepRsp      []float64
 	stepRespT    []time.Time
@@ -155,9 +192,10 @@ type tunePID struct {
 	limLo        float64
 	ssRValue     float64
 	ccT2         time.Duration
+	out          float64
 }
 
-func (p *tunePID) computeGains() {
+func (p *pidTuner) computeGains() {
 	stepPwr := p.limUp * p.stepPct
 	i := 0
 	a := 0.0
@@ -218,11 +256,7 @@ func (p *tunePID) computeGains() {
 }
 
 // Output returns the discrete step of the PID controller, dt is the delta time between two subsequent call, setPoint is the desired value, measured is the measured value. Returns false when the output is invalid (the integral is saturating) in this case continue to use the last valid value
-func (p *tunePID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	pv := x[0].signal[0]
+func (p *pidTuner) pidTunerStep(pv float64, dt time.Duration) (float64, bool) {
 	l1 := 0.2
 	l2 := 0.1
 	l3 := 0.1
@@ -230,9 +264,9 @@ func (p *tunePID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Sig
 	switch p.currentPhase {
 	case begin:
 		p.currentPhase = step
-		p.y[0].signal[0] = stepPwr // Apply a Step Response
 		p.tS = time.Now()
-		return p.y, true
+		p.out = stepPwr
+		return p.out, false
 	case step:
 		p.vF = l2*math.Pow(pv-p.xF, 2.0) + (1-l1)*p.vF
 		p.dF = l3*(math.Pow(pv-p.pPv, 2.0)) + (1-l3)*p.dF
@@ -243,11 +277,11 @@ func (p *tunePID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Sig
 		p.stepRespT = append(p.stepRespT, time.Now())
 		if len(p.stepRsp) > 20 && r < p.ssRValue {
 			if p.tuneMethod == tuneMethodCohenCoonsPI || p.tuneMethod == tuneMethodCohenCoonsPID {
-				p.y[0].signal[0] = 0.0
+				p.out = 0.0
 				p.computeGains()
 				p.currentPhase = end
 			} else {
-				p.y[0].signal[0] = stepPwr + 0.5*stepPwr
+				p.out = stepPwr + 0.5*stepPwr
 				p.currentPhase = relay
 			}
 			p.tS = time.Now()
@@ -268,14 +302,15 @@ func (p *tunePID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Sig
 			}
 			p.pFindDir = 1
 		}
+		return p.out, false
 	case relay:
 		if time.Now().Sub(p.lastR) > p.tC {
 			p.lastR = time.Now()
-			if p.y[0].signal[0] > stepPwr {
-				p.y[0].signal[0] -= stepPwr
+			if p.out > stepPwr {
+				p.out -= stepPwr
 				p.pFindDir = 1
 			} else {
-				p.y[0].signal[0] += stepPwr
+				p.out += stepPwr
 				p.pFindDir = -1
 			}
 		}
@@ -289,66 +324,22 @@ func (p *tunePID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Sig
 		}
 		p.pPv = pv
 		if time.Now().Sub(p.tS) > time.Duration(4*time.Second) {
-			p.y[0].signal[0] = 0
+			p.out = 0
 			p.computeGains()
 			p.currentPhase = end
 		}
+		return p.out, false
+	case end:
+		return 0.0, true
+	default:
+		return 0.0, false
 	}
-	return p.y, true
-
 }
 
-func (p *tunePID) reset(ctx context.Context) error {
-	p.int = 0
-	p.error = 0
-
-	if !p.cfg.Attribute.Has("Ki") &&
-		!p.cfg.Attribute.Has("Kd") &&
-		!p.cfg.Attribute.Has("Kp") {
-		return errors.Errorf("pid block %s should have at least one Ki, Kp or Kd field", p.cfg.Name)
-	}
-	if len(p.cfg.DependsOn) != 1 {
-		return errors.Errorf("pid block %s should have 1 input got %d", p.cfg.Name, len(p.cfg.DependsOn))
-	}
-	p.Ki = p.cfg.Attribute.Float64("Ki", 0.0)
-	p.Kd = p.cfg.Attribute.Float64("Kd", 0.0)
-	p.Kp = p.cfg.Attribute.Float64("Kp", 0.0)
-	p.limUp = p.cfg.Attribute.Float64("LimUp", 255.0)
-	p.limLo = p.cfg.Attribute.Float64("LimLo", 0.0)
-	p.ssRValue = p.cfg.Attribute.Float64("ssRValue", 2.0)
-	p.tuneMethod = tuneCalcMethod(p.cfg.Attribute.String("TuneMethod"))
-	p.stepPct = p.cfg.Attribute.Float64("StepPct", 0.35)
-	if p.stepPct > 1 || p.stepPct < 0 {
-		return errors.Errorf("tune pid block %s should have a percentage value between 0-1 for StepPct", p.cfg.Name)
-	}
-	p.y = make([]Signal, 1)
-	p.y[0] = makeSignal(p.cfg.Name, 1)
+func (p *pidTuner) reset() error {
+	p.out = 0.0
+	p.Ki = 0.0
+	p.Kd = 0.0
+	p.Kp = 0.0
 	return nil
-}
-
-func (p *tunePID) Reset(ctx context.Context) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.reset(ctx)
-}
-
-func (p *tunePID) Configure(ctx context.Context, config ControlBlockConfig) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.cfg = config
-	return p.reset(ctx)
-}
-func (p *tunePID) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.cfg = config
-	return p.reset(ctx)
-}
-
-func (p *tunePID) Output(ctx context.Context) []Signal {
-	return p.y
-}
-
-func (p *tunePID) Config(ctx context.Context) ControlBlockConfig {
-	return p.cfg
 }

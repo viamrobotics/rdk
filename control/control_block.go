@@ -17,7 +17,6 @@ const (
 	blockFilter                      controlBlockType = "Filter"
 	blockTrapezoidaleVelocityProfile controlBlockType = "TrapezoidalVelocityProfile"
 	blockPID                         controlBlockType = "PID"
-	blockTunePID                     controlBlockType = "TunePID"
 	blockGain                        controlBlockType = "Gain"
 	blockDerivative                  controlBlockType = "Derivative"
 	blockSum                         controlBlockType = "Sum"
@@ -88,19 +87,11 @@ func createControlBlock(ctx context.Context, cfg ControlBlockConfig, logger golo
 		}
 		return b, nil
 	case blockPID:
-		var b basicPID
-		err := b.Configure(ctx, cfg)
+		b, err := newPID(cfg, logger)
 		if err != nil {
 			return nil, err
 		}
-		return &b, nil
-	case blockTunePID:
-		var b tunePID
-		err := b.Configure(ctx, cfg)
-		if err != nil {
-			return nil, err
-		}
-		return &b, nil
+		return b, nil
 	case blockFilter:
 		b, err := newFilter(cfg, logger)
 		if err != nil {
