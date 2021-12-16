@@ -16,6 +16,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/config"
+	"go.viam.com/core/grpc/client"
 	"go.viam.com/core/metadata/service"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
@@ -319,7 +320,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		return err
 	}
 	ctx = service.ContextWithService(ctx, metadataSvc)
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
 	if err != nil {
 		return err
 	}
