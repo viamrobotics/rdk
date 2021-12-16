@@ -40,7 +40,7 @@ func TestWebStart(t *testing.T) {
 
 	// make sure we get something back
 	test.That(t, err, test.ShouldBeNil)
-	client, err := client.New(context.Background(), "localhost:8080", logger)
+	client, err := client.New(context.Background(), "localhost:8080", logger, client.WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, client.ResourceNames(), test.ShouldResemble, resources)
 
@@ -76,7 +76,7 @@ func TestWebStartOptions(t *testing.T) {
 
 	// make sure we get something back
 	test.That(t, err, test.ShouldBeNil)
-	client, err := client.New(context.Background(), addr, logger)
+	client, err := client.New(context.Background(), addr, logger, client.WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, client.ResourceNames(), test.ShouldResemble, resources)
 
