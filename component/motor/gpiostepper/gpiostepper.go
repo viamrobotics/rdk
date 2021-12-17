@@ -267,9 +267,7 @@ func (m *gpioStepper) GoTillStop(ctx context.Context, rpm float64, stopFunc func
 		if stopFunc != nil && stopFunc(ctx) {
 			return nil
 		}
-
 	}
-	return nil
 }
 
 // Set the current position (+/- offset) to be the new zero (home) position.
