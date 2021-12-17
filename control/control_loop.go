@@ -244,6 +244,35 @@ func (c *ControlLoop) Start(ctx context.Context) error {
 	<-waitCh
 	return nil
 }
+func (c *ControlLoop) StartBenchmark(ctx context.Context, loops int) error {
+	if len(c.ts) == 0 {
+		return errors.New("cannot start the control loop if there are no blocks depending on an impulse")
+	}
+	waitCh := make(chan struct{})
+	c.activeBackgroundWorkers.Add(1)
+	utils.ManagedGo(func() {
+		ctx := ctx
+		ts := c.ts
+		close(waitCh)
+		for i := 0; i < loops; i++ {
+			if ctx.Err() != nil {
+				for _, c := range ts {
+					close(c)
+				}
+				return
+			}
+			for _, c := range ts {
+				c <- time.Now()
+			}
+		}
+		for _, c := range ts {
+			close(c)
+		}
+		return
+	}, c.activeBackgroundWorkers.Done)
+	<-waitCh
+	return nil
+}
 
 //Stop stops then loop
 func (c *ControlLoop) Stop(ctx context.Context) error {
