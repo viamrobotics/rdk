@@ -219,15 +219,15 @@ func TestMotorEncoderHall(t *testing.T) {
 	undo := SetRPMSleepDebug(1, false)
 	defer undo()
 
-	// TODO(erd): test harness
-	setup := func(t *testing.T) (
-		*board.HallEncoder,
-		board.DigitalInterrupt,
-		board.DigitalInterrupt,
-		*fakemotor.Motor,
-		motor.Motor,
-		func(),
-	) {
+	type testHarness struct {
+		Encoder   *board.HallEncoder
+		EncoderA  board.DigitalInterrupt
+		EncoderB  board.DigitalInterrupt
+		RealMotor *fakemotor.Motor
+		Motor     motor.Motor
+		Teardown  func()
+	}
+	setup := func(t *testing.T) testHarness {
 		cfg := motor.Config{TicksPerRotation: 100}
 		real := &fakemotor.Motor{}
 		encoderA := &board.BasicDigitalInterrupt{}
@@ -245,12 +245,23 @@ func TestMotorEncoderHall(t *testing.T) {
 			test.That(t, pos, test.ShouldEqual, 0)
 		})
 
-		return encoder, encoderA, encoderB, real, motor, func() { test.That(t, motor.Close(), test.ShouldBeNil) }
+		return testHarness{
+			encoder,
+			encoderA,
+			encoderB,
+			real,
+			motor,
+			func() { test.That(t, motor.Close(), test.ShouldBeNil) },
+		}
 	}
 
 	t.Run("motor encoder no motion", func(t *testing.T) {
-		encoder, _, encoderB, _, _, teardown := setup(t)
-		defer teardown()
+		th := setup(t)
+		defer th.Teardown()
+
+		encoder := th.Encoder
+		encoderB := th.EncoderB
+
 		test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // bounce, we should do nothing
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			pos := encoder.RawPosition()
@@ -259,8 +270,13 @@ func TestMotorEncoderHall(t *testing.T) {
 	})
 
 	t.Run("motor encoder move forward", func(t *testing.T) {
-		encoder, encoderA, encoderB, _, _, teardown := setup(t)
-		defer teardown()
+		th := setup(t)
+		defer th.Teardown()
+
+		encoder := th.Encoder
+		encoderA := th.EncoderA
+		encoderB := th.EncoderB
+
 		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // this should do nothing because it's the initial state
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			pos := encoder.RawPosition()
@@ -293,8 +309,13 @@ func TestMotorEncoderHall(t *testing.T) {
 	})
 
 	t.Run("motor encoder move backward", func(t *testing.T) {
-		encoder, encoderA, encoderB, _, _, teardown := setup(t)
-		defer teardown()
+		th := setup(t)
+		defer th.Teardown()
+
+		encoder := th.Encoder
+		encoderA := th.EncoderA
+		encoderB := th.EncoderB
+
 		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // this should do nothing because it's the initial state
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			pos := encoder.RawPosition()
@@ -351,10 +372,15 @@ func TestMotorEncoderHall(t *testing.T) {
 	})
 
 	t.Run("motor encoder test GoFor (forward)", func(t *testing.T) {
-		_, encoderA, encoderB, realMotor, motor, teardown := setup(t)
-		defer teardown()
+		th := setup(t)
+		defer th.Teardown()
 		undo := SetRPMSleepDebug(1, false)
 		defer undo()
+
+		encoderA := th.EncoderA
+		encoderB := th.EncoderB
+		realMotor := th.RealMotor
+		motor := th.Motor
 
 		err := motor.GoFor(context.Background(), 100, 1)
 		test.That(t, err, test.ShouldBeNil)
@@ -382,10 +408,15 @@ func TestMotorEncoderHall(t *testing.T) {
 	})
 
 	t.Run("motor encoder test GoFor (backwards)", func(t *testing.T) {
-		_, encoderA, encoderB, realMotor, motor, teardown := setup(t)
-		defer teardown()
+		th := setup(t)
+		defer th.Teardown()
 		undo := SetRPMSleepDebug(1, false)
 		defer undo()
+
+		encoderA := th.EncoderA
+		encoderB := th.EncoderB
+		realMotor := th.RealMotor
+		motor := th.Motor
 
 		err := motor.GoFor(context.Background(), 100, -1)
 		test.That(t, err, test.ShouldBeNil)
