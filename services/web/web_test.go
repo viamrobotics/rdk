@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"
@@ -19,8 +20,6 @@ import (
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/testutils/inject"
-
-	rpcclient "go.viam.com/utils/rpc/client"
 
 	_ "go.viam.com/core/component/arm/register"
 )
@@ -41,7 +40,7 @@ func TestWebStart(t *testing.T) {
 
 	// make sure we get something back
 	test.That(t, err, test.ShouldBeNil)
-	client, err := client.NewClient(context.Background(), "localhost:8080", logger)
+	client, err := client.New(context.Background(), "localhost:8080", logger, client.WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, client.ResourceNames(), test.ShouldResemble, resources)
 
@@ -77,7 +76,7 @@ func TestWebStartOptions(t *testing.T) {
 
 	// make sure we get something back
 	test.That(t, err, test.ShouldBeNil)
-	client, err := client.NewClient(context.Background(), addr, logger)
+	client, err := client.New(context.Background(), addr, logger, client.WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, client.ResourceNames(), test.ShouldResemble, resources)
 
@@ -102,7 +101,7 @@ func TestWebUpdate(t *testing.T) {
 	// make sure we get something back
 	addr := "localhost:8080"
 	arm1 := "arm1"
-	c, err := client.NewClient(context.Background(), addr, logger)
+	c, err := client.New(context.Background(), addr, logger, client.WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
 
@@ -117,7 +116,7 @@ func TestWebUpdate(t *testing.T) {
 	err = updateable.Update(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
 
-	conn, err := grpc.Dial(context.Background(), addr, rpcclient.DialOptions{Insecure: true}, logger)
+	conn, err := grpc.Dial(context.Background(), addr, logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 	aClient := arm.NewClientFromConn(conn, arm1, logger)
 	position, err := aClient.CurrentPosition(context.Background())
@@ -142,10 +141,10 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc2.(*webService).cancelFunc, test.ShouldNotBeNil)
 
-	c2, err := client.NewClient(context.Background(), addr, logger)
+	c2, err := client.New(context.Background(), addr, logger, client.WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, c2.ResourceNames(), test.ShouldResemble, resources)
-	conn, err = grpc.Dial(context.Background(), addr, rpcclient.DialOptions{Insecure: true}, logger)
+	conn, err = grpc.Dial(context.Background(), addr, logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 	aClient2 := arm.NewClientFromConn(conn, arm1, logger)
 	test.That(t, err, test.ShouldBeNil)

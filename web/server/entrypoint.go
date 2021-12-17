@@ -13,9 +13,10 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/utils"
-	"go.viam.com/utils/rpc/dialer"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/config"
+	"go.viam.com/core/grpc/client"
 	"go.viam.com/core/metadata/service"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
@@ -308,18 +309,18 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, logger golog.Logger) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	rpcDialer := dialer.NewCachedDialer()
+	rpcDialer := rpc.NewCachedDialer()
 	defer func() {
 		err = multierr.Combine(err, rpcDialer.Close())
 	}()
-	ctx = dialer.ContextWithDialer(ctx, rpcDialer)
+	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
 
 	metadataSvc, err := service.New()
 	if err != nil {
 		return err
 	}
 	ctx = service.ContextWithService(ctx, metadataSvc)
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
 	if err != nil {
 		return err
 	}
