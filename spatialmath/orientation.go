@@ -24,3 +24,8 @@ func OrientationBetween(o1, o2 Orientation) Orientation {
 	q := quaternion(quat.Mul(o2.Quaternion(), quat.Conj(o1.Quaternion())))
 	return &q
 }
+
+func Inverse(o Orientation) Orientation {
+	q := quaternion(quat.Inv(o.Quaternion()))
+	return &q
+}
