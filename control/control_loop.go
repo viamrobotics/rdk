@@ -81,26 +81,31 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 	for _, b := range c.blocks {
 		if len(b.blk.Config(ctx).DependsOn) == 0 || b.blk.Config(ctx).Type == blockEndpoint {
 			waitCh := make(chan struct{})
-			c.ts = append(c.ts, make(chan time.Time))
+			c.ts = append(c.ts, make(chan time.Time, 1))
 			c.activeBackgroundWorkers.Add(1)
 			utils.ManagedGo(func() {
 				t := c.ts[len(c.ts)-1]
 				b := b
 				ctx := ctx
 				close(waitCh)
-				for range t {
-					//logger.Debugf("Impulse on BLOCK %s %+v \r\n", b.blk.Config(ctx).Name, d)
-					v, _ := b.blk.Next(ctx, nil, c.dt)
-					for _, out := range b.outs {
-						out <- v
+				for {
+					select {
+					case _, ok := <-t:
+						if !ok {
+							b.mu.Lock()
+							defer b.mu.Unlock()
+							for _, out := range b.outs {
+								close(out)
+							}
+							b.outs = nil
+							return
+						}
+						v, _ := b.blk.Next(ctx, nil, c.dt)
+						for _, out := range b.outs {
+							out <- v
+						}
 					}
 				}
-				b.mu.Lock()
-				defer b.mu.Unlock()
-				for _, out := range b.outs {
-					close(out)
-				}
-				b.outs = nil
 			}, c.activeBackgroundWorkers.Done)
 			<-waitCh
 		}
@@ -110,7 +115,6 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 			utils.ManagedGo(func() {
 				b := b
 				nInputs := len(b.ins)
-				i := 0
 				ctx := ctx
 				cases := make([]reflect.SelectCase, nInputs)
 				for i, ch := range b.ins {
@@ -119,36 +123,33 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 				sw := make([]Signal, nInputs)
 				close(waitCh)
 				for {
-					ci, s, _ := reflect.Select(cases)
-					//logger.Debugf("Running Block %s %+v %+v OK : %+v\r\n", b.blk.Config(ctx).Name, s.IsZero(), s, ok)
-					if s.IsZero() {
-						b.mu.Lock()
-						for _, out := range b.outs {
-							close(out)
-						}
-						//logger.Debugf("Closing outs for block %s %+v\r\n", b.blk.Config(ctx).Name, s.Interface().([]Signal))
-						b.outs = nil
-						b.mu.Unlock()
-						return
-					}
-					unwraped := s.Interface().([]Signal)
-					if len(unwraped) == 1 {
-						sw[ci] = unwraped[0]
-					} else {
-						sw = append(sw, unwraped...)
-					}
-					i++
-					if i == nInputs {
-						v, ok := b.blk.Next(ctx, sw, c.dt)
-						//logger.Debugf("Have signals for Block %s ins %+v returned %v ok %v\r\n", b.blk.Config(ctx).Name, sw, v, ok)
-						if ok {
-							for _, out := range b.outs {
-								out <- v
+					for i, c := range b.ins {
+						select {
+						case r, ok := <-c:
+							if !ok {
+								b.mu.Lock()
+								for _, out := range b.outs {
+									close(out)
+								}
+								//logger.Debugf("Closing outs for block %s %+v\r\n", b.blk.Config(ctx).Name, r)
+								b.outs = nil
+								b.mu.Unlock()
+								return
+							}
+							if len(r) == 1 {
+								sw[i] = r[0]
+							} else {
+								sw = append(sw, r...)
 							}
 						}
-						i = 0
-						sw = make([]Signal, nInputs)
 					}
+					v, ok := b.blk.Next(ctx, sw, c.dt)
+					if ok {
+						for _, out := range b.outs {
+							out <- v
+						}
+					}
+					sw = make([]Signal, nInputs)
 				}
 			}, c.activeBackgroundWorkers.Done)
 			<-waitCh
