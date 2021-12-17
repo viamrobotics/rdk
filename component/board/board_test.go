@@ -50,6 +50,7 @@ func TestBoardName(t *testing.T) {
 
 var (
 	mockStatus *pb.BoardStatus
+	mockGPIO   bool
 )
 
 func TestWrapWithReconfigurable(t *testing.T) {
@@ -90,6 +91,47 @@ func TestReconfigurableBoard(t *testing.T) {
 	err = fakeBoard1.(*reconfigurableBoard).Reconfigure(nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new board")
+}
+
+func TestGPIOSet(t *testing.T) {
+	actualBoard := &mock{Name: "board1"}
+	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
+
+	test.That(t, actualBoard.gpioSetCalls, test.ShouldEqual, 0)
+	err := fakeBoard.(*reconfigurableBoard).GPIOSet(context.Background(), "", false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, actualBoard.gpioSetCalls, test.ShouldEqual, 1)
+}
+
+func TestGPIOGet(t *testing.T) {
+	actualBoard := &mock{Name: "board1"}
+	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
+
+	test.That(t, actualBoard.gpioGetCalls, test.ShouldEqual, 0)
+	result, err := fakeBoard.(*reconfigurableBoard).GPIOGet(context.Background(), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, mockGPIO)
+	test.That(t, actualBoard.gpioGetCalls, test.ShouldEqual, 1)
+}
+
+func TestPWMSet(t *testing.T) {
+	actualBoard := &mock{Name: "board1"}
+	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
+
+	test.That(t, actualBoard.pwmSetCalls, test.ShouldEqual, 0)
+	err := fakeBoard.(*reconfigurableBoard).PWMSet(context.Background(), "", 0)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, actualBoard.pwmSetCalls, test.ShouldEqual, 1)
+}
+
+func TestPWMSetFreq(t *testing.T) {
+	actualBoard := &mock{Name: "board1"}
+	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
+
+	test.That(t, actualBoard.pwmSetFreqCalls, test.ShouldEqual, 0)
+	err := fakeBoard.(*reconfigurableBoard).PWMSetFreq(context.Background(), "", 0)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, actualBoard.pwmSetFreqCalls, test.ShouldEqual, 1)
 }
 
 func TestStatus(t *testing.T) {
@@ -153,9 +195,13 @@ func TestDigitalInterrupts(t *testing.T) {
 
 type mock struct {
 	Board
-	Name        string
-	reconfCalls int
-	statusCalls int
+	Name            string
+	reconfCalls     int
+	gpioSetCalls    int
+	gpioGetCalls    int
+	pwmSetCalls     int
+	pwmSetFreqCalls int
+	statusCalls     int
 }
 
 func (m *mock) SPINames() []string {
@@ -189,6 +235,26 @@ func (m *mock) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
 
 func (m *mock) ModelAttributes() ModelAttributes {
 	return ModelAttributes{Remote: true}
+}
+
+func (m *mock) GPIOSet(ctx context.Context, pin string, high bool) error {
+	m.gpioSetCalls++
+	return nil
+}
+
+func (m *mock) GPIOGet(ctx context.Context, pin string) (bool, error) {
+	m.gpioGetCalls++
+	return mockGPIO, nil
+}
+
+func (m *mock) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
+	m.pwmSetCalls++
+	return nil
+}
+
+func (m *mock) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
+	m.pwmSetFreqCalls++
+	return nil
 }
 
 func (m *mock) Status(ctx context.Context) (*pb.BoardStatus, error) {
