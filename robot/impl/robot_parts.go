@@ -31,27 +31,29 @@ import (
 
 // robotParts are the actual parts that make up a robot.
 type robotParts struct {
-	remotes        map[string]*remoteRobot
-	boards         map[string]*proxyBoard
-	bases          map[string]*proxyBase
-	sensors        map[string]sensor.Sensor
-	services       map[string]interface{}
-	functions      map[string]struct{}
-	resources      map[resource.Name]interface{}
-	processManager pexec.ProcessManager
+	remotes         map[string]*remoteRobot
+	boards          map[string]*proxyBoard
+	bases           map[string]*proxyBase
+	sensors         map[string]sensor.Sensor
+	services        map[string]interface{}
+	functions       map[string]struct{}
+	resources       map[resource.Name]interface{}
+	processManager  pexec.ProcessManager
+	robotClientOpts []client.RobotClientOption
 }
 
 // newRobotParts returns a properly initialized set of parts.
-func newRobotParts(logger golog.Logger) *robotParts {
+func newRobotParts(logger golog.Logger, opts ...client.RobotClientOption) *robotParts {
 	return &robotParts{
-		remotes:        map[string]*remoteRobot{},
-		boards:         map[string]*proxyBoard{},
-		bases:          map[string]*proxyBase{},
-		sensors:        map[string]sensor.Sensor{},
-		services:       map[string]interface{}{},
-		functions:      map[string]struct{}{},
-		resources:      map[resource.Name]interface{}{},
-		processManager: pexec.NewProcessManager(logger),
+		remotes:         map[string]*remoteRobot{},
+		boards:          map[string]*proxyBoard{},
+		bases:           map[string]*proxyBase{},
+		sensors:         map[string]sensor.Sensor{},
+		services:        map[string]interface{}{},
+		functions:       map[string]struct{}{},
+		resources:       map[resource.Name]interface{}{},
+		processManager:  pexec.NewProcessManager(logger),
+		robotClientOpts: opts,
 	}
 }
 
@@ -409,7 +411,7 @@ func (parts *robotParts) processConfig(
 		return err
 	}
 
-	if err := parts.newRemotes(ctx, config.Remotes, logger); err != nil {
+	if err := parts.newRemotes(ctx, config.Remotes, logger, parts.robotClientOpts...); err != nil {
 		return err
 	}
 
@@ -439,7 +441,7 @@ func (parts *robotParts) processModifiedConfig(
 		return err
 	}
 
-	if err := parts.newRemotes(ctx, config.Remotes, logger); err != nil {
+	if err := parts.newRemotes(ctx, config.Remotes, logger, parts.robotClientOpts...); err != nil {
 		return err
 	}
 
@@ -465,9 +467,9 @@ func (parts *robotParts) newProcesses(ctx context.Context, processes []pexec.Pro
 }
 
 // newRemotes constructs all remotes defined and integrates their parts in.
-func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote, logger golog.Logger) error {
+func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote, logger golog.Logger, opts ...client.RobotClientOption) error {
 	for _, config := range remotes {
-		robotClient, err := client.NewClient(ctx, config.Address, logger)
+		robotClient, err := client.New(ctx, config.Address, logger, opts...)
 		if err != nil {
 			return errors.Errorf("couldn't connect to robot remote (%s): %w", config.Address, err)
 		}
@@ -980,7 +982,7 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 // FilterFromConfig returns a shallow copy of the parts reflecting
 // a given config.
 func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logger) (*robotParts, error) {
-	filtered := newRobotParts(logger)
+	filtered := newRobotParts(logger, parts.robotClientOpts...)
 
 	for _, conf := range conf.Processes {
 		proc, ok := parts.processManager.ProcessByID(conf.ID)

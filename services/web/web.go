@@ -18,8 +18,8 @@ import (
 
 	goutils "go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
+	"go.viam.com/utils/rpc"
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
-	rpcserver "go.viam.com/utils/rpc/server"
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/config"
@@ -202,7 +202,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 type webService struct {
 	mu       sync.Mutex
 	r        robot.Robot
-	server   rpcserver.Server
+	server   rpc.Server
 	services map[resource.Subtype]subtype.Service
 
 	logger                  golog.Logger
@@ -374,17 +374,23 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		return err
 	}
 
-	rpcOpts := rpcserver.Options{
-		WebRTC: rpcserver.WebRTCOptions{
+	rpcOpts := []rpc.ServerOption{
+		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
 			Enable:           true,
 			Insecure:         options.Insecure,
 			SignalingAddress: options.SignalingAddress,
 			SignalingHost:    options.Name,
 			Config:           &grpc.DefaultWebRTCConfiguration,
-		},
-		Debug: options.Debug,
+		}),
 	}
-	rpcServer, err := rpcserver.NewWithOptions(rpcOpts, svc.logger)
+	if options.Debug {
+		rpcOpts = append(rpcOpts, rpc.WithDebug())
+	}
+	// TODO(erd): later: add command flags to enable auth
+	if true {
+		rpcOpts = append(rpcOpts, rpc.WithUnauthenticated())
+	}
+	rpcServer, err := rpc.NewServer(svc.logger, rpcOpts...)
 	if err != nil {
 		return err
 	}
