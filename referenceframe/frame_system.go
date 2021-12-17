@@ -27,7 +27,6 @@ type FrameSystem interface {
 	// TransformFrame takes in a source and destination frame, and returns the pose from the first to the second. Positions
 	// is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 	TransformFrame(positions map[string][]Input, srcFrame, dstFrame Frame) (spatial.Pose, error)
-	VerboseTransformFrame(positions map[string][]Input, srcFrame, dstFrame Frame) (map[string]spatial.Pose, error)
 	VolumeFrame(positions map[string][]Input, srcFrame, dstFrame Frame) (map[string]spatial.Volume, error)
 	TransformPoint(positions map[string][]Input, point r3.Vector, srcFrame, dstFrame Frame) (r3.Vector, error)
 
@@ -165,17 +164,10 @@ func (sfs *simpleFrameSystem) TransformFrame(positions map[string][]Input, srcFr
 	return sfs.transformFromParent(positions, srcFrame, sfs.parents[srcFrame], dstFrame)
 }
 
-// VerboseTransformFrame takes in a source and destination frame and returns the VerboseTransformation from the first
-// to the second, in the form of a mapping between the name of the frame and its pose, and including any intermediate
-// frames if they exist. Positions is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to
-// the frame name.
-func (sfs *simpleFrameSystem) VerboseTransformFrame(positions map[string][]Input, srcFrame, dstFrame Frame) (map[string]spatial.Pose, error) {
-	if !sfs.frameExists(srcFrame.Name()) {
-		return nil, fmt.Errorf("source frame %s not found in FrameSystem", srcFrame.Name())
-	}
-	return sfs.transformMapFromParent(positions, srcFrame, sfs.parents[srcFrame], dstFrame)
-}
-
+// VolumeFrame takes in a source and destination frame and returns the volumes from the srcFrame in the reference
+// frame of the the second, in the form of a mapping between the name of the frame and its volume, and including any
+// intermediate frames if they exist. Positions is a map of inputs for any frames with non-zero DOF, with slices of
+// inputs keyed to the frame name.
 func (sfs *simpleFrameSystem) VolumeFrame(positions map[string][]Input, srcFrame, dstFrame Frame) (map[string]spatial.Volume, error) {
 	if !sfs.frameExists(srcFrame.Name()) {
 		return nil, fmt.Errorf("source frame %s not found in FrameSystem", srcFrame.Name())
@@ -359,7 +351,7 @@ func (sfs *simpleFrameSystem) getTargetParentTransform(inputMap map[string][]Inp
 	return spatial.Invert(toTargetTransform), err
 }
 
-// Returns the relative pose between two frames, or a map of name to relative pose, if the verbose option is specified
+// Returns the relative pose between two frames
 func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, src, srcParent, target Frame) (spatial.Pose, error) {
 	// catch all errors together to for allow hypothetical calculations that result in errors
 	var errAll error
@@ -377,29 +369,7 @@ func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, s
 	return spatial.Compose(spatial.Compose(toTarget, fromParent), pose), errAll
 }
 
-// Returns the relative pose between two frames, or a map of name to relative pose, if the verbose option is specified
-func (sfs *simpleFrameSystem) transformMapFromParent(inputMap map[string][]Input, src, srcParent, target Frame) (map[string]spatial.Pose, error) {
-	toTarget, err := sfs.getTargetParentTransform(inputMap, target)
-	if toTarget == nil && err != nil {
-		return nil, err
-	}
-	fromParent, err := sfs.getSrcParentTransform(inputMap, src, srcParent)
-	if fromParent == nil && err != nil {
-		return nil, err
-	}
-
-	// transform from source to world, world to target
-	poseMap, err := poseMapFromPositions(src, inputMap)
-	if err != nil && poseMap == nil {
-		return nil, err
-	}
-	for name, pose := range poseMap {
-		poseMap[name] = spatial.Compose(spatial.Compose(toTarget, fromParent), pose)
-	}
-	return poseMap, err
-}
-
-// Returns the relative pose between two frames, or a map of name to relative pose, if the verbose option is specified
+// Returns the relative pose between two frames
 func (sfs *simpleFrameSystem) volumeFromParent(inputMap map[string][]Input, src, srcParent, target Frame) (map[string]spatial.Volume, error) {
 	toTarget, err := sfs.getTargetParentTransform(inputMap, target)
 	if toTarget == nil && err != nil {
@@ -456,14 +426,6 @@ func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose,
 		return nil, err
 	}
 	return frame.Transform(inputs)
-}
-
-func poseMapFromPositions(frame Frame, positions map[string][]Input) (map[string]spatial.Pose, error) {
-	inputs, err := getFrameInputs(frame, positions)
-	if err != nil {
-		return nil, err
-	}
-	return frame.VerboseTransform(inputs)
 }
 
 func volumeFromPositions(frame Frame, positions map[string][]Input) (map[string]spatial.Volume, error) {

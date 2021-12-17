@@ -95,19 +95,14 @@ type Frame interface {
 	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's frame.
 	Transform([]Input) (spatial.Pose, error)
 
-	// VerboseTransform returns a map between names and poses for the reference frame and any intermediate frames that
-	// may be defined for it, e.g. links in an arm
-	VerboseTransform([]Input) (map[string]spatial.Pose, error)
+	// Volume returns a map between names and volumes for the reference frame and any intermediate frames that
+	// may be defined for it, e.g. links in an arm. If a frame does not have a volume it will not be added into the map
+	Volume([]Input) (map[string]spatial.Volume, error)
 
 	// DoF will return a slice with length equal to the number of joints/degrees of freedom.
 	// Each element describes the min and max movement limit of that joint/degree of freedom.
 	// For robot parts that don't move, it returns an empty slice.
 	DoF() []Limit
-
-	// Volume will return a VolumeGraph object representing the 3D space the reference frame and any of
-	// its intermediate frames takes up physically.  If a frame does not have a volume it will not be added into the
-	// VolumeGraph
-	Volume([]Input) (map[string]spatial.Volume, error)
 
 	// AlmostEquals returns if the otherFrame is close to the frame.
 	// differences should just be things like floating point inprecision
@@ -180,13 +175,7 @@ func (sf *staticFrame) Transform(inp []Input) (spatial.Pose, error) {
 	return sf.transform, nil
 }
 
-func (sf *staticFrame) VerboseTransform(input []Input) (map[string]spatial.Pose, error) {
-	pose, err := sf.Transform(input)
-	m := make(map[string]spatial.Pose)
-	m[sf.Name()] = pose
-	return m, err
-}
-
+// Volume returns an object representing the 3D space associeted with the staticFrame
 func (sf *staticFrame) Volume(input []Input) (map[string]spatial.Volume, error) {
 	if sf.volume == nil {
 		return nil, nil
@@ -290,13 +279,7 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	return q, err
 }
 
-func (pf *translationalFrame) VerboseTransform(input []Input) (map[string]spatial.Pose, error) {
-	pose, err := pf.Transform(input)
-	m := make(map[string]spatial.Pose)
-	m[pf.Name()] = pose
-	return m, err
-}
-
+// Volume returns an object representing the 3D space associeted with the translationalFrame
 func (pf *translationalFrame) Volume(input []Input) (map[string]spatial.Volume, error) {
 	if pf.volume == nil {
 		return nil, nil
@@ -392,13 +375,6 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	pose := spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, &spatial.R4AA{input[0].Value, rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z})
 
 	return pose, err
-}
-
-func (rf *rotationalFrame) VerboseTransform(input []Input) (map[string]spatial.Pose, error) {
-	pose, err := rf.Transform(input)
-	m := make(map[string]spatial.Pose)
-	m[rf.Name()] = pose
-	return m, err
 }
 
 // Volume will always return (nil, nil) for rotationalFrames, as not allowing rotationalFrames to occupy volumes is a

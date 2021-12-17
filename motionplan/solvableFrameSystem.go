@@ -104,29 +104,9 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	return sf.fss.TransformFrame(sf.sliceToMap(inputs), sf.solveFrame, sf.goalFrame)
 }
 
-// VerboseTransform takes a solverFrame and a list of joint angles in radians and computes the dual quaterions
-// representing poses of each of the intermediate frames (if any exist) up to and including the end effector, and
-// returns a map of frame names to poses. The key for each frame in the map will be the string
-// "<model_name>:<frame_name>"
-func (sf *solverFrame) VerboseTransform(inputs []frame.Input) (map[string]spatial.Pose, error) {
-	if len(inputs) != len(sf.DoF()) {
-		return nil, errors.New("incorrect number of inputs to transform")
-	}
-	var err error
-	inputMap := sf.sliceToMap(inputs)
-	poseMap := make(map[string]spatial.Pose)
-	for _, frame := range sf.frames {
-		pm, err := sf.fss.VerboseTransformFrame(inputMap, frame, sf.goalFrame)
-		if err != nil {
-			return nil, err
-		}
-		for name, pose := range pm {
-			poseMap[name] = pose
-		}
-	}
-	return poseMap, err
-}
-
+// Volume takes a solverFrame and a list of joint angles in radians and computes the 3D space occupied by each of the
+//intermediate frames (if any exist) up to and including the end effector, and eturns a map of frame names to volumes.
+// The key for each frame in the map will be the string: "<model_name>:<frame_name>"
 func (sf *solverFrame) Volume(inputs []frame.Input) (map[string]spatial.Volume, error) {
 	if len(inputs) != len(sf.DoF()) {
 		return nil, errors.New("incorrect number of inputs to transform")

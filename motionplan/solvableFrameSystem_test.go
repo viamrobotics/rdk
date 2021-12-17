@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"testing"
 
@@ -126,24 +127,24 @@ func TestSliceUniq(t *testing.T) {
 func TestSolverFrame(t *testing.T) {
 	// setup solverFrame with start and goal frames
 	solver := makeTestFS(t)
-	solveFrame := solver.GetFrame("UR5e")
+	solveFrame := solver.GetFrame("xArm6")
 	test.That(t, solveFrame, test.ShouldNotBeNil)
 	sFrames, err := solver.TracebackFrame(solveFrame)
 	test.That(t, err, test.ShouldBeNil)
-	goalFrame := solver.GetFrame("xArm6")
+	goalFrame := solver.GetFrame("UR5e")
 	test.That(t, goalFrame, test.ShouldNotBeNil)
 	gFrames, err := solver.TracebackFrame(goalFrame)
 	test.That(t, err, test.ShouldBeNil)
 	frames := uniqInPlaceSlice(append(sFrames, gFrames...))
-	sf := &solverFrame{solveFrame.Name() + "_" + goalFrame.Name(), solver, frames, solveFrame, goalFrame}
+	sf := &solverFrame{"", solver, frames, solveFrame, goalFrame}
 
-	// get the VerboseTransform at the zero position
+	// get the Volume at the zero position and test the output is correct
 	inputs := frame.StartPositions(solver)
-	poseMap, err := sf.VerboseTransform(sf.mapToSlice(inputs))
+	vols, err := sf.Volume(sf.mapToSlice(inputs))
 	test.That(t, err, test.ShouldBeNil)
-
-	// test that the VerboseTransform outputs the same output as the basic Transform
 	poseExpect, err := sf.Transform(sf.mapToSlice(inputs))
+	volPose := vols["UR5e:ee_link"].Pose()
+	fmt.Printf("expect: %v\nactual %v\n", poseExpect.Point(), volPose.Point())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.AlmostCoincident(poseMap["UR5e:ee_link"], poseExpect), test.ShouldBeTrue)
+	test.That(t, spatial.AlmostCoincident(volPose, poseExpect), test.ShouldBeTrue)
 }
