@@ -10,10 +10,14 @@ import (
 
 var deg45 float64 = math.Pi / 4.
 
-func TestBoxVsBox(t *testing.T) {
-	ov := &OrientationVector{OX: 1, OY: 1, OZ: 1}
-	ov.Normalize()
+func TestNewBoxFromOffset(t *testing.T) {
+	pt := r3.Vector{X: 1, Y: 0, Z: 0}
+	offset := NewPoseFromOrientation(pt, &EulerAngles{0, 0, math.Pi})
+	vol := NewBoxFromOffset(r3.Vector{}, offset).NewVolume(NewPoseFromPoint(pt))
+	test.That(t, AlmostCoincident(vol.Pose(), NewZeroPose()), test.ShouldBeTrue)
+}
 
+func TestBoxVsBox(t *testing.T) {
 	cases := []struct {
 		A        *box
 		B        *box

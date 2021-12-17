@@ -127,6 +127,10 @@ func (sf *solverFrame) VerboseTransform(inputs []frame.Input) (map[string]spatia
 	return poseMap, err
 }
 
+func (sf *solverFrame) Volume(inputs []frame.Input) (map[string]spatial.Volume, error) {
+	return nil, nil
+}
+
 // DoF returns the summed DoF of all frames between the two solver frames.
 func (sf *solverFrame) DoF() []frame.Limit {
 	var limits []frame.Limit

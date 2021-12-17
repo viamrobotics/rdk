@@ -80,3 +80,25 @@ func TestVerboseTransform(t *testing.T) {
 	forearmPoseExpect := spatialmath.NewPoseFromPoint(r3.Vector{300.0, 0.0, 360.25})
 	test.That(t, spatialmath.AlmostCoincident(poses["wx250s:forearm"], forearmPoseExpect), test.ShouldBeTrue)
 }
+
+func TestVolume(t *testing.T) {
+	m, err := ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	inputs := make([]Input, len(m.DoF()))
+	vols, err := m.Volume(inputs)
+	test.That(t, err, test.ShouldBeNil)
+	expected, err := m.jointRadToQuats(inputs, true)
+	test.That(t, err, test.ShouldBeNil)
+
+	// iterate through expected joint locations and calculate the midpoint of each link
+	prev := spatialmath.NewZeroPose()
+	for _, joint := range expected {
+		if joint.volume != nil {
+			linkMidpoint := spatialmath.Interpolate(prev, joint.transform, 0.5)
+			volCenter := vols[m.Name()+":"+joint.Name()].Pose()
+			test.That(t, spatialmath.AlmostCoincident(volCenter, linkMidpoint), test.ShouldBeTrue)
+			prev = joint.transform
+		}
+	}
+}

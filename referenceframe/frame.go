@@ -146,6 +146,21 @@ func NewStaticFrameWithVolume(name string, pose spatial.Pose, volume spatial.Vol
 	return &staticFrame{name, pose, volume}, nil
 }
 
+// NewStaticFrameFromFrame creates a frame given a pose relative to its parent.  The pose is fixed for all time.
+// It inherits its name and volume properties from the specified Frame. Pose is not allowed to be nil.
+func NewStaticFrameFromFrame(frame Frame, pose spatial.Pose) (Frame, error) {
+	if pose == nil {
+		return nil, errors.New("pose is not allowed to be nil")
+	}
+	if tf, ok := frame.(*translationalFrame); ok {
+		return &staticFrame{tf.Name(), pose, tf.volume}, nil
+	}
+	if tf, ok := frame.(*staticFrame); ok {
+		return &staticFrame{tf.Name(), pose, tf.volume}, nil
+	}
+	return &staticFrame{frame.Name(), pose, nil}, nil
+}
+
 // FrameFromPoint creates a new Frame from a 3D point.
 func FrameFromPoint(name string, point r3.Vector) (Frame, error) {
 	pose := spatial.NewPoseFromPoint(point)
