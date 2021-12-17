@@ -1,8 +1,10 @@
 package transform
 
 import (
-	"math"
-	"math/rand"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"go.viam.com/core/spatialmath"
@@ -19,33 +21,47 @@ func TestExtrinsicCalibration(t *testing.T) {
 	// get a file with known extrinsic parameters and make expected pose
 	cam, err := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
 	test.That(t, err, test.ShouldBeNil)
-	rotation, err := spatialmath.NewRotationMatrix(cam.ExtrinsicD2C.RotationMatrix)
+	expRotation, err := spatialmath.NewRotationMatrix(cam.ExtrinsicD2C.RotationMatrix)
 	test.That(t, err, test.ShouldBeNil)
-	translation := cam.ExtrinsicD2C.TranslationVector
+	expTranslation := cam.ExtrinsicD2C.TranslationVector
 
-	// create many points from a known extrinsic file
-	n := 1000
-	depthH, depthW := float64(cam.DepthCamera.Height), float64(cam.DepthCamera.Width)
-	colorPoints := make([]r2.Point, n)
-	depthPoints := make([]r3.Vector, n)
-	for i := 0; i < n; i++ {
-		dx := math.Round(rand.Float64() * depthW)
-		dy := math.Round(rand.Float64() * depthH)
-		dz := math.Round(rand.Float64()*2450.) + 50.0 // always want at least 50 mm distance
-		depthPoints[i] = r3.Vector{dx, dy, dz}
-		cx, cy, _ := cam.DepthPixelToColorPixel(dx, dy, dz)
-		colorPoints[i] = r2.Point{cx, cy}
-	}
+	// get points and intrinsics from known file
+	depthIntrin, colorIntrin, depthPoints, colorPoints := loadParameters(t, utils.ResolveFile("rimage/transform/example_extrinsic_calib.json"))
 
-	prob, err := BuildExtrinsicOptProblem(cam.DepthCamera, cam.ColorCamera, depthPoints, colorPoints)
+	// create the optimization problem
+	prob, err := BuildExtrinsicOptProblem(depthIntrin, colorIntrin, depthPoints, colorPoints)
 	test.That(t, err, test.ShouldBeNil)
 	pose, err := RunPinholeExtrinsicCalibration(prob, logger)
 	test.That(t, err, test.ShouldBeNil)
-	point := pose.Point()
-	orientation := pose.Orientation()
+	translation := pose.Point()
+	rotation := pose.Orientation()
 
-	test.That(t, point.X, test.ShouldAlmostEqual, translation[0])
-	test.That(t, point.Y, test.ShouldAlmostEqual, translation[1])
-	test.That(t, point.Z, test.ShouldAlmostEqual, translation[2])
-	test.That(t, orientation, test.ShouldResemble, rotation)
+	// only test to 3 digits for found translation and rotation
+	test.That(t, fmt.Sprintf("%.3f", translation.X), test.ShouldEqual, fmt.Sprintf("%.3f", expTranslation[0]))
+	test.That(t, fmt.Sprintf("%.3f", translation.Y), test.ShouldEqual, fmt.Sprintf("%.3f", expTranslation[1]))
+	test.That(t, fmt.Sprintf("%.3f", translation.Z), test.ShouldEqual, fmt.Sprintf("%.3f", expTranslation[2]))
+	q, expq := rotation.Quaternion(), expRotation.Quaternion()
+	test.That(t, fmt.Sprintf("%.3f", q.Real), test.ShouldEqual, fmt.Sprintf("%.3f", expq.Real))
+	test.That(t, fmt.Sprintf("%.3f", q.Imag), test.ShouldEqual, fmt.Sprintf("%.3f", expq.Imag))
+	test.That(t, fmt.Sprintf("%.3f", q.Jmag), test.ShouldEqual, fmt.Sprintf("%.3f", expq.Jmag))
+	test.That(t, fmt.Sprintf("%.3f", q.Kmag), test.ShouldEqual, fmt.Sprintf("%.3f", expq.Kmag))
+}
+
+func loadParameters(t *testing.T, filePath string) (*PinholeCameraIntrinsics, *PinholeCameraIntrinsics, []r3.Vector, []r2.Point) {
+	jsonFile, err := os.Open(filePath)
+	test.That(t, err, test.ShouldBeNil)
+	defer jsonFile.Close()
+
+	byteValue, err := ioutil.ReadAll(jsonFile)
+	test.That(t, err, test.ShouldBeNil)
+
+	temp := struct {
+		ColorPoints []r2.Point              `json:"color_points"`
+		DepthPoints []r3.Vector             `json:"depth_points"`
+		Color       PinholeCameraIntrinsics `json:"color_intrinsics"`
+		Depth       PinholeCameraIntrinsics `json:"depth_intrinsics"`
+	}{}
+	err = json.Unmarshal([]byte(byteValue), &temp)
+	test.That(t, err, test.ShouldBeNil)
+	return &temp.Depth, &temp.Color, temp.DepthPoints, temp.ColorPoints
 }

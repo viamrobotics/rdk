@@ -26,7 +26,7 @@ func RunPinholeExtrinsicCalibration(prob *optimize.Problem, logger golog.Logger)
 	settings := &optimize.Settings{
 		GradientThreshold: 0,
 		Converger: &optimize.FunctionConverge{
-			//Relative:   0.005,
+			Relative:   0.005,
 			Absolute:   1e-8,
 			Iterations: 100,
 		},
@@ -52,7 +52,7 @@ func RunPinholeExtrinsicCalibration(prob *optimize.Problem, logger golog.Logger)
 	return pose, nil
 }
 
-func BuildExtrinsicOptProblem(depth, color PinholeCameraIntrinsics, depthPoints []r3.Vector, colorPoints []r2.Point) (*optimize.Problem, error) {
+func BuildExtrinsicOptProblem(depth, color *PinholeCameraIntrinsics, depthPoints []r3.Vector, colorPoints []r2.Point) (*optimize.Problem, error) {
 	// check if the number of points in each image is the same
 	if len(colorPoints) != len(depthPoints) {
 		return nil, errors.Errorf("number of color points (%d) does not equal number of depth points (%d)", len(colorPoints), len(depthPoints))
@@ -76,17 +76,17 @@ func BuildExtrinsicOptProblem(depth, color PinholeCameraIntrinsics, depthPoints 
 		// p[0] - roll-x, p[1] - pitch-y, p[2] - yaw-z
 		rollRot := []float64{
 			1, 0, 0,
-			0, math.Cos(p[0]), -math.Sin(p[0]),
-			0, math.Sin(p[0]), math.Cos(p[0]),
+			0, math.Cos(p[0]), math.Sin(p[0]),
+			0, -math.Sin(p[0]), math.Cos(p[0]),
 		}
 		pitchRot := []float64{
-			math.Cos(p[1]), 0, math.Sin(p[1]),
+			math.Cos(p[1]), 0, -math.Sin(p[1]),
 			0, 1, 0,
-			-math.Sin(p[1]), 0, math.Cos(p[1]),
+			math.Sin(p[1]), 0, math.Cos(p[1]),
 		}
 		yawRot := []float64{
-			math.Cos(p[2]), -math.Sin(p[2]), 0,
-			math.Sin(p[2]), math.Cos(p[2]), 0,
+			math.Cos(p[2]), math.Sin(p[2]), 0,
+			-math.Sin(p[2]), math.Cos(p[2]), 0,
 			0, 0, 1,
 		}
 		translation := p[3:]

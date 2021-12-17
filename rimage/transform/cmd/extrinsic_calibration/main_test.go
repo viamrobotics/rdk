@@ -26,7 +26,7 @@ func TestMainCalibrate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// create many points from a known extrinsic file
-	calibConfig := createInputConfig(camera, 500)
+	calibConfig := createInputConfig(camera, 100)
 	// writes bytes to temporary file
 	b, err := json.MarshalIndent(calibConfig, "", " ")
 	test.That(t, err, test.ShouldBeNil)
@@ -49,10 +49,11 @@ func createInputConfig(c *transform.DepthColorIntrinsicsExtrinsics, n int) *Cali
 		cx, cy, _ := c.DepthPixelToColorPixel(dx, dy, dz)
 		colorPoints[i] = r2.Point{cx, cy}
 	}
-	return &CalibrationConfig{
+	conf := &CalibrationConfig{
 		ColorPoints:     colorPoints,
 		DepthPoints:     depthPoints,
 		ColorIntrinsics: c.ColorCamera,
 		DepthIntrinsics: c.DepthCamera,
 	}
+	return conf
 }
