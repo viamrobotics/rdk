@@ -40,13 +40,14 @@ func calibrate(conf string, logger golog.Logger) {
 		logger.Fatal(err)
 	}
 	// set up the optimization problem
-	problem, err := transform.BuildExtrinsicOptProblem(cfg.DepthIntrinsics, cfg.ColorIntrinsics, cfg.DepthPoints, cfg.ColorPoints)
+	problem, err := transform.BuildExtrinsicOptProblem(&cfg.DepthIntrinsics, &cfg.ColorIntrinsics, cfg.DepthPoints, cfg.ColorPoints)
 	if err != nil {
 		logger.Fatal(err)
 	}
 	// solve the problem
 	pose, err := transform.RunPinholeExtrinsicCalibration(problem, logger)
-	logger.Infof("\nrotation:\n%v\ntranslation:\n%.3f\n", printRot(pose.Orientation()), pose.Point())
+	// print result to output stream
+	fmt.Printf("\nrotation:\n%v\ntranslation:\n%.3f\n", printRot(pose.Orientation()), pose.Point())
 	if err != nil {
 		logger.Fatal(err)
 	}
