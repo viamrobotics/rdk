@@ -82,6 +82,24 @@ func (m *Model) Transform(inputs []Input) (spatialmath.Pose, error) {
 	return poses[0].transform, err
 }
 
+// Volume returns an object representing the 3D space associeted with the staticFrame
+func (m *Model) Volume(inputs []Input) (map[string]spatialmath.Volume, error) {
+	joints, err := m.jointRadToQuats(inputs, true)
+	if err != nil && joints == nil {
+		return nil, err
+	}
+	var errAll error
+	volumeMap := make(map[string]spatialmath.Volume)
+	for _, joint := range joints {
+		vol, err := joint.Volume([]Input{})
+		multierr.AppendInto(&errAll, err)
+		if vol != nil {
+			volumeMap[m.name+":"+joint.Name()] = vol[joint.Name()]
+		}
+	}
+	return volumeMap, errAll
+}
+
 // CachedTransform will check a sync.Map cache to see if the exact given set of inputs has been computed yet. If so
 // it returns without redoing the calculation. Thread safe, but so far has tended to be slightly slower than just doing
 // the calculation. This may change with higher DOF models and longer runtimes.
@@ -99,38 +117,6 @@ func (m *Model) CachedTransform(inputs []Input) (spatialmath.Pose, error) {
 	m.poseCache.Store(key, poses[len(poses)-1].transform)
 
 	return poses[len(poses)-1].transform, err
-}
-
-// VerboseTransform takes a model and a list of joint angles in radians and computes the dual quaterions representing
-// the pose of each of the intermediate frames (if any exist) up to and including the end effector, and returns a map
-// of frame names to poses. The key for each frame in the map will be the string "<model_name>:<frame_name>"
-func (m *Model) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, error) {
-	poses, err := m.jointRadToQuats(inputs, true)
-	if err != nil && poses == nil {
-		return nil, err
-	}
-	poseMap := make(map[string]spatialmath.Pose)
-	for _, pose := range poses {
-		poseMap[m.name+":"+pose.name] = pose.transform
-	}
-	return poseMap, err
-}
-
-func (m *Model) Volume(inputs []Input) (map[string]spatialmath.Volume, error) {
-	joints, err := m.jointRadToQuats(inputs, true)
-	if err != nil && joints == nil {
-		return nil, err
-	}
-	var errAll error
-	volumeMap := make(map[string]spatialmath.Volume)
-	for _, joint := range joints {
-		vol, err := joint.Volume([]Input{})
-		multierr.AppendInto(&errAll, err)
-		if vol != nil {
-			volumeMap[m.name+":"+joint.Name()] = vol[joint.Name()]
-		}
-	}
-	return volumeMap, errAll
 }
 
 // jointRadToQuats takes a model and a list of joint angles in radians and computes the dual quaternion representing the
