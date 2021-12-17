@@ -14,7 +14,7 @@ const { ServoServiceClient } = require('proto/api/component/v1/servo_pb_service.
 window.cameraApi = require('proto/api/component/v1/camera_pb.js');
 const { CameraServiceClient } = require('proto/api/component/v1/camera_pb_service.js');
 window.commonApi = require('proto/api/common/v1/common_pb.js');
-const { dial } = require("@viamrobotics/rpc");
+const { dialDirect, dialWebRTC } = require("@viamrobotics/rpc");
 window.THREE = require("three/build/three.module.js")
 window.pcdLib = require("three/examples/jsm/loaders/PCDLoader.js")
 window.orbitLib = require("three/examples/jsm/controls/OrbitControls.js")
@@ -37,36 +37,29 @@ window.robotServiceReady = new Promise((resolve, reject) => {
 	pReject = reject;
 })
 window.reconnect = async () => undefined;
-if (window.webrtcEnabled) {
-	let connect = async () => {
-		try {
-			let cc = await dial(window.webrtcSignalingAddress, window.webrtcHost, { rtcConfig: rtcConfig });
-			window.robotService = new RobotServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
-			window.metadataService = new MetadataServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
 
-			// TODO: these should be created as needed for #272
-			window.armService = new ArmServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
-			window.gantryService = new GantryServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
-			window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
-			window.servoService = new ServoServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
-			window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
-		} catch (e) {
-			console.error("error dialing:", e);
-			throw e;
+let connect = async () => {
+	try {
+		let transportFactory;
+		if (window.webrtcEnabled) {
+			transportFactory = await dialWebRTC(window.webrtcSignalingAddress, window.webrtcHost, { rtcConfig: rtcConfig });
+		} else {
+			const url = `${location.protocol}//${location.hostname}${location.port ? ':' + location.port : ''}`;
+			transportFactory = await dialDirect(url);
 		}
-	}
-	connect().then(pResolve).catch(pReject);
-	window.reconnect = connect;
-} else {
-	const url = `${location.protocol}//${location.hostname}${location.port ? ':' + location.port : ''}`;
-	window.robotService = new RobotServiceClient(url);
-	window.metadataService = new MetadataServiceClient(url);
+		window.robotService = new RobotServiceClient(window.webrtcHost, { transport: transportFactory });
+		window.metadataService = new MetadataServiceClient(window.webrtcHost, { transport: transportFactory });
 
-	// TODO: these should be created as needed for #272
-	window.armService = new ArmServiceClient(url);
-	window.gantryService = new GantryServiceClient(url);
-	window.gripperService = new GripperServiceClient(url);
-	window.servoService = new ServoServiceClient(url);
-	window.cameraService = new CameraServiceClient(url);
-	pResolve(undefined);
+		// TODO: these should be created as needed for #272
+		window.armService = new ArmServiceClient(window.webrtcHost, { transport: transportFactory });
+		window.gantryService = new GantryServiceClient(window.webrtcHost, { transport: transportFactory });
+		window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: transportFactory });
+		window.servoService = new ServoServiceClient(window.webrtcHost, { transport: transportFactory });
+		window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: transportFactory });
+	} catch (e) {
+		console.error("error dialing:", e);
+		throw e;
+	}
 }
+connect().then(pResolve).catch(pReject);
+window.reconnect = connect;

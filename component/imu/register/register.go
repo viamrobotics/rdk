@@ -5,8 +5,8 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/utils/rpc/dialer"
-	rpcserver "go.viam.com/utils/rpc/server"
+
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/component/imu"
 	_ "go.viam.com/core/component/imu/fake" // for imu
@@ -22,7 +22,7 @@ func init() {
 		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
 			return imu.WrapWithReconfigurable(r)
 		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&componentpb.IMUService_ServiceDesc,
@@ -30,7 +30,7 @@ func init() {
 				componentpb.RegisterIMUServiceHandlerFromEndpoint,
 			)
 		},
-		RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
+		RPCClient: func(conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return imu.NewClientFromConn(conn, name, logger)
 		},
 	})

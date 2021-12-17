@@ -12,12 +12,12 @@ import (
 
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/subtype"
+	"go.viam.com/core/testutils"
 
 	"github.com/go-errors/errors"
 
 	"go.viam.com/utils"
-	rpcclient "go.viam.com/utils/rpc/client"
-	"go.viam.com/utils/rpc/dialer"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -588,7 +588,7 @@ func TestClient(t *testing.T) {
 	// failing
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err = NewClient(cancelCtx, listener1.Addr().String(), logger)
+	_, err = New(cancelCtx, listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 
@@ -650,7 +650,7 @@ func TestClient(t *testing.T) {
 		return service, ok
 	}
 
-	client, err := NewClient(context.Background(), listener1.Addr().String(), logger)
+	client, err := New(context.Background(), listener1.Addr().String(), logger, WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 
 	newCfg, err := client.Config(context.Background())
@@ -857,7 +857,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// working
-	client, err = NewClient(context.Background(), listener2.Addr().String(), logger)
+	client, err = New(context.Background(), listener2.Addr().String(), logger, WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 
 	status, err := client.Status(context.Background())
@@ -1253,11 +1253,12 @@ func TestClientRefresh(t *testing.T) {
 
 	start := time.Now()
 	dur := 100 * time.Millisecond
-	client, err := NewClientWithOptions(
+	client, err := New(
 		context.Background(),
 		listener.Addr().String(),
-		RobotClientOptions{RefreshEvery: dur, DialOptions: rpcclient.DialOptions{Insecure: true}},
 		logger,
+		WithRefreshEvery(dur),
+		WithDialOptions(rpc.WithInsecure()),
 	)
 	test.That(t, err, test.ShouldBeNil)
 	<-calledEnough
@@ -1298,11 +1299,12 @@ func TestClientRefresh(t *testing.T) {
 	injectMetadata.AllFunc = func() []resource.Name {
 		return emptyResources
 	}
-	client, err = NewClientWithOptions(
+	client, err = New(
 		context.Background(),
 		listener.Addr().String(),
-		RobotClientOptions{RefreshEvery: dur, DialOptions: rpcclient.DialOptions{Insecure: true}},
 		logger,
+		WithRefreshEvery(dur),
+		WithDialOptions(rpc.WithInsecure()),
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1376,31 +1378,16 @@ func TestClientDialerOption(t *testing.T) {
 		return emptyResources
 	}
 
-	td := &trackingDialer{Dialer: dialer.NewCachedDialer()}
-	ctx := dialer.ContextWithDialer(context.Background(), td)
-	client1, err := NewClient(ctx, listener.Addr().String(), logger)
+	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
+	ctx := rpc.ContextWithDialer(context.Background(), td)
+	client1, err := New(ctx, listener.Addr().String(), logger, WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := NewClient(ctx, listener.Addr().String(), logger)
+	client2, err := New(ctx, listener.Addr().String(), logger, WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.dialCalled, test.ShouldEqual, 4)
+	test.That(t, td.DialCalled, test.ShouldEqual, 4)
 
 	err = client1.Close()
 	test.That(t, err, test.ShouldBeNil)
 	err = client2.Close()
 	test.That(t, err, test.ShouldBeNil)
-}
-
-type trackingDialer struct {
-	dialer.Dialer
-	dialCalled int
-}
-
-func (td *trackingDialer) DialDirect(ctx context.Context, target string, opts ...grpc.DialOption) (dialer.ClientConn, error) {
-	td.dialCalled++
-	return td.Dialer.DialDirect(ctx, target, opts...)
-}
-
-func (td *trackingDialer) DialFunc(proto string, target string, f func() (dialer.ClientConn, error)) (dialer.ClientConn, error) {
-	td.dialCalled++
-	return td.Dialer.DialFunc(proto, target, f)
 }

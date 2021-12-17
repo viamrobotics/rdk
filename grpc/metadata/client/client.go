@@ -4,10 +4,8 @@ package client
 import (
 	"context"
 
-	rpcclient "go.viam.com/utils/rpc/client"
-
 	"github.com/edaniels/golog"
-	"go.viam.com/utils/rpc/dialer"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/grpc"
 	pb "go.viam.com/core/proto/api/service/v1"
@@ -15,15 +13,15 @@ import (
 
 // MetadataServiceClient is a client satisfies the metadata.proto contract.
 type MetadataServiceClient struct {
-	conn   dialer.ClientConn
+	conn   rpc.ClientConn
 	client pb.MetadataServiceClient
 
 	logger golog.Logger
 }
 
-// NewClient constructs a new MetadataServiceClient that is served at the given address.
-func NewClient(ctx context.Context, address string, opts rpcclient.DialOptions, logger golog.Logger) (*MetadataServiceClient, error) {
-	conn, err := grpc.Dial(ctx, address, opts, logger)
+// New constructs a new MetadataServiceClient that is served at the given address.
+func New(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (*MetadataServiceClient, error) {
+	conn, err := grpc.Dial(ctx, address, logger, opts...)
 	if err != nil {
 		return nil, err
 	}

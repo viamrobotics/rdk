@@ -1,4 +1,4 @@
-package grpc
+package utils
 
 const (
 	// MimeTypeViamBest is a hint that we should send whatever format is best for the type of image
