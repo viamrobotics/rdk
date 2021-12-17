@@ -84,7 +84,7 @@ func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 			signal: []float64{100.0},
 		},
 		{
-			name:   "CurrentPosition",
+			name:   "Endpoint",
 			time:   []int{},
 			signal: []float64{0.0},
 		},
@@ -96,10 +96,13 @@ func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 	i := 0
 	for {
 		i++
-		y, ok := s.Next(ctx, []Signal{}, (10 * time.Millisecond))
-		if ok == false {
-			test.That(t, y[2].signal[0], test.ShouldEqual, 100.0)
+		y, _ := s.Next(ctx, []Signal{}, (10 * time.Millisecond))
+		if i == 102 {
+			test.That(t, y[0].signal[0], test.ShouldEqual, 10.0)
 			break
+		}
+		if i == 87 {
+			test.That(t, y[0].signal[0], test.ShouldEqual, 100.0)
 		}
 	}
 	ins[0].signal[0] = 3
@@ -109,9 +112,10 @@ func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 	i = 0
 	for {
 		i++
-		y, ok := s.Next(ctx, []Signal{}, (10 * time.Millisecond))
-		if ok == false {
-			test.That(t, y[2].signal[0], test.ShouldEqual, 103.0)
+		y, _ := s.Next(ctx, []Signal{}, (10 * time.Millisecond))
+		time.Sleep(100 * time.Millisecond)
+		if i == 5 {
+			test.That(t, y[0].signal[0], test.ShouldEqual, 60.0)
 			break
 		}
 	}

@@ -109,8 +109,6 @@ func (s *trapezoidVelocityGenerator) reset() error {
 	s.currentPhase = rest
 	s.y = make([]Signal, 1)
 	s.y[0] = makeSignal(s.cfg.Name, 1)
-	//s.y[1] = makeSignal("Vel", 1)
-	//s.y[2] = makeSignal("Pos", 1)
 	return nil
 }
 
