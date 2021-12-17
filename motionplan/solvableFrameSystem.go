@@ -128,7 +128,22 @@ func (sf *solverFrame) VerboseTransform(inputs []frame.Input) (map[string]spatia
 }
 
 func (sf *solverFrame) Volume(inputs []frame.Input) (map[string]spatial.Volume, error) {
-	return nil, nil
+	if len(inputs) != len(sf.DoF()) {
+		return nil, errors.New("incorrect number of inputs to transform")
+	}
+	var err error
+	inputMap := sf.sliceToMap(inputs)
+	vols := make(map[string]spatial.Volume)
+	for _, frame := range sf.frames {
+		vm, err := sf.fss.VolumeFrame(inputMap, frame, sf.goalFrame)
+		if err != nil {
+			return nil, err
+		}
+		for name, vol := range vm {
+			vols[name] = vol
+		}
+	}
+	return vols, err
 }
 
 // DoF returns the summed DoF of all frames between the two solver frames.

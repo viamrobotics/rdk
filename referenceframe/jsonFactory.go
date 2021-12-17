@@ -81,13 +81,14 @@ func (m *ModelJSON) Model(modelName string) (*Model, error) {
 			if err != nil {
 				return nil, err
 			}
+			ov := orientation.OrientationVectorRadians()
 			pt := r3.Vector{link.Translation.X, link.Translation.Y, link.Translation.Z}
-			pose := spatialmath.NewPoseFromOrientationVector(pt, orientation.OrientationVectorRadians())
+			pose := spatialmath.NewPoseFromOrientationVector(pt, ov)
 
 			var vol spatialmath.VolumeCreator
 			if link.Volume.X != 0 && link.Volume.Y != 0 && link.Volume.Z != 0 {
 				dims := r3.Vector{link.Volume.X, link.Volume.Y, link.Volume.Z}.Mul(0.5)
-				offset := spatialmath.NewPoseFromPoint(pt.Mul(-0.5))
+				offset := spatialmath.Invert(spatialmath.NewPoseFromOrientation(pt.Mul(0.5), ov))
 				vol = spatialmath.NewBoxFromOffset(dims, offset)
 			}
 			transforms[link.ID], err = NewStaticFrameWithVolume(link.ID, pose, vol)
