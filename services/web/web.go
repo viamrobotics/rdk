@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
-	"net"
 	"net/http"
 	"net/http/pprof"
 	"sync"
@@ -16,6 +15,7 @@ import (
 	"github.com/edaniels/gostream/codec/x264"
 	"github.com/go-errors/errors"
 
+	"go.viam.com/utils"
 	goutils "go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
@@ -123,7 +123,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if app.options.WebRTC {
 		temp.WebRTCEnabled = true
-		if app.options.Insecure {
+		if app.options.internalSignaling && !app.options.secure {
 			temp.WebRTCSignalingAddress = fmt.Sprintf("http://%s", app.options.SignalingAddress)
 		} else {
 			temp.WebRTCSignalingAddress = fmt.Sprintf("https://%s", app.options.SignalingAddress)
@@ -369,18 +369,26 @@ func (svc *webService) installWeb(ctx context.Context, mux *goji.Mux, theRobot r
 // RunWeb takes the given robot and options and runs the web server. This function will block
 // until the context is done.
 func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", options.Port))
+	listener, secure, err := utils.NewPossiblySecureTCPListenerFromFile(
+		options.Port, options.TLSCertFile, options.TLSKeyFile)
 	if err != nil {
 		return err
+	}
+	options.secure = secure
+	humanAddress := fmt.Sprintf("localhost:%d", options.Port)
+
+	var signalingOpts []rpc.DialOption
+	if options.SignalingAddress == "" && !secure {
+		signalingOpts = append(signalingOpts, rpc.WithInsecure())
 	}
 
 	rpcOpts := []rpc.ServerOption{
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
-			Enable:           true,
-			Insecure:         options.Insecure,
-			SignalingAddress: options.SignalingAddress,
-			SignalingHost:    options.Name,
-			Config:           &grpc.DefaultWebRTCConfiguration,
+			Enable:                    true,
+			ExternalSignalingDialOpts: signalingOpts,
+			ExternalSignalingAddress:  options.SignalingAddress,
+			SignalingHost:             options.Name,
+			Config:                    &grpc.DefaultWebRTCConfiguration,
 		}),
 	}
 	if options.Debug {
@@ -396,6 +404,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	}
 	svc.server = rpcServer
 	if options.SignalingAddress == "" {
+		options.internalSignaling = true
 		options.SignalingAddress = fmt.Sprintf("localhost:%d", options.Port)
 	}
 	if options.Name == "" {
@@ -512,7 +521,13 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 	})
 
-	svc.logger.Debugw("serving", "url", fmt.Sprintf("http://%s", listener.Addr().String()))
+	var scheme string
+	if secure {
+		scheme = "https"
+	} else {
+		scheme = "http"
+	}
+	svc.logger.Infow("serving", "url", fmt.Sprintf("%s://%s", scheme, humanAddress))
 	svc.activeBackgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
