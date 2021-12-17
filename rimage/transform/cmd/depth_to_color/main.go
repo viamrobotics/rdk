@@ -1,4 +1,5 @@
 // Get the coordinates of a depth pixel in the depth map in the reference frame of the color image
+// $./depth_to_color -conf=/path/to/intrinsics/extrinsic/file X Y Z
 package main
 
 import (
