@@ -650,7 +650,7 @@ func TestClient(t *testing.T) {
 		return service, ok
 	}
 
-	client, err := New(context.Background(), listener1.Addr().String(), logger)
+	client, err := New(context.Background(), listener1.Addr().String(), logger, WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 
 	newCfg, err := client.Config(context.Background())
@@ -857,7 +857,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// working
-	client, err = New(context.Background(), listener2.Addr().String(), logger)
+	client, err = New(context.Background(), listener2.Addr().String(), logger, WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 
 	status, err := client.Status(context.Background())
@@ -1380,9 +1380,9 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := New(ctx, listener.Addr().String(), logger)
+	client1, err := New(ctx, listener.Addr().String(), logger, WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := New(ctx, listener.Addr().String(), logger)
+	client2, err := New(ctx, listener.Addr().String(), logger, WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.DialCalled, test.ShouldEqual, 4)
 
