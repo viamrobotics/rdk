@@ -245,16 +245,17 @@ func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, func(
 
 // Arguments for the command.
 type Arguments struct {
-	ConfigFile string            `flag:"0,required,usage=robot config file"`
-	NoAutoTile bool              `flag:"noAutoTile,usage=disable auto tiling"`
-	CPUProfile string            `flag:"cpuprofile,usage=write cpu profile to file"`
-	WebProfile bool              `flag:"webprofile,usage=include profiler in http server"`
-	LogURL     string            `flag:"logurl,usage=url to log messages to"`
-	SharedDir  string            `flag:"shareddir,usage=web resource directory"`
-	Port       utils.NetPortFlag `flag:"port,usage=port to listen on"`
-	Debug      bool              `flag:"debug"`
-	LocalCloud bool              `flag:"local-cloud"`
-	WebRTC     bool              `flag:"webrtc,usage=force webrtc connections instead of direct"`
+	ConfigFile  string            `flag:"0,required,usage=robot config file"`
+	NoAutoTile  bool              `flag:"noAutoTile,usage=disable auto tiling"`
+	CPUProfile  string            `flag:"cpuprofile,usage=write cpu profile to file"`
+	WebProfile  bool              `flag:"webprofile,usage=include profiler in http server"`
+	LogURL      string            `flag:"logurl,usage=url to log messages to"`
+	SharedDir   string            `flag:"shareddir,usage=web resource directory"`
+	Port        utils.NetPortFlag `flag:"port,usage=port to listen on"`
+	Debug       bool              `flag:"debug"`
+	WebRTC      bool              `flag:"webrtc,usage=force webrtc connections instead of direct"`
+	TLSCertFile string            `flag:"tls_cert,usage=TLS certificate to secure HTTP server with"`
+	TLSKeyFile  string            `flag:"tls_key,usage=TLS certificate to secure HTTP server with"`
 }
 
 // RunServer is an entry point to starting the web server that can be called by main in a code sample or otherwise be used to initialize the server.
@@ -265,6 +266,9 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 	}
 	if argsParsed.Port == 0 {
 		argsParsed.Port = 8080
+	}
+	if (argsParsed.TLSCertFile == "") != (argsParsed.TLSKeyFile == "") {
+		return errors.New("must provide both tls_cert and tls_key")
 	}
 
 	if argsParsed.CPUProfile != "" {
@@ -367,14 +371,11 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	options.SharedDir = argsParsed.SharedDir
 	options.Debug = argsParsed.Debug
 	options.WebRTC = argsParsed.WebRTC
+	options.TLSCertFile = argsParsed.TLSCertFile
+	options.TLSKeyFile = argsParsed.TLSKeyFile
 	if cfg.Cloud != nil {
 		options.Name = cfg.Cloud.Self
 		options.SignalingAddress = cfg.Cloud.SignalingAddress
-		if argsParsed.LocalCloud {
-			options.Insecure = true
-		}
-	} else {
-		options.Insecure = true
 	}
 	return RunWeb(ctx, myRobot, options, logger)
 }
