@@ -42,6 +42,8 @@ func (am AttributeMap) IntSlice(name string) []int {
 	panic(errors.Errorf("wanted a []int for (%s) but got (%v) %T", name, x, x))
 }
 
+// Float64Slice attempts to return a slice of ints present in the map with
+// the given name; returns an empty slice otherwise.
 func (am AttributeMap) Float64Slice(name string) []float64 {
 	if am == nil {
 		return []float64{}
