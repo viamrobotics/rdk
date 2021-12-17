@@ -325,9 +325,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	action.RegisterAction("DropC1", box.doDropC1)
 	action.RegisterAction("DropC2", box.doDropC2)
 
-	webOpts := web.NewOptions()
-	webOpts.Insecure = true
-	return webserver.RunWeb(ctx, myRobot, webOpts, logger)
+	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
 }
 
 func (b *ResetBox) doGrab1(ctx context.Context, r robot.Robot) {

@@ -21,9 +21,6 @@ type Options struct {
 	// Name is the FQDN of this host.
 	Name string
 
-	// Insecure determines if communications are expected to be insecure or not.
-	Insecure bool
-
 	// Debug turns on various debugging features. For example, the echo gRPC
 	// service is added.
 	Debug bool
@@ -31,6 +28,18 @@ type Options struct {
 	// WebRTC configures whether or not to instruct all clients to prefer to
 	// WebRTC connections over direct gRPC connections.
 	WebRTC bool
+
+	// TLSCertFile is used to enable secure communications on the hosted HTTP server.
+	TLSCertFile string
+
+	// TLSKeyFile is used to enable secure communications on the hosted HTTP server.
+	TLSKeyFile string
+
+	// internalSignaling indicates if an internal WebRTC signaling will be used.
+	internalSignaling bool
+
+	// secure determines if sever communicates are secured or not.
+	secure bool
 }
 
 // NewOptions returns a default set of options which will have the
