@@ -1,3 +1,4 @@
+// Get the coordinates of a depth pixel in the depth map in the reference frame of the color image
 package main
 
 import (
@@ -38,6 +39,7 @@ func main() {
 	params, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(*confPtr)
 	if err != nil {
 		err = errors.Errorf("path=%q: %w", *confPtr, err)
+		logger.Fatal(err)
 	}
 	cx, cy, _ := params.DepthPixelToColorPixel(x, y, z)
 	fmt.Printf("color: x: %.3f, y: %.3f\n", cx, cy)

@@ -16,6 +16,9 @@ import (
 	"gonum.org/v1/gonum/optimize"
 )
 
+// RunPinholeExtrinsicCalibration will solve the optimization problem to find the rigid pose
+// (translation and rotation) that changes the reference frame from the
+// point of view of the depth camera to the point of the view of the color camera.
 func RunPinholeExtrinsicCalibration(prob *optimize.Problem, logger golog.Logger) (spatialmath.Pose, error) {
 	// optimization method
 	method := &optimize.GradientDescent{
@@ -52,6 +55,11 @@ func RunPinholeExtrinsicCalibration(prob *optimize.Problem, logger golog.Logger)
 	return pose, nil
 }
 
+// BuildExtrinsicOptProblem creates the optimization problem to solve for the extrinsic matrix
+// given the intrinsic matrices of the depth and color camera, as well as a set of corresponding
+// points between the two cameras. depthPoints are the x,y pixels of the depth map and the
+// measured depth at that pixel, and the colorPoints are the x,y pixels of the corresponding
+// point in the color image.
 func BuildExtrinsicOptProblem(depth, color *PinholeCameraIntrinsics, depthPoints []r3.Vector, colorPoints []r2.Point) (*optimize.Problem, error) {
 	// check if the number of points in each image is the same
 	if len(colorPoints) != len(depthPoints) {

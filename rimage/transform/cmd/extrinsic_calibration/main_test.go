@@ -7,10 +7,11 @@ import (
 	"math/rand"
 	"testing"
 
-	"go.viam.com/core/rimage/transform"
-	"go.viam.com/core/utils"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
+
+	"go.viam.com/core/rimage/transform"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
@@ -37,7 +38,7 @@ func TestMainCalibrate(t *testing.T) {
 	calibrate(outDir+"/test.json", logger)
 }
 
-func createInputConfig(c *transform.DepthColorIntrinsicsExtrinsics, n int) *CalibrationConfig {
+func createInputConfig(c *transform.DepthColorIntrinsicsExtrinsics, n int) *calibrationConfig {
 	depthH, depthW := float64(c.DepthCamera.Height), float64(c.DepthCamera.Width)
 	colorPoints := make([]r2.Point, n)
 	depthPoints := make([]r3.Vector, n)
@@ -49,7 +50,7 @@ func createInputConfig(c *transform.DepthColorIntrinsicsExtrinsics, n int) *Cali
 		cx, cy, _ := c.DepthPixelToColorPixel(dx, dy, dz)
 		colorPoints[i] = r2.Point{cx, cy}
 	}
-	conf := &CalibrationConfig{
+	conf := &calibrationConfig{
 		ColorPoints:     colorPoints,
 		DepthPoints:     depthPoints,
 		ColorIntrinsics: c.ColorCamera,

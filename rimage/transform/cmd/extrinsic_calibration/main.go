@@ -9,9 +9,10 @@ import (
 	"io/ioutil"
 	"os"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/rimage/transform"
 	"go.viam.com/core/spatialmath"
-	"go.viam.com/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
@@ -19,7 +20,7 @@ import (
 	"github.com/golang/geo/r3"
 )
 
-type CalibrationConfig struct {
+type calibrationConfig struct {
 	ColorPoints     []r2.Point                        `json:"color_points"`
 	DepthPoints     []r3.Vector                       `json:"depth_points"`
 	ColorIntrinsics transform.PinholeCameraIntrinsics `json:"color_intrinsics"`
@@ -62,7 +63,7 @@ func printRot(o spatialmath.Orientation) string {
 	return w1 + w2 + w3
 }
 
-func readConfig(cfgPath string) (*CalibrationConfig, error) {
+func readConfig(cfgPath string) (*calibrationConfig, error) {
 	f, err := os.Open(cfgPath)
 	if err != nil {
 		return nil, errors.Errorf("path=%q: %w", cfgPath, err)
@@ -74,7 +75,7 @@ func readConfig(cfgPath string) (*CalibrationConfig, error) {
 		return nil, err
 	}
 
-	conf := &CalibrationConfig{}
+	conf := &calibrationConfig{}
 	err = json.Unmarshal(byteJSON, conf)
 	if err != nil {
 		return nil, errors.Errorf("error parsing byte array - %w", err)
