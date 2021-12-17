@@ -34,9 +34,13 @@ func NewBoxFromOffset(halfSize r3.Vector, offset Pose) VolumeCreator {
 // NewVolume instantiates a new box from a BoxCreator class
 func (bc *boxCreator) NewVolume(pose Pose) Volume {
 	b := &box{}
-	b.pose = Compose(pose, bc.offset)
+	b.pose = Compose(bc.offset, pose)
 	b.halfSize = bc.halfSize
 	return b
+}
+
+func (b *box) Pose() Pose {
+	return b.pose
 }
 
 // CollidesWith checks if the given box collides with the given volume and returns true if it does

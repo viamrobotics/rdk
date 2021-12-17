@@ -7,5 +7,6 @@ type VolumeCreator interface {
 
 // Volume is an entry point with which to access all types of collision geometries
 type Volume interface {
+	Pose() Pose
 	CollidesWith(Volume) (bool, error)
 }

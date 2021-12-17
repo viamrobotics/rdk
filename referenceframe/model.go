@@ -117,16 +117,18 @@ func (m *Model) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, e
 }
 
 func (m *Model) Volume(inputs []Input) (map[string]spatialmath.Volume, error) {
-	frames, err := m.jointRadToQuats(inputs, true)
-	if err != nil && frames == nil {
+	joints, err := m.jointRadToQuats(inputs, true)
+	if err != nil && joints == nil {
 		return nil, err
 	}
 	var errAll error
 	volumeMap := make(map[string]spatialmath.Volume)
-	for _, frame := range frames {
-		vol, err := frame.Volume([]Input{})
+	for _, joint := range joints {
+		vol, err := joint.Volume([]Input{})
 		multierr.AppendInto(&errAll, err)
-		volumeMap[m.name+":"+frame.Name()] = vol[frame.Name()]
+		if vol != nil {
+			volumeMap[m.name+":"+joint.Name()] = vol[joint.Name()]
+		}
 	}
 	return volumeMap, errAll
 }
@@ -154,7 +156,11 @@ func (m *Model) jointRadToQuats(inputs []Input, collectAll bool) ([]*staticFrame
 		multierr.AppendInto(&err, errNew)
 		composedTransformation = spatialmath.Compose(composedTransformation, pose)
 		if collectAll {
-			poses = append(poses, &staticFrame{transform.Name(), composedTransformation, nil})
+			tf, err := NewStaticFrameFromFrame(transform, composedTransformation)
+			if pose == nil {
+				return nil, err
+			}
+			poses = append(poses, tf.(*staticFrame))
 		}
 	}
 	if !collectAll {

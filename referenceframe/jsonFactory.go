@@ -52,18 +52,16 @@ type ModelJSON struct {
 // Model turns the ModelJSON struct into a full Model with the name modelName
 func (m *ModelJSON) Model(modelName string) (*Model, error) {
 	model := &Model{}
-	model.name = modelName
 	if modelName == "" {
 		model.name = m.Name
+	} else {
+		model.name = modelName
 	}
 
 	transforms := map[string]Frame{}
 
 	// Make a map of parents for each element for post-process, to allow items to be processed out of order
 	parentMap := map[string]string{}
-
-	// Make a list of Volumes
-	// volumes := []Volume{}
 
 	if m.KinParamType == "SVA" || m.KinParamType == "" {
 		for _, link := range m.Links {
@@ -83,21 +81,19 @@ func (m *ModelJSON) Model(modelName string) (*Model, error) {
 			if err != nil {
 				return nil, err
 			}
-			ov := orientation.OrientationVectorRadians()
 			pt := r3.Vector{link.Translation.X, link.Translation.Y, link.Translation.Z}
+			pose := spatialmath.NewPoseFromOrientationVector(pt, orientation.OrientationVectorRadians())
 
-			q := spatialmath.NewPoseFromOrientationVector(pt, ov)
+			var vol spatialmath.VolumeCreator
+			if link.Volume.X != 0 && link.Volume.Y != 0 && link.Volume.Z != 0 {
+				dims := r3.Vector{link.Volume.X, link.Volume.Y, link.Volume.Z}.Mul(0.5)
+				offset := spatialmath.NewPoseFromPoint(pt.Mul(-0.5))
+				vol = spatialmath.NewBoxFromOffset(dims, offset)
+			}
+			transforms[link.ID], err = NewStaticFrameWithVolume(link.ID, pose, vol)
 
-			transforms[link.ID], err = NewStaticFrame(link.ID, q)
 			if err != nil {
 				return nil, err
-			}
-
-			if link.Volume.X != 0 && link.Volume.Y != 0 && link.Volume.Z != 0 {
-				// dims := r3.Vector{link.Volume.X, link.Volume.Y, link.Volume.Z}.Mul(0.5)
-				// offset := r3.Vector{0, 0, dims.Z}
-				// var vol Volume = NewBoxFromOffset(offset, dims)
-				// volumes = append(volumes, vol)
 			}
 		}
 
