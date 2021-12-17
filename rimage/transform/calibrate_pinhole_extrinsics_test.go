@@ -7,9 +7,10 @@ import (
 	"os"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
-	"go.viam.com/test"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
@@ -61,7 +62,7 @@ func loadParameters(t *testing.T, filePath string) (*PinholeCameraIntrinsics, *P
 		Color       PinholeCameraIntrinsics `json:"color_intrinsics"`
 		Depth       PinholeCameraIntrinsics `json:"depth_intrinsics"`
 	}{}
-	err = json.Unmarshal([]byte(byteValue), &temp)
+	err = json.Unmarshal(byteValue, &temp)
 	test.That(t, err, test.ShouldBeNil)
 	return &temp.Depth, &temp.Color, temp.DepthPoints, temp.ColorPoints
 }
