@@ -10,7 +10,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
 	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e
-	github.com/edaniels/gostream v0.0.0-20211109155721-e22ad4040f84
+	github.com/edaniels/gostream v0.0.0-20211216221248-228c822205bd
 	github.com/erh/egoutil v0.0.10
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
@@ -54,7 +54,7 @@ require (
 	go.uber.org/zap v1.19.1
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
-	go.viam.com/utils v0.0.2-0.20211210173739-323a031d3389
+	go.viam.com/utils v0.0.2-0.20211216221155-408fcbbd1c36
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 	golang.org/x/tools v0.1.7
@@ -103,11 +103,9 @@ require (
 	github.com/fatih/color v1.10.0 // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/fzipp/gocyclo v0.3.1 // indirect
-	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-critic/go-critic v0.5.5 // indirect
 	github.com/go-latex/latex v0.0.0-20200518072620-0806b477ea35 // indirect
-	github.com/go-playground/validator/v10 v10.4.1 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/go-toolsmith/astcast v1.0.0 // indirect
 	github.com/go-toolsmith/astcopy v1.0.0 // indirect
@@ -120,6 +118,7 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofrs/flock v0.8.0 // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
+	github.com/golang-jwt/jwt/v4 v4.2.0 // indirect
 	github.com/golang/glog v0.0.0-20210429001901-424d2337a529 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -153,7 +152,6 @@ require (
 	github.com/imdario/mergo v0.3.9 // indirect
 	github.com/improbable-eng/grpc-web v0.14.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
-	github.com/jezek/xgb v0.0.0-20210312150743-0e0f116e1240 // indirect
 	github.com/jgautheron/goconst v1.4.0 // indirect
 	github.com/jhump/protoreflect v1.6.1 // indirect
 	github.com/jingyugao/rowserrcheck v0.0.0-20210315055705-d907ca737bb1 // indirect
@@ -162,7 +160,6 @@ require (
 	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/julz/importas v0.0.0-20210228071311-d0bf5cb4e1db // indirect
 	github.com/jung-kurt/gofpdf v1.16.2 // indirect
-	github.com/kbinani/screenshot v0.0.0-20210720154843-7d3a670d8329 // indirect
 	github.com/kisielk/errcheck v1.6.0 // indirect
 	github.com/kisielk/gotool v1.0.0 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
@@ -171,7 +168,6 @@ require (
 	github.com/kyoh86/exportloopref v0.1.8 // indirect
 	github.com/ldez/gomoddirectives v0.2.1 // indirect
 	github.com/lib/pq v1.9.0 // indirect
-	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/magiconair/properties v1.8.1 // indirect
 	github.com/maratori/testpackage v1.0.1 // indirect
 	github.com/matoous/godox v0.0.0-20210227103229-6504466cf951 // indirect

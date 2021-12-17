@@ -5,8 +5,8 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/utils/rpc/dialer"
-	rpcserver "go.viam.com/utils/rpc/server"
+
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/component/gripper"
 	componentpb "go.viam.com/core/proto/api/component/v1"
@@ -29,7 +29,7 @@ func init() {
 		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
 			return gripper.WrapWithReconfigurable(r)
 		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&componentpb.GripperService_ServiceDesc,
@@ -37,7 +37,7 @@ func init() {
 				componentpb.RegisterGripperServiceHandlerFromEndpoint,
 			)
 		},
-		RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
+		RPCClient: func(conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return gripper.NewClientFromConn(conn, name, logger)
 		},
 	})
