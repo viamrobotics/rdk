@@ -119,6 +119,7 @@ brew "grpcurl"
 brew "node"
 brew "nlopt"
 brew "x264"
+brew "wasmer"
 
 EOS
 
