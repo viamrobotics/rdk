@@ -1,5 +1,4 @@
-//go:build pi
-// +build pi
+//go:build linux && arm64
 
 package pi
 
