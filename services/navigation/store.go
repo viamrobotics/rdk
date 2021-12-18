@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-errors/errors"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"

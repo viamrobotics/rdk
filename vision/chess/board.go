@@ -10,8 +10,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"
-	"github.com/go-errors/errors"
 	"github.com/gonum/stat"
+	"github.com/pkg/errors"
 )
 
 // EdgeThreshold TODO

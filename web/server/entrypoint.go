@@ -25,7 +25,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/erh/egoutil"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -165,7 +165,7 @@ func (nl *netLogger) writeToServer(x interface{}) error {
 
 	r, err := http.NewRequest("POST", nl.cfg.LogPath, bytes.NewReader(js))
 	if err != nil {
-		return errors.Errorf("error creating log request %w", err)
+		return errors.Wrap(err, "error creating log request")
 	}
 	r.Header.Set("Secret", nl.cfg.Secret)
 	r = r.WithContext(nl.cancelCtx)
@@ -324,7 +324,12 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		return err
 	}
 	ctx = service.ContextWithService(ctx, metadataSvc)
-	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
+	// TODO(https://github.com/viamrobotics/core/issues/237): configurable
+	dialOpts := []rpc.DialOption{rpc.WithInsecure()}
+	if argsParsed.Debug {
+		dialOpts = append(dialOpts, rpc.WithDialDebug())
+	}
+	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(dialOpts...))
 	if err != nil {
 		return err
 	}
