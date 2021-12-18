@@ -23,14 +23,14 @@
         },
         { "name" : "front",
           "type" : "camera",
-          "model" : "depthComposed",
+          "model" : "depth_composed",
           "attributes" : {
 	          "hide" : true,
               "color" : "front-color",
               "depth" : "front-depth",
               "make" : "intel515",
               "debug" : false,
-              "matrices" : "$load{intel515_parameters.json}"
+              "intrinsic_extrinsic" : "$load{intel515_parameters.json}"
           }
         },
         { "name" : "front-overlay",

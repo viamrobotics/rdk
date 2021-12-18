@@ -77,16 +77,28 @@ func TestDepthMapNewFormat(t *testing.T) {
 	test.That(t, numZero, test.ShouldBeBetween, 0, m.width)
 }
 
+//  1 2              5 3 1 //  1 2               2 4 6
+//  3 4  -- 90 cw -> 6 4 2 //  3 4  -- 90 ccw -> 1 3 5
+//  5 6                    //  5 6
 func TestDepthRotate90(t *testing.T) {
-	dm := NewEmptyDepthMap(2, 2)
+	dm := NewEmptyDepthMap(2, 3)
 	dm.Set(0, 0, 1)
 	dm.Set(1, 0, 2)
 	dm.Set(0, 1, 3)
 	dm.Set(1, 1, 4)
+	dm.Set(0, 2, 5)
+	dm.Set(1, 2, 6)
 
 	dm2 := dm.Rotate90(true)
-
-	test.That(t, dm2.GetDepth(0, 0), test.ShouldEqual, Depth(1))
+	test.That(t, dm2.Height(), test.ShouldEqual, 2)
+	test.That(t, dm2.Width(), test.ShouldEqual, 3)
+	test.That(t, dm2.GetDepth(0, 0), test.ShouldEqual, Depth(5))
+	test.That(t, dm2.GetDepth(2, 1), test.ShouldEqual, Depth(2))
+	dm3 := dm.Rotate90(false)
+	test.That(t, dm3.Height(), test.ShouldEqual, 2)
+	test.That(t, dm3.Width(), test.ShouldEqual, 3)
+	test.That(t, dm3.GetDepth(0, 0), test.ShouldEqual, Depth(2))
+	test.That(t, dm3.GetDepth(2, 1), test.ShouldEqual, Depth(5))
 }
 
 func TestToGray16Picture(t *testing.T) {

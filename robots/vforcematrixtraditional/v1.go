@@ -29,7 +29,7 @@ func init() {
 
 // ForceMatrixTraditional represents a force matrix without a mux.
 type ForceMatrixTraditional struct {
-	gpioPins            []string
+	columnGpioPins      []string
 	analogChannels      []string
 	analogReaders       []board.AnalogReader
 	board               board.Board
@@ -48,7 +48,7 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		return nil, errors.Errorf("need a board for force sensor, named (%v)", boardName)
 	}
 
-	gpioPins := config.Attributes.StringSlice("column_gpio_pins_left_to_right")
+	columnGpioPins := config.Attributes.StringSlice("column_gpio_pins_left_to_right")
 	analogChannels := config.Attributes.StringSlice("row_analog_channels_top_to_bottom")
 
 	analogReaders := make([]board.AnalogReader, 0, len(analogChannels))
@@ -59,12 +59,15 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 		}
 		analogReaders = append(analogReaders, reader)
 	}
-	noiseThreshold := config.Attributes.Float64("noise_threshold", 0)
+	noiseThreshold := config.Attributes.Float64("slip_detection_signal_to_noise_cutoff", 0)
 	slipDetectionWindow := config.Attributes.Int("slip_detection_window", forcematrix.MatrixStorageSize)
+	if slipDetectionWindow > forcematrix.MatrixStorageSize {
+		return nil, errors.Errorf("slip_detection_window has to be <= %v", forcematrix.MatrixStorageSize)
+	}
 	previousMatrices := make([][][]int, 0)
 
 	return &ForceMatrixTraditional{
-		gpioPins:            gpioPins,
+		columnGpioPins:      columnGpioPins,
 		analogChannels:      analogChannels,
 		analogReaders:       analogReaders,
 		board:               b,
@@ -84,14 +87,22 @@ func (fsm *ForceMatrixTraditional) addToPreviousMatricesWindow(matrix [][]int) {
 
 // Matrix returns a matrix of measurements from the force sensor.
 func (fsm *ForceMatrixTraditional) Matrix(ctx context.Context) ([][]int, error) {
-	matrix := make([][]int, len(fsm.gpioPins))
-	for i := 0; i < len(fsm.gpioPins); i++ {
-		if err := fsm.board.GPIOSet(ctx, fsm.gpioPins[i], true); err != nil {
+	numRows := len(fsm.analogReaders)
+	numCols := len(fsm.columnGpioPins)
+
+	matrix := make([][]int, numRows)
+	for row := range matrix {
+		matrix[row] = make([]int, numCols)
+	}
+	for col := 0; col < len(fsm.columnGpioPins); col++ {
+		// set the correct GPIO to high
+		if err := fsm.board.GPIOSet(ctx, fsm.columnGpioPins[col], true); err != nil {
 			return nil, err
 		}
 
-		for j, pin := range fsm.gpioPins {
-			if i != j {
+		// set all other GPIO pins to low
+		for c, pin := range fsm.columnGpioPins {
+			if c != col {
 				err := fsm.board.GPIOSet(ctx, pin, false)
 				if err != nil {
 					return nil, err
@@ -99,12 +110,13 @@ func (fsm *ForceMatrixTraditional) Matrix(ctx context.Context) ([][]int, error) 
 			}
 		}
 
-		for _, analogReader := range fsm.analogReaders {
+		// read out the pressure values
+		for row, analogReader := range fsm.analogReaders {
 			val, err := analogReader.Read(ctx)
 			if err != nil {
 				return nil, err
 			}
-			matrix[i] = append(matrix[i], val)
+			matrix[row][col] = val
 		}
 	}
 	fsm.addToPreviousMatricesWindow(matrix)
@@ -117,10 +129,14 @@ func (fsm *ForceMatrixTraditional) Readings(ctx context.Context) ([]interface{},
 	if err != nil {
 		return nil, err
 	}
-	readings := make([]interface{}, 0, len(fsm.analogChannels)*len(fsm.analogReaders))
-	for i := 0; i < len(fsm.analogChannels); i++ {
-		for j := 0; j < len(fsm.analogReaders); j++ {
-			readings = append(readings, matrix[i][j])
+
+	numRows := len(fsm.analogReaders)
+	numCols := len(fsm.columnGpioPins)
+
+	readings := make([]interface{}, 0, numRows*numCols)
+	for row := 0; row < numRows; row++ {
+		for col := 0; col < numCols; col++ {
+			readings = append(readings, matrix[row][col])
 		}
 	}
 	return readings, nil

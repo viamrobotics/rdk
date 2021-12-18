@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
+	"go.viam.com/core/component/input"
 	"go.viam.com/core/config"
-	"go.viam.com/core/input"
+	"go.viam.com/core/grpc/client"
 	"go.viam.com/core/metadata/service"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/services/web"
@@ -40,16 +42,14 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	ctx = service.ContextWithService(ctx, metadataSvc)
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
 	if err != nil {
 		return err
 	}
 	defer myRobot.Close()
 	go debugOut(ctx, myRobot)
-	webOpts := web.NewOptions()
-	webOpts.Insecure = true
 
-	return webserver.RunWeb(ctx, myRobot, webOpts, logger)
+	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
 }
 
 func debugOut(ctx context.Context, r robot.Robot) {

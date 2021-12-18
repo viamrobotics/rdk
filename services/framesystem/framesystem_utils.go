@@ -169,15 +169,6 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 			return framer.ModelFrame(), nil
 		}
 		return nil, nil
-	case config.ComponentTypeLidar:
-		part, ok := r.LidarByName(name)
-		if !ok {
-			return nil, errors.Errorf("no lidar found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, nil
 	case config.ComponentTypeSensor:
 		part, ok := r.SensorByName(name)
 		if !ok {

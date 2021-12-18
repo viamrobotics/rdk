@@ -42,40 +42,37 @@ type baseWithCompass struct {
 
 // Spin attempts to perform an accurate spin by utilizing the underlying compass. In short,
 // the base makes small spins until it gets very close to the target angle.
-func (wc baseWithCompass) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+func (wc baseWithCompass) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 	rel, _ := wc.compass.(compass.RelativeCompass)
 	if rel != nil {
 		if err := rel.Mark(ctx); err != nil {
-			return math.NaN(), err
+			return err
 		}
 	}
-	origAngleDeg := angleDeg
-	// track the total amount spun in case we fail along the way
-	var totalSpin float64
+
 	for {
 		startHeading, err := compass.MedianHeading(ctx, wc.compass)
 		if err != nil {
-			return totalSpin, err
+			return err
 		}
 		wc.logger.Debugf("start heading %f", startHeading)
-		spun, err := wc.Base.Spin(ctx, angleDeg, degsPerSec, block)
-		totalSpin += spun
+		err = wc.Base.Spin(ctx, angleDeg, degsPerSec, block)
 		if err != nil {
-			return totalSpin, err
+			return err
 		}
 		if !goutils.SelectContextOrWait(ctx, time.Second) {
-			return totalSpin, ctx.Err()
+			return ctx.Err()
 		}
 		endHeading, err := compass.MedianHeading(ctx, wc.compass)
 		if err != nil {
-			return totalSpin, err
+			return err
 		}
 		wc.logger.Debugf("end heading %f", endHeading)
 		actual := utils.AngleDiffDeg(startHeading, endHeading)
 		offBy := math.Abs(math.Abs(angleDeg) - actual)
 		wc.logger.Debugf("off by %f", offBy)
 		if offBy < 1 {
-			return origAngleDeg, nil
+			return nil
 		}
 		if actual > angleDeg {
 			offBy *= -1

@@ -42,9 +42,9 @@ func TestDeviceWithCompass(t *testing.T) {
 
 	t.Run("perfect base", func(t *testing.T) {
 		i := 0
-		dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+		dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 			i++
-			return 2.4, nil
+			return nil
 		}
 		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			if i == 0 {
@@ -52,16 +52,15 @@ func TestDeviceWithCompass(t *testing.T) {
 			}
 			return 10, nil
 		}
-		ang, _, err := base.DoMove(context.Background(), base.Move{AngleDeg: 10}, aug)
+		err := base.DoMove(context.Background(), base.Move{AngleDeg: 10}, aug)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ang, test.ShouldEqual, 10)
 	})
 
 	t.Run("off by under third", func(t *testing.T) {
 		i := 0
-		dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+		dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 			i++
-			return 2.4, nil
+			return nil
 		}
 		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			if i == 0 {
@@ -69,16 +68,15 @@ func TestDeviceWithCompass(t *testing.T) {
 			}
 			return 10 * (float64(i) / 3), nil
 		}
-		ang, _, err := base.DoMove(context.Background(), base.Move{AngleDeg: 10}, aug)
+		err := base.DoMove(context.Background(), base.Move{AngleDeg: 10}, aug)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ang, test.ShouldEqual, 10)
 	})
 
 	t.Run("off by over third", func(t *testing.T) {
 		i := 0
-		dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+		dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 			i++
-			return 2.4, nil
+			return nil
 		}
 		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			if i == 0 {
@@ -86,34 +84,31 @@ func TestDeviceWithCompass(t *testing.T) {
 			}
 			return 10 + 10*(float64(i)/3), nil
 		}
-		ang, _, err := base.DoMove(context.Background(), base.Move{AngleDeg: 10}, aug)
+		err := base.DoMove(context.Background(), base.Move{AngleDeg: 10}, aug)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ang, test.ShouldEqual, 10)
 	})
 
 	t.Run("error getting heading", func(t *testing.T) {
-		dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
-			return angleDeg, nil
+		dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+			return nil
 		}
 		err1 := errors.New("oh no")
 		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			return math.NaN(), err1
 		}
-		ang, _, err := base.DoMove(context.Background(), base.Move{AngleDeg: 10}, aug)
+		err := base.DoMove(context.Background(), base.Move{AngleDeg: 10}, aug)
 		test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
-		test.That(t, ang, test.ShouldEqual, 0)
 	})
 
 	t.Run("error spinning", func(t *testing.T) {
 		err1 := errors.New("oh no")
-		dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
-			return 2.4, err1
+		dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+			return err1
 		}
 		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			return 0, nil
 		}
-		ang, _, err := base.DoMove(context.Background(), base.Move{AngleDeg: 10}, aug)
+		err := base.DoMove(context.Background(), base.Move{AngleDeg: 10}, aug)
 		test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
-		test.That(t, ang, test.ShouldEqual, 2.4)
 	})
 }

@@ -16,12 +16,13 @@ import (
 	"github.com/go-errors/errors"
 
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
-	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/grpc/client"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
@@ -57,36 +58,29 @@ type Boat struct {
 }
 
 // MoveStraight TODO
-func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
-	dir := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-	if distanceMillis < 0 {
-		dir = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
-		distanceMillis *= -1
-	}
-
+func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	if block {
-		return 0, errors.New("boat can't block for move straight yet")
+		return errors.New("boat can't block for move straight yet")
 	}
 
 	speed := (millisPerSec * 60.0) / float64(millisPerRotation)
 	rotations := float64(distanceMillis) / millisPerRotation
 
-	// TODO(erh): return how much it actually moved
-	return distanceMillis, multierr.Combine(
-		b.starboard.GoFor(ctx, dir, speed, rotations),
-		b.port.GoFor(ctx, dir, speed, rotations),
+	return multierr.Combine(
+		b.starboard.GoFor(ctx, speed, rotations),
+		b.port.GoFor(ctx, speed, rotations),
 	)
 
 }
 
 // MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD)
-func (b *Boat) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) (int, error) {
-	return 1, errors.New("boat can't move in arc yet")
+func (b *Boat) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
+	return errors.New("boat can't move in arc yet")
 }
 
 // Spin TODO
-func (b *Boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
-	return math.NaN(), errors.New("boat can't spin yet")
+func (b *Boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+	return errors.New("boat can't spin yet")
 }
 
 // WidthMillis TODO
@@ -131,9 +125,6 @@ func (b *Boat) StartRC(ctx context.Context) {
 
 			var port, starboard float64
 
-			var portDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-			var starboardDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-
 			direction := 0.0
 
 			aSwitchVal, err := b.aSwitch.Value(ctx)
@@ -166,19 +157,10 @@ func (b *Boat) StartRC(ctx context.Context) {
 					direction = float64(rightHorizontalVal)
 				}
 
-				if port < 0 {
-					portDirection = board.FlipDirection(portDirection)
-					port = -1 * port
-				}
-				if starboard < 0 {
-					starboardDirection = board.FlipDirection(starboardDirection)
-					starboard = -1 * starboard
-				}
-
 			} else {
 				if mode == 2 {
-					portDirection = board.FlipDirection(portDirection)
-					starboardDirection = board.FlipDirection(starboardDirection)
+					port *= -1
+					starboard *= -1
 				}
 
 				throttleVal, err := b.throttle.Value(ctx)
@@ -211,8 +193,8 @@ func (b *Boat) StartRC(ctx context.Context) {
 				err = b.Stop(ctx)
 			} else {
 				err = multierr.Combine(
-					b.starboard.GoFor(ctx, starboardDirection, starboard, 0),
-					b.port.GoFor(ctx, portDirection, port, 0),
+					b.starboard.GoFor(ctx, starboard, 0),
+					b.port.GoFor(ctx, port, 0),
 				)
 			}
 
@@ -409,7 +391,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	// register boat as base properly
 	registry.RegisterBase("viam-boat1", registry.Base{Constructor: newBoat})
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
 	if err != nil {
 		return err
 	}
