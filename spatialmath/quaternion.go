@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/go-gl/mathgl/mgl64"
+	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/quat"
 )
 
@@ -32,6 +33,11 @@ func (q *quaternion) OrientationVectorDegrees() *OrientationVectorDegrees {
 // EulerAngles returns orientation in Euler angle representation
 func (q *quaternion) EulerAngles() *EulerAngles {
 	return QuatToEulerAngles(q.Quaternion())
+}
+
+// RotationMatrix returns the orientation in rotation matrix representation
+func (q *quaternion) RotationMatrix() *RotationMatrix {
+	return QuatToRotationMatrix(q.Quaternion())
 }
 
 // QuatToEulerAngles converts a quaternion to the euler angle representation. Algorithm from Wikipedia.
@@ -155,7 +161,7 @@ func QuatToR4AA(q quat.Number) *R4AA {
 
 // QuatToR3AA converts a quat to an R3 axis angle in the same way the C++ Eigen library does.
 // https://eigen.tuxfamily.org/dox/AngleAxis_8h_source.html
-func QuatToR3AA(q quat.Number) R3AA {
+func QuatToR3AA(q quat.Number) r3.Vector {
 	denom := Norm(q)
 
 	angle := 2 * math.Atan2(denom, math.Abs(q.Real))
@@ -164,9 +170,36 @@ func QuatToR3AA(q quat.Number) R3AA {
 	}
 
 	if denom < 1e-6 {
-		return R3AA{1, 0, 0}
+		return r3.Vector{0, 0, 0}
 	}
-	return R3AA{angle * q.Imag / denom, angle * q.Jmag / denom, angle * q.Kmag / denom}
+	return r3.Vector{angle * q.Imag / denom, angle * q.Jmag / denom, angle * q.Kmag / denom}
+}
+
+// QuatToRotationMatrix converts a quat to a Rotation Matrix
+// reference: https://github.com/go-gl/mathgl/blob/592312d8590acb0686c14740dcf60e2f32d9c618/mgl64/quat.go#L168
+func QuatToRotationMatrix(q quat.Number) *RotationMatrix {
+	w, x, y, z := q.Real, q.Imag, q.Jmag, q.Kmag
+	mat := [9]float64{
+		1 - 2*y*y - 2*z*z, 2*x*y + 2*w*z, 2*x*z - 2*w*y,
+		2*x*y - 2*w*z, 1 - 2*x*x - 2*z*z, 2*y*z + 2*w*x,
+		2*x*z + 2*w*y, 2*y*z - 2*w*x, 1 - 2*x*x - 2*y*y,
+	}
+	return &RotationMatrix{mat}
+}
+
+// Normalize a quaternion, returning its, versor (unit quaternion)
+func Normalize(q quat.Number) quat.Number {
+	length := math.Sqrt(q.Real*q.Real + q.Imag*q.Imag + q.Jmag*q.Jmag + q.Kmag*q.Kmag)
+	if math.Abs(length-1.0) < 1e-10 {
+		return q
+	}
+	if length == 0 {
+		return NewZeroOrientation().Quaternion()
+	}
+	if length == math.Inf(1) {
+		length = float64(math.MaxFloat64)
+	}
+	return quat.Number{q.Real / length, q.Imag / length, q.Jmag / length, q.Kmag / length}
 }
 
 // Used for interpolating orientations.

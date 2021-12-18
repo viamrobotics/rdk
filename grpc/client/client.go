@@ -2,10 +2,7 @@
 package client
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"image"
 	"math"
 	"runtime/debug"
 	"sync"
@@ -17,38 +14,31 @@ import (
 
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/rpc/dialer"
-
-	rpcclient "go.viam.com/utils/rpc/client"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/camera"
+	"go.viam.com/core/component/gripper"
+	"go.viam.com/core/component/input"
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"
-	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc"
 	metadataclient "go.viam.com/core/grpc/metadata/client"
-	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
-	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/resource"
-	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
-	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/spatialmath"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r2"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -62,16 +52,13 @@ var errUnimplemented = errors.New("unimplemented")
 // client conforming to the robot.proto contract.
 type RobotClient struct {
 	address        string
-	conn           dialer.ClientConn
+	conn           rpc.ClientConn
 	client         pb.RobotServiceClient
 	metadataClient *metadataclient.MetadataServiceClient
 
 	namesMu              *sync.RWMutex
 	baseNames            []string
-	gripperNames         []string
 	boardNames           []boardInfo
-	cameraNames          []string
-	lidarNames           []string
 	sensorNames          []string
 	motorNames           []string
 	inputControllerNames []string
@@ -92,31 +79,28 @@ type RobotClient struct {
 	closeContext context.Context
 }
 
-// RobotClientOptions are extra construction time options.
-type RobotClientOptions struct {
-	// RefreshEvery is how often to refresh the status/parts of the
-	// robot. If unset, it will not be refreshed automatically.
-	RefreshEvery time.Duration
-
-	// DialOptions are options using for clients dialing gRPC servers.
-	DialOptions rpcclient.DialOptions
+type boardInfo struct {
+	name                  string
+	spiNames              []string
+	i2cNames              []string
+	analogReaderNames     []string
+	digitalInterruptNames []string
 }
 
-// NewClientWithOptions constructs a new RobotClient that is served at the given address. The given
-// context can be used to cancel the operation. Additionally, construction time options can be given.
-func NewClientWithOptions(ctx context.Context, address string, opts RobotClientOptions, logger golog.Logger) (*RobotClient, error) {
-	conn, err := grpc.Dial(ctx, address, opts.DialOptions, logger)
+// New constructs a new RobotClient that is served at the given address. The given
+// context can be used to cancel the operation.
+func New(ctx context.Context, address string, logger golog.Logger, opts ...RobotClientOption) (*RobotClient, error) {
+	var rOpts robotClientOpts
+	for _, opt := range opts {
+		opt.apply(&rOpts)
+	}
+
+	conn, err := grpc.Dial(ctx, address, logger, rOpts.dialOptions...)
 	if err != nil {
 		return nil, err
 	}
 
-	metadataClient, err := metadataclient.NewClient(
-		ctx,
-		address,
-		// TODO(https://github.com/viamrobotics/core/issues/237): configurable
-		rpcclient.DialOptions{Insecure: true},
-		logger,
-	)
+	metadataClient, err := metadataclient.New(ctx, address, logger, rOpts.dialOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -140,33 +124,14 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 	if err := rc.Refresh(ctx); err != nil {
 		return nil, err
 	}
-	if opts.RefreshEvery != 0 {
+	if rOpts.refreshEvery != 0 {
 		rc.cachingStatus = true
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
-			rc.RefreshEvery(closeCtx, opts.RefreshEvery)
+			rc.RefreshEvery(closeCtx, rOpts.refreshEvery)
 		}, rc.activeBackgroundWorkers.Done)
 	}
 	return rc, nil
-}
-
-type boardInfo struct {
-	name                  string
-	spiNames              []string
-	i2cNames              []string
-	analogReaderNames     []string
-	digitalInterruptNames []string
-}
-
-// NewClient constructs a new RobotClient that is served at the given address. The given
-// context can be used to cancel the operation.
-func NewClient(ctx context.Context, address string, logger golog.Logger) (*RobotClient, error) {
-	return NewClientWithOptions(ctx, address, RobotClientOptions{
-		DialOptions: rpcclient.DialOptions{
-			// TODO(https://github.com/viamrobotics/core/issues/237): configurable
-			Insecure: true,
-		},
-	}, logger)
 }
 
 // Close cleanly closes the underlying connections and stops the refresh goroutine
@@ -303,19 +268,29 @@ func (rc *RobotClient) BaseByName(name string) (base.Base, bool) {
 // GripperByName returns a gripper by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) GripperByName(name string) (gripper.Gripper, bool) {
-	return &gripperClient{rc, name}, true
+	resource, ok := rc.ResourceByName(gripper.Named(name))
+	if !ok {
+		return nil, false
+	}
+	actual, ok := resource.(gripper.Gripper)
+	if !ok {
+		return nil, false
+	}
+	return actual, true
 }
 
 // CameraByName returns a camera by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) CameraByName(name string) (camera.Camera, bool) {
-	return &cameraClient{rc, name}, true
-}
-
-// LidarByName returns a lidar by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) LidarByName(name string) (lidar.Lidar, bool) {
-	return &lidarClient{rc, name}, true
+	resource, ok := rc.ResourceByName(camera.Named(name))
+	if !ok {
+		return nil, false
+	}
+	actual, ok := resource.(camera.Camera)
+	if !ok {
+		return nil, false
+	}
+	return actual, true
 }
 
 // BoardByName returns a board by name. It is assumed to exist on the
@@ -341,8 +316,6 @@ func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 		return &compassClient{sc}, true
 	case compass.RelativeType:
 		return &relativeCompassClient{&compassClient{sc}}, true
-	case imu.Type:
-		return &imuClient{sc}, true
 	case gps.Type:
 		return &gpsClient{sc}, true
 	case forcematrix.Type:
@@ -355,10 +328,16 @@ func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 // ServoByName returns a servo by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) ServoByName(name string) (servo.Servo, bool) {
-	return &servoClient{
-		rc:   rc,
-		name: name,
-	}, true
+	nameObj := servo.Named(name)
+	resource, ok := rc.ResourceByName(nameObj)
+	if !ok {
+		return nil, false
+	}
+	actualServo, ok := resource.(servo.Servo)
+	if !ok {
+		return nil, false
+	}
+	return actualServo, true
 }
 
 // MotorByName returns a motor by name. It is assumed to exist on the
@@ -388,14 +367,22 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
-	c := registry.ResourceSubtypeLookup(name.Subtype)
-	if c == nil || c.RPCClient == nil {
-		// registration doesn't exist
-		return nil, false
+	// TODO(maximpertsov): remove this switch statement after the V2 migration is done
+	switch name.Subtype {
+	case input.Subtype:
+		return &inputControllerClient{rc: rc, name: name.Name}, true
+	case motor.Subtype:
+		return &motorClient{rc: rc, name: name.Name}, true
+	default:
+		c := registry.ResourceSubtypeLookup(name.Subtype)
+		if c == nil || c.RPCClient == nil {
+			// registration doesn't exist
+			return nil, false
+		}
+		// pass in conn
+		resourceClient := c.RPCClient(rc.conn, name.Name, rc.Logger())
+		return resourceClient, true
 	}
-	// pass in conn
-	resourceClient := c.RPCClient(rc.conn, name.Name, rc.Logger())
-	return resourceClient, true
 }
 
 // Refresh manually updates the underlying parts of the robot based
@@ -440,13 +427,7 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 			rc.baseNames = append(rc.baseNames, name)
 		}
 	}
-	rc.gripperNames = nil
-	if len(status.Grippers) != 0 {
-		rc.gripperNames = make([]string, 0, len(status.Grippers))
-		for name := range status.Grippers {
-			rc.gripperNames = append(rc.gripperNames, name)
-		}
-	}
+
 	rc.boardNames = nil
 	if len(status.Boards) != 0 {
 		rc.boardNames = make([]boardInfo, 0, len(status.Boards))
@@ -467,40 +448,12 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 			rc.boardNames = append(rc.boardNames, info)
 		}
 	}
-	rc.cameraNames = nil
-	if len(status.Cameras) != 0 {
-		rc.cameraNames = make([]string, 0, len(status.Cameras))
-		for name := range status.Cameras {
-			rc.cameraNames = append(rc.cameraNames, name)
-		}
-	}
-	rc.lidarNames = nil
-	if len(status.Lidars) != 0 {
-		rc.lidarNames = make([]string, 0, len(status.Lidars))
-		for name := range status.Lidars {
-			rc.lidarNames = append(rc.lidarNames, name)
-		}
-	}
 	rc.sensorNames = nil
 	if len(status.Sensors) != 0 {
 		rc.sensorNames = make([]string, 0, len(status.Sensors))
 		for name, sensorStatus := range status.Sensors {
 			rc.sensorNames = append(rc.sensorNames, name)
 			rc.sensorTypes[name] = sensor.Type(sensorStatus.Type)
-		}
-	}
-	rc.motorNames = nil
-	if len(status.Motors) != 0 {
-		rc.motorNames = make([]string, 0, len(status.Motors))
-		for name := range status.Motors {
-			rc.motorNames = append(rc.motorNames, name)
-		}
-	}
-	rc.inputControllerNames = nil
-	if len(status.InputControllers) != 0 {
-		rc.inputControllerNames = make([]string, 0, len(status.InputControllers))
-		for name := range status.InputControllers {
-			rc.inputControllerNames = append(rc.inputControllerNames, name)
 		}
 	}
 	rc.functionNames = nil
@@ -550,21 +503,26 @@ func (rc *RobotClient) ArmNames() []string {
 func (rc *RobotClient) GripperNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.gripperNames)
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		if v.Subtype == gripper.Subtype {
+			names = append(names, v.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // CameraNames returns the names of all known cameras.
 func (rc *RobotClient) CameraNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.cameraNames)
-}
-
-// LidarNames returns the names of all known lidars.
-func (rc *RobotClient) LidarNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.lidarNames)
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		if v.Subtype == camera.Subtype {
+			names = append(names, v.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // BaseNames returns the names of all known bases.
@@ -706,23 +664,22 @@ type baseClient struct {
 	name string
 }
 
-func (bc *baseClient) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+func (bc *baseClient) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	resp, err := bc.rc.client.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
 		Name:           bc.name,
 		MillisPerSec:   millisPerSec,
 		DistanceMillis: int64(distanceMillis),
 	})
 	if err != nil {
-		return 0, err
+		return err
 	}
-	moved := int(resp.DistanceMillis)
 	if resp.Success {
-		return moved, nil
+		return nil
 	}
-	return moved, errors.New(resp.Error)
+	return errors.New(resp.Error)
 }
 
-func (bc *baseClient) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) (int, error) {
+func (bc *baseClient) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) error {
 	resp, err := bc.rc.client.BaseMoveArc(ctx, &pb.BaseMoveArcRequest{
 		Name:           bc.name,
 		MillisPerSec:   millisPerSec,
@@ -730,29 +687,27 @@ func (bc *baseClient) MoveArc(ctx context.Context, distanceMillis int, millisPer
 		DistanceMillis: int64(distanceMillis),
 	})
 	if err != nil {
-		return 0, err
+		return err
 	}
-	moved := int(resp.DistanceMillis)
 	if resp.Success {
-		return moved, nil
+		return nil
 	}
-	return moved, errors.New(resp.Error)
+	return errors.New(resp.Error)
 }
 
-func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 	resp, err := bc.rc.client.BaseSpin(ctx, &pb.BaseSpinRequest{
 		Name:       bc.name,
 		AngleDeg:   angleDeg,
 		DegsPerSec: degsPerSec,
 	})
 	if err != nil {
-		return math.NaN(), err
+		return err
 	}
-	spun := resp.AngleDeg
 	if resp.Success {
-		return spun, nil
+		return nil
 	}
-	return spun, errors.New(resp.Error)
+	return errors.New(resp.Error)
 }
 
 func (bc *baseClient) Stop(ctx context.Context) error {
@@ -770,30 +725,6 @@ func (bc *baseClient) WidthMillis(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	return int(resp.WidthMillis), nil
-}
-
-// gripperClient satisfies a gRPC based gripper.Gripper. Refer to the interface
-// for descriptions of its methods.
-type gripperClient struct {
-	rc   *RobotClient
-	name string
-}
-
-func (gc *gripperClient) Open(ctx context.Context) error {
-	_, err := gc.rc.client.GripperOpen(ctx, &pb.GripperOpenRequest{
-		Name: gc.name,
-	})
-	return err
-}
-
-func (gc *gripperClient) Grab(ctx context.Context) (bool, error) {
-	resp, err := gc.rc.client.GripperGrab(ctx, &pb.GripperGrabRequest{
-		Name: gc.name,
-	})
-	if err != nil {
-		return false, err
-	}
-	return resp.Grabbed, nil
 }
 
 // boardClient satisfies a gRPC based board.Board. Refer to the interface
@@ -991,142 +922,6 @@ func (dic *digitalInterruptClient) AddPostProcessor(pp board.PostProcessor) {
 	panic(errUnimplemented)
 }
 
-// cameraClient satisfies a gRPC based camera.Camera. Refer to the interface
-// for descriptions of its methods.
-type cameraClient struct {
-	rc   *RobotClient
-	name string
-}
-
-func (cc *cameraClient) Next(ctx context.Context) (image.Image, func(), error) {
-	resp, err := cc.rc.client.CameraFrame(ctx, &pb.CameraFrameRequest{
-		Name:     cc.name,
-		MimeType: grpc.MimeTypeViamBest,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-	switch resp.MimeType {
-	case grpc.MimeTypeRawRGBA:
-		img := image.NewNRGBA(image.Rect(0, 0, int(resp.DimX), int(resp.DimY)))
-		img.Pix = resp.Frame
-		return img, func() {}, nil
-	case grpc.MimeTypeRawIWD:
-		img, err := rimage.ImageWithDepthFromRawBytes(int(resp.DimX), int(resp.DimY), resp.Frame)
-		return img, func() {}, err
-	default:
-		return nil, nil, errors.Errorf("do not how to decode MimeType %s", resp.MimeType)
-	}
-
-}
-
-func (cc *cameraClient) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	resp, err := cc.rc.client.PointCloud(ctx, &pb.PointCloudRequest{
-		Name:     cc.name,
-		MimeType: grpc.MimeTypePCD,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.MimeType != grpc.MimeTypePCD {
-		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)
-	}
-
-	return pointcloud.ReadPCD(bytes.NewReader(resp.Frame))
-}
-
-func (cc *cameraClient) Close() error {
-	return nil
-}
-
-// lidarClient satisfies a gRPC based lidar.Lidar. Refer to the interface
-// for descriptions of its methods.
-type lidarClient struct {
-	rc   *RobotClient
-	name string
-}
-
-func (ldc *lidarClient) Info(ctx context.Context) (map[string]interface{}, error) {
-	resp, err := ldc.rc.client.LidarInfo(ctx, &pb.LidarInfoRequest{
-		Name: ldc.name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Info.AsMap(), nil
-}
-
-func (ldc *lidarClient) Start(ctx context.Context) error {
-	_, err := ldc.rc.client.LidarStart(ctx, &pb.LidarStartRequest{
-		Name: ldc.name,
-	})
-	return err
-}
-
-func (ldc *lidarClient) Stop(ctx context.Context) error {
-	_, err := ldc.rc.client.LidarStop(ctx, &pb.LidarStopRequest{
-		Name: ldc.name,
-	})
-	return err
-}
-
-func (ldc *lidarClient) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
-	resp, err := ldc.rc.client.LidarScan(ctx, &pb.LidarScanRequest{
-		Name:     ldc.name,
-		Count:    int32(options.Count),
-		NoFilter: options.NoFilter,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return MeasurementsFromProto(resp.Measurements), nil
-}
-
-func (ldc *lidarClient) Range(ctx context.Context) (float64, error) {
-	resp, err := ldc.rc.client.LidarRange(ctx, &pb.LidarRangeRequest{
-		Name: ldc.name,
-	})
-	if err != nil {
-		return 0, err
-	}
-	return float64(resp.Range), nil
-}
-
-func (ldc *lidarClient) Bounds(ctx context.Context) (r2.Point, error) {
-	resp, err := ldc.rc.client.LidarBounds(ctx, &pb.LidarBoundsRequest{
-		Name: ldc.name,
-	})
-	if err != nil {
-		return r2.Point{}, err
-	}
-	return r2.Point{float64(resp.X), float64(resp.Y)}, nil
-}
-
-func (ldc *lidarClient) AngularResolution(ctx context.Context) (float64, error) {
-	resp, err := ldc.rc.client.LidarAngularResolution(ctx, &pb.LidarAngularResolutionRequest{
-		Name: ldc.name,
-	})
-	if err != nil {
-		return math.NaN(), err
-	}
-	return resp.AngularResolution, nil
-}
-
-func measurementFromProto(pm *pb.LidarMeasurement) *lidar.Measurement {
-	return lidar.NewMeasurement(pm.AngleDeg, pm.Distance)
-}
-
-// MeasurementsFromProto converts proto based LiDAR measurements to the
-// interface.
-func MeasurementsFromProto(pms []*pb.LidarMeasurement) lidar.Measurements {
-	ms := make(lidar.Measurements, 0, len(pms))
-	for _, pm := range pms {
-		ms = append(ms, measurementFromProto(pm))
-	}
-	return ms
-}
-
 // sensorClient satisfies a gRPC based sensor.Sensor. Refer to the interface
 // for descriptions of its methods.
 type sensorClient struct {
@@ -1212,57 +1007,6 @@ func (rcc *relativeCompassClient) Desc() sensor.Description {
 	return sensor.Description{compass.RelativeType, ""}
 }
 
-// imuClient satisfies a gRPC based imu.IMU. Refer to the interface
-// for descriptions of its methods.
-type imuClient struct {
-	*sensorClient
-}
-
-func (ic *imuClient) Readings(ctx context.Context) ([]interface{}, error) {
-	vel, err := ic.AngularVelocity(ctx)
-	if err != nil {
-		return nil, err
-	}
-	orientation, err := ic.Orientation(ctx)
-	if err != nil {
-		return nil, err
-	}
-	ea := orientation.EulerAngles()
-	return []interface{}{vel.X, vel.Y, vel.Z, ea.Roll, ea.Pitch, ea.Yaw}, nil
-}
-
-func (ic *imuClient) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	resp, err := ic.rc.client.IMUAngularVelocity(ctx, &pb.IMUAngularVelocityRequest{
-		Name: ic.name,
-	})
-	if err != nil {
-		return spatialmath.AngularVelocity{}, err
-	}
-	return spatialmath.AngularVelocity{
-		X: resp.AngularVelocity.X,
-		Y: resp.AngularVelocity.Y,
-		Z: resp.AngularVelocity.Z,
-	}, nil
-}
-
-func (ic *imuClient) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
-	resp, err := ic.rc.client.IMUOrientation(ctx, &pb.IMUOrientationRequest{
-		Name: ic.name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &spatialmath.EulerAngles{
-		Roll:  resp.Orientation.Roll,
-		Pitch: resp.Orientation.Pitch,
-		Yaw:   resp.Orientation.Yaw,
-	}, nil
-}
-
-func (ic *imuClient) Desc() sensor.Description {
-	return sensor.Description{imu.Type, ""}
-}
-
 // gpsClient satisfies a gRPC based gps.GPS. Refer to the interface
 // for descriptions of its methods.
 type gpsClient struct {
@@ -1337,31 +1081,6 @@ func (gc *gpsClient) Valid(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-// servoClient satisfies a gRPC based servo.Servo. Refer to the interface
-// for descriptions of its methods.
-type servoClient struct {
-	rc   *RobotClient
-	name string
-}
-
-func (sc *servoClient) Move(ctx context.Context, angleDeg uint8) error {
-	_, err := sc.rc.client.ServoMove(ctx, &pb.ServoMoveRequest{
-		Name:     sc.name,
-		AngleDeg: uint32(angleDeg),
-	})
-	return err
-}
-
-func (sc *servoClient) Current(ctx context.Context) (uint8, error) {
-	resp, err := sc.rc.client.ServoCurrent(ctx, &pb.ServoCurrentRequest{
-		Name: sc.name,
-	})
-	if err != nil {
-		return 0, err
-	}
-	return uint8(resp.AngleDeg), nil
-}
-
 // motorClient satisfies a gRPC based motor.Motor. Refer to the interface
 // for descriptions of its methods.
 type motorClient struct {
@@ -1372,7 +1091,7 @@ type motorClient struct {
 func (mc *motorClient) PID() motor.PID {
 	return nil
 }
-func (mc *motorClient) Power(ctx context.Context, powerPct float32) error {
+func (mc *motorClient) SetPower(ctx context.Context, powerPct float64) error {
 	_, err := mc.rc.client.MotorPower(ctx, &pb.MotorPowerRequest{
 		Name:     mc.name,
 		PowerPct: powerPct,
@@ -1380,19 +1099,17 @@ func (mc *motorClient) Power(ctx context.Context, powerPct float32) error {
 	return err
 }
 
-func (mc *motorClient) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+func (mc *motorClient) Go(ctx context.Context, powerPct float64) error {
 	_, err := mc.rc.client.MotorGo(ctx, &pb.MotorGoRequest{
-		Name:      mc.name,
-		Direction: d,
-		PowerPct:  powerPct,
+		Name:     mc.name,
+		PowerPct: powerPct,
 	})
 	return err
 }
 
-func (mc *motorClient) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
+func (mc *motorClient) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
 	_, err := mc.rc.client.MotorGoFor(ctx, &pb.MotorGoForRequest{
 		Name:        mc.name,
-		Direction:   d,
 		Rpm:         rpm,
 		Revolutions: revolutions,
 	})
@@ -1445,19 +1162,18 @@ func (mc *motorClient) GoTo(ctx context.Context, rpm float64, position float64) 
 	return err
 }
 
-func (mc *motorClient) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+func (mc *motorClient) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	if stopFunc != nil {
 		return errors.New("stopFunc must be nil when using gRPC")
 	}
 	_, err := mc.rc.client.MotorGoTillStop(ctx, &pb.MotorGoTillStopRequest{
-		Name:      mc.name,
-		Direction: d,
-		Rpm:       rpm,
+		Name: mc.name,
+		Rpm:  rpm,
 	})
 	return err
 }
 
-func (mc *motorClient) Zero(ctx context.Context, offset float64) error {
+func (mc *motorClient) SetToZeroPosition(ctx context.Context, offset float64) error {
 	_, err := mc.rc.client.MotorZero(ctx, &pb.MotorZeroRequest{
 		Name:   mc.name,
 		Offset: offset,
@@ -1794,13 +1510,14 @@ var _ = forcematrix.ForceMatrix(&forcematrixClient{})
 
 // protoToMatrix is a helper function to convert protobuf matrix values into a 2-dimensional int slice.
 func protoToMatrix(matrixResponse *pb.ForceMatrixMatrixResponse) [][]int {
-	rows := matrixResponse.Matrix.Rows
-	cols := matrixResponse.Matrix.Cols
-	matrix := make([][]int, rows)
-	for r := range matrix {
-		matrix[r] = make([]int, cols)
-		for c := range matrix[r] {
-			matrix[r][c] = int(matrixResponse.Matrix.Data[r*int(cols)+c])
+	numRows := matrixResponse.Matrix.Rows
+	numCols := matrixResponse.Matrix.Cols
+
+	matrix := make([][]int, numRows)
+	for row := range matrix {
+		matrix[row] = make([]int, numCols)
+		for col := range matrix[row] {
+			matrix[row][col] = int(matrixResponse.Matrix.Data[row*int(numCols)+col])
 		}
 	}
 	return matrix

@@ -6,7 +6,6 @@ import (
 
 	"github.com/golang/geo/r3"
 
-	"go.viam.com/core/kinematics"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
 )
@@ -44,34 +43,38 @@ func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution 
 	}
 	steps := getSteps(ci.StartPos, ci.EndPos, resolution)
 
-	lastInterp := 0.
+	var lastGood []frame.Input
+	interpC := ci
 
 	for i := 1; i <= steps; i++ {
 		interp := float64(i) / float64(steps)
-		interpC, ok := interpolateInput(ci, lastInterp, interp)
-		lastInterp = interp
-		if !ok {
+		interpC, err = cachedInterpolateInput(ci, interp, interpC.EndInput, interpC.EndPos)
+		if err != nil {
 			return false, nil
 		}
-
 		pass, _ := c.CheckConstraints(interpC)
 		if !pass {
 			if i > 1 {
-				return false, interpC
+				return false, &ConstraintInput{StartInput: lastGood, EndInput: interpC.StartInput}
 			}
 			// fail on start pos
 			return false, nil
 		}
+		lastGood = interpC.StartInput
 	}
 	// extra step to check the end
-	interpC, ok := interpolateInput(ci, 1, 1)
-	if !ok {
+	if err != nil {
 		return false, nil
 	}
-
-	pass, _ := c.CheckConstraints(interpC)
+	pass, _ := c.CheckConstraints(&ConstraintInput{
+		StartPos:   ci.EndPos,
+		EndPos:     ci.EndPos,
+		StartInput: ci.EndInput,
+		EndInput:   ci.EndInput,
+		Frame:      ci.Frame,
+	})
 	if !pass {
-		return false, interpC
+		return false, &ConstraintInput{StartInput: lastGood, EndInput: interpC.StartInput}
 	}
 
 	return true, nil
@@ -120,7 +123,8 @@ func interpolationCheck(cInput *ConstraintInput, by, epsilon float64) bool {
 		return false
 	}
 	interp := spatial.Interpolate(cInput.StartPos, cInput.EndPos, by)
-	dist := kinematics.SquaredNorm(spatial.PoseDelta(iPos, interp))
+	metric := NewSquaredNormMetric()
+	dist := metric(iPos, interp)
 	return dist <= epsilon
 }
 
@@ -196,7 +200,7 @@ func orientDistToRegion(goal spatial.Orientation, alpha float64) func(spatial.Or
 // NewPoseFlexOVMetric will provide a distance function which will converge on an OV within an arclength of `alpha`
 // of the ov of the goal given. The 3d point of the goal given is discarded, and the function will converge on the
 // 3d point of the `to` pose (this is probably what you want).
-func NewPoseFlexOVMetric(goal spatial.Pose, alpha float64) kinematics.Metric {
+func NewPoseFlexOVMetric(goal spatial.Pose, alpha float64) Metric {
 	oDistFunc := orientDistToRegion(goal.Orientation(), alpha)
 	return func(from, to spatial.Pose) float64 {
 		pDist := from.Point().Distance(to.Point())
@@ -210,7 +214,7 @@ func NewPoseFlexOVMetric(goal spatial.Pose, alpha float64) kinematics.Metric {
 // which will bring a pose into the valid constraint space. The plane normal is assumed to point towards the valid area.
 // angle refers to the maximum unit sphere arc length deviation from the ov
 // epsilon refers to the closeness to the plane necessary to be a valid pose
-func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Constraint, kinematics.Metric) {
+func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Constraint, Metric) {
 	// get the constant value for the plane
 	pConst := -pt.Dot(pNorm)
 
@@ -252,7 +256,7 @@ func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector, writingAngle, epsilon fl
 // which will bring a pose into the valid constraint space. The OV passed in defines the center of the valid orientation area.
 // angle refers to the maximum unit sphere arc length deviation from the ov
 // epsilon refers to the closeness to the line necessary to be a valid pose
-func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, orient spatial.Orientation, writingAngle, epsilon float64) (Constraint, kinematics.Metric) {
+func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, orient spatial.Orientation, writingAngle, epsilon float64) (Constraint, Metric) {
 	// invert the normal to get the valid AOA OV
 	ov := orient.OrientationVectorRadians()
 
@@ -302,7 +306,7 @@ func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, orient spatial.Orientation
 }
 
 // NewPositionOnlyMetric returns a Metric that reports the point-wise distance between two poses.
-func NewPositionOnlyMetric() kinematics.Metric {
+func NewPositionOnlyMetric() Metric {
 	return positionOnlyDist
 }
 
@@ -351,13 +355,13 @@ func resolveInputsToPositions(ci *ConstraintInput) error {
 	return nil
 }
 
-func interpolateInput(ci *ConstraintInput, by1, by2 float64) (*ConstraintInput, bool) {
+// Prevents recalculation of startPos. If no startPos has been calculated, just pass nil
+func cachedInterpolateInput(ci *ConstraintInput, by float64, startInput []frame.Input, startPos spatial.Pose) (*ConstraintInput, error) {
 	new := &ConstraintInput{}
 	new.Frame = ci.Frame
-	new.StartInput = frame.InterpolateInputs(ci.StartInput, ci.EndInput, by1)
-	new.EndInput = frame.InterpolateInputs(ci.StartInput, ci.EndInput, by2)
-	new.StartPos = spatial.Interpolate(ci.StartPos, ci.EndPos, by1)
-	new.EndPos = spatial.Interpolate(ci.StartPos, ci.EndPos, by2)
+	new.StartInput = startInput
+	new.StartPos = startPos
+	new.EndInput = frame.InterpolateInputs(ci.StartInput, ci.EndInput, by)
 
-	return new, true
+	return new, resolveInputsToPositions(new)
 }

@@ -1,7 +1,6 @@
 package spatialmath
 
 import (
-	"fmt"
 	"math"
 
 	"testing"
@@ -40,9 +39,10 @@ func TestBasicPoseConstruction(t *testing.T) {
 	pComp := Compose(p1, p2)
 	ptCompare(t, pComp.Point(), r3.Vector{0, 5, 5})
 
-	p2 = NewPoseFromOrientationVector(r3.Vector{2, 2, 4}, ov)
+	p2 = NewPoseFromOrientationVector(r3.Vector{2, 3, 4}, ov)
 	delta := PoseDelta(p1, p2)
-	test.That(t, fmt.Sprintf("%.2f, %.2f, %.2f, %.2f, %.2f, %.2f", delta[0], delta[1], delta[2], delta[3], delta[4], delta[5]), test.ShouldResemble, "1.00, 0.00, 1.00, 0.00, 0.00, 0.00")
+	ptCompare(t, delta.Point(), r3.Vector{1.0, 1.0, 1.0})
+	ovCompare(t, delta.Orientation().OrientationVectorRadians(), NewOrientationVector())
 
 	p = NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{4, 5, 6}, 0)
 	test.That(t, p.Orientation().OrientationVectorRadians(), test.ShouldResemble, &OrientationVector{0, 0, 0, 1})
@@ -58,7 +58,7 @@ func TestDualQuatTransform(t *testing.T) {
 	// Start with point [3, 4, 5] - Rotate by 180 degrees around x-axis and then displace by [4,2,6]
 	pt := NewPoseFromPoint(r3.Vector{3., 4., 5.}) // starting point
 	tr := &dualQuaternion{dualquat.Number{Real: quat.Number{Real: 0, Imag: 1}}}
-	tr.SetTranslation(4., 2., 6.)
+	tr.SetTranslation(r3.Vector{4., 2., 6.})
 
 	trAA := NewPoseFromAxisAngle(r3.Vector{4., 2., 6.}, r3.Vector{1, 0, 0}, math.Pi) // same transformation from axis angle
 	// ensure transformation is the same between both definitions
@@ -126,4 +126,19 @@ func TestAlmostCoincident(t *testing.T) {
 	p3 := NewPoseFromPoint(r3.Vector{1.0000001, 2.999999, 3.0000001})
 	test.That(t, AlmostCoincident(p1, p2), test.ShouldBeTrue)
 	test.That(t, AlmostCoincident(p1, p3), test.ShouldBeFalse)
+}
+
+var ov = &OrientationVector{math.Pi / 2, 0, 0, -1}
+var p1b = NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, ov)
+var p2b = NewPoseFromOrientationVector(r3.Vector{2, 3, 4}, ov)
+
+func BenchmarkDeltaPose(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		PoseDelta(p1b, p2b)
+	}
+}
+func BenchmarkPoseBetween(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		PoseBetween(p1b, p2b)
+	}
 }

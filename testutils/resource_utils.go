@@ -1,6 +1,8 @@
 package testutils
 
-import "go.viam.com/core/resource"
+import (
+	"go.viam.com/core/resource"
+)
 
 // NewResourceNameSet returns a flattened set of name strings from
 // a collection of resource.Name objects for the purposes of comparison
@@ -13,15 +15,38 @@ func NewResourceNameSet(resourceNames ...resource.Name) map[resource.Name]struct
 	return set
 }
 
-// ResourceMapToStringSet takes a collection of resource.Name objects bucketed by
-// their subtypes and returns a set of name strings for the purposes of comparison
+// ExtractNames takes a slice of resource.Name objects
+// and returns a slice of name strings for the purposes of comparison
 // in automated tests
-func ResourceMapToStringSet(resourceMap map[resource.Subtype][]resource.Name) map[resource.Name]struct{} {
-	set := make(map[resource.Name]struct{})
-	for _, resourceNames := range resourceMap {
-		for _, name := range resourceNames {
-			set[name] = struct{}{}
+func ExtractNames(values ...resource.Name) []string {
+	var names []string
+	for _, n := range values {
+		names = append(names, n.Name)
+	}
+	return names
+}
+
+// ConcatResourceNames takes a slice of slices of resource.Name objects
+// and returns a concatenated slice of resource.Name for the purposes of comparison
+// in automated tests
+func ConcatResourceNames(values ...[]resource.Name) []resource.Name {
+	var rNames []resource.Name
+	for _, v := range values {
+		rNames = append(rNames, v...)
+	}
+	return rNames
+}
+
+// AddSuffixes takes a slice of resource.Name objects and for each suffix,
+// adds the suffix to every object, then returns the entire list
+func AddSuffixes(values []resource.Name, suffixes ...string) []resource.Name {
+	var rNames []resource.Name
+
+	for _, s := range suffixes {
+		for _, v := range values {
+			newName := resource.NewFromSubtype(v.Subtype, v.Name+s)
+			rNames = append(rNames, newName)
 		}
 	}
-	return set
+	return rNames
 }

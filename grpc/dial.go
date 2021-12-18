@@ -5,17 +5,19 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	rpcclient "go.viam.com/utils/rpc/client"
-	"go.viam.com/utils/rpc/dialer"
+	"go.viam.com/utils/rpc"
 )
 
 // Dial dials a gRPC server.
-func Dial(ctx context.Context, address string, opts rpcclient.DialOptions, logger golog.Logger) (dialer.ClientConn, error) {
+func Dial(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (rpc.ClientConn, error) {
+	optsCopy := make([]rpc.DialOption, len(opts)+1)
+	optsCopy[0] = rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
+		Config: &DefaultWebRTCConfiguration,
+	})
+	copy(optsCopy[1:], opts)
+
 	ctx, timeoutCancel := context.WithTimeout(ctx, 20*time.Second)
 	defer timeoutCancel()
 
-	if opts.WebRTC.Config == nil {
-		opts.WebRTC.Config = &DefaultWebRTCConfiguration
-	}
-	return rpcclient.Dial(ctx, address, opts, logger)
+	return rpc.Dial(ctx, address, logger, opts...)
 }

@@ -3,7 +3,7 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/core/input"
+	"go.viam.com/core/component/input"
 )
 
 // InputController is an injected InputController.
