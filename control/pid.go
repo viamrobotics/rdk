@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 )
 
 func newPID(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {

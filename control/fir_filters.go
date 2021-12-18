@@ -3,7 +3,7 @@ package control
 import (
 	"math"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 )
 
 type movingAverageFilter struct {
