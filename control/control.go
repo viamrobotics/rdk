@@ -2,19 +2,18 @@ package control
 
 import (
 	"context"
-
-	pb "go.viam.com/core/proto/api/v1"
 )
 
 // Controllable controllable type for a DC motor
 type Controllable interface {
 	// Go set the power and direction of the motor
-	Go(ctx context.Context, d pb.DirectionRelative, power float32) error
+	Go(ctx context.Context, power float64) error
 	// Position returns the current encoder count value
 	Position(ctx context.Context) (float64, error)
 }
 
 // ControlConfig configuration of the control loop
+// nolint: golint
 type ControlConfig struct {
 	Blocks    []ControlBlockConfig `json:"blocks"`    // Blocks Control Block Config
 	Frequency float64              `json:"frequency"` //Frequency loop Frequency

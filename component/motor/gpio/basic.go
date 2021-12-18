@@ -35,15 +35,6 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 		mc.MinPowerPct = 1.0
 	}
 
-	var pid motor.PID
-	if mc.PID != nil {
-		var err error
-		pid, err = motor.CreatePID(mc.PID)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	m = &Motor{
 		Board:       b,
 		A:           pins["a"],
@@ -57,7 +48,6 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 		maxPowerPct: mc.MaxPowerPct,
 		maxRPM:      mc.MaxRPM,
 		dirFlip:     mc.DirFlip,
-		pid:         pid,
 		logger:      logger,
 		cancelMu:    &sync.Mutex{},
 	}
@@ -76,17 +66,11 @@ type Motor struct {
 	maxPowerPct        float64
 	maxRPM             float64
 	dirFlip            bool
-	pid                motor.PID
 
 	cancelMu      *sync.Mutex
 	cancelForFunc func()
 	waitCh        chan struct{}
 	logger        golog.Logger
-}
-
-// PID return the underlying PID.
-func (m *Motor) PID() motor.PID {
-	return m.pid
 }
 
 // Position always returns 0.

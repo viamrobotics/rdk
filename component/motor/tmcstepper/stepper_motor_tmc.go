@@ -482,6 +482,3 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 		m.writeReg(ctx, xActual, int32(offset*float64(m.stepsPerRev))),
 	)
 }
-func (m *Motor) ControlLoop(ctx context.Context) *control.ControlLoop {
-	return nil
-}

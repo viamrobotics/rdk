@@ -44,7 +44,7 @@ func (p *basicPID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 	defer p.mu.Unlock()
 	if p.tuning {
 		out, done := p.tuner.pidTunerStep(x[0].signal[0], dt)
-		if done == true {
+		if done {
 			p.Kd = p.tuner.Kd
 			p.Ki = p.tuner.Ki
 			p.Kp = p.tuner.Kp
@@ -110,7 +110,10 @@ func (p *basicPID) reset() error {
 			tuneMethod: tuneCalcMethod(p.cfg.Attribute.String("TuneMethod")),
 			stepPct:    p.cfg.Attribute.Float64("TuneStepPct", 0.35),
 		}
-		p.tuner.reset()
+		err := p.tuner.reset()
+		if err != nil {
+			return err
+		}
 		if p.tuner.stepPct > 1 || p.tuner.stepPct < 0 {
 			return errors.Errorf("tuner pid block %s should have a percentage value between 0-1 for TuneStepPct", p.cfg.Name)
 		}
@@ -304,7 +307,7 @@ func (p *pidTuner) pidTunerStep(pv float64, dt time.Duration) (float64, bool) {
 		}
 		return p.out, false
 	case relay:
-		if time.Now().Sub(p.lastR) > p.tC {
+		if time.Since(p.lastR) > p.tC {
 			p.lastR = time.Now()
 			if p.out > stepPwr {
 				p.out -= stepPwr
@@ -320,10 +323,9 @@ func (p *pidTuner) pidTunerStep(pv float64, dt time.Duration) (float64, bool) {
 		} else if p.pFindDir == -1 && p.pPv < pv {
 			p.pFindDir = 0
 			p.pPeakL = append(p.pPeakL, p.pPv)
-		} else {
 		}
 		p.pPv = pv
-		if time.Now().Sub(p.tS) > time.Duration(4*time.Second) {
+		if time.Since(p.tS) > 4*time.Second {
 			p.out = 0
 			p.computeGains()
 			p.currentPhase = end
