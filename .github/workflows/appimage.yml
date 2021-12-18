@@ -18,6 +18,9 @@ jobs:
     runs-on: qemu-host
 
     steps:
+    - name: Fix Permissions
+      run: sudo chown -R `whoami` ./
+
     - name: Checkout Code
       uses: actions/checkout@v2
       with: 
@@ -50,6 +53,9 @@ jobs:
     runs-on: qemu-host
 
     steps:
+    - name: Fix Permissions
+      run: sudo chown -R `whoami` ./
+
     - name: Checkout Code
       uses: actions/checkout@v2
       with: 
