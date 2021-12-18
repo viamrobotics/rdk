@@ -12,10 +12,10 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/control"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/control"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
