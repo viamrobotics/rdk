@@ -7,7 +7,7 @@ import (
 	"image"
 	"math"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/rimage"
 

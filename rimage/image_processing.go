@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/core/utils"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"github.com/disintegration/imaging"
 	"github.com/gonum/floats"

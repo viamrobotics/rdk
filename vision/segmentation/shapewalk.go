@@ -4,7 +4,7 @@ import (
 	"image"
 	"math"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 
@@ -500,7 +500,7 @@ func shapeWalkEntireDebugOnePass(img *rimage.ImageWithDepth, options ShapeWalkOp
 
 		var walkErr MyWalkError
 		if !errors.As(found, &walkErr) {
-			return errors.Errorf("expected %T but got %w", walkErr, found)
+			return errors.Wrapf(found, "expected %T but got", walkErr)
 		}
 		start := walkErr.pos
 		numPixels := ws.piece(start, nextColor)

@@ -6,8 +6,8 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/rimage"

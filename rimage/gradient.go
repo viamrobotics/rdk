@@ -5,7 +5,7 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 )
 

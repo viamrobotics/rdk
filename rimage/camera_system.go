@@ -4,8 +4,8 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/pointcloud"
 )
