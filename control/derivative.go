@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 )
 
 type finiteDifferenceType string
