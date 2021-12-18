@@ -19,18 +19,7 @@ import (
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			mcfg, ok := config.ConvertedAttributes.(*motor.Config)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(mcfg, config.ConvertedAttributes)
-			}
-			if mcfg.PID != nil {
-				pid, err := motor.CreatePID(mcfg.PID)
-				if err != nil {
-					return nil, err
-				}
-				return &Motor{Name: config.Name, pid: pid}, nil
-			}
-			return &Motor{Name: config.Name, pid: nil}, nil
+			return &Motor{Name: config.Name}, nil
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, "fake", _motor)
@@ -44,12 +33,6 @@ type Motor struct {
 	Name     string
 	mu       sync.Mutex
 	powerPct float64
-	pid      motor.PID
-}
-
-// PID Return the underlying PID.
-func (m *Motor) PID() motor.PID {
-	return m.pid
 }
 
 // Position always returns 0.
@@ -150,8 +133,4 @@ func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return math.Abs(m.powerPct) >= 0.005, nil
-}
-
-func (m *Motor) ControlLoop(ctx context.Context) *control.ControlLoop {
-	return m.loop
 }

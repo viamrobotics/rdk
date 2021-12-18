@@ -12,11 +12,6 @@ import (
 	"go.viam.com/utils"
 )
 
-type signalMapper struct {
-	uid int32
-	s   []Signal
-}
-
 // controlBlockInternal Holds internal variables to control the flow of data between blocks
 type controlBlockInternal struct {
 	mu        sync.Mutex
@@ -33,6 +28,7 @@ type controlTicker struct {
 }
 
 // ControlLoop holds the loop config
+// nolint: golint
 type ControlLoop struct {
 	cfg                     ControlConfig
 	blocks                  map[string]*controlBlockInternal
@@ -43,6 +39,7 @@ type ControlLoop struct {
 	activeBackgroundWorkers *sync.WaitGroup
 }
 
+//NewControlLoop construct a new control loop for a specific endpoint
 func NewControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConfig, m Controllable) (*ControlLoop, error) {
 	return createControlLoop(ctx, logger, cfg, m)
 }
@@ -89,22 +86,21 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 				ctx := ctx
 				close(waitCh)
 				for {
-					select {
-					case _, ok := <-t:
-						if !ok {
-							b.mu.Lock()
-							defer b.mu.Unlock()
-							for _, out := range b.outs {
-								close(out)
-							}
-							b.outs = nil
-							return
-						}
-						v, _ := b.blk.Next(ctx, nil, c.dt)
+					_, ok := <-t
+					if !ok {
+						b.mu.Lock()
 						for _, out := range b.outs {
-							out <- v
+							close(out)
 						}
+						b.outs = nil
+						b.mu.Unlock()
+						return
 					}
+					v, _ := b.blk.Next(ctx, nil, c.dt)
+					for _, out := range b.outs {
+						out <- v
+					}
+
 				}
 			}, c.activeBackgroundWorkers.Done)
 			<-waitCh
@@ -124,23 +120,21 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 				close(waitCh)
 				for {
 					for i, c := range b.ins {
-						select {
-						case r, ok := <-c:
-							if !ok {
-								b.mu.Lock()
-								for _, out := range b.outs {
-									close(out)
-								}
-								//logger.Debugf("Closing outs for block %s %+v\r\n", b.blk.Config(ctx).Name, r)
-								b.outs = nil
-								b.mu.Unlock()
-								return
+						r, ok := <-c
+						if !ok {
+							b.mu.Lock()
+							for _, out := range b.outs {
+								close(out)
 							}
-							if len(r) == 1 {
-								sw[i] = r[0]
-							} else {
-								sw = append(sw, r...)
-							}
+							//logger.Debugf("Closing outs for block %s %+v\r\n", b.blk.Config(ctx).Name, r)
+							b.outs = nil
+							b.mu.Unlock()
+							return
+						}
+						if len(r) == 1 {
+							sw[i] = r[0]
+						} else {
+							sw = append(sw, r...)
 						}
 					}
 					v, ok := b.blk.Next(ctx, sw, c.dt)
@@ -244,6 +238,8 @@ func (c *ControlLoop) Start(ctx context.Context) error {
 	<-waitCh
 	return nil
 }
+
+//StartBenchmark special start function to benchmark speed of complex loop configurations
 func (c *ControlLoop) StartBenchmark(ctx context.Context, loops int) error {
 	if len(c.ts) == 0 {
 		return errors.New("cannot start the control loop if there are no blocks depending on an impulse")
@@ -268,7 +264,6 @@ func (c *ControlLoop) StartBenchmark(ctx context.Context, loops int) error {
 		for _, c := range ts {
 			close(c)
 		}
-		return
 	}, c.activeBackgroundWorkers.Done)
 	<-waitCh
 	return nil
@@ -282,7 +277,7 @@ func (c *ControlLoop) Stop(ctx context.Context) error {
 	return nil
 }
 
-//Stop stops then loop
+//GetConfig return the control loop config
 func (c *ControlLoop) GetConfig(ctx context.Context) ControlConfig {
 	return c.cfg
 }

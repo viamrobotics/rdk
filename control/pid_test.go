@@ -146,7 +146,7 @@ func TestPIDTunner(t *testing.T) {
 			time:   make([]int, 1),
 		},
 	}
-	dt := time.Duration(time.Millisecond * 10)
+	dt := time.Millisecond * 10
 	for i := 0; i < 22; i++ {
 		s[0].signal[0] += 2
 		out, hold := pid.Next(ctx, s, dt)

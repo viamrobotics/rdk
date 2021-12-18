@@ -134,7 +134,10 @@ func newEncodedMotor(
 			return nil, err
 		}
 		if cloop != nil {
-			cloop.Start(cancelCtx)
+			err := cloop.Start(cancelCtx)
+			if err != nil {
+				return nil, err
+			}
 		}
 		em.loop = cloop
 	}
@@ -641,8 +644,4 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 // (adjusted by a given offset) to be its new zero position.
 func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return m.encoder.ResetZeroPosition(ctx, int64(offset*float64(m.cfg.TicksPerRotation)))
-}
-
-func (m *EncodedMotor) ControlLoop(ctx context.Context) *control.ControlLoop {
-	return m.loop
 }

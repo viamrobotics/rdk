@@ -17,6 +17,7 @@ func makeSignal(name string, dimension int) Signal {
 	return s
 }
 
+// GetValAt Return the signal value at index
 func (s *Signal) GetValAt(i int) float64 {
 	if i > len(s.signal)-1 {
 		return 0.0

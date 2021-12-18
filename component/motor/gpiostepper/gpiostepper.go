@@ -311,6 +311,3 @@ func (m *gpioStepper) enable(ctx context.Context, on bool) error {
 
 	return nil
 }
-func (m *gpioStepper) ControlLoop(ctx context.Context) *control.ControlLoop {
-	return nil
-}
