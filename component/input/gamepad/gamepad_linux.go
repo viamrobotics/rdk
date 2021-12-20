@@ -20,8 +20,8 @@ import (
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 	"github.com/viamrobotics/evdev"
 )
 

@@ -12,7 +12,7 @@ import (
 	coreutils "go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 )
 
 func TestFrameModelPart(t *testing.T) {

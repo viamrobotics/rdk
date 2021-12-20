@@ -4,7 +4,7 @@ import (
 	"image"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/rimage"
 )

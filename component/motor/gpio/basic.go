@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	goutils "go.viam.com/utils"
 

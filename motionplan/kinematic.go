@@ -8,7 +8,7 @@ import (
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/num/quat"
 )

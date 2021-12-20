@@ -6,7 +6,7 @@ package action
 import (
 	"context"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/robot"
 )
