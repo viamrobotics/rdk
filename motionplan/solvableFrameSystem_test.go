@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"testing"
 
@@ -144,7 +143,6 @@ func TestSolverFrame(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	poseExpect, err := sf.Transform(sf.mapToSlice(inputs))
 	volPose := vols["UR5e:ee_link"].Pose()
-	fmt.Printf("expect: %v\nactual %v\n", poseExpect.Point(), volPose.Point())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.AlmostCoincident(volPose, poseExpect), test.ShouldBeTrue)
 }
