@@ -553,6 +553,24 @@ message Vector3 {
   double z = 3;
 }
 
+// TODO(maximpertsov): these messages are copied in `board.proto`. Should they
+// be in common?
+// Board
+
+message BoardStatus {
+  map<string, AnalogStatus> analogs = 1;
+  map<string, DigitalInterruptStatus> digital_interrupts = 2;
+}
+
+message AnalogStatus {
+  int32 value = 1;
+}
+
+message DigitalInterruptStatus {
+  int64 value = 1;
+}
+
+
 // Sensor
 
 message SensorStatus {

@@ -78,13 +78,25 @@ service BoardService {
 
 }
 
+message BoardStatus {
+  map<string, AnalogStatus> analogs = 1;
+  map<string, DigitalInterruptStatus> digital_interrupts = 2;
+}
+
+message AnalogStatus {
+  int32 value = 1;
+}
+
+message DigitalInterruptStatus {
+  int64 value = 1;
+}
 
 message BoardStatusRequest {
   string name = 1;
 }
 
 message BoardStatusResponse {
-  common.v1.BoardStatus to = 1;
+  BoardStatus status = 1;
 }
 
 message BoardGPIOSetRequest {
