@@ -144,9 +144,9 @@ func digitalInterruptConfigToProto(config *board.DigitalInterruptConfig) *pb.Dig
 
 // BoardDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
 func (s *subtypeServer) BoardDigitalInterruptValue(ctx context.Context, req *pb.BoardServiceDigitalInterruptValueRequest) (*pb.BoardServiceDigitalInterruptValueResponse, error) {
-	b, ok := s.s.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+	b, err := s.getBoard(req.Name)
+	if err != nil {
+		return nil, err
 	}
 
 	interrupt, ok := b.DigitalInterruptByName(req.DigitalInterruptName)
@@ -163,9 +163,9 @@ func (s *subtypeServer) BoardDigitalInterruptValue(ctx context.Context, req *pb.
 
 // BoardDigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
 func (s *subtypeServer) BoardDigitalInterruptTick(ctx context.Context, req *pb.BoardServiceDigitalInterruptTickRequest) (*pb.BoardServiceDigitalInterruptTickResponse, error) {
-	b, ok := s.s.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+	b, err := s.getBoard(req.Name)
+	if err != nil {
+		return nil, err
 	}
 
 	interrupt, ok := b.DigitalInterruptByName(req.DigitalInterruptName)
