@@ -133,7 +133,7 @@ func (s *subtypeServer) BoardDigitalInterruptConfig(ctx context.Context, req *pb
 	return &pb.BoardServiceDigitalInterruptConfigResponse{Config: digitalInterruptConfigToProto(&config)}, nil
 }
 
-func digitalInterruptConfigToProto(config *board.DigitalInterruptConfig) *pb.DigitalInterruptConfig {
+func digitalInterruptConfigToProto(config *DigitalInterruptConfig) *pb.DigitalInterruptConfig {
 	return &pb.DigitalInterruptConfig{
 		Name:    config.Name,
 		Pin:     config.Pin,
