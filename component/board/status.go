@@ -6,14 +6,14 @@ import (
 
 	"github.com/pkg/errors"
 
-	pb "go.viam.com/core/proto/api/v1"
+	pb "go.viam.com/core/proto/api/component/v1"
 )
 
 // CreateStatus constructs a new up to date status from the given board.
 // The operation can take time and be expensive, so it can be cancelled by the
 // given context.
-func CreateStatus(ctx context.Context, b Board) (*pb.BoardStatus, error) {
-	var status pb.BoardStatus
+func CreateStatus(ctx context.Context, b Board) (*pb.Status, error) {
+	var status pb.Status
 
 	if names := b.AnalogReaderNames(); len(names) != 0 {
 		status.Analogs = make(map[string]*pb.AnalogStatus, len(names))
