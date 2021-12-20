@@ -95,7 +95,7 @@ func (s *subtypeServer) BoardPWMSetFrequency(ctx context.Context, req *pb.BoardS
 
 // BoardAnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
 func (s *subtypeServer) BoardAnalogReaderRead(ctx context.Context, req *pb.BoardServiceAnalogReaderReadRequest) (*pb.BoardServiceAnalogReaderReadResponse, error) {
-	b, err := s.getBoard(req.Name)
+	b, err := s.getBoard(req.BoardName)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (s *subtypeServer) BoardAnalogReaderRead(ctx context.Context, req *pb.Board
 
 // BoardDigitalInterruptConfig returns the config the interrupt was created with.
 func (s *subtypeServer) BoardDigitalInterruptConfig(ctx context.Context, req *pb.BoardServiceDigitalInterruptConfigRequest) (*pb.BoardServiceDigitalInterruptConfigResponse, error) {
-	b, err := s.getBoard(req.Name)
+	b, err := s.getBoard(req.BoardName)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func digitalInterruptConfigToProto(config *board.DigitalInterruptConfig) *pb.Dig
 
 // BoardDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
 func (s *subtypeServer) BoardDigitalInterruptValue(ctx context.Context, req *pb.BoardServiceDigitalInterruptValueRequest) (*pb.BoardServiceDigitalInterruptValueResponse, error) {
-	b, err := s.getBoard(req.Name)
+	b, err := s.getBoard(req.BoardName)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func (s *subtypeServer) BoardDigitalInterruptValue(ctx context.Context, req *pb.
 
 // BoardDigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
 func (s *subtypeServer) BoardDigitalInterruptTick(ctx context.Context, req *pb.BoardServiceDigitalInterruptTickRequest) (*pb.BoardServiceDigitalInterruptTickResponse, error) {
-	b, err := s.getBoard(req.Name)
+	b, err := s.getBoard(req.BoardName)
 	if err != nil {
 		return nil, err
 	}
