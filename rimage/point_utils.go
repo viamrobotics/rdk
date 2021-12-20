@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/utils"
-
 	"gonum.org/v1/gonum/floats"
 )
 
@@ -88,7 +87,6 @@ func ArrayToPoints(pts []image.Point) []image.Point {
 	}
 
 	panic(errors.Errorf("invalid number of points passed to ArrayToPoints %d", len(pts)))
-	return nil
 }
 
 // PointAngle TODO.
@@ -177,7 +175,7 @@ func SortVectorsCounterClockwise(pts []r2.Point) []r2.Point {
 	floats.AddConst(-centerX, xs)
 	floats.AddConst(-centerY, ys)
 	angles := make([]float64, len(pts))
-	for i, _ := range xs {
+	for i := range xs {
 		angles[i] = math.Atan2(ys[i], xs[i])
 	}
 	inds := make([]int, len(pts))
