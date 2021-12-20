@@ -58,7 +58,7 @@ type derivative struct {
 	mu      sync.Mutex
 	cfg     ControlBlockConfig
 	stencil derivativeStencil
-	x       []Signal
+	px      [][]float64
 	y       []Signal
 }
 
@@ -84,11 +84,11 @@ func derive(x []float64, dt time.Duration, stencil *derivativeStencil) (float64,
 }
 
 func (d *derivative) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
-	var err error
 	if d.stencil.Type == "Backward" {
 		for idx, s := range x {
-			d.x[idx].signal = append(d.x[idx].signal[1:], s.signal[0])
-			d.y[idx].signal[0], err = derive(d.x[idx].signal, dt, &d.stencil)
+			d.px[idx] = append(d.px[idx][1:], s.GetSignalValueAt(0))
+			y, err := derive(d.px[idx], dt, &d.stencil)
+			d.y[idx].SetSignalValueAt(0, y)
 			if err != nil {
 				return d.y, false
 			}
@@ -119,10 +119,10 @@ func (d *derivative) reset() error {
 	default:
 		return errors.Errorf("unsupported DeriveType %s for block %s", d.cfg.Attribute.String("DeriveType"), d.cfg.Name)
 	}
-	d.x = make([]Signal, len(d.cfg.DependsOn))
+	d.px = make([][]float64, len(d.cfg.DependsOn))
 	d.y = make([]Signal, len(d.cfg.DependsOn))
-	for i := range d.x {
-		d.x[i] = makeSignal(d.cfg.Name, len(d.stencil.Coeffs))
+	for i := range d.px {
+		d.px[i] = make([]float64, len(d.stencil.Coeffs))
 		d.y[i] = makeSignal(d.cfg.Name, 1)
 	}
 	return nil

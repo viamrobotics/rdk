@@ -44,9 +44,9 @@ func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []Signal, dt ti
 		var setPoint float64
 		for _, sig := range x {
 			if sig.name == "SetPoint" {
-				setPoint = sig.signal[0]
+				setPoint = sig.GetSignalValueAt(0)
 			} else if sig.name == "Endpoint" {
-				pos = sig.signal[0]
+				pos = sig.GetSignalValueAt(0)
 			} else {
 				return s.y, false
 			}
@@ -79,18 +79,18 @@ func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []Signal, dt ti
 	switch s.currentPhase {
 	case accelPhase:
 		//s.y[0].signal[0] = s.maxAcc
-		s.y[0].signal[0] += dt.Seconds() * s.maxAcc
+		s.y[0].SetSignalValueAt(0, s.y[0].GetSignalValueAt(0)+dt.Seconds()*s.maxAcc)
 	//	s.y[2].signal[0] += s.y[1].signal[0]*dt.Seconds() + 0.5*math.Pow(dt.Seconds(), 2.0)*s.maxAcc
 	case steadyStatePhase:
 		//s.y[0].signal[0] = 0
-		s.y[0].signal[0] = s.maxVel
+		s.y[0].SetSignalValueAt(0, s.maxVel)
 	//	s.y[2].signal[0] += s.y[1].signal[0] * dt.Seconds()
 	case deccelPhase:
 		//s.y[0].signal[0] = -s.maxAcc
 		//	s.y[2].signal[0] += s.y[1].signal[0]*dt.Seconds() - 0.5*math.Pow(dt.Seconds(), 2.0)*s.maxAcc
-		s.y[0].signal[0] -= dt.Seconds() * s.maxAcc
+		s.y[0].SetSignalValueAt(0, s.y[0].GetSignalValueAt(0)-dt.Seconds()*s.maxAcc)
 	default:
-		s.y[0].signal[0] = 0.0
+		s.y[0].SetSignalValueAt(0, 0.0)
 	}
 
 	return s.y, true

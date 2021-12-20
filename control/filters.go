@@ -136,8 +136,8 @@ func (f *filterStruct) initFilter() error {
 
 func (f *filterStruct) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
 	if len(x) == 1 {
-		xFlt, ok := f.filter.Next(x[0].signal[0])
-		f.y[0].signal[0] = xFlt
+		xFlt, ok := f.filter.Next(x[0].GetSignalValueAt(0))
+		f.y[0].SetSignalValueAt(0, xFlt)
 		return f.y, ok
 	}
 	return f.y, false

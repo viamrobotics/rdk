@@ -26,7 +26,6 @@ func newConstant(config ControlBlockConfig, logger golog.Logger) (ControlBlock, 
 }
 
 func (b *constant) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
-	b.y[0].signal[0] = b.constant
 	return b.y, true
 }
 func (b *constant) reset() error {
@@ -39,6 +38,7 @@ func (b *constant) reset() error {
 	b.constant = b.cfg.Attribute.Float64("ConstantVal", 0.0)
 	b.y = make([]Signal, 1)
 	b.y[0] = makeSignal(b.cfg.Name, 1)
+	b.y[0].SetSignalValueAt(0, b.constant)
 	return nil
 }
 

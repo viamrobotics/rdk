@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -94,24 +95,28 @@ func TestSumNext(t *testing.T) {
 			signal:    []float64{1.0},
 			time:      []int{1},
 			dimension: 1,
+			mu:        &sync.Mutex{},
 		},
 		{name: "B",
 			signal:    []float64{2.0},
 			time:      []int{2},
 			dimension: 1,
+			mu:        &sync.Mutex{},
 		},
 		{name: "C",
 			signal:    []float64{1.0},
 			time:      []int{2},
 			dimension: 1,
+			mu:        &sync.Mutex{},
 		},
 		{name: "D",
 			signal:    []float64{1.0},
 			time:      []int{1},
 			dimension: 1,
+			mu:        &sync.Mutex{},
 		},
 	}
 	out, ok := s.Next(ctx, signals, time.Millisecond*1)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, out[0].signal[0], test.ShouldEqual, -1.0)
+	test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, -1.0)
 }

@@ -312,10 +312,10 @@ func TestControlLoop(t *testing.T) {
 	for i := 200; i > 0; i-- {
 		time.Sleep(65 * time.Millisecond)
 		b, err := cLoop.OutputAt(ctx, "E")
-		test.That(t, b[0].signal[0], test.ShouldEqual, 8.0)
+		test.That(t, b[0].GetSignalValueAt(0), test.ShouldEqual, 8.0)
 		test.That(t, err, test.ShouldBeNil)
 		b, err = cLoop.OutputAt(ctx, "B")
-		test.That(t, b[0].signal[0], test.ShouldEqual, -3.0)
+		test.That(t, b[0].GetSignalValueAt(0), test.ShouldEqual, -3.0)
 		test.That(t, err, test.ShouldBeNil)
 	}
 	cLoop.Stop(ctx)
