@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/erh/scheme"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/utils"
@@ -65,7 +65,7 @@ func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error
 	if cfg.Formula != "" {
 		x, err := scheme.Parse(cfg.Formula)
 		if err != nil {
-			return nil, errors.Errorf("couldn't parse formula for %s %w", cfg.Name, err)
+			return nil, errors.Wrapf(err, "couldn't parse formula for %s", cfg.Name)
 		}
 
 		testScope := scheme.Scope{}
@@ -73,7 +73,7 @@ func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error
 		testScope["raw"] = &scheme.Value{Float: &num}
 		_, err = scheme.Eval(x, testScope)
 		if err != nil {
-			return nil, errors.Errorf("test exec failed for %s %w", cfg.Name, err)
+			return nil, errors.Wrapf(err, "test exec failed for %s", cfg.Name)
 		}
 
 		i.AddPostProcessor(func(raw int64) int64 {

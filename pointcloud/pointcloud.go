@@ -9,7 +9,7 @@ import (
 	"io"
 	"math"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/core/utils"

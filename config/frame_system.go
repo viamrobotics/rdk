@@ -7,7 +7,7 @@ import (
 	"go.viam.com/core/spatialmath"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 )
 
 // FrameSystemPart is used to collect all the info need from a named robot part to build the frame node in a frame system.

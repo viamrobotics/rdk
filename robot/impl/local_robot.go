@@ -34,7 +34,7 @@ import (
 	"go.viam.com/core/status"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	// Engines
 	_ "go.viam.com/core/function/vm/engines/javascript"

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-errors/errors"
 	slib "github.com/jacobsa/go-serial/serial"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/utils"

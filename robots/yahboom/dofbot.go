@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/board"

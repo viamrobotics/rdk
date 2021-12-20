@@ -15,7 +15,7 @@ import (
 	"go.viam.com/core/config"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 )
 
 var (

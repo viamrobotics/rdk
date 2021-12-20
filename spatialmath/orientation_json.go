@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 )
 
 // OrientationType defines what orientation representations are known

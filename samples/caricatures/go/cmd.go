@@ -82,9 +82,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			return err
 		}
 		defer myRobot.Close()
-		webOpts := web.NewOptions()
-		webOpts.Insecure = true
-		return webserver.RunWeb(ctx, myRobot, webOpts, logger)
+		return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
 	}
 	return nil
 }

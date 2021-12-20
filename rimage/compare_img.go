@@ -6,7 +6,7 @@ import (
 	"image/draw"
 	"math"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 )
 
 // IterateImage visits each point in the image and calls the given visitor function

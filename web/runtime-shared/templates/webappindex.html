@@ -10,6 +10,8 @@
         height: 400px;
         width: 100%;
       }
+      [v-cloak] { display: none; }
+      #connecting.done { display: none; }
     </style>
     <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
     <script>
@@ -173,7 +175,6 @@
               mapOnce: false,
               chartStream: null,
               value: 0,
-
           };
           theApp = new Vue({
               el: '#app',
@@ -1085,6 +1086,7 @@
         console.debug("waiting for robot service to be ready");
         await window.robotServiceReady;
         console.debug("ready");
+        document.getElementById("connecting").classList.add("done");
         await startup();
       }
 
@@ -1188,7 +1190,8 @@
     </script>
   </head>
   <body onLoad="waitForClientAndStart()" style="background: var(--black-10);">
-    <div id="app">
+    <div id="connecting">Connecting via {{ if .WebRTCEnabled }}WebRTC{{ else }}gRPC{{ end }}...</div>
+    <div id="app" v-cloak>
       <div id="actions">
         {{range $r := .Actions}}
         <button v-on:click="doAction('{{$r}}')">{{$r}}</button>

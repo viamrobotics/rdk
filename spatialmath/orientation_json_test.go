@@ -9,7 +9,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/num/quat"
 )
 

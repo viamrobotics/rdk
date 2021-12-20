@@ -14,8 +14,8 @@ import (
 	"strings"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 	"github.com/mitchellh/copystructure"
+	"github.com/pkg/errors"
 
 	"go.viam.com/utils"
 )
@@ -201,7 +201,7 @@ func CreateCloudRequest(cloudCfg *Cloud) (*http.Request, error) {
 
 	r, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return nil, errors.Errorf("error creating request for %s : %w", url, err)
+		return nil, errors.Wrapf(err, "error creating request for %s", url)
 	}
 	r.Header.Set(cloudConfigSecretField, cloudCfg.Secret)
 
@@ -341,7 +341,7 @@ func fromReader(originalPath string, r io.Reader, skipCloud bool) (*Config, erro
 
 	decoder := json.NewDecoder(r)
 	if err := decoder.Decode(&cfg); err != nil {
-		return nil, errors.Errorf("cannot parse config %w", err)
+		return nil, errors.Wrap(err, "cannot parse config")
 	}
 	if err := cfg.Ensure(skipCloud); err != nil {
 		return nil, err
@@ -376,7 +376,7 @@ func fromReader(originalPath string, r io.Reader, skipCloud bool) (*Config, erro
 
 				n, err := conv(v)
 				if err != nil {
-					return nil, errors.Errorf("error converting attribute for (%s, %s, %s) %w", c.Type, c.Model, k, err)
+					return nil, errors.Wrapf(err, "error converting attribute for (%s, %s, %s)", c.Type, c.Model, k)
 				}
 				cfg.Components[idx].Attributes[k] = n
 
@@ -386,7 +386,7 @@ func fromReader(originalPath string, r io.Reader, skipCloud bool) (*Config, erro
 
 		converted, err := conv(c.Attributes)
 		if err != nil {
-			return nil, errors.Errorf("error converting attributes for (%s, %s) %w", c.Type, c.Model, err)
+			return nil, errors.Wrapf(err, "error converting attributes for (%s, %s)", c.Type, c.Model)
 		}
 		cfg.Components[idx].Attributes = nil
 		cfg.Components[idx].ConvertedAttributes = converted
@@ -400,7 +400,7 @@ func fromReader(originalPath string, r io.Reader, skipCloud bool) (*Config, erro
 
 		converted, err := conv(c.Attributes)
 		if err != nil {
-			return nil, errors.Errorf("error converting attributes for %s %w", c.Type, err)
+			return nil, errors.Wrapf(err, "error converting attributes for %s", c.Type)
 		}
 		cfg.Services[idx].Attributes = nil
 		cfg.Services[idx].ConvertedAttributes = converted

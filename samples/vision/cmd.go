@@ -21,7 +21,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
 	"github.com/fogleman/gg"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -163,7 +163,7 @@ func main() {
 
 	img, err := rimage.NewImageFromFile(fn)
 	if err != nil {
-		panic(errors.Errorf("error reading image from file (%s) %w", fn, err))
+		panic(errors.Wrapf(err, "error reading image from file (%s)", fn))
 	}
 
 	if *blur {
@@ -189,7 +189,7 @@ func main() {
 	}
 
 	if err != nil {
-		panic(errors.Errorf("error running command: %w", err))
+		panic(errors.Wrap(err, "error running command"))
 	}
 
 }
