@@ -12,7 +12,7 @@ import (
 	"github.com/go-errors/errors"
 	"go.viam.com/utils"
 
-	pb "go.viam.com/core/proto/api/v1"
+	pb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/rlog"
 )
@@ -74,7 +74,7 @@ type Board interface {
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
 	// this.
-	Status(ctx context.Context) (*pb.BoardStatus, error)
+	Status(ctx context.Context) (*pb.Status, error)
 
 	// ModelAttributes returns attributes related to the model of this board.
 	ModelAttributes() ModelAttributes
@@ -253,7 +253,7 @@ func (r *reconfigurableBoard) DigitalInterruptNames() []string {
 	return names
 }
 
-func (r *reconfigurableBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
+func (r *reconfigurableBoard) Status(ctx context.Context) (*pb.Status, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	if r.actual.ModelAttributes().Remote {
