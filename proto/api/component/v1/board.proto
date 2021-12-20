@@ -5,7 +5,6 @@ option java_package = "com.viam.core.proto.api.component.v1";
 package proto.api.component.v1;
 
 import "google/api/annotations.proto";
-import "proto/api/common/v1/common.proto";
 
 // BoardService services maintains all Boards associated with a robot
 service BoardService {
@@ -78,7 +77,7 @@ service BoardService {
 
 }
 
-message BoardStatus {
+message Status {
   map<string, AnalogStatus> analogs = 1;
   map<string, DigitalInterruptStatus> digital_interrupts = 2;
 }
@@ -96,7 +95,7 @@ message BoardServiceStatusRequest {
 }
 
 message BoardServiceStatusResponse {
-  BoardStatus status = 1;
+  Status status = 1;
 }
 
 message BoardServiceGPIOSetRequest {

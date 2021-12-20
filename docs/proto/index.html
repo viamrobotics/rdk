@@ -337,23 +337,23 @@
                 </li>
               
                 <li>
-                  <a href="#proto.api.component.v1.BoardStatus"><span class="badge">M</span>BoardStatus</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.component.v1.BoardStatus.AnalogsEntry"><span class="badge">M</span>BoardStatus.AnalogsEntry</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.component.v1.BoardStatus.DigitalInterruptsEntry"><span class="badge">M</span>BoardStatus.DigitalInterruptsEntry</a>
-                </li>
-              
-                <li>
                   <a href="#proto.api.component.v1.DigitalInterruptConfig"><span class="badge">M</span>DigitalInterruptConfig</a>
                 </li>
               
                 <li>
                   <a href="#proto.api.component.v1.DigitalInterruptStatus"><span class="badge">M</span>DigitalInterruptStatus</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.Status"><span class="badge">M</span>Status</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.Status.AnalogsEntry"><span class="badge">M</span>Status.AnalogsEntry</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.Status.DigitalInterruptsEntry"><span class="badge">M</span>Status.DigitalInterruptsEntry</a>
                 </li>
               
               
@@ -2133,100 +2133,7 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
               
                 <tr>
                   <td>status</td>
-                  <td><a href="#proto.api.component.v1.BoardStatus">BoardStatus</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.component.v1.BoardStatus">BoardStatus</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>analogs</td>
-                  <td><a href="#proto.api.component.v1.BoardStatus.AnalogsEntry">BoardStatus.AnalogsEntry</a></td>
-                  <td>repeated</td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>digital_interrupts</td>
-                  <td><a href="#proto.api.component.v1.BoardStatus.DigitalInterruptsEntry">BoardStatus.DigitalInterruptsEntry</a></td>
-                  <td>repeated</td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.component.v1.BoardStatus.AnalogsEntry">BoardStatus.AnalogsEntry</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>key</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>value</td>
-                  <td><a href="#proto.api.component.v1.AnalogStatus">AnalogStatus</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.component.v1.BoardStatus.DigitalInterruptsEntry">BoardStatus.DigitalInterruptsEntry</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>key</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>value</td>
-                  <td><a href="#proto.api.component.v1.DigitalInterruptStatus">DigitalInterruptStatus</a></td>
+                  <td><a href="#proto.api.component.v1.Status">Status</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -2296,6 +2203,99 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                 <tr>
                   <td>value</td>
                   <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.Status">Status</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>analogs</td>
+                  <td><a href="#proto.api.component.v1.Status.AnalogsEntry">Status.AnalogsEntry</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>digital_interrupts</td>
+                  <td><a href="#proto.api.component.v1.Status.DigitalInterruptsEntry">Status.DigitalInterruptsEntry</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.Status.AnalogsEntry">Status.AnalogsEntry</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>key</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#proto.api.component.v1.AnalogStatus">AnalogStatus</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.Status.DigitalInterruptsEntry">Status.DigitalInterruptsEntry</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>key</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#proto.api.component.v1.DigitalInterruptStatus">DigitalInterruptStatus</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>

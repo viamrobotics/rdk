@@ -3,24 +3,23 @@
 
 import * as jspb from "google-protobuf";
 import * as google_api_annotations_pb from "../../../../google/api/annotations_pb";
-import * as proto_api_common_v1_common_pb from "../../../../proto/api/common/v1/common_pb";
 
-export class BoardStatus extends jspb.Message {
+export class Status extends jspb.Message {
   getAnalogsMap(): jspb.Map<string, AnalogStatus>;
   clearAnalogsMap(): void;
   getDigitalInterruptsMap(): jspb.Map<string, DigitalInterruptStatus>;
   clearDigitalInterruptsMap(): void;
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): BoardStatus.AsObject;
-  static toObject(includeInstance: boolean, msg: BoardStatus): BoardStatus.AsObject;
+  toObject(includeInstance?: boolean): Status.AsObject;
+  static toObject(includeInstance: boolean, msg: Status): Status.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: BoardStatus, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): BoardStatus;
-  static deserializeBinaryFromReader(message: BoardStatus, reader: jspb.BinaryReader): BoardStatus;
+  static serializeBinaryToWriter(message: Status, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): Status;
+  static deserializeBinaryFromReader(message: Status, reader: jspb.BinaryReader): Status;
 }
 
-export namespace BoardStatus {
+export namespace Status {
   export type AsObject = {
     analogsMap: Array<[string, AnalogStatus.AsObject]>,
     digitalInterruptsMap: Array<[string, DigitalInterruptStatus.AsObject]>,
@@ -90,8 +89,8 @@ export namespace BoardServiceStatusRequest {
 export class BoardServiceStatusResponse extends jspb.Message {
   hasStatus(): boolean;
   clearStatus(): void;
-  getStatus(): BoardStatus | undefined;
-  setStatus(value?: BoardStatus): void;
+  getStatus(): Status | undefined;
+  setStatus(value?: Status): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): BoardServiceStatusResponse.AsObject;
@@ -105,7 +104,7 @@ export class BoardServiceStatusResponse extends jspb.Message {
 
 export namespace BoardServiceStatusResponse {
   export type AsObject = {
-    status?: BoardStatus.AsObject,
+    status?: Status.AsObject,
   }
 }
 
