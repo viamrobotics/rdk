@@ -49,26 +49,34 @@ func (sc *serviceClient) Close() error {
 // client is an Board client
 type client struct {
 	*serviceClient
-	name string
+	info boardInfo
+}
+
+type boardInfo struct {
+	name                  string
+	spiNames              []string
+	i2cNames              []string
+	analogReaderNames     []string
+	digitalInterruptNames []string
 }
 
 // NewClient constructs a new client that is served at the given address.
-func NewClient(ctx context.Context, name string, address string, logger golog.Logger, opts ...rpc.DialOption) (Board, error) {
+func NewClient(ctx context.Context, info boardInfo, address string, logger golog.Logger, opts ...rpc.DialOption) (Board, error) {
 	sc, err := newServiceClient(ctx, address, logger, opts...)
 	if err != nil {
 		return nil, err
 	}
-	return clientFromSvcClient(sc, name), nil
+	return clientFromSvcClient(sc, info), nil
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) Board {
+func NewClientFromConn(conn rpc.ClientConn, info boardInfo, logger golog.Logger) Board {
 	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, name)
+	return clientFromSvcClient(sc, info)
 }
 
-func clientFromSvcClient(sc *serviceClient, name string) Board {
-	return &client{sc, name}
+func clientFromSvcClient(sc *serviceClient, info boardInfo) Board {
+	return &client{sc, info}
 }
 
 // SPIByName may need to be implemented
