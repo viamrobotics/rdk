@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -83,9 +84,10 @@ func TestGainNext(t *testing.T) {
 			signal:    []float64{1.0},
 			time:      []int{1},
 			dimension: 1,
+			mu:        &sync.Mutex{},
 		},
 	}
 	out, ok := s.Next(ctx, signals, (time.Millisecond * 1))
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, out[0].signal[0], test.ShouldEqual, 1.89345)
+	test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 1.89345)
 }

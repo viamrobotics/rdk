@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -83,29 +84,30 @@ func TestPIDBasicIntegralWindup(t *testing.T) {
 			name:   "A",
 			signal: make([]float64, 1),
 			time:   make([]int, 1),
+			mu:     &sync.Mutex{},
 		},
 	}
 	for i := 0; i < 50; i++ {
 		dt := time.Duration(1000000 * 10)
-		s[0].signal[0] = 1000
+		s[0].SetSignalValueAt(0, 1000.0)
 		out, ok := pid.Next(ctx, s, dt)
 		if i < 47 {
 			test.That(t, ok, test.ShouldBeTrue)
-			test.That(t, out[0].signal[0], test.ShouldEqual, 100.0)
+			test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 100.0)
 		} else {
 			test.That(t, pid.sat, test.ShouldEqual, 1)
 			test.That(t, pid.int, test.ShouldBeGreaterThanOrEqualTo, 100)
-			s[0].signal[0] = 0
+			s[0].SetSignalValueAt(0, 0.0)
 			out, ok := pid.Next(ctx, s, dt)
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, pid.sat, test.ShouldEqual, 1)
 			test.That(t, pid.int, test.ShouldBeGreaterThanOrEqualTo, 100)
-			test.That(t, out[0].signal[0], test.ShouldEqual, 0.0)
+			test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 0.0)
 			out, ok = pid.Next(ctx, s, dt)
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, pid.sat, test.ShouldEqual, 0)
 			test.That(t, pid.int, test.ShouldBeLessThanOrEqualTo, 100)
-			test.That(t, out[0].signal[0], test.ShouldEqual, 100.0)
+			test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 100.0)
 			break
 		}
 	}
@@ -144,22 +146,23 @@ func TestPIDTunner(t *testing.T) {
 			name:   "A",
 			signal: make([]float64, 1),
 			time:   make([]int, 1),
+			mu:     &sync.Mutex{},
 		},
 	}
 	dt := time.Millisecond * 10
 	for i := 0; i < 22; i++ {
-		s[0].signal[0] += 2
+		s[0].SetSignalValueAt(0, s[0].GetSignalValueAt(0)+2)
 		out, hold := pid.Next(ctx, s, dt)
-		test.That(t, out[0].signal[0], test.ShouldEqual, 255.0*0.45)
+		test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 255.0*0.45)
 		test.That(t, hold, test.ShouldBeTrue)
 	}
 	for i := 0; i < 15; i++ {
-		s[0].signal[0] = 100
+		s[0].SetSignalValueAt(0, 100.0)
 		out, hold := pid.Next(ctx, s, dt)
-		test.That(t, out[0].signal[0], test.ShouldEqual, 255.0*0.45)
+		test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 255.0*0.45)
 		test.That(t, hold, test.ShouldBeTrue)
 	}
 	out, hold := pid.Next(ctx, s, dt)
-	test.That(t, out[0].signal[0], test.ShouldEqual, 255.0*0.45+0.5*255.0*0.45)
+	test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 255.0*0.45+0.5*255.0*0.45)
 	test.That(t, hold, test.ShouldBeTrue)
 }

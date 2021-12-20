@@ -129,17 +129,15 @@ func newEncodedMotor(
 	}
 
 	if len(motorConfig.ControlLoop.Blocks) != 0 {
-		cloop, err := control.NewControlLoop(cancelCtx, logger, motorConfig.ControlLoop, em)
+		cLoop, err := control.NewControlLoop(cancelCtx, logger, motorConfig.ControlLoop, em)
 		if err != nil {
 			return nil, err
 		}
-		if cloop != nil {
-			err := cloop.Start(cancelCtx)
-			if err != nil {
-				return nil, err
-			}
+		err = cLoop.Start(cancelCtx)
+		if err != nil {
+			return nil, err
 		}
-		em.loop = cloop
+		em.loop = cLoop
 	}
 
 	if em.rampRate < 0 || em.rampRate > 1 {

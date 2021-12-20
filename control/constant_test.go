@@ -79,5 +79,5 @@ func TestConstantNext(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	out, ok := s.Next(ctx, []Signal{}, (time.Millisecond * 1))
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, out[0].signal[0], test.ShouldEqual, 1.89345)
+	test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 1.89345)
 }

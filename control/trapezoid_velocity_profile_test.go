@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -82,11 +83,13 @@ func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 			name:   "SetPoint",
 			time:   []int{},
 			signal: []float64{100.0},
+			mu:     &sync.Mutex{},
 		},
 		{
 			name:   "Endpoint",
 			time:   []int{},
 			signal: []float64{0.0},
+			mu:     &sync.Mutex{},
 		},
 	}
 
@@ -98,14 +101,14 @@ func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 		i++
 		y, _ := s.Next(ctx, []Signal{}, (10 * time.Millisecond))
 		if i == 102 {
-			test.That(t, y[0].signal[0], test.ShouldEqual, 10.0)
+			test.That(t, y[0].GetSignalValueAt(0), test.ShouldEqual, 10.0)
 			break
 		}
 		if i == 87 {
-			test.That(t, y[0].signal[0], test.ShouldEqual, 100.0)
+			test.That(t, y[0].GetSignalValueAt(0), test.ShouldEqual, 100.0)
 		}
 	}
-	ins[0].signal[0] = 3
+	ins[0].SetSignalValueAt(0, 3)
 	_, ok = s.Next(ctx, ins, time.Duration(0))
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, s.currentPhase, test.ShouldEqual, accelPhase)
@@ -115,7 +118,7 @@ func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 		y, _ := s.Next(ctx, []Signal{}, (10 * time.Millisecond))
 		time.Sleep(100 * time.Millisecond)
 		if i == 5 {
-			test.That(t, y[0].signal[0], test.ShouldEqual, 60.0)
+			test.That(t, y[0].GetSignalValueAt(0), test.ShouldEqual, 60.0)
 			break
 		}
 	}

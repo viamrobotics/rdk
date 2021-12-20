@@ -43,17 +43,17 @@ func (p *basicPID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.tuning {
-		out, done := p.tuner.pidTunerStep(x[0].signal[0], dt)
+		out, done := p.tuner.pidTunerStep(x[0].GetSignalValueAt(0), dt)
 		if done {
 			p.Kd = p.tuner.Kd
 			p.Ki = p.tuner.Ki
 			p.Kp = p.tuner.Kp
 			p.tuning = false
 		}
-		p.y[0].signal[0] = out
+		p.y[0].SetSignalValueAt(0, out)
 	} else {
 		dtS := dt.Seconds()
-		error := x[0].signal[0]
+		error := x[0].GetSignalValueAt(0)
 		if (p.sat > 0 && error > 0) || (p.sat < 0 && error < 0) {
 			return p.y, false
 		}
@@ -75,7 +75,7 @@ func (p *basicPID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 		} else if output < p.limLo {
 			output = p.limLo
 		}
-		p.y[0].signal[0] = output
+		p.y[0].SetSignalValueAt(0, output)
 	}
 	return p.y, true
 

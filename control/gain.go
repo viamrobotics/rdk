@@ -29,9 +29,10 @@ func (b *gain) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal
 	if len(x) != 1 {
 		return b.y, false
 	}
-	b.y[0].signal[0] = 0.0
+	b.y[0].SetSignalValueAt(0, 0.0)
 	for _, s := range x {
-		b.y[0].signal[0] = s.signal[0] * b.gain
+		tx := s.GetSignalValueAt(0)
+		b.y[0].SetSignalValueAt(0, tx*b.gain)
 	}
 	return b.y, true
 }

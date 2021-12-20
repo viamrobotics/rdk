@@ -27,7 +27,7 @@ func newEndpoint(config ControlBlockConfig, logger golog.Logger, ctr Controllabl
 
 func (e *endpoint) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
 	if len(x) == 1 {
-		power := x[0].signal[0]
+		power := x[0].GetSignalValueAt(0)
 		if e.ctr != nil {
 			err := e.ctr.Go(ctx, power)
 			if err != nil {
@@ -42,7 +42,7 @@ func (e *endpoint) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 			if err != nil {
 				return []Signal{}, false
 			}
-			e.y[0].signal[0] = pos
+			e.y[0].SetSignalValueAt(0, pos)
 		}
 		return e.y, true
 	}

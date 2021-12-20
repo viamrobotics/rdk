@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"reflect"
 	"sync"
 	"time"
 
@@ -112,13 +111,9 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 				b := b
 				nInputs := len(b.ins)
 				ctx := ctx
-				cases := make([]reflect.SelectCase, nInputs)
-				for i, ch := range b.ins {
-					cases[i] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ch)}
-				}
-				sw := make([]Signal, nInputs)
 				close(waitCh)
 				for {
+					sw := make([]Signal, nInputs)
 					for i, c := range b.ins {
 						r, ok := <-c
 						if !ok {
@@ -143,7 +138,6 @@ func createControlLoop(ctx context.Context, logger golog.Logger, cfg ControlConf
 							out <- v
 						}
 					}
-					sw = make([]Signal, nInputs)
 				}
 			}, c.activeBackgroundWorkers.Done)
 			<-waitCh

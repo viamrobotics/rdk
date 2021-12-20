@@ -27,8 +27,8 @@ func newEncoderSpeed(config ControlBlockConfig, logger golog.Logger) (ControlBlo
 }
 
 func (b *encoderToRPM) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
-	currEncCount := int(x[0].signal[0])
-	b.y[0].signal[0] = (float64(currEncCount-b.prevEncCount) / float64(b.pulsesPerReolution)) * 60.0 / (dt.Seconds())
+	currEncCount := int(x[0].GetSignalValueAt(0))
+	b.y[0].SetSignalValueAt(0, (float64(currEncCount-b.prevEncCount)/float64(b.pulsesPerReolution))*60.0/(dt.Seconds()))
 	b.prevEncCount = currEncCount
 	return b.y, true
 }

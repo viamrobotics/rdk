@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"math"
+	"sync"
 	"testing"
 	"time"
 
@@ -97,13 +98,14 @@ func TestDerivativeNext(t *testing.T) {
 		signal:    make([]float64, 1),
 		time:      make([]int, 1),
 		dimension: 1,
+		mu:        &sync.Mutex{},
 	}
 	for i := 0; i < iter; i++ {
-		sig.signal[0] = sin[i]
+		sig.SetSignalValueAt(0, sin[i])
 		out, ok := d.Next(ctx, []Signal{sig}, (10 * time.Millisecond))
 		test.That(t, ok, test.ShouldBeTrue)
 		if i > 5 {
-			test.That(t, out[0].signal[0], test.ShouldAlmostEqual,
+			test.That(t, out[0].GetSignalValueAt(0), test.ShouldAlmostEqual,
 				-math.Sin((time.Duration(10 * i * int(time.Millisecond)).Seconds())), 0.01)
 		}
 	}
@@ -118,11 +120,11 @@ func TestDerivativeNext(t *testing.T) {
 	err = d.Configure(ctx, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < iter; i++ {
-		sig.signal[0] = sin[i]
+		sig.SetSignalValueAt(0, sin[i])
 		out, ok := d.Next(ctx, []Signal{sig}, (10 * time.Millisecond))
 		test.That(t, ok, test.ShouldBeTrue)
 		if i > 5 {
-			test.That(t, out[0].signal[0], test.ShouldAlmostEqual,
+			test.That(t, out[0].GetSignalValueAt(0), test.ShouldAlmostEqual,
 				math.Cos((time.Duration(10 * i * int(time.Millisecond)).Seconds())), 0.01)
 		}
 	}
@@ -141,11 +143,11 @@ func TestDerivativeNext(t *testing.T) {
 		sin = append(sin, math.Sin(2*math.Pi*(time.Duration(10*i*int(time.Millisecond)).Seconds())))
 	}
 	for i := 0; i < iter; i++ {
-		sig.signal[0] = sin[i]
+		sig.SetSignalValueAt(0, sin[i])
 		out, ok := d.Next(ctx, []Signal{sig}, 10*time.Millisecond)
 		test.That(t, ok, test.ShouldBeTrue)
 		if i > 5 {
-			test.That(t, out[0].signal[0], test.ShouldAlmostEqual,
+			test.That(t, out[0].GetSignalValueAt(0), test.ShouldAlmostEqual,
 				2*math.Pi*math.Cos(2*math.Pi*(time.Duration(10*i*int(time.Millisecond)).Seconds())), 0.01)
 		}
 	}

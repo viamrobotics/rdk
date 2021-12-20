@@ -36,21 +36,22 @@ func (b *sum) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal,
 	if len(x) != len(b.operation) {
 		return b.y, false
 	}
-	b.y[0].signal[0] = 0.0
-	for _, s := range x {
-		op, ok := b.operation[s.name]
+	y := 0.0
+	for i := range x {
+		op, ok := b.operation[x[i].name]
 		if !ok {
 			return b.y, false
 		}
 		switch op {
 		case addition:
-			b.y[0].signal[0] += s.signal[0]
+			y += x[i].GetSignalValueAt(0)
 		case subtraction:
-			b.y[0].signal[0] -= s.signal[0]
+			y -= x[i].GetSignalValueAt(0)
 		default:
 			return b.y, false
 		}
 	}
+	b.y[0].SetSignalValueAt(0, y)
 	return b.y, true
 }
 func (b *sum) reset() error {
