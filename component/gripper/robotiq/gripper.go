@@ -22,7 +22,7 @@ import (
 func init() {
 	registry.RegisterComponent(gripper.Subtype, "robotiq", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newGripper(ctx, config.Host, logger)
+			return newGripper(ctx, config.Attributes.String("host"), logger)
 		}})
 }
 

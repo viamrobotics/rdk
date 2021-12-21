@@ -337,7 +337,7 @@ func evaModel() (*frame.Model, error) {
 // NewEva TODO
 func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
 	attrs := cfg.Attributes
-	host := cfg.Host
+	host := cfg.Attributes.String("host")
 	model, err := evaModel()
 	if err != nil {
 		return nil, err

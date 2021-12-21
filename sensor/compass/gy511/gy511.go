@@ -32,7 +32,7 @@ const ModelName = "gy511"
 // init registers the gy511 compass type.
 func init() {
 	registry.RegisterSensor(compass.Type, ModelName, registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-		return New(ctx, config.Host, logger)
+		return New(ctx, config.Attributes.String("host"), logger)
 	}})
 }
 

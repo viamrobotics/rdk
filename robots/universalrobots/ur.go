@@ -99,7 +99,7 @@ func (ua *URArm) Close() error {
 // URArmConnect TODO
 func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
 	speed := cfg.Attributes.Float64("speed", .1)
-	host := cfg.Host
+	host := cfg.Attributes.String("host")
 	if speed > 1 || speed < .1 {
 		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
 	}
