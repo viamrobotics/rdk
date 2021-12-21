@@ -904,8 +904,6 @@ func TestPartsMergeModify(t *testing.T) {
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	// TODO(maximpertsov): does board still need to be added?
-	// robotForRemote.parts.AddBoard(fakeBoardRemote, config.Component{Name: "board2_r1"})
 	robotForRemote.parts.AddBase(&inject.Base{}, config.Component{Name: "base2_r1"})
 	robotForRemote.parts.AddSensor(&inject.Compass{}, config.Component{Name: "sensor2_r1"})
 	robotForRemote.parts.addFunction("func2_r1")
@@ -953,10 +951,6 @@ func TestPartsMergeModify(t *testing.T) {
 		},
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
-
-	// TODO(maximpertsov): does board still need to be added?
-	// robotForRemote.parts.AddBoard(fakeBoardRemote, config.Component{Name: "board2_r1"})
-	// replacementParts.AddBoard(fakeBoard, config.Component{Name: "board1"})
 
 	injectBase := &inject.Base{}
 	replacementParts.AddBase(injectBase, config.Component{Name: "base1"})
