@@ -243,8 +243,8 @@ github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19 h1:H1ItaK5N1m
 github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19/go.mod h1:i/zcokIKs893VZA41BS8jTOHW23PlqiiZEa7Y+4Nujk=
 github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e h1:K3N0Zm7JySHjvThqKBWO294ZnEPUK2W3os647RVTJB8=
 github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e/go.mod h1:nsP/KxpaFaTriZlxPlULlPKf7F3LS0J4BgoxZN8QJAU=
-github.com/edaniels/gostream v0.0.0-20211216221248-228c822205bd h1:uYz64Epkk5KBJXGkNvvrN5f83LNKokUWcVQlzQOhys0=
-github.com/edaniels/gostream v0.0.0-20211216221248-228c822205bd/go.mod h1:VXXagyw3ZcO0Xcg30N4M/twqQWREVvwHKFTWQngJYJI=
+github.com/edaniels/gostream v0.0.0-20211220232642-f41d85a5dfd6 h1:Q+XJBOu73oc0xiAE2fgUezJhH1hA2H7ZF18TPfOvT0w=
+github.com/edaniels/gostream v0.0.0-20211220232642-f41d85a5dfd6/go.mod h1:tEyr99nl1wTquCFenai83qzLTFMweFAKiKGQ2L/9XD4=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de h1:JuF74jzC/jNopROh0Ay1d9APtx00FWXqMwtvaXhoE+4=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de/go.mod h1:PUN/9/bIMWq8Ej+fmb+QVoPdIYF/j68ziImrVKxnOw0=
 github.com/edsrzf/mmap-go v0.0.0-20170320065105-0bce6a688712/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaBNrHW5M=
@@ -305,7 +305,6 @@ github.com/gliderlabs/ssh v0.1.1/go.mod h1:U7qILu1NlMHj9FlMhZLlkCdDnU1DBEAqr0aev
 github.com/go-critic/go-critic v0.5.4/go.mod h1:cjB4YGw+n/+X8gREApej7150Uyy1Tg8If6F2XOAUXNE=
 github.com/go-critic/go-critic v0.5.5 h1:hqPHqQt/2l4Syc2VOIgcuy0FSytcbatOHWggu45vhw8=
 github.com/go-critic/go-critic v0.5.5/go.mod h1:eMs1Oc/oIP+CYNVN09M+XZYffIPuRHawxzlggAPN9Kk=
-github.com/go-errors/errors v1.4.1/go.mod h1:sIVyrIiJhuEF+Pj9Ebtd6P/rEYROXFi3BopGUQ5a5Og=
 github.com/go-fonts/dejavu v0.1.0 h1:JSajPXURYqpr+Cu8U9bt8K+XcACIHWqWrvWCKyeFmVQ=
 github.com/go-fonts/dejavu v0.1.0/go.mod h1:4Wt4I4OU2Nq9asgDCteaAaWZOV24E+0/Pwo0gppep4g=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
@@ -1264,9 +1263,8 @@ go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4 h1:YG1xrvr+VkEifpj4tmxp
 go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4/go.mod h1:bVVm3GcP8koFgCYKWJkCU0r+lkOvTQLeLaFcw8AFghE=
 go.viam.com/test v1.1.0 h1:KXf8crEwt0bHn5iMsjmXg0vPio/yzKGrfd20sWhe/t4=
 go.viam.com/test v1.1.0/go.mod h1:iULewngKZCHSB2QJa1xGSR6+0ICZIHbEfTUGqw0blLs=
-go.viam.com/utils v0.0.2-0.20211216221155-408fcbbd1c36/go.mod h1:+BaZfIze8S0kHc9pVQ8uRCleoV1IddjAxPakGxUvtWo=
-go.viam.com/utils v0.0.3-0.20211217235848-9cfb31dd8717 h1:b2gSuWOXSqQH+/uFs41pngb2oBslO46zjO2Sl0oSyiw=
-go.viam.com/utils v0.0.3-0.20211217235848-9cfb31dd8717/go.mod h1:BghZnLSMALf2gNqWyEdOmhPyRG/ttZnhQIJNC9PKQbM=
+go.viam.com/utils v0.0.3-0.20211220184046-7794ea22acbb h1:vQIBDrk3XbNzVWm//iLum4fwfZcCRwwBIxrJdLlB64w=
+go.viam.com/utils v0.0.3-0.20211220184046-7794ea22acbb/go.mod h1:BghZnLSMALf2gNqWyEdOmhPyRG/ttZnhQIJNC9PKQbM=
 go4.org v0.0.0-20180809161055-417644f6feb5/go.mod h1:MkTOUMDaeVYJUOUsaDXIhWPZYa1yOyC1qaOBpL57BhE=
 gocloud.dev v0.19.0/go.mod h1:SmKwiR8YwIMMJvQBKLsC3fHNyMwXLw3PMDO+VVteJMI=
 gocv.io/x/gocv v0.25.0/go.mod h1:Rar2PS6DV+T4FL+PM535EImD/h13hGVaHhnCu1xarBs=
