@@ -213,7 +213,16 @@ var finalStatus = &pb.Status{
 	},
 }
 
-var finalResources = []resource.Name{arm.Named("arm2"), arm.Named("arm3"), servo.Named("servo2"), servo.Named("servo3"), gripper.Named("gripper2"), gripper.Named("gripper3"), camera.Named("camera2"), camera.Named("camera3")}
+var finalResources = []resource.Name{
+	arm.Named("arm2"),
+	arm.Named("arm3"),
+	servo.Named("servo2"),
+	servo.Named("servo3"),
+	gripper.Named("gripper2"),
+	gripper.Named("gripper3"),
+	camera.Named("camera2"),
+	camera.Named("camera3"),
+}
 
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -529,7 +538,12 @@ func TestClient(t *testing.T) {
 		return eventsOut, nil
 	}
 	evStream := make(chan input.Event)
-	injectInputDev.RegisterControlCallbackFunc = func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+	injectInputDev.RegisterControlCallbackFunc = func(
+		ctx context.Context,
+		control input.Control,
+		triggers []input.EventType,
+		ctrlFunc input.ControlFunction,
+	) error {
 		if ctrlFunc != nil {
 			outEvent := input.Event{Time: time.Now(), Event: triggers[0], Control: input.ButtonStart, Value: 0.0}
 			if control == input.AbsoluteX {
@@ -1021,8 +1035,16 @@ func TestClient(t *testing.T) {
 	test.That(t, capPWMSetFreqPin, test.ShouldEqual, "one")
 	test.That(t, capPWMSetFreqFreq, test.ShouldEqual, uint(11233))
 
-	test.That(t, utils.NewStringSet(board1.AnalogReaderNames()...), test.ShouldResemble, utils.NewStringSet("analog1"))
-	test.That(t, utils.NewStringSet(board1.DigitalInterruptNames()...), test.ShouldResemble, utils.NewStringSet("encoder"))
+	test.That(t,
+		utils.NewStringSet(board1.AnalogReaderNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("analog1"),
+	)
+	test.That(t,
+		utils.NewStringSet(board1.DigitalInterruptNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("encoder"),
+	)
 
 	board3, ok := client.BoardByName("board3")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -1274,13 +1296,41 @@ func TestClientRefresh(t *testing.T) {
 	cameraNames := []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
 	servoNames := []resource.Name{servo.Named("servo2"), servo.Named("servo3")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
-	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
-	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
-	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
-	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4", "fsm1", "fsm2"))
-	test.That(t, utils.NewStringSet(client.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
+	test.That(t,
+		utils.NewStringSet(client.ArmNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(armNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(client.GripperNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(client.CameraNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(client.BaseNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("base2", "base3"),
+	)
+	test.That(t,
+		utils.NewStringSet(client.BoardNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("board2", "board3"),
+	)
+	test.That(t,
+		utils.NewStringSet(client.SensorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("compass2", "compass3", "compass4", "fsm1", "fsm2"),
+	)
+	test.That(t,
+		utils.NewStringSet(client.ServoNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...),
+	)
 	test.That(t, coretestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 		coretestutils.ConcatResourceNames(
 			armNames,
@@ -1312,13 +1362,41 @@ func TestClientRefresh(t *testing.T) {
 	gripperNames = []resource.Name{gripper.Named("gripper1")}
 	cameraNames = []resource.Name{camera.Named("camera1")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
-	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
-	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
-	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board3"))
-	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass1", "compass2", "fsm1", "fsm2"))
-	test.That(t, utils.NewStringSet(client.ServoNames()...), test.ShouldBeEmpty)
+	test.That(t,
+		utils.NewStringSet(client.ArmNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(armNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(client.GripperNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(client.CameraNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(client.BaseNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("base1"),
+	)
+	test.That(t,
+		utils.NewStringSet(client.BoardNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("board1", "board3"),
+	)
+	test.That(t,
+		utils.NewStringSet(client.SensorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("compass1", "compass2", "fsm1", "fsm2"),
+	)
+	test.That(t,
+		utils.NewStringSet(client.ServoNames()...),
+		test.ShouldBeEmpty,
+	)
+
 	test.That(t, coretestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 		coretestutils.ConcatResourceNames(
 			armNames,
@@ -1338,13 +1416,41 @@ func TestClientRefresh(t *testing.T) {
 	gripperNames = []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
 	cameraNames = []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
-	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
-	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
-	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
-	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4", "fsm1", "fsm2"))
-	test.That(t, utils.NewStringSet(client.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
+	test.That(t,
+		utils.NewStringSet(client.ArmNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(armNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(client.GripperNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(client.CameraNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(client.BaseNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("base2", "base3"),
+	)
+	test.That(t,
+		utils.NewStringSet(client.BoardNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("board2", "board3"),
+	)
+	test.That(t,
+		utils.NewStringSet(client.SensorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("compass2", "compass3", "compass4", "fsm1", "fsm2"),
+	)
+	test.That(t,
+		utils.NewStringSet(client.ServoNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...),
+	)
 	test.That(t, coretestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 		coretestutils.ConcatResourceNames(
 			armNames,

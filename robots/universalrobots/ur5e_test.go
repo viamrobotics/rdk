@@ -139,8 +139,12 @@ func TestKin1(t *testing.T) {
 	testUR5eForwardKinements(t, []float64{rad, rad, rad, rad, rad, rad}, &commonpb.Pose{X: -32.8, Y: 33.7, Z: 262.2})
 
 	// Section 3 - try some random angles
-	testUR5eForwardKinements(t, []float64{math.Pi / 4, math.Pi / 2, 0, math.Pi / 4, math.Pi / 2, 0}, &commonpb.Pose{X: 193.91, Y: 5.39, Z: -654.63})
-	testUR5eForwardKinements(t, []float64{0, math.Pi / 4, math.Pi / 2, 0, math.Pi / 4, math.Pi / 2}, &commonpb.Pose{X: 97.11, Y: -203.73, Z: -394.65})
+	testUR5eForwardKinements(t,
+		[]float64{math.Pi / 4, math.Pi / 2, 0, math.Pi / 4, math.Pi / 2, 0},
+		&commonpb.Pose{X: 193.91, Y: 5.39, Z: -654.63})
+	testUR5eForwardKinements(t,
+		[]float64{0, math.Pi / 4, math.Pi / 2, 0, math.Pi / 4, math.Pi / 2},
+		&commonpb.Pose{X: 97.11, Y: -203.73, Z: -394.65})
 
 	testUR5eInverseKinements(t,
 		&commonpb.Pose{X: -202.31, Y: -577.75, Z: 318.58, Theta: 51.84, OX: 0.47, OY: -.42, OZ: -.78},

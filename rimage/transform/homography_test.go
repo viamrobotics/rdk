@@ -16,7 +16,13 @@ type homographyTestHelper struct {
 	params *PinholeCameraHomography
 }
 
-func (h *homographyTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
+func (h *homographyTestHelper) Process(
+	t *testing.T,
+	pCtx *rimage.ProcessorContext,
+	fn string,
+	img image.Image,
+	logger golog.Logger,
+) error {
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth_homography")
@@ -45,7 +51,17 @@ func TestNewHomography(t *testing.T) {
 	_, err := NewHomography([]float64{})
 	test.That(t, err, test.ShouldBeError, errors.New("input to NewHomography must have length of 9. Has length of 0"))
 
-	vals := []float64{2.32700501e-01, -8.33535395e-03, -3.61894025e+01, -1.90671303e-03, 2.35303232e-01, 8.38582614e+00, -6.39101664e-05, -4.64582754e-05, 1.00000000e+00}
+	vals := []float64{
+		2.32700501e-01,
+		-8.33535395e-03,
+		-3.61894025e+01,
+		-1.90671303e-03,
+		2.35303232e-01,
+		8.38582614e+00,
+		-6.39101664e-05,
+		-4.64582754e-05,
+		1.00000000e+00,
+	}
 	_, err = NewHomography(vals)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -62,8 +78,18 @@ func TestPinholeCameraHomography(t *testing.T) {
 	}
 
 	conf := &RawPinholeCameraHomography{
-		ColorCamera:  intrinsics,
-		Homography:   []float64{2.32700501e-01, -8.33535395e-03, -3.61894025e+01, -1.90671303e-03, 2.35303232e-01, 8.38582614e+00, -6.39101664e-05, -4.64582754e-05, 1.00000000e+00},
+		ColorCamera: intrinsics,
+		Homography: []float64{
+			2.32700501e-01,
+			-8.33535395e-03,
+			-3.61894025e+01,
+			-1.90671303e-03,
+			2.35303232e-01,
+			8.38582614e+00,
+			-6.39101664e-05,
+			-4.64582754e-05,
+			1.00000000e+00,
+		},
 		DepthToColor: false,
 		RotateDepth:  -90,
 	}

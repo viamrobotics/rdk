@@ -4,7 +4,8 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
-// Orientation is an interface used to express the different parameterizations of the orientation of a rigid object or a frame of reference in 3D Euclidean space.
+// Orientation is an interface used to express the different parameterizations of the orientation
+// of a rigid object or a frame of reference in 3D Euclidean space.
 type Orientation interface {
 	OrientationVectorRadians() *OrientationVector
 	OrientationVectorDegrees() *OrientationVectorDegrees

@@ -1247,7 +1247,12 @@ func (cc *inputControllerClient) InjectEvent(ctx context.Context, event input.Ev
 	return err
 }
 
-func (cc *inputControllerClient) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+func (cc *inputControllerClient) RegisterControlCallback(
+	ctx context.Context,
+	control input.Control,
+	triggers []input.EventType,
+	ctrlFunc input.ControlFunction,
+) error {
 	cc.mu.Lock()
 	if cc.callbacks == nil {
 		cc.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)

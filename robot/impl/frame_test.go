@@ -124,12 +124,19 @@ func TestWrongFrameSystems(t *testing.T) {
 	cfg, err := config.Read("data/fake_wrongconfig1.json")
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
-	test.That(t, err, test.ShouldBeError, errors.New("the frame system is not fully connected, expected 9 frames but frame system has 7. Expected frames are: [cameraOver cameraOver_offset compass2 compass2_offset pieceArm pieceArm_offset pieceGripper pieceGripper_offset world]. Actual frames are: [world cameraOver_offset pieceArm_offset cameraOver pieceArm pieceGripper_offset pieceGripper]"))
+	test.That(t,
+		err,
+		test.ShouldBeError,
+		errors.New("the frame system is not fully connected, expected 9 frames but frame system has 7. Expected "+
+			"frames are: [cameraOver cameraOver_offset compass2 compass2_offset pieceArm pieceArm_offset pieceGripper "+
+			"pieceGripper_offset world]. Actual frames are: [world cameraOver_offset pieceArm_offset cameraOver pieceArm "+
+			"pieceGripper_offset pieceGripper]"))
 
 	cfg, err = config.Read("data/fake_wrongconfig2.json") // no world node
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
-	test.That(t, err, test.ShouldBeError, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'"))
+	test.That(t,
+		err, test.ShouldBeError, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'"))
 
 	cfg, err = config.Read("data/fake_wrongconfig3.json") // one of the nodes was given the name world
 	test.That(t, err, test.ShouldBeNil)

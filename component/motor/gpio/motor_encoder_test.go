@@ -277,31 +277,36 @@ func TestMotorEncoderHall(t *testing.T) {
 		encoderA := th.EncoderA
 		encoderB := th.EncoderB
 
-		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // this should do nothing because it's the initial state
+		// this should do nothing because it's the initial state
+		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			pos := encoder.RawPosition()
 			test.That(t, pos, test.ShouldEqual, 0)
 		})
 
-		test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // we go from state 3 -> 4
+		// we go from state 3 -> 4
+		test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			pos := encoder.RawPosition()
 			test.That(t, pos, test.ShouldEqual, 1)
 		})
 
-		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // 4 -> 1
+		// 4 -> 1
+		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			pos := encoder.RawPosition()
 			test.That(t, pos, test.ShouldEqual, 2)
 		})
 
-		test.That(t, encoderB.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // 1 -> 2
+		// 1 -> 2
+		test.That(t, encoderB.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			pos := encoder.RawPosition()
 			test.That(t, pos, test.ShouldEqual, 3)
 		})
 
-		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // 2 -> 3
+		// 2 -> 3
+		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			pos := encoder.RawPosition()
 			test.That(t, pos, test.ShouldEqual, 4)
@@ -316,55 +321,64 @@ func TestMotorEncoderHall(t *testing.T) {
 		encoderA := th.EncoderA
 		encoderB := th.EncoderB
 
-		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // this should do nothing because it's the initial state
+		// this should do nothing because it's the initial state
+		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			pos := encoder.RawPosition()
 			test.That(t, pos, test.ShouldEqual, 0)
 		})
 
-		test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // we go from state 3 -> 4
+		// we go from state 3 -> 4
+		test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			pos := encoder.RawPosition()
 			test.That(t, pos, test.ShouldEqual, 1)
 		})
 
-		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // 4 -> 1
+		// 4 -> 1
+		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			pos := encoder.RawPosition()
 			test.That(t, pos, test.ShouldEqual, 2)
 		})
 
-		test.That(t, encoderB.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // 1 -> 2
+		// 1 -> 2
+		test.That(t, encoderB.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			pos := encoder.RawPosition()
 			test.That(t, pos, test.ShouldEqual, 3)
 		})
 
-		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // 2 -> 3
+		// 2 -> 3
+		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			pos := encoder.RawPosition()
 			test.That(t, pos, test.ShouldEqual, 4)
 		})
 
-		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // 3 -> 2
+		// 3 -> 2
+		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			pos := encoder.RawPosition()
 			test.That(t, pos, test.ShouldEqual, 3)
 		})
 
-		test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // 2 -> 1
+		// 2 -> 1
+		test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			pos := encoder.RawPosition()
 			test.That(t, pos, test.ShouldEqual, 2)
 		})
 
-		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // 1 -> 4
+		// 1 -> 4
+		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			pos := encoder.RawPosition()
 			test.That(t, pos, test.ShouldEqual, 1)
 		})
 
-		test.That(t, encoderB.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // 4 -> 1
+		// 4 -> 1
+		test.That(t, encoderB.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			pos := encoder.RawPosition()
 			test.That(t, pos, test.ShouldEqual, 0)
@@ -450,7 +464,13 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 
 	t.Run("wrap motor no encoder", func(t *testing.T) {
 		real := &fakemotor.Motor{}
-		m, err := WrapMotorWithEncoder(context.Background(), nil, config.Component{Name: "motor1"}, motor.Config{}, real, logger)
+		m, err := WrapMotorWithEncoder(
+			context.Background(),
+			nil,
+			config.Component{Name: "motor1"}, motor.Config{},
+			real,
+			logger,
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, m, test.ShouldEqual, real)
 		test.That(t, utils.TryClose(m), test.ShouldBeNil)
@@ -458,7 +478,13 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 
 	t.Run("wrap motor with encoder no ticksPerRotation", func(t *testing.T) {
 		real := &fakemotor.Motor{}
-		m, err := WrapMotorWithEncoder(context.Background(), nil, config.Component{Name: "motor1"}, motor.Config{Encoder: "a"}, real, logger)
+		m, err := WrapMotorWithEncoder(
+			context.Background(),
+			nil,
+			config.Component{Name: "motor1"}, motor.Config{Encoder: "a"},
+			real,
+			logger,
+		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, m, test.ShouldBeNil)
 		test.That(t, utils.TryClose(m), test.ShouldBeNil)
@@ -468,13 +494,25 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		b, err := fake.NewBoard(context.Background(), config.Component{ConvertedAttributes: &board.Config{}}, rlog.Logger)
 		test.That(t, err, test.ShouldBeNil)
 		real := &fakemotor.Motor{}
-		m, err := WrapMotorWithEncoder(context.Background(), b, config.Component{Name: "motor1"}, motor.Config{Encoder: "a", TicksPerRotation: 100}, real, logger)
+		m, err := WrapMotorWithEncoder(
+			context.Background(),
+			b,
+			config.Component{Name: "motor1"}, motor.Config{Encoder: "a", TicksPerRotation: 100},
+			real,
+			logger,
+		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, m, test.ShouldBeNil)
 		test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
 		b.Digitals["a"] = &board.BasicDigitalInterrupt{}
-		m, err = WrapMotorWithEncoder(context.Background(), b, config.Component{Name: "motor1"}, motor.Config{Encoder: "a", TicksPerRotation: 100}, real, logger)
+		m, err = WrapMotorWithEncoder(
+			context.Background(),
+			b,
+			config.Component{Name: "motor1"}, motor.Config{Encoder: "a", TicksPerRotation: 100},
+			real,
+			logger,
+		)
 		test.That(t, err, test.ShouldBeNil)
 		_, ok := m.(*EncodedMotor)
 		test.That(t, ok, test.ShouldBeTrue)
@@ -485,12 +523,24 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		b, err := fake.NewBoard(context.Background(), config.Component{ConvertedAttributes: &board.Config{}}, rlog.Logger)
 		test.That(t, err, test.ShouldBeNil)
 		real := &fakemotor.Motor{}
-		m, err := WrapMotorWithEncoder(context.Background(), b, config.Component{Name: "motor1"}, motor.Config{Encoder: "a", TicksPerRotation: 100, EncoderB: "b"}, real, logger)
+		m, err := WrapMotorWithEncoder(
+			context.Background(),
+			b,
+			config.Component{Name: "motor1"}, motor.Config{Encoder: "a", TicksPerRotation: 100, EncoderB: "b"},
+			real,
+			logger,
+		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, m, test.ShouldBeNil)
 		test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
-		m, err = WrapMotorWithEncoder(context.Background(), b, config.Component{Name: "motor1"}, motor.Config{Encoder: "a", EncoderB: "b", TicksPerRotation: 100}, real, logger)
+		m, err = WrapMotorWithEncoder(
+			context.Background(),
+			b,
+			config.Component{Name: "motor1"}, motor.Config{Encoder: "a", EncoderB: "b", TicksPerRotation: 100},
+			real,
+			logger,
+		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, m, test.ShouldBeNil)
 		test.That(t, utils.TryClose(m), test.ShouldBeNil)

@@ -15,7 +15,13 @@ import (
 type MyDebug struct {
 }
 
-func (ddd MyDebug) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
+func (ddd MyDebug) Process(
+	t *testing.T,
+	pCtx *rimage.ProcessorContext,
+	fn string,
+	img image.Image,
+	logger golog.Logger,
+) error {
 	dm, err := rimage.ParseDepthMap(strings.Replace(fn, ".png", ".dat.gz", 1))
 	if err != nil {
 		return err
@@ -46,7 +52,13 @@ func TestAutoDrive1(t *testing.T) {
 type ChargeDebug struct {
 }
 
-func (cd ChargeDebug) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
+func (cd ChargeDebug) Process(
+	t *testing.T,
+	pCtx *rimage.ProcessorContext,
+	fn string,
+	img image.Image,
+	logger golog.Logger,
+) error {
 	iwd := rimage.ConvertToImageWithDepth(img).Rotate(180)
 	pCtx.GotDebugImage(iwd, "rotated")
 
