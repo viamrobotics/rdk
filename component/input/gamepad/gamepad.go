@@ -6,7 +6,7 @@ package gamepad
 import (
 	"context"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 

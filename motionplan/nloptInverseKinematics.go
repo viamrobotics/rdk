@@ -7,8 +7,8 @@ import (
 	"math/rand"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 	"github.com/go-nlopt/nlopt"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	frame "go.viam.com/core/referenceframe"

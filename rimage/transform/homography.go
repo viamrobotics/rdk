@@ -6,9 +6,9 @@ import (
 	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/rimage"
 
-	"github.com/go-errors/errors"
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 )
 
 // PinholeCameraHomography stores the color camera intrinsics and the homography that aligns a depth map

@@ -5,8 +5,8 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 
 	"go.viam.com/utils"
 )
@@ -186,12 +186,12 @@ func (i *ImageWithDepth) WriteTo(fn string) error {
 func NewImageWithDepthFromImages(colorFN, depthFN string, isAligned bool) (*ImageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
-		return nil, errors.Errorf("cannot read color file (%s): %w", colorFN, err)
+		return nil, errors.Wrapf(err, "cannot read color file (%s)", colorFN)
 	}
 
 	dm, err := NewDepthMapFromImageFile(depthFN)
 	if err != nil {
-		return nil, errors.Errorf("cannot read depth file (%s): %w", depthFN, err)
+		return nil, errors.Wrapf(err, "cannot read depth file (%s)", depthFN)
 	}
 
 	return &ImageWithDepth{img, dm, isAligned, nil}, nil
@@ -201,12 +201,12 @@ func NewImageWithDepthFromImages(colorFN, depthFN string, isAligned bool) (*Imag
 func NewImageWithDepth(colorFN, depthFN string, isAligned bool) (*ImageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
-		return nil, errors.Errorf("cannot read color file (%s): %w", colorFN, err)
+		return nil, errors.Wrapf(err, "cannot read color file (%s)", colorFN)
 	}
 
 	dm, err := ParseDepthMap(depthFN)
 	if err != nil {
-		return nil, errors.Errorf("cannot read depth file (%s): %w", depthFN, err)
+		return nil, errors.Wrapf(err, "cannot read depth file (%s)", depthFN)
 	}
 
 	if isAligned {

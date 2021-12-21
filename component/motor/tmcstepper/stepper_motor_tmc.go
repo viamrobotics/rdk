@@ -5,8 +5,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/go-errors/errors"
 	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 
 	"go.viam.com/utils"
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/gostream"
 

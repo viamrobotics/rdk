@@ -11,8 +11,8 @@ import (
 	robotimpl "go.viam.com/core/robot/impl"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 )
 
 var blankPos map[string][]referenceframe.Input

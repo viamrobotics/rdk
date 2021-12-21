@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/motor/gpio"
