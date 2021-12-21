@@ -46,6 +46,7 @@ if [ "$(uname)" == "Linux" ]; then
 		export LIBRARY_PATH=/home/linuxbrew/.linuxbrew/lib
 		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 		export CC=gcc-11
+		export CXX=g++-11
 	fi
 	EOS
 
@@ -119,7 +120,7 @@ brew "grpcurl"
 brew "node"
 brew "nlopt"
 brew "x264"
-brew "wasmer"
+brew "libwasmer"
 
 EOS
 
