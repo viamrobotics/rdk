@@ -1,19 +1,21 @@
 const { grpc } = require("@improbable-eng/grpc-web");
-window.robotApi = require('proto/api/v1/robot_pb.js');
-const { RobotServiceClient } = require('proto/api/v1/robot_pb_service.js');
-window.metadataApi = require('proto/api/service/v1/metadata_pb.js');
-const { MetadataServiceClient } = require('proto/api/service/v1/metadata_pb_service.js');
-window.armApi = require('proto/api/component/v1/arm_pb.js');
-const { ArmServiceClient } = require('proto/api/component/v1/arm_pb_service.js');
-window.gantryApi = require('proto/api/component/v1/gantry_pb.js');
-const { GantryServiceClient } = require('proto/api/component/v1/gantry_pb_service.js');
-window.gripperApi = require('proto/api/component/v1/gripper_pb.js');
-const { GripperServiceClient } = require('proto/api/component/v1/gripper_pb_service.js');
-window.servoApi = require('proto/api/component/v1/servo_pb.js');
-const { ServoServiceClient } = require('proto/api/component/v1/servo_pb_service.js');
-window.cameraApi = require('proto/api/component/v1/camera_pb.js');
-const { CameraServiceClient } = require('proto/api/component/v1/camera_pb_service.js');
-window.commonApi = require('proto/api/common/v1/common_pb.js');
+window.robotApi = require('./gen/proto/api/v1/robot_pb.js');
+const { RobotServiceClient } = require('./gen/proto/api/v1/robot_pb_service.js');
+window.metadataApi = require('./gen/proto/api/service/v1/metadata_pb.js');
+const { MetadataServiceClient } = require('./gen/proto/api/service/v1/metadata_pb_service.js');
+window.armApi = require('./gen/proto/api/component/v1/arm_pb.js');
+const { ArmServiceClient } = require('./gen/proto/api/component/v1/arm_pb_service.js');
+window.gantryApi = require('./gen/proto/api/component/v1/gantry_pb.js');
+const { GantryServiceClient } = require('./gen/proto/api/component/v1/gantry_pb_service.js');
+window.gripperApi = require('./gen/proto/api/component/v1/gripper_pb.js');
+const { GripperServiceClient } = require('./gen/proto/api/component/v1/gripper_pb_service.js');
+window.servoApi = require('./gen/proto/api/component/v1/servo_pb.js');
+const { ServoServiceClient } = require('./gen/proto/api/component/v1/servo_pb_service.js');
+window.cameraApi = require('./gen/proto/api/component/v1/camera_pb.js');
+const { CameraServiceClient } = require('./gen/proto/api/component/v1/camera_pb_service.js');
+window.commonApi = require('./gen/proto/api/common/v1/common_pb.js');
+const { StreamServiceClient } = require('./gen/proto/stream/v1/stream_pb_service.js');
+window.streamApi = require("./gen/proto/stream/v1/stream_pb.js");
 const { dialDirect, dialWebRTC } = require("@viamrobotics/rpc");
 window.THREE = require("three/build/three.module.js")
 window.pcdLib = require("three/examples/jsm/loaders/PCDLoader.js")
@@ -42,7 +44,20 @@ let connect = async () => {
 	try {
 		let transportFactory;
 		if (window.webrtcEnabled) {
-			transportFactory = await dialWebRTC(window.webrtcSignalingAddress, window.webrtcHost, { rtcConfig: rtcConfig });
+			const webRTCConn = await dialWebRTC(window.webrtcSignalingAddress, window.webrtcHost, { rtcConfig: rtcConfig });
+			transportFactory = webRTCConn.transportFactory
+			window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
+			webRTCConn.peerConnection.ontrack = async event => {
+				const video = document.createElement('video');
+				video.srcObject = event.streams[0];
+				video.autoplay = true;
+				video.controls = false;
+				video.playsInline = true;
+				const streamName = event.streams[0].id;
+				const streamContainer = document.getElementById(`stream-${streamName}`);
+				streamContainer.getElementsByTagName("button")[0].remove();
+				streamContainer.appendChild(video);
+			}
 		} else {
 			const url = `${location.protocol}//${location.hostname}${location.port ? ':' + location.port : ''}`;
 			transportFactory = await dialDirect(url);
