@@ -279,15 +279,6 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok = robot.BoardByName("board1")
 		test.That(t, ok, test.ShouldBeTrue)
 
-		// TODO(maximpertsov): are these test still valuable?
-		// analog1, ok := board1.AnalogReaderByName("analog1")
-		// test.That(t, ok, test.ShouldBeTrue)
-		// test.That(t, analog1.(*proxyBoardAnalogReader).actual.(*fake.Analog).CloseCount, test.ShouldEqual, 0)
-		//
-		// analog2, ok := board1.AnalogReaderByName("analog2")
-		// test.That(t, ok, test.ShouldBeTrue)
-		// test.That(t, analog2.(*proxyBoardAnalogReader).actual.(*fake.Analog).CloseCount, test.ShouldEqual, 0)
-
 		_, ok = robot.ResourceByName(arm.Named("arm1"))
 		test.That(t, ok, test.ShouldBeTrue)
 
@@ -424,15 +415,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		board1, ok := robot.BoardByName("board1")
 		test.That(t, ok, test.ShouldBeTrue)
-		// board1Proxy := board1.(*proxyBoard)
-		// board1Actual := board1Proxy.actual
-		// test.That(t, board1Actual.(*fake.Board).CloseCount, test.ShouldEqual, 0)
-		//
-		// analog1, ok := board1Proxy.AnalogReaderByName("analog1")
-		// test.That(t, ok, test.ShouldBeTrue)
-		// analog1Proxy := analog1.(*proxyBoardAnalogReader)
-		// analog1Actual := analog1Proxy.actual
-		// test.That(t, analog1Actual.(*fake.Analog).CloseCount, test.ShouldEqual, 0)
 
 		resource1, ok := robot.ResourceByName(arm.Named("arm1"))
 		test.That(t, ok, test.ShouldBeTrue)
