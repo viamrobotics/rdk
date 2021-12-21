@@ -9,8 +9,8 @@ import (
 	_ "go.viam.com/core/component/board/jetson"  // for board
 	_ "go.viam.com/core/component/board/numato"  // for board
 
-	// TODO(maximpertsov): build constraints exclude all go files, so this cannot simply
-	// be imported here
+	// TODO(https://github.com/viamrobotics/core/issues/377): build constraints exclude
+	// all go files, so this cannot simply be imported here
 	// _ "go.viam.com/core/component/board/pi"      // for board
 
 	"go.viam.com/core/registry"
