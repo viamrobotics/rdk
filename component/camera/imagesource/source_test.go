@@ -13,7 +13,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 )
 
 func doServerSourceTest(t *testing.T, s gostream.ImageSource) {

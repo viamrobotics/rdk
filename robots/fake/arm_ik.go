@@ -4,7 +4,7 @@ import (
 	"context"
 	_ "embed" // for arm model
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"

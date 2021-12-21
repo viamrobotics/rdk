@@ -6,7 +6,7 @@ import (
 	"sort"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/gantry"

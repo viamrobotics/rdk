@@ -14,7 +14,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/utils"
 
@@ -171,7 +171,7 @@ func (ds *dualServerSource) IsAligned() bool {
 func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), error) {
 	colorData, err := readyBytesFromURL(ds.client, ds.ColorURL)
 	if err != nil {
-		return nil, nil, errors.Errorf("couldn't ready color url: %w", err)
+		return nil, nil, errors.Wrap(err, "couldn't ready color url")
 	}
 	img, err := decodeColor(colorData)
 	if err != nil {
@@ -180,7 +180,7 @@ func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), erro
 
 	depthData, err := readyBytesFromURL(ds.client, ds.DepthURL)
 	if err != nil {
-		return nil, nil, errors.Errorf("couldn't ready depth url: %w", err)
+		return nil, nil, errors.Wrap(err, "couldn't ready depth url")
 	}
 	// do this first and make sure ok before creating any mats
 	depth, err := decodeDepth(depthData)
@@ -241,7 +241,7 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 
 	allData, err := readyBytesFromURL(s.client, s.URL)
 	if err != nil {
-		return nil, nil, errors.Errorf("couldn't read url (%s): %w", s.URL, err)
+		return nil, nil, errors.Wrapf(err, "couldn't read url (%s)", s.URL)
 	}
 
 	switch s.stream {

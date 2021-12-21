@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"math"
 
-	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/spatialmath"
 )
@@ -198,7 +198,7 @@ func (m *ModelJSON) Model(modelName string) (*Model, error) {
 func ParseJSONFile(filename, modelName string) (*Model, error) {
 	jsonData, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, errors.Errorf("failed to read json file: %w", err)
+		return nil, errors.Wrap(err, "failed to read json file")
 	}
 	return ParseJSON(jsonData, modelName)
 }
@@ -215,7 +215,7 @@ func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
 
 	err := json.Unmarshal(jsonData, m)
 	if err != nil {
-		return nil, errors.Errorf("failed to unmarshall json file %w", err)
+		return nil, errors.Wrap(err, "failed to unmarshal json file")
 	}
 
 	return m.Model(modelName)

@@ -33,14 +33,6 @@
           "attributes" : {
               "num" : "0"
           }
-        },
-        {
-            "name": "lidarOnBase",
-            "type": "lidar",
-            "model": "grpc",
-            "host": "127.0.0.1",
-            "port": 4444
-
         }
     ],
     "remotes": [

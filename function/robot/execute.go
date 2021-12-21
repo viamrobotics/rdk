@@ -3,7 +3,7 @@ package functionrobot
 import (
 	"context"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/robot"

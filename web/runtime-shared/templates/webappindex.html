@@ -10,6 +10,8 @@
         height: 400px;
         width: 100%;
       }
+      [v-cloak] { display: none; }
+      #connecting.done { display: none; }
     </style>
     <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
     <script>
@@ -59,10 +61,6 @@
           }
         }
       }
-
-      {{ range $view := .Views }}
-        {{ jsSafe $view.JavaScript }}
-      {{ end }}
 
       function fixArms(old) {
           var n = [];
@@ -162,6 +160,7 @@
               status : {},
               pcdClick : {},
               resources: [],
+              streamNames: [],
               fullcloud: null,
               segments : null,
               segCenters : null,
@@ -173,7 +172,6 @@
               mapOnce: false,
               chartStream: null,
               value: 0,
-
           };
           theApp = new Vue({
               el: '#app',
@@ -755,7 +753,21 @@
                       longitude: lng,
                     }))
                     robotService.resourceRunCommand(req, {}, (err, resp) => grpcCallback(err, resp));
-                  }
+                  },
+                  viewCamera : function(name) {
+                      const streamContainer = document.getElementById(`stream-${name}`);
+                      const button = streamContainer.getElementsByTagName("button")[0];
+                      button.disabled = true;
+                      const req = new streamApi.AddStreamRequest();
+                      req.setName(name);
+                      streamService.addStream(req, {}, (err, resp) => {
+                        grpcCallback(err, resp, false)
+                        if (err) {
+                          button.disabled = false;
+                          return;
+                        }
+                      });
+                  },
               },
               directives: {
                 // TODO(erd): replace with vue component after naveed work done
@@ -770,17 +782,55 @@
           })
 
           // query metadata service every 0.5s
-          const metadataCallBack = function(err, resp) {
+          const queryMetadata = async function() {
+            let pResolve;
+            let pReject;
+            let p = new Promise((resolve, reject) => {
+              pResolve = resolve;
+              pReject = reject;
+            });
+            metadataService.resources(new metadataApi.ResourcesRequest(), {}, function(err, resp) {
+              grpcCallback(err, resp, false)
+              if (err) {
+                pReject(err);
+                return;
+              }
+              resources = resp.toObject().resourcesList
+              theData.resources = resources
+              pResolve(null);
+            });
+            await p;
+            setTimeout(() => queryMetadata(), 500);
+          }
+
+          // query stream service every 0.5s
+          const streamServiceCallback = function(err, resp) {
             grpcCallback(err, resp, false)
             if (err) {
               return;
             }
-            resources = resp.toObject().resourcesList
-            theData.resources = resources
+            let streamNames = resp.toObject().namesList
+            theData.streamNames = streamNames
           }
-          const queryMetadata = async function() {
-            metadataService.resources(new metadataApi.ResourcesRequest(), {}, metadataCallBack);
-            setTimeout(() => queryMetadata(), 500);
+          const queryStreams = async function() {
+            let pResolve;
+            let pReject;
+            let p = new Promise((resolve, reject) => {
+              pResolve = resolve;
+              pReject = reject;
+            });
+            streamService.listStreams(new streamApi.ListStreamsRequest(), {}, function(err, resp) {
+              grpcCallback(err, resp, false)
+              if (err) {
+                pReject(err);
+                return;
+              }
+              let streamNames = resp.toObject().namesList
+              theData.streamNames = streamNames;
+              pResolve(null);
+            });
+            await p;
+            setTimeout(() => queryStreams(), 500);
           }
 
           const streamReq = new robotApi.StatusStreamRequest();
@@ -817,6 +867,9 @@
                 firstData = false;
                 checkLastStatus();
                 queryMetadata();
+                if (window.streamService) {
+                  queryStreams();
+                }
               }
             });
             statusStream.on('status', function(status) {
@@ -1088,6 +1141,7 @@
         console.debug("waiting for robot service to be ready");
         await window.robotServiceReady;
         console.debug("ready");
+        document.getElementById("connecting").classList.add("done");
         await startup();
       }
 
@@ -1191,7 +1245,8 @@
     </script>
   </head>
   <body onLoad="waitForClientAndStart()" style="background: var(--black-10);">
-    <div id="app">
+    <div id="connecting">Connecting via {{ if .WebRTCEnabled }}WebRTC{{ else }}gRPC{{ end }}...</div>
+    <div id="app" v-cloak>
       <div id="actions">
         {{range $r := .Actions}}
         <button v-on:click="doAction('{{$r}}')">{{$r}}</button>
@@ -1350,17 +1405,12 @@
       </web-gamepad>
 
       <!-- ******* CAMERAS *******  -->
-      <table>
-        <tr>
-          <td><img id="i0" src=""/></td>
-          <td><img id="i1" src=""/></td>
-          {{ range $view := .Views }}
-          <td>
-            {{ htmlSafe $view.Body }}
-          </td>
-          {{ end }}
-        </tr>
-      </table>
+      <div class="camera" v-for="streamName in streamNames" :key="streamName">
+        <h3>Camera ${streamName}</h3>
+        <div :id="'stream-' + streamName">
+          <button v-on:click="viewCamera(streamName)">View</button>
+        </div>
+      </div>
 
       <!-- ******* BOARD *******  -->
 

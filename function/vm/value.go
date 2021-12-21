@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 )
 
 // A Value represents some scalar/array/map type.

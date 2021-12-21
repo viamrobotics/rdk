@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/config"

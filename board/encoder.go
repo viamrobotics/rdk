@@ -65,6 +65,8 @@ func (e *HallEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *
 
 	utils.ManagedGo(func() {
 		onStart()
+		aLevelOnce := false
+		bLevelOnce := false
 		aLevel := true
 		bLevel := true
 
@@ -86,11 +88,18 @@ func (e *HallEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *
 			case <-cancelCtx.Done():
 				return
 			case level = <-chanA:
+				aLevelOnce = true
 				isA = true
 				aLevel = level
 			case level = <-chanB:
+				bLevelOnce = true
 				isA = false
 				bLevel = level
+			}
+
+			if !(aLevelOnce && bLevelOnce) {
+				// we need two physical ticks to make any state determination
+				continue
 			}
 
 			if isA == lastWasA && level == lastLevel {
