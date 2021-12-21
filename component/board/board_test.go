@@ -54,7 +54,7 @@ var (
 )
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualBoard Board = &mock{Name: "board1"}
+	var actualBoard Board = newBoard("board1")
 
 	// Wrap an actual board with reconfigurable
 	fakeBoard1, err := WrapWithReconfigurable(actualBoard)
@@ -73,28 +73,40 @@ func TestWrapWithReconfigurable(t *testing.T) {
 }
 
 func TestReconfigurableBoard(t *testing.T) {
-	actualBoard1 := &mock{Name: "board1"}
-	fakeBoard1, err := WrapWithReconfigurable(actualBoard1)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeBoard1.(*reconfigurableBoard).actual, test.ShouldEqual, actualBoard1)
+	// Initialize two boards, one with and one without subcomponents
+	actualBoards := []*mock{
+		newBoard("board1"),
+		newBareBoard("boards"),
+	}
 
-	actualBoard2 := &mock{Name: "board2"}
-	fakeBoard2, err := WrapWithReconfigurable(actualBoard2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualBoard1.reconfCalls, test.ShouldEqual, 0)
+	// Reconfiguration functions should behave the same way for both kinds of boards
+	for _, actualBoard1 := range actualBoards {
+		// Wrap with reconfigurable
+		fakeBoard1, err := WrapWithReconfigurable(actualBoard1)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fakeBoard1.(*reconfigurableBoard).actual, test.ShouldEqual, actualBoard1)
+		// Reconfigure board from nil
+		err = fakeBoard1.(*reconfigurableBoard).Reconfigure(nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "expected new board")
+		test.That(t, actualBoard1.reconfCalls, test.ShouldEqual, 0)
 
-	err = fakeBoard1.(*reconfigurableBoard).Reconfigure(fakeBoard2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeBoard1.(*reconfigurableBoard).actual, test.ShouldEqual, actualBoard2)
-	test.That(t, actualBoard1.reconfCalls, test.ShouldEqual, 1)
+		// Create and wrap another board
+		actualBoard2 := newBoard("board2")
+		fakeBoard2, err := WrapWithReconfigurable(actualBoard2)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, actualBoard1.reconfCalls, test.ShouldEqual, 0)
 
-	err = fakeBoard1.(*reconfigurableBoard).Reconfigure(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new board")
+		// Reconfigure board from another board
+		err = fakeBoard1.(*reconfigurableBoard).Reconfigure(fakeBoard2)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fakeBoard1.(*reconfigurableBoard).actual, test.ShouldEqual, actualBoard2)
+		test.That(t, actualBoard1.reconfCalls, test.ShouldEqual, 1)
+	}
 }
 
 func TestGPIOSet(t *testing.T) {
-	actualBoard := &mock{Name: "board1"}
+	actualBoard := newBoard("board1")
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
 
 	test.That(t, actualBoard.gpioSetCalls, test.ShouldEqual, 0)
@@ -104,7 +116,7 @@ func TestGPIOSet(t *testing.T) {
 }
 
 func TestGPIOGet(t *testing.T) {
-	actualBoard := &mock{Name: "board1"}
+	actualBoard := newBoard("board1")
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
 
 	test.That(t, actualBoard.gpioGetCalls, test.ShouldEqual, 0)
@@ -115,7 +127,7 @@ func TestGPIOGet(t *testing.T) {
 }
 
 func TestPWMSet(t *testing.T) {
-	actualBoard := &mock{Name: "board1"}
+	actualBoard := newBoard("board1")
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
 
 	test.That(t, actualBoard.pwmSetCalls, test.ShouldEqual, 0)
@@ -125,7 +137,7 @@ func TestPWMSet(t *testing.T) {
 }
 
 func TestPWMSetFreq(t *testing.T) {
-	actualBoard := &mock{Name: "board1"}
+	actualBoard := newBoard("board1")
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
 
 	test.That(t, actualBoard.pwmSetFreqCalls, test.ShouldEqual, 0)
@@ -135,7 +147,7 @@ func TestPWMSetFreq(t *testing.T) {
 }
 
 func TestStatus(t *testing.T) {
-	actualBoard := &mock{Name: "board1"}
+	actualBoard := newBoard("board1")
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
 
 	test.That(t, actualBoard.statusCalls, test.ShouldEqual, 0)
@@ -146,7 +158,7 @@ func TestStatus(t *testing.T) {
 }
 
 func TestSPIs(t *testing.T) {
-	actualBoard := &mock{Name: "board1"}
+	actualBoard := newBoard("board1")
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
 
 	fakeSPINames := fakeBoard.(*reconfigurableBoard).SPINames()
@@ -158,7 +170,7 @@ func TestSPIs(t *testing.T) {
 }
 
 func TestI2Cs(t *testing.T) {
-	actualBoard := &mock{Name: "board1"}
+	actualBoard := newBoard("board1")
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
 
 	fakeI2CNames := fakeBoard.(*reconfigurableBoard).I2CNames()
@@ -170,7 +182,7 @@ func TestI2Cs(t *testing.T) {
 }
 
 func TestAnalogReaders(t *testing.T) {
-	actualBoard := &mock{Name: "board1"}
+	actualBoard := newBoard("board1")
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
 
 	fakeAnalogReaderNames := fakeBoard.(*reconfigurableBoard).AnalogReaderNames()
@@ -182,7 +194,7 @@ func TestAnalogReaders(t *testing.T) {
 }
 
 func TestDigitalInterrupts(t *testing.T) {
-	actualBoard := &mock{Name: "board1"}
+	actualBoard := newBoard("board1")
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
 
 	fakeDigitalInterruptNames := fakeBoard.(*reconfigurableBoard).DigitalInterruptNames()
@@ -195,7 +207,13 @@ func TestDigitalInterrupts(t *testing.T) {
 
 type mock struct {
 	Board
-	Name            string
+	Name string
+
+	spis     []string
+	i2cs     []string
+	analogs  []string
+	digitals []string
+
 	reconfCalls     int
 	gpioSetCalls    int
 	gpioGetCalls    int
@@ -204,32 +222,63 @@ type mock struct {
 	statusCalls     int
 }
 
+// Helpers
+
+func newBoard(name string) *mock {
+	return &mock{
+		Name:     name,
+		i2cs:     []string{"i2c1"},
+		spis:     []string{"spi1"},
+		analogs:  []string{"analog1"},
+		digitals: []string{"digital1"},
+	}
+}
+
+// A board without any subcomponents
+func newBareBoard(name string) *mock {
+	return &mock{Name: name}
+}
+
+// Interface methods
+
 func (m *mock) SPINames() []string {
-	return []string{"spi1"}
+	return m.spis
 }
 func (m *mock) I2CNames() []string {
-	return []string{"i2c1"}
+	return m.i2cs
 }
 func (m *mock) AnalogReaderNames() []string {
-	return []string{"analog1"}
+	return m.analogs
 }
 func (m *mock) DigitalInterruptNames() []string {
-	return []string{"digital1"}
+	return m.digitals
 }
 
 func (m *mock) SPIByName(name string) (SPI, bool) {
+	if len(m.spis) == 0 {
+		return nil, false
+	}
 	return &mockSPI{}, true
 }
 
 func (m *mock) I2CByName(name string) (I2C, bool) {
+	if len(m.i2cs) == 0 {
+		return nil, false
+	}
 	return &mockI2C{}, true
 }
 
 func (m *mock) AnalogReaderByName(name string) (AnalogReader, bool) {
+	if len(m.analogs) == 0 {
+		return nil, false
+	}
 	return &mockAnalogReader{}, true
 }
 
 func (m *mock) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
+	if len(m.digitals) == 0 {
+		return nil, false
+	}
 	return &mockDigitalInterrupt{}, true
 }
 
