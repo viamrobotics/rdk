@@ -254,23 +254,25 @@ func (svc *webService) Close() error {
 	return nil
 }
 
-func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot, options Options) (gostream.StreamServer, error) {
+func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot, options Options) (gostream.StreamServer, bool, error) {
 	displaySources, displayNames, err := allSourcesToDisplay(ctx, theRobot)
 	if err != nil {
-		return nil, err
-	}
-	if len(displaySources) == 0 {
-		return nil, nil
+		return nil, false, err
 	}
 	var streams []gostream.Stream
 	var autoCameraTiler *gostream.AutoTiler
+
+	if len(displaySources) == 0 {
+		noopServer, err := gostream.NewStreamServer(streams...)
+		return noopServer, false, err
+	}
 
 	if options.AutoTile {
 		config := defaultStreamConfig
 		config.Name = "Cameras"
 		stream, err := gostream.NewStream(config)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		streams = append(streams, stream)
 
@@ -284,7 +286,7 @@ func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robo
 			config.Name = displayNames[idx]
 			view, err := gostream.NewStream(config)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			streams = append(streams, view)
 		}
@@ -292,7 +294,7 @@ func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robo
 
 	streamServer, err := gostream.NewStreamServer(streams...)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// start background workers
@@ -321,7 +323,7 @@ func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robo
 		}
 	}
 
-	return streamServer, nil
+	return streamServer, true, nil
 }
 
 // installWeb prepares the given mux to be able to serve the UI for the robot
@@ -447,20 +449,19 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 	}
 
-	streamServer, err := svc.makeStreamServer(ctx, svc.r, options)
+	streamServer, hasStreams, err := svc.makeStreamServer(ctx, svc.r, options)
 	if err != nil {
 		return err
 	}
-	if streamServer != nil {
-		if err := rpcServer.RegisterServiceServer(
-			context.Background(),
-			&streampb.StreamService_ServiceDesc,
-			streamServer.ServiceServer(),
-			streampb.RegisterStreamServiceHandlerFromEndpoint,
-		); err != nil {
-			return err
-		}
-
+	if err := rpcServer.RegisterServiceServer(
+		context.Background(),
+		&streampb.StreamService_ServiceDesc,
+		streamServer.ServiceServer(),
+		streampb.RegisterStreamServiceHandlerFromEndpoint,
+	); err != nil {
+		return err
+	}
+	if hasStreams {
 		// force WebRTC template rendering
 		options.WebRTC = true
 	}

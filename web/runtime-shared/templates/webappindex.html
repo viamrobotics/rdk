@@ -864,7 +864,9 @@
                 firstData = false;
                 checkLastStatus();
                 queryMetadata();
-                queryStreams();
+                if (window.steamService) {
+                  queryStreams();
+                }
               }
             });
             statusStream.on('status', function(status) {
