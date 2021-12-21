@@ -370,7 +370,7 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
-	// TODO(maximpertsov): remove this switch statement after the V2 migration is done
+	// TODO(https://github.com/viamrobotics/core/issues/375): remove this switch statement after the V2 migration is done
 	switch name.Subtype {
 	case board.Subtype:
 		for _, info := range rc.boardNames {
