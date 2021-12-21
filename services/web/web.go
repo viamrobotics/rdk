@@ -13,6 +13,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
+	streampb "github.com/edaniels/gostream/proto/stream/v1"
 	"github.com/pkg/errors"
 
 	"go.viam.com/utils"
@@ -56,7 +57,6 @@ func init() {
 // a gRPC/REST server.
 type robotWebApp struct {
 	template *template.Template
-	views    []gostream.View
 	theRobot robot.Robot
 	logger   golog.Logger
 	options  Options
@@ -102,11 +102,6 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	type View struct {
-		JavaScript string
-		Body       string
-	}
-
 	type Temp struct {
 		External                   bool
 		WebRTCEnabled              bool
@@ -114,7 +109,6 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		WebRTCSignalingAddress     string
 		WebRTCAdditionalICEServers []map[string]interface{}
 		Actions                    []string
-		Views                      []View
 	}
 
 	temp := Temp{
@@ -129,14 +123,6 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			temp.WebRTCSignalingAddress = fmt.Sprintf("https://%s", app.options.SignalingAddress)
 		}
 		temp.WebRTCHost = app.options.Name
-	}
-
-	for _, view := range app.views {
-		htmlData := view.HTML()
-		temp.Views = append(temp.Views, View{
-			htmlData.JavaScript,
-			htmlData.Body,
-		})
 	}
 
 	err := app.template.Execute(w, temp)
@@ -173,11 +159,7 @@ func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.
 	return sources, names, nil
 }
 
-var defaultViewConfig = x264.DefaultViewConfig
-
-func init() {
-	defaultViewConfig.WebRTCConfig = grpc.DefaultWebRTCConfiguration
-}
+var defaultStreamConfig = x264.DefaultStreamConfig
 
 // A Service controls the web server for a robot.
 type Service interface {
@@ -272,65 +254,45 @@ func (svc *webService) Close() error {
 	return nil
 }
 
-// installWeb prepares the given mux to be able to serve the UI for the robot. It also starts some goroutines
-// for image processing that can be cleaned up with the returned cleanup function.
-func (svc *webService) installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, options Options) (func(), error) {
+func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot, options Options) (gostream.StreamServer, error) {
 	displaySources, displayNames, err := allSourcesToDisplay(ctx, theRobot)
 	if err != nil {
 		return nil, err
 	}
-	views := []gostream.View{}
+	if len(displaySources) == 0 {
+		return nil, nil
+	}
+	var streams []gostream.Stream
 	var autoCameraTiler *gostream.AutoTiler
 
-	if len(displaySources) != 0 {
-		if options.AutoTile {
-			config := defaultViewConfig
-			view, err := gostream.NewView(config)
-			if err != nil {
-				return nil, err
-			}
-			views = append(views, view)
-
-			tilerHeight := 480 * len(displaySources)
-			autoCameraTiler = gostream.NewAutoTiler(640, tilerHeight)
-			autoCameraTiler.SetLogger(svc.logger)
-
-		} else {
-			for idx := range displaySources {
-				config := x264.DefaultViewConfig
-				config.StreamNumber = idx
-				config.StreamName = displayNames[idx]
-				view, err := gostream.NewView(config)
-				if err != nil {
-					return nil, err
-				}
-				views = append(views, view)
-			}
-		}
-	}
-
-	app := &robotWebApp{views: views, theRobot: theRobot, logger: svc.logger, options: options}
-	if err := app.Init(); err != nil {
-		return nil, err
-	}
-
-	var staticDir http.FileSystem
-	if app.options.SharedDir != "" {
-		staticDir = http.Dir(app.options.SharedDir + "/static")
-	} else {
-		embedFS, err := fs.Sub(web.AppFS, "runtime-shared/static")
+	if options.AutoTile {
+		config := defaultStreamConfig
+		config.Name = "Cameras"
+		stream, err := gostream.NewStream(config)
 		if err != nil {
 			return nil, err
 		}
-		staticDir = http.FS(embedFS)
+		streams = append(streams, stream)
+
+		tilerHeight := 480 * len(displaySources)
+		autoCameraTiler = gostream.NewAutoTiler(640, tilerHeight)
+		autoCameraTiler.SetLogger(svc.logger)
+
+	} else {
+		for idx := range displaySources {
+			config := x264.DefaultStreamConfig
+			config.Name = displayNames[idx]
+			view, err := gostream.NewStream(config)
+			if err != nil {
+				return nil, err
+			}
+			streams = append(streams, view)
+		}
 	}
 
-	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(staticDir)))
-	mux.Handle(pat.New("/"), app)
-
-	for _, view := range views {
-		handler := view.Handler()
-		mux.Handle(pat.New("/"+handler.Name), handler.Func)
+	streamServer, err := gostream.NewStreamServer(streams...)
+	if err != nil {
+		return nil, err
 	}
 
 	// start background workers
@@ -343,27 +305,47 @@ func (svc *webService) installWeb(ctx context.Context, mux *goji.Mux, theRobot r
 		goutils.PanicCapturingGo(func() {
 			defer svc.activeBackgroundWorkers.Done()
 			close(waitCh)
-			gostream.StreamNamedSource(ctx, autoCameraTiler, "Cameras", views[0])
+			gostream.StreamSource(ctx, autoCameraTiler, streams[0])
 		})
 		<-waitCh
 	} else {
-		for idx, view := range views {
+		for idx, stream := range streams {
 			waitCh := make(chan struct{})
 			svc.activeBackgroundWorkers.Add(1)
 			goutils.PanicCapturingGo(func() {
 				defer svc.activeBackgroundWorkers.Done()
 				close(waitCh)
-				gostream.StreamNamedSource(ctx, displaySources[idx], displayNames[idx], view)
+				gostream.StreamSource(ctx, displaySources[idx], stream)
 			})
 			<-waitCh
 		}
 	}
 
-	return func() {
-		for _, view := range views {
-			view.Stop()
+	return streamServer, nil
+}
+
+// installWeb prepares the given mux to be able to serve the UI for the robot
+func (svc *webService) installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, options Options) error {
+	app := &robotWebApp{theRobot: theRobot, logger: svc.logger, options: options}
+	if err := app.Init(); err != nil {
+		return err
+	}
+
+	var staticDir http.FileSystem
+	if app.options.SharedDir != "" {
+		staticDir = http.Dir(app.options.SharedDir + "/static")
+	} else {
+		embedFS, err := fs.Sub(web.AppFS, "runtime-shared/static")
+		if err != nil {
+			return err
 		}
-	}, nil
+		staticDir = http.FS(embedFS)
+	}
+
+	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(staticDir)))
+	mux.Handle(pat.New("/"), app)
+
+	return nil
 }
 
 // RunWeb takes the given robot and options and runs the web server. This function will block
@@ -465,6 +447,24 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 	}
 
+	streamServer, err := svc.makeStreamServer(ctx, svc.r, options)
+	if err != nil {
+		return err
+	}
+	if streamServer != nil {
+		if err := rpcServer.RegisterServiceServer(
+			context.Background(),
+			&streampb.StreamService_ServiceDesc,
+			streamServer.ServiceServer(),
+			streampb.RegisterStreamServiceHandlerFromEndpoint,
+		); err != nil {
+			return err
+		}
+
+		// force WebRTC template rendering
+		options.WebRTC = true
+	}
+
 	if options.Debug {
 		if err := rpcServer.RegisterServiceServer(
 			context.Background(),
@@ -477,8 +477,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	}
 
 	mux := goji.NewMux()
-	webCloser, err := svc.installWeb(ctx, mux, svc.r, options)
-	if err != nil {
+	if err := svc.installWeb(ctx, mux, svc.r, options); err != nil {
 		return err
 	}
 
@@ -503,14 +502,20 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	goutils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		<-ctx.Done()
-		webCloser()
 		defer func() {
 			if err := httpServer.Shutdown(context.Background()); err != nil {
 				svc.logger.Errorw("error shutting down", "error", err)
 			}
 		}()
-		if err := rpcServer.Stop(); err != nil {
-			svc.logger.Errorw("error stopping rpc server", "error", err)
+		defer func() {
+			if err := rpcServer.Stop(); err != nil {
+				svc.logger.Errorw("error stopping rpc server", "error", err)
+			}
+		}()
+		if streamServer != nil {
+			if err := streamServer.Close(); err != nil {
+				svc.logger.Errorw("error closing stream server", "error", err)
+			}
 		}
 	})
 	svc.activeBackgroundWorkers.Add(1)
