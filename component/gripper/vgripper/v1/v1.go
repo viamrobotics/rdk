@@ -223,7 +223,14 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	}
 
 	if hasPressureA == hasPressureB {
-		return nil, errors.Errorf("init: pressure same open and closed, something is wrong, positions: %f %f, pressures: %t %t", posA, posB, hasPressureA, hasPressureB)
+		return nil,
+			errors.Errorf(
+				"init: pressure same open and closed, something is wrong, positions: %f %f, pressures: %t %t",
+				posA,
+				posB,
+				hasPressureA,
+				hasPressureB,
+			)
 	}
 
 	if hasPressureA {

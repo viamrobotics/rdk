@@ -39,17 +39,20 @@ type Config struct {
 func init() {
 	registry.RegisterComponent(input.Subtype, modelname, registry.Component{Constructor: NewController})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelname, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf Config
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &Config{})
+	config.RegisterComponentAttributeMapConverter(
+		config.ComponentTypeInputController,
+		modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &Config{})
 }
 
 func createController(ctx context.Context, logger golog.Logger, devFile string, reconnect bool) (input.Controller, error) {

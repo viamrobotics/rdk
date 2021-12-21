@@ -17,7 +17,8 @@ func _testPieceStatusHelper(t *testing.T, game *Game, board *Board, square, corr
 
 func TestPiece1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	theBoard, err := FindAndWarpBoardFromFiles(artifact.MustPath("vision/chess/board2.png"), artifact.MustPath("vision/chess/board2.dat.gz"), true, logger)
+	theBoard, err := FindAndWarpBoardFromFiles(
+		artifact.MustPath("vision/chess/board2.png"), artifact.MustPath("vision/chess/board2.dat.gz"), true, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = theBoard.WriteDebugImages(outDir + "/board2")
@@ -30,7 +31,8 @@ func TestPiece1(t *testing.T) {
 	_testPieceStatusHelper(t, game, theBoard, "e3", "empty")
 	_testPieceStatusHelper(t, game, theBoard, "e7", "black")
 
-	nextBoard, err := FindAndWarpBoardFromFiles(artifact.MustPath("vision/chess/board3.png"), artifact.MustPath("vision/chess/board3.dat.gz"), true, logger)
+	nextBoard, err := FindAndWarpBoardFromFiles(
+		artifact.MustPath("vision/chess/board3.png"), artifact.MustPath("vision/chess/board3.dat.gz"), true, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	_testPieceStatusHelper(t, game, nextBoard, "e1", "white")

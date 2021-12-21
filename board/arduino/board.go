@@ -27,10 +27,17 @@ const modelName = "arduino"
 
 // init registers an arduino board.
 func init() {
-	registry.RegisterBoard(modelName, registry.Board{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error) {
-		boardConfig := config.ConvertedAttributes.(*board.Config)
-		return newArduino(ctx, boardConfig, logger)
-	}})
+	registry.RegisterBoard(
+		modelName,
+		registry.Board{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (board.Board, error) {
+			boardConfig := config.ConvertedAttributes.(*board.Config)
+			return newArduino(ctx, boardConfig, logger)
+		}})
 	board.RegisterConfigAttributeConverter(modelName)
 }
 

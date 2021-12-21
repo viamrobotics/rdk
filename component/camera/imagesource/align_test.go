@@ -18,7 +18,13 @@ type alignTestHelper struct {
 	name  string
 }
 
-func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
+func (h *alignTestHelper) Process(
+	t *testing.T,
+	pCtx *rimage.ProcessorContext,
+	fn string,
+	img image.Image,
+	logger golog.Logger,
+) error {
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth_"+h.name)

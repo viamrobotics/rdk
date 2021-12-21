@@ -18,30 +18,46 @@ import (
 )
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, "rotate", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		sourceName := config.Attributes.String("source")
-		source, ok := r.CameraByName(sourceName)
-		if !ok {
-			return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
-		}
+	registry.RegisterComponent(
+		camera.Subtype,
+		"rotate",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			sourceName := config.Attributes.String("source")
+			source, ok := r.CameraByName(sourceName)
+			if !ok {
+				return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
+			}
 
-		return &camera.ImageSource{ImageSource: &rotateImageDepthSource{source}}, nil
-	}})
+			return &camera.ImageSource{ImageSource: &rotateImageDepthSource{source}}, nil
+		}})
 
-	registry.RegisterComponent(camera.Subtype, "resize", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		sourceName := config.Attributes.String("source")
-		source, ok := r.CameraByName(sourceName)
-		if !ok {
-			return nil, errors.Errorf("cannot find source camera for resize (%s)", sourceName)
-		}
+	registry.RegisterComponent(
+		camera.Subtype,
+		"resize",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			sourceName := config.Attributes.String("source")
+			source, ok := r.CameraByName(sourceName)
+			if !ok {
+				return nil, errors.Errorf("cannot find source camera for resize (%s)", sourceName)
+			}
 
-		width := config.Attributes.Int("width", 800)
-		height := config.Attributes.Int("height", 640)
+			width := config.Attributes.Int("width", 800)
+			height := config.Attributes.Int("height", 640)
 
-		return &camera.ImageSource{
-			ImageSource: gostream.ResizeImageSource{Src: source, Width: width, Height: height},
-		}, nil
-	}})
+			return &camera.ImageSource{
+				ImageSource: gostream.ResizeImageSource{Src: source, Width: width, Height: height},
+			}, nil
+		}})
 
 }
 

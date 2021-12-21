@@ -13,12 +13,20 @@ import (
 )
 
 func init() {
-	registry.RegisterSensor(compass.Type, ModelName, registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-		if config.Attributes.Bool("relative", false) {
-			return &RelativeCompass{&Compass{Name: config.Name}}, nil
-		}
-		return &Compass{Name: config.Name}, nil
-	}})
+	registry.RegisterSensor(
+		compass.Type,
+		ModelName,
+		registry.Sensor{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (sensor.Sensor, error) {
+			if config.Attributes.Bool("relative", false) {
+				return &RelativeCompass{&Compass{Name: config.Name}}, nil
+			}
+			return &Compass{Name: config.Name}, nil
+		}})
 }
 
 // Compass is a fake compass that always returns the same readings.

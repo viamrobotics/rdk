@@ -199,7 +199,11 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 		logger.Debugf("img1 size: %v img1 points: %v", img1Size, newImg1Points)
 		logger.Debugf("img2 size: %v img2 points: %v", img2Size, newImg2Points)
 		if !rimage.AllPointsIn(img1Size, newImg1Points) || !rimage.AllPointsIn(img2Size, newImg2Points) {
-			logger.Debugf("Points are not contained in the images: %v %v", rimage.AllPointsIn(img1Size, newImg1Points), rimage.AllPointsIn(img2Size, newImg2Points))
+			logger.Debugf(
+				"Points are not contained in the images: %v %v",
+				rimage.AllPointsIn(img1Size, newImg1Points),
+				rimage.AllPointsIn(img2Size, newImg2Points),
+			)
 		}
 	}
 	newImg1Points = fixPoints(newImg1Points)
@@ -233,7 +237,14 @@ func trim(img1Pt1Dist, img1Pt2Dist, img2Pt1Dist, img2Pt2Dist int) (int, int, err
 		distA, distB = float64(img1Pt2Dist), float64(img1Pt1Dist)
 		dist1, dist2 = float64(img2Pt2Dist), float64(img2Pt1Dist)
 	default:
-		return -1, -1, errors.Errorf("both img1Pt1Dist (%v) and img2Pt1Dist (%v) must be greater than (or both less than) their respective img1Pt2Dist (%v) and img2Pt2Dist (%v)", img1Pt1Dist, img2Pt1Dist, img1Pt2Dist, img2Pt2Dist)
+		return -1, -1, errors.Errorf(
+			"both img1Pt1Dist (%v) and img2Pt1Dist (%v) must be greater than (or both less than)"+
+				"their respective img1Pt2Dist (%v) and img2Pt2Dist (%v)",
+			img1Pt1Dist,
+			img2Pt1Dist,
+			img1Pt2Dist,
+			img2Pt2Dist,
+		)
 	}
 	// returns whether to trim the first or second image, and by how much.
 	var trimFirst int // 0 means trim 2nd image, 1 means trim first image
