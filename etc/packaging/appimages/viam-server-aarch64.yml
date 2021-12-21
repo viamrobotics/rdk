@@ -1,14 +1,18 @@
 # appimage-builder recipe see https://appimage-builder.readthedocs.io for details
 version: 1
 script:
- - rm -rf AppDir | true
- - mkdir -p $APPDIR/usr/bin
- - cp ../../../bin/Linux-aarch64/server $APPDIR/usr/bin/viam-server
- - mkdir -p $APPDIR/usr/share/icons/viam/256x256/apps/
- - cp ./viam-server.png $APPDIR/usr/share/icons/viam/256x256/apps/viam-server.png
+ - rm -rf $APPDIR | true
+ - mkdir -p "$APPDIR/usr/bin"
+ - cp ../../../bin/Linux-x86_64/server "$APPDIR/usr/bin/viam-server"
+ - mkdir -p "$APPDIR/usr/share/icons/viam/256x256/apps/"
+ - cp ./viam-server.png "$APPDIR/usr/share/icons/viam/256x256/apps/viam-server.png"
+ - mkdir -p "$APPDIR/aix.d/"
+ - cp ./install "$APPDIR/aix.d/install"
+ - chmod 755 "$APPDIR/aix.d/install"
+ - cp ./viam-server.service "$APPDIR/"
  - go install github.com/Otterverse/aix@latest
- - cp `go env GOPATH`/bin/aix $APPDIR/usr/bin/
- - chmod 755 $APPDIR/usr/bin/*
+ - cp `go env GOPATH`/bin/aix "$APPDIR/usr/bin/"
+ - chmod 755 "$APPDIR/usr/bin/"*
 
 AppDir:
   path: ./AppDir
