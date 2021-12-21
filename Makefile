@@ -59,10 +59,10 @@ lint: goformat
 	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v --config=./etc/.golangci.yaml
 
 cover:
-	./etc/test.sh cover
+	unset CGO_LDFLAGS && ./etc/test.sh cover
 
 test:
-	./etc/test.sh
+	unset CGO_LDFLAGS && ./etc/test.sh
 
 testpi:
 	sudo go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/core/board/pi
