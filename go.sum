@@ -245,6 +245,8 @@ github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e h1:K3N0Zm7JySHjvThq
 github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e/go.mod h1:nsP/KxpaFaTriZlxPlULlPKf7F3LS0J4BgoxZN8QJAU=
 github.com/edaniels/gostream v0.0.0-20211220232642-f41d85a5dfd6 h1:Q+XJBOu73oc0xiAE2fgUezJhH1hA2H7ZF18TPfOvT0w=
 github.com/edaniels/gostream v0.0.0-20211220232642-f41d85a5dfd6/go.mod h1:tEyr99nl1wTquCFenai83qzLTFMweFAKiKGQ2L/9XD4=
+github.com/edaniels/gostream v0.0.0-20211221000126-569be63242f7 h1:73DnWV4oIWV6qYEnanK+OP3QStnfYZcULECnJuaU9TE=
+github.com/edaniels/gostream v0.0.0-20211221000126-569be63242f7/go.mod h1:cAz/dEzcSYkjjZdW/wLCRC/NjWVjoHzpWSC9w8p2GUA=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de h1:JuF74jzC/jNopROh0Ay1d9APtx00FWXqMwtvaXhoE+4=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de/go.mod h1:PUN/9/bIMWq8Ej+fmb+QVoPdIYF/j68ziImrVKxnOw0=
 github.com/edsrzf/mmap-go v0.0.0-20170320065105-0bce6a688712/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaBNrHW5M=
