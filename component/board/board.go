@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	pb "go.viam.com/core/proto/api/v1"
