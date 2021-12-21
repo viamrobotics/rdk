@@ -939,19 +939,6 @@ func TestPartsMergeModify(t *testing.T) {
 	remote1Replacemenet := newRemoteRobot(robotForRemote, config.Remote{Name: "remote1"})
 	replacementParts.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
 
-	_, err = fakeboard.NewBoard(context.Background(), config.Component{
-		Name: "board1",
-		ConvertedAttributes: &board.Config{
-			Analogs: []board.AnalogConfig{
-				{Name: "analog2"},
-			},
-			DigitalInterrupts: []board.DigitalInterruptConfig{
-				{Name: "digital2"},
-			},
-		},
-	}, logger)
-	test.That(t, err, test.ShouldBeNil)
-
 	injectBase := &inject.Base{}
 	replacementParts.AddBase(injectBase, config.Component{Name: "base1"})
 	injectCompass := &inject.Compass{}
