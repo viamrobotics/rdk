@@ -4,7 +4,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@improbable-eng/grpc-web": "^0.13.0",
-    "@viamrobotics/rpc": "0.1.11",
+    "@viamrobotics/rpc": "0.1.16",
     "google-protobuf": "^3.14.0",
     "three": "^0.127.0"
   },
@@ -14,5 +14,9 @@
     "typescript": "4.1.3",
     "webpack": "^5.37.1",
     "webpack-cli": "^4.7.2"
+  },
+  "scripts": {
+    "prepare": "./etc/prepare.sh",
+    "test": "echo \"Error: no test specified\" && exit 1"
   }
 }
