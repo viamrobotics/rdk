@@ -58,7 +58,7 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 	if len(sortedFrameNames) != len(seen) {
 		return nil, errors.Errorf(
 			"the frame system is not fully connected, expected %d frames but frame system has %d."+
-				"Expected frames are: %v. Actual frames are: %v",
+				" Expected frames are: %v. Actual frames are: %v",
 			len(seen),
 			len(sortedFrameNames),
 			mapKeys(seen),
