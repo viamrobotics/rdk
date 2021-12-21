@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/utils"
@@ -358,42 +358,42 @@ func (parts *robotParts) Clone() *robotParts {
 func (parts *robotParts) Close() error {
 	var allErrs error
 	if err := parts.processManager.Stop(); err != nil {
-		allErrs = multierr.Combine(allErrs, errors.Errorf("error stopping process manager: %w", err))
+		allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error stopping process manager"))
 	}
 
 	for _, x := range parts.services {
 		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing service: %w", err))
+			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing service"))
 		}
 	}
 
 	for _, x := range parts.remotes {
 		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing remote: %w", err))
+			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing remote"))
 		}
 	}
 
 	for _, x := range parts.bases {
 		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing base: %w", err))
+			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing base"))
 		}
 	}
 
 	for _, x := range parts.sensors {
 		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing sensor: %w", err))
+			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing sensor"))
 		}
 	}
 
 	for _, x := range parts.boards {
 		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing board: %w", err))
+			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing board"))
 		}
 	}
 
 	for _, x := range parts.resources {
 		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing resource: %w", err))
+			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing resource"))
 		}
 	}
 
@@ -411,7 +411,7 @@ func (parts *robotParts) processConfig(
 		return err
 	}
 
-	if err := parts.newRemotes(ctx, config.Remotes, logger, parts.robotClientOpts...); err != nil {
+	if err := parts.newRemotes(ctx, config.Remotes, logger); err != nil {
 		return err
 	}
 
@@ -441,7 +441,7 @@ func (parts *robotParts) processModifiedConfig(
 		return err
 	}
 
-	if err := parts.newRemotes(ctx, config.Remotes, logger, parts.robotClientOpts...); err != nil {
+	if err := parts.newRemotes(ctx, config.Remotes, logger); err != nil {
 		return err
 	}
 
@@ -467,11 +467,11 @@ func (parts *robotParts) newProcesses(ctx context.Context, processes []pexec.Pro
 }
 
 // newRemotes constructs all remotes defined and integrates their parts in.
-func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote, logger golog.Logger, opts ...client.RobotClientOption) error {
+func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote, logger golog.Logger) error {
 	for _, config := range remotes {
-		robotClient, err := client.New(ctx, config.Address, logger, opts...)
+		robotClient, err := client.New(ctx, config.Address, logger, parts.robotClientOpts...)
 		if err != nil {
-			return errors.Errorf("couldn't connect to robot remote (%s): %w", config.Address, err)
+			return errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
 		}
 
 		configCopy := config

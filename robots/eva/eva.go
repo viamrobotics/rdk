@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.uber.org/multierr"
 
@@ -127,7 +127,7 @@ func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJoin
 
 	err2 := e.resetErrors(ctx)
 	if err2 != nil {
-		return errors.Errorf("move failure, and couldn't reset errors %w", multierr.Combine(err, err2))
+		return errors.Wrapf(multierr.Combine(err, err2), "move failure, and couldn't reset errors")
 	}
 
 	return e.doMoveJoints(ctx, radians)

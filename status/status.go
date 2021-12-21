@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -30,7 +30,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 		if refresher, ok := remote.(robot.Refresher); ok {
 			if err := refresher.Refresh(ctx); err != nil {
-				return nil, errors.Errorf("error refreshing remote %q: %w", name, err)
+				return nil, errors.Wrapf(err, "error refreshing remote %q", name)
 			}
 		}
 	}

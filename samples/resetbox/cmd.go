@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"

@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-errors/errors"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/utils"
@@ -393,7 +393,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	status, err := rc.status(ctx)
 	if err != nil {
-		return errors.Errorf("status call failed: %w", err)
+		return errors.Wrap(err, "status call failed")
 	}
 
 	rc.storeStatus(status)

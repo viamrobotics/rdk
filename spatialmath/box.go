@@ -3,8 +3,8 @@ package spatialmath
 import (
 	"math"
 
-	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 )
 
 // BoxCreator implements the VolumeCreator interface for box structs

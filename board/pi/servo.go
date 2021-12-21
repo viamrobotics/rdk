@@ -12,7 +12,7 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/component/servo"
 	"go.viam.com/core/config"

@@ -7,8 +7,8 @@ import (
 	"runtime"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 	"github.com/mitchellh/copystructure"
+	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/base"

@@ -3,7 +3,7 @@ package robotimpl
 import (
 	"context"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/core/config"
@@ -93,18 +93,18 @@ func (draft *draftRobot) ProcessAndCommit(ctx context.Context) (err error) {
 		if err != nil {
 			draft.original.logger.Infow("rolling back draft changes due to error", "error", err)
 			if rollbackErr := draft.Rollback(); rollbackErr != nil {
-				err = multierr.Combine(err, errors.Errorf("error rolling back draft changes: %w", rollbackErr))
+				err = multierr.Combine(err, errors.Wrap(rollbackErr, "error rolling back draft changes"))
 			}
 		}
 	}()
 
 	if err := draft.Process(ctx); err != nil {
-		return errors.Errorf("error processing draft changes: %w", err)
+		return errors.Wrap(err, "error processing draft changes")
 	}
 
 	draft.original.logger.Info("committing draft changes")
 	if err := draft.Commit(ctx); err != nil {
-		return errors.Errorf("error committing draft changes: %w", err)
+		return errors.Wrap(err, "error committing draft changes")
 	}
 	return nil
 }

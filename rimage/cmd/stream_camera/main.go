@@ -101,18 +101,21 @@ func viewCamera(ctx context.Context, attrs config.AttributeMap, port int, debug 
 		return err
 	}
 
-	remoteView, err := gostream.NewView(x264.DefaultViewConfig)
+	remoteStream, err := gostream.NewStream(x264.DefaultStreamConfig)
 	if err != nil {
 		return err
 	}
 
-	server := gostream.NewViewServer(port, remoteView, logger)
-	if err := server.Start(); err != nil {
+	server, err := gostream.NewStandaloneStreamServer(port, logger, remoteStream)
+	if err != nil {
+		return err
+	}
+	if err := server.Start(ctx); err != nil {
 		return err
 	}
 
 	utils.ContextMainReadyFunc(ctx)()
-	gostream.StreamSource(ctx, webcam, remoteView)
+	gostream.StreamSource(ctx, webcam, remoteStream)
 
 	return server.Stop(context.Background())
 }

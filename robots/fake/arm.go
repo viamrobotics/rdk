@@ -4,7 +4,7 @@ import (
 	"context"
 	_ "embed" // used to import model frame
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/config"

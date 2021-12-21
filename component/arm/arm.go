@@ -6,7 +6,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
 	commonpb "go.viam.com/core/proto/api/common/v1"

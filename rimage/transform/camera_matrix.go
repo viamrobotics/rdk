@@ -5,8 +5,8 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/rimage"
@@ -139,7 +139,7 @@ func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, para
 				pt := pointcloud.NewBasicPoint(xPoint, yPoint, z)
 				err := pcOut.Set(pt)
 				if err != nil {
-					err = errors.Errorf("error setting point (%v, %v, %v) in point cloud - %w", xPoint, yPoint, z, err)
+					err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", xPoint, yPoint, z)
 					return nil, err
 				}
 			}
@@ -165,7 +165,7 @@ func ApplyRigidBodyTransform(pts pointcloud.PointCloud, params *Extrinsics) (poi
 		}
 		err = transformedPoints.Set(ptTransformed)
 		if err != nil {
-			err = errors.Errorf("error setting point (%v, %v, %v) in point cloud - %w", x, y, z, err)
+			err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", x, y, z)
 			return false
 		}
 		return true
@@ -189,7 +189,7 @@ func ProjectPointCloudToRGBPlane(pts pointcloud.PointCloud, h, w int, params Pin
 			pt2d := pointcloud.NewColoredPoint(j, i, pt.Position().Z, pt.Color().(color.NRGBA))
 			err = coordinates.Set(pt2d)
 			if err != nil {
-				err = errors.Errorf("error setting point (%v, %v, %v) in point cloud - %w", j, i, pt.Position().Z, err)
+				err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", j, i, pt.Position().Z)
 				return false
 			}
 		}

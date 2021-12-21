@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-errors/errors"
 	"github.com/lmittmann/ppm"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/utils"
