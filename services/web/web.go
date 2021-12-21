@@ -324,8 +324,7 @@ func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robo
 	return streamServer, nil
 }
 
-// installWeb prepares the given mux to be able to serve the UI for the robot. It also starts some goroutines
-// for image processing that can be cleaned up with the returned cleanup function.
+// installWeb prepares the given mux to be able to serve the UI for the robot
 func (svc *webService) installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, options Options) error {
 	app := &robotWebApp{theRobot: theRobot, logger: svc.logger, options: options}
 	if err := app.Init(); err != nil {
