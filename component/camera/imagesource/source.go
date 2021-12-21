@@ -42,7 +42,7 @@ func init() {
 		if !has {
 			return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth, or both)")
 		}
-		source, err := NewServerSource(config.Attributes.String("host"), config.Attributes.Int("port",8181), config.Attributes, logger)
+		source, err := NewServerSource(config.Attributes.String("host"), config.Attributes.Int("port", 8181), config.Attributes, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -68,7 +68,7 @@ func init() {
 	}})
 
 	registry.RegisterComponent(camera.Subtype, "intel", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		source, err := NewIntelServerSource(config.Attributes.String("host"), config.Attributes.Int("port",8181), config.Attributes, logger)
+		source, err := NewIntelServerSource(config.Attributes.String("host"), config.Attributes.Int("port", 8181), config.Attributes, logger)
 		if err != nil {
 			return nil, err
 		}
