@@ -22,18 +22,5 @@ func init() {
 		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
 			return board.WrapWithReconfigurable(r)
 		},
-		// TODO(maximpertsov): add this when migrating contracts
-		//
-		// 	RegisterRPCService: func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
-		// 		return rpcServer.RegisterServiceServer(
-		// 			ctx,
-		// 			&componentpb.BoardService_ServiceDesc,
-		// 			board.NewServer(subtypeSvc),
-		// 			componentpb.RegisterBoardServiceHandlerFromEndpoint,
-		// 		)
-		// 	},
-		// 	RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
-		// 		return board.NewClientFromConn(conn, name, logger)
-		// 	},
 	})
 }
