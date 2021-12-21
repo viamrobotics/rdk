@@ -308,7 +308,7 @@ func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) erro
 		oldPart, ok := r.spis[name]
 		delete(oldSPINames, name)
 		if ok {
-			oldPart.replace(newPart)
+			oldPart.reconfigure(newPart)
 			continue
 		}
 		r.spis[name] = newPart
@@ -317,7 +317,7 @@ func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) erro
 		oldPart, ok := r.i2cs[name]
 		delete(oldI2CNames, name)
 		if ok {
-			oldPart.replace(newPart)
+			oldPart.reconfigure(newPart)
 			continue
 		}
 		r.i2cs[name] = newPart
@@ -326,7 +326,7 @@ func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) erro
 		oldPart, ok := r.analogs[name]
 		delete(oldAnalogReaderNames, name)
 		if ok {
-			oldPart.replace(newPart)
+			oldPart.reconfigure(newPart)
 			continue
 		}
 		r.analogs[name] = newPart
@@ -335,7 +335,7 @@ func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) erro
 		oldPart, ok := r.digitals[name]
 		delete(oldDigitalInterruptNames, name)
 		if ok {
-			oldPart.replace(newPart)
+			oldPart.reconfigure(newPart)
 			continue
 		}
 		r.digitals[name] = newPart
@@ -426,8 +426,7 @@ type reconfigurableSPI struct {
 	actual SPI
 }
 
-// TODO(maximpertsov): replace "replace" with Reconfigure?
-func (r *reconfigurableSPI) replace(newSPI SPI) {
+func (r *reconfigurableSPI) reconfigure(newSPI SPI) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	actual, ok := newSPI.(*reconfigurableSPI)
@@ -455,8 +454,7 @@ func (r *reconfigurableI2C) ProxyFor() interface{} {
 	return r.actual
 }
 
-// TODO(maximpertsov): replace "replace" with Reconfigure?
-func (r *reconfigurableI2C) replace(newI2C I2C) {
+func (r *reconfigurableI2C) reconfigure(newI2C I2C) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	actual, ok := newI2C.(*reconfigurableI2C)
@@ -478,8 +476,7 @@ type reconfigurableAnalogReader struct {
 	actual AnalogReader
 }
 
-// TODO(maximpertsov): replace "replace" with Reconfigure?
-func (r *reconfigurableAnalogReader) replace(newAnalogReader AnalogReader) {
+func (r *reconfigurableAnalogReader) reconfigure(newAnalogReader AnalogReader) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	actual, ok := newAnalogReader.(*reconfigurableAnalogReader)
@@ -519,8 +516,7 @@ func (r *reconfigurableDigitalInterrupt) ProxyFor() interface{} {
 	return r.actual
 }
 
-// TODO(maximpertsov): replace "replace" with Reconfigure?
-func (r *reconfigurableDigitalInterrupt) replace(newDigitalInterrupt DigitalInterrupt) {
+func (r *reconfigurableDigitalInterrupt) reconfigure(newDigitalInterrupt DigitalInterrupt) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	actual, ok := newDigitalInterrupt.(*reconfigurableDigitalInterrupt)
