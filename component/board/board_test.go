@@ -154,7 +154,7 @@ func TestSPIs(t *testing.T) {
 
 	fakeSPI, ok := fakeBoard.(*reconfigurableBoard).SPIByName("spi1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fakeSPI, test.ShouldResemble, &reconfigurableBoardSPI{actual: &mockSPI{}})
+	test.That(t, fakeSPI, test.ShouldResemble, &reconfigurableSPI{actual: &mockSPI{}})
 }
 
 func TestI2Cs(t *testing.T) {
@@ -166,7 +166,7 @@ func TestI2Cs(t *testing.T) {
 
 	fakeI2C, ok := fakeBoard.(*reconfigurableBoard).I2CByName("i2c1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fakeI2C, test.ShouldResemble, &reconfigurableBoardI2C{actual: &mockI2C{}})
+	test.That(t, fakeI2C, test.ShouldResemble, &reconfigurableI2C{actual: &mockI2C{}})
 }
 
 func TestAnalogReaders(t *testing.T) {
@@ -178,7 +178,7 @@ func TestAnalogReaders(t *testing.T) {
 
 	fakeAnalogReader, ok := fakeBoard.(*reconfigurableBoard).AnalogReaderByName("analog1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fakeAnalogReader, test.ShouldResemble, &reconfigurableBoardAnalogReader{actual: &mockAnalogReader{}})
+	test.That(t, fakeAnalogReader, test.ShouldResemble, &reconfigurableAnalogReader{actual: &mockAnalogReader{}})
 }
 
 func TestDigitalInterrupts(t *testing.T) {
@@ -190,7 +190,7 @@ func TestDigitalInterrupts(t *testing.T) {
 
 	fakeDigitalInterrupt, ok := fakeBoard.(*reconfigurableBoard).DigitalInterruptByName("digital1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fakeDigitalInterrupt, test.ShouldResemble, &reconfigurableBoardDigitalInterrupt{actual: &mockDigitalInterrupt{}})
+	test.That(t, fakeDigitalInterrupt, test.ShouldResemble, &reconfigurableDigitalInterrupt{actual: &mockDigitalInterrupt{}})
 }
 
 type mock struct {
