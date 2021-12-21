@@ -140,7 +140,9 @@ func (g *gamepad) eventDispatcher(ctx context.Context) {
 				continue
 			}
 			// Use debug line below when developing new controller mappings
-			// g.logger.Debugf("%s: Type: %d, Code: %d, Value: %d\n", timevaltoTime(eventIn.Event.Time), eventIn.Event.Type, eventIn.Event.Control, eventIn.Event.Value)
+			// g.logger.Debugf(
+			// 	"%s: Type: %d, Code: %d, Value: %d\n",
+			// 	 timevaltoTime(eventIn.Event.Time), eventIn.Event.Type, eventIn.Event.Control, eventIn.Event.Value)
 
 			var eventOut input.Event
 			switch eventIn.Event.Type {
@@ -367,7 +369,12 @@ func (g *gamepad) LastEvents(ctx context.Context) (map[input.Control]input.Event
 }
 
 // RegisterControlCallback registers a callback function to be executed on the specified control's trigger Events
-func (g *gamepad) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+func (g *gamepad) RegisterControlCallback(
+	ctx context.Context,
+	control input.Control,
+	triggers []input.EventType,
+	ctrlFunc input.ControlFunction,
+) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if g.callbacks[control] == nil {
