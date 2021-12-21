@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/core/base"

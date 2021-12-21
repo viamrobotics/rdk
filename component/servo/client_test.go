@@ -9,7 +9,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
-	rpcclient "go.viam.com/utils/rpc/client"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/test"
 	"google.golang.org/grpc"
@@ -62,12 +62,12 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = servo.NewClient(cancelCtx, "workingServo", listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+		_, err = servo.NewClient(cancelCtx, "workingServo", listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
-	workingServoClient, err := servo.NewClient(context.Background(), "workingServo", listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+	workingServoClient, err := servo.NewClient(context.Background(), "workingServo", listener1.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client tests for working servo", func(t *testing.T) {
@@ -79,7 +79,7 @@ func TestClient(t *testing.T) {
 		test.That(t, currentDeg, test.ShouldEqual, 20)
 	})
 
-	failingServoClient, err := servo.NewClient(context.Background(), "failingServo", listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+	failingServoClient, err := servo.NewClient(context.Background(), "failingServo", listener1.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client tests for failing servo", func(t *testing.T) {
@@ -91,7 +91,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("dialed client tests for working servo", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 		workingServoDialedClient := servo.NewClientFromConn(conn, "workingServo", logger)
 		test.That(t, err, test.ShouldBeNil)

@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"github.com/starship-technologies/gobag/rosbag"
 
 	"go.viam.com/utils"
@@ -18,13 +18,13 @@ func ReadBag(filename string, logger golog.Logger) (*rosbag.RosBag, error) {
 	f, err := os.Open(filename)
 	defer utils.UncheckedErrorFunc(f.Close)
 	if err != nil {
-		return nil, errors.Errorf("unable to open input file: %w", err)
+		return nil, errors.Wrapf(err, "unable to open input file")
 	}
 
 	rb := rosbag.NewRosBag()
 
 	if err := rb.Read(f); err != nil {
-		return nil, errors.Errorf("unable to create ros bag, error %w", err)
+		return nil, errors.Wrapf(err, "unable to create ros bag, error")
 	}
 
 	logger.Debugw("done with bag file", "name", filename)
@@ -63,7 +63,7 @@ func WriteTopicsJSON(rb *rosbag.RosBag, startTime, endTime int64, topicsFilter [
 	}
 
 	if err := rb.ParseTopicsToJSON("", timeFilterFunc, topicFilterFunc, false); err != nil {
-		return errors.Errorf("error while parsing bag to JSON: %w", err)
+		return errors.Wrapf(err, "error while parsing bag to JSON")
 	}
 
 	return nil

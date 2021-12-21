@@ -15,8 +15,8 @@ import (
 	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/rimage"
 
-	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 )
 
 // DistortionModel TODO
@@ -104,7 +104,7 @@ func NewDepthColorIntrinsicsExtrinsicsFromBytes(byteJSON []byte) (*DepthColorInt
 	// Parse into map
 	err := json.Unmarshal(byteJSON, intrinsics)
 	if err != nil {
-		err = errors.Errorf("error parsing byte array - %w", err)
+		err = errors.Wrap(err, "error parsing byte array")
 		return nil, err
 	}
 	return intrinsics, nil
@@ -115,14 +115,14 @@ func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColor
 	// open json file
 	jsonFile, err := os.Open(jsonPath)
 	if err != nil {
-		err = errors.Errorf("error opening JSON file - %w", err)
+		err = errors.Wrap(err, "error opening JSON file")
 		return nil, err
 	}
 	defer utils.UncheckedErrorFunc(jsonFile.Close)
 	// read our opened jsonFile as a byte array.
 	byteValue, err := ioutil.ReadAll(jsonFile)
 	if err != nil {
-		err = errors.Errorf("error reading JSON data - %w", err)
+		err = errors.Wrap(err, "error reading JSON data")
 		return nil, err
 	}
 	return NewDepthColorIntrinsicsExtrinsicsFromBytes(byteValue)
@@ -134,20 +134,20 @@ func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*Pinho
 	// open json file
 	jsonFile, err := os.Open(jsonPath)
 	if err != nil {
-		err = errors.Errorf("error opening JSON file - %w", err)
+		err = errors.Wrap(err, "error opening JSON file")
 		return nil, err
 	}
 	defer utils.UncheckedErrorFunc(jsonFile.Close)
 	// read our opened jsonFile as a byte array.
 	byteValue, err2 := ioutil.ReadAll(jsonFile)
 	if err2 != nil {
-		err2 = errors.Errorf("error reading JSON data - %w", err2)
+		err2 = errors.Wrap(err2, "error reading JSON data")
 		return nil, err2
 	}
 	// Parse into map
 	err = json.Unmarshal(byteValue, intrinsics)
 	if err != nil {
-		err = errors.Errorf("error parsing JSON string - %w", err)
+		err = errors.Wrap(err, "error parsing JSON string")
 		return nil, err
 	}
 	if cameraName == "depth" {
