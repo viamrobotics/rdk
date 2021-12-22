@@ -13,8 +13,8 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
@@ -294,14 +294,15 @@ func TestNewTeardown(t *testing.T) {
 
 	modelName := utils.RandomAlphaString(8)
 	var dummyBoard1 dummyBoard
-	registry.RegisterBoard(
+	registry.RegisterComponent(
+		board.Subtype,
 		modelName,
-		registry.Board{Constructor: func(
+		registry.Component{Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
 			config config.Component,
 			logger golog.Logger,
-		) (board.Board, error) {
+		) (interface{}, error) {
 			return &dummyBoard1, nil
 		}})
 	registry.RegisterComponent(

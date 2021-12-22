@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/config"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
@@ -27,14 +27,15 @@ const modelName = "arduino"
 
 // init registers an arduino board.
 func init() {
-	registry.RegisterBoard(
+	registry.RegisterComponent(
+		board.Subtype,
 		modelName,
-		registry.Board{Constructor: func(
+		registry.Component{Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
 			config config.Component,
 			logger golog.Logger,
-		) (board.Board, error) {
+		) (interface{}, error) {
 			boardConfig := config.ConvertedAttributes.(*board.Config)
 			return newArduino(ctx, boardConfig, logger)
 		}})

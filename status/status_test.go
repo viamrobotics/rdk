@@ -7,8 +7,9 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/core/base"
-	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/board"
+	fakeboard "go.viam.com/core/component/board/fake"
 	"go.viam.com/core/component/camera"
 	fakecamera "go.viam.com/core/component/camera/fake"
 	"go.viam.com/core/component/gripper"
@@ -90,7 +91,7 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return &fakecamera.Camera{Name: name}, true
 	}
 	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return &fake.Board{Name: name}, true
+		return &fakeboard.Board{Name: name}, true
 	}
 	injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 		return &fake.Compass{Name: name}, true

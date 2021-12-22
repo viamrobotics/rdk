@@ -17,8 +17,8 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/base"
-	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/input"
@@ -295,12 +295,15 @@ func (rc *RobotClient) CameraByName(name string) (camera.Camera, bool) {
 // BoardByName returns a board by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
-	for _, info := range rc.boardNames {
-		if info.name == name {
-			return &boardClient{rc, info}, true
-		}
+	resource, ok := rc.ResourceByName(board.Named(name))
+	if !ok {
+		return nil, false
 	}
-	return nil, false
+	actualBoard, ok := resource.(board.Board)
+	if !ok {
+		return nil, false
+	}
+	return actualBoard, true
 }
 
 // SensorByName returns a sensor by name. It is assumed to exist on the
@@ -372,8 +375,15 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
-	// TODO(maximpertsov): remove this switch statement after the V2 migration is done
+	// TODO(https://github.com/viamrobotics/core/issues/375): remove this switch statement after the V2 migration is done
 	switch name.Subtype {
+	case board.Subtype:
+		for _, info := range rc.boardNames {
+			if info.name == name.Name {
+				return &boardClient{rc, info}, true
+			}
+		}
+		return nil, false
 	case input.Subtype:
 		return &inputControllerClient{rc: rc, name: name.Name}, true
 	default:

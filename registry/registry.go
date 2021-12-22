@@ -12,7 +12,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/base"
-	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
@@ -26,9 +25,6 @@ type (
 
 	// A CreateSensor creates a sensor from a given config.
 	CreateSensor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error)
-
-	// A CreateBoard creates a board from a given config.
-	CreateBoard func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error)
 
 	// A CreateService creates a service from a given config.
 	CreateService func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error)
@@ -52,12 +48,6 @@ type Sensor struct {
 	Constructor CreateSensor
 }
 
-// Board stores a Board constructor function (mandatory)
-type Board struct {
-	RegDebugInfo
-	Constructor CreateBoard
-}
-
 // Service stores a Service constructor (mandatory) and an attribute converter
 type Service struct {
 	RegDebugInfo
@@ -69,7 +59,6 @@ type Service struct {
 var (
 	baseRegistry    = map[string]Base{}
 	sensorRegistry  = map[sensor.Type]map[string]Sensor{}
-	boardRegistry   = map[string]Board{}
 	serviceRegistry = map[config.ServiceType]Service{}
 )
 
@@ -111,19 +100,6 @@ func RegisterSensor(sensorType sensor.Type, model string, creator Sensor) {
 	sensorRegistry[sensorType][model] = creator
 }
 
-// RegisterBoard registers a board model to a creator.
-func RegisterBoard(model string, creator Board) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := boardRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two boards with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	boardRegistry[model] = creator
-}
-
 // RegisterService registers a service type to a registration.
 func RegisterService(typeName config.ServiceType, registration Service) {
 	registration.RegistrarLoc = getCallerName()
@@ -154,15 +130,6 @@ func SensorLookup(sensorType sensor.Type, model string) *Sensor {
 		return nil
 	}
 	if registration, ok := subTyped[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// BoardLookup looks up a board creator by the given model. nil is returned if
-// there is no creator registered.
-func BoardLookup(model string) *Board {
-	if registration, ok := boardRegistry[model]; ok {
 		return &registration
 	}
 	return nil
@@ -278,15 +245,6 @@ func RegisteredSensors() map[sensor.Type]map[string]Sensor {
 		panic(err)
 	}
 	return copied.(map[sensor.Type]map[string]Sensor)
-}
-
-// RegisteredBoards returns a copy of the registered boards.
-func RegisteredBoards() map[string]Board {
-	copied, err := copystructure.Copy(boardRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]Board)
 }
 
 // RegisteredServices returns a copy of the registered services.

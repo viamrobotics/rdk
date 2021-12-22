@@ -19,7 +19,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/action"
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/input"
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"

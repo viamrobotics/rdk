@@ -12,8 +12,8 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/core/base"
-	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/input"
@@ -41,10 +41,8 @@ import (
 
 	// These are the robot pieces we want by default
 	_ "go.viam.com/core/base/impl"
-	_ "go.viam.com/core/board/arduino"
-	_ "go.viam.com/core/board/jetson"
-	_ "go.viam.com/core/board/numato"
 	_ "go.viam.com/core/component/arm/register"     // for all arms TODO: #298
+	_ "go.viam.com/core/component/board/register"   // for all boards
 	_ "go.viam.com/core/component/camera/register"  // for all cameras
 	_ "go.viam.com/core/component/gantry/register"  // for all gantries
 	_ "go.viam.com/core/component/gripper/register" // for all grippers
@@ -372,14 +370,6 @@ func (r *localRobot) newSensor(ctx context.Context, config config.Component, sen
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *localRobot) newBoard(ctx context.Context, config config.Component) (board.Board, error) {
-	f := registry.BoardLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown board model: %s", config.Model)
-	}
-	return f.Constructor(ctx, r, config, r.logger)
-}
-
 func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
 	f := registry.ServiceLookup(config.Type)
 	if f == nil {
@@ -423,15 +413,6 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 			resource.ResourceNamespaceCore,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeBase,
-			name,
-		)
-		resources = append(resources, res)
-	}
-	for _, name := range r.BoardNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceCore,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeBoard,
 			name,
 		)
 		resources = append(resources, res)

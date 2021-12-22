@@ -14,7 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 )
 
 type piPigpioI2C struct {

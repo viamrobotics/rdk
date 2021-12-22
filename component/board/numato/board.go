@@ -18,7 +18,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -35,14 +35,15 @@ const modelName = "numato"
 var errNoBoard = errors.New("no numato boards found")
 
 func init() {
-	registry.RegisterBoard(
+	registry.RegisterComponent(
+		board.Subtype,
 		modelName,
-		registry.Board{Constructor: func(
+		registry.Component{Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
 			config config.Component,
 			logger golog.Logger,
-		) (board.Board, error) {
+		) (interface{}, error) {
 			conf := config.ConvertedAttributes.(*board.Config)
 
 			if len(conf.DigitalInterrupts) != 0 {

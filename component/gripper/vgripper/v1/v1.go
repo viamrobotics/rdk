@@ -11,7 +11,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
@@ -267,7 +267,12 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	logger.Debugf("init: final openPos: %f, closePos: %f", vg.openPos, vg.closePos)
 	rotationGap := math.Abs(vg.openPos - vg.closePos)
 	if rotationGap < MinRotationGap || rotationGap > MaxRotationGap {
-		return nil, errors.Errorf("init: rotationGap not in expected range got: %v range %v -> %v", rotationGap, MinRotationGap, MaxRotationGap)
+		return nil, errors.Errorf(
+			"init: rotationGap not in expected range got: %v range %v -> %v",
+			rotationGap,
+			MinRotationGap,
+			MaxRotationGap,
+		)
 	}
 
 	return vg, vg.Open(ctx)
@@ -376,7 +381,10 @@ func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 			if err != nil {
 				return false, vg.stopAfterError(ctx, err)
 			}
-			return false, vg.stopAfterError(ctx, errors.Errorf("close timed out, wanted: %f at: %f pressure: %d", vg.closePos, now, pressureRaw))
+			return false, vg.stopAfterError(
+				ctx,
+				errors.Errorf("close timed out, wanted: %f at: %f pressure: %d", vg.closePos, now, pressureRaw),
+			)
 		}
 	}
 }
