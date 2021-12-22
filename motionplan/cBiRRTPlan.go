@@ -46,25 +46,9 @@ type cBiRRTMotionPlanner struct {
 	logger          golog.Logger
 	qstep           []float64
 	iter            int
+	nCPU            int
 	stepSize        float64
 	randseed        *rand.Rand
-	opt             *PlannerOptions
-	nn              *neighborManager
-}
-
-// Used for coordinating parallel computations of nearestNeighbor
-type neighborManager struct {
-	nnKeys    chan *solution
-	neighbors chan *neighbor
-	nnLock    sync.RWMutex
-	seedPos   *solution
-	ready     bool
-	nCPU      int
-}
-
-type neighbor struct {
-	dist float64
-	sol  *solution
 }
 
 // needed to wrap slices so we can use them as map keys
@@ -84,25 +68,15 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, nCPU int, logger golog.Logger) (M
 	}
 	// nlopt should try only once
 	nlopt.SetMaxIter(1)
-	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: jointSolveDist}
-	mp.nn = &neighborManager{nCPU: nCPU}
+	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: jointSolveDist, nCPU: nCPU}
 
 	mp.qstep = getFrameSteps(frame, frameStep)
 	mp.iter = planIter
 	mp.stepSize = stepSize
 
 	mp.randseed = rand.New(rand.NewSource(1))
-	mp.opt = NewDefaultPlannerOptions()
 
 	return mp, nil
-}
-
-func (mp *cBiRRTMotionPlanner) SetMetric(m Metric) {
-	mp.solver.SetMetric(m)
-}
-
-func (mp *cBiRRTMotionPlanner) SetPathDistFunc(m Metric) {
-	mp.fastGradDescent.SetMetric(m)
 }
 
 func (mp *cBiRRTMotionPlanner) Frame() frame.Frame {
@@ -113,20 +87,14 @@ func (mp *cBiRRTMotionPlanner) Resolution() float64 {
 	return mp.stepSize
 }
 
-func (mp *cBiRRTMotionPlanner) SetOptions(opt *PlannerOptions) {
-	mp.opt = opt
-	mp.SetMetric(opt.metric)
-	mp.SetPathDistFunc(opt.pathDist)
-}
-
-func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, seed []frame.Input) ([][]frame.Input, error) {
+func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, seed []frame.Input, opt *PlannerOptions) ([][]frame.Input, error) {
 	var inputSteps []*solution
+	if opt == nil {
+		opt = NewDefaultPlannerOptions()
+	}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
-
-	// Store copy of planner options for duration of solve
-	opt := mp.opt
 
 	// How many of the top solutions to try
 	// Solver will terminate after getting this many to save time
@@ -136,7 +104,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 		opt.maxSolutions = nSolutions
 	}
 
-	solutions, err := getSolutions(ctx, opt, mp.solver, goal, seed, mp)
+	solutions, err := getSolutions(ctx, opt, mp.solver, goal, seed, mp.Frame())
 	if err != nil {
 		return nil, err
 	}
@@ -169,6 +137,8 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 
 	var rSeed *solution
 
+	nn := &neighborManager{nCPU: mp.nCPU}
+
 	for i := 0; i < mp.iter; i++ {
 		select {
 		case <-ctx.Done():
@@ -181,21 +151,21 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 		// Alternate which tree we extend
 		if addSeed {
 			// extend seed tree first
-			nearest := mp.nn.nearestNeighbor(ctxWithCancel, target, seedMap)
+			nearest := nn.nearestNeighbor(ctxWithCancel, target, seedMap)
 			// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
 			seedReached = mp.constrainedExtend(opt, seedMap, nearest, target)
 			// Find the nearest point in goalMap to the furthest point reached in seedMap
-			near2 := mp.nn.nearestNeighbor(ctxWithCancel, seedReached, goalMap)
+			near2 := nn.nearestNeighbor(ctxWithCancel, seedReached, goalMap)
 			// extend goalMap towards the point in seedMap
 			goalReached = mp.constrainedExtend(opt, goalMap, near2, seedReached)
 			rSeed = seedReached
 		} else {
 			// extend goal tree first
-			nearest := mp.nn.nearestNeighbor(ctxWithCancel, target, goalMap)
+			nearest := nn.nearestNeighbor(ctxWithCancel, target, goalMap)
 			// Extend tree goalMap as far towards target as it can get. It may or may not reach it.
 			goalReached = mp.constrainedExtend(opt, goalMap, nearest, target)
 			// Find the nearest point in seedMap to the furthest point reached in goalMap
-			near2 := mp.nn.nearestNeighbor(ctxWithCancel, goalReached, seedMap)
+			near2 := nn.nearestNeighbor(ctxWithCancel, goalReached, seedMap)
 			// extend seedMap towards the point in goalMap
 			seedReached = mp.constrainedExtend(opt, seedMap, near2, goalReached)
 			rSeed = goalReached
@@ -314,7 +284,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(opt *PlannerOptions, seedInputs, ta
 	// This should run very fast and does not need to be cancelled. A cancellation will be caught above in Plan()
 	ctx := context.Background()
 	// Spawn the IK solver to generate solutions until done
-	err = mp.fastGradDescent.Solve(ctx, solutionGen, goalPos, target)
+	err = mp.fastGradDescent.Solve(ctx, solutionGen, goalPos, target, opt.pathDist)
 	// We should have zero or one solutions
 	var solved []frame.Input
 	select {
@@ -466,6 +436,21 @@ func getFrameSteps(f frame.Frame, by float64) []float64 {
 		pos[i] = jRange * by
 	}
 	return pos
+}
+
+// Used for coordinating parallel computations of nearestNeighbor
+type neighborManager struct {
+	nnKeys    chan *solution
+	neighbors chan *neighbor
+	nnLock    sync.RWMutex
+	seedPos   *solution
+	ready     bool
+	nCPU      int
+}
+
+type neighbor struct {
+	dist float64
+	sol  *solution
 }
 
 func (nm *neighborManager) nearestNeighbor(ctx context.Context, seed *solution, rrtMap map[*solution]*solution) *solution {

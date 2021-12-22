@@ -156,15 +156,6 @@ func play(ctx context.Context, r robot.Robot) error {
 	return nil
 }
 
-func mpFuncBasic(f frame.Frame, ncpu int, logger golog.Logger) (motionplan.MotionPlanner, error) {
-	mp, err := motionplan.NewCBiRRTMotionPlanner(f, 4, logger)
-	opt := motionplan.NewDefaultPlannerOptions()
-	opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY+15))
-	mp.SetOptions(opt)
-
-	return mp, err
-}
-
 func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, moveFrameName string) error {
 	resources, err := getInputEnabled(ctx, r)
 	if err != nil {
@@ -217,7 +208,6 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 
 	fss := motionplan.NewSolvableFrameSystem(fs, logger)
 
-	fss.SetPlannerGen(mpFuncBasic)
 	goal := spatial.NewPoseFromProtobuf(&pb.Pose{
 		X:  480,
 		Y:  whiteboardY + 80,
@@ -235,7 +225,9 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 		return err
 	}
 
-	steps, err := fss.SolvePose(ctx, seedMap, goal, moveFrame, fs.World())
+	opt := motionplan.NewDefaultPlannerOptions()
+	opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY+15))
+	steps, err := fss.SolvePoseWithOptions(ctx, seedMap, goal, moveFrame, fs.World(), opt)
 	if err != nil {
 		return err
 	}
@@ -263,23 +255,14 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 		destGrad := motionplan.NewPoseFlexOVMetric(goal, destO)
 
 		// update constraints
-		mpFunc := func(f frame.Frame, ncpu int, logger golog.Logger) (motionplan.MotionPlanner, error) {
-			// just in case frame changed
-			mp, err := motionplan.NewCBiRRTMotionPlanner(f, 4, logger)
-			opt := motionplan.NewDefaultPlannerOptions()
-			opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY))
+		opt := motionplan.NewDefaultPlannerOptions()
+		opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY))
 
-			opt.SetPathDist(gradFunc)
-			opt.SetMetric(destGrad)
-			opt.AddConstraint("whiteboard", validFunc)
+		opt.SetPathDist(gradFunc)
+		opt.SetMetric(destGrad)
+		opt.AddConstraint("whiteboard", validFunc)
 
-			mp.SetOptions(opt)
-
-			return mp, err
-		}
-		fss.SetPlannerGen(mpFunc)
-
-		waysteps, err := fss.SolvePose(ctx, seedMap, goal, moveFrame, fs.World())
+		waysteps, err := fss.SolvePoseWithOptions(ctx, seedMap, goal, moveFrame, fs.World(), opt)
 		if err != nil {
 			return map[string][]frame.Input{}
 		}
@@ -296,19 +279,10 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 		curPos, _ = fs.TransformFrame(seedMap, moveFrame, fs.World())
 
 		// update constraints
-		mpFunc := func(f frame.Frame, ncpu int, logger golog.Logger) (motionplan.MotionPlanner, error) {
-			// just in case frame changed
-			mp, err := motionplan.NewCBiRRTMotionPlanner(f, 4, logger)
-			opt := motionplan.NewDefaultPlannerOptions()
-			opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY))
+		opt := motionplan.NewDefaultPlannerOptions()
+		opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY))
 
-			mp.SetOptions(opt)
-
-			return mp, err
-		}
-		fss.SetPlannerGen(mpFunc)
-
-		waysteps, err := fss.SolvePose(ctx, seedMap, goal, moveFrame, fs.World())
+		waysteps, err := fss.SolvePoseWithOptions(ctx, seedMap, goal, moveFrame, fs.World(), opt)
 		if err != nil {
 			return map[string][]frame.Input{}
 		}

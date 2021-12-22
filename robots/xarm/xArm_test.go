@@ -81,24 +81,12 @@ func TestWriteViam(t *testing.T) {
 		validFunc, gradFunc := motionplan.NewLineConstraintAndGradient(curPos.Point(), goal.Point(), validOV, 0.3, 0.05)
 		destGrad := motionplan.NewPoseFlexOVMetric(goal, 0.2)
 
-		// update constraints
-		mpFunc := func(f frame.Frame, ncpu int, logger golog.Logger) (motionplan.MotionPlanner, error) {
-			// just in case frame changed
-			mp, err := motionplan.NewCBiRRTMotionPlanner(f, ncpu, logger)
-			test.That(t, err, test.ShouldBeNil)
-			opt := motionplan.NewDefaultPlannerOptions()
+		opt := motionplan.NewDefaultPlannerOptions()
+		opt.SetPathDist(gradFunc)
+		opt.SetMetric(destGrad)
+		opt.AddConstraint("whiteboard", validFunc)
 
-			opt.SetPathDist(gradFunc)
-			opt.SetMetric(destGrad)
-			opt.AddConstraint("whiteboard", validFunc)
-
-			mp.SetOptions(opt)
-
-			return mp, err
-		}
-		fss.SetPlannerGen(mpFunc)
-
-		waysteps, err := fss.SolvePose(ctx, seedMap, goal, moveFrame, fs.World())
+		waysteps, err := fss.SolvePoseWithOptions(ctx, seedMap, goal, moveFrame, fs.World(), opt)
 		test.That(t, err, test.ShouldBeNil)
 		return waysteps[len(waysteps)-1]
 	}

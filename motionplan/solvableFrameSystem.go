@@ -30,8 +30,23 @@ func NewSolvableFrameSystem(fs frame.FrameSystem, logger golog.Logger) *Solvable
 // then try to path plan the full frame system such that the solveFrame has the goal pose from the perspective of the goalFrame.
 // For example, if a world system has a gripper attached to an arm attached to a gantry, and the system was being solved
 // to place the gripper at a particular pose in the world, the solveFrame would be the gripper and the goalFrame would be
-// the world frame.
-func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[string][]frame.Input, goal spatial.Pose, solveFrame, goalFrame frame.Frame) ([]map[string][]frame.Input, error) {
+// the world frame. It will use the default planner options.
+func (fss *SolvableFrameSystem) SolvePose(ctx context.Context,
+	seedMap map[string][]frame.Input,
+	goal spatial.Pose,
+	solveFrame, goalFrame frame.Frame) ([]map[string][]frame.Input, error) {
+	opt := NewDefaultPlannerOptions()
+	return fss.SolvePoseWithOptions(ctx, seedMap, goal, solveFrame, goalFrame, opt)
+}
+
+// SolvePoseWithOptions will take a set of starting positions, a goal frame, a frame to solve for, a pose, and a configurable
+// set of PlannerOptions. It will solve the solveFrame to the goal pose with respect to the goal frame using the provided
+// planning options.
+func (fss *SolvableFrameSystem) SolvePoseWithOptions(ctx context.Context,
+	seedMap map[string][]frame.Input,
+	goal spatial.Pose,
+	solveFrame, goalFrame frame.Frame,
+	opt *PlannerOptions) ([]map[string][]frame.Input, error) {
 
 	// Get parentage of both frames. This will also verify the frames are in the frame system
 	sFrames, err := fss.TracebackFrame(solveFrame)
@@ -62,7 +77,7 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 	seed := sf.mapToSlice(seedMap)
 
 	// Solve for the goal position
-	resultSlices, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed)
+	resultSlices, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed, opt)
 	if err != nil {
 		return nil, err
 	}

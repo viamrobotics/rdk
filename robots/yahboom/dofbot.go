@@ -88,10 +88,6 @@ func createDofBotSolver(logger golog.Logger) (*frame.Model, motionplan.MotionPla
 	if err != nil {
 		return nil, nil, err
 	}
-	// dofbot las limited dof
-	opt := motionplan.NewDefaultPlannerOptions()
-	opt.SetMetric(motionplan.NewPositionOnlyMetric())
-	mp.SetOptions(opt)
 	return model, mp, nil
 }
 
@@ -138,7 +134,10 @@ func (a *dofBot) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	solution, err := a.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
+	// dofbot las limited dof
+	opt := motionplan.NewDefaultPlannerOptions()
+	opt.SetMetric(motionplan.NewPositionOnlyMetric())
+	solution, err := a.mp.Plan(ctx, pos, frame.JointPosToInputs(joints), opt)
 	if err != nil {
 		return err
 	}
