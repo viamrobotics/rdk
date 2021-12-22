@@ -40,7 +40,7 @@ func TestNew(t *testing.T) {
 			return nil, false
 		}
 		component := config.Component{Attributes: config.AttributeMap{"type": "what"}}
-		_, err := New(context.Background(), fakeRobot, component, logger)
+		_, err := new(context.Background(), fakeRobot, component, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 

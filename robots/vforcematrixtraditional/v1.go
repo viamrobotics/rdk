@@ -3,7 +3,6 @@ package vforcematrixtraditional
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -34,7 +33,6 @@ type ForceMatrixConfig struct {
 
 // Validate ensures all parts of the config are valid.
 func (config *ForceMatrixConfig) Validate(path string) error {
-	fmt.Println(config)
 	if config.BoardName == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
