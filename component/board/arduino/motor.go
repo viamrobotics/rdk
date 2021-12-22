@@ -218,8 +218,8 @@ func (m *arduinoMotor) IsOn(ctx context.Context) (bool, error) {
 	return res[0] == 't', nil
 }
 
-// GoTo instructs motor to go to a given position at a given RPM. Regardless of the directionality of
-// the RPM this function will move the motor towards the specified target
+// GoTo instructs motor to go to a given position at a given RPM. Regardless of the directionality of the RPM this function will move the
+// motor towards the specified target
 func (m *arduinoMotor) GoTo(ctx context.Context, rpm float64, target float64) error {
 
 	ticks := int(target * float64(m.cfg.TicksPerRotation))
