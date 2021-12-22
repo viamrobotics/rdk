@@ -247,7 +247,7 @@ service RobotService {
   }
 
   // InputControllerInjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events 
-  //like button presses or axis movements  
+  // like button presses or axis movements  
   rpc InputControllerInjectEvent(InputControllerInjectEventRequest) returns (InputControllerInjectEventResponse) {
     option (google.api.http) = {
       post: "/api/v1/input/{controller}/inject_event"

@@ -85,7 +85,7 @@ type RobotServiceClient interface {
 	// InputControllerEventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller
 	InputControllerEventStream(ctx context.Context, in *InputControllerEventStreamRequest, opts ...grpc.CallOption) (RobotService_InputControllerEventStreamClient, error)
 	// InputControllerInjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events
-	//like button presses or axis movements
+	// like button presses or axis movements
 	InputControllerInjectEvent(ctx context.Context, in *InputControllerInjectEventRequest, opts ...grpc.CallOption) (*InputControllerInjectEventResponse, error)
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(ctx context.Context, in *ResourceRunCommandRequest, opts ...grpc.CallOption) (*ResourceRunCommandResponse, error)
@@ -629,7 +629,7 @@ type RobotServiceServer interface {
 	// InputControllerEventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller
 	InputControllerEventStream(*InputControllerEventStreamRequest, RobotService_InputControllerEventStreamServer) error
 	// InputControllerInjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events
-	//like button presses or axis movements
+	// like button presses or axis movements
 	InputControllerInjectEvent(context.Context, *InputControllerInjectEventRequest) (*InputControllerInjectEventResponse, error)
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error)
