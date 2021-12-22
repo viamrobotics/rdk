@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	commonpb "go.viam.com/core/proto/api/common/v1"
@@ -170,7 +171,8 @@ func TestCollisionConstraint(t *testing.T) {
 	}{
 		{zeroInput, true},
 		{frame.FloatsToInputs([]float64{0, 0, 0, 2, 0, 0}), true},
-		{frame.FloatsToInputs([]float64{0, 0, 0, 2, 2, 0}), false},
+		// this is failing
+		{frame.FloatsToInputs([]float64{0, 0, 0, 2, 2.5, 0}), false},
 	}
 
 	// setup zero position as reference CollisionGraph and use it in handler
@@ -184,8 +186,10 @@ func TestCollisionConstraint(t *testing.T) {
 	handler.AddConstraint("self-collision", NewCollisionConstraint(zeroCG))
 
 	// loop through cases and check constraint handler processes them correctly
-	for _, c := range cases {
-		response, _ := handler.CheckConstraints(&ConstraintInput{StartInput: c.input, Frame: ur5e})
-		test.That(t, response, test.ShouldEqual, c.expected)
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
+			response, _ := handler.CheckConstraints(&ConstraintInput{StartInput: c.input, Frame: ur5e})
+			test.That(t, response, test.ShouldEqual, c.expected)
+		})
 	}
 }
