@@ -37,9 +37,9 @@ type NloptIK struct {
 	randSeed      *rand.Rand
 }
 
-// CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on which
-// Transform() will be called, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set to the
-// default of 5000.
+// CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
+// which Transform() will be called, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
+// to the default of 5000.
 func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, iter int) (*NloptIK, error) {
 	ik := &NloptIK{logger: logger}
 	ik.randSeed = rand.New(rand.NewSource(1))
