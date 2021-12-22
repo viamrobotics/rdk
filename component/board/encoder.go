@@ -33,7 +33,7 @@ type HallEncoder struct {
 
 // NewHallEncoder creates a new HallEncoder.
 func NewHallEncoder(a, b DigitalInterrupt) *HallEncoder {
-	return &HallEncoder{a, b, 0, 0, 0}
+	return &HallEncoder{a: a, b: b, position: 0, pRaw: 0, pState: 0}
 }
 
 // Start starts the HallEncoder background thread.
