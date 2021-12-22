@@ -224,6 +224,30 @@ func TestConfigEnsure(t *testing.T) {
 		return nil
 	}
 	test.That(t, invalidFunctions.Ensure(false), test.ShouldBeNil)
+
+	invalidNetwork := config.Config{
+		Network: config.NetworkConfig{
+			TLSCertFile: "hey",
+		},
+	}
+	err = invalidNetwork.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `network`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `both tls`)
+
+	invalidNetwork.Network.TLSCertFile = ""
+	invalidNetwork.Network.TLSKeyFile = "hey"
+	err = invalidNetwork.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `network`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `both tls`)
+
+	invalidNetwork.Network.TLSCertFile = "dude"
+	test.That(t, invalidNetwork.Ensure(false), test.ShouldBeNil)
+
+	invalidNetwork.Network.TLSCertFile = ""
+	invalidNetwork.Network.TLSKeyFile = ""
+	test.That(t, invalidNetwork.Ensure(false), test.ShouldBeNil)
 }
 
 func TestConfigSortComponents(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"net"
 	"net/http"
 	"net/http/pprof"
 	"sync"
@@ -354,12 +355,14 @@ func (svc *webService) installWeb(ctx context.Context, mux *goji.Mux, theRobot r
 // until the context is done.
 func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
 	listener, secure, err := utils.NewPossiblySecureTCPListenerFromFile(
-		fmt.Sprintf(":%d", options.Port), options.TLSCertFile, options.TLSKeyFile)
+		options.Network.BindAddress,
+		options.Network.TLSCertFile,
+		options.Network.TLSKeyFile,
+	)
 	if err != nil {
 		return err
 	}
 	options.secure = secure
-	humanAddress := fmt.Sprintf("localhost:%d", options.Port)
 
 	var signalingOpts []rpc.DialOption
 	if options.SignalingAddress == "" && !secure {
@@ -389,7 +392,11 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	svc.server = rpcServer
 	if options.SignalingAddress == "" {
 		options.internalSignaling = true
-		options.SignalingAddress = fmt.Sprintf("localhost:%d", options.Port)
+		_, port, err := net.SplitHostPort(options.Network.BindAddress)
+		if err != nil {
+			return err
+		}
+		options.SignalingAddress = fmt.Sprintf("localhost:%s", port)
 	}
 	if options.Name == "" {
 		options.Name = rpcServer.SignalingHost()
@@ -533,7 +540,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	} else {
 		scheme = "http"
 	}
-	svc.logger.Infow("serving", "url", fmt.Sprintf("%s://%s", scheme, humanAddress))
+	svc.logger.Infow("serving", "url", fmt.Sprintf("%s://%s", scheme, listener.Addr().String()))
 	svc.activeBackgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()

@@ -66,9 +66,8 @@ func TestWebStartOptions(t *testing.T) {
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	options := NewOptions()
-	options.Port = port
-
 	addr := fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = addr
 
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
