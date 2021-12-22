@@ -49,7 +49,13 @@ func (dch *PinholeCameraHomography) AlignImageWithDepth(ii *rimage.ImageWithDept
 		return nil, errors.New("no depth image present to align")
 	}
 	if ii.Color.Width() != dch.ColorCamera.Width || ii.Color.Height() != dch.ColorCamera.Height {
-		return nil, errors.Errorf("dimension of color image (%d, %d) does not match color camera parameters (%d, %d)", ii.Color.Width(), ii.Color.Height(), dch.ColorCamera.Width, dch.ColorCamera.Height)
+		return nil, errors.Errorf(
+			"dimension of color image (%d, %d) does not match color camera parameters (%d, %d)",
+			ii.Color.Width(),
+			ii.Color.Height(),
+			dch.ColorCamera.Width,
+			dch.ColorCamera.Height,
+		)
 	}
 	// rotate depth image if necessary
 	if dch.RotateDepth != 0. {
@@ -104,8 +110,11 @@ func (dch *PinholeCameraHomography) ImageWithDepthToPointCloud(ii *rimage.ImageW
 	return intrinsics2DTo3D(ii, &dch.ColorCamera)
 }
 
-// PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth from the perspective of the color camera frame.
-func (dch *PinholeCameraHomography) PointCloudToImageWithDepth(cloud pointcloud.PointCloud) (*rimage.ImageWithDepth, error) {
+// PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth
+// from the perspective of the color camera frame.
+func (dch *PinholeCameraHomography) PointCloudToImageWithDepth(
+	cloud pointcloud.PointCloud,
+) (*rimage.ImageWithDepth, error) {
 	iwd, err := intrinsics3DTo2D(cloud, &dch.ColorCamera)
 	if err != nil {
 		return nil, err

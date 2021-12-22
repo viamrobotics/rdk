@@ -21,9 +21,17 @@ import (
 )
 
 func init() {
-	registry.RegisterSensor(gps.Type, "nmea-serial", registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-		return newSerialNMEAGPS(config, logger)
-	}})
+	registry.RegisterSensor(
+		gps.Type,
+		"nmea-serial",
+		registry.Sensor{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (sensor.Sensor, error) {
+			return newSerialNMEAGPS(config, logger)
+		}})
 }
 
 type serialNMEAGPS struct {

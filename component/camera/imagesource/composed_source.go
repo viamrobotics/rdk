@@ -17,13 +17,29 @@ import (
 )
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, "depth_to_pretty", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		return newDepthToPretty(r, config)
-	}})
+	registry.RegisterComponent(
+		camera.Subtype,
+		"depth_to_pretty",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return newDepthToPretty(r, config)
+		}})
 
-	registry.RegisterComponent(camera.Subtype, "overlay", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		return newOverlay(r, config)
-	}})
+	registry.RegisterComponent(
+		camera.Subtype,
+		"overlay",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return newOverlay(r, config)
+		}})
 }
 
 type overlaySource struct {

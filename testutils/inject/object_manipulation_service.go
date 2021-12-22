@@ -16,7 +16,11 @@ type ObjectManipulationService struct {
 }
 
 // DoGrab calls the injected DoGrab or the real variant
-func (mgs *ObjectManipulationService) DoGrab(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
+func (mgs *ObjectManipulationService) DoGrab(
+	ctx context.Context,
+	gripperName, armName, cameraName string,
+	cameraPoint *r3.Vector,
+) (bool, error) {
 	if mgs.DoGrabFunc == nil {
 		return mgs.Service.DoGrab(ctx, gripperName, armName, cameraName, cameraPoint)
 	}

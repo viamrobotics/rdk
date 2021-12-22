@@ -176,7 +176,8 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 	}
 	armFrame := fs.GetFrame(r.ArmNames()[0])
 
-	markerOffFrame, err := frame.NewStaticFrame("marker_offset", spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY: 1, OZ: 1}))
+	markerOffFrame, err := frame.NewStaticFrame(
+		"marker_offset", spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY: 1, OZ: 1}))
 	if err != nil {
 		return err
 	}
@@ -185,7 +186,8 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 		return err
 	}
 
-	eraserOffFrame, err := frame.NewStaticFrame("eraser_offset", spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY: -1, OZ: 1}))
+	eraserOffFrame, err := frame.NewStaticFrame(
+		"eraser_offset", spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY: -1, OZ: 1}))
 	if err != nil {
 		return err
 	}

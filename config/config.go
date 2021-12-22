@@ -30,7 +30,10 @@ func SortComponents(components []Component) ([]Component, error) {
 	for name, dps := range dependencies {
 		for _, depName := range dps {
 			if _, ok := componentToConfig[depName]; !ok {
-				return nil, utils.NewConfigValidationError(fmt.Sprintf("%s.%s", "components", name), errors.Errorf("dependency %q does not exist", depName))
+				return nil, utils.NewConfigValidationError(
+					fmt.Sprintf("%s.%s", "components", name),
+					errors.Errorf("dependency %q does not exist", depName),
+				)
 			}
 		}
 	}

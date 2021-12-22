@@ -113,7 +113,11 @@ func (m *ModelJSON) Model(modelName string) (*Model, error) {
 			// Joint part of DH param
 			jointID := dh.ID + "_j"
 			parentMap[jointID] = dh.Parent
-			j, err := NewRotationalFrame(jointID, spatialmath.R4AA{RX: 0, RY: 0, RZ: 1}, Limit{Min: dh.Min * math.Pi / 180, Max: dh.Max * math.Pi / 180})
+			j, err := NewRotationalFrame(
+				jointID,
+				spatialmath.R4AA{RX: 0, RY: 0, RZ: 1},
+				Limit{Min: dh.Min * math.Pi / 180, Max: dh.Max * math.Pi / 180},
+			)
 			if err != nil {
 				return nil, err
 			}

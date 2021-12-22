@@ -3,7 +3,7 @@ import { Line } from "vue-chartjs";
 import { Component, Prop, Vue } from "vue-property-decorator";
 import "chartjs-plugin-streaming";
 import { Chart } from "chart.js";
-import { MotorPIDStepResponse } from "proto/robot_pb";
+import { MotorServicePIDStepResponse } from "proto/api/component/v1/motor_pb";
 
 @Component({
   extends: Line,
@@ -67,7 +67,7 @@ export default class PIDChart extends Vue {
       }.bind(this)
     );
   }
-  public addData(data: MotorPIDStepResponse): void {
+  public addData(data: MotorServicePIDStepResponse): void {
     this.$data?.datasets?.datasets?.forEach((dataset: Chart.ChartDataSets) => {
       if (dataset.label == "Set Point") {
         (dataset.data as Chart.ChartPoint[]).push({

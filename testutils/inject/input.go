@@ -11,7 +11,12 @@ type InputController struct {
 	input.Controller
 	ControlsFunc                func(ctx context.Context) ([]input.Control, error)
 	LastEventsFunc              func(ctx context.Context) (map[input.Control]input.Event, error)
-	RegisterControlCallbackFunc func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error
+	RegisterControlCallbackFunc func(
+		ctx context.Context,
+		control input.Control,
+		triggers []input.EventType,
+		ctrlFunc input.ControlFunction,
+	) error
 }
 
 // Controls calls the injected function or the real version.
@@ -31,7 +36,12 @@ func (s *InputController) LastEvents(ctx context.Context) (map[input.Control]inp
 }
 
 //RegisterControlCallback calls the injected function or the real version.
-func (s *InputController) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+func (s *InputController) RegisterControlCallback(
+	ctx context.Context,
+	control input.Control,
+	triggers []input.EventType,
+	ctrlFunc input.ControlFunction,
+) error {
 	if s.RegisterControlCallbackFunc == nil {
 		return s.RegisterControlCallback(ctx, control, triggers, ctrlFunc)
 	}
