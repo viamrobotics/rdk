@@ -4,10 +4,11 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+	"go.viam.com/test"
+
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
-	"go.viam.com/test"
 )
 
 func TestCheckCollisions(t *testing.T) {
@@ -21,7 +22,7 @@ func TestCheckCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	collisions := cg.Collisions()
 	test.That(t, len(collisions), test.ShouldEqual, 1)
-	collisionEqual(t, collisions[0], collision{"cube222", "cube333"})
+	collisionEqual(t, collisions[0], Collision{"cube222", "cube333"})
 
 	// case 2: zero position of ur5e arm
 	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
@@ -60,13 +61,13 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	collisions := cg.Collisions()
 	test.That(t, len(collisions), test.ShouldEqual, 2)
-	collisionEqual(t, collisions[0], collision{"UR5e:forearm_link", "UR5e:ee_link"})
-	collisionEqual(t, collisions[1], collision{"UR5e:wrist_1_link", "UR5e:ee_link"})
+	collisionEqual(t, collisions[0], Collision{"UR5e:forearm_link", "UR5e:ee_link"})
+	collisionEqual(t, collisions[1], Collision{"UR5e:wrist_1_link", "UR5e:ee_link"})
 }
 
 // collisionEqual is a helper function to test equality between collision objects
-func collisionEqual(t *testing.T, c1, c2 collision) {
+func collisionEqual(t *testing.T, c1, c2 Collision) {
 	// fields can be out of order due to random nature of maps, check both cases
-	equal := (c1.a == c2.a && c1.b == c2.b) || (c1.a == c2.b && c1.b == c2.a)
+	equal := (c1.name1 == c2.name1 && c1.name2 == c2.name2) || (c1.name1 == c2.name2 && c1.name2 == c2.name1)
 	test.That(t, equal, test.ShouldBeTrue)
 }

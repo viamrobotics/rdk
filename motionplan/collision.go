@@ -4,21 +4,36 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 )
 
-type collision struct{ a, b string }
+// Collision is a pair of strings corresponding to names of Volume objects in collision
+type Collision struct{ name1, name2 string }
 
+// CollisionGraph stores the relationship between Volumes, describing which are in collision.  The information for each
+// Volume is stored in a node in the graph, and edges between these nodes represent collisions.
+type CollisionGraph struct {
+	// indices is a mapping of Volume names to their index in the nodes list and adjacency matrix
+	indices map[string]int
+
+	// nodes is a list of the nodes that comprise the graph
+	nodes map[int]*volumeNode
+
+	// adjacencies represents the edges in the CollisionGraph as an adjacency matrix
+	// For a pair of nodes (nodes[i], nodes[j]), there exists an edge between them if adjacencies[i][j] is true
+	// This is always an undirected graph, this matrix will always be symmetric (adjacencies[i][j] == adjacencies[j][i])
+	adjacencies [][]bool
+
+	// size is the number of nodes in the graph
+	size int
+}
+
+// volumeNode defines a node for the CollisionGraph and only exists within this scope
 type volumeNode struct {
 	name   string
 	volume spatial.Volume
 }
 
-type CollisionGraph struct {
-	indices     map[string]int
-	nodes       map[int]*volumeNode
-	adjacencies [][]bool
-	size        int
-}
-
-func NewCollisionGraph(vols map[string]spatial.Volume) *CollisionGraph {
+// newCollisionGraph is a helper function to instantiate a new CollisionGraph.  Note that since it does not set the
+// adjacencies matrix, returned CollisionGraphs are not correct on their own and need further processing
+func newCollisionGraph(vols map[string]spatial.Volume) *CollisionGraph {
 	cg := &CollisionGraph{}
 	cg.indices = make(map[string]int)
 	cg.nodes = make(map[int]*volumeNode)
@@ -34,25 +49,28 @@ func NewCollisionGraph(vols map[string]spatial.Volume) *CollisionGraph {
 	return cg
 }
 
-// Collisions returns a list with each element corresponding to a pair of names of nodes that are in collision within
-// the specified CollisionGraph
-func (cg *CollisionGraph) Collisions() []collision {
-	collisions := make([]collision, 0)
+// Collisions returns a list of Collision objects, with each element corresponding to a pair of names of nodes that
+// are in collision within the specified CollisionGraph
+func (cg *CollisionGraph) Collisions() []Collision {
+	collisions := make([]Collision, 0)
 	for i := 0; i < cg.size; i++ {
 		for j := i + 1; j < cg.size; j++ {
 			if cg.adjacencies[i][j] {
-				collisions = append(collisions, collision{cg.nodes[i].name, cg.nodes[j].name})
+				collisions = append(collisions, Collision{cg.nodes[i].name, cg.nodes[j].name})
 			}
 		}
 	}
 	return collisions
 }
 
+// CheckCollisions checks each possible Volume pair for a collision, and if there is it will be stored as an edge in a
+// newly instantiated CollisionGraph that is returned
 func CheckCollisions(vols map[string]spatial.Volume) (*CollisionGraph, error) {
-	cg := NewCollisionGraph(vols)
+	cg := newCollisionGraph(vols)
 
 	// iterate through all Volume pairs and store collisions as edges in graph
 	for i := 0; i < cg.size; i++ {
+		//
 		for j := i + 1; j < cg.size; j++ {
 			err := cg.checkAddEdge(i, j)
 			if err != nil {
@@ -63,10 +81,13 @@ func CheckCollisions(vols map[string]spatial.Volume) (*CollisionGraph, error) {
 	return cg, nil
 }
 
+// CheckUniqueCollisions checks each possible Volume pair for a collision, and if there is it will be stored as an edge
+// in a newly instantiated CollisionGraph that is returned. Edges between volumes that already exist in the passed in
+// "seen" CollisionGraph will not be present in the returned CollisionGraph
 func CheckUniqueCollisions(vols map[string]spatial.Volume, seen *CollisionGraph) (*CollisionGraph, error) {
-	cg := NewCollisionGraph(vols)
+	cg := newCollisionGraph(vols)
 
-	// iterate through all Volume pairs and store collisions as edges in graph
+	// iterate through all Volume pairs and store new collisions as edges in graph
 	for i := 0; i < cg.size; i++ {
 		for j := i + 1; j < cg.size; j++ {
 			// ignore any previously seen collisions
