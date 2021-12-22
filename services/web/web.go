@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
-	"net"
 	"net/http"
 	"net/http/pprof"
 	"sync"
@@ -118,9 +117,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if app.options.WebRTC {
 		temp.WebRTCEnabled = true
-		if app.options.internalSignaling && !app.options.secure {
-			temp.WebRTCSignalingAddress = fmt.Sprintf("http://%s", app.options.SignalingAddress)
-		} else {
+		if !app.options.internalSignaling || app.options.secure {
 			temp.WebRTCSignalingAddress = fmt.Sprintf("https://%s", app.options.SignalingAddress)
 		}
 		temp.WebRTCHost = app.options.Name
@@ -393,11 +390,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	svc.server = rpcServer
 	if options.SignalingAddress == "" {
 		options.internalSignaling = true
-		_, port, err := net.SplitHostPort(options.Network.BindAddress)
-		if err != nil {
-			return err
-		}
-		options.SignalingAddress = fmt.Sprintf("localhost:%s", port)
+		options.SignalingAddress = listenerAddr
 	}
 	if options.Name == "" {
 		options.Name = rpcServer.SignalingHost()
