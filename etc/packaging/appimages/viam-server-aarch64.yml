@@ -12,6 +12,7 @@ script:
  - cp ./viam-server.service "$APPDIR/"
  - go install github.com/Otterverse/aix@latest
  - cp `go env GOPATH`/bin/aix "$APPDIR/usr/bin/"
+ - cp `which env` "$APPDIR/usr/bin/"
  - chmod 755 "$APPDIR/usr/bin/"*
 
 AppDir:
@@ -34,15 +35,19 @@ AppDir:
     - sourceline: deb [trusted=yes] http://packages.viam.com/debian viam/
     - sourceline: deb [trusted=yes] http://archive.raspberrypi.org/debian/ bullseye main
     include:
-    - libnlopt0:arm64
-    - libwasmer2:arm64
-    - libx264-160:arm64
-    - libpigpio1:arm64
+    - bash
+    - libnlopt0
+    - libwasmer2
+    - libx264-160
+    - libpigpio1
   files:
     include: []
     exclude:
+    - usr/bin/bashbug
     - usr/share/man
     - usr/share/doc
+    - usr/share/info
+    - usr/share/lintian
   runtime:
     env:
         AIX_TARGET: usr/bin/viam-server
