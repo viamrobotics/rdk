@@ -228,7 +228,7 @@
                           }
                       }
                       req.setName(motor);
-                      theData.chartStream = robotService.motorPIDStep(req)
+                      theData.chartStream = motorService.pIDStep(req)
                       chart.unpause();
                       theData.chartStream.on('data', function(resp){
                           this.addData(resp)
@@ -359,13 +359,13 @@
 
                     switch (cmd.type) {
                       case "go":
-                        robotService.motorGo(req, {}, (err, resp) => grpcCallback(err, resp));
+                        motorService.go(req, {}, (err, resp) => grpcCallback(err, resp));
                         break;
                       case "goFor":
-                        robotService.motorGoFor(req, {}, (err, resp) => grpcCallback(err, resp));
+                        motorService.goFor(req, {}, (err, resp) => grpcCallback(err, resp));
                         break;
                       case "goTo":
-                        robotService.motorGoTo(req, {}, (err, resp) => grpcCallback(err, resp));
+                        motorService.goTo(req, {}, (err, resp) => grpcCallback(err, resp));
                         break;
                     }
                   },
@@ -377,7 +377,7 @@
                       req.setName(motor);
                       switch (cmd.type) {
                       case "gain":
-                          robotService.motorSetPIDConfig(req, {}, (err, resp) => grpcCallback(err, resp));
+                          motorService.setPIDConfig(req, {}, (err, resp) => grpcCallback(err, resp));
 
                           break;
                       case "step":

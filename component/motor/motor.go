@@ -51,7 +51,7 @@ type Motor interface {
 	GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
 
 	// Set the current position (+/- offset) to be the new zero (home) position.
-	SetToZeroPosition(ctx context.Context, offset float64) error
+	ResetZeroPosition(ctx context.Context, offset float64) error
 
 	// Position reports the position of the motor based on its encoder. If it's not supported, the returned
 	// data is undefined. The unit returned is the number of revolutions which is intended to be fed
@@ -62,8 +62,8 @@ type Motor interface {
 	// is reliant on having an encoder.
 	PositionSupported(ctx context.Context) (bool, error)
 
-	// Off turns the motor off.
-	Off(ctx context.Context) error
+	// Stop turns the power to the motor off immediately, without any gradual step down.
+	Stop(ctx context.Context) error
 
 	// IsOn returns whether or not the motor is currently on.
 	IsOn(ctx context.Context) (bool, error)
@@ -87,95 +87,95 @@ type reconfigurableMotor struct {
 	actual Motor
 }
 
-func (_motor *reconfigurableMotor) ProxyFor() interface{} {
-	_motor.mu.RLock()
-	defer _motor.mu.RUnlock()
-	return _motor.actual
+func (r *reconfigurableMotor) ProxyFor() interface{} {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual
 }
 
-func (_motor *reconfigurableMotor) SetPower(ctx context.Context, powerPct float64) error {
-	_motor.mu.RLock()
-	defer _motor.mu.RUnlock()
-	return _motor.actual.SetPower(ctx, powerPct)
+func (r *reconfigurableMotor) SetPower(ctx context.Context, powerPct float64) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.SetPower(ctx, powerPct)
 }
 
-func (_motor *reconfigurableMotor) Go(ctx context.Context, powerPct float64) error {
-	_motor.mu.RLock()
-	defer _motor.mu.RUnlock()
-	return _motor.actual.Go(ctx, powerPct)
+func (r *reconfigurableMotor) Go(ctx context.Context, powerPct float64) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Go(ctx, powerPct)
 }
 
-func (_motor *reconfigurableMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
-	_motor.mu.RLock()
-	defer _motor.mu.RUnlock()
-	return _motor.actual.GoFor(ctx, rpm, revolutions)
+func (r *reconfigurableMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.GoFor(ctx, rpm, revolutions)
 }
 
-func (_motor *reconfigurableMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
-	_motor.mu.RLock()
-	defer _motor.mu.RUnlock()
-	return _motor.actual.GoTo(ctx, rpm, position)
+func (r *reconfigurableMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.GoTo(ctx, rpm, position)
 }
 
-func (_motor *reconfigurableMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	_motor.mu.RLock()
-	defer _motor.mu.RUnlock()
-	return _motor.actual.GoTillStop(ctx, rpm, stopFunc)
+func (r *reconfigurableMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.GoTillStop(ctx, rpm, stopFunc)
 }
 
-func (_motor *reconfigurableMotor) SetToZeroPosition(ctx context.Context, offset float64) error {
-	_motor.mu.RLock()
-	defer _motor.mu.RUnlock()
-	return _motor.actual.SetToZeroPosition(ctx, offset)
+func (r *reconfigurableMotor) ResetZeroPosition(ctx context.Context, offset float64) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.ResetZeroPosition(ctx, offset)
 }
 
-func (_motor *reconfigurableMotor) Position(ctx context.Context) (float64, error) {
-	_motor.mu.RLock()
-	defer _motor.mu.RUnlock()
-	return _motor.actual.Position(ctx)
+func (r *reconfigurableMotor) Position(ctx context.Context) (float64, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Position(ctx)
 }
 
-func (_motor *reconfigurableMotor) PositionSupported(ctx context.Context) (bool, error) {
-	_motor.mu.RLock()
-	defer _motor.mu.RUnlock()
-	return _motor.actual.PositionSupported(ctx)
+func (r *reconfigurableMotor) PositionSupported(ctx context.Context) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.PositionSupported(ctx)
 }
 
-func (_motor *reconfigurableMotor) Off(ctx context.Context) error {
-	_motor.mu.RLock()
-	defer _motor.mu.RUnlock()
-	return _motor.actual.Off(ctx)
+func (r *reconfigurableMotor) Stop(ctx context.Context) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.Stop(ctx)
 }
 
-func (_motor *reconfigurableMotor) IsOn(ctx context.Context) (bool, error) {
-	_motor.mu.RLock()
-	defer _motor.mu.RUnlock()
-	return _motor.actual.IsOn(ctx)
+func (r *reconfigurableMotor) IsOn(ctx context.Context) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.IsOn(ctx)
 }
 
-func (_motor *reconfigurableMotor) PID() PID {
-	_motor.mu.RLock()
-	defer _motor.mu.RUnlock()
-	return _motor.actual.PID()
+func (r *reconfigurableMotor) PID() PID {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.PID()
 }
 
-func (_motor *reconfigurableMotor) Close() error {
-	_motor.mu.RLock()
-	defer _motor.mu.RUnlock()
-	return viamutils.TryClose(_motor.actual)
+func (r *reconfigurableMotor) Close() error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return viamutils.TryClose(r.actual)
 }
 
-func (_motor *reconfigurableMotor) Reconfigure(newMotor resource.Reconfigurable) error {
-	_motor.mu.RLock()
-	defer _motor.mu.RUnlock()
+func (r *reconfigurableMotor) Reconfigure(newMotor resource.Reconfigurable) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	actual, ok := newMotor.(*reconfigurableMotor)
 	if !ok {
-		return errors.Errorf("expected new arm to be %T but got %T", _motor, newMotor)
+		return errors.Errorf("expected new arm to be %T but got %T", r, newMotor)
 	}
-	if err := viamutils.TryClose(_motor.actual); err != nil {
+	if err := viamutils.TryClose(r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
-	_motor.actual = actual.actual
+	r.actual = actual.actual
 	return nil
 }
 
