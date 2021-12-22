@@ -20,84 +20,85 @@ func TestNewBoxFromOffset(t *testing.T) {
 
 func TestBoxVsBox(t *testing.T) {
 	cases := []struct {
-		A        *box
-		B        *box
-		Expected bool
+		testname string
+		a        *box
+		b        *box
+		expected bool
 	}{
 		{
-			// test inscribed box
+			"test inscribed box",
 			makeBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
 			makeBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{1, 1, 1}),
 			true,
 		},
 		{
-			// test face to face contact
+			"test face to face contact",
 			makeBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{1, 1, 1}),
 			makeBox(NewZeroOrientation(), r3.Vector{2, 0, 0}, r3.Vector{1, 1, 1}),
 			true,
 		},
 		{
-			// test face to face near contact
+			"test face to face near contact",
 			makeBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{1, 1, 1}),
 			makeBox(NewZeroOrientation(), r3.Vector{2.01, 0, 0}, r3.Vector{1, 1, 1}),
 			false,
 		},
 		{
-			// test coincident edge contact
+			"test coincident edge contact",
 			makeBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{1, 1, 1}),
 			makeBox(NewZeroOrientation(), r3.Vector{2, 4, 0}, r3.Vector{1, 3, 1}),
 			true,
 		},
 		{
-			// test nearly coincident edges (no contact)
+			"test nearly coincident edges (no contact)",
 			makeBox((NewZeroOrientation()), r3.Vector{0, 0, 0}, r3.Vector{1, 1, 1}),
 			makeBox(NewZeroOrientation(), r3.Vector{2, 4.01, 0}, r3.Vector{1, 3, 1}),
 			false,
 		},
 		{
-			// test vertex to vertex contact
+			"test vertex to vertex contact",
 			makeBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{1, 1, 1}),
 			makeBox(NewZeroOrientation(), r3.Vector{2, 2, 2}, r3.Vector{1, 1, 1}),
 			true,
 		},
 		{
-			// test vertex to vertex near contact
+			"test vertex to vertex near contact",
 			makeBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{1, 1, 1}),
 			makeBox(NewZeroOrientation(), r3.Vector{2.01, 2, 2}, r3.Vector{1, 1, 1}),
 			false,
 		},
 		{
-			// test edge along face contact
+			"test edge along face contact",
 			makeBox(&EulerAngles{deg45, 0, 0}, r3.Vector{0, 0, 0}, r3.Vector{1, 1, 1}),
 			makeBox(NewZeroOrientation(), r3.Vector{0, 1 + math.Sqrt(2), 0}, r3.Vector{1, 1, 1}),
 			true,
 		},
 		{
-			// test edge along face near contact
+			"test edge along face near contact",
 			makeBox(&EulerAngles{deg45, 0, 0}, r3.Vector{0, 0, 0}, r3.Vector{1, 1, 1}),
 			makeBox(NewZeroOrientation(), r3.Vector{0, 1.01 + math.Sqrt(2), 0}, r3.Vector{1, 1, 1}),
 			false,
 		},
 		{
-			// test edge to edge contact
+			"test edge to edge contact",
 			makeBox(&EulerAngles{0, 0, deg45}, r3.Vector{0, 0, 0}, r3.Vector{1, 1, 1}),
 			makeBox(&EulerAngles{0, deg45, 0}, r3.Vector{2 * math.Sqrt(2), 0, 0}, r3.Vector{1, 1, 1}),
 			true,
 		},
 		{
-			// test edge to edge near contact
+			"test edge to edge near contact",
 			makeBox(&EulerAngles{0, 0, deg45}, r3.Vector{-.01, 0, 0}, r3.Vector{1, 1, 1}),
 			makeBox(&EulerAngles{0, deg45, 0}, r3.Vector{2 * math.Sqrt(2), 0, 0}, r3.Vector{1, 1, 1}),
 			false,
 		},
 		{
-			// test vertex to face contact
+			"test vertex to face contact",
 			makeBox(&EulerAngles{deg45, deg45, 0}, r3.Vector{0.5, -.5, 0}, r3.Vector{1, 1, 1}),
 			makeBox(&EulerAngles{0, 0, 0}, r3.Vector{0, 0, 0.97 + math.Sqrt(3)}, r3.Vector{1, 1, 1}),
 			true,
 		},
 		{
-			// test vertex to face contact
+			"test vertex to face contact",
 			makeBox(&EulerAngles{deg45, deg45, 0}, r3.Vector{0, 0, -0.01}, r3.Vector{1, 1, 1}),
 			makeBox(&EulerAngles{0, 0, 0}, r3.Vector{0, 0, 0.97 + math.Sqrt(3)}, r3.Vector{1, 1, 1}),
 			false,
@@ -105,11 +106,13 @@ func TestBoxVsBox(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		fn := test.ShouldBeTrue
-		if !c.Expected {
-			fn = test.ShouldBeFalse
-		}
-		test.That(t, boxVsBoxCollision(c.A, c.B), fn)
+		t.Run(c.testname, func(t *testing.T) {
+			fn := test.ShouldBeTrue
+			if !c.expected {
+				fn = test.ShouldBeFalse
+			}
+			test.That(t, boxVsBoxCollision(c.a, c.b), fn)
+		})
 	}
 }
 
