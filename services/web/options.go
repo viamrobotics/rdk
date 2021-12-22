@@ -44,5 +44,8 @@ func NewOptions() Options {
 	return Options{
 		AutoTile: true,
 		Pprof:    false,
+		Network: config.NetworkConfig{
+			BindAddress: "localhost:8080",
+		},
 	}
 }
