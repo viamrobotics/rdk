@@ -3,8 +3,6 @@
 
 package pi
 
-// TODO(maximpertsov): add to board component?
-
 import (
 	"context"
 
