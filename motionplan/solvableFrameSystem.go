@@ -34,10 +34,10 @@ func NewSolvableFrameSystem(fs frame.FrameSystem, logger golog.Logger) *Solvable
 func (fss *SolvableFrameSystem) SolvePose(ctx context.Context,
 	seedMap map[string][]frame.Input,
 	goal spatial.Pose,
-	solveFrame, goalFrame frame.Frame) ([]map[string][]frame.Input, error) {
+	solveFrame, goalFrame frame.Frame,
+) ([]map[string][]frame.Input, error) {
 
-	opt := NewDefaultPlannerOptions()
-	return fss.SolvePoseWithOptions(ctx, seedMap, goal, solveFrame, goalFrame, opt)
+	return fss.SolvePoseWithOptions(ctx, seedMap, goal, solveFrame, goalFrame, nil)
 }
 
 // SolvePoseWithOptions will take a set of starting positions, a goal frame, a frame to solve for, a pose, and a configurable
@@ -47,7 +47,13 @@ func (fss *SolvableFrameSystem) SolvePoseWithOptions(ctx context.Context,
 	seedMap map[string][]frame.Input,
 	goal spatial.Pose,
 	solveFrame, goalFrame frame.Frame,
-	opt *PlannerOptions) ([]map[string][]frame.Input, error) {
+	opt *PlannerOptions,
+) ([]map[string][]frame.Input, error) {
+
+	// Default for opt if nil
+	if opt == nil {
+		opt = NewDefaultPlannerOptions()
+	}
 
 	// Get parentage of both frames. This will also verify the frames are in the frame system
 	sFrames, err := fss.TracebackFrame(solveFrame)

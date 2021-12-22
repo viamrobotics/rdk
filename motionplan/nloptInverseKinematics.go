@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"math/rand"
 
@@ -61,11 +60,10 @@ func (ik *NloptIK) SetMaxIter(i int) {
 	ik.maxIterations = i
 }
 
-// Solve runs the actual solver and returns a list of all
+// Solve runs the actual solver and sends any solutions found to the given channel
 func (ik *NloptIK) Solve(ctx context.Context, c chan<- []frame.Input, newGoal spatial.Pose, seed []frame.Input, m Metric) error {
 	var err error
 
-	// Allow ~160 degrees of swing at most
 	tries := 1
 	iterations := 0
 	solutionsFound := 0
@@ -74,7 +72,7 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan<- []frame.Input, newGoal sp
 	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(ik.model.DoF())))
 	defer opt.Destroy()
 	if err != nil {
-		return fmt.Errorf("nlopt creation error: %w", err)
+		return errors.Wrap(err, "nlopt creation error")
 	}
 
 	if len(ik.lowerBound) == 0 || len(ik.upperBound) == 0 {

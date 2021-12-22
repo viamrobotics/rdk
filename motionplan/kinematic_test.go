@@ -26,7 +26,7 @@ const toSolve = 100
 
 var (
 	home = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
-	nCPU = runtime.NumCPU() / 4
+	nCPU = int(math.Max(1.0, float64(runtime.NumCPU()/4)))
 	seed = rand.New(rand.NewSource(1))
 )
 
@@ -283,7 +283,6 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	test.That(t, pointCamToXarm.Z, test.ShouldAlmostEqual, 0)
 }
 
-// This should test all of the kinematics functions
 func TestCombinedIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")

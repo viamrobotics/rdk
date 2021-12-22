@@ -47,7 +47,8 @@ func runSolver(ctx context.Context,
 	c chan<- []frame.Input,
 	pos spatialmath.Pose,
 	seed []frame.Input,
-	m Metric) error {
+	m Metric,
+) error {
 
 	return solver.Solve(ctx, c, pos, seed, m)
 }
