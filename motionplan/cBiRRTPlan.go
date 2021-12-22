@@ -62,12 +62,11 @@ func NewCBiRRTMotionPlanner(frame frame.Frame, nCPU int, logger golog.Logger) (M
 	if err != nil {
 		return nil, err
 	}
-	nlopt, err := CreateNloptIKSolver(frame, logger)
+	// nlopt should try only once
+	nlopt, err := CreateNloptIKSolver(frame, logger, 1)
 	if err != nil {
 		return nil, err
 	}
-	// nlopt should try only once
-	nlopt.SetMaxIter(1)
 	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: jointSolveDist, nCPU: nCPU}
 
 	mp.qstep = getFrameSteps(frame, frameStep)
