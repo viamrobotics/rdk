@@ -22,7 +22,7 @@ func TestCheckCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	collisions := cg.Collisions()
 	test.That(t, len(collisions), test.ShouldEqual, 1)
-	collisionEqual(t, collisions[0], Collision{"cube222", "cube333"})
+	test.That(t, collisionEqual(collisions[0], Collision{"cube222", "cube333"}), test.ShouldBeTrue)
 
 	// case 2: zero position of ur5e arm
 	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
@@ -61,13 +61,16 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	collisions := cg.Collisions()
 	test.That(t, len(collisions), test.ShouldEqual, 2)
-	collisionEqual(t, collisions[0], Collision{"UR5e:forearm_link", "UR5e:ee_link"})
-	collisionEqual(t, collisions[1], Collision{"UR5e:wrist_1_link", "UR5e:ee_link"})
+	equal := collisionsEqual(collisions, [2]Collision{{"UR5e:forearm_link", "UR5e:ee_link"}, {"UR5e:wrist_1_link", "UR5e:ee_link"}})
+	test.That(t, equal, test.ShouldBeTrue)
 }
 
-// collisionEqual is a helper function to test equality between collision objects
-func collisionEqual(t *testing.T, c1, c2 Collision) {
-	// fields can be out of order due to random nature of maps, check both cases
-	equal := (c1.name1 == c2.name1 && c1.name2 == c2.name2) || (c1.name1 == c2.name2 && c1.name2 == c2.name1)
-	test.That(t, equal, test.ShouldBeTrue)
+// collisionsEqual is a helper function to compare two Collision lists because they can be out of order due to random nature of maps
+func collisionsEqual(c1 []Collision, c2 [2]Collision) bool {
+	return (collisionEqual(c1[0], c2[0]) && collisionEqual(c1[1], c2[1])) || (collisionEqual(c1[0], c2[1]) && collisionEqual(c1[1], c2[0]))
+}
+
+// collisionEqual is a helper function to compare two Collisions because their strings can be out of order due to random nature of maps
+func collisionEqual(c1, c2 Collision) bool {
+	return (c1.name1 == c2.name1 && c1.name2 == c2.name2) || (c1.name1 == c2.name2 && c1.name2 == c2.name1)
 }
