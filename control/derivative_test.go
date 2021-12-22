@@ -21,9 +21,9 @@ func TestDerivativeConfig(t *testing.T) {
 		{
 			ControlBlockConfig{
 				Name: "Derive1",
-				Type: "Derivative",
+				Type: "derivative",
 				Attribute: config.AttributeMap{
-					"DeriveType": "Backward1st1",
+					"derive_type": "backward1st1",
 				},
 				DependsOn: []string{"A"},
 			},
@@ -32,20 +32,20 @@ func TestDerivativeConfig(t *testing.T) {
 		{
 			ControlBlockConfig{
 				Name: "Derive1",
-				Type: "Derivative",
+				Type: "derivative",
 				Attribute: config.AttributeMap{
-					"DeriveType": "Backward5st1",
+					"derive_type": "backward5st1",
 				},
 				DependsOn: []string{"A"},
 			},
-			"unsupported DeriveType Backward5st1 for block Derive1",
+			"unsupported derive_type backward5st1 for block Derive1",
 		},
 		{
 			ControlBlockConfig{
 				Name: "Derive1",
-				Type: "Derivative",
+				Type: "derivative",
 				Attribute: config.AttributeMap{
-					"DeriveType": "Backward2nd1",
+					"derive_type": "backward2nd1",
 				},
 				DependsOn: []string{"A", "B"},
 			},
@@ -54,13 +54,13 @@ func TestDerivativeConfig(t *testing.T) {
 		{
 			ControlBlockConfig{
 				Name: "Derive1",
-				Type: "Derivative",
+				Type: "derivative",
 				Attribute: config.AttributeMap{
-					"DeriveType2": "Backward2nd1",
+					"derive_type2": "backward2nd1",
 				},
 				DependsOn: []string{"A"},
 			},
-			"derive block Derive1 doesn't have a DerivType field",
+			"derive block Derive1 doesn't have a derive_type field",
 		},
 	} {
 		var d derivative
@@ -80,9 +80,9 @@ func TestDerivativeNext(t *testing.T) {
 	ctx := context.Background()
 	cfg := ControlBlockConfig{
 		Name: "Derive1",
-		Type: "Derivative",
+		Type: "derivative",
 		Attribute: config.AttributeMap{
-			"DeriveType": "Backward2nd2",
+			"derive_type": "backward2nd2",
 		},
 		DependsOn: []string{"A"},
 	}
@@ -111,9 +111,9 @@ func TestDerivativeNext(t *testing.T) {
 	}
 	cfg = ControlBlockConfig{
 		Name: "Derive1",
-		Type: "Derivative",
+		Type: "derivative",
 		Attribute: config.AttributeMap{
-			"DeriveType": "Backward1st2",
+			"derive_type": "backward1st2",
 		},
 		DependsOn: []string{"A"},
 	}
@@ -130,9 +130,9 @@ func TestDerivativeNext(t *testing.T) {
 	}
 	cfg = ControlBlockConfig{
 		Name: "Derive1",
-		Type: "Derivative",
+		Type: "derivative",
 		Attribute: config.AttributeMap{
-			"DeriveType": "Backward1st3",
+			"derive_type": "backward1st3",
 		},
 		DependsOn: []string{"A"},
 	}

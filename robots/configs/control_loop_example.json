@@ -40,65 +40,65 @@
           "frequency": 100,
           "blocks": [
             {
-              "name": "SetPoint",
-              "type": "Constant",
+              "name": "set_point",
+              "type": "constant",
               "attributes":{
-                "ConstantVal": 0.0
+                "constant_val": 0.0
               }
             },
             {
-              "name":"TrapZ",
-              "type" : "TrapezoidalVelocityProfile",
+              "name":"trapZ",
+              "type" : "trapezoidalVelocityProfile",
               "attributes":{
-                "MaxAcc":60000,
-                "MaxVel":5000
+                "max_acc":60000,
+                "max_vel":5000
               },
-              "depends_on":["SetPoint","Endpoint"]
+              "depends_on":["set_point","endpoint"]
             },
             {
-              "name": "Endpoint",
-              "type": "Endpoint",
+              "name": "endpoint",
+              "type": "endpoint",
               "attributes":{
                 "MotorName":"m-j1"
               },
               "depends_on":["PID"]
             },
             {
-              "name": "Sum",
-              "type" : "Sum",
+              "name": "sum",
+              "type" : "sum",
               "attributes":{
-                "SumString":"+-"
+                "sum_string":"+-"
               },
-              "depends_on":["TrapZ","Filter"]
+              "depends_on":["trapZ","filter"]
             },
             {
               "name": "PID",
               "type": "PID",
               "attributes":{
-                "Kp":0.00003,
-                "Ki":0.00081,
-                "Kd":0.0
+                "kP":0.00003,
+                "kI":0.00081,
+                "kD":0.0
               },
-              "depends_on":["Sum"]
+              "depends_on":["sum"]
             },
             {
-              "name" : "Filter",
-              "type": "Filter",
+              "name" : "filter",
+              "type": "filter",
               "attributes":{
-                "type":"FilterFIRWindowedSinc",
+                "type":"filterFIRWindowedSinc",
                 "fs":100,
                 "fc":9,
                 "kernel_size":5
               },
-              "depends_on":["Derivative"]
+              "depends_on":["derivative"]
             },
             {
-              "name": "Derivative",
-              "type": "Derivative",
+              "name": "derivative",
+              "type": "derivative",
               "attributes":{
-                "DeriveType" : "Backward1st2"
+                "derive_type" : "backward1st2"
               },
-              "depends_on":["Endpoint"]
+              "depends_on":["endpoint"]
             }
           ]
         }

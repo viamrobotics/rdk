@@ -37,13 +37,13 @@ func (b *gain) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal
 	return b.y, true
 }
 func (b *gain) reset() error {
-	if !b.cfg.Attribute.Has("Gain") {
-		return errors.Errorf("gain block %s doesn't have a Gain field", b.cfg.Name)
+	if !b.cfg.Attribute.Has("gain") {
+		return errors.Errorf("gain block %s doesn't have a gain field", b.cfg.Name)
 	}
 	if len(b.cfg.DependsOn) != 1 {
 		return errors.Errorf("invalid number of inputs for gain block %s expected 1 got %d", b.cfg.Name, len(b.cfg.DependsOn))
 	}
-	b.gain = b.cfg.Attribute.Float64("Gain", 1.0)
+	b.gain = b.cfg.Attribute.Float64("gain", 1.0)
 	b.y = make([]Signal, 1)
 	b.y[0] = makeSignal(b.cfg.Name, 1)
 	return nil

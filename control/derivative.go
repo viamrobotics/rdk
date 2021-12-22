@@ -13,11 +13,11 @@ import (
 type finiteDifferenceType string
 
 const (
-	backward1st1 finiteDifferenceType = "Backward1st1"
-	backward1st2 finiteDifferenceType = "Backward1st2"
-	backward1st3 finiteDifferenceType = "Backward1st3"
-	backward2nd1 finiteDifferenceType = "Backward2nd1"
-	backward2nd2 finiteDifferenceType = "Backward2nd2"
+	backward1st1 finiteDifferenceType = "backward1st1"
+	backward1st2 finiteDifferenceType = "backward1st2"
+	backward1st3 finiteDifferenceType = "backward1st3"
+	backward2nd1 finiteDifferenceType = "backward2nd1"
+	backward2nd2 finiteDifferenceType = "backward2nd2"
 )
 
 type derivativeStencil struct {
@@ -27,29 +27,29 @@ type derivativeStencil struct {
 }
 
 var backward1st1Stencil = derivativeStencil{
-	Type:   "Backward",
+	Type:   "backward",
 	Order:  1,
 	Coeffs: []float64{-1, 1},
 }
 
 var backward1st2Stencil = derivativeStencil{
-	Type:   "Backward",
+	Type:   "backward",
 	Order:  1,
 	Coeffs: []float64{0.5, -2, 1.5},
 }
 
 var backward1st3Stencil = derivativeStencil{
-	Type:   "Backward",
+	Type:   "backward",
 	Order:  1,
 	Coeffs: []float64{-0.3333333333, 1.5, -3, 1.83333333333},
 }
 var backward2nd1Stencil = derivativeStencil{
-	Type:   "Backward",
+	Type:   "backward",
 	Order:  2,
 	Coeffs: []float64{1, -2, 1},
 }
 var backward2nd2Stencil = derivativeStencil{
-	Type:   "Backward",
+	Type:   "backward",
 	Order:  2,
 	Coeffs: []float64{-1, 4, -5, 2},
 }
@@ -84,7 +84,7 @@ func derive(x []float64, dt time.Duration, stencil *derivativeStencil) (float64,
 }
 
 func (d *derivative) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
-	if d.stencil.Type == "Backward" {
+	if d.stencil.Type == "backward" {
 		for idx, s := range x {
 			d.px[idx] = append(d.px[idx][1:], s.GetSignalValueAt(0))
 			y, err := derive(d.px[idx], dt, &d.stencil)
@@ -99,13 +99,13 @@ func (d *derivative) Next(ctx context.Context, x []Signal, dt time.Duration) ([]
 }
 
 func (d *derivative) reset() error {
-	if !d.cfg.Attribute.Has("DeriveType") {
-		return errors.Errorf("derive block %s doesn't have a DerivType field", d.cfg.Name)
+	if !d.cfg.Attribute.Has("derive_type") {
+		return errors.Errorf("derive block %s doesn't have a derive_type field", d.cfg.Name)
 	}
 	if len(d.cfg.DependsOn) != 1 {
 		return errors.Errorf("derive block %s only supports one input got %d", d.cfg.Name, len(d.cfg.DependsOn))
 	}
-	switch finiteDifferenceType(d.cfg.Attribute.String("DeriveType")) {
+	switch finiteDifferenceType(d.cfg.Attribute.String("derive_type")) {
 	case backward1st1:
 		d.stencil = backward1st1Stencil
 	case backward1st2:
@@ -117,7 +117,7 @@ func (d *derivative) reset() error {
 	case backward2nd2:
 		d.stencil = backward2nd2Stencil
 	default:
-		return errors.Errorf("unsupported DeriveType %s for block %s", d.cfg.Attribute.String("DeriveType"), d.cfg.Name)
+		return errors.Errorf("unsupported derive_type %s for block %s", d.cfg.Attribute.String("derive_type"), d.cfg.Name)
 	}
 	d.px = make([][]float64, len(d.cfg.DependsOn))
 	d.y = make([]Signal, len(d.cfg.DependsOn))

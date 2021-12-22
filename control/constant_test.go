@@ -18,10 +18,10 @@ func TestConstantConfig(t *testing.T) {
 	}{
 		{
 			ControlBlockConfig{
-				Name: "Constant1",
-				Type: "Constant",
+				Name: "constant1",
+				Type: "constant",
 				Attribute: config.AttributeMap{
-					"ConstantVal": 1.89345,
+					"constant_val": 1.89345,
 				},
 				DependsOn: []string{},
 			},
@@ -29,25 +29,25 @@ func TestConstantConfig(t *testing.T) {
 		},
 		{
 			ControlBlockConfig{
-				Name: "Constant1",
-				Type: "Constant",
+				Name: "constant1",
+				Type: "constant",
 				Attribute: config.AttributeMap{
-					"ConstantS": 1.89345,
+					"constant_S": 1.89345,
 				},
 				DependsOn: []string{},
 			},
-			"constant block Constant1 doesn't have a ConstantVal field",
+			"constant block constant1 doesn't have a constant_val field",
 		},
 		{
 			ControlBlockConfig{
-				Name: "Constant1",
-				Type: "Constant",
+				Name: "constant1",
+				Type: "constant",
 				Attribute: config.AttributeMap{
-					"ConstantVal": 1.89345,
+					"constant_val": 1.89345,
 				},
 				DependsOn: []string{"A", "B"},
 			},
-			"invalid number of inputs for constant block Constant1 expected 0 got 2",
+			"invalid number of inputs for constant block constant1 expected 0 got 2",
 		},
 	} {
 		var s constant
@@ -66,10 +66,10 @@ func TestConstantConfig(t *testing.T) {
 func TestConstantNext(t *testing.T) {
 	ctx := context.Background()
 	c := ControlBlockConfig{
-		Name: "Constant1",
-		Type: "Constant",
+		Name: "constant1",
+		Type: "constant",
 		Attribute: config.AttributeMap{
-			"ConstantVal": 1.89345,
+			"constant_val": 1.89345,
 		},
 		DependsOn: []string{},
 	}

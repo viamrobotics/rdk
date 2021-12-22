@@ -22,7 +22,7 @@ func TestSumConfig(t *testing.T) {
 				Name: "Sum1",
 				Type: "Sum",
 				Attribute: config.AttributeMap{
-					"SumString": "--++",
+					"sum_string": "--++",
 				},
 				DependsOn: []string{"A", "B", "C", "D"},
 			},
@@ -33,18 +33,18 @@ func TestSumConfig(t *testing.T) {
 				Name: "Sum1",
 				Type: "Sum",
 				Attribute: config.AttributeMap{
-					"SumStringS": "--++",
+					"sum_stringS": "--++",
 				},
 				DependsOn: []string{"A", "B", "C", "D"},
 			},
-			"sum block Sum1 doesn't have a SumString",
+			"sum block Sum1 doesn't have a sum_string",
 		},
 		{
 			ControlBlockConfig{
 				Name: "Sum1",
 				Type: "Sum",
 				Attribute: config.AttributeMap{
-					"SumString": "--++",
+					"sum_string": "--++",
 				},
 				DependsOn: []string{"B", "C", "D"},
 			},
@@ -55,7 +55,7 @@ func TestSumConfig(t *testing.T) {
 				Name: "Sum1",
 				Type: "Sum",
 				Attribute: config.AttributeMap{
-					"SumString": "--+\\",
+					"sum_string": "--+\\",
 				},
 				DependsOn: []string{"A", "B", "C", "D"},
 			},
@@ -81,7 +81,7 @@ func TestSumNext(t *testing.T) {
 		Name: "Sum1",
 		Type: "Sum",
 		Attribute: config.AttributeMap{
-			"SumString": "--++",
+			"sum_string": "--++",
 		},
 		DependsOn: []string{"A", "B", "C", "D"},
 	}

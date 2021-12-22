@@ -22,7 +22,7 @@ func TestPIDConfig(t *testing.T) {
 		{
 			ControlBlockConfig{
 				Name:      "PID1",
-				Attribute: config.AttributeMap{"Kd": 0.11, "Kp": 0.12, "Ki": 0.22},
+				Attribute: config.AttributeMap{"kD": 0.11, "kP": 0.12, "kI": 0.22},
 				Type:      "PID",
 				DependsOn: []string{"A", "B"},
 			},
@@ -31,7 +31,7 @@ func TestPIDConfig(t *testing.T) {
 		{
 			ControlBlockConfig{
 				Name:      "PID1",
-				Attribute: config.AttributeMap{"Kd": 0.11, "Kp": 0.12, "Ki": 0.22},
+				Attribute: config.AttributeMap{"kD": 0.11, "kP": 0.12, "kI": 0.22},
 				Type:      "PID",
 				DependsOn: []string{"A"},
 			},
@@ -44,7 +44,7 @@ func TestPIDConfig(t *testing.T) {
 				Type:      "PID",
 				DependsOn: []string{"A"},
 			},
-			"pid block PID1 should have at least one Ki, Kp or Kd field",
+			"pid block PID1 should have at least one kI, kP or kD field",
 		},
 	} {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
@@ -66,13 +66,13 @@ func TestPIDBasicIntegralWindup(t *testing.T) {
 	cfg := ControlBlockConfig{
 		Name: "PID1",
 		Attribute: config.AttributeMap{
-			"Kd":          0.11,
-			"Kp":          0.12,
-			"Ki":          0.22,
-			"LimitUp":     100.0,
-			"LimitLo":     0.0,
-			"IntSatLimUp": 100.0,
-			"IntSatLimLo": 0.0,
+			"kD":             0.11,
+			"kP":             0.12,
+			"kI":             0.22,
+			"limit_up":       100.0,
+			"limit_lo":       0.0,
+			"int_sat_lim_up": 100.0,
+			"int_sat_lim_lo": 0.0,
 		},
 		Type:      "PID",
 		DependsOn: []string{"A"},
@@ -124,15 +124,15 @@ func TestPIDTunner(t *testing.T) {
 	cfg := ControlBlockConfig{
 		Name: "PID1",
 		Attribute: config.AttributeMap{
-			"Kd":          0.0,
-			"Kp":          0.0,
-			"Ki":          0.0,
-			"LimitUp":     255.0,
-			"LimitLo":     0.0,
-			"IntSatLimUp": 255.0,
-			"IntSatLimLo": 0.0,
-			"TuneRValue":  1.0,
-			"TuneStepPct": 0.45,
+			"kD":             0.0,
+			"kP":             0.0,
+			"kI":             0.0,
+			"limit_up":       255.0,
+			"limit_lo":       0.0,
+			"int_sat_lim_up": 255.0,
+			"int_sat_lim_lo": 0.0,
+			"tune_ssr_value": 2.0,
+			"tune_step_pct":  0.45,
 		},
 		Type:      "PID",
 		DependsOn: []string{"A"},

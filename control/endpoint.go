@@ -50,8 +50,8 @@ func (e *endpoint) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 }
 
 func (e *endpoint) reset() error {
-	if !e.cfg.Attribute.Has("MotorName") {
-		return errors.Errorf("endpoint %s should have a MotorName field", e.cfg.Name)
+	if !e.cfg.Attribute.Has("motor_name") {
+		return errors.Errorf("endpoint %s should have a motor_name field", e.cfg.Name)
 	}
 	e.y = make([]Signal, 1)
 	e.y[0] = makeSignal(e.cfg.Name, 1)

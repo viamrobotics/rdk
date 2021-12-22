@@ -13,15 +13,15 @@ import (
 type controlBlockType string
 
 const (
-	blockEndpoint                    controlBlockType = "Endpoint"
-	blockFilter                      controlBlockType = "Filter"
-	blockTrapezoidaleVelocityProfile controlBlockType = "TrapezoidalVelocityProfile"
-	blockPID                         controlBlockType = "PID"
-	blockGain                        controlBlockType = "Gain"
-	blockDerivative                  controlBlockType = "Derivative"
-	blockSum                         controlBlockType = "Sum"
-	blockConstant                    controlBlockType = "Constant"
-	blockEncoderToRPM                controlBlockType = "EncoderToRpm"
+	blockEndpoint                   controlBlockType = "endpoint"
+	blockFilter                     controlBlockType = "filter"
+	blockTrapezoidalVelocityProfile controlBlockType = "trapezoidalVelocityProfile"
+	blockPID                        controlBlockType = "PID"
+	blockGain                       controlBlockType = "gain"
+	blockDerivative                 controlBlockType = "derivative"
+	blockSum                        controlBlockType = "sum"
+	blockConstant                   controlBlockType = "constant"
+	blockEncoderToRPM               controlBlockType = "encoderToRpm"
 )
 
 //ControlBlockConfig configuration of a given block
@@ -76,7 +76,7 @@ func createControlBlock(ctx context.Context, cfg ControlBlockConfig, logger golo
 			return nil, err
 		}
 		return b, nil
-	case blockTrapezoidaleVelocityProfile:
+	case blockTrapezoidalVelocityProfile:
 		b, err := newTrapezoidVelocityProfile(cfg, logger)
 		if err != nil {
 			return nil, err

@@ -12,10 +12,10 @@ import (
 type filterType string
 
 const (
-	filterFIRMovingAverage  filterType = "FilterFIRMovingAverage"
-	filterFIRWindowedSinc   filterType = "FilterFIRWindowedSinc"
-	filterIIRButterworth    filterType = "FilterIIRButterworth"
-	filterIIRChebyshevTypeI filterType = "FilterIIRChebyshevTypeI"
+	filterFIRMovingAverage  filterType = "filterFIRMovingAverage"
+	filterFIRWindowedSinc   filterType = "filterFIRWindowedSinc"
+	filterIIRButterworth    filterType = "filterIIRButterworth"
+	filterIIRChebyshevTypeI filterType = "filterIIRChebyshevTypeI"
 )
 
 type filter interface {
@@ -48,7 +48,7 @@ func (f *filterStruct) initFilter() error {
 	fType := f.cfg.Attribute.String("type")
 	switch filterType(fType) {
 	case filterFIRMovingAverage:
-		if !f.cfg.Attribute.Has("filterSize") {
+		if !f.cfg.Attribute.Has("filter_size") {
 			return errors.Errorf("filter %s of type %s should have a filterSize field", f.cfg.Name, fType)
 		}
 		flt := movingAverageFilter{
