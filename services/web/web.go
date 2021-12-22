@@ -354,7 +354,7 @@ func (svc *webService) installWeb(ctx context.Context, mux *goji.Mux, theRobot r
 // until the context is done.
 func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
 	listener, secure, err := utils.NewPossiblySecureTCPListenerFromFile(
-		options.Port, options.TLSCertFile, options.TLSKeyFile)
+		fmt.Sprintf(":%d", options.Port), options.TLSCertFile, options.TLSKeyFile)
 	if err != nil {
 		return err
 	}
