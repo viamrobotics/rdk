@@ -105,6 +105,6 @@ func TestWriteViam(t *testing.T) {
 }
 
 var viamPoints = []spatial.Pose{
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: wbY + 1.5, Z: 595, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 200, Y: wbY + 1.5, Z: 595, OY: -1}),
 	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: wbY + 1.5, Z: 595, OY: -1}),
 }
