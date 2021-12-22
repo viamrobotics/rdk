@@ -95,7 +95,11 @@ func (mp *linearMotionPlanner) Resolution() float64 {
 	return mp.stepSize
 }
 
-func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, seed []frame.Input, opt *PlannerOptions) ([][]frame.Input, error) {
+func (mp *linearMotionPlanner) Plan(ctx context.Context,
+	goal *commonpb.Pose,
+	seed []frame.Input,
+	opt *PlannerOptions) ([][]frame.Input, error) {
+
 	// Store copy of planner options for duration of solve
 	var inputSteps [][]frame.Input
 
@@ -226,7 +230,12 @@ func fixOvIncrement(pos, seed *commonpb.Pose) *commonpb.Pose {
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
-func getSolutions(ctx context.Context, opt *PlannerOptions, solver InverseKinematics, goal *commonpb.Pose, seed []frame.Input, f frame.Frame) (map[float64][]frame.Input, error) {
+func getSolutions(ctx context.Context,
+	opt *PlannerOptions,
+	solver InverseKinematics,
+	goal *commonpb.Pose,
+	seed []frame.Input,
+	f frame.Frame) (map[float64][]frame.Input, error) {
 
 	seedPos, err := f.Transform(seed)
 	if err != nil {
