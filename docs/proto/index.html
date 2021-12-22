@@ -4383,7 +4383,7 @@ To Do (FA): This will be deprecated</p></td>
                   <td>value</td>
                   <td><a href="#int64">int64</a></td>
                   <td></td>
-                  <td><p>Returns the amount of ticks that have been recorded for a given digtal interrupt at the time that the request was recieved </p></td>
+                  <td><p>Returns the returns the value of the interrupt based on the driver </p></td>
                 </tr>
               
             </tbody>
@@ -5744,7 +5744,7 @@ available to a given Input Controller </p></td>
                   <td>events</td>
                   <td><a href="#proto.api.v1.InputControllerEventStreamRequest.Events">InputControllerEventStreamRequest.Events</a></td>
                   <td>repeated</td>
-                  <td><p>A list of InputControllerEvents </p></td>
+                  <td><p>A list of Events </p></td>
                 </tr>
               
             </tbody>
@@ -5776,7 +5776,7 @@ available to a given Input Controller </p></td>
                   <td><a href="#string">string</a></td>
                   <td>repeated</td>
                   <td><p>Specify which event types to recieve events for
-This can be an empty list </p></td>
+To Do (FA): Right now this can be an empty list, but we should error in this case as opening a stream with no messages is expensive </p></td>
                 </tr>
               
                 <tr>
@@ -5870,8 +5870,8 @@ This can be an empty list </p></td>
                   <td>events</td>
                   <td><a href="#proto.api.v1.InputControllerEvent">InputControllerEvent</a></td>
                   <td>repeated</td>
-                  <td><p>Returns a list of all of the controls (buttons and axes) on a given Input Controller
-and their last recorded event </p></td>
+                  <td><p>Returns a list of the most recent event for each control on a given InputController. Effectively provides the current &#34;state&#34; of all 
+buttons/axes on a given input controller </p></td>
                 </tr>
               
             </tbody>
@@ -7243,7 +7243,7 @@ angular speed, expressed in degrees per second</p></td>
                 <td>BoardGPIOSet</td>
                 <td><a href="#proto.api.v1.BoardGPIOSetRequest">BoardGPIOSetRequest</a></td>
                 <td><a href="#proto.api.v1.BoardGPIOSetResponse">BoardGPIOSetResponse</a></td>
-                <td><p>BoardGPIOSet sets a given pin on a robot&#39;s board</p></td>
+                <td><p>BoardGPIOSet sets a given pin on a robot&#39;s board to either high or low</p></td>
               </tr>
             
               <tr>
@@ -7257,8 +7257,8 @@ angular speed, expressed in degrees per second</p></td>
                 <td>BoardPWMSet</td>
                 <td><a href="#proto.api.v1.BoardPWMSetRequest">BoardPWMSetRequest</a></td>
                 <td><a href="#proto.api.v1.BoardPWMSetResponse">BoardPWMSetResponse</a></td>
-                <td><p>BoardPWMSet sets a given pin on a robot&#39;s board to a given duty cycle expressed as a 
-value between 0-255 where 255 means that the pin is high 100% of the time</p></td>
+                <td><p>BoardPWMSet sets a given pin on a robot&#39;s board to a given duty cycle expressed as a value between 0-255 where 255 means that the pin 
+is high 100% of the time</p></td>
               </tr>
             
               <tr>
@@ -7288,16 +7288,15 @@ of a specified analog reader on the robot&#39;s board</p></td>
                 <td>BoardDigitalInterruptValue</td>
                 <td><a href="#proto.api.v1.BoardDigitalInterruptValueRequest">BoardDigitalInterruptValueRequest</a></td>
                 <td><a href="#proto.api.v1.BoardDigitalInterruptValueResponse">BoardDigitalInterruptValueResponse</a></td>
-                <td><p>BoardDigitalInterruptValue returns the amount of ticks that have occurred on a given digital interrupt 
-on a robot&#39;s board</p></td>
+                <td><p></p></td>
               </tr>
             
               <tr>
                 <td>BoardDigitalInterruptTick</td>
                 <td><a href="#proto.api.v1.BoardDigitalInterruptTickRequest">BoardDigitalInterruptTickRequest</a></td>
                 <td><a href="#proto.api.v1.BoardDigitalInterruptTickResponse">BoardDigitalInterruptTickResponse</a></td>
-                <td><p>BoardDigitalInterruptTick transmits whether a given interrupt is high or low at a given time 
-to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests</p></td>
+                <td><p>BoardDigitalInterruptTick manually signals the given interrupt is high or low at a given time to be called either manually if the 
+interrupt is a proxy to some real hardware interrupt or for tests . To Do: This will be removed from proto</p></td>
               </tr>
             
               <tr>
@@ -7374,23 +7373,22 @@ to be called either manually if the interrupt is a proxy to some real hardware i
                 <td>InputControllerLastEvents</td>
                 <td><a href="#proto.api.v1.InputControllerLastEventsRequest">InputControllerLastEventsRequest</a></td>
                 <td><a href="#proto.api.v1.InputControllerLastEventsResponse">InputControllerLastEventsResponse</a></td>
-                <td><p>InputControllerLastEvents returns a list of all the controls on a given robot&#39;s controller
-and their last InputControllerEvent</p></td>
+                <td><p>InputControllerLastEvents returns a list of events representing the last event on each control of a give Input Controller</p></td>
               </tr>
             
               <tr>
                 <td>InputControllerEventStream</td>
                 <td><a href="#proto.api.v1.InputControllerEventStreamRequest">InputControllerEventStreamRequest</a></td>
                 <td><a href="#proto.api.v1.InputControllerEvent">InputControllerEvent</a> stream</td>
-                <td><p>InputControllerEventStream starts a stream of InputControllerEvents for a given control (button or axes)
-on a robot&#39;s input controller</p></td>
+                <td><p>InputControllerEventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot&#39;s input controller</p></td>
               </tr>
             
               <tr>
                 <td>InputControllerInjectEvent</td>
                 <td><a href="#proto.api.v1.InputControllerInjectEventRequest">InputControllerInjectEventRequest</a></td>
                 <td><a href="#proto.api.v1.InputControllerInjectEventResponse">InputControllerInjectEventResponse</a></td>
-                <td><p>InputControllerInjectEvent digitally asserts an InputControllerEvent on a robot&#39;s input controller</p></td>
+                <td><p>InputControllerInjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events 
+like button presses or axis movements</p></td>
               </tr>
             
               <tr>

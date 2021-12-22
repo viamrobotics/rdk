@@ -2768,7 +2768,7 @@ type BoardDigitalInterruptValueResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Returns the amount of ticks that have been recorded for a given digtal interrupt at the time that the request was recieved
+	// Returns the returns the value of the interrupt based on the driver
 	Value int64 `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
 }
 
@@ -4716,8 +4716,8 @@ type InputControllerLastEventsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Returns a list of all of the controls (buttons and axes) on a given Input Controller
-	// and their last recorded event
+	// Returns a list of the most recent event for each control on a given InputController. Effectively provides the current "state" of all
+	// buttons/axes on a given input controller
 	Events []*InputControllerEvent `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
 }
 
@@ -4983,7 +4983,7 @@ type InputControllerEventStreamRequest struct {
 
 	// Name of an input controller
 	Controller string `protobuf:"bytes,1,opt,name=controller,proto3" json:"controller,omitempty"`
-	// A list of InputControllerEvents
+	// A list of Events
 	Events []*InputControllerEventStreamRequest_Events `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
 }
 
@@ -5678,7 +5678,7 @@ type InputControllerEventStreamRequest_Events struct {
 	// Name of a control (button or axis)
 	Control string `protobuf:"bytes,1,opt,name=control,proto3" json:"control,omitempty"`
 	// Specify which event types to recieve events for
-	// This can be an empty list
+	// To Do (FA): Right now this can be an empty list, but we should error in this case as opening a stream with no messages is expensive
 	Events []string `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
 	// Specify which event types to stop recieving events for
 	// This can be an empty list
