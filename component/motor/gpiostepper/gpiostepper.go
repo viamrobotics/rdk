@@ -218,7 +218,7 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm float64, revolutions float6
 	rpm = math.Abs(rpm) * float64(d)
 
 	if math.Abs(rpm) < 0.1 {
-		return m.Off(ctx)
+		return m.Stop(ctx)
 	}
 
 	m.lock.Lock()
@@ -259,7 +259,7 @@ func (m *gpioStepper) GoTillStop(ctx context.Context, rpm float64, stopFunc func
 }
 
 // Set the current position (+/- offset) to be the new zero (home) position.
-func (m *gpioStepper) SetToZeroPosition(ctx context.Context, offset float64) error {
+func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.stepPosition = int64(offset * float64(m.stepsPerRotation))
@@ -281,8 +281,8 @@ func (m *gpioStepper) PositionSupported(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-// Off turns the motor off.
-func (m *gpioStepper) Off(ctx context.Context) error {
+// Stop turns the power to the motor off immediately, without any gradual step down.
+func (m *gpioStepper) Stop(ctx context.Context) error {
 	m.stop()
 	m.lock.Lock()
 	defer m.lock.Unlock()

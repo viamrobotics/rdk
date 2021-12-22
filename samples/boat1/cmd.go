@@ -90,7 +90,7 @@ func (b *Boat) WidthMillis(ctx context.Context) (int, error) {
 
 // Stop TODO
 func (b *Boat) Stop(ctx context.Context) error {
-	return multierr.Combine(b.starboard.Off(ctx), b.port.Off(ctx))
+	return multierr.Combine(b.starboard.Stop(ctx), b.port.Stop(ctx))
 }
 
 // Close TODO

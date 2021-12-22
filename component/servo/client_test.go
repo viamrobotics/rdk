@@ -3,7 +3,6 @@ package servo_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"testing"
 
@@ -36,7 +35,6 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 	workingServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
-		fmt.Println("HIT")
 		return 20, nil
 	}
 
@@ -94,7 +92,6 @@ func TestClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 		workingServoDialedClient := servo.NewClientFromConn(conn, "workingServo", logger)
-		test.That(t, err, test.ShouldBeNil)
 
 		err = workingServoDialedClient.Move(context.Background(), 20)
 		test.That(t, err, test.ShouldBeNil)

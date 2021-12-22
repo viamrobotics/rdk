@@ -529,11 +529,11 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 func (m *EncodedMotor) off(ctx context.Context) error {
 	m.state.desiredRPM = 0
 	m.state.regulated = false
-	return m.real.Off(ctx)
+	return m.real.Stop(ctx)
 }
 
-// Off turns the motor off.
-func (m *EncodedMotor) Off(ctx context.Context) error {
+// Stop turns the power to the motor off immediately, without any gradual step down.
+func (m *EncodedMotor) Stop(ctx context.Context) error {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 	return m.off(ctx)
@@ -570,7 +570,7 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 		return err
 	}
 	defer func() {
-		if err := m.Off(ctx); err != nil {
+		if err := m.Stop(ctx); err != nil {
 			m.logger.Error("failed to turn off motor")
 		}
 	}()
@@ -633,7 +633,8 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 	return nil
 }
 
-// SetToZeroPosition resets the position to zero/home
-func (m *EncodedMotor) SetToZeroPosition(ctx context.Context, offset float64) error {
-	return m.encoder.SetToZeroPosition(ctx, int64(offset*float64(m.cfg.TicksPerRotation)))
+// ResetZeroPosition sets the current position of the motor specified by the request
+// (adjusted by a given offset) to be its new zero position
+func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64) error {
+	return m.encoder.ResetZeroPosition(ctx, int64(offset*float64(m.cfg.TicksPerRotation)))
 }

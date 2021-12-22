@@ -109,7 +109,7 @@ func (g *oneAxis) init(ctx context.Context) error {
 
 func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 	defer utils.UncheckedErrorFunc(func() error {
-		return g.motor.Off(ctx)
+		return g.motor.Stop(ctx)
 	})
 
 	d := -1
@@ -130,7 +130,7 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 			return 0, err
 		}
 		if hit {
-			err = g.motor.Off(ctx)
+			err = g.motor.Stop(ctx)
 			if err != nil {
 				return 0, err
 			}

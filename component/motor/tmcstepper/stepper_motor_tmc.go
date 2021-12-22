@@ -391,8 +391,8 @@ func (m *Motor) Enable(ctx context.Context, turnOn bool) error {
 	return m.board.GPIOSet(ctx, m.enPin, !turnOn)
 }
 
-// Off stops the motor.
-func (m *Motor) Off(ctx context.Context) error {
+// Stop stops the motor.
+func (m *Motor) Stop(ctx context.Context) error {
 	return m.Go(ctx, 0)
 }
 
@@ -406,7 +406,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 	defer func() {
 		if err := multierr.Combine(
 			m.writeReg(ctx, swMode, 0x000),
-			m.Off(ctx),
+			m.Stop(ctx),
 		); err != nil {
 			m.logger.Error(err)
 		}
@@ -472,8 +472,9 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 	return nil
 }
 
-// SetToZeroPosition resets the current position to the offset given.
-func (m *Motor) SetToZeroPosition(ctx context.Context, offset float64) error {
+// ResetZeroPosition sets the current position of the motor specified by the request
+// (adjusted by a given offset) to be its new zero position
+func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	on, err := m.IsOn(ctx)
 	if err != nil {
 		return err

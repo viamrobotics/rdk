@@ -12,7 +12,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/base"
-	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
@@ -26,9 +25,6 @@ type (
 
 	// A CreateSensor creates a sensor from a given config.
 	CreateSensor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error)
-
-	// A CreateMotor creates a motor from a given config.
-	CreateMotor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error)
 
 	// A CreateService creates a service from a given config.
 	CreateService func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error)
@@ -50,12 +46,6 @@ type Base struct {
 type Sensor struct {
 	RegDebugInfo
 	Constructor CreateSensor
-}
-
-// Motor stores a Motor constructor function (mandatory)
-type Motor struct {
-	RegDebugInfo
-	Constructor CreateMotor
 }
 
 // Service stores a Service constructor (mandatory) and an attribute converter
