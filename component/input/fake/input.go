@@ -18,17 +18,20 @@ import (
 func init() {
 	registry.RegisterComponent(input.Subtype, "fake", registry.Component{Constructor: NewInputController})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "fake", func(attributes config.AttributeMap) (interface{}, error) {
-		var conf Config
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &Config{})
+	config.RegisterComponentAttributeMapConverter(
+		config.ComponentTypeInputController,
+		"fake",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &Config{})
 }
 
 // NewInputController returns a fake input.Controller
@@ -66,7 +69,12 @@ func (c *InputController) LastEvents(ctx context.Context) (map[input.Control]inp
 }
 
 // RegisterControlCallback registers a callback function to be executed on the specified trigger Event
-func (c *InputController) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+func (c *InputController) RegisterControlCallback(
+	ctx context.Context,
+	control input.Control,
+	triggers []input.EventType,
+	ctrlFunc input.ControlFunction,
+) error {
 	return errors.New("unsupported")
 }
 

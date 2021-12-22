@@ -43,6 +43,7 @@ linters:
       - unconvert
       - ineffassign
       - interfacer
+      - lll
   disable:
   fast: false
 

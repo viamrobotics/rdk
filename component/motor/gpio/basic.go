@@ -161,7 +161,7 @@ func (m *Motor) Go(ctx context.Context, powerPct float64) error {
 	m.cancelMu.Unlock()
 
 	if math.Abs(powerPct) <= 0.001 {
-		return m.Off(ctx)
+		return m.Stop(ctx)
 	}
 
 	if m.Dir != "" {
@@ -234,7 +234,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 		<-ctxWithTimeout.Done()
 		if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
 			// this has to be new context as previous one is likely timedout
-			err := m.Off(context.Background())
+			err := m.Stop(context.Background())
 
 			if err != nil {
 				m.logger.Errorw("failed to turn off motor", "error", err)
@@ -258,8 +258,8 @@ func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 	return m.on, nil
 }
 
-// Off turns the motor off by setting the appropriate pins to low states.
-func (m *Motor) Off(ctx context.Context) error {
+// Stop turns the power to the motor off immediately, without any gradual step down, by setting the appropriate pins to low states.
+func (m *Motor) Stop(ctx context.Context) error {
 	m.on = false
 	return m.SetPower(ctx, 0)
 }
@@ -274,7 +274,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 	return errors.New("not supported")
 }
 
-// SetToZeroPosition is not supported
-func (m *Motor) SetToZeroPosition(ctx context.Context, offset float64) error {
+// ResetZeroPosition is not supported
+func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return errors.New("not supported")
 }

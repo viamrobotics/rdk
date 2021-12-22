@@ -35,10 +35,17 @@ import (
 
 // init registers a pi board based on pigpio.
 func init() {
-	registry.RegisterBoard("pi", registry.Board{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error) {
-		boardConfig := config.ConvertedAttributes.(*board.Config)
-		return NewPigpio(ctx, boardConfig, logger)
-	}})
+	registry.RegisterBoard(
+		"pi",
+		registry.Board{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (board.Board, error) {
+			boardConfig := config.ConvertedAttributes.(*board.Config)
+			return NewPigpio(ctx, boardConfig, logger)
+		}})
 	board.RegisterConfigAttributeConverter("pi")
 }
 
