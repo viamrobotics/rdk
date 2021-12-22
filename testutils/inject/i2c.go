@@ -1,7 +1,7 @@
 package inject
 
 import (
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 )
 
 // I2C is an injected I2C.

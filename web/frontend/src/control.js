@@ -78,7 +78,7 @@ let connect = async () => {
 		window.servoService = new ServoServiceClient(window.webrtcHost, { transport: transportFactory });
 		window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: transportFactory });
 		window.inputControllerService = new InputControllerServiceClient(window.webrtcHost, { transport: transportFactory });
-		window.motorService = new MotorServiceClient(window.webrtcHost, { transport: cc.transportFactory });
+		window.motorService = new MotorServiceClient(window.webrtcHost, { transport: transportFactory });
 	} catch (e) {
 		console.error("error dialing:", e);
 		throw e;

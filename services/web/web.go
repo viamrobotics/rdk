@@ -117,9 +117,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if app.options.WebRTC {
 		temp.WebRTCEnabled = true
-		if app.options.internalSignaling && !app.options.secure {
-			temp.WebRTCSignalingAddress = fmt.Sprintf("http://%s", app.options.SignalingAddress)
-		} else {
+		if !app.options.internalSignaling || app.options.secure {
 			temp.WebRTCSignalingAddress = fmt.Sprintf("https://%s", app.options.SignalingAddress)
 		}
 		temp.WebRTCHost = app.options.Name
@@ -354,12 +352,15 @@ func (svc *webService) installWeb(ctx context.Context, mux *goji.Mux, theRobot r
 // until the context is done.
 func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
 	listener, secure, err := utils.NewPossiblySecureTCPListenerFromFile(
-		fmt.Sprintf(":%d", options.Port), options.TLSCertFile, options.TLSKeyFile)
+		options.Network.BindAddress,
+		options.Network.TLSCertFile,
+		options.Network.TLSKeyFile,
+	)
 	if err != nil {
 		return err
 	}
+	listenerAddr := listener.Addr().String()
 	options.secure = secure
-	humanAddress := fmt.Sprintf("localhost:%d", options.Port)
 
 	var signalingOpts []rpc.DialOption
 	if options.SignalingAddress == "" && !secure {
@@ -389,7 +390,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	svc.server = rpcServer
 	if options.SignalingAddress == "" {
 		options.internalSignaling = true
-		options.SignalingAddress = fmt.Sprintf("localhost:%d", options.Port)
+		options.SignalingAddress = listenerAddr
 	}
 	if options.Name == "" {
 		options.Name = rpcServer.SignalingHost()
@@ -497,7 +498,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	if err != nil {
 		return err
 	}
-	httpServer.Addr = listener.Addr().String()
+	httpServer.Addr = listenerAddr
 
 	svc.activeBackgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
@@ -533,7 +534,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	} else {
 		scheme = "http"
 	}
-	svc.logger.Infow("serving", "url", fmt.Sprintf("%s://%s", scheme, humanAddress))
+	svc.logger.Infow("serving", "url", fmt.Sprintf("%s://%s", scheme, listenerAddr))
 	svc.activeBackgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()

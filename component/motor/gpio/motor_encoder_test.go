@@ -8,12 +8,12 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
+	fakeboard "go.viam.com/core/component/board/fake"
 	"go.viam.com/core/component/motor"
 	fakemotor "go.viam.com/core/component/motor/fake"
 	"go.viam.com/core/config"
 	"go.viam.com/core/rlog"
-	"go.viam.com/core/robots/fake"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -491,7 +491,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 	})
 
 	t.Run("wrap motor with single encoder", func(t *testing.T) {
-		b, err := fake.NewBoard(context.Background(), config.Component{ConvertedAttributes: &board.Config{}}, rlog.Logger)
+		b, err := fakeboard.NewBoard(context.Background(), config.Component{ConvertedAttributes: &board.Config{}}, rlog.Logger)
 		test.That(t, err, test.ShouldBeNil)
 		real := &fakemotor.Motor{}
 		m, err := WrapMotorWithEncoder(
@@ -520,7 +520,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 	})
 
 	t.Run("wrap motor with hall encoder", func(t *testing.T) {
-		b, err := fake.NewBoard(context.Background(), config.Component{ConvertedAttributes: &board.Config{}}, rlog.Logger)
+		b, err := fakeboard.NewBoard(context.Background(), config.Component{ConvertedAttributes: &board.Config{}}, rlog.Logger)
 		test.That(t, err, test.ShouldBeNil)
 		real := &fakemotor.Motor{}
 		m, err := WrapMotorWithEncoder(

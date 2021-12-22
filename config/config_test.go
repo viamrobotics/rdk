@@ -10,12 +10,13 @@ import (
 
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/testutils/inject"
 
+	_ "go.viam.com/core/component/board/fake" // board attribute converters
 	_ "go.viam.com/core/component/motor/fake" // motor attribute converters
 	_ "go.viam.com/core/robots/fake"          // attribute converters
 )
@@ -224,6 +225,30 @@ func TestConfigEnsure(t *testing.T) {
 		return nil
 	}
 	test.That(t, invalidFunctions.Ensure(false), test.ShouldBeNil)
+
+	invalidNetwork := config.Config{
+		Network: config.NetworkConfig{
+			TLSCertFile: "hey",
+		},
+	}
+	err = invalidNetwork.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `network`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `both tls`)
+
+	invalidNetwork.Network.TLSCertFile = ""
+	invalidNetwork.Network.TLSKeyFile = "hey"
+	err = invalidNetwork.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `network`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `both tls`)
+
+	invalidNetwork.Network.TLSCertFile = "dude"
+	test.That(t, invalidNetwork.Ensure(false), test.ShouldBeNil)
+
+	invalidNetwork.Network.TLSCertFile = ""
+	invalidNetwork.Network.TLSKeyFile = ""
+	test.That(t, invalidNetwork.Ensure(false), test.ShouldBeNil)
 }
 
 func TestConfigSortComponents(t *testing.T) {

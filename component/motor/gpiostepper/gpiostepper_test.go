@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	fakeboard "go.viam.com/core/component/board/fake"
 	"go.viam.com/core/component/motor"
-	"go.viam.com/core/robots/fake"
 
 	"github.com/edaniels/golog"
 
@@ -17,7 +17,7 @@ func Test1(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	logger := golog.NewTestLogger(t)
 
-	b := &fake.Board{}
+	b := &fakeboard.Board{}
 
 	mc := motor.Config{}
 

@@ -20,6 +20,7 @@ func TestFromReaderValidate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conf, test.ShouldResemble, &Config{
 		ConfigFilePath: "somepath",
+		Network:        NetworkConfig{BindAddress: "localhost:8080"},
 	})
 
 	_, err = FromReader("somepath", strings.NewReader(`{"cloud": {}}`))
@@ -41,6 +42,7 @@ func TestFromReaderValidate(t *testing.T) {
 				Type: ComponentTypeArm,
 			},
 		},
+		Network: NetworkConfig{BindAddress: "localhost:8080"},
 	})
 
 	badComponentMapConverter := func() {

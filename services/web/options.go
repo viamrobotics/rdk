@@ -1,6 +1,8 @@
 // Package web provides gRPC/REST/GUI APIs to control and monitor a robot.
 package web
 
+import "go.viam.com/core/config"
+
 // Options are used for configuring the web server.
 type Options struct {
 	// AutoTitle turns on auto-tiling of any image sources added.
@@ -8,9 +10,6 @@ type Options struct {
 
 	// Pprof turns on the pprof profiler accessible at /debug
 	Pprof bool
-
-	// Port sets the port to run the web server on.
-	Port int
 
 	// SharedDir is the location of static web assets.
 	SharedDir string
@@ -29,11 +28,8 @@ type Options struct {
 	// WebRTC connections over direct gRPC connections.
 	WebRTC bool
 
-	// TLSCertFile is used to enable secure communications on the hosted HTTP server.
-	TLSCertFile string
-
-	// TLSKeyFile is used to enable secure communications on the hosted HTTP server.
-	TLSKeyFile string
+	// Network describes networking settings for the web server.
+	Network config.NetworkConfig
 
 	// internalSignaling indicates if an internal WebRTC signaling will be used.
 	internalSignaling bool
@@ -48,6 +44,8 @@ func NewOptions() Options {
 	return Options{
 		AutoTile: true,
 		Pprof:    false,
-		Port:     8080,
+		Network: config.NetworkConfig{
+			BindAddress: "localhost:8080",
+		},
 	}
 }

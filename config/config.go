@@ -89,6 +89,7 @@ type Config struct {
 	Processes      []pexec.ProcessConfig       `json:"processes,omitempty"`
 	Functions      []functionvm.FunctionConfig `json:"functions,omitempty"`
 	Services       []Service                   `json:"services,omitempty"`
+	Network        NetworkConfig               `json:"network"`
 }
 
 // Ensure ensures all parts of the config are valid and sorts components based on what they depend on.
@@ -137,7 +138,7 @@ func (c *Config) Ensure(fromCloud bool) error {
 		}
 	}
 
-	return nil
+	return c.Network.Validate("network")
 }
 
 // FindComponent finds a particular component by name.
@@ -207,6 +208,30 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 	}
 	if config.RefreshInterval == 0 {
 		config.RefreshInterval = 10 * time.Second
+	}
+	return nil
+}
+
+// NetworkConfig describes networking settings for the web server.
+type NetworkConfig struct {
+	// BindAddress is the address that the web server will bind to.
+	// The default behavior is to bind to localhost:8080.
+	BindAddress string `json:"bind_address"`
+
+	// TLSCertFile is used to enable secure communications on the hosted HTTP server.
+	TLSCertFile string `json:"tls_cert_file"`
+
+	// TLSKeyFile is used to enable secure communications on the hosted HTTP server.
+	TLSKeyFile string `json:"tls_key_file"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *NetworkConfig) Validate(path string) error {
+	if config.BindAddress == "" {
+		config.BindAddress = "localhost:8080"
+	}
+	if (config.TLSCertFile == "") != (config.TLSKeyFile == "") {
+		return utils.NewConfigValidationError(path, errors.New("must provide both tls_cert_file and tls_key_file"))
 	}
 	return nil
 }

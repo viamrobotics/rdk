@@ -66,9 +66,8 @@ func TestWebStartOptions(t *testing.T) {
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	options := NewOptions()
-	options.Port = port
-
 	addr := fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = addr
 
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -94,12 +93,16 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc.(*webService).cancelFunc, test.ShouldBeNil)
 
-	err = svc.Start(ctx, NewOptions())
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	options := NewOptions()
+	addr := fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = addr
+	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc.(*webService).cancelFunc, test.ShouldNotBeNil)
 
 	// make sure we get something back
-	addr := "localhost:8080"
 	arm1 := "arm1"
 	c, err := client.New(context.Background(), addr, logger, client.WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
@@ -137,7 +140,7 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc2.(*webService).cancelFunc, test.ShouldBeNil)
 
-	err = svc2.Start(ctx, NewOptions())
+	err = svc2.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc2.(*webService).cancelFunc, test.ShouldNotBeNil)
 

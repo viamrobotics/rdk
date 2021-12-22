@@ -13,8 +13,8 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/core/base"
-	"go.viam.com/core/board"
 	"go.viam.com/core/component/arm"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/component/input"
@@ -422,13 +422,6 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 		}
 		parts.AddBase(part, config.Component{Name: name})
 	}
-	for _, name := range robot.BoardNames() {
-		part, ok := robot.BoardByName(name)
-		if !ok {
-			continue
-		}
-		parts.AddBoard(part, config.Component{Name: name})
-	}
 	for _, name := range robot.SensorNames() {
 		part, ok := robot.SensorByName(name)
 		if !ok {
@@ -459,19 +452,12 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 
 // replaceForRemote replaces these parts with the given parts coming from a remote.
 func (parts *robotParts) replaceForRemote(newParts *robotParts) {
-	var oldBoardNames map[string]struct{}
 	var oldBaseNames map[string]struct{}
 	var oldSensorNames map[string]struct{}
 	var oldFunctionNames map[string]struct{}
 	var oldServiceNames map[string]struct{}
 	var oldResources map[resource.Name]struct{}
 
-	if len(parts.boards) != 0 {
-		oldBoardNames = make(map[string]struct{}, len(parts.boards))
-		for name := range parts.boards {
-			oldBoardNames[name] = struct{}{}
-		}
-	}
 	if len(parts.bases) != 0 {
 		oldBaseNames = make(map[string]struct{}, len(parts.bases))
 		for name := range parts.bases {
@@ -504,15 +490,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		}
 	}
 
-	for name, newPart := range newParts.boards {
-		oldPart, ok := parts.boards[name]
-		delete(oldBoardNames, name)
-		if ok {
-			oldPart.replace(newPart)
-			continue
-		}
-		parts.boards[name] = newPart
-	}
 	for name, newPart := range newParts.bases {
 		oldPart, ok := parts.bases[name]
 		delete(oldBaseNames, name)
@@ -570,9 +547,6 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		parts.resources[name] = newPart
 	}
 
-	for name := range oldBoardNames {
-		delete(parts.boards, name)
-	}
 	for name := range oldBaseNames {
 		delete(parts.bases, name)
 	}
