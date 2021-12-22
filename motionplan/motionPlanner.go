@@ -6,7 +6,6 @@ import (
 	"math"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 	"go.viam.com/utils"
 
 	commonpb "go.viam.com/core/proto/api/common/v1"
@@ -61,10 +60,9 @@ func (p *PlannerOptions) SetMinScore(minScore float64) {
 type MotionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
-	Plan(context.Context, *commonpb.Pose, []frame.Input) ([][]frame.Input, error)
-	SetOptions(*PlannerOptions) // SetOptions updates the planner options. Should not change executing Plan()s
-	Resolution() float64        // Resoltion specifies how narrowly to check for constraints
-	Frame() frame.Frame         // Frame will return the frame used for planning
+	Plan(context.Context, *commonpb.Pose, []frame.Input, *PlannerOptions) ([][]frame.Input, error)
+	Resolution() float64 // Resoltion specifies how narrowly to check for constraints
+	Frame() frame.Frame  // Frame will return the frame used for planning
 }
 
 // NewLinearMotionPlanner returns a linearMotionPlanner. This does a linear IK interpolation from start to goal.
@@ -76,9 +74,6 @@ func NewLinearMotionPlanner(frame frame.Frame, logger golog.Logger, nCPU int) (M
 		return nil, err
 	}
 	mp := &linearMotionPlanner{solver: ik, frame: frame, idealMovementScore: 0.3, stepSize: 2., logger: logger}
-	mp.visited = map[r3.Vector]bool{}
-	mp.opt = NewDefaultPlannerOptions()
-	mp.opt.AddConstraint("interpolationConstraint", NewInterpolatingConstraint(0.1))
 	return mp, nil
 }
 
@@ -90,13 +85,6 @@ type linearMotionPlanner struct {
 	logger             golog.Logger
 	idealMovementScore float64
 	stepSize           float64
-	visited            map[r3.Vector]bool
-	opt                *PlannerOptions
-}
-
-func (mp *linearMotionPlanner) SetOptions(opt *PlannerOptions) {
-	mp.opt = opt
-	mp.solver.SetMetric(opt.metric)
 }
 
 func (mp *linearMotionPlanner) Frame() frame.Frame {
@@ -107,10 +95,14 @@ func (mp *linearMotionPlanner) Resolution() float64 {
 	return mp.stepSize
 }
 
-func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, seed []frame.Input) ([][]frame.Input, error) {
+func (mp *linearMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, seed []frame.Input, opt *PlannerOptions) ([][]frame.Input, error) {
 	// Store copy of planner options for duration of solve
-	opt := mp.opt
 	var inputSteps [][]frame.Input
+
+	if opt == nil {
+		opt = NewDefaultPlannerOptions()
+		opt.AddConstraint("interpolationConstraint", NewInterpolatingConstraint(0.1))
+	}
 
 	seedPos, err := mp.frame.Transform(seed)
 	if err != nil {
@@ -139,7 +131,7 @@ STEP:
 
 		var step []frame.Input
 
-		solutions, err := getSolutions(ctx, opt, mp.solver, spatial.PoseToProtobuf(intPos), seed, mp)
+		solutions, err := getSolutions(ctx, opt, mp.solver, spatial.PoseToProtobuf(intPos), seed, mp.Frame())
 		if err != nil {
 			return nil, err
 		}
@@ -234,9 +226,9 @@ func fixOvIncrement(pos, seed *commonpb.Pose) *commonpb.Pose {
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
-func getSolutions(ctx context.Context, opt *PlannerOptions, solver InverseKinematics, goal *commonpb.Pose, seed []frame.Input, mp MotionPlanner) (map[float64][]frame.Input, error) {
+func getSolutions(ctx context.Context, opt *PlannerOptions, solver InverseKinematics, goal *commonpb.Pose, seed []frame.Input, f frame.Frame) (map[float64][]frame.Input, error) {
 
-	seedPos, err := mp.Frame().Transform(seed)
+	seedPos, err := f.Transform(seed)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +242,7 @@ func getSolutions(ctx context.Context, opt *PlannerOptions, solver InverseKinema
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
-		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goalPos, seed)
+		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goalPos, seed, opt.metric)
 	})
 
 	solutions := map[float64][]frame.Input{}
@@ -271,7 +263,7 @@ IK:
 				goalPos,
 				seed,
 				step,
-				mp.Frame()})
+				f})
 
 			if cPass {
 				if cScore < opt.minScore && opt.minScore > 0 {

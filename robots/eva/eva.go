@@ -106,7 +106,7 @@ func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	solution, err := e.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := e.mp.Plan(ctx, pos, frame.JointPosToInputs(joints), nil)
 	if err != nil {
 		return err
 	}

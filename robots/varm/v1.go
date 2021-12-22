@@ -172,9 +172,6 @@ func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.Arm,
 	if err != nil {
 		return nil, err
 	}
-	opt := motionplan.NewDefaultPlannerOptions()
-	opt.SetMetric(motionplan.NewPositionOnlyMetric())
-	newArm.mp.SetOptions(opt)
 
 	newArm.j0.degMin = -135.0
 	newArm.j0.degMax = 75.0
@@ -237,7 +234,9 @@ func (a *armV1) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	solution, err := a.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
+	opt := motionplan.NewDefaultPlannerOptions()
+	opt.SetMetric(motionplan.NewPositionOnlyMetric())
+	solution, err := a.mp.Plan(ctx, pos, frame.JointPosToInputs(joints), opt)
 	if err != nil {
 		return err
 	}
