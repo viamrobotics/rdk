@@ -62,9 +62,24 @@ func TestPartsForRemoteRobot(t *testing.T) {
 		test.ShouldResemble,
 		utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
 	)
-	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2"))
-	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2"))
-	test.That(t, utils.NewStringSet(parts.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix"))
+	test.That(
+		t,
+		utils.NewStringSet(parts.BaseNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("base1", "base2"),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.BoardNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("board1", "board2"),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.SensorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("sensor1", "sensor2", "forcematrix"),
+	)
 	test.That(
 		t,
 		utils.NewStringSet(parts.ServoNames()...),
@@ -83,7 +98,12 @@ func TestPartsForRemoteRobot(t *testing.T) {
 		test.ShouldResemble,
 		utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...),
 	)
-	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2"))
+	test.That(
+		t,
+		utils.NewStringSet(parts.FunctionNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("func1", "func2"),
+	)
 	test.That(
 		t,
 		coretestutils.NewResourceNameSet(parts.ResourceNames()...),
@@ -128,7 +148,12 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	fsm, ok := parts.SensorByName("forcematrix")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name, test.ShouldEqual, "forcematrix")
+	test.That(
+		t,
+		fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name,
+		test.ShouldEqual,
+		"forcematrix",
+	)
 	_, ok = parts.ServoByName("servo1")
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = parts.ServoByName("servo1_what")
@@ -156,8 +181,14 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	parts := partsForRemoteRobot(injectRobot)
-	parts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}), config.Remote{Name: "remote1"})
-	parts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}), config.Remote{Name: "remote2"})
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		config.Remote{Name: "remote1"},
+	)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		config.Remote{Name: "remote2"},
+	)
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 	armNames = append(armNames, coretestutils.AddSuffixes(armNames, "_r1", "_r2")...)
@@ -174,7 +205,12 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 	inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
-	test.That(t, utils.NewStringSet(parts.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
+	test.That(
+		t,
+		utils.NewStringSet(parts.RemoteNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("remote1", "remote2"),
+	)
 	test.That(
 		t,
 		utils.NewStringSet(parts.ArmNames()...),
@@ -314,19 +350,44 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
 	sensor1, ok = parts.SensorByName("sensor1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1_r1")
+	test.That(
+		t,
+		sensor1.(*proxyCompass).actual.(*fake.Compass).Name,
+		test.ShouldEqual,
+		"sensor1_r1",
+	)
 	sensor1, ok = parts.SensorByName("sensor1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1_r2")
+	test.That(
+		t,
+		sensor1.(*proxyCompass).actual.(*fake.Compass).Name,
+		test.ShouldEqual,
+		"sensor1_r2",
+	)
 	fsm, ok := parts.SensorByName("forcematrix")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name, test.ShouldEqual, "forcematrix")
+	test.That(
+		t,
+		fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name,
+		test.ShouldEqual,
+		"forcematrix",
+	)
 	fsm, ok = parts.SensorByName("forcematrix_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name, test.ShouldEqual, "forcematrix_r1")
+	test.That(
+		t,
+		fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name,
+		test.ShouldEqual,
+		"forcematrix_r1",
+	)
 	fsm, ok = parts.SensorByName("forcematrix_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name, test.ShouldEqual, "forcematrix_r2")
+	test.That(
+		t,
+		fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name,
+		test.ShouldEqual,
+		"forcematrix_r2",
+	)
 	_, ok = parts.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -381,8 +442,14 @@ func TestPartsClone(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	parts := partsForRemoteRobot(injectRobot)
-	parts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}), config.Remote{Name: "remote1"})
-	parts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}), config.Remote{Name: "remote2"})
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		config.Remote{Name: "remote1"},
+	)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		config.Remote{Name: "remote2"},
+	)
 	_, err := parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
@@ -424,7 +491,12 @@ func TestPartsClone(t *testing.T) {
 	inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 	inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
-	test.That(t, utils.NewStringSet(newParts.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
+	test.That(
+		t,
+		utils.NewStringSet(newParts.RemoteNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("remote1", "remote2"),
+	)
 	test.That(
 		t,
 		utils.NewStringSet(newParts.ArmNames()...),
@@ -509,7 +581,12 @@ func TestPartsClone(t *testing.T) {
 			inputNames,
 		)...),
 	)
-	test.That(t, utils.NewStringSet(newParts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
+	test.That(
+		t,
+		utils.NewStringSet(newParts.processManager.ProcessIDs()...),
+		test.ShouldResemble,
+		utils.NewStringSet("1", "2"),
+	)
 
 	_, ok = newParts.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -564,19 +641,44 @@ func TestPartsClone(t *testing.T) {
 	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
 	sensor1, ok = newParts.SensorByName("sensor1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1_r1")
+	test.That(
+		t,
+		sensor1.(*proxyCompass).actual.(*fake.Compass).Name,
+		test.ShouldEqual,
+		"sensor1_r1",
+	)
 	sensor1, ok = newParts.SensorByName("sensor1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1_r2")
+	test.That(
+		t,
+		sensor1.(*proxyCompass).actual.(*fake.Compass).Name,
+		test.ShouldEqual,
+		"sensor1_r2",
+	)
 	fsm, ok := newParts.SensorByName("forcematrix")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name, test.ShouldEqual, "forcematrix")
+	test.That(
+		t,
+		fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name,
+		test.ShouldEqual,
+		"forcematrix",
+	)
 	fsm, ok = newParts.SensorByName("forcematrix_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name, test.ShouldEqual, "forcematrix_r1")
+	test.That(
+		t,
+		fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name,
+		test.ShouldEqual,
+		"forcematrix_r1",
+	)
 	fsm, ok = newParts.SensorByName("forcematrix_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name, test.ShouldEqual, "forcematrix_r2")
+	test.That(
+		t,
+		fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name,
+		test.ShouldEqual,
+		"forcematrix_r2",
+	)
 	_, ok = newParts.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -717,7 +819,10 @@ func TestPartsAdd(t *testing.T) {
 	injectObjectManipulationService.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
 		return false, nil
 	}
-	parts.AddService(injectObjectManipulationService, config.Service{Name: services.ObjectManipulationServiceName})
+	parts.AddService(
+		injectObjectManipulationService,
+		config.Service{Name: services.ObjectManipulationServiceName},
+	)
 	objectManipulationService, ok := parts.ServiceByName(services.ObjectManipulationServiceName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, objectManipulationService, test.ShouldEqual, injectObjectManipulationService)
@@ -800,8 +905,14 @@ func TestPartsMergeAdd(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	parts := partsForRemoteRobot(injectRobot)
-	parts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}), config.Remote{Name: "remote1"})
-	parts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}), config.Remote{Name: "remote2"})
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		config.Remote{Name: "remote1"},
+	)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		config.Remote{Name: "remote2"},
+	)
 	_, err := parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
@@ -830,17 +941,27 @@ func TestPartsMergeAdd(t *testing.T) {
 		boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
 		boardNames = append(boardNames, coretestutils.AddSuffixes(boardNames, "_r1", "_r2")...)
 		gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2")}
-		gripperNames = append(gripperNames, coretestutils.AddSuffixes(gripperNames, "_r1", "_r2")...)
+		gripperNames = append(
+			gripperNames,
+			coretestutils.AddSuffixes(gripperNames, "_r1", "_r2")...)
 		cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
 		cameraNames = append(cameraNames, coretestutils.AddSuffixes(cameraNames, "_r1", "_r2")...)
 		servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
 		servoNames = append(servoNames, coretestutils.AddSuffixes(servoNames, "_r1", "_r2")...)
 		motorNames := []resource.Name{motor.Named("motor1"), motor.Named("motor2")}
 		motorNames = append(motorNames, coretestutils.AddSuffixes(motorNames, "_r1", "_r2")...)
-		inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
+		inputNames := []resource.Name{
+			input.Named("inputController1"),
+			input.Named("inputController2"),
+		}
 		inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
-		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
+		test.That(
+			t,
+			utils.NewStringSet(toCheck.RemoteNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("remote1", "remote2"),
+		)
 		test.That(
 			t,
 			utils.NewStringSet(toCheck.ArmNames()...),
@@ -869,7 +990,14 @@ func TestPartsMergeAdd(t *testing.T) {
 			t,
 			utils.NewStringSet(toCheck.BoardNames()...),
 			test.ShouldResemble,
-			utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"),
+			utils.NewStringSet(
+				"board1",
+				"board2",
+				"board1_r1",
+				"board2_r1",
+				"board1_r2",
+				"board2_r2",
+			),
 		)
 		test.That(
 			t,
@@ -926,7 +1054,12 @@ func TestPartsMergeAdd(t *testing.T) {
 				inputNames,
 			)...),
 		)
-		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
+		test.That(
+			t,
+			utils.NewStringSet(toCheck.processManager.ProcessIDs()...),
+			test.ShouldResemble,
+			utils.NewStringSet("1", "2"),
+		)
 	}
 	result, err := parts.MergeAdd(newRobotParts(logger))
 	test.That(t, err, test.ShouldBeNil)
@@ -938,26 +1071,48 @@ func TestPartsMergeAdd(t *testing.T) {
 
 	otherRobot := setupInjectRobotWithSuffx(logger, "_other")
 	otherParts := partsForRemoteRobot(otherRobot)
-	otherParts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_other1"), config.Remote{}), config.Remote{Name: "other1"})
+	otherParts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_other1"), config.Remote{}),
+		config.Remote{Name: "other1"},
+	)
 	result, err = parts.MergeAdd(otherParts)
 	test.That(t, err, test.ShouldBeNil)
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
-	armNames = append(armNames, coretestutils.AddSuffixes(armNames, "_r1", "_r2", "_other", "_other1")...)
+	armNames = append(
+		armNames,
+		coretestutils.AddSuffixes(armNames, "_r1", "_r2", "_other", "_other1")...)
 	boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
-	boardNames = append(boardNames, coretestutils.AddSuffixes(boardNames, "_r1", "_r2", "_other", "_other1")...)
+	boardNames = append(
+		boardNames,
+		coretestutils.AddSuffixes(boardNames, "_r1", "_r2", "_other", "_other1")...)
 	gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2")}
-	gripperNames = append(gripperNames, coretestutils.AddSuffixes(gripperNames, "_r1", "_r2", "_other", "_other1")...)
+	gripperNames = append(
+		gripperNames,
+		coretestutils.AddSuffixes(gripperNames, "_r1", "_r2", "_other", "_other1")...)
 	cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
-	cameraNames = append(cameraNames, coretestutils.AddSuffixes(cameraNames, "_r1", "_r2", "_other", "_other1")...)
+	cameraNames = append(
+		cameraNames,
+		coretestutils.AddSuffixes(cameraNames, "_r1", "_r2", "_other", "_other1")...)
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
-	servoNames = append(servoNames, coretestutils.AddSuffixes(servoNames, "_r1", "_r2", "_other", "_other1")...)
+	servoNames = append(
+		servoNames,
+		coretestutils.AddSuffixes(servoNames, "_r1", "_r2", "_other", "_other1")...)
 	motorNames := []resource.Name{motor.Named("motor1"), motor.Named("motor2")}
-	motorNames = append(motorNames, coretestutils.AddSuffixes(motorNames, "_r1", "_r2", "_other", "_other1")...)
+	motorNames = append(
+		motorNames,
+		coretestutils.AddSuffixes(motorNames, "_r1", "_r2", "_other", "_other1")...)
 	inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
-	inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2", "_other", "_other1")...)
+	inputNames = append(
+		inputNames,
+		coretestutils.AddSuffixes(inputNames, "_r1", "_r2", "_other", "_other1")...)
 
-	test.That(t, utils.NewStringSet(parts.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2", "other1"))
+	test.That(
+		t,
+		utils.NewStringSet(parts.RemoteNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("remote1", "remote2", "other1"),
+	)
 	test.That(
 		t,
 		utils.NewStringSet(parts.ArmNames()...),
@@ -1081,15 +1236,26 @@ func TestPartsMergeAdd(t *testing.T) {
 			inputNames,
 		)...),
 	)
-	test.That(t, utils.NewStringSet(parts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
+	test.That(
+		t,
+		utils.NewStringSet(parts.processManager.ProcessIDs()...),
+		test.ShouldResemble,
+		utils.NewStringSet("1", "2"),
+	)
 
 	emptyParts = newRobotParts(logger)
 	test.That(t, result.Process(emptyParts), test.ShouldBeNil)
 	checkEmpty(emptyParts)
 
 	sameParts := partsForRemoteRobot(injectRobot)
-	sameParts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}), config.Remote{Name: "remote1"})
-	sameParts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}), config.Remote{Name: "remote2"})
+	sameParts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		config.Remote{Name: "remote1"},
+	)
+	sameParts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		config.Remote{Name: "remote2"},
+	)
 	_, err = sameParts.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = sameParts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
@@ -1098,7 +1264,12 @@ func TestPartsMergeAdd(t *testing.T) {
 	result, err = parts.MergeAdd(sameParts)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, utils.NewStringSet(parts.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2", "other1"))
+	test.That(
+		t,
+		utils.NewStringSet(parts.RemoteNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("remote1", "remote2", "other1"),
+	)
 	test.That(
 		t,
 		utils.NewStringSet(parts.ArmNames()...),
@@ -1222,7 +1393,12 @@ func TestPartsMergeAdd(t *testing.T) {
 			inputNames,
 		)...),
 	)
-	test.That(t, utils.NewStringSet(parts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
+	test.That(
+		t,
+		utils.NewStringSet(parts.processManager.ProcessIDs()...),
+		test.ShouldResemble,
+		utils.NewStringSet("1", "2"),
+	)
 
 	emptyParts = newRobotParts(logger)
 	test.That(t, result.Process(emptyParts), test.ShouldBeNil)
@@ -1238,7 +1414,12 @@ func TestPartsMergeAdd(t *testing.T) {
 	test.That(t, utils.NewStringSet(emptyParts.InputControllerNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.FunctionNames()...), test.ShouldBeEmpty)
 	test.That(t, emptyParts.ResourceNames(), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
+	test.That(
+		t,
+		utils.NewStringSet(emptyParts.processManager.ProcessIDs()...),
+		test.ShouldResemble,
+		utils.NewStringSet("1", "2"),
+	)
 
 	err = result.Process(parts)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -1250,8 +1431,14 @@ func TestPartsMergeModify(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	parts := partsForRemoteRobot(injectRobot)
-	parts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}), config.Remote{Name: "remote1"})
-	parts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}), config.Remote{Name: "remote2"})
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		config.Remote{Name: "remote1"},
+	)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		config.Remote{Name: "remote2"},
+	)
 	_, err := parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
@@ -1264,17 +1451,27 @@ func TestPartsMergeModify(t *testing.T) {
 		boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
 		boardNames = append(boardNames, coretestutils.AddSuffixes(boardNames, "_r1", "_r2")...)
 		gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2")}
-		gripperNames = append(gripperNames, coretestutils.AddSuffixes(gripperNames, "_r1", "_r2")...)
+		gripperNames = append(
+			gripperNames,
+			coretestutils.AddSuffixes(gripperNames, "_r1", "_r2")...)
 		cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
 		cameraNames = append(cameraNames, coretestutils.AddSuffixes(cameraNames, "_r1", "_r2")...)
 		servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
 		servoNames = append(servoNames, coretestutils.AddSuffixes(servoNames, "_r1", "_r2")...)
 		motorNames := []resource.Name{motor.Named("motor1"), motor.Named("motor2")}
 		motorNames = append(motorNames, coretestutils.AddSuffixes(motorNames, "_r1", "_r2")...)
-		inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
+		inputNames := []resource.Name{
+			input.Named("inputController1"),
+			input.Named("inputController2"),
+		}
 		inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
-		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
+		test.That(
+			t,
+			utils.NewStringSet(toCheck.RemoteNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("remote1", "remote2"),
+		)
 		test.That(
 			t,
 			utils.NewStringSet(toCheck.ArmNames()...),
@@ -1303,7 +1500,14 @@ func TestPartsMergeModify(t *testing.T) {
 			t,
 			utils.NewStringSet(toCheck.BoardNames()...),
 			test.ShouldResemble,
-			utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"),
+			utils.NewStringSet(
+				"board1",
+				"board2",
+				"board1_r1",
+				"board2_r1",
+				"board1_r2",
+				"board2_r2",
+			),
 		)
 		test.That(
 			t,
@@ -1359,15 +1563,35 @@ func TestPartsMergeModify(t *testing.T) {
 				inputNames,
 			)...),
 		)
-		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
+		test.That(
+			t,
+			utils.NewStringSet(toCheck.processManager.ProcessIDs()...),
+			test.ShouldResemble,
+			utils.NewStringSet("1", "2"),
+		)
 
 		board1, ok := toCheck.BoardByName("board1")
 		test.That(t, ok, test.ShouldBeTrue)
 		board2r1, ok := toCheck.BoardByName("board2_r1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, utils.NewStringSet(board1.AnalogReaderNames()...), test.ShouldResemble, utils.NewStringSet("analog1", "analog2"))
-		test.That(t, utils.NewStringSet(board1.DigitalInterruptNames()...), test.ShouldResemble, utils.NewStringSet("digital1", "digital2"))
-		test.That(t, utils.NewStringSet(board2r1.AnalogReaderNames()...), test.ShouldResemble, utils.NewStringSet("analog1", "analog2"))
+		test.That(
+			t,
+			utils.NewStringSet(board1.AnalogReaderNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("analog1", "analog2"),
+		)
+		test.That(
+			t,
+			utils.NewStringSet(board1.DigitalInterruptNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("digital1", "digital2"),
+		)
+		test.That(
+			t,
+			utils.NewStringSet(board2r1.AnalogReaderNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("analog1", "analog2"),
+		)
 		test.That(
 			t,
 			utils.NewStringSet(board2r1.DigitalInterruptNames()...),
@@ -1478,8 +1702,14 @@ func TestPartsMergeRemove(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	parts := partsForRemoteRobot(injectRobot)
-	parts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}), config.Remote{Name: "remote1"})
-	parts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}), config.Remote{Name: "remote2"})
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		config.Remote{Name: "remote1"},
+	)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		config.Remote{Name: "remote2"},
+	)
 	_, err := parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
@@ -1492,17 +1722,27 @@ func TestPartsMergeRemove(t *testing.T) {
 		boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
 		boardNames = append(boardNames, coretestutils.AddSuffixes(boardNames, "_r1", "_r2")...)
 		gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2")}
-		gripperNames = append(gripperNames, coretestutils.AddSuffixes(gripperNames, "_r1", "_r2")...)
+		gripperNames = append(
+			gripperNames,
+			coretestutils.AddSuffixes(gripperNames, "_r1", "_r2")...)
 		cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
 		cameraNames = append(cameraNames, coretestutils.AddSuffixes(cameraNames, "_r1", "_r2")...)
 		servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
 		servoNames = append(servoNames, coretestutils.AddSuffixes(servoNames, "_r1", "_r2")...)
 		motorNames := []resource.Name{motor.Named("motor1"), motor.Named("motor2")}
 		motorNames = append(motorNames, coretestutils.AddSuffixes(motorNames, "_r1", "_r2")...)
-		inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
+		inputNames := []resource.Name{
+			input.Named("inputController1"),
+			input.Named("inputController2"),
+		}
 		inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
-		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
+		test.That(
+			t,
+			utils.NewStringSet(toCheck.RemoteNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("remote1", "remote2"),
+		)
 		test.That(
 			t,
 			utils.NewStringSet(toCheck.ArmNames()...),
@@ -1531,7 +1771,14 @@ func TestPartsMergeRemove(t *testing.T) {
 			t,
 			utils.NewStringSet(toCheck.BoardNames()...),
 			test.ShouldResemble,
-			utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"),
+			utils.NewStringSet(
+				"board1",
+				"board2",
+				"board1_r1",
+				"board2_r1",
+				"board1_r2",
+				"board2_r2",
+			),
 		)
 		test.That(
 			t,
@@ -1587,7 +1834,12 @@ func TestPartsMergeRemove(t *testing.T) {
 				inputNames,
 			)...),
 		)
-		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
+		test.That(
+			t,
+			utils.NewStringSet(toCheck.processManager.ProcessIDs()...),
+			test.ShouldResemble,
+			utils.NewStringSet("1", "2"),
+		)
 	}
 
 	parts.MergeRemove(newRobotParts(logger))
@@ -1595,13 +1847,22 @@ func TestPartsMergeRemove(t *testing.T) {
 
 	otherRobot := setupInjectRobotWithSuffx(logger, "_other")
 	otherParts := partsForRemoteRobot(otherRobot)
-	otherParts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_other1"), config.Remote{}), config.Remote{Name: "other1"})
+	otherParts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_other1"), config.Remote{}),
+		config.Remote{Name: "other1"},
+	)
 	parts.MergeRemove(otherParts)
 	checkSame(parts)
 
 	sameParts := partsForRemoteRobot(injectRobot)
-	sameParts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}), config.Remote{Name: "remote1"})
-	sameParts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}), config.Remote{Name: "remote2"})
+	sameParts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		config.Remote{Name: "remote1"},
+	)
+	sameParts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		config.Remote{Name: "remote2"},
+	)
 	_, err = sameParts.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = sameParts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
@@ -1629,8 +1890,14 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	injectRobot := setupInjectRobot(logger)
 
 	parts := partsForRemoteRobot(injectRobot)
-	parts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}), config.Remote{Name: "remote1"})
-	parts.addRemote(newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}), config.Remote{Name: "remote2"})
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		config.Remote{Name: "remote1"},
+	)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
+		config.Remote{Name: "remote2"},
+	)
 	_, err := parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
@@ -1804,9 +2071,24 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		test.ShouldResemble,
 		utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
 	)
-	test.That(t, utils.NewStringSet(filtered.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2"))
-	test.That(t, utils.NewStringSet(filtered.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2"))
-	test.That(t, utils.NewStringSet(filtered.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor2"))
+	test.That(
+		t,
+		utils.NewStringSet(filtered.BaseNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("base2"),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(filtered.BoardNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("board2"),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(filtered.SensorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("sensor2"),
+	)
 	test.That(
 		t,
 		utils.NewStringSet(filtered.ServoNames()...),
@@ -1825,7 +2107,12 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		test.ShouldResemble,
 		utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...),
 	)
-	test.That(t, utils.NewStringSet(filtered.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func2"))
+	test.That(
+		t,
+		utils.NewStringSet(filtered.FunctionNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("func2"),
+	)
 	test.That(
 		t,
 		coretestutils.NewResourceNameSet(filtered.ResourceNames()...),
@@ -1840,7 +2127,12 @@ func TestPartsFilterFromConfig(t *testing.T) {
 			inputNames,
 		)...),
 	)
-	test.That(t, utils.NewStringSet(filtered.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("2"))
+	test.That(
+		t,
+		utils.NewStringSet(filtered.processManager.ProcessIDs()...),
+		test.ShouldResemble,
+		utils.NewStringSet("2"),
+	)
 
 	filtered, err = parts.FilterFromConfig(&config.Config{
 		Remotes: []config.Remote{
@@ -1901,14 +2193,43 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	armNames = []resource.Name{arm.Named("arm2"), arm.Named("arm1_r2"), arm.Named("arm2_r2")}
-	boardNames = []resource.Name{board.Named("board2"), board.Named("board1_r2"), board.Named("board2_r2")}
-	gripperNames = []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper1_r2"), gripper.Named("gripper2_r2")}
-	cameraNames = []resource.Name{camera.Named("camera2"), camera.Named("camera1_r2"), camera.Named("camera2_r2")}
-	servoNames = []resource.Name{servo.Named("servo2"), servo.Named("servo1_r2"), servo.Named("servo2_r2")}
-	motorNames = []resource.Name{motor.Named("motor2"), motor.Named("motor1_r2"), motor.Named("motor2_r2")}
-	inputNames = []resource.Name{input.Named("inputController2"), input.Named("inputController1_r2"), input.Named("inputController2_r2")}
+	boardNames = []resource.Name{
+		board.Named("board2"),
+		board.Named("board1_r2"),
+		board.Named("board2_r2"),
+	}
+	gripperNames = []resource.Name{
+		gripper.Named("gripper2"),
+		gripper.Named("gripper1_r2"),
+		gripper.Named("gripper2_r2"),
+	}
+	cameraNames = []resource.Name{
+		camera.Named("camera2"),
+		camera.Named("camera1_r2"),
+		camera.Named("camera2_r2"),
+	}
+	servoNames = []resource.Name{
+		servo.Named("servo2"),
+		servo.Named("servo1_r2"),
+		servo.Named("servo2_r2"),
+	}
+	motorNames = []resource.Name{
+		motor.Named("motor2"),
+		motor.Named("motor1_r2"),
+		motor.Named("motor2_r2"),
+	}
+	inputNames = []resource.Name{
+		input.Named("inputController2"),
+		input.Named("inputController1_r2"),
+		input.Named("inputController2_r2"),
+	}
 
-	test.That(t, utils.NewStringSet(filtered.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote2"))
+	test.That(
+		t,
+		utils.NewStringSet(filtered.RemoteNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("remote2"),
+	)
 	test.That(
 		t,
 		utils.NewStringSet(filtered.ArmNames()...),
@@ -1927,8 +2248,18 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		test.ShouldResemble,
 		utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
 	)
-	test.That(t, utils.NewStringSet(filtered.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base1_r2", "base2_r2"))
-	test.That(t, utils.NewStringSet(filtered.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board1_r2", "board2_r2"))
+	test.That(
+		t,
+		utils.NewStringSet(filtered.BaseNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("base2", "base1_r2", "base2_r2"),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(filtered.BoardNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("board2", "board1_r2", "board2_r2"),
+	)
 	test.That(
 		t,
 		utils.NewStringSet(filtered.SensorNames()...),
@@ -1953,7 +2284,12 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		test.ShouldResemble,
 		utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...),
 	)
-	test.That(t, utils.NewStringSet(filtered.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func2", "func1_r2", "func2_r2"))
+	test.That(
+		t,
+		utils.NewStringSet(filtered.FunctionNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("func2", "func1_r2", "func2_r2"),
+	)
 	test.That(
 		t,
 		coretestutils.NewResourceNameSet(filtered.ResourceNames()...),
@@ -1968,7 +2304,12 @@ func TestPartsFilterFromConfig(t *testing.T) {
 			inputNames,
 		)...),
 	)
-	test.That(t, utils.NewStringSet(filtered.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("2"))
+	test.That(
+		t,
+		utils.NewStringSet(filtered.processManager.ProcessIDs()...),
+		test.ShouldResemble,
+		utils.NewStringSet("2"),
+	)
 
 	filtered, err = parts.FilterFromConfig(&config.Config{
 		Remotes: []config.Remote{
@@ -2135,7 +2476,12 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	inputNames = []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 	inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
-	test.That(t, utils.NewStringSet(filtered.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
+	test.That(
+		t,
+		utils.NewStringSet(filtered.RemoteNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("remote1", "remote2"),
+	)
 	test.That(
 		t,
 		utils.NewStringSet(filtered.ArmNames()...),
@@ -2219,7 +2565,12 @@ func TestPartsFilterFromConfig(t *testing.T) {
 			inputNames,
 		)...),
 	)
-	test.That(t, utils.NewStringSet(filtered.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
+	test.That(
+		t,
+		utils.NewStringSet(filtered.processManager.ProcessIDs()...),
+		test.ShouldResemble,
+		utils.NewStringSet("1", "2"),
+	)
 }
 
 type fakeProcess struct {
