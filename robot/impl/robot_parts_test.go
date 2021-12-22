@@ -816,7 +816,12 @@ func TestPartsAdd(t *testing.T) {
 	test.That(t, fsm.(*proxyForceMatrix).actual, test.ShouldEqual, injectFsm)
 
 	injectObjectManipulationService := &inject.ObjectManipulationService{}
-	injectObjectManipulationService.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
+	injectObjectManipulationService.DoGrabFunc = func(
+		ctx context.Context,
+		gripperName,
+		armName,
+		cameraName string,
+		cameraPoint *r3.Vector) (bool, error) {
 		return false, nil
 	}
 	parts.AddService(
