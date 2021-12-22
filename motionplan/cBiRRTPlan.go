@@ -133,14 +133,15 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	seedMap := make(map[*solution]*solution)
 	seedMap[&solution{seed}] = nil
 
-	// Alternate to which map our random sample is added
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
-	addSeed := true
 	target := &solution{frame.InterpolateInputs(seed, solutions[keys[0]], 0.5)}
 
 	var rSeed *solution
 
 	nn := &neighborManager{nCPU: mp.nCPU}
+
+	// Create a reference to the two maps so that wew can alternate which one is grown
+	map1, map2 := seedMap, goalMap
 
 	for i := 0; i < mp.iter; i++ {
 		select {
@@ -151,28 +152,15 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 
 		var seedReached, goalReached *solution
 
-		// Alternate which tree we extend
-		if addSeed {
-			// extend seed tree first
-			nearest := nn.nearestNeighbor(ctxWithCancel, target, seedMap)
-			// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
-			seedReached = mp.constrainedExtend(opt, seedMap, nearest, target)
-			// Find the nearest point in goalMap to the furthest point reached in seedMap
-			near2 := nn.nearestNeighbor(ctxWithCancel, seedReached, goalMap)
-			// extend goalMap towards the point in seedMap
-			goalReached = mp.constrainedExtend(opt, goalMap, near2, seedReached)
-			rSeed = seedReached
-		} else {
-			// extend goal tree first
-			nearest := nn.nearestNeighbor(ctxWithCancel, target, goalMap)
-			// Extend tree goalMap as far towards target as it can get. It may or may not reach it.
-			goalReached = mp.constrainedExtend(opt, goalMap, nearest, target)
-			// Find the nearest point in seedMap to the furthest point reached in goalMap
-			near2 := nn.nearestNeighbor(ctxWithCancel, goalReached, seedMap)
-			// extend seedMap towards the point in goalMap
-			seedReached = mp.constrainedExtend(opt, seedMap, near2, goalReached)
-			rSeed = goalReached
-		}
+		// extend seed tree first
+		nearest := nn.nearestNeighbor(ctxWithCancel, target, map1)
+		// Extend map1 as far towards target as it can get. It may or may not reach it.
+		seedReached = mp.constrainedExtend(opt, map1, nearest, target)
+		// Find the nearest point in map2 to the furthest point reached in map1
+		near2 := nn.nearestNeighbor(ctxWithCancel, seedReached, map2)
+		// extend map1 towards the point in map1
+		goalReached = mp.constrainedExtend(opt, map2, near2, seedReached)
+		rSeed = seedReached
 
 		corners[seedReached] = true
 		corners[goalReached] = true
@@ -211,7 +199,8 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 			}
 		}
 
-		addSeed = !addSeed
+		// Swap the maps
+		map1, map2 = map2, map1
 	}
 
 	return nil, errors.New("could not solve path")
