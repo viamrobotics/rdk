@@ -89,8 +89,24 @@ func TestLineFollow(t *testing.T) {
 		Z:  550,
 		OY: -1,
 	})
-	mp1 := frame.JointPositionsFromRadians([]float64{3.75646398939225, -1.0162453766159272, 1.2142890600914453, 1.0521227724322786, -0.21337105357552288, -0.006502311329196852, -4.3822913510408945})
-	mp2 := frame.JointPositionsFromRadians([]float64{3.896845654143853, -0.8353398707254642, 1.1306783805718412, 0.8347159514038981, 0.49562136809544177, -0.2260694386799326, -4.383397470889424})
+	mp1 := frame.JointPositionsFromRadians([]float64{
+		3.75646398939225,
+		-1.0162453766159272,
+		1.2142890600914453,
+		1.0521227724322786,
+		-0.21337105357552288,
+		-0.006502311329196852,
+		-4.3822913510408945,
+	})
+	mp2 := frame.JointPositionsFromRadians([]float64{
+		3.896845654143853,
+		-0.8353398707254642,
+		1.1306783805718412,
+		0.8347159514038981,
+		0.49562136809544177,
+		-0.2260694386799326,
+		-4.383397470889424,
+	})
 
 	query := spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:  289.94907586421124,
@@ -134,7 +150,14 @@ func TestLineFollow(t *testing.T) {
 	opt := NewDefaultPlannerOptions()
 	opt.SetPathDist(gradFunc)
 	opt.AddConstraint("whiteboard", validFunc)
-	ok, _ := opt.CheckConstraintPath(&ConstraintInput{StartInput: frame.JointPosToInputs(mp1), EndInput: frame.JointPosToInputs(mp2), Frame: sf}, 1)
+	ok, _ := opt.CheckConstraintPath(
+		&ConstraintInput{
+			StartInput: frame.JointPosToInputs(mp1),
+			EndInput:   frame.JointPosToInputs(mp2),
+			Frame:      sf,
+		},
+		1,
+	)
 
 	test.That(t, ok, test.ShouldBeFalse)
 }

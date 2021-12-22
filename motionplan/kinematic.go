@@ -18,7 +18,11 @@ import (
 func ComputePosition(model frame.Frame, joints *pb.ArmJointPositions) (*commonpb.Pose, error) {
 
 	if len(joints.Degrees) != len(model.DoF()) {
-		return nil, errors.Errorf("incorrect number of joints passed to ComputePosition. Want: %d, got: %d", len(model.DoF()), len(joints.Degrees))
+		return nil, errors.Errorf(
+			"incorrect number of joints passed to ComputePosition. Want: %d, got: %d",
+			len(model.DoF()),
+			len(joints.Degrees),
+		)
 	}
 
 	pose, err := model.Transform(frame.JointPosToInputs(joints))

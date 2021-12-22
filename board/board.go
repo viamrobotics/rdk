@@ -79,7 +79,8 @@ type SPIHandle interface {
 	// Xfer performs a single SPI transfer, that is, the complete transaction from chipselect enable to chipselect disable.
 	// SPI transfers are synchronous, number of bytes received will be equal to the number of bytes sent.
 	// Write-only transfers can usually just discard the returned bytes.
-	// Read-only transfers usually transmit a request/address and continue with some number of null bytes to equal the expected size of the returning data.
+	// Read-only transfers usually transmit a request/address and continue with some number of null bytes to equal
+	// the expected size of the returning data.
 	// Large transmissions are usually broken up into multiple transfers.
 	// There are many different paradigms for most of the above, and implementation details are chip/device specific.
 	Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error)

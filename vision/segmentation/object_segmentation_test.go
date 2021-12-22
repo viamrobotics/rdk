@@ -47,7 +47,13 @@ type segmentObjectTestHelper struct {
 }
 
 // Process creates a segmentation using raw PointClouds and then VoxelGrids
-func (h *segmentObjectTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
+func (h *segmentObjectTestHelper) Process(
+	t *testing.T,
+	pCtx *rimage.ProcessorContext,
+	fn string,
+	img image.Image,
+	logger golog.Logger,
+) error {
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 	test.That(t, ii.IsAligned(), test.ShouldEqual, true)
@@ -99,7 +105,13 @@ type gripperSegmentTestHelper struct {
 	cameraParams *transform.DepthColorIntrinsicsExtrinsics
 }
 
-func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
+func (h *gripperSegmentTestHelper) Process(
+	t *testing.T,
+	pCtx *rimage.ProcessorContext,
+	fn string,
+	img image.Image,
+	logger golog.Logger,
+) error {
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)

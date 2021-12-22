@@ -130,20 +130,20 @@ func (a *LinearAxis) GoTillStop(ctx context.Context, speed float64, stopFunc fun
 	return errs
 }
 
-// Off turns the motor off
-func (a *LinearAxis) Off(ctx context.Context) error {
+// Stop turns the power to the motor off immediately, without any gradual step down
+func (a *LinearAxis) Stop(ctx context.Context) error {
 	var errs error
 	for _, m := range a.m {
-		multierr.AppendInto(&errs, m.Off(ctx))
+		multierr.AppendInto(&errs, m.Stop(ctx))
 	}
 	return errs
 }
 
-// SetToZeroPosition resets the "home" point
-func (a *LinearAxis) SetToZeroPosition(ctx context.Context, offset float64) error {
+// ResetZeroPosition resets the "home" point
+func (a *LinearAxis) ResetZeroPosition(ctx context.Context, offset float64) error {
 	var errs error
 	for _, m := range a.m {
-		multierr.AppendInto(&errs, m.SetToZeroPosition(ctx, offset))
+		multierr.AppendInto(&errs, m.ResetZeroPosition(ctx, offset))
 	}
 	return errs
 }
@@ -262,12 +262,12 @@ func (b *ResetBox) Close() error {
 // Stop turns off all motors
 func (b *ResetBox) Stop(ctx context.Context) error {
 	return multierr.Combine(
-		b.elevator.Off(ctx),
-		b.gate.Off(ctx),
-		b.gate.Off(ctx),
-		b.squeeze.Off(ctx),
-		b.squeeze.Off(ctx),
-		b.hammer.Off(ctx),
+		b.elevator.Stop(ctx),
+		b.gate.Stop(ctx),
+		b.gate.Stop(ctx),
+		b.squeeze.Stop(ctx),
+		b.squeeze.Stop(ctx),
+		b.hammer.Stop(ctx),
 	)
 }
 
@@ -514,10 +514,10 @@ func (b *ResetBox) home(ctx context.Context) error {
 		<-errPath,
 		<-errPath,
 		<-errPath,
-		b.gate.SetToZeroPosition(ctx, 0),
-		b.squeeze.SetToZeroPosition(ctx, 0),
-		b.elevator.SetToZeroPosition(ctx, 0),
-		b.hammer.SetToZeroPosition(ctx, 0),
+		b.gate.ResetZeroPosition(ctx, 0),
+		b.squeeze.ResetZeroPosition(ctx, 0),
+		b.elevator.ResetZeroPosition(ctx, 0),
+		b.hammer.ResetZeroPosition(ctx, 0),
 	)
 
 	if errs != nil {
@@ -531,7 +531,7 @@ func (b *ResetBox) home(ctx context.Context) error {
 		b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom),
 		b.hammer.GoTo(ctx, hammerSpeed, hammerOffset),
 		b.waitPosReached(ctx, b.hammer, hammerOffset),
-		b.hammer.SetToZeroPosition(ctx, 0),
+		b.hammer.ResetZeroPosition(ctx, 0),
 	)
 
 	if errs != nil {
@@ -543,7 +543,7 @@ func (b *ResetBox) home(ctx context.Context) error {
 
 func (b *ResetBox) vibrate(ctx context.Context, level float64) {
 	if level < 0.2 {
-		b.vibrator.Off(ctx)
+		b.vibrator.Stop(ctx)
 		b.vibeState = false
 	} else {
 		b.vibrator.Go(ctx, level)
@@ -610,7 +610,7 @@ func (b *ResetBox) tipTableUp(ctx context.Context) error {
 	utils.SelectContextOrWait(ctx, 11000*time.Millisecond)
 
 	//All off
-	b.tipper.Off(ctx)
+	b.tipper.Stop(ctx)
 
 	b.tableUp = true
 	return nil
@@ -626,7 +626,7 @@ func (b *ResetBox) tipTableDown(ctx context.Context) error {
 	// Extra time for safety (actuator automatically stops on retract)
 	utils.SelectContextOrWait(ctx, 4000*time.Millisecond)
 	//All Off
-	b.tipper.Off(ctx)
+	b.tipper.Stop(ctx)
 
 	return nil
 }
@@ -661,7 +661,7 @@ func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
 	b.waitPosReached(ctx, b.hammer, float64(count))
 
 	// As we go in one direction indefinitely, this is an easy fix for register overflow
-	err = b.hammer.SetToZeroPosition(ctx, 0)
+	err = b.hammer.ResetZeroPosition(ctx, 0)
 	if err != nil {
 		return err
 	}

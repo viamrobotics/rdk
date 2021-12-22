@@ -131,7 +131,12 @@ func findNeighborsInRadius(cloud pc.PointCloud, point pc.Point, radius float64) 
 }
 
 // NewObjectSegmentationFromVoxelGrid removes the planes (if any) and returns a segmentation of the objects in a point cloud
-func NewObjectSegmentationFromVoxelGrid(ctx context.Context, vg *pc.VoxelGrid, objConfig ObjectConfig, planeConfig VoxelGridPlaneConfig) (*ObjectSegmentation, error) {
+func NewObjectSegmentationFromVoxelGrid(
+	ctx context.Context,
+	vg *pc.VoxelGrid,
+	objConfig ObjectConfig,
+	planeConfig VoxelGridPlaneConfig,
+) (*ObjectSegmentation, error) {
 	ps := NewVoxelGridPlaneSegmentation(vg, planeConfig)
 	planes, nonPlane, err := ps.FindPlanes(ctx)
 	if err != nil {

@@ -17,9 +17,17 @@ import (
 )
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, "depth_edges", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		return newDepthEdgesSource(r, config)
-	}})
+	registry.RegisterComponent(
+		camera.Subtype,
+		"depth_edges",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return newDepthEdgesSource(r, config)
+		}})
 }
 
 // depthEdgesSource applies a Canny Edge Detector to the depth map of the ImageWithDepth

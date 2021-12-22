@@ -42,25 +42,68 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 
 	test.That(t, parts.RemoteNames(), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(parts.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
-	test.That(t, utils.NewStringSet(parts.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
-	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2"))
-	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2"))
-	test.That(t, utils.NewStringSet(parts.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix"))
-	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
-	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
-	test.That(t, utils.NewStringSet(parts.InputControllerNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...))
-	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2"))
-	test.That(t, coretestutils.NewResourceNameSet(parts.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
-		armNames,
-		gripperNames,
-		cameraNames,
-		servoNames,
-		motorNames,
-		inputNames,
-		inputNames,
-	)...))
+	test.That(t,
+		utils.NewStringSet(parts.ArmNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(armNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.GripperNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.CameraNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.BaseNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("base1", "base2"),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.BoardNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("board1", "board2"),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.SensorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("sensor1", "sensor2", "forcematrix"),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.ServoNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.MotorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.InputControllerNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.FunctionNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("func1", "func2"),
+	)
+	test.That(t,
+		coretestutils.NewResourceNameSet(parts.ResourceNames()...),
+		test.ShouldResemble,
+		coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
+			armNames,
+			gripperNames,
+			cameraNames,
+			servoNames,
+			motorNames,
+			inputNames,
+			inputNames,
+		)...))
 
 	_, ok := parts.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -135,26 +178,83 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 	inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
-	test.That(t, utils.NewStringSet(parts.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
-	test.That(t, utils.NewStringSet(parts.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
-	test.That(t, utils.NewStringSet(parts.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
-	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
-	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
-	test.That(t, utils.NewStringSet(parts.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix", "sensor1_r1", "sensor2_r1", "forcematrix_r1", "sensor1_r2", "sensor2_r2", "forcematrix_r2"))
-	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
-	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
-	test.That(t, utils.NewStringSet(parts.InputControllerNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...))
-	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
-	test.That(t, coretestutils.NewResourceNameSet(parts.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
-		armNames,
-		gripperNames,
-		cameraNames,
-		servoNames,
-		motorNames,
-		inputNames,
-		inputNames,
-	)...))
+	test.That(t,
+		utils.NewStringSet(parts.RemoteNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("remote1", "remote2"),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.ArmNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(armNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.GripperNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.CameraNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.BaseNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.BoardNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.SensorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(
+			"sensor1",
+			"sensor2",
+			"forcematrix",
+			"sensor1_r1",
+			"sensor2_r1",
+			"forcematrix_r1",
+			"sensor1_r2",
+			"sensor2_r2",
+			"forcematrix_r2",
+		),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.ServoNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.MotorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.InputControllerNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.FunctionNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
+	)
+	test.That(t,
+		coretestutils.NewResourceNameSet(parts.ResourceNames()...),
+		test.ShouldResemble,
+		coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
+			armNames,
+			gripperNames,
+			cameraNames,
+			servoNames,
+			motorNames,
+			inputNames,
+			inputNames,
+		)...))
 
 	_, ok := parts.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -322,26 +422,87 @@ func TestPartsClone(t *testing.T) {
 	inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 	inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
-	test.That(t, utils.NewStringSet(newParts.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
-	test.That(t, utils.NewStringSet(newParts.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
-	test.That(t, utils.NewStringSet(newParts.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(newParts.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
-	test.That(t, utils.NewStringSet(newParts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
-	test.That(t, utils.NewStringSet(newParts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
-	test.That(t, utils.NewStringSet(newParts.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix", "sensor1_r1", "sensor2_r1", "forcematrix_r1", "sensor1_r2", "sensor2_r2", "forcematrix_r2"))
-	test.That(t, utils.NewStringSet(newParts.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
-	test.That(t, utils.NewStringSet(newParts.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
-	test.That(t, utils.NewStringSet(newParts.InputControllerNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...))
-	test.That(t, utils.NewStringSet(newParts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
-	test.That(t, coretestutils.NewResourceNameSet(newParts.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
-		armNames,
-		gripperNames,
-		cameraNames,
-		servoNames,
-		motorNames,
-		inputNames,
-	)...))
-	test.That(t, utils.NewStringSet(newParts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
+	test.That(t,
+		utils.NewStringSet(newParts.RemoteNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("remote1", "remote2"),
+	)
+	test.That(t,
+		utils.NewStringSet(newParts.ArmNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(armNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(newParts.GripperNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(newParts.CameraNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(newParts.BaseNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"),
+	)
+	test.That(t,
+		utils.NewStringSet(newParts.BoardNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"),
+	)
+	test.That(t,
+		utils.NewStringSet(newParts.SensorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(
+			"sensor1",
+			"sensor2",
+			"forcematrix",
+			"sensor1_r1",
+			"sensor2_r1",
+			"forcematrix_r1",
+			"sensor1_r2",
+			"sensor2_r2",
+			"forcematrix_r2",
+		),
+	)
+	test.That(t,
+		utils.NewStringSet(newParts.ServoNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(newParts.MotorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(newParts.InputControllerNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(newParts.FunctionNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
+	)
+	test.That(t,
+		coretestutils.NewResourceNameSet(newParts.ResourceNames()...),
+		test.ShouldResemble,
+		coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
+			armNames,
+			gripperNames,
+			cameraNames,
+			servoNames,
+			motorNames,
+			inputNames,
+		)...))
+	test.That(t,
+		utils.NewStringSet(newParts.processManager.ProcessIDs()...),
+		test.ShouldResemble,
+		utils.NewStringSet("1", "2"),
+	)
 
 	_, ok = newParts.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -546,7 +707,11 @@ func TestPartsAdd(t *testing.T) {
 	test.That(t, fsm.(*proxyForceMatrix).actual, test.ShouldEqual, injectFsm)
 
 	injectObjectManipulationService := &inject.ObjectManipulationService{}
-	injectObjectManipulationService.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
+	injectObjectManipulationService.DoGrabFunc = func(
+		ctx context.Context,
+		gripperName, armName, cameraName string,
+		cameraPoint *r3.Vector,
+	) (bool, error) {
 		return false, nil
 	}
 	parts.AddService(injectObjectManipulationService, config.Service{Name: services.ObjectManipulationServiceName})
@@ -642,19 +807,66 @@ func TestPartsMergeAdd(t *testing.T) {
 
 	checkEmpty := func(toCheck *robotParts) {
 		t.Helper()
-		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.ArmNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.SensorNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.InputControllerNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldBeEmpty)
+		test.That(t,
+			utils.NewStringSet(toCheck.RemoteNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.ArmNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.GripperNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.CameraNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.BaseNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.BoardNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.SensorNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.ServoNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.MotorNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.InputControllerNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.FunctionNames()...),
+			test.ShouldBeEmpty,
+		)
+
 		test.That(t, toCheck.ResourceNames(), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldBeEmpty)
+		test.That(t,
+			utils.NewStringSet(toCheck.processManager.ProcessIDs()...),
+			test.ShouldBeEmpty,
+		)
 	}
 	checkSame := func(toCheck *robotParts) {
 		t.Helper()
@@ -671,27 +883,88 @@ func TestPartsMergeAdd(t *testing.T) {
 		inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 		inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
-		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
-		test.That(t, utils.NewStringSet(toCheck.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
-		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
-		test.That(t, utils.NewStringSet(toCheck.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix", "sensor1_r1", "sensor2_r1", "forcematrix_r1", "sensor1_r2", "sensor2_r2", "forcematrix_r2"))
-		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.InputControllerNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
-		test.That(t, coretestutils.NewResourceNameSet(toCheck.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
-			armNames,
-			gripperNames,
-			cameraNames,
-			servoNames,
-			motorNames,
-			inputNames,
-			inputNames,
-		)...))
-		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
+		test.That(t,
+			utils.NewStringSet(toCheck.RemoteNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("remote1", "remote2"),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.ArmNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(armNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.GripperNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.CameraNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.BaseNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.BoardNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.SensorNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(
+				"sensor1",
+				"sensor2",
+				"forcematrix",
+				"sensor1_r1",
+				"sensor2_r1",
+				"forcematrix_r1",
+				"sensor1_r2",
+				"sensor2_r2",
+				"forcematrix_r2",
+			),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.ServoNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.MotorNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.InputControllerNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.FunctionNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
+		)
+		test.That(t,
+			coretestutils.NewResourceNameSet(toCheck.ResourceNames()...),
+			test.ShouldResemble,
+			coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
+				armNames,
+				gripperNames,
+				cameraNames,
+				servoNames,
+				motorNames,
+				inputNames,
+				inputNames,
+			)...))
+		test.That(t,
+			utils.NewStringSet(toCheck.processManager.ProcessIDs()...),
+			test.ShouldResemble,
+			utils.NewStringSet("1", "2"),
+		)
 	}
 	result, err := parts.MergeAdd(newRobotParts(logger))
 	test.That(t, err, test.ShouldBeNil)
@@ -720,26 +993,126 @@ func TestPartsMergeAdd(t *testing.T) {
 	inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 	inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2", "_other", "_other1")...)
 
-	test.That(t, utils.NewStringSet(parts.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2", "other1"))
-	test.That(t, utils.NewStringSet(parts.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
-	test.That(t, utils.NewStringSet(parts.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
-	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2", "base1_other", "base2_other", "base1_other1", "base2_other1"))
-	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2", "board1_other", "board2_other", "board1_other1", "board2_other1"))
-	test.That(t, utils.NewStringSet(parts.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix", "sensor1_r1", "sensor2_r1", "forcematrix_r1", "sensor1_r2", "sensor2_r2", "forcematrix_r2", "sensor1_other", "sensor2_other", "forcematrix_other", "sensor1_other1", "sensor2_other1", "forcematrix_other1"))
-	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
-	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
-	test.That(t, utils.NewStringSet(parts.InputControllerNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...))
-	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2", "func1_other", "func2_other", "func1_other1", "func2_other1"))
-	test.That(t, coretestutils.NewResourceNameSet(parts.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
-		armNames,
-		gripperNames,
-		cameraNames,
-		servoNames,
-		motorNames,
-		inputNames,
-	)...))
-	test.That(t, utils.NewStringSet(parts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
+	test.That(t,
+		utils.NewStringSet(parts.RemoteNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("remote1", "remote2", "other1"),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.ArmNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(armNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.GripperNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.CameraNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.BaseNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(
+			"base1",
+			"base2",
+			"base1_r1",
+			"base2_r1",
+			"base1_r2",
+			"base2_r2",
+			"base1_other",
+			"base2_other",
+			"base1_other1",
+			"base2_other1",
+		),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.BoardNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(
+			"board1",
+			"board2",
+			"board1_r1",
+			"board2_r1",
+			"board1_r2",
+			"board2_r2",
+			"board1_other",
+			"board2_other",
+			"board1_other1",
+			"board2_other1",
+		),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.SensorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(
+			"sensor1",
+			"sensor2",
+			"forcematrix",
+			"sensor1_r1",
+			"sensor2_r1",
+			"forcematrix_r1",
+			"sensor1_r2",
+			"sensor2_r2",
+			"forcematrix_r2",
+			"sensor1_other",
+			"sensor2_other",
+			"forcematrix_other",
+			"sensor1_other1",
+			"sensor2_other1",
+			"forcematrix_other1",
+		),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.ServoNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.MotorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.InputControllerNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.FunctionNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(
+			"func1",
+			"func2",
+			"func1_r1",
+			"func2_r1",
+			"func1_r2",
+			"func2_r2",
+			"func1_other",
+			"func2_other",
+			"func1_other1",
+			"func2_other1",
+		),
+	)
+	test.That(t,
+		coretestutils.NewResourceNameSet(parts.ResourceNames()...),
+		test.ShouldResemble,
+		coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
+			armNames,
+			gripperNames,
+			cameraNames,
+			servoNames,
+			motorNames,
+			inputNames,
+		)...))
+	test.That(t,
+		utils.NewStringSet(parts.processManager.ProcessIDs()...),
+		test.ShouldResemble,
+		utils.NewStringSet("1", "2"),
+	)
 
 	emptyParts = newRobotParts(logger)
 	test.That(t, result.Process(emptyParts), test.ShouldBeNil)
@@ -756,42 +1129,190 @@ func TestPartsMergeAdd(t *testing.T) {
 	result, err = parts.MergeAdd(sameParts)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, utils.NewStringSet(parts.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2", "other1"))
-	test.That(t, utils.NewStringSet(parts.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
-	test.That(t, utils.NewStringSet(parts.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
-	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2", "base1_other", "base2_other", "base1_other1", "base2_other1"))
-	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2", "board1_other", "board2_other", "board1_other1", "board2_other1"))
-	test.That(t, utils.NewStringSet(parts.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix", "sensor1_r1", "sensor2_r1", "forcematrix_r1", "sensor1_r2", "sensor2_r2", "forcematrix_r2", "sensor1_other", "sensor2_other", "forcematrix_other", "sensor1_other1", "sensor2_other1", "forcematrix_other1"))
-	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
-	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
-	test.That(t, utils.NewStringSet(parts.InputControllerNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...))
-	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2", "func1_other", "func2_other", "func1_other1", "func2_other1"))
-	test.That(t, coretestutils.NewResourceNameSet(parts.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
-		armNames,
-		gripperNames,
-		cameraNames,
-		servoNames,
-		motorNames,
-		inputNames,
-	)...))
-	test.That(t, utils.NewStringSet(parts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
+	test.That(t,
+		utils.NewStringSet(parts.RemoteNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("remote1", "remote2", "other1"),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.ArmNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(armNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.GripperNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.CameraNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.BaseNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(
+			"base1",
+			"base2",
+			"base1_r1",
+			"base2_r1",
+			"base1_r2",
+			"base2_r2",
+			"base1_other",
+			"base2_other",
+			"base1_other1",
+			"base2_other1",
+		),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.BoardNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(
+			"board1",
+			"board2",
+			"board1_r1",
+			"board2_r1",
+			"board1_r2",
+			"board2_r2",
+			"board1_other",
+			"board2_other",
+			"board1_other1",
+			"board2_other1",
+		),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.SensorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(
+			"sensor1",
+			"sensor2",
+			"forcematrix",
+			"sensor1_r1",
+			"sensor2_r1",
+			"forcematrix_r1",
+			"sensor1_r2",
+			"sensor2_r2",
+			"forcematrix_r2",
+			"sensor1_other",
+			"sensor2_other",
+			"forcematrix_other",
+			"sensor1_other1",
+			"sensor2_other1",
+			"forcematrix_other1",
+		),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.ServoNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.MotorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.InputControllerNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(parts.FunctionNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(
+			"func1",
+			"func2",
+			"func1_r1",
+			"func2_r1",
+			"func1_r2",
+			"func2_r2",
+			"func1_other",
+			"func2_other",
+			"func1_other1",
+			"func2_other1",
+		),
+	)
+	test.That(t,
+		coretestutils.NewResourceNameSet(parts.ResourceNames()...),
+		test.ShouldResemble,
+		coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
+			armNames,
+			gripperNames,
+			cameraNames,
+			servoNames,
+			motorNames,
+			inputNames,
+		)...))
+	test.That(t,
+		utils.NewStringSet(parts.processManager.ProcessIDs()...),
+		test.ShouldResemble,
+		utils.NewStringSet("1", "2"),
+	)
 
 	emptyParts = newRobotParts(logger)
 	test.That(t, result.Process(emptyParts), test.ShouldBeNil)
-	test.That(t, utils.NewStringSet(emptyParts.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.ArmNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.GripperNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.CameraNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.BaseNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.BoardNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.SensorNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.ServoNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.MotorNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.InputControllerNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.FunctionNames()...), test.ShouldBeEmpty)
+	test.That(t,
+		utils.NewStringSet(emptyParts.RemoteNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.ArmNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.GripperNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.CameraNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.BaseNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.BoardNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.SensorNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.ServoNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.MotorNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.InputControllerNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.FunctionNames()...),
+		test.ShouldBeEmpty,
+	)
+
 	test.That(t, emptyParts.ResourceNames(), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
+	test.That(t,
+		utils.NewStringSet(emptyParts.processManager.ProcessIDs()...),
+		test.ShouldResemble,
+		utils.NewStringSet("1", "2"),
+	)
 
 	err = result.Process(parts)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -825,35 +1346,112 @@ func TestPartsMergeModify(t *testing.T) {
 		inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 		inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
-		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
-		test.That(t, utils.NewStringSet(toCheck.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
-		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
-		test.That(t, utils.NewStringSet(toCheck.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix", "sensor1_r1", "sensor2_r1", "forcematrix_r1", "sensor1_r2", "sensor2_r2", "forcematrix_r2"))
-		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.InputControllerNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
-		test.That(t, coretestutils.NewResourceNameSet(parts.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
-			armNames,
-			gripperNames,
-			cameraNames,
-			servoNames,
-			motorNames,
-			inputNames,
-		)...))
-		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
+		test.That(t,
+			utils.NewStringSet(toCheck.RemoteNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("remote1", "remote2"),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.ArmNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(armNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.GripperNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.CameraNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.BaseNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.BoardNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.SensorNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(
+				"sensor1",
+				"sensor2",
+				"forcematrix",
+				"sensor1_r1",
+				"sensor2_r1",
+				"forcematrix_r1",
+				"sensor1_r2",
+				"sensor2_r2",
+				"forcematrix_r2",
+			),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.ServoNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.MotorNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.InputControllerNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.FunctionNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
+		)
+		test.That(t,
+			coretestutils.NewResourceNameSet(parts.ResourceNames()...),
+			test.ShouldResemble,
+			coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
+				armNames,
+				gripperNames,
+				cameraNames,
+				servoNames,
+				motorNames,
+				inputNames,
+			)...))
+		test.That(t,
+			utils.NewStringSet(toCheck.processManager.ProcessIDs()...),
+			test.ShouldResemble,
+			utils.NewStringSet("1", "2"),
+		)
 
 		board1, ok := toCheck.BoardByName("board1")
 		test.That(t, ok, test.ShouldBeTrue)
 		board2r1, ok := toCheck.BoardByName("board2_r1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, utils.NewStringSet(board1.AnalogReaderNames()...), test.ShouldResemble, utils.NewStringSet("analog1", "analog2"))
-		test.That(t, utils.NewStringSet(board1.DigitalInterruptNames()...), test.ShouldResemble, utils.NewStringSet("digital1", "digital2"))
-		test.That(t, utils.NewStringSet(board2r1.AnalogReaderNames()...), test.ShouldResemble, utils.NewStringSet("analog1", "analog2"))
-		test.That(t, utils.NewStringSet(board2r1.DigitalInterruptNames()...), test.ShouldResemble, utils.NewStringSet("digital1", "digital2"))
+		test.That(t,
+			utils.NewStringSet(board1.AnalogReaderNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("analog1", "analog2"),
+		)
+		test.That(t,
+			utils.NewStringSet(board1.DigitalInterruptNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("digital1", "digital2"),
+		)
+		test.That(t,
+			utils.NewStringSet(board2r1.AnalogReaderNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("analog1", "analog2"),
+		)
+		test.That(t,
+			utils.NewStringSet(board2r1.DigitalInterruptNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("digital1", "digital2"),
+		)
 	}
 	result, err := parts.MergeModify(context.Background(), newRobotParts(logger), &config.Diff{})
 	test.That(t, err, test.ShouldBeNil)
@@ -861,19 +1459,66 @@ func TestPartsMergeModify(t *testing.T) {
 
 	emptyParts := newRobotParts(logger)
 	test.That(t, result.Process(emptyParts), test.ShouldBeNil)
-	test.That(t, utils.NewStringSet(emptyParts.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.ArmNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.GripperNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.CameraNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.BaseNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.BoardNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.SensorNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.ServoNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.MotorNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.InputControllerNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.FunctionNames()...), test.ShouldBeEmpty)
+	test.That(t,
+		utils.NewStringSet(emptyParts.RemoteNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.ArmNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.GripperNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.CameraNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.BaseNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.BoardNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.SensorNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.ServoNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.MotorNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.InputControllerNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(emptyParts.FunctionNames()...),
+		test.ShouldBeEmpty,
+	)
+
 	test.That(t, emptyParts.ResourceNames(), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.processManager.ProcessIDs()...), test.ShouldBeEmpty)
+	test.That(t,
+		utils.NewStringSet(emptyParts.processManager.ProcessIDs()...),
+		test.ShouldBeEmpty,
+	)
 
 	test.That(t, result.Process(parts), test.ShouldBeNil)
 
@@ -997,26 +1642,87 @@ func TestPartsMergeRemove(t *testing.T) {
 		inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 		inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
-		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
-		test.That(t, utils.NewStringSet(toCheck.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
-		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
-		test.That(t, utils.NewStringSet(toCheck.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix", "sensor1_r1", "sensor2_r1", "forcematrix_r1", "sensor1_r2", "sensor2_r2", "forcematrix_r2"))
-		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.InputControllerNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...))
-		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
-		test.That(t, coretestutils.NewResourceNameSet(toCheck.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
-			armNames,
-			gripperNames,
-			cameraNames,
-			servoNames,
-			motorNames,
-			inputNames,
-		)...))
-		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
+		test.That(t,
+			utils.NewStringSet(toCheck.RemoteNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("remote1", "remote2"),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.ArmNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(armNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.GripperNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.CameraNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.BaseNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.BoardNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.SensorNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(
+				"sensor1",
+				"sensor2",
+				"forcematrix",
+				"sensor1_r1",
+				"sensor2_r1",
+				"forcematrix_r1",
+				"sensor1_r2",
+				"sensor2_r2",
+				"forcematrix_r2",
+			),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.ServoNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.MotorNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.InputControllerNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...),
+		)
+		test.That(t,
+			utils.NewStringSet(toCheck.FunctionNames()...),
+			test.ShouldResemble,
+			utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
+		)
+		test.That(t,
+			coretestutils.NewResourceNameSet(toCheck.ResourceNames()...),
+			test.ShouldResemble,
+			coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
+				armNames,
+				gripperNames,
+				cameraNames,
+				servoNames,
+				motorNames,
+				inputNames,
+			)...))
+		test.That(t,
+			utils.NewStringSet(toCheck.processManager.ProcessIDs()...),
+			test.ShouldResemble,
+			utils.NewStringSet("1", "2"),
+		)
 	}
 
 	parts.MergeRemove(newRobotParts(logger))
@@ -1038,19 +1744,66 @@ func TestPartsMergeRemove(t *testing.T) {
 
 	parts.MergeRemove(sameParts)
 	checkSame(sameParts)
-	test.That(t, utils.NewStringSet(parts.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(parts.ArmNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(parts.GripperNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(parts.SensorNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(parts.ServoNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(parts.InputControllerNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldBeEmpty)
+	test.That(t,
+		utils.NewStringSet(parts.RemoteNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(parts.ArmNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(parts.GripperNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(parts.CameraNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(parts.BaseNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(parts.BoardNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(parts.SensorNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(parts.ServoNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(parts.MotorNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(parts.InputControllerNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(parts.FunctionNames()...),
+		test.ShouldBeEmpty,
+	)
+
 	test.That(t, parts.ResourceNames(), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(parts.processManager.ProcessIDs()...), test.ShouldBeEmpty)
+	test.That(t,
+		utils.NewStringSet(parts.processManager.ProcessIDs()...),
+		test.ShouldBeEmpty,
+	)
 }
 
 func TestPartsFilterFromConfig(t *testing.T) {
@@ -1067,19 +1820,66 @@ func TestPartsFilterFromConfig(t *testing.T) {
 
 	checkEmpty := func(toCheck *robotParts) {
 		t.Helper()
-		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.ArmNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.SensorNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.ServoNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.InputControllerNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldBeEmpty)
+		test.That(t,
+			utils.NewStringSet(toCheck.RemoteNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.ArmNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.GripperNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.CameraNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.BaseNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.BoardNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.SensorNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.ServoNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.MotorNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.InputControllerNames()...),
+			test.ShouldBeEmpty,
+		)
+
+		test.That(t,
+			utils.NewStringSet(toCheck.FunctionNames()...),
+			test.ShouldBeEmpty,
+		)
+
 		test.That(t, toCheck.ResourceNames(), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldBeEmpty)
+		test.That(t,
+			utils.NewStringSet(toCheck.processManager.ProcessIDs()...),
+			test.ShouldBeEmpty,
+		)
 	}
 
 	filtered, err := parts.FilterFromConfig(&config.Config{}, logger)
@@ -1213,26 +2013,77 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	motorNames := []resource.Name{motor.Named("motor2")}
 	inputNames := []resource.Name{input.Named("inputController2")}
 
-	test.That(t, utils.NewStringSet(filtered.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(filtered.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
-	test.That(t, utils.NewStringSet(filtered.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(filtered.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
-	test.That(t, utils.NewStringSet(filtered.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2"))
-	test.That(t, utils.NewStringSet(filtered.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2"))
-	test.That(t, utils.NewStringSet(filtered.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor2"))
-	test.That(t, utils.NewStringSet(filtered.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
-	test.That(t, utils.NewStringSet(filtered.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
-	test.That(t, utils.NewStringSet(filtered.InputControllerNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...))
-	test.That(t, utils.NewStringSet(filtered.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func2"))
-	test.That(t, coretestutils.NewResourceNameSet(filtered.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
-		armNames,
-		gripperNames,
-		cameraNames,
-		servoNames,
-		motorNames,
-		inputNames,
-	)...))
-	test.That(t, utils.NewStringSet(filtered.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("2"))
+	test.That(t,
+		utils.NewStringSet(filtered.RemoteNames()...),
+		test.ShouldBeEmpty,
+	)
+
+	test.That(t,
+		utils.NewStringSet(filtered.ArmNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(armNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.GripperNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.CameraNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.BaseNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("base2"),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.BoardNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("board2"),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.SensorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("sensor2"),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.ServoNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.MotorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.InputControllerNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.FunctionNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("func2"),
+	)
+	test.That(t,
+		coretestutils.NewResourceNameSet(filtered.ResourceNames()...),
+		test.ShouldResemble,
+		coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
+			armNames,
+			gripperNames,
+			cameraNames,
+			servoNames,
+			motorNames,
+			inputNames,
+		)...))
+	test.That(t,
+		utils.NewStringSet(filtered.processManager.ProcessIDs()...),
+		test.ShouldResemble,
+		utils.NewStringSet("2"),
+	)
 
 	filtered, err = parts.FilterFromConfig(&config.Config{
 		Remotes: []config.Remote{
@@ -1299,26 +2150,77 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	motorNames = []resource.Name{motor.Named("motor2"), motor.Named("motor1_r2"), motor.Named("motor2_r2")}
 	inputNames = []resource.Name{input.Named("inputController2"), input.Named("inputController1_r2"), input.Named("inputController2_r2")}
 
-	test.That(t, utils.NewStringSet(filtered.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote2"))
-	test.That(t, utils.NewStringSet(filtered.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
-	test.That(t, utils.NewStringSet(filtered.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(filtered.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
-	test.That(t, utils.NewStringSet(filtered.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base1_r2", "base2_r2"))
-	test.That(t, utils.NewStringSet(filtered.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board1_r2", "board2_r2"))
-	test.That(t, utils.NewStringSet(filtered.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor2", "sensor1_r2", "sensor2_r2", "forcematrix_r2"))
-	test.That(t, utils.NewStringSet(filtered.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
-	test.That(t, utils.NewStringSet(filtered.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
-	test.That(t, utils.NewStringSet(filtered.InputControllerNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...))
-	test.That(t, utils.NewStringSet(filtered.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func2", "func1_r2", "func2_r2"))
-	test.That(t, coretestutils.NewResourceNameSet(filtered.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
-		armNames,
-		gripperNames,
-		cameraNames,
-		servoNames,
-		motorNames,
-		inputNames,
-	)...))
-	test.That(t, utils.NewStringSet(filtered.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("2"))
+	test.That(t,
+		utils.NewStringSet(filtered.RemoteNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("remote2"),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.ArmNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(armNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.GripperNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.CameraNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.BaseNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("base2", "base1_r2", "base2_r2"),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.BoardNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("board2", "board1_r2", "board2_r2"),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.SensorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("sensor2", "sensor1_r2", "sensor2_r2", "forcematrix_r2"),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.ServoNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.MotorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.InputControllerNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.FunctionNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("func2", "func1_r2", "func2_r2"),
+	)
+	test.That(t,
+		coretestutils.NewResourceNameSet(filtered.ResourceNames()...),
+		test.ShouldResemble,
+		coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
+			armNames,
+			gripperNames,
+			cameraNames,
+			servoNames,
+			motorNames,
+			inputNames,
+		)...))
+	test.That(t,
+		utils.NewStringSet(filtered.processManager.ProcessIDs()...),
+		test.ShouldResemble,
+		utils.NewStringSet("2"),
+	)
 
 	filtered, err = parts.FilterFromConfig(&config.Config{
 		Remotes: []config.Remote{
@@ -1483,26 +2385,77 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	inputNames = []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
 	inputNames = append(inputNames, coretestutils.AddSuffixes(inputNames, "_r1", "_r2")...)
 
-	test.That(t, utils.NewStringSet(filtered.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
-	test.That(t, utils.NewStringSet(filtered.ArmNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(armNames...)...))
-	test.That(t, utils.NewStringSet(filtered.GripperNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...))
-	test.That(t, utils.NewStringSet(filtered.CameraNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...))
-	test.That(t, utils.NewStringSet(filtered.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"))
-	test.That(t, utils.NewStringSet(filtered.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"))
-	test.That(t, utils.NewStringSet(filtered.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "sensor1_r1", "sensor2_r1", "forcematrix_r1", "sensor1_r2", "sensor2_r2", "forcematrix_r2"))
-	test.That(t, utils.NewStringSet(filtered.ServoNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...))
-	test.That(t, utils.NewStringSet(filtered.MotorNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...))
-	test.That(t, utils.NewStringSet(filtered.InputControllerNames()...), test.ShouldResemble, utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...))
-	test.That(t, utils.NewStringSet(filtered.FunctionNames()...), test.ShouldResemble, utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"))
-	test.That(t, coretestutils.NewResourceNameSet(filtered.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
-		armNames,
-		gripperNames,
-		cameraNames,
-		servoNames,
-		motorNames,
-		inputNames,
-	)...))
-	test.That(t, utils.NewStringSet(filtered.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
+	test.That(t,
+		utils.NewStringSet(filtered.RemoteNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("remote1", "remote2"),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.ArmNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(armNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.GripperNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.CameraNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.BaseNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1", "base1_r2", "base2_r2"),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.BoardNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.SensorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("sensor1", "sensor2", "sensor1_r1", "sensor2_r1", "forcematrix_r1", "sensor1_r2", "sensor2_r2", "forcematrix_r2"),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.ServoNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.MotorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.InputControllerNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(inputNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(filtered.FunctionNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
+	)
+	test.That(t,
+		coretestutils.NewResourceNameSet(filtered.ResourceNames()...),
+		test.ShouldResemble,
+		coretestutils.NewResourceNameSet(coretestutils.ConcatResourceNames(
+			armNames,
+			gripperNames,
+			cameraNames,
+			servoNames,
+			motorNames,
+			inputNames,
+		)...))
+	test.That(t,
+		utils.NewStringSet(filtered.processManager.ProcessIDs()...),
+		test.ShouldResemble,
+		utils.NewStringSet("1", "2"),
+	)
 }
 
 type fakeProcess struct {

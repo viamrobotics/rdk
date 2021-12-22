@@ -104,26 +104,27 @@ func TestMainMain(t *testing.T) {
 			test.That(t, len(logs.FilterMessageSnippet("heading").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 			test.That(t, len(logs.FilterMessageSnippet("readings").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 		}},
-		{"normal device with calibrate", []string{"--calibrate"}, "", func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
-			reset(t, tLogger, exec)
-			searchDevicesFunc = func(filter serial.SearchFilter) []serial.Description {
-				return []serial.Description{
-					{Path: "path"},
+		{"normal device with calibrate", []string{"--calibrate"}, "",
+			func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
+				reset(t, tLogger, exec)
+				searchDevicesFunc = func(filter serial.SearchFilter) []serial.Description {
+					return []serial.Description{
+						{Path: "path"},
+					}
 				}
-			}
-			openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
-				rd := gy511.NewRawGY511()
-				rd.SetHeading(5)
-				return rd, nil
-			}
-			exec.ExpectIters(t, 2)
-		}, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
-			exec.QuitSignal(t)
-			exec.WaitIters(t)
-		}, func(t *testing.T, logs *observer.ObservedLogs) {
-			test.That(t, len(logs.FilterMessageSnippet("heading").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
-			test.That(t, len(logs.FilterMessageSnippet("readings").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
-		}},
+				openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
+					rd := gy511.NewRawGY511()
+					rd.SetHeading(5)
+					return rd, nil
+				}
+				exec.ExpectIters(t, 2)
+			}, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
+				exec.QuitSignal(t)
+				exec.WaitIters(t)
+			}, func(t *testing.T, logs *observer.ObservedLogs) {
+				test.That(t, len(logs.FilterMessageSnippet("heading").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
+				test.That(t, len(logs.FilterMessageSnippet("readings").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
+			}},
 		{"failing device", nil, "", func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
 			reset(t, tLogger, exec)
 			searchDevicesFunc = func(filter serial.SearchFilter) []serial.Description {

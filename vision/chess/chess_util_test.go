@@ -81,7 +81,8 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 	annotated := theBoard.Annotate()
 	rimage.WriteImageToFile(outDir+"/board2_annotated.png", annotated)
 
-	nextBoard, err := FindAndWarpBoardFromFiles(artifact.MustPath("vision/chess/board3.png"), artifact.MustPath("vision/chess/board3.dat.gz"), true, logger)
+	nextBoard, err := FindAndWarpBoardFromFiles(
+		artifact.MustPath("vision/chess/board3.png"), artifact.MustPath("vision/chess/board3.dat.gz"), true, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	rimage.WriteImageToFile(outDir+"/board3_annotated.png", nextBoard.Annotate())
@@ -122,7 +123,8 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 
 func TestArmBlock1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	board, err := FindAndWarpBoardFromFiles(artifact.MustPath("vision/chess/armblock1.png"), artifact.MustPath("vision/chess/armblock1.dat.gz"), true, logger)
+	board, err := FindAndWarpBoardFromFiles(
+		artifact.MustPath("vision/chess/armblock1.png"), artifact.MustPath("vision/chess/armblock1.dat.gz"), true, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, board.IsBoardBlocked(), test.ShouldBeTrue)
