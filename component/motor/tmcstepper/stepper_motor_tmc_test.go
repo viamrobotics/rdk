@@ -6,12 +6,12 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
+	fakeboard "go.viam.com/core/component/board/fake"
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/component/motor/tmcstepper"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
-	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"
@@ -47,9 +47,9 @@ func TestTMCStepperMotor(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	c := make(chan []byte)
-	b := &fake.Board{}
-	b.SPIs = map[string]*fake.SPI{}
-	b.SPIs["main"] = &fake.SPI{FIFO: c}
+	b := &fakeboard.Board{}
+	b.SPIs = map[string]*fakeboard.SPI{}
+	b.SPIs["main"] = &fakeboard.SPI{FIFO: c}
 	r := inject.Robot{}
 	r.BoardByNameFunc = func(name string) (board.Board, bool) {
 		return b, true

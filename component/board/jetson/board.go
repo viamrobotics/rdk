@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/config"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
@@ -40,14 +40,15 @@ func init() {
 		rlog.Logger.Debugw("error getting jetson GPIO board mapping", "error", err)
 	}
 
-	registry.RegisterBoard(
+	registry.RegisterComponent(
+		board.Subtype,
 		modelName,
-		registry.Board{Constructor: func(
+		registry.Component{Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
 			config config.Component,
 			logger golog.Logger,
-		) (board.Board, error) {
+		) (interface{}, error) {
 			conf := config.ConvertedAttributes.(*board.Config)
 			if len(conf.DigitalInterrupts) != 0 {
 				return nil, errors.New("digital interrupts unsupported")
