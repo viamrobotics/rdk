@@ -36,7 +36,13 @@ func inList(l []image.Point, p image.Point) bool {
 }
 
 // FindChessCornersPinkCheatInQuadrant TODO
-func FindChessCornersPinkCheatInQuadrant(img *rimage.Image, dc *gg.Context, cnts [][]image.Point, xQ, yQ int, logger golog.Logger) image.Point {
+func FindChessCornersPinkCheatInQuadrant(
+	img *rimage.Image,
+	dc *gg.Context,
+	cnts [][]image.Point,
+	xQ, yQ int,
+	logger golog.Logger,
+) image.Point {
 	debug := false && xQ == 0 && yQ == 1
 
 	best := cnts[xQ+yQ*2]

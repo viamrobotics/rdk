@@ -56,7 +56,14 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 	}
 	// ensure that there are no disconnected frames
 	if len(sortedFrameNames) != len(seen) {
-		return nil, errors.Errorf("the frame system is not fully connected, expected %d frames but frame system has %d. Expected frames are: %v. Actual frames are: %v", len(seen), len(sortedFrameNames), mapKeys(seen), sortedFrameNames)
+		return nil, errors.Errorf(
+			"the frame system is not fully connected, expected %d frames but have %d."+
+				"Expected frames are: %v. Actual frames are: %v",
+			len(seen),
+			len(sortedFrameNames),
+			mapKeys(seen),
+			sortedFrameNames,
+		)
 	}
 	// ensure that at least one frame connects to world if the frame system is not empty
 	if len(parts) != 0 && len(children[referenceframe.World]) == 0 {

@@ -48,7 +48,10 @@ func (s *subtypeServer) getCamera(name string) (Camera, error) {
 
 // Frame returns a frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
-func (s *subtypeServer) Frame(ctx context.Context, req *pb.CameraServiceFrameRequest) (*pb.CameraServiceFrameResponse, error) {
+func (s *subtypeServer) Frame(
+	ctx context.Context,
+	req *pb.CameraServiceFrameRequest,
+) (*pb.CameraServiceFrameResponse, error) {
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err
@@ -130,7 +133,10 @@ func (s *subtypeServer) Frame(ctx context.Context, req *pb.CameraServiceFrameReq
 
 // RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
-func (s *subtypeServer) RenderFrame(ctx context.Context, req *pb.CameraServiceRenderFrameRequest) (*httpbody.HttpBody, error) {
+func (s *subtypeServer) RenderFrame(
+	ctx context.Context,
+	req *pb.CameraServiceRenderFrameRequest,
+) (*httpbody.HttpBody, error) {
 	resp, err := s.Frame(ctx, (*pb.CameraServiceFrameRequest)(req))
 	if err != nil {
 		return nil, err
@@ -144,7 +150,10 @@ func (s *subtypeServer) RenderFrame(ctx context.Context, req *pb.CameraServiceRe
 
 // PointCloud returns a frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
-func (s *subtypeServer) PointCloud(ctx context.Context, req *pb.CameraServicePointCloudRequest) (*pb.CameraServicePointCloudResponse, error) {
+func (s *subtypeServer) PointCloud(
+	ctx context.Context,
+	req *pb.CameraServicePointCloudRequest,
+) (*pb.CameraServicePointCloudResponse, error) {
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err
@@ -169,7 +178,10 @@ func (s *subtypeServer) PointCloud(ctx context.Context, req *pb.CameraServicePoi
 
 // ObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned. Also returns a Vector3 array of the center points of each object.
-func (s *subtypeServer) ObjectPointClouds(ctx context.Context, req *pb.CameraServiceObjectPointCloudsRequest) (*pb.CameraServiceObjectPointCloudsResponse, error) {
+func (s *subtypeServer) ObjectPointClouds(
+	ctx context.Context,
+	req *pb.CameraServiceObjectPointCloudsRequest,
+) (*pb.CameraServiceObjectPointCloudsResponse, error) {
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err

@@ -155,7 +155,15 @@ func (e *eva) apiRequest(ctx context.Context, method string, path string, payloa
 	return e.apiRequestRetry(ctx, method, path, payload, auth, out, true)
 }
 
-func (e *eva) apiRequestRetry(ctx context.Context, method string, path string, payload interface{}, auth bool, out interface{}, retry bool) error {
+func (e *eva) apiRequestRetry(
+	ctx context.Context,
+	method string,
+	path string,
+	payload interface{},
+	auth bool,
+	out interface{},
+	retry bool,
+) error {
 	fullPath := fmt.Sprintf("http://%s/api/%s/%s", e.host, e.version, path)
 
 	var reqReader io.Reader = nil

@@ -193,13 +193,41 @@ func TestServer(t *testing.T) {
 		test.That(t, len(fssResp.FrameSystemConfigs), test.ShouldEqual, len(fsConfigs))
 		test.That(t, fssResp.FrameSystemConfigs[0].Name, test.ShouldEqual, fsConfigs[0].Name)
 		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Parent, test.ShouldEqual, fsConfigs[0].FrameConfig.Parent)
-		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.X, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Translation.X)
-		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.Y, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Translation.Y)
-		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.Z, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Translation.Z)
-		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.OX, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OX)
-		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.OY, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OY)
-		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.OZ, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OZ)
-		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Pose.Theta, test.ShouldAlmostEqual, fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().Theta)
+		test.That(t,
+			fssResp.FrameSystemConfigs[0].FrameConfig.Pose.X,
+			test.ShouldAlmostEqual,
+			fsConfigs[0].FrameConfig.Translation.X,
+		)
+		test.That(t,
+			fssResp.FrameSystemConfigs[0].FrameConfig.Pose.Y,
+			test.ShouldAlmostEqual,
+			fsConfigs[0].FrameConfig.Translation.Y,
+		)
+		test.That(t,
+			fssResp.FrameSystemConfigs[0].FrameConfig.Pose.Z,
+			test.ShouldAlmostEqual,
+			fsConfigs[0].FrameConfig.Translation.Z,
+		)
+		test.That(t,
+			fssResp.FrameSystemConfigs[0].FrameConfig.Pose.OX,
+			test.ShouldAlmostEqual,
+			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OX,
+		)
+		test.That(t,
+			fssResp.FrameSystemConfigs[0].FrameConfig.Pose.OY,
+			test.ShouldAlmostEqual,
+			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OY,
+		)
+		test.That(t,
+			fssResp.FrameSystemConfigs[0].FrameConfig.Pose.OZ,
+			test.ShouldAlmostEqual,
+			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OZ,
+		)
+		test.That(t,
+			fssResp.FrameSystemConfigs[0].FrameConfig.Pose.Theta,
+			test.ShouldAlmostEqual,
+			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().Theta,
+		)
 		t.Logf("the json frame should be empty:\n %v", fssResp.FrameSystemConfigs[0].ModelJson)
 		modelFrame, err := referenceframe.ParseJSON(fssResp.FrameSystemConfigs[0].ModelJson, fssResp.FrameSystemConfigs[0].Name)
 		test.That(t, err, test.ShouldBeNil)
@@ -1425,7 +1453,12 @@ func TestServer(t *testing.T) {
 			eventsOut[input.ButtonStart] = input.Event{Time: time.Now(), Event: input.ButtonPress, Control: input.ButtonStart, Value: 1.0}
 			return eventsOut, nil
 		}
-		device.RegisterControlCallbackFunc = func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+		device.RegisterControlCallbackFunc = func(
+			ctx context.Context,
+			control input.Control,
+			triggers []input.EventType,
+			ctrlFunc input.ControlFunction,
+		) error {
 			outEvent := input.Event{Time: time.Now(), Event: triggers[0], Control: input.ButtonStart, Value: 0.0}
 			ctrlFunc(ctx, outEvent)
 			return nil
