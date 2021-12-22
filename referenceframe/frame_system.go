@@ -356,10 +356,10 @@ func (sfs *simpleFrameSystem) getTargetParentTransform(inputMap map[string][]Inp
 }
 
 // Returns the relative pose between two frames
-func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, src, srcParent, target Frame) (spatial.Pose, error) {
+func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, src, srcParent, dst Frame) (spatial.Pose, error) {
 	// catch all errors together to for allow hypothetical calculations that result in errors
 	var errAll error
-	toTarget, err := sfs.getTargetParentTransform(inputMap, target)
+	toTarget, err := sfs.getTargetParentTransform(inputMap, dst)
 	multierr.AppendInto(&errAll, err)
 	fromParent, err := sfs.getSrcParentTransform(inputMap, src, srcParent)
 	multierr.AppendInto(&errAll, err)
@@ -374,8 +374,8 @@ func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, s
 }
 
 // Returns the relative pose between two frames
-func (sfs *simpleFrameSystem) volumeFromParent(inputMap map[string][]Input, src, srcParent, target Frame) (map[string]spatial.Volume, error) {
-	toTarget, err := sfs.getTargetParentTransform(inputMap, target)
+func (sfs *simpleFrameSystem) volumeFromParent(inputMap map[string][]Input, src, srcParent, dst Frame) (map[string]spatial.Volume, error) {
+	toTarget, err := sfs.getTargetParentTransform(inputMap, dst)
 	if toTarget == nil && err != nil {
 		return nil, err
 	}
