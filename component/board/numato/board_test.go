@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

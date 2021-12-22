@@ -23,7 +23,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/config"
 	piutils "go.viam.com/core/lib/pi"
 	"go.viam.com/core/registry"
@@ -33,20 +33,23 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 )
 
+const modelName = "pi"
+
 // init registers a pi board based on pigpio.
 func init() {
-	registry.RegisterBoard(
-		"pi",
-		registry.Board{Constructor: func(
+	registry.RegisterComponent(
+		board.Subtype,
+		modelName,
+		registry.Component{Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
 			config config.Component,
 			logger golog.Logger,
-		) (board.Board, error) {
+		) (interface{}, error) {
 			boardConfig := config.ConvertedAttributes.(*board.Config)
 			return NewPigpio(ctx, boardConfig, logger)
 		}})
-	board.RegisterConfigAttributeConverter("pi")
+	board.RegisterConfigAttributeConverter(modelName)
 }
 
 // piPigpio is an implementation of a board.Board of a Raspberry Pi

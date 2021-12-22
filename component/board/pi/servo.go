@@ -24,19 +24,25 @@ import (
 
 // init registers a pi servo based on pigpio.
 func init() {
-	registry.RegisterComponent(servo.Subtype, "pi", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		if !config.Attributes.Has("pin") {
-			return nil, errors.New("expected pin for servo")
-		}
+	registry.RegisterComponent(
+		servo.Subtype,
+		"pi",
+		registry.Component{
+			Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+				if !config.Attributes.Has("pin") {
+					return nil, errors.New("expected pin for servo")
+				}
 
-		pin := config.Attributes.String("pin")
-		bcom, have := piutils.BroadcomPinFromHardwareLabel(pin)
-		if !have {
-			return nil, errors.Errorf("no hw mapping for %s", pin)
-		}
+				pin := config.Attributes.String("pin")
+				bcom, have := piutils.BroadcomPinFromHardwareLabel(pin)
+				if !have {
+					return nil, errors.Errorf("no hw mapping for %s", pin)
+				}
 
-		return &piPigpioServo{C.uint(bcom)}, nil
-	}})
+				return &piPigpioServo{C.uint(bcom)}, nil
+			},
+		},
+	)
 }
 
 // piPigpioServo implements a servo.Servo using pigpio.

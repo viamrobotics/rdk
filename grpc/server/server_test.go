@@ -12,7 +12,7 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/base"
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/component/input"
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/client"

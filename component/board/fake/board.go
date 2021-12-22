@@ -9,7 +9,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/board"
+	"go.viam.com/core/component/board"
 	"go.viam.com/core/config"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
@@ -21,14 +21,18 @@ import (
 const modelName = "fake"
 
 func init() {
-	registry.RegisterBoard(
+	registry.RegisterComponent(
+		board.Subtype,
 		modelName,
-		registry.Board{Constructor: func(
+		registry.Component{Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
 			config config.Component,
 			logger golog.Logger,
-		) (board.Board, error) {
+		) (interface{}, error) {
+			if config.Attributes.Bool("fail_new", false) {
+				return nil, errors.New("whoops")
+			}
 			return NewBoard(ctx, config, logger)
 		}})
 	board.RegisterConfigAttributeConverter(modelName)
@@ -44,6 +48,10 @@ func NewBoard(ctx context.Context, config config.Component, logger golog.Logger)
 		SPIs:     map[string]*SPI{},
 		Analogs:  map[string]*Analog{},
 		Digitals: map[string]board.DigitalInterrupt{},
+	}
+
+	for _, c := range boardConfig.I2Cs {
+		b.I2Cs[c.Name] = &I2C{}
 	}
 
 	for _, c := range boardConfig.SPIs {
