@@ -136,9 +136,6 @@ func TestSliceUniq(t *testing.T) {
 }
 
 func TestSolverFrame(t *testing.T) {
-	// calculate expected location of end effector.  Will be offset by volume dims
-	// ur5eBaseToEE := r3.Vector{817.2, -62.8, -232.9}
-
 	// setup solverFrame with start and goal frames
 	solver := makeTestFS(t)
 	goalFrame, err := frame.NewStaticFrame("", spatial.NewPoseFromPoint(r3.Vector{100, 100, 200}))
