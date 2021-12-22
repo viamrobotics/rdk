@@ -36,42 +36,18 @@ void HallEncoder::encoderTick() {
     }
     switch ((_pState << 2) | nState) {
         case 0b0001:
+        case 0b0111:
+        case 0b1000:
+        case 0b1110:
             _praw--;
             _position = _praw >> 1;
             _pState = nState;
             break;
         case 0b0010:
-            _praw++;
-            _position = _praw >> 1;
-            _pState = nState;
-            break;
         case 0b0100:
-            _praw++;
-            _position = _praw >> 1;
-            _pState = nState;
-            break;
-        case 0b0111:
-            _praw--;
-            _position = _praw >> 1;
-            _pState = nState;
-            break;
-        case 0b1000:
-            _praw--;
-            _position = _praw >> 1;
-            _pState = nState;
-            break;
         case 0b1011:
-            _praw++;
-            _position = _praw >> 1;
-            _pState = nState;
-            break;
         case 0b1101:
             _praw++;
-            _position = _praw >> 1;
-            _pState = nState;
-            break;
-        case 0b1110:
-            _praw--;
             _position = _praw >> 1;
             _pState = nState;
             break;
