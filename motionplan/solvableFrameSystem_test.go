@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"testing"
 
@@ -160,12 +159,9 @@ func TestSolverFrame(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	linkMidpoint := spatial.NewPoseFromPoint(r3.Vector{0, 0, -49.8})
 	poseExpect, err := sf.Transform(sf.mapToSlice(inputs))
-	fmt.Println(poseExpect.Point())
 	test.That(t, err, test.ShouldBeNil)
 	poseExpect = spatial.Compose(poseExpect, linkMidpoint)
 	volPose := vols["UR5e:ee_link"].Pose()
-	fmt.Println(poseExpect.Point())
-	fmt.Println(volPose.Point())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.AlmostCoincident(volPose, poseExpect), test.ShouldBeTrue)
 }
