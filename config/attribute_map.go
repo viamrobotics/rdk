@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 )
 
 // An AttributeMap is a convenience wrapper for pulling out

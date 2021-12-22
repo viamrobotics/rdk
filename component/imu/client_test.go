@@ -6,8 +6,6 @@ import (
 	"testing"
 
 	"go.viam.com/utils"
-	rpcclient "go.viam.com/utils/rpc/client"
-	"go.viam.com/utils/rpc/dialer"
 
 	"go.viam.com/core/component/imu"
 	pb "go.viam.com/core/proto/api/component/v1"
@@ -15,10 +13,12 @@ import (
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/subtype"
+	"go.viam.com/core/testutils"
 	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
 	viamgrpc "go.viam.com/core/grpc"
@@ -62,14 +62,14 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = imu.NewClient(cancelCtx, imu1, listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+		_, err = imu.NewClient(cancelCtx, imu1, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	t.Run("IMU client 1", func(t *testing.T) {
 		// working
-		imu1Client, err := imu.NewClient(context.Background(), imu1, listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+		imu1Client, err := imu.NewClient(context.Background(), imu1, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 
 		av1, err := imu1Client.AngularVelocity(context.Background())
@@ -90,7 +90,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("IMU client 2", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 		imu1Client2 := imu.NewClientFromConn(conn, imu1, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -145,7 +145,7 @@ func TestClientZeroValues(t *testing.T) {
 	defer gServer.Stop()
 
 	t.Run("IMU client", func(t *testing.T) {
-		imu1Client, err := imu.NewClient(context.Background(), imu1, listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+		imu1Client, err := imu.NewClient(context.Background(), imu1, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 
 		av1, err := imu1Client.AngularVelocity(context.Background())
@@ -179,31 +179,16 @@ func TestClientDialerOption(t *testing.T) {
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
-	td := &trackingDialer{Dialer: dialer.NewCachedDialer()}
-	ctx := dialer.ContextWithDialer(context.Background(), td)
-	client1, err := imu.NewClient(ctx, imu1, listener.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
+	ctx := rpc.ContextWithDialer(context.Background(), td)
+	client1, err := imu.NewClient(ctx, imu1, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := imu.NewClient(ctx, imu1, listener.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+	client2, err := imu.NewClient(ctx, imu1, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.dialCalled, test.ShouldEqual, 2)
+	test.That(t, td.DialCalled, test.ShouldEqual, 2)
 
 	err = utils.TryClose(client1)
 	test.That(t, err, test.ShouldBeNil)
 	err = utils.TryClose(client2)
 	test.That(t, err, test.ShouldBeNil)
-}
-
-type trackingDialer struct {
-	dialer.Dialer
-	dialCalled int
-}
-
-func (td *trackingDialer) DialDirect(ctx context.Context, target string, opts ...grpc.DialOption) (dialer.ClientConn, error) {
-	td.dialCalled++
-	return td.Dialer.DialDirect(ctx, target, opts...)
-}
-
-func (td *trackingDialer) DialFunc(proto string, target string, f func() (dialer.ClientConn, error)) (dialer.ClientConn, error) {
-	td.dialCalled++
-	return td.Dialer.DialFunc(proto, target, f)
 }

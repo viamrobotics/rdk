@@ -34,7 +34,10 @@ func TestWriteViam(t *testing.T) {
 	err = fs.AddFrame(m, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
-	markerOffFrame, err := frame.NewStaticFrame("marker_offset", spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY: -1, OZ: 1}))
+	markerOffFrame, err := frame.NewStaticFrame(
+		"marker_offset",
+		spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY: -1, OZ: 1}),
+	)
 	test.That(t, err, test.ShouldBeNil)
 	markerFrame, err := frame.NewStaticFrame("marker", spatial.NewPoseFromPoint(r3.Vector{0, 0, 160}))
 	test.That(t, err, test.ShouldBeNil)
@@ -43,7 +46,10 @@ func TestWriteViam(t *testing.T) {
 	err = fs.AddFrame(markerFrame, markerOffFrame)
 	test.That(t, err, test.ShouldBeNil)
 
-	eraserOffFrame, err := frame.NewStaticFrame("eraser_offset", spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY: 1, OZ: 1}))
+	eraserOffFrame, err := frame.NewStaticFrame(
+		"eraser_offset",
+		spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY: 1, OZ: 1}),
+	)
 	test.That(t, err, test.ShouldBeNil)
 	eraserFrame, err := frame.NewStaticFrame("eraser", spatial.NewPoseFromPoint(r3.Vector{0, 0, 160}))
 	test.That(t, err, test.ShouldBeNil)

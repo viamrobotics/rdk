@@ -10,8 +10,8 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
-	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 )
 
 func TestStaticFrame(t *testing.T) {

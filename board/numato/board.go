@@ -35,21 +35,28 @@ const modelName = "numato"
 var errNoBoard = errors.New("no numato boards found")
 
 func init() {
-	registry.RegisterBoard(modelName, registry.Board{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error) {
-		conf := config.ConvertedAttributes.(*board.Config)
+	registry.RegisterBoard(
+		modelName,
+		registry.Board{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (board.Board, error) {
+			conf := config.ConvertedAttributes.(*board.Config)
 
-		if len(conf.DigitalInterrupts) != 0 {
-			return nil, errors.New("digital interrupts unsupported")
-		}
-		if len(conf.I2Cs) != 0 {
-			return nil, errors.New("i2c unsupported")
-		}
-		if len(conf.SPIs) != 0 {
-			return nil, errors.New("spi unsupported")
-		}
+			if len(conf.DigitalInterrupts) != 0 {
+				return nil, errors.New("digital interrupts unsupported")
+			}
+			if len(conf.I2Cs) != 0 {
+				return nil, errors.New("i2c unsupported")
+			}
+			if len(conf.SPIs) != 0 {
+				return nil, errors.New("spi unsupported")
+			}
 
-		return connect(ctx, conf, logger)
-	}})
+			return connect(ctx, conf, logger)
+		}})
 	board.RegisterConfigAttributeConverter(modelName)
 }
 

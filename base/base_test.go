@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/testutils/inject"

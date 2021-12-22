@@ -6,8 +6,8 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/rimage"
@@ -95,8 +95,11 @@ func (dct *DepthColorWarpTransforms) AlignImageWithDepth(ii *rimage.ImageWithDep
 	return rimage.MakeImageWithDepth(c2, dm2, true, dct), nil
 }
 
-// PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth from the perspective of the color camera frame.
-func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(cloud pointcloud.PointCloud) (*rimage.ImageWithDepth, error) {
+// PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth from the
+// perspective of the color camera frame.
+func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(
+	cloud pointcloud.PointCloud,
+) (*rimage.ImageWithDepth, error) {
 	// Needs to be a pointcloud with color
 	if !cloud.HasColor() {
 		return nil, errors.New("pointcloud has no color information, cannot create an image with depth")

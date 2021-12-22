@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -21,9 +21,16 @@ import (
 const modelName = "fake"
 
 func init() {
-	registry.RegisterBoard(modelName, registry.Board{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error) {
-		return NewBoard(ctx, config, logger)
-	}})
+	registry.RegisterBoard(
+		modelName,
+		registry.Board{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (board.Board, error) {
+			return NewBoard(ctx, config, logger)
+		}})
 	board.RegisterConfigAttributeConverter(modelName)
 }
 
