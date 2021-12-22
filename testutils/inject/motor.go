@@ -14,11 +14,12 @@ type Motor struct {
 	GoForFunc             func(ctx context.Context, rpm float64, rotations float64) error
 	GoToFunc              func(ctx context.Context, rpm float64, position float64) error
 	GoTillStopFunc        func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
-	SetToZeroPositionFunc func(ctx context.Context, offset float64) error
+	ResetZeroPositionFunc func(ctx context.Context, offset float64) error
 	PositionFunc          func(ctx context.Context) (float64, error)
 	PositionSupportedFunc func(ctx context.Context) (bool, error)
-	OffFunc               func(ctx context.Context) error
+	StopFunc              func(ctx context.Context) error
 	IsOnFunc              func(ctx context.Context) (bool, error)
+	PIDFunc               func() motor.PID
 }
 
 // SetPower calls the injected Power or the real version.
@@ -61,12 +62,12 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 	return m.GoTillStopFunc(ctx, rpm, stopFunc)
 }
 
-// SetToZeroPosition calls the injected Zero or the real version.
-func (m *Motor) SetToZeroPosition(ctx context.Context, offset float64) error {
-	if m.SetToZeroPositionFunc == nil {
-		return m.Motor.SetToZeroPosition(ctx, offset)
+// ResetZeroPosition calls the injected Zero or the real version.
+func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
+	if m.ResetZeroPositionFunc == nil {
+		return m.Motor.ResetZeroPosition(ctx, offset)
 	}
-	return m.SetToZeroPositionFunc(ctx, offset)
+	return m.ResetZeroPositionFunc(ctx, offset)
 }
 
 // Position calls the injected Position or the real version.
@@ -85,12 +86,12 @@ func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 	return m.PositionSupportedFunc(ctx)
 }
 
-// Off calls the injected Off or the real version.
-func (m *Motor) Off(ctx context.Context) error {
-	if m.OffFunc == nil {
-		return m.Motor.Off(ctx)
+// Stop calls the injected Off or the real version.
+func (m *Motor) Stop(ctx context.Context) error {
+	if m.StopFunc == nil {
+		return m.Motor.Stop(ctx)
 	}
-	return m.OffFunc(ctx)
+	return m.StopFunc(ctx)
 }
 
 // IsOn calls the injected IsOn or the real version.
@@ -99,4 +100,12 @@ func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 		return m.Motor.IsOn(ctx)
 	}
 	return m.IsOnFunc(ctx)
+}
+
+// PID calls the injected PID getter or the real version
+func (m *Motor) PID() motor.PID {
+	if m.PIDFunc == nil {
+		return m.Motor.PID()
+	}
+	return m.PIDFunc()
 }

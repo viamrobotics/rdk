@@ -49,14 +49,22 @@ type EventType string
 
 // EventType list, to be expanded as new input devices are developed
 const (
-	AllEvents         EventType = "AllEvents"         // Callbacks registered for this event will be called in ADDITION to other registered event callbacks
-	Connect           EventType = "Connect"           // Sent at controller initialization, and on reconnects
-	Disconnect        EventType = "Disconnect"        // If unplugged, or wireless/network times out
-	ButtonPress       EventType = "ButtonPress"       // Typical keypress
-	ButtonRelease     EventType = "ButtonRelease"     // Key release
-	ButtonChange      EventType = "ButtonChange"      // Both up and down for convinence during registration, not typically emitted
-	PositionChangeAbs EventType = "PositionChangeAbs" // Absolute position is reported via Value, a la joysticks
-	PositionChangeRel EventType = "PositionChangeRel" // Relative position is reported via Value, a la mice, or simulating axes with up/down buttons
+	// Callbacks registered for this event will be called in ADDITION to other registered event callbacks
+	AllEvents EventType = "AllEvents"
+	// Sent at controller initialization, and on reconnects
+	Connect EventType = "Connect"
+	// If unplugged, or wireless/network times out
+	Disconnect EventType = "Disconnect"
+	// Typical key press
+	ButtonPress EventType = "ButtonPress"
+	// Key release
+	ButtonRelease EventType = "ButtonRelease"
+	// Both up and down for convenience during registration, not typically emitted
+	ButtonChange EventType = "ButtonChange"
+	// Absolute position is reported via Value, a la joysticks
+	PositionChangeAbs EventType = "PositionChangeAbs"
+	// Relative position is reported via Value, a la mice, or simulating axes with up/down buttons
+	PositionChangeRel EventType = "PositionChangeRel"
 )
 
 // Control identifies the input (specific Axis or Button) of a controller
@@ -155,7 +163,12 @@ func (c *reconfigurableInputController) InjectEvent(ctx context.Context, event E
 	return iActual.InjectEvent(ctx, event)
 }
 
-func (c *reconfigurableInputController) RegisterControlCallback(ctx context.Context, control Control, triggers []EventType, ctrlFunc ControlFunction) error {
+func (c *reconfigurableInputController) RegisterControlCallback(
+	ctx context.Context,
+	control Control,
+	triggers []EventType,
+	ctrlFunc ControlFunction,
+) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.actual.RegisterControlCallback(ctx, control, triggers, ctrlFunc)

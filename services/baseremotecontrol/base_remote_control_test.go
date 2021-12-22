@@ -30,7 +30,12 @@ func TestBaseRemoteControl(t *testing.T) {
 		return fakeController, true
 	}
 
-	fakeController.RegisterControlCallbackFunc = func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+	fakeController.RegisterControlCallbackFunc = func(
+		ctx context.Context,
+		control input.Control,
+		triggers []input.EventType,
+		ctrlFunc input.ControlFunction,
+	) error {
 		return nil
 	}
 

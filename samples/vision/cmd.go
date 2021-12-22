@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"image"
 	"os"
 	"os/signal"
@@ -85,47 +84,23 @@ func shapeWalkLine(img *rimage.Image, startX, startY int) error {
 }
 
 func view(img *rimage.Image) error {
-	remoteView, err := gostream.NewView(x264.DefaultViewConfig)
+	remoteStream, err := gostream.NewStream(x264.DefaultStreamConfig)
 	if err != nil {
 		return err
 	}
 
-	var last image.Point
-
 	imgs := []image.Image{img}
-
-	remoteView.SetOnClickHandler(func(ctx context.Context, x, y int, _ gostream.ClientResponder) {
-		if x < 0 || y < 0 {
-			return
-		}
-		p := image.Point{x, y}
-		if p.X == last.X && p.Y == last.Y {
-			return
-		}
-		last = p
-		color := img.Get(p)
-		text := fmt.Sprintf("(x, y): (%d, %d); %s",
-			x, y,
-			color.String())
-
-		walked, err := segmentation.ShapeWalk(rimage.ConvertToImageWithDepth(img), p, segmentation.ShapeWalkOptions{Debug: *debug}, logger)
-		if err != nil {
-			panic(err)
-		}
-
-		dc := gg.NewContextForImage(walked)
-		rimage.DrawString(dc, text, image.Point{0, 20}, rimage.White, 16)
-		imgs[0] = dc.Image()
-	})
-
-	server := gostream.NewViewServer(5555, remoteView, logger)
-	if err := server.Start(); err != nil {
-		logger.Fatal(err)
+	server, err := gostream.NewStandaloneStreamServer(5555, logger, remoteStream)
+	if err != nil {
+		return err
 	}
-
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	if err := server.Start(cancelCtx); err != nil {
+		logger.Fatal(err)
+	}
 
 	utils.PanicCapturingGo(func() {
 		if !utils.SelectContextOrWait(cancelCtx, 2*time.Second) {
@@ -134,12 +109,12 @@ func view(img *rimage.Image) error {
 		gostream.StreamSource(
 			cancelCtx,
 			gostream.ImageSourceFunc(func(ctx context.Context) (image.Image, func(), error) { return imgs[0], func() {}, nil }),
-			remoteView)
+			remoteStream)
 	})
 
 	<-c
 	cancelFunc()
-	remoteView.Stop()
+	remoteStream.Stop()
 	return nil
 }
 

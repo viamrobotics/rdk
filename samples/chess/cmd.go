@@ -99,7 +99,14 @@ func moveTo(ctx context.Context, myArm arm.Arm, chess string, heightModMillis in
 	return myArm.MoveToPosition(ctx, where)
 }
 
-func movePiece(ctx context.Context, boardState boardStateGuesser, robot robot.Robot, myArm arm.Arm, myGripper gripper.Gripper, from, to string) error {
+func movePiece(
+	ctx context.Context,
+	boardState boardStateGuesser,
+	robot robot.Robot,
+	myArm arm.Arm,
+	myGripper gripper.Gripper,
+	from, to string,
+) error {
 
 	if to[0] != '-' {
 		toHeight, err := boardState.game.GetPieceHeight(boardState.NewestBoard(), to)
@@ -312,7 +319,13 @@ func getWristPicCorners(ctx context.Context, wristCam gostream.ImageSource, debu
 	return corners, imageSize, err
 }
 
-func lookForBoardAdjust(ctx context.Context, myArm arm.Arm, wristCam gostream.ImageSource, corners []image.Point, imageSize image.Point) error {
+func lookForBoardAdjust(
+	ctx context.Context,
+	myArm arm.Arm,
+	wristCam gostream.ImageSource,
+	corners []image.Point,
+	imageSize image.Point,
+) error {
 	debugNumber := 100
 	for {
 		where, err := myArm.CurrentPosition(ctx)

@@ -294,12 +294,27 @@ func TestNewTeardown(t *testing.T) {
 
 	modelName := utils.RandomAlphaString(8)
 	var dummyBoard1 dummyBoard
-	registry.RegisterBoard(modelName, registry.Board{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error) {
-		return &dummyBoard1, nil
-	}})
-	registry.RegisterComponent(gripper.Subtype, modelName, registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		return nil, errors.New("whoops")
-	}})
+	registry.RegisterBoard(
+		modelName,
+		registry.Board{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (board.Board, error) {
+			return &dummyBoard1, nil
+		}})
+	registry.RegisterComponent(
+		gripper.Subtype,
+		modelName,
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return nil, errors.New("whoops")
+		}})
 
 	var failingConfig = fmt.Sprintf(`{
     "components": [

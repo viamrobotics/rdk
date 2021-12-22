@@ -72,14 +72,22 @@ var allProductData map[vlp16.ProductID]productConfig = map[vlp16.ProductID]produ
 }
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, "velodyne", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		port := config.Attributes.Int("port", 2368)
-		ttl := config.Attributes.Int("ttlMilliseconds", 0)
-		if ttl == 0 {
-			return nil, errors.New("need to specify a ttl")
-		}
-		return New(ctx, logger, port, ttl)
-	}})
+	registry.RegisterComponent(
+		camera.Subtype,
+		"velodyne",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			port := config.Attributes.Int("port", 2368)
+			ttl := config.Attributes.Int("ttlMilliseconds", 0)
+			if ttl == 0 {
+				return nil, errors.New("need to specify a ttl")
+			}
+			return New(ctx, logger, port, ttl)
+		}})
 }
 
 type client struct {

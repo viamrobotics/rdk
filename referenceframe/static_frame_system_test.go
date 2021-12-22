@@ -242,7 +242,8 @@ func TestComplicatedFrameTransform(t *testing.T) {
 	err = fs.AddFrame(frame1, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	// frame 2 rotate by 45 degree (relative to frame 1) around z axis and translate
-	frame2, err := NewStaticFrame("frame2", spatial.NewPoseFromAxisAngle(r3.Vector{2. * math.Sqrt(2), 0., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
+	frame2, err := NewStaticFrame("frame2",
+		spatial.NewPoseFromAxisAngle(r3.Vector{2. * math.Sqrt(2), 0., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(frame2, fs.GetFrame("frame1"))
 	test.That(t, err, test.ShouldBeNil)
@@ -297,7 +298,8 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	err = fs.AddFrame(frame1, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	// frame 2 rotate by 45 degree (relative to frame 1) around z axis and translate
-	frame2, err := NewStaticFrame("frame2", spatial.NewPoseFromAxisAngle(r3.Vector{2. * math.Sqrt(2), 0., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
+	frame2, err := NewStaticFrame("frame2",
+		spatial.NewPoseFromAxisAngle(r3.Vector{2. * math.Sqrt(2), 0., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(frame2, fs.GetFrame("frame1"))
 	test.That(t, err, test.ShouldBeNil)
