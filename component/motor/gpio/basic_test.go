@@ -132,7 +132,11 @@ func TestMotorDirPWM(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, m.GoFor(ctx, 50, 10), test.ShouldBeError, errors.New("not supported, define maxRPM attribute"))
 
-		_, err = NewMotor(b, motor.Config{Pins: map[string]string{"dir": "1", "en": "2", "pwm": "3"}, MaxPowerPct: 100, PWMFreq: 4000}, logger)
+		_, err = NewMotor(
+			b,
+			motor.Config{Pins: map[string]string{"dir": "1", "en": "2", "pwm": "3"}, MaxPowerPct: 100, PWMFreq: 4000},
+			logger,
+		)
 		test.That(t, err, test.ShouldBeError, errors.New("max_power_pct must be between 0.06 and 1.0"))
 	})
 

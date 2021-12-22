@@ -30,7 +30,7 @@ func RegisterConfigAttributeConverter(model string) {
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	I2Cs              []I2CConfig              `json:"i2cs" mapstructure:"i2cs"`
+	I2Cs              []I2CConfig              `json:"i2cs"              mapstructure:"i2cs"`
 	SPIs              []SPIConfig              `json:"spis"`
 	Analogs           []AnalogConfig           `json:"analogs"`
 	DigitalInterrupts []DigitalInterruptConfig `json:"digitalInterrupts"`

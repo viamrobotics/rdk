@@ -485,7 +485,10 @@ func (vg *gripperV2) open(ctx context.Context) error {
 		total += msPer
 		if total > openTimeout {
 			measuredPos, err := vg.motor.Position(ctx)
-			return vg.stopAfterError(ctx, multierr.Combine(errors.Errorf("open timed out, wanted: %f at: %f", vg.openPos, measuredPos), err))
+			return vg.stopAfterError(
+				ctx,
+				multierr.Combine(errors.Errorf("open timed out, wanted: %f at: %f", vg.openPos, measuredPos), err),
+			)
 		}
 	}
 }
