@@ -5,18 +5,17 @@ import (
 	"net"
 	"testing"
 
-	rpcclient "go.viam.com/utils/rpc/client"
-	"go.viam.com/utils/rpc/dialer"
-
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/grpc/metadata/client"
 	"go.viam.com/core/grpc/metadata/server"
 	pb "go.viam.com/core/proto/api/service/v1"
 	"go.viam.com/core/resource"
+	"go.viam.com/core/testutils"
 	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 )
 
@@ -52,12 +51,12 @@ func TestClient(t *testing.T) {
 	// failing
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err = client.NewClient(cancelCtx, listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+	_, err = client.New(cancelCtx, listener1.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 
 	// working
-	client, err := client.NewClient(context.Background(), listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+	client, err := client.New(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMetadata.AllFunc = func() []resource.Name {
@@ -82,31 +81,16 @@ func TestClientDialerOption(t *testing.T) {
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
-	td := &trackingDialer{Dialer: dialer.NewCachedDialer()}
-	ctx := dialer.ContextWithDialer(context.Background(), td)
-	client1, err := client.NewClient(ctx, listener.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
+	ctx := rpc.ContextWithDialer(context.Background(), td)
+	client1, err := client.New(ctx, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := client.NewClient(ctx, listener.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+	client2, err := client.New(ctx, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.dialCalled, test.ShouldEqual, 2)
+	test.That(t, td.DialCalled, test.ShouldEqual, 2)
 
 	err = client1.Close()
 	test.That(t, err, test.ShouldBeNil)
 	err = client2.Close()
 	test.That(t, err, test.ShouldBeNil)
-}
-
-type trackingDialer struct {
-	dialer.Dialer
-	dialCalled int
-}
-
-func (td *trackingDialer) DialDirect(ctx context.Context, target string, opts ...grpc.DialOption) (dialer.ClientConn, error) {
-	td.dialCalled++
-	return td.Dialer.DialDirect(ctx, target, opts...)
-}
-
-func (td *trackingDialer) DialFunc(proto string, target string, f func() (dialer.ClientConn, error)) (dialer.ClientConn, error) {
-	td.dialCalled++
-	return td.Dialer.DialFunc(proto, target, f)
 }

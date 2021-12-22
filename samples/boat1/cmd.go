@@ -13,14 +13,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
+	"go.viam.com/core/grpc/client"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
@@ -88,7 +90,7 @@ func (b *Boat) WidthMillis(ctx context.Context) (int, error) {
 
 // Stop TODO
 func (b *Boat) Stop(ctx context.Context) error {
-	return multierr.Combine(b.starboard.Off(ctx), b.port.Off(ctx))
+	return multierr.Combine(b.starboard.Stop(ctx), b.port.Stop(ctx))
 }
 
 // Close TODO
@@ -389,7 +391,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	// register boat as base properly
 	registry.RegisterBase("viam-boat1", registry.Base{Constructor: newBoat})
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
 	if err != nil {
 		return err
 	}

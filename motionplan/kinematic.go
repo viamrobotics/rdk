@@ -8,7 +8,7 @@ import (
 	frame "go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/num/quat"
 )
@@ -18,7 +18,11 @@ import (
 func ComputePosition(model frame.Frame, joints *pb.ArmJointPositions) (*commonpb.Pose, error) {
 
 	if len(joints.Degrees) != len(model.DoF()) {
-		return nil, errors.Errorf("incorrect number of joints passed to ComputePosition. Want: %d, got: %d", len(model.DoF()), len(joints.Degrees))
+		return nil, errors.Errorf(
+			"incorrect number of joints passed to ComputePosition. Want: %d, got: %d",
+			len(model.DoF()),
+			len(joints.Degrees),
+		)
 	}
 
 	pose, err := model.Transform(frame.JointPosToInputs(joints))

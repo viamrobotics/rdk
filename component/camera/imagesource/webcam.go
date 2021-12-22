@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/config"
@@ -20,9 +20,17 @@ import (
 )
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, "webcam", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		return NewWebcamSource(config.Attributes, logger)
-	}})
+	registry.RegisterComponent(
+		camera.Subtype,
+		"webcam",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return NewWebcamSource(config.Attributes, logger)
+		}})
 
 }
 

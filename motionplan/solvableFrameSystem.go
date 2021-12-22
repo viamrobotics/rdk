@@ -30,11 +30,13 @@ func NewSolvableFrameSystem(fs frame.FrameSystem, logger golog.Logger) *Solvable
 // then try to path plan the full frame system such that the solveFrame has the goal pose from the perspective of the goalFrame.
 // For example, if a world system has a gripper attached to an arm attached to a gantry, and the system was being solved
 // to place the gripper at a particular pose in the world, the solveFrame would be the gripper and the goalFrame would be
+
 // the world frame. It will use the default planner options.
 func (fss *SolvableFrameSystem) SolvePose(ctx context.Context,
 	seedMap map[string][]frame.Input,
 	goal spatial.Pose,
 	solveFrame, goalFrame frame.Frame) ([]map[string][]frame.Input, error) {
+
 	opt := NewDefaultPlannerOptions()
 	return fss.SolvePoseWithOptions(ctx, seedMap, goal, solveFrame, goalFrame, opt)
 }
@@ -47,7 +49,7 @@ func (fss *SolvableFrameSystem) SolvePoseWithOptions(ctx context.Context,
 	goal spatial.Pose,
 	solveFrame, goalFrame frame.Frame,
 	opt *PlannerOptions) ([]map[string][]frame.Input, error) {
-
+	
 	// Get parentage of both frames. This will also verify the frames are in the frame system
 	sFrames, err := fss.TracebackFrame(solveFrame)
 	if err != nil {

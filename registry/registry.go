@@ -7,14 +7,12 @@ import (
 	"runtime"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 	"github.com/mitchellh/copystructure"
-	"go.viam.com/utils/rpc/dialer"
-	rpcserver "go.viam.com/utils/rpc/server"
+	"github.com/pkg/errors"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
-	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/robot"
@@ -31,9 +29,6 @@ type (
 
 	// A CreateBoard creates a board from a given config.
 	CreateBoard func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error)
-
-	// A CreateMotor creates a motor from a given config.
-	CreateMotor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error)
 
 	// A CreateService creates a service from a given config.
 	CreateService func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error)
@@ -61,12 +56,6 @@ type Sensor struct {
 type Board struct {
 	RegDebugInfo
 	Constructor CreateBoard
-}
-
-// Motor stores a Motor constructor function (mandatory)
-type Motor struct {
-	RegDebugInfo
-	Constructor CreateMotor
 }
 
 // Service stores a Service constructor (mandatory) and an attribute converter
@@ -198,11 +187,11 @@ type (
 	CreateReconfigurable func(resource interface{}) (resource.Reconfigurable, error)
 
 	// A RegisterSubtypeRPCService will register the subtype service to the grpc server
-	RegisterSubtypeRPCService func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error
+	RegisterSubtypeRPCService func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error
 
 	// A CreateRPCClient will create the client for the resource.
 	// TODO: Remove as part of #227
-	CreateRPCClient func(conn dialer.ClientConn, name string, logger golog.Logger) interface{}
+	CreateRPCClient func(conn rpc.ClientConn, name string, logger golog.Logger) interface{}
 )
 
 // Component stores a resource constructor (mandatory) and a Frame building function (optional)

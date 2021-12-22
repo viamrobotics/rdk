@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.uber.org/multierr"
 
@@ -127,7 +127,7 @@ func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJoin
 
 	err2 := e.resetErrors(ctx)
 	if err2 != nil {
-		return errors.Errorf("move failure, and couldn't reset errors %w", multierr.Combine(err, err2))
+		return errors.Wrapf(multierr.Combine(err, err2), "move failure, and couldn't reset errors")
 	}
 
 	return e.doMoveJoints(ctx, radians)
@@ -155,7 +155,15 @@ func (e *eva) apiRequest(ctx context.Context, method string, path string, payloa
 	return e.apiRequestRetry(ctx, method, path, payload, auth, out, true)
 }
 
-func (e *eva) apiRequestRetry(ctx context.Context, method string, path string, payload interface{}, auth bool, out interface{}, retry bool) error {
+func (e *eva) apiRequestRetry(
+	ctx context.Context,
+	method string,
+	path string,
+	payload interface{},
+	auth bool,
+	out interface{},
+	retry bool,
+) error {
 	fullPath := fmt.Sprintf("http://%s/api/%s/%s", e.host, e.version, path)
 
 	var reqReader io.Reader = nil

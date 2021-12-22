@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/component/camera"
 	"go.viam.com/core/config"
@@ -72,14 +72,22 @@ var allProductData map[vlp16.ProductID]productConfig = map[vlp16.ProductID]produ
 }
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, "velodyne", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		port := config.Attributes.Int("port", 2368)
-		ttl := config.Attributes.Int("ttlMilliseconds", 0)
-		if ttl == 0 {
-			return nil, errors.New("need to specify a ttl")
-		}
-		return New(ctx, logger, port, ttl)
-	}})
+	registry.RegisterComponent(
+		camera.Subtype,
+		"velodyne",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			port := config.Attributes.Int("port", 2368)
+			ttl := config.Attributes.Int("ttlMilliseconds", 0)
+			if ttl == 0 {
+				return nil, errors.New("need to specify a ttl")
+			}
+			return New(ctx, logger, port, ttl)
+		}})
 }
 
 type client struct {
@@ -225,7 +233,7 @@ func pointFrom(yaw, pitch, distance float64, reflectivity uint8) pointcloud.Poin
 	pose2 := spatialmath.NewPoseFromPoint(r3.Vector{distance, 0, 0})
 	p := spatialmath.Compose(pose1, pose2).Point()
 
-	return pointcloud.NewBasicPoint(p.X*1000, p.Y*1000, p.Z*1000).SetIntesnity(uint16(reflectivity))
+	return pointcloud.NewBasicPoint(p.X*1000, p.Y*1000, p.Z*1000).SetIntensity(uint16(reflectivity))
 }
 
 func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {

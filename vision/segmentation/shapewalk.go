@@ -4,7 +4,7 @@ import (
 	"image"
 	"math"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 
@@ -405,7 +405,12 @@ func ShapeWalk(img *rimage.ImageWithDepth, start image.Point, options ShapeWalkO
 }
 
 // ShapeWalkMultiple TODO
-func ShapeWalkMultiple(img *rimage.ImageWithDepth, starts []image.Point, options ShapeWalkOptions, logger golog.Logger) (*SegmentedImage, error) {
+func ShapeWalkMultiple(
+	img *rimage.ImageWithDepth,
+	starts []image.Point,
+	options ShapeWalkOptions,
+	logger golog.Logger,
+) (*SegmentedImage, error) {
 
 	ws := walkState{
 		img:       img.Color,
@@ -459,7 +464,12 @@ func ShapeWalkEntireDebug(img *rimage.ImageWithDepth, options ShapeWalkOptions, 
 	return si, err
 }
 
-func shapeWalkEntireDebugOnePass(img *rimage.ImageWithDepth, options ShapeWalkOptions, extraThreshold float64, logger golog.Logger) (*SegmentedImage, error) {
+func shapeWalkEntireDebugOnePass(
+	img *rimage.ImageWithDepth,
+	options ShapeWalkOptions,
+	extraThreshold float64,
+	logger golog.Logger,
+) (*SegmentedImage, error) {
 	ws := walkState{
 		img:       img.Color,
 		depth:     img.Depth,
@@ -500,7 +510,7 @@ func shapeWalkEntireDebugOnePass(img *rimage.ImageWithDepth, options ShapeWalkOp
 
 		var walkErr MyWalkError
 		if !errors.As(found, &walkErr) {
-			return errors.Errorf("expected %T but got %w", walkErr, found)
+			return errors.Wrapf(found, "expected %T but got", walkErr)
 		}
 		start := walkErr.pos
 		numPixels := ws.piece(start, nextColor)

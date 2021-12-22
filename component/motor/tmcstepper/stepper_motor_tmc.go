@@ -5,8 +5,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/go-errors/errors"
 	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 
 	"go.viam.com/utils"
 
@@ -47,17 +47,20 @@ func init() {
 	}
 	registry.RegisterComponent(motor.Subtype, modelname, _motor)
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeMotor, modelname, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf TMC5072Config
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &TMC5072Config{})
+	config.RegisterComponentAttributeMapConverter(
+		config.ComponentTypeMotor,
+		modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf TMC5072Config
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &TMC5072Config{})
 }
 
 // A Motor represents a brushless motor connected via a TMC controller chip (ex: TMC5072)
@@ -388,8 +391,8 @@ func (m *Motor) Enable(ctx context.Context, turnOn bool) error {
 	return m.board.GPIOSet(ctx, m.enPin, !turnOn)
 }
 
-// Off stops the motor.
-func (m *Motor) Off(ctx context.Context) error {
+// Stop stops the motor.
+func (m *Motor) Stop(ctx context.Context) error {
 	return m.Go(ctx, 0)
 }
 
@@ -403,7 +406,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 	defer func() {
 		if err := multierr.Combine(
 			m.writeReg(ctx, swMode, 0x000),
-			m.Off(ctx),
+			m.Stop(ctx),
 		); err != nil {
 			m.logger.Error(err)
 		}
@@ -469,8 +472,9 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 	return nil
 }
 
-// SetToZeroPosition resets the current position to the offset given.
-func (m *Motor) SetToZeroPosition(ctx context.Context, offset float64) error {
+// ResetZeroPosition sets the current position of the motor specified by the request
+// (adjusted by a given offset) to be its new zero position
+func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	on, err := m.IsOn(ctx)
 	if err != nil {
 		return err

@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/utils"
 

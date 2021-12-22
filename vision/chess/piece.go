@@ -1,7 +1,7 @@
 package chess
 
 import (
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/ml"
 	"go.viam.com/core/rimage"

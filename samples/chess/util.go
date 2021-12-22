@@ -7,7 +7,7 @@ import (
 	"go.viam.com/core/utils"
 	"go.viam.com/core/vision/chess"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"github.com/tonyOreglia/glee/pkg/bitboard"
 	"github.com/tonyOreglia/glee/pkg/moves"
 	"github.com/tonyOreglia/glee/pkg/position"

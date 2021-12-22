@@ -113,7 +113,12 @@ func (w *webGamepad) LastEvents(ctx context.Context) (map[input.Control]input.Ev
 }
 
 // RegisterControlCallback registers a callback function to be executed on the specified control's trigger Events
-func (w *webGamepad) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+func (w *webGamepad) RegisterControlCallback(
+	ctx context.Context,
+	control input.Control,
+	triggers []input.EventType,
+	ctrlFunc input.ControlFunction,
+) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.callbacks[control] == nil {

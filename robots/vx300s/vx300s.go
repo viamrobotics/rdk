@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
@@ -425,43 +425,43 @@ func setServoDefaults(newServo *servo.Servo) error {
 	}
 	err = newServo.SetMovingThreshold(0)
 	if err != nil {
-		return errors.Errorf("error SetMovingThreshold servo %d: %w", newServo.ID, err)
+		return errors.Wrapf(err, "error SetMovingThreshold servo %d", newServo.ID)
 	}
 	dm, err := newServo.DriveMode()
 	if err != nil {
-		return errors.Errorf("error DriveMode servo %d: %w", newServo.ID, err)
+		return errors.Wrapf(err, "error DriveMode servo %d", newServo.ID)
 	}
 	if dm == 4 {
 		err = newServo.SetDriveMode(0)
 		if err != nil {
-			return errors.Errorf("error SetDriveMode0 servo %d: %w", newServo.ID, err)
+			return errors.Wrapf(err, "error SetDriveMode0 servo %d", newServo.ID)
 		}
 	}
 	if dm == 5 {
 		err = newServo.SetDriveMode(1)
 		if err != nil {
-			return errors.Errorf("error DriveMode1 servo %d: %w", newServo.ID, err)
+			return errors.Wrapf(err, "error DriveMode1 servo %d", newServo.ID)
 		}
 	}
 	err = newServo.SetPGain(2800)
 	if err != nil {
-		return errors.Errorf("error SetPGain servo %d: %w", newServo.ID, err)
+		return errors.Wrapf(err, "error SetPGain servo %d", newServo.ID)
 	}
 	err = newServo.SetIGain(50)
 	if err != nil {
-		return errors.Errorf("error SetIGain servo %d: %w", newServo.ID, err)
+		return errors.Wrapf(err, "error SetIGain servo %d", newServo.ID)
 	}
 	err = newServo.SetTorqueEnable(true)
 	if err != nil {
-		return errors.Errorf("error SetTorqueEnable servo %d: %w", newServo.ID, err)
+		return errors.Wrapf(err, "error SetTorqueEnable servo %d", newServo.ID)
 	}
 	err = newServo.SetProfileVelocity(50)
 	if err != nil {
-		return errors.Errorf("error SetProfileVelocity servo %d: %w", newServo.ID, err)
+		return errors.Wrapf(err, "error SetProfileVelocity servo %d", newServo.ID)
 	}
 	err = newServo.SetProfileAcceleration(10)
 	if err != nil {
-		return errors.Errorf("error SetProfileAcceleration servo %d: %w", newServo.ID, err)
+		return errors.Wrapf(err, "error SetProfileAcceleration servo %d", newServo.ID)
 	}
 	return nil
 }
@@ -471,11 +471,11 @@ func setServoDefaults(newServo *servo.Servo) error {
 func findServos(usbPort, baudRateStr, armServoCountStr string) ([]*servo.Servo, error) {
 	baudRate, err := strconv.Atoi(baudRateStr)
 	if err != nil {
-		return nil, errors.Errorf("mangled baudrate: %w", err)
+		return nil, errors.Wrap(err, "mangled baudrate")
 	}
 	armServoCount, err := strconv.Atoi(armServoCountStr)
 	if err != nil {
-		return nil, errors.Errorf("mangled servo count: %w", err)
+		return nil, errors.Wrap(err, "mangled servo count")
 	}
 
 	options := serial.OpenOptions{
@@ -489,7 +489,7 @@ func findServos(usbPort, baudRateStr, armServoCountStr string) ([]*servo.Servo, 
 
 	serial, err := serial.Open(options)
 	if err != nil {
-		return nil, errors.Errorf("error opening serial port: %w", err)
+		return nil, errors.Wrap(err, "error opening serial port")
 	}
 
 	var servos []*servo.Servo
@@ -501,7 +501,7 @@ func findServos(usbPort, baudRateStr, armServoCountStr string) ([]*servo.Servo, 
 		//Get model ID of each servo
 		newServo, err := s_model.New(network, i)
 		if err != nil {
-			return nil, errors.Errorf("error initializing servo %d: %w", i, err)
+			return nil, errors.Wrapf(err, "error initializing servo %d", i)
 		}
 
 		err = setServoDefaults(newServo)

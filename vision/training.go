@@ -74,7 +74,12 @@ func (its *ImageTrainingStore) StoreImageFromDisk(ctx context.Context, fn string
 }
 
 // StoreImage TODO
-func (its *ImageTrainingStore) StoreImage(ctx context.Context, img image.Image, metaData map[string]interface{}, labels []string) (primitive.ObjectID, error) {
+func (its *ImageTrainingStore) StoreImage(
+	ctx context.Context,
+	img image.Image,
+	metaData map[string]interface{},
+	labels []string,
+) (primitive.ObjectID, error) {
 
 	ti := TrainingImage{}
 	ti.ID = primitive.NewObjectID()

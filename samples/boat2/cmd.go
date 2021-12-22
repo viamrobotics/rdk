@@ -11,17 +11,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-errors/errors"
 	slib "github.com/jacobsa/go-serial/serial"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/component/imu"
 	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
+	"go.viam.com/core/grpc/client"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
@@ -92,10 +94,10 @@ type boat struct {
 
 func (b *boat) Stop(ctx context.Context) error {
 	return multierr.Combine(
-		b.starboard.Off(ctx),
-		b.port.Off(ctx),
-		b.thrust.Off(ctx),
-		b.squirt.Off(ctx),
+		b.starboard.Stop(ctx),
+		b.port.Stop(ctx),
+		b.thrust.Stop(ctx),
+		b.squirt.Stop(ctx),
 	)
 }
 
@@ -178,7 +180,7 @@ func (b *boat) SteerAndMove(ctx context.Context, dir, speed float64) error {
 
 	if dir > 0 {
 		return multierr.Combine(
-			b.thrust.Off(ctx),
+			b.thrust.Stop(ctx),
 			b.port.Go(ctx, dir),
 			b.starboard.Go(ctx, dir),
 		)
@@ -186,7 +188,7 @@ func (b *boat) SteerAndMove(ctx context.Context, dir, speed float64) error {
 
 	dir *= -1
 	return multierr.Combine(
-		b.thrust.Off(ctx),
+		b.thrust.Stop(ctx),
 		b.port.Go(ctx, dir),
 		b.starboard.Go(ctx, dir),
 	)
@@ -274,7 +276,7 @@ func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golo
 			return nil, fmt.Errorf("steeringRange only %v", b.steeringRange)
 		}
 
-		err = multierr.Combine(b.thrust.Off(ctx), b.steering.GoTo(ctx, 50, b.middle))
+		err = multierr.Combine(b.thrust.Stop(ctx), b.steering.GoTo(ctx, 50, b.middle))
 		if err != nil {
 			return nil, err
 		}
@@ -617,7 +619,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 			return newArduinoIMU(ctx, r, config, logger)
 		}})
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
 	if err != nil {
 		return err
 	}

@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/core/utils"
@@ -112,7 +112,7 @@ func _readNext(r io.Reader) (int64, error) {
 		return int64(binary.LittleEndian.Uint64(data)), nil
 	}
 
-	return 0, errors.Errorf("got %d bytes, and %w", x, err)
+	return 0, errors.Wrapf(err, "got %d bytes", x)
 }
 
 // ParseDepthMap parses a depth map from the given file. It knows
@@ -248,7 +248,7 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 			}
 
 			if n != 2 || err != nil {
-				return nil, errors.Errorf("didn't read 2 bytes, got: %d err: %w x,y: %d,%x", n, err, x, y)
+				return nil, errors.Wrapf(err, "didn't read 2 bytes, got: %d x,y: %d,%x", n, x, y)
 			}
 
 			dm.Set(x, y, Depth(units*float64(binary.LittleEndian.Uint16(temp))))
