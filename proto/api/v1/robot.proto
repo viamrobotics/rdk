@@ -91,7 +91,7 @@ service RobotService {
     };  
   }
 
-  // BoardGPIOSet sets a given pin on a robot's board 
+  // BoardGPIOSet sets a given pin on a robot's board to either high or low
   rpc BoardGPIOSet(BoardGPIOSetRequest) returns (BoardGPIOSetResponse) {
     option (google.api.http) = {
       put: "/api/v1/board/{name}/gpio_set"
@@ -105,8 +105,8 @@ service RobotService {
     };  
   }
 
-  // BoardPWMSet sets a given pin on a robot's board to a given duty cycle expressed as a 
-  // value between 0-255 where 255 means that the pin is high 100% of the time
+  // BoardPWMSet sets a given pin on a robot's board to a given duty cycle expressed as a value between 0-255 where 255 means that the pin 
+  // is high 100% of the time
   rpc BoardPWMSet(BoardPWMSetRequest) returns (BoardPWMSetResponse) {
     option (google.api.http) = {
       put: "/api/v1/board/{name}/pwm_set"
@@ -140,16 +140,17 @@ service RobotService {
     };
   }
 
-  // BoardDigitalInterruptValue returns the amount of ticks that have occurred on a given digital interrupt 
-  // on a robot's board 
+  // BoardDigitalInterruptValue returns the value of the interrupt based on the driver. Very often, this is the number of ticks that have 
+  // occurred since startup. To Do (FA): This will be removed from proto
+
   rpc BoardDigitalInterruptValue(BoardDigitalInterruptValueRequest) returns (BoardDigitalInterruptValueResponse) {
     option (google.api.http) = {
       get: "/api/v1/board/{board_name}/digital_interrupt/{digital_interrupt_name}/value"
     };
   }
 
-  // BoardDigitalInterruptTick transmits whether a given interrupt is high or low at a given time 
-  // to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests 
+  // BoardDigitalInterruptTick manually signals the given interrupt is high or low at a given time to be called either manually if the 
+  // interrupt is a proxy to some real hardware interrupt or for tests . To Do: This will be removed from proto
   rpc BoardDigitalInterruptTick(BoardDigitalInterruptTickRequest) returns (BoardDigitalInterruptTickResponse) {
     option (google.api.http) = {
       put: "/api/v1/board/{board_name}/digital_interrupt/{digital_interrupt_name}/tick"
@@ -231,23 +232,22 @@ service RobotService {
     };
   }
 
-  // InputControllerLastEvents returns a list of all the controls on a given robot's controller
-  // and their last InputControllerEvent
+  // InputControllerLastEvents returns a list of events representing the last event on each control of a give Input Controller
   rpc InputControllerLastEvents(InputControllerLastEventsRequest) returns (InputControllerLastEventsResponse) {
     option (google.api.http) = {
       get: "/api/v1/input/{controller}/last_events"
     };
   }
 
-  // InputControllerEventStream starts a stream of InputControllerEvents for a given control (button or axes)
-  // on a robot's input controller 
+  // InputControllerEventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller 
   rpc InputControllerEventStream(InputControllerEventStreamRequest) returns (stream InputControllerEvent) {
     option (google.api.http) = {
       get: "/api/v1/input/{controller}/event_stream"
     };
   }
 
-  //InputControllerInjectEvent digitally asserts an InputControllerEvent on a robot's input controller 
+  // InputControllerInjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events 
+  //like button presses or axis movements  
   rpc InputControllerInjectEvent(InputControllerInjectEventRequest) returns (InputControllerInjectEventResponse) {
     option (google.api.http) = {
       post: "/api/v1/input/{controller}/inject_event"
@@ -586,25 +586,25 @@ message BoardPWMSetResponse {}
 message BoardPWMSetFrequencyResponse {}
 
 message BoardPWMSetFrequencyRequest {
-// Name of a board
+  // Name of a board
   string name = 1;
-// Name of a pin
+  // Name of a pin
   string pin = 2;
-// Frequency in hertz (cycles/second)
+  // Frequency in hertz (cycles/second)
   uint64 frequency = 3;
 }
 
 // Analog Reader
 
 message BoardAnalogReaderReadRequest {
-// Name of a board
+  // Name of a board
   string board_name = 1;
-// Name of an analog reader on the robot's board 
+  // Name of an analog reader on the robot's board 
   string analog_reader_name = 2;
 }
 
 message BoardAnalogReaderReadResponse {
-// Returns the value of the analog reader based on when the request was recieved 
+  // Returns the value of the analog reader based on when the request was recieved 
   int32 value = 1;
 }
 
@@ -618,37 +618,37 @@ message DigitalInterruptConfig {
 }
 
 message BoardDigitalInterruptConfigRequest {
-// Name of a board
+  // Name of a board
   string board_name = 1;
-// Name of a digital interrupt on the robot's board 
+  // Name of a digital interrupt on the robot's board 
   string digital_interrupt_name = 2;
 }
 
 message BoardDigitalInterruptConfigResponse {
-// Returns the specified configuration of a digital interrupt on the robot's board
+  // Returns the specified configuration of a digital interrupt on the robot's board
   DigitalInterruptConfig config = 1;
 }
 
 message BoardDigitalInterruptValueRequest {
-// Name of a board
+  // Name of a board
   string board_name = 1;
-// Name of a digital interrupt on the robot's board 
+  // Name of a digital interrupt on the robot's board 
   string digital_interrupt_name = 2;
 }
 
 message BoardDigitalInterruptValueResponse {
-// Returns the amount of ticks that have been recorded for a given digtal interrupt at the time that the request was recieved 
+  // Returns the returns the value of the interrupt based on the driver
   int64 value = 1;
 }
 
 message BoardDigitalInterruptTickRequest {
-// Name of a board
+  // Name of a board
   string board_name = 1;
-// Name of a digital interrupt on the robot's board 
+  // Name of a digital interrupt on the robot's board 
   string digital_interrupt_name = 2;
-// Sets whether the digital interrupt is high or low
+  // Sets whether the digital interrupt is high or low
   bool high = 3;
-// A number that counts up from an arbitrary point in time 
+  // A number that counts up from an arbitrary point in time 
   uint64 nanos = 4;
 }
 
@@ -820,24 +820,24 @@ message ObjectManipulationServiceDoGrabResponse {
 // End Object Manipulation Service
 
 message InputControllerControlsRequest {
-// Name of an input controller 
+  // Name of an input controller 
   string controller = 1;
 }
 
 message InputControllerControlsResponse {
-// Returns a list of all the controls (buttons and axes) that are
-// available to a given Input Controller 
+  // Returns a list of all the controls (buttons and axes) that are
+  // available to a given Input Controller 
   repeated string controls = 1;
 }
 
 message InputControllerLastEventsRequest {
-// Name of an input controller 
+  // Name of an input controller 
   string controller = 1;
 }
 
 message InputControllerLastEventsResponse {
-// Returns a list of all of the controls (buttons and axes) on a given Input Controller
-// and their last recorded event 
+  // Returns a list of the most recent event for each control on a given InputController. Effectively provides the current "state" of all 
+  // buttons/axes on a given input controller 
   repeated InputControllerEvent events = 1;
 }
 
@@ -846,9 +846,9 @@ message InputControllerStatus {
 }
 
 message InputControllerInjectEventRequest {
-// Name of an input controller 
+  // Name of an input controller 
   string controller = 1;
-// Digitally assert a given event 
+  // Digitally assert a given event 
   InputControllerEvent event = 2;
 }
 
@@ -867,18 +867,18 @@ message InputControllerEvent {
 
 message InputControllerEventStreamRequest {
   message Events {
-  // Name of a control (button or axis)
+    // Name of a control (button or axis)
     string control = 1;
-  // Specify which event types to recieve events for
-  // This can be an empty list 
+    // Specify which event types to recieve events for
+    // To Do (FA): Right now this can be an empty list, but we should error in this case as opening a stream with no messages is expensive
     repeated string events = 2;
-  // Specify which event types to stop recieving events for
-  // This can be an empty list 
+    // Specify which event types to stop recieving events for
+    // This can be an empty list 
     repeated string cancelled_events = 3;
   }
-// Name of an input controller 
+  // Name of an input controller 
   string controller = 1;
-// A list of InputControllerEvents
+  // A list of Events
   repeated Events events = 2;
 }
 
