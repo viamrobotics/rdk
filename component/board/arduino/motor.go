@@ -89,7 +89,13 @@ func configureMotorForBoard(ctx context.Context, b *arduinoBoard, config config.
 			return nil, err
 		}
 	}
-	m, err := gpio.NewEncodedMotor(config, *motorConfig, &arduinoMotor{b, *motorConfig, config.Name, pid}, &encoder{b, *motorConfig, config.Name}, b.logger)
+	m, err := gpio.NewEncodedMotor(
+		config,
+		*motorConfig,
+		&arduinoMotor{b, *motorConfig, config.Name, pid},
+		&encoder{b, *motorConfig, config.Name},
+		b.logger,
+	)
 	if err != nil {
 		return nil, err
 	}

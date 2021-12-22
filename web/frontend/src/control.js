@@ -44,7 +44,9 @@ let connect = async () => {
 	try {
 		let transportFactory;
 		if (window.webrtcEnabled) {
-			const webRTCConn = await dialWebRTC(window.webrtcSignalingAddress, window.webrtcHost, { rtcConfig: rtcConfig });
+			const webRTCConn = await dialWebRTC(window.webrtcSignalingAddress, window.webrtcHost, { 
+				webrtcOptions: { rtcConfig: rtcConfig }
+			});
 			transportFactory = webRTCConn.transportFactory
 			window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
 			webRTCConn.peerConnection.ontrack = async event => {

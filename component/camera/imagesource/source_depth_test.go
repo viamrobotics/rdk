@@ -17,7 +17,13 @@ type depthSourceTestHelper struct {
 	attrs config.AttributeMap
 }
 
-func (h *depthSourceTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
+func (h *depthSourceTestHelper) Process(
+	t *testing.T,
+	pCtx *rimage.ProcessorContext,
+	fn string,
+	img image.Image,
+	logger golog.Logger,
+) error {
 
 	ii := rimage.ConvertToImageWithDepth(img)
 	// align the images

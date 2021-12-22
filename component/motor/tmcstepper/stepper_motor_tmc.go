@@ -47,17 +47,20 @@ func init() {
 	}
 	registry.RegisterComponent(motor.Subtype, modelname, _motor)
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeMotor, modelname, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf TMC5072Config
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &TMC5072Config{})
+	config.RegisterComponentAttributeMapConverter(
+		config.ComponentTypeMotor,
+		modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf TMC5072Config
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &TMC5072Config{})
 }
 
 // A Motor represents a brushless motor connected via a TMC controller chip (ex: TMC5072)

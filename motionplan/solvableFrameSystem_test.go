@@ -77,7 +77,13 @@ func TestFrameSystemSolver(t *testing.T) {
 		OY:    0,
 		OZ:    -1,
 	}
-	newPos, err := solver.SolvePose(context.Background(), positions, spatial.NewPoseFromProtobuf(goal1), solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
+	newPos, err := solver.SolvePose(
+		context.Background(),
+		positions,
+		spatial.NewPoseFromProtobuf(goal1),
+		solver.GetFrame("xArmVgripper"),
+		solver.GetFrame(frame.World),
+	)
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose, err := solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
@@ -95,7 +101,13 @@ func TestFrameSystemSolver(t *testing.T) {
 		OY:    0,
 		OZ:    -1,
 	}
-	newPos, err = solver.SolvePose(context.Background(), positions, spatial.NewPoseFromProtobuf(goal2), solver.GetFrame("xArmVgripper"), solver.GetFrame("urCamera"))
+	newPos, err = solver.SolvePose(
+		context.Background(),
+		positions,
+		spatial.NewPoseFromProtobuf(goal2),
+		solver.GetFrame("xArmVgripper"),
+		solver.GetFrame("urCamera"),
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Both frames should wind up at the goal relative to one another

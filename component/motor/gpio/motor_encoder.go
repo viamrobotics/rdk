@@ -44,7 +44,14 @@ func SetRPMSleepDebug(dur time.Duration, debug bool) func() {
 }
 
 // WrapMotorWithEncoder takes a motor and adds an encoder onto it in order to understand its odometry.
-func WrapMotorWithEncoder(ctx context.Context, b board.Board, c config.Component, mc motor.Config, m motor.Motor, logger golog.Logger) (motor.Motor, error) {
+func WrapMotorWithEncoder(
+	ctx context.Context,
+	b board.Board,
+	c config.Component,
+	mc motor.Config,
+	m motor.Motor,
+	logger golog.Logger,
+) (motor.Motor, error) {
 	if mc.Encoder == "" {
 		return m, nil
 	}
@@ -88,11 +95,23 @@ func WrapMotorWithEncoder(ctx context.Context, b board.Board, c config.Component
 }
 
 // NewEncodedMotor creates a new motor that supports an arbitrary source of encoder information
-func NewEncodedMotor(config config.Component, motorConfig motor.Config, real motor.Motor, encoder board.Encoder, logger golog.Logger) (motor.Motor, error) {
+func NewEncodedMotor(
+	config config.Component,
+	motorConfig motor.Config,
+	real motor.Motor,
+	encoder board.Encoder,
+	logger golog.Logger,
+) (motor.Motor, error) {
 	return newEncodedMotor(config, motorConfig, real, encoder, logger)
 }
 
-func newEncodedMotor(config config.Component, motorConfig motor.Config, real motor.Motor, encoder board.Encoder, logger golog.Logger) (*EncodedMotor, error) {
+func newEncodedMotor(
+	config config.Component,
+	motorConfig motor.Config,
+	real motor.Motor,
+	encoder board.Encoder,
+	logger golog.Logger,
+) (*EncodedMotor, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	em := &EncodedMotor{
 		activeBackgroundWorkers: &sync.WaitGroup{},
