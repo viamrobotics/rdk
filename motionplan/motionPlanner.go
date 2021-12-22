@@ -61,7 +61,7 @@ type MotionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
 	Plan(context.Context, *commonpb.Pose, []frame.Input, *PlannerOptions) ([][]frame.Input, error)
-	Resolution() float64 // Resoltion specifies how narrowly to check for constraints
+	Resolution() float64 // Resolution specifies how narrowly to check for constraints
 	Frame() frame.Frame  // Frame will return the frame used for planning
 }
 

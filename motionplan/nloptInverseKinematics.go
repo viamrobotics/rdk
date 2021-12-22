@@ -38,7 +38,7 @@ type NloptIK struct {
 }
 
 // CreateNloptIKSolver TODO
-func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error) {
+func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger, iter int) (*NloptIK, error) {
 	ik := &NloptIK{logger: logger}
 	ik.randSeed = rand.New(rand.NewSource(1))
 	ik.model = mdl
@@ -47,17 +47,16 @@ func CreateNloptIKSolver(mdl frame.Frame, logger golog.Logger) (*NloptIK, error)
 	ik.epsilon = 0.001
 	// Stop optimizing when iterations change by less than this much
 	ik.solveEpsilon = math.Pow(ik.epsilon, 4)
-	ik.maxIterations = 5000
+	if iter < 1 {
+		// default value
+		iter = 5000
+	}
+	ik.maxIterations = iter
 	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.DoF())
 	// How much to adjust joints to determine slope
 	ik.jump = 0.00000001
 
 	return ik, nil
-}
-
-// SetMaxIter sets the number of times the solver will iterate
-func (ik *NloptIK) SetMaxIter(i int) {
-	ik.maxIterations = i
 }
 
 // Solve runs the actual solver and sends any solutions found to the given channel

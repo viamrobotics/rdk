@@ -36,10 +36,9 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
-	nlopt, err := CreateNloptIKSolver(m, logger)
+	nlopt, err := CreateNloptIKSolver(m, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 	// nlopt should try only once
-	nlopt.SetMaxIter(1)
 	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: m, logger: logger, solDist: 0.0001}
 
 	// Max individual step of 0.5% of full range of motion
