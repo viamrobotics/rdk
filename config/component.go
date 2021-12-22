@@ -81,6 +81,12 @@ func (config *Component) Validate(path string) error {
 			return err
 		}
 	}
+	v, ok := config.ConvertedAttributes.(validator)
+	if ok {
+		if err := v.Validate(path); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
