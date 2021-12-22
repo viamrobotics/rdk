@@ -362,6 +362,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	if err != nil {
 		return err
 	}
+	listenerAddr := listener.Addr().String()
 	options.secure = secure
 
 	var signalingOpts []rpc.DialOption
@@ -504,7 +505,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	if err != nil {
 		return err
 	}
-	httpServer.Addr = listener.Addr().String()
+	httpServer.Addr = listenerAddr
 
 	svc.activeBackgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
@@ -540,7 +541,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	} else {
 		scheme = "http"
 	}
-	svc.logger.Infow("serving", "url", fmt.Sprintf("%s://%s", scheme, listener.Addr().String()))
+	svc.logger.Infow("serving", "url", fmt.Sprintf("%s://%s", scheme, listenerAddr))
 	svc.activeBackgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
