@@ -34,7 +34,13 @@ func init() {
 		) (interface{}, error) {
 			return nil, errors.New("not running on a pi")
 		}})
-	registry.RegisterComponent(servo.Subtype, modelName, registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		return nil, errors.New("not running on a pi")
-	}})
+	registry.RegisterComponent(
+		servo.Subtype,
+		modelName,
+		registry.Component{
+			Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+				return nil, errors.New("not running on a pi")
+			},
+		},
+	)
 }

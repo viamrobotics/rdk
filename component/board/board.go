@@ -104,7 +104,14 @@ type SPIHandle interface {
 	// Read-only transfers usually transmit a request/address and continue with some number of null bytes to equal the expected size of the returning data.
 	// Large transmissions are usually broken up into multiple transfers.
 	// There are many different paradigms for most of the above, and implementation details are chip/device specific.
-	Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) // Close closes the handle and releases the lock on the bus.
+	Xfer(
+		ctx context.Context,
+		baud uint,
+		chipSelect string,
+		mode uint,
+		tx []byte,
+	) ([]byte, error)
+	// Close closes the handle and releases the lock on the bus.
 	Close() error
 }
 
@@ -521,7 +528,13 @@ func (r *reconfigurableDigitalInterrupt) reconfigure(newDigitalInterrupt Digital
 	defer r.mu.Unlock()
 	actual, ok := newDigitalInterrupt.(*reconfigurableDigitalInterrupt)
 	if !ok {
-		panic(fmt.Errorf("expected new digital interrupt to be %T but got %T", actual, newDigitalInterrupt))
+		panic(
+			fmt.Errorf(
+				"expected new digital interrupt to be %T but got %T",
+				actual,
+				newDigitalInterrupt,
+			),
+		)
 	}
 	if err := utils.TryClose(r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
@@ -529,7 +542,9 @@ func (r *reconfigurableDigitalInterrupt) reconfigure(newDigitalInterrupt Digital
 	r.actual = actual.actual
 }
 
-func (r *reconfigurableDigitalInterrupt) Config(ctx context.Context) (DigitalInterruptConfig, error) {
+func (r *reconfigurableDigitalInterrupt) Config(
+	ctx context.Context,
+) (DigitalInterruptConfig, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Config(ctx)
