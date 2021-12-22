@@ -48,7 +48,10 @@ func TestSegmentPlane(t *testing.T) {
 
 	// Pixel to Meter
 	pixel2meter := 0.001
-	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
+	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
+		utils.ResolveFile("robots/configs/intel515_parameters.json"),
+		"depth",
+	)
 	test.That(t, err, test.ShouldBeNil)
 	depthMin, depthMax := rimage.Depth(100), rimage.Depth(2000)
 	cloud, err := transform.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
@@ -79,7 +82,10 @@ func TestDepthMapToPointCloud(t *testing.T) {
 
 	test.That(t, err, test.ShouldBeNil)
 	pixel2meter := 0.001
-	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
+	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
+		utils.ResolveFile("robots/configs/intel515_parameters.json"),
+		"depth",
+	)
 	test.That(t, err, test.ShouldBeNil)
 	depthMin, depthMax := rimage.Depth(0), rimage.Depth(math.MaxUint16)
 	pc, err := transform.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
@@ -100,7 +106,10 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	pixel2meter := 0.001
 	// Select depth range
 	// Get 3D Points
-	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
+	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
+		utils.ResolveFile("robots/configs/intel515_parameters.json"),
+		"depth",
+	)
 	test.That(t, err, test.ShouldBeNil)
 	depthMin, depthMax := rimage.Depth(200), rimage.Depth(2000)
 	pts, err := transform.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
@@ -112,7 +121,8 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	transformedPoints, err := transform.ApplyRigidBodyTransform(pts, &sensorParams.ExtrinsicD2C)
 	test.That(t, err, test.ShouldBeNil)
 	// Re-project 3D Points in RGB Plane
-	colorIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "color")
+	colorIntrinsics, err :=
+		transform.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "color")
 	test.That(t, err, test.ShouldBeNil)
 	coordinatesRGB, err := transform.ProjectPointCloudToRGBPlane(transformedPoints, h, w, *colorIntrinsics, pixel2meter)
 	test.That(t, err, test.ShouldBeNil)
@@ -141,7 +151,10 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 
 	// Pixel to Meter
 	pixel2meter := 0.001
-	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
+	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
+		utils.ResolveFile("robots/configs/intel515_parameters.json"),
+		"depth",
+	)
 	test.That(b, err, test.ShouldBeNil)
 	depthMin, depthMax := rimage.Depth(100), rimage.Depth(2000)
 	pts, err := transform.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
@@ -208,7 +221,13 @@ type segmentTestHelper struct {
 	cameraParams *transform.DepthColorIntrinsicsExtrinsics
 }
 
-func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
+func (h *segmentTestHelper) Process(
+	t *testing.T,
+	pCtx *rimage.ProcessorContext,
+	fn string,
+	img image.Image,
+	logger golog.Logger,
+) error {
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 
@@ -244,7 +263,8 @@ func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext,
 
 	pCtx.GotDebugImage(segImage, "from-pointcloud")
 
-	//Informational histrograms for voxel grid creation. This is useful for determining which lambda value to choose for the voxel grid plane segmentation.
+	//Informational histograms for voxel grid creation. This is useful for determining which lambda
+	// value to choose for the voxel grid plane segmentation.
 	voxelSize := 20.
 	lam := 8.0
 	vg := pc.NewVoxelGridFromPointCloud(cloud, voxelSize, lam)
@@ -306,7 +326,13 @@ type gripperPlaneTestHelper struct {
 	cameraParams *transform.DepthColorIntrinsicsExtrinsics
 }
 
-func (h *gripperPlaneTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
+func (h *gripperPlaneTestHelper) Process(
+	t *testing.T,
+	pCtx *rimage.ProcessorContext,
+	fn string,
+	img image.Image,
+	logger golog.Logger,
+) error {
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)

@@ -68,7 +68,12 @@ func (c *InputController) LastEvents(ctx context.Context) (map[input.Control]inp
 }
 
 // RegisterControlCallback registers a callback function to be executed on the specified trigger Event
-func (c *InputController) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+func (c *InputController) RegisterControlCallback(
+	ctx context.Context,
+	control input.Control,
+	triggers []input.EventType,
+	ctrlFunc input.ControlFunction,
+) error {
 	return errors.New("unsupported")
 }
 

@@ -35,7 +35,8 @@ func newDualQuaternion() *dualQuaternion {
 	}}
 }
 
-// newDualQuaternionFromRotation returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided orientation.
+// newDualQuaternionFromRotation returns a pointer to a new dualQuaternion object whose rotation
+// quaternion is set from a provided orientation.
 func newDualQuaternionFromRotation(o Orientation) *dualQuaternion {
 	ov := o.OrientationVectorRadians()
 	// Handle the zero case

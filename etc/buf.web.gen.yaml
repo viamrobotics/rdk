@@ -9,3 +9,7 @@ plugins:
     opt:
       - import_style=commonjs
       - mode=grpcwebtext
+  - name: ts
+    out: dist/js
+    opt:
+      - service=grpc-web
