@@ -51,6 +51,7 @@ import (
 	_ "go.viam.com/core/component/arm/register"
 	_ "go.viam.com/core/component/camera/register"
 	_ "go.viam.com/core/component/gripper/register"
+	_ "go.viam.com/core/component/motor/register"
 	_ "go.viam.com/core/component/servo/register"
 )
 
@@ -222,6 +223,8 @@ var finalResources = []resource.Name{
 	gripper.Named("gripper3"),
 	camera.Named("camera2"),
 	camera.Named("camera3"),
+	motor.Named("motor2"),
+	motor.Named("motor3"),
 }
 
 func TestClient(t *testing.T) {
@@ -276,7 +279,6 @@ func TestClient(t *testing.T) {
 	var (
 		capBaseName             string
 		capBoardName            string
-		capMotorName            string
 		capInputControllerName  string
 		capAnalogReaderName     string
 		capDigitalInterruptName string
@@ -326,50 +328,6 @@ func TestClient(t *testing.T) {
 	}
 	injectBoard := &inject.Board{}
 	injectMotor := &inject.Motor{}
-	var capPowerMotorArgs []interface{}
-	injectMotor.SetPowerFunc = func(ctx context.Context, powerPct float64) error {
-		capPowerMotorArgs = []interface{}{powerPct}
-		return nil
-	}
-	var capGoMotorArgs []interface{}
-	injectMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
-		capGoMotorArgs = []interface{}{powerPct}
-		return nil
-	}
-	var capGoForMotorArgs []interface{}
-	injectMotor.GoForFunc = func(ctx context.Context, rpm float64, rotations float64) error {
-		capGoForMotorArgs = []interface{}{rpm, rotations}
-		return nil
-	}
-	var capGoToMotorArgs []interface{}
-	injectMotor.GoToFunc = func(ctx context.Context, rpm float64, position float64) error {
-		capGoToMotorArgs = []interface{}{rpm, position}
-		return nil
-	}
-	var capGoTillStopMotorArgs []interface{}
-	injectMotor.GoTillStopFunc = func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-		capGoTillStopMotorArgs = []interface{}{rpm, stopFunc}
-		return nil
-	}
-	var capZeroMotorArgs []interface{}
-	injectMotor.SetToZeroPositionFunc = func(ctx context.Context, offset float64) error {
-		capZeroMotorArgs = []interface{}{offset}
-		return nil
-	}
-	injectMotor.PositionFunc = func(ctx context.Context) (float64, error) {
-		return 423.5, nil
-	}
-	injectMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
-		return true, nil
-	}
-	var motorOffCalled bool
-	injectMotor.OffFunc = func(ctx context.Context) error {
-		motorOffCalled = true
-		return nil
-	}
-	injectMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
-		return true, nil
-	}
 	injectServo := &inject.Servo{}
 	var capServoAngle uint8
 	injectServo.MoveFunc = func(ctx context.Context, angle uint8) error {
@@ -436,10 +394,6 @@ func TestClient(t *testing.T) {
 		capPWMSetFreqPin = pin
 		capPWMSetFreqFreq = freq
 		return nil
-	}
-	injectRobot2.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		capMotorName = name
-		return injectMotor, true
 	}
 	injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 		capAnalogReaderName = name
@@ -593,6 +547,14 @@ func TestClient(t *testing.T) {
 	cameraSvc2, err := subtype.New((map[resource.Name]interface{}{camera.Named("camera1"): injectCamera}))
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterCameraServiceServer(gServer2, camera.NewServer(cameraSvc2))
+
+	motorSvc, err := subtype.New((map[resource.Name]interface{}{}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterMotorServiceServer(gServer1, motor.NewServer(motorSvc))
+
+	motorSvc2, err := subtype.New(map[resource.Name]interface{}{motor.Named("motor1"): injectMotor, motor.Named("motor2"): injectMotor})
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterMotorServiceServer(gServer2, motor.NewServer(motorSvc2))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -768,23 +730,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
 
-	err = motor1.SetPower(context.Background(), 0)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-	_, err = motor1.Position(context.Background())
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-	_, err = motor1.PositionSupported(context.Background())
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-	err = motor1.Off(context.Background())
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-	_, err = motor1.IsOn(context.Background())
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-	err = motor1.GoTo(context.Background(), 0, 0)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-	err = motor1.SetToZeroPosition(context.Background(), 0)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-	err = motor1.GoTillStop(context.Background(), 0, nil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-
 	board1, ok := client.BoardByName("board1")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, board1, test.ShouldNotBeNil)
@@ -931,83 +876,12 @@ func TestClient(t *testing.T) {
 	test.That(t, currentVal, test.ShouldEqual, 5)
 
 	motor1, ok = client.MotorByName("motor1")
+	test.That(t, motor1, test.ShouldNotBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	err = motor1.Go(context.Background(), 1)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capGoMotorArgs, test.ShouldResemble, []interface{}{float64(1)})
-	test.That(t, capMotorName, test.ShouldEqual, "motor1")
-
-	err = motor1.SetPower(context.Background(), 1)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capPowerMotorArgs, test.ShouldResemble, []interface{}{float64(1)})
-	test.That(t, capMotorName, test.ShouldEqual, "motor1")
-
-	motor1Pos, err := motor1.Position(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, motor1Pos, test.ShouldEqual, 423.5)
-	test.That(t, capMotorName, test.ShouldEqual, "motor1")
-
-	motor1PosSupported, err := motor1.PositionSupported(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, motor1PosSupported, test.ShouldBeTrue)
-	test.That(t, capMotorName, test.ShouldEqual, "motor1")
-
-	err = motor1.Off(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, motorOffCalled, test.ShouldBeTrue)
-	test.That(t, capMotorName, test.ShouldEqual, "motor1")
-
-	motor1IsOn, err := motor1.IsOn(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, motor1IsOn, test.ShouldBeTrue)
-	test.That(t, capMotorName, test.ShouldEqual, "motor1")
 
 	motor2, ok := client.MotorByName("motor2")
+	test.That(t, motor2, test.ShouldNotBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-
-	err = motor2.GoFor(context.Background(), 1.2, 3.4)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capGoForMotorArgs, test.ShouldResemble, []interface{}{1.2, 3.4})
-	test.That(t, capMotorName, test.ShouldEqual, "motor2")
-
-	err = motor2.GoFor(context.Background(), 1.2, -3.4)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capGoForMotorArgs, test.ShouldResemble, []interface{}{1.2, -3.4})
-
-	err = motor2.GoFor(context.Background(), -1.2, 3.4)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capGoForMotorArgs, test.ShouldResemble, []interface{}{-1.2, 3.4})
-
-	err = motor2.GoFor(context.Background(), -1.2, -3.4)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capGoForMotorArgs, test.ShouldResemble, []interface{}{-1.2, -3.4})
-
-	err = motor2.SetPower(context.Background(), 0.5)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capPowerMotorArgs, test.ShouldResemble, []interface{}{float64(0.5)})
-
-	err = motor2.SetPower(context.Background(), -0.5)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capPowerMotorArgs, test.ShouldResemble, []interface{}{float64(-0.5)})
-
-	err = motor2.GoTo(context.Background(), 50.1, 27.5)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capGoToMotorArgs, test.ShouldResemble, []interface{}{50.1, 27.5})
-
-	err = motor2.GoTo(context.Background(), -50.1, -27.5)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capGoToMotorArgs, test.ShouldResemble, []interface{}{-50.1, -27.5})
-
-	err = motor2.GoTillStop(context.Background(), 41.1, func(ctx context.Context) bool { return false })
-	test.That(t, err.Error(), test.ShouldEqual, "stopFunc must be nil when using gRPC")
-
-	err = motor2.GoTillStop(context.Background(), 41.1, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capGoTillStopMotorArgs, test.ShouldResemble, []interface{}{41.1, (func(context.Context) bool)(nil)})
-
-	err = motor2.SetToZeroPosition(context.Background(), 5.1)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capZeroMotorArgs, test.ShouldResemble, []interface{}{5.1})
 
 	board1, ok = client.BoardByName("board1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -1295,6 +1169,7 @@ func TestClientRefresh(t *testing.T) {
 	gripperNames := []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
 	cameraNames := []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
 	servoNames := []resource.Name{servo.Named("servo2"), servo.Named("servo3")}
+	motorNames := []resource.Name{motor.Named("motor2"), motor.Named("motor3")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
 	test.That(t,
 		utils.NewStringSet(client.ArmNames()...),
@@ -1331,12 +1206,18 @@ func TestClientRefresh(t *testing.T) {
 		test.ShouldResemble,
 		utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...),
 	)
+	test.That(t,
+		utils.NewStringSet(client.MotorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...),
+	)
 	test.That(t, coretestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 		coretestutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
 			cameraNames,
 			servoNames,
+			motorNames,
 		)...))
 
 	err = client.Close()
@@ -1451,12 +1332,18 @@ func TestClientRefresh(t *testing.T) {
 		test.ShouldResemble,
 		utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...),
 	)
+	test.That(t,
+		utils.NewStringSet(client.MotorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...),
+	)
 	test.That(t, coretestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
 		coretestutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
 			cameraNames,
 			servoNames,
+			motorNames,
 		)...))
 
 	err = client.Close()

@@ -127,13 +127,13 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 	return errors.New("unsupported")
 }
 
-// SetToZeroPosition always returns an error
-func (m *Motor) SetToZeroPosition(ctx context.Context, offset float64) error {
+// ResetZeroPosition always returns an error
+func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return errors.New("unsupported")
 }
 
-// Off has the motor pretend to be off.
-func (m *Motor) Off(ctx context.Context) error {
+// Stop has the motor pretend to be off.
+func (m *Motor) Stop(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.setPowerPct(0.0)
