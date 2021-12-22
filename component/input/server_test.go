@@ -109,7 +109,10 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
 
 		startTime := time.Now()
-		resp, err := inputControllerServer.LastEvents(context.Background(), &pb.InputControllerServiceLastEventsRequest{Controller: inputController1})
+		resp, err := inputControllerServer.LastEvents(
+			context.Background(),
+			&pb.InputControllerServiceLastEventsRequest{Controller: inputController1},
+		)
 		test.That(t, err, test.ShouldBeNil)
 		var absEv, buttonEv *pb.InputControllerServiceEvent
 		if resp.Events[0].Control == "AbsoluteX" {
@@ -246,12 +249,18 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 
-		_, err = inputControllerServer.InjectEvent(context.Background(), &pb.InputControllerServiceInjectEventRequest{Controller: inputController1, Event: pbEvent})
+		_, err = inputControllerServer.InjectEvent(
+			context.Background(),
+			&pb.InputControllerServiceInjectEventRequest{Controller: inputController1, Event: pbEvent},
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectedEvent, test.ShouldResemble, event1)
 		injectInputController.InjectEventFunc = nil
 
-		_, err = inputControllerServer.InjectEvent(context.Background(), &pb.InputControllerServiceInjectEventRequest{Controller: inputController2, Event: pbEvent})
+		_, err = inputControllerServer.InjectEvent(
+			context.Background(),
+			&pb.InputControllerServiceInjectEventRequest{Controller: inputController2, Event: pbEvent},
+		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "is not of type Injectable")
 	})
