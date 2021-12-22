@@ -28,7 +28,7 @@ type InputControllerServiceControlsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Name of a controller
+	// Name of an input controller
 	Controller string `protobuf:"bytes,1,opt,name=controller,proto3" json:"controller,omitempty"`
 }
 
@@ -76,7 +76,8 @@ type InputControllerServiceControlsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Inputs of a controller
+	// Returns a list of all the controls (buttons and axes) that are
+	// available to a given Input Controller
 	Controls []string `protobuf:"bytes,1,rep,name=controls,proto3" json:"controls,omitempty"`
 }
 
@@ -124,7 +125,7 @@ type InputControllerServiceLastEventsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Name of a controller
+	// Name of an input controller
 	Controller string `protobuf:"bytes,1,opt,name=controller,proto3" json:"controller,omitempty"`
 }
 
@@ -172,7 +173,8 @@ type InputControllerServiceLastEventsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Last recorded event for each control
+	// Returns a list of the most recent event for each control on a given InputController. Effectively provides the current "state" of all
+	// buttons/axes on a given input controller
 	Events []*InputControllerServiceEvent `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
 }
 
@@ -220,9 +222,9 @@ type InputControllerServiceInjectEventRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Name of a controller
+	// Name of an input controller
 	Controller string `protobuf:"bytes,1,opt,name=controller,proto3" json:"controller,omitempty"`
-	// event to be injected
+	// Digitally assert a given event
 	Event *InputControllerServiceEvent `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
 }
 
@@ -317,11 +319,11 @@ type InputControllerServiceEvent struct {
 
 	// Timestamp of event
 	Time *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty"`
-	// Event recorded
+	// An event type (eg: ButtonPress, ButtonRelease)
 	Event string `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
-	// Control event recorded for
+	// A control, can be a button (eg: ButtonSouth) or an axis (eg: AbsoluteX)
 	Control string `protobuf:"bytes,3,opt,name=control,proto3" json:"control,omitempty"`
-	// Value of event
+	// 0 or 1 for buttons, -1.0 to +1.0 for axes
 	Value float64 `protobuf:"fixed64,4,opt,name=value,proto3" json:"value,omitempty"`
 }
 
@@ -390,9 +392,9 @@ type InputControllerServiceEventStreamRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Name of a controller
+	// Name of an input controller
 	Controller string `protobuf:"bytes,1,opt,name=controller,proto3" json:"controller,omitempty"`
-	// Events to be mapped for a controller
+	// A list of Events
 	Events []*InputControllerServiceEventStreamRequest_Events `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
 }
 
@@ -495,8 +497,13 @@ type InputControllerServiceEventStreamRequest_Events struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Control         string   `protobuf:"bytes,1,opt,name=control,proto3" json:"control,omitempty"`
-	Events          []string `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
+	// Name of a control (button or axis)
+	Control string `protobuf:"bytes,1,opt,name=control,proto3" json:"control,omitempty"`
+	// Specify which event types to recieve events for
+	// To Do (FA): Right now this can be an empty list, but we should error in this case as opening a stream with no messages is expensive
+	Events []string `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
+	// Specify which event types to stop recieving events for
+	// This can be an empty list
 	CancelledEvents []string `protobuf:"bytes,3,rep,name=cancelled_events,json=cancelledEvents,proto3" json:"cancelled_events,omitempty"`
 }
 

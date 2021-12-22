@@ -25,11 +25,12 @@ const _ = grpc.SupportPackageIsVersion7
 type InputControllerServiceClient interface {
 	// Controls returns a list of Controls provided by the Controller
 	Controls(ctx context.Context, in *InputControllerServiceControlsRequest, opts ...grpc.CallOption) (*InputControllerServiceControlsResponse, error)
-	// LastEvent returns most recent InputControllerServiceEvent for each controller
+	// LastEvent returns a list of events representing the last event on each control of a give Input Controller
 	LastEvents(ctx context.Context, in *InputControllerServiceLastEventsRequest, opts ...grpc.CallOption) (*InputControllerServiceLastEventsResponse, error)
-	// EventStream returns a stream of Events
+	// EventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller
 	EventStream(ctx context.Context, in *InputControllerServiceEventStreamRequest, opts ...grpc.CallOption) (InputControllerService_EventStreamClient, error)
-	// InjectEvent allows directly sending an InputControllerServiceEvent (such as a button press) over grpc
+	// InjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events
+	// like button presses or axis movements
 	InjectEvent(ctx context.Context, in *InputControllerServiceInjectEventRequest, opts ...grpc.CallOption) (*InputControllerServiceInjectEventResponse, error)
 }
 
@@ -106,11 +107,12 @@ func (c *inputControllerServiceClient) InjectEvent(ctx context.Context, in *Inpu
 type InputControllerServiceServer interface {
 	// Controls returns a list of Controls provided by the Controller
 	Controls(context.Context, *InputControllerServiceControlsRequest) (*InputControllerServiceControlsResponse, error)
-	// LastEvent returns most recent InputControllerServiceEvent for each controller
+	// LastEvent returns a list of events representing the last event on each control of a give Input Controller
 	LastEvents(context.Context, *InputControllerServiceLastEventsRequest) (*InputControllerServiceLastEventsResponse, error)
-	// EventStream returns a stream of Events
+	// EventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller
 	EventStream(*InputControllerServiceEventStreamRequest, InputControllerService_EventStreamServer) error
-	// InjectEvent allows directly sending an InputControllerServiceEvent (such as a button press) over grpc
+	// InjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events
+	// like button presses or axis movements
 	InjectEvent(context.Context, *InputControllerServiceInjectEventRequest) (*InputControllerServiceInjectEventResponse, error)
 	mustEmbedUnimplementedInputControllerServiceServer()
 }

@@ -16,21 +16,22 @@ service InputControllerService {
     };
   }
 
-	// LastEvent returns most recent InputControllerServiceEvent for each controller
+	// LastEvent returns a list of events representing the last event on each control of a give Input Controller
   rpc LastEvents(InputControllerServiceLastEventsRequest) returns (InputControllerServiceLastEventsResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/input/{controller}/last_events"
     };
   }
 
-  // EventStream returns a stream of Events
+  // EventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller 
   rpc EventStream(InputControllerServiceEventStreamRequest) returns (stream InputControllerServiceEventStreamResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/input/{controller}/event_stream"
     };
   }
 
-  // InjectEvent allows directly sending an InputControllerServiceEvent (such as a button press) over grpc
+  // InjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events 
+  // like button presses or axis movements  
   rpc InjectEvent(InputControllerServiceInjectEventRequest) returns (InputControllerServiceInjectEventResponse) {
     option (google.api.http) = {
       post: "/api/v1/component/input/{controller}/inject_event"
@@ -39,29 +40,31 @@ service InputControllerService {
 }
 
 message InputControllerServiceControlsRequest {
-  // Name of a controller
+  // Name of an input controller
   string controller = 1;
 }
 
 message InputControllerServiceControlsResponse {
-  // Inputs of a controller
+  // Returns a list of all the controls (buttons and axes) that are
+  // available to a given Input Controller 
   repeated string controls = 1;
 }
 
 message InputControllerServiceLastEventsRequest {
-  // Name of a controller
+  // Name of an input controller 
   string controller = 1;
 }
 
 message InputControllerServiceLastEventsResponse {
-  // Last recorded event for each control
+  // Returns a list of the most recent event for each control on a given InputController. Effectively provides the current "state" of all 
+  // buttons/axes on a given input controller 
   repeated InputControllerServiceEvent events = 1;
 }
 
 message InputControllerServiceInjectEventRequest {
-  // Name of a controller
+  // Name of an input controller 
   string controller = 1;
-  // event to be injected
+  // Digitally assert a given event 
   InputControllerServiceEvent event = 2;
 }
 
@@ -71,23 +74,28 @@ message InputControllerServiceInjectEventResponse {
 message InputControllerServiceEvent {
   // Timestamp of event
   google.protobuf.Timestamp time = 1;
-  // Event recorded
+  // An event type (eg: ButtonPress, ButtonRelease)
   string event = 2;
-  // Control event recorded for
+  // A control, can be a button (eg: ButtonSouth) or an axis (eg: AbsoluteX)
   string control = 3;
-  // Value of event
+  // 0 or 1 for buttons, -1.0 to +1.0 for axes
   double value = 4;
 }
 
 message InputControllerServiceEventStreamRequest {
   message Events {
+    // Name of a control (button or axis)
     string control = 1;
+    // Specify which event types to recieve events for
+    // To Do (FA): Right now this can be an empty list, but we should error in this case as opening a stream with no messages is expensive
     repeated string events = 2;
+    // Specify which event types to stop recieving events for
+    // This can be an empty list 
     repeated string cancelled_events = 3;
   }
-  // Name of a controller
+  // Name of an input controller 
   string controller = 1;
-  // Events to be mapped for a controller
+  // A list of Events
   repeated Events events = 2;
 }
 
