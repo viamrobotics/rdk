@@ -7,28 +7,27 @@ import (
 	"fmt"
 	"image"
 
-	rpcclient "go.viam.com/utils/rpc/client"
-
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.viam.com/utils/rpc/dialer"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/grpc"
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/rimage"
+	"go.viam.com/core/utils"
 )
 
 // serviceClient is a client satisfies the camera.proto contract.
 type serviceClient struct {
-	conn   dialer.ClientConn
+	conn   rpc.ClientConn
 	client pb.CameraServiceClient
 	logger golog.Logger
 }
 
 // newServiceClient constructs a new serviceClient that is served at the given address.
-func newServiceClient(ctx context.Context, address string, opts rpcclient.DialOptions, logger golog.Logger) (*serviceClient, error) {
-	conn, err := grpc.Dial(ctx, address, opts, logger)
+func newServiceClient(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (*serviceClient, error) {
+	conn, err := grpc.Dial(ctx, address, logger, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +36,7 @@ func newServiceClient(ctx context.Context, address string, opts rpcclient.DialOp
 }
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn dialer.ClientConn, logger golog.Logger) *serviceClient {
+func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
 	client := pb.NewCameraServiceClient(conn)
 	sc := &serviceClient{
 		conn:   conn,
@@ -59,8 +58,8 @@ type client struct {
 }
 
 // NewClient constructs a new client that is served at the given address.
-func NewClient(ctx context.Context, name string, address string, opts rpcclient.DialOptions, logger golog.Logger) (Camera, error) {
-	sc, err := newServiceClient(ctx, address, opts, logger)
+func NewClient(ctx context.Context, name string, address string, logger golog.Logger, opts ...rpc.DialOption) (Camera, error) {
+	sc, err := newServiceClient(ctx, address, logger, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +67,7 @@ func NewClient(ctx context.Context, name string, address string, opts rpcclient.
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(conn dialer.ClientConn, name string, logger golog.Logger) Camera {
+func NewClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) Camera {
 	sc := newSvcClientFromConn(conn, logger)
 	return clientFromSvcClient(sc, name)
 }
@@ -80,17 +79,17 @@ func clientFromSvcClient(sc *serviceClient, name string) Camera {
 func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 	resp, err := c.client.Frame(ctx, &pb.CameraServiceFrameRequest{
 		Name:     c.name,
-		MimeType: grpc.MimeTypeViamBest,
+		MimeType: utils.MimeTypeViamBest,
 	})
 	if err != nil {
 		return nil, nil, err
 	}
 	switch resp.MimeType {
-	case grpc.MimeTypeRawRGBA:
+	case utils.MimeTypeRawRGBA:
 		img := image.NewNRGBA(image.Rect(0, 0, int(resp.DimX), int(resp.DimY)))
 		img.Pix = resp.Frame
 		return img, func() {}, nil
-	case grpc.MimeTypeRawIWD:
+	case utils.MimeTypeRawIWD:
 		img, err := rimage.ImageWithDepthFromRawBytes(int(resp.DimX), int(resp.DimY), resp.Frame)
 		return img, func() {}, err
 	default:
@@ -102,13 +101,13 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	resp, err := c.client.PointCloud(ctx, &pb.CameraServicePointCloudRequest{
 		Name:     c.name,
-		MimeType: grpc.MimeTypePCD,
+		MimeType: utils.MimeTypePCD,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.MimeType != grpc.MimeTypePCD {
+	if resp.MimeType != utils.MimeTypePCD {
 		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)
 	}
 

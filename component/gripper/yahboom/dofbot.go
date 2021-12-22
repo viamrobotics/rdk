@@ -5,7 +5,7 @@ import (
 	_ "embed" // for embedding model file
 	"fmt"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"

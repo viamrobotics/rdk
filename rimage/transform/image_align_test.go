@@ -79,7 +79,13 @@ func makeTestCases() []alignImageHelper {
 
 func expectedImageAlignOutput(a alignImageHelper, t *testing.T, logger golog.Logger) {
 
-	colorOutput, depthOutput, err := ImageAlign(a.config.ColorInputSize, a.config.ColorWarpPoints, a.config.DepthInputSize, a.config.DepthWarpPoints, logger)
+	colorOutput, depthOutput, err := ImageAlign(
+		a.config.ColorInputSize,
+		a.config.ColorWarpPoints,
+		a.config.DepthInputSize,
+		a.config.DepthWarpPoints,
+		logger,
+	)
 	test.That(t, err, test.ShouldBeNil)
 	// If scaling changes expected pixel boundaries by 1 pixel, that can be explained by rounding
 	for i := range colorOutput {

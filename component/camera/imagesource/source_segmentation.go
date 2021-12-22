@@ -4,7 +4,7 @@ import (
 	"context"
 	"image"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -19,9 +19,17 @@ import (
 )
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, "color_segments", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		return newColorSegmentsSource(r, config)
-	}})
+	registry.RegisterComponent(
+		camera.Subtype,
+		"color_segments",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return newColorSegmentsSource(r, config)
+		}})
 }
 
 // colorSegmentsSource applies a segmentation to the point cloud of an ImageWithDepth

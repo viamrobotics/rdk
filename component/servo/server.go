@@ -41,7 +41,10 @@ func (server *subtypeServer) Move(ctx context.Context, req *pb.ServoServiceMoveR
 	return &pb.ServoServiceMoveResponse{}, servo.Move(ctx, uint8(req.GetAngleDeg()))
 }
 
-func (server *subtypeServer) AngularOffset(ctx context.Context, req *pb.ServoServiceAngularOffsetRequest) (*pb.ServoServiceAngularOffsetResponse, error) {
+func (server *subtypeServer) AngularOffset(
+	ctx context.Context,
+	req *pb.ServoServiceAngularOffsetRequest,
+) (*pb.ServoServiceAngularOffsetResponse, error) {
 	servo, err := server.getServo(req.GetName())
 	if err != nil {
 		return nil, err

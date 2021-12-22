@@ -4,10 +4,8 @@ package arm
 import (
 	"context"
 
-	rpcclient "go.viam.com/utils/rpc/client"
-
 	"github.com/edaniels/golog"
-	"go.viam.com/utils/rpc/dialer"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/grpc"
 	commonpb "go.viam.com/core/proto/api/common/v1"
@@ -17,14 +15,14 @@ import (
 
 // serviceClient is a client satisfies the arm.proto contract.
 type serviceClient struct {
-	conn   dialer.ClientConn
+	conn   rpc.ClientConn
 	client pb.ArmServiceClient
 	logger golog.Logger
 }
 
 // newServiceClient constructs a new serviceClient that is served at the given address.
-func newServiceClient(ctx context.Context, address string, opts rpcclient.DialOptions, logger golog.Logger) (*serviceClient, error) {
-	conn, err := grpc.Dial(ctx, address, opts, logger)
+func newServiceClient(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (*serviceClient, error) {
+	conn, err := grpc.Dial(ctx, address, logger, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +31,7 @@ func newServiceClient(ctx context.Context, address string, opts rpcclient.DialOp
 }
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn dialer.ClientConn, logger golog.Logger) *serviceClient {
+func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
 	client := pb.NewArmServiceClient(conn)
 	sc := &serviceClient{
 		conn:   conn,
@@ -55,8 +53,8 @@ type client struct {
 }
 
 // NewClient constructs a new client that is served at the given address.
-func NewClient(ctx context.Context, name string, address string, opts rpcclient.DialOptions, logger golog.Logger) (Arm, error) {
-	sc, err := newServiceClient(ctx, address, opts, logger)
+func NewClient(ctx context.Context, name string, address string, logger golog.Logger, opts ...rpc.DialOption) (Arm, error) {
+	sc, err := newServiceClient(ctx, address, logger, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +62,7 @@ func NewClient(ctx context.Context, name string, address string, opts rpcclient.
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(conn dialer.ClientConn, name string, logger golog.Logger) Arm {
+func NewClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) Arm {
 	sc := newSvcClientFromConn(conn, logger)
 	return clientFromSvcClient(sc, name)
 }

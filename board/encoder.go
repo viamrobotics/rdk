@@ -13,8 +13,9 @@ type Encoder interface {
 	// Position returns the current position in terms of ticks
 	Position(ctx context.Context) (int64, error)
 
-	// SetToZeroPosition resets the position to zero/home
-	SetToZeroPosition(ctx context.Context, offset int64) error
+	// ResetZeroPosition sets the current position of the motor (adjusted by a given offset)
+	// to be its new zero position
+	ResetZeroPosition(ctx context.Context, offset int64) error
 
 	// Start starts a background thread to run the encoder, if there is none needed this is a no-op
 	Start(cancelCtx context.Context, activeBackgroundWorkers *sync.WaitGroup, onStart func())
@@ -65,6 +66,8 @@ func (e *HallEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *
 
 	utils.ManagedGo(func() {
 		onStart()
+		aLevelOnce := false
+		bLevelOnce := false
 		aLevel := true
 		bLevel := true
 
@@ -86,11 +89,18 @@ func (e *HallEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *
 			case <-cancelCtx.Done():
 				return
 			case level = <-chanA:
+				aLevelOnce = true
 				isA = true
 				aLevel = level
 			case level = <-chanB:
+				bLevelOnce = true
 				isA = false
 				bLevel = level
+			}
+
+			if !(aLevelOnce && bLevelOnce) {
+				// we need two physical ticks to make any state determination
+				continue
 			}
 
 			if isA == lastWasA && level == lastLevel {
@@ -136,8 +146,9 @@ func (e *HallEncoder) Position(ctx context.Context) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 
-// SetToZeroPosition resets the position to zero/home
-func (e *HallEncoder) SetToZeroPosition(ctx context.Context, offset int64) error {
+// ResetZeroPosition sets the current position of the motor (adjusted by a given offset)
+// to be its new zero position
+func (e *HallEncoder) ResetZeroPosition(ctx context.Context, offset int64) error {
 	atomic.StoreInt64(&e.position, offset)
 	return nil
 }
@@ -213,8 +224,9 @@ func (e *SingleEncoder) Position(ctx context.Context) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 
-// SetToZeroPosition resets the position to zero/home
-func (e *SingleEncoder) SetToZeroPosition(ctx context.Context, offset int64) error {
+// ResetZeroPosition sets the current position of the motor (adjusted by a given offset)
+// to be its new zero position
+func (e *SingleEncoder) ResetZeroPosition(ctx context.Context, offset int64) error {
 	atomic.StoreInt64(&e.position, offset)
 	return nil
 }

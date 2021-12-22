@@ -14,7 +14,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/utils"
 
@@ -34,59 +34,91 @@ import (
 var intel515json []byte
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, "single_stream", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		if len(config.Attributes) == 0 {
-			return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth, or both)")
-		}
-		_, has := config.Attributes["stream"]
-		if !has {
-			return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth, or both)")
-		}
-		source, err := NewServerSource(config.Host, config.Port, config.Attributes, logger)
-		if err != nil {
-			return nil, err
-		}
-		return &camera.ImageSource{ImageSource: source}, nil
-	}})
-	registry.RegisterComponent(camera.Subtype, "dual_stream", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		if len(config.Attributes) == 0 {
-			return nil, errors.New("camera 'dual_stream' needs a color and depth attribute")
-		}
-		x, has := config.Attributes["aligned"]
-		if !has {
-			return nil, errors.New("camera 'dual_stream' needs bool attribute 'aligned'")
-		}
-		aligned, ok := x.(bool)
-		if !ok {
-			return nil, errors.New("attribute 'aligned' must be a bool")
-		}
-		return &camera.ImageSource{ImageSource: &dualServerSource{
-			ColorURL:  config.Attributes.String("color"),
-			DepthURL:  config.Attributes.String("depth"),
-			isAligned: aligned,
-		}}, nil
-	}})
+	registry.RegisterComponent(
+		camera.Subtype,
+		"single_stream",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			if len(config.Attributes) == 0 {
+				return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth, or both)")
+			}
+			_, has := config.Attributes["stream"]
+			if !has {
+				return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth, or both)")
+			}
+			source, err := NewServerSource(config.Host, config.Port, config.Attributes, logger)
+			if err != nil {
+				return nil, err
+			}
+			return &camera.ImageSource{ImageSource: source}, nil
+		}})
+	registry.RegisterComponent(
+		camera.Subtype,
+		"dual_stream",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			if len(config.Attributes) == 0 {
+				return nil, errors.New("camera 'dual_stream' needs a color and depth attribute")
+			}
+			x, has := config.Attributes["aligned"]
+			if !has {
+				return nil, errors.New("camera 'dual_stream' needs bool attribute 'aligned'")
+			}
+			aligned, ok := x.(bool)
+			if !ok {
+				return nil, errors.New("attribute 'aligned' must be a bool")
+			}
+			return &camera.ImageSource{ImageSource: &dualServerSource{
+				ColorURL:  config.Attributes.String("color"),
+				DepthURL:  config.Attributes.String("depth"),
+				isAligned: aligned,
+			}}, nil
+		}})
 
-	registry.RegisterComponent(camera.Subtype, "intel", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		source, err := NewIntelServerSource(config.Host, config.Port, config.Attributes, logger)
-		if err != nil {
-			return nil, err
-		}
-		return &camera.ImageSource{ImageSource: source}, nil
-	}})
+	registry.RegisterComponent(
+		camera.Subtype,
+		"intel",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			source, err := NewIntelServerSource(config.Host, config.Port, config.Attributes, logger)
+			if err != nil {
+				return nil, err
+			}
+			return &camera.ImageSource{ImageSource: source}, nil
+		}})
 	registry.RegisterComponent(camera.Subtype, "eliot", *registry.ComponentLookup(camera.Subtype, "intel"))
 
-	registry.RegisterComponent(camera.Subtype, "file", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		x, has := config.Attributes["aligned"]
-		if !has {
-			return nil, errors.New("config for file needs bool attribute 'aligned'")
-		}
-		aligned, ok := x.(bool)
-		if !ok {
-			return nil, errors.New("attribute 'aligned' must be a bool")
-		}
-		return &camera.ImageSource{ImageSource: &fileSource{config.Attributes.String("color"), config.Attributes.String("depth"), aligned}}, nil
-	}})
+	registry.RegisterComponent(
+		camera.Subtype,
+		"file",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			x, has := config.Attributes["aligned"]
+			if !has {
+				return nil, errors.New("config for file needs bool attribute 'aligned'")
+			}
+			aligned, ok := x.(bool)
+			if !ok {
+				return nil, errors.New("attribute 'aligned' must be a bool")
+			}
+			return &camera.ImageSource{ImageSource: &fileSource{config.Attributes.String("color"), config.Attributes.String("depth"), aligned}}, nil
+		}})
 
 }
 
@@ -171,7 +203,7 @@ func (ds *dualServerSource) IsAligned() bool {
 func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), error) {
 	colorData, err := readyBytesFromURL(ds.client, ds.ColorURL)
 	if err != nil {
-		return nil, nil, errors.Errorf("couldn't ready color url: %w", err)
+		return nil, nil, errors.Wrap(err, "couldn't ready color url")
 	}
 	img, err := decodeColor(colorData)
 	if err != nil {
@@ -180,7 +212,7 @@ func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), erro
 
 	depthData, err := readyBytesFromURL(ds.client, ds.DepthURL)
 	if err != nil {
-		return nil, nil, errors.Errorf("couldn't ready depth url: %w", err)
+		return nil, nil, errors.Wrap(err, "couldn't ready depth url")
 	}
 	// do this first and make sure ok before creating any mats
 	depth, err := decodeDepth(depthData)
@@ -241,7 +273,7 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 
 	allData, err := readyBytesFromURL(s.client, s.URL)
 	if err != nil {
-		return nil, nil, errors.Errorf("couldn't read url (%s): %w", s.URL, err)
+		return nil, nil, errors.Wrapf(err, "couldn't read url (%s)", s.URL)
 	}
 
 	switch s.stream {

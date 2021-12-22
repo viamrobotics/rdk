@@ -5,8 +5,8 @@ import (
 	"math"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/component/input"

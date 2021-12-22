@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/core/resource"

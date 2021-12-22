@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/config"
@@ -18,12 +18,27 @@ import (
 )
 
 func init() {
-	registry.RegisterSensor(gps.Type, "fake", registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-		return &GPS{Name: config.Name}, nil
-	}})
-	registry.RegisterBase("intercept_gps", registry.Base{Constructor: func(ctx context.Context, r robot.Robot, c config.Component, logger golog.Logger) (base.Base, error) {
-		return newInterceptingGPSBase(r, c)
-	}})
+	registry.RegisterSensor(
+		gps.Type,
+		"fake",
+		registry.Sensor{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (sensor.Sensor, error) {
+			return &GPS{Name: config.Name}, nil
+		}})
+	registry.RegisterBase(
+		"intercept_gps",
+		registry.Base{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			c config.Component,
+			logger golog.Logger,
+		) (base.Base, error) {
+			return newInterceptingGPSBase(r, c)
+		}})
 }
 
 // GPS is a fake gps device that always returns the set location.

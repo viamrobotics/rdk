@@ -17,7 +17,13 @@ type ChessImageProcessDebug struct {
 	p P
 }
 
-func (dd ChessImageProcessDebug) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
+func (dd ChessImageProcessDebug) Process(
+	t *testing.T,
+	pCtx *rimage.ProcessorContext,
+	fn string,
+	img image.Image,
+	logger golog.Logger,
+) error {
 	out, corners, err := dd.p(rimage.ConvertToImageWithDepth(img), logger)
 	if err != nil {
 		return err

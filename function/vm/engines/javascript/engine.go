@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"github.com/wasmerio/wasmer-go/wasmer"
 	"go.uber.org/multierr"
 
@@ -166,7 +166,7 @@ func newJavaScriptEngine() (*javaScriptEngine, error) {
 	for name, value := range exportedFuncs {
 		exportedFunc, err := instance.Exports.GetFunction(name)
 		if err != nil {
-			return nil, errors.Errorf("failed to get function %q: %w", name, err)
+			return nil, errors.Wrapf(err, "failed to get function %q", name)
 		}
 		value.Func = exportedFunc
 		exportedFuncs[name] = value

@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

@@ -192,7 +192,8 @@ func TestParseComponentFlag(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
 
-	comp, err = config.ParseComponentFlag("type=foo,host=bar,port=5,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
+	comp, err = config.ParseComponentFlag(
+		"type=foo,host=bar,port=5,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.Name, test.ShouldEqual, "baz")
 	test.That(t, comp.Host, test.ShouldEqual, "bar")

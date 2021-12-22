@@ -46,7 +46,7 @@ import { Timestamp } from "google-protobuf/google/protobuf/timestamp_pb";
 import {
   InputControllerInjectEventRequest,
   InputControllerEvent,
-} from "proto/robot_pb";
+} from "proto/api/v1/robot_pb";
 
 import RadioButtons from "./RadioButtons.vue";
 

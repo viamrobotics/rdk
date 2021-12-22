@@ -191,7 +191,11 @@ func (sfs *simpleFrameSystem) TransformPoint(positions map[string][]Input, point
 	return tf.Point(), nil
 }
 
-func (sfs *simpleFrameSystem) TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, dstFrame Frame) (spatial.Pose, error) {
+func (sfs *simpleFrameSystem) TransformPose(
+	positions map[string][]Input,
+	pose spatial.Pose,
+	srcFrame, dstFrame Frame,
+) (spatial.Pose, error) {
 	poseFrame, err := NewStaticFrame("", pose)
 	if err != nil {
 		return nil, err

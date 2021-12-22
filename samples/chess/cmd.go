@@ -13,16 +13,18 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.uber.org/multierr"
 
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/component/arm"
 	"go.viam.com/core/component/gripper"
 	"go.viam.com/core/config"
+	"go.viam.com/core/grpc/client"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
@@ -97,7 +99,14 @@ func moveTo(ctx context.Context, myArm arm.Arm, chess string, heightModMillis in
 	return myArm.MoveToPosition(ctx, where)
 }
 
-func movePiece(ctx context.Context, boardState boardStateGuesser, robot robot.Robot, myArm arm.Arm, myGripper gripper.Gripper, from, to string) error {
+func movePiece(
+	ctx context.Context,
+	boardState boardStateGuesser,
+	robot robot.Robot,
+	myArm arm.Arm,
+	myGripper gripper.Gripper,
+	from, to string,
+) error {
 
 	if to[0] != '-' {
 		toHeight, err := boardState.game.GetPieceHeight(boardState.NewestBoard(), to)
@@ -310,7 +319,13 @@ func getWristPicCorners(ctx context.Context, wristCam gostream.ImageSource, debu
 	return corners, imageSize, err
 }
 
-func lookForBoardAdjust(ctx context.Context, myArm arm.Arm, wristCam gostream.ImageSource, corners []image.Point, imageSize image.Point) error {
+func lookForBoardAdjust(
+	ctx context.Context,
+	myArm arm.Arm,
+	wristCam gostream.ImageSource,
+	corners []image.Point,
+	imageSize image.Point,
+) error {
 	debugNumber := 100
 	for {
 		where, err := myArm.CurrentPosition(ctx)
@@ -505,7 +520,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
 	if err != nil {
 		return err
 	}

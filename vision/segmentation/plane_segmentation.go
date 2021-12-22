@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"sort"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	pc "go.viam.com/core/pointcloud"
 	"go.viam.com/core/rimage"
@@ -53,7 +53,7 @@ func pointCloudSplit(cloud pc.PointCloud, inMap map[pc.Vec3]bool) (pc.PointCloud
 		}
 		if err != nil {
 			pos := pt.Position()
-			err = errors.Errorf("error setting point (%v, %v, %v) in point cloud - %w", pos.X, pos.Y, pos.Z, err)
+			err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", pos.X, pos.Y, pos.Z)
 			return false
 		}
 		return true
@@ -86,7 +86,9 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 	equations := make([][4]float64, 0, nIterations)
 	for i := 0; i < nIterations; i++ {
 		// sample 3 Points from the slice of 3D Points
-		n1, n2, n3 := utils.SampleRandomIntRange(1, nPoints-1, r), utils.SampleRandomIntRange(1, nPoints-1, r), utils.SampleRandomIntRange(1, nPoints-1, r)
+		n1, n2, n3 := utils.SampleRandomIntRange(1, nPoints-1, r),
+			utils.SampleRandomIntRange(1, nPoints-1, r),
+			utils.SampleRandomIntRange(1, nPoints-1, r)
 		p1, p2, p3 := r3.Vector(pts[n1]), r3.Vector(pts[n2]), r3.Vector(pts[n3])
 
 		// get 2 vectors that are going to define the plane
@@ -172,7 +174,7 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 			err = nonPlaneCloud.Set(cloud.At(pt.X, pt.Y, pt.Z))
 		}
 		if err != nil {
-			return nil, nil, errors.Errorf("error setting point (%v, %v, %v) in point cloud - %w", pt.X, pt.Y, pt.Z, err)
+			return nil, nil, errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", pt.X, pt.Y, pt.Z)
 		}
 	}
 

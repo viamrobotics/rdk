@@ -3,7 +3,7 @@ package functionrobot
 import (
 	"context"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/robot"
@@ -192,7 +192,7 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 			return nil, err
 		}
 
-		return nil, motor.SetToZeroPosition(context.TODO(), offset)
+		return nil, motor.ResetZeroPosition(context.TODO(), offset)
 	}); err != nil {
 		return nil, err
 	}
@@ -251,7 +251,7 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 			return nil, errors.Errorf("no motor with that name %s", motorName)
 		}
 
-		return nil, motor.Off(context.TODO())
+		return nil, motor.Stop(context.TODO())
 	}); err != nil {
 		return nil, err
 	}

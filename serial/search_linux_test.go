@@ -47,7 +47,11 @@ func TestSearch(t *testing.T) {
 	test.That(t, os.WriteFile(filepath.Join(dev1, "tty", "one"), []byte("a"), 0666), test.ShouldBeNil)
 	test.That(t, os.WriteFile(filepath.Join(dev3, "tty", "two"), []byte("b"), 0666), test.ShouldBeNil)
 
-	test.That(t, os.Symlink(filepath.Join("../", filepath.Base(tempDir2), filepath.Base(dev1)), path.Join(tempDir2, filepath.Base(dev1)+"1")), test.ShouldBeNil)
+	test.That(t,
+		os.Symlink(
+			filepath.Join("../", filepath.Base(tempDir2), filepath.Base(dev1)), path.Join(tempDir2, filepath.Base(dev1)+"1")),
+		test.ShouldBeNil,
+	)
 	test.That(t, os.Symlink(dev3, path.Join(tempDir2, filepath.Base(dev2))), test.ShouldBeNil)
 
 	for i, tc := range []struct {

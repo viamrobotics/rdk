@@ -31,7 +31,12 @@ func NewSolvableFrameSystem(fs frame.FrameSystem, logger golog.Logger) *Solvable
 // For example, if a world system has a gripper attached to an arm attached to a gantry, and the system was being solved
 // to place the gripper at a particular pose in the world, the solveFrame would be the gripper and the goalFrame would be
 // the world frame.
-func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[string][]frame.Input, goal spatial.Pose, solveFrame, goalFrame frame.Frame) ([]map[string][]frame.Input, error) {
+func (fss *SolvableFrameSystem) SolvePose(
+	ctx context.Context,
+	seedMap map[string][]frame.Input,
+	goal spatial.Pose,
+	solveFrame, goalFrame frame.Frame,
+) ([]map[string][]frame.Input, error) {
 
 	// Get parentage of both frames. This will also verify the frames are in the frame system
 	sFrames, err := fss.TracebackFrame(solveFrame)

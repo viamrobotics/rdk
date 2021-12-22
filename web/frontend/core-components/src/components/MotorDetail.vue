@@ -171,12 +171,14 @@
 import { Component, Prop, Vue } from "vue-property-decorator";
 import {
   MotorStatus,
-  MotorGoRequest,
-  MotorGoForRequest,
-  MotorGoToRequest,
-  MotorPIDStepRequest,
-  MotorSetPIDConfigRequest,
-} from "proto/robot_pb";
+} from "proto/api/v1/robot_pb";
+import {
+  MotorServiceGoRequest,
+  MotorServiceGoForRequest,
+  MotorServiceGoToRequest,
+  MotorServicePIDStepRequest,
+  MotorServiceSetPIDConfigRequest,
+} from "proto/api/component/v1/motor_pb";
 import RadioButtons from "./RadioButtons.vue";
 import PIDChart from "./PidChart.vue";
 import { Struct } from "google-protobuf/google/protobuf/struct_pb";
@@ -195,7 +197,7 @@ class PIDCommand {
 
   asObject(): {
     type: string;
-    request: MotorPIDStepRequest | MotorSetPIDConfigRequest;
+    request: MotorServicePIDStepRequest | MotorServiceSetPIDConfigRequest;
     chart: PIDChart | undefined;
     setPoint: number;
   } {
@@ -203,12 +205,12 @@ class PIDCommand {
     let obj;
     switch (this.type) {
       case PIDCommandType.Gain:
-        req = new MotorSetPIDConfigRequest();
+        req = new MotorServiceSetPIDConfigRequest();
         obj = { [this.key]: this.gain };
         req.setPidConfig(Struct.fromJavaScript(obj));
         break;
       case PIDCommandType.Step:
-        req = new MotorPIDStepRequest();
+        req = new MotorServicePIDStepRequest();
         req.setSetPoint(this.setPoint);
         break;
     }
@@ -301,21 +303,21 @@ class MotorCommand {
 
   asObject(): {
     type: string;
-    request: MotorGoRequest | MotorGoForRequest | MotorGoToRequest;
+    request: MotorServiceGoRequest | MotorServiceGoForRequest | MotorServiceGoToRequest;
   } {
     let req;
     switch (this.type) {
       case MotorCommandType.Go:
-        req = new MotorGoRequest();
+        req = new MotorServiceGoRequest();
         req.setPowerPct(this.speed * this.direction / 100);
         break;
       case MotorCommandType.GoFor:
-        req = new MotorGoForRequest();
+        req = new MotorServiceGoForRequest();
         req.setRpm(this.speed * this.direction);
         req.setRevolutions(this.revolutions);
         break;
       case MotorCommandType.GoTo:
-        req = new MotorGoToRequest();
+        req = new MotorServiceGoToRequest();
         req.setRpm(this.speed);
         req.setPosition(this.position);
         break;
