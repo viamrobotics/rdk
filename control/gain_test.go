@@ -20,9 +20,9 @@ func TestGainConfig(t *testing.T) {
 		{
 			ControlBlockConfig{
 				Name: "Gain1",
-				Type: "Gain",
+				Type: "gain",
 				Attribute: config.AttributeMap{
-					"Gain": 1.89345,
+					"gain": 1.89345,
 				},
 				DependsOn: []string{"A"},
 			},
@@ -31,20 +31,20 @@ func TestGainConfig(t *testing.T) {
 		{
 			ControlBlockConfig{
 				Name: "Gain1",
-				Type: "Gain",
+				Type: "gain",
 				Attribute: config.AttributeMap{
-					"GainS": 1.89345,
+					"gainS": 1.89345,
 				},
 				DependsOn: []string{"A"},
 			},
-			"gain block Gain1 doesn't have a Gain field",
+			"gain block Gain1 doesn't have a gain field",
 		},
 		{
 			ControlBlockConfig{
 				Name: "Gain1",
-				Type: "Gain",
+				Type: "gain",
 				Attribute: config.AttributeMap{
-					"Gain": 1.89345,
+					"gain": 1.89345,
 				},
 				DependsOn: []string{"A", "B"},
 			},
@@ -68,9 +68,9 @@ func TestGainNext(t *testing.T) {
 	ctx := context.Background()
 	c := ControlBlockConfig{
 		Name: "Gain1",
-		Type: "Gain",
+		Type: "gain",
 		Attribute: config.AttributeMap{
-			"Gain": 1.89345,
+			"gain": 1.89345,
 		},
 		DependsOn: []string{"A"},
 	}

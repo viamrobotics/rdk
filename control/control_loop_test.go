@@ -26,9 +26,9 @@ func generateNInputs(n int, yMax int, baseName string) []wrapBlocks {
 
 	out[0].c = ControlBlockConfig{
 		Name: "",
-		Type: "Endpoint",
+		Type: "endpoint",
 		Attribute: config.AttributeMap{
-			"MotorName": "MotorFake",
+			"motor_name": "MotorFake",
 		},
 		DependsOn: []string{},
 	}
@@ -37,9 +37,9 @@ func generateNInputs(n int, yMax int, baseName string) []wrapBlocks {
 	out[0].c.Name = fmt.Sprintf("%s%d", baseName, 0)
 	for i := 1; i < n; i++ {
 		out[i].c = ControlBlockConfig{Name: "S1",
-			Type: "Constant",
+			Type: "constant",
 			Attribute: config.AttributeMap{
-				"ConstantVal": 3.0,
+				"constant_val": 3.0,
 			},
 			DependsOn: []string{},
 		}
@@ -53,9 +53,9 @@ func generateNSums(n int, xMax int, yMax int, baseName string, ins []wrapBlocks)
 	b := wrapBlocks{
 		c: ControlBlockConfig{
 			Name: "",
-			Type: "Sum",
+			Type: "sum",
 			Attribute: config.AttributeMap{
-				"SumString": "",
+				"sum_string": "",
 			},
 			DependsOn: []string{},
 		},
@@ -84,9 +84,9 @@ func generateNSums(n int, xMax int, yMax int, baseName string, ins []wrapBlocks)
 		b = wrapBlocks{
 			c: ControlBlockConfig{
 				Name: "",
-				Type: "Sum",
+				Type: "sum",
 				Attribute: config.AttributeMap{
-					"SumString": "",
+					"sum_string": "",
 				},
 				DependsOn: []string{},
 			},
@@ -120,9 +120,9 @@ func generateNBlocks(n int, xMax int, yMax int, baseName string, ins []wrapBlock
 		b := wrapBlocks{
 			c: ControlBlockConfig{
 				Name: "C",
-				Type: "Gain",
+				Type: "gain",
 				Attribute: config.AttributeMap{
-					"Gain": -2.0,
+					"gain": -2.0,
 				},
 				DependsOn: []string{},
 			},
@@ -150,7 +150,7 @@ func findSumHalfSquare(xMax int, yMax int, xStart int, yStart int, grid [][]*wra
 			if i > xMax-1 || j > yMax-1 || i < 0 || j < 0 {
 				continue
 			}
-			if grid[i][j] != nil && (grid[i][j].c.Type == "Sum") {
+			if grid[i][j] != nil && (grid[i][j].c.Type == "sum") {
 				return grid[i][j]
 			}
 		}
@@ -175,7 +175,7 @@ func mergedAll(xMax int, yMax int, grid [][]*wrapBlocks, def *wrapBlocks) {
 				}
 			}
 			n.c.DependsOn = append(n.c.DependsOn, b.c.Name)
-			if n.c.Type != "Sum" {
+			if n.c.Type != "sum" {
 				n = findSumHalfSquare(xMax, yMax, i, j, grid)
 				if n != nil {
 					n.c.DependsOn = append(n.c.DependsOn, b.c.Name)
@@ -216,8 +216,8 @@ func benchNBlocks(n int, freq float64, b *testing.B) {
 		Blocks:    []ControlBlockConfig{},
 	}
 	for i := range out {
-		if out[i].c.Type == "Sum" {
-			out[i].c.Attribute["SumString"] = strings.Repeat("+", len(out[i].c.DependsOn))
+		if out[i].c.Type == "sum" {
+			out[i].c.Attribute["sum_string"] = strings.Repeat("+", len(out[i].c.DependsOn))
 		}
 		cfg.Blocks = append(cfg.Blocks, out[i].c)
 	}
@@ -248,57 +248,57 @@ func TestControlLoop(t *testing.T) {
 		Blocks: []ControlBlockConfig{
 			{
 				Name: "A",
-				Type: "Endpoint",
+				Type: "endpoint",
 				Attribute: config.AttributeMap{
-					"MotorName": "MotorFake",
+					"motor_name": "MotorFake",
 				},
 				DependsOn: []string{"E"},
 			},
 			{
 				Name: "B",
-				Type: "Sum",
+				Type: "sum",
 				Attribute: config.AttributeMap{
-					"SumString": "+-",
+					"sum_string": "+-",
 				},
 				DependsOn: []string{"A", "S1"},
 			},
 			{
 				Name: "S1",
-				Type: "Constant",
+				Type: "constant",
 				Attribute: config.AttributeMap{
-					"ConstantVal": 3.0,
+					"constant_val": 3.0,
 				},
 				DependsOn: []string{},
 			},
 			{
 				Name: "C",
-				Type: "Gain",
+				Type: "gain",
 				Attribute: config.AttributeMap{
-					"Gain": -2.0,
+					"gain": -2.0,
 				},
 				DependsOn: []string{"B"},
 			},
 			{
 				Name: "D",
-				Type: "Sum",
+				Type: "sum",
 				Attribute: config.AttributeMap{
-					"SumString": "+-",
+					"sum_string": "+-",
 				},
 				DependsOn: []string{"C", "S2"},
 			},
 			{
 				Name: "S2",
-				Type: "Constant",
+				Type: "constant",
 				Attribute: config.AttributeMap{
-					"ConstantVal": 10.0,
+					"constant_val": 10.0,
 				},
 				DependsOn: []string{},
 			},
 			{
 				Name: "E",
-				Type: "Gain",
+				Type: "gain",
 				Attribute: config.AttributeMap{
-					"Gain": -2.0,
+					"gain": -2.0,
 				},
 				DependsOn: []string{"D"},
 			},

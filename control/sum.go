@@ -55,14 +55,14 @@ func (b *sum) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal,
 	return b.y, true
 }
 func (b *sum) reset() error {
-	if !b.cfg.Attribute.Has("SumString") {
-		return errors.Errorf("sum block %s doesn't have a SumString", b.cfg.Name)
+	if !b.cfg.Attribute.Has("sum_string") {
+		return errors.Errorf("sum block %s doesn't have a sum_string", b.cfg.Name)
 	}
-	if len(b.cfg.DependsOn) != len(b.cfg.Attribute.String("SumString")) {
-		return errors.Errorf("invalid number of inputs for sum block %s expected %d got %d", b.cfg.Name, len(b.cfg.Attribute.String("SumString")), len(b.cfg.DependsOn))
+	if len(b.cfg.DependsOn) != len(b.cfg.Attribute.String("sum_string")) {
+		return errors.Errorf("invalid number of inputs for sum block %s expected %d got %d", b.cfg.Name, len(b.cfg.Attribute.String("sum_string")), len(b.cfg.DependsOn))
 	}
 	b.operation = make(map[string]sumOperand)
-	for idx, c := range b.cfg.Attribute.String("SumString") {
+	for idx, c := range b.cfg.Attribute.String("sum_string") {
 		if c != '+' && c != '-' {
 			return errors.Errorf("expected +/- for sum block %s got %c", b.cfg.Name, c)
 		}

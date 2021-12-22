@@ -29,13 +29,13 @@ func (b *constant) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 	return b.y, true
 }
 func (b *constant) reset() error {
-	if !b.cfg.Attribute.Has("ConstantVal") {
-		return errors.Errorf("constant block %s doesn't have a ConstantVal field", b.cfg.Name)
+	if !b.cfg.Attribute.Has("constant_val") {
+		return errors.Errorf("constant block %s doesn't have a constant_val field", b.cfg.Name)
 	}
 	if len(b.cfg.DependsOn) > 0 {
 		return errors.Errorf("invalid number of inputs for constant block %s expected 0 got %d", b.cfg.Name, len(b.cfg.DependsOn))
 	}
-	b.constant = b.cfg.Attribute.Float64("ConstantVal", 0.0)
+	b.constant = b.cfg.Attribute.Float64("constant_val", 0.0)
 	b.y = make([]Signal, 1)
 	b.y[0] = makeSignal(b.cfg.Name, 1)
 	b.y[0].SetSignalValueAt(0, b.constant)

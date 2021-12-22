@@ -26,7 +26,7 @@ type trapezoidVelocityGenerator struct {
 	t            []float64
 	y            []Signal
 	currentPhase int
-	lastSetPoint float64
+	lastsetPoint float64
 }
 
 func newTrapezoidVelocityProfile(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
@@ -43,16 +43,16 @@ func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []Signal, dt ti
 		var pos float64
 		var setPoint float64
 		for _, sig := range x {
-			if sig.name == "SetPoint" {
+			if sig.name == "set_point" {
 				setPoint = sig.GetSignalValueAt(0)
-			} else if sig.name == "Endpoint" {
+			} else if sig.name == "endpoint" {
 				pos = sig.GetSignalValueAt(0)
 			} else {
 				return s.y, false
 			}
 		}
-		if setPoint != s.lastSetPoint {
-			s.lastSetPoint = setPoint
+		if setPoint != s.lastsetPoint {
+			s.lastsetPoint = setPoint
 			//Right now we support forward direction only
 			s.trapDistance = math.Abs(setPoint-pos) * 0.94
 			aT := s.maxVel / s.maxAcc
@@ -97,14 +97,14 @@ func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []Signal, dt ti
 }
 
 func (s *trapezoidVelocityGenerator) reset() error {
-	if !s.cfg.Attribute.Has("MaxAcc") {
-		return errors.Errorf("trapezoidale velocity profile block %s needs MaxAcc field", s.cfg.Name)
+	if !s.cfg.Attribute.Has("max_acc") {
+		return errors.Errorf("trapezoidale velocity profile block %s needs max_acc field", s.cfg.Name)
 	}
-	if !s.cfg.Attribute.Has("MaxVel") {
-		return errors.Errorf("trapezoidale velocity profile block %s needs MaxVel field", s.cfg.Name)
+	if !s.cfg.Attribute.Has("max_vel") {
+		return errors.Errorf("trapezoidale velocity profile block %s needs max_vel field", s.cfg.Name)
 	}
-	s.maxAcc = s.cfg.Attribute.Float64("MaxAcc", 0.0)
-	s.maxVel = s.cfg.Attribute.Float64("MaxVel", 0.0)
+	s.maxAcc = s.cfg.Attribute.Float64("max_acc", 0.0)
+	s.maxVel = s.cfg.Attribute.Float64("max_vel", 0.0)
 	s.t = make([]float64, 3)
 	s.currentPhase = rest
 	s.y = make([]Signal, 1)

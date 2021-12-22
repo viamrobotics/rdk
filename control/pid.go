@@ -24,9 +24,9 @@ type basicPID struct {
 	mu       sync.Mutex
 	cfg      ControlBlockConfig
 	error    float64
-	Ki       float64
-	Kd       float64
-	Kp       float64
+	kI       float64
+	kD       float64
+	kP       float64
 	int      float64
 	sat      int
 	y        []Signal
@@ -45,9 +45,9 @@ func (p *basicPID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 	if p.tuning {
 		out, done := p.tuner.pidTunerStep(x[0].GetSignalValueAt(0), dt)
 		if done {
-			p.Kd = p.tuner.Kd
-			p.Ki = p.tuner.Ki
-			p.Kp = p.tuner.Kp
+			p.kD = p.tuner.kD
+			p.kI = p.tuner.kI
+			p.kP = p.tuner.kP
 			p.tuning = false
 		}
 		p.y[0].SetSignalValueAt(0, out)
@@ -57,7 +57,7 @@ func (p *basicPID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 		if (p.sat > 0 && error > 0) || (p.sat < 0 && error < 0) {
 			return p.y, false
 		}
-		p.int += p.Ki * p.error * dtS
+		p.int += p.kI * p.error * dtS
 		if p.int > p.satLimUp {
 			p.int = p.satLimUp
 			p.sat = 1
@@ -68,7 +68,7 @@ func (p *basicPID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 			p.sat = 0
 		}
 		deriv := (error - p.error) / dtS
-		output := p.Kp*error + p.int + p.Kd*deriv
+		output := p.kP*error + p.int + p.kD*deriv
 		p.error = error
 		if output > p.limUp {
 			output = p.limUp
@@ -86,29 +86,29 @@ func (p *basicPID) reset() error {
 	p.error = 0
 	p.sat = 0
 
-	if !p.cfg.Attribute.Has("Ki") &&
-		!p.cfg.Attribute.Has("Kd") &&
-		!p.cfg.Attribute.Has("Kp") {
-		return errors.Errorf("pid block %s should have at least one Ki, Kp or Kd field", p.cfg.Name)
+	if !p.cfg.Attribute.Has("kI") &&
+		!p.cfg.Attribute.Has("kD") &&
+		!p.cfg.Attribute.Has("kP") {
+		return errors.Errorf("pid block %s should have at least one kI, kP or kD field", p.cfg.Name)
 	}
 	if len(p.cfg.DependsOn) != 1 {
 		return errors.Errorf("pid block %s should have 1 input got %d", p.cfg.Name, len(p.cfg.DependsOn))
 	}
-	p.Ki = p.cfg.Attribute.Float64("Ki", 0.0)
-	p.Kd = p.cfg.Attribute.Float64("Kd", 0.0)
-	p.Kp = p.cfg.Attribute.Float64("Kp", 0.0)
-	p.satLimUp = p.cfg.Attribute.Float64("IntSatLimUp", 255.0)
-	p.limUp = p.cfg.Attribute.Float64("LimitUp", 255.0)
-	p.satLimLo = p.cfg.Attribute.Float64("IntSatLimLo", 0)
-	p.limLo = p.cfg.Attribute.Float64("LimitLo", 0)
+	p.kI = p.cfg.Attribute.Float64("kI", 0.0)
+	p.kD = p.cfg.Attribute.Float64("kD", 0.0)
+	p.kP = p.cfg.Attribute.Float64("kP", 0.0)
+	p.satLimUp = p.cfg.Attribute.Float64("int_sat_lim_up", 255.0)
+	p.limUp = p.cfg.Attribute.Float64("limit_up", 255.0)
+	p.satLimLo = p.cfg.Attribute.Float64("int_sat_lim_lo", 0)
+	p.limLo = p.cfg.Attribute.Float64("limit_lo", 0)
 	p.tuning = false
-	if p.Ki == 0.0 && p.Kd == 0.0 && p.Kp == 0.0 {
+	if p.kI == 0.0 && p.kD == 0.0 && p.kP == 0.0 {
 		p.tuner = pidTuner{
 			limUp:      p.limUp,
 			limLo:      p.limLo,
-			ssRValue:   p.cfg.Attribute.Float64("TunessRValue", 2.0),
-			tuneMethod: tuneCalcMethod(p.cfg.Attribute.String("TuneMethod")),
-			stepPct:    p.cfg.Attribute.Float64("TuneStepPct", 0.35),
+			ssRValue:   p.cfg.Attribute.Float64("tune_ssr_value", 2.0),
+			tuneMethod: tuneCalcMethod(p.cfg.Attribute.String("tune_method")),
+			stepPct:    p.cfg.Attribute.Float64("tune_step_pct", 0.35),
 		}
 		err := p.tuner.reset()
 		if err != nil {
@@ -154,14 +154,14 @@ func (p *basicPID) Config(ctx context.Context) ControlBlockConfig {
 type tuneCalcMethod string
 
 const (
-	tuneMethodZiegerNicholsPI            tuneCalcMethod = "ZiegerNicholsPI"
-	tuneMethodZiegerNicholsPID           tuneCalcMethod = "ZiegerNicholsPID"
-	tuneMethodZiegerNicholsSomeOvershoot tuneCalcMethod = "ZiegerNicholsSomeOvershoot"
-	tuneMethodZiegerNicholsNoOvershoot   tuneCalcMethod = "ZiegerNicholsNoOvershoot"
-	tuneMethodCohenCoonsPI               tuneCalcMethod = "CohenCoonsPI"
-	tuneMethodCohenCoonsPID              tuneCalcMethod = "CohenCoonsPID"
-	tuneMethodTyreusLuybenPI             tuneCalcMethod = "TyreusLuybenPI"
-	tuneMethodTyreusLuybenPID            tuneCalcMethod = "TyreusLuybenPID"
+	tuneMethodZiegerNicholsPI            tuneCalcMethod = "ziegerNicholsPI"
+	tuneMethodZiegerNicholsPID           tuneCalcMethod = "ziegerNicholsPID"
+	tuneMethodZiegerNicholsSomeOvershoot tuneCalcMethod = "ziegerNicholsSomeOvershoot"
+	tuneMethodZiegerNicholsNoOvershoot   tuneCalcMethod = "ziegerNicholsNoOvershoot"
+	tuneMethodCohenCoonsPI               tuneCalcMethod = "cohenCoonsPI"
+	tuneMethodCohenCoonsPID              tuneCalcMethod = "cohenCoonsPID"
+	tuneMethodTyreusLuybenPI             tuneCalcMethod = "tyreusLuybenPI"
+	tuneMethodTyreusLuybenPID            tuneCalcMethod = "tyreusLuybenPID"
 )
 
 const (
@@ -172,9 +172,9 @@ const (
 )
 
 type pidTuner struct {
-	Ki           float64
-	Kd           float64
-	Kp           float64
+	kI           float64
+	kD           float64
+	kP           float64
 	currentPhase int
 	stepRsp      []float64
 	stepRespT    []time.Time
@@ -211,50 +211,50 @@ func (p *pidTuner) computeGains() {
 	pU := (p.tC * 2.0).Seconds()
 	switch p.tuneMethod {
 	case tuneMethodZiegerNicholsPI:
-		p.Kp = 0.4545 * kU
-		p.Ki = 0.5454 * (kU / pU)
-		p.Kd = 0
+		p.kP = 0.4545 * kU
+		p.kI = 0.5454 * (kU / pU)
+		p.kD = 0
 	case tuneMethodZiegerNicholsPID:
-		p.Kp = 0.6 * kU
-		p.Ki = 1.2 * (kU / pU)
-		p.Kd = 0.075 * kU * pU
+		p.kP = 0.6 * kU
+		p.kI = 1.2 * (kU / pU)
+		p.kD = 0.075 * kU * pU
 	case tuneMethodZiegerNicholsSomeOvershoot:
-		p.Kp = 0.333 * kU
-		p.Ki = 0.66666 * (kU / pU)
-		p.Kd = 0.1111 * kU * pU
+		p.kP = 0.333 * kU
+		p.kI = 0.66666 * (kU / pU)
+		p.kD = 0.1111 * kU * pU
 	case tuneMethodZiegerNicholsNoOvershoot:
-		p.Kp = 0.2 * kU
-		p.Ki = 0.4 * (kU / pU)
-		p.Kd = 0.0666 * kU * pU
+		p.kP = 0.2 * kU
+		p.kI = 0.4 * (kU / pU)
+		p.kD = 0.0666 * kU * pU
 	case tuneMethodTyreusLuybenPI:
-		p.Kp = 0.3215 * kU
-		p.Ki = 0.1420 * (kU / pU)
-		p.Kd = 0.0
+		p.kP = 0.3215 * kU
+		p.kI = 0.1420 * (kU / pU)
+		p.kD = 0.0
 	case tuneMethodTyreusLuybenPID:
-		p.Kp = 0.4545 * kU
-		p.Ki = 0.2066 * (kU / pU)
-		p.Kd = 0.0721 * kU * pU
+		p.kP = 0.4545 * kU
+		p.kI = 0.2066 * (kU / pU)
+		p.kD = 0.0721 * kU * pU
 	case tuneMethodCohenCoonsPI:
 		t1 := (p.ccT2.Seconds() - math.Log2(2.0)*p.tC.Seconds()) / (1.0 - math.Log2(2.0))
 		tau := p.tC.Seconds() - t1
 		tauD := t1
 		K := (p.avgSpeedSS / stepPwr)
 		r := tauD / tau
-		p.Kp = (1.0 / (K * r)) * (0.9 + r/12)
-		p.Ki = p.Kp * (tauD) * (30 + 3*r) / (9 + 20*r)
+		p.kP = (1.0 / (K * r)) * (0.9 + r/12)
+		p.kI = p.kP * (tauD) * (30 + 3*r) / (9 + 20*r)
 	case tuneMethodCohenCoonsPID:
 		t1 := (p.ccT2.Seconds() - math.Log2(2.0)*p.tC.Seconds()) / (1.0 - math.Log2(2.0))
 		tau := p.tC.Seconds() - t1
 		tauD := t1
 		K := (p.avgSpeedSS / stepPwr)
 		r := tauD / tau
-		p.Kp = (1.0 / (K * r)) * (4.0/3.0 + r/4)
-		p.Ki = p.Kp * (tauD) * (32 + 6*r) / (13 + 8*r)
-		p.Kd = p.Kp * (4 * tauD / (11 + 2*r))
+		p.kP = (1.0 / (K * r)) * (4.0/3.0 + r/4)
+		p.kI = p.kP * (tauD) * (32 + 6*r) / (13 + 8*r)
+		p.kD = p.kP * (4 * tauD / (11 + 2*r))
 	default:
-		p.Kp = 0.4545 * kU
-		p.Ki = 0.5454 * (kU / pU)
-		p.Kd = 0
+		p.kP = 0.4545 * kU
+		p.kI = 0.5454 * (kU / pU)
+		p.kD = 0
 	}
 }
 
@@ -340,8 +340,8 @@ func (p *pidTuner) pidTunerStep(pv float64, dt time.Duration) (float64, bool) {
 
 func (p *pidTuner) reset() error {
 	p.out = 0.0
-	p.Ki = 0.0
-	p.Kd = 0.0
-	p.Kp = 0.0
+	p.kI = 0.0
+	p.kD = 0.0
+	p.kP = 0.0
 	return nil
 }

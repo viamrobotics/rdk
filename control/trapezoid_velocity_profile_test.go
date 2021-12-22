@@ -21,11 +21,11 @@ func TestTrapezoidVelocityProfileConfig(t *testing.T) {
 		{
 			ControlBlockConfig{
 				Name:      "Trap1",
-				Type:      "TrapezoidalVelocityProfile",
+				Type:      "trapezoidalVelocityProfile",
 				DependsOn: []string{},
 				Attribute: config.AttributeMap{
-					"MaxAcc": 1000.0,
-					"MaxVel": 100.0,
+					"max_acc": 1000.0,
+					"max_vel": 100.0,
 				},
 			},
 			"",
@@ -33,24 +33,24 @@ func TestTrapezoidVelocityProfileConfig(t *testing.T) {
 		{
 			ControlBlockConfig{
 				Name:      "Trap1",
-				Type:      "TrapezoidalVelocityProfile",
+				Type:      "trapezoidalVelocityProfile",
 				DependsOn: []string{},
 				Attribute: config.AttributeMap{
-					"MaxAcc": 1000.0,
+					"max_acc": 1000.0,
 				},
 			},
-			"trapezoidale velocity profile block Trap1 needs MaxVel field",
+			"trapezoidale velocity profile block Trap1 needs max_vel field",
 		},
 		{
 			ControlBlockConfig{
 				Name:      "Trap1",
-				Type:      "TrapezoidalVelocityProfile",
+				Type:      "trapezoidalVelocityProfile",
 				DependsOn: []string{},
 				Attribute: config.AttributeMap{
-					"MaxVel": 1000.0,
+					"max_vel": 1000.0,
 				},
 			},
-			"trapezoidale velocity profile block Trap1 needs MaxAcc field",
+			"trapezoidale velocity profile block Trap1 needs max_acc field",
 		},
 	} {
 		var s trapezoidVelocityGenerator
@@ -67,11 +67,11 @@ func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 	ctx := context.Background()
 	cfg := ControlBlockConfig{
 		Name:      "Trap1",
-		Type:      "TrapezoidalVelocityProfile",
+		Type:      "trapezoidalVelocityProfile",
 		DependsOn: []string{},
 		Attribute: config.AttributeMap{
-			"MaxAcc": 1000.0,
-			"MaxVel": 100.0,
+			"max_acc": 1000.0,
+			"max_vel": 100.0,
 		},
 	}
 	var s trapezoidVelocityGenerator
@@ -80,13 +80,13 @@ func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 
 	ins := []Signal{
 		{
-			name:   "SetPoint",
+			name:   "set_point",
 			time:   []int{},
 			signal: []float64{100.0},
 			mu:     &sync.Mutex{},
 		},
 		{
-			name:   "Endpoint",
+			name:   "endpoint",
 			time:   []int{},
 			signal: []float64{0.0},
 			mu:     &sync.Mutex{},
