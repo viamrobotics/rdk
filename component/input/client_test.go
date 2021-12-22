@@ -85,7 +85,13 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("input controller client 1", func(t *testing.T) {
-		inputController1Client, err := input.NewClient(context.Background(), inputController1, listener1.Addr().String(), logger, rpc.WithInsecure())
+		inputController1Client, err := input.NewClient(
+			context.Background(),
+			inputController1,
+			listener1.Addr().String(),
+			logger,
+			rpc.WithInsecure(),
+		)
 		test.That(t, err, test.ShouldBeNil)
 
 		controlList, err := inputController1Client.Controls(context.Background())
@@ -108,7 +114,12 @@ func TestClient(t *testing.T) {
 		test.That(t, outState[input.AbsoluteX].Time.Before(time.Now()), test.ShouldBeTrue)
 
 		ctrlFuncIn := func(ctx context.Context, event input.Event) { evStream <- event }
-		err = inputController1Client.RegisterControlCallback(context.Background(), input.ButtonStart, []input.EventType{input.ButtonRelease}, ctrlFuncIn)
+		err = inputController1Client.RegisterControlCallback(
+			context.Background(),
+			input.ButtonStart,
+			[]input.EventType{input.ButtonRelease},
+			ctrlFuncIn,
+		)
 		test.That(t, err, test.ShouldBeNil)
 		ev := <-evStream
 		test.That(t, ev.Event, test.ShouldEqual, input.ButtonRelease)
@@ -117,7 +128,12 @@ func TestClient(t *testing.T) {
 		test.That(t, ev.Time.After(startTime), test.ShouldBeTrue)
 		test.That(t, ev.Time.Before(time.Now()), test.ShouldBeTrue)
 
-		err = inputController1Client.RegisterControlCallback(context.Background(), input.AbsoluteX, []input.EventType{input.PositionChangeAbs}, ctrlFuncIn)
+		err = inputController1Client.RegisterControlCallback(
+			context.Background(),
+			input.AbsoluteX,
+			[]input.EventType{input.PositionChangeAbs},
+			ctrlFuncIn,
+		)
 		test.That(t, err, test.ShouldBeNil)
 		ev1 := <-evStream
 		ev2 := <-evStream
@@ -143,7 +159,12 @@ func TestClient(t *testing.T) {
 		test.That(t, posEv.Time.After(startTime), test.ShouldBeTrue)
 		test.That(t, posEv.Time.Before(time.Now()), test.ShouldBeTrue)
 
-		err = inputController1Client.RegisterControlCallback(context.Background(), input.AbsoluteX, []input.EventType{input.PositionChangeAbs}, nil)
+		err = inputController1Client.RegisterControlCallback(
+			context.Background(),
+			input.AbsoluteX,
+			[]input.EventType{input.PositionChangeAbs},
+			nil,
+		)
 		test.That(t, err, test.ShouldBeNil)
 
 		ev1 = <-evStream
