@@ -42,6 +42,7 @@ buf:
 	buf lint
 	buf generate
 	buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
+	buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
 	go install golang.org/x/tools/cmd/goimports
 	`go env GOPATH`/bin/goimports -w -local=go.viam.com/core proto
 

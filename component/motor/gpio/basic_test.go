@@ -36,7 +36,7 @@ func TestMotorABPWM(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("motor (A/B/PWM) Off testing", func(t *testing.T) {
-		test.That(t, m.Off(ctx), test.ShouldBeNil)
+		test.That(t, m.Stop(ctx), test.ShouldBeNil)
 		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
 		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
 		test.That(t, b.PWM["3"], test.ShouldEqual, byte(0))
@@ -140,7 +140,7 @@ func TestMotorDirPWM(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("motor (DIR/PWM) Off testing", func(t *testing.T) {
-		test.That(t, m.Off(ctx), test.ShouldBeNil)
+		test.That(t, m.Stop(ctx), test.ShouldBeNil)
 		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
 		test.That(t, b.GPIO["2"], test.ShouldEqual, true)
 		test.That(t, b.PWM["1"], test.ShouldEqual, 0)
@@ -238,7 +238,7 @@ func TestMotorAB(t *testing.T) {
 	})
 
 	t.Run("motor (A/B) Off testing", func(t *testing.T) {
-		test.That(t, m.Off(ctx), test.ShouldBeNil)
+		test.That(t, m.Stop(ctx), test.ShouldBeNil)
 		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
 		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
 		test.That(t, b.GPIO["3"], test.ShouldEqual, true)

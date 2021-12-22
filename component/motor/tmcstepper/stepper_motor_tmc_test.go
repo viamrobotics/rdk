@@ -117,7 +117,7 @@ func TestTMCStepperMotor(t *testing.T) {
 			{160, 0, 0, 0, 1},
 			{167, 0, 0, 0, 0},
 		})
-		test.That(t, _motor.Off(ctx), test.ShouldBeNil)
+		test.That(t, _motor.Stop(ctx), test.ShouldBeNil)
 	})
 
 	t.Run("motor position testing", func(t *testing.T) {
@@ -378,7 +378,7 @@ func TestTMCStepperMotor(t *testing.T) {
 			{173, 0, 0, 0, 0},
 			{161, 0, 0, 0, 0},
 		})
-		test.That(t, _motor.SetToZeroPosition(ctx, 0), test.ShouldBeNil)
+		test.That(t, _motor.ResetZeroPosition(ctx, 0), test.ShouldBeNil)
 
 		// No offset (and when actually on)
 		go checkRx(t, c,
@@ -391,7 +391,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 128, 0, 0},
 			},
 		)
-		test.That(t, _motor.SetToZeroPosition(ctx, 0), test.ShouldNotBeNil)
+		test.That(t, _motor.ResetZeroPosition(ctx, 0), test.ShouldNotBeNil)
 
 		// 3.1 offset (and when actually off)
 		go checkTx(t, c, [][]byte{
@@ -401,7 +401,7 @@ func TestTMCStepperMotor(t *testing.T) {
 			{173, 0, 2, 108, 0},
 			{161, 0, 2, 108, 0},
 		})
-		test.That(t, _motor.SetToZeroPosition(ctx, 3.1), test.ShouldBeNil)
+		test.That(t, _motor.ResetZeroPosition(ctx, 3.1), test.ShouldBeNil)
 	})
 
 	t.Run("motor gotillstop testing", func(t *testing.T) {

@@ -107,7 +107,7 @@ func getMotor(ctx context.Context, r robot.Robot, name string) (motor.Motor, err
 }
 
 func motorOffError(ctx context.Context, m motor.Motor, other error) error {
-	return multierr.Combine(other, m.Off(ctx))
+	return multierr.Combine(other, m.Stop(ctx))
 }
 
 func testJointLimit(ctx context.Context, m motor.Motor, dir int64, logger golog.Logger) (float64, error) {
@@ -143,7 +143,7 @@ func testJointLimit(ctx context.Context, m motor.Motor, dir int64, logger golog.
 
 			if stdDev < .0001 {
 				if bigger {
-					return pos, m.Off(ctx)
+					return pos, m.Stop(ctx)
 				}
 				bigger = true
 				positions = []float64{}

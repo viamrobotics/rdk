@@ -23,7 +23,7 @@ func createWorkingMotor() *inject.Motor {
 	injectMotor.GoTillStopFunc = func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 		return nil
 	}
-	injectMotor.OffFunc = func(ctx context.Context) error {
+	injectMotor.StopFunc = func(ctx context.Context) error {
 		return nil
 	}
 	injectMotor.GoToFunc = func(ctx context.Context, rpm float64, position float64) error {
@@ -32,7 +32,7 @@ func createWorkingMotor() *inject.Motor {
 	injectMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
 		return nil
 	}
-	injectMotor.SetToZeroPositionFunc = func(ctx context.Context, offset float64) error {
+	injectMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64) error {
 		return nil
 	}
 	return injectMotor
@@ -276,7 +276,7 @@ func TestOpen(t *testing.T) {
 		err := injectedGripper.Open(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		// Make sure the motor is off
-		err = injectedGripper.motor.Off(context.Background())
+		err = injectedGripper.motor.Stop(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
@@ -449,7 +449,7 @@ func TestGrab(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, grabbedSuccessfully, test.ShouldBeFalse)
 		// Make sure the motor is off
-		err = injectedGripper.motor.Off(context.Background())
+		err = injectedGripper.motor.Stop(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
@@ -490,7 +490,7 @@ func TestClose(t *testing.T) {
 	t.Run("make sure calling Close shuts down the motor", func(t *testing.T) {
 		fakeMotor := &inject.Motor{}
 		counter := 0
-		fakeMotor.OffFunc = func(ctx context.Context) error {
+		fakeMotor.StopFunc = func(ctx context.Context) error {
 			counter++
 			return nil
 		}
@@ -508,7 +508,7 @@ func TestStop(t *testing.T) {
 	t.Run("make sure calling Stops shuts down the motor", func(t *testing.T) {
 		fakeMotor := &inject.Motor{}
 		counter := 0
-		fakeMotor.OffFunc = func(ctx context.Context) error {
+		fakeMotor.StopFunc = func(ctx context.Context) error {
 			counter++
 			return nil
 		}
