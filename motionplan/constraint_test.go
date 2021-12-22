@@ -7,6 +7,7 @@ import (
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	frame "go.viam.com/core/referenceframe"
 	spatial "go.viam.com/core/spatialmath"
+	"go.viam.com/core/utils"
 	vutils "go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
@@ -46,7 +47,6 @@ func TestIKTolerances(t *testing.T) {
 }
 
 func TestConstraintPath(t *testing.T) {
-
 	homePos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	toPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1})
 
@@ -137,4 +137,32 @@ func TestLineFollow(t *testing.T) {
 	ok, _ := opt.CheckConstraintPath(&ConstraintInput{StartInput: frame.JointPosToInputs(mp1), EndInput: frame.JointPosToInputs(mp2), Frame: sf}, 1)
 
 	test.That(t, ok, test.ShouldBeFalse)
+}
+
+func TestCollisionConstraint(t *testing.T) {
+	zeroInput := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	cases := []struct {
+		input    []frame.Input
+		expected bool
+	}{
+		{zeroInput, true},
+		{frame.FloatsToInputs([]float64{0, 0, 0, 2, 0, 0}), true},
+		{frame.FloatsToInputs([]float64{0, 0, 0, 2, 2, 0}), false},
+	}
+
+	// setup zero position as reference CollisionGraph and use it in handler
+	ur5e, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	zeroVols, err := ur5e.Volume(zeroInput)
+	test.That(t, err, test.ShouldBeNil)
+	zeroCG, err := CheckCollisions(zeroVols)
+	test.That(t, err, test.ShouldBeNil)
+	handler := &constraintHandler{}
+	handler.AddConstraint("self-collision", NewCollisionConstraint(zeroCG))
+
+	// loop through cases and check constraint handler processes them correctly
+	for _, c := range cases {
+		response, _ := handler.CheckConstraints(&ConstraintInput{StartInput: c.input, Frame: ur5e})
+		test.That(t, response, test.ShouldEqual, c.expected)
+	}
 }

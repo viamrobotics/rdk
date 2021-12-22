@@ -113,17 +113,17 @@ func (sf *solverFrame) Volume(inputs []frame.Input) (map[string]spatial.Volume, 
 	}
 	var err error
 	inputMap := sf.sliceToMap(inputs)
-	vols := make(map[string]spatial.Volume)
+	volumes := make(map[string]spatial.Volume)
 	for _, frame := range sf.frames {
-		vm, err := sf.fss.VolumeFrame(inputMap, frame, sf.goalFrame)
+		vols, err := sf.fss.VolumeFrame(inputMap, frame, sf.goalFrame)
 		if err != nil {
 			return nil, err
 		}
-		for name, vol := range vm {
-			vols[name] = vol
+		for name, vol := range vols {
+			volumes[name] = vol
 		}
 	}
-	return vols, err
+	return volumes, err
 }
 
 // DoF returns the summed DoF of all frames between the two solver frames.
