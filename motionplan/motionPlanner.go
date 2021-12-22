@@ -98,7 +98,8 @@ func (mp *linearMotionPlanner) Resolution() float64 {
 func (mp *linearMotionPlanner) Plan(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []frame.Input,
-	opt *PlannerOptions) ([][]frame.Input, error) {
+	opt *PlannerOptions,
+) ([][]frame.Input, error) {
 
 	// Store copy of planner options for duration of solve
 	var inputSteps [][]frame.Input
