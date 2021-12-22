@@ -27,11 +27,13 @@ type Encoder interface {
 type HallEncoder struct {
 	a, b     DigitalInterrupt
 	position int64
+	pRaw     int64
+	pState   int64
 }
 
 // NewHallEncoder creates a new HallEncoder.
 func NewHallEncoder(a, b DigitalInterrupt) *HallEncoder {
-	return &HallEncoder{a, b, 0}
+	return &HallEncoder{a, b, 0, 0, 0}
 }
 
 // Start starts the HallEncoder background thread.
@@ -56,24 +58,41 @@ func (e *HallEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *
 
 	*/
 
+	// State Transition Table
+	//     +---------------+----+----+----+----+
+	//     | pState/nState | 00 | 01 | 10 | 11 |
+	//     +---------------+----+----+----+----+
+	//     |       00      | 0  | -1 | +1 | x  |
+	//     +---------------+----+----+----+----+
+	//     |       01      | +1 | 0  | x  | -1 |
+	//     +---------------+----+----+----+----+
+	//     |       10      | -1 | x  | 0  | +1 |
+	//     +---------------+----+----+----+----+
+	//     |       11      | x  | +1 | -1 | 0  |
+	//     +---------------+----+----+----+----+
+	// 0 -> same state
+	// x -> impossible state
+
 	chanA := make(chan bool)
 	chanB := make(chan bool)
 
 	e.a.AddCallback(chanA)
 	e.b.AddCallback(chanB)
 
+	aLevel, err := e.a.Value(cancelCtx)
+	if err != nil {
+		utils.Logger.Errorw("error reading a level", "error", err)
+	}
+	bLevel, err := e.b.Value(cancelCtx)
+	if err != nil {
+		utils.Logger.Errorw("error reading b level", "error", err)
+	}
+	e.pState = aLevel | (bLevel << 1)
+
 	activeBackgroundWorkers.Add(1)
 
 	utils.ManagedGo(func() {
 		onStart()
-		aLevelOnce := false
-		bLevelOnce := false
-		aLevel := true
-		bLevel := true
-
-		lastWasA := true
-		lastLevel := true
-
 		for {
 			select {
 			case <-cancelCtx.Done():
@@ -82,59 +101,46 @@ func (e *HallEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *
 			}
 
 			var level bool
-			var isA bool
 
 			select {
 			case <-cancelCtx.Done():
 				return
 			case level = <-chanA:
-				aLevelOnce = true
-				isA = true
-				aLevel = level
+				aLevel = 0
+				if level {
+					aLevel = 1
+				}
 			case level = <-chanB:
-				bLevelOnce = true
-				isA = false
-				bLevel = level
+				bLevel = 0
+				if level {
+					bLevel = 1
+				}
 			}
-
-			if !(aLevelOnce && bLevelOnce) {
-				// we need two physical ticks to make any state determination
+			nState := aLevel | (bLevel << 1)
+			if e.pState == nState {
 				continue
 			}
-
-			if isA == lastWasA && level == lastLevel {
-				// this means we got the exact same message multiple times
-				// this is probably some sort of hardware issue, so we ignore
-				continue
-			}
-			lastWasA = isA
-			lastLevel = level
-
-			switch {
-			case !aLevel && !bLevel: // state 1
-				if lastWasA {
-					e.inc()
-				} else {
-					e.dec()
-				}
-			case !aLevel && bLevel: // state 2
-				if lastWasA {
-					e.dec()
-				} else {
-					e.inc()
-				}
-			case aLevel && bLevel: // state 3
-				if lastWasA {
-					e.inc()
-				} else {
-					e.dec()
-				}
-			case aLevel && !bLevel: // state 4
-				if lastWasA {
-					e.dec()
-				} else {
-					e.inc()
-				}
+			switch (e.pState << 2) | nState {
+			case 0b0001:
+				fallthrough
+			case 0b0111:
+				fallthrough
+			case 0b1000:
+				fallthrough
+			case 0b1110:
+				e.dec()
+				atomic.StoreInt64(&e.position, atomic.LoadInt64(&e.pRaw)>>1)
+				e.pState = nState
+			case 0b0010:
+				fallthrough
+			case 0b0100:
+				fallthrough
+			case 0b1011:
+				fallthrough
+			case 0b1101:
+				e.inc()
+				atomic.StoreInt64(&e.position, atomic.LoadInt64(&e.pRaw)>>1)
+				e.pState = nState
 			}
 		}
 	}, activeBackgroundWorkers.Done)
@@ -149,20 +155,21 @@ func (e *HallEncoder) Position(ctx context.Context) (int64, error) {
 // to be its new zero position.
 func (e *HallEncoder) ResetZeroPosition(ctx context.Context, offset int64) error {
 	atomic.StoreInt64(&e.position, offset)
+	atomic.StoreInt64(&e.pRaw, (offset<<1)|atomic.LoadInt64(&e.pRaw)&0x1)
 	return nil
 }
 
 // RawPosition returns the raw position of the encoder.
 func (e *HallEncoder) RawPosition() int64 {
-	return atomic.LoadInt64(&e.position)
+	return atomic.LoadInt64(&e.pRaw)
 }
 
 func (e *HallEncoder) inc() {
-	atomic.AddInt64(&e.position, 1)
+	atomic.AddInt64(&e.pRaw, 1)
 }
 
 func (e *HallEncoder) dec() {
-	atomic.AddInt64(&e.position, -1)
+	atomic.AddInt64(&e.pRaw, -1)
 }
 
 // ---------
