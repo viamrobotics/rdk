@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"testing"
 
@@ -124,25 +125,35 @@ func TestSliceUniq(t *testing.T) {
 }
 
 func TestSolverFrame(t *testing.T) {
+	// calculate expected location of end effector.  Will be offset by volume dims
+	// ur5eBaseToEE := r3.Vector{817.2, -62.8, -232.9}
+
 	// setup solverFrame with start and goal frames
 	solver := makeTestFS(t)
-	solveFrame := solver.GetFrame("xArm6")
-	test.That(t, solveFrame, test.ShouldNotBeNil)
-	sFrames, err := solver.TracebackFrame(solveFrame)
+	goalFrame, err := frame.NewStaticFrame("", spatial.NewPoseFromPoint(r3.Vector{100, 100, 200}))
 	test.That(t, err, test.ShouldBeNil)
-	goalFrame := solver.GetFrame("UR5e")
-	test.That(t, goalFrame, test.ShouldNotBeNil)
-	gFrames, err := solver.TracebackFrame(goalFrame)
+	solver.AddFrame(goalFrame, solver.World())
+	sFrames, err := solver.TracebackFrame(goalFrame)
+	test.That(t, err, test.ShouldBeNil)
+	solveFrame := solver.GetFrame("UR5e")
+	test.That(t, solveFrame, test.ShouldNotBeNil)
+	gFrames, err := solver.TracebackFrame(solveFrame)
 	test.That(t, err, test.ShouldBeNil)
 	frames := uniqInPlaceSlice(append(sFrames, gFrames...))
 	sf := &solverFrame{"", solver, frames, solveFrame, goalFrame}
 
-	// get the Volume at the zero position and test the output is correct
+	// get the Volume at the zero position and test that the output is correct
 	inputs := frame.StartPositions(solver)
 	vols, err := sf.Volume(sf.mapToSlice(inputs))
 	test.That(t, err, test.ShouldBeNil)
+	linkMidpoint := spatial.NewPoseFromPoint(r3.Vector{0, 0, -49.8})
 	poseExpect, err := sf.Transform(sf.mapToSlice(inputs))
+	fmt.Println(poseExpect.Point())
+	test.That(t, err, test.ShouldBeNil)
+	poseExpect = spatial.Compose(poseExpect, linkMidpoint)
 	volPose := vols["UR5e:ee_link"].Pose()
+	fmt.Println(poseExpect.Point())
+	fmt.Println(volPose.Point())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.AlmostCoincident(volPose, poseExpect), test.ShouldBeTrue)
 }
