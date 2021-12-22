@@ -42,7 +42,13 @@ func CreateCombinedIKSolver(model frame.Frame, logger golog.Logger, nCPU int) (*
 	return ik, nil
 }
 
-func runSolver(ctx context.Context, solver InverseKinematics, c chan<- []frame.Input, pos spatialmath.Pose, seed []frame.Input, m Metric) error {
+func runSolver(ctx context.Context,
+	solver InverseKinematics,
+	c chan<- []frame.Input,
+	pos spatialmath.Pose,
+	seed []frame.Input,
+	m Metric) error {
+
 	return solver.Solve(ctx, c, pos, seed, m)
 }
 

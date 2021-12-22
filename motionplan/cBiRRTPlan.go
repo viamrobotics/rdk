@@ -87,7 +87,11 @@ func (mp *cBiRRTMotionPlanner) Resolution() float64 {
 	return mp.stepSize
 }
 
-func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, seed []frame.Input, opt *PlannerOptions) ([][]frame.Input, error) {
+func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
+	goal *commonpb.Pose,
+	seed []frame.Input,
+	opt *PlannerOptions) ([][]frame.Input, error) {
+
 	var inputSteps []*solution
 	if opt == nil {
 		opt = NewDefaultPlannerOptions()
