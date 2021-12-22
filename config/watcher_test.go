@@ -73,6 +73,7 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "echo",
 			},
 		},
+		Network: NetworkConfig{BindAddress: "localhost:8080"},
 	}
 	go writeConf(&confToWrite)
 
@@ -94,6 +95,7 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "bar",
 			},
 		},
+		Network: NetworkConfig{BindAddress: "localhost:8080"},
 	}
 	go writeConf(&confToWrite)
 
@@ -134,6 +136,7 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "mah",
 			},
 		},
+		Network: NetworkConfig{BindAddress: "localhost:8080"},
 	}
 	go writeConf(&confToWrite)
 
@@ -218,6 +221,7 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "echo",
 			},
 		},
+		Network: NetworkConfig{BindAddress: "localhost:8080"},
 	}
 
 	watcher, err := NewWatcher(&Config{Cloud: cloudConf}, logger)
@@ -242,6 +246,7 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "bar",
 			},
 		},
+		Network: NetworkConfig{BindAddress: "localhost:8080"},
 	}
 	confErrMu.Lock()
 	confErr = false
@@ -274,6 +279,7 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "mah",
 			},
 		},
+		Network: NetworkConfig{BindAddress: "localhost:8080"},
 	}
 	confErrMu.Lock()
 	confErr = false
