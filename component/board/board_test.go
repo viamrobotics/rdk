@@ -56,48 +56,39 @@ var (
 func TestWrapWithReconfigurable(t *testing.T) {
 	var actualBoard Board = newBoard("board1")
 
-	// Wrap an actual board with reconfigurable
 	fakeBoard1, err := WrapWithReconfigurable(actualBoard)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeBoard1.(*reconfigurableBoard).actual, test.ShouldEqual, actualBoard)
 
-	// Wrap `nil` with reconfigurable
 	_, err = WrapWithReconfigurable(nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
 
-	// Wrap a reconfigurable board with reconfigurable
 	fakeBoard2, err := WrapWithReconfigurable(fakeBoard1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeBoard2, test.ShouldEqual, fakeBoard1)
 }
 
 func TestReconfigurableBoard(t *testing.T) {
-	// Initialize two boards, one with and one without subcomponents
 	actualBoards := []*mock{
 		newBoard("board1"),
 		newBareBoard("boards"),
 	}
 
-	// Reconfiguration functions should behave the same way for both kinds of boards
 	for _, actualBoard1 := range actualBoards {
-		// Wrap with reconfigurable
 		fakeBoard1, err := WrapWithReconfigurable(actualBoard1)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fakeBoard1.(*reconfigurableBoard).actual, test.ShouldEqual, actualBoard1)
-		// Reconfigure board from nil
 		err = fakeBoard1.(*reconfigurableBoard).Reconfigure(nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "expected new board")
 		test.That(t, actualBoard1.reconfCalls, test.ShouldEqual, 0)
 
-		// Create and wrap another board
 		actualBoard2 := newBoard("board2")
 		fakeBoard2, err := WrapWithReconfigurable(actualBoard2)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actualBoard1.reconfCalls, test.ShouldEqual, 0)
 
-		// Reconfigure board from another board
 		err = fakeBoard1.(*reconfigurableBoard).Reconfigure(fakeBoard2)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fakeBoard1.(*reconfigurableBoard).actual, test.ShouldEqual, actualBoard2)
