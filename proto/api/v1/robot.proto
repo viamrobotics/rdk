@@ -91,28 +91,30 @@ service RobotService {
     };  
   }
 
-  // BoardGPIOSet sets the given pin of a board of the underlying robot to either low or high.
+  // BoardGPIOSet sets a given pin on a robot's board to either high or low
   rpc BoardGPIOSet(BoardGPIOSetRequest) returns (BoardGPIOSetResponse) {
     option (google.api.http) = {
       put: "/api/v1/board/{name}/gpio_set"
     };  
   }
 
-  // BoardGPIOGet gets the high/low state of the given pin of a board of the underlying robot.
+  // BoardGPIOGet gets the high/low state of a given pin on a robot's board
   rpc BoardGPIOGet(BoardGPIOGetRequest) returns (BoardGPIOGetResponse) {
     option (google.api.http) = {
       get: "/api/v1/board/{name}/gpio_get"
     };  
   }
 
-  // BoardPWMSet sets the given pin of a board of the underlying robot to the given duty cycle.
+  // BoardPWMSet sets a given pin on a robot's board to a given duty cycle expressed as a value between 0-255 where 255 means that the pin 
+  // is high 100% of the time
   rpc BoardPWMSet(BoardPWMSetRequest) returns (BoardPWMSetResponse) {
     option (google.api.http) = {
       put: "/api/v1/board/{name}/pwm_set"
     };  
   }
 
-  // BoardPWMSetFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
+  // BoardPWMSetFrequency sets a given pin of a robot's board to a specified PWM frequency expressed in hertz 
+  // (cycles per second). 0 will use the board's default PWM frequency
   rpc BoardPWMSetFrequency(BoardPWMSetFrequencyRequest) returns (BoardPWMSetFrequencyResponse) {
     option (google.api.http) = {
       put: "/api/v1/board/{name}/pwm_set_freq"
@@ -121,7 +123,8 @@ service RobotService {
 
   // Analog Reader
 
-  // BoardAnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
+  // BoardAnalogReaderRead returns the value at the time that the request was recieved
+  // of a specified analog reader on the robot's board
   rpc BoardAnalogReaderRead(BoardAnalogReaderReadRequest) returns (BoardAnalogReaderReadResponse) {
     option (google.api.http) = {
       get: "/api/v1/board/{board_name}/analog_reader/{analog_reader_name}/read"
@@ -137,14 +140,17 @@ service RobotService {
     };
   }
 
-  // BoardDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
+  // BoardDigitalInterruptValue returns the value of the interrupt based on the driver. Very often, this is the number of ticks that have 
+  // occurred since startup. To Do (FA): This will be removed from proto
+
   rpc BoardDigitalInterruptValue(BoardDigitalInterruptValueRequest) returns (BoardDigitalInterruptValueResponse) {
     option (google.api.http) = {
       get: "/api/v1/board/{board_name}/digital_interrupt/{digital_interrupt_name}/value"
     };
   }
 
-  // BoardDigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
+  // BoardDigitalInterruptTick manually signals the given interrupt is high or low at a given time to be called either manually if the 
+  // interrupt is a proxy to some real hardware interrupt or for tests . To Do: This will be removed from proto
   rpc BoardDigitalInterruptTick(BoardDigitalInterruptTickRequest) returns (BoardDigitalInterruptTickResponse) {
     option (google.api.http) = {
       put: "/api/v1/board/{board_name}/digital_interrupt/{digital_interrupt_name}/tick"
@@ -516,26 +522,35 @@ message BoardStatusResponse {
 }
 
 message BoardGPIOSetRequest {
+// Name of a board
   string name = 1;
+// Name of a pin
   string pin = 2;
+// Defines whether the pin will be set high or low
   bool high = 3;
 }
 
 message BoardGPIOSetResponse {}
 
 message BoardGPIOGetRequest {
+// Name of a board
   string name = 1;
+// Name of a pin
   string pin = 2;
 }
 
 message BoardGPIOGetResponse {
+// Returns true if the given GPIO pin is high at the time that the request was recieved
   bool high = 1;
 }
 
 message BoardPWMSetRequest {
+// Name of a board
   string name = 1;
+// Name of a pin
   string pin = 2;
-  uint32 duty_cycle = 3; // (0-255)
+// A value between 0-255, where 255 is equivalent to being high 100% of the time 
+  uint32 duty_cycle = 3; 
 }
 
 message BoardPWMSetResponse {}
@@ -543,19 +558,25 @@ message BoardPWMSetResponse {}
 message BoardPWMSetFrequencyResponse {}
 
 message BoardPWMSetFrequencyRequest {
+  // Name of a board
   string name = 1;
+  // Name of a pin
   string pin = 2;
+  // Frequency in hertz (cycles/second)
   uint64 frequency = 3;
 }
 
 // Analog Reader
 
 message BoardAnalogReaderReadRequest {
+  // Name of a board
   string board_name = 1;
+  // Name of an analog reader on the robot's board 
   string analog_reader_name = 2;
 }
 
 message BoardAnalogReaderReadResponse {
+  // Returns the value of the analog reader based on when the request was recieved 
   int32 value = 1;
 }
 
@@ -569,27 +590,37 @@ message DigitalInterruptConfig {
 }
 
 message BoardDigitalInterruptConfigRequest {
+  // Name of a board
   string board_name = 1;
+  // Name of a digital interrupt on the robot's board 
   string digital_interrupt_name = 2;
 }
 
 message BoardDigitalInterruptConfigResponse {
+  // Returns the specified configuration of a digital interrupt on the robot's board
   DigitalInterruptConfig config = 1;
 }
 
 message BoardDigitalInterruptValueRequest {
+  // Name of a board
   string board_name = 1;
+  // Name of a digital interrupt on the robot's board 
   string digital_interrupt_name = 2;
 }
 
 message BoardDigitalInterruptValueResponse {
+  // Returns the returns the value of the interrupt based on the driver
   int64 value = 1;
 }
 
 message BoardDigitalInterruptTickRequest {
+  // Name of a board
   string board_name = 1;
+  // Name of a digital interrupt on the robot's board 
   string digital_interrupt_name = 2;
+  // Sets whether the digital interrupt is high or low
   bool high = 3;
+  // A number that counts up from an arbitrary point in time 
   uint64 nanos = 4;
 }
 
@@ -762,8 +793,11 @@ message ObjectManipulationServiceDoGrabResponse {
 
 message InputControllerEvent {
   google.protobuf.Timestamp time = 1;
+  // An event type (eg: ButtonPress, ButtonRelease)
   string event = 2;
+  // A control, can be a button (eg: ButtonSouth) or an axis (eg: AbsoluteX)
   string control = 3;
+  // 0 or 1 for buttons, -1.0 to +1.0 for axes
   double value = 4;
 }
 

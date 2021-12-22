@@ -48,21 +48,24 @@ type RobotServiceClient interface {
 	BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error)
 	// BoardStatus returns the status of a board of the underlying robot.
 	BoardStatus(ctx context.Context, in *BoardStatusRequest, opts ...grpc.CallOption) (*BoardStatusResponse, error)
-	// BoardGPIOSet sets the given pin of a board of the underlying robot to either low or high.
+	// BoardGPIOSet sets a given pin on a robot's board to either high or low
 	BoardGPIOSet(ctx context.Context, in *BoardGPIOSetRequest, opts ...grpc.CallOption) (*BoardGPIOSetResponse, error)
-	// BoardGPIOGet gets the high/low state of the given pin of a board of the underlying robot.
+	// BoardGPIOGet gets the high/low state of a given pin on a robot's board
 	BoardGPIOGet(ctx context.Context, in *BoardGPIOGetRequest, opts ...grpc.CallOption) (*BoardGPIOGetResponse, error)
-	// BoardPWMSet sets the given pin of a board of the underlying robot to the given duty cycle.
+	// BoardPWMSet sets a given pin on a robot's board to a given duty cycle expressed as a value between 0-255 where 255 means that the pin
+	// is high 100% of the time
 	BoardPWMSet(ctx context.Context, in *BoardPWMSetRequest, opts ...grpc.CallOption) (*BoardPWMSetResponse, error)
-	// BoardPWMSetFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
+	// BoardPWMSetFrequency sets a given pin of a robot's board to a specified PWM frequency expressed in hertz
+	// (cycles per second). 0 will use the board's default PWM frequency
 	BoardPWMSetFrequency(ctx context.Context, in *BoardPWMSetFrequencyRequest, opts ...grpc.CallOption) (*BoardPWMSetFrequencyResponse, error)
-	// BoardAnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
+	// BoardAnalogReaderRead returns the value at the time that the request was recieved
+	// of a specified analog reader on the robot's board
 	BoardAnalogReaderRead(ctx context.Context, in *BoardAnalogReaderReadRequest, opts ...grpc.CallOption) (*BoardAnalogReaderReadResponse, error)
 	// BoardDigitalInterruptConfig returns the config the interrupt was created with.
 	BoardDigitalInterruptConfig(ctx context.Context, in *BoardDigitalInterruptConfigRequest, opts ...grpc.CallOption) (*BoardDigitalInterruptConfigResponse, error)
-	// BoardDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
 	BoardDigitalInterruptValue(ctx context.Context, in *BoardDigitalInterruptValueRequest, opts ...grpc.CallOption) (*BoardDigitalInterruptValueResponse, error)
-	// BoardDigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
+	// BoardDigitalInterruptTick manually signals the given interrupt is high or low at a given time to be called either manually if the
+	// interrupt is a proxy to some real hardware interrupt or for tests . To Do: This will be removed from proto
 	BoardDigitalInterruptTick(ctx context.Context, in *BoardDigitalInterruptTickRequest, opts ...grpc.CallOption) (*BoardDigitalInterruptTickResponse, error)
 	// SensorReadings returns the readings of a sensor of the underlying robot.
 	SensorReadings(ctx context.Context, in *SensorReadingsRequest, opts ...grpc.CallOption) (*SensorReadingsResponse, error)
@@ -522,21 +525,24 @@ type RobotServiceServer interface {
 	BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error)
 	// BoardStatus returns the status of a board of the underlying robot.
 	BoardStatus(context.Context, *BoardStatusRequest) (*BoardStatusResponse, error)
-	// BoardGPIOSet sets the given pin of a board of the underlying robot to either low or high.
+	// BoardGPIOSet sets a given pin on a robot's board to either high or low
 	BoardGPIOSet(context.Context, *BoardGPIOSetRequest) (*BoardGPIOSetResponse, error)
-	// BoardGPIOGet gets the high/low state of the given pin of a board of the underlying robot.
+	// BoardGPIOGet gets the high/low state of a given pin on a robot's board
 	BoardGPIOGet(context.Context, *BoardGPIOGetRequest) (*BoardGPIOGetResponse, error)
-	// BoardPWMSet sets the given pin of a board of the underlying robot to the given duty cycle.
+	// BoardPWMSet sets a given pin on a robot's board to a given duty cycle expressed as a value between 0-255 where 255 means that the pin
+	// is high 100% of the time
 	BoardPWMSet(context.Context, *BoardPWMSetRequest) (*BoardPWMSetResponse, error)
-	// BoardPWMSetFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
+	// BoardPWMSetFrequency sets a given pin of a robot's board to a specified PWM frequency expressed in hertz
+	// (cycles per second). 0 will use the board's default PWM frequency
 	BoardPWMSetFrequency(context.Context, *BoardPWMSetFrequencyRequest) (*BoardPWMSetFrequencyResponse, error)
-	// BoardAnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
+	// BoardAnalogReaderRead returns the value at the time that the request was recieved
+	// of a specified analog reader on the robot's board
 	BoardAnalogReaderRead(context.Context, *BoardAnalogReaderReadRequest) (*BoardAnalogReaderReadResponse, error)
 	// BoardDigitalInterruptConfig returns the config the interrupt was created with.
 	BoardDigitalInterruptConfig(context.Context, *BoardDigitalInterruptConfigRequest) (*BoardDigitalInterruptConfigResponse, error)
-	// BoardDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
 	BoardDigitalInterruptValue(context.Context, *BoardDigitalInterruptValueRequest) (*BoardDigitalInterruptValueResponse, error)
-	// BoardDigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
+	// BoardDigitalInterruptTick manually signals the given interrupt is high or low at a given time to be called either manually if the
+	// interrupt is a proxy to some real hardware interrupt or for tests . To Do: This will be removed from proto
 	BoardDigitalInterruptTick(context.Context, *BoardDigitalInterruptTickRequest) (*BoardDigitalInterruptTickResponse, error)
 	// SensorReadings returns the readings of a sensor of the underlying robot.
 	SensorReadings(context.Context, *SensorReadingsRequest) (*SensorReadingsResponse, error)
