@@ -216,8 +216,12 @@ func vectorBlurFilter(k int) func(p image.Point, vf *VectorField2D) Vec2D {
 }
 
 // SavitskyGolayFilter algorithm is as follows:
-// 1. for each point of the DepthMap extract a sub-matrix, centered at that point and with a size equal to an odd number "windowSize".
-// 2. For this sub-matrix compute a least-square fit of a polynomial surface, defined as p(x,y) = a0 + a1*x + a2*y + a3*x\^2 + a4*y\^2 + a5*x*y + ... . Note that x and y are equal to zero at the central point. The parameters for the fit are gotten from the SavitskyGolayKernel.
+// 1. for each point of the DepthMap extract a sub-matrix, centered at that point and with a size equal to an
+// odd number "windowSize".
+// 2. For this sub-matrix compute a least-square fit of a polynomial surface, defined as
+// p(x,y) = a0 + a1*x + a2*y + a3*x\^2 + a4*y\^2 + a5*x*y + ... .
+// Note that x and y are equal to zero at the central point. The parameters for the fit are gotten from
+// the SavitskyGolayKernel.
 // 3. The output value is computed with the calculated fit parameters multiplied times the input data.
 func savitskyGolayFilter(radius, polyOrder int) (func(p image.Point, dm *DepthMap) float64, error) {
 	kernel, err := savitskyGolayKernel(radius, polyOrder)

@@ -179,7 +179,10 @@ func (sfs *simpleFrameSystem) TransformFrame(positions map[string][]Input, srcFr
 // to the second, in the form of a mapping between the name of the frame and its pose, and including any intermediate
 // frames if they exist. Positions is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to
 // the frame name.
-func (sfs *simpleFrameSystem) VerboseTransformFrame(positions map[string][]Input, srcFrame, dstFrame Frame) (map[string]spatial.Pose, error) {
+func (sfs *simpleFrameSystem) VerboseTransformFrame(
+	positions map[string][]Input,
+	srcFrame, dstFrame Frame,
+) (map[string]spatial.Pose, error) {
 	if !sfs.frameExists(srcFrame.Name()) {
 		return nil, fmt.Errorf("source frame %s not found in FrameSystem", srcFrame.Name())
 	}
@@ -202,7 +205,11 @@ func (sfs *simpleFrameSystem) TransformPoint(positions map[string][]Input, point
 	return tf.Point(), nil
 }
 
-func (sfs *simpleFrameSystem) TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, dstFrame Frame) (spatial.Pose, error) {
+func (sfs *simpleFrameSystem) TransformPose(
+	positions map[string][]Input,
+	pose spatial.Pose,
+	srcFrame, dstFrame Frame,
+) (spatial.Pose, error) {
 	poseFrame, err := NewStaticFrame("", pose)
 	if err != nil {
 		return nil, err
@@ -381,7 +388,10 @@ func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, s
 }
 
 // Returns the relative pose between two frames, or a map of name to relative pose, if the verbose option is specified
-func (sfs *simpleFrameSystem) transformMapFromParent(inputMap map[string][]Input, src, srcParent, target Frame) (map[string]spatial.Pose, error) {
+func (sfs *simpleFrameSystem) transformMapFromParent(
+	inputMap map[string][]Input,
+	src, srcParent, target Frame,
+) (map[string]spatial.Pose, error) {
 	toTarget, err := sfs.getTargetParentTransform(inputMap, target)
 	if toTarget == nil && err != nil {
 		return nil, err

@@ -340,7 +340,12 @@ func (mp *cBiRRTMotionPlanner) constrainNear(opt *PlannerOptions, seedInputs, ta
 
 // SmoothPath will pick two points at random along the path and attempt to do a fast gradient descent directly between
 // them, which will cut off randomly-chosen points with odd joint angles into something that is a more intuitive motion.
-func (mp *cBiRRTMotionPlanner) SmoothPath(ctx context.Context, opt *PlannerOptions, inputSteps []*solution, corners map[*solution]bool) [][]frame.Input {
+func (mp *cBiRRTMotionPlanner) SmoothPath(
+	ctx context.Context,
+	opt *PlannerOptions,
+	inputSteps []*solution,
+	corners map[*solution]bool,
+) [][]frame.Input {
 
 	toIter := int(math.Min(float64(len(inputSteps)*len(inputSteps)), smoothIter))
 

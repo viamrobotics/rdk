@@ -12,7 +12,6 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.uber.org/multierr"
 
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -20,7 +19,7 @@ import (
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/board"
-	"go.viam.com/core/component/motor"
+
 	functionrobot "go.viam.com/core/function/robot"
 	functionvm "go.viam.com/core/function/vm"
 	pb "go.viam.com/core/proto/api/v1"
@@ -110,7 +109,10 @@ func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigRes
 const defaultStreamInterval = 1 * time.Second
 
 // StatusStream periodically sends the robot's status.
-func (s *Server) StatusStream(req *pb.StatusStreamRequest, server pb.RobotService_StatusStreamServer) error {
+func (s *Server) StatusStream(
+	req *pb.StatusStreamRequest,
+	server pb.RobotService_StatusStreamServer,
+) error {
 	every := defaultStreamInterval
 	if reqEvery := req.Every.AsDuration(); reqEvery != time.Duration(0) {
 		every = reqEvery
@@ -139,7 +141,10 @@ func (s *Server) StatusStream(req *pb.StatusStreamRequest, server pb.RobotServic
 }
 
 // DoAction runs an action on the underlying robot.
-func (s *Server) DoAction(ctx context.Context, req *pb.DoActionRequest) (*pb.DoActionResponse, error) {
+func (s *Server) DoAction(
+	ctx context.Context,
+	req *pb.DoActionRequest,
+) (*pb.DoActionResponse, error) {
 	act := action.LookupAction(req.Name)
 	if act == nil {
 		return nil, errors.Errorf("unknown action name [%s]", req.Name)
@@ -153,7 +158,10 @@ func (s *Server) DoAction(ctx context.Context, req *pb.DoActionRequest) (*pb.DoA
 }
 
 // BaseMoveStraight moves a base of the underlying robot straight.
-func (s *Server) BaseMoveStraight(ctx context.Context, req *pb.BaseMoveStraightRequest) (*pb.BaseMoveStraightResponse, error) {
+func (s *Server) BaseMoveStraight(
+	ctx context.Context,
+	req *pb.BaseMoveStraightRequest,
+) (*pb.BaseMoveStraightResponse, error) {
 	base, ok := s.r.BaseByName(req.Name)
 	if !ok {
 		return nil, errors.Errorf("no base with name (%s)", req.Name)
@@ -170,7 +178,10 @@ func (s *Server) BaseMoveStraight(ctx context.Context, req *pb.BaseMoveStraightR
 }
 
 // BaseMoveArc moves a base of the underlying robotin an arc.
-func (s *Server) BaseMoveArc(ctx context.Context, req *pb.BaseMoveArcRequest) (*pb.BaseMoveArcResponse, error) {
+func (s *Server) BaseMoveArc(
+	ctx context.Context,
+	req *pb.BaseMoveArcRequest,
+) (*pb.BaseMoveArcResponse, error) {
 	base, ok := s.r.BaseByName(req.Name)
 	if !ok {
 		return nil, errors.Errorf("no base with name (%s)", req.Name)
@@ -188,7 +199,10 @@ func (s *Server) BaseMoveArc(ctx context.Context, req *pb.BaseMoveArcRequest) (*
 }
 
 // BaseSpin spins a base of the underlying robot.
-func (s *Server) BaseSpin(ctx context.Context, req *pb.BaseSpinRequest) (*pb.BaseSpinResponse, error) {
+func (s *Server) BaseSpin(
+	ctx context.Context,
+	req *pb.BaseSpinRequest,
+) (*pb.BaseSpinResponse, error) {
 	base, ok := s.r.BaseByName(req.Name)
 	if !ok {
 		return nil, errors.Errorf("no base with name (%s)", req.Name)
@@ -206,7 +220,10 @@ func (s *Server) BaseSpin(ctx context.Context, req *pb.BaseSpinRequest) (*pb.Bas
 }
 
 // BaseStop stops a base of the underlying robot.
-func (s *Server) BaseStop(ctx context.Context, req *pb.BaseStopRequest) (*pb.BaseStopResponse, error) {
+func (s *Server) BaseStop(
+	ctx context.Context,
+	req *pb.BaseStopRequest,
+) (*pb.BaseStopResponse, error) {
 	base, ok := s.r.BaseByName(req.Name)
 	if !ok {
 		return nil, errors.Errorf("no base with name (%s)", req.Name)
@@ -215,7 +232,10 @@ func (s *Server) BaseStop(ctx context.Context, req *pb.BaseStopRequest) (*pb.Bas
 }
 
 // BaseWidthMillis returns the width of a base of the underlying robot.
-func (s *Server) BaseWidthMillis(ctx context.Context, req *pb.BaseWidthMillisRequest) (*pb.BaseWidthMillisResponse, error) {
+func (s *Server) BaseWidthMillis(
+	ctx context.Context,
+	req *pb.BaseWidthMillisRequest,
+) (*pb.BaseWidthMillisResponse, error) {
 	base, ok := s.r.BaseByName(req.Name)
 	if !ok {
 		return nil, errors.Errorf("no base with name (%s)", req.Name)
@@ -228,7 +248,10 @@ func (s *Server) BaseWidthMillis(ctx context.Context, req *pb.BaseWidthMillisReq
 }
 
 // BoardStatus returns the status of a board of the underlying robot.
-func (s *Server) BoardStatus(ctx context.Context, req *pb.BoardStatusRequest) (*pb.BoardStatusResponse, error) {
+func (s *Server) BoardStatus(
+	ctx context.Context,
+	req *pb.BoardStatusRequest,
+) (*pb.BoardStatusResponse, error) {
 	b, ok := s.r.BoardByName(req.Name)
 	if !ok {
 		return nil, errors.Errorf("no board with name (%s)", req.Name)
@@ -243,7 +266,10 @@ func (s *Server) BoardStatus(ctx context.Context, req *pb.BoardStatusRequest) (*
 }
 
 // BoardGPIOSet sets a given pin of a board of the underlying robot to either low or high.
-func (s *Server) BoardGPIOSet(ctx context.Context, req *pb.BoardGPIOSetRequest) (*pb.BoardGPIOSetResponse, error) {
+func (s *Server) BoardGPIOSet(
+	ctx context.Context,
+	req *pb.BoardGPIOSetRequest,
+) (*pb.BoardGPIOSetResponse, error) {
 	b, ok := s.r.BoardByName(req.Name)
 	if !ok {
 		return nil, errors.Errorf("no board with name (%s)", req.Name)
@@ -253,7 +279,10 @@ func (s *Server) BoardGPIOSet(ctx context.Context, req *pb.BoardGPIOSetRequest) 
 }
 
 // BoardGPIOGet gets the high/low state of a given pin of a board of the underlying robot.
-func (s *Server) BoardGPIOGet(ctx context.Context, req *pb.BoardGPIOGetRequest) (*pb.BoardGPIOGetResponse, error) {
+func (s *Server) BoardGPIOGet(
+	ctx context.Context,
+	req *pb.BoardGPIOGetRequest,
+) (*pb.BoardGPIOGetResponse, error) {
 	b, ok := s.r.BoardByName(req.Name)
 	if !ok {
 		return nil, errors.Errorf("no board with name (%s)", req.Name)
@@ -267,7 +296,10 @@ func (s *Server) BoardGPIOGet(ctx context.Context, req *pb.BoardGPIOGetRequest) 
 }
 
 // BoardPWMSet sets a given pin of the underlying robot to the given duty cycle.
-func (s *Server) BoardPWMSet(ctx context.Context, req *pb.BoardPWMSetRequest) (*pb.BoardPWMSetResponse, error) {
+func (s *Server) BoardPWMSet(
+	ctx context.Context,
+	req *pb.BoardPWMSetRequest,
+) (*pb.BoardPWMSetResponse, error) {
 	b, ok := s.r.BoardByName(req.Name)
 	if !ok {
 		return nil, errors.Errorf("no board with name (%s)", req.Name)
@@ -276,8 +308,12 @@ func (s *Server) BoardPWMSet(ctx context.Context, req *pb.BoardPWMSetRequest) (*
 	return &pb.BoardPWMSetResponse{}, b.PWMSet(ctx, req.Pin, byte(req.DutyCycle))
 }
 
-// BoardPWMSetFrequency sets a given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
-func (s *Server) BoardPWMSetFrequency(ctx context.Context, req *pb.BoardPWMSetFrequencyRequest) (*pb.BoardPWMSetFrequencyResponse, error) {
+// BoardPWMSetFrequency sets a given pin of a board of the underlying robot to the given PWM frequency.
+// 0 will use the board's default PWM frequency.
+func (s *Server) BoardPWMSetFrequency(
+	ctx context.Context,
+	req *pb.BoardPWMSetFrequencyRequest,
+) (*pb.BoardPWMSetFrequencyResponse, error) {
 	b, ok := s.r.BoardByName(req.Name)
 	if !ok {
 		return nil, errors.Errorf("no board with name (%s)", req.Name)
@@ -287,7 +323,10 @@ func (s *Server) BoardPWMSetFrequency(ctx context.Context, req *pb.BoardPWMSetFr
 }
 
 // BoardAnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
-func (s *Server) BoardAnalogReaderRead(ctx context.Context, req *pb.BoardAnalogReaderReadRequest) (*pb.BoardAnalogReaderReadResponse, error) {
+func (s *Server) BoardAnalogReaderRead(
+	ctx context.Context,
+	req *pb.BoardAnalogReaderReadRequest,
+) (*pb.BoardAnalogReaderReadResponse, error) {
 	b, ok := s.r.BoardByName(req.BoardName)
 	if !ok {
 		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
@@ -306,7 +345,10 @@ func (s *Server) BoardAnalogReaderRead(ctx context.Context, req *pb.BoardAnalogR
 }
 
 // BoardDigitalInterruptConfig returns the config the interrupt was created with.
-func (s *Server) BoardDigitalInterruptConfig(ctx context.Context, req *pb.BoardDigitalInterruptConfigRequest) (*pb.BoardDigitalInterruptConfigResponse, error) {
+func (s *Server) BoardDigitalInterruptConfig(
+	ctx context.Context,
+	req *pb.BoardDigitalInterruptConfigRequest,
+) (*pb.BoardDigitalInterruptConfigResponse, error) {
 	b, ok := s.r.BoardByName(req.BoardName)
 	if !ok {
 		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
@@ -334,7 +376,10 @@ func digitalInterruptConfigToProto(config *board.DigitalInterruptConfig) *pb.Dig
 }
 
 // BoardDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
-func (s *Server) BoardDigitalInterruptValue(ctx context.Context, req *pb.BoardDigitalInterruptValueRequest) (*pb.BoardDigitalInterruptValueResponse, error) {
+func (s *Server) BoardDigitalInterruptValue(
+	ctx context.Context,
+	req *pb.BoardDigitalInterruptValueRequest,
+) (*pb.BoardDigitalInterruptValueResponse, error) {
 	b, ok := s.r.BoardByName(req.BoardName)
 	if !ok {
 		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
@@ -353,7 +398,10 @@ func (s *Server) BoardDigitalInterruptValue(ctx context.Context, req *pb.BoardDi
 }
 
 // BoardDigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
-func (s *Server) BoardDigitalInterruptTick(ctx context.Context, req *pb.BoardDigitalInterruptTickRequest) (*pb.BoardDigitalInterruptTickResponse, error) {
+func (s *Server) BoardDigitalInterruptTick(
+	ctx context.Context,
+	req *pb.BoardDigitalInterruptTickRequest,
+) (*pb.BoardDigitalInterruptTickResponse, error) {
 	b, ok := s.r.BoardByName(req.BoardName)
 	if !ok {
 		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
@@ -368,7 +416,10 @@ func (s *Server) BoardDigitalInterruptTick(ctx context.Context, req *pb.BoardDig
 }
 
 // SensorReadings returns the readings of a sensor of the underlying robot.
-func (s *Server) SensorReadings(ctx context.Context, req *pb.SensorReadingsRequest) (*pb.SensorReadingsResponse, error) {
+func (s *Server) SensorReadings(
+	ctx context.Context,
+	req *pb.SensorReadingsRequest,
+) (*pb.SensorReadingsResponse, error) {
 	sensorDevice, ok := s.r.SensorByName(req.Name)
 	if !ok {
 		return nil, errors.Errorf("no sensor with name (%s)", req.Name)
@@ -397,7 +448,10 @@ func (s *Server) compassByName(name string) (compass.Compass, error) {
 }
 
 // CompassHeading returns the heading of a compass of the underlying robot.
-func (s *Server) CompassHeading(ctx context.Context, req *pb.CompassHeadingRequest) (*pb.CompassHeadingResponse, error) {
+func (s *Server) CompassHeading(
+	ctx context.Context,
+	req *pb.CompassHeadingRequest,
+) (*pb.CompassHeadingResponse, error) {
 	compassDevice, err := s.compassByName(req.Name)
 	if err != nil {
 		return nil, err
@@ -410,7 +464,10 @@ func (s *Server) CompassHeading(ctx context.Context, req *pb.CompassHeadingReque
 }
 
 // CompassStartCalibration requests the compass of the underlying robot to start calibration.
-func (s *Server) CompassStartCalibration(ctx context.Context, req *pb.CompassStartCalibrationRequest) (*pb.CompassStartCalibrationResponse, error) {
+func (s *Server) CompassStartCalibration(
+	ctx context.Context,
+	req *pb.CompassStartCalibrationRequest,
+) (*pb.CompassStartCalibrationResponse, error) {
 	compassDevice, err := s.compassByName(req.Name)
 	if err != nil {
 		return nil, err
@@ -422,7 +479,10 @@ func (s *Server) CompassStartCalibration(ctx context.Context, req *pb.CompassSta
 }
 
 // CompassStopCalibration requests the compass of the underlying robot to stop calibration.
-func (s *Server) CompassStopCalibration(ctx context.Context, req *pb.CompassStopCalibrationRequest) (*pb.CompassStopCalibrationResponse, error) {
+func (s *Server) CompassStopCalibration(
+	ctx context.Context,
+	req *pb.CompassStopCalibrationRequest,
+) (*pb.CompassStopCalibrationResponse, error) {
 	compassDevice, err := s.compassByName(req.Name)
 	if err != nil {
 		return nil, err
@@ -434,7 +494,10 @@ func (s *Server) CompassStopCalibration(ctx context.Context, req *pb.CompassStop
 }
 
 // CompassMark requests the relative compass of the underlying robot to mark its position.
-func (s *Server) CompassMark(ctx context.Context, req *pb.CompassMarkRequest) (*pb.CompassMarkResponse, error) {
+func (s *Server) CompassMark(
+	ctx context.Context,
+	req *pb.CompassMarkRequest,
+) (*pb.CompassMarkResponse, error) {
 	compassDevice, err := s.compassByName(req.Name)
 	if err != nil {
 		return nil, err
@@ -450,7 +513,10 @@ func (s *Server) CompassMark(ctx context.Context, req *pb.CompassMarkRequest) (*
 }
 
 // ExecuteFunction executes the given function with access to the underlying robot.
-func (s *Server) ExecuteFunction(ctx context.Context, req *pb.ExecuteFunctionRequest) (*pb.ExecuteFunctionResponse, error) {
+func (s *Server) ExecuteFunction(
+	ctx context.Context,
+	req *pb.ExecuteFunctionRequest,
+) (*pb.ExecuteFunctionResponse, error) {
 	conf, err := s.r.Config(ctx)
 	if err != nil {
 		return nil, err
@@ -479,7 +545,10 @@ func (s *Server) ExecuteFunction(ctx context.Context, req *pb.ExecuteFunctionReq
 }
 
 // ExecuteSource executes the given source with access to the underlying robot.
-func (s *Server) ExecuteSource(ctx context.Context, req *pb.ExecuteSourceRequest) (*pb.ExecuteSourceResponse, error) {
+func (s *Server) ExecuteSource(
+	ctx context.Context,
+	req *pb.ExecuteSourceRequest,
+) (*pb.ExecuteSourceResponse, error) {
 	result, err := executeFunctionWithRobotForRPC(
 		ctx,
 		functionvm.FunctionConfig{
@@ -502,238 +571,15 @@ func (s *Server) ExecuteSource(ctx context.Context, req *pb.ExecuteSourceRequest
 	}, nil
 }
 
-// MotorGetPIDConfig returns the config of the motor's PID
-func (s *Server) MotorGetPIDConfig(ctx context.Context, req *pb.MotorGetPIDConfigRequest) (*pb.MotorGetPIDConfigResponse, error) {
-	m, ok := s.r.MotorByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no motor (%s) found", req.Name)
-	}
-	pid := m.PID()
-	if pid == nil {
-		return nil, errors.New("no underlying PID for motor configured")
-	}
-	cfg, err := pid.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	str, err := structpb.NewStruct(cfg.Attributes)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.MotorGetPIDConfigResponse{PidConfig: str}, nil
-}
-
-// MotorSetPIDConfig change the config of the motor's PID
-func (s *Server) MotorSetPIDConfig(ctx context.Context, req *pb.MotorSetPIDConfigRequest) (*pb.MotorSetPIDConfigResponse, error) {
-	m, ok := s.r.MotorByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no motor (%s) found", req.Name)
-	}
-	pid := m.PID()
-	if pid == nil {
-		return nil, errors.New("no underlying PID for motor configured")
-	}
-	cfg := motor.PIDConfig{
-		Name:       "",
-		Type:       "",
-		Attributes: req.PidConfig.AsMap(),
-	}
-	if err := pid.UpdateConfig(ctx, cfg); err != nil {
-		return nil, err
-	}
-	return &pb.MotorSetPIDConfigResponse{}, nil
-}
-
-// MotorPIDStep execute a step response on the PID controller
-func (s *Server) MotorPIDStep(req *pb.MotorPIDStepRequest, server pb.RobotService_MotorPIDStepServer) error {
-	m, ok := s.r.MotorByName(req.Name)
-	if !ok {
-		return errors.Errorf("no motor (%s) found", req.Name)
-	}
-	pid := m.PID()
-	if pid == nil {
-		return errors.New("no underlying PID for motor configured")
-	}
-	setPoint := req.GetSetPoint()
-	if err := m.Off(server.Context()); err != nil {
-		return err
-	}
-	if err := pid.Reset(); err != nil {
-		return err
-	}
-
-	lastTime := time.Now()
-	lastPos, err := m.Position(server.Context())
-	totalTime := 0.0
-	if err != nil {
-		return err
-	}
-	ticker := time.NewTicker(time.Millisecond * 10)
-	defer ticker.Stop()
-	defer func(m motor.Motor) {
-		if err := m.Off(server.Context()); err != nil {
-			s.r.Logger().Error(err)
-		}
-	}(m)
-	for {
-		select {
-		case <-server.Context().Done():
-			err := m.Off(server.Context())
-			return multierr.Combine(server.Context().Err(), err)
-		default:
-		}
-		<-ticker.C
-		dt := time.Since(lastTime)
-		lastTime = time.Now()
-		currPos, err := m.Position(server.Context())
-		if err != nil {
-			return err
-		}
-		vel := (currPos - lastPos) / dt.Seconds()
-		effort, ok := pid.Output(server.Context(), dt, setPoint, vel)
-		lastPos = currPos
-		if ok {
-			if err = m.Go(server.Context(), effort/100); err != nil {
-				return err
-			}
-		}
-
-		totalTime += dt.Seconds()
-		if err := server.Send(&pb.MotorPIDStepResponse{Time: totalTime, SetPoint: setPoint, RefValue: vel}); err != nil {
-			return err
-		}
-	}
-}
-
-// MotorPower sets the percentage of power the motor of the underlying robot should employ between 0-1.
-func (s *Server) MotorPower(ctx context.Context, req *pb.MotorPowerRequest) (*pb.MotorPowerResponse, error) {
-	theMotor, ok := s.r.MotorByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no motor with name (%s)", req.Name)
-	}
-
-	return &pb.MotorPowerResponse{}, theMotor.SetPower(ctx, req.PowerPct)
-}
-
-// MotorGo requests the motor of the underlying robot to go.
-func (s *Server) MotorGo(ctx context.Context, req *pb.MotorGoRequest) (*pb.MotorGoResponse, error) {
-	theMotor, ok := s.r.MotorByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no motor with name (%s)", req.Name)
-	}
-
-	return &pb.MotorGoResponse{}, theMotor.Go(ctx, req.PowerPct)
-}
-
-// MotorGoFor requests the motor of the underlying robot to go for a certain amount based off
-// the request.
-func (s *Server) MotorGoFor(ctx context.Context, req *pb.MotorGoForRequest) (*pb.MotorGoForResponse, error) {
-	theMotor, ok := s.r.MotorByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no motor with name (%s)", req.Name)
-	}
-
-	// erh: this isn't right semantically.
-	// GoFor with 0 rotations means something important.
-	rVal := 0.0
-	if req.Revolutions != 0 {
-		rVal = req.Revolutions
-	}
-
-	return &pb.MotorGoForResponse{}, theMotor.GoFor(ctx, req.Rpm, rVal)
-}
-
-// MotorPosition reports the position of the motor of the underlying robot based on its encoder. If it's not supported, the returned
-// data is undefined. The unit returned is the number of revolutions which is intended to be fed
-// back into calls of MotorGoFor.
-func (s *Server) MotorPosition(ctx context.Context, req *pb.MotorPositionRequest) (*pb.MotorPositionResponse, error) {
-	theMotor, ok := s.r.MotorByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no motor with name (%s)", req.Name)
-	}
-
-	pos, err := theMotor.Position(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.MotorPositionResponse{Position: pos}, nil
-}
-
-// MotorPositionSupported returns whether or not the motor of the underlying robot supports reporting of its position which
-// is reliant on having an encoder.
-func (s *Server) MotorPositionSupported(ctx context.Context, req *pb.MotorPositionSupportedRequest) (*pb.MotorPositionSupportedResponse, error) {
-	theMotor, ok := s.r.MotorByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no motor with name (%s)", req.Name)
-	}
-
-	supported, err := theMotor.PositionSupported(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.MotorPositionSupportedResponse{Supported: supported}, nil
-}
-
-// MotorOff turns the motor of the underlying robot off.
-func (s *Server) MotorOff(ctx context.Context, req *pb.MotorOffRequest) (*pb.MotorOffResponse, error) {
-	theMotor, ok := s.r.MotorByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no motor with name (%s)", req.Name)
-	}
-
-	return &pb.MotorOffResponse{}, theMotor.Off(ctx)
-}
-
-// MotorIsOn returns whether or not the motor of the underlying robot is currently on.
-func (s *Server) MotorIsOn(ctx context.Context, req *pb.MotorIsOnRequest) (*pb.MotorIsOnResponse, error) {
-	theMotor, ok := s.r.MotorByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no motor with name (%s)", req.Name)
-	}
-
-	isOn, err := theMotor.IsOn(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.MotorIsOnResponse{IsOn: isOn}, nil
-}
-
-// MotorGoTo requests the motor of the underlying robot to go a specific position.
-func (s *Server) MotorGoTo(ctx context.Context, req *pb.MotorGoToRequest) (*pb.MotorGoToResponse, error) {
-	theMotor, ok := s.r.MotorByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no motor with name (%s)", req.Name)
-	}
-
-	return &pb.MotorGoToResponse{}, theMotor.GoTo(ctx, req.Rpm, req.Position)
-}
-
-// MotorGoTillStop requests the motor of the underlying robot to go until stopped either physically or by a limit switch.
-func (s *Server) MotorGoTillStop(ctx context.Context, req *pb.MotorGoTillStopRequest) (*pb.MotorGoTillStopResponse, error) {
-	theMotor, ok := s.r.MotorByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no motor with name (%s)", req.Name)
-	}
-
-	return &pb.MotorGoTillStopResponse{}, theMotor.GoTillStop(ctx, req.Rpm, nil)
-}
-
-// MotorZero requests the motor of the underlying robot to reset it's zero/home position.
-func (s *Server) MotorZero(ctx context.Context, req *pb.MotorZeroRequest) (*pb.MotorZeroResponse, error) {
-	theMotor, ok := s.r.MotorByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no motor with name (%s)", req.Name)
-	}
-
-	return &pb.MotorZeroResponse{}, theMotor.SetToZeroPosition(ctx, req.Offset)
-}
-
 type runCommander interface {
 	RunCommand(ctx context.Context, name string, args map[string]interface{}) (map[string]interface{}, error)
 }
 
 // ResourceRunCommand runs an arbitrary command on a resource if it supports it.
-func (s *Server) ResourceRunCommand(ctx context.Context, req *pb.ResourceRunCommandRequest) (*pb.ResourceRunCommandResponse, error) {
+func (s *Server) ResourceRunCommand(
+	ctx context.Context,
+	req *pb.ResourceRunCommandRequest,
+) (*pb.ResourceRunCommandResponse, error) {
 	// TODO(erd): support all resources
 	// we know only gps has this right now, so just look at sensors!
 	resource, ok := s.r.SensorByName(req.ResourceName)
@@ -759,7 +605,10 @@ func (s *Server) ResourceRunCommand(ctx context.Context, req *pb.ResourceRunComm
 // FrameServiceConfig returns all the information needed to recreate the frame system for a robot.
 // That is: the directed acyclic graph of the frame system parent structure, the static offset poses between frames,
 // and the kinematic/model frames for any robot parts that move or have intrinsic frame properties.
-func (s *Server) FrameServiceConfig(ctx context.Context, req *pb.FrameServiceConfigRequest) (*pb.FrameServiceConfigResponse, error) {
+func (s *Server) FrameServiceConfig(
+	ctx context.Context,
+	req *pb.FrameServiceConfigRequest,
+) (*pb.FrameServiceConfigResponse, error) {
 	svc, ok := s.r.ServiceByName(services.FrameSystemName)
 	if !ok {
 		return nil, errors.Errorf("no service named %q", services.FrameSystemName)
@@ -784,7 +633,10 @@ func (s *Server) FrameServiceConfig(ctx context.Context, req *pb.FrameServiceCon
 }
 
 // NavigationServiceMode returns the mode of the service.
-func (s *Server) NavigationServiceMode(ctx context.Context, req *pb.NavigationServiceModeRequest) (*pb.NavigationServiceModeResponse, error) {
+func (s *Server) NavigationServiceMode(
+	ctx context.Context,
+	req *pb.NavigationServiceModeRequest,
+) (*pb.NavigationServiceModeResponse, error) {
 	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
 	if !ok {
 		return nil, errors.New("no navigation service")
@@ -810,7 +662,10 @@ func (s *Server) NavigationServiceMode(ctx context.Context, req *pb.NavigationSe
 }
 
 // NavigationServiceSetMode sets the mode of the service.
-func (s *Server) NavigationServiceSetMode(ctx context.Context, req *pb.NavigationServiceSetModeRequest) (*pb.NavigationServiceSetModeResponse, error) {
+func (s *Server) NavigationServiceSetMode(
+	ctx context.Context,
+	req *pb.NavigationServiceSetModeRequest,
+) (*pb.NavigationServiceSetModeResponse, error) {
 	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
 	if !ok {
 		return nil, errors.New("no navigation service")
@@ -835,7 +690,10 @@ func (s *Server) NavigationServiceSetMode(ctx context.Context, req *pb.Navigatio
 }
 
 // NavigationServiceLocation returns the location of the robot.
-func (s *Server) NavigationServiceLocation(ctx context.Context, req *pb.NavigationServiceLocationRequest) (*pb.NavigationServiceLocationResponse, error) {
+func (s *Server) NavigationServiceLocation(
+	ctx context.Context,
+	req *pb.NavigationServiceLocationRequest,
+) (*pb.NavigationServiceLocationResponse, error) {
 	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
 	if !ok {
 		return nil, errors.New("no navigation service")
@@ -854,7 +712,10 @@ func (s *Server) NavigationServiceLocation(ctx context.Context, req *pb.Navigati
 }
 
 // NavigationServiceWaypoints returns the navigation waypoints of the robot.
-func (s *Server) NavigationServiceWaypoints(ctx context.Context, req *pb.NavigationServiceWaypointsRequest) (*pb.NavigationServiceWaypointsResponse, error) {
+func (s *Server) NavigationServiceWaypoints(
+	ctx context.Context,
+	req *pb.NavigationServiceWaypointsRequest,
+) (*pb.NavigationServiceWaypointsResponse, error) {
 	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
 	if !ok {
 		return nil, errors.New("no navigation service")
@@ -880,7 +741,10 @@ func (s *Server) NavigationServiceWaypoints(ctx context.Context, req *pb.Navigat
 }
 
 // NavigationServiceAddWaypoint adds a new navigation waypoint.
-func (s *Server) NavigationServiceAddWaypoint(ctx context.Context, req *pb.NavigationServiceAddWaypointRequest) (*pb.NavigationServiceAddWaypointResponse, error) {
+func (s *Server) NavigationServiceAddWaypoint(
+	ctx context.Context,
+	req *pb.NavigationServiceAddWaypointRequest,
+) (*pb.NavigationServiceAddWaypointResponse, error) {
 	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
 	if !ok {
 		return nil, errors.New("no navigation service")
@@ -894,7 +758,10 @@ func (s *Server) NavigationServiceAddWaypoint(ctx context.Context, req *pb.Navig
 }
 
 // NavigationServiceRemoveWaypoint removes a navigation waypoint.
-func (s *Server) NavigationServiceRemoveWaypoint(ctx context.Context, req *pb.NavigationServiceRemoveWaypointRequest) (*pb.NavigationServiceRemoveWaypointResponse, error) {
+func (s *Server) NavigationServiceRemoveWaypoint(
+	ctx context.Context,
+	req *pb.NavigationServiceRemoveWaypointRequest,
+) (*pb.NavigationServiceRemoveWaypointResponse, error) {
 	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
 	if !ok {
 		return nil, errors.New("no navigation service")
@@ -912,7 +779,10 @@ func (s *Server) NavigationServiceRemoveWaypoint(ctx context.Context, req *pb.Na
 
 // ObjectManipulationServiceDoGrab commands a gripper to move and grab
 // an object at the passed camera point
-func (s *Server) ObjectManipulationServiceDoGrab(ctx context.Context, req *pb.ObjectManipulationServiceDoGrabRequest) (*pb.ObjectManipulationServiceDoGrabResponse, error) {
+func (s *Server) ObjectManipulationServiceDoGrab(
+	ctx context.Context,
+	req *pb.ObjectManipulationServiceDoGrabRequest,
+) (*pb.ObjectManipulationServiceDoGrabResponse, error) {
 	svc, ok := s.r.ServiceByName(services.ObjectManipulationServiceName)
 	if !ok {
 		return nil, errors.New("no objectmanipulation service")
@@ -943,7 +813,10 @@ func (s *Server) gpsByName(name string) (gps.GPS, error) {
 }
 
 // GPSLocation returns the most recent location from the given GPS.
-func (s *Server) GPSLocation(ctx context.Context, req *pb.GPSLocationRequest) (*pb.GPSLocationResponse, error) {
+func (s *Server) GPSLocation(
+	ctx context.Context,
+	req *pb.GPSLocationRequest,
+) (*pb.GPSLocationResponse, error) {
 	gpsDevice, err := s.gpsByName(req.Name)
 	if err != nil {
 		return nil, err
@@ -958,7 +831,10 @@ func (s *Server) GPSLocation(ctx context.Context, req *pb.GPSLocationRequest) (*
 }
 
 // GPSAltitude returns the most recent location from the given GPS.
-func (s *Server) GPSAltitude(ctx context.Context, req *pb.GPSAltitudeRequest) (*pb.GPSAltitudeResponse, error) {
+func (s *Server) GPSAltitude(
+	ctx context.Context,
+	req *pb.GPSAltitudeRequest,
+) (*pb.GPSAltitudeResponse, error) {
 	gpsDevice, err := s.gpsByName(req.Name)
 	if err != nil {
 		return nil, err
@@ -973,7 +849,10 @@ func (s *Server) GPSAltitude(ctx context.Context, req *pb.GPSAltitudeRequest) (*
 }
 
 // GPSSpeed returns the most recent location from the given GPS.
-func (s *Server) GPSSpeed(ctx context.Context, req *pb.GPSSpeedRequest) (*pb.GPSSpeedResponse, error) {
+func (s *Server) GPSSpeed(
+	ctx context.Context,
+	req *pb.GPSSpeedRequest,
+) (*pb.GPSSpeedResponse, error) {
 	gpsDevice, err := s.gpsByName(req.Name)
 	if err != nil {
 		return nil, err
@@ -988,7 +867,10 @@ func (s *Server) GPSSpeed(ctx context.Context, req *pb.GPSSpeedRequest) (*pb.GPS
 }
 
 // GPSAccuracy returns the most recent location from the given GPS.
-func (s *Server) GPSAccuracy(ctx context.Context, req *pb.GPSAccuracyRequest) (*pb.GPSAccuracyResponse, error) {
+func (s *Server) GPSAccuracy(
+	ctx context.Context,
+	req *pb.GPSAccuracyRequest,
+) (*pb.GPSAccuracyResponse, error) {
 	gpsDevice, err := s.gpsByName(req.Name)
 	if err != nil {
 		return nil, err
@@ -1059,7 +941,10 @@ func matrixToProto(matrix [][]int) *pb.ForceMatrixMatrixResponse {
 }
 
 // ForceMatrixMatrix returns a matrix of measured forces on a matrix force sensor.
-func (s *Server) ForceMatrixMatrix(ctx context.Context, req *pb.ForceMatrixMatrixRequest) (*pb.ForceMatrixMatrixResponse, error) {
+func (s *Server) ForceMatrixMatrix(
+	ctx context.Context,
+	req *pb.ForceMatrixMatrixRequest,
+) (*pb.ForceMatrixMatrixResponse, error) {
 	forceMatrixDevice, err := s.forceMatrixByName(req.Name)
 	if err != nil {
 		return nil, err
@@ -1072,7 +957,10 @@ func (s *Server) ForceMatrixMatrix(ctx context.Context, req *pb.ForceMatrixMatri
 }
 
 // ForceMatrixSlipDetection returns a boolean representing whether a slip has been detected
-func (s *Server) ForceMatrixSlipDetection(ctx context.Context, req *pb.ForceMatrixSlipDetectionRequest) (*pb.ForceMatrixSlipDetectionResponse, error) {
+func (s *Server) ForceMatrixSlipDetection(
+	ctx context.Context,
+	req *pb.ForceMatrixSlipDetectionRequest,
+) (*pb.ForceMatrixSlipDetectionResponse, error) {
 	forceMatrixDevice, err := s.forceMatrixByName(req.Name)
 	if err != nil {
 		return nil, err

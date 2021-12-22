@@ -16,8 +16,14 @@ import (
 	"go.viam.com/core/utils"
 )
 
-// BuildFrameSystem uses a map of frames that describes the tree structure of the frame system to build a completed frame system
-func BuildFrameSystem(ctx context.Context, name string, children map[string][]referenceframe.Frame, logger golog.Logger) (referenceframe.FrameSystem, error) {
+// BuildFrameSystem uses a map of frames that describes the tree structure of the frame system to build a
+// completed frame system.
+func BuildFrameSystem(
+	ctx context.Context,
+	name string,
+	children map[string][]referenceframe.Frame,
+	logger golog.Logger,
+) (referenceframe.FrameSystem, error) {
 	// If there are no frames, build an empty frame system with only a world node and return.
 	if len(children) == 0 {
 		return referenceframe.NewEmptySimpleFrameSystem(name), nil
@@ -78,7 +84,12 @@ func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*co
 }
 
 // processPart will gather the frame information and build the frames from the given robot part
-func processPart(part *config.FrameSystemPart, children map[string][]referenceframe.Frame, names map[string]bool, logger golog.Logger) error {
+func processPart(
+	part *config.FrameSystemPart,
+	children map[string][]referenceframe.Frame,
+	names map[string]bool,
+	logger golog.Logger,
+) error {
 	// if a part is empty or has no frame config, skip over it
 	if part == nil || part.FrameConfig == nil {
 		return nil
