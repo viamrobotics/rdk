@@ -16,7 +16,9 @@ type PID interface {
 	// Config will return the underlying configuration of the PID controller
 	Config(ctx context.Context) (*PIDConfig, error)
 
-	// Output returns the discrete step of of the controller, dt is the delte time between two subsequent call, setPoint is the desired value, measured is the actual value
+	// Output returns the discrete step of of the controller, dt is
+	// the delta time between two subsequent call, setPoint is the desired value,
+	// measured is the actual value.
 	Output(ctx context.Context, dt time.Duration, setPoint float64, measured float64) (float64, bool)
 
 	// UpdateConfig update one or more gains of the PID controller
@@ -59,7 +61,9 @@ func (p *BasicPID) Config(ctx context.Context) (*PIDConfig, error) {
 	return p.cfg, nil
 }
 
-// Output returns the discrete step of the PID controller, dt is the delta time between two subsequent call, setPoint is the desired value, measured is the measured value. Returns false when the output is invalid (the integral is saturating) in this case continue to use the last valid value
+// Output returns the discrete step of the PID controller, dt is the delta time between two subsequent call,
+// setPoint is the desired value, measured is the measured value. Returns false when the output is
+// invalid (the integral is saturating) in this case continue to use the last valid value
 func (p *BasicPID) Output(ctx context.Context, dt time.Duration, setPoint float64, measured float64) (float64, bool) {
 	dtS := dt.Seconds()
 	error := setPoint - measured

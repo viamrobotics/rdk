@@ -4,7 +4,7 @@ import (
 	"context"
 	"image"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -17,9 +17,17 @@ import (
 )
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, "preprocess_depth", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		return newPreprocessDepth(r, config)
-	}})
+	registry.RegisterComponent(
+		camera.Subtype,
+		"preprocess_depth",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return newPreprocessDepth(r, config)
+		}})
 }
 
 // preprocessDepthSource applies pre-processing functions to depth maps in order to smooth edges and fill holes.

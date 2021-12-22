@@ -6,7 +6,7 @@ import (
 
 	viamutils "go.viam.com/utils"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/resource"

@@ -4,7 +4,7 @@ import (
 	"image"
 	"math"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -160,7 +160,7 @@ func invert(m mat.Matrix) *mat.Dense {
 	b.Set(2, 2, 1)
 	err := d.Solve(m, b)
 	if err != nil {
-		panic(errors.Errorf("cannot invert matrix %v %w", m, err))
+		panic(errors.Wrapf(err, "cannot invert matrix %v", m))
 	}
 	return d
 }

@@ -17,7 +17,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/utils"
@@ -102,7 +102,7 @@ func (pCtx *ProcessorContext) CurrentImgConfig(out interface{}) error {
 
 	file, err := os.Open(fn)
 	if err != nil {
-		return errors.Errorf("error opening %s: %w", fn, err)
+		return errors.Wrapf(err, "error opening %s", fn)
 	}
 	defer utils.UncheckedErrorFunc(file.Close)
 

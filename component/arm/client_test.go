@@ -6,14 +6,14 @@ import (
 	"testing"
 
 	"go.viam.com/utils"
-	rpcclient "go.viam.com/utils/rpc/client"
-	"go.viam.com/utils/rpc/dialer"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/component/arm"
 	commonpb "go.viam.com/core/proto/api/common/v1"
 	componentpb "go.viam.com/core/proto/api/component/v1"
 	"go.viam.com/core/resource"
 	"go.viam.com/core/subtype"
+	"go.viam.com/core/testutils"
 	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"
@@ -100,13 +100,13 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = arm.NewClient(cancelCtx, arm1, listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+		_, err = arm.NewClient(cancelCtx, arm1, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	// working
-	arm1Client, err := arm.NewClient(context.Background(), arm1, listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+	arm1Client, err := arm.NewClient(context.Background(), arm1, listener1.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("arm client 1", func(t *testing.T) {
@@ -133,7 +133,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("arm client 2", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 		arm1Client2 := arm.NewClientFromConn(conn, arm1, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -160,31 +160,16 @@ func TestClientDialerOption(t *testing.T) {
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
-	td := &trackingDialer{Dialer: dialer.NewCachedDialer()}
-	ctx := dialer.ContextWithDialer(context.Background(), td)
-	client1, err := arm.NewClient(ctx, arm1, listener.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
+	ctx := rpc.ContextWithDialer(context.Background(), td)
+	client1, err := arm.NewClient(ctx, arm1, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := arm.NewClient(ctx, arm1, listener.Addr().String(), rpcclient.DialOptions{Insecure: true}, logger)
+	client2, err := arm.NewClient(ctx, arm1, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.dialCalled, test.ShouldEqual, 2)
+	test.That(t, td.DialCalled, test.ShouldEqual, 2)
 
 	err = utils.TryClose(client1)
 	test.That(t, err, test.ShouldBeNil)
 	err = utils.TryClose(client2)
 	test.That(t, err, test.ShouldBeNil)
-}
-
-type trackingDialer struct {
-	dialer.Dialer
-	dialCalled int
-}
-
-func (td *trackingDialer) DialDirect(ctx context.Context, target string, opts ...grpc.DialOption) (dialer.ClientConn, error) {
-	td.dialCalled++
-	return td.Dialer.DialDirect(ctx, target, opts...)
-}
-
-func (td *trackingDialer) DialFunc(proto string, target string, f func() (dialer.ClientConn, error)) (dialer.ClientConn, error) {
-	td.dialCalled++
-	return td.Dialer.DialFunc(proto, target, f)
 }

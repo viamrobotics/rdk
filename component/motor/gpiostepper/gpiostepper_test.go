@@ -139,7 +139,7 @@ func Test1(t *testing.T) {
 			test.That(t, pos, test.ShouldBeGreaterThan, 2)
 		})
 
-		err = m.Off(ctx)
+		err = m.Stop(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
 		pos, err := m.Position(ctx)

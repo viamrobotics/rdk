@@ -127,7 +127,12 @@ func TestArduinoPWM(t *testing.T) {
 			}
 			test.That(t, err, test.ShouldBeNil)
 
-			_, err = configureMotorForBoard(context.Background(), b, tc.conf.Components[0], tc.conf.Components[0].ConvertedAttributes.(*motor.Config))
+			_, err = configureMotorForBoard(
+				context.Background(),
+				b,
+				tc.conf.Components[0],
+				tc.conf.Components[0].ConvertedAttributes.(*motor.Config),
+			)
 
 			if tc.err == "" {
 				test.That(t, err, test.ShouldBeNil)
@@ -281,7 +286,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 			test.That(t, pos-startPos, test.ShouldBeGreaterThan, 10)
 		})
 
-		test.That(t, m.Off(ctx), test.ShouldBeNil)
+		test.That(t, m.Stop(ctx), test.ShouldBeNil)
 	})
 
 	t.Run("ardunio motor Go negtive powerPct", func(t *testing.T) {
@@ -297,7 +302,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 			test.That(t, pos-startPos, test.ShouldBeLessThan, -10)
 		})
 
-		test.That(t, m.Off(ctx), test.ShouldBeNil)
+		test.That(t, m.Stop(ctx), test.ShouldBeNil)
 	})
 
 	t.Run("ardunio motor GoFor with positive rpm and positive revolutions", func(t *testing.T) {
@@ -317,7 +322,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 			test.That(t, pos-startPos, test.ShouldBeGreaterThan, 1)
 		})
 
-		test.That(t, m.Off(ctx), test.ShouldBeNil)
+		test.That(t, m.Stop(ctx), test.ShouldBeNil)
 	})
 
 	t.Run("ardunio motor GoFor with negative rpm and positive revolutions", func(t *testing.T) {
@@ -337,7 +342,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 			test.That(t, pos-startPos, test.ShouldBeLessThan, -1)
 		})
 
-		test.That(t, m.Off(ctx), test.ShouldBeNil)
+		test.That(t, m.Stop(ctx), test.ShouldBeNil)
 	})
 
 	t.Run("ardunio motor GoFor with positive rpm and negative revolutions", func(t *testing.T) {
@@ -357,7 +362,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 			test.That(t, pos-startPos, test.ShouldBeLessThan, -1)
 		})
 
-		test.That(t, m.Off(ctx), test.ShouldBeNil)
+		test.That(t, m.Stop(ctx), test.ShouldBeNil)
 	})
 
 	t.Run("ardunio motor GoFor with negative rpm and negative revolutions", func(t *testing.T) {
@@ -377,11 +382,11 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 			test.That(t, pos-startPos, test.ShouldBeGreaterThan, 1)
 		})
 
-		test.That(t, m.Off(ctx), test.ShouldBeNil)
+		test.That(t, m.Stop(ctx), test.ShouldBeNil)
 	})
 
 	t.Run("ardunio motor Zero with positive offset", func(t *testing.T) {
-		err := m.SetToZeroPosition(ctx, 2.0)
+		err := m.ResetZeroPosition(ctx, 2.0)
 		test.That(t, err, test.ShouldBeNil)
 
 		pos, err := m.Position(ctx)
@@ -390,7 +395,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 	})
 
 	t.Run("ardunio motor Zero with negative offset", func(t *testing.T) {
-		err := m.SetToZeroPosition(ctx, -2.0)
+		err := m.ResetZeroPosition(ctx, -2.0)
 		test.That(t, err, test.ShouldBeNil)
 
 		pos, err := m.Position(ctx)

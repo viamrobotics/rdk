@@ -63,6 +63,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, c chan<- []frame.Input, newGoal
 
 	errChan := make(chan error, len(ik.solvers))
 	var activeSolvers sync.WaitGroup
+	defer activeSolvers.Wait()
 	activeSolvers.Add(len(ik.solvers))
 
 	for _, solver := range ik.solvers {
@@ -115,7 +116,6 @@ func (ik *CombinedIK) Solve(ctx context.Context, c chan<- []frame.Input, newGoal
 			collectedErrs = multierr.Combine(collectedErrs, err)
 		}
 	}
-	activeSolvers.Wait()
 	return collectedErrs
 }
 

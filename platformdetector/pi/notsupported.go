@@ -6,7 +6,7 @@ package pi
 import (
 	"context"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 
@@ -21,10 +21,25 @@ const modelName = "pi"
 
 // init registers a failing pi board since this can only be compiled on non-pi systems.
 func init() {
-	registry.RegisterBoard(modelName, registry.Board{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error) {
-		return nil, errors.New("not running on a pi")
-	}})
-	registry.RegisterComponent(servo.Subtype, modelName, registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		return nil, errors.New("not running on a pi")
-	}})
+	registry.RegisterBoard(
+		modelName,
+		registry.Board{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (board.Board, error) {
+			return nil, errors.New("not running on a pi")
+		}})
+	registry.RegisterComponent(
+		servo.Subtype,
+		modelName,
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return nil, errors.New("not running on a pi")
+		}})
 }

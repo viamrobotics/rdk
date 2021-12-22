@@ -15,7 +15,7 @@ import (
 	"go.viam.com/core/config"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -44,7 +44,14 @@ func SetRPMSleepDebug(dur time.Duration, debug bool) func() {
 }
 
 // WrapMotorWithEncoder takes a motor and adds an encoder onto it in order to understand its odometry.
-func WrapMotorWithEncoder(ctx context.Context, b board.Board, c config.Component, mc motor.Config, m motor.Motor, logger golog.Logger) (motor.Motor, error) {
+func WrapMotorWithEncoder(
+	ctx context.Context,
+	b board.Board,
+	c config.Component,
+	mc motor.Config,
+	m motor.Motor,
+	logger golog.Logger,
+) (motor.Motor, error) {
 	if mc.Encoder == "" {
 		return m, nil
 	}
@@ -88,11 +95,23 @@ func WrapMotorWithEncoder(ctx context.Context, b board.Board, c config.Component
 }
 
 // NewEncodedMotor creates a new motor that supports an arbitrary source of encoder information
-func NewEncodedMotor(config config.Component, motorConfig motor.Config, real motor.Motor, encoder board.Encoder, logger golog.Logger) (motor.Motor, error) {
+func NewEncodedMotor(
+	config config.Component,
+	motorConfig motor.Config,
+	real motor.Motor,
+	encoder board.Encoder,
+	logger golog.Logger,
+) (motor.Motor, error) {
 	return newEncodedMotor(config, motorConfig, real, encoder, logger)
 }
 
-func newEncodedMotor(config config.Component, motorConfig motor.Config, real motor.Motor, encoder board.Encoder, logger golog.Logger) (*EncodedMotor, error) {
+func newEncodedMotor(
+	config config.Component,
+	motorConfig motor.Config,
+	real motor.Motor,
+	encoder board.Encoder,
+	logger golog.Logger,
+) (*EncodedMotor, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	em := &EncodedMotor{
 		activeBackgroundWorkers: &sync.WaitGroup{},
@@ -510,11 +529,11 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 func (m *EncodedMotor) off(ctx context.Context) error {
 	m.state.desiredRPM = 0
 	m.state.regulated = false
-	return m.real.Off(ctx)
+	return m.real.Stop(ctx)
 }
 
-// Off turns the motor off.
-func (m *EncodedMotor) Off(ctx context.Context) error {
+// Stop turns the power to the motor off immediately, without any gradual step down.
+func (m *EncodedMotor) Stop(ctx context.Context) error {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 	return m.off(ctx)
@@ -551,7 +570,7 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 		return err
 	}
 	defer func() {
-		if err := m.Off(ctx); err != nil {
+		if err := m.Stop(ctx); err != nil {
 			m.logger.Error("failed to turn off motor")
 		}
 	}()
@@ -614,7 +633,8 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 	return nil
 }
 
-// SetToZeroPosition resets the position to zero/home
-func (m *EncodedMotor) SetToZeroPosition(ctx context.Context, offset float64) error {
-	return m.encoder.SetToZeroPosition(ctx, int64(offset*float64(m.cfg.TicksPerRotation)))
+// ResetZeroPosition sets the current position of the motor specified by the request
+// (adjusted by a given offset) to be its new zero position
+func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64) error {
+	return m.encoder.ResetZeroPosition(ctx, int64(offset*float64(m.cfg.TicksPerRotation)))
 }

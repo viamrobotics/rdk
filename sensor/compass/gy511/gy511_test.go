@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/core/serial"
 	"go.viam.com/core/testutils/inject"

@@ -1,8 +1,8 @@
 package transform
 
 import (
-	"github.com/go-errors/errors"
 	"github.com/golang/geo/r2"
+	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -66,7 +66,7 @@ func (h *Homography) Inverse() (*Homography, error) {
 	var hInv mat.Dense
 	err := hInv.Inverse(h.matrix)
 	if err != nil {
-		return nil, errors.Errorf("homography is not invertible (but homographies should always be invertible?): %w", err)
+		return nil, errors.Wrap(err, "homography is not invertible (but homographies should always be invertible?)")
 	}
 	return &Homography{&hInv}, nil
 }

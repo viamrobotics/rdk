@@ -6,8 +6,8 @@ import (
 
 	"go.viam.com/core/utils"
 
-	"github.com/go-errors/errors"
 	"github.com/golang/geo/r2"
+	"github.com/pkg/errors"
 )
 
 // NoPoints TODO

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"go.viam.com/utils"
 
@@ -403,7 +403,7 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	err = vg.motor.SetToZeroPosition(ctx, curPos-vg.closedPos)
+	err = vg.motor.ResetZeroPosition(ctx, curPos-vg.closedPos)
 	if err != nil {
 		return err
 	}
@@ -602,12 +602,12 @@ func (vg *gripperV2) Close() error {
 
 // stopAfterError stops the motor and returns the combined errors.
 func (vg *gripperV2) stopAfterError(ctx context.Context, other error) error {
-	return multierr.Combine(other, vg.motor.Off(ctx))
+	return multierr.Combine(other, vg.motor.Stop(ctx))
 }
 
 // Stop stops the motors.
 func (vg *gripperV2) Stop(ctx context.Context) error {
-	return vg.motor.Off(ctx)
+	return vg.motor.Stop(ctx)
 }
 
 // readCurrent reads the current and returns signed (bidirectional) amperage

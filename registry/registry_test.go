@@ -4,8 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/utils/rpc/dialer"
-	rpcserver "go.viam.com/utils/rpc/server"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -76,10 +75,10 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	rf := func(r interface{}) (resource.Reconfigurable, error) {
 		return nil, nil
 	}
-	sf := func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
+	sf := func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 		return nil
 	}
-	rcf := func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
+	rcf := func(conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 		return nil
 	}
 	newSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, arm.SubtypeName)
