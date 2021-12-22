@@ -49,7 +49,8 @@ func TestClient(t *testing.T) {
 	}
 	injectGripper2.GrabFunc = func(ctx context.Context) (bool, error) { return false, errors.New("can't grab") }
 
-	gripperSvc, err := subtype.New((map[resource.Name]interface{}{gripper.Named(gripper1): injectGripper, gripper.Named(gripper2): injectGripper2}))
+	gripperSvc, err := subtype.New(
+		(map[resource.Name]interface{}{gripper.Named(gripper1): injectGripper, gripper.Named(gripper2): injectGripper2}))
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterGripperServiceServer(gServer1, gripper.NewServer(gripperSvc))
 

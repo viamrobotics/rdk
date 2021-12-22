@@ -69,8 +69,14 @@ func (mgs objectMService) DoGrab(ctx context.Context, gripperName, rootName, cam
 	return gripper.Grab(ctx)
 }
 
-// moveGripper needs a robot with exactly one arm and one gripper and will move the gripper position to the goalPose in the reference frame specified by goalFrameName
-func (mgs objectMService) moveGripper(ctx context.Context, gripperName, rootName string, goalPose spatialmath.Pose, goalFrameName string) error {
+// moveGripper needs a robot with exactly one arm and one gripper and will move the gripper position to the
+// goalPose in the reference frame specified by goalFrameName
+func (mgs objectMService) moveGripper(
+	ctx context.Context,
+	gripperName, rootName string,
+	goalPose spatialmath.Pose,
+	goalFrameName string,
+) error {
 	r := mgs.r
 	logger := r.Logger()
 	logger.Debugf("goal given in frame of %q", goalFrameName)

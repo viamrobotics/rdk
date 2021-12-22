@@ -210,7 +210,7 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 func (base *wheeledBase) Stop(ctx context.Context) error {
 	var err error
 	for _, m := range base.allMotors {
-		err = multierr.Combine(err, m.Off(ctx))
+		err = multierr.Combine(err, m.Stop(ctx))
 	}
 	return err
 }

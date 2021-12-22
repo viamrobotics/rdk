@@ -71,7 +71,10 @@ func RegisterComponentAttributeMapConverter(compType ComponentType, model string
 	if retType == nil {
 		panic("retType should not be nil")
 	}
-	componentAttributeMapConverters = append(componentAttributeMapConverters, ComponentAttributeMapConverterRegistration{compType, model, conv, retType})
+	componentAttributeMapConverters = append(
+		componentAttributeMapConverters,
+		ComponentAttributeMapConverterRegistration{compType, model, conv, retType},
+	)
 }
 
 // RegisterServiceAttributeMapConverter associates a service type with a way to convert all attributes.
