@@ -68,7 +68,12 @@ func TestServer(t *testing.T) {
 		eventsOut[input.ButtonStart] = input.Event{Time: time.Now(), Event: input.ButtonPress, Control: input.ButtonStart, Value: 1.0}
 		return eventsOut, nil
 	}
-	injectInputController.RegisterControlCallbackFunc = func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+	injectInputController.RegisterControlCallbackFunc = func(
+		ctx context.Context,
+		control input.Control,
+		triggers []input.EventType,
+		ctrlFunc input.ControlFunction,
+	) error {
 		outEvent := input.Event{Time: time.Now(), Event: triggers[0], Control: input.ButtonStart, Value: 0.0}
 		ctrlFunc(ctx, outEvent)
 		return nil
@@ -81,7 +86,12 @@ func TestServer(t *testing.T) {
 	injectInputController2.LastEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
 		return nil, errors.New("can't get last events")
 	}
-	injectInputController2.RegisterControlCallbackFunc = func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+	injectInputController2.RegisterControlCallbackFunc = func(
+		ctx context.Context,
+		control input.Control,
+		triggers []input.EventType,
+		ctrlFunc input.ControlFunction,
+	) error {
 		return errors.New("can't register callbacks")
 	}
 

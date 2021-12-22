@@ -43,7 +43,12 @@ func TestClient(t *testing.T) {
 		return eventsOut, nil
 	}
 	evStream := make(chan input.Event)
-	injectInputController.RegisterControlCallbackFunc = func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+	injectInputController.RegisterControlCallbackFunc = func(
+		ctx context.Context,
+		control input.Control,
+		triggers []input.EventType,
+		ctrlFunc input.ControlFunction,
+	) error {
 		if ctrlFunc != nil {
 			outEvent := input.Event{Time: time.Now(), Event: triggers[0], Control: input.ButtonStart, Value: 0.0}
 			if control == input.AbsoluteX {
