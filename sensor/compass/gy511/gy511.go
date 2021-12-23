@@ -24,16 +24,34 @@ import (
 	movingaverage "github.com/RobinUS2/golang-moving-average"
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
+	"github.com/mitchellh/mapstructure"
 )
 
 // ModelName is used to register the sensor to a model name.
 const ModelName = "gy511"
 
+// Used for converting config attributes
+type AttrConfig struct {
+	Host string `json:"host"`
+}
+
 // init registers the gy511 compass type.
 func init() {
 	registry.RegisterSensor(compass.Type, ModelName, registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-		return New(ctx, config.Attributes.String("host"), logger)
+		return New(ctx, config.ConvertedAttributes.(*AttrConfig).Host, logger)
 	}})
+
+		config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, ModelName, func(attributes config.AttributeMap) (interface{}, error) {
+		var conf AttrConfig
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+		if err != nil {
+			return nil, err
+		}
+		if err := decoder.Decode(attributes); err != nil {
+			return nil, err
+		}
+		return &conf, nil
+	}, &AttrConfig{})
 }
 
 // GY511 represents a gy511 compass.

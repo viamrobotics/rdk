@@ -27,8 +27,19 @@ import (
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
+	"github.com/mitchellh/mapstructure"
 	goutils "go.viam.com/utils"
 )
+
+const (
+	modelname = "ur"
+)
+
+// Used for converting config attributes
+type AttrConfig struct {
+	Speed float64 `json:"speed"`
+	Host string `json:"host"`
+}
 
 //go:embed ur5e.json
 var ur5modeljson []byte
@@ -36,12 +47,25 @@ var ur5modeljson []byte
 //go:embed ur5e_DH.json
 var ur5DHmodeljson []byte
 
+
 func init() {
-	registry.RegisterComponent(arm.Subtype, "ur", registry.Component{
+	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return URArmConnect(ctx, config, logger)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelname, func(attributes config.AttributeMap) (interface{}, error) {
+		var conf AttrConfig
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+		if err != nil {
+			return nil, err
+		}
+		if err := decoder.Decode(attributes); err != nil {
+			return nil, err
+		}
+		return &conf, nil
+	}, &AttrConfig{})
 }
 
 // Ur5eModel() returns the kinematics model of the xArm, also has all Frame information.
@@ -98,8 +122,8 @@ func (ua *URArm) Close() error {
 
 // URArmConnect TODO
 func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
-	speed := cfg.Attributes.Float64("speed", .1)
-	host := cfg.Attributes.String("host")
+	speed := cfg.ConvertedAttributes.(*AttrConfig).Speed
+	host := cfg.ConvertedAttributes.(*AttrConfig).Host
 	if speed > 1 || speed < .1 {
 		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
 	}

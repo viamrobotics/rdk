@@ -14,7 +14,7 @@ import (
 )
 
 type alignTestHelper struct {
-	attrs config.AttributeMap
+	attrs rimage.AttrConfig
 	name  string
 }
 
@@ -25,7 +25,7 @@ func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 
 	colorSource := &staticSource{ii.Color}
 	depthSource := &staticSource{ii.Depth}
-	is, err := NewDepthComposed(colorSource, depthSource, h.attrs, logger)
+	is, err := NewDepthComposed(colorSource, depthSource, &h.attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
 	dc, ok := is.(*depthComposed)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -57,13 +57,13 @@ func TestAlignIntelIntrinsics(t *testing.T) {
 	config, err := config.Read(utils.ResolveFile("robots/configs/intel.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("front")
+	c := config.FindComponent("front").ConvertedAttributes.(*rimage.AttrConfig)
 	test.That(t, c, test.ShouldNotBeNil)
 
-	delete(c.Attributes, "warp")
-	delete(c.Attributes, "homography")
+	c.Warp = nil
+	c.Homography = nil
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz", false)
-	err = d.Process(t, &alignTestHelper{c.Attributes, "intrinsics"})
+	err = d.Process(t, &alignTestHelper{*c, "intrinsics"})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -71,13 +71,13 @@ func TestAlignGripperWarp(t *testing.T) {
 	config, err := config.Read(utils.ResolveFile("robots/configs/gripper-cam.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("combined")
+	c := config.FindComponent("combined").ConvertedAttributes.(*rimage.AttrConfig)
 	test.That(t, c, test.ShouldNotBeNil)
 
-	delete(c.Attributes, "intrinsic_extrinsic")
-	delete(c.Attributes, "homography")
+	c.IntrinsicExtrinsic = nil
+	c.Homography = nil
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
-	err = d.Process(t, &alignTestHelper{c.Attributes, "warp"})
+	err = d.Process(t, &alignTestHelper{*c, "warp"})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -85,12 +85,12 @@ func TestAlignGripperHomography(t *testing.T) {
 	config, err := config.Read(utils.ResolveFile("robots/configs/gripper-cam.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("combined")
+	c := config.FindComponent("combined").ConvertedAttributes.(*rimage.AttrConfig)
 	test.That(t, c, test.ShouldNotBeNil)
 
-	delete(c.Attributes, "intrinsic_extrinsic")
-	delete(c.Attributes, "warp")
+	c.IntrinsicExtrinsic = nil
+	c.Warp = nil
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
-	err = d.Process(t, &alignTestHelper{c.Attributes, "homography"})
+	err = d.Process(t, &alignTestHelper{*c, "homography"})
 	test.That(t, err, test.ShouldBeNil)
 }
