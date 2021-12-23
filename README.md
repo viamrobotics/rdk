@@ -9,18 +9,6 @@
 * [Dependencies](#dependencies)
 * [Development](#development)
 
-## Programs
-* [rimage/cmd/both](./rimage/cmd/both) - Read color/depth data and write to an overlayed image file
-* [rimage/cmd/depth](./rimage/cmd/depth) - Read depth (or color/depth) data and write pretty version to a file
-* [rimage/cmd/stream_camera](./rimage/cmd/stream_camera) - Stream a local camera
-* [web/cmd/server](./web/cmd/server) - Run a robot server
-* [sensor/compass/gy511/cmd/client](./sensor/compass/gy511/cmd/client) - Run a GY511 compass
-
-### Bespoke
-* [samples/boat1](./samples/boat1) - boat1 work in progress
-* [samples/chess](./samples/chess) - Play chess!
-* [samples/vision](./samples/vision) - Utilities for working with images to test out vision library code
-
 ### API Documentation & more devices
 To see more examples, check out the [Wiki](https://github.com/viamrobotics/rdk/wiki)
 
@@ -28,6 +16,10 @@ To see more examples, check out the [Wiki](https://github.com/viamrobotics/rdk/w
 
 * make
 * Run `make setup`
+
+### First time run
+
+* Try out `go run web/cmd/server/main.go robots/configs/fake.json` and visit http://localhost:8080
 
 ### libvpx linux source build
 If libvpx is not available on your distro, run the following:
