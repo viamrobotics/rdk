@@ -20,7 +20,7 @@ func TestInputControllerName(t *testing.T) {
 			resource.Name{
 				UUID: "6c851c39-bb5d-5f94-b09d-8b84043c327d",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "",
@@ -32,7 +32,7 @@ func TestInputControllerName(t *testing.T) {
 			resource.Name{
 				UUID: "954e620a-f0e5-5f24-b065-2847b26fe006",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "input1",

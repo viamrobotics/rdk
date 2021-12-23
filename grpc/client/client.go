@@ -375,7 +375,7 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
-	// TODO(https://github.com/viamrobotics/core/issues/375): remove this switch statement after the V2 migration is done
+	// TODO(https://github.com/viamrobotics/rdk/issues/375): remove this switch statement after the V2 migration is done
 	switch name.Subtype {
 	case board.Subtype:
 		for _, info := range rc.boardNames {
@@ -400,7 +400,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 
 // Refresh manually updates the underlying parts of the robot based
 // on a status retrieved from the server.
-// TODO(https://github.com/viamrobotics/core/issues/57) - do not use status
+// TODO(https://github.com/viamrobotics/rdk/issues/57) - do not use status
 // as we plan on making it a more expensive request with more details than
 // needed for the purposes of this method.
 func (rc *RobotClient) Refresh(ctx context.Context) (err error) {

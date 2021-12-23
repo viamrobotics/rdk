@@ -144,8 +144,6 @@ func ServiceLookup(typeName config.ServiceType) *Service {
 	return nil
 }
 
-// core api v2 implementation starts here
-
 type (
 	// A CreateComponent creates a resource from a given config.
 	CreateComponent func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error)

@@ -22,7 +22,7 @@ func TestBoardName(t *testing.T) {
 			resource.Name{
 				UUID: "b957b292-d6a8-5dc1-9cbe-12db3a623972",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "",
@@ -34,7 +34,7 @@ func TestBoardName(t *testing.T) {
 			resource.Name{
 				UUID: "98714ab0-2538-52c3-b378-0ae616900d20",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "board1",

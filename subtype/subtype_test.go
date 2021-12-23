@@ -15,7 +15,7 @@ func TestSubtypeService(t *testing.T) {
 	name2 := "name2"
 	resources := map[resource.Name]interface{}{
 		resource.NewName(
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			resource.ResourceTypeComponent,
 			strType,
 			name1,
@@ -27,7 +27,7 @@ func TestSubtypeService(t *testing.T) {
 	test.That(t, svc.Resource(name2), test.ShouldBeNil)
 
 	rName2 := resource.NewName(
-		resource.ResourceNamespaceCore,
+		resource.ResourceNamespaceRDK,
 		resource.ResourceTypeComponent,
 		strType,
 		name2,

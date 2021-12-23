@@ -19,7 +19,7 @@ jobs:
 
     steps:
 
-    - name: Check out code in Core directory
+    - name: Check out code in rdk directory
       uses: actions/checkout@v2
       with:
         fetch-depth: 2

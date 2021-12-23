@@ -62,7 +62,7 @@ func (config *Component) ResourceName() resource.Name {
 	if config.Type == ComponentTypeSensor {
 		cType = config.SubType
 	}
-	return resource.NewName(resource.ResourceNamespaceCore, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
+	return resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
 }
 
 type validator interface {

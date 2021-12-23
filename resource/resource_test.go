@@ -27,16 +27,16 @@ func TestResourceType(t *testing.T) {
 		},
 		{
 			"missing type",
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			"",
-			resource.Type{Namespace: resource.ResourceNamespaceCore},
+			resource.Type{Namespace: resource.ResourceNamespaceRDK},
 			"type field for resource missing or invalid",
 		},
 		{
 			"all fields included",
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			resource.ResourceTypeComponent,
-			resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+			resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 			"",
 		},
 	} {
@@ -78,12 +78,12 @@ func TestResourceSubtype(t *testing.T) {
 		},
 		{
 			"missing type",
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			"",
 			arm.SubtypeName,
 			resource.Subtype{
 				Type: resource.Type{
-					Namespace: resource.ResourceNamespaceCore,
+					Namespace: resource.ResourceNamespaceRDK,
 				},
 				ResourceSubtype: arm.SubtypeName,
 			},
@@ -91,12 +91,12 @@ func TestResourceSubtype(t *testing.T) {
 		},
 		{
 			"missing subtype",
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			resource.ResourceTypeComponent,
 			"",
 			resource.Subtype{
 				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceCore,
+					Namespace:    resource.ResourceNamespaceRDK,
 					ResourceType: resource.ResourceTypeComponent,
 				},
 			},
@@ -104,12 +104,12 @@ func TestResourceSubtype(t *testing.T) {
 		},
 		{
 			"all fields included",
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			resource.ResourceTypeComponent,
 			arm.SubtypeName,
 			resource.Subtype{
 				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceCore,
+					Namespace:    resource.ResourceNamespaceRDK,
 					ResourceType: resource.ResourceTypeComponent,
 				},
 				ResourceSubtype: arm.SubtypeName,
@@ -142,14 +142,14 @@ func TestResourceNameNew(t *testing.T) {
 	}{
 		{
 			"missing name",
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			resource.ResourceTypeComponent,
 			arm.SubtypeName,
 			"",
 			resource.Name{
 				UUID: "8ad23fcd-7f30-56b9-a7f4-cf37a980b4dd",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: arm.SubtypeName,
 				},
 				Name: "",
@@ -157,14 +157,14 @@ func TestResourceNameNew(t *testing.T) {
 		},
 		{
 			"all fields included",
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			resource.ResourceTypeComponent,
 			arm.SubtypeName,
 			"arm1",
 			resource.Name{
 				UUID: "1ef3fc81-df1d-5ac4-b11d-bc1513e47f06",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: arm.SubtypeName,
 				},
 				Name: "arm1",
@@ -187,30 +187,30 @@ func TestResourceNameNewFromString(t *testing.T) {
 	}{
 		{
 			"malformed name",
-			"core/component/arm/arm1",
+			"rdk/component/arm/arm1",
 			resource.Name{},
 			"there is more than one backslash",
 		},
 		{
 			"too many colons",
-			"core::component::arm/arm1",
+			"rdk::component::arm/arm1",
 			resource.Name{},
 			"there are more than 2 colons",
 		},
 		{
 			"too few colons",
-			"core.component.arm/arm1",
+			"rdk.component.arm/arm1",
 			resource.Name{},
 			"there are less than 2 colons",
 		},
 		{
 			"missing name",
-			"core:component:arm",
+			"rdk:component:arm",
 			resource.Name{
 				UUID: "8ad23fcd-7f30-56b9-a7f4-cf37a980b4dd",
 				Subtype: resource.Subtype{
 					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceCore,
+						Namespace:    resource.ResourceNamespaceRDK,
 						ResourceType: resource.ResourceTypeComponent,
 					},
 					ResourceSubtype: arm.SubtypeName,
@@ -226,7 +226,7 @@ func TestResourceNameNewFromString(t *testing.T) {
 				UUID: "1ef3fc81-df1d-5ac4-b11d-bc1513e47f06",
 				Subtype: resource.Subtype{
 					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceCore,
+						Namespace:    resource.ResourceNamespaceRDK,
 						ResourceType: resource.ResourceTypeComponent,
 					},
 					ResourceSubtype: arm.SubtypeName,
@@ -237,12 +237,12 @@ func TestResourceNameNewFromString(t *testing.T) {
 		},
 		{
 			"all fields included 2",
-			"core:component:compass/compass1",
+			"rdk:component:compass/compass1",
 			resource.Name{
 				UUID: "d6358b56-3b43-5626-ab8c-b16e7233a832",
 				Subtype: resource.Subtype{
 					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceCore,
+						Namespace:    resource.ResourceNamespaceRDK,
 						ResourceType: resource.ResourceTypeComponent,
 					},
 					ResourceSubtype: "compass",
@@ -276,7 +276,7 @@ func TestResourceNameStrings(t *testing.T) {
 			resource.Name{
 				Subtype: resource.Subtype{
 					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceCore,
+						Namespace:    resource.ResourceNamespaceRDK,
 						ResourceType: resource.ResourceTypeComponent,
 					},
 					ResourceSubtype: arm.SubtypeName,
@@ -290,26 +290,26 @@ func TestResourceNameStrings(t *testing.T) {
 			resource.Name{
 				Subtype: resource.Subtype{
 					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceCore,
+						Namespace:    resource.ResourceNamespaceRDK,
 						ResourceType: resource.ResourceTypeComponent,
 					},
 				},
 				Name: "arm1",
 			},
-			"core:component:/arm1",
+			"rdk:component:/arm1",
 		},
 		{
 			"missing name",
 			resource.Name{
 				Subtype: resource.Subtype{
 					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceCore,
+						Namespace:    resource.ResourceNamespaceRDK,
 						ResourceType: resource.ResourceTypeComponent,
 					},
 					ResourceSubtype: arm.SubtypeName,
 				},
 			},
-			"core:component:arm",
+			"rdk:component:arm",
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
@@ -329,7 +329,7 @@ func TestResourceNameValidate(t *testing.T) {
 			resource.Name{
 				Subtype: resource.Subtype{
 					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceCore,
+						Namespace:    resource.ResourceNamespaceRDK,
 						ResourceType: resource.ResourceTypeComponent,
 					},
 					ResourceSubtype: arm.SubtypeName,
@@ -344,7 +344,7 @@ func TestResourceNameValidate(t *testing.T) {
 				UUID: "abcd",
 				Subtype: resource.Subtype{
 					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceCore,
+						Namespace:    resource.ResourceNamespaceRDK,
 						ResourceType: resource.ResourceTypeComponent,
 					},
 					ResourceSubtype: arm.SubtypeName,
@@ -373,7 +373,7 @@ func TestResourceNameValidate(t *testing.T) {
 				UUID: uuid.NewString(),
 				Subtype: resource.Subtype{
 					Type: resource.Type{
-						Namespace: resource.ResourceNamespaceCore,
+						Namespace: resource.ResourceNamespaceRDK,
 					},
 					ResourceSubtype: arm.SubtypeName,
 				},
@@ -387,7 +387,7 @@ func TestResourceNameValidate(t *testing.T) {
 				UUID: uuid.NewString(),
 				Subtype: resource.Subtype{
 					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceCore,
+						Namespace:    resource.ResourceNamespaceRDK,
 						ResourceType: resource.ResourceTypeComponent,
 					},
 				},
@@ -401,7 +401,7 @@ func TestResourceNameValidate(t *testing.T) {
 				UUID: uuid.NewString(),
 				Subtype: resource.Subtype{
 					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceCore,
+						Namespace:    resource.ResourceNamespaceRDK,
 						ResourceType: resource.ResourceTypeComponent,
 					},
 					ResourceSubtype: arm.SubtypeName,
@@ -415,7 +415,7 @@ func TestResourceNameValidate(t *testing.T) {
 				UUID: uuid.NewString(),
 				Subtype: resource.Subtype{
 					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceCore,
+						Namespace:    resource.ResourceNamespaceRDK,
 						ResourceType: resource.ResourceTypeComponent,
 					},
 					ResourceSubtype: arm.SubtypeName,

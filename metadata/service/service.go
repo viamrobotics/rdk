@@ -15,7 +15,7 @@ const SubtypeName = resource.SubtypeName("metadata")
 
 // Subtype is a constant that identifies the component resource subtype
 var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceCore,
+	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeService,
 	SubtypeName,
 )

@@ -20,7 +20,7 @@ func TestCameraName(t *testing.T) {
 			resource.Name{
 				UUID: "cf359663-1ffd-553f-8d2a-bd99656aa19a",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "",
@@ -32,7 +32,7 @@ func TestCameraName(t *testing.T) {
 			resource.Name{
 				UUID: "6543c4be-b3dd-56ab-976a-48cd37c91501",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "camera1",

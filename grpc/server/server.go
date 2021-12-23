@@ -33,7 +33,7 @@ import (
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/objectmanipulation"
 	"go.viam.com/rdk/spatialmath"
-	coreutils "go.viam.com/rdk/utils"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Server implements the contract from robot.proto that ultimately satisfies
@@ -587,7 +587,7 @@ func (s *Server) ResourceRunCommand(
 	if !ok {
 		return nil, errors.Errorf("no resource with name (%s)", req.ResourceName)
 	}
-	commander, ok := coreutils.UnwrapProxy(resource).(runCommander)
+	commander, ok := rdkutils.UnwrapProxy(resource).(runCommander)
 	if !ok {
 		return nil, errors.New("cannot run commands on this resource")
 	}

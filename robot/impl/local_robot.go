@@ -410,7 +410,7 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 
 	for _, name := range r.BaseNames() {
 		res := resource.NewName(
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeBase,
 			name,
@@ -419,7 +419,7 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 	}
 	for _, name := range r.FunctionNames() {
 		res := resource.NewName(
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			resource.ResourceTypeService,
 			resource.ResourceSubtypeFunction,
 			name,
@@ -428,7 +428,7 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 	}
 	for _, name := range r.RemoteNames() {
 		res := resource.NewName(
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeRemote,
 			name,
@@ -437,7 +437,7 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 	}
 	for _, name := range r.SensorNames() {
 		res := resource.NewName(
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeSensor,
 			name,

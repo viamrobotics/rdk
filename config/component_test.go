@@ -47,13 +47,13 @@ func TestComponentResourceName(t *testing.T) {
 				Name: "foo",
 			},
 			resource.Subtype{
-				Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 				ResourceSubtype: resource.SubtypeName(""),
 			},
 			resource.Name{
 				UUID: "4e2cd153-a2c4-5957-b034-9e1174b39ed2",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: resource.SubtypeName(""),
 				},
 				Name: "foo",
@@ -66,13 +66,13 @@ func TestComponentResourceName(t *testing.T) {
 				Name: "foo",
 			},
 			resource.Subtype{
-				Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 				ResourceSubtype: resource.SubtypeName(""),
 			},
 			resource.Name{
 				UUID: "4e2cd153-a2c4-5957-b034-9e1174b39ed2",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: resource.SubtypeName(""),
 				},
 				Name: "foo",
@@ -86,13 +86,13 @@ func TestComponentResourceName(t *testing.T) {
 				Name:    "foo",
 			},
 			resource.Subtype{
-				Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 				ResourceSubtype: resource.ResourceSubtypeCompass,
 			},
 			resource.Name{
 				UUID: "89308714-cdf2-5402-b028-4b5a061f403c",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: resource.ResourceSubtypeCompass,
 				},
 				Name: "foo",
@@ -106,13 +106,13 @@ func TestComponentResourceName(t *testing.T) {
 				Name:    "",
 			},
 			resource.Subtype{
-				Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 				ResourceSubtype: resource.ResourceSubtypeCompass,
 			},
 			resource.Name{
 				UUID: "a7520aed-92c7-56eb-b048-edcb3069c41c",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: resource.ResourceSubtypeCompass,
 				},
 				Name: "",

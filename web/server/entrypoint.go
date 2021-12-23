@@ -312,7 +312,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		return err
 	}
 	ctx = service.ContextWithService(ctx, metadataSvc)
-	// TODO(https://github.com/viamrobotics/core/issues/237): configurable
+	// TODO(https://github.com/viamrobotics/rdk/issues/237): configurable
 	dialOpts := []rpc.DialOption{rpc.WithInsecure()}
 	if argsParsed.Debug {
 		dialOpts = append(dialOpts, rpc.WithDialDebug())

@@ -41,7 +41,7 @@ import (
 	"go.viam.com/rdk/sensor/compass"
 	servicepkg "go.viam.com/rdk/services"
 	"go.viam.com/rdk/spatialmath"
-	coretestutils "go.viam.com/rdk/testutils"
+	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 
 	"github.com/edaniels/golog"
@@ -1174,17 +1174,17 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.ArmNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(coretestutils.ExtractNames(armNames...)...),
+		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.GripperNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...),
+		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.CameraNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
+		utils.NewStringSet(rdktestutils.ExtractNames(cameraNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.BaseNames()...),
@@ -1204,15 +1204,15 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...),
+		utils.NewStringSet(rdktestutils.ExtractNames(servoNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.MotorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...),
+		utils.NewStringSet(rdktestutils.ExtractNames(motorNames...)...),
 	)
-	test.That(t, coretestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
-		coretestutils.ConcatResourceNames(
+	test.That(t, rdktestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		rdktestutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
 			cameraNames,
@@ -1246,17 +1246,17 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.ArmNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(coretestutils.ExtractNames(armNames...)...),
+		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.GripperNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...),
+		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.CameraNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
+		utils.NewStringSet(rdktestutils.ExtractNames(cameraNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.BaseNames()...),
@@ -1278,8 +1278,8 @@ func TestClientRefresh(t *testing.T) {
 		test.ShouldBeEmpty,
 	)
 
-	test.That(t, coretestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
-		coretestutils.ConcatResourceNames(
+	test.That(t, rdktestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		rdktestutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
 			cameraNames,
@@ -1300,17 +1300,17 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.ArmNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(coretestutils.ExtractNames(armNames...)...),
+		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.GripperNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(coretestutils.ExtractNames(gripperNames...)...),
+		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.CameraNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(coretestutils.ExtractNames(cameraNames...)...),
+		utils.NewStringSet(rdktestutils.ExtractNames(cameraNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.BaseNames()...),
@@ -1330,15 +1330,15 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(coretestutils.ExtractNames(servoNames...)...),
+		utils.NewStringSet(rdktestutils.ExtractNames(servoNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.MotorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(coretestutils.ExtractNames(motorNames...)...),
+		utils.NewStringSet(rdktestutils.ExtractNames(motorNames...)...),
 	)
-	test.That(t, coretestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, coretestutils.NewResourceNameSet(
-		coretestutils.ConcatResourceNames(
+	test.That(t, rdktestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		rdktestutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
 			cameraNames,

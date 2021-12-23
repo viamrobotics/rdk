@@ -364,7 +364,7 @@ func TestMetadataUpdate(t *testing.T) {
 			UUID: "661c4dea-b6be-56bf-a839-cfb7f99b0a6b",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceCore,
+					Namespace:    resource.ResourceNamespaceRDK,
 					ResourceType: resource.ResourceTypeService,
 				},
 				ResourceSubtype: service.SubtypeName,
@@ -385,7 +385,7 @@ func TestMetadataUpdate(t *testing.T) {
 			UUID: "064a7e85-c5d6-524c-a6c4-d050bca20da9",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceCore,
+					Namespace:    resource.ResourceNamespaceRDK,
 					ResourceType: resource.ResourceTypeService,
 				},
 				ResourceSubtype: resource.ResourceSubtypeFunction,
@@ -396,7 +396,7 @@ func TestMetadataUpdate(t *testing.T) {
 			UUID: "405b6596-11ff-5a69-a3d2-1a945414a632",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceCore,
+					Namespace:    resource.ResourceNamespaceRDK,
 					ResourceType: resource.ResourceTypeService,
 				},
 				ResourceSubtype: resource.ResourceSubtypeFunction,
@@ -412,7 +412,7 @@ func TestMetadataUpdate(t *testing.T) {
 			UUID: "d1587bf0-8655-5eb3-95af-e2f83d872ce8",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceCore,
+					Namespace:    resource.ResourceNamespaceRDK,
 					ResourceType: resource.ResourceTypeComponent,
 				},
 				ResourceSubtype: resource.ResourceSubtypeSensor,
@@ -423,7 +423,7 @@ func TestMetadataUpdate(t *testing.T) {
 			UUID: "595cfa62-fb18-59ac-9553-d257b3dcebc0",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceCore,
+					Namespace:    resource.ResourceNamespaceRDK,
 					ResourceType: resource.ResourceTypeComponent,
 				},
 				ResourceSubtype: resource.ResourceSubtypeSensor,

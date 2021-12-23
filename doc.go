@@ -1,2 +1,2 @@
-// Package core TODO
-package core
+// Package rdk TODO
+package rdk

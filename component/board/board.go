@@ -22,7 +22,7 @@ const SubtypeName = resource.SubtypeName("board")
 
 // Subtype is a constant that identifies the component resource subtype
 var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceCore,
+	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeComponent,
 	SubtypeName,
 )

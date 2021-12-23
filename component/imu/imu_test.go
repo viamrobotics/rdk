@@ -23,7 +23,7 @@ func TestIMUName(t *testing.T) {
 			resource.Name{
 				UUID: "a5fb18ee-d69d-5a8d-b716-c4dac028b93c",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "",
@@ -35,7 +35,7 @@ func TestIMUName(t *testing.T) {
 			resource.Name{
 				UUID: "23f3b6b6-598f-5659-8b07-7c3dc333efb3",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "imu1",
