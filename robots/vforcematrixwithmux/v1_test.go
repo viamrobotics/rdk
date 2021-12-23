@@ -8,13 +8,12 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func createExpectedMatrix(component config.Component) [][]int {
-	numCols := len(component.Attributes.StringSlice("column_gpio_pins_left_to_right"))
-	numRows := len(component.Attributes.IntSlice("io_pins_top_to_bottom"))
+func createExpectedMatrix(c *ForceMatrixConfig) [][]int {
+	numCols := len(c.ColumnGPIOPins)
+	numRows := len(c.IOPins)
 	expectedMatrix := make([][]int, numRows)
 	for row := 0; row < numRows; row++ {
 		expectedMatrix[row] = make([]int, numCols)
@@ -28,13 +27,22 @@ func createExpectedMatrix(component config.Component) [][]int {
 func TestNew(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
+	validConfig := &ForceMatrixConfig{
+		BoardName:           "board",
+		ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+		MuxGPIOPins:         []string{"s2", "s1", "s0"},
+		IOPins:              []int{1, 2},
+		AnalogChannel:       "a1",
+		SlipDetectionWindow: 10,
+		NoiseThreshold:      5,
+	}
+
 	t.Run("return error when not able to find board", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return nil, false
 		}
-		component := config.Component{Attributes: config.AttributeMap{"type": "what"}}
-		_, err := New(context.Background(), fakeRobot, component, logger)
+		_, err := new(context.Background(), fakeRobot, validConfig, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -47,8 +55,7 @@ func TestNew(t *testing.T) {
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return fakeBoard, true
 		}
-		component := config.Component{Attributes: config.AttributeMap{"analog_channel": "fake"}}
-		_, err := New(context.Background(), fakeRobot, component, logger)
+		_, err := new(context.Background(), fakeRobot, validConfig, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -62,8 +69,7 @@ func TestNew(t *testing.T) {
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return fakeBoard, true
 		}
-		component := config.Component{Attributes: config.AttributeMap{"analog_channel": "fake"}}
-		mux, _ := New(context.Background(), fakeRobot, component, logger)
+		mux, _ := new(context.Background(), fakeRobot, validConfig, logger)
 		err := mux.setMuxGpioPins(context.Background(), -1)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
@@ -88,18 +94,18 @@ func TestNew(t *testing.T) {
 			fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 				return fakeBoard, true
 			}
-			fakeAttrMap := config.AttributeMap{
-				"column_gpio_pins_left_to_right":        []interface{}{"1", "2", "3", "4"},
-				"mux_gpio_pins_s2_to_s0":                []interface{}{"s2", "s1", "s0"},
-				"io_pins_top_to_bottom":                 []interface{}{0, 2, 6, 7},
-				"analog_reader":                         "fake",
-				"slip_detection_window":                 2,
-				"slip_detection_signal_to_noise_cutoff": 150.,
+			config := &ForceMatrixConfig{
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"1", "2", "3", "4"},
+				MuxGPIOPins:         []string{"s2", "s1", "s0"},
+				IOPins:              []int{0, 2, 6, 7},
+				AnalogChannel:       "fake",
+				SlipDetectionWindow: 2,
+				NoiseThreshold:      150,
 			}
-			component := config.Component{Attributes: fakeAttrMap}
-			expectedMatrix := createExpectedMatrix(component)
+			expectedMatrix := createExpectedMatrix(config)
 
-			mux, _ := New(context.Background(), fakeRobot, component, logger)
+			mux, _ := new(context.Background(), fakeRobot, config, logger)
 			actualMatrix, err := mux.Matrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
@@ -133,18 +139,18 @@ func TestNew(t *testing.T) {
 			fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 				return fakeBoard, true
 			}
-			fakeAttrMap := config.AttributeMap{
-				"column_gpio_pins_left_to_right":        []interface{}{"1", "2", "3", "4", "5", "6"},
-				"mux_gpio_pins_s2_to_s0":                []interface{}{"s2", "s1", "s0"},
-				"io_pins_top_to_bottom":                 []interface{}{0, 2},
-				"analog_reader":                         "fake",
-				"slip_detection_window":                 2,
-				"slip_detection_signal_to_noise_cutoff": 150.,
+			config := &ForceMatrixConfig{
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"1", "2", "3", "4", "5", "6"},
+				MuxGPIOPins:         []string{"s2", "s1", "s0"},
+				IOPins:              []int{0, 2},
+				AnalogChannel:       "fake",
+				SlipDetectionWindow: 2,
+				NoiseThreshold:      150,
 			}
-			component := config.Component{Attributes: fakeAttrMap}
-			expectedMatrix := createExpectedMatrix(component)
+			expectedMatrix := createExpectedMatrix(config)
 
-			mux, _ := New(context.Background(), fakeRobot, component, logger)
+			mux, _ := new(context.Background(), fakeRobot, config, logger)
 			actualMatrix, err := mux.Matrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
@@ -178,18 +184,18 @@ func TestNew(t *testing.T) {
 			fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 				return fakeBoard, true
 			}
-			fakeAttrMap := config.AttributeMap{
-				"column_gpio_pins_left_to_right":        []interface{}{"1", "2", "3"},
-				"mux_gpio_pins_s2_to_s0":                []interface{}{"s2", "s1", "s0"},
-				"io_pins_top_to_bottom":                 []interface{}{0, 2, 6, 7, 3},
-				"analog_reader":                         "fake",
-				"slip_detection_window":                 2,
-				"slip_detection_signal_to_noise_cutoff": 150.,
+			config := &ForceMatrixConfig{
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"1", "2", "3"},
+				MuxGPIOPins:         []string{"s2", "s1", "s0"},
+				IOPins:              []int{0, 2, 6, 7, 3},
+				AnalogChannel:       "fake",
+				SlipDetectionWindow: 2,
+				NoiseThreshold:      150,
 			}
-			component := config.Component{Attributes: fakeAttrMap}
-			expectedMatrix := createExpectedMatrix(component)
+			expectedMatrix := createExpectedMatrix(config)
 
-			mux, _ := New(context.Background(), fakeRobot, component, logger)
+			mux, _ := new(context.Background(), fakeRobot, config, logger)
 			matrix, err := mux.Matrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, matrix, test.ShouldResemble, expectedMatrix)
