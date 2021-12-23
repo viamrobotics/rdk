@@ -42,7 +42,7 @@ func TestResourceType(t *testing.T) {
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
 			observed := resource.NewType(tc.Namespace, tc.Type)
-			test.That(t, tc.Expected, test.ShouldResemble, observed)
+			test.That(t, observed, test.ShouldResemble, tc.Expected)
 			err := observed.Validate()
 			if tc.Err == "" {
 				test.That(t, err, test.ShouldBeNil)
@@ -119,7 +119,7 @@ func TestResourceSubtype(t *testing.T) {
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
 			observed := resource.NewSubtype(tc.Namespace, tc.Type, tc.Subtype)
-			test.That(t, tc.Expected, test.ShouldResemble, observed)
+			test.That(t, observed, test.ShouldResemble, tc.Expected)
 			err := observed.Validate()
 			if tc.Err == "" {
 				test.That(t, err, test.ShouldBeNil)
@@ -147,7 +147,7 @@ func TestResourceNameNew(t *testing.T) {
 			arm.SubtypeName,
 			"",
 			resource.Name{
-				UUID: "8ad23fcd-7f30-56b9-a7f4-cf37a980b4dd",
+				UUID: "a5b161b9-dfa9-5eef-93d1-58431fd91212",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: arm.SubtypeName,
@@ -162,7 +162,7 @@ func TestResourceNameNew(t *testing.T) {
 			arm.SubtypeName,
 			"arm1",
 			resource.Name{
-				UUID: "1ef3fc81-df1d-5ac4-b11d-bc1513e47f06",
+				UUID: "ded8a90b-0c77-5bda-baf5-b7e79bbdb28a",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: arm.SubtypeName,
@@ -173,7 +173,7 @@ func TestResourceNameNew(t *testing.T) {
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
 			observed := resource.NewName(tc.Namespace, tc.Type, tc.Subtype, tc.Name)
-			test.That(t, tc.Expected, test.ShouldResemble, observed)
+			test.That(t, observed, test.ShouldResemble, tc.Expected)
 		})
 	}
 }
@@ -207,7 +207,7 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"missing name",
 			"rdk:component:arm",
 			resource.Name{
-				UUID: "8ad23fcd-7f30-56b9-a7f4-cf37a980b4dd",
+				UUID: "a5b161b9-dfa9-5eef-93d1-58431fd91212",
 				Subtype: resource.Subtype{
 					Type: resource.Type{
 						Namespace:    resource.ResourceNamespaceRDK,
@@ -223,7 +223,7 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"all fields included",
 			arm.Named("arm1").String(),
 			resource.Name{
-				UUID: "1ef3fc81-df1d-5ac4-b11d-bc1513e47f06",
+				UUID: "ded8a90b-0c77-5bda-baf5-b7e79bbdb28a",
 				Subtype: resource.Subtype{
 					Type: resource.Type{
 						Namespace:    resource.ResourceNamespaceRDK,
@@ -239,7 +239,7 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"all fields included 2",
 			"rdk:component:compass/compass1",
 			resource.Name{
-				UUID: "d6358b56-3b43-5626-ab8c-b16e7233a832",
+				UUID: "286ec871-7aa7-5eba-98c0-6c3da28cdccb",
 				Subtype: resource.Subtype{
 					Type: resource.Type{
 						Namespace:    resource.ResourceNamespaceRDK,

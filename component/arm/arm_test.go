@@ -23,7 +23,7 @@ func TestArmName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "8ad23fcd-7f30-56b9-a7f4-cf37a980b4dd",
+				UUID: "a5b161b9-dfa9-5eef-93d1-58431fd91212",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
@@ -35,7 +35,7 @@ func TestArmName(t *testing.T) {
 			"all fields included",
 			"arm1",
 			resource.Name{
-				UUID: "1ef3fc81-df1d-5ac4-b11d-bc1513e47f06",
+				UUID: "ded8a90b-0c77-5bda-baf5-b7e79bbdb28a",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
@@ -46,7 +46,7 @@ func TestArmName(t *testing.T) {
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
 			observed := Named(tc.Name)
-			test.That(t, tc.Expected, test.ShouldResemble, observed)
+			test.That(t, observed, test.ShouldResemble, tc.Expected)
 		})
 	}
 }

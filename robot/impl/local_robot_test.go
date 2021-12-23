@@ -361,7 +361,7 @@ func TestMetadataUpdate(t *testing.T) {
 
 	resources := map[resource.Name]struct{}{
 		{
-			UUID: "661c4dea-b6be-56bf-a839-cfb7f99b0a6b",
+			UUID: "00db7188-edaa-5ea9-b573-80ce7d2cee61",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
 					Namespace:    resource.ResourceNamespaceRDK,
@@ -372,17 +372,17 @@ func TestMetadataUpdate(t *testing.T) {
 			Name: "",
 		}: {},
 		{
-			UUID:    "0ecee0a4-3d25-5bfa-ba5d-4c2f765cef6a",
+			UUID:    "a2521aec-dd23-5bd4-bfe6-21d9887c917f",
 			Subtype: arm.Subtype,
 			Name:    "pieceArm",
 		}: {},
 		{
-			UUID:    "06f7a658-e502-5a3b-a160-af023795b49a",
+			UUID:    "f926189a-1206-5af1-8cc6-cc934c2a6d59",
 			Subtype: camera.Subtype,
 			Name:    "cameraOver",
 		}: {},
 		{
-			UUID: "064a7e85-c5d6-524c-a6c4-d050bca20da9",
+			UUID: "fb2c9071-2700-5474-b8d3-54a3f9d45d17",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
 					Namespace:    resource.ResourceNamespaceRDK,
@@ -393,7 +393,7 @@ func TestMetadataUpdate(t *testing.T) {
 			Name: "func1",
 		}: {},
 		{
-			UUID: "405b6596-11ff-5a69-a3d2-1a945414a632",
+			UUID: "4f86ef35-a10d-533b-af91-a1e5b83aeb67",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
 					Namespace:    resource.ResourceNamespaceRDK,
@@ -404,12 +404,12 @@ func TestMetadataUpdate(t *testing.T) {
 			Name: "func2",
 		}: {},
 		{
-			UUID:    "813681b8-d6af-5e1c-b22a-8960ccf204fb",
+			UUID:    "6e1135a7-4ce9-54bc-b9e4-1c50aa9b5ce8",
 			Subtype: gripper.Subtype,
 			Name:    "pieceGripper",
 		}: {},
 		{
-			UUID: "d1587bf0-8655-5eb3-95af-e2f83d872ce8",
+			UUID: "8e3685f9-5a0a-51c2-80ae-78b00c2c11f5",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
 					Namespace:    resource.ResourceNamespaceRDK,
@@ -420,7 +420,7 @@ func TestMetadataUpdate(t *testing.T) {
 			Name: "compass1",
 		}: {},
 		{
-			UUID: "595cfa62-fb18-59ac-9553-d257b3dcebc0",
+			UUID: "04e93e08-ddf9-540c-8837-c5514d11710c",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
 					Namespace:    resource.ResourceNamespaceRDK,

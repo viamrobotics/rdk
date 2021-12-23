@@ -21,7 +21,7 @@ func TestServoName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "1921cf8d-7dc4-5f09-bbad-642c61221c48",
+				UUID: "90cdc3ec-bf17-568f-8340-c6add982e00f",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
@@ -33,7 +33,7 @@ func TestServoName(t *testing.T) {
 			"all fields included",
 			"servo1",
 			resource.Name{
-				UUID: "ecf53524-109e-5649-984d-e93081ebbc30",
+				UUID: "85bbeb08-07b7-5fef-8706-27258bc67859",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
@@ -44,7 +44,7 @@ func TestServoName(t *testing.T) {
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
 			observed := Named(tc.Name)
-			test.That(t, tc.Expected, test.ShouldResemble, observed)
+			test.That(t, observed, test.ShouldResemble, tc.Expected)
 		})
 	}
 }
