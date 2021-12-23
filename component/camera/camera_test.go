@@ -18,7 +18,7 @@ func TestCameraName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "cf359663-1ffd-553f-8d2a-bd99656aa19a",
+				UUID: "15031593-23e2-5d62-bf05-b9f5286e1794",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
@@ -30,7 +30,7 @@ func TestCameraName(t *testing.T) {
 			"all fields included",
 			"camera1",
 			resource.Name{
-				UUID: "6543c4be-b3dd-56ab-976a-48cd37c91501",
+				UUID: "dcd0244b-6dd0-53e6-a97b-2b427d231302",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,

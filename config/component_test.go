@@ -51,7 +51,7 @@ func TestComponentResourceName(t *testing.T) {
 				ResourceSubtype: resource.SubtypeName(""),
 			},
 			resource.Name{
-				UUID: "4e2cd153-a2c4-5957-b034-9e1174b39ed2",
+				UUID: "51782993-c1f4-5e87-9fd8-be561f2444a2",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: resource.SubtypeName(""),
@@ -70,7 +70,7 @@ func TestComponentResourceName(t *testing.T) {
 				ResourceSubtype: resource.SubtypeName(""),
 			},
 			resource.Name{
-				UUID: "4e2cd153-a2c4-5957-b034-9e1174b39ed2",
+				UUID: "51782993-c1f4-5e87-9fd8-be561f2444a2",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: resource.SubtypeName(""),
@@ -90,7 +90,7 @@ func TestComponentResourceName(t *testing.T) {
 				ResourceSubtype: resource.ResourceSubtypeCompass,
 			},
 			resource.Name{
-				UUID: "89308714-cdf2-5402-b028-4b5a061f403c",
+				UUID: "bd405f3f-da99-5adb-8637-1f914454da88",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: resource.ResourceSubtypeCompass,
@@ -110,7 +110,7 @@ func TestComponentResourceName(t *testing.T) {
 				ResourceSubtype: resource.ResourceSubtypeCompass,
 			},
 			resource.Name{
-				UUID: "a7520aed-92c7-56eb-b048-edcb3069c41c",
+				UUID: "3c4145b6-aff8-52b9-9b06-778abc940d0f",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: resource.ResourceSubtypeCompass,
