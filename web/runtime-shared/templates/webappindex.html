@@ -133,19 +133,10 @@
           status.motorsMap = rawStatusObj.motorsMap;
           status.functionsMap = rawStatusObj.functionsMap;
           status.servicesMap = rawStatusObj.servicesMap;
+          status.inputControllersMap = rawStatusObj.inputControllersMap;
 
           status.armsMap = fixArms(status.armsMap);
           status.gantriesMap = fixGantries(status.gantriesMap);
-
-          status.inputControllersMap = [];
-          status.webGamepad = false;
-          for (let i of rawStatusObj.inputControllersMap) {
-            if (i[0] === "WebGamepad") {
-              status.webGamepad = true;
-            }else{
-              status.inputControllersMap.push(i);
-            }
-          }
 
           if (!firstResult) {
             console.log(rawStatusObj);
@@ -376,8 +367,18 @@
                   inputControllerByName : function(name) {
                     return theData.status.inputControllersMap.find(elem => elem[0] == name) || {}
                   },
+                  filteredInputControllerList : function() {
+                    // filters out WebGamepad
+                    return theData.resources.filter(elem => {
+                      return (
+                        elem.namespace == 'core'
+                        && elem.type == 'component'
+                        && elem.subtype == 'input_controller'
+                        && elem.name !== 'WebGamepad'
+                      )})
+                  },
                   inputInject: function(req) {
-                    inputControllerService.InjectEvent(req, {}, (err, resp) => grpcCallback(err, resp));
+                    inputControllerService.injectEvent(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   pidCommand: function(motor,cmd){
                       let req = cmd.request;
@@ -1394,7 +1395,7 @@
 
       <!-- ******* INPUT VIEW *******  -->
       <input-controller
-        v-for="controller in filterResources('core', 'component', 'input_controller')"
+        v-for="controller in filteredInputControllerList()"
         :key="'new-' + controller.name"
         v-bind:controller-name="controller.name"
         v-bind:controller-status="inputControllerByName(controller.name)[1]"
@@ -1403,7 +1404,7 @@
 
       <!-- ******* WEB CONTROLS *******  -->
       <web-gamepad
-        v-if="Object.keys(inputControllerByName('WebGamepad')).length !== 0"
+        v-if="filterResources('core', 'component', 'input_controller').length !== 0 && Object.keys(inputControllerByName('WebGamepad')).length !== 0"
         v-on:execute="inputInject($event)"
         style="max-width: 1080px;">
       </web-gamepad>
