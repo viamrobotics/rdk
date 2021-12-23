@@ -25,12 +25,12 @@
       window.webrtcAdditionalICEServers = {{ .WebRTCAdditionalICEServers }}
     </script>
     {{ if .External }}
-    <script src="/static/core/control.js"></script>
-    <script src="/static/core/third-party/vue.js"></script>
-    <script src="/static/core/third-party/ace/ace.js" type="text/javascript" charset="utf-8"></script>
-    <link rel="stylesheet" href="/static/core/components/coreComponents.css">
+    <script src="/static/rdk/control.js"></script>
+    <script src="/static/rdk/third-party/vue.js"></script>
+    <script src="/static/rdk/third-party/ace/ace.js" type="text/javascript" charset="utf-8"></script>
+    <link rel="stylesheet" href="/static/rdk/components/coreComponents.css">
     <script type="module">
-      import "/static/core/components/coreComponents.umd.min.js";
+      import "/static/rdk/components/coreComponents.umd.min.js";
     </script>
     {{ else }}
     <script src="/static/control.js"></script>
@@ -529,7 +529,7 @@
                       canvas3DWidth: canvas3DWidth
                     }
 
-                    // [kat] TODO(https://github.com/viamrobotics/core/issues/336): slip detection works locally, but not on app.viam.com
+                    // [kat] TODO(https://github.com/viamrobotics/rdk/issues/336): slip detection works locally, but not on app.viam.com
                     // Slip detection stuff
                     let slipCanvas = document.getElementById('slip-id-' + id);
                     var slip_animation_stuff = {
@@ -1274,7 +1274,7 @@
       </div>
 
       <!-- ******* GANTRY *******  -->
-      <div class="gantry" v-for="gantry in filterResources('core', 'component', 'gantry')" :key="gantry.name">
+      <div class="gantry" v-for="gantry in filterResources('rdk', 'component', 'gantry')" :key="gantry.name">
         <h3>Gantry ${gantry.name}</h3>
         <table>
           <tr>
@@ -1297,7 +1297,7 @@
       </div>
       
       <!-- ******* ARM *******  -->
-      <div class="arm" v-for="arm in filterResources('core', 'component', 'arm')" :key="arm.name">
+      <div class="arm" v-for="arm in filterResources('rdk', 'component', 'arm')" :key="arm.name">
         <h3>Arm ${arm.name}</h3>
         <table v-if="armToggle[arm.name]" border="1">
           <tr>
@@ -1353,7 +1353,7 @@
       </div>
 
       <!-- ******* GRIPPER *******  -->
-      <div class="gripper" v-for="gripper in filterResources('core', 'component', 'gripper')" :key="gripper.name">
+      <div class="gripper" v-for="gripper in filterResources('rdk', 'component', 'gripper')" :key="gripper.name">
         <h3>Gripper ${ gripper.name }</h3>
         <ul>
           <li><button v-on:click="gripperAction( gripper.name, 'open')">Open</button></li>
@@ -1362,7 +1362,7 @@
       </div>
 
       <!-- ******* SERVO *******  -->
-      <div class="servo" v-for="servo in filterResources('core', 'component', 'servo')" :key="servo.name" style="margin-bottom: 64px;">
+      <div class="servo" v-for="servo in filterResources('rdk', 'component', 'servo')" :key="servo.name" style="margin-bottom: 64px;">
         <h3>Servo ${ servo.name }</h3>
         <table border="1">
           <tr><th>Angle</th><td>${servo.angle}</td></tr>
@@ -1433,7 +1433,7 @@
         </table>
       </div> <!-- end boards -->
       <!-- cameras -->
-      <table border="1" v-if="nonEmpty(filterResources('core', 'component', 'camera'))">
+      <table border="1" v-if="nonEmpty(filterResources('rdk', 'component', 'camera'))">
         <tr>
           <th colspan="3">
             Cameras
@@ -1444,7 +1444,7 @@
           <th>Frame</th>
           <th>PCD</th>
         </tr>
-        <tr v-for="camera in filterResources('core', 'component', 'camera')">
+        <tr v-for="camera in filterResources('rdk', 'component', 'camera')">
           <td>${camera.name}</td>
           <td><a href="#" v-on:click.prevent="renderFrame(camera.name)">frame</a></td>
           <td><button v-on:click="renderPCD(camera.name)">GO</button></td>
@@ -1574,7 +1574,7 @@
       </div>
     </div> <!-- end vue app -->
 
-    <!-- TODO(https://github.com/viamrobotics/core/issues/202): remove api key once going into production -->
+    <!-- TODO(https://github.com/viamrobotics/rdk/issues/202): remove api key once going into production -->
     <script
       src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBn72TEqFOVWoj06cvua0Dc0pz2uvq90nY&callback=initMap&libraries=&v=weekly"
       async

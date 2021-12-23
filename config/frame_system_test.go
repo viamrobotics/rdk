@@ -9,14 +9,14 @@ import (
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
-	coreutils "go.viam.com/rdk/utils"
+	rdkutils "go.viam.com/rdk/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 )
 
 func TestFrameModelPart(t *testing.T) {
-	jsonData, err := ioutil.ReadFile(coreutils.ResolveFile("config/data/model_frame.json"))
+	jsonData, err := ioutil.ReadFile(rdkutils.ResolveFile("config/data/model_frame.json"))
 	test.That(t, err, test.ShouldBeNil)
 	model, err := referenceframe.ParseJSON(jsonData, "")
 	test.That(t, err, test.ShouldBeNil)
@@ -81,7 +81,7 @@ func TestFrameModelPart(t *testing.T) {
 
 func TestFramesFromPart(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	jsonData, err := ioutil.ReadFile(coreutils.ResolveFile("config/data/model_frame.json"))
+	jsonData, err := ioutil.ReadFile(rdkutils.ResolveFile("config/data/model_frame.json"))
 	test.That(t, err, test.ShouldBeNil)
 	model, err := referenceframe.ParseJSON(jsonData, "")
 	test.That(t, err, test.ShouldBeNil)

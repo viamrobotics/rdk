@@ -25,7 +25,7 @@ type (
 
 // Placeholder definitions for a few known constants
 const (
-	ResourceNamespaceCore   = Namespace("core")
+	ResourceNamespaceRDK    = Namespace("rdk")
 	ResourceTypeComponent   = TypeName("component")
 	ResourceTypeService     = TypeName("service")
 	ResourceSubtypeBase     = SubtypeName("base")

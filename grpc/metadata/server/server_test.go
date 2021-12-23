@@ -23,7 +23,7 @@ var emptyResources = &pb.ResourcesResponse{
 }
 
 var newResource = resource.NewName(
-	resource.ResourceNamespaceCore,
+	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeComponent,
 	arm.SubtypeName,
 	"",

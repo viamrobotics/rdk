@@ -1,8 +1,8 @@
-# core
+# RDK (Robot Development Kit)
 
 <p align="center">
   <a href="https://go.viam.com/pkg/go.viam.com/rdk/"><img src="https://pkg.go.dev/badge/go.viam.com/rdk" alt="PkgGoDev"></a>
-  <a href="https://codecov.io/gh/viamrobotics/core"><img src="https://codecov.io/gh/viamrobotics/core/branch/master/graph/badge.svg?token=99YH0M8YOA" alt="CodeCov"></a>
+  <a href="https://codecov.io/gh/viamrobotics/rdk"><img src="https://codecov.io/gh/viamrobotics/rdk/branch/master/graph/badge.svg?token=99YH0M8YOA" alt="CodeCov"></a>
 </p>
 
 * [Programs](#programs)
@@ -22,7 +22,7 @@
 * [samples/vision](./samples/vision) - Utilities for working with images to test out vision library code
 
 ### API Documentation & more devices
-To see more examples, check out the [Wiki](https://github.com/viamrobotics/core/wiki)
+To see more examples, check out the [Wiki](https://github.com/viamrobotics/rdk/wiki)
 
 ## Dependencies
 
@@ -55,7 +55,7 @@ If libvpx is not available on your distro, run the following:
 
 ### Resources
 
-All resources implemented within core follow the pattern of registering themselves within an `func init()` block. This requires the package they are implemented in be imported, but typically not explicitly used. The place where we currently put blank imports (`_ "pkgpath"`) is in [robot/impl/local_robot.go](./robot/impl/local_robot.go). They should be placed in the corresponding component's register package going forward.
+All resources implemented within the RDK follow the pattern of registering themselves within an `func init()` block. This requires the package they are implemented in be imported, but typically not explicitly used. The place where we currently put blank imports (`_ "pkgpath"`) is in [robot/impl/local_robot.go](./robot/impl/local_robot.go). They should be placed in the corresponding component's register package going forward.
 
 ### Protocol Buffers/gRPC
 

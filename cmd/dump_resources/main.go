@@ -122,7 +122,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 				dumpResourcesInfo(res.Interface(), resType, resource.SubtypeName(fmt.Sprintf("%s/%s", subType, key.String())))
 				continue
 			}
-			resName := resource.NewName(resource.ResourceNamespaceCore, resType, subType, key.String())
+			resName := resource.NewName(resource.ResourceNamespaceRDK, resType, subType, key.String())
 			dumpResourceInfo(resName, res.Interface())
 		}
 	}
@@ -136,7 +136,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		if err != nil {
 			return err
 		}
-		if name.Namespace != resource.ResourceNamespaceCore {
+		if name.Namespace != resource.ResourceNamespaceRDK {
 			continue
 		}
 
@@ -150,7 +150,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 	for svcType, reg := range registry.RegisteredServices() {
 		resName := resource.NewName(
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			resource.ResourceTypeService,
 			resource.SubtypeName(svcType),
 			"",

@@ -1,4 +1,4 @@
-// Package ros implements functionality that bridges the gap between `core` and ROS
+// Package ros implements functionality that bridges the gap between `rdk` and ROS
 package ros
 
 // TimeStamp contains the timestamp expressed as:

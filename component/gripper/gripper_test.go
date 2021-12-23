@@ -20,7 +20,7 @@ func TestGripperName(t *testing.T) {
 			resource.Name{
 				UUID: "c0ee7310-504c-5e57-8386-dfd75372c242",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "",
@@ -32,7 +32,7 @@ func TestGripperName(t *testing.T) {
 			resource.Name{
 				UUID: "169be933-0c65-58bc-be9c-2a9fbe6c70c9",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "gripper1",

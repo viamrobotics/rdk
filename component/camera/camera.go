@@ -21,7 +21,7 @@ const SubtypeName = resource.SubtypeName("camera")
 
 // Subtype is a constant that identifies the camera resource subtype
 var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceCore,
+	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeComponent,
 	SubtypeName,
 )
