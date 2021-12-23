@@ -6,11 +6,11 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/component/gantry"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/subtype"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/component/gantry"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func newServer() (pb.GantryServiceServer, *inject.Gantry, *inject.Gantry, error) {

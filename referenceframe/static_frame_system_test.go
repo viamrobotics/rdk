@@ -7,7 +7,7 @@ import (
 
 	"go.viam.com/test"
 
-	spatial "go.viam.com/core/spatialmath"
+	spatial "go.viam.com/rdk/spatialmath"
 
 	"github.com/golang/geo/r3"
 )

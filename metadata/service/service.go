@@ -7,7 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/resource"
+	"go.viam.com/rdk/resource"
 )
 
 // SubtypeName is a constant that identifies the component resource subtype

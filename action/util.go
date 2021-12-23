@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"image"
 
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"

@@ -7,8 +7,8 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/grpc"
-	pb "go.viam.com/core/proto/api/service/v1"
+	"go.viam.com/rdk/grpc"
+	pb "go.viam.com/rdk/proto/api/service/v1"
 )
 
 // MetadataServiceClient is a client satisfies the metadata.proto contract.

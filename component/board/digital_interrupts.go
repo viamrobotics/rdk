@@ -7,8 +7,8 @@ import (
 	"github.com/erh/scheme"
 	"github.com/pkg/errors"
 
-	functionvm "go.viam.com/core/function/vm"
-	"go.viam.com/core/utils"
+	functionvm "go.viam.com/rdk/function/vm"
+	"go.viam.com/rdk/utils"
 )
 
 // ServoRollingAverageWindow is how many entries to average over for

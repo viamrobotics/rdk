@@ -5,7 +5,7 @@ import (
 
 	"go.viam.com/test"
 
-	pc "go.viam.com/core/pointcloud"
+	pc "go.viam.com/rdk/pointcloud"
 )
 
 func createPointClouds(t *testing.T) *Segments {

@@ -8,20 +8,20 @@ import (
 
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/component/gripper"
-	componentpb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/subtype"
+	"go.viam.com/rdk/component/gripper"
+	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/subtype"
 
-	_ "go.viam.com/core/component/gripper/fake"         // for a gripper
-	_ "go.viam.com/core/component/gripper/robotiq"      // for a gripper
-	_ "go.viam.com/core/component/gripper/softrobotics" // for a gripper
-	_ "go.viam.com/core/component/gripper/vgripper/v1"  // for a gripper with a single force sensor cell
-	_ "go.viam.com/core/component/gripper/vgripper/v2"  // for a gripper with a force matrix
-	_ "go.viam.com/core/component/gripper/vx300s"       // for a gripper
-	_ "go.viam.com/core/component/gripper/wx250s"       // for a gripper
-	_ "go.viam.com/core/component/gripper/yahboom"      // for a gripper
+	_ "go.viam.com/rdk/component/gripper/fake"         // for a gripper
+	_ "go.viam.com/rdk/component/gripper/robotiq"      // for a gripper
+	_ "go.viam.com/rdk/component/gripper/softrobotics" // for a gripper
+	_ "go.viam.com/rdk/component/gripper/vgripper/v1"  // for a gripper with a single force sensor cell
+	_ "go.viam.com/rdk/component/gripper/vgripper/v2"  // for a gripper with a force matrix
+	_ "go.viam.com/rdk/component/gripper/vx300s"       // for a gripper
+	_ "go.viam.com/rdk/component/gripper/wx250s"       // for a gripper
+	_ "go.viam.com/rdk/component/gripper/yahboom"      // for a gripper
 )
 
 func init() {

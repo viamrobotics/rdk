@@ -11,9 +11,9 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/config"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/config"
 )
 
 func TestArduinoPWM(t *testing.T) {

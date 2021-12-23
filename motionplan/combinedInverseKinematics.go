@@ -6,8 +6,8 @@ import (
 
 	"go.viam.com/utils"
 
-	frame "go.viam.com/core/referenceframe"
-	"go.viam.com/core/spatialmath"
+	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"

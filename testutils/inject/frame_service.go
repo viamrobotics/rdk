@@ -3,9 +3,9 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/core/config"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/services/framesystem"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/framesystem"
 )
 
 // FrameSystemService is an injected FrameSystem service

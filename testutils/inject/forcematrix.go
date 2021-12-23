@@ -3,8 +3,8 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/forcematrix"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/sensor/forcematrix"
 )
 
 // ForceMatrix is an injected ForceMatrix

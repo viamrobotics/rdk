@@ -14,11 +14,11 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/motionplan"
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	frame "go.viam.com/core/referenceframe"
-	"go.viam.com/core/spatialmath"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/motionplan"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 func TestUR5eForwardKinementsSVAvsDH(t *testing.T) {

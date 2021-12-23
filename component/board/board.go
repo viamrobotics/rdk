@@ -12,9 +12,9 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/rlog"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 )
 
 // SubtypeName is a constant that identifies the component resource subtype string "board"

@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 
 	"go.viam.com/utils/artifact"
 

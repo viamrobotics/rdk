@@ -5,8 +5,8 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/resource"
-	"go.viam.com/core/subtype"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/subtype"
 )
 
 func TestSubtypeService(t *testing.T) {

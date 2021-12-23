@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	frame "go.viam.com/core/referenceframe"
-	spatial "go.viam.com/core/spatialmath"
-	vutils "go.viam.com/core/utils"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	frame "go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
+	vutils "go.viam.com/rdk/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"

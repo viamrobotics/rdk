@@ -8,13 +8,13 @@ import (
 	"runtime"
 	"sync"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/config"
-	"go.viam.com/core/motionplan"
-	"go.viam.com/core/referenceframe"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/referenceframe"
 
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 
 	"github.com/edaniels/golog"
 )

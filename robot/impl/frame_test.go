@@ -6,9 +6,9 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/config"
-	"go.viam.com/core/referenceframe"
-	robotimpl "go.viam.com/core/robot/impl"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
+	robotimpl "go.viam.com/rdk/robot/impl"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"

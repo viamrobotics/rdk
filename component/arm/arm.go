@@ -9,12 +9,12 @@ import (
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/rlog"
-	"go.viam.com/core/utils"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/utils"
 )
 
 // SubtypeName is a constant that identifies the component resource subtype string "arm"

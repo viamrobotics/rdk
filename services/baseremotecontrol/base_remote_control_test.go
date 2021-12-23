@@ -6,12 +6,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/component/input"
-	"go.viam.com/core/config"
-	"go.viam.com/core/rlog"
-	"go.viam.com/core/robots/fake"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/robots/fake"
+	"go.viam.com/rdk/testutils/inject"
 
 	"go.viam.com/test"
 )

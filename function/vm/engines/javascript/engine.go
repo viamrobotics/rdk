@@ -11,7 +11,7 @@ import (
 
 	"go.viam.com/utils"
 
-	functionvm "go.viam.com/core/function/vm"
+	functionvm "go.viam.com/rdk/function/vm"
 )
 
 //go:embed libquickjs.wasm

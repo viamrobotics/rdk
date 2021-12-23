@@ -10,8 +10,8 @@ import (
 
 	"google.golang.org/protobuf/types/known/structpb"
 
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/subtype"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/subtype"
 )
 
 type subtypeServer struct {

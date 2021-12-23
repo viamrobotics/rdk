@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/core/resource"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/spatialmath"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/spatialmath"
 
 	"go.viam.com/test"
 )

@@ -5,9 +5,9 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/config"
-	"go.viam.com/core/resource"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 
 	"go.viam.com/test"
 )

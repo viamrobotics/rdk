@@ -5,8 +5,8 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/compass"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/sensor/compass"
 )
 
 // Compass is an injected compass.

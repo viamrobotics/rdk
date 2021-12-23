@@ -3,9 +3,9 @@ package referenceframe
 import (
 	"context"
 
-	pb "go.viam.com/core/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 )
 
 // Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position. Revolute inputs should be in

@@ -8,19 +8,19 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/config"
-	"go.viam.com/core/metadata/service"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/robots/fake"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/metadata/service"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robots/fake"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	coretestutils "go.viam.com/core/testutils"
+	coretestutils "go.viam.com/rdk/testutils"
 )
 
 func TestRobotReconfigure(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	pc "go.viam.com/core/pointcloud"
+	pc "go.viam.com/rdk/pointcloud"
 
 	"github.com/golang/geo/r3"
 )

@@ -2,19 +2,19 @@
 package register
 
 import (
-	"go.viam.com/core/component/board"
+	"go.viam.com/rdk/component/board"
 
-	_ "go.viam.com/core/component/board/arduino" // for board
-	_ "go.viam.com/core/component/board/fake"    // for board
-	_ "go.viam.com/core/component/board/jetson"  // for board
-	_ "go.viam.com/core/component/board/numato"  // for board
+	_ "go.viam.com/rdk/component/board/arduino" // for board
+	_ "go.viam.com/rdk/component/board/fake"    // for board
+	_ "go.viam.com/rdk/component/board/jetson"  // for board
+	_ "go.viam.com/rdk/component/board/numato"  // for board
 
 	// TODO(https://github.com/viamrobotics/core/issues/377): build constraints exclude
 	// all go files, so this cannot simply be imported here
-	// _ "go.viam.com/core/component/board/pi"      // for board
+	// _ "go.viam.com/rdk/component/board/pi"      // for board
 
-	"go.viam.com/core/registry"
-	"go.viam.com/core/resource"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 func init() {

@@ -5,9 +5,9 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/arm"
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/component/v1"
+	"go.viam.com/rdk/component/arm"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
 )
 
 // Arm is an injected arm.

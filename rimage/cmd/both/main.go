@@ -9,8 +9,8 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/rimage/transform"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 )
 
 var logger = golog.NewDevelopmentLogger("rimage_both")

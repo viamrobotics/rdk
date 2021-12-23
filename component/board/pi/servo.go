@@ -15,11 +15,11 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/component/servo"
-	"go.viam.com/core/config"
-	piutils "go.viam.com/core/lib/pi"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/servo"
+	"go.viam.com/rdk/config"
+	piutils "go.viam.com/rdk/lib/pi"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
 // init registers a pi servo based on pigpio.

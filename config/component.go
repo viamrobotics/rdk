@@ -10,7 +10,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/resource"
+	"go.viam.com/rdk/resource"
 )
 
 // A ComponentType defines a type of component.

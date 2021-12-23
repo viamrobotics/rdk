@@ -10,9 +10,9 @@ import (
 
 	goutils "go.viam.com/utils"
 
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/utils"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"

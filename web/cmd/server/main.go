@@ -7,7 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/core/web/server"
+	"go.viam.com/rdk/web/server"
 )
 
 var logger = golog.NewDevelopmentLogger("robot_server")

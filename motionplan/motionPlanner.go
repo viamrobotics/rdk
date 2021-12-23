@@ -9,10 +9,10 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/utils"
 
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	frame "go.viam.com/core/referenceframe"
-	spatial "go.viam.com/core/spatialmath"
-	vutil "go.viam.com/core/utils"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	frame "go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
+	vutil "go.viam.com/rdk/utils"
 )
 
 // PlannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem

@@ -7,21 +7,21 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/imu"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/spatialmath"
-	"go.viam.com/core/subtype"
-	"go.viam.com/core/testutils"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/component/imu"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
-	viamgrpc "go.viam.com/core/grpc"
+	viamgrpc "go.viam.com/rdk/grpc"
 )
 
 func TestClient(t *testing.T) {

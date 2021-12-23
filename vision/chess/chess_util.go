@@ -6,7 +6,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/rimage"
+	"go.viam.com/rdk/rimage"
 )
 
 // TODO

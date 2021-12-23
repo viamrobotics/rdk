@@ -12,7 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"go.viam.com/core/rimage"
+	"go.viam.com/rdk/rimage"
 )
 
 // TrainingImage TODO

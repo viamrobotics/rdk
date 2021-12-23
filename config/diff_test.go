@@ -7,12 +7,12 @@ import (
 
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/config"
-	functionvm "go.viam.com/core/function/vm"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/config"
+	functionvm "go.viam.com/rdk/function/vm"
+	"go.viam.com/rdk/testutils/inject"
 
-	_ "go.viam.com/core/robots/fake" // attr converters
+	_ "go.viam.com/rdk/robots/fake" // attr converters
 )
 
 func init() {

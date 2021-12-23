@@ -11,11 +11,11 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/grpc"
-	"go.viam.com/core/pointcloud"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/pointcloud"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
 )
 
 // serviceClient is a client satisfies the camera.proto contract.

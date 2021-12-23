@@ -10,8 +10,8 @@ import (
 
 	"github.com/edaniels/golog"
 
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	frame "go.viam.com/core/referenceframe"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	frame "go.viam.com/rdk/referenceframe"
 
 	"go.viam.com/utils"
 )

@@ -3,7 +3,7 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/core/component/board"
+	"go.viam.com/rdk/component/board"
 )
 
 // DigitalInterrupt is an injected digital interrupt.

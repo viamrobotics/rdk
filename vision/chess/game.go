@@ -7,7 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/ml"
+	"go.viam.com/rdk/ml"
 )
 
 // Game TODO

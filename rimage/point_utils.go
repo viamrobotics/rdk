@@ -4,7 +4,7 @@ import (
 	"image"
 	"math"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 
 	"github.com/golang/geo/r2"
 	"github.com/pkg/errors"

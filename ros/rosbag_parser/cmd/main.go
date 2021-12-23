@@ -14,12 +14,12 @@ import (
 	"github.com/edaniels/golog"
 	goutils "go.viam.com/utils"
 
-	"go.viam.com/core/pointcloud"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/rimage/transform"
-	"go.viam.com/core/ros"
-	"go.viam.com/core/utils"
-	"go.viam.com/core/vision/segmentation"
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/ros"
+	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 var logger = golog.NewDevelopmentLogger("rosbag_parser")

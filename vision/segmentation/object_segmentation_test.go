@@ -10,10 +10,10 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	pc "go.viam.com/core/pointcloud"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/rimage/transform"
-	"go.viam.com/core/utils"
+	pc "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/utils"
 
 	"github.com/edaniels/golog"
 )

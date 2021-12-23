@@ -6,9 +6,9 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/metadata/service"
-	"go.viam.com/core/resource"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/metadata/service"
+	"go.viam.com/rdk/resource"
 )
 
 func TestAdd(t *testing.T) {

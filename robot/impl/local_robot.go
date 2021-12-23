@@ -11,64 +11,64 @@ import (
 
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/component/camera"
-	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/component/input"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/component/servo"
-	"go.viam.com/core/config"
-	"go.viam.com/core/grpc/client"
-	"go.viam.com/core/metadata/service"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/services"
-	"go.viam.com/core/services/framesystem"
-	"go.viam.com/core/services/web"
-	"go.viam.com/core/status"
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/servo"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/metadata/service"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/services"
+	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/services/web"
+	"go.viam.com/rdk/status"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
 	// Engines
-	_ "go.viam.com/core/function/vm/engines/javascript"
+	_ "go.viam.com/rdk/function/vm/engines/javascript"
 
 	// These are the robot pieces we want by default
-	_ "go.viam.com/core/base/impl"
-	_ "go.viam.com/core/component/arm/register"     // for all arms TODO: #298
-	_ "go.viam.com/core/component/board/register"   // for all boards
-	_ "go.viam.com/core/component/camera/register"  // for all cameras
-	_ "go.viam.com/core/component/gantry/register"  // for all gantries
-	_ "go.viam.com/core/component/gripper/register" // for all grippers
-	_ "go.viam.com/core/component/imu/register"     // for all IMU
-	_ "go.viam.com/core/component/input/register"   // for all input
-	_ "go.viam.com/core/component/motor/register"   // for all motors
-	_ "go.viam.com/core/component/servo/register"   // for a servo
-	_ "go.viam.com/core/platformdetector/pi"
-	_ "go.viam.com/core/robots/eva" // for eva
-	_ "go.viam.com/core/robots/fake"
-	_ "go.viam.com/core/robots/universalrobots"         // for an arm
-	_ "go.viam.com/core/robots/varm"                    // for an arm
-	_ "go.viam.com/core/robots/vforcematrixtraditional" // for a traditional force matrix
-	_ "go.viam.com/core/robots/vforcematrixwithmux"     // for a force matrix built using a mux
-	_ "go.viam.com/core/robots/vx300s"                  // for arm and gripper
-	_ "go.viam.com/core/robots/wx250s"                  // for arm and gripper
-	_ "go.viam.com/core/robots/xarm"                    // for an arm
-	_ "go.viam.com/core/robots/yahboom"                 // for an arm
-	_ "go.viam.com/core/sensor/compass/gy511"
-	_ "go.viam.com/core/sensor/forcematrix"
-	_ "go.viam.com/core/sensor/gps/merge"
-	_ "go.viam.com/core/sensor/gps/nmea"
+	_ "go.viam.com/rdk/base/impl"
+	_ "go.viam.com/rdk/component/arm/register"     // for all arms TODO: #298
+	_ "go.viam.com/rdk/component/board/register"   // for all boards
+	_ "go.viam.com/rdk/component/camera/register"  // for all cameras
+	_ "go.viam.com/rdk/component/gantry/register"  // for all gantries
+	_ "go.viam.com/rdk/component/gripper/register" // for all grippers
+	_ "go.viam.com/rdk/component/imu/register"     // for all IMU
+	_ "go.viam.com/rdk/component/input/register"   // for all input
+	_ "go.viam.com/rdk/component/motor/register"   // for all motors
+	_ "go.viam.com/rdk/component/servo/register"   // for a servo
+	_ "go.viam.com/rdk/platformdetector/pi"
+	_ "go.viam.com/rdk/robots/eva" // for eva
+	_ "go.viam.com/rdk/robots/fake"
+	_ "go.viam.com/rdk/robots/universalrobots"         // for an arm
+	_ "go.viam.com/rdk/robots/varm"                    // for an arm
+	_ "go.viam.com/rdk/robots/vforcematrixtraditional" // for a traditional force matrix
+	_ "go.viam.com/rdk/robots/vforcematrixwithmux"     // for a force matrix built using a mux
+	_ "go.viam.com/rdk/robots/vx300s"                  // for arm and gripper
+	_ "go.viam.com/rdk/robots/wx250s"                  // for arm and gripper
+	_ "go.viam.com/rdk/robots/xarm"                    // for an arm
+	_ "go.viam.com/rdk/robots/yahboom"                 // for an arm
+	_ "go.viam.com/rdk/sensor/compass/gy511"
+	_ "go.viam.com/rdk/sensor/forcematrix"
+	_ "go.viam.com/rdk/sensor/gps/merge"
+	_ "go.viam.com/rdk/sensor/gps/nmea"
 
 	// These are the services we want by default
-	_ "go.viam.com/core/services/baseremotecontrol"
-	_ "go.viam.com/core/services/navigation"
+	_ "go.viam.com/rdk/services/baseremotecontrol"
+	_ "go.viam.com/rdk/services/navigation"
 )
 
 var _ = robot.LocalRobot(&localRobot{})

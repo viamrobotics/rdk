@@ -13,13 +13,13 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
-	"go.viam.com/core/pointcloud"
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/subtype"
-	"go.viam.com/core/utils"
-	"go.viam.com/core/vision/segmentation"
+	"go.viam.com/rdk/pointcloud"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 // subtypeServer implements the contract from camera.proto

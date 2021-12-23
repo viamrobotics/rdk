@@ -1,7 +1,7 @@
 package testutils
 
 import (
-	"go.viam.com/core/resource"
+	"go.viam.com/rdk/resource"
 )
 
 // NewResourceNameSet returns a flattened set of name strings from

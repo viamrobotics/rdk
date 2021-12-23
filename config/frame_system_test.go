@@ -6,10 +6,10 @@ import (
 
 	"go.viam.com/test"
 
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
-	spatial "go.viam.com/core/spatialmath"
-	coreutils "go.viam.com/core/utils"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
+	coreutils "go.viam.com/rdk/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"

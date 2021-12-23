@@ -6,8 +6,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/subtype"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/subtype"
 )
 
 // subtypeServer implements the contract from gantry.proto

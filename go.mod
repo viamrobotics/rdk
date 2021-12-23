@@ -1,4 +1,4 @@
-module go.viam.com/core
+module go.viam.com/rdk
 
 go 1.17
 

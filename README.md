@@ -1,7 +1,7 @@
 # core
 
 <p align="center">
-  <a href="https://go.viam.com/pkg/go.viam.com/core/"><img src="https://pkg.go.dev/badge/go.viam.com/core" alt="PkgGoDev"></a>
+  <a href="https://go.viam.com/pkg/go.viam.com/rdk/"><img src="https://pkg.go.dev/badge/go.viam.com/rdk" alt="PkgGoDev"></a>
   <a href="https://codecov.io/gh/viamrobotics/core"><img src="https://codecov.io/gh/viamrobotics/core/branch/master/graph/badge.svg?token=99YH0M8YOA" alt="CodeCov"></a>
 </p>
 

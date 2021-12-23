@@ -1,7 +1,7 @@
 package pointcloud
 
 import (
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 
 	"gonum.org/v1/gonum/mat"
 )

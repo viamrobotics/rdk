@@ -14,11 +14,11 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor/gps"
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor/gps"
 )
 
 func init() {

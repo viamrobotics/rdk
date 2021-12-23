@@ -6,9 +6,9 @@ import (
 
 	"go.viam.com/test"
 
-	pb "go.viam.com/core/proto/api/component/v1"
-	spatial "go.viam.com/core/spatialmath"
-	"go.viam.com/core/utils"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"

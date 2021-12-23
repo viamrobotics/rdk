@@ -3,7 +3,7 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/core/component/motor"
+	"go.viam.com/rdk/component/motor"
 )
 
 // Motor is an injected motor.

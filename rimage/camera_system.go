@@ -7,7 +7,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/pointcloud"
+	"go.viam.com/rdk/pointcloud"
 )
 
 // Aligner aligns a color and depth image together

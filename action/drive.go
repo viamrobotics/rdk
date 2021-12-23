@@ -12,9 +12,9 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/robot"
 )
 
 // init registers the RandomWalk action.

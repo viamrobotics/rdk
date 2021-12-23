@@ -5,8 +5,8 @@ import (
 	"image/color"
 	"math"
 
-	"go.viam.com/core/rlog"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/utils"
 
 	"github.com/lucasb-eyer/go-colorful"
 	"github.com/pkg/errors"

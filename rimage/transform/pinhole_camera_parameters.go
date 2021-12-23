@@ -11,9 +11,9 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/config"
-	"go.viam.com/core/pointcloud"
-	"go.viam.com/core/rimage"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/rimage"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"

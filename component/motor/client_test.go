@@ -13,12 +13,12 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 
-	"go.viam.com/core/component/motor"
-	viamgrpc "go.viam.com/core/grpc"
-	componentpb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/subtype"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/component/motor"
+	viamgrpc "go.viam.com/rdk/grpc"
+	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestClient(t *testing.T) {

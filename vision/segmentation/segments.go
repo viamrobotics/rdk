@@ -3,8 +3,8 @@ package segmentation
 import (
 	"fmt"
 
-	pc "go.viam.com/core/pointcloud"
-	"go.viam.com/core/utils"
+	pc "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/utils"
 )
 
 // PointCloudWithMeta extends PointCloud with respective meta-data, like center coordinate

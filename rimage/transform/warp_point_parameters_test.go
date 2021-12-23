@@ -6,7 +6,7 @@ import (
 
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/core/rimage"
+	"go.viam.com/rdk/rimage"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
