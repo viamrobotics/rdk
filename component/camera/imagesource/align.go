@@ -40,7 +40,7 @@ func init() {
 			return nil, errors.Errorf("cannot find depth camera (%s)", depthName)
 		}
 
-		dc, err := NewDepthComposed(color, depth, config.Attributes, logger)
+		dc, err := NewDepthComposed(color, depth, config.ConvertedAttributes.(*rimage.AttrConfig), logger)
 		if err != nil {
 			return nil, err
 		}
@@ -98,36 +98,36 @@ func init() {
 
 var alignCurrentlyWriting = false
 
-func getCameraSystems(attrs config.AttributeMap, logger golog.Logger) (rimage.Aligner, rimage.Projector, error) {
+func getCameraSystems(attrs *rimage.AttrConfig, logger golog.Logger) (rimage.Aligner, rimage.Projector, error) {
 	var alignCamera rimage.Aligner
 	var projectCamera rimage.Projector
 
-	if attrs.Has("intrinsic_extrinsic") {
-		cam, err := transform.NewDepthColorIntrinsicsExtrinsics(attrs)
+	if attrs.IntrinsicExtrinsic != nil {
+		cam, err := transform.NewDepthColorIntrinsicsExtrinsics(*attrs)
 		if err != nil {
 			return nil, nil, err
 		}
 		alignCamera = cam
 		projectCamera = cam
-	} else if attrs.Has("homography") {
-		conf := attrs["homography"].(*transform.RawPinholeCameraHomography)
+	} else if attrs.Homography != nil {
+		conf := attrs.Homography.(*transform.RawPinholeCameraHomography)
 		cam, err := transform.NewPinholeCameraHomography(conf)
 		if err != nil {
 			return nil, nil, err
 		}
 		alignCamera = cam
 		projectCamera = cam
-	} else if attrs.Has("warp") {
-		conf := attrs["warp"].(*transform.AlignConfig)
+	} else if attrs.Warp != nil {
+		conf := attrs.Warp.(*transform.AlignConfig)
 		cam, err := transform.NewDepthColorWarpTransforms(conf, logger)
 		if err != nil {
 			return nil, nil, err
 		}
 		alignCamera = cam
 		projectCamera = cam
-	} else if attrs.Has("intrinsic") {
+	} else if attrs.Intrinsic != nil {
 		alignCamera = nil
-		projectCamera = attrs["intrinsic"].(*transform.PinholeCameraIntrinsics)
+		projectCamera = attrs.Intrinsic.(*transform.PinholeCameraIntrinsics)
 	} else { // default is no camera systems returned
 		return nil, nil, nil
 	}
@@ -146,7 +146,7 @@ type depthComposed struct {
 }
 
 // NewDepthComposed TODO
-func NewDepthComposed(color, depth gostream.ImageSource, attrs config.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
+func NewDepthComposed(color, depth gostream.ImageSource, attrs *rimage.AttrConfig, logger golog.Logger) (gostream.ImageSource, error) {
 	alignCamera, projectCamera, err := getCameraSystems(attrs, logger)
 	if err != nil {
 		return nil, err
@@ -155,7 +155,7 @@ func NewDepthComposed(color, depth gostream.ImageSource, attrs config.AttributeM
 		return nil, errors.New("missing camera system config")
 	}
 
-	return &depthComposed{color, depth, alignCamera, projectCamera, attrs.Bool("aligned", false), attrs.Bool("debug", false), logger}, nil
+	return &depthComposed{color, depth, alignCamera, projectCamera, attrs.Aligned, attrs.Debug, logger}, nil
 }
 
 // Close does nothing.

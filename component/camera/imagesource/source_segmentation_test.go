@@ -15,7 +15,7 @@ import (
 )
 
 type segmentationSourceTestHelper struct {
-	attrs  config.AttributeMap
+	attrs  rimage.AttrConfig
 	config segmentation.ObjectConfig
 }
 
@@ -23,7 +23,7 @@ func (h *segmentationSourceTestHelper) Process(t *testing.T, pCtx *rimage.Proces
 
 	ii := rimage.ConvertToImageWithDepth(img)
 	// align the images
-	is, err := NewDepthComposed(nil, nil, h.attrs, logger)
+	is, err := NewDepthComposed(nil, nil, &h.attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
 	dc, ok := is.(*depthComposed)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -60,11 +60,11 @@ func TestSegmentationSourceIntel(t *testing.T) {
 	config, err := config.Read(utils.ResolveFile("robots/configs/intel.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("front")
+	c := config.FindComponent("front").ConvertedAttributes.(*rimage.AttrConfig)
 	test.That(t, c, test.ShouldNotBeNil)
 
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/aligned_intel", "*.both.gz", true)
 	cfg := segmentation.ObjectConfig{50000, 500, 10.}
-	err = d.Process(t, &segmentationSourceTestHelper{c.Attributes, cfg})
+	err = d.Process(t, &segmentationSourceTestHelper{*c, cfg})
 	test.That(t, err, test.ShouldBeNil)
 }

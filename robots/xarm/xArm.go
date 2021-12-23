@@ -17,8 +17,13 @@ import (
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
+	"github.com/mitchellh/mapstructure"
 )
 
+// Used for converting config attributes
+type AttrConfig struct {
+	Host string `json:"host"`
+}
 type xArm struct {
 	dof      int
 	tid      uint16
@@ -48,6 +53,30 @@ func init() {
 			return NewxArm(ctx, config, logger, 7)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "xArm6", func(attributes config.AttributeMap) (interface{}, error) {
+		var conf AttrConfig
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+		if err != nil {
+			return nil, err
+		}
+		if err := decoder.Decode(attributes); err != nil {
+			return nil, err
+		}
+		return &conf, nil
+	}, &AttrConfig{})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "xArm7", func(attributes config.AttributeMap) (interface{}, error) {
+		var conf AttrConfig
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+		if err != nil {
+			return nil, err
+		}
+		if err := decoder.Decode(attributes); err != nil {
+			return nil, err
+		}
+		return &conf, nil
+	}, &AttrConfig{})
 }
 
 // XArmModel returns the kinematics model of the xArm, also has all Frame information.
@@ -62,7 +91,7 @@ func xArmModel(dof int) (*referenceframe.Model, error) {
 
 // NewxArm returns a new xArm with the specified dof
 func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof int) (arm.Arm, error) {
-	host := cfg.Attributes.String("host")
+	host := cfg.ConvertedAttributes.(*AttrConfig).Host
 	conn, err := net.Dial("tcp", host+":502")
 	if err != nil {
 		return nil, err

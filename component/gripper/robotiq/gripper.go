@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"github.com/mitchellh/mapstructure"
 
 	"go.viam.com/utils"
 
@@ -19,11 +20,32 @@ import (
 	"go.viam.com/core/robot"
 )
 
+const (
+	modelname = "robotiq"
+)
+
+// Used for converting config attributes
+type AttrConfig struct {
+	Host string `json:"host"`
+}
+
 func init() {
-	registry.RegisterComponent(gripper.Subtype, "robotiq", registry.Component{
+	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newGripper(ctx, config.Attributes.String("host"), logger)
+			return newGripper(ctx, config.ConvertedAttributes.(*AttrConfig).Host, logger)
 		}})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelname, func(attributes config.AttributeMap) (interface{}, error) {
+		var conf AttrConfig
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+		if err != nil {
+			return nil, err
+		}
+		if err := decoder.Decode(attributes); err != nil {
+			return nil, err
+		}
+		return &conf, nil
+	}, &AttrConfig{})
 }
 
 // robotiqGripper TODO

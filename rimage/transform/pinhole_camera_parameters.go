@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/config"
 	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/rimage"
 
@@ -87,14 +86,9 @@ func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 }
 
 // NewDepthColorIntrinsicsExtrinsics TODO
-func NewDepthColorIntrinsicsExtrinsics(attrs config.AttributeMap) (*DepthColorIntrinsicsExtrinsics, error) {
+func NewDepthColorIntrinsicsExtrinsics(attrs rimage.AttrConfig) (*DepthColorIntrinsicsExtrinsics, error) {
 	var matrices *DepthColorIntrinsicsExtrinsics
-
-	if attrs.Has("intrinsic_extrinsic") {
-		matrices = attrs["intrinsic_extrinsic"].(*DepthColorIntrinsicsExtrinsics)
-	} else {
-		return nil, errors.New("no camera config")
-	}
+	matrices = attrs.IntrinsicExtrinsic.(*DepthColorIntrinsicsExtrinsics)
 	return matrices, nil
 }
 
