@@ -8,11 +8,11 @@ import (
 
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/component/arm"
-	componentpb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/subtype"
+	"go.viam.com/rdk/component/arm"
+	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/subtype"
 )
 
 func init() {

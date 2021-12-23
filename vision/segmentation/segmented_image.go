@@ -4,7 +4,7 @@ import (
 	"image"
 	"image/color"
 
-	"go.viam.com/core/rimage"
+	"go.viam.com/rdk/rimage"
 
 	"github.com/lucasb-eyer/go-colorful"
 )

@@ -8,11 +8,11 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/config"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func createWorkingMotor() *inject.Motor {

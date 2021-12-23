@@ -7,18 +7,18 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/component/motor"
-	componentpb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/subtype"
+	"go.viam.com/rdk/component/motor"
+	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/subtype"
 
 	// all motor implementations should be imported here for
 	// registration availability
-	_ "go.viam.com/core/component/motor/fake"        // fake motor
-	_ "go.viam.com/core/component/motor/gpio"        // pi motor
-	_ "go.viam.com/core/component/motor/gpiostepper" // pi stepper motor
-	_ "go.viam.com/core/component/motor/tmcstepper"  // tmc stepper motor
+	_ "go.viam.com/rdk/component/motor/fake"        // fake motor
+	_ "go.viam.com/rdk/component/motor/gpio"        // pi motor
+	_ "go.viam.com/rdk/component/motor/gpiostepper" // pi stepper motor
+	_ "go.viam.com/rdk/component/motor/tmcstepper"  // tmc stepper motor
 )
 
 func init() {

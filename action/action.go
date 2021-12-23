@@ -8,7 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/robot"
 )
 
 // An Action is some high-level process that is performed on a robot.

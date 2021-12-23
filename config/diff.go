@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/utils/pexec"
 
-	functionvm "go.viam.com/core/function/vm"
+	functionvm "go.viam.com/rdk/function/vm"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 )

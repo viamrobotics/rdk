@@ -12,14 +12,14 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/config"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor/forcematrix"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor/forcematrix"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"

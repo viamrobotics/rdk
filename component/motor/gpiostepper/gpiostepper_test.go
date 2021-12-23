@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	fakeboard "go.viam.com/core/component/board/fake"
-	"go.viam.com/core/component/motor"
+	fakeboard "go.viam.com/rdk/component/board/fake"
+	"go.viam.com/rdk/component/motor"
 
 	"github.com/edaniels/golog"
 

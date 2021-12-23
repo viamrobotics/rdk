@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/vision/segmentation"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/vision/segmentation"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"image"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 )
 
 // resource and tutorial on mathematical morphology:

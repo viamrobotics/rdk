@@ -6,8 +6,8 @@ import (
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/rlog"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rlog"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

@@ -10,9 +10,9 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/config"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/config"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"

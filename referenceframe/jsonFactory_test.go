@@ -6,7 +6,7 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 )
 
 // Tests that yml files are properly parsed and correctly loaded into the model

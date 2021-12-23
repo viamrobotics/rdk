@@ -9,11 +9,11 @@ import (
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/spatialmath"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/spatialmath"
 
-	"go.viam.com/core/resource"
-	"go.viam.com/core/rlog"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 )
 
 // SubtypeName is a constant that identifies the component resource subtype string "imu"

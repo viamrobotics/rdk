@@ -4,11 +4,11 @@ import (
 	"math"
 	"testing"
 
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/component/v1"
-	frame "go.viam.com/core/referenceframe"
-	spatial "go.viam.com/core/spatialmath"
-	"go.viam.com/core/utils"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	frame "go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"

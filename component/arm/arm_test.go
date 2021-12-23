@@ -5,10 +5,10 @@ import (
 	"math"
 	"testing"
 
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/resource"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 
 	"go.viam.com/test"
 )

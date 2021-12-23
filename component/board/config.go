@@ -6,8 +6,8 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/config"
-	functionvm "go.viam.com/core/function/vm"
+	"go.viam.com/rdk/config"
+	functionvm "go.viam.com/rdk/function/vm"
 )
 
 // RegisterConfigAttributeConverter registers a board.Config converter.

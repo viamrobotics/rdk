@@ -8,16 +8,16 @@ import (
 
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/component/camera"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/subtype"
+	"go.viam.com/rdk/component/camera"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/subtype"
 
-	_ "go.viam.com/core/component/camera/fake"        // for camera
-	_ "go.viam.com/core/component/camera/gopro"       // for camera
-	_ "go.viam.com/core/component/camera/imagesource" // for camera
-	_ "go.viam.com/core/component/camera/velodyne"    // for camera
+	_ "go.viam.com/rdk/component/camera/fake"        // for camera
+	_ "go.viam.com/rdk/component/camera/gopro"       // for camera
+	_ "go.viam.com/rdk/component/camera/imagesource" // for camera
+	_ "go.viam.com/rdk/component/camera/velodyne"    // for camera
 )
 
 func init() {

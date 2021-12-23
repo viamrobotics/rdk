@@ -1,7 +1,7 @@
 package motionplan
 
 import (
-	spatial "go.viam.com/core/spatialmath"
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
 // Metric defines a distance function to be minimized by gradient descent algorithms

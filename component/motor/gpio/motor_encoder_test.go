@@ -8,12 +8,12 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/core/component/board"
-	fakeboard "go.viam.com/core/component/board/fake"
-	"go.viam.com/core/component/motor"
-	fakemotor "go.viam.com/core/component/motor/fake"
-	"go.viam.com/core/config"
-	"go.viam.com/core/rlog"
+	"go.viam.com/rdk/component/board"
+	fakeboard "go.viam.com/rdk/component/board/fake"
+	"go.viam.com/rdk/component/motor"
+	fakemotor "go.viam.com/rdk/component/motor/fake"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/rlog"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

@@ -6,8 +6,8 @@ import (
 
 	"github.com/golang/geo/r3"
 
-	frame "go.viam.com/core/referenceframe"
-	spatial "go.viam.com/core/spatialmath"
+	frame "go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
 // ConstraintInput contains all the information a constraint needs to determine validity for a movement.

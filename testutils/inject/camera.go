@@ -6,8 +6,8 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/camera"
-	"go.viam.com/core/pointcloud"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/pointcloud"
 )
 
 // Camera is an injected camera.

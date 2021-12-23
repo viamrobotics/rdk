@@ -5,8 +5,8 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/board"
-	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/rdk/component/board"
+	pb "go.viam.com/rdk/proto/api/v1"
 )
 
 // Board is an injected board.

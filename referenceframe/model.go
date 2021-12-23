@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"sync"
 
-	"go.viam.com/core/spatialmath"
+	"go.viam.com/rdk/spatialmath"
 
 	"go.uber.org/multierr"
 )

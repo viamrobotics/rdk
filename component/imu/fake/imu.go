@@ -6,13 +6,13 @@ import (
 
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/spatialmath"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/spatialmath"
 
-	"go.viam.com/core/component/imu"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/imu"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 
 	"github.com/edaniels/golog"
 )

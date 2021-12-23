@@ -7,7 +7,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 
-	spatial "go.viam.com/core/spatialmath"
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
 // World is the string "world", but made into an exported constant

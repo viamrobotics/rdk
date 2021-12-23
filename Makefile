@@ -24,7 +24,7 @@ binsetup:
 goformat:
 	go install golang.org/x/tools/cmd/goimports
 	gofmt -s -w .
-	`go env GOPATH`/bin/goimports -w -local=go.viam.com/core `go list -f '{{.Dir}}' ./... | grep -Ev "proto"`
+	`go env GOPATH`/bin/goimports -w -local=go.viam.com/rdk `go list -f '{{.Dir}}' ./... | grep -Ev "proto"`
 
 setup:
 	bash etc/setup.sh
@@ -44,7 +44,7 @@ buf:
 	buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
 	buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
 	go install golang.org/x/tools/cmd/goimports
-	`go env GOPATH`/bin/goimports -w -local=go.viam.com/core proto
+	`go env GOPATH`/bin/goimports -w -local=go.viam.com/rdk proto
 
 lint: goformat
 	buf lint
@@ -62,7 +62,7 @@ test:
 	./etc/test.sh
 
 testpi:
-	sudo go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/core/board/pi
+	sudo go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/rdk/board/pi
 
 dockerlocal:
 	docker build -f etc/Dockerfile.fortest --no-cache -t 'ghcr.io/viamrobotics/test:latest' .

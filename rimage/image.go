@@ -10,7 +10,7 @@ import (
 	"image"
 	"image/color"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 )
 
 // Image is like image.Image but it uses our Color type with a few more

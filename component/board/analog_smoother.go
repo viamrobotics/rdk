@@ -12,7 +12,7 @@ import (
 
 	goutils "go.viam.com/utils"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 )
 
 var errStopReading = errors.New("stop reading")

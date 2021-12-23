@@ -5,8 +5,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	functionvm "go.viam.com/core/function/vm"
-	"go.viam.com/core/robot"
+	functionvm "go.viam.com/rdk/function/vm"
+	"go.viam.com/rdk/robot"
 )
 
 // ExecutionResult is the result of executing a particular piece of code.

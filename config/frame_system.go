@@ -1,10 +1,10 @@
 package config
 
 import (
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/spatialmath"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"

@@ -6,7 +6,7 @@ import (
 	"image/color"
 	"math"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 
 	"github.com/golang/geo/r2"
 )

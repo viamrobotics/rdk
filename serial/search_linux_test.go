@@ -9,7 +9,7 @@ import (
 
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/core/usb"
+	"go.viam.com/rdk/usb"
 
 	"go.viam.com/test"
 )

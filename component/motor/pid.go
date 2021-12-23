@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/config"
+	"go.viam.com/rdk/config"
 )
 
 // A PID represent a PID controller

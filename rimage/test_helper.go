@@ -24,7 +24,7 @@ import (
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/core/pointcloud"
+	"go.viam.com/rdk/pointcloud"
 )
 
 //go:embed test_helper.html

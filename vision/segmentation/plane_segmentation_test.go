@@ -9,11 +9,11 @@ import (
 
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/core/config"
-	pc "go.viam.com/core/pointcloud"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/rimage/transform"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/config"
+	pc "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/utils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

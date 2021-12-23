@@ -9,8 +9,8 @@ import (
 
 	"github.com/edaniels/golog"
 
-	frame "go.viam.com/core/referenceframe"
-	spatial "go.viam.com/core/spatialmath"
+	frame "go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
 // SolvableFrameSystem wraps a FrameSystem to allow solving between frames of the frame system.

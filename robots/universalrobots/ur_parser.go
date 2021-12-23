@@ -11,7 +11,7 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 )
 
 // RobotModeData TODO

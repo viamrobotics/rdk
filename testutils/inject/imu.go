@@ -5,10 +5,10 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/spatialmath"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/spatialmath"
 
-	"go.viam.com/core/component/imu"
+	"go.viam.com/rdk/component/imu"
 )
 
 // IMU is an injected IMU.

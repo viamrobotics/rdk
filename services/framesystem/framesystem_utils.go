@@ -8,12 +8,12 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/gantry"
-	"go.viam.com/core/config"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/gantry"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 )
 
 // BuildFrameSystem uses a map of frames that describes the tree structure of the frame system to build a

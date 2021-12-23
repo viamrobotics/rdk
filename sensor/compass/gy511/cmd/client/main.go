@@ -11,8 +11,8 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/sensor/compass/gy511"
-	"go.viam.com/core/serial"
+	"go.viam.com/rdk/sensor/compass/gy511"
+	"go.viam.com/rdk/serial"
 
 	"go.uber.org/multierr"
 )

@@ -7,13 +7,13 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/config"
-	"go.viam.com/core/resource"
-	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/services/objectmanipulation"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
+	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/objectmanipulation"
+	"go.viam.com/rdk/testutils/inject"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"

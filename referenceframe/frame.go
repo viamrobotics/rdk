@@ -11,7 +11,7 @@ import (
 	"math"
 	"math/rand"
 
-	spatial "go.viam.com/core/spatialmath"
+	spatial "go.viam.com/rdk/spatialmath"
 
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"

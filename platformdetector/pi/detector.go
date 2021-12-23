@@ -6,5 +6,5 @@
 package pi
 
 import (
-	_ "go.viam.com/core/component/board/pi"
+	_ "go.viam.com/rdk/component/board/pi"
 )

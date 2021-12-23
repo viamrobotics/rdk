@@ -11,7 +11,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	functionvm "go.viam.com/core/function/vm"
+	functionvm "go.viam.com/rdk/function/vm"
 )
 
 // SortComponents sorts list of components topologically based off what other components they depend on.

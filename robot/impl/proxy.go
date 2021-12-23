@@ -9,12 +9,12 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/rlog"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/sensor/forcematrix"
-	"go.viam.com/core/sensor/gps"
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/sensor/compass"
+	"go.viam.com/rdk/sensor/forcematrix"
+	"go.viam.com/rdk/sensor/gps"
 )
 
 type proxyBase struct {

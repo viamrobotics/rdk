@@ -6,7 +6,7 @@ package forcematrix
 import (
 	"context"
 
-	"go.viam.com/core/sensor"
+	"go.viam.com/rdk/sensor"
 )
 
 // The forcematrix sensor sub-type

@@ -3,7 +3,7 @@ package chess
 import (
 	"image"
 
-	"go.viam.com/core/rimage"
+	"go.viam.com/rdk/rimage"
 
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"

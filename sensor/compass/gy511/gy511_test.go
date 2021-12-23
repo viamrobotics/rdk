@@ -8,8 +8,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/serial"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/serial"
+	"go.viam.com/rdk/testutils/inject"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

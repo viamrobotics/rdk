@@ -6,9 +6,9 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/config"
-	"go.viam.com/core/rlog"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/rlog"
 )
 
 func TestFakeBoard(t *testing.T) {

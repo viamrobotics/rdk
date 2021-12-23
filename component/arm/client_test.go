@@ -8,19 +8,19 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/component/arm"
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	componentpb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/subtype"
-	"go.viam.com/core/testutils"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/component/arm"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 
-	viamgrpc "go.viam.com/core/grpc"
+	viamgrpc "go.viam.com/rdk/grpc"
 )
 
 func TestClient(t *testing.T) {

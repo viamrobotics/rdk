@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/grpc/metadata/server"
-	pb "go.viam.com/core/proto/api/service/v1"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/grpc/metadata/server"
+	pb "go.viam.com/rdk/proto/api/service/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
 
 	"go.viam.com/test"
 )

@@ -20,14 +20,14 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/config"
-	"go.viam.com/core/motionplan"
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/component/v1"
-	frame "go.viam.com/core/referenceframe"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/motionplan"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 
 	"github.com/edaniels/golog"
 )

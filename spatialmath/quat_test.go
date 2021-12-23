@@ -8,7 +8,7 @@ import (
 
 	"gonum.org/v1/gonum/num/quat"
 
-	commonpb "go.viam.com/core/proto/api/common/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
 func TestAngleAxisConversion1(t *testing.T) {

@@ -3,8 +3,8 @@ package config
 import (
 	"encoding/json"
 
-	ref "go.viam.com/core/referenceframe"
-	spatial "go.viam.com/core/spatialmath"
+	ref "go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
 
 	"github.com/golang/geo/r3"
 )

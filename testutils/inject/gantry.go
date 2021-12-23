@@ -5,7 +5,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/gantry"
+	"go.viam.com/rdk/component/gantry"
 )
 
 // Gantry is an injected gantry.

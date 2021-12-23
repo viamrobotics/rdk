@@ -3,8 +3,8 @@ package motionplan
 import (
 	"context"
 
-	frame "go.viam.com/core/referenceframe"
-	spatial "go.viam.com/core/spatialmath"
+	frame "go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
 // goal contains a pose representing a location and orientation to try to reach, and the ID of the end

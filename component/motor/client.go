@@ -9,8 +9,8 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/core/grpc"
-	pb "go.viam.com/core/proto/api/component/v1"
+	"go.viam.com/rdk/grpc"
+	pb "go.viam.com/rdk/proto/api/component/v1"
 )
 
 // serviceClient is a client that satisfies the motor.proto contract

@@ -3,8 +3,8 @@ package chess
 import (
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/ml"
-	"go.viam.com/core/rimage"
+	"go.viam.com/rdk/ml"
+	"go.viam.com/rdk/rimage"
 )
 
 // The set of square colors.

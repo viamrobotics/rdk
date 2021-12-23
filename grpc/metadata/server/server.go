@@ -4,8 +4,8 @@ package server
 import (
 	"context"
 
-	"go.viam.com/core/metadata/service"
-	pb "go.viam.com/core/proto/api/service/v1"
+	"go.viam.com/rdk/metadata/service"
+	pb "go.viam.com/rdk/proto/api/service/v1"
 )
 
 // MetadataServer implements the contract from metadata.proto

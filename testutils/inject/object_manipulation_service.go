@@ -5,7 +5,7 @@ import (
 
 	"github.com/golang/geo/r3"
 
-	"go.viam.com/core/services/objectmanipulation"
+	"go.viam.com/rdk/services/objectmanipulation"
 )
 
 // ObjectManipulationService represents a fake instance of an object manipulation

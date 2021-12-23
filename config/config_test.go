@@ -10,15 +10,15 @@ import (
 
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/config"
-	functionvm "go.viam.com/core/function/vm"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/config"
+	functionvm "go.viam.com/rdk/function/vm"
+	"go.viam.com/rdk/testutils/inject"
 
-	_ "go.viam.com/core/component/board/fake" // board attribute converters
-	_ "go.viam.com/core/component/motor/fake" // motor attribute converters
-	_ "go.viam.com/core/robots/fake"          // attribute converters
+	_ "go.viam.com/rdk/component/board/fake" // board attribute converters
+	_ "go.viam.com/rdk/component/motor/fake" // motor attribute converters
+	_ "go.viam.com/rdk/robots/fake"          // attribute converters
 )
 
 func TestConfigRobot(t *testing.T) {

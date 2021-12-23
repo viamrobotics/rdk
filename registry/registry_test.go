@@ -6,13 +6,13 @@ import (
 
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/config"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/subtype"
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/subtype"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

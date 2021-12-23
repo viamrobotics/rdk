@@ -6,7 +6,7 @@ import (
 	"math"
 	"sort"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 
 	"github.com/pkg/errors"
 

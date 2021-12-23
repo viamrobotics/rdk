@@ -3,10 +3,10 @@ package motionplan
 import (
 	"math"
 
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/component/v1"
-	frame "go.viam.com/core/referenceframe"
-	"go.viam.com/core/spatialmath"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/floats"

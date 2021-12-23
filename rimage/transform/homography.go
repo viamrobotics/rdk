@@ -3,8 +3,8 @@ package transform
 import (
 	"image"
 
-	"go.viam.com/core/pointcloud"
-	"go.viam.com/core/rimage"
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/rimage"
 
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"

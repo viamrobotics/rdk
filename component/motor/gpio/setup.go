@@ -7,11 +7,11 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
 // init registers a pi motor based on pigpio.

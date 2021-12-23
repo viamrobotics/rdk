@@ -6,8 +6,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/sensor/compass"
+	"go.viam.com/rdk/testutils/inject"
 
 	"go.viam.com/test"
 )

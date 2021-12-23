@@ -6,13 +6,13 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/board"
-	fakeboard "go.viam.com/core/component/board/fake"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/component/motor/tmcstepper"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/component/board"
+	fakeboard "go.viam.com/rdk/component/board/fake"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/motor/tmcstepper"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/testutils/inject"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

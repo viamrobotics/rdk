@@ -9,12 +9,12 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
-	"go.viam.com/core/config"
-	"go.viam.com/core/motionplan"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/spatialmath"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 )
 
 const frameSystemName = "move_gripper"

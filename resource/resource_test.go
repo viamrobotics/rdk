@@ -6,8 +6,8 @@ import (
 	"github.com/google/uuid"
 	"go.viam.com/test"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/resource"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/resource"
 )
 
 func TestResourceType(t *testing.T) {

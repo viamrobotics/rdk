@@ -8,9 +8,9 @@ import (
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
-	"go.viam.com/core/config"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/rlog"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 )
 
 // SubtypeName is a constant that identifies the component resource subtype string "motor"

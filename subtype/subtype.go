@@ -4,7 +4,7 @@ package subtype
 import (
 	"sync"
 
-	"go.viam.com/core/resource"
+	"go.viam.com/rdk/resource"
 )
 
 // Service defines an service that holds and replaces resources

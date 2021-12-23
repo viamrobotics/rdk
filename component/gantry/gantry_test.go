@@ -3,7 +3,7 @@ package gantry
 import (
 	"testing"
 
-	"go.viam.com/core/resource"
+	"go.viam.com/rdk/resource"
 
 	"go.viam.com/test"
 )

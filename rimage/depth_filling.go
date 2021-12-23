@@ -8,7 +8,7 @@ import (
 	"github.com/muesli/clusters"
 	"github.com/muesli/kmeans"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 )
 
 // FillDepthMap finds regions of connected missing data, and for those below a certain size, fills them in with

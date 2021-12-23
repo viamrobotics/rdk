@@ -5,8 +5,8 @@ import (
 
 	"go.viam.com/test"
 
-	functionvm "go.viam.com/core/function/vm"
-	_ "go.viam.com/core/function/vm/engines/javascript"
+	functionvm "go.viam.com/rdk/function/vm"
+	_ "go.viam.com/rdk/function/vm/engines/javascript"
 )
 
 func TestFunctionConfigValidate(t *testing.T) {

@@ -8,12 +8,12 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/config"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/subtype"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/config"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func newServer() (pb.MotorServiceServer, *inject.Motor, *inject.Motor, error) {

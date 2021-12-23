@@ -6,7 +6,7 @@ import (
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/num/quat"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 )
 
 // OrientationVector containing ox, oy, oz, theta represents an orientation vector
