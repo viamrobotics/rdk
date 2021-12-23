@@ -26,7 +26,6 @@ jobs:
 
     - name: Configure git for private modules
       run: |
-        echo foo
         sudo -u testbot bash -lc "git config --global --unset-all url.ssh://git@github.com/.insteadOf"
         sudo -u testbot bash -lc "git config --global url.\"https://${{ secrets.GIT_ACCESS_TOKEN }}@github.com\".insteadOf \"https://github.com\""
 
