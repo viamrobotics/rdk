@@ -10,17 +10,16 @@ import (
 	"syscall"
 	"time"
 
-	"go.viam.com/utils"
-
-	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/vision/segmentation"
-
 	"github.com/disintegration/imaging"
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
 	"github.com/fogleman/gg"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
+
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 var (
@@ -36,7 +35,7 @@ func _getOutputfile() string {
 	return flag.Arg(2)
 }
 
-func shapeWalkLine(img *rimage.Image, startX, startY int) error {
+func shapeWalkLine(img *rimage.Image, startX, startY int) {
 	init := img.Get(image.Point{startX, startY})
 
 	mod := 0
@@ -55,7 +54,7 @@ func shapeWalkLine(img *rimage.Image, startX, startY int) error {
 
 		if diff > 12 {
 			init = hsv
-			mod = mod + 1
+			mod++
 		}
 
 		if mod%2 == 0 {
@@ -79,8 +78,6 @@ func shapeWalkLine(img *rimage.Image, startX, startY int) error {
 	}
 
 	rimage.WriteImageToFile(_getOutputfile(), dc.Image())
-
-	return nil
 }
 
 func view(img *rimage.Image) error {
@@ -119,7 +116,6 @@ func view(img *rimage.Image) error {
 }
 
 func main() {
-
 	xFlag = flag.Int("x", -1, "")
 	yFlag = flag.Int("y", -1, "")
 	debug = flag.Bool("debug", false, "")
@@ -156,7 +152,7 @@ func main() {
 			}
 		}
 	case "shapeWalkLine":
-		err = shapeWalkLine(img, *xFlag, *yFlag)
+		shapeWalkLine(img, *xFlag, *yFlag)
 	case "view":
 		err = view(img)
 	default:
@@ -166,5 +162,4 @@ func main() {
 	if err != nil {
 		panic(errors.Wrap(err, "error running command"))
 	}
-
 }

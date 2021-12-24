@@ -11,14 +11,14 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/v1"
 )
 
-// serviceClient is a client that satisfies the servo.proto contract
+// serviceClient is a client that satisfies the servo.proto contract.
 type serviceClient struct {
 	conn   rpc.ClientConn
 	client pb.ServoServiceClient
 	logger golog.Logger
 }
 
-// newServiceClient returns a new serviceClient served at the given address
+// newServiceClient returns a new serviceClient served at the given address.
 func newServiceClient(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (*serviceClient, error) {
 	conn, err := grpc.Dial(ctx, address, logger, opts...)
 	if err != nil {
@@ -39,12 +39,12 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 	return sc
 }
 
-// Close cleanly closes the underlying connections
+// Close cleanly closes the underlying connections.
 func (sc *serviceClient) Close() error {
 	return sc.conn.Close()
 }
 
-// client is a servo client
+// client is a servo client.
 type client struct {
 	*serviceClient
 	name string
@@ -71,8 +71,7 @@ func clientFromSvcClient(sc *serviceClient, name string) Servo {
 
 func (c *client) Move(ctx context.Context, angle uint8) error {
 	req := &pb.ServoServiceMoveRequest{AngleDeg: uint32(angle), Name: c.name}
-	_, err := c.client.Move(ctx, req)
-	if err != nil {
+	if _, err := c.client.Move(ctx, req); err != nil {
 		return err
 	}
 	return nil

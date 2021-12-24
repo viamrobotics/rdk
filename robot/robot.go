@@ -4,6 +4,7 @@ package robot
 import (
 	"context"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/base"
@@ -19,8 +20,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/sensor"
-
-	"github.com/edaniels/golog"
 )
 
 // A Robot encompasses all functionality of some robot comprised
@@ -123,7 +122,7 @@ type Robot interface {
 	Logger() golog.Logger
 
 	// Close attempts to cleanly close down all constituent parts of the robot.
-	Close() error
+	Close(ctx context.Context) error
 }
 
 // A Refresher can refresh the contents of a robot.
@@ -141,7 +140,7 @@ type LocalRobot interface {
 	Reconfigure(ctx context.Context, newConfig *config.Config) error
 }
 
-//AllResourcesByName returns an array of all resources that have this simple name
+// AllResourcesByName returns an array of all resources that have this simple name.
 func AllResourcesByName(r Robot, name string) []interface{} {
 	all := []interface{}{}
 

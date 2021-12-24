@@ -14,7 +14,7 @@ type Gantry struct {
 	CurrentPositionFunc func(ctx context.Context) ([]float64, error)
 	MoveToPositionFunc  func(ctx context.Context, positions []float64) error
 	LengthsFunc         func(ctx context.Context) ([]float64, error)
-	CloseFunc           func() error
+	CloseFunc           func(ctx context.Context) error
 }
 
 // CurrentPosition calls the injected CurrentPosition or the real version.
@@ -42,9 +42,9 @@ func (a *Gantry) Lengths(ctx context.Context) ([]float64, error) {
 }
 
 // Close calls the injected Close or the real version.
-func (a *Gantry) Close() error {
+func (a *Gantry) Close(ctx context.Context) error {
 	if a.CloseFunc == nil {
-		return utils.TryClose(a.Gantry)
+		return utils.TryClose(ctx, a.Gantry)
 	}
-	return a.CloseFunc()
+	return a.CloseFunc(ctx)
 }

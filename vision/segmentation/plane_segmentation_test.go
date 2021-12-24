@@ -7,6 +7,8 @@ import (
 	"math"
 	"testing"
 
+	"github.com/edaniels/golog"
+	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/config"
@@ -14,9 +16,6 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
-
-	"github.com/edaniels/golog"
-	"go.viam.com/test"
 )
 
 func init() {
@@ -26,23 +25,23 @@ func init() {
 func TestSegmentPlane(t *testing.T) {
 	// Intel Sensor Extrinsic data from manufacturer
 	// Intel sensor depth 1024x768 to  RGB 1280x720
-	//Translation Vector : [-0.000828434,0.0139185,-0.0033418]
-	//Rotation Matrix    : [0.999958,-0.00838489,0.00378392]
+	// Translation Vector : [-0.000828434,0.0139185,-0.0033418]
+	// Rotation Matrix    : [0.999958,-0.00838489,0.00378392]
 	//                   : [0.00824708,0.999351,0.0350734]
 	//                   : [-0.00407554,-0.0350407,0.999378]
 	// Intel sensor RGB 1280x720 to depth 1024x768
 	// Translation Vector : [0.000699992,-0.0140336,0.00285468]
-	//Rotation Matrix    : [0.999958,0.00824708,-0.00407554]
+	// Rotation Matrix    : [0.999958,0.00824708,-0.00407554]
 	//                   : [-0.00838489,0.999351,-0.0350407]
 	//                   : [0.00378392,0.0350734,0.999378]
 	// Intel sensor depth 1024x768 intrinsics
-	//Principal Point         : 542.078, 398.016
-	//Focal Length            : 734.938, 735.516
+	// Principal Point         : 542.078, 398.016
+	// Focal Length            : 734.938, 735.516
 	// get depth map
 	rgbd, err := rimage.ReadBothFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	m := rgbd.Depth
-	//rgb := rgbd.Color
+	// rgb := rgbd.Color
 
 	test.That(t, err, test.ShouldBeNil)
 
@@ -63,7 +62,7 @@ func TestSegmentPlane(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// assign gt plane equation - obtained from open3d library with the same parameters
 	gtPlaneEquation := make([]float64, 4)
-	//gtPlaneEquation =  0.02x + 1.00y + 0.09z + -1.12 = 0, obtained from Open3D
+	// gtPlaneEquation =  0.02x + 1.00y + 0.09z + -1.12 = 0, obtained from Open3D
 	gtPlaneEquation[0] = 0.02
 	gtPlaneEquation[1] = 1.0
 	gtPlaneEquation[2] = 0.09
@@ -78,7 +77,7 @@ func TestDepthMapToPointCloud(t *testing.T) {
 	rgbd, err := rimage.ReadBothFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	m := rgbd.Depth
-	//rgb := rgbd.Color
+	// rgb := rgbd.Color
 
 	test.That(t, err, test.ShouldBeNil)
 	pixel2meter := 0.001
@@ -147,7 +146,7 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 	rgbd, err := rimage.ReadBothFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
 	test.That(b, err, test.ShouldBeNil)
 	m := rgbd.Depth
-	//rgb := rgbd.Color
+	// rgb := rgbd.Color
 
 	// Pixel to Meter
 	pixel2meter := 0.001
@@ -215,7 +214,7 @@ func TestPointCloudSplit(t *testing.T) {
 	test.That(t, nonMapCloud, test.ShouldBeNil)
 }
 
-// Test finding the planes in an image with depth
+// Test finding the planes in an image with depth.
 type segmentTestHelper struct {
 	attrs        config.AttributeMap
 	cameraParams *transform.DepthColorIntrinsicsExtrinsics
@@ -228,6 +227,7 @@ func (h *segmentTestHelper) Process(
 	img image.Image,
 	logger golog.Logger,
 ) error {
+	t.Helper()
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 
@@ -263,7 +263,7 @@ func (h *segmentTestHelper) Process(
 
 	pCtx.GotDebugImage(segImage, "from-pointcloud")
 
-	//Informational histograms for voxel grid creation. This is useful for determining which lambda
+	// Informational histograms for voxel grid creation. This is useful for determining which lambda
 	// value to choose for the voxel grid plane segmentation.
 	voxelSize := 20.
 	lam := 8.0
@@ -307,7 +307,7 @@ func (h *segmentTestHelper) Process(
 }
 
 func TestPlaneSegmentImageWithDepth(t *testing.T) {
-	config, err := config.Read(utils.ResolveFile("robots/configs/intel.json"))
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front")
@@ -321,7 +321,7 @@ func TestPlaneSegmentImageWithDepth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-// testing out gripper plane segmentation
+// testing out gripper plane segmentation.
 type gripperPlaneTestHelper struct {
 	cameraParams *transform.DepthColorIntrinsicsExtrinsics
 }
@@ -333,6 +333,7 @@ func (h *gripperPlaneTestHelper) Process(
 	img image.Image,
 	logger golog.Logger,
 ) error {
+	t.Helper()
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
@@ -394,5 +395,4 @@ func TestGripperPlaneSegmentation(t *testing.T) {
 
 	err = d.Process(t, &gripperPlaneTestHelper{camera})
 	test.That(t, err, test.ShouldBeNil)
-
 }

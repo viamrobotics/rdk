@@ -6,8 +6,11 @@ import (
 	"image"
 	"time"
 
+	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-
+	"go.opencensus.io/trace"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
@@ -17,11 +20,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
-
-	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
-	"github.com/mitchellh/mapstructure"
-	"go.opencensus.io/trace"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -126,40 +125,51 @@ func getCameraSystems(attrs config.AttributeMap, logger golog.Logger) (rimage.Al
 	var alignCamera rimage.Aligner
 	var projectCamera rimage.Projector
 
-	if attrs.Has("intrinsic_extrinsic") {
+	switch {
+	case attrs.Has("intrinsic_extrinsic"):
 		cam, err := transform.NewDepthColorIntrinsicsExtrinsics(attrs)
 		if err != nil {
 			return nil, nil, err
 		}
 		alignCamera = cam
 		projectCamera = cam
-	} else if attrs.Has("homography") {
-		conf := attrs["homography"].(*transform.RawPinholeCameraHomography)
+	case attrs.Has("homography"):
+		conf, ok := attrs["homography"].(*transform.RawPinholeCameraHomography)
+		if !ok {
+			return nil, nil, rdkutils.NewUnexpectedTypeError(conf, attrs["homography"])
+		}
 		cam, err := transform.NewPinholeCameraHomography(conf)
 		if err != nil {
 			return nil, nil, err
 		}
 		alignCamera = cam
 		projectCamera = cam
-	} else if attrs.Has("warp") {
-		conf := attrs["warp"].(*transform.AlignConfig)
+	case attrs.Has("warp"):
+		conf, ok := attrs["warp"].(*transform.AlignConfig)
+		if !ok {
+			return nil, nil, rdkutils.NewUnexpectedTypeError(conf, attrs["warp"])
+		}
 		cam, err := transform.NewDepthColorWarpTransforms(conf, logger)
 		if err != nil {
 			return nil, nil, err
 		}
 		alignCamera = cam
 		projectCamera = cam
-	} else if attrs.Has("intrinsic") {
+	case attrs.Has("intrinsic"):
 		alignCamera = nil
-		projectCamera = attrs["intrinsic"].(*transform.PinholeCameraIntrinsics)
-	} else { // default is no camera systems returned
+		var ok bool
+		projectCamera, ok = attrs["intrinsic"].(*transform.PinholeCameraIntrinsics)
+		if !ok {
+			return nil, nil, rdkutils.NewUnexpectedTypeError(projectCamera, attrs["intrinsic"])
+		}
+	default: // default is no camera systems returned
 		return nil, nil, nil
 	}
 
 	return alignCamera, projectCamera, nil
 }
 
-// depthComposed TODO
+// depthComposed TODO.
 type depthComposed struct {
 	color, depth     gostream.ImageSource
 	alignmentCamera  rimage.Aligner
@@ -169,7 +179,7 @@ type depthComposed struct {
 	logger           golog.Logger
 }
 
-// NewDepthComposed TODO
+// NewDepthComposed TODO.
 func NewDepthComposed(color, depth gostream.ImageSource, attrs config.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
 	alignCamera, projectCamera, err := getCameraSystems(attrs, logger)
 	if err != nil {
@@ -182,13 +192,7 @@ func NewDepthComposed(color, depth gostream.ImageSource, attrs config.AttributeM
 	return &depthComposed{color, depth, alignCamera, projectCamera, attrs.Bool("aligned", false), attrs.Bool("debug", false), logger}, nil
 }
 
-// Close does nothing.
-func (dc *depthComposed) Close() error {
-	// TODO(erh): who owns these?
-	return nil
-}
-
-// Next TODO
+// Next TODO.
 func (dc *depthComposed) Next(ctx context.Context) (image.Image, func(), error) {
 	c, cCloser, err := dc.color.Next(ctx)
 	if err != nil {
@@ -234,5 +238,4 @@ func (dc *depthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 	aligned.SetProjector(dc.projectionCamera)
 
 	return aligned, func() {}, err
-
 }

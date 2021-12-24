@@ -3,13 +3,12 @@ package config_test
 import (
 	"testing"
 
+	"go.viam.com/test"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
-
-	"go.viam.com/test"
 )
 
 func TestComponentValidate(t *testing.T) {
@@ -123,7 +122,6 @@ func TestComponentResourceName(t *testing.T) {
 			rName := tc.Config.ResourceName()
 			test.That(t, rName.Subtype, test.ShouldResemble, tc.ExpectedSubtype)
 			test.That(t, rName, test.ShouldResemble, tc.ExpectedName)
-
 		})
 	}
 }

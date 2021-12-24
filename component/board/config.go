@@ -76,7 +76,7 @@ func (config *SPIConfig) Validate(path string) error {
 	return nil
 }
 
-// I2CConfig enumerates a specific, shareable I2C bus
+// I2CConfig enumerates a specific, shareable I2C bus.
 type I2CConfig struct {
 	Name string `json:"name"`
 	Bus  string `json:"bus"`

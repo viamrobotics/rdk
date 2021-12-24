@@ -12,9 +12,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-
 	"go.uber.org/multierr"
-
 	"go.viam.com/utils"
 )
 
@@ -42,6 +40,7 @@ func ReadBothFromFile(fn string, isAligned bool) (*ImageWithDepth, error) {
 		return nil, errors.New("bad extension")
 	}
 
+	//nolint:gosec
 	f, err := os.Open(fn)
 	if err != nil {
 		return nil, err
@@ -56,7 +55,6 @@ func ReadBothFromFile(fn string, isAligned bool) (*ImageWithDepth, error) {
 	defer utils.UncheckedErrorFunc(in.Close)
 
 	allData, err := ioutil.ReadAll(in)
-
 	if err != nil {
 		return nil, err
 	}

@@ -282,8 +282,8 @@ github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19 h1:H1ItaK5N1m
 github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19/go.mod h1:i/zcokIKs893VZA41BS8jTOHW23PlqiiZEa7Y+4Nujk=
 github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e h1:K3N0Zm7JySHjvThqKBWO294ZnEPUK2W3os647RVTJB8=
 github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e/go.mod h1:nsP/KxpaFaTriZlxPlULlPKf7F3LS0J4BgoxZN8QJAU=
-github.com/edaniels/gostream v0.0.0-20211223221958-ee283e4421b9 h1:2JhHiLY26Uh/t9NRT+zVYcNQW/tw2qTi9xG8zY594Xo=
-github.com/edaniels/gostream v0.0.0-20211223221958-ee283e4421b9/go.mod h1:L3ZZS3dxZExzyLz/mOOIrY0d1UJ2GttiD24J1jrinvg=
+github.com/edaniels/gostream v0.0.0-20211225195313-3bb0ae1f64f3 h1:cg9GbCZF97xsTYntFT3JH03yViLuNePfVuq+OH4f5sI=
+github.com/edaniels/gostream v0.0.0-20211225195313-3bb0ae1f64f3/go.mod h1:UxxBFRMY/b7e3H/aK5aOmesq7Xdzl0DEq+woyULVvG4=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de h1:JuF74jzC/jNopROh0Ay1d9APtx00FWXqMwtvaXhoE+4=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de/go.mod h1:PUN/9/bIMWq8Ej+fmb+QVoPdIYF/j68ziImrVKxnOw0=
 github.com/edsrzf/mmap-go v0.0.0-20170320065105-0bce6a688712/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaBNrHW5M=
@@ -1438,9 +1438,9 @@ go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4 h1:YG1xrvr+VkEifpj4tmxp
 go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4/go.mod h1:bVVm3GcP8koFgCYKWJkCU0r+lkOvTQLeLaFcw8AFghE=
 go.viam.com/test v1.1.0 h1:KXf8crEwt0bHn5iMsjmXg0vPio/yzKGrfd20sWhe/t4=
 go.viam.com/test v1.1.0/go.mod h1:iULewngKZCHSB2QJa1xGSR6+0ICZIHbEfTUGqw0blLs=
-go.viam.com/utils v0.0.3-0.20211223220601-81068ae2b482/go.mod h1:jWmWKcIXubJqpAJjwtqLNPf0Ltz5gjkpYjziOe55HNo=
-go.viam.com/utils v0.0.3-0.20211224204201-d25a512ed756 h1:xSSw7Un4Ici9twBaOxxof8F5UnhQwUu4voDtlBCrK0I=
-go.viam.com/utils v0.0.3-0.20211224204201-d25a512ed756/go.mod h1:jWmWKcIXubJqpAJjwtqLNPf0Ltz5gjkpYjziOe55HNo=
+go.viam.com/utils v0.0.3-0.20211225194534-a079867a052e/go.mod h1:jWmWKcIXubJqpAJjwtqLNPf0Ltz5gjkpYjziOe55HNo=
+go.viam.com/utils v0.0.3-0.20211226001759-543fa99d69b4 h1:i7NYT1Nfp7iFu2ckH7j6La5i+Ut3HgJEkaazJyD43jg=
+go.viam.com/utils v0.0.3-0.20211226001759-543fa99d69b4/go.mod h1:jWmWKcIXubJqpAJjwtqLNPf0Ltz5gjkpYjziOe55HNo=
 go4.org v0.0.0-20180809161055-417644f6feb5/go.mod h1:MkTOUMDaeVYJUOUsaDXIhWPZYa1yOyC1qaOBpL57BhE=
 gocloud.dev v0.19.0/go.mod h1:SmKwiR8YwIMMJvQBKLsC3fHNyMwXLw3PMDO+VVteJMI=
 gocv.io/x/gocv v0.25.0/go.mod h1:Rar2PS6DV+T4FL+PM535EImD/h13hGVaHhnCu1xarBs=

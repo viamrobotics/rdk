@@ -1,12 +1,12 @@
 package config
 
 import (
+	"context"
 	"time"
-
-	"go.viam.com/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/fsnotify/fsnotify"
+	"go.viam.com/utils"
 )
 
 // A Watcher is responsible for watching for changes
@@ -14,20 +14,19 @@ import (
 // to some destination.
 type Watcher interface {
 	Config() <-chan *Config
-	Close() error
 }
 
 // NewWatcher returns an optimally selected Watcher based on the
 // given config.
-func NewWatcher(config *Config, logger golog.Logger) (Watcher, error) {
+func NewWatcher(ctx context.Context, config *Config, logger golog.Logger) (Watcher, error) {
 	if err := config.Ensure(false); err != nil {
 		return nil, err
 	}
 	if config.Cloud != nil {
-		return newCloudWatcher(config.Cloud, logger), nil
+		return newCloudWatcher(ctx, config.Cloud, logger), nil
 	}
 	if config.ConfigFilePath != "" {
-		return newFSWatcher(config.ConfigFilePath, logger)
+		return newFSWatcher(ctx, config.ConfigFilePath, logger)
 	}
 	return noopWatcher{}, nil
 }
@@ -36,15 +35,15 @@ func NewWatcher(config *Config, logger golog.Logger) (Watcher, error) {
 type cloudWatcher struct {
 	configCh      chan *Config
 	watcherDoneCh chan struct{}
-	killCh        chan struct{}
+	cancel        func()
 }
 
 // newCloudWatcher returns a cloudWatcher that will periodically fetch
 // new configs from the cloud.
-func newCloudWatcher(config *Cloud, logger golog.Logger) *cloudWatcher {
+func newCloudWatcher(ctx context.Context, config *Cloud, logger golog.Logger) *cloudWatcher {
 	configCh := make(chan *Config)
 	watcherDoneCh := make(chan struct{})
-	killCh := make(chan struct{})
+	cancelCtx, cancel := context.WithCancel(ctx)
 
 	// TODO(https://github.com/viamrobotics/rdk/issues/45): in the future when the web app
 	// supports gRPC streams, use that instead for pushed config updates;
@@ -52,20 +51,18 @@ func newCloudWatcher(config *Cloud, logger golog.Logger) *cloudWatcher {
 	ticker := time.NewTicker(config.RefreshInterval)
 	utils.ManagedGo(func() {
 		for {
-			select {
-			case <-killCh:
+			if !utils.SelectContextOrWait(cancelCtx, config.RefreshInterval) {
 				return
-			case <-ticker.C:
-				newConfig, err := ReadFromCloud(config, false)
-				if err != nil {
-					logger.Errorw("error reading cloud config", "error", err)
-					continue
-				}
-				select {
-				case <-killCh:
-					return
-				case configCh <- newConfig:
-				}
+			}
+			newConfig, err := ReadFromCloud(cancelCtx, config, false)
+			if err != nil {
+				logger.Errorw("error reading cloud config", "error", err)
+				continue
+			}
+			select {
+			case <-cancelCtx.Done():
+				return
+			case configCh <- newConfig:
 			}
 		}
 	}, func() {
@@ -75,7 +72,7 @@ func newCloudWatcher(config *Cloud, logger golog.Logger) *cloudWatcher {
 	return &cloudWatcher{
 		configCh:      configCh,
 		watcherDoneCh: watcherDoneCh,
-		killCh:        killCh,
+		cancel:        cancel,
 	}
 }
 
@@ -83,10 +80,9 @@ func (w *cloudWatcher) Config() <-chan *Config {
 	return w.configCh
 }
 
-func (w *cloudWatcher) Close() error {
-	close(w.killCh)
+func (w *cloudWatcher) Close() {
+	w.cancel()
 	<-w.watcherDoneCh
-	return nil
 }
 
 // A fsConfigWatcher fetches new configs from an underlying file when written to.
@@ -94,12 +90,12 @@ type fsConfigWatcher struct {
 	fsWatcher     *fsnotify.Watcher
 	configCh      chan *Config
 	watcherDoneCh chan struct{}
-	killCh        chan struct{}
+	cancel        func()
 }
 
 // newFSWatcher returns a new v that will fetch new configs
 // as soon as the underlying file is written to.
-func newFSWatcher(configPath string, logger golog.Logger) (*fsConfigWatcher, error) {
+func newFSWatcher(ctx context.Context, configPath string, logger golog.Logger) (*fsConfigWatcher, error) {
 	fsWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -109,21 +105,24 @@ func newFSWatcher(configPath string, logger golog.Logger) (*fsConfigWatcher, err
 	}
 	configCh := make(chan *Config)
 	watcherDoneCh := make(chan struct{})
-	killCh := make(chan struct{})
+	cancelCtx, cancel := context.WithCancel(ctx)
 	utils.ManagedGo(func() {
 		for {
+			if cancelCtx.Err() != nil {
+				return
+			}
 			select {
-			case <-killCh:
+			case <-cancelCtx.Done():
 				return
 			case event := <-fsWatcher.Events:
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					newConfig, err := Read(configPath)
+					newConfig, err := Read(cancelCtx, configPath)
 					if err != nil {
 						logger.Errorw("error reading config after write", "error", err)
 						continue
 					}
 					select {
-					case <-killCh:
+					case <-cancelCtx.Done():
 						return
 					case configCh <- newConfig:
 					}
@@ -137,7 +136,7 @@ func newFSWatcher(configPath string, logger golog.Logger) (*fsConfigWatcher, err
 		fsWatcher:     fsWatcher,
 		configCh:      configCh,
 		watcherDoneCh: watcherDoneCh,
-		killCh:        killCh,
+		cancel:        cancel,
 	}, nil
 }
 
@@ -146,19 +145,14 @@ func (w *fsConfigWatcher) Config() <-chan *Config {
 }
 
 func (w *fsConfigWatcher) Close() error {
-	close(w.killCh)
+	w.cancel()
 	<-w.watcherDoneCh
 	return w.fsWatcher.Close()
 }
 
 // A noopWatcher does nothing.
-type noopWatcher struct {
-}
+type noopWatcher struct{}
 
 func (w noopWatcher) Config() <-chan *Config {
-	return nil
-}
-
-func (w noopWatcher) Close() error {
 	return nil
 }

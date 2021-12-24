@@ -10,15 +10,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/action"
-	webserver "go.viam.com/rdk/web/server"
-
 	componentpb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/robot"
-
-	"github.com/edaniels/golog"
+	webserver "go.viam.com/rdk/web/server"
 )
 
 var (
@@ -70,9 +68,8 @@ func init() {
 	})
 }
 
-// ResetBox will dump the playing field,
+// ResetBox will dump the playing field,.
 func ResetBox(ctx context.Context, theRobot robot.Robot) error {
-
 	waitForResetReady(ctx, theRobot)
 
 	rArm, ok := theRobot.ArmByName(armName)
@@ -104,7 +101,7 @@ func ResetBox(ctx context.Context, theRobot robot.Robot) error {
 }
 
 // toggleTrigger will set the pin on which the arduino listens to high for 100ms, then back to low, to signal that the
-// arduino should proceed with whatever the next step
+// arduino should proceed with whatever the next step.
 func toggleTrigger(ctx context.Context, theRobot robot.Robot) error {
 	resetBoard, ok := theRobot.BoardByName(boardName)
 	if !ok {

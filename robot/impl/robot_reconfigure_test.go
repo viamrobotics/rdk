@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
+	"go.viam.com/test"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
@@ -16,16 +17,13 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robots/fake"
-
-	"github.com/edaniels/golog"
-	"go.viam.com/test"
-
 	rdktestutils "go.viam.com/rdk/testutils"
 )
 
 func TestRobotReconfigure(t *testing.T) {
 	ConfigFromFile := func(t *testing.T, filePath string) *config.Config {
-		conf, err := config.Read(filePath)
+		t.Helper()
+		conf, err := config.Read(context.Background(), filePath)
 		test.That(t, err, test.ShouldBeNil)
 		return conf
 	}
@@ -57,7 +55,7 @@ func TestRobotReconfigure(t *testing.T) {
 		robot, err := New(ctx, conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
-			test.That(t, robot.Close(), test.ShouldBeNil)
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 		test.That(t, len(svc.All()), test.ShouldEqual, 6)
 		rCopy := make([]resource.Name, 6)
@@ -169,7 +167,7 @@ func TestRobotReconfigure(t *testing.T) {
 		robot, err := New(ctx, emptyConf, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
-			test.That(t, robot.Close(), test.ShouldBeNil)
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 		test.That(t, len(svc.All()), test.ShouldEqual, 1)
 
@@ -256,7 +254,7 @@ func TestRobotReconfigure(t *testing.T) {
 		robot, err := New(context.Background(), conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
-			test.That(t, robot.Close(), test.ShouldBeNil)
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
 		armNames := []resource.Name{arm.Named("arm1")}
@@ -355,7 +353,7 @@ func TestRobotReconfigure(t *testing.T) {
 		robot, err := New(context.Background(), conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
-			test.That(t, robot.Close(), test.ShouldBeNil)
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
 		armNames := []resource.Name{arm.Named("arm1")}
@@ -441,7 +439,7 @@ func TestRobotReconfigure(t *testing.T) {
 		robot, err := New(context.Background(), conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
-			test.That(t, robot.Close(), test.ShouldBeNil)
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
 		armNames := []resource.Name{arm.Named("arm1")}
@@ -564,7 +562,7 @@ func TestRobotReconfigure(t *testing.T) {
 		robot, err := New(context.Background(), conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
-			test.That(t, robot.Close(), test.ShouldBeNil)
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
 		armNames := []resource.Name{arm.Named("arm1")}
@@ -701,7 +699,7 @@ func TestRobotReconfigure(t *testing.T) {
 		robot, err := New(context.Background(), conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
-			test.That(t, robot.Close(), test.ShouldBeNil)
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
 		armNames := []resource.Name{arm.Named("arm1")}
@@ -825,7 +823,7 @@ func TestRobotReconfigure(t *testing.T) {
 		robot, err := New(context.Background(), conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
-			test.That(t, robot.Close(), test.ShouldBeNil)
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
 		armNames := []resource.Name{arm.Named("arm1")}
@@ -947,12 +945,12 @@ type mockFake struct {
 	reconfCount int
 }
 
-func (m *mockFake) Reconfigure(newResource resource.Reconfigurable) error {
-	new, ok := newResource.(*mockFake)
+func (m *mockFake) Reconfigure(ctx context.Context, newResource resource.Reconfigurable) error {
+	res, ok := newResource.(*mockFake)
 	if !ok {
 		return errors.Errorf("expected new arm to be %T but got %T", m, newResource)
 	}
-	m.x = new.x
+	m.x = res.x
 	m.reconfCount++
 	return nil
 }

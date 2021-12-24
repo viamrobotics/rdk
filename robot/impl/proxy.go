@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	geo "github.com/kellydunn/golang-geo"
-
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/base"
@@ -58,20 +57,20 @@ func (p *proxyBase) WidthMillis(ctx context.Context) (int, error) {
 	return p.actual.WidthMillis(ctx)
 }
 
-func (p *proxyBase) Close() error {
+func (p *proxyBase) Close(ctx context.Context) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return utils.TryClose(p.actual)
+	return utils.TryClose(ctx, p.actual)
 }
 
-func (p *proxyBase) replace(newBase base.Base) {
+func (p *proxyBase) replace(ctx context.Context, newBase base.Base) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	actual, ok := newBase.(*proxyBase)
 	if !ok {
 		panic(fmt.Errorf("expected new base to be %T but got %T", actual, newBase))
 	}
-	if err := utils.TryClose(p.actual); err != nil {
+	if err := utils.TryClose(ctx, p.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	p.actual = actual.actual
@@ -100,20 +99,20 @@ func (p *proxySensor) Desc() sensor.Description {
 	return p.actual.Desc()
 }
 
-func (p *proxySensor) Close() error {
+func (p *proxySensor) Close(ctx context.Context) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return utils.TryClose(p.actual)
+	return utils.TryClose(ctx, p.actual)
 }
 
-func (p *proxySensor) replace(newSensor sensor.Sensor) {
+func (p *proxySensor) replace(ctx context.Context, newSensor sensor.Sensor) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	actual, ok := newSensor.(*proxySensor)
 	if !ok {
 		panic(fmt.Errorf("expected new sensor to be %T but got %T", actual, newSensor))
 	}
-	if err := utils.TryClose(p.actual); err != nil {
+	if err := utils.TryClose(ctx, p.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	p.actual = actual.actual
@@ -153,14 +152,14 @@ func (p *proxyCompass) StopCalibration(ctx context.Context) error {
 	return p.actual.StopCalibration(ctx)
 }
 
-func (p *proxyCompass) replace(newSensor sensor.Sensor) {
+func (p *proxyCompass) replace(ctx context.Context, newSensor sensor.Sensor) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	actual, ok := newSensor.(*proxyCompass)
 	if !ok {
 		panic(fmt.Errorf("expected new compass to be %T but got %T", actual, newSensor))
 	}
-	if err := utils.TryClose(p.actual); err != nil {
+	if err := utils.TryClose(ctx, p.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	p.actual = actual.actual
@@ -189,14 +188,14 @@ func (p *proxyRelativeCompass) Mark(ctx context.Context) error {
 	return p.actual.Mark(ctx)
 }
 
-func (p *proxyRelativeCompass) replace(newSensor sensor.Sensor) {
+func (p *proxyRelativeCompass) replace(ctx context.Context, newSensor sensor.Sensor) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	actual, ok := newSensor.(*proxyRelativeCompass)
 	if !ok {
 		panic(fmt.Errorf("expected new compass to be %T but got %T", actual, newSensor))
 	}
-	if err := utils.TryClose(p.actual); err != nil {
+	if err := utils.TryClose(ctx, p.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	p.actual = actual.actual
@@ -250,14 +249,14 @@ func (p *proxyGPS) Valid(ctx context.Context) (bool, error) {
 	return p.actual.Valid(ctx)
 }
 
-func (p *proxyGPS) replace(newSensor sensor.Sensor) {
+func (p *proxyGPS) replace(ctx context.Context, newSensor sensor.Sensor) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	actual, ok := newSensor.(*proxyGPS)
 	if !ok {
 		panic(fmt.Errorf("expected new gps to be %T but got %T", actual, newSensor))
 	}
-	if err := utils.TryClose(p.actual); err != nil {
+	if err := utils.TryClose(ctx, p.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	p.actual = actual.actual
@@ -298,14 +297,14 @@ func (p *proxyForceMatrix) IsSlipping(ctx context.Context) (bool, error) {
 	return p.actual.IsSlipping(ctx)
 }
 
-func (p *proxyForceMatrix) replace(newSensor sensor.Sensor) {
+func (p *proxyForceMatrix) replace(ctx context.Context, newSensor sensor.Sensor) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	actual, ok := newSensor.(*proxyForceMatrix)
 	if !ok {
 		panic(fmt.Errorf("expected new forcematrix to be %T but got %T", actual, newSensor))
 	}
-	if err := utils.TryClose(p.actual); err != nil {
+	if err := utils.TryClose(ctx, p.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	p.actual = actual.actual

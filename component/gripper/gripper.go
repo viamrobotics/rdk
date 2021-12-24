@@ -13,17 +13,17 @@ import (
 	"go.viam.com/rdk/rlog"
 )
 
-// SubtypeName is a constant that identifies the component resource subtype string
+// SubtypeName is a constant that identifies the component resource subtype string.
 const SubtypeName = resource.SubtypeName("gripper")
 
-// Subtype is a constant that identifies the component resource subtype
+// Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeComponent,
 	SubtypeName,
 )
 
-// Named is a helper for getting the named grippers's typed resource name
+// Named is a helper for getting the named grippers's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewFromSubtype(Subtype, name)
 }
@@ -40,7 +40,7 @@ type Gripper interface {
 	referenceframe.ModelFramer
 }
 
-// WrapWithReconfigurable wraps a gripper with a reconfigurable and locking interface
+// WrapWithReconfigurable wraps a gripper with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	g, ok := r.(Gripper)
 	if !ok {
@@ -80,22 +80,22 @@ func (g *reconfigurableGripper) Grab(ctx context.Context) (bool, error) {
 	return g.actual.Grab(ctx)
 }
 
-// Reconfigure reconfigures the resource
-func (g *reconfigurableGripper) Reconfigure(newGripper resource.Reconfigurable) error {
+// Reconfigure reconfigures the resource.
+func (g *reconfigurableGripper) Reconfigure(ctx context.Context, newGripper resource.Reconfigurable) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	actual, ok := newGripper.(*reconfigurableGripper)
 	if !ok {
 		return errors.Errorf("expected new gripper to be %T but got %T", g, newGripper)
 	}
-	if err := viamutils.TryClose(g.actual); err != nil {
+	if err := viamutils.TryClose(ctx, g.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	g.actual = actual.actual
 	return nil
 }
 
-func (g *reconfigurableGripper) ModelFrame() *referenceframe.Model {
+func (g *reconfigurableGripper) ModelFrame() referenceframe.Model {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.actual.ModelFrame()

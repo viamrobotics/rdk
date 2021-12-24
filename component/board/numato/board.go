@@ -14,20 +14,18 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/edaniels/golog"
+	goserial "github.com/jacobsa/go-serial/serial"
 	"go.uber.org/multierr"
-
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
+	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/serial"
-
-	pb "go.viam.com/rdk/proto/api/v1"
-
-	"github.com/edaniels/golog"
-	goserial "github.com/jacobsa/go-serial/serial"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const modelName = "numato"
@@ -44,7 +42,10 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			conf := config.ConvertedAttributes.(*board.Config)
+			conf, ok := config.ConvertedAttributes.(*board.Config)
+			if !ok {
+				return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
+			}
 
 			if len(conf.DigitalInterrupts) != 0 {
 				return nil, errors.New("digital interrupts unsupported")
@@ -63,7 +64,7 @@ func init() {
 
 type mask []byte
 
-// numato uses a weird bit mask for setting some variables on the firmware
+// numato uses a weird bit mask for setting some variables on the firmware.
 func newMask(bits int) mask {
 	m := mask{}
 	for bits >= 8 {
@@ -297,8 +298,7 @@ func (b *numatoBoard) ModelAttributes() board.ModelAttributes {
 
 func (b *numatoBoard) Close() error {
 	atomic.AddInt32(&b.closed, 1)
-	err := b.port.Close()
-	if err != nil {
+	if err := b.port.Close(); err != nil {
 		return err
 	}
 	return nil

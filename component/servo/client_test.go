@@ -7,10 +7,9 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-
-	"go.viam.com/test"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/servo"
@@ -103,6 +102,6 @@ func TestClient(t *testing.T) {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
-	test.That(t, utils.TryClose(workingServoClient), test.ShouldBeNil)
-	test.That(t, utils.TryClose(failingServoClient), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), workingServoClient), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), failingServoClient), test.ShouldBeNil)
 }

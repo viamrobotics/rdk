@@ -1,3 +1,4 @@
+// Package fake implements a fake servo.
 package fake
 
 import (
@@ -15,7 +16,8 @@ func init() {
 	registry.RegisterComponent(servo.Subtype, "fake", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return &Servo{Name: config.Name}, nil
-		}})
+		},
+	})
 }
 
 // A Servo allows setting and reading a single angle.

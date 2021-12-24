@@ -19,13 +19,13 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Depth TODO
+// Depth TODO.
 type Depth uint16
 
-// MaxDepth TODO
+// MaxDepth TODO.
 const MaxDepth = Depth(math.MaxUint16)
 
-// DepthMap TODO
+// DepthMap TODO.
 type DepthMap struct {
 	width  int
 	height int
@@ -37,58 +37,58 @@ func (dm *DepthMap) kxy(x, y int) int {
 	return (y * dm.width) + x
 }
 
-// Width TODO
+// Width TODO.
 func (dm *DepthMap) Width() int {
 	return dm.width
 }
 
-// Height TODO
+// Height TODO.
 func (dm *DepthMap) Height() int {
 	return dm.height
 }
 
-// Bounds TODO
+// Bounds TODO.
 func (dm *DepthMap) Bounds() image.Rectangle {
 	return image.Rect(0, 0, dm.width, dm.height)
 }
 
-// Get TODO
+// Get TODO.
 func (dm *DepthMap) Get(p image.Point) Depth {
 	return dm.data[dm.kxy(p.X, p.Y)]
 }
 
-// GetDepth TODO
+// GetDepth TODO.
 func (dm *DepthMap) GetDepth(x, y int) Depth {
 	return dm.data[dm.kxy(x, y)]
 }
 
-// Set TODO
+// Set TODO.
 func (dm *DepthMap) Set(x, y int, val Depth) {
 	dm.data[dm.kxy(x, y)] = val
 }
 
-// Contains returns whether or not a point is within bounds of the depth map
+// Contains returns whether or not a point is within bounds of the depth map.
 func (dm *DepthMap) Contains(x, y int) bool {
 	return x >= 0 && y >= 0 && x < dm.width && y < dm.height
 }
 
-// At returns the depth value as a color.Color so DepthMap can implement image.Image
+// At returns the depth value as a color.Color so DepthMap can implement image.Image.
 func (dm *DepthMap) At(x, y int) color.Color {
 	return color.Gray16{uint16(dm.GetDepth(x, y))}
 }
 
-// ColorModel for DepthMap so that it implements image.Image
+// ColorModel for DepthMap so that it implements image.Image.
 func (dm *DepthMap) ColorModel() color.Model { return &TheDepthModel{} }
 
-// TheDepthModel is the color model used to convert other colors to its own color
+// TheDepthModel is the color model used to convert other colors to its own color.
 type TheDepthModel struct{}
 
-// Convert will use the Gray16 model as a stand-in for the depth model
+// Convert will use the Gray16 model as a stand-in for the depth model.
 func (tdm *TheDepthModel) Convert(c color.Color) color.Color {
 	return color.Gray16Model.Convert(c)
 }
 
-// SubImage TODO
+// SubImage TODO.
 func (dm *DepthMap) SubImage(r image.Rectangle) DepthMap {
 	xmin, xmax := utils.MinInt(dm.width, r.Min.X), utils.MinInt(dm.width, r.Max.X)
 	ymin, ymax := utils.MinInt(dm.height, r.Min.Y), utils.MinInt(dm.height, r.Max.Y)
@@ -120,6 +120,7 @@ func _readNext(r io.Reader) (int64, error) {
 func ParseDepthMap(fn string) (*DepthMap, error) {
 	var f io.Reader
 
+	//nolint:gosec
 	f, err := os.Open(fn)
 	if err != nil {
 		return nil, err
@@ -203,7 +204,7 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 	if err != nil {
 		return nil, err
 	}
-	units = units * 1000 // meters to millis
+	units *= 1000 // meters to millis
 
 	widthString, err := r.ReadString('\n')
 	if err != nil {
@@ -252,7 +253,6 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 			}
 
 			dm.Set(x, y, Depth(units*float64(binary.LittleEndian.Uint16(temp))))
-
 		}
 	}
 
@@ -356,7 +356,7 @@ func (dm *DepthMap) WriteTo(out io.Writer) (int64, error) {
 	return totalN, nil
 }
 
-// MinMax TODO
+// MinMax TODO.
 func (dm *DepthMap) MinMax() (Depth, Depth) {
 	min := MaxDepth
 	max := Depth(0)
@@ -382,7 +382,6 @@ func (dm *DepthMap) MinMax() (Depth, Depth) {
 // ToGray16Picture converts this depth map into a grayscale image of the
 // same dimensions.
 func (dm *DepthMap) ToGray16Picture() image.Image {
-
 	grayScale := image.NewGray16(image.Rect(0, 0, dm.Width(), dm.Height()))
 
 	for x := 0; x < dm.Width(); x++ {
@@ -456,7 +455,6 @@ func (dm *DepthMap) Rotate(amount int) *DepthMap {
 
 // Rotate90 rotates a copy of this depth map either by 90 degrees clockwise or counterclockwise.
 func (dm *DepthMap) Rotate90(clockwise bool) *DepthMap {
-
 	newWidth := dm.height
 	newHeight := dm.width
 
@@ -493,7 +491,6 @@ func (dm *DepthMap) Rotate90(clockwise bool) *DepthMap {
 
 // Rotate180 rotates a copy of this depth map by 180 degrees.
 func (dm *DepthMap) Rotate180() *DepthMap {
-
 	dm2 := &DepthMap{
 		width:  dm.width,
 		height: dm.height,
@@ -505,7 +502,7 @@ func (dm *DepthMap) Rotate180() *DepthMap {
 		for x := 0; x < dm.width; x++ {
 			val := dm.GetDepth(dm.width-1-x, dm.height-1-y)
 			dm2.data[k] = val
-			//if k != dm2.kxy(x,y) { panic("oops") }
+			// if k != dm2.kxy(x,y) { panic("oops") }
 			k++
 		}
 	}
@@ -559,7 +556,6 @@ func (dm *DepthMap) InterestingPixels(t float64) *image.Gray {
 
 	for x := 0; x < dm.width; x += 3 {
 		for y := 0; y < dm.height; y += 3 {
-
 			_, avgDistance := dm.AverageDepthAndStats(image.Point{x + 1, y + 1}, 1)
 
 			clr := color.Gray{0}
@@ -574,7 +570,6 @@ func (dm *DepthMap) InterestingPixels(t float64) *image.Gray {
 					out.SetGray(xx, yy, clr)
 				}
 			}
-
 		}
 	}
 

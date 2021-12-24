@@ -5,15 +5,15 @@ import (
 	"testing"
 	"time"
 
-	fakeboard "go.viam.com/rdk/component/board/fake"
-	"go.viam.com/rdk/component/motor"
-
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+
+	fakeboard "go.viam.com/rdk/component/board/fake"
+	"go.viam.com/rdk/component/motor"
 )
 
-// Test the A/B/PWM style IO
+// Test the A/B/PWM style IO.
 func TestMotorABPWM(t *testing.T) {
 	ctx := context.Background()
 	b := &fakeboard.Board{}
@@ -46,6 +46,7 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, on, test.ShouldBeFalse)
 	})
 
+	//nolint:dupl
 	t.Run("motor (A/B/PWM) Go testing", func(t *testing.T) {
 		test.That(t, m.Go(ctx, 0.43), test.ShouldBeNil)
 		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
@@ -117,10 +118,9 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, b.PWMSetFreq(ctx, "3", 8000), test.ShouldBeNil)
 		test.That(t, b.PWMFreq["3"], test.ShouldEqual, 8000)
 	})
-
 }
 
-// Test the DIR/PWM style IO
+// Test the DIR/PWM style IO.
 func TestMotorDirPWM(t *testing.T) {
 	ctx := context.Background()
 	b := &fakeboard.Board{}
@@ -155,6 +155,7 @@ func TestMotorDirPWM(t *testing.T) {
 		test.That(t, on, test.ShouldBeFalse)
 	})
 
+	//nolint:dupl
 	t.Run("motor (DIR/PWM) Go testing", func(t *testing.T) {
 		test.That(t, m.Go(ctx, 0.43), test.ShouldBeNil)
 		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
@@ -226,7 +227,7 @@ func TestMotorDirPWM(t *testing.T) {
 	})
 }
 
-// Test the A/B only style IO
+// Test the A/B only style IO.
 func TestMotorAB(t *testing.T) {
 	ctx := context.Background()
 	b := &fakeboard.Board{}
@@ -349,5 +350,4 @@ func TestGoForMath(t *testing.T) {
 	powerPct, waitDur = goForMath(100, 1000, 50)
 	test.That(t, powerPct, test.ShouldEqual, 1)
 	test.That(t, waitDur, test.ShouldEqual, 30*time.Second)
-
 }

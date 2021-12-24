@@ -3,39 +3,39 @@ package ros
 
 // TimeStamp contains the timestamp expressed as:
 // * TimeStamp.Secs: seconds since epoch
-// * TimeStamp.Nsecs: nanoseconds since TimeStamp.Secs
+// * TimeStamp.Nsecs: nanoseconds since TimeStamp.Secs.
 type TimeStamp struct {
 	Secs  int
 	Nsecs int
 }
 
-// MultiArrayDimension is a ROS std_msgs/MultiArrayDimension message
+// MultiArrayDimension is a ROS std_msgs/MultiArrayDimension message.
 type MultiArrayDimension struct {
 	Label  string
 	Size   uint32
 	Stride uint32
 }
 
-// MultiArrayLayout is a ROS std_msgs/MultiArrayLayout message
+// MultiArrayLayout is a ROS std_msgs/MultiArrayLayout message.
 type MultiArrayLayout struct {
 	Dim        []MultiArrayDimension
 	DataOffset int `json:"data_offset"`
 }
 
-// ByteMultiArray is a ROS std_msgs/ByteMultiArray message
+// ByteMultiArray is a ROS std_msgs/ByteMultiArray message.
 type ByteMultiArray struct {
 	Layout MultiArrayLayout
 	Data   []byte
 }
 
-// MessageHeader is a ROS std_msgs/Header message
+// MessageHeader is a ROS std_msgs/Header message.
 type MessageHeader struct {
 	Seq     int
 	Stamp   TimeStamp
 	FrameID string `json:"frame_id"`
 }
 
-// Quaternion is a ROS geometry_msgs/Quaternion message
+// Quaternion is a ROS geometry_msgs/Quaternion message.
 type Quaternion struct {
 	X float64
 	Y float64
@@ -43,20 +43,20 @@ type Quaternion struct {
 	W float64
 }
 
-// Vector3 is a ROS geometry_msgs/Vector3 message
+// Vector3 is a ROS geometry_msgs/Vector3 message.
 type Vector3 struct {
 	X float64
 	Y float64
 	Z float64
 }
 
-// L515Message reflects the JSON data format for rosbag Intel Realsense data
+// L515Message reflects the JSON data format for rosbag Intel Realsense data.
 type L515Message struct {
 	Meta TimeStamp
 	Data ByteMultiArray
 }
 
-// ImuData contains the IMU data
+// ImuData contains the IMU data.
 type ImuData struct {
 	Header                       MessageHeader
 	Orientation                  Quaternion
@@ -67,7 +67,7 @@ type ImuData struct {
 	LinearAccelerationCovariance [9]int  `json:"linear_acceleration_covariance"`
 }
 
-// ImuMessage reflects the JSON data format for rosbag imu data
+// ImuMessage reflects the JSON data format for rosbag imu data.
 type ImuMessage struct {
 	Meta TimeStamp
 	Data ImuData

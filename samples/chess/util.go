@@ -3,14 +3,14 @@ package main
 import (
 	"image"
 
-	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision/chess"
-
 	"github.com/pkg/errors"
 	"github.com/tonyOreglia/glee/pkg/bitboard"
 	"github.com/tonyOreglia/glee/pkg/moves"
 	"github.com/tonyOreglia/glee/pkg/position"
+
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision/chess"
 )
 
 // NumBoards is the number of boards in play.
@@ -74,7 +74,7 @@ func (state *boardStateGuesser) GetSquaresWithPieces() (map[string]bool, error) 
 			return nil, err
 		}
 		for _, s := range temp {
-			counts[s] = counts[s] + 1
+			counts[s]++
 		}
 	}
 
@@ -108,6 +108,8 @@ func (state *boardStateGuesser) GetBitBoard() (*bitboard.Bitboard, error) {
 	return bb, nil
 }
 
+var errNoMove = errors.New("no move")
+
 func (state *boardStateGuesser) GetPrevMove(prev *position.Position) (*moves.Move, error) {
 	prevSqs := prev.AllOccupiedSqsBb()
 	nowSqs, err := state.GetBitBoard()
@@ -115,7 +117,7 @@ func (state *boardStateGuesser) GetPrevMove(prev *position.Position) (*moves.Mov
 		return nil, err
 	}
 	if prevSqs.Value() == nowSqs.Value() {
-		return nil, nil
+		return nil, errNoMove
 	}
 
 	temp := bitboard.NewBitboard(prevSqs.Value() ^ nowSqs.Value())

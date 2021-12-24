@@ -8,16 +8,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/edaniels/golog"
+	"github.com/tonyOreglia/glee/pkg/position"
+	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/vision/chess"
-
-	"github.com/edaniels/golog"
-	"github.com/tonyOreglia/glee/pkg/position"
-	"go.viam.com/test"
 )
 
 var outDir string
@@ -40,7 +39,7 @@ func TestInit(t *testing.T) {
 	sort.Strings(fns)
 
 	for idx, fn := range fns {
-		fmt.Println(fn)
+		rlog.Logger.Info(fn)
 		depthDN := strings.Replace(fn, ".png", ".dat.gz", 1)
 
 		board, err := chess.FindAndWarpBoardFromFiles(fn, depthDN, true)
@@ -54,13 +53,13 @@ func TestInit(t *testing.T) {
 			err2 := board.WriteDebugImages(fmt.Sprintf("%s/init_foo", outDir))
 			test.That(t, err2, test.ShouldBeNil)
 		}
-		fmt.Printf("\t%s\n", pcs)
+		t.Logf("\t%s\n", pcs)
 		if len(pcs) != 32 {
 			temp := board.Annotate()
 			tempfn := fmt.Sprintf(outDir + "/init-%d.png", idx)
 
 			utils.WriteImageToFile(tempfn, temp)
-			fmt.Printf("\t annotated -> %s\n", tempfn)
+			t.Logf("\t annotated -> %s\n", tempfn)
 		}
 
 		if state.Ready() {
@@ -82,7 +81,7 @@ func TestInit(t *testing.T) {
 	m, err := state.GetPrevMove(p)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m, test.ShouldBeNil)
-}
+}.
 */
 func TestOneMove(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -94,7 +93,7 @@ func TestOneMove(t *testing.T) {
 	sort.Strings(fns)
 
 	for idx, fn := range fns {
-		fmt.Println(fn)
+		rlog.Logger.Info(fn)
 		depthDN := strings.Replace(fn, ".png", ".dat.gz", 1)
 
 		board, err := chess.FindAndWarpBoardFromFiles(fn, depthDN, true, logger)
@@ -129,13 +128,12 @@ func TestWristDepth1(t *testing.T) {
 	pp.Circle(center, 30, rimage.Red)
 
 	lowest, lowestValue, highest, highestValue := findDepthPeaks(dm, center, 30)
-	fmt.Printf("lowest: %v highest: %v\n", lowest, highest)
-	fmt.Printf("lowestValue: %v highestValue: %v\n", lowestValue, highestValue)
+	t.Logf("lowest: %v highest: %v\n", lowest, highest)
+	t.Logf("lowestValue: %v highestValue: %v\n", lowestValue, highestValue)
 
 	pp.Circle(lowest, 5, rimage.Blue)
 	pp.Circle(highest, 5, rimage.Red)
 
 	err = pp.WriteTo("/tmp/x.png")
 	test.That(t, err, test.ShouldBeNil)
-
 }

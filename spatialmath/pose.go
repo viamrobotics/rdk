@@ -31,7 +31,7 @@ type Pose interface {
 	Orientation() Orientation
 }
 
-// PoseMap encodes the orientation interface to something serializable and human readable
+// PoseMap encodes the orientation interface to something serializable and human readable.
 func PoseMap(p Pose) (map[string]interface{}, error) {
 	orientation, err := OrientationMap(p.Orientation().AxisAngles())
 	if err != nil {
@@ -92,7 +92,7 @@ func NewPoseFromPoint(point r3.Vector) Pose {
 	return q
 }
 
-// NewPoseFromProtobuf creates a new pose from a protobuf pose
+// NewPoseFromProtobuf creates a new pose from a protobuf pose.
 func NewPoseFromProtobuf(pos *commonpb.Pose) Pose {
 	return newDualQuaternionFromProtobuf(pos)
 }
@@ -104,7 +104,7 @@ func NewPoseFromDH(a, d, alpha float64) Pose {
 
 // Compose treats Poses as functions A(x) and B(x), and produces a new function C(x) = A(B(x)).
 // It converts the poses to dual quaternions and multiplies them together, normalizes the transform and returns a new Pose.
-// Composition does not commute in general, i.e. you cannot guarantee ABx == BAx
+// Composition does not commute in general, i.e. you cannot guarantee ABx == BAx.
 func Compose(a, b Pose) Pose {
 	result := &dualQuaternion{dualQuaternionFromPose(a).Transformation(dualQuaternionFromPose(b).Number)}
 
@@ -132,7 +132,7 @@ func PoseDelta(a, b Pose) Pose {
 	}
 }
 
-// PoseToProtobuf converts a pose to the pose format protobuf expects (which is as OrientationVectorDegrees)
+// PoseToProtobuf converts a pose to the pose format protobuf expects (which is as OrientationVectorDegrees).
 func PoseToProtobuf(p Pose) *commonpb.Pose {
 	final := &commonpb.Pose{}
 	pt := p.Point()
@@ -148,7 +148,7 @@ func PoseToProtobuf(p Pose) *commonpb.Pose {
 }
 
 // Invert will return the inverse of a pose. So if a given pose p is the pose of A relative to B, Invert(p) will give
-// the pose of B relative to A
+// the pose of B relative to A.
 func Invert(p Pose) Pose {
 	return newDualQuaternionFromPose(p).Invert()
 }
@@ -162,13 +162,15 @@ func Interpolate(p1, p2 Pose, by float64) Pose {
 	intQ := newDualQuaternion()
 	intQ.Real = slerp(p1.Orientation().Quaternion(), p2.Orientation().Quaternion(), by)
 
-	intQ.SetTranslation(r3.Vector{(p1.Point().X + (p2.Point().X-p1.Point().X)*by),
+	intQ.SetTranslation(r3.Vector{
+		(p1.Point().X + (p2.Point().X-p1.Point().X)*by),
 		(p1.Point().Y + (p2.Point().Y-p1.Point().Y)*by),
-		(p1.Point().Z + (p2.Point().Z-p1.Point().Z)*by)})
+		(p1.Point().Z + (p2.Point().Z-p1.Point().Z)*by),
+	})
 	return intQ
 }
 
-// AlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location
+// AlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
 func AlmostCoincident(a, b Pose) bool {
 	const epsilon = 1e-8
 	ap := a.Point()
@@ -187,6 +189,7 @@ type distancePose struct {
 func (d *distancePose) Point() r3.Vector {
 	return d.point
 }
+
 func (d *distancePose) Orientation() Orientation {
 	return (*quaternion)(&d.orientation)
 }

@@ -13,10 +13,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
-
+	"github.com/tonyOreglia/glee/pkg/engine"
+	"github.com/tonyOreglia/glee/pkg/moves"
+	"github.com/tonyOreglia/glee/pkg/position"
 	"go.uber.org/multierr"
-
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
@@ -27,18 +30,13 @@ import (
 	"go.viam.com/rdk/grpc/client"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/chess"
 	webserver "go.viam.com/rdk/web/server"
-
-	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
-	"github.com/tonyOreglia/glee/pkg/engine"
-	"github.com/tonyOreglia/glee/pkg/moves"
-	"github.com/tonyOreglia/glee/pkg/position"
 )
 
 type pos struct {
@@ -46,7 +44,7 @@ type pos struct {
 	y int64
 }
 
-// TODO
+// TODO.
 var (
 	BoardWidth     = int64(381)
 	Center         = pos{-435, 0}
@@ -60,8 +58,8 @@ var (
 )
 
 func getCoord(chess string) pos {
-	var x = float64(chess[0] - 'a')
-	var y = float64(chess[1] - '1')
+	x := float64(chess[0] - 'a')
+	y := float64(chess[1] - '1')
 
 	if x < 0 || x > 7 || y < 0 || y > 7 {
 		panic(errors.Errorf("invalid position: %s", chess))
@@ -90,7 +88,7 @@ func moveTo(ctx context.Context, myArm arm.Arm, chess string, heightModMillis in
 		f := getCoord("a8")
 		where.X = float64(f.x - int64(60*numPiecesCaptured)) // HARD CODED
 		where.Y = float64(f.y - (BoardWidth / 5))            // HARD CODED
-		numPiecesCaptured = numPiecesCaptured + 1
+		numPiecesCaptured++
 	} else {
 		f := getCoord(chess)
 		where.X = float64(f.x)
@@ -107,7 +105,6 @@ func movePiece(
 	myGripper gripper.Gripper,
 	from, to string,
 ) error {
-
 	if to[0] != '-' {
 		toHeight, err := boardState.game.GetPieceHeight(boardState.NewestBoard(), to)
 		if err != nil {
@@ -133,7 +130,7 @@ func movePiece(
 		return err
 	}
 
-	err = adjustArmInsideSquare(context.Background(), robot)
+	err = adjustArmInsideSquare(ctx, robot)
 	if err != nil {
 		return err
 	}
@@ -166,7 +163,7 @@ func movePiece(
 		if err != nil {
 			return err
 		}
-		where.Z = where.Z - 10
+		where.Z -= 10
 		if where.Z <= BoardHeight {
 			return errors.New("no piece")
 		}
@@ -176,7 +173,6 @@ func movePiece(
 	saveZ := where.Z // save the height to bring the piece down to
 
 	if to == "-throw" {
-
 		err = moveOutOfWay(ctx, myArm)
 		if err != nil {
 			return err
@@ -250,7 +246,6 @@ func initArm(ctx context.Context, myArm arm.Arm) error {
 		OY:    0,
 		OZ:    0,
 	})
-
 	if err != nil {
 		return err
 	}
@@ -259,7 +254,7 @@ func initArm(ctx context.Context, myArm arm.Arm) error {
 }
 
 func searchForNextMove(p *position.Position) (*position.Position, *moves.Move) {
-	//mvs := generate.GenerateMoves(p)
+	// mvs := generate.GenerateMoves(p)
 	perft := 0
 	singlePlyPerft := 0
 	params := engine.SearchParams{
@@ -363,12 +358,11 @@ func lookForBoardAdjust(
 		}
 
 		corners, _, err = getWristPicCorners(ctx, wristCam, debugNumber)
-		debugNumber = debugNumber + 1
+		debugNumber++
 		if err != nil {
 			return err
 		}
 	}
-
 }
 
 func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error {
@@ -398,14 +392,14 @@ func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error
 		}
 
 		d := .1
-		for i := 0.0; i < 1.6; i = i + d {
+		for i := 0.0; i < 1.6; i += d {
 			err = myArm.JointMoveDelta(ctx, 0, foo*d)
 			if err != nil {
 				return err
 			}
 
 			corners, imageSize, err := getWristPicCorners(ctx, wristCam, debugNumber)
-			debugNumber = debugNumber + 1
+			debugNumber++
 			if err != nil {
 				return err
 			}
@@ -417,7 +411,6 @@ func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error
 	}
 
 	return nil
-
 }
 
 func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
@@ -441,7 +434,7 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("starting at: %v,%v\n", where.X, where.Y)
+		rlog.Logger.Infof("starting at: %v,%v\n", where.X, where.Y)
 
 		raw, release, err := cam.Next(ctx)
 		if err != nil {
@@ -455,8 +448,8 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 		if dm == nil {
 			return errors.New("no depth on gripperCam")
 		}
-		//defer img.Close() // TODO(erh): fix the leak
-		fmt.Println("\t got image")
+		// defer img.Close() // TODO(erh): fix the leak
+		logger.Debug("\t got image")
 
 		center := image.Point{dm.Width() / 2, dm.Height() / 2}
 		lowest, lowestValue, _, highestValue := findDepthPeaks(dm, center, 30)
@@ -471,16 +464,16 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 		offsetY := center.Y - lowest.Y
 
 		if utils.AbsInt(offsetX) < 3 && utils.AbsInt(offsetY) < 3 {
-			fmt.Println("success!")
+			logger.Debug("success!")
 			return nil
 		}
 
-		fmt.Printf("\t offsetX: %v offsetY: %v diff: %v\n", offsetX, offsetY, diff)
+		rlog.Logger.Infof("\t offsetX: %v offsetY: %v diff: %v\n", offsetX, offsetY, diff)
 
 		where.X += float64(offsetX / -2)
 		where.Y += float64(offsetY / 2)
 
-		fmt.Printf("\t moving to %v,%v\n", where.X, where.Y)
+		rlog.Logger.Infof("\t moving to %v,%v\n", where.X, where.Y)
 
 		err = arm.MoveToPosition(ctx, where)
 		if err != nil {
@@ -492,7 +485,6 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 			return ctx.Err()
 		}
 	}
-
 }
 
 func main() {
@@ -515,7 +507,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		defer pprof.StopCPUProfile()
 	}
 
-	cfg, err := config.Read(cfgFile)
+	cfg, err := config.Read(ctx, cfgFile)
 	if err != nil {
 		return err
 	}
@@ -525,7 +517,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 	defer func() {
-		err = multierr.Combine(myRobot.Close())
+		err = multierr.Combine(myRobot.Close(context.Background()))
 	}()
 
 	myArm, ok := myRobot.ArmByName("pieceArm")
@@ -556,7 +548,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 
 	if false {
-		fmt.Println("ELIOT HACK")
+		logger.Debug("ELIOT HACK")
 
 		err = moveTo(ctx, myArm, "c3", 0)
 		if err == nil {
@@ -608,18 +600,18 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 					} else if interessting {
 						wantPicture = 1
 					}
-					theBoard = nil // indicate theBoard is no longer owned
 
 					if boardState.Ready() {
 						if !initialPositionOk {
 							bb, err := boardState.GetBitBoard()
-							if err != nil {
+							switch {
+							case err != nil:
 								logger.Debug("got inconsistency reading board, let's try again")
 								boardState.Clear()
-							} else if currentPosition.AllOccupiedSqsBb().Value() != bb.Value() {
+							case currentPosition.AllOccupiedSqsBb().Value() != bb.Value():
 								logger.Debug("not in initial chess piece setup")
 								bb.Print()
-							} else {
+							default:
 								initialPositionOk = true
 								logger.Debug("GOT initial chess piece setup")
 							}
@@ -627,10 +619,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 							// so we've already made sure we're safe, let's see if a move was made
 							m, err := boardState.GetPrevMove(currentPosition)
 							if err != nil {
-								// trouble reading board, let's reset
-								logger.Debug("got inconsistency reading board, let's try again")
-								boardState.Clear()
-							} else if m != nil {
+								if !errors.Is(err, errNoMove) {
+									// trouble reading board, let's reset
+									logger.Debug("got inconsistency reading board, let's try again")
+									boardState.Clear()
+								}
+							} else {
 								logger.Debugf("we detected a move: %s", m)
 
 								if !engine.MakeValidMove(*m, &currentPosition) {
@@ -653,7 +647,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 								boardState.Clear()
 							}
 						}
-
 					}
 				}
 

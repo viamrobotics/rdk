@@ -7,16 +7,14 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
-	"go.viam.com/rdk/sensor/gps"
-
 	robotimpl "go.viam.com/rdk/robot/impl"
-
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/sensor/gps"
 )
 
 const (
@@ -34,7 +32,7 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(flag.Arg(0))
+	cfg, err := config.Read(ctx, flag.Arg(0))
 	if err != nil {
 		return err
 	}
@@ -43,7 +41,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
-	defer myRobot.Close()
+	defer myRobot.Close(ctx)
 
 	gpsBoard, ok := myRobot.BoardByName(boardName)
 	if !ok {

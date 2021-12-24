@@ -8,14 +8,16 @@ import (
 	"image"
 	"time"
 
+	"github.com/edaniels/golog"
+	"github.com/erh/egoutil"
 	"github.com/pkg/errors"
-
+	"go.opencensus.io/trace"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/action"
-	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
@@ -25,14 +27,9 @@ import (
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/vision/segmentation"
 	webserver "go.viam.com/rdk/web/server"
-
-	"github.com/edaniels/golog"
-	"github.com/erh/egoutil"
-	"go.opencensus.io/trace"
-	"go.uber.org/multierr"
 )
 
-// TODO
+// TODO.
 const (
 	PanCenter  = 94
 	TiltCenter = 113
@@ -138,7 +135,7 @@ func dockNextMoveCompute(ctx context.Context, cam gostream.ImageSource) (float64
 	x := 2 * float64((ri.Width()/2)-p.X) / float64(ri.Width())
 	y := 2 * float64((ri.Height()/2)-p.Y) / float64(ri.Height())
 	return x, y, nil
-}
+}.
 */
 func findTopInSegment(img *segmentation.SegmentedImage, segment int) image.Point {
 	mid := img.Width() / 2
@@ -155,7 +152,6 @@ func findTopInSegment(img *segmentation.SegmentedImage, segment int) image.Point
 			if s == segment {
 				return p
 			}
-
 		}
 	}
 	return image.Point{0, 0}
@@ -176,7 +172,7 @@ func findBlack(ctx context.Context, img *rimage.Image, logger golog.Logger) (ima
 				image.Point{x, y},
 				segmentation.ShapeWalkOptions{
 					SkipCleaning: true,
-					//Debug: true,
+					// Debug: true,
 				},
 				logger,
 			)
@@ -193,7 +189,7 @@ func findBlack(ctx context.Context, img *rimage.Image, logger golog.Logger) (ima
 	return image.Point{}, nil, errors.New("no black found")
 }
 
-// Rover TODO
+// Rover TODO.
 type Rover struct {
 	pan, tilt servo.Servo
 }
@@ -211,7 +207,7 @@ func (r *Rover) neckPosition(ctx context.Context, pan, tilt uint8) error {
 	return multierr.Combine(r.pan.Move(ctx, pan), r.tilt.Move(ctx, tilt))
 }
 
-// Ready TODO
+// Ready TODO.
 func (r *Rover) Ready(ctx context.Context, theRobot robot.Robot) error {
 	logger.Debug("minirover2 Ready called")
 	cam, ok := theRobot.CameraByName("front")
@@ -255,8 +251,8 @@ func (r *Rover) Ready(ctx context.Context, theRobot robot.Robot) error {
 	return nil
 }
 
-// NewRover TODO
-func NewRover(ctx context.Context, r robot.Robot, theBoard board.Board) (*Rover, error) {
+// NewRover TODO.
+func NewRover(ctx context.Context, r robot.Robot) (*Rover, error) {
 	rover := &Rover{}
 	var ok bool
 	rover.pan, ok = r.ServoByName("pan")
@@ -296,7 +292,6 @@ func NewRover(ctx context.Context, r robot.Robot, theBoard board.Board) (*Rover,
 				if err != nil {
 					panic(err)
 				}
-
 			}
 		})
 	} else {
@@ -322,7 +317,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	trace.RegisterExporter(exp)
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
-	cfg, err := config.Read("samples/minirover/config.json")
+	cfg, err := config.Read(ctx, "samples/minirover/config.json")
 	if err != nil {
 		return err
 	}
@@ -331,13 +326,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
-	defer myRobot.Close()
+	defer myRobot.Close(ctx)
 
-	localBoard, ok := myRobot.BoardByName("local")
-	if !ok {
-		return errors.New("failed to find local board")
-	}
-	rover, err := NewRover(ctx, myRobot, localBoard)
+	rover, err := NewRover(ctx, myRobot)
 	if err != nil {
 		return err
 	}

@@ -111,11 +111,9 @@ func (i *Image) Circle(center image.Point, radius int, c Color) {
 		i.Set(p, c)
 		return nil
 	})
-
 	if err != nil {
 		panic(err) // impossible
 	}
-
 }
 
 // SubImage returns a subset of the image defined by the given rectangle.

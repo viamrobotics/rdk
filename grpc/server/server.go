@@ -12,11 +12,9 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-
+	"go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/board"
@@ -24,6 +22,7 @@ import (
 	functionrobot "go.viam.com/rdk/function/robot"
 	functionvm "go.viam.com/rdk/function/vm"
 	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor/compass"
 	"go.viam.com/rdk/sensor/forcematrix"
@@ -57,10 +56,9 @@ func New(r robot.Robot) pb.RobotServiceServer {
 }
 
 // Close cleanly shuts down the server.
-func (s *Server) Close() error {
+func (s *Server) Close() {
 	s.cancel()
 	s.activeBackgroundWorkers.Wait()
-	return nil
 }
 
 // Status returns the robot's underlying status.
@@ -196,7 +194,6 @@ func (s *Server) BaseMoveArc(
 		return nil, err
 	}
 	return &pb.BaseMoveArcResponse{Success: true}, nil
-
 }
 
 // BaseSpin spins a base of the underlying robot.
@@ -217,7 +214,6 @@ func (s *Server) BaseSpin(
 		return nil, err
 	}
 	return &pb.BaseSpinResponse{Success: true}, nil
-
 }
 
 // BaseStop stops a base of the underlying robot.
@@ -626,6 +622,10 @@ func (s *Server) FrameServiceConfig(
 	for i, part := range sortedParts {
 		c, err := part.ToProtobuf()
 		if err != nil {
+			if errors.Is(err, referenceframe.ErrNoModelInformation) {
+				configs[i] = nil
+				continue
+			}
 			return nil, err
 		}
 		configs[i] = c
@@ -684,6 +684,8 @@ func (s *Server) NavigationServiceSetMode(
 		if err := navSvc.SetMode(ctx, navigation.ModeWaypoint); err != nil {
 			return nil, err
 		}
+	case pb.NavigationServiceMode_NAVIGATION_SERVICE_MODE_UNSPECIFIED:
+		fallthrough
 	default:
 		return nil, errors.Errorf("unknown mode %q", req.Mode.String())
 	}
@@ -779,7 +781,7 @@ func (s *Server) NavigationServiceRemoveWaypoint(
 }
 
 // ObjectManipulationServiceDoGrab commands a gripper to move and grab
-// an object at the passed camera point
+// an object at the passed camera point.
 func (s *Server) ObjectManipulationServiceDoGrab(
 	ctx context.Context,
 	req *pb.ObjectManipulationServiceDoGrabRequest,
@@ -917,7 +919,7 @@ func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionCo
 	}, nil
 }
 
-// InputControllerControls lists the inputs of an input.Controller
+// InputControllerControls lists the inputs of an input.Controller.
 func (s *Server) InputControllerControls(
 	ctx context.Context,
 	req *pb.InputControllerControlsRequest,
@@ -941,7 +943,7 @@ func (s *Server) InputControllerControls(
 	return resp, nil
 }
 
-// InputControllerLastEvents returns the last input.Event (current state) of each control
+// InputControllerLastEvents returns the last input.Event (current state) of each control.
 func (s *Server) InputControllerLastEvents(
 	ctx context.Context,
 	req *pb.InputControllerLastEventsRequest,
@@ -970,7 +972,7 @@ func (s *Server) InputControllerLastEvents(
 	return resp, nil
 }
 
-// InputControllerInjectEvent allows directly sending an Event (such as a button press) from external code
+// InputControllerInjectEvent allows directly sending an Event (such as a button press) from external code.
 func (s *Server) InputControllerInjectEvent(
 	ctx context.Context,
 	req *pb.InputControllerInjectEventRequest,
@@ -997,7 +999,7 @@ func (s *Server) InputControllerInjectEvent(
 	return &pb.InputControllerInjectEventResponse{}, nil
 }
 
-// InputControllerEventStream returns a stream of input.Event
+// InputControllerEventStream returns a stream of input.Event.
 func (s *Server) InputControllerEventStream(
 	req *pb.InputControllerEventStreamRequest,
 	server pb.RobotService_InputControllerEventStreamServer,
@@ -1061,7 +1063,6 @@ func (s *Server) InputControllerEventStream(
 // matrixToProto is a helper function to convert force matrix values from a 2-dimensional
 // slice into protobuf format.
 func matrixToProto(matrix [][]int) *pb.ForceMatrixMatrixResponse {
-
 	rows := len(matrix)
 	var cols int
 	if rows != 0 {
@@ -1098,7 +1099,7 @@ func (s *Server) ForceMatrixMatrix(
 	return matrixToProto(matrix), nil
 }
 
-// ForceMatrixSlipDetection returns a boolean representing whether a slip has been detected
+// ForceMatrixSlipDetection returns a boolean representing whether a slip has been detected.
 func (s *Server) ForceMatrixSlipDetection(
 	ctx context.Context,
 	req *pb.ForceMatrixSlipDetectionRequest,

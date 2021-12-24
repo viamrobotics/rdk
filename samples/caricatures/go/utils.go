@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os/exec"
 	"strconv"
@@ -12,9 +11,7 @@ import (
 	"go.viam.com/rdk/rlog"
 )
 
-var (
-	shouldPrintFace bool
-)
+var shouldPrintFace bool
 
 // CaricaturePoint is a type representing a point on a caricature picture.
 // This point has a location int index which gives useful information
@@ -41,7 +38,7 @@ type Face struct {
 }
 
 // parseJSON returns a face from the provided json file, and if not, returns
-// an error
+// an error.
 func parseJSON(path string) (Face, error) {
 	var face Face
 	byteSequence, err := ioutil.ReadFile(path)
@@ -53,23 +50,23 @@ func parseJSON(path string) (Face, error) {
 }
 
 // printFace prints information about a face (broken down by facial feature)
-// into the console
+// into the console.
 func printFace(face Face) {
 	for i := 0; i < len(face.Features); i++ {
-		fmt.Println("\nFacial Feature: " + face.Features[i].Name)
+		rlog.Logger.Info("\nFacial Feature: " + face.Features[i].Name)
 		numPoints := len(face.Features[i].Points)
 		for j := 0; j < numPoints; j++ {
-			fmt.Println("Location: " + strconv.Itoa(
+			rlog.Logger.Info("Location: " + strconv.Itoa(
 				face.Features[i].Points[j].Location))
-			fmt.Println("XCoord: " + strconv.FormatFloat(
+			rlog.Logger.Info("XCoord: " + strconv.FormatFloat(
 				face.Features[i].Points[j].XCoord, 'f', 6, 64))
-			fmt.Println("YCoord: " + strconv.FormatFloat(
+			rlog.Logger.Info("YCoord: " + strconv.FormatFloat(
 				face.Features[i].Points[j].YCoord, 'f', 6, 64))
 		}
 	}
 }
 
-// facialFeaturePointsFromFace returns a tuple of slices, xdata & ydata, which hold absolute coordinates of facial landmarks
+// facialFeaturePointsFromFace returns a tuple of slices, xdata & ydata, which hold absolute coordinates of facial landmarks.
 func facialFeaturePointsFromFace(face Face, featureByInt int) ([]float64,
 	[]float64) {
 	if shouldPrintFace {
@@ -86,9 +83,8 @@ func facialFeaturePointsFromFace(face Face, featureByInt int) ([]float64,
 
 // findFace calls python shell script in bash which finds a face using
 // the machine's built in camera and exports a JSON file containing
-// that person's facial landmarks
+// that person's facial landmarks.
 func findFace(person string) error {
-
 	// comment out to override issue finding path
 	pretrainedNeuralNetPath := artifact.MustPath("samples/caricatures/face_landmarks.pth")
 	haarCascadeFrontalFacePath := artifact.MustPath("samples/caricatures/haarcascade_frontalface_default.xml")
@@ -110,7 +106,7 @@ func findFace(person string) error {
 	return nil
 }
 
-// createPlots creates and plots all caricature curves of a person's face
+// createPlots creates and plots all caricature curves of a person's face.
 func createPlots(person string) error {
 	err := polyPlotAllCurves(person)
 	return err

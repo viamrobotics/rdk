@@ -112,24 +112,23 @@ func blank() []byte {
 	return make([]byte, 1024)
 }
 
-// This actually writes the buffered bytes to the display
+// This actually writes the buffered bytes to the display.
 func writeBuf(ctx context.Context, buf []byte, handle board.I2CHandle) {
-
 	checkInit(ctx, handle)
 
 	var reg byte
 	iter := 0
 	for reg = 0xB0; reg <= 0xBF; reg++ {
 		someBytes := []byte{0, reg, 0x10, 0}
-		handle.Write(context.Background(), someBytes)
+		handle.Write(ctx, someBytes)
 
 		someBytes = append([]byte{0x40}, buf[0+iter*64:31+iter*64]...)
-		handle.Write(context.Background(), someBytes)
+		handle.Write(ctx, someBytes)
 		someBytes = append([]byte{0x40}, buf[31+iter*64:62+iter*64]...)
-		handle.Write(context.Background(), someBytes)
+		handle.Write(ctx, someBytes)
 
 		someBytes = []byte{0x40, buf[62+iter*64], buf[63+iter*64]}
-		handle.Write(context.Background(), someBytes)
+		handle.Write(ctx, someBytes)
 
 		iter++
 	}
@@ -145,7 +144,7 @@ func writePixel(x, y int, buf []byte) []byte {
 	return buf
 }
 
-// Write a line.  Bresenham's algorithm
+// Write a line.  Bresenham's algorithm.
 func writeLine(x0, y0, x1, y1 int, buf []byte) []byte {
 	steep := math.Abs(float64(y1-y0)) > math.Abs(float64(x1-x0))
 	if steep {
@@ -195,7 +194,6 @@ func writeFillRect(x, y, w, h int, buf []byte) []byte {
 }
 
 func writeString(x, y int, char string, buf []byte) []byte {
-
 	charBytes := []byte(char)
 
 	for _, cb := range charBytes {

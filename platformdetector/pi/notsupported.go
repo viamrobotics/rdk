@@ -1,14 +1,15 @@
 //go:build !pi
 // +build !pi
 
+// Package pi ensures code for Raspberry Pi platforms can not be used
+// on other platforms.
 package pi
 
 import (
 	"context"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/servo"

@@ -6,14 +6,13 @@ import (
 	"math"
 	"sort"
 
-	"go.viam.com/rdk/utils"
-
-	"github.com/pkg/errors"
-
 	"github.com/disintegration/imaging"
 	"github.com/gonum/floats"
 	"github.com/gonum/stat"
+	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/rdk/utils"
 )
 
 // AverageColorAndStats returns avg color and avg distances to avg color.
@@ -71,13 +70,12 @@ func (i *Image) AverageColorXY(x, y int, radius int) Color {
 }
 
 // InterestingPixels TODO
-// TODO(erh): this and SimpleEdgeDetection are super similar, we shouldn't have both probably? or if we do need better names
+// TODO(erh): this and SimpleEdgeDetection are super similar, we shouldn't have both probably? or if we do need better names.
 func (i *Image) InterestingPixels(t float64) *image.Gray {
 	out := image.NewGray(i.Bounds())
 
 	for x := 0; x < i.Width(); x += 3 {
 		for y := 0; y < i.Height(); y += 3 {
-
 			_, avgDistance := i.AverageColorAndStats(image.Point{x + 1, y + 1}, 1)
 
 			clr := color.Gray{0}
@@ -92,14 +90,13 @@ func (i *Image) InterestingPixels(t float64) *image.Gray {
 					out.SetGray(xx, yy, clr)
 				}
 			}
-
 		}
 	}
 
 	return out
 }
 
-// SimpleEdgeDetection TODO
+// SimpleEdgeDetection TODO.
 func SimpleEdgeDetection(img *Image, t1 float64, blur float64) (*image.Gray, error) {
 	img = ConvertImage(imaging.Blur(img, blur))
 
@@ -114,7 +111,6 @@ func SimpleEdgeDetection(img *Image, t1 float64, blur float64) (*image.Gray, err
 				out.SetGray(x, y, color.Gray{255})
 			} else {
 				out.SetGray(x, y, color.Gray{0})
-
 			}
 		}
 	}
@@ -133,7 +129,7 @@ func SimpleEdgeDetection(img *Image, t1 float64, blur float64) (*image.Gray, err
 	return out, nil
 }
 
-// CountBrightSpots TODO
+// CountBrightSpots TODO.
 func CountBrightSpots(img *image.Gray, center image.Point, radius int, threshold uint8) int {
 	num := 0
 
@@ -180,13 +176,13 @@ type EdgeDetector interface {
 	GetEdgeMap(*Image, ...float64) *Image
 }
 
-// CannyEdgeDetector TODO
+// CannyEdgeDetector TODO.
 type CannyEdgeDetector struct {
 	highRatio, lowRatio float64
 	preprocessImage     bool
 }
 
-// NewCannyDericheEdgeDetector TODO
+// NewCannyDericheEdgeDetector TODO.
 func NewCannyDericheEdgeDetector() *CannyEdgeDetector {
 	return &CannyEdgeDetector{0.8, 0.33, false}
 }
@@ -196,9 +192,8 @@ func NewCannyDericheEdgeDetectorWithParameters(hiRatio, loRatio float64, preproc
 	return &CannyEdgeDetector{hiRatio, loRatio, preproc}
 }
 
-// DetectEdges TODO
+// DetectEdges TODO.
 func (cd *CannyEdgeDetector) DetectEdges(img *Image, blur float64) (*image.Gray, error) {
-
 	imgGradient, err := ForwardGradient(img, blur, cd.preprocessImage)
 	if err != nil {
 		return nil, err
@@ -221,16 +216,15 @@ func (cd *CannyEdgeDetector) DetectEdges(img *Image, blur float64) (*image.Gray,
 // Luminance computes the luminance value from the R,G and B values.
 // It is defined as (299*R + 587*G + 114*B) / 1000 in order to avoid floating point math issue b/w different
 // architectures
-// Formula from : https://en.wikipedia.org/wiki/Grayscale#Converting_color_to_grayscale - luma coding
+// Formula from : https://en.wikipedia.org/wiki/Grayscale#Converting_color_to_grayscale - luma coding.
 func Luminance(aColor Color) float64 {
 	r, g, b := aColor.RGB255()
 
 	// need to convert uint32 to float64
 	return (299*float64(r) + 587*float64(g) + 114*float64(b)) / 1000
-
 }
 
-// ImageGradient TODO
+// ImageGradient TODO.
 type ImageGradient struct {
 	GradX, GradY         *mat.Dense
 	Magnitude, Direction *mat.Dense
@@ -238,7 +232,7 @@ type ImageGradient struct {
 
 // ForwardGradient computes the forward gradients in X and Y direction of an image in the Lab space
 // Returns: gradient in x direction, gradient in y direction, its magnitude and direction at each pixel in a dense mat,
-// and an error
+// and an error.
 func ForwardGradient(img *Image, blur float64, preprocess bool) (ImageGradient, error) {
 	if preprocess {
 		img = ConvertImage(imaging.Blur(img, blur))
@@ -259,7 +253,6 @@ func ForwardGradient(img *Image, blur float64, preprocess bool) (ImageGradient, 
 			gradX.Set(y, x, d)
 
 			magX.Set(y, x, d*d)
-
 		}
 	}
 	// Compute forward gradient in Y direction and its square
@@ -310,7 +303,6 @@ func SobelColorGradient(img *Image) (VectorField2D, error) {
 	}
 	vf := VectorField2D{width, height, g, maxMag}
 	return vf, nil
-
 }
 
 // MatrixPixelPoint defines a point in a matrix.
@@ -329,7 +321,7 @@ func GradientNonMaximumSuppressionC8(mag, direction *mat.Dense) (*mat.Dense, err
 			angle := direction.At(i, j)
 			// for easier calculation, get positive angle value
 			if angle < 0 {
-				angle = angle + math.Pi
+				angle += math.Pi
 			}
 			// Compute bin of gradient direction at current pixel
 			rangle := int(math.Round(angle/(math.Pi/4) + 0.5))
@@ -348,7 +340,6 @@ func GradientNonMaximumSuppressionC8(mag, direction *mat.Dense) (*mat.Dense, err
 	}
 
 	return nms, nil
-
 }
 
 // GetHysteresisThresholds computes the low and high thresholds for the Canny Hysteresis Edge Thresholding.
@@ -451,7 +442,7 @@ func EdgeHysteresisFiltering(mag *mat.Dense, low, high float64) (*image.Gray, er
 		newKeep := map[MatrixPixelPoint]bool{}
 		// Iterate through list and print its contents.
 		for coords := range lastIterationQueue {
-			//coords := e.Value.(MatrixPixelPoint)
+			// coords := e.Value.(MatrixPixelPoint)
 			neighbors := GetConnectivity8Neighbors(coords.I, coords.J, r, c)
 			for _, nb := range neighbors {
 				isPixelVisited := visited[nb]

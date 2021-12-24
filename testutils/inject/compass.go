@@ -16,7 +16,7 @@ type Compass struct {
 	HeadingFunc          func(ctx context.Context) (float64, error)
 	StartCalibrationFunc func(ctx context.Context) error
 	StopCalibrationFunc  func(ctx context.Context) error
-	CloseFunc            func() error
+	CloseFunc            func(ctx context.Context) error
 }
 
 // Readings calls the injected Readings or the real version.
@@ -57,11 +57,11 @@ func (c *Compass) Desc() sensor.Description {
 }
 
 // Close calls the injected Close or the real version.
-func (c *Compass) Close() error {
+func (c *Compass) Close(ctx context.Context) error {
 	if c.CloseFunc == nil {
-		return utils.TryClose(c.Compass)
+		return utils.TryClose(ctx, c.Compass)
 	}
-	return c.CloseFunc()
+	return c.CloseFunc(ctx)
 }
 
 // RelativeCompass is an injected relative compass.
@@ -72,7 +72,7 @@ type RelativeCompass struct {
 	StartCalibrationFunc func(ctx context.Context) error
 	StopCalibrationFunc  func(ctx context.Context) error
 	MarkFunc             func(ctx context.Context) error
-	CloseFunc            func() error
+	CloseFunc            func(ctx context.Context) error
 }
 
 // Readings calls the injected Readings or the real version.
@@ -116,11 +116,11 @@ func (rc *RelativeCompass) Mark(ctx context.Context) error {
 }
 
 // Close calls the injected Close or the real version.
-func (rc *RelativeCompass) Close() error {
+func (rc *RelativeCompass) Close(ctx context.Context) error {
 	if rc.CloseFunc == nil {
-		return utils.TryClose(rc.RelativeCompass)
+		return utils.TryClose(ctx, rc.RelativeCompass)
 	}
-	return rc.CloseFunc()
+	return rc.CloseFunc(ctx)
 }
 
 // Desc calls the injected Desc or the real version.

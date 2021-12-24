@@ -10,7 +10,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/gripper"
@@ -23,10 +22,11 @@ func init() {
 	registry.RegisterComponent(gripper.Subtype, "robotiq", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newGripper(ctx, config.Host, logger)
-		}})
+		},
+	})
 }
 
-// robotiqGripper TODO
+// robotiqGripper TODO.
 type robotiqGripper struct {
 	conn net.Conn
 
@@ -35,7 +35,7 @@ type robotiqGripper struct {
 	logger     golog.Logger
 }
 
-// newGripper TODO
+// newGripper TODO.
 func newGripper(ctx context.Context, host string, logger golog.Logger) (*robotiqGripper, error) {
 	conn, err := net.Dial("tcp", host+":63352")
 	if err != nil {
@@ -62,7 +62,7 @@ func newGripper(ctx context.Context, host string, logger golog.Logger) (*robotiq
 	return g, nil
 }
 
-// MultiSet TODO
+// MultiSet TODO.
 func (g *robotiqGripper) MultiSet(ctx context.Context, cmds [][]string) error {
 	for _, i := range cmds {
 		err := g.Set(i[0], i[1])
@@ -85,7 +85,7 @@ func (g *robotiqGripper) MultiSet(ctx context.Context, cmds [][]string) error {
 	return nil
 }
 
-// Send TODO
+// Send TODO.
 func (g *robotiqGripper) Send(msg string) (string, error) {
 	_, err := g.conn.Write([]byte(msg))
 	if err != nil {
@@ -100,7 +100,7 @@ func (g *robotiqGripper) Send(msg string) (string, error) {
 	return res, err
 }
 
-// Set TODO
+// Set TODO.
 func (g *robotiqGripper) Set(what string, to string) error {
 	res, err := g.Send(fmt.Sprintf("SET %s %s\r\n", what, to))
 	if err != nil {
@@ -112,7 +112,7 @@ func (g *robotiqGripper) Set(what string, to string) error {
 	return nil
 }
 
-// Get TODO
+// Get TODO.
 func (g *robotiqGripper) Get(what string) (string, error) {
 	return g.Send(fmt.Sprintf("GET %s\r\n", what))
 }
@@ -155,7 +155,7 @@ func (g *robotiqGripper) SetPos(ctx context.Context, pos string) (bool, error) {
 			if prevCount >= 5 {
 				return false, nil
 			}
-			prevCount = prevCount + 1
+			prevCount++
 		} else {
 			prevCount = 0
 		}
@@ -165,22 +165,21 @@ func (g *robotiqGripper) SetPos(ctx context.Context, pos string) (bool, error) {
 			return false, ctx.Err()
 		}
 	}
-
 }
 
-// Open TODO
+// Open TODO.
 func (g *robotiqGripper) Open(ctx context.Context) error {
 	_, err := g.SetPos(ctx, g.openLimit)
 	return err
 }
 
-// Close TODO
-func (g *robotiqGripper) Close() error {
-	_, err := g.SetPos(context.Background(), g.closeLimit)
+// Close TODO.
+func (g *robotiqGripper) Close(ctx context.Context) error {
+	_, err := g.SetPos(ctx, g.closeLimit)
 	return err
 }
 
-// Grab returns true iff grabbed something
+// Grab returns true iff grabbed something.
 func (g *robotiqGripper) Grab(ctx context.Context) (bool, error) {
 	res, err := g.SetPos(ctx, g.closeLimit)
 	if err != nil {
@@ -193,14 +192,13 @@ func (g *robotiqGripper) Grab(ctx context.Context) (bool, error) {
 
 	// we didn't close, let's see if we actually got something
 	val, err := g.Get("OBJ")
-
 	if err != nil {
 		return false, err
 	}
 	return val == "OBJ 2", nil
 }
 
-// Calibrate TODO
+// Calibrate TODO.
 func (g *robotiqGripper) Calibrate(ctx context.Context) error {
 	err := g.Open(ctx)
 	if err != nil {
@@ -213,7 +211,7 @@ func (g *robotiqGripper) Calibrate(ctx context.Context) error {
 	}
 	g.openLimit = x[4:]
 
-	err = g.Close()
+	err = g.Close(ctx)
 	if err != nil {
 		return err
 	}

@@ -5,31 +5,28 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"math"
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/grpc/client"
-	"go.viam.com/rdk/services/web"
-
 	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc/client"
 	componentpb "go.viam.com/rdk/proto/api/component/v1"
-
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/web"
 	webserver "go.viam.com/rdk/web/server"
-
-	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
 )
 
 const (
@@ -85,7 +82,7 @@ type LinearAxis struct {
 }
 
 // AddMotors takes a slice of motor names and adds them to the axis.
-func (a *LinearAxis) AddMotors(ctx context.Context, robot robot.Robot, names []string) error {
+func (a *LinearAxis) AddMotors(_ context.Context, robot robot.Robot, names []string) error {
 	for _, n := range names {
 		motor, ok := robot.MotorByName(n)
 		if ok {
@@ -97,7 +94,7 @@ func (a *LinearAxis) AddMotors(ctx context.Context, robot robot.Robot, names []s
 	return nil
 }
 
-// GoTo moves to a position specified in mm and at a speed in mm/s
+// GoTo moves to a position specified in mm and at a speed in mm/s.
 func (a *LinearAxis) GoTo(ctx context.Context, speed float64, position float64) error {
 	var errs error
 	for _, m := range a.m {
@@ -106,7 +103,7 @@ func (a *LinearAxis) GoTo(ctx context.Context, speed float64, position float64) 
 	return errs
 }
 
-// GoFor moves for the distance specified in mm and at a speed in mm/s
+// GoFor moves for the distance specified in mm and at a speed in mm/s.
 func (a *LinearAxis) GoFor(ctx context.Context, speed float64, position float64) error {
 	var errs error
 	for _, m := range a.m {
@@ -115,8 +112,8 @@ func (a *LinearAxis) GoFor(ctx context.Context, speed float64, position float64)
 	return errs
 }
 
-// GoTillStop simultaneously homes all motors on an axis
-func (a *LinearAxis) GoTillStop(ctx context.Context, speed float64, stopFunc func(ctx context.Context) bool) error {
+// GoTillStop simultaneously homes all motors on an axis.
+func (a *LinearAxis) GoTillStop(ctx context.Context, speed float64, _ func(ctx context.Context) bool) error {
 	var homeWorkers sync.WaitGroup
 	var errs error
 	for _, m := range a.m {
@@ -130,7 +127,7 @@ func (a *LinearAxis) GoTillStop(ctx context.Context, speed float64, stopFunc fun
 	return errs
 }
 
-// Stop turns the power to the motor off immediately, without any gradual step down
+// Stop turns the power to the motor off immediately, without any gradual step down.
 func (a *LinearAxis) Stop(ctx context.Context) error {
 	var errs error
 	for _, m := range a.m {
@@ -139,7 +136,7 @@ func (a *LinearAxis) Stop(ctx context.Context) error {
 	return errs
 }
 
-// ResetZeroPosition resets the "home" point
+// ResetZeroPosition resets the "home" point.
 func (a *LinearAxis) ResetZeroPosition(ctx context.Context, offset float64) error {
 	var errs error
 	for _, m := range a.m {
@@ -148,7 +145,7 @@ func (a *LinearAxis) ResetZeroPosition(ctx context.Context, offset float64) erro
 	return errs
 }
 
-// Position returns the position of the first motor in the axis
+// Position returns the position of the first motor in the axis.
 func (a *LinearAxis) Position(ctx context.Context) (float64, error) {
 	pos, err := a.m[0].Position(ctx)
 	if err != nil {
@@ -157,7 +154,7 @@ func (a *LinearAxis) Position(ctx context.Context) (float64, error) {
 	return pos * a.mmPerRev, nil
 }
 
-// IsOn returns true if moving
+// IsOn returns true if moving.
 func (a *LinearAxis) IsOn(ctx context.Context) (bool, error) {
 	var errs error
 	for _, m := range a.m {
@@ -175,10 +172,11 @@ type positional interface {
 	IsOn(ctx context.Context) (bool, error)
 }
 
-// ResetBox is the parent structure for this project
+// ResetBox is the parent structure for this project.
 type ResetBox struct {
+	io.Closer
 	logger golog.Logger
-	//board                    board.Board
+	// board                    board.Board
 	gate, squeeze            LinearAxis
 	elevator                 LinearAxis
 	hammer, tipper, vibrator motor.Motor
@@ -195,7 +193,7 @@ type ResetBox struct {
 	haveHomed bool
 }
 
-// NewResetBox returns a ResetBox
+// NewResetBox returns a ResetBox.
 func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*ResetBox, error) {
 	cancelCtx, cancel := context.WithCancel(ctx)
 	b := &ResetBox{activeBackgroundWorkers: &sync.WaitGroup{}, cancelCtx: cancelCtx, cancel: cancel, logger: logger}
@@ -213,7 +211,6 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 		b.squeeze.AddMotors(cancelCtx, r, []string{"squeezeL", "squeezeR"}),
 		b.elevator.AddMotors(cancelCtx, r, []string{"elevator"}),
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -251,15 +248,14 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 	return b, nil
 }
 
-// Close stops motors and cancels context
-func (b *ResetBox) Close() error {
+// Close stops motors and cancels context.
+func (b *ResetBox) Close() {
 	defer b.activeBackgroundWorkers.Wait()
 	b.Stop(b.cancelCtx)
 	b.cancel()
-	return nil
 }
 
-// Stop turns off all motors
+// Stop turns off all motors.
 func (b *ResetBox) Stop(ctx context.Context) error {
 	return multierr.Combine(
 		b.elevator.Stop(ctx),
@@ -278,7 +274,7 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(flag.Arg(0))
+	cfg, err := config.Read(ctx, flag.Arg(0))
 	if err != nil {
 		return err
 	}
@@ -287,7 +283,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
-	defer myRobot.Close()
+	defer myRobot.Close(ctx)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -329,116 +325,103 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 }
 
 func (b *ResetBox) doGrab1(ctx context.Context, r robot.Robot) {
-	err := multierr.Combine(
+	if err := multierr.Combine(
 		b.arm.MoveToJointPositions(ctx, duckReadyPos),
 		b.arm.MoveToJointPositions(ctx, duckgrabFW),
-	)
-	if err != nil {
+	); err != nil {
 		b.logger.Error(err)
 	}
 }
 
 func (b *ResetBox) doGrab2(ctx context.Context, r robot.Robot) {
-	err := multierr.Combine(
+	if err := multierr.Combine(
 		b.arm.MoveToJointPositions(ctx, duckReadyPos),
 		b.arm.MoveToJointPositions(ctx, duckgrabREV),
-	)
-	if err != nil {
+	); err != nil {
 		b.logger.Error(err)
 	}
 }
 
 func (b *ResetBox) doGrabC1(ctx context.Context, r robot.Robot) {
-	err := multierr.Combine(
+	if err := multierr.Combine(
 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
 		b.arm.MoveToJointPositions(ctx, cube1grab),
-	)
-	if err != nil {
+	); err != nil {
 		b.logger.Error(err)
 	}
 }
 
 func (b *ResetBox) doGrabC2(ctx context.Context, r robot.Robot) {
-	err := multierr.Combine(
+	if err := multierr.Combine(
 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
 		b.arm.MoveToJointPositions(ctx, cube2grab),
-	)
-	if err != nil {
+	); err != nil {
 		b.logger.Error(err)
 	}
 }
 
 func (b *ResetBox) doDropC1(ctx context.Context, r robot.Robot) {
-	err := multierr.Combine(
+	if err := multierr.Combine(
 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
 		b.arm.MoveToJointPositions(ctx, cube1place),
-	)
-	if err != nil {
+	); err != nil {
 		b.logger.Error(err)
 	}
 }
 
 func (b *ResetBox) doDropC2(ctx context.Context, r robot.Robot) {
-	err := multierr.Combine(
+	if err := multierr.Combine(
 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
 		b.arm.MoveToJointPositions(ctx, cube2place),
-	)
-	if err != nil {
+	); err != nil {
 		b.logger.Error(err)
 	}
 }
 
 func (b *ResetBox) doDrop1(ctx context.Context, r robot.Robot) {
-	err := multierr.Combine(
+	if err := multierr.Combine(
 		b.arm.MoveToJointPositions(ctx, duckReadyPos),
 		b.arm.MoveToJointPositions(ctx, duckplaceFW),
-	)
-	if err != nil {
+	); err != nil {
 		b.logger.Error(err)
 	}
 }
 
 func (b *ResetBox) doDrop2(ctx context.Context, r robot.Robot) {
-	err := multierr.Combine(
+	if err := multierr.Combine(
 		b.arm.MoveToJointPositions(ctx, duckReadyPos),
 		b.arm.MoveToJointPositions(ctx, duckplaceREV),
-	)
-	if err != nil {
+	); err != nil {
 		b.logger.Error(err)
 	}
 }
 
 func (b *ResetBox) doPlaceDuck(ctx context.Context, r robot.Robot) {
-	err := b.placeDuck(ctx)
-	if err != nil {
+	if err := b.placeDuck(ctx); err != nil {
 		b.logger.Error(err)
 	}
 }
 
 func (b *ResetBox) doDuckWhack(ctx context.Context, r robot.Robot) {
-	err := b.hammerTime(ctx, duckWhacks)
-	if err != nil {
+	if err := b.hammerTime(ctx, duckWhacks); err != nil {
 		b.logger.Error(err)
 	}
 }
 
 func (b *ResetBox) doHome(ctx context.Context, r robot.Robot) {
-	err := b.home(ctx)
-	if err != nil {
+	if err := b.home(ctx); err != nil {
 		b.logger.Error(err)
 	}
 }
 
 func (b *ResetBox) doArmHome(ctx context.Context, r robot.Robot) {
-	err := b.armHome(ctx)
-	if err != nil {
+	if err := b.armHome(ctx); err != nil {
 		b.logger.Error(err)
 	}
 }
 
 func (b *ResetBox) doRunReset(ctx context.Context, r robot.Robot) {
-	err := b.runReset(ctx)
-	if err != nil {
+	if err := b.runReset(ctx); err != nil {
 		b.logger.Error(err)
 	}
 }
@@ -461,15 +444,13 @@ func (b *ResetBox) doVibrateLevel(ctx context.Context, r robot.Robot) {
 }
 
 func (b *ResetBox) doTipTableUp(ctx context.Context, r robot.Robot) {
-	err := b.tipTableUp(ctx)
-	if err != nil {
+	if err := b.tipTableUp(ctx); err != nil {
 		b.logger.Error(err)
 	}
 }
 
 func (b *ResetBox) doTipTableDown(ctx context.Context, r robot.Robot) {
-	err := b.tipTableDown(ctx)
-	if err != nil {
+	if err := b.tipTableDown(ctx); err != nil {
 		b.logger.Error(err)
 	}
 }
@@ -596,12 +577,10 @@ func (b *ResetBox) waitFor(ctx context.Context, f func(context.Context) (bool, e
 }
 
 func (b *ResetBox) tipTableUp(ctx context.Context) error {
-
 	if b.tableUp {
 		return nil
 	}
-	err := b.armHome(ctx)
-	if err != nil {
+	if err := b.armHome(ctx); err != nil {
 		return err
 	}
 
@@ -609,7 +588,7 @@ func (b *ResetBox) tipTableUp(ctx context.Context) error {
 	b.tipper.Go(ctx, 1.0)
 	utils.SelectContextOrWait(ctx, 11000*time.Millisecond)
 
-	//All off
+	// All off
 	b.tipper.Stop(ctx)
 
 	b.tableUp = true
@@ -617,18 +596,22 @@ func (b *ResetBox) tipTableUp(ctx context.Context) error {
 }
 
 func (b *ResetBox) tipTableDown(ctx context.Context) error {
-	b.tipper.Go(ctx, -1.0)
-	utils.SelectContextOrWait(ctx, 10000*time.Millisecond)
+	if err := b.tipper.Go(ctx, -1.0); err != nil {
+		return err
+	}
+	if !utils.SelectContextOrWait(ctx, 10000*time.Millisecond) {
+		return ctx.Err()
+	}
 
 	// Trigger this when we SHOULD be down.
 	b.tableUp = false
 
 	// Extra time for safety (actuator automatically stops on retract)
-	utils.SelectContextOrWait(ctx, 4000*time.Millisecond)
-	//All Off
-	b.tipper.Stop(ctx)
-
-	return nil
+	if !utils.SelectContextOrWait(ctx, 4000*time.Millisecond) {
+		return ctx.Err()
+	}
+	// All Off
+	return b.tipper.Stop(ctx)
 }
 
 func (b *ResetBox) isTableDown(ctx context.Context) (bool, error) {
@@ -705,7 +688,7 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 		)
 	}()
 
-	//utils.SelectContextOrWait(ctx, 2000*time.Millisecond)
+	// utils.SelectContextOrWait(ctx, 2000*time.Millisecond)
 	// Three whacks for cubes-behinds-ducks
 	errs = multierr.Combine(
 		b.hammerTime(ctx, cubeWhacks),
@@ -930,7 +913,6 @@ func (b *ResetBox) placeDuck(ctx context.Context) error {
 		if errs != nil {
 			return errs
 		}
-
 	} else {
 		// Duck was facing backwards. Grab where the backwards-facing head should be
 		multierr.Combine(

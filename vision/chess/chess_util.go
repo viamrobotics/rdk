@@ -9,7 +9,7 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
-// TODO
+// TODO.
 var (
 	DepthCheckSizeRadius = 20
 	MinPieceDepth        = 9.9999
@@ -29,14 +29,14 @@ func warpColorAndDepthToChess(img *rimage.ImageWithDepth, corners []image.Point)
 	return img.Warp(corners, dst, image.Point{800, 800}), nil
 }
 
-// returns point in a1, a8, h1, h8 order
+// returns point in a1, a8, h1, h8 order.
 func findChessCorners(img *rimage.ImageWithDepth, logger golog.Logger) (image.Image, []image.Point, error) {
 	return FindChessCornersPinkCheat(img, logger)
 }
 
 func getMinChessCorner(chess string) image.Point {
-	var x = int(chess[0] - 'a')
-	var y = (7 - int(chess[1]-'1'))
+	x := int(chess[0] - 'a')
+	y := (7 - int(chess[1]-'1'))
 	if x < 0 || x > 7 || y < 0 || y > 7 {
 		panic(errors.Errorf("bad chess position %s %d %d", chess, x, y))
 	}

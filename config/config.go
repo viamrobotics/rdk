@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 

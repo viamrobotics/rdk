@@ -11,14 +11,14 @@ import (
 
 // Vec2D represents the gradient of an image at a point.
 // The gradient has both a magnitude and direction.
-// Magnitude has values (0, infinity) and direction is [-pi, pi]
+// Magnitude has values (0, infinity) and direction is [-pi, pi].
 type Vec2D struct {
 	magnitude float64
 	direction float64
 }
 
 // VectorField2D stores all the gradient vectors of the image
-// allowing one to retrieve the gradient for any given (x,y) point
+// allowing one to retrieve the gradient for any given (x,y) point.
 type VectorField2D struct {
 	width  int
 	height int
@@ -27,17 +27,17 @@ type VectorField2D struct {
 	maxMagnitude float64
 }
 
-// Magnitude TODO
+// Magnitude TODO.
 func (g Vec2D) Magnitude() float64 {
 	return g.magnitude
 }
 
-// Direction TODO
+// Direction TODO.
 func (g Vec2D) Direction() float64 {
 	return g.direction
 }
 
-// Unit returns the Vec2D with magnitude 1
+// Unit returns the Vec2D with magnitude 1.
 func (g Vec2D) Unit() Vec2D {
 	return Vec2D{1., g.direction}
 }
@@ -49,7 +49,7 @@ func (g Vec2D) Cartesian() (float64, float64) {
 	return x, y
 }
 
-// NewVec2D creates a new 2D vector given a magnitude and direction
+// NewVec2D creates a new 2D vector given a magnitude and direction.
 func NewVec2D(mag, dir float64) Vec2D {
 	if mag < 0. {
 		panic("vector cannot have magnitude less than 0")
@@ -69,38 +69,38 @@ func (vf *VectorField2D) MaxMagnitude() float64 {
 	return vf.maxMagnitude
 }
 
-// Width TODO
+// Width TODO.
 func (vf *VectorField2D) Width() int {
 	return vf.width
 }
 
-// Height TODO
+// Height TODO.
 func (vf *VectorField2D) Height() int {
 	return vf.height
 }
 
-// Contains returns whether the given point is in the vector field
+// Contains returns whether the given point is in the vector field.
 func (vf *VectorField2D) Contains(x, y int) bool {
 	return x >= 0 && y >= 0 && x < vf.width && y < vf.height
 }
 
-// Get TODO
+// Get TODO.
 func (vf *VectorField2D) Get(p image.Point) Vec2D {
 	return vf.data[vf.kxy(p.X, p.Y)]
 }
 
-// GetVec2D TODO
+// GetVec2D TODO.
 func (vf *VectorField2D) GetVec2D(x, y int) Vec2D {
 	return vf.data[vf.kxy(x, y)]
 }
 
-// Set TODO
+// Set TODO.
 func (vf *VectorField2D) Set(x, y int, val Vec2D) {
 	vf.data[vf.kxy(x, y)] = val
 	vf.maxMagnitude = math.Max(math.Abs(val.Magnitude()), vf.maxMagnitude)
 }
 
-// MakeEmptyVectorField2D TODO
+// MakeEmptyVectorField2D TODO.
 func MakeEmptyVectorField2D(width, height int) VectorField2D {
 	vf := VectorField2D{
 		width:        width,
@@ -112,7 +112,7 @@ func MakeEmptyVectorField2D(width, height int) VectorField2D {
 	return vf
 }
 
-// Blur takes in a radius and creates a new blurred vector field from the input vector field
+// Blur takes in a radius and creates a new blurred vector field from the input vector field.
 func (vf *VectorField2D) Blur(radius int) VectorField2D {
 	k := 1 + 2*radius
 	newVF := MakeEmptyVectorField2D(vf.Width(), vf.Height())
@@ -201,7 +201,7 @@ func (vf *VectorField2D) DirectionPicture() image.Image {
 	return img
 }
 
-// changes the radians from between -pi,pi to 0,2pi
+// changes the radians from between -pi,pi to 0,2pi.
 func radZeroTo2Pi(rad float64) float64 {
 	if rad < 0. {
 		rad += 2. * math.Pi

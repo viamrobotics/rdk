@@ -4,16 +4,15 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/testutils/inject"
-
-	"github.com/edaniels/golog"
 )
 
-// A robot with no components should return a frame system with just a world frame
+// A robot with no components should return a frame system with just a world referenceframe.
 func TestEmptyConfigFrameService(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := &inject.Robot{}

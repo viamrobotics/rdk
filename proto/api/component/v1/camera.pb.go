@@ -7,15 +7,13 @@
 package v1
 
 import (
-	reflect "reflect"
-	sync "sync"
-
+	v1 "go.viam.com/rdk/proto/api/common/v1"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	httpbody "google.golang.org/genproto/googleapis/api/httpbody"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-
-	v1 "go.viam.com/rdk/proto/api/common/v1"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (

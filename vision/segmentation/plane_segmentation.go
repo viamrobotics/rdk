@@ -8,14 +8,13 @@ import (
 	"math/rand"
 	"sort"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
-
-	"github.com/golang/geo/r3"
 )
 
 var sortPositions bool
@@ -73,11 +72,12 @@ func pointCloudSplit(cloud pc.PointCloud, inMap map[pc.Vec3]bool) (pc.PointCloud
 // nIter to choose? nIter = log(1-p)/log(1-(1-e)^s), where p is prob of success, e is outlier ratio, s is subset size (3 for plane).
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it
 // This function returns a Plane struct, as well as the remaining points in a pointcloud
-// It also returns the equation of the found plane: [0]x + [1]y + [2]z + [3] = 0
+// It also returns the equation of the found plane: [0]x + [1]y + [2]z + [3] = 0.
 func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, threshold float64) (pc.Plane, pc.PointCloud, error) {
 	if cloud.Size() <= 3 { // if point cloud does not have even 3 points, return original cloud with no planes
 		return pc.NewEmptyPlane(), cloud, nil
 	}
+	//nolint:gosec
 	r := rand.New(rand.NewSource(1))
 	pts := GetPointCloudPositions(cloud)
 	nPoints := cloud.Size()
@@ -186,7 +186,7 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 	return plane, nonPlaneCloud, nil
 }
 
-// PlaneSegmentation is an interface used to find geometric planes in a 3D space
+// PlaneSegmentation is an interface used to find geometric planes in a 3D space.
 type PlaneSegmentation interface {
 	FindPlanes(ctx context.Context) ([]pc.Plane, pc.PointCloud, error)
 }
@@ -247,7 +247,7 @@ func (pcps *pointCloudPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.P
 	return planes, nonPlaneCloud, nil
 }
 
-// VoxelGridPlaneConfig contains the parameters needed to create a Plane from a VoxelGrid
+// VoxelGridPlaneConfig contains the parameters needed to create a Plane from a VoxelGrid.
 type VoxelGridPlaneConfig struct {
 	weightThresh   float64
 	angleThresh    float64 // in degrees

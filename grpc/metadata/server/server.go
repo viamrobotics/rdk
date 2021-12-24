@@ -8,7 +8,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/service/v1"
 )
 
-// MetadataServer implements the contract from metadata.proto
+// MetadataServer implements the contract from metadata.proto.
 type MetadataServer struct {
 	pb.UnimplementedMetadataServiceServer
 	s service.Metadata

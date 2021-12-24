@@ -1,17 +1,20 @@
+// Package javascript implements a JavaScript function engine.
 package javascript
 
 import (
-	_ "embed" // for libquickjs.wasm
+
+	// for libquickjs.wasm.
+	_ "embed"
 	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/wasmerio/wasmer-go/wasmer"
 	"go.uber.org/multierr"
-
 	"go.viam.com/utils"
 
 	functionvm "go.viam.com/rdk/function/vm"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 //go:embed libquickjs.wasm
@@ -38,9 +41,7 @@ type javaScriptEngine struct {
 
 type wasmerFunc func(args []wasmer.Value) ([]wasmer.Value, error)
 
-var (
-	newInstance func() (*wasmer.Instance, *wasmer.WasiEnvironment, *wasmerFunc, error)
-)
+var newInstance func() (*wasmer.Instance, *wasmer.WasiEnvironment, *wasmerFunc, error)
 
 func init() {
 	engine := wasmer.NewEngine()
@@ -94,7 +95,6 @@ func init() {
 		}
 		return instance, wasiEnv, &actualHostFunc, err
 	}
-
 }
 
 // newQuickJSInstance returns a new WASM based QuickJS instance in addition
@@ -368,7 +368,10 @@ func (eng *javaScriptEngine) valueToString(value interface{}) (string, error) {
 	if _, err = eng.callExportedFunction("JS_FreeValue", eng.jsCtxPtr, value); err != nil {
 		return "", err
 	}
-	stringValPtr := stringVal.(int32)
+	stringValPtr, ok := stringVal.(int32)
+	if !ok {
+		return "", rdkutils.NewUnexpectedTypeError(stringValPtr, stringVal)
+	}
 	stringValPtrIdx := stringValPtr
 
 	var toStringVal string
@@ -434,7 +437,10 @@ func (eng *javaScriptEngine) ImportFunction(name string, f functionvm.Function) 
 	if err != nil {
 		return err
 	}
-	funcCtorPtr := evalRet.(int64)
+	funcCtorPtr, ok := evalRet.(int64)
+	if !ok {
+		return rdkutils.NewUnexpectedTypeError(funcCtorPtr, evalRet)
+	}
 
 	argVarArr, deallocArgVarArr, err := eng.allocateData(8)
 	if err != nil {
@@ -538,7 +544,6 @@ func (eng *javaScriptEngine) ValidateSource(source string) error {
 // ExecuteSource evaluates the given source, followed by running the event loop. It returns
 // the value returned from the function (promises not yet handled), unless an error occurs.
 func (eng *javaScriptEngine) ExecuteSource(source string) ([]functionvm.Value, error) {
-
 	sourcePtr, deallocCode, err := eng.allocateCString(source)
 	if err != nil {
 		return nil, err
@@ -601,7 +606,7 @@ func (eng *javaScriptEngine) importValue(value functionvm.Value) (wasmer.Value, 
 		if err != nil {
 			return wasmer.Value{}, err
 		}
-		var boolIntVal int32 = 0
+		var boolIntVal int32
 		if boolVal {
 			boolIntVal = 1
 		}
@@ -630,6 +635,8 @@ func (eng *javaScriptEngine) importValue(value functionvm.Value) (wasmer.Value, 
 			return wasmer.Value{}, err
 		}
 		return wasmer.NewI64(intJSVal.(int64)), nil
+	case functionvm.ValueTypeUndefined, functionvm.ValueTypeUnknown:
+		fallthrough
 	default:
 		return wasmer.Value{}, errors.Errorf("do not know how to import a %q", vt)
 	}
@@ -703,10 +710,11 @@ func (eng *javaScriptEngine) exportValue(value interface{}) (functionvm.Value, e
 		return functionvm.NewFloat(floatVal.(float64)), nil
 	case functionvm.ValueTypeUndefined:
 		return functionvm.NewUndefined(), nil
+	case functionvm.ValueTypeUnknown:
+		fallthrough
 	default:
 		return nil, errors.Errorf("do not know how to export a %q", vt)
 	}
-
 }
 
 func (eng *javaScriptEngine) Close() error {

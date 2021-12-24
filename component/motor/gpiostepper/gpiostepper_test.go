@@ -4,13 +4,12 @@ import (
 	"context"
 	"testing"
 
-	fakeboard "go.viam.com/rdk/component/board/fake"
-	"go.viam.com/rdk/component/motor"
-
 	"github.com/edaniels/golog"
-
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
+
+	fakeboard "go.viam.com/rdk/component/board/fake"
+	"go.viam.com/rdk/component/motor"
 )
 
 func Test1(t *testing.T) {
@@ -57,10 +56,11 @@ func Test1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 
-		testutils.WaitForAssertion(t, func(t testing.TB) {
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
 			on, err = m.IsOn(ctx)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, on, test.ShouldEqual, false)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, on, test.ShouldEqual, false)
 		})
 
 		pos, err := m.Position(ctx)
@@ -76,10 +76,11 @@ func Test1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 
-		testutils.WaitForAssertion(t, func(t testing.TB) {
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
 			on, err = m.IsOn(ctx)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, on, test.ShouldEqual, false)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, on, test.ShouldEqual, false)
 		})
 
 		pos, err := m.Position(ctx)
@@ -95,10 +96,11 @@ func Test1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 
-		testutils.WaitForAssertion(t, func(t testing.TB) {
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
 			on, err = m.IsOn(ctx)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, on, test.ShouldEqual, false)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, on, test.ShouldEqual, false)
 		})
 
 		pos, err := m.Position(ctx)
@@ -114,10 +116,11 @@ func Test1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 
-		testutils.WaitForAssertion(t, func(t testing.TB) {
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
 			on, err = m.IsOn(ctx)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, on, test.ShouldEqual, false)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, on, test.ShouldEqual, false)
 		})
 
 		pos, err := m.Position(ctx)
@@ -133,10 +136,11 @@ func Test1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 
-		testutils.WaitForAssertion(t, func(t testing.TB) {
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
 			pos, err := m.Position(ctx)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pos, test.ShouldBeGreaterThan, 2)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, pos, test.ShouldBeGreaterThan, 2)
 		})
 
 		err = m.Stop(ctx)
@@ -148,5 +152,4 @@ func Test1(t *testing.T) {
 		test.That(t, pos, test.ShouldBeLessThan, 202)
 	})
 	cancel()
-
 }

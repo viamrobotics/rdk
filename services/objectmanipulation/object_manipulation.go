@@ -1,3 +1,4 @@
+// Package objectmanipulation implements an object manipulation service.
 package objectmanipulation
 
 import (
@@ -49,7 +50,7 @@ type objectMService struct {
 }
 
 // DoGrab takes a camera point of an object's location and both moves the gripper
-// to that location and commands it to grab the object
+// to that location and commands it to grab the object.
 func (mgs objectMService) DoGrab(ctx context.Context, gripperName, rootName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
 	// get gripper component
 	gripper, ok := mgs.r.GripperByName(gripperName)
@@ -62,7 +63,7 @@ func (mgs objectMService) DoGrab(ctx context.Context, gripperName, rootName, cam
 		return false, err
 	}
 	cameraPose := spatialmath.NewPoseFromPoint(*cameraPoint)
-	err = mgs.moveGripper(ctx, gripperName, rootName, cameraPose, cameraName)
+	err = mgs.moveGripper(ctx, gripperName, cameraPose, cameraName)
 	if err != nil {
 		return false, err
 	}
@@ -70,10 +71,10 @@ func (mgs objectMService) DoGrab(ctx context.Context, gripperName, rootName, cam
 }
 
 // moveGripper needs a robot with exactly one arm and one gripper and will move the gripper position to the
-// goalPose in the reference frame specified by goalFrameName
+// goalPose in the reference frame specified by goalFrameName.
 func (mgs objectMService) moveGripper(
 	ctx context.Context,
-	gripperName, rootName string,
+	gripperName string,
 	goalPose spatialmath.Pose,
 	goalFrameName string,
 ) error {

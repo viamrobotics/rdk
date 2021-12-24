@@ -4,7 +4,9 @@ package eva
 import (
 	"bytes"
 	"context"
-	_ "embed" // for embedding model file
+
+	// for embedding model file.
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,10 +16,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
 	"go.uber.org/multierr"
-
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
@@ -25,11 +26,9 @@ import (
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/v1"
-	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-
-	"github.com/edaniels/golog"
 )
 
 //go:embed eva_kinematics.json
@@ -50,22 +49,22 @@ type evaData struct {
 	// map[d0:false d1:false d2:false d3:false ee_a0:0.034 ee_a1:0.035 ee_d0:false ee_d1:false]
 	GlobalInputs map[string]interface{} `json:"global.inputs"`
 
-	//map[d0:false d1:false d2:false d3:false ee_d0:false ee_d1:false]
+	// map[d0:false d1:false d2:false d3:false ee_d0:false ee_d1:false]
 	GlobalOutputs map[string]interface{} `json:"global.outputs"`
 
-	//scheduler : map[enabled:false]
+	// scheduler : map[enabled:false]
 	Scheduler map[string]interface{}
 
-	//[0.0008628905634395778 0 0.0002876301878131926 0 -0.00038350690738298 0.0005752603756263852]
+	// [0.0008628905634395778 0 0.0002876301878131926 0 -0.00038350690738298 0.0005752603756263852]
 	ServosPosition []float64 `json:"servos.telemetry.position"`
 
-	//[53.369998931884766 43.75 43.869998931884766 43.869998931884766 51 48.619998931884766]
+	// [53.369998931884766 43.75 43.869998931884766 43.869998931884766 51 48.619998931884766]
 	ServosTemperature []float64 `json:"servos.telemetry.temperature"`
 
-	//[0 0 0 0 0 0]
+	// [0 0 0 0 0 0]
 	ServosVelocity []float64 `json:"servos.telemetry.velocity"`
 
-	//map[loop_count:1 loop_target:1 run_mode:not_running state:ready toolpath_hash:4d8 toolpath_name:Uploaded]
+	// map[loop_count:1 loop_target:1 run_mode:not_running state:ready toolpath_hash:4d8 toolpath_name:Uploaded]
 	Control map[string]interface{}
 }
 
@@ -78,7 +77,7 @@ type eva struct {
 	moveLock *sync.Mutex
 	logger   golog.Logger
 	mp       motionplan.MotionPlanner
-	model    *frame.Model
+	model    referenceframe.Model
 
 	frameJSON []byte
 }
@@ -88,7 +87,7 @@ func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions,
 	if err != nil {
 		return &pb.ArmJointPositions{}, err
 	}
-	return frame.JointPositionsFromRadians(data.ServosPosition), nil
+	return referenceframe.JointPositionsFromRadians(data.ServosPosition), nil
 }
 
 // CurrentPosition computes and returns the current cartesian position.
@@ -106,7 +105,7 @@ func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	solution, err := e.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := e.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
@@ -114,7 +113,7 @@ func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJointPositions) error {
-	radians := frame.JointPositionsToRadians(newPositions)
+	radians := referenceframe.JointPositionsToRadians(newPositions)
 
 	err := e.doMoveJoints(ctx, radians)
 	if err == nil {
@@ -125,8 +124,7 @@ func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJoin
 		return err
 	}
 
-	err2 := e.resetErrors(ctx)
-	if err2 != nil {
+	if err2 := e.resetErrors(ctx); err2 != nil {
 		return errors.Wrapf(multierr.Combine(err, err2), "move failure, and couldn't reset errors")
 	}
 
@@ -134,8 +132,7 @@ func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJoin
 }
 
 func (e *eva) doMoveJoints(ctx context.Context, joints []float64) error {
-	err := e.apiLock(ctx)
-	if err != nil {
+	if err := e.apiLock(ctx); err != nil {
 		return err
 	}
 	defer e.apiUnlock(ctx)
@@ -145,10 +142,6 @@ func (e *eva) doMoveJoints(ctx context.Context, joints []float64) error {
 
 func (e *eva) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	return errors.New("not done yet")
-}
-
-func (e *eva) Close() error {
-	return nil
 }
 
 func (e *eva) apiRequest(ctx context.Context, method string, path string, payload interface{}, auth bool, out interface{}) error {
@@ -166,7 +159,7 @@ func (e *eva) apiRequestRetry(
 ) error {
 	fullPath := fmt.Sprintf("http://%s/api/%s/%s", e.host, e.version, path)
 
-	var reqReader io.Reader = nil
+	var reqReader io.Reader
 	if payload != nil {
 		data, err := json.Marshal(payload)
 		if err != nil {
@@ -189,7 +182,9 @@ func (e *eva) apiRequestRetry(
 	if err != nil {
 		return err
 	}
-	defer utils.UncheckedErrorFunc(res.Body.Close)
+	defer func() {
+		utils.UncheckedError(res.Body.Close())
+	}()
 
 	if res.StatusCode == 401 {
 		// need to login
@@ -243,7 +238,6 @@ func (e *eva) apiName(ctx context.Context) (string, error) {
 	t := Temp{}
 
 	err := e.apiRequest(ctx, "GET", "name", nil, false, &t)
-
 	if err != nil {
 		return "", err
 	}
@@ -320,29 +314,29 @@ func (e *eva) apiUnlock(ctx context.Context) {
 	}
 }
 
-// ModelFrame returns all the information necessary for including the arm in a FrameSystem
-func (e *eva) ModelFrame() *frame.Model {
+// ModelFrame returns all the information necessary for including the arm in a FrameSystem.
+func (e *eva) ModelFrame() referenceframe.Model {
 	return e.model
 }
 
-func (e *eva) CurrentInputs(ctx context.Context) ([]frame.Input, error) {
+func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := e.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return frame.JointPosToInputs(res), nil
+	return referenceframe.JointPosToInputs(res), nil
 }
 
-func (e *eva) GoToInputs(ctx context.Context, goal []frame.Input) error {
-	return e.MoveToJointPositions(ctx, frame.InputsToJointPos(goal))
+func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	return e.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
 }
 
 // EvaModel() returns the kinematics model of the Eva, also has all Frame information.
-func evaModel() (*frame.Model, error) {
-	return frame.ParseJSON(evamodeljson, "")
+func evaModel() (referenceframe.Model, error) {
+	return referenceframe.ParseJSON(evamodeljson, "")
 }
 
-// NewEva TODO
+// NewEva TODO.
 func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
 	attrs := cfg.Attributes
 	host := cfg.Host

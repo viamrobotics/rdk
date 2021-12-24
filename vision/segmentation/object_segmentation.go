@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	pc "go.viam.com/rdk/pointcloud"
-
 	"github.com/golang/geo/r3"
+
+	pc "go.viam.com/rdk/pointcloud"
 )
 
-// ObjectConfig specifies the necessary parameters for object segmentation
+// ObjectConfig specifies the necessary parameters for object segmentation.
 type ObjectConfig struct {
 	MinPtsInPlane    int
 	MinPtsInSegment  int
@@ -22,7 +22,7 @@ type ObjectSegmentation struct {
 	*Segments
 }
 
-// NewObjectSegmentation removes the planes (if any) and returns a segmentation of the objects in a point cloud
+// NewObjectSegmentation removes the planes (if any) and returns a segmentation of the objects in a point cloud.
 func NewObjectSegmentation(ctx context.Context, cloud pc.PointCloud, cfg ObjectConfig) (*ObjectSegmentation, error) {
 	ps := NewPointCloudPlaneSegmentation(cloud, 10, cfg.MinPtsInPlane)
 	planes, nonPlane, err := ps.FindPlanes(ctx)
@@ -49,7 +49,7 @@ func NewObjectSegmentation(ctx context.Context, cloud pc.PointCloud, cfg ObjectC
 }
 
 // SegmentPointCloudObjects uses radius based nearest neighbors to segment the images, and then prunes away
-// segments that do not pass a certain threshold of points
+// segments that do not pass a certain threshold of points.
 func segmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]pc.PointCloud, error) {
 	segments, err := radiusBasedNearestNeighbors(cloud, radius)
 	if err != nil {
@@ -60,7 +60,7 @@ func segmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]
 }
 
 // RadiusBasedNearestNeighbors partitions the pointcloud, grouping points within a given radius of each other.
-// Described in the paper "A Clustering Method for Efficient Segmentation of 3D Laser Data" by Klasing et al. 2008
+// Described in the paper "A Clustering Method for Efficient Segmentation of 3D Laser Data" by Klasing et al. 2008.
 func radiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.PointCloud, error) {
 	var err error
 	clusters := NewSegments()
@@ -77,13 +77,14 @@ func radiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.Poin
 			nv := neighbor.Position()
 			ptIndex, ptOk := clusters.Indices[v]
 			neighborIndex, neighborOk := clusters.Indices[nv]
-			if ptOk && neighborOk {
+			switch {
+			case ptOk && neighborOk:
 				if ptIndex != neighborIndex {
 					err = clusters.MergeClusters(ptIndex, neighborIndex)
 				}
-			} else if !ptOk && neighborOk {
+			case !ptOk && neighborOk:
 				err = clusters.AssignCluster(pt, neighborIndex)
-			} else if ptOk && !neighborOk {
+			case ptOk && !neighborOk:
 				err = clusters.AssignCluster(neighbor, ptIndex)
 			}
 			if err != nil {
@@ -130,7 +131,7 @@ func findNeighborsInRadius(cloud pc.PointCloud, point pc.Point, radius float64) 
 	return neighbors
 }
 
-// NewObjectSegmentationFromVoxelGrid removes the planes (if any) and returns a segmentation of the objects in a point cloud
+// NewObjectSegmentationFromVoxelGrid removes the planes (if any) and returns a segmentation of the objects in a point cloud.
 func NewObjectSegmentationFromVoxelGrid(
 	ctx context.Context,
 	vg *pc.VoxelGrid,
@@ -181,14 +182,15 @@ func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointClo
 		for nv, neighborVox := range nn {
 			ptIndex, ptOk := clusters.Indices[v]
 			neighborIndex, neighborOk := clusters.Indices[nv]
-			if ptOk && neighborOk {
+			switch {
+			case ptOk && neighborOk:
 				if ptIndex != neighborIndex {
 					err = clusters.MergeClusters(ptIndex, neighborIndex)
 					if err != nil {
 						return nil, err
 					}
 				}
-			} else if !ptOk && neighborOk {
+			case !ptOk && neighborOk:
 				clusters.Indices[v] = neighborIndex // label the voxel coordinate
 				for _, p := range vox.Points {
 					err = clusters.AssignCluster(p, neighborIndex) // label all points in the voxel
@@ -196,7 +198,7 @@ func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointClo
 						return nil, err
 					}
 				}
-			} else if ptOk && !neighborOk {
+			case ptOk && !neighborOk:
 				clusters.Indices[nv] = ptIndex
 				for _, p := range neighborVox.Points {
 					err = clusters.AssignCluster(p, ptIndex)

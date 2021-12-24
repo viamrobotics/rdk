@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor/gps"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -55,7 +56,7 @@ const (
 type Service interface {
 	Mode(ctx context.Context) (Mode, error)
 	SetMode(ctx context.Context, mode Mode) error
-	Close() error
+	Close(ctx context.Context) error
 
 	Location(ctx context.Context) (*geo.Point, error)
 
@@ -91,7 +92,10 @@ func (config *Config) Validate(path string) error {
 
 // New returns a new navigation service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	svcConfig := config.ConvertedAttributes.(*Config)
+	svcConfig, ok := config.ConvertedAttributes.(*Config)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
+	}
 	base1, ok := r.BaseByName(svcConfig.BaseName)
 	if !ok {
 		return nil, errors.Errorf("no base named %q", svcConfig.BaseName)
@@ -168,8 +172,7 @@ func (svc *navService) SetMode(ctx context.Context, mode Mode) error {
 	svc.cancelFunc = cancelFunc
 
 	svc.mode = ModeManual
-	switch mode {
-	case ModeWaypoint:
+	if mode == ModeWaypoint {
 		if err := svc.startWaypoint(); err != nil {
 			return err
 		}
@@ -183,7 +186,7 @@ func (svc *navService) startWaypoint() error {
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 
-		var path = []*geo.Point{}
+		path := []*geo.Point{}
 		for {
 			if !utils.SelectContextOrWait(svc.cancelCtx, 500*time.Millisecond) {
 				return
@@ -267,7 +270,7 @@ func (svc *navService) Location(ctx context.Context) (*geo.Point, error) {
 	if svc.gpsDevice == nil {
 		return nil, errors.New("no way to get location")
 	}
-	return svc.gpsDevice.Location(svc.cancelCtx)
+	return svc.gpsDevice.Location(ctx)
 }
 
 func (svc *navService) Waypoints(ctx context.Context) ([]Waypoint, error) {
@@ -299,13 +302,12 @@ func (svc *navService) waypointReached(ctx context.Context) error {
 		return fmt.Errorf("can't mark waypoint reached: %w", err)
 	}
 	return svc.store.WaypointVisited(ctx, wp.ID)
-
 }
 
-func (svc *navService) Close() error {
+func (svc *navService) Close(ctx context.Context) error {
 	svc.cancelFunc()
 	svc.activeBackgroundWorkers.Wait()
-	return utils.TryClose(svc.store)
+	return utils.TryClose(ctx, svc.store)
 }
 
 func fixAngle(a float64) float64 {

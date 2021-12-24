@@ -4,10 +4,10 @@ import (
 	"math"
 	"testing"
 
-	spatial "go.viam.com/rdk/spatialmath"
-
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
 func TestDefaultMetric(t *testing.T) {
@@ -34,10 +34,12 @@ func TestBasicMetric(t *testing.T) {
 	test.That(t, d2, test.ShouldAlmostEqual, 100)
 }
 
-var ov = &spatial.OrientationVector{math.Pi / 2, 0, 0, -1}
-var p1b = spatial.NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, ov)
-var p2b = spatial.NewPoseFromOrientationVector(r3.Vector{2, 3, 4}, ov)
-var result float64
+var (
+	ov     = &spatial.OrientationVector{math.Pi / 2, 0, 0, -1}
+	p1b    = spatial.NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, ov)
+	p2b    = spatial.NewPoseFromOrientationVector(r3.Vector{2, 3, 4}, ov)
+	result float64
+)
 
 func BenchmarkDeltaPose1(b *testing.B) {
 	var r float64

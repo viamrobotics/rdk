@@ -8,7 +8,7 @@ import (
 	"go.viam.com/test"
 )
 
-var deg45 float64 = math.Pi / 4.
+var deg45 = math.Pi / 4.
 
 func TestBoxVsBox(t *testing.T) {
 	ov := &OrientationVector{OX: 1, OY: 1, OZ: 1}

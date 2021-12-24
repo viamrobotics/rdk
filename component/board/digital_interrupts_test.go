@@ -46,7 +46,6 @@ func TestBasicDigitalInterrupt1(t *testing.T) {
 	go func() { i.Tick(context.Background(), true, nowNanosTest()) }()
 	v = <-c
 	test.That(t, v, test.ShouldBeTrue)
-
 }
 
 func TestServoInterrupt(t *testing.T) {

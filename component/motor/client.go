@@ -5,22 +5,21 @@ import (
 	"context"
 	"errors"
 
-	"go.viam.com/utils/rpc"
-
 	"github.com/edaniels/golog"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 )
 
-// serviceClient is a client that satisfies the motor.proto contract
+// serviceClient is a client that satisfies the motor.proto contract.
 type serviceClient struct {
 	conn   rpc.ClientConn
 	client pb.MotorServiceClient
 	logger golog.Logger
 }
 
-// newServiceClient returns a new serviceClient served at the given address
+// newServiceClient returns a new serviceClient served at the given address.
 func newServiceClient(
 	ctx context.Context,
 	address string,
@@ -46,12 +45,12 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 	return sc
 }
 
-// Close cleanly closes the underlying connections
+// Close cleanly closes the underlying connections.
 func (sc *serviceClient) Close() error {
 	return sc.conn.Close()
 }
 
-// client is a motor client
+// client is a motor client.
 type client struct {
 	*serviceClient
 	name string

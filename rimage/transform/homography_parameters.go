@@ -6,7 +6,7 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// RawPinholeCameraHomography is a structure that can be easily serialized and unserialized into JSON
+// RawPinholeCameraHomography is a structure that can be easily serialized and unserialized into JSON.
 type RawPinholeCameraHomography struct {
 	ColorCamera  PinholeCameraIntrinsics `json:"color"`
 	Homography   []float64               `json:"transform"`
@@ -14,7 +14,7 @@ type RawPinholeCameraHomography struct {
 	RotateDepth  int                     `json:"rotate_depth"`
 }
 
-// CheckValid runs checks on the fields of the struct to see if the inputs are valid
+// CheckValid runs checks on the fields of the struct to see if the inputs are valid.
 func (rdch *RawPinholeCameraHomography) CheckValid() error {
 	if rdch == nil {
 		return errors.New("pointer to PinholeCameraHomography is nil")
@@ -37,22 +37,22 @@ type Homography struct {
 	matrix *mat.Dense
 }
 
-// NewHomography creates a Homography from a slice of floats
+// NewHomography creates a Homography from a slice of floats.
 func NewHomography(vals []float64) (*Homography, error) {
 	if len(vals) != 9 {
 		return nil, errors.Errorf("input to NewHomography must have length of 9. Has length of %d", len(vals))
 	}
-	//TODO(bij): add check for mathematical property of homography
+	// TODO(bij): add check for mathematical property of homography
 	d := mat.NewDense(3, 3, vals)
 	return &Homography{d}, nil
 }
 
-// At returns the value of the homography at the given index
+// At returns the value of the homography at the given index.
 func (h *Homography) At(row, col int) float64 {
 	return h.matrix.At(row, col)
 }
 
-// Apply will transform the given point according to the homography
+// Apply will transform the given point according to the homography.
 func (h *Homography) Apply(pt r2.Point) r2.Point {
 	x := h.At(0, 0)*pt.X + h.At(0, 1)*pt.Y + h.At(0, 2)
 	y := h.At(1, 0)*pt.X + h.At(1, 1)*pt.Y + h.At(1, 2)
@@ -64,8 +64,7 @@ func (h *Homography) Apply(pt r2.Point) r2.Point {
 // from depth -> color.
 func (h *Homography) Inverse() (*Homography, error) {
 	var hInv mat.Dense
-	err := hInv.Inverse(h.matrix)
-	if err != nil {
+	if err := hInv.Inverse(h.matrix); err != nil {
 		return nil, errors.Wrap(err, "homography is not invertible (but homographies should always be invertible?)")
 	}
 	return &Homography{&hInv}, nil

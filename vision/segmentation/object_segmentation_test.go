@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
@@ -14,11 +15,9 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
-
-	"github.com/edaniels/golog"
 )
 
-// get a segmentation of a pointcloud and calculate each object's center
+// get a segmentation of a pointcloud and calculate each object's center.
 func TestCalculateSegmentMeans(t *testing.T) {
 	// get file
 	pcd, err := ioutil.ReadFile(artifact.MustPath("segmentation/aligned_intel/pointcloud-pieces.pcd"))
@@ -41,12 +40,12 @@ func TestCalculateSegmentMeans(t *testing.T) {
 	}
 }
 
-// Test finding the objects in an aligned intel image
+// Test finding the objects in an aligned intel image.
 type segmentObjectTestHelper struct {
 	cameraParams *transform.DepthColorIntrinsicsExtrinsics
 }
 
-// Process creates a segmentation using raw PointClouds and then VoxelGrids
+// Process creates a segmentation using raw PointClouds and then VoxelGrids.
 func (h *segmentObjectTestHelper) Process(
 	t *testing.T,
 	pCtx *rimage.ProcessorContext,
@@ -54,6 +53,7 @@ func (h *segmentObjectTestHelper) Process(
 	img image.Image,
 	logger golog.Logger,
 ) error {
+	t.Helper()
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 	test.That(t, ii.IsAligned(), test.ShouldEqual, true)
@@ -88,7 +88,6 @@ func (h *segmentObjectTestHelper) Process(
 	pCtx.GotDebugImage(segImage, "segmented-pointcloud-image-with-depth")
 
 	return nil
-
 }
 
 func TestObjectSegmentationAlignedIntel(t *testing.T) {
@@ -100,7 +99,7 @@ func TestObjectSegmentationAlignedIntel(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-// Test finding objects in images from the gripper camera
+// Test finding objects in images from the gripper camera.
 type gripperSegmentTestHelper struct {
 	cameraParams *transform.DepthColorIntrinsicsExtrinsics
 }
@@ -112,6 +111,7 @@ func (h *gripperSegmentTestHelper) Process(
 	img image.Image,
 	logger golog.Logger,
 ) error {
+	t.Helper()
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
@@ -186,5 +186,4 @@ func TestGripperObjectSegmentation(t *testing.T) {
 
 	err = d.Process(t, &gripperSegmentTestHelper{camera})
 	test.That(t, err, test.ShouldBeNil)
-
 }

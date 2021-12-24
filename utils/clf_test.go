@@ -4,11 +4,10 @@ import (
 	"os"
 	"testing"
 
-	"go.viam.com/rdk/utils"
-
+	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/test"
+	"go.viam.com/rdk/utils"
 )
 
 func TestCLF(t *testing.T) {

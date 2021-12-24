@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/edaniels/golog"
 	slib "github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -34,8 +34,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 	webserver "go.viam.com/rdk/web/server"
-
-	"github.com/edaniels/golog"
 )
 
 var logger = golog.NewDevelopmentLogger("boat2")
@@ -127,7 +125,6 @@ func (b *boat) SteerAndMoveHelp(ctx context.Context,
 	thrustSpeed float64,
 	portSpeed float64,
 	starboardSpeed float64) error {
-
 	thrustSpeed = math.Max(0, thrustSpeed)
 
 	thrustSpeed = math.Min(1, thrustSpeed)
@@ -135,25 +132,24 @@ func (b *boat) SteerAndMoveHelp(ctx context.Context,
 	starboardSpeed = math.Min(1, starboardSpeed)
 
 	if false {
-		fmt.Printf("SteerAndMoveHelp %0.2f %0.2f %0.2f\n", thrustSpeed, portSpeed, starboardSpeed)
+		logger.Infof("SteerAndMoveHelp %0.2f %0.2f %0.2f\n", thrustSpeed, portSpeed, starboardSpeed)
 	}
 	return multierr.Combine(
 		b.thrust.Go(ctx, thrustSpeed),
 		b.port.Go(ctx, portSpeed),
 		b.starboard.Go(ctx, starboardSpeed),
 	)
-
 }
 
 // dir -1 -> 1 : -1 = hard left 1 = hard right
-// speed -1 -> 1 : 0 means stop, 1 is forward, -1 is backwards
+// speed -1 -> 1 : 0 means stop, 1 is forward, -1 is backwards.
 func (b *boat) SteerAndMove(ctx context.Context, dir, speed float64) error {
 	if false { // using column
 		return b.steerColumn(ctx, dir)
 	}
 
 	if false {
-		fmt.Printf("SteerAndMove %0.2f %0.2f \n", dir, speed)
+		logger.Infof("SteerAndMove %0.2f %0.2f \n", dir, speed)
 	}
 
 	if speed > 0.4 {
@@ -315,11 +311,10 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 		}
 	}
 
-	//fmt.Printf("MoveStraight steeringDir: %0.2f speed: %v distanceMillis: %v lastSpin: %v\n", steeringDir, speed, distanceMillis, b.lastSpin)
 	return b.SteerAndMove(ctx, dir, speed)
 }
 
-// MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD)
+// MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD).
 func (b *boat) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
 	return errors.New("boat can't move in arc yet")
 }
@@ -333,7 +328,7 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 	}
 
 	if true { // try to spin now
-		fmt.Printf("want to turn %v\n", angleDeg)
+		logger.Infof("want to turn %v\n", angleDeg)
 		start, err := b.myImu.Orientation(ctx)
 		if err != nil {
 			return err
@@ -361,7 +356,7 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 			}
 
 			left := math.Abs(angleDeg) - rdkutils.AngleDiffDeg(startAngle, now.EulerAngles().Yaw)
-			fmt.Printf("\t left %v (%#v %#v)\n", left, startAngle, now.EulerAngles().Yaw)
+			logger.Infof("\t left %v (%#v %#v)\n", left, startAngle, now.EulerAngles().Yaw)
 			if left < 5 || left > 180 {
 				return b.Stop(ctx)
 			}
@@ -375,8 +370,8 @@ func (b *boat) WidthMillis(ctx context.Context) (int, error) {
 	return 600, nil
 }
 
-func (b *boat) Close() error {
-	return b.Stop(context.Background())
+func (b *boat) Close(ctx context.Context) error {
+	return b.Stop(ctx)
 }
 
 func runRC(ctx context.Context, myBoat *boat) {
@@ -393,7 +388,7 @@ func runRC(ctx context.Context, myBoat *boat) {
 			logger.Errorw("error getting rc signal %w", err)
 			continue
 		}
-		//logger.Debugf("vals: %v", vals)
+		// logger.Debugf("vals: %v", vals)
 
 		if vals["mode"] <= 1300 {
 			err = myBoat.navService.SetMode(ctx, navigation.ModeWaypoint)
@@ -428,7 +423,7 @@ func runRC(ctx context.Context, myBoat *boat) {
 			delta := pushDirection - now.EulerAngles().Yaw
 
 			steer := .5 * (delta / 180)
-			fmt.Printf("pushDirection: %0.1f now: %0.1f delta: %0.2f steer: %.2f\n",
+			logger.Infof("pushDirection: %0.1f now: %0.1f delta: %0.2f steer: %.2f\n",
 				pushDirection, now.EulerAngles().Yaw, delta, steer)
 
 			err = multierr.Combine(
@@ -457,11 +452,10 @@ func runRC(ctx context.Context, myBoat *boat) {
 			logger.Errorw("error moving: %w", err)
 			continue
 		}
-
 	}
 }
 
-func newArduinoIMU(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+func newArduinoIMU(ctx context.Context) (sensor.Sensor, error) {
 	options := slib.OpenOptions{
 		BaudRate:        115200,
 		DataBits:        8,
@@ -523,7 +517,6 @@ func (i *myIMU) parse(line string) error {
 		return nil
 	}
 
-	name := pcs[0]
 	pcs = strings.Split(pcs[1], "|")
 	if len(pcs) != 3 {
 		return fmt.Errorf("bad line %s", line)
@@ -544,7 +537,7 @@ func (i *myIMU) parse(line string) error {
 		return fmt.Errorf("bad line %s", line)
 	}
 
-	if name == "Orient" {
+	if name := pcs[0]; name == "Orient" {
 		// TODO: not sure if units are right, but docs say the raw data is euler
 		i.orientation.Roll = x
 		i.orientation.Pitch = y
@@ -559,14 +552,15 @@ func (i *myIMU) parse(line string) error {
 	return nil
 }
 
-func (i *myIMU) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (i *myIMU) AngularVelocity(_ context.Context) (spatialmath.AngularVelocity, error) {
 	return i.angularVelocity, i.lastError
 }
-func (i *myIMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+
+func (i *myIMU) Orientation(_ context.Context) (spatialmath.Orientation, error) {
 	return &i.orientation, i.lastError
 }
 
-func (i *myIMU) Readings(ctx context.Context) ([]interface{}, error) {
+func (i *myIMU) Readings(_ context.Context) ([]interface{}, error) {
 	return []interface{}{i.angularVelocity, i.orientation}, i.lastError
 }
 
@@ -583,17 +577,17 @@ func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
 
 			r, err := myBoat.myImu.AngularVelocity(ctx)
 			if err != nil {
-				fmt.Printf("error from imu %v\n", err)
+				logger.Infof("error from imu %v\n", err)
 				continue
 			}
 
 			r2, err := myBoat.myImu.Orientation(ctx)
 			if err != nil {
-				fmt.Printf("error from imu %v\n", err)
+				logger.Infof("error from imu %v\n", err)
 				continue
 			}
 
-			fmt.Printf("imu readings %#v\n\t%#v\n", r, r2)
+			logger.Infof("imu readings %#v\n\t%#v\n", r, r2)
 		}
 	}()
 }
@@ -601,7 +595,7 @@ func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(flag.Arg(0))
+	cfg, err := config.Read(ctx, flag.Arg(0))
 	if err != nil {
 		return err
 	}
@@ -616,14 +610,15 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newArduinoIMU(ctx, r, config, logger)
-		}})
+			return newArduinoIMU(ctx)
+		},
+	})
 
 	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
 	if err != nil {
 		return err
 	}
-	defer myRobot.Close()
+	defer myRobot.Close(ctx)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -632,7 +627,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if !ok {
 		return errors.New("no base")
 	}
-	myB := rdkutils.UnwrapProxy(b).(*boat)
+	myB, ok := rdkutils.UnwrapProxy(b).(*boat)
+	if !ok {
+		return rdkutils.NewUnexpectedTypeError(myB, rdkutils.UnwrapProxy(b))
+	}
 
 	navServiceTemp, ok := myRobot.ServiceByName("navigation")
 	if !ok {

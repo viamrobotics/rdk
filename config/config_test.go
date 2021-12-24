@@ -1,28 +1,33 @@
 package config_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/component/board"
+
+	// board attribute converters.
+	_ "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/motor"
+
+	// motor attribute converters.
+	_ "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
 	functionvm "go.viam.com/rdk/function/vm"
-	"go.viam.com/rdk/testutils/inject"
 
-	_ "go.viam.com/rdk/component/board/fake" // board attribute converters
-	_ "go.viam.com/rdk/component/motor/fake" // motor attribute converters
-	_ "go.viam.com/rdk/robots/fake"          // attribute converters
+	// attribute converters.
+	_ "go.viam.com/rdk/robots/fake"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestConfigRobot(t *testing.T) {
-	cfg, err := config.Read("data/robot.json")
+	cfg, err := config.Read(context.Background(), "data/robot.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, cfg.Components, test.ShouldHaveLength, 4)
@@ -44,7 +49,7 @@ func TestConfig3(t *testing.T) {
 	},
 	)
 
-	cfg, err := config.Read("data/config3.json")
+	cfg, err := config.Read(context.Background(), "data/config3.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(cfg.Components), test.ShouldEqual, 3)
@@ -87,7 +92,7 @@ func TestConfig3(t *testing.T) {
 }
 
 func TestConfigLoad1(t *testing.T) {
-	cfg, err := config.Read("data/cfg3.json")
+	cfg, err := config.Read(context.Background(), "data/cfg3.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	c1 := cfg.FindComponent("c1")
@@ -109,7 +114,7 @@ func TestCreateCloudRequest(t *testing.T) {
 		Secret: "b",
 		Path:   "c",
 	}
-	r, err := config.CreateCloudRequest(&cfg)
+	r, err := config.CreateCloudRequest(context.Background(), &cfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, r.Header.Get("Secret"), test.ShouldEqual, cfg.Secret)

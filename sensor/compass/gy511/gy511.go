@@ -1,3 +1,4 @@
+// Package gy511 implements a GY511 based compass.
 package gy511
 
 import (
@@ -10,8 +11,10 @@ import (
 	"sync"
 	"sync/atomic"
 
+	movingaverage "github.com/RobinUS2/golang-moving-average"
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
@@ -20,10 +23,6 @@ import (
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/sensor/compass"
 	"go.viam.com/rdk/serial"
-
-	movingaverage "github.com/RobinUS2/golang-moving-average"
-	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
 )
 
 // ModelName is used to register the sensor to a model name.

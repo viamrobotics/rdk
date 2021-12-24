@@ -4,14 +4,14 @@ import (
 	"context"
 	"testing"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	frame "go.viam.com/rdk/referenceframe"
-	spatial "go.viam.com/rdk/spatialmath"
-	vutils "go.viam.com/rdk/utils"
-
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
+	vutils "go.viam.com/rdk/utils"
 )
 
 var logger = golog.NewDevelopmentLogger("armplay")
@@ -19,7 +19,7 @@ var logger = golog.NewDevelopmentLogger("armplay")
 func TestIKTolerances(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	m, err := frame.ParseJSONFile(vutils.ResolveFile("robots/varm/v1.json"), "")
+	m, err := referenceframe.ParseJSONFile(vutils.ResolveFile("robots/varm/v1.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := NewCBiRRTMotionPlanner(m, nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -33,7 +33,7 @@ func TestIKTolerances(t *testing.T) {
 		OY: -3.3,
 		OZ: -1.11,
 	}
-	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
+	_, err = mp.Plan(context.Background(), pos, referenceframe.FloatsToInputs([]float64{0, 0}))
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
@@ -41,16 +41,15 @@ func TestIKTolerances(t *testing.T) {
 	opt.SetMetric(NewPositionOnlyMetric())
 	opt.SetMaxSolutions(50)
 	mp.SetOptions(opt)
-	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
+	_, err = mp.Plan(context.Background(), pos, referenceframe.FloatsToInputs([]float64{0, 0}))
 	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestConstraintPath(t *testing.T) {
+	homePos := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	toPos := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1})
 
-	homePos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
-	toPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1})
-
-	modelXarm, err := frame.ParseJSONFile(vutils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
+	modelXarm, err := referenceframe.ParseJSONFile(vutils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ci := &ConstraintInput{StartInput: homePos, EndInput: toPos, Frame: modelXarm}
 
@@ -69,7 +68,7 @@ func TestConstraintPath(t *testing.T) {
 
 	test.That(t, len(handler.Constraints()), test.ShouldEqual, 1)
 
-	badInterpPos := frame.FloatsToInputs([]float64{6.2, 0, 0, 0, 0, 0})
+	badInterpPos := referenceframe.FloatsToInputs([]float64{6.2, 0, 0, 0, 0, 0})
 	ciBad := &ConstraintInput{StartInput: homePos, EndInput: badInterpPos, Frame: modelXarm}
 	ok, failCI = handler.CheckConstraintPath(ciBad, 0.5)
 	test.That(t, failCI, test.ShouldBeNil)
@@ -89,7 +88,7 @@ func TestLineFollow(t *testing.T) {
 		Z:  550,
 		OY: -1,
 	})
-	mp1 := frame.JointPositionsFromRadians([]float64{
+	mp1 := referenceframe.JointPositionsFromRadians([]float64{
 		3.75646398939225,
 		-1.0162453766159272,
 		1.2142890600914453,
@@ -98,7 +97,7 @@ func TestLineFollow(t *testing.T) {
 		-0.006502311329196852,
 		-4.3822913510408945,
 	})
-	mp2 := frame.JointPositionsFromRadians([]float64{
+	mp2 := referenceframe.JointPositionsFromRadians([]float64{
 		3.896845654143853,
 		-0.8353398707254642,
 		1.1306783805718412,
@@ -121,15 +120,15 @@ func TestLineFollow(t *testing.T) {
 	pointGrad := gradFunc(query, query)
 	test.That(t, pointGrad, test.ShouldBeLessThan, 0.001*0.001)
 
-	fs := frame.NewEmptySimpleFrameSystem("test")
+	fs := referenceframe.NewEmptySimpleFrameSystem("test")
 
-	m, err := frame.ParseJSONFile(vutils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
+	m, err := referenceframe.ParseJSONFile(vutils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	err = fs.AddFrame(m, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
-	markerFrame, err := frame.NewStaticFrame("marker", spatial.NewPoseFromPoint(r3.Vector{0, 0, 105}))
+	markerFrame, err := referenceframe.NewStaticFrame("marker", spatial.NewPoseFromPoint(r3.Vector{0, 0, 105}))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(markerFrame, m)
 	test.That(t, err, test.ShouldBeNil)
@@ -144,7 +143,7 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	frames := uniqInPlaceSlice(append(sFrames, gFrames...))
 
-	// Create a frame to solve for, and an IK solver with that frame.
+	// Create a frame to solve for, and an IK solver with that referenceframe.
 	sf := &solverFrame{solveFrame.Name() + "_" + goalFrame.Name(), fss, frames, solveFrame, goalFrame}
 
 	opt := NewDefaultPlannerOptions()
@@ -152,8 +151,8 @@ func TestLineFollow(t *testing.T) {
 	opt.AddConstraint("whiteboard", validFunc)
 	ok, _ := opt.CheckConstraintPath(
 		&ConstraintInput{
-			StartInput: frame.JointPosToInputs(mp1),
-			EndInput:   frame.JointPosToInputs(mp2),
+			StartInput: referenceframe.JointPosToInputs(mp1),
+			EndInput:   referenceframe.JointPosToInputs(mp2),
 			Frame:      sf,
 		},
 		1,

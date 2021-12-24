@@ -37,7 +37,7 @@ func init() {
 	}
 }
 
-// drawPoint instructs a robot to draw by moving its arm into specific positions sequentially
+// drawPoint instructs a robot to draw by moving its arm into specific positions sequentially.
 func drawPoint(ctx context.Context, r robot.Robot) error {
 	if len(r.ArmNames()) != 1 {
 		return errors.New("need 1 arm name")
@@ -62,7 +62,6 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
-
 	// use built-in camera to find a face and create its caricature
 	if err := findFace(personToDraw); err != nil {
 		return err
@@ -73,7 +72,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 	if false {
 		flag.Parse()
-		cfg, err := config.Read(flag.Arg(0))
+		cfg, err := config.Read(ctx, flag.Arg(0))
 		if err != nil {
 			return err
 		}
@@ -81,7 +80,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		if err != nil {
 			return err
 		}
-		defer myRobot.Close()
+		defer myRobot.Close(ctx)
 		return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
 	}
 	return nil

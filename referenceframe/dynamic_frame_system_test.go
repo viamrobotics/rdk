@@ -4,10 +4,10 @@ import (
 	"math"
 	"testing"
 
-	spatial "go.viam.com/rdk/spatialmath"
-
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
 func TestSimpleRotationalFrame(t *testing.T) {

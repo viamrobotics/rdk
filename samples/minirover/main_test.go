@@ -11,8 +11,7 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
-type ChargeDebug struct {
-}
+type ChargeDebug struct{}
 
 func (cd ChargeDebug) Process(
 	t *testing.T,
@@ -21,6 +20,7 @@ func (cd ChargeDebug) Process(
 	img image.Image,
 	logger golog.Logger,
 ) error {
+	t.Helper()
 	i2 := rimage.ConvertImage(img)
 
 	top, x, err := findBlack(context.Background(), i2, logger)
@@ -39,5 +39,4 @@ func TestCharge1(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/charging3", "*.jpg", false)
 	err := d.Process(t, ChargeDebug{})
 	test.That(t, err, test.ShouldBeNil)
-
 }

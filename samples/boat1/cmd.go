@@ -13,8 +13,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/adrianmo/go-nmea"
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -30,11 +32,8 @@ import (
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/serial"
 	"go.viam.com/rdk/services/web"
+	rdkutils "go.viam.com/rdk/utils"
 	webserver "go.viam.com/rdk/web/server"
-
-	"github.com/adrianmo/go-nmea"
-	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
 )
 
 const (
@@ -44,7 +43,7 @@ const (
 
 var logger = golog.NewDevelopmentLogger("boat1")
 
-// Boat TODO
+// Boat TODO.
 type Boat struct {
 	theBoard        board.Board
 	starboard, port motor.Motor
@@ -57,7 +56,7 @@ type Boat struct {
 	cancelCtx context.Context
 }
 
-// MoveStraight TODO
+// MoveStraight TODO.
 func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	if block {
 		return errors.New("boat can't block for move straight yet")
@@ -70,37 +69,36 @@ func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 		b.starboard.GoFor(ctx, speed, rotations),
 		b.port.GoFor(ctx, speed, rotations),
 	)
-
 }
 
-// MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD)
+// MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD).
 func (b *Boat) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
 	return errors.New("boat can't move in arc yet")
 }
 
-// Spin TODO
+// Spin TODO.
 func (b *Boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 	return errors.New("boat can't spin yet")
 }
 
-// WidthMillis TODO
+// WidthMillis TODO.
 func (b *Boat) WidthMillis(ctx context.Context) (int, error) {
 	return 1, nil
 }
 
-// Stop TODO
+// Stop TODO.
 func (b *Boat) Stop(ctx context.Context) error {
 	return multierr.Combine(b.starboard.Stop(ctx), b.port.Stop(ctx))
 }
 
-// Close TODO
-func (b *Boat) Close() error {
+// Close TODO.
+func (b *Boat) Close(ctx context.Context) error {
 	defer b.activeBackgroundWorkers.Wait()
 	b.cancel()
-	return b.Stop(context.Background())
+	return b.Stop(ctx)
 }
 
-// StartRC TODO
+// StartRC TODO.
 func (b *Boat) StartRC(ctx context.Context) {
 	b.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
@@ -156,7 +154,6 @@ func (b *Boat) StartRC(ctx context.Context) {
 					// moving mostly forward or back, but turning a bit
 					direction = float64(rightHorizontalVal)
 				}
-
 			} else {
 				if mode == 2 {
 					port *= -1
@@ -178,7 +175,6 @@ func (b *Boat) StartRC(ctx context.Context) {
 				starboard = port
 
 				direction = float64(directionVal)
-
 			}
 
 			if direction > 0 {
@@ -201,12 +197,11 @@ func (b *Boat) StartRC(ctx context.Context) {
 			if err != nil {
 				log.Print(err)
 			}
-
 		}
 	}, b.activeBackgroundWorkers.Done)
 }
 
-// SavedDepth TODO
+// SavedDepth TODO.
 type SavedDepth struct {
 	Longitude float64
 	Latitude  float64
@@ -221,12 +216,15 @@ func storeAll(docs []SavedDepth) error {
 			return err
 		}
 
-		_, err = http.Post(
+		resp, err := http.Post(
 			"https://us-east-1.aws.webhooks.mongodb-realm.com/api/client/v2.0/app/boat1-lwcji/service/http1/incoming_webhook/depthRecord",
 			"application/json",
 			bytes.NewReader(data))
 		if err != nil {
 			return err
+		}
+		if err := resp.Body.Close(); err != nil {
+			rlog.Logger.Error(err)
 		}
 	}
 
@@ -283,10 +281,19 @@ func doRecordDepth(ctx context.Context, depthSensor sensor.Sensor) error {
 		return errors.Errorf("readings is unexpected %v", readings)
 	}
 
-	m := readings[0].(map[string]interface{})
+	m, ok := readings[0].(map[string]interface{})
+	if !ok {
+		return rdkutils.NewUnexpectedTypeError(m, readings[0])
+	}
 
-	confidence := m["confidence"].(float64)
-	depth := m["distance"].(float64)
+	confidence, ok := m["confidence"].(float64)
+	if !ok {
+		return rdkutils.NewUnexpectedTypeError(confidence, m["confidence"])
+	}
+	depth, ok := m["distance"].(float64)
+	if !ok {
+		return rdkutils.NewUnexpectedTypeError(depth, m["distance"])
+	}
 
 	if confidence < 90 {
 		rlog.Logger.Debugf("confidence too low, skipping confidence: %v depth: %v", confidence, depth)
@@ -321,7 +328,7 @@ func recordDepthWorker(ctx context.Context, depthSensor sensor.Sensor) {
 	}
 }
 
-// newBoat TODO
+// newBoat TODO.
 func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golog.Logger) (base.Base, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	b := &Boat{activeBackgroundWorkers: &sync.WaitGroup{}, cancelCtx: cancelCtx, cancel: cancel}
@@ -383,7 +390,7 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(flag.Arg(0))
+	cfg, err := config.Read(ctx, flag.Arg(0))
 	if err != nil {
 		return err
 	}
@@ -395,7 +402,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
-	defer myRobot.Close()
+	defer myRobot.Close(ctx)
 
 	depth1, ok := myRobot.SensorByName("depth1")
 	if !ok {

@@ -9,12 +9,12 @@ import (
 	"go.viam.com/rdk/sensor"
 )
 
-// The forcematrix sensor sub-type
+// The forcematrix sensor sub-type.
 const (
 	Type = "forcematrix"
 )
 
-// MatrixStorageSize determines how many matrices to store in history queue
+// MatrixStorageSize determines how many matrices to store in history queue.
 const MatrixStorageSize = 200
 
 // A ForceMatrix represents a force sensor that outputs a 2-dimensional array
