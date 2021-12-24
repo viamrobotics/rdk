@@ -16,7 +16,8 @@ func TestFunctionConfigValidate(t *testing.T) {
 		err    string
 	}{
 		{
-			name: "no name", err: `"name" is required`},
+			name: "no name", err: `"name" is required`,
+		},
 		{
 			name: "no engine",
 			config: functionvm.FunctionConfig{

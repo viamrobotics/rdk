@@ -1,8 +1,11 @@
+// Package fake implements a fake gripper.
 package fake
 
 import (
 	"context"
-	_ "embed" // for embedding model file
+
+	// for embedding model file.
+	_ "embed"
 
 	"github.com/edaniels/golog"
 
@@ -32,21 +35,16 @@ func init() {
 // Gripper is a fake gripper that can simply read and set properties.
 type Gripper struct {
 	Name  string
-	model *referenceframe.Model
+	model referenceframe.Model
 }
 
-// ModelFrame returns the dynamic frame of the model
-func (g *Gripper) ModelFrame() *referenceframe.Model {
+// ModelFrame returns the dynamic frame of the model.
+func (g *Gripper) ModelFrame() referenceframe.Model {
 	return g.model
 }
 
 // Open does nothing.
 func (g *Gripper) Open(ctx context.Context) error {
-	return nil
-}
-
-// Close does nothing.
-func (g *Gripper) Close() error {
 	return nil
 }
 

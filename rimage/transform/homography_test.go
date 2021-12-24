@@ -4,12 +4,11 @@ import (
 	"image"
 	"testing"
 
+	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/rimage"
-
-	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 )
 
 type homographyTestHelper struct {
@@ -23,6 +22,7 @@ func (h *homographyTestHelper) Process(
 	img image.Image,
 	logger golog.Logger,
 ) error {
+	t.Helper()
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth_homography")
@@ -96,7 +96,7 @@ func TestPinholeCameraHomography(t *testing.T) {
 
 	dch, err := NewPinholeCameraHomography(conf)
 	test.That(t, err, test.ShouldBeNil)
-	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
+	d := rimage.NewMultipleImageTestDebugger(t, "transform/homography", "*.both.gz", false)
 	err = d.Process(t, &homographyTestHelper{dch})
 	test.That(t, err, test.ShouldBeNil)
 }

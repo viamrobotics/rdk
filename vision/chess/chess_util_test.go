@@ -3,14 +3,13 @@ package chess
 import (
 	"testing"
 
+	"github.com/edaniels/golog"
+	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rlog"
-
-	"github.com/edaniels/golog"
-	"go.viam.com/test"
 )
 
 var outDir string
@@ -32,10 +31,10 @@ func TestGetMinChessCorner(t *testing.T) {
 	x = getMinChessCorner("h1")
 	test.That(t, x.X, test.ShouldEqual, 700)
 	test.That(t, x.Y, test.ShouldEqual, 700)
-
 }
 
-func _testBoardHeight(t *testing.T, game *Game, board *Board, square string, minHeight, maxHeight float64, extra string) {
+func _testBoardHeight(t *testing.T, game *Game, board *Board, square string, minHeight, maxHeight float64) {
+	t.Helper()
 	height, err := game.GetPieceHeight(board, square)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, height, test.ShouldBeBetween, minHeight, maxHeight)
@@ -54,9 +53,9 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 	game, err := NewGame(theBoard)
 	test.That(t, err, test.ShouldBeNil)
 
-	_testBoardHeight(t, game, theBoard, "b1", 40, 58, "board1")  // knight
-	_testBoardHeight(t, game, theBoard, "e1", 70, 100, "board1") // king
-	_testBoardHeight(t, game, theBoard, "c1", 50, 71, "board1")  // bishop
+	_testBoardHeight(t, game, theBoard, "b1", 40, 58)  // knight
+	_testBoardHeight(t, game, theBoard, "e1", 70, 100) // king
+	_testBoardHeight(t, game, theBoard, "c1", 50, 71)  // bishop
 
 	annotated := theBoard.Annotate()
 	rimage.WriteImageToFile(outDir+"/board1_annotated.png", annotated)
@@ -74,9 +73,9 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 	game, err := NewGame(theBoard)
 	test.That(t, err, test.ShouldBeNil)
 
-	_testBoardHeight(t, game, theBoard, "b1", 40, 58, "board2")  // knight
-	_testBoardHeight(t, game, theBoard, "e1", 70, 100, "board2") // king
-	_testBoardHeight(t, game, theBoard, "c1", 50, 71, "board2")  // bishop
+	_testBoardHeight(t, game, theBoard, "b1", 40, 58)  // knight
+	_testBoardHeight(t, game, theBoard, "e1", 70, 100) // king
+	_testBoardHeight(t, game, theBoard, "c1", 50, 71)  // bishop
 
 	annotated := theBoard.Annotate()
 	rimage.WriteImageToFile(outDir+"/board2_annotated.png", annotated)
@@ -87,9 +86,9 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 
 	rimage.WriteImageToFile(outDir+"/board3_annotated.png", nextBoard.Annotate())
 
-	_testBoardHeight(t, game, nextBoard, "b1", -1, 1, "board3")   // empty
-	_testBoardHeight(t, game, nextBoard, "e1", 70, 100, "board3") // king
-	_testBoardHeight(t, game, nextBoard, "c1", -1, 1, "board3")   // bishop
+	_testBoardHeight(t, game, nextBoard, "b1", -1, 1)   // empty
+	_testBoardHeight(t, game, nextBoard, "e1", 70, 100) // king
+	_testBoardHeight(t, game, nextBoard, "c1", -1, 1)   // bishop
 }
 
 func TestWarpColorAndDepthToChess3(t *testing.T) {
@@ -104,21 +103,21 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 	game, err := NewGame(theBoard)
 	test.That(t, err, test.ShouldBeNil)
 
-	_testBoardHeight(t, game, theBoard, "b1", 40, 58, "board-1605543520")  // knight
-	_testBoardHeight(t, game, theBoard, "e1", 70, 100, "board-1605543520") // king
-	_testBoardHeight(t, game, theBoard, "c1", 45, 74, "board-1605543520")  // bishop
+	_testBoardHeight(t, game, theBoard, "b1", 40, 58)  // knight
+	_testBoardHeight(t, game, theBoard, "e1", 70, 100) // king
+	_testBoardHeight(t, game, theBoard, "c1", 45, 74)  // bishop
 
 	nextBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board-1605543783", true, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_testBoardHeight(t, game, nextBoard, "b1", 40, 58, "board-1605543783")  // knight
-	_testBoardHeight(t, game, nextBoard, "e1", 70, 100, "board-1605543783") // king
-	_testBoardHeight(t, game, nextBoard, "e2", 20, 40, "board-1605543783")  // pawn
-	_testBoardHeight(t, game, nextBoard, "c1", 45, 74, "board-1605543783")  // bishop
+	_testBoardHeight(t, game, nextBoard, "b1", 40, 58)  // knight
+	_testBoardHeight(t, game, nextBoard, "e1", 70, 100) // king
+	_testBoardHeight(t, game, nextBoard, "e2", 20, 40)  // pawn
+	_testBoardHeight(t, game, nextBoard, "c1", 45, 74)  // bishop
 
 	rimage.WriteImageToFile(outDir+"/board-1605543783.png", nextBoard.Annotate())
 
-	//crapPlayWithKmeans(nextBoard)
+	// crapPlayWithKmeans(nextBoard)
 }
 
 func TestArmBlock1(t *testing.T) {
@@ -131,7 +130,6 @@ func TestArmBlock1(t *testing.T) {
 
 	annotated := board.Annotate()
 	rimage.WriteImageToFile(outDir+"/armblock1_annotated.png", annotated)
-
 }
 
 func TestWarpColorAndDepthToChess4(t *testing.T) {
@@ -151,7 +149,6 @@ func TestWarpColorAndDepthToChess4(t *testing.T) {
 
 	d = theBoard.SquareCenterHeight("d7", DepthCheckSizeRadius)
 	test.That(t, d, test.ShouldBeGreaterThanOrEqualTo, 10)
-
 }
 
 func TestWarpColorAndDepthToChess5(t *testing.T) {

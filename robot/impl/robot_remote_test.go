@@ -6,8 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
+	"go.viam.com/test"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/base"
@@ -32,9 +33,6 @@ import (
 	"go.viam.com/rdk/sensor"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-
-	"github.com/edaniels/golog"
-	"go.viam.com/test"
 )
 
 func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot {
@@ -690,8 +688,8 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	_, ok = robot.SensorByName("one.sensor1")
 	test.That(t, ok, test.ShouldBeFalse)
-	test.That(t, robot.Close(), test.ShouldBeNil)
-	test.That(t, wrapped.Robot.Close(), test.ShouldBeNil)
+	test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, wrapped.Robot.Close(context.Background()), test.ShouldBeNil)
 }
 
 type dummyRemoteRobotWrapper struct {
@@ -718,12 +716,12 @@ func (w *dummyRemoteRobotWrapper) Refresh(ctx context.Context) error {
         }
     ]
 }`
-	conf, err := config.FromReader("somepath", strings.NewReader(confRaw))
+	conf, err := config.FromReader(ctx, "somepath", strings.NewReader(confRaw))
 	if err != nil {
 		return err
 	}
 
-	robot, err := New(context.Background(), conf, w.logger)
+	robot, err := New(ctx, conf, w.logger)
 	if err != nil {
 		return err
 	}

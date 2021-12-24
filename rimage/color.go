@@ -5,11 +5,11 @@ import (
 	"image/color"
 	"math"
 
-	"go.viam.com/rdk/rlog"
-	"go.viam.com/rdk/utils"
-
 	"github.com/lucasb-eyer/go-colorful"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/utils"
 )
 
 // Color is a more featured color type than color.Color. Prefer to use
@@ -128,11 +128,11 @@ func AverageColor(colors []Color) Color {
 		avgS += s
 		avgV += v
 	}
-	hueX = hueX / num
-	hueY = hueY / num
+	hueX /= num
+	hueY /= num
 	avgH = utils.RadToDeg(math.Atan2(hueY, hueX))
-	avgS = avgS / num
-	avgV = avgV / num
+	avgS /= num
+	avgV /= num
 	return NewColorFromHSV(avgH, avgS, avgV)
 }
 
@@ -172,7 +172,7 @@ func (c Color) String() string {
 }
 
 // HsvNormal returns a normalized HSV representation of the color.
-// h : 0 -> 360, s,v : 0 -> 1.0
+// h : 0 -> 360, s,v : 0 -> 1.0.
 func (c Color) HsvNormal() (float64, float64, float64) {
 	h, s, v := c.hsv()
 	return 360.0 * float64(h) / float64(math.MaxUint16), float64(s) / 255.0, float64(v) / 255.0
@@ -196,16 +196,16 @@ func (c Color) RGBA() (r, g, b, a uint32) {
 	a = uint32(255)
 	r = uint32(R)
 	r |= r << 8
-	//r *= a
-	//r /= 0xff
+	// r *= a
+	// r /= 0xff
 	g = uint32(G)
 	g |= g << 8
-	//g *= a
-	//g /= 0xff
+	// g *= a
+	// g /= 0xff
 	b = uint32(B)
 	b |= b << 8
-	//b *= a
-	//b /= 0xff
+	// b *= a
+	// b /= 0xff
 	a |= a << 8
 	return
 }
@@ -234,7 +234,7 @@ func (c Color) Closest(others []Color) (int, Color, float64) {
 }
 
 // a and b are between 0 and 1 but it's circular
-// so .999 and .001 are .002 apart
+// so .999 and .001 are .002 apart.
 func _loopedDiff(a, b float64) float64 {
 	A := math.Max(a, b)
 	B := math.Min(a, b)
@@ -278,7 +278,8 @@ func (c Color) distanceDebug(b Color, debug bool) float64 {
 	dd := 1.0
 	var section int
 
-	if v1 < .13 || v2 < .13 {
+	switch {
+	case v1 < .13 || v2 < .13:
 		section = 1
 		// we're in the dark range
 		wh /= 30
@@ -288,13 +289,13 @@ func (c Color) distanceDebug(b Color, debug bool) float64 {
 		if v1 < .1 && v2 < .1 {
 			ws /= 3
 		}
-	} else if (s1 < .25 && v1 < .25) || (s2 < .25 && v2 < .25) {
+	case (s1 < .25 && v1 < .25) || (s2 < .25 && v2 < .25):
 		section = 2
 		// we're in the bottom left quadrat
 		wv *= 3.0
 		wh /= 20
 		ws /= 2
-	} else if s1 < .10 || s2 < .10 {
+	case s1 < .10 || s2 < .10:
 		section = 3
 		// we're in the very light range
 		wh *= .06 * (v1 + v2) * ((s1 + s2) * 5)
@@ -306,7 +307,7 @@ func (c Color) distanceDebug(b Color, debug bool) float64 {
 		}
 		dd = math.Sqrt(.95 + s1 + s2)
 		wh *= dd
-	} else if (s1 < .3 && v1 < .345) || (s2 < .3 && v2 < .35) {
+	case (s1 < .3 && v1 < .345) || (s2 < .3 && v2 < .35):
 		section = 4
 		// bottom left bigger quadrant
 		ac = _ratioOffFrom135(v1-v2, s1-s2)
@@ -320,8 +321,7 @@ func (c Color) distanceDebug(b Color, debug bool) float64 {
 		}
 		dd = math.Pow(1.5-v1-v2, 2)
 		wh *= dd
-
-	} else if s1 < .19 && s2 < .19 {
+	case s1 < .19 && s2 < .19:
 		section = 5
 		// we're in the light range
 		wh *= .3
@@ -333,23 +333,23 @@ func (c Color) distanceDebug(b Color, debug bool) float64 {
 			wh *= 1
 			wv *= .7
 		}
-	} else if s1 > .9 && s2 > .9 {
+	case s1 > .9 && s2 > .9:
 		section = 6
 		// in the very right side of the chart
 		wh *= 1.2
 		ws *= 1.1
 		wv *= .7
-	} else if v1 < .20 || v2 < .20 {
+	case v1 < .20 || v2 < .20:
 		section = 7
 		wv *= 2.8
 		ws /= 4
 		wh *= .4
-	} else if v1 < .25 || v2 < .25 {
+	case v1 < .25 || v2 < .25:
 		section = 8
 		wv *= 1.5
 		ws /= 5
 		wh *= .5
-	} else {
+	default:
 		section = 9
 		// if dd is 0, hue is less important, if dd is 2, hue is more important
 		dd = utils.Square(math.Min(s1, s2)) + utils.Square(math.Min(v1, v2)) // 0 -> 2
@@ -366,7 +366,6 @@ func (c Color) distanceDebug(b Color, debug bool) float64 {
 		} else {
 			ws *= .5
 		}
-
 	}
 
 	hd := _loopedDiff(h1, h2)
@@ -390,9 +389,9 @@ func (c Color) distanceDebug(b Color, debug bool) float64 {
 func _ratioOffFrom135(y, x float64) float64 {
 	a := math.Atan2(y, x)
 	if a < 0 {
-		a = a + math.Pi
+		a += math.Pi
 	}
-	a = a / math.Pi
+	a /= math.Pi
 
 	return _ratioOffFrom135Finish(a)
 }
@@ -415,12 +414,13 @@ func _ratioOffFrom135Finish(a float64) float64 {
 	return a
 }
 
-func rgbToHsv(r, g, b uint8) (h uint16, s uint8, v uint8) {
+func rgbToHsv(r, g, b uint8) (uint16, uint8, uint8) {
 	min := utils.MinUint8(utils.MinUint8(r, g), b)
-	v = utils.MaxUint8(utils.MaxUint8(r, g), b)
+	v := utils.MaxUint8(utils.MaxUint8(r, g), b)
 	C := float64(v - min)
 
-	s = 0
+	var h uint16
+	var s uint8
 	if v > 0 {
 		// TODO(erh): can make even faster
 		s = uint8(255.0 * C / float64(v))
@@ -428,13 +428,13 @@ func rgbToHsv(r, g, b uint8) (h uint16, s uint8, v uint8) {
 
 	h = 0 // We use 0 instead of undefined as in wp.
 	if min != v {
-
 		var h2 float64
-		if v == b {
+		switch {
+		case v == b:
 			h2 = (float64(r)-float64(g))/C + 4.0
-		} else if v == g {
+		case v == g:
 			h2 = (float64(b)-float64(r))/C + 2.0
-		} else if v == r {
+		case v == r:
 			h2 = (float64(g) - float64(b)) / C
 			if h2 >= 6 || h2 <= -6 {
 				panic("i thought this was impossible")
@@ -447,8 +447,7 @@ func rgbToHsv(r, g, b uint8) (h uint16, s uint8, v uint8) {
 		}
 		h = uint16(math.MaxUint16 * h2 / 360.0)
 	}
-	return
-
+	return h, s, v
 }
 
 // Commonly used colors.

@@ -7,15 +7,14 @@ import (
 	"math"
 	"time"
 
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/v1"
-	frame "go.viam.com/rdk/referenceframe"
-
-	"go.uber.org/multierr"
+	"go.viam.com/rdk/referenceframe"
 )
 
 var servoErrorMap = map[byte]string{
@@ -78,6 +77,7 @@ var armBoxErrorMap = map[byte]string{
 	0x26: "xArm: Abnormal Joint Angle",
 	0x27: "xArm: Abnormal Communication Between Power Boards",
 }
+
 var armBoxWarnMap = map[byte]string{
 	0x0B: "xArm Warning: Buffer Overflow",
 	0x0C: "xArm Warning: Command Parameter Abnormal",
@@ -139,7 +139,6 @@ func (x *xArm) newCmd(reg byte) cmd {
 }
 
 func (x *xArm) send(ctx context.Context, c cmd, checkError bool) (cmd, error) {
-
 	x.moveLock.Lock()
 
 	b := c.bytes()
@@ -188,7 +187,7 @@ func (x *xArm) response(ctx context.Context) (cmd, error) {
 
 // checkServoErrors will query the individual servos for any servo-specific
 // errors. It may be useful for troubleshooting but as the SDK does not call
-// it directly ever, we probably don't need to either during normal operation
+// it directly ever, we probably don't need to either during normal operation.
 func (x *xArm) CheckServoErrors(ctx context.Context) error {
 	c := x.newCmd(regMap["ServoError"])
 	e, err := x.send(ctx, c, false)
@@ -216,8 +215,8 @@ func (x *xArm) clearErrorAndWarning(ctx context.Context) error {
 	c2 := x.newCmd(regMap["ClearWarn"])
 	_, err1 := x.send(ctx, c1, false)
 	_, err2 := x.send(ctx, c2, false)
-	err3 := x.setMotionMode(context.Background(), 1)
-	err4 := x.setMotionState(context.Background(), 0)
+	err3 := x.setMotionMode(ctx, 1)
+	err4 := x.setMotionState(ctx, 0)
 	return multierr.Combine(err1, err2, err3, err4)
 }
 
@@ -295,16 +294,16 @@ func (x *xArm) toggleBrake(ctx context.Context, disable bool) error {
 	return err
 }
 
-func (x *xArm) start() error {
-	err := x.toggleServos(context.Background(), true)
+func (x *xArm) start(ctx context.Context) error {
+	err := x.toggleServos(ctx, true)
 	if err != nil {
 		return err
 	}
-	err = x.setMotionMode(context.Background(), 1)
+	err = x.setMotionMode(ctx, 1)
 	if err != nil {
 		return err
 	}
-	return x.setMotionState(context.Background(), 0)
+	return x.setMotionState(ctx, 0)
 }
 
 // motionWait will block until all arm pieces have stopped moving.
@@ -339,16 +338,16 @@ func (x *xArm) motionWait(ctx context.Context) error {
 }
 
 // Close shuts down the arm servos and engages brakes.
-func (x *xArm) Close() error {
-	err := x.toggleBrake(context.Background(), false)
+func (x *xArm) Close(ctx context.Context) error {
+	err := x.toggleBrake(ctx, false)
 	if err != nil {
 		return err
 	}
-	err = x.toggleServos(context.Background(), false)
+	err = x.toggleServos(ctx, false)
 	if err != nil {
 		return err
 	}
-	err = x.setMotionState(context.Background(), 4)
+	err = x.setMotionState(ctx, 4)
 	if err != nil {
 		return err
 	}
@@ -357,18 +356,17 @@ func (x *xArm) Close() error {
 
 // MoveToJointPositions moves the arm to the requested joint positions.
 func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJointPositions) error {
-	to := frame.JointPosToInputs(newPositions)
+	to := referenceframe.JointPosToInputs(newPositions)
 	curPos, err := x.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
 	}
-	from := frame.JointPosToInputs(curPos)
+	from := referenceframe.JointPosToInputs(curPos)
 
 	diff := getMaxDiff(from, to)
 	nSteps := int((diff / float64(x.speed)) * x.moveHZ)
 	for i := 1; i <= nSteps; i++ {
-
-		step := frame.InputsToFloats(frame.InterpolateInputs(from, to, float64(i)/float64(nSteps)))
+		step := referenceframe.InputsToFloats(referenceframe.InterpolateInputs(from, to, float64(i)/float64(nSteps)))
 
 		c := x.newCmd(regMap["MoveJoints"])
 		jFloatBytes := make([]byte, 4)
@@ -395,7 +393,7 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJoi
 	return nil
 }
 
-// JointMoveDelta TODO
+// JointMoveDelta TODO.
 func (x *xArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	return errors.New("not done yet")
 }
@@ -415,7 +413,7 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	solution, err := x.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := x.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
@@ -440,10 +438,10 @@ func (x *xArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions
 		radians = append(radians, float64fromByte32(jData.params[idx:idx+4]))
 	}
 
-	return frame.JointPositionsFromRadians(radians), nil
+	return referenceframe.JointPositionsFromRadians(radians), nil
 }
 
-func getMaxDiff(from, to []frame.Input) float64 {
+func getMaxDiff(from, to []referenceframe.Input) float64 {
 	maxDiff := 0.
 	for i, fromI := range from {
 		diff := math.Abs(fromI.Value - to[i].Value)

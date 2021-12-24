@@ -20,7 +20,7 @@ const angleEpsilon = 0.0001
 
 // dualQuaternion defines functions to perform rigid dualQuaternionformations in 3D.
 // If you find yourself importing gonum.org/v1/gonum/num/dualquat in some other package, you should probably be
-// using these instead
+// using these instead.
 type dualQuaternion struct {
 	dualquat.Number
 }
@@ -50,7 +50,7 @@ func newDualQuaternionFromRotation(o Orientation) *dualQuaternion {
 	}}
 }
 
-// newDualQuaternionFromDH returns a pointer to a new dualQuaternion object created from a DH parameter
+// newDualQuaternionFromDH returns a pointer to a new dualQuaternion object created from a DH parameter.
 func newDualQuaternionFromDH(a, d, alpha float64) *dualQuaternion {
 	m := mgl64.Ident4()
 
@@ -98,7 +98,7 @@ func dualQuaternionFromPose(p Pose) *dualQuaternion {
 	return q
 }
 
-// ToProtobuf converts a dualQuaternion to a protobuf pose
+// ToProtobuf converts a dualQuaternion to a protobuf pose.
 func (q *dualQuaternion) ToProtobuf() *commonpb.Pose {
 	final := &commonpb.Pose{}
 	cartQuat := dualquat.Mul(q.Number, dualquat.Conj(q.Number))
@@ -145,7 +145,7 @@ func (q *dualQuaternion) rotate() {
 }
 
 // Invert returns a dualQuaternion representing the opposite transformation. So if the input q would transform a -> b,
-// then Invert(p) will transform b -> a
+// then Invert(p) will transform b -> a.
 func (q *dualQuaternion) Invert() Pose {
 	return &dualQuaternion{dualquat.ConjQuat(q.Number)}
 }
@@ -172,9 +172,8 @@ func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 // Euler angles are terrible, don't use them.
 func MatToEuler(mat mgl64.Mat4) []float64 {
 	sy := math.Sqrt(mat.At(0, 0)*mat.At(0, 0) + mat.At(1, 0)*mat.At(1, 0))
-	singular := sy < 1e-6
 	var angles []float64
-	if singular {
+	if sy < 1e-6 { // singular
 		angles = append(angles, math.Atan2(-mat.At(1, 2), mat.At(1, 1)))
 		angles = append(angles, math.Atan2(-mat.At(2, 0), sy))
 		angles = append(angles, 0)
@@ -199,7 +198,7 @@ func Flip(q quat.Number) quat.Number {
 	return quat.Number{-q.Real, -q.Imag, -q.Jmag, -q.Kmag}
 }
 
-// AlmostEqual is an equality test for all the float components of a quaternion
+// AlmostEqual is an equality test for all the float components of a quaternion.
 func AlmostEqual(a, b quat.Number, tol float64) bool {
 	if math.Abs(a.Real-b.Real) > tol {
 		return false

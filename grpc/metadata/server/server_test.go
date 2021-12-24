@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/grpc/metadata/server"
 	pb "go.viam.com/rdk/proto/api/service/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
-
-	"go.viam.com/test"
 )
 
 func newServer() (pb.MetadataServiceServer, *inject.Metadata) {

@@ -18,7 +18,7 @@ type Arm struct {
 	MoveToJointPositionsFunc  func(ctx context.Context, pos *pb.ArmJointPositions) error
 	CurrentJointPositionsFunc func(ctx context.Context) (*pb.ArmJointPositions, error)
 	JointMoveDeltaFunc        func(ctx context.Context, joint int, amount float64) error
-	CloseFunc                 func() error
+	CloseFunc                 func(ctx context.Context) error
 }
 
 // CurrentPosition calls the injected CurrentPosition or the real version.
@@ -62,9 +62,9 @@ func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64)
 }
 
 // Close calls the injected Close or the real version.
-func (a *Arm) Close() error {
+func (a *Arm) Close(ctx context.Context) error {
 	if a.CloseFunc == nil {
-		return utils.TryClose(a.Arm)
+		return utils.TryClose(ctx, a.Arm)
 	}
-	return a.CloseFunc()
+	return a.CloseFunc(ctx)
 }

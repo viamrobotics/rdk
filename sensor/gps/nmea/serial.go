@@ -1,3 +1,4 @@
+// Package nmea implements an NMEA serial gps.
 package nmea
 
 import (
@@ -149,7 +150,7 @@ func (g *serialNMEAGPS) Desc() sensor.Description {
 	return sensor.Description{gps.Type, ""}
 }
 
-// toPoint converts a nmea.GLL to a geo.Point
+// toPoint converts a nmea.GLL to a geo.Point.
 func toPoint(a nmea.GLL) *geo.Point {
 	return geo.NewPoint(a.Latitude, a.Longitude)
 }

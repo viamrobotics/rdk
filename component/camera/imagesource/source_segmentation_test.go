@@ -26,7 +26,7 @@ func (h *segmentationSourceTestHelper) Process(
 	img image.Image,
 	logger golog.Logger,
 ) error {
-
+	t.Helper()
 	ii := rimage.ConvertToImageWithDepth(img)
 	// align the images
 	is, err := NewDepthComposed(nil, nil, h.attrs, logger)
@@ -63,7 +63,7 @@ func (h *segmentationSourceTestHelper) Process(
 }
 
 func TestSegmentationSourceIntel(t *testing.T) {
-	config, err := config.Read(utils.ResolveFile("robots/configs/intel.json"))
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front")

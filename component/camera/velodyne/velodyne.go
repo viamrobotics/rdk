@@ -1,3 +1,4 @@
+// Package velodyne implements a general velodyne LIDAR as a camera.
 package velodyne
 
 import (
@@ -9,7 +10,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"go.einride.tech/vlp16"
+	gutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -18,13 +23,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
-
-	gutils "go.viam.com/utils"
-
-	"github.com/golang/geo/r3"
-	"go.einride.tech/vlp16"
-
-	"github.com/edaniels/golog"
 )
 
 type channelConfig struct {
@@ -86,7 +84,8 @@ func init() {
 			if ttl == 0 {
 				return nil, errors.New("need to specify a ttl")
 			}
-			return New(ctx, logger, port, ttl)
+			//nolint:contextcheck
+			return New(logger, port, ttl)
 		}})
 }
 
@@ -107,8 +106,8 @@ type client struct {
 	packets   []vlp16.Packet
 }
 
-// New creates a connection to a Velodyne lidar and generates pointclouds from it
-func New(ctx context.Context, logger golog.Logger, port int, ttlMilliseconds int) (camera.Camera, error) {
+// New creates a connection to a Velodyne lidar and generates pointclouds from it.
+func New(logger golog.Logger, port int, ttlMilliseconds int) (camera.Camera, error) {
 	bindAddress := fmt.Sprintf("0.0.0.0:%d", port)
 	listener, err := vlp16.ListenUDP(context.Background(), bindAddress)
 	if err != nil {
@@ -119,7 +118,8 @@ func New(ctx context.Context, logger golog.Logger, port int, ttlMilliseconds int
 	c := &client{
 		bindAddress:     bindAddress,
 		ttlMilliseconds: ttlMilliseconds,
-		logger:          logger}
+		logger:          logger,
+	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	c.cancelFunc = cancelFunc
@@ -149,7 +149,7 @@ func (c *client) run(ctx context.Context, listener *vlp16.PacketListener) {
 		}
 
 		if listener == nil {
-			listener, err = vlp16.ListenUDP(context.Background(), c.bindAddress)
+			listener, err = vlp16.ListenUDP(ctx, c.bindAddress)
 			if err != nil {
 				c.setLastError(err)
 				c.logger.Infof("velodyne connect error: %w", err)
@@ -160,7 +160,7 @@ func (c *client) run(ctx context.Context, listener *vlp16.PacketListener) {
 			}
 		}
 
-		err = c.runLoop(ctx, listener)
+		err = c.runLoop(listener)
 		c.setLastError(err)
 		if err != nil {
 			c.logger.Infof("velodyne client error: %w", err)
@@ -176,9 +176,8 @@ func (c *client) run(ctx context.Context, listener *vlp16.PacketListener) {
 	}
 }
 
-func (c *client) runLoop(ctx context.Context, listener *vlp16.PacketListener) error {
-	err := listener.ReadPacket()
-	if err != nil {
+func (c *client) runLoop(listener *vlp16.PacketListener) error {
+	if err := listener.ReadPacket(); err != nil {
 		return err
 	}
 
@@ -224,6 +223,7 @@ func (c *client) runLoop(ctx context.Context, listener *vlp16.PacketListener) er
 	c.packets = append(c.packets, *p)
 	return nil
 }
+
 func pointFrom(yaw, pitch, distance float64, reflectivity uint8) pointcloud.Point {
 	ea := spatialmath.NewEulerAngles()
 	ea.Yaw = yaw
@@ -318,11 +318,9 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 	}
 
 	return img, nil, nil
-
 }
 
-func (c *client) Close() error {
+func (c *client) Close() {
 	c.cancelFunc()
 	c.activeBackgroundWorkers.Wait()
-	return nil
 }

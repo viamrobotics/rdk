@@ -108,6 +108,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Position.String(), test.ShouldResemble, pos2.String())
 	})
 
+	//nolint:dupl
 	t.Run("move to position", func(t *testing.T) {
 		_, err = armServer.MoveToPosition(context.Background(), &pb.ArmServiceMoveToPositionRequest{Name: "a4", To: pos2})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -136,6 +137,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Positions.String(), test.ShouldResemble, jointPos2.String())
 	})
 
+	//nolint:dupl
 	t.Run("move to joint position", func(t *testing.T) {
 		_, err = armServer.MoveToJointPositions(context.Background(), &pb.ArmServiceMoveToJointPositionsRequest{Name: "a4", To: jointPos2})
 		test.That(t, err, test.ShouldNotBeNil)

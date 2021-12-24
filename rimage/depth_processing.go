@@ -6,12 +6,12 @@ import (
 	"image/color"
 	"math"
 
-	"go.viam.com/rdk/utils"
-
 	"github.com/golang/geo/r2"
+
+	"go.viam.com/rdk/utils"
 )
 
-// PreprocessDepthMap applies data cleaning and smoothing procedures to an input imagewithdepth
+// PreprocessDepthMap applies data cleaning and smoothing procedures to an input imagewithdepth.
 func PreprocessDepthMap(iwd *ImageWithDepth) (*ImageWithDepth, error) {
 	if !iwd.IsAligned() {
 		return nil, errors.New("image with depth is not aligned. Cannot preprocess the depth map")
@@ -116,7 +116,7 @@ func BilinearInterpolationDepth(pt r2.Point, dm *DepthMap) *Depth {
 	return &result
 }
 
-// NearestNeighborDepth takes the value of the closest point to the intermediate pixel
+// NearestNeighborDepth takes the value of the closest point to the intermediate pixel.
 func NearestNeighborDepth(pt r2.Point, dm *DepthMap) *Depth {
 	width, height := float64(dm.Width()), float64(dm.Height())
 	if pt.X < 0 || pt.Y < 0 || pt.X > width-1 || pt.Y > height-1 { // point out of bounds - skip it
@@ -237,7 +237,6 @@ func SobelDepthGradient(dm *DepthMap) VectorField2D {
 	}
 	vf := VectorField2D{width, height, g, maxMag}
 	return vf
-
 }
 
 // ForwardDepthGradient computes the forward gradients in the X and Y direction of a depth map and returns a vector field.
@@ -350,10 +349,10 @@ func segmentBinaryImage(img *image.Gray) map[int]map[image.Point]bool {
 func getValidNeighbors(pt image.Point, valid *image.Gray, visited map[image.Point]bool) []image.Point {
 	neighbors := make([]image.Point, 0, 4)
 	directions := []image.Point{
-		{0, 1},  //up
-		{0, -1}, //down
-		{-1, 0}, //left
-		{1, 0},  //right
+		{0, 1},  // up
+		{0, -1}, // down
+		{-1, 0}, // left
+		{1, 0},  // right
 	}
 	zero := color.Gray{0}
 	for _, dir := range directions {
@@ -366,13 +365,17 @@ func getValidNeighbors(pt image.Point, valid *image.Gray, visited map[image.Poin
 	return neighbors
 }
 
-// invertGrayImage produces a negated version of the input image
+// invertGrayImage produces a negated version of the input image.
 func invertGrayImage(img *image.Gray) *image.Gray {
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 	dst := image.NewGray(image.Rect(0, 0, width, height))
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			val := img.At(x, y).(color.Gray)
+			pix := img.At(x, y)
+			val, ok := pix.(color.Gray)
+			if !ok {
+				panic(utils.NewUnexpectedTypeError(val, pix))
+			}
 			dst.Set(x, y, color.Gray{255 - val.Y})
 		}
 	}

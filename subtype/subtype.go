@@ -7,7 +7,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// Service defines an service that holds and replaces resources
+// Service defines an service that holds and replaces resources.
 type Service interface {
 	Resource(name string) interface{}
 	Replace(resources map[resource.Name]interface{}) error
@@ -18,7 +18,7 @@ type subtypeSvc struct {
 	resources map[string]interface{}
 }
 
-// New creates a new subtype service, which holds and replaces resources belonging to that subtype
+// New creates a new subtype service, which holds and replaces resources belonging to that subtype.
 func New(r map[resource.Name]interface{}) (Service, error) {
 	s := &subtypeSvc{}
 	if err := s.Replace(r); err != nil {
@@ -27,7 +27,7 @@ func New(r map[resource.Name]interface{}) (Service, error) {
 	return s, nil
 }
 
-// Resource returns resource by name, if it exists
+// Resource returns resource by name, if it exists.
 func (s *subtypeSvc) Resource(name string) interface{} {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -37,7 +37,7 @@ func (s *subtypeSvc) Resource(name string) interface{} {
 	return nil
 }
 
-// Replace replaces all resources with r
+// Replace replaces all resources with r.
 func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

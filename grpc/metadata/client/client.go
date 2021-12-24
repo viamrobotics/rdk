@@ -35,12 +35,12 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...rpc.D
 	return mc, nil
 }
 
-// Close cleanly closes the underlying connections
+// Close cleanly closes the underlying connections.
 func (mc *MetadataServiceClient) Close() error {
 	return mc.conn.Close()
 }
 
-// Resources either gets the latest version of the list of resources for the remote robot
+// Resources either gets the latest version of the list of resources for the remote robot.
 func (mc *MetadataServiceClient) Resources(ctx context.Context) ([]*pb.ResourceName, error) {
 	resp, err := mc.client.Resources(ctx, &pb.ResourcesRequest{})
 	if err != nil {

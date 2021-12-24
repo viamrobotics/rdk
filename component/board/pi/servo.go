@@ -17,7 +17,6 @@ import (
 
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
-	piutils "go.viam.com/rdk/lib/pi"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
@@ -34,7 +33,7 @@ func init() {
 				}
 
 				pin := config.Attributes.String("pin")
-				bcom, have := piutils.BroadcomPinFromHardwareLabel(pin)
+				bcom, have := broadcomPinFromHardwareLabel(pin)
 				if !have {
 					return nil, errors.Errorf("no hw mapping for %s", pin)
 				}

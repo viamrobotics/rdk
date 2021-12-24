@@ -8,12 +8,12 @@ import (
 	"go.viam.com/rdk/services/framesystem"
 )
 
-// FrameSystemService is an injected FrameSystem service
+// FrameSystemService is an injected FrameSystem service.
 type FrameSystemService struct {
 	framesystem.Service
 	FrameSystemConfigFunc func(ctx context.Context) ([]*config.FrameSystemPart, error)
 	LocalFrameSystemFunc  func(ctx context.Context, name string) (referenceframe.FrameSystem, error)
-	ModelFrameFunc        func(ctx context.Context, name string) (*referenceframe.Model, error)
+	ModelFrameFunc        func(ctx context.Context, name string) (referenceframe.Model, error)
 }
 
 // FrameSystemConfig calls the injected FrameSystemConfig or the real version.
@@ -33,7 +33,7 @@ func (fss *FrameSystemService) LocalFrameSystem(ctx context.Context, name string
 }
 
 // ModelFrame calls the injected ModelFrame or the real version.
-func (fss *FrameSystemService) ModelFrame(ctx context.Context, name string) (*referenceframe.Model, error) {
+func (fss *FrameSystemService) ModelFrame(ctx context.Context, name string) (referenceframe.Model, error) {
 	if fss.ModelFrameFunc == nil {
 		return fss.ModelFrame(ctx, name)
 	}

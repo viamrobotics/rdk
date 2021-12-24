@@ -1,30 +1,30 @@
+// Package webgamepad implements a web based input controller.
 package webgamepad
 
 import (
 	"context"
 	"sync"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-
-	"github.com/edaniels/golog"
 )
 
 const (
 	modelname = "webgamepad"
 	// NOTE: Component NAME (in config file) must also be set to "WebGamepad" exactly
-	// This is because there's no way to get a component's model from a robot.Robot
+	// This is because there's no way to get a component's model from a robot.Robot.
 )
 
 func init() {
 	registry.RegisterComponent(input.Subtype, modelname, registry.Component{Constructor: NewController})
 }
 
-// NewController creates a new gamepad
+// NewController creates a new gamepad.
 func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 	var w webGamepad
 	w.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
@@ -42,7 +42,7 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 	return &w, nil
 }
 
-// webGamepad is an input.Controller
+// webGamepad is an input.Controller.
 type webGamepad struct {
 	controls                []input.Control
 	lastEvents              map[input.Control]input.Event
@@ -53,7 +53,7 @@ type webGamepad struct {
 	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
 }
 
-func (w *webGamepad) makeCallbacks(ctx context.Context, eventOut input.Event) {
+func (w *webGamepad) makeCallbacks(eventOut input.Event) {
 	w.mu.Lock()
 	w.lastEvents[eventOut.Control] = eventOut
 	w.mu.Unlock()
@@ -88,20 +88,19 @@ func (w *webGamepad) makeCallbacks(ctx context.Context, eventOut input.Event) {
 	}
 }
 
-// Close terminates background worker threads
-func (w *webGamepad) Close() error {
+// Close terminates background worker threads.
+func (w *webGamepad) Close() {
 	w.cancelFunc()
 	w.activeBackgroundWorkers.Wait()
-	return nil
 }
 
-// Controls lists the inputs of the gamepad
+// Controls lists the inputs of the gamepad.
 func (w *webGamepad) Controls(ctx context.Context) ([]input.Control, error) {
 	out := append([]input.Control(nil), w.controls...)
 	return out, nil
 }
 
-// LastEvents returns the last input.Event (the current state)
+// LastEvents returns the last input.Event (the current state).
 func (w *webGamepad) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
@@ -112,7 +111,7 @@ func (w *webGamepad) LastEvents(ctx context.Context) (map[input.Control]input.Ev
 	return out, nil
 }
 
-// RegisterControlCallback registers a callback function to be executed on the specified control's trigger Events
+// RegisterControlCallback registers a callback function to be executed on the specified control's trigger Events.
 func (w *webGamepad) RegisterControlCallback(
 	ctx context.Context,
 	control input.Control,
@@ -136,8 +135,8 @@ func (w *webGamepad) RegisterControlCallback(
 	return nil
 }
 
-// InjectEvent allows directly sending an Event (such as a button press) from external code
+// InjectEvent allows directly sending an Event (such as a button press) from external code.
 func (w *webGamepad) InjectEvent(ctx context.Context, event input.Event) error {
-	w.makeCallbacks(ctx, event)
+	w.makeCallbacks(event)
 	return nil
 }

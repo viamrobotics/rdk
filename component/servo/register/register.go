@@ -5,25 +5,20 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/servo"
+
+	// registration availability.
+	_ "go.viam.com/rdk/component/servo/fake"
 	componentpb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
-
-	// all servo implementations should be imported here for
-	// registration availability
-	_ "go.viam.com/rdk/component/servo/fake" // fake servo implementations
 )
 
 func init() {
 	registry.RegisterResourceSubtype(servo.Subtype, registry.ResourceSubtype{
-		Reconfigurable: func(resource interface{}) (resource.Reconfigurable, error) {
-			return servo.WrapWithReconfigurable(resource)
-		},
+		Reconfigurable: servo.WrapWithReconfigurable,
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,

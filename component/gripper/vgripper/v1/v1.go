@@ -3,12 +3,15 @@ package vgripper
 
 import (
 	"context"
-	_ "embed" // used to import model frame
+
+	// used to import model referenceframe.
+	_ "embed"
 	"math"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
@@ -18,9 +21,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-
-	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
 )
 
 //go:embed vgripper_model.json
@@ -42,7 +42,7 @@ func init() {
 	})
 }
 
-// TODO
+// TODO.
 const (
 	TargetRPM               = 200
 	MaxCurrent              = 500
@@ -52,7 +52,7 @@ const (
 	OpenPosOffset           = 0.4 // Reduce maximum opening width, keeps out of mechanical binding region
 )
 
-// gripperV1 represents a Viam gripper with a single force sensor cell
+// gripperV1 represents a Viam gripper with a single force sensor cell.
 type gripperV1 struct {
 	motor    motor.Motor
 	current  board.AnalogReader
@@ -67,11 +67,11 @@ type gripperV1 struct {
 	closeDirection, openDirection int64
 	logger                        golog.Logger
 
-	model                 *referenceframe.Model
+	model                 referenceframe.Model
 	numBadCurrentReadings int
 }
 
-// newGripperV1 Returns a gripperV1
+// newGripperV1 Returns a gripperV1.
 func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg config.Component, logger golog.Logger) (*gripperV1, error) {
 	pressureLimit := cfg.Attributes.Int("pressureLimit", 800)
 	motor, ok := r.MotorByName("g")
@@ -136,7 +136,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 			logger.Error(err)
 			return true
 		}
-		err = vg.processCurrentReading(ctx, current, "init")
+		err = vg.processCurrentReading(current, "init")
 		if err != nil {
 			logger.Error(err)
 			return true
@@ -278,12 +278,12 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	return vg, vg.Open(ctx)
 }
 
-// ModelFrame returns the dynamic frame of the model
-func (vg *gripperV1) ModelFrame() *referenceframe.Model {
+// ModelFrame returns the dynamic frame of the model.
+func (vg *gripperV1) ModelFrame() referenceframe.Model {
 	return vg.model
 }
 
-// Open opens the jaws
+// Open opens the jaws.
 func (vg *gripperV1) Open(ctx context.Context) error {
 	err := vg.Stop(ctx)
 	if err != nil {
@@ -313,7 +313,7 @@ func (vg *gripperV1) Open(ctx context.Context) error {
 		if err != nil {
 			return vg.stopAfterError(ctx, err)
 		}
-		err = vg.processCurrentReading(ctx, current, "opening")
+		err = vg.processCurrentReading(current, "opening")
 		if err != nil {
 			return vg.stopAfterError(ctx, err)
 		}
@@ -326,7 +326,7 @@ func (vg *gripperV1) Open(ctx context.Context) error {
 	}
 }
 
-// Grab closes the jaws until pressure is sensed and returns true, or until closed position is reached, and returns false
+// Grab closes the jaws until pressure is sensed and returns true, or until closed position is reached, and returns false.
 func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 	err := vg.Stop(ctx)
 	if err != nil {
@@ -356,7 +356,7 @@ func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 		if err != nil {
 			return false, vg.stopAfterError(ctx, err)
 		}
-		err = vg.processCurrentReading(ctx, current, "grabbing")
+		err = vg.processCurrentReading(current, "grabbing")
 		if err != nil {
 			return false, vg.stopAfterError(ctx, err)
 		}
@@ -389,7 +389,7 @@ func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 	}
 }
 
-func (vg *gripperV1) processCurrentReading(ctx context.Context, current int, where string) error {
+func (vg *gripperV1) processCurrentReading(current int, where string) error {
 	if current < MaxCurrent {
 		vg.numBadCurrentReadings = 0
 		return nil
@@ -401,16 +401,16 @@ func (vg *gripperV1) processCurrentReading(ctx context.Context, current int, whe
 	return errors.Errorf("current too high for too long, currently %d during %s", current, where)
 }
 
-// Close stops the motors
-func (vg *gripperV1) Close() error {
-	return vg.Stop(context.Background())
+// Close stops the motors.
+func (vg *gripperV1) Close(ctx context.Context) error {
+	return vg.Stop(ctx)
 }
 
 func (vg *gripperV1) stopAfterError(ctx context.Context, other error) error {
 	return multierr.Combine(other, vg.motor.Stop(ctx))
 }
 
-// Stop stops the motors
+// Stop stops the motors.
 func (vg *gripperV1) Stop(ctx context.Context) error {
 	return vg.motor.Stop(ctx)
 }

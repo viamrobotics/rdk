@@ -7,7 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-
 	"google.golang.org/protobuf/types/known/structpb"
 
 	pb "go.viam.com/rdk/proto/api/component/v1"
@@ -19,12 +18,12 @@ type subtypeServer struct {
 	service subtype.Service
 }
 
-// NewServer constructs a motor gRPC service server
+// NewServer constructs a motor gRPC service server.
 func NewServer(service subtype.Service) pb.MotorServiceServer {
 	return &subtypeServer{service: service}
 }
 
-// getMotor returns the specified motor or nil
+// getMotor returns the specified motor or nil.
 func (server *subtypeServer) getMotor(name string) (Motor, error) {
 	resource := server.service.Resource(name)
 	if resource == nil {
@@ -37,7 +36,7 @@ func (server *subtypeServer) getMotor(name string) (Motor, error) {
 	return motor, nil
 }
 
-// GetPIDConfig returns the config of the motor's PID
+// GetPIDConfig returns the config of the motor's PID.
 func (server *subtypeServer) GetPIDConfig(
 	ctx context.Context,
 	req *pb.MotorServiceGetPIDConfigRequest,
@@ -86,7 +85,7 @@ func (server *subtypeServer) SetPIDConfig(
 	return &pb.MotorServiceSetPIDConfigResponse{}, nil
 }
 
-// PIDStep execute a step response on the PID controller
+// PIDStep execute a step response on the PID controller.
 func (server *subtypeServer) PIDStep(
 	req *pb.MotorServicePIDStepRequest,
 	serverPIDStep pb.MotorService_PIDStepServer,
@@ -305,7 +304,7 @@ func (server *subtypeServer) GoTillStop(
 }
 
 // ResetZeroPosition sets the current position of the motor specified by the request
-// (adjusted by a given offset) to be its new zero position
+// (adjusted by a given offset) to be its new zero position.
 func (server *subtypeServer) ResetZeroPosition(
 	ctx context.Context,
 	req *pb.MotorServiceResetZeroPositionRequest,

@@ -8,8 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
+	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -28,20 +29,17 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/spatialmath"
-
-	"github.com/edaniels/golog"
-	"go.viam.com/test"
 )
 
 func TestConfig1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read("data/cfgtest1.json")
+	cfg, err := config.Read(context.Background(), "data/cfgtest1.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, r.Close(), test.ShouldBeNil)
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	c1, ok := r.CameraByName("c1")
@@ -58,17 +56,17 @@ func TestConfig1(t *testing.T) {
 
 func TestConfigFake(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read("data/fake.json")
+	cfg, err := config.Read(context.Background(), "data/fake.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, r.Close(), test.ShouldBeNil)
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestConfigRemote(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read("data/fake.json")
+	cfg, err := config.Read(context.Background(), "data/fake.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	metadataSvc, err := service.New()
@@ -78,7 +76,7 @@ func TestConfigRemote(t *testing.T) {
 	r, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, r.Close(), test.ShouldBeNil)
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	port, err := utils.TryReserveRandomPort()
@@ -246,9 +244,8 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 29)
 	t.Logf("frames: %v\n", fs.FrameNames())
 
-	test.That(t, r.Close(), test.ShouldBeNil)
-	test.That(t, r2.Close(), test.ShouldBeNil)
-
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 }
 
 type dummyBoard struct {
@@ -284,9 +281,8 @@ func (db *dummyBoard) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
 }
 
-func (db *dummyBoard) Close() error {
+func (db *dummyBoard) Close() {
 	db.closeCount++
-	return nil
 }
 
 func TestNewTeardown(t *testing.T) {
@@ -317,7 +313,7 @@ func TestNewTeardown(t *testing.T) {
 			return nil, errors.New("whoops")
 		}})
 
-	var failingConfig = fmt.Sprintf(`{
+	failingConfig := fmt.Sprintf(`{
     "components": [
         {
             "model": "%[1]s",
@@ -333,7 +329,7 @@ func TestNewTeardown(t *testing.T) {
     ]
 }
 `, modelName)
-	cfg, err := config.FromReader("", strings.NewReader(failingConfig))
+	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(failingConfig))
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = robotimpl.New(context.Background(), cfg, logger)
@@ -344,7 +340,7 @@ func TestNewTeardown(t *testing.T) {
 
 func TestMetadataUpdate(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read("data/fake.json")
+	cfg, err := config.Read(context.Background(), "data/fake.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
@@ -355,7 +351,7 @@ func TestMetadataUpdate(t *testing.T) {
 
 	r, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, r.Close(), test.ShouldBeNil)
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
 	test.That(t, len(svc.All()), test.ShouldEqual, 8)
 

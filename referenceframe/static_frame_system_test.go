@@ -5,11 +5,10 @@ import (
 	"math"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	spatial "go.viam.com/rdk/spatialmath"
-
-	"github.com/golang/geo/r3"
 )
 
 var blankPos map[string][]Input
@@ -83,7 +82,7 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 
 // A simple Frame translation from the world frame to a frame right above it at (0, 3, 0)
 // And then back to the world frame
-// transforming a point at (1, 3, 0)
+// transforming a point at (1, 3, 0).
 func TestSimpleFrameTranslation(t *testing.T) {
 	// build the system
 	fs := NewEmptySimpleFrameSystem("test")
@@ -109,7 +108,7 @@ func TestSimpleFrameTranslation(t *testing.T) {
 
 // A simple Frame translation from the world frame to a frame right above it at (0, 3, 0) rotated 180 around Z
 // And then back to the world frame
-// transforming a point at (1, 3, 0)
+// transforming a point at (1, 3, 0).
 func TestSimpleFrameTranslationWithRotation(t *testing.T) {
 	// build the system
 	fs := NewEmptySimpleFrameSystem("test")
@@ -152,8 +151,8 @@ are the same, so the final composed transformation is only made up of one transl
 world
 
 transform the point that is in the world frame is at (5, 7, 0) from frame1 to frame2.
-frame1 has its origin at (0, 7, 0) in the world frame. and frame2 has its origin at (5, 1, 0).
-frame3 is an intermediate frame at (0, 4, 0) in the world frame.
+frame1 has its origin at (0, 7, 0) in the world referenceframe. and frame2 has its origin at (5, 1, 0).
+frame3 is an intermediate frame at (0, 4, 0) in the world referenceframe.
 All 4 frames have the same orientation.
 */
 func TestFrameTranslation(t *testing.T) {
@@ -200,8 +199,9 @@ world
 */
 
 // transform the point that is in the world frame is at (5, 7, 0) from frame1 to frame2.
-// frame1 has its origin at (0, 7, 0) in the world frame. and frame2 has its origin at (5, 1, 0), and orientation 90 degrees around z.
-// frame3 is an intermediate frame at (0, 4, 0) in the world frame.
+// frame1 has its origin at (0, 7, 0) in the world referenceframe. and frame2 has its origin
+// at (5, 1, 0), and orientation 90 degrees around z.
+// frame3 is an intermediate frame at (0, 4, 0) in the world referenceframe.
 func TestFrameTransform(t *testing.T) {
 	// build the system
 	fs := NewEmptySimpleFrameSystem("test")
@@ -343,7 +343,7 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)
 	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, pointEnd.Z)
 
-	transformPoint, err = fs2.TransformPoint(blankPos, pointStart, fs2.GetFrame("frame4"), fs.GetFrame("frame2"))
+	_, err = fs2.TransformPoint(blankPos, pointStart, fs2.GetFrame("frame4"), fs.GetFrame("frame2"))
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Put frame3 back where it was

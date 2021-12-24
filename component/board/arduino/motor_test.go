@@ -5,14 +5,13 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/testutils/inject"
-
-	"go.viam.com/test"
 )
 
 func TestArduinoMotorInit(t *testing.T) {

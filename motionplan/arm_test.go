@@ -8,27 +8,27 @@ import (
 	"runtime"
 	"testing"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	frame "go.viam.com/rdk/referenceframe"
-	spatial "go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
-
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 const toSolve = 100
 
 var (
-	home = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	home = referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	nCPU = runtime.NumCPU() / 4
 	seed = rand.New(rand.NewSource(1))
 )
 
-// This should test all of the kinematics functions
+// This should test all of the kinematics functions.
 func TestCombinedIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
+	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
@@ -58,24 +58,25 @@ func TestCombinedIKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func BenchCombinedIKinematics(t *testing.B) {
+func BenchCombinedIKinematics(b *testing.B) {
+	b.Helper()
 	logger := golog.NewDevelopmentLogger("combinedBenchmark")
 
-	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/eva/eva_json"), "")
-	test.That(t, err, test.ShouldBeNil)
+	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/eva/eva_json"), "")
+	test.That(b, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(b, err, test.ShouldBeNil)
 
 	// Test we are able to solve random valid positions from other random valid positions
 	// Used for benchmarking solve rate
 	solvedCnt := 0
 	for i := 0; i < toSolve; i++ {
-		randJointPos := m.GenerateRandomJointPositions(seed)
-		randPos, err := ComputePosition(m, frame.JointPositionsFromRadians(randJointPos))
-		test.That(t, err, test.ShouldBeNil)
+		randJointPos := referenceframe.GenerateRandomJointPositions(m, seed)
+		randPos, err := ComputePosition(m, referenceframe.JointPositionsFromRadians(randJointPos))
+		test.That(b, err, test.ShouldBeNil)
 		solution, err := solveTest(context.Background(), ik, randPos, home)
-		test.That(t, solution, test.ShouldNotBeNil)
-		test.That(t, checkGoodJointDelta([]float64{0, 0, 0, 0, 0, 0}, frame.InputsToFloats(solution[0])), test.ShouldBeTrue)
+		test.That(b, solution, test.ShouldNotBeNil)
+		test.That(b, checkGoodJointDelta([]float64{0, 0, 0, 0, 0, 0}, referenceframe.InputsToFloats(solution[0])), test.ShouldBeTrue)
 		if err == nil {
 			solvedCnt++
 		}
@@ -86,12 +87,12 @@ func BenchCombinedIKinematics(t *testing.B) {
 func TestUR5NloptIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
+	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
 
-	goalJP := frame.JointPositionsFromRadians([]float64{-4.128, 2.71, 2.798, 2.3, 1.291, 0.62})
+	goalJP := referenceframe.JointPositionsFromRadians([]float64{-4.128, 2.71, 2.798, 2.3, 1.291, 0.62})
 	goal, err := ComputePosition(m, goalJP)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = solveTest(context.Background(), ik, goal, home)
@@ -99,16 +100,16 @@ func TestUR5NloptIKinematics(t *testing.T) {
 }
 
 func TestSVAvsDH(t *testing.T) {
-	mSVA, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
+	mSVA, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mDH, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e_DH.json"), "")
+	mDH, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e_DH.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	numTests := 10000
 
 	seed := rand.New(rand.NewSource(23))
 	for i := 0; i < numTests; i++ {
-		joints := frame.JointPositionsFromRadians(mSVA.GenerateRandomJointPositions(seed))
+		joints := referenceframe.JointPositionsFromRadians(referenceframe.GenerateRandomJointPositions(mSVA, seed))
 
 		posSVA, err := ComputePosition(mSVA, joints)
 		test.That(t, err, test.ShouldBeNil)
@@ -126,59 +127,60 @@ func TestSVAvsDH(t *testing.T) {
 	}
 }
 
-func BenchNloptSwing(t *testing.B) {
+func BenchNloptSwing(b *testing.B) {
+	b.Helper()
 	logger := golog.NewDevelopmentLogger("testSwing")
-	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_json"), "")
-	test.That(t, err, test.ShouldBeNil)
+	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_json"), "")
+	test.That(b, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(b, err, test.ShouldBeNil)
 
 	// Test we are able to solve incremental changes without large joint swings
 	for i := 0; i < toSolve; i++ {
-		origRadians := m.GenerateRandomJointPositions(seed)
-		randJointPos := frame.FloatsToInputs(origRadians)
-		randPos, err := ComputePosition(m, frame.JointPositionsFromRadians(origRadians))
-		test.That(t, err, test.ShouldBeNil)
+		origRadians := referenceframe.GenerateRandomJointPositions(m, seed)
+		randJointPos := referenceframe.FloatsToInputs(origRadians)
+		randPos, err := ComputePosition(m, referenceframe.JointPositionsFromRadians(origRadians))
+		test.That(b, err, test.ShouldBeNil)
 		randPos.X += 10
 		solution, err := solveTest(context.Background(), ik, randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution[0])), test.ShouldBeTrue)
+			test.That(b, checkGoodJointDelta(origRadians, referenceframe.InputsToFloats(solution[0])), test.ShouldBeTrue)
 		}
 
 		randPos.Y += 10
 		solution, err = solveTest(context.Background(), ik, randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution[0])), test.ShouldBeTrue)
+			test.That(b, checkGoodJointDelta(origRadians, referenceframe.InputsToFloats(solution[0])), test.ShouldBeTrue)
 		}
 
 		randPos.Z += 10
 		solution, err = solveTest(context.Background(), ik, randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution[0])), test.ShouldBeTrue)
+			test.That(b, checkGoodJointDelta(origRadians, referenceframe.InputsToFloats(solution[0])), test.ShouldBeTrue)
 		}
 
 		randPos.OX += 0.1
 		solution, err = solveTest(context.Background(), ik, randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution[0])), test.ShouldBeTrue)
+			test.That(b, checkGoodJointDelta(origRadians, referenceframe.InputsToFloats(solution[0])), test.ShouldBeTrue)
 		}
 
 		randPos.OY += 0.1
 		solution, err = solveTest(context.Background(), ik, randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution[0])), test.ShouldBeTrue)
+			test.That(b, checkGoodJointDelta(origRadians, referenceframe.InputsToFloats(solution[0])), test.ShouldBeTrue)
 		}
 
 		randPos.OZ += 0.1
 		solution, err = solveTest(context.Background(), ik, randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution[0])), test.ShouldBeTrue)
+			test.That(b, checkGoodJointDelta(origRadians, referenceframe.InputsToFloats(solution[0])), test.ShouldBeTrue)
 		}
 
 		randPos.Theta += 45
 		solution, err = solveTest(context.Background(), ik, randPos, randJointPos)
 		if err == nil {
-			test.That(t, checkGoodJointDelta(origRadians, frame.InputsToFloats(solution[0])), test.ShouldBeTrue)
+			test.That(b, checkGoodJointDelta(origRadians, referenceframe.InputsToFloats(solution[0])), test.ShouldBeTrue)
 		}
 	}
 }
@@ -196,17 +198,22 @@ func checkGoodJointDelta(orig, solution []float64) bool {
 
 func TestCombinedCPUs(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"), "")
+	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, runtime.NumCPU()/400000)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(ik.solvers), test.ShouldEqual, 1)
 }
 
-func solveTest(ctx context.Context, solver InverseKinematics, goal *commonpb.Pose, seed []frame.Input) ([][]frame.Input, error) {
+func solveTest(
+	ctx context.Context,
+	solver InverseKinematics,
+	goal *commonpb.Pose,
+	seed []referenceframe.Input,
+) ([][]referenceframe.Input, error) {
 	goalPos := spatial.NewPoseFromProtobuf(goal)
 
-	solutionGen := make(chan []frame.Input)
+	solutionGen := make(chan []referenceframe.Input)
 	ikErr := make(chan error)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -217,7 +224,7 @@ func solveTest(ctx context.Context, solver InverseKinematics, goal *commonpb.Pos
 		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goalPos, seed)
 	}()
 
-	var solutions [][]frame.Input
+	var solutions [][]referenceframe.Input
 
 	// Solve the IK solver. Loop labels are required because `break` etc in a `select` will break only the `select`.
 IK:

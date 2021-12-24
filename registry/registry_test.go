@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
+	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/base"
@@ -13,9 +15,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/subtype"
-
-	"github.com/edaniels/golog"
-	"go.viam.com/test"
 )
 
 func TestRegistry(t *testing.T) {
@@ -47,7 +46,7 @@ func TestRegistry(t *testing.T) {
 
 func TestComponentRegistry(t *testing.T) {
 	af := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		return nil, nil
+		return 1, nil
 	}
 	armResourceName := "x"
 	test.That(t, func() { RegisterComponent(arm.Subtype, armResourceName, Component{}) }, test.ShouldPanic)
@@ -57,7 +56,6 @@ func TestComponentRegistry(t *testing.T) {
 	test.That(t, creator, test.ShouldNotBeNil)
 	test.That(t, ComponentLookup(arm.Subtype, "z"), test.ShouldBeNil)
 	test.That(t, creator.Constructor, test.ShouldEqual, af)
-
 }
 
 func TestResourceSubtypeRegistry(t *testing.T) {

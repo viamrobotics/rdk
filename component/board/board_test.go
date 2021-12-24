@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/test"
+
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/resource"
-
-	"go.viam.com/test"
 )
 
 func TestBoardName(t *testing.T) {
@@ -79,7 +79,7 @@ func TestReconfigurableBoard(t *testing.T) {
 		fakeBoard1, err := WrapWithReconfigurable(actualBoard1)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fakeBoard1.(*reconfigurableBoard).actual, test.ShouldEqual, actualBoard1)
-		err = fakeBoard1.(*reconfigurableBoard).Reconfigure(nil)
+		err = fakeBoard1.(*reconfigurableBoard).Reconfigure(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "expected new board")
 		test.That(t, actualBoard1.reconfCalls, test.ShouldEqual, 0)
@@ -89,7 +89,7 @@ func TestReconfigurableBoard(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actualBoard1.reconfCalls, test.ShouldEqual, 0)
 
-		err = fakeBoard1.(*reconfigurableBoard).Reconfigure(fakeBoard2)
+		err = fakeBoard1.(*reconfigurableBoard).Reconfigure(context.Background(), fakeBoard2)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fakeBoard1.(*reconfigurableBoard).actual, test.ShouldEqual, actualBoard2)
 		test.That(t, actualBoard1.reconfCalls, test.ShouldEqual, 1)
@@ -225,7 +225,7 @@ func newBoard(name string) *mock {
 	}
 }
 
-// A board without any subcomponents
+// A board without any subcomponents.
 func newBareBoard(name string) *mock {
 	return &mock{Name: name}
 }
@@ -235,12 +235,15 @@ func newBareBoard(name string) *mock {
 func (m *mock) SPINames() []string {
 	return m.spis
 }
+
 func (m *mock) I2CNames() []string {
 	return m.i2cs
 }
+
 func (m *mock) AnalogReaderNames() []string {
 	return m.analogs
 }
+
 func (m *mock) DigitalInterruptNames() []string {
 	return m.digitals
 }
@@ -312,8 +315,7 @@ func (m *mockSPI) OpenHandle() (SPIHandle, error) {
 	return &mockSPIHandle{}, nil
 }
 
-type mockSPIHandle struct {
-}
+type mockSPIHandle struct{}
 
 func (m *mockSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) {
 	return []byte{}, nil
@@ -329,24 +331,28 @@ func (m *mockI2C) OpenHandle(addr byte) (I2CHandle, error) {
 	return &mockI2CHandle{}, nil
 }
 
-type mockI2CHandle struct {
-}
+type mockI2CHandle struct{}
 
 func (m *mockI2CHandle) Read(ctx context.Context, count int) ([]byte, error) {
 	return []byte{}, nil
 }
+
 func (m *mockI2CHandle) Write(ctx context.Context, tx []byte) error {
 	return nil
 }
+
 func (m *mockI2CHandle) ReadByteData(ctx context.Context, register byte) (byte, error) {
 	return 0, nil
 }
+
 func (m *mockI2CHandle) WriteByteData(ctx context.Context, register byte, data byte) error {
 	return nil
 }
+
 func (m *mockI2CHandle) ReadWordData(ctx context.Context, register byte) (uint16, error) {
 	return 0, nil
 }
+
 func (m *mockI2CHandle) WriteWordData(ctx context.Context, register byte, data uint16) error {
 	return nil
 }
@@ -367,9 +373,11 @@ type mockDigitalInterrupt struct{}
 func (m *mockDigitalInterrupt) Config(ctx context.Context) (DigitalInterruptConfig, error) {
 	return DigitalInterruptConfig{}, nil
 }
+
 func (m *mockDigitalInterrupt) Value(ctx context.Context) (int64, error) {
 	return 0, nil
 }
+
 func (m *mockDigitalInterrupt) Tick(ctx context.Context, high bool, nanos uint64) error {
 	return nil
 }

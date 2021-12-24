@@ -12,7 +12,7 @@ import (
 
 // makeStructuringElement returns a simple circular Structuring Element used to smooth the image.
 // Structuring elements are like kernels, but only have positive value entries.
-// 0 values represent skipping the pixel, rather than a zero value for the pixel
+// 0 values represent skipping the pixel, rather than a zero value for the pixel.
 func makeStructuringElement(k int) *DepthMap {
 	structEle := NewEmptyDepthMap(k, k)
 	xRange, yRange := makeRangeArray(k), makeRangeArray(k)
@@ -46,7 +46,6 @@ func erode(center image.Point, dm, kernel *DepthMap) Depth {
 				continue
 			}
 			depth = utils.MinInt(int(dmVal-kernelVal), depth)
-
 		}
 	}
 	depth = utils.MaxInt(0, depth) // can't have depth less than 0
@@ -65,7 +64,6 @@ func dilate(center image.Point, dm, kernel *DepthMap) Depth {
 				continue
 			}
 			depth = utils.MaxInt(int(dm.GetDepth(center.X+dx, center.Y+dy)+kernel.GetDepth(x, y)), depth)
-
 		}
 	}
 	depth = utils.MaxInt(0, depth) // can't have depth less than 0

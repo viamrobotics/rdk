@@ -9,10 +9,14 @@ import (
 	"net"
 	"testing"
 
+	"github.com/edaniels/golog"
+	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/camera"
+	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
 	componentpb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/resource"
@@ -20,12 +24,6 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-
-	"github.com/edaniels/golog"
-	"go.viam.com/test"
-	"google.golang.org/grpc"
-
-	viamgrpc "go.viam.com/rdk/grpc"
 )
 
 func TestClient(t *testing.T) {
@@ -95,7 +93,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pcB.At(5, 5, 5), test.ShouldNotBeNil)
 
-		test.That(t, utils.TryClose(camera1Client), test.ShouldBeNil)
+		test.That(t, utils.TryClose(context.Background(), camera1Client), test.ShouldBeNil)
 	})
 
 	t.Run("camera client 2", func(t *testing.T) {
@@ -139,8 +137,8 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.DialCalled, test.ShouldEqual, 2)
 
-	err = utils.TryClose(client1)
+	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)
-	err = utils.TryClose(client2)
+	err = utils.TryClose(context.Background(), client2)
 	test.That(t, err, test.ShouldBeNil)
 }

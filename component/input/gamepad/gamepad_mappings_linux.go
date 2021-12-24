@@ -9,7 +9,7 @@ import (
 	"go.viam.com/rdk/component/input"
 )
 
-// GamepadMappings contains all the axes/button translations for each model
+// GamepadMappings contains all the axes/button translations for each model.
 var GamepadMappings = map[string]Mapping{
 	// Wireless, X-input mode
 	"8BitDo Pro 2": {

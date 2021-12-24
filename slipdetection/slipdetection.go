@@ -1,3 +1,4 @@
+// Package slipdetection implements slip detection with a force matrix.
 package slipdetection
 
 import (
@@ -8,17 +9,16 @@ import (
 	"go.viam.com/rdk/sensor/forcematrix"
 )
 
-// ReadingsHistoryProvider represents a matrix sensor that supports slip detection
+// ReadingsHistoryProvider represents a matrix sensor that supports slip detection.
 type ReadingsHistoryProvider interface {
 	GetPreviousMatrices() [][][]int // an accessor for a history of matrix readings
 }
 
 // DetectSlip detects whether a slip has occurred. The version parameter determines
-// which algorithm version to use
+// which algorithm version to use.
 func DetectSlip(rhp ReadingsHistoryProvider, mu *sync.Mutex, version int, slipThreshold float64, framesToUse int) (bool, error) {
 	var slipDetector func(ReadingsHistoryProvider, *sync.Mutex, float64, int) (bool, error)
-	switch version {
-	case 0:
+	if version == 0 {
 		slipDetector = DetectSlipV0
 	}
 	if slipDetector != nil {
@@ -39,7 +39,7 @@ func makeEmptyMatrix(iDim int, jDim int) [][]float64 {
 func getMatrixStateDiff(matrixA [][]float64, matrixB [][]float64, slipThreshold float64) [][]int {
 	result := make([][]int, 0)
 	for i := 0; i < len(matrixA); i++ {
-		row := make([]int, len(matrixA[i]))
+		row := make([]int, 0, len(matrixA[i]))
 		for j := 0; j < len(matrixA[i]); j++ {
 			rawVal := matrixB[i][j] - matrixA[i][j]
 			var val int
@@ -69,7 +69,7 @@ func getAverageValues(matrices [][][]int) [][]float64 {
 
 	for _, summedRow := range sumMatrix {
 		for m := 0; m < len(summedRow); m++ {
-			summedRow[m] = summedRow[m] / numMatrices
+			summedRow[m] /= numMatrices
 		}
 	}
 
@@ -87,7 +87,7 @@ func isEmptyState(matrix [][]int) bool {
 	return true
 }
 
-// DetectSlipV0 implements version 0 of a slip detection algorithm
+// DetectSlipV0 implements version 0 of a slip detection algorithm.
 func DetectSlipV0(rhp ReadingsHistoryProvider, mu *sync.Mutex, slipThreshold float64, framesToUse int) (bool, error) {
 	mu.Lock()
 	defer mu.Unlock()

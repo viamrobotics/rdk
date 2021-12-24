@@ -6,30 +6,30 @@ import (
 	"math"
 	"sort"
 
-	"go.viam.com/rdk/rimage"
-
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"
 	"github.com/gonum/stat"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/rimage"
 )
 
-// EdgeThreshold TODO
+// EdgeThreshold TODO.
 const EdgeThreshold = 100
 
-// Board TODO
+// Board TODO.
 type Board struct {
 	img    *rimage.ImageWithDepth
 	edges  *image.Gray
 	logger golog.Logger
 }
 
-// FindAndWarpBoardFromFilesRoot TODO
+// FindAndWarpBoardFromFilesRoot TODO.
 func FindAndWarpBoardFromFilesRoot(root string, aligned bool, logger golog.Logger) (*Board, error) {
 	return FindAndWarpBoardFromFiles(root+".png", root+".dat.gz", aligned, logger)
 }
 
-// FindAndWarpBoardFromFiles TODO
+// FindAndWarpBoardFromFiles TODO.
 func FindAndWarpBoardFromFiles(colorFN, depthFN string, aligned bool, logger golog.Logger) (*Board, error) {
 	img, err := rimage.NewImageWithDepth(colorFN, depthFN, aligned)
 	if err != nil {
@@ -39,7 +39,7 @@ func FindAndWarpBoardFromFiles(colorFN, depthFN string, aligned bool, logger gol
 	return FindAndWarpBoard(img, logger)
 }
 
-// FindAndWarpBoard TODO
+// FindAndWarpBoard TODO.
 func FindAndWarpBoard(img *rimage.ImageWithDepth, logger golog.Logger) (*Board, error) {
 	_, corners, err := findChessCorners(img, logger)
 	if err != nil {
@@ -62,18 +62,17 @@ func FindAndWarpBoard(img *rimage.ImageWithDepth, logger golog.Logger) (*Board, 
 	return &Board{a, edges, logger}, nil
 }
 
-// SquareCenterHeight TODO
+// SquareCenterHeight TODO.
 func (b *Board) SquareCenterHeight(square string, radius int) float64 {
 	return b.SquareCenterHeight2(square, radius, false)
 }
 
 // SquareCenterHeight2 TODO
 // return highes
-// SquareCenterHeight2 TODOt delta, average floor height
+// SquareCenterHeight2 TODOt delta, average floor height.
 func (b *Board) SquareCenterHeight2(square string, radius int, matchColor bool) float64 {
-
 	edges := b.SquareCenterEdges(square)
-	//fmt.Printf("%s edges: %v\n", square, edges)
+	// fmt.Printf("%s edges: %v\n", square, edges)
 	if edges < EdgeThreshold {
 		return 0
 	}
@@ -151,7 +150,7 @@ func (b *Board) SquareCenterHeight2(square string, radius int, matchColor bool) 
 	return res
 }
 
-// SquareCenterEdges TODO
+// SquareCenterEdges TODO.
 func (b *Board) SquareCenterEdges(square string) int {
 	corner := getMinChessCorner(square)
 	center := image.Point{corner.X + 50, corner.Y + 50}
@@ -159,10 +158,10 @@ func (b *Board) SquareCenterEdges(square string) int {
 	return rimage.CountBrightSpots(b.edges, center, 25, 255)
 }
 
-// SquareFunc TODO
+// SquareFunc TODO.
 type SquareFunc func(b *Board, square string) error
 
-// WriteDebugImages TODO
+// WriteDebugImages TODO.
 func (b *Board) WriteDebugImages(prefix string) error {
 	err := b.img.Color.WriteTo(prefix + "-color.png")
 	if err != nil {
@@ -183,7 +182,7 @@ func (b *Board) WriteDebugImages(prefix string) error {
 	return nil
 }
 
-// Annotate TODO
+// Annotate TODO.
 func (b *Board) Annotate() image.Image {
 	dc := gg.NewContextForImage(b.img.Color)
 
@@ -223,21 +222,20 @@ func (b *Board) Annotate() image.Image {
 
 			p.Y -= 20
 			rimage.DrawString(dc, fmt.Sprintf("%d,%d", int(height), edges), p, rimage.Green, 12)
-
 		}
 	}
 
 	return dc.Image()
 }
 
-// IsBoardBlocked TODO
+// IsBoardBlocked TODO.
 func (b *Board) IsBoardBlocked() bool {
 	numPieces := 0
 	for x := 'a'; x <= 'h'; x++ {
 		for y := '1'; y <= '8'; y++ {
 			s := string(x) + string(y)
 			h := b.SquareCenterHeight(s, DepthCheckSizeRadius)
-			//b.logger.Debugf("%s -> %v\n", s, h)
+			// b.logger.Debugf("%s -> %v\n", s, h)
 			if h > 150 {
 				b.logger.Debugf("blocked at %s with %v\n", s, h)
 				return true

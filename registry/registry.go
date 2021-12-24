@@ -36,26 +36,26 @@ type RegDebugInfo struct {
 	RegistrarLoc string
 }
 
-// Base stores a Base constructor function (mandatory)
+// Base stores a Base constructor function (mandatory).
 type Base struct {
 	RegDebugInfo
 	Constructor CreateBase
 }
 
-// Sensor stores a Sensor constructor function (mandatory)
+// Sensor stores a Sensor constructor function (mandatory).
 type Sensor struct {
 	RegDebugInfo
 	Constructor CreateSensor
 }
 
-// Service stores a Service constructor (mandatory) and an attribute converter
+// Service stores a Service constructor (mandatory) and an attribute converter.
 type Service struct {
 	RegDebugInfo
 	Constructor           CreateService
 	AttributeMapConverter config.AttributeMapConverter
 }
 
-// all registries
+// all registries.
 var (
 	baseRegistry    = map[string]Base{}
 	sensorRegistry  = map[sensor.Type]map[string]Sensor{}
@@ -74,8 +74,7 @@ func getCallerName() string {
 // RegisterBase registers a base model to a creator.
 func RegisterBase(model string, creator Base) {
 	creator.RegistrarLoc = getCallerName()
-	_, old := baseRegistry[model]
-	if old {
+	if _, old := baseRegistry[model]; old {
 		panic(errors.Errorf("trying to register two bases with same model %s", model))
 	}
 	if creator.Constructor == nil {
@@ -151,32 +150,31 @@ type (
 	// A CreateReconfigurable makes a reconfigurable resource from a given resource.
 	CreateReconfigurable func(resource interface{}) (resource.Reconfigurable, error)
 
-	// A RegisterSubtypeRPCService will register the subtype service to the grpc server
+	// A RegisterSubtypeRPCService will register the subtype service to the grpc server.
 	RegisterSubtypeRPCService func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error
 
 	// A CreateRPCClient will create the client for the resource.
-	// TODO: Remove as part of #227
+	// TODO: Remove as part of #227.
 	CreateRPCClient func(conn rpc.ClientConn, name string, logger golog.Logger) interface{}
 )
 
-// Component stores a resource constructor (mandatory) and a Frame building function (optional)
+// Component stores a resource constructor (mandatory) and a Frame building function (optional).
 type Component struct {
 	RegDebugInfo
 	Constructor CreateComponent
 }
 
-// ResourceSubtype stores subtype-specific functions and clients
+// ResourceSubtype stores subtype-specific functions and clients.
 type ResourceSubtype struct {
 	Reconfigurable     CreateReconfigurable
 	RegisterRPCService RegisterSubtypeRPCService
 	RPCClient          CreateRPCClient
 }
 
-// SubtypeGrpc stores functions necessary for a resource subtype to be accessible through grpc
-type SubtypeGrpc struct {
-}
+// SubtypeGrpc stores functions necessary for a resource subtype to be accessible through grpc.
+type SubtypeGrpc struct{}
 
-// all registries
+// all registries.
 var (
 	componentRegistry = map[string]Component{}
 	subtypeRegistry   = map[resource.Subtype]ResourceSubtype{}

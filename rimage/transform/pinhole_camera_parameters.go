@@ -9,17 +9,17 @@ import (
 	"math"
 	"os"
 
+	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
-
-	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
-// DistortionModel TODO
+// DistortionModel TODO.
 type DistortionModel struct {
 	RadialK1     float64 `json:"rk1"`
 	RadialK2     float64 `json:"rk2"`
@@ -28,7 +28,7 @@ type DistortionModel struct {
 	TangentialP2 float64 `json:"tp2"`
 }
 
-// PinholeCameraIntrinsics TODO
+// PinholeCameraIntrinsics TODO.
 type PinholeCameraIntrinsics struct {
 	Width      int             `json:"width"`
 	Height     int             `json:"height"`
@@ -39,20 +39,20 @@ type PinholeCameraIntrinsics struct {
 	Distortion DistortionModel `json:"distortion"`
 }
 
-// Extrinsics TODO
+// Extrinsics TODO.
 type Extrinsics struct {
 	RotationMatrix    []float64 `json:"rotation"`
 	TranslationVector []float64 `json:"translation"`
 }
 
-// DepthColorIntrinsicsExtrinsics TODO
+// DepthColorIntrinsicsExtrinsics TODO.
 type DepthColorIntrinsicsExtrinsics struct {
 	ColorCamera  PinholeCameraIntrinsics `json:"color"`
 	DepthCamera  PinholeCameraIntrinsics `json:"depth"`
 	ExtrinsicD2C Extrinsics              `json:"extrinsicsDepthToColor"`
 }
 
-// CheckValid checks if the fields for PinholeCameraIntrinsics have valid inputs
+// CheckValid checks if the fields for PinholeCameraIntrinsics have valid inputs.
 func (params *PinholeCameraIntrinsics) CheckValid() error {
 	if params == nil {
 		return errors.New("pointer to PinholeCameraIntrinsics is nil")
@@ -63,7 +63,7 @@ func (params *PinholeCameraIntrinsics) CheckValid() error {
 	return nil
 }
 
-// CheckValid TODO
+// CheckValid TODO.
 func (dcie *DepthColorIntrinsicsExtrinsics) CheckValid() error {
 	if dcie == nil {
 		return errors.New("pointer to DepthColorIntrinsicsExtrinsics is nil")
@@ -77,7 +77,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) CheckValid() error {
 	return nil
 }
 
-// NewEmptyDepthColorIntrinsicsExtrinsics TODO
+// NewEmptyDepthColorIntrinsicsExtrinsics TODO.
 func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 	return &DepthColorIntrinsicsExtrinsics{
 		ColorCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0, DistortionModel{0, 0, 0, 0, 0}},
@@ -86,19 +86,23 @@ func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 	}
 }
 
-// NewDepthColorIntrinsicsExtrinsics TODO
+// NewDepthColorIntrinsicsExtrinsics TODO.
 func NewDepthColorIntrinsicsExtrinsics(attrs config.AttributeMap) (*DepthColorIntrinsicsExtrinsics, error) {
 	var matrices *DepthColorIntrinsicsExtrinsics
 
 	if attrs.Has("intrinsic_extrinsic") {
-		matrices = attrs["intrinsic_extrinsic"].(*DepthColorIntrinsicsExtrinsics)
+		var ok bool
+		matrices, ok = attrs["intrinsic_extrinsic"].(*DepthColorIntrinsicsExtrinsics)
+		if !ok {
+			return nil, rdkutils.NewUnexpectedTypeError(matrices, attrs["intrinsic_extrinsic"])
+		}
 	} else {
 		return nil, errors.New("no camera config")
 	}
 	return matrices, nil
 }
 
-// NewDepthColorIntrinsicsExtrinsicsFromBytes TODO
+// NewDepthColorIntrinsicsExtrinsicsFromBytes TODO.
 func NewDepthColorIntrinsicsExtrinsicsFromBytes(byteJSON []byte) (*DepthColorIntrinsicsExtrinsics, error) {
 	intrinsics := NewEmptyDepthColorIntrinsicsExtrinsics()
 	// Parse into map
@@ -110,9 +114,10 @@ func NewDepthColorIntrinsicsExtrinsicsFromBytes(byteJSON []byte) (*DepthColorInt
 	return intrinsics, nil
 }
 
-// NewDepthColorIntrinsicsExtrinsicsFromJSONFile TODO
+// NewDepthColorIntrinsicsExtrinsicsFromJSONFile TODO.
 func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColorIntrinsicsExtrinsics, error) {
 	// open json file
+	//nolint:gosec
 	jsonFile, err := os.Open(jsonPath)
 	if err != nil {
 		err = errors.Wrap(err, "error opening JSON file")
@@ -128,10 +133,11 @@ func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColor
 	return NewDepthColorIntrinsicsExtrinsicsFromBytes(byteValue)
 }
 
-// NewPinholeCameraIntrinsicsFromJSONFile TODO
+// NewPinholeCameraIntrinsicsFromJSONFile TODO.
 func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*PinholeCameraIntrinsics, error) {
 	intrinsics := NewEmptyDepthColorIntrinsicsExtrinsics()
 	// open json file
+	//nolint:gosec
 	jsonFile, err := os.Open(jsonPath)
 	if err != nil {
 		err = errors.Wrap(err, "error opening JSON file")
@@ -160,7 +166,7 @@ func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*Pinho
 // The intrinsics parameters should be the ones of the sensor used to obtain the image that
 // contains the pixel.
 func (params *PinholeCameraIntrinsics) PixelToPoint(x, y, z float64) (float64, float64, float64) {
-	//TODO(louise): add unit test
+	// TODO(louise): add unit test
 	xOverZ := (x - params.Ppx) / params.Fx
 	yOverZ := (y - params.Ppy) / params.Fy
 	// get x and y
@@ -172,7 +178,7 @@ func (params *PinholeCameraIntrinsics) PixelToPoint(x, y, z float64) (float64, f
 // PointToPixel projects a 3D point to a pixel in an image plane.
 // The intrinsics parameters should be the ones of the sensor we want to project to.
 func (params *PinholeCameraIntrinsics) PointToPixel(x, y, z float64) (float64, float64) {
-	//TODO(louise): add unit test
+	// TODO(louise): add unit test
 	if z != 0. {
 		xPx := math.Round((x/z)*params.Fx + params.Ppx)
 		yPx := math.Round((y/z)*params.Fy + params.Ppy)
@@ -182,7 +188,7 @@ func (params *PinholeCameraIntrinsics) PointToPixel(x, y, z float64) (float64, f
 	return -1.0, -1.0
 }
 
-// ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix
+// ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix.
 func (params *PinholeCameraIntrinsics) ImagePointTo3DPoint(point image.Point, ii *rimage.ImageWithDepth) (r3.Vector, error) {
 	return intrinsics2DPtTo3DPt(point, ii, params)
 }
@@ -196,8 +202,11 @@ func (params *PinholeCameraIntrinsics) ImageWithDepthToPointCloud(ii *rimage.Ima
 	return intrinsics2DTo3D(ii, params)
 }
 
-// PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth from the perspective of the camera frame.
-func (params *PinholeCameraIntrinsics) PointCloudToImageWithDepth(cloud pointcloud.PointCloud) (*rimage.ImageWithDepth, error) {
+// PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth from the
+// perspective of the camera referenceframe.
+func (params *PinholeCameraIntrinsics) PointCloudToImageWithDepth(
+	cloud pointcloud.PointCloud,
+) (*rimage.ImageWithDepth, error) {
 	return intrinsics3DTo2D(cloud, params)
 }
 
@@ -205,8 +214,7 @@ func (params *PinholeCameraIntrinsics) PointCloudToImageWithDepth(cloud pointclo
 func (params *Extrinsics) TransformPointToPoint(x, y, z float64) (float64, float64, float64) {
 	rotationMatrix := params.RotationMatrix
 	translationVector := params.TranslationVector
-	n := len(rotationMatrix)
-	if n != 9 {
+	if len(rotationMatrix) != 9 {
 		panic("Rotation Matrix to transform point cloud should be a 3x3 matrix")
 	}
 	xTransformed := rotationMatrix[0]*x + rotationMatrix[1]*y + rotationMatrix[2]*z + translationVector[0]
@@ -216,7 +224,7 @@ func (params *Extrinsics) TransformPointToPoint(x, y, z float64) (float64, float
 	return xTransformed, yTransformed, zTransformed
 }
 
-// intrinsics2DPtTo3DPt takes in a image coordinate and returns the 3D point using the camera's intrinsic matrix
+// intrinsics2DPtTo3DPt takes in a image coordinate and returns the 3D point using the camera's intrinsic matrix.
 func intrinsics2DPtTo3DPt(pt image.Point, ii *rimage.ImageWithDepth, pci *PinholeCameraIntrinsics) (r3.Vector, error) {
 	if !ii.IsAligned() {
 		return r3.Vector{}, errors.New("image with depth is not aligned. will not return correct 3D point")

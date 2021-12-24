@@ -5,15 +5,14 @@ import (
 	"strings"
 	"testing"
 
-	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/vision/segmentation"
-
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
-type MyDebug struct {
-}
+type MyDebug struct{}
 
 func (ddd MyDebug) Process(
 	t *testing.T,
@@ -22,6 +21,7 @@ func (ddd MyDebug) Process(
 	img image.Image,
 	logger golog.Logger,
 ) error {
+	t.Helper()
 	dm, err := rimage.ParseDepthMap(strings.Replace(fn, ".png", ".dat.gz", 1))
 	if err != nil {
 		return err
@@ -46,11 +46,9 @@ func TestAutoDrive1(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/autodrive", "*.png", false)
 	err := d.Process(t, MyDebug{})
 	test.That(t, err, test.ShouldBeNil)
-
 }
 
-type ChargeDebug struct {
-}
+type ChargeDebug struct{}
 
 func (cd ChargeDebug) Process(
 	t *testing.T,
@@ -59,6 +57,7 @@ func (cd ChargeDebug) Process(
 	img image.Image,
 	logger golog.Logger,
 ) error {
+	t.Helper()
 	iwd := rimage.ConvertToImageWithDepth(img).Rotate(180)
 	pCtx.GotDebugImage(iwd, "rotated")
 
@@ -79,5 +78,4 @@ func TestCharge1(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/charging2", "*.both.gz", false)
 	err := d.Process(t, ChargeDebug{})
 	test.That(t, err, test.ShouldBeNil)
-
 }

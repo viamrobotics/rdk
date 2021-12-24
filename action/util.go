@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"image"
 
-	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/utils"
-
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"
+
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
 )
 
 func roverWalk(pc *rimage.ImageWithDepth, debug bool, logger golog.Logger) (image.Image, int) {
-
 	var dc *gg.Context
 	if debug {
 		dc = gg.NewContextForImage(image.NewRGBA(pc.Color.Bounds()))
@@ -76,7 +75,6 @@ func roverWalk(pc *rimage.ImageWithDepth, debug bool, logger golog.Logger) (imag
 
 			return nil
 		})
-
 	if err != nil {
 		panic(err)
 	}

@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/spatialmath"
-
-	"go.viam.com/test"
 )
 
 func TestIMUName(t *testing.T) {
@@ -81,12 +81,12 @@ func TestReconfigurableIMU(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualIMU1.reconfCalls, test.ShouldEqual, 0)
 
-	err = fakeIMU1.(*reconfigurableIMU).Reconfigure(fakeIMU2)
+	err = fakeIMU1.(*reconfigurableIMU).Reconfigure(context.Background(), fakeIMU2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeIMU1.(*reconfigurableIMU).actual, test.ShouldEqual, actualIMU2)
 	test.That(t, actualIMU1.reconfCalls, test.ShouldEqual, 1)
 
-	err = fakeIMU1.(*reconfigurableIMU).Reconfigure(nil)
+	err = fakeIMU1.(*reconfigurableIMU).Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new IMU")
 }
@@ -148,16 +148,19 @@ func (m *mock) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity
 	m.angularVelocityCalls++
 	return av, nil
 }
+
 func (m *mock) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	m.orientationCalls++
 	return ea, nil
 }
+
 func (m *mock) Readings(ctx context.Context) ([]interface{}, error) {
 	m.readingsCalls++
 	return []interface{}{av, ea}, nil
 }
+
 func (m *mock) Desc() sensor.Description {
 	m.descCalls++
 	return desc
 }
-func (m *mock) Close() error { m.reconfCalls++; return nil }
+func (m *mock) Close() { m.reconfCalls++ }

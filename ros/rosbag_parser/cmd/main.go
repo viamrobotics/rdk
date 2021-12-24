@@ -9,9 +9,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/pointcloud"
@@ -24,7 +23,7 @@ import (
 
 var logger = golog.NewDevelopmentLogger("rosbag_parser")
 
-// Arguments for the rosbag parser
+// Arguments for the rosbag parser.
 type Arguments struct {
 	RosbagFile string `flag:"0"`
 }
@@ -33,7 +32,7 @@ func main() {
 	goutils.ContextualMain(mainWithArgs, logger)
 }
 
-// saveImageAsPng saves image as png in current directory
+// saveImageAsPng saves image as png in current directory.
 func saveImageAsPng(img image.Image, filename string) error {
 	path := ""
 	f, err := os.Create(path + filename)

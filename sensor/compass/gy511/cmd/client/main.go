@@ -5,16 +5,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
-
+	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/sensor/compass/gy511"
 	"go.viam.com/rdk/serial"
-
-	"go.uber.org/multierr"
 )
 
 var logger = golog.NewDevelopmentLogger("gy511_client")

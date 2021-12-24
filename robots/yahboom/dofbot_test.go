@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-
 	"go.viam.com/test"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"

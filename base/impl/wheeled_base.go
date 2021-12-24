@@ -1,3 +1,4 @@
+// Package baseimpl implements some bases, like a wheeled base.
 package baseimpl
 
 import (
@@ -6,8 +7,9 @@ import (
 	"math"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/base"
@@ -15,9 +17,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-
-	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
 )
 
 func init() {
@@ -36,7 +35,6 @@ type wheeledBase struct {
 }
 
 func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
-
 	// Spin math
 	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
 
@@ -112,7 +110,7 @@ func (base *wheeledBase) MoveArc(ctx context.Context, distanceMillis int, millis
 	return base.WaitForMotorsToStop(ctx)
 }
 
-// returns rpm, revolutions for spin motion
+// returns rpm, revolutions for spin motion.
 func (base *wheeledBase) spinMath(angleDeg float64, degsPerSec float64) (float64, float64) {
 	wheelTravel := base.spinSlipFactor * float64(base.widthMillis) * math.Pi * angleDeg / 360.0
 	revolutions := wheelTravel / float64(base.wheelCircumferenceMillis)
@@ -166,7 +164,6 @@ func (base *wheeledBase) arcMath(distanceMillis int, millisPerSec float64, angle
 }
 
 func (base *wheeledBase) straightDistanceToMotorInfo(distanceMillis int, millisPerSec float64) (float64, float64) {
-
 	rotations := float64(distanceMillis) / float64(base.wheelCircumferenceMillis)
 
 	rotationsPerSec := millisPerSec / float64(base.wheelCircumferenceMillis)
@@ -215,8 +212,8 @@ func (base *wheeledBase) Stop(ctx context.Context) error {
 	return err
 }
 
-func (base *wheeledBase) Close() error {
-	return base.Stop(context.Background())
+func (base *wheeledBase) Close(ctx context.Context) error {
+	return base.Stop(ctx)
 }
 
 func (base *wheeledBase) WidthMillis(ctx context.Context) (int, error) {
@@ -266,7 +263,6 @@ func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Compo
 
 // CreateWheeledBase returns a new wheeled base defined by the given config.
 func CreateWheeledBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error) {
-
 	base := &wheeledBase{
 		widthMillis:              config.Attributes.Int("widthMillis", 0),
 		wheelCircumferenceMillis: config.Attributes.Int("wheelCircumferenceMillis", 0),

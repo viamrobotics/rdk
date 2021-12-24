@@ -1,3 +1,4 @@
+// Package jetson implements a jetson based board.
 package jetson
 
 import (
@@ -9,6 +10,12 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"periph.io/x/conn/v3/gpio"
+	"periph.io/x/conn/v3/gpio/gpioreg"
+	"periph.io/x/conn/v3/physic"
+	"periph.io/x/conn/v3/spi"
+	"periph.io/x/conn/v3/spi/spireg"
+	"periph.io/x/host/v3"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
@@ -16,13 +23,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
-
-	"periph.io/x/conn/v3/gpio"
-	"periph.io/x/conn/v3/gpio/gpioreg"
-	"periph.io/x/conn/v3/physic"
-	"periph.io/x/conn/v3/spi"
-	"periph.io/x/conn/v3/spi/spireg"
-	"periph.io/x/host/v3"
+	"go.viam.com/rdk/utils"
 )
 
 var gpioMappings map[int]gpioBoardMapping
@@ -49,7 +50,10 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			conf := config.ConvertedAttributes.(*board.Config)
+			conf, ok := config.ConvertedAttributes.(*board.Config)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
+			}
 			if len(conf.DigitalInterrupts) != 0 {
 				return nil, errors.New("digital interrupts unsupported")
 			}
@@ -280,8 +284,4 @@ func (b *jetsonBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
 
 func (b *jetsonBoard) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
-}
-
-func (b *jetsonBoard) Close() error {
-	return nil
 }

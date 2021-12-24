@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"go.viam.com/test"
-
 	"gonum.org/v1/gonum/num/quat"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -131,7 +130,6 @@ func TestOVConversionPoles(t *testing.T) {
 	ovConvert(t, &OrientationVector{Theta: 0, OX: 0, OY: 0, OZ: -1})
 	ovConvert(t, &OrientationVector{Theta: -2.47208, OX: 0, OY: 0, OZ: -1})
 	ovConvert(t, &OrientationVector{Theta: -0.78, OX: 0, OY: 0, OZ: -1})
-
 }
 
 func TestQuatNormalize(t *testing.T) {
@@ -179,6 +177,7 @@ func TestOVNormalize(t *testing.T) {
 }
 
 func ovConvert(t *testing.T, ov1 *OrientationVector) {
+	t.Helper()
 	q1 := ov1.ToQuat()
 	ov2 := QuatToOV(q1)
 	q2 := ov2.ToQuat()
@@ -188,6 +187,7 @@ func ovConvert(t *testing.T, ov1 *OrientationVector) {
 }
 
 func quatConvert(t *testing.T, q1 quat.Number) {
+	t.Helper()
 	ov1 := QuatToOV(q1)
 	q2 := ov1.ToQuat()
 	ov2 := QuatToOV(q2)
@@ -196,6 +196,7 @@ func quatConvert(t *testing.T, q1 quat.Number) {
 }
 
 func ovCompare(t *testing.T, ov1, ov2 *OrientationVector) {
+	t.Helper()
 	test.That(t, ov1.Theta, test.ShouldAlmostEqual, ov2.Theta)
 	test.That(t, ov1.OX, test.ShouldAlmostEqual, ov2.OX)
 	test.That(t, ov1.OY, test.ShouldAlmostEqual, ov2.OY)
@@ -203,6 +204,7 @@ func ovCompare(t *testing.T, ov1, ov2 *OrientationVector) {
 }
 
 func quatCompare(t *testing.T, q1, q2 quat.Number) {
+	t.Helper()
 	test.That(t, q1.Real, test.ShouldAlmostEqual, q2.Real, 1e-8)
 	test.That(t, q1.Imag, test.ShouldAlmostEqual, q2.Imag, 1e-8)
 	test.That(t, q1.Jmag, test.ShouldAlmostEqual, q2.Jmag, 1e-8)

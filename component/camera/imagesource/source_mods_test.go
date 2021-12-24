@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"go.viam.com/test"
-
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
 
@@ -55,7 +54,6 @@ func TestRotateSource(t *testing.T) {
 
 		test.That(t, d1, test.ShouldEqual, d2)
 	}
-
 }
 
 func BenchmarkRotate(b *testing.B) {

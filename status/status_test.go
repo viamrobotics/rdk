@@ -4,7 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/test"
 
 	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
@@ -27,9 +29,6 @@ import (
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/status"
 	"go.viam.com/rdk/testutils/inject"
-
-	"github.com/edaniels/golog"
-	"go.viam.com/test"
 )
 
 func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRemote bool) *inject.Robot {
@@ -148,6 +147,7 @@ func TestCreateStatus(t *testing.T) {
 
 		status, err := status.Create(context.Background(), robot)
 		test.That(t, err, test.ShouldBeNil)
+		//nolint:dupl
 		test.That(t, status, test.ShouldResemble, &pb.Status{
 			Arms: map[string]*pb.ArmStatus{
 				"arm1": {},
@@ -216,6 +216,7 @@ func TestCreateStatus(t *testing.T) {
 		// Status is the same as with no remotes because it's up to the
 		// robot to utilize information from the remotes. We know
 		// Refresh is called due to the failure above.
+		//nolint:dupl
 		test.That(t, status, test.ShouldResemble, &pb.Status{
 			Arms: map[string]*pb.ArmStatus{
 				"arm1": {},

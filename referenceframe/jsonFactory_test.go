@@ -1,7 +1,6 @@
 package referenceframe
 
 import (
-	"fmt"
 	"testing"
 
 	"go.viam.com/test"
@@ -12,7 +11,7 @@ import (
 // Tests that yml files are properly parsed and correctly loaded into the model
 // Should not need to actually test the contained rotation/translation values
 // since that will be caught by tests to the actual kinematics
-// So we'll just check that we read in the right number of joints
+// So we'll just check that we read in the right number of joints.
 func TestParseJSONFile(t *testing.T) {
 	goodFiles := []string{
 		"robots/wx250s/wx250s_kinematics.json",
@@ -39,8 +38,6 @@ func TestParseJSONFile(t *testing.T) {
 			model2, err := ParseJSON(data, "")
 			test.That(t, err, test.ShouldBeNil)
 
-			fmt.Printf("%#v\n%#v\n", model, model2)
-
 			test.That(t, model.AlmostEquals(model2), test.ShouldBeTrue)
 		})
 	}
@@ -51,5 +48,4 @@ func TestParseJSONFile(t *testing.T) {
 			test.That(t, err, test.ShouldNotBeNil)
 		})
 	}
-
 }

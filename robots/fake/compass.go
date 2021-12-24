@@ -39,11 +39,6 @@ func (c *Compass) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{1.2}, nil
 }
 
-// Close does nothing.
-func (c *Compass) Close() error {
-	return nil
-}
-
 // Heading always returns the same value.
 func (c *Compass) Heading(ctx context.Context) (float64, error) {
 	return 1.2, nil
