@@ -53,7 +53,7 @@ require (
 	go.uber.org/zap v1.19.1
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
-	go.viam.com/utils v0.0.3-0.20211224162420-34c659fdbec7
+	go.viam.com/utils v0.0.3-0.20211223220601-81068ae2b482
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 	golang.org/x/tools v0.1.7
@@ -303,5 +303,3 @@ replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210
 replace github.com/starship-technologies/gobag => github.com/kkufieta/gobag v0.0.0-20210528190924-d8b19286f98e
 
 replace github.com/wasmerio/wasmer-go => github.com/meshplus/wasmer-go v0.0.0-20210817103436-19ec68f8bfe2
-
-replace go.viam.com/utils => /Users/eric/goutils
