@@ -31,7 +31,7 @@ func TestComponentValidate(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 	})
 
-	t.Run("do not return error when the config is valid", func(t *testing.T) {
+	t.Run("return nil error when the config is valid", func(t *testing.T) {
 		validConfig := config.Component{
 			Name: "foo",
 			Type: "arm",
@@ -52,7 +52,7 @@ func TestComponentValidate(t *testing.T) {
 			test.That(t, err.Error(), test.ShouldContainSubstring, `"thing" is required`)
 		})
 
-		t.Run("return nil when the validation of the ConvertedAttributes succeeds", func(t *testing.T) {
+		t.Run("return nil error when the validation of the ConvertedAttributes succeeds", func(t *testing.T) {
 			invalidConfig := config.Component{
 				Name: "foo",
 				ConvertedAttributes: &convertedAttributes{
