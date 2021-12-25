@@ -28,7 +28,7 @@ func createShamMotor() *inject.Motor {
 		return nil
 	}
 
-	shamMotor.OffFunc = func(ctx context.Context) error {
+	shamMotor.StopFunc = func(ctx context.Context) error {
 		return nil
 	}
 
