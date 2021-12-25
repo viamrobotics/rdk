@@ -70,7 +70,7 @@
           "rpm": [300, 300, 300]
         },
         "depends_on":
-          "xmotor"
+          ["xmotor", "ymotor", "zmotor"]
     }
     ]
 }
