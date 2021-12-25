@@ -55,18 +55,18 @@
         "name": "armmover",
         "type": "gantry",
         "attributes": {
-          "lengthMeters": 1.5,
+          "lengthMeters": [1.5],
           "limitBoard": "local",
           "limitHigh": false,
           "limitPins": [
             "io17",
             "io18"
           ],
-          "motor": "xmotor",
-          "rpm": [300, 300, 300]
+          "motor": ["xmotor"],
+          "rpm": [300]
         },
         "depends_on":
-          "xmotor"
+          ["xmotor"]
     }
     ]
 }

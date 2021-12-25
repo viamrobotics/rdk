@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/core/component/motor"
 	"go.viam.com/core/config"
 	"go.viam.com/core/testutils/inject"
 
@@ -19,10 +20,11 @@ func createShamMotor() *inject.Motor {
 		return true, nil
 	}
 
-	shamMotor.GoTillStopFunc = func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-		return nil
+	shamMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+		return 1, nil
 	}
-	shamMotor.GoToFunc = func(ctx context.Context, rpm float64, position float64) error {
+
+	shamMotor.GoForFunc = func(ctx context.Context, rpm float64, revolutions float64) error {
 		return nil
 	}
 
@@ -35,6 +37,15 @@ func createShamMotor() *inject.Motor {
 	}
 
 	return shamMotor
+}
+
+func createFakeBoard() *inject.Board {
+	fakeboard := &inject.Board{}
+
+	fakeboard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
+		return true, nil
+	}
+	return fakeboard
 }
 
 func TestNewMultiAxis(t *testing.T) {
@@ -66,3 +77,123 @@ func TestNewMultiAxis(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 }
+
+func TestInit(t *testing.T) {
+	ctx := context.Background()
+	fakemotor := createShamMotor()
+	_, err := fakemotor.PositionSupportedFunc(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+}
+
+func TestHomeTwoLimitSwitch(t *testing.T) {
+	motors := []motor.Motor{createShamMotor(), createShamMotor(), createShamMotor()}
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	fakegantry := &multiAxis{
+		motorList:       []string{"x", "y", "z"},
+		motors:          motors,
+		limitBoard:      createFakeBoard(),
+		limitHigh:       true,
+		logger:          logger,
+		rpm:             []float64{300, 300, 300},
+		limitSwitchPins: []string{"1", "2", "3", "4", "5", "6"},
+	}
+
+	err := fakegantry.homeTwoLimSwitch(ctx, 0, []int{0, 1})
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestHomeOneLimitSwitch(t *testing.T) {
+	motors := []motor.Motor{createShamMotor(), createShamMotor(), createShamMotor()}
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	fakegantry := &multiAxis{
+		motorList:       []string{"x", "y", "z"},
+		motors:          motors,
+		limitBoard:      createFakeBoard(),
+		limitHigh:       true,
+		logger:          logger,
+		rpm:             []float64{300, 300, 300},
+		limitSwitchPins: []string{"1", "2", "3"},
+		lengthMeters:    []float64{1, 1, 1},
+		pulleyR:         []float64{.1, .1, .1},
+	}
+
+	err := fakegantry.homeOneLimSwitch(ctx, 0, []int{0, 1})
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestHomeEncoder(t *testing.T) {
+	fakegantry := &multiAxis{}
+	ctx := context.Background()
+	err := fakegantry.homeEncoder(ctx, 1)
+	test.That(t, err, test.ShouldNotBeNil)
+
+}
+
+func TestTestLimit(t *testing.T) {
+	ctx := context.Background()
+	fakegantry := &multiAxis{
+		limitSwitchPins: []string{"1", "2"},
+		motors:          []motor.Motor{createShamMotor()},
+		limitBoard:      createFakeBoard(),
+		rpm:             []float64{300},
+		limitHigh:       true,
+	}
+	pos, err := fakegantry.testLimit(ctx, 0, []int{0, 1}, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos, test.ShouldEqual, float64(1))
+}
+
+func TestLimitHit(t *testing.T) {
+	ctx := context.Background()
+	fakegantry := &multiAxis{
+		limitSwitchPins: []string{"1", "2", "3"},
+		limitBoard:      createFakeBoard(),
+		limitHigh:       true,
+	}
+
+	hit, err := fakegantry.limitHit(ctx, 0)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, hit, test.ShouldEqual, true)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestCurrentPosition(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	fakemotors := []motor.Motor{createShamMotor(), createShamMotor(), createShamMotor()}
+	ctx := context.Background()
+	//fakeboard := &inject.Board{}
+	//fakeboard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
+	//	return true, nil
+	//}
+	fakegantry := &multiAxis{
+		limitBoard:      createFakeBoard(),
+		limitHigh:       true,
+		motorList:       []string{"x", "y", "z"},
+		motors:          fakemotors,
+		limitSwitchPins: []string{"1", "2", "3", "4", "5", "6"},
+		positionLimits:  []float64{0, 1, 0, 1, 0, 1},
+		logger:          logger,
+	}
+	positions, err := fakegantry.CurrentPosition(ctx)
+
+	test.That(t, positions, test.ShouldResemble, []float64{1, 1, 1})
+	test.That(t, err, test.ShouldBeNil)
+
+}
+
+func TestLengths(t *testing.T) {
+	fakegantry := &multiAxis{
+		motorList:    []string{"x", "y", "z"},
+		lengthMeters: []float64{1.0, 2.0, 3.0},
+	}
+	ctx := context.Background()
+	fakelengths, err := fakegantry.Lengths(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.ShouldHaveLength(t, fakelengths, len(fakegantry.motorList))
+}
+
+//TODO: tests for reference frame

@@ -3,6 +3,7 @@ package multiaxisgantry
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -41,6 +42,7 @@ func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 		lengthMeters:    []float64{},
 		rpm:             []float64{},
 		positionLimits:  []float64{},
+		pulleyR:         []float64{},
 	}
 
 	var ok bool
@@ -70,8 +72,13 @@ func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 	g.limitHigh = config.Attributes.Bool("limitHigh", true)
 
 	g.lengthMeters = config.Attributes.Float64Slice("lengthMeters")
-	if len(g.lengthMeters) <= len(g.motors) {
+	if len(g.lengthMeters) <= len(g.motorList) {
 		return nil, errors.New("each axis needs a non-zero length")
+	}
+
+	g.pulleyR = config.Attributes.Float64Slice("pulleyR")
+	if g.limitType == "onePinOneLength" && len(g.pulleyR) <= len(g.motorList) {
+		return nil, errors.New("gantries that have one limit switch per axis require pulley radii to be specified")
 	}
 
 	for idx := range g.motorList { //fix for loop syntax
@@ -123,6 +130,7 @@ type multiAxis struct {
 	limitHigh       bool
 	axes            []bool
 	limitType       string
+	pulleyR         []float64
 
 	lengthMeters []float64
 	rpm          []float64
@@ -136,9 +144,8 @@ type multiAxis struct {
 // two limit switch pins and an encoder
 
 func (g *multiAxis) init(ctx context.Context) error {
-	// count is used to ensure the mapping of motor0->limSw0,limSw1; motor1->limSw2,limSw3; motor2->limSw4,limSw5
-	count := 0
-	//TODO: Print indexes of motor and limit switch to make sure it works
+	// Mapping one limit switch motor0->limsw0, motor1 ->limsw1, motor 2 -> limsw2
+	// Mapping two limit switch motor0->limSw0,limSw1; motor1->limSw2,limSw3; motor2->limSw4,limSw5
 	for idx := range g.motorList {
 		motorID := idx
 		switch g.limitType {
@@ -149,12 +156,11 @@ func (g *multiAxis) init(ctx context.Context) error {
 				return err
 			}
 		case "twoLimSwitch":
-			limitIDs := []int{idx + count, idx + count + 1}
+			limitIDs := []int{2 * idx, 2*idx + 1}
 			err := g.homeTwoLimSwitch(ctx, motorID, limitIDs)
 			if err != nil {
 				return err
 			}
-			count++
 		case "encoder":
 			err := g.homeEncoder(ctx, motorID)
 			if err != nil {
@@ -190,7 +196,6 @@ func (g *multiAxis) homeTwoLimSwitch(ctx context.Context, motorID int, limitID [
 
 	g.logger.Debugf("positionA: %0.02f positionB: %0.02f", positionA, positionB)
 
-	// TODO: Check if index makes sense.
 	g.positionLimits = []float64{positionA, positionB}
 
 	return nil
@@ -212,15 +217,10 @@ func (g *multiAxis) homeOneLimSwitch(ctx context.Context, motorID int, limitID [
 		return err
 	}
 
-	radius := .02
-	// totally random number set to current gantry pulley radius in ,meters
-	// length, do we have a wheel component anywhere? or an easy way of seeing how much distance is travelled per tick?
-	// Alternatively we need an absolute measurement of the pulley radius/wheel raius/leadscrew radius.
-	// This section probably needs a lot of rethinkiing to generalize
-	stepsPerLength := g.lengthMeters[motorID] / radius
+	radius := g.pulleyR[motorID]
+	stepsPerLength := g.lengthMeters[motorID] / (radius * 2 * math.Pi)
 
-	// singlestep := g.motors[motorID].TicksPerRotation / math.Pi
-	positionB := positionA + stepsPerLength //If I understand GPIO stepper right
+	positionB := positionA + stepsPerLength
 
 	g.positionLimits = []float64{positionA, positionB}
 
@@ -291,31 +291,29 @@ func (g *multiAxis) limitHit(ctx context.Context, offset int) (bool, error) {
 }
 
 func (g *multiAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
-	count := 0
-	posOut := make([]float64, 2*len(g.motorList))
+	posOut := make([]float64, len(g.motorList))
 	for idx := range g.motorList {
 		pos, err := g.motors[idx].Position(ctx)
 		if err != nil {
 			return nil, err
 		}
-		theRange := g.positionLimits[idx+1+count] - g.positionLimits[idx+count]
+		theRange := g.positionLimits[2*idx+1] - g.positionLimits[2*idx]
 
 		// can change into x, y, z explicitly without a for loop if preferable.
-		targetPos := g.positionLimits[idx+count] + (pos * theRange)
+		targetPos := g.positionLimits[2*idx] + (pos * theRange)
 
-		limit1, err := g.limitHit(ctx, idx+count)
+		limit1, err := g.limitHit(ctx, 2*idx)
 		if err != nil {
 			return nil, err
 		}
-		limit2, err := g.limitHit(ctx, idx+count+1)
+		limit2, err := g.limitHit(ctx, 2*idx+1)
 		if err != nil {
 			return nil, err
 		}
 
-		g.logger.Debugf("oneAxis CurrentPosition %.02f -> %.02f. limSwitch1: %t, limSwitch2: %t", pos, targetPos, limit1, limit2)
+		g.logger.Debugf("multiAxis axis %v CurrentPosition %.02f -> %.02f. limSwitch1: %t, limSwitch2: %t", idx, pos, targetPos, limit1, limit2)
 
-		posOut = append(posOut, targetPos)
-		count++
+		posOut[idx] = targetPos
 	}
 
 	return posOut, nil
@@ -324,19 +322,19 @@ func (g *multiAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
 func (g *multiAxis) Lengths(ctx context.Context) ([]float64, error) {
 	lengthsout := []float64{}
 	for idx := range g.motorList {
-		return append(lengthsout, g.lengthMeters[idx]), nil
+		lengthsout = append(lengthsout, g.lengthMeters[idx])
 	}
 	return lengthsout, nil
 }
 
 func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) error {
 	if len(positions) != len(g.motors) {
-		return fmt.Errorf(" gantry MoveToPosition needs %v positions, got: %v", len(g.motorList), len(positions))
+		return errors.Errorf(" gantry MoveToPosition needs %v positions, got: %v", len(g.motorList), len(positions))
 	}
 
 	for idx := range g.motorList {
 		if positions[idx] < 0 || positions[idx] > g.lengthMeters[idx] {
-			return fmt.Errorf("gantry position for axis %v is out of range, got %0.02f max is %0.02f", idx, positions[0], g.lengthMeters[idx])
+			return errors.Errorf("gantry position for axis %v is out of range, got %0.02f max is %0.02f", idx, positions[0], g.lengthMeters[idx])
 		}
 	}
 
@@ -344,13 +342,12 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 	// Moving should be the same for single limit switch logic and two limit switch logic
 
 	case "oneLimSwitch", "twoLimSwitch":
-		count := 0
 		for idx := range g.motorList {
-			theRange := g.positionLimits[idx+1+count] - g.positionLimits[idx+count]
+			theRange := g.positionLimits[2*idx+1] - g.positionLimits[2*idx]
 
 			// can change into x, y, z explicitly without a for loop if preferable.
 			targetPos := positions[idx] / g.lengthMeters[idx]
-			targetPos = g.positionLimits[idx+count] + (targetPos * theRange)
+			targetPos = g.positionLimits[2*idx] + (targetPos * theRange)
 
 			g.logger.Debugf("gantry axis %v SetPosition %0.02f -> %0.02f", idx, positions[idx], targetPos)
 
@@ -360,7 +357,7 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 				return err
 			}
 			if hit {
-				if targetPos < g.positionLimits[idx+count] {
+				if targetPos < g.positionLimits[2*idx] {
 					dir := float64(1)
 					return g.motors[idx].GoFor(ctx, dir*g.rpm[idx], 2)
 				}
@@ -369,19 +366,18 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 			}
 
 			// Hits forward limit switch, goes in backwards direction for two revolutions
-			hit, err = g.limitHit(ctx, idx+count+1)
+			hit, err = g.limitHit(ctx, 2*idx+1)
 			if err != nil {
 				return err
 			}
 			if hit {
-				if targetPos > g.positionLimits[idx+1+count] {
+				if targetPos > g.positionLimits[2*idx+1] {
 					dir := float64(-1)
 					return g.motors[idx].GoFor(ctx, dir*g.rpm[idx], 2)
 				}
 				return g.motors[idx].Off(ctx)
 
 			}
-			count++
 
 			err = g.motors[idx].GoTo(ctx, g.rpm[idx], targetPos)
 			if err != nil {
@@ -397,9 +393,7 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 	return nil
 }
 
-// This might be completely wrong. Not entirely sure how to use frames yet, my understanding is that
-// this is appending the translational frames of each axis to a model of the entire gantry.
-// Probably wrong.
+//TODO incorporate frames into movement function above. Workign on it.
 func (g *multiAxis) ModelFrame() *referenceframe.Model {
 	m := referenceframe.NewModel()
 	for idx := range g.motorList {
