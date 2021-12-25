@@ -11,13 +11,13 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/board"
-	"go.viam.com/core/component/gantry"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/config"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/gantry"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
 func init() {
@@ -234,7 +234,7 @@ func (g *multiAxis) homeEncoder(ctx context.Context, motorID int) error {
 
 func (g *multiAxis) testLimit(ctx context.Context, motorID int, limitID []int, zero bool) (float64, error) {
 	defer utils.UncheckedErrorFunc(func() error {
-		return g.motors[motorID].Off(ctx)
+		return g.motors[motorID].Stop(ctx)
 	})
 
 	// Gantry starts going backwards always. Limit switch must be placed in backwards direction from the motor.
@@ -261,7 +261,7 @@ func (g *multiAxis) testLimit(ctx context.Context, motorID int, limitID []int, z
 			return 0, err
 		}
 		if hit {
-			err = g.motors[motorID].Off(ctx)
+			err = g.motors[motorID].Stop(ctx)
 			if err != nil {
 				return 0, err
 			}
@@ -361,7 +361,7 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 					dir := float64(1)
 					return g.motors[idx].GoFor(ctx, dir*g.rpm[idx], 2)
 				}
-				return g.motors[idx].Off(ctx)
+				return g.motors[idx].Stop(ctx)
 
 			}
 
@@ -375,7 +375,7 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 					dir := float64(-1)
 					return g.motors[idx].GoFor(ctx, dir*g.rpm[idx], 2)
 				}
-				return g.motors[idx].Off(ctx)
+				return g.motors[idx].Stop(ctx)
 
 			}
 
