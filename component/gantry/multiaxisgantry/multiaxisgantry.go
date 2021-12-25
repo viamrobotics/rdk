@@ -96,10 +96,11 @@ func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 		g.limitType = "twoPin"
 	} else if len(g.limitSwitchPins) == 0 {
 		g.limitType = "encoderLengths"
-		// encoder not supported currently, need to think about how to incorprate pin and different types of encoders
-		// in core a bit more.
+		// encoder not supported currently.
 	} else {
-		return nil, errors.Errorf("Need one of: 1 limitPin per axis, 2 limitPin per axis or zero for encoders. We have %v motors, %v limitPins", len(g.motorList), len(g.limitSwitchPins))
+		np := len(g.limitSwitchPins)
+		na := len(g.motorList)
+		return nil, errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins for %v axes", np, na)
 	}
 
 	//g.axesList = config.Attributes.BoolSlice("axes", true)
@@ -411,7 +412,7 @@ func (g *multiAxis) ModelFrame() *referenceframe.Model {
 	return m
 }
 
-// This will eventually lead to an overhaul of the above code, but since we're not currently usign reference frames to move, I'll leave it here.
+// Will be used in motor movement function above.
 func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
 }

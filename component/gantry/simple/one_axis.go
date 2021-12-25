@@ -249,7 +249,7 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 			return g.motor.GoFor(ctx, dir*g.rpm, 2)
 		}
 
-		return g.motor.Off(ctx)
+		return g.motor.Stop(ctx)
 	}
 
 	// Hits forward limit switch, goes in backwards direction for two revolutions
@@ -262,7 +262,7 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 			dir := float64(-1)
 			return g.motor.GoFor(ctx, dir*g.rpm, 2)
 		}
-		return g.motor.Off(ctx)
+		return g.motor.Stop(ctx)
 	}
 >>>>>>> bf2501fe (Add files)
 
