@@ -9,6 +9,8 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -16,7 +18,6 @@ import (
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/sensor/forcematrix"
 	"go.viam.com/rdk/slipdetection"
-	"go.viam.com/utils"
 )
 
 // ModelName is used to register the sensor to a model name.
@@ -43,7 +44,9 @@ func (config *ForceMatrixConfig) Validate(path string) error {
 		return utils.NewConfigValidationError(path, errors.New("row_analog_channels_top_to_bottom has to be an array of length > 0"))
 	}
 	if config.SlipDetectionWindow == 0 || config.SlipDetectionWindow > forcematrix.MatrixStorageSize {
-		return utils.NewConfigValidationError(path, errors.Errorf("slip_detection_window has to be: 0 < slip_detection_window <= %v", forcematrix.MatrixStorageSize))
+		return utils.NewConfigValidationError(path,
+			errors.Errorf("slip_detection_window has to be: 0 < slip_detection_window <= %v",
+				forcematrix.MatrixStorageSize))
 	}
 	return nil
 }
@@ -59,18 +62,19 @@ func init() {
 			return new(ctx, r, forceMatrixConfig, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeSensor, ModelName, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf ForceMatrixConfig
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeSensor,
+		ModelName, func(attributes config.AttributeMap) (interface{}, error) {
+			var conf ForceMatrixConfig
 
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &ForceMatrixConfig{})
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &ForceMatrixConfig{})
 }
 
 // ForceMatrixTraditional represents a force matrix without a mux.
