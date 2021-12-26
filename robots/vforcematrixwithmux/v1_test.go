@@ -48,7 +48,7 @@ func TestNewForceMatrix(t *testing.T) {
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return fakeBoard, true
 		}
-		fsm, err := newForceMatrix(context.Background(), fakeRobot, validConfig, logger)
+		fsm, err := newForceMatrix(fakeRobot, validConfig, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fsm, test.ShouldNotBeNil)
 		test.That(t, fsm.columnGpioPins, test.ShouldResemble, validConfig.ColumnGPIOPins)
@@ -65,7 +65,7 @@ func TestNewForceMatrix(t *testing.T) {
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return nil, false
 		}
-		_, err := newForceMatrix(context.Background(), fakeRobot, validConfig, logger)
+		_, err := newForceMatrix(fakeRobot, validConfig, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -78,10 +78,11 @@ func TestNewForceMatrix(t *testing.T) {
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return fakeBoard, true
 		}
-		_, err := newForceMatrix(context.Background(), fakeRobot, validConfig, logger)
+		_, err := newForceMatrix(fakeRobot, validConfig, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
+
 func TestValidate(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
 		validConfig := &ForceMatrixConfig{
@@ -226,7 +227,7 @@ func TestSetMuxGpioPins(t *testing.T) {
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return fakeBoard, true
 		}
-		mux, _ := newForceMatrix(context.Background(), fakeRobot, validConfig, logger)
+		mux, _ := newForceMatrix(fakeRobot, validConfig, logger)
 		err := mux.setMuxGpioPins(context.Background(), -1)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
@@ -265,7 +266,7 @@ func TestMatrixAndSlip(t *testing.T) {
 			}
 			expectedMatrix := createExpectedMatrix(config)
 
-			mux, _ := newForceMatrix(context.Background(), fakeRobot, config, logger)
+			mux, _ := newForceMatrix(fakeRobot, config, logger)
 			actualMatrix, err := mux.Matrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
@@ -310,7 +311,7 @@ func TestMatrixAndSlip(t *testing.T) {
 			}
 			expectedMatrix := createExpectedMatrix(config)
 
-			mux, _ := newForceMatrix(context.Background(), fakeRobot, config, logger)
+			mux, _ := newForceMatrix(fakeRobot, config, logger)
 			actualMatrix, err := mux.Matrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
@@ -355,7 +356,7 @@ func TestMatrixAndSlip(t *testing.T) {
 			}
 			expectedMatrix := createExpectedMatrix(config)
 
-			mux, _ := newForceMatrix(context.Background(), fakeRobot, config, logger)
+			mux, _ := newForceMatrix(fakeRobot, config, logger)
 			matrix, err := mux.Matrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, matrix, test.ShouldResemble, expectedMatrix)

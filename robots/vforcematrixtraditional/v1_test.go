@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
@@ -32,8 +31,6 @@ func createExpectedMatrix(c *ForceMatrixConfig) ([][]int, error) {
 }
 
 func TestNewForceMatrix(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-
 	validConfig := &ForceMatrixConfig{
 		BoardName:           "board",
 		ColumnGPIOPins:      []string{"io10", "io11", "io12"},
@@ -52,7 +49,7 @@ func TestNewForceMatrix(t *testing.T) {
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return fakeBoard, true
 		}
-		fsm, err := newForceMatrix(context.Background(), fakeRobot, validConfig, logger)
+		fsm, err := newForceMatrix(fakeRobot, validConfig)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fsm, test.ShouldNotBeNil)
 		test.That(t, fsm.columnGpioPins, test.ShouldResemble, validConfig.ColumnGPIOPins)
@@ -67,7 +64,7 @@ func TestNewForceMatrix(t *testing.T) {
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return nil, false
 		}
-		_, err := newForceMatrix(context.Background(), fakeRobot, validConfig, logger)
+		_, err := newForceMatrix(fakeRobot, validConfig)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -80,7 +77,7 @@ func TestNewForceMatrix(t *testing.T) {
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return fakeBoard, true
 		}
-		_, err := newForceMatrix(context.Background(), fakeRobot, validConfig, logger)
+		_, err := newForceMatrix(fakeRobot, validConfig)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
@@ -166,8 +163,6 @@ func TestValidate(t *testing.T) {
 }
 
 func TestMatrixAndSlip(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-
 	t.Run("correct shape", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeBoard := &inject.Board{}
@@ -200,7 +195,7 @@ func TestMatrixAndSlip(t *testing.T) {
 			expectedMatrix, err := createExpectedMatrix(config)
 			test.That(t, err, test.ShouldBeNil)
 
-			fsm, _ := newForceMatrix(context.Background(), fakeRobot, config, logger)
+			fsm, _ := newForceMatrix(fakeRobot, config)
 			actualMatrix, err := fsm.Matrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
@@ -226,7 +221,7 @@ func TestMatrixAndSlip(t *testing.T) {
 			expectedMatrix, err := createExpectedMatrix(config)
 			test.That(t, err, test.ShouldBeNil)
 
-			fsm, _ := newForceMatrix(context.Background(), fakeRobot, config, logger)
+			fsm, _ := newForceMatrix(fakeRobot, config)
 			actualMatrix, err := fsm.Matrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
@@ -252,7 +247,7 @@ func TestMatrixAndSlip(t *testing.T) {
 			expectedMatrix, err := createExpectedMatrix(config)
 			test.That(t, err, test.ShouldBeNil)
 
-			fsm, _ := newForceMatrix(context.Background(), fakeRobot, config, logger)
+			fsm, _ := newForceMatrix(fakeRobot, config)
 			actualMatrix, err := fsm.Matrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
