@@ -81,15 +81,15 @@ func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 		return nil, errors.New("gantries that have one limit switch per axis require pulley radii to be specified")
 	}
 
-	for idx := range g.motorList { //fix for loop syntax
+	for idx := range g.motorList {
 		if g.lengthMeters[idx] <= 0 {
 			return nil, errors.New("all axes must have non-zero length")
 		}
 	}
 
 	g.limitSwitchPins = config.Attributes.StringSlice("limitPins")
-	// 0 for encoder, equals number of axes for one limit pin per axes (Cheap 3D printer style gantry)
-	// and 2*number of axes for more sensorized gantries.
+	// 0 for encoder, 1 per axis for single limit pin per axis (Cheaper 3D printers).
+	// and 2*number of axes for most gantries.
 	if len(g.limitSwitchPins) == len(g.motorList) {
 		g.limitType = "onePinOneLength"
 	} else if len(g.limitSwitchPins) == 2*len(g.motorList) {
@@ -103,9 +103,7 @@ func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 		return nil, errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins for %v axes", np, na)
 	}
 
-	//g.axesList = config.Attributes.BoolSlice("axes", true)
-	// Added this because I saw reference frames exist as lists of bools.
-	// Not sure if needed in the future is not tested right now.
+	g.axes = config.Attributes.BoolSlice("axes", true)
 
 	g.rpm = config.Attributes.Float64Slice("rpm")
 
@@ -119,7 +117,7 @@ func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 
 // Multiaxis is a gantry type that includes lists of motor names, a list of motor objects, a limit board with enable pins,
 // motor directionpins, limit positionpins and a descriptive name based on the type of limit used.
-// It also includes motor initial speeds, and each axes' length as descriptots.
+// It also includes motor initial speeds, and each axes' length as descriptors.
 // AxesList is not doing much now.
 type multiAxis struct {
 	name      string
@@ -228,7 +226,7 @@ func (g *multiAxis) homeOneLimSwitch(ctx context.Context, motorID int, limitID [
 	return nil
 }
 
-// Not supported.
+// Not yet implemented.
 func (g *multiAxis) homeEncoder(ctx context.Context, motorID int) error {
 	return errors.New("encoder currently not supported")
 }
@@ -248,13 +246,12 @@ func (g *multiAxis) testLimit(ctx context.Context, motorID int, limitID []int, z
 		offset = limitID[1]
 	}
 
-	// Each motor goes for an inordinate amount of time until it hits the limit switch.
+	// Each motor goes for an bounded amount of time until it hits the limit switch.
 	err := g.motors[motorID].GoFor(ctx, dir*g.rpm[motorID], 10000)
 	if err != nil {
 		return 0, err
 	}
 
-	//
 	start := time.Now()
 	for {
 		hit, err := g.limitHit(ctx, offset)
@@ -269,7 +266,7 @@ func (g *multiAxis) testLimit(ctx context.Context, motorID int, limitID []int, z
 			break
 		}
 
-		// needs to find limit switch within 15 seconds. Initial rpm and length is a consideration here that the user needs
+		// Needs to find limit switch within 15 seconds. Initial rpm and length is a consideration here that the user needs
 		// to be aware of.
 		elapsed := start.Sub(start)
 		if elapsed > (time.Second * 15) {
@@ -300,7 +297,6 @@ func (g *multiAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
 		}
 		theRange := g.positionLimits[2*idx+1] - g.positionLimits[2*idx]
 
-		// can change into x, y, z explicitly without a for loop if preferable.
 		targetPos := g.positionLimits[2*idx] + (pos * theRange)
 
 		limit1, err := g.limitHit(ctx, 2*idx)
@@ -340,8 +336,8 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 	}
 
 	switch g.limitType {
-	// Moving should be the same for single limit switch logic and two limit switch logic
 
+	// Moving should be the same for single limit switch logic and two limit switch logic
 	case "oneLimSwitch", "twoLimSwitch":
 		for idx := range g.motorList {
 			theRange := g.positionLimits[2*idx+1] - g.positionLimits[2*idx]
@@ -387,14 +383,13 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 		}
 
 	case "encoder":
-		//unsupported - have to think about what encoders will do or support here,
-		// or if it is useful to have our own calibration of an encoder gantry anyway.
+		// TODO: implementation.
 		return errors.New("no encoders supported")
 	}
 	return nil
 }
 
-//TODO incorporate frames into movement function above. Workign on it.
+//TODO incorporate frames into movement function above.
 func (g *multiAxis) ModelFrame() *referenceframe.Model {
 	m := referenceframe.NewModel()
 	for idx := range g.motorList {
