@@ -59,7 +59,7 @@ func init() {
 			if !ok {
 				return nil, errors.Errorf("(%v) is not a valid ForceMatrixConfig", config.ConvertedAttributes)
 			}
-			return new(ctx, r, forceMatrixConfig, logger)
+			return newForceMatrix(ctx, r, forceMatrixConfig, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeSensor,
@@ -90,8 +90,8 @@ type ForceMatrixTraditional struct {
 	noiseThreshold float64 // sensitivity threshold for determining noise
 }
 
-// new returns a new ForceMatrixTraditional given gpio pins and analog channels.
-func new(ctx context.Context, r robot.Robot, c *ForceMatrixConfig, logger golog.Logger) (*ForceMatrixTraditional, error) {
+// newForceMatrix returns a new ForceMatrixTraditional given gpio pins and analog channels.
+func newForceMatrix(ctx context.Context, r robot.Robot, c *ForceMatrixConfig, logger golog.Logger) (*ForceMatrixTraditional, error) {
 	b, exists := r.BoardByName(c.BoardName)
 	if !exists {
 		return nil, errors.Errorf("need a board for force sensor, named (%v)", c.BoardName)
@@ -111,7 +111,7 @@ func new(ctx context.Context, r robot.Robot, c *ForceMatrixConfig, logger golog.
 		analogChannels:      c.RowAnalogChannels,
 		analogReaders:       analogReaders,
 		board:               b,
-		previousMatrices:    make([][][]int, 0),
+		previousMatrices:    make([][][]int, 0, forcematrix.MatrixStorageSize),
 		slipDetectionWindow: c.SlipDetectionWindow,
 		noiseThreshold:      c.NoiseThreshold,
 	}, nil

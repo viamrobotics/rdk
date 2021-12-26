@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/sensor/forcematrix"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -30,7 +31,7 @@ func createExpectedMatrix(c *ForceMatrixConfig) ([][]int, error) {
 	return expectedMatrix, nil
 }
 
-func TestNew(t *testing.T) {
+func TestNewForceMatrix(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	validConfig := &ForceMatrixConfig{
@@ -41,16 +42,36 @@ func TestNew(t *testing.T) {
 		NoiseThreshold:      5,
 	}
 
-	t.Run("return error when not able to find board", func(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
+		fakeRobot := &inject.Robot{}
+		fakeBoard := &inject.Board{}
+		fakeAnalogReader := &inject.AnalogReader{}
+		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
+			return fakeAnalogReader, true
+		}
+		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return fakeBoard, true
+		}
+		fsm, err := newForceMatrix(context.Background(), fakeRobot, validConfig, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fsm, test.ShouldNotBeNil)
+		test.That(t, fsm.columnGpioPins, test.ShouldResemble, validConfig.ColumnGPIOPins)
+		test.That(t, fsm.analogChannels, test.ShouldResemble, validConfig.RowAnalogChannels)
+		test.That(t, len(fsm.previousMatrices), test.ShouldBeZeroValue)
+		test.That(t, fsm.slipDetectionWindow, test.ShouldEqual, validConfig.SlipDetectionWindow)
+		test.That(t, fsm.noiseThreshold, test.ShouldEqual, validConfig.NoiseThreshold)
+	})
+
+	t.Run("board not found", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return nil, false
 		}
-		_, err := new(context.Background(), fakeRobot, validConfig, logger)
+		_, err := newForceMatrix(context.Background(), fakeRobot, validConfig, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	t.Run("return error when unable to find analog reader", func(t *testing.T) {
+	t.Run("analog reader not found", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeBoard := &inject.Board{}
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
@@ -59,11 +80,95 @@ func TestNew(t *testing.T) {
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return fakeBoard, true
 		}
-		_, err := new(context.Background(), fakeRobot, validConfig, logger)
+		_, err := newForceMatrix(context.Background(), fakeRobot, validConfig, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
+}
 
-	t.Run("expect the matrix function to return properly shaped object", func(t *testing.T) {
+func TestValidate(t *testing.T) {
+	t.Run("valid config", func(t *testing.T) {
+		validConfig := &ForceMatrixConfig{
+			BoardName:           "board",
+			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+			RowAnalogChannels:   []string{"a1"},
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
+		}
+		err := validConfig.Validate("path")
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("no board", func(t *testing.T) {
+		invalidConfig := &ForceMatrixConfig{
+			BoardName:           "",
+			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+			RowAnalogChannels:   []string{"a1"},
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
+		}
+		err := invalidConfig.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `"board" is required`)
+	})
+
+	t.Run("no ColumnGPIOPins", func(t *testing.T) {
+		invalidConfig := &ForceMatrixConfig{
+			BoardName:           "board",
+			ColumnGPIOPins:      []string{},
+			RowAnalogChannels:   []string{"a1"},
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
+		}
+		err := invalidConfig.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+	})
+
+	t.Run("no RowAnalogChannels", func(t *testing.T) {
+		invalidConfig := &ForceMatrixConfig{
+			BoardName:           "board",
+			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+			RowAnalogChannels:   []string{},
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
+		}
+		err := invalidConfig.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+	})
+
+	t.Run("invalid SlipDetectionWindow", func(t *testing.T) {
+		t.Run("too small", func(t *testing.T) {
+			invalidConfig := &ForceMatrixConfig{
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+				RowAnalogChannels:   []string{"a1"},
+				SlipDetectionWindow: 0,
+				NoiseThreshold:      5,
+			}
+			err := invalidConfig.Validate("path")
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+		})
+		t.Run("too big", func(t *testing.T) {
+			invalidConfig := &ForceMatrixConfig{
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+				RowAnalogChannels:   []string{"a1"},
+				SlipDetectionWindow: forcematrix.MatrixStorageSize + 1,
+				NoiseThreshold:      5,
+			}
+			err := invalidConfig.Validate("path")
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+		})
+	})
+}
+
+func TestMatrixAndSlip(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	t.Run("correct shape", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeBoard := &inject.Board{}
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
@@ -84,7 +189,7 @@ func TestNew(t *testing.T) {
 			return fakeBoard, true
 		}
 
-		t.Run("given a square matrix with size (4x4)", func(t *testing.T) {
+		t.Run("4x4", func(t *testing.T) {
 			config := &ForceMatrixConfig{
 				BoardName:           "board",
 				ColumnGPIOPins:      []string{"1", "2", "3", "4"},
@@ -95,12 +200,12 @@ func TestNew(t *testing.T) {
 			expectedMatrix, err := createExpectedMatrix(config)
 			test.That(t, err, test.ShouldBeNil)
 
-			fsm, _ := new(context.Background(), fakeRobot, config, logger)
+			fsm, _ := newForceMatrix(context.Background(), fakeRobot, config, logger)
 			actualMatrix, err := fsm.Matrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
 
-			t.Run("expect slip detection to work and to return false at first", func(t *testing.T) {
+			t.Run("slip detection", func(t *testing.T) {
 				fsm.Matrix(context.Background())
 				fsm.Matrix(context.Background())
 				fsm.Matrix(context.Background())
@@ -110,7 +215,7 @@ func TestNew(t *testing.T) {
 			})
 		})
 
-		t.Run("given a rectangular matrix with size (3x7)", func(t *testing.T) {
+		t.Run("3x7", func(t *testing.T) {
 			config := &ForceMatrixConfig{
 				BoardName:           "board",
 				ColumnGPIOPins:      []string{"1", "2", "3"},
@@ -121,12 +226,12 @@ func TestNew(t *testing.T) {
 			expectedMatrix, err := createExpectedMatrix(config)
 			test.That(t, err, test.ShouldBeNil)
 
-			fsm, _ := new(context.Background(), fakeRobot, config, logger)
+			fsm, _ := newForceMatrix(context.Background(), fakeRobot, config, logger)
 			actualMatrix, err := fsm.Matrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
 
-			t.Run("expect slip detection to work and to return false at first", func(t *testing.T) {
+			t.Run("slip detection", func(t *testing.T) {
 				fsm.Matrix(context.Background())
 				fsm.Matrix(context.Background())
 				fsm.Matrix(context.Background())
@@ -136,7 +241,7 @@ func TestNew(t *testing.T) {
 			})
 		})
 
-		t.Run("given a rectangular matrix with size (5x2)", func(t *testing.T) {
+		t.Run("5x2", func(t *testing.T) {
 			config := &ForceMatrixConfig{
 				BoardName:           "board",
 				ColumnGPIOPins:      []string{"1", "2", "3", "4", "5"},
@@ -147,12 +252,12 @@ func TestNew(t *testing.T) {
 			expectedMatrix, err := createExpectedMatrix(config)
 			test.That(t, err, test.ShouldBeNil)
 
-			fsm, _ := new(context.Background(), fakeRobot, config, logger)
+			fsm, _ := newForceMatrix(context.Background(), fakeRobot, config, logger)
 			actualMatrix, err := fsm.Matrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
 
-			t.Run("expect slip detection to work and to return false at first", func(t *testing.T) {
+			t.Run("slip detection", func(t *testing.T) {
 				fsm.Matrix(context.Background())
 				fsm.Matrix(context.Background())
 				fsm.Matrix(context.Background())
