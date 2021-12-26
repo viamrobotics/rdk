@@ -10,23 +10,26 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/rdk/sensor/forcematrix"
-	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/testutils"
-
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
+	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
+	_ "go.viam.com/rdk/component/arm/register"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
+	_ "go.viam.com/rdk/component/camera/register"
 	"go.viam.com/rdk/component/gripper"
+	_ "go.viam.com/rdk/component/gripper/register"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
+	_ "go.viam.com/rdk/component/motor/register"
 	"go.viam.com/rdk/component/servo"
+	_ "go.viam.com/rdk/component/servo/register"
 	"go.viam.com/rdk/config"
 	metadataserver "go.viam.com/rdk/grpc/metadata/server"
 	"go.viam.com/rdk/grpc/server"
@@ -39,20 +42,12 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/sensor/compass"
+	"go.viam.com/rdk/sensor/forcematrix"
 	servicepkg "go.viam.com/rdk/services"
 	"go.viam.com/rdk/spatialmath"
-	rdktestutils "go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-
-	"github.com/edaniels/golog"
-	"go.viam.com/test"
-	"google.golang.org/grpc"
-
-	_ "go.viam.com/rdk/component/arm/register"
-	_ "go.viam.com/rdk/component/camera/register"
-	_ "go.viam.com/rdk/component/gripper/register"
-	_ "go.viam.com/rdk/component/motor/register"
-	_ "go.viam.com/rdk/component/servo/register"
 )
 
 var emptyStatus = &pb.Status{
@@ -812,7 +807,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = client.Close()
+	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
 	// working
@@ -1105,7 +1100,7 @@ func TestClient(t *testing.T) {
 	test.That(t, isSlipping, test.ShouldBeFalse)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	err = client.Close()
+	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -1174,17 +1169,17 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.ArmNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.GripperNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.CameraNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(cameraNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(cameraNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.BaseNames()...),
@@ -1204,15 +1199,15 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(servoNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(servoNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.MotorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(motorNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(motorNames...)...),
 	)
-	test.That(t, rdktestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
-		rdktestutils.ConcatResourceNames(
+	test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
+		testutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
 			cameraNames,
@@ -1220,7 +1215,7 @@ func TestClientRefresh(t *testing.T) {
 			motorNames,
 		)...))
 
-	err = client.Close()
+	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
@@ -1246,17 +1241,17 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.ArmNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.GripperNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.CameraNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(cameraNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(cameraNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.BaseNames()...),
@@ -1278,8 +1273,8 @@ func TestClientRefresh(t *testing.T) {
 		test.ShouldBeEmpty,
 	)
 
-	test.That(t, rdktestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
-		rdktestutils.ConcatResourceNames(
+	test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
+		testutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
 			cameraNames,
@@ -1300,17 +1295,17 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.ArmNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.GripperNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.CameraNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(cameraNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(cameraNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.BaseNames()...),
@@ -1330,15 +1325,15 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(servoNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(servoNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.MotorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(motorNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(motorNames...)...),
 	)
-	test.That(t, rdktestutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
-		rdktestutils.ConcatResourceNames(
+	test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
+		testutils.ConcatResourceNames(
 			armNames,
 			gripperNames,
 			cameraNames,
@@ -1346,7 +1341,7 @@ func TestClientRefresh(t *testing.T) {
 			motorNames,
 		)...))
 
-	err = client.Close()
+	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -1379,8 +1374,8 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.DialCalled, test.ShouldEqual, 4)
 
-	err = client1.Close()
+	err = client1.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	err = client2.Close()
+	err = client2.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }

@@ -7,16 +7,14 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-
 	"github.com/go-gl/mathgl/mgl64"
+	"go.viam.com/test"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/num/quat"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -24,14 +22,14 @@ import (
 func TestUR5eForwardKinementsSVAvsDH(t *testing.T) {
 	numTests := 10000
 
-	mSVA, err := frame.ParseJSON(ur5modeljson, "")
+	mSVA, err := referenceframe.ParseJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
-	mDH, err := frame.ParseJSON(ur5DHmodeljson, "")
+	mDH, err := referenceframe.ParseJSON(ur5DHmodeljson, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	seed := rand.New(rand.NewSource(23))
 	for i := 0; i < numTests; i++ {
-		joints := frame.JointPositionsFromRadians(mSVA.GenerateRandomJointPositions(seed))
+		joints := referenceframe.JointPositionsFromRadians(referenceframe.GenerateRandomJointPositions(mSVA, seed))
 
 		posSVA, err := motionplan.ComputePosition(mSVA, joints)
 		test.That(t, err, test.ShouldBeNil)
@@ -50,10 +48,11 @@ func TestUR5eForwardKinementsSVAvsDH(t *testing.T) {
 }
 
 func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *commonpb.Pose) {
-	m, err := frame.ParseJSON(ur5modeljson, "")
+	t.Helper()
+	m, err := referenceframe.ParseJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
 
-	pos, err := motionplan.ComputePosition(m, frame.JointPositionsFromRadians(jointRadians))
+	pos, err := motionplan.ComputePosition(m, referenceframe.JointPositionsFromRadians(jointRadians))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.X, test.ShouldAlmostEqual, correct.X, .01)
 	test.That(t, pos.Y, test.ShouldAlmostEqual, correct.Y, .01)
@@ -68,24 +67,24 @@ func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *com
 	test.That(t, pos.OY, test.ShouldAlmostEqual, fromDH.OY, .01)
 	test.That(t, pos.OZ, test.ShouldAlmostEqual, fromDH.OZ, .01)
 	test.That(t, pos.Theta, test.ShouldAlmostEqual, fromDH.Theta, .01)
-
 }
 
 func testUR5eInverseKinements(t *testing.T, pos *commonpb.Pose) {
+	t.Helper()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	m, err := frame.ParseJSON(ur5modeljson, "")
+	m, err := referenceframe.ParseJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := motionplan.NewCBiRRTMotionPlanner(m, 4, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	steps, err := mp.Plan(ctx, pos, frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}))
+	steps, err := mp.Plan(ctx, pos, referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}))
 	test.That(t, err, test.ShouldBeNil)
 	solution := steps[len(steps)-1]
 
 	// we test that if we go forward from these joints, we end up in the same place
-	jointRadians := frame.InputsToFloats(solution)
+	jointRadians := referenceframe.InputsToFloats(solution)
 	fromDH := computeUR5ePosition(t, jointRadians)
 	test.That(t, pos.X, test.ShouldAlmostEqual, fromDH.X, .01)
 	test.That(t, pos.Y, test.ShouldAlmostEqual, fromDH.Y, .01)
@@ -190,6 +189,7 @@ var jointConstants = []dhConstants{
 var orientationDH = dhConstants{0, 1, math.Pi / -2}
 
 func computeUR5ePosition(t *testing.T, jointRadians []float64) *commonpb.Pose {
+	t.Helper()
 	res := jointConstants[0].matrix(jointRadians[0])
 	for x, theta := range jointRadians {
 		if x == 0 {
@@ -208,7 +208,7 @@ func computeUR5ePosition(t *testing.T, jointRadians []float64) *commonpb.Pose {
 		OX: o.At(0, 3) - res.At(0, 3),
 		OY: o.At(1, 3) - res.At(1, 3),
 		OZ: o.At(2, 3) - res.At(2, 3),
-		//Theta: utils.RadToDeg(math.Acos(o.At(0,0))), // TODO(erh): fix this
+		// Theta: utils.RadToDeg(math.Acos(o.At(0,0))), // TODO(erh): fix this
 	}
 	ov.Normalize()
 
@@ -236,5 +236,4 @@ func computeUR5ePosition(t *testing.T, jointRadians []float64) *commonpb.Pose {
 		OZ:    poseOV.OZ,
 		Theta: utils.RadToDeg(poseOV.Theta),
 	}
-
 }

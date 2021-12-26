@@ -15,7 +15,7 @@ type Camera struct {
 	camera.Camera
 	NextFunc           func(ctx context.Context) (image.Image, func(), error)
 	NextPointCloudFunc func(ctx context.Context) (pointcloud.PointCloud, error)
-	CloseFunc          func() error
+	CloseFunc          func(ctx context.Context) error
 }
 
 // Next calls the injected Next or the real version.
@@ -35,9 +35,9 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 }
 
 // Close calls the injected Close or the real version.
-func (c *Camera) Close() error {
+func (c *Camera) Close(ctx context.Context) error {
 	if c.CloseFunc == nil {
-		return utils.TryClose(c.Camera)
+		return utils.TryClose(ctx, c.Camera)
 	}
-	return c.CloseFunc()
+	return c.CloseFunc(ctx)
 }

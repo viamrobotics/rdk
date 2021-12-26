@@ -5,12 +5,12 @@ import (
 	"image"
 	"testing"
 
+	"github.com/edaniels/golog"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
-
-	"github.com/edaniels/golog"
-	"go.viam.com/test"
 )
 
 type alignTestHelper struct {
@@ -25,6 +25,7 @@ func (h *alignTestHelper) Process(
 	img image.Image,
 	logger golog.Logger,
 ) error {
+	t.Helper()
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth_"+h.name)
@@ -60,7 +61,7 @@ func (h *alignTestHelper) Process(
 }
 
 func TestAlignIntelIntrinsics(t *testing.T) {
-	config, err := config.Read(utils.ResolveFile("robots/configs/intel.json"))
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front")
@@ -74,7 +75,7 @@ func TestAlignIntelIntrinsics(t *testing.T) {
 }
 
 func TestAlignGripperWarp(t *testing.T) {
-	config, err := config.Read(utils.ResolveFile("robots/configs/gripper-cam.json"))
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("combined")
@@ -88,7 +89,7 @@ func TestAlignGripperWarp(t *testing.T) {
 }
 
 func TestAlignGripperHomography(t *testing.T) {
-	config, err := config.Read(utils.ResolveFile("robots/configs/gripper-cam.json"))
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("combined")

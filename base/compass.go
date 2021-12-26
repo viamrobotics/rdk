@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/sensor/compass"

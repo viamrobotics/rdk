@@ -15,12 +15,12 @@ type subtypeServer struct {
 	service subtype.Service
 }
 
-// NewServer constructs a servo gRPC service server
+// NewServer constructs a servo gRPC service server.
 func NewServer(service subtype.Service) pb.ServoServiceServer {
 	return &subtypeServer{service: service}
 }
 
-// getServo returns the specified servo or nil
+// getServo returns the specified servo or nil.
 func (server *subtypeServer) getServo(name string) (Servo, error) {
 	resource := server.service.Resource(name)
 	if resource == nil {

@@ -7,14 +7,13 @@ import (
 	"io"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/utils"
 )
 
-// RobotModeData TODO
+// RobotModeData TODO.
 type RobotModeData struct {
 	Timestamp                uint64
 	IsRealRobotConnected     bool
@@ -31,7 +30,7 @@ type RobotModeData struct {
 	TargetSpeedFractionLimit float64
 }
 
-// JointData TODO
+// JointData TODO.
 type JointData struct {
 	Qactual   float64 // angle currently in radians
 	Qtarget   float64 // angle target in radians
@@ -43,12 +42,12 @@ type JointData struct {
 	JointMode byte
 }
 
-// AngleDegrees TODO
+// AngleDegrees TODO.
 func (j JointData) AngleDegrees() float64 {
 	return utils.RadToDeg(j.Qactual)
 }
 
-// ToolData TODO
+// ToolData TODO.
 type ToolData struct {
 	AnalogInputRange0 byte
 	AnalogInputRange1 byte
@@ -61,7 +60,7 @@ type ToolData struct {
 	ToolMode          byte
 }
 
-// MasterboardData TODO
+// MasterboardData TODO.
 type MasterboardData struct {
 	DigitalInputBits                 int32
 	DigitalOutputBits                int32
@@ -86,7 +85,7 @@ type MasterboardData struct {
 	NotUsed2                         byte
 }
 
-// CartesianInfo TODO
+// CartesianInfo TODO.
 type CartesianInfo struct {
 	X           float64
 	Y           float64
@@ -102,19 +101,19 @@ type CartesianInfo struct {
 	TCPOffsetRz float64
 }
 
-// SimpleString TODO
+// SimpleString TODO.
 func (c CartesianInfo) SimpleString() string {
 	return fmt.Sprintf("x: %f | y: %f | z: %f | Rx: %f | Ry: %f | Rz : %f",
 		c.X, c.Y, c.Z, c.Rx, c.Ry, c.Rz)
 }
 
-// NondelimitedString TODO
+// NondelimitedString TODO.
 func (c CartesianInfo) NondelimitedString() string {
 	return fmt.Sprintf("%f %f %f %f %f %f",
 		c.X, c.Y, c.Z, c.Rx, c.Ry, c.Rz)
 }
 
-// KinematicInfo TODO
+// KinematicInfo TODO.
 type KinematicInfo struct {
 	Cheksum int32
 	DHtheta float64
@@ -123,7 +122,7 @@ type KinematicInfo struct {
 	Dhalpha float64
 }
 
-// ForceModeData TODO
+// ForceModeData TODO.
 type ForceModeData struct {
 	Fx             float64
 	Fy             float64
@@ -134,7 +133,7 @@ type ForceModeData struct {
 	RobotDexterity float64
 }
 
-// RobotState TODO
+// RobotState TODO.
 type RobotState struct {
 	RobotModeData
 	Joints []JointData
@@ -159,11 +158,12 @@ func readRobotStateMessage(buf []byte, logger golog.Logger) (RobotState, error) 
 
 		buffer := bytes.NewBuffer(content)
 
-		if packageType == 0 {
+		switch packageType {
+		case 0:
 			if err := binary.Read(buffer, binary.BigEndian, &state.RobotModeData); err != nil && !errors.Is(err, io.EOF) {
 				return state, err
 			}
-		} else if packageType == 1 {
+		case 1:
 			for {
 				d := JointData{}
 				err := binary.Read(buffer, binary.BigEndian, &d)
@@ -175,20 +175,19 @@ func readRobotStateMessage(buf []byte, logger golog.Logger) (RobotState, error) 
 				}
 				state.Joints = append(state.Joints, d)
 			}
-		} else if packageType == 2 {
+		case 2:
 			if err := binary.Read(buffer, binary.BigEndian, &state.ToolData); err != nil && !errors.Is(err, io.EOF) {
 				return state, err
 			}
-		} else if packageType == 3 {
+		case 3:
 			if err := binary.Read(buffer, binary.BigEndian, &state.MasterboardData); err != nil && !errors.Is(err, io.EOF) {
 				return state, err
 			}
-		} else if packageType == 4 {
+		case 4:
 			if err := binary.Read(buffer, binary.BigEndian, &state.CartesianInfo); err != nil && !errors.Is(err, io.EOF) {
 				return state, err
 			}
-		} else if packageType == 5 {
-
+		case 5:
 			for buffer.Len() > 4 {
 				d := KinematicInfo{}
 				err := binary.Read(buffer, binary.BigEndian, &d)
@@ -200,24 +199,23 @@ func readRobotStateMessage(buf []byte, logger golog.Logger) (RobotState, error) 
 				}
 				state.Kinematics = append(state.Kinematics, d)
 			}
-
-		} else if packageType == 6 {
+		case 6:
 			// Configuration data, skipping, don't think we need
-		} else if packageType == 7 {
+		case 7:
 			if err := binary.Read(buffer, binary.BigEndian, &state.ForceModeData); err != nil && !errors.Is(err, io.EOF) {
 				return state, err
 			}
-		} else if packageType == 8 {
+		case 8:
 			// Additional Info, skipping, don't think we need
-		} else if packageType == 9 {
+		case 9:
 			// Calibration data, skipping, don't think we need
-		} else if packageType == 10 {
+		case 10:
 			// Safety data, skipping, don't think we need
-		} else if packageType == 11 {
+		case 11:
 			// Tool communication info, skipping, don't think we need
-		} else if packageType == 12 {
+		case 12:
 			// Tool mode info, skipping, don't think we need
-		} else {
+		default:
 			logger.Debugf("unknown packageType: %d size: %d content size: %d\n", packageType, sz, len(content))
 		}
 	}
@@ -225,10 +223,10 @@ func readRobotStateMessage(buf []byte, logger golog.Logger) (RobotState, error) 
 	return state, nil
 }
 
-// return userErr, error
-func readURRobotMessage(buf []byte, logger golog.Logger) (error, error) {
+// return userErr, error.
+func readURRobotMessage(buf []byte, logger golog.Logger) error {
 	ts := binary.BigEndian.Uint64(buf[1:])
-	//messageSource := buf[9]
+	// messageSource := buf[9]
 	robotMessageType := buf[10]
 
 	buf = buf[11:]
@@ -251,7 +249,7 @@ func readURRobotMessage(buf []byte, logger golog.Logger) (error, error) {
 	case 3: // Version
 
 		projectNameSize := buf[0]
-		//projectName := string(buf[12:12+projectNameSize])
+		// projectName := string(buf[12:12+projectNameSize])
 		pos := projectNameSize + 1
 		majorVersion := buf[pos]
 		minorVersion := buf[pos+1]
@@ -288,11 +286,11 @@ func readURRobotMessage(buf []byte, logger golog.Logger) (error, error) {
 		scriptColumnNumber := binary.BigEndian.Uint32(buf[4:])
 		msg := string(buf[9:])
 		runtimeErr := errors.Errorf("runtime error at line: %d col: %d msg: %s", scriptLineNumber, scriptColumnNumber, msg)
-		return runtimeErr, nil
+		return runtimeErr
 	default:
 		logger.Debugf("unknown robotMessageType: %d ts: %v %v\n", robotMessageType, ts, buf)
-		return nil, nil
+		return nil
 	}
 
-	return nil, nil
+	return nil
 }

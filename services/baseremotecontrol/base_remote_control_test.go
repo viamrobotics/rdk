@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/input"
@@ -12,8 +14,6 @@ import (
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robots/fake"
 	"go.viam.com/rdk/testutils/inject"
-
-	"go.viam.com/test"
 )
 
 func TestBaseRemoteControl(t *testing.T) {
@@ -103,50 +103,50 @@ func TestBaseRemoteControl(t *testing.T) {
 
 	// Math tests: Starting point - high speed, straight
 	t.Run("full speed to half speed", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.4, 0.0, 1.0, 0.0)
+		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.4, 0.0, 1.0)
 		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.4, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 	})
 
 	t.Run("full speed to full speed slight angle", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(1.0, 0.1, 1.0, 0.0)
+		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(1.0, 0.1, 1.0)
 		test.That(t, millisPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.1, .001)
 	})
 
 	t.Run("full speed to sharp turn", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 1.0, 1.0, 0.0)
+		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 1.0, 1.0)
 		test.That(t, millisPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
 	})
 
 	t.Run("full speed to gentle turn", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 0.4, 1.0, 0.0)
+		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 0.4, 1.0)
 		test.That(t, millisPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.4, .001)
 	})
 
 	// Math tests: Starting point - low speed, arcing
 	t.Run("slow arc to straight", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.4, 0.0, 0.2, 0.2)
+		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.4, 0.0, 0.2)
 		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.4, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 	})
 
 	t.Run("slow arc to full speed slight angle", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(1.0, 0.1, 0.2, 0.2)
+		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(1.0, 0.1, 0.2)
 		test.That(t, millisPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.1, .001)
 	})
 
 	t.Run("slow arc to sharp turn", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 1.0, 0.2, 0.2)
+		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 1.0, 0.2)
 		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.2, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
 	})
 
 	t.Run("slow arc to slow turn", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 0.4, 0.2, 0.2)
+		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 0.4, 0.2)
 		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.2, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.4, .001)
 	})
@@ -223,7 +223,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	})
 
 	// Close out check
-	err = svc.Close()
+	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("one joy stick control mode for input Y", func(t *testing.T) {
@@ -231,5 +231,4 @@ func TestBaseRemoteControl(t *testing.T) {
 		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.45, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.6, .001)
 	})
-
 }

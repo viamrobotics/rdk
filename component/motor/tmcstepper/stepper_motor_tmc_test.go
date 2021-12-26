@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
+	"go.viam.com/test"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
@@ -13,12 +15,9 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/testutils/inject"
-
-	"github.com/edaniels/golog"
-	"go.viam.com/test"
 )
 
-// check is essentially test.That with tb.Error instead of tb.Fatal (Fatal exits and leaves fake.SPI stuck waiting)
+// check is essentially test.That with tb.Error instead of tb.Fatal (Fatal exits and leaves fake.SPI stuck waiting).
 func check(tb testing.TB, actual interface{}, assert func(actual interface{}, expected ...interface{}) string, expected ...interface{}) {
 	tb.Helper()
 	if result := assert(actual, expected...); result != "" {
@@ -27,6 +26,7 @@ func check(tb testing.TB, actual interface{}, assert func(actual interface{}, ex
 }
 
 func checkTx(t *testing.T, c chan []byte, expects [][]byte) {
+	t.Helper()
 	blank := make([]byte, 5)
 	for _, expected := range expects {
 		tx := <-c
@@ -36,6 +36,7 @@ func checkTx(t *testing.T, c chan []byte, expects [][]byte) {
 }
 
 func checkRx(t *testing.T, c chan []byte, expects [][]byte, sends [][]byte) {
+	t.Helper()
 	for i, expected := range expects {
 		tx := <-c
 		check(t, tx, test.ShouldResemble, expected)
@@ -92,9 +93,10 @@ func TestTMCStepperMotor(t *testing.T) {
 	m, err := motorReg.Constructor(context.Background(), &r, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(m), test.ShouldBeNil)
+		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
 	}()
-	_motor := m.(motor.Motor)
+	_motor, ok := m.(motor.Motor)
+	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("motor Go testing", func(t *testing.T) {
 		// Test Go forward at half speed
@@ -405,6 +407,7 @@ func TestTMCStepperMotor(t *testing.T) {
 	})
 
 	t.Run("motor gotillstop testing", func(t *testing.T) {
+		//nolint:dupl
 		go func() {
 			// GoFor
 			checkTx(t, c, [][]byte{
@@ -450,11 +453,11 @@ func TestTMCStepperMotor(t *testing.T) {
 				{160, 0, 0, 0, 1},
 				{167, 0, 0, 0, 0},
 			})
-
 		}()
 		// No stop func
 		test.That(t, _motor.GoTillStop(ctx, -25.0, nil), test.ShouldBeNil)
 
+		//nolint:dupl
 		go func() {
 			// GoFor
 			checkTx(t, c, [][]byte{
@@ -500,7 +503,6 @@ func TestTMCStepperMotor(t *testing.T) {
 				{160, 0, 0, 0, 1},
 				{167, 0, 0, 0, 0},
 			})
-
 		}()
 		// Always-false stopFunc
 		test.That(t, _motor.GoTillStop(ctx, -25.0, func(ctx context.Context) bool { return false }), test.ShouldBeNil)
@@ -521,7 +523,6 @@ func TestTMCStepperMotor(t *testing.T) {
 				{160, 0, 0, 0, 1},
 				{167, 0, 0, 0, 0},
 			})
-
 		}()
 		// Always true stopFunc
 		test.That(t, _motor.GoTillStop(ctx, -25.0, func(ctx context.Context) bool { return true }), test.ShouldBeNil)

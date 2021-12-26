@@ -6,16 +6,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
+	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/utils"
-
-	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
 )
 
 // NewMotor constructs a new GPIO based motor on the given board using the
@@ -86,7 +84,7 @@ type Motor struct {
 	logger        golog.Logger
 }
 
-// PID return the underlying PID
+// PID return the underlying PID.
 func (m *Motor) PID() motor.PID {
 	return m.pid
 }
@@ -132,15 +130,16 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	}
 
 	var pwmPin string
-	if m.PWM != "" {
+	switch {
+	case m.PWM != "":
 		pwmPin = m.PWM
-	} else if powerPct >= 0.001 {
+	case powerPct >= 0.001:
 		pwmPin = m.B
 		powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
-	} else if powerPct <= -0.001 {
+	case powerPct <= -0.001:
 		pwmPin = m.A
 		powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
-	} else {
+	default:
 		return errors.New("can't set power when no direction is set")
 	}
 
@@ -155,7 +154,6 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 // Go instructs the motor to operate at a certain power percentage from -1 to 1
 // where the sign of the power dictates direction.
 func (m *Motor) Go(ctx context.Context, powerPct float64) error {
-
 	m.cancelMu.Lock()
 	m.cancelWaitProcesses()
 	m.cancelMu.Unlock()
@@ -190,7 +188,6 @@ func (m *Motor) Go(ctx context.Context, powerPct float64) error {
 }
 
 func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
-
 	// need to do this so time is reasonable
 	if rpm > maxRPM {
 		rpm = maxRPM
@@ -214,7 +211,6 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
 	err := m.Go(ctx, powerPct)
-
 	if err != nil {
 		return err
 	}
@@ -234,8 +230,8 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 		<-ctxWithTimeout.Done()
 		if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
 			// this has to be new context as previous one is likely timedout
+			//nolint:contextcheck
 			err := m.Stop(context.Background())
-
 			if err != nil {
 				m.logger.Errorw("failed to turn off motor", "error", err)
 			}
@@ -264,17 +260,17 @@ func (m *Motor) Stop(ctx context.Context) error {
 	return m.SetPower(ctx, 0)
 }
 
-// GoTo is not supported
+// GoTo is not supported.
 func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
 	return errors.New("not supported")
 }
 
-// GoTillStop is not supported
+// GoTillStop is not supported.
 func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	return errors.New("not supported")
 }
 
-// ResetZeroPosition is not supported
+// ResetZeroPosition is not supported.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return errors.New("not supported")
 }

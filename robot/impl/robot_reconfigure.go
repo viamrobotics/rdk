@@ -81,8 +81,8 @@ func newDraftRobot(r *localRobot, diff *config.Diff) *draftRobot {
 }
 
 // Rollback rolls back any intermediate changes made.
-func (draft *draftRobot) Rollback() error {
-	return draft.additions.Close()
+func (draft *draftRobot) Rollback(ctx context.Context) error {
+	return draft.additions.Close(ctx)
 }
 
 // ProcessAndCommit processes all changes in an all-or-nothing fashion
@@ -92,7 +92,7 @@ func (draft *draftRobot) ProcessAndCommit(ctx context.Context) (err error) {
 	defer func() {
 		if err != nil {
 			draft.original.logger.Infow("rolling back draft changes due to error", "error", err)
-			if rollbackErr := draft.Rollback(); rollbackErr != nil {
+			if rollbackErr := draft.Rollback(ctx); rollbackErr != nil {
 				err = multierr.Combine(err, errors.Wrap(rollbackErr, "error rolling back draft changes"))
 			}
 		}
@@ -127,13 +127,13 @@ func (draft *draftRobot) Commit(ctx context.Context) error {
 	draft.original.parts = draft.parts
 	draft.original.config = draft.diff.Right
 
-	if err := addResult.Process(draft.removals); err != nil {
+	if err := addResult.Process(ctx, draft.removals); err != nil {
 		draft.original.logger.Errorw("error processing add result but still committing changes", "error", err)
 	}
-	if err := modifyResult.Process(draft.removals); err != nil {
+	if err := modifyResult.Process(ctx, draft.removals); err != nil {
 		draft.original.logger.Errorw("error processing modify result but still committing changes", "error", err)
 	}
-	if err := draft.removals.Close(); err != nil {
+	if err := draft.removals.Close(ctx); err != nil {
 		draft.original.logger.Errorw("error closing parts removed but still committing changes", "error", err)
 	}
 	return nil
@@ -151,7 +151,7 @@ func (draft *draftRobot) Process(ctx context.Context) error {
 	if err := draft.ProcessModifyChanges(ctx); err != nil {
 		return err
 	}
-	if err := draft.ProcessRemoveChanges(); err != nil {
+	if err := draft.ProcessRemoveChanges(ctx); err != nil {
 		return err
 	}
 	return nil
@@ -168,8 +168,8 @@ func (draft *draftRobot) ProcessModifyChanges(ctx context.Context) error {
 }
 
 // ProcessRemoveChanges processes only subtractive changes.
-func (draft *draftRobot) ProcessRemoveChanges() error {
-	filtered, err := draft.parts.FilterFromConfig(draft.diff.Removed, draft.original.logger)
+func (draft *draftRobot) ProcessRemoveChanges(ctx context.Context) error {
+	filtered, err := draft.parts.FilterFromConfig(ctx, draft.diff.Removed, draft.original.logger)
 	if err != nil {
 		return err
 	}

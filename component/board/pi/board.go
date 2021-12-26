@@ -25,10 +25,10 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
-	piutils "go.viam.com/rdk/lib/pi"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
+	rdkutils "go.viam.com/rdk/utils"
 
 	pb "go.viam.com/rdk/proto/api/v1"
 )
@@ -46,7 +46,10 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			boardConfig := config.ConvertedAttributes.(*board.Config)
+			boardConfig, ok := config.ConvertedAttributes.(*board.Config)
+			if !ok {
+				return nil, rdkutils.NewUnexpectedTypeError(boardConfig, config.ConvertedAttributes)
+			}
 			return NewPigpio(ctx, boardConfig, logger)
 		}})
 	board.RegisterConfigAttributeConverter(modelName)
@@ -148,7 +151,7 @@ func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (boa
 	piInstance.interrupts = map[string]board.DigitalInterrupt{}
 	piInstance.interruptsHW = map[uint]board.DigitalInterrupt{}
 	for _, c := range cfg.DigitalInterrupts {
-		bcom, have := piutils.BroadcomPinFromHardwareLabel(c.Pin)
+		bcom, have := broadcomPinFromHardwareLabel(c.Pin)
 		if !have {
 			return nil, errors.Errorf("no hw mapping for %s", c.Pin)
 		}
@@ -172,7 +175,7 @@ func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (boa
 
 // GPIOSet sets the given pin to high or low.
 func (pi *piPigpio) GPIOSet(ctx context.Context, pin string, high bool) error {
-	bcom, have := piutils.BroadcomPinFromHardwareLabel(pin)
+	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
 		return errors.Errorf("no hw pin for (%s)", pin)
 	}
@@ -181,7 +184,7 @@ func (pi *piPigpio) GPIOSet(ctx context.Context, pin string, high bool) error {
 
 // GPIOGet reads the high/low state of the given pin.
 func (pi *piPigpio) GPIOGet(ctx context.Context, pin string) (bool, error) {
-	bcom, have := piutils.BroadcomPinFromHardwareLabel(pin)
+	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
 		return false, errors.Errorf("no hw pin for (%s)", pin)
 	}
@@ -232,7 +235,7 @@ func (pi *piPigpio) GPIOSetBcom(bcom int, high bool) error {
 
 // PWMSet sets the given pin to the given PWM duty cycle.
 func (pi *piPigpio) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	bcom, have := piutils.BroadcomPinFromHardwareLabel(pin)
+	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
 		return errors.Errorf("no hw pin for (%s)", pin)
 	}
@@ -250,7 +253,7 @@ func (pi *piPigpio) PWMSetBcom(bcom int, dutyCycle byte) error {
 
 // PWMSetFreq sets the given pin to the given PWM frequency.
 func (pi *piPigpio) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	bcom, have := piutils.BroadcomPinFromHardwareLabel(pin)
+	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
 		return errors.Errorf("no hw pin for (%s)", pin)
 	}
@@ -484,7 +487,7 @@ func (pi *piPigpio) ModelAttributes() board.ModelAttributes {
 }
 
 // Close attempts to close all parts of the board cleanly.
-func (pi *piPigpio) Close() error {
+func (pi *piPigpio) Close(ctx context.Context) error {
 
 	instanceMu.Lock()
 	if len(instances) == 1 {
@@ -496,19 +499,19 @@ func (pi *piPigpio) Close() error {
 
 	var err error
 	for _, spi := range pi.spis {
-		err = multierr.Combine(err, utils.TryClose(spi))
+		err = multierr.Combine(err, utils.TryClose(ctx, spi))
 	}
 
 	for _, analog := range pi.analogs {
-		err = multierr.Combine(err, utils.TryClose(analog))
+		err = multierr.Combine(err, utils.TryClose(ctx, analog))
 	}
 
 	for _, interrupt := range pi.interrupts {
-		err = multierr.Combine(err, utils.TryClose(interrupt))
+		err = multierr.Combine(err, utils.TryClose(ctx, interrupt))
 	}
 
 	for _, interruptHW := range pi.interruptsHW {
-		err = multierr.Combine(err, utils.TryClose(interruptHW))
+		err = multierr.Combine(err, utils.TryClose(ctx, interruptHW))
 	}
 	return err
 }

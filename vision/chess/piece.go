@@ -17,7 +17,6 @@ const (
 func makeArray(edges int, c rimage.Color) []float64 {
 	x, y, z := c.RGB255()
 	return []float64{float64(edges), float64(x), float64(y), float64(z)}
-
 }
 
 func pieceFromColor(theClassifier ml.Classifier, edges int, data rimage.Color) string {

@@ -1,3 +1,4 @@
+// Package merge implements a merge GPS that returns the first measurment of multiple GPS devices.
 package merge
 
 import (
@@ -16,7 +17,7 @@ import (
 	"go.viam.com/rdk/sensor/gps"
 )
 
-// ModelName is the name of th merge model for gps
+// ModelName is the name of th merge model for gps.
 const ModelName = "merge"
 
 func init() {
@@ -62,7 +63,7 @@ type mergeGPS struct {
 	logger golog.Logger
 }
 
-// The current latitude and longitude
+// The current latitude and longitude.
 func (m *mergeGPS) Location(ctx context.Context) (*geo.Point, error) {
 	var allErrors error
 	for _, g := range m.subs {
@@ -75,7 +76,7 @@ func (m *mergeGPS) Location(ctx context.Context) (*geo.Point, error) {
 	return nil, allErrors
 }
 
-// The current altitude in meters
+// The current altitude in meters.
 func (m *mergeGPS) Altitude(ctx context.Context) (float64, error) {
 	var allErrors error
 	for _, g := range m.subs {
@@ -88,7 +89,7 @@ func (m *mergeGPS) Altitude(ctx context.Context) (float64, error) {
 	return 0, allErrors
 }
 
-// Current ground speed in kph
+// Current ground speed in kph.
 func (m *mergeGPS) Speed(ctx context.Context) (float64, error) {
 	var allErrors error
 	for _, g := range m.subs {
@@ -101,7 +102,7 @@ func (m *mergeGPS) Speed(ctx context.Context) (float64, error) {
 	return 0, allErrors
 }
 
-// Number of satellites used for fix, and total in view
+// Number of satellites used for fix, and total in view.
 func (m *mergeGPS) Satellites(ctx context.Context) (int, int, error) {
 	var allErrors error
 	for _, g := range m.subs {
@@ -114,7 +115,7 @@ func (m *mergeGPS) Satellites(ctx context.Context) (int, int, error) {
 	return 0, 0, allErrors
 }
 
-// Horizontal and vertical position error
+// Horizontal and vertical position error.
 func (m *mergeGPS) Accuracy(ctx context.Context) (float64, float64, error) {
 	var allErrors error
 	for _, g := range m.subs {
@@ -127,7 +128,7 @@ func (m *mergeGPS) Accuracy(ctx context.Context) (float64, float64, error) {
 	return 0, 0, allErrors
 }
 
-// Whether or not the GPS chip had a valid fix for the most recent dataset
+// Whether or not the GPS chip had a valid fix for the most recent dataset.
 func (m *mergeGPS) Valid(ctx context.Context) (bool, error) {
 	var allErrors error
 	for _, g := range m.subs {

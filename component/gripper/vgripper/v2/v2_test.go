@@ -49,7 +49,7 @@ func TestNew(t *testing.T) {
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return nil, false
 		}
-		_, err := new(context.Background(), fakeRobot, config.Component{}, logger)
+		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -62,7 +62,7 @@ func TestNew(t *testing.T) {
 			return nil, false
 		}
 
-		_, err := new(context.Background(), fakeRobot, config.Component{}, logger)
+		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -79,9 +79,8 @@ func TestNew(t *testing.T) {
 			return fakeMotor, true
 		}
 
-		_, err := new(context.Background(), fakeRobot, config.Component{}, logger)
+		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
-
 	})
 
 	t.Run("return error when not able to find current analog reader", func(t *testing.T) {
@@ -101,7 +100,7 @@ func TestNew(t *testing.T) {
 			return nil, false
 		}
 
-		_, err := new(context.Background(), fakeRobot, config.Component{}, logger)
+		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -122,7 +121,7 @@ func TestNew(t *testing.T) {
 			return nil, false
 		}
 
-		_, err := new(context.Background(), fakeRobot, config.Component{}, logger)
+		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -143,7 +142,7 @@ func TestNew(t *testing.T) {
 			return &inject.Sensor{}, true
 		}
 
-		_, err := new(context.Background(), fakeRobot, config.Component{}, logger)
+		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
@@ -250,7 +249,6 @@ func TestOpen(t *testing.T) {
 		}
 		err := injectedGripper.Open(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
-
 	})
 
 	t.Run("return error when the open position isn't reached before the timeout", func(t *testing.T) {
@@ -462,7 +460,7 @@ func TestProcessCurrentReading(t *testing.T) {
 		injectedGripper := &gripperV2{
 			numBadCurrentReadings: currentBadReadingCounts - 2,
 		}
-		err := injectedGripper.checkCurrentInAcceptableRange(context.Background(), current, "testing")
+		err := injectedGripper.checkCurrentInAcceptableRange(current, "testing")
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -471,7 +469,7 @@ func TestProcessCurrentReading(t *testing.T) {
 		injectedGripper := &gripperV2{
 			numBadCurrentReadings: currentBadReadingCounts - 1,
 		}
-		err := injectedGripper.checkCurrentInAcceptableRange(context.Background(), current, "testing")
+		err := injectedGripper.checkCurrentInAcceptableRange(current, "testing")
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -480,7 +478,7 @@ func TestProcessCurrentReading(t *testing.T) {
 		injectedGripper := &gripperV2{
 			numBadCurrentReadings: currentBadReadingCounts - 5,
 		}
-		err := injectedGripper.checkCurrentInAcceptableRange(context.Background(), current, "testing")
+		err := injectedGripper.checkCurrentInAcceptableRange(current, "testing")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectedGripper.numBadCurrentReadings, test.ShouldEqual, 0)
 	})
@@ -497,10 +495,9 @@ func TestClose(t *testing.T) {
 		injectedGripper := &gripperV2{
 			motor: fakeMotor,
 		}
-		err := injectedGripper.Close()
+		err := injectedGripper.Close(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, counter, test.ShouldEqual, 1)
-
 	})
 }
 
@@ -518,7 +515,6 @@ func TestStop(t *testing.T) {
 		err := injectedGripper.Stop(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, counter, test.ShouldEqual, 1)
-
 	})
 }
 
@@ -578,7 +574,6 @@ func TestReadRobustAveragePressure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		// (2.5 + 7 + 1 + 49)/4 = 14.875
 		test.That(t, averagePressure, test.ShouldAlmostEqual, 14.875)
-
 	})
 
 	t.Run("return error when reading the matrix went wrong", func(t *testing.T) {
@@ -594,6 +589,7 @@ func TestReadRobustAveragePressure(t *testing.T) {
 		test.That(t, averagePressure, test.ShouldAlmostEqual, 0)
 	})
 }
+
 func TestReadAveragePressure(t *testing.T) {
 	t.Run("successfully read the average pressure", func(t *testing.T) {
 		fakeForceMatrix := &inject.ForceMatrix{}

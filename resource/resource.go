@@ -6,24 +6,23 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 )
 
-// define a few typed strings
+// define a few typed strings.
 type (
-	// Namespace identifies the namespaces robot resources can live in
+	// Namespace identifies the namespaces robot resources can live in.
 	Namespace string
 
-	// TypeName identifies the resource types that robot resources can be
+	// TypeName identifies the resource types that robot resources can be.
 	TypeName string
 
-	// SubtypeName identifies the resources subtypes that robot resources can be
+	// SubtypeName identifies the resources subtypes that robot resources can be.
 	SubtypeName string
 )
 
-// Placeholder definitions for a few known constants
+// Placeholder definitions for a few known constants.
 const (
 	ResourceNamespaceRDK    = Namespace("rdk")
 	ResourceTypeComponent   = TypeName("component")
@@ -156,7 +155,7 @@ func (n Name) String() string {
 // Reconfigurable is implemented when component/service of a robot is reconfigurable.
 type Reconfigurable interface {
 	// Reconfigure reconfigures the resource
-	Reconfigure(newResource Reconfigurable) error
+	Reconfigure(ctx context.Context, newResource Reconfigurable) error
 }
 
 // Updateable is implemented when component/service of a robot should be updated after the robot reconfiguration process is done.

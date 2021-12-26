@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
-// TrainingImage TODO
+// TrainingImage TODO.
 type TrainingImage struct {
 	ID       primitive.ObjectID `bson:"_id" json:"id,omitempty"`
 	Data     []byte
@@ -23,13 +23,13 @@ type TrainingImage struct {
 	MetaData map[string]interface{}
 }
 
-// ImageTrainingStore TODO
+// ImageTrainingStore TODO.
 type ImageTrainingStore struct {
 	theClient     *mongo.Client
 	theCollection *mongo.Collection
 }
 
-// NewImageTrainingStore TODO
+// NewImageTrainingStore TODO.
 func NewImageTrainingStore(ctx context.Context, mongoURI string, db string, collection string) (*ImageTrainingStore, error) {
 	client, err := mongo.NewClient(options.Client().ApplyURI(mongoURI))
 	if err != nil {
@@ -52,18 +52,18 @@ func (its *ImageTrainingStore) reset(ctx context.Context) error {
 	return its.BuildIndexes(ctx)
 }
 
-// Close TODO
-func (its *ImageTrainingStore) Close() error {
-	return its.theClient.Disconnect(context.Background())
+// Close TODO.
+func (its *ImageTrainingStore) Close(ctx context.Context) error {
+	return its.theClient.Disconnect(ctx)
 }
 
-// BuildIndexes TODO
+// BuildIndexes TODO.
 func (its *ImageTrainingStore) BuildIndexes(ctx context.Context) error {
 	// TODO(erh): build indexes
 	return nil
 }
 
-// StoreImageFromDisk TODO
+// StoreImageFromDisk TODO.
 func (its *ImageTrainingStore) StoreImageFromDisk(ctx context.Context, fn string, labels []string) (primitive.ObjectID, error) {
 	img, err := rimage.NewImageFromFile(fn)
 	if err != nil {
@@ -73,14 +73,13 @@ func (its *ImageTrainingStore) StoreImageFromDisk(ctx context.Context, fn string
 	return its.StoreImage(ctx, img, md, labels)
 }
 
-// StoreImage TODO
+// StoreImage TODO.
 func (its *ImageTrainingStore) StoreImage(
 	ctx context.Context,
 	img image.Image,
 	metaData map[string]interface{},
 	labels []string,
 ) (primitive.ObjectID, error) {
-
 	ti := TrainingImage{}
 	ti.ID = primitive.NewObjectID()
 
@@ -97,19 +96,19 @@ func (its *ImageTrainingStore) StoreImage(
 	return ti.ID, err
 }
 
-// GetImage TODO
+// GetImage TODO.
 func (its *ImageTrainingStore) GetImage(ctx context.Context, id primitive.ObjectID) (TrainingImage, error) {
 	ti := TrainingImage{}
 	err := its.theCollection.FindOne(ctx, bson.M{"_id": id}).Decode(&ti)
 	return ti, err
 }
 
-// SetLabelsForImage TODO
+// SetLabelsForImage TODO.
 func (its *ImageTrainingStore) SetLabelsForImage(ctx context.Context, id primitive.ObjectID, labels []string) error {
 	panic(1)
 }
 
-// GetImagesForLabel TODO
+// GetImagesForLabel TODO.
 func (its *ImageTrainingStore) GetImagesForLabel(ctx context.Context, label string) ([]primitive.ObjectID, error) {
 	cursor, err := its.theCollection.Find(ctx, bson.M{"labels": label}, options.Find().SetProjection(bson.M{"_id": 1}))
 	if err != nil {
@@ -130,9 +129,8 @@ func (its *ImageTrainingStore) GetImagesForLabel(ctx context.Context, label stri
 	return res, nil
 }
 
-// GetLabels TODO
+// GetLabels TODO.
 func (its *ImageTrainingStore) GetLabels(ctx context.Context) (map[string]int, error) {
-
 	agg := mongo.Pipeline{
 		bson.D{{"$unwind", "$labels"}},
 		bson.D{{"$group", bson.D{
@@ -142,7 +140,6 @@ func (its *ImageTrainingStore) GetLabels(ctx context.Context) (map[string]int, e
 	}
 
 	cursor, err := its.theCollection.Aggregate(ctx, agg)
-
 	if err != nil {
 		return nil, err
 	}

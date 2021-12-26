@@ -16,17 +16,17 @@ import (
 	"go.viam.com/rdk/rlog"
 )
 
-// SubtypeName is a constant that identifies the camera resource subtype string
+// SubtypeName is a constant that identifies the camera resource subtype string.
 const SubtypeName = resource.SubtypeName("camera")
 
-// Subtype is a constant that identifies the camera resource subtype
+// Subtype is a constant that identifies the camera resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeComponent,
 	SubtypeName,
 )
 
-// Named is a helper for getting the named cameras's typed resource name
+// Named is a helper for getting the named cameras's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewFromSubtype(Subtype, name)
 }
@@ -42,7 +42,7 @@ type ImageSource struct {
 	gostream.ImageSource
 }
 
-// NextPointCloud returns the next PointCloud from the camera, or will error if not supported
+// NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
 func (is *ImageSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	if c, ok := is.ImageSource.(Camera); ok {
 		return c.NextPointCloud(ctx)
@@ -55,7 +55,7 @@ func (is *ImageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	return rimage.ConvertToImageWithDepth(img).ToPointCloud()
 }
 
-// WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface
+// WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	c, ok := r.(Camera)
 	if !ok {
@@ -95,21 +95,21 @@ func (c *reconfigurableCamera) NextPointCloud(ctx context.Context) (pointcloud.P
 	return c.actual.NextPointCloud(ctx)
 }
 
-func (c *reconfigurableCamera) Close() error {
+func (c *reconfigurableCamera) Close(ctx context.Context) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return viamutils.TryClose(c.actual)
+	return viamutils.TryClose(ctx, c.actual)
 }
 
-// Reconfigure reconfigures the resource
-func (c *reconfigurableCamera) Reconfigure(newCamera resource.Reconfigurable) error {
+// Reconfigure reconfigures the resource.
+func (c *reconfigurableCamera) Reconfigure(ctx context.Context, newCamera resource.Reconfigurable) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	actual, ok := newCamera.(*reconfigurableCamera)
 	if !ok {
 		return errors.Errorf("expected new camera to be %T but got %T", c, newCamera)
 	}
-	if err := viamutils.TryClose(c.actual); err != nil {
+	if err := viamutils.TryClose(ctx, c.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	c.actual = actual.actual

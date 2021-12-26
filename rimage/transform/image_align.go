@@ -7,27 +7,24 @@ import (
 	"image"
 	"math"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/rimage"
-
-	"github.com/edaniels/golog"
 )
 
-var (
-	// IntelConfig is an alignment config for some Intel camera.
-	IntelConfig = AlignConfig{
-		ColorInputSize:  image.Point{1280, 720},
-		ColorWarpPoints: []image.Point{{0, 0}, {1196, 720}},
+// IntelConfig is an alignment config for some Intel camera.
+var IntelConfig = AlignConfig{
+	ColorInputSize:  image.Point{1280, 720},
+	ColorWarpPoints: []image.Point{{0, 0}, {1196, 720}},
 
-		DepthInputSize:  image.Point{1024, 768},
-		DepthWarpPoints: []image.Point{{67, 100}, {1019, 665}},
+	DepthInputSize:  image.Point{1024, 768},
+	DepthWarpPoints: []image.Point{{67, 100}, {1019, 665}},
 
-		OutputSize: image.Point{640, 360},
-	}
-)
+	OutputSize: image.Point{640, 360},
+}
 
-// AlignConfig TODO
+// AlignConfig TODO.
 type AlignConfig struct {
 	ColorInputSize  image.Point // this validates input size
 	ColorWarpPoints []image.Point
@@ -40,9 +37,8 @@ type AlignConfig struct {
 	OutputOrigin   image.Point
 }
 
-// ComputeWarpFromCommon TODO
+// ComputeWarpFromCommon TODO.
 func (config AlignConfig) ComputeWarpFromCommon(logger golog.Logger) (*AlignConfig, error) {
-
 	colorPoints, depthPoints, err := ImageAlign(
 		config.ColorInputSize,
 		config.ColorWarpPoints,
@@ -50,7 +46,6 @@ func (config AlignConfig) ComputeWarpFromCommon(logger golog.Logger) (*AlignConf
 		config.DepthWarpPoints,
 		logger,
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +60,7 @@ func (config AlignConfig) ComputeWarpFromCommon(logger golog.Logger) (*AlignConf
 	}, nil
 }
 
-// CheckValid TODO
+// CheckValid TODO.
 func (config AlignConfig) CheckValid() error {
 	if config.ColorInputSize.X == 0 ||
 		config.ColorInputSize.Y == 0 {
@@ -93,11 +88,13 @@ func (config AlignConfig) CheckValid() error {
 }
 
 // ImageAlign returns points suitable for calling warp on.
-func ImageAlign(img1Size image.Point, img1Points []image.Point,
-	img2Size image.Point, img2Points []image.Point, logger golog.Logger) ([]image.Point, []image.Point, error) {
-
-	debug := true
-
+func ImageAlign(
+	img1Size image.Point,
+	img1Points []image.Point,
+	img2Size image.Point,
+	img2Points []image.Point,
+	logger golog.Logger,
+) ([]image.Point, []image.Point, error) {
 	if len(img1Points) != 2 || len(img2Points) != 2 {
 		return nil, nil, errors.New("need exactly 2 matching points")
 	}
@@ -128,7 +125,7 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 		rotated = true
 	}
 
-	if debug {
+	if true {
 		logger.Debugf("colorAngle: %v depthAngle: %v rotated: %v", colorAngle, depthAngle, rotated)
 	}
 	// crop the four sides of the images so they enclose the same area
@@ -195,7 +192,7 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 		newImg2Points[1].X, newImg2Points[1].Y = (img2Size.X-1)-trimRight*(1-trimFirstRight), (img2Size.Y-1)-trimBot*(1-trimFirstBot)
 	}
 
-	if debug {
+	if true {
 		logger.Debugf("img1 size: %v img1 points: %v", img1Size, newImg1Points)
 		logger.Debugf("img2 size: %v img2 points: %v", img2Size, newImg2Points)
 		if !rimage.AllPointsIn(img1Size, newImg1Points) || !rimage.AllPointsIn(img2Size, newImg2Points) {
@@ -226,7 +223,6 @@ func rotatePoints(pts []image.Point) []image.Point {
 // trim calculates how much to trim off of one image edge to make the ratios of the distance
 // from the points to the edge equal between the two images.
 func trim(img1Pt1Dist, img1Pt2Dist, img2Pt1Dist, img2Pt2Dist int) (int, int, error) {
-
 	var distA, distB, dist1, dist2 float64
 	// required: distA/dist1 must be farther from the image edge that distB/dist2 so that the ratio is always > 1
 	switch {
@@ -269,5 +265,4 @@ func trim(img1Pt1Dist, img1Pt2Dist, img2Pt1Dist, img2Pt2Dist int) (int, int, err
 	}
 
 	return -1, -1, errors.Errorf("ratios were not comparable ratioA: %v, ratio1: %v", ratioA, ratio1)
-
 }

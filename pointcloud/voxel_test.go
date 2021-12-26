@@ -21,7 +21,6 @@ func TestVoxelCoords(t *testing.T) {
 }
 
 func TestVoxelCreation(t *testing.T) {
-
 	pt := r3.Vector{
 		X: 1.2,
 		Y: 0.5,
@@ -68,7 +67,7 @@ func TestVoxelGridCubeSegmentation(t *testing.T) {
 
 func TestEstimatePlaneNormalFromPoints(t *testing.T) {
 	nPoints := 1000
-	points := make([]r3.Vector, nPoints)
+	points := make([]r3.Vector, 0, nPoints)
 	for i := 0; i < nPoints; i++ {
 		// Point in the R3 unit cube, on plane z=0
 		p := r3.Vector{rand.Float64(), rand.Float64(), 0}
@@ -82,7 +81,7 @@ func TestEstimatePlaneNormalFromPoints(t *testing.T) {
 
 func TestGetVoxelCenterWeightResidual(t *testing.T) {
 	nPoints := 10000
-	points := make([]r3.Vector, nPoints)
+	points := make([]r3.Vector, 0, nPoints)
 	for i := 0; i < nPoints; i++ {
 		// Point in the R3 unit cube, on plane z=0
 		p := r3.Vector{rand.Float64(), rand.Float64(), 0}

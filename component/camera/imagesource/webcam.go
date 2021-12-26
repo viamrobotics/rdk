@@ -5,18 +5,17 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream/media"
+	"github.com/pion/mediadevices"
+	"github.com/pion/mediadevices/pkg/frame"
+	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-
-	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream/media"
-	"github.com/pion/mediadevices"
-	"github.com/pion/mediadevices/pkg/frame"
-	"github.com/pion/mediadevices/pkg/prop"
 )
 
 func init() {
@@ -31,11 +30,9 @@ func init() {
 		) (interface{}, error) {
 			return NewWebcamSource(config.Attributes, logger)
 		}})
-
 }
 
 func makeConstraints(attrs config.AttributeMap, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
-
 	minWidth := 680
 	maxWidth := 4096
 	idealWidth := 1920
@@ -59,7 +56,6 @@ func makeConstraints(attrs config.AttributeMap, debug bool, logger golog.Logger)
 
 	return mediadevices.MediaStreamConstraints{
 		Video: func(constraint *mediadevices.MediaTrackConstraints) {
-
 			constraint.Width = prop.IntRanged{minWidth, maxWidth, idealWidth}
 			constraint.Height = prop.IntRanged{minHeight, maxHeight, idealHeight}
 			constraint.FrameRate = prop.FloatRanged{0, 200, 60}
@@ -95,7 +91,7 @@ func NewWebcamSource(attrs config.AttributeMap, logger golog.Logger) (camera.Cam
 	constraints := makeConstraints(attrs, debug, logger)
 
 	if attrs.Has("path") {
-		return tryWebcamOpen(attrs.String("path"), debug, constraints)
+		return tryWebcamOpen(attrs.String("path"), constraints)
 	}
 
 	var pattern *regexp.Regexp
@@ -119,7 +115,7 @@ func NewWebcamSource(attrs config.AttributeMap, logger golog.Logger) (camera.Cam
 			continue
 		}
 
-		s, err := tryWebcamOpen(label, debug, constraints)
+		s, err := tryWebcamOpen(label, constraints)
 		if err == nil {
 			if debug {
 				logger.Debug("\t USING")
@@ -135,7 +131,7 @@ func NewWebcamSource(attrs config.AttributeMap, logger golog.Logger) (camera.Cam
 	return nil, errors.New("found no webcams")
 }
 
-func tryWebcamOpen(path string, debug bool, constraints mediadevices.MediaStreamConstraints) (camera.Camera, error) {
+func tryWebcamOpen(path string, constraints mediadevices.MediaStreamConstraints) (camera.Camera, error) {
 	reader, err := media.GetNamedVideoReader(filepath.Base(path), constraints)
 	if err != nil {
 		return nil, err

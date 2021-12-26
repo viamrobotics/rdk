@@ -8,13 +8,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
@@ -37,11 +40,6 @@ import (
 	"go.viam.com/rdk/sensor/forcematrix"
 	"go.viam.com/rdk/sensor/gps"
 	"go.viam.com/rdk/spatialmath"
-
-	"github.com/edaniels/golog"
-	"google.golang.org/grpc/codes"
-	grpcstatus "google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -135,7 +133,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 
 // Close cleanly closes the underlying connections and stops the refresh goroutine
 // if it is running.
-func (rc *RobotClient) Close() error {
+func (rc *RobotClient) Close(ctx context.Context) error {
 	rc.cancelBackgroundWorkers()
 	rc.activeBackgroundWorkers.Wait()
 
@@ -617,7 +615,7 @@ func (rc *RobotClient) ProcessManager() pexec.ProcessManager {
 	return pexec.NoopProcessManager
 }
 
-// ResourceNames returns all resource names
+// ResourceNames returns all resource names.
 func (rc *RobotClient) ResourceNames() []resource.Name {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
@@ -638,7 +636,7 @@ func (rc *RobotClient) Logger() golog.Logger {
 	return rc.logger
 }
 
-// FrameSystem retrieves an ordered slice of the frame configs and then builds a FrameSystem from the configs
+// FrameSystem retrieves an ordered slice of the frame configs and then builds a FrameSystem from the configs.
 func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
 	fs := referenceframe.NewEmptySimpleFrameSystem(name)
 	// request the full config from the remote robot's frame system service.FrameSystemConfig()
@@ -753,12 +751,12 @@ type boardClient struct {
 	info boardInfo
 }
 
-// SPIByName may need to be implemented
+// SPIByName may need to be implemented.
 func (bc *boardClient) SPIByName(name string) (board.SPI, bool) {
 	return nil, false
 }
 
-// I2CByName may need to be implemented
+// I2CByName may need to be implemented.
 func (bc *boardClient) I2CByName(name string) (board.I2C, bool) {
 	return nil, false
 }
@@ -854,11 +852,6 @@ func (bc *boardClient) Status(ctx context.Context) (*pb.BoardStatus, error) {
 
 func (bc *boardClient) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{Remote: true}
-}
-
-// Close shuts the board down, no methods should be called on the board after this
-func (bc *boardClient) Close() error {
-	return nil
 }
 
 // analogReaderClient satisfies a gRPC based motor.Motor. Refer to the interface
@@ -1149,7 +1142,7 @@ func (cc *inputControllerClient) LastEvents(ctx context.Context) (map[input.Cont
 	return eventsOut, nil
 }
 
-// InjectEvent allows directly sending an Event (such as a button press) from external code
+// InjectEvent allows directly sending an Event (such as a button press) from external code.
 func (cc *inputControllerClient) InjectEvent(ctx context.Context, event input.Event) error {
 	eventMsg := &pb.InputControllerEvent{
 		Time:    timestamppb.New(event.Time),
@@ -1429,7 +1422,7 @@ func (fmc *forcematrixClient) Desc() sensor.Description {
 	return sensor.Description{forcematrix.Type, ""}
 }
 
-// Ensure implements ForceMatrix
+// Ensure implements ForceMatrix.
 var _ = forcematrix.ForceMatrix(&forcematrixClient{})
 
 // protoToMatrix is a helper function to convert protobuf matrix values into a 2-dimensional int slice.

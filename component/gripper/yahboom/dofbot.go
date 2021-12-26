@@ -1,10 +1,14 @@
+// Package yahboom implements a yahboom based gripper.
 package yahboom
 
 import (
 	"context"
-	_ "embed" // for embedding model file
+
+	// for embedding model file.
+	_ "embed"
 	"fmt"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/gripper"
@@ -12,8 +16,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
-
-	"github.com/edaniels/golog"
 )
 
 func init() {
@@ -36,5 +38,4 @@ func init() {
 			return goodArm, nil
 		},
 	})
-
 }

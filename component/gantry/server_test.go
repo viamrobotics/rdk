@@ -32,9 +32,7 @@ func TestServer(t *testing.T) {
 	gantryServer, injectGantry, injectGantry2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	var (
-		gantryPos []float64
-	)
+	var gantryPos []float64
 
 	gantry1 := "gantry1"
 	pos1 := []float64{1.0, 2.0, 3.0}
@@ -109,5 +107,4 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Lengths, test.ShouldResemble, len2)
 	})
-
 }

@@ -2,13 +2,14 @@ package servo
 
 import (
 	"context"
-	// "math"
+
+	// "math".
 	"testing"
 
-	// pb "go.viam.com/rdk/proto/api/v1"
-	"go.viam.com/rdk/resource"
-
 	"go.viam.com/test"
+
+	// pb "go.viam.com/rdk/proto/api/v1".
+	"go.viam.com/rdk/resource"
 )
 
 func TestServoName(t *testing.T) {
@@ -67,7 +68,7 @@ func TestReconfigurableServo(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualServo1.reconfCount, test.ShouldEqual, 0)
 
-	err = fakeServo1.(*reconfigurableServo).Reconfigure(fakeServo2)
+	err = fakeServo1.(*reconfigurableServo).Reconfigure(context.Background(), fakeServo2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeServo1.(*reconfigurableServo).actual, test.ShouldEqual, actualServo2)
 	test.That(t, actualServo1.reconfCount, test.ShouldEqual, 1)
@@ -86,4 +87,4 @@ func (mServo *mockServo) AngularOffset(ctx context.Context) (uint8, error) {
 	return 0, nil
 }
 
-func (mServo *mockServo) Close() error { mServo.reconfCount++; return nil }
+func (mServo *mockServo) Close() { mServo.reconfCount++ }

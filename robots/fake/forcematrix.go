@@ -16,15 +16,16 @@ func init() {
 	registry.RegisterSensor(forcematrix.Type, ModelName, registry.Sensor{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 			return &ForceMatrix{Name: config.Name}, nil
-		}})
+		},
+	})
 }
 
-// ForceMatrix is a fake ForceMatrix that always returns the same matrix of values
+// ForceMatrix is a fake ForceMatrix that always returns the same matrix of values.
 type ForceMatrix struct {
 	Name string
 }
 
-// Matrix always returns the same matrix
+// Matrix always returns the same matrix.
 func (fsm *ForceMatrix) Matrix(ctx context.Context) ([][]int, error) {
 	result := make([][]int, 4)
 	for i := 0; i < len(result); i++ {
@@ -33,7 +34,7 @@ func (fsm *ForceMatrix) Matrix(ctx context.Context) ([][]int, error) {
 	return result, nil
 }
 
-// IsSlipping always return false
+// IsSlipping always return false.
 func (fsm *ForceMatrix) IsSlipping(ctx context.Context) (bool, error) {
 	return false, nil
 }

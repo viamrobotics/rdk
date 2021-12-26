@@ -1,3 +1,4 @@
+// Package framesystem defines and implements the concept of a frame system.
 package framesystem
 
 import (
@@ -74,8 +75,8 @@ func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*co
 			return nil, errors.Errorf("more than one component with name %q in config file", c.Name)
 		}
 		seen[c.Name] = true
-		model, err := extractModelFrameJSON(ctx, r, c.Name, c.Type)
-		if err != nil {
+		model, err := extractModelFrameJSON(r, c.Name, c.Type)
+		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
 			return nil, err
 		}
 		parts[c.Name] = &config.FrameSystemPart{Name: c.Name, FrameConfig: c.Frame, ModelFrame: model}
@@ -83,7 +84,7 @@ func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*co
 	return parts, nil
 }
 
-// processPart will gather the frame information and build the frames from the given robot part
+// processPart will gather the frame information and build the frames from the given robot part.
 func processPart(
 	part *config.FrameSystemPart,
 	children map[string][]referenceframe.Frame,
@@ -118,7 +119,7 @@ func processPart(
 	return nil
 }
 
-func topologicallySortFrameNames(ctx context.Context, children map[string][]referenceframe.Frame) ([]string, error) {
+func topologicallySortFrameNames(children map[string][]referenceframe.Frame) ([]string, error) {
 	topoSortedNames := []string{referenceframe.World} // keep track of tree structure
 	// If there are no frames, return only the world node in the list
 	if len(children) == 0 {
@@ -151,7 +152,7 @@ func topologicallySortFrameNames(ctx context.Context, children map[string][]refe
 
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
 // JSON []byte if it does, or nil if it doesn't.
-func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, compType config.ComponentType) (*referenceframe.Model, error) {
+func extractModelFrameJSON(r robot.Robot, name string, compType config.ComponentType) (referenceframe.Model, error) {
 	switch compType {
 	case config.ComponentTypeBase:
 		part, ok := r.BaseByName(name)
@@ -161,7 +162,7 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
-		return nil, nil
+		return nil, referenceframe.ErrNoModelInformation
 	case config.ComponentTypeGripper:
 		part, ok := r.GripperByName(name)
 		if !ok {
@@ -170,7 +171,7 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
-		return nil, nil
+		return nil, referenceframe.ErrNoModelInformation
 	case config.ComponentTypeCamera:
 		part, ok := r.CameraByName(name)
 		if !ok {
@@ -179,7 +180,7 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
-		return nil, nil
+		return nil, referenceframe.ErrNoModelInformation
 	case config.ComponentTypeSensor:
 		part, ok := r.SensorByName(name)
 		if !ok {
@@ -188,7 +189,7 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
-		return nil, nil
+		return nil, referenceframe.ErrNoModelInformation
 	case config.ComponentTypeBoard:
 		part, ok := r.BoardByName(name)
 		if !ok {
@@ -197,7 +198,7 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
-		return nil, nil
+		return nil, referenceframe.ErrNoModelInformation
 	case config.ComponentTypeServo:
 		part, ok := r.ServoByName(name)
 		if !ok {
@@ -206,7 +207,7 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
-		return nil, nil
+		return nil, referenceframe.ErrNoModelInformation
 	case config.ComponentTypeMotor:
 		part, ok := r.MotorByName(name)
 		if !ok {
@@ -215,7 +216,7 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
-		return nil, nil
+		return nil, referenceframe.ErrNoModelInformation
 	case config.ComponentTypeArm:
 		part, ok := r.ResourceByName(arm.Named(name))
 		if !ok {
@@ -234,7 +235,8 @@ func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, comp
 			return framer.ModelFrame(), nil
 		}
 		return nil, errors.Errorf("got a gantry of type %T that is not a ModelFrame", utils.UnwrapProxy(part))
-
+	case config.ComponentTypeInputController:
+		fallthrough
 	default:
 		return nil, errors.Errorf("do not recognize component type %v for model frame extraction", compType)
 	}

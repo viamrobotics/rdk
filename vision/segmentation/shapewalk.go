@@ -4,15 +4,14 @@ import (
 	"image"
 	"math"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 )
 
-// TODO
+// TODO.
 const (
 	DefaultColorThreshold             = 1.0
 	DefaultLookback                   = 15  // how many pixels do we ensure are similar
@@ -22,7 +21,7 @@ const (
 	DefaultAverageColorDistanceWeight = .5
 )
 
-// ShapeWalkOptions TODO
+// ShapeWalkOptions TODO.
 type ShapeWalkOptions struct {
 	Debug        bool
 	MaxRadius    int // 0 means no max
@@ -114,16 +113,16 @@ func (ws *walkState) towardsCenter(p image.Point, amount int) image.Point {
 	}
 
 	return ret
-}
+}.
 */
 func (ws *walkState) isPixelIsCluster(p image.Point, clusterNumber int, path []image.Point) bool {
 	v := ws.dots.get(p)
 	if v == 0 {
-		good := ws.computeIfPixelIsCluster(p, clusterNumber, path)
+		good := ws.computeIfPixelIsCluster(p, path)
 		if good {
 			v = clusterNumber
-			//} else {
-			//v = -1 // TODO(erh): remove clearTransients if i don't put this back
+			// } else {
+			// v = -1 // TODO(erh): remove clearTransients if i don't put this back
 		}
 		ws.dots.set(p, v)
 	}
@@ -131,7 +130,7 @@ func (ws *walkState) isPixelIsCluster(p image.Point, clusterNumber int, path []i
 	return v == clusterNumber
 }
 
-func (ws *walkState) computeIfPixelIsCluster(p image.Point, clusterNumber int, path []image.Point) bool {
+func (ws *walkState) computeIfPixelIsCluster(p image.Point, path []image.Point) bool {
 	if !ws.valid(p) {
 		return false
 	}
@@ -188,7 +187,7 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, clusterNumber int, p
 				// in mm right now
 
 				// first we scale to 0 -> 1 based on the data in the image
-				depthThreshold = depthThreshold / ws.depthRange
+				depthThreshold /= ws.depthRange
 
 				depthThreshold = ((depthThreshold - .01) * 50)
 				depthThreshold *= -1
@@ -196,7 +195,6 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, clusterNumber int, p
 				if ws.options.Debug {
 					ws.logger.Debugf("\t\t\t XXX %v %v %v", myZ, prevZ, depthThreshold)
 				}
-
 			} else if myZ > 0 || prevZ > 0 {
 				// this means one of the points had good data and one didn't
 				// this usually means it's an edge or something
@@ -214,19 +212,17 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, clusterNumber int, p
 			if !good && d-threshold < .2 {
 				ws.logger.Debugf("\t\t\t http://www.viam.com/color.html?#1=%s&2=%s", myColor.Hex()[1:], prevColor.Hex()[1:])
 			}
-
 		}
 
 		if !good {
 			return false
 		}
-
 	}
 
 	return true
 }
 
-// return the number of pieces added
+// return the number of pieces added.
 func (ws *walkState) pieceWalk(start image.Point, clusterNumber int, path []image.Point, quadrant image.Point) int {
 	if !ws.valid(start) {
 		return 0
@@ -256,22 +252,20 @@ func (ws *walkState) pieceWalk(start image.Point, clusterNumber int, path []imag
 	return total
 }
 
-var (
-	allDirections = []image.Point{
-		{1, 1},
-		{1, 0},
-		{1, -1},
+var allDirections = []image.Point{
+	{1, 1},
+	{1, 0},
+	{1, -1},
 
-		{-1, 1},
-		{-1, 0},
-		{-1, -1},
+	{-1, 1},
+	{-1, 0},
+	{-1, -1},
 
-		{0, 1},
-		{1, 0},
-	}
-)
+	{0, 1},
+	{1, 0},
+}
 
-// return the number of pieces in the cell
+// return the number of pieces in the cell.
 func (ws *walkState) piece(start image.Point, clusterNumber int) int {
 	if ws.options.Debug {
 		ws.logger.Debugf("segmentation.piece start: %v", start)
@@ -279,13 +273,14 @@ func (ws *walkState) piece(start image.Point, clusterNumber int) int {
 
 	ws.initIfNot()
 
-	//ws.originalColor = ws.img.ColorHSV(start)
+	// ws.originalColor = ws.img.ColorHSV(start)
 	ws.originalPoint = start
 	ws.originalInterestingPixelDensity = ws.interestingPixelDensity(start)
 
 	temp, averageColorDistance := ws.img.AverageColorAndStats(start, 1)
 	ws.originalColor = temp
 
+	//nolint:ifshort,nolintlint
 	oldThreshold := ws.threshold
 	defer func() {
 		ws.threshold = oldThreshold
@@ -399,19 +394,18 @@ func (ws *walkState) lookForWeirdShapes(clusterNumber int) int {
 	return total
 }
 
-// ShapeWalk TODO
+// ShapeWalk TODO.
 func ShapeWalk(img *rimage.ImageWithDepth, start image.Point, options ShapeWalkOptions, logger golog.Logger) (*SegmentedImage, error) {
 	return ShapeWalkMultiple(img, []image.Point{start}, options, logger)
 }
 
-// ShapeWalkMultiple TODO
+// ShapeWalkMultiple TODO.
 func ShapeWalkMultiple(
 	img *rimage.ImageWithDepth,
 	starts []image.Point,
 	options ShapeWalkOptions,
 	logger golog.Logger,
 ) (*SegmentedImage, error) {
-
 	ws := walkState{
 		img:       img.Color,
 		depth:     img.Depth,
@@ -430,17 +424,17 @@ func ShapeWalkMultiple(
 	return ws.dots, nil
 }
 
-// MyWalkError TODO
+// MyWalkError TODO.
 type MyWalkError struct {
 	pos image.Point
 }
 
-// Error TODO
+// Error TODO.
 func (e MyWalkError) Error() string {
 	return "MyWalkError"
 }
 
-// ShapeWalkEntireDebug TODO
+// ShapeWalkEntireDebug TODO.
 func ShapeWalkEntireDebug(img *rimage.ImageWithDepth, options ShapeWalkOptions, logger golog.Logger) (*SegmentedImage, error) {
 	var si *SegmentedImage
 	var err error
@@ -522,7 +516,6 @@ func shapeWalkEntireDebugOnePass(
 
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -530,5 +523,4 @@ func shapeWalkEntireDebugOnePass(
 	ws.dots.createPalette()
 
 	return ws.dots, nil
-
 }

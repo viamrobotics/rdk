@@ -10,7 +10,7 @@ import (
 	"go.viam.com/rdk/ml"
 )
 
-// Game TODO
+// Game TODO.
 type Game struct {
 	pieceColorClassifier ml.Classifier
 	edgesThreshold       int
@@ -18,7 +18,7 @@ type Game struct {
 
 const emptyStatus = "empty"
 
-// NewGame TODO
+// NewGame TODO.
 func NewGame(initialBoard *Board) (*Game, error) {
 	pieceColorClassifier, err := buildPieceColorModel(initialBoard)
 	if err != nil {
@@ -43,7 +43,7 @@ func NewGame(initialBoard *Board) (*Game, error) {
 			}
 			edges := initialBoard.SquareCenterEdges(square)
 
-			//fmt.Printf("%s -> %v %v %v\n", square, height, status, edges)
+			// fmt.Printf("%s -> %v %v %v\n", square, height, status, edges)
 
 			if y == '1' || y == '2' || y == '7' || y == '8' {
 				if status == emptyStatus {
@@ -89,8 +89,8 @@ func NewGame(initialBoard *Board) (*Game, error) {
 	biggestEmptyEdges := emptyEdges[len(emptyEdges)-1]
 	lowestPieceEdges := pieceEdges[0]
 
-	//fmt.Printf("lowestPieceEdges: %d\n", lowestPieceEdges)
-	//fmt.Printf("biggestEmptyEdges: %d\n", biggestEmptyEdges)
+	// fmt.Printf("lowestPieceEdges: %d\n", lowestPieceEdges)
+	// fmt.Printf("biggestEmptyEdges: %d\n", biggestEmptyEdges)
 
 	if lowestPieceEdges-biggestEmptyEdges < 15 {
 		return nil, errors.Errorf("not enough gap in edges %d %d", biggestEmptyEdges, lowestPieceEdges)
@@ -100,12 +100,12 @@ func NewGame(initialBoard *Board) (*Game, error) {
 	if g.edgesThreshold > EdgeThreshold {
 		g.edgesThreshold = EdgeThreshold
 	}
-	//fmt.Printf("g.edgesThreshold: %v lowestPieceEdges: %v biggestEmptyEdges: %v\n", g.edgesThreshold, lowestPieceEdges, biggestEmptyEdges)
+	// fmt.Printf("g.edgesThreshold: %v lowestPieceEdges: %v biggestEmptyEdges: %v\n", g.edgesThreshold, lowestPieceEdges, biggestEmptyEdges)
 
 	return g, nil
 }
 
-// SquareColorStatus TODO
+// SquareColorStatus TODO.
 func (g *Game) SquareColorStatus(board *Board, square string) (string, error) {
 	corner := getMinChessCorner(square)
 	middle := image.Point{corner.X + 50, corner.Y + 50}
@@ -121,13 +121,13 @@ func (g *Game) SquareColorStatus(board *Board, square string) (string, error) {
 		}
 	}
 
-	//fmt.Printf("%s %v -> %s\n", square, data, res)
-	//fmt.Printf("<div style='background-color:rgba(%d,%d,%d,1)'>%s %v -> %s</div>\n", data.R, data.G, data.B, square, data, res)
+	// fmt.Printf("%s %v -> %s\n", square, data, res)
+	// fmt.Printf("<div style='background-color:rgba(%d,%d,%d,1)'>%s %v -> %s</div>\n", data.R, data.G, data.B, square, data, res)
 
 	return res, nil
 }
 
-// GetPieceHeight TODO
+// GetPieceHeight TODO.
 func (g *Game) GetPieceHeight(board *Board, square string) (float64, error) {
 	color, err := g.SquareColorStatus(board, square)
 	if err != nil {
@@ -155,7 +155,7 @@ func (g *Game) GetPieceHeight(board *Board, square string) (float64, error) {
 	return board.SquareCenterHeight(square, 30), nil
 }
 
-// GetSquaresWithPieces TODO
+// GetSquaresWithPieces TODO.
 func (g *Game) GetSquaresWithPieces(b *Board) ([]string, error) {
 	squares := []string{}
 	for x := 'a'; x <= 'h'; x++ {

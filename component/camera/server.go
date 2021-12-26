@@ -22,7 +22,7 @@ import (
 	"go.viam.com/rdk/vision/segmentation"
 )
 
-// subtypeServer implements the contract from camera.proto
+// subtypeServer implements the contract from camera.proto.
 type subtypeServer struct {
 	pb.UnimplementedCameraServiceServer
 	s subtype.Service

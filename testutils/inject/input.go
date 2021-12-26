@@ -35,7 +35,7 @@ func (s *InputController) LastEvents(ctx context.Context) (map[input.Control]inp
 	return s.LastEventsFunc(ctx)
 }
 
-//RegisterControlCallback calls the injected function or the real version.
+// RegisterControlCallback calls the injected function or the real version.
 func (s *InputController) RegisterControlCallback(
 	ctx context.Context,
 	control input.Control,

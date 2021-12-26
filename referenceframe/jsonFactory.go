@@ -45,14 +45,14 @@ type ModelJSON struct {
 	RawFrames []map[string]interface{} `json:"frames"`
 }
 
-// Model turns the ModelJSON struct into a full Model with the name modelName
-func (m *ModelJSON) Model(modelName string) (*Model, error) {
-	model := NewModel()
+// Model turns the ModelJSON struct into a full Model with the name modelName.
+func (m *ModelJSON) Model(modelName string) (Model, error) {
+	model := NewSimpleModel()
 
 	if modelName == "" {
-		model.name = m.Name
+		model.ChangeName(m.Name)
 	} else {
-		model.name = modelName
+		model.ChangeName(modelName)
 	}
 
 	transforms := map[string]Frame{}
@@ -60,7 +60,8 @@ func (m *ModelJSON) Model(modelName string) (*Model, error) {
 	// Make a map of parents for each element for post-process, to allow items to be processed out of order
 	parentMap := map[string]string{}
 
-	if m.KinParamType == "SVA" || m.KinParamType == "" {
+	switch m.KinParamType {
+	case "SVA", "":
 		for _, link := range m.Links {
 			if link.ID == World {
 				return model, errors.New("reserved word: cannot name a link 'world'")
@@ -91,7 +92,6 @@ func (m *ModelJSON) Model(modelName string) (*Model, error) {
 
 		// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"
 		for _, joint := range m.Joints {
-
 			// TODO(pl): Make this a switch once we support more than one joint type
 			if joint.Type == "revolute" {
 				aa := spatialmath.R4AA{RX: joint.Axis.X, RY: joint.Axis.Y, RZ: joint.Axis.Z}
@@ -107,9 +107,8 @@ func (m *ModelJSON) Model(modelName string) (*Model, error) {
 				return nil, errors.Errorf("unsupported joint type detected: %v", joint.Type)
 			}
 		}
-	} else if m.KinParamType == "DH" {
+	case "DH":
 		for _, dh := range m.DHParams {
-
 			// Joint part of DH param
 			jointID := dh.ID + "_j"
 			parentMap[jointID] = dh.Parent
@@ -133,7 +132,7 @@ func (m *ModelJSON) Model(modelName string) (*Model, error) {
 			}
 			parentMap[linkID] = jointID
 		}
-	} else if m.KinParamType == "frames" {
+	case "frames":
 		for _, x := range m.RawFrames {
 			f, err := UnmarshalFrameMap(x)
 			if err != nil {
@@ -143,7 +142,7 @@ func (m *ModelJSON) Model(modelName string) (*Model, error) {
 		}
 
 		return model, nil
-	} else {
+	default:
 		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", m.KinParamType)
 	}
 
@@ -199,7 +198,8 @@ func (m *ModelJSON) Model(modelName string) (*Model, error) {
 }
 
 // ParseJSONFile will read a given file and then parse the contained JSON data.
-func ParseJSONFile(filename, modelName string) (*Model, error) {
+func ParseJSONFile(filename, modelName string) (Model, error) {
+	//nolint:gosec
 	jsonData, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read json file")
@@ -207,14 +207,17 @@ func ParseJSONFile(filename, modelName string) (*Model, error) {
 	return ParseJSON(jsonData, modelName)
 }
 
+// ErrNoModelInformation is used when there is no model information.
+var ErrNoModelInformation = errors.New("no model information")
+
 // ParseJSON will parse the given JSON data into a kinematics model. modelName sets the name of the model,
 // will use the name from the JSON if string is empty.
-func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
+func ParseJSON(jsonData []byte, modelName string) (Model, error) {
 	m := &ModelJSON{}
 
 	// empty data probably means that the robot component has no model information
 	if len(jsonData) == 0 {
-		return nil, nil
+		return nil, ErrNoModelInformation
 	}
 
 	err := json.Unmarshal(jsonData, m)
@@ -223,5 +226,4 @@ func ParseJSON(jsonData []byte, modelName string) (*Model, error) {
 	}
 
 	return m.Model(modelName)
-
 }

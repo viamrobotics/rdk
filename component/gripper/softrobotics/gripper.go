@@ -5,8 +5,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
@@ -14,9 +15,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-
-	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
 )
 
 func init() {
@@ -26,14 +24,15 @@ func init() {
 			if !ok {
 				return nil, errors.New("softrobotics gripper requires a board called local")
 			}
-			return newGripper(ctx, b, config, logger)
-		}})
+			return newGripper(b, config, logger)
+		},
+	})
 }
 
 // softGripper TODO
 //
 // open is 5
-// close is 6
+// close is 6.
 type softGripper struct {
 	theBoard board.Board
 
@@ -44,8 +43,8 @@ type softGripper struct {
 	logger golog.Logger
 }
 
-// newGripper TODO
-func newGripper(ctx context.Context, b board.Board, config config.Component, logger golog.Logger) (*softGripper, error) {
+// newGripper TODO.
+func newGripper(b board.Board, config config.Component, logger golog.Logger) (*softGripper, error) {
 	psi, ok := b.AnalogReaderByName("psi")
 	if !ok {
 		return nil, errors.New("failed to find analog reader 'psi'")
@@ -70,7 +69,7 @@ func newGripper(ctx context.Context, b board.Board, config config.Component, log
 	return theGripper, nil
 }
 
-// Stop TODO
+// Stop TODO.
 func (g *softGripper) Stop(ctx context.Context) error {
 	return multierr.Combine(
 		g.theBoard.GPIOSet(ctx, g.pinOpen, false),
@@ -79,7 +78,7 @@ func (g *softGripper) Stop(ctx context.Context) error {
 	)
 }
 
-// Open TODO
+// Open TODO.
 func (g *softGripper) Open(ctx context.Context) error {
 	err := multierr.Combine(
 		g.theBoard.GPIOSet(ctx, g.pinOpen, true),
@@ -111,7 +110,7 @@ func (g *softGripper) Open(ctx context.Context) error {
 	return g.Stop(ctx)
 }
 
-// Grab TODO
+// Grab TODO.
 func (g *softGripper) Grab(ctx context.Context) (bool, error) {
 	err := multierr.Combine(
 		g.theBoard.GPIOSet(ctx, g.pinClose, true),
@@ -122,7 +121,6 @@ func (g *softGripper) Grab(ctx context.Context) (bool, error) {
 	}
 
 	for {
-
 		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
 			return false, ctx.Err()
 		} // REMOVE
@@ -142,5 +140,4 @@ func (g *softGripper) Grab(ctx context.Context) (bool, error) {
 	}
 
 	return false, g.Stop(ctx)
-
 }

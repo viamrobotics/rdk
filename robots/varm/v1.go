@@ -3,13 +3,17 @@ package varm
 
 import (
 	"context"
-	_ "embed" // for embedding model file
+
+	// for embedding model file.
+	_ "embed"
 	"math"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
+	"gonum.org/v1/gonum/stat"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/motor"
@@ -17,13 +21,9 @@ import (
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	componentpb "go.viam.com/rdk/proto/api/component/v1"
-	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-
-	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
-	"gonum.org/v1/gonum/stat"
 )
 
 /**
@@ -36,7 +36,7 @@ import (
  *      150
  * that position is 0 degrees for joint 0, and -90 degrees for joint 1 and -90 for the inner joint
  * ++ on joint 0 should lift
- * ++ on joint 1 should lift
+ * ++ on joint 1 should lift.
  */
 const (
 	TestingForce = .5
@@ -55,7 +55,8 @@ func init() {
 			}
 
 			return raw, nil
-		}})
+		},
+	})
 }
 
 type joint struct {
@@ -151,10 +152,8 @@ func testJointLimit(ctx context.Context, m motor.Motor, dir int64, logger golog.
 				if err != nil {
 					return math.NaN(), motorOffError(ctx, m, err)
 				}
-
 			}
 		}
-
 	}
 
 	return math.NaN(), motorOffError(ctx, m, errors.New("testing joint limit timed out"))
@@ -164,7 +163,7 @@ func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.Arm,
 	var err error
 	newArm := &armV1{}
 
-	newArm.model, err = frame.ParseJSON(v1modeljson, "")
+	newArm.model, err = referenceframe.ParseJSON(v1modeljson, "")
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +218,7 @@ type armV1 struct {
 
 	j0, j1 joint
 	mp     motionplan.MotionPlanner
-	model  *frame.Model
+	model  referenceframe.Model
 }
 
 // CurrentPosition computes and returns the current cartesian position.
@@ -237,7 +236,7 @@ func (a *armV1) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	solution, err := a.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
@@ -255,10 +254,9 @@ func (a *armV1) moveJointToDegrees(ctx context.Context, m motor.Motor, j joint, 
 	}
 
 	return m.GoFor(ctx, 10.0, delta)
-
 }
 
-// MoveToJointPositions TODO
+// MoveToJointPositions TODO.
 func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.ArmJointPositions) error {
 	if len(pos.Degrees) != 2 {
 		return errors.New("need exactly 2 joints")
@@ -295,7 +293,7 @@ func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.ArmJo
 	return errors.Errorf("arm moved timed out, wanted: %v", pos)
 }
 
-// IsOn TODO
+// IsOn TODO.
 func (a *armV1) IsOn(ctx context.Context) (bool, error) {
 	on0, err0 := a.j0Motor.IsOn(ctx)
 	on1, err1 := a.j0Motor.IsOn(ctx)
@@ -312,7 +310,7 @@ func jointToDegrees(ctx context.Context, m motor.Motor, j joint) (float64, error
 	return j.positionToDegrees(pos), nil
 }
 
-// CurrentJointPositions TODO
+// CurrentJointPositions TODO.
 func (a *armV1) CurrentJointPositions(ctx context.Context) (*componentpb.ArmJointPositions, error) {
 	var e1, e2 error
 	joints := &componentpb.ArmJointPositions{Degrees: make([]float64, 2)}
@@ -323,7 +321,7 @@ func (a *armV1) CurrentJointPositions(ctx context.Context) (*componentpb.ArmJoin
 	return joints, multierr.Combine(e1, e2)
 }
 
-// JointMoveDelta TODO
+// JointMoveDelta TODO.
 func (a *armV1) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
@@ -339,20 +337,20 @@ func (a *armV1) JointMoveDelta(ctx context.Context, joint int, amountDegs float6
 	return a.MoveToJointPositions(ctx, joints)
 }
 
-func (a *armV1) ModelFrame() *frame.Model {
+func (a *armV1) ModelFrame() referenceframe.Model {
 	return a.model
 }
 
-func (a *armV1) CurrentInputs(ctx context.Context) ([]frame.Input, error) {
+func (a *armV1) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return frame.JointPosToInputs(res), nil
+	return referenceframe.JointPosToInputs(res), nil
 }
 
-func (a *armV1) GoToInputs(ctx context.Context, goal []frame.Input) error {
-	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(goal))
+func (a *armV1) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
 }
 
 func computeInnerJointAngle(j0, j1 float64) float64 {

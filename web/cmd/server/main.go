@@ -3,9 +3,8 @@
 package main
 
 import (
-	"go.viam.com/utils"
-
 	"github.com/edaniels/golog"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/web/server"
 )

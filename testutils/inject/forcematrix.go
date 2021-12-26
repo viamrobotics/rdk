@@ -7,14 +7,14 @@ import (
 	"go.viam.com/rdk/sensor/forcematrix"
 )
 
-// ForceMatrix is an injected ForceMatrix
+// ForceMatrix is an injected ForceMatrix.
 type ForceMatrix struct {
 	forcematrix.ForceMatrix
 	MatrixFunc     func(ctx context.Context) ([][]int, error)
 	IsSlippingFunc func(ctx context.Context) (bool, error)
 }
 
-// Matrix calls the injected MatrixFunc or the real variant
+// Matrix calls the injected MatrixFunc or the real variant.
 func (m *ForceMatrix) Matrix(ctx context.Context) ([][]int, error) {
 	if m.MatrixFunc == nil {
 		return m.ForceMatrix.Matrix(ctx)
@@ -22,7 +22,7 @@ func (m *ForceMatrix) Matrix(ctx context.Context) ([][]int, error) {
 	return m.MatrixFunc(ctx)
 }
 
-// IsSlipping calls the injected IsSlippingFunc or the real variant
+// IsSlipping calls the injected IsSlippingFunc or the real variant.
 func (m *ForceMatrix) IsSlipping(ctx context.Context) (bool, error) {
 	if m.IsSlippingFunc == nil {
 		return m.ForceMatrix.IsSlipping(ctx)

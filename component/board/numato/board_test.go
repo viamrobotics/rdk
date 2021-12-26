@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"go.viam.com/rdk/component/board"
-
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/component/board"
 )
 
 func TestMask(t *testing.T) {
@@ -25,7 +25,6 @@ func TestMask(t *testing.T) {
 
 	m.set(31)
 	test.That(t, m.hex(), test.ShouldEqual, "800000c1")
-
 }
 
 func TestFixPins(t *testing.T) {
@@ -36,7 +35,6 @@ func TestFixPins(t *testing.T) {
 	test.That(t, fixPin(128, "1"), test.ShouldEqual, "001")
 	test.That(t, fixPin(128, "01"), test.ShouldEqual, "001")
 	test.That(t, fixPin(128, "001"), test.ShouldEqual, "001")
-
 }
 
 func TestNumato1(t *testing.T) {
@@ -103,5 +101,4 @@ func TestNumato1(t *testing.T) {
 	res2, err = ar.Read(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res2, test.ShouldBeLessThan, 100)
-
 }

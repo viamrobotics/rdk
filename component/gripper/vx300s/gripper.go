@@ -1,3 +1,4 @@
+// Package vx300s implements a vx300s gripper.
 package vx300s
 
 import (
@@ -8,11 +9,9 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
-
 	"go.viam.com/dynamixel/network"
 	"go.viam.com/dynamixel/servo"
 	"go.viam.com/dynamixel/servo/s_model"
-
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/gripper"
@@ -25,7 +24,8 @@ func init() {
 	registry.RegisterComponent(gripper.Subtype, "vx300s", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newGripper(config.Attributes, logger)
-		}})
+		},
+	})
 }
 
 var (
@@ -44,13 +44,13 @@ func getPortMutex(port string) *sync.Mutex {
 	return mu
 }
 
-// vx300s TODO
+// vx300s TODO.
 type vx300s struct {
 	jServo   *servo.Servo
 	moveLock *sync.Mutex
 }
 
-// newGripper TODO
+// newGripper TODO.
 func newGripper(attributes config.AttributeMap, logger golog.Logger) (*vx300s, error) {
 	usbPort := attributes.String("usbPort")
 	jServo := findServo(usbPort, attributes.String("baudRate"), logger)
@@ -62,12 +62,12 @@ func newGripper(attributes config.AttributeMap, logger golog.Logger) (*vx300s, e
 	return &newGripper, err
 }
 
-// GetMoveLock TODO
+// GetMoveLock TODO.
 func (g *vx300s) GetMoveLock() *sync.Mutex {
 	return g.moveLock
 }
 
-// Open TODO
+// Open TODO.
 func (g *vx300s) Open(ctx context.Context) error {
 	g.moveLock.Lock()
 	defer g.moveLock.Unlock()
@@ -96,7 +96,7 @@ func (g *vx300s) Open(ctx context.Context) error {
 	return err
 }
 
-// Grab TODO
+// Grab TODO.
 func (g *vx300s) Grab(ctx context.Context) (bool, error) {
 	g.moveLock.Lock()
 	defer g.moveLock.Unlock()
@@ -123,8 +123,7 @@ func (g *vx300s) Grab(ctx context.Context) (bool, error) {
 
 // Close closes the connection, not the gripper.
 func (g *vx300s) Close() error {
-	err := g.jServo.SetTorqueEnable(false)
-	return err
+	return g.jServo.SetTorqueEnable(false)
 }
 
 // findServo finds the gripper numbered Dynamixel servo on the specified USB port
@@ -152,7 +151,7 @@ func findServo(usbPort, baudRateStr string, logger golog.Logger) *servo.Servo {
 	network := network.New(serial)
 
 	// By default, Dynamixel servos come 1-indexed out of the box because reasons
-	//Get model ID of servo
+	// Get model ID of servo
 	newServo, err := s_model.New(network, GripperServoNum)
 	if err != nil {
 		logger.Fatalf("error initializing servo %d: %v\n", GripperServoNum, err)

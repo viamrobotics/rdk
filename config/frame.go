@@ -3,10 +3,10 @@ package config
 import (
 	"encoding/json"
 
+	"github.com/golang/geo/r3"
+
 	ref "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
-
-	"github.com/golang/geo/r3"
 )
 
 /*
@@ -22,7 +22,7 @@ The Orientation field is an interface. When writing a config file, the orientati
 			etc.
 		}
 	}
-}
+}.
 */
 type Frame struct {
 	Parent      string              `json:"parent"`
@@ -30,18 +30,18 @@ type Frame struct {
 	Orientation spatial.Orientation `json:"orientation"`
 }
 
-// Pose combines Translation and Orientation in a Pose
+// Pose combines Translation and Orientation in a Pose.
 func (f *Frame) Pose() spatial.Pose {
 	return makePose(f)
 }
 
-// StaticFrame creates a new static frame from a config
+// StaticFrame creates a new static frame from a config.
 func (f *Frame) StaticFrame(name string) (ref.Frame, error) {
 	pose := makePose(f)
 	return ref.NewStaticFrame(name, pose)
 }
 
-// UnmarshalJSON will parse the Orientation field into a spatial.Orientation object from a json.rawMessage
+// UnmarshalJSON will parse the Orientation field into a spatial.Orientation object from a json.rawMessage.
 func (f *Frame) UnmarshalJSON(b []byte) error {
 	temp := struct {
 		Parent      string                 `json:"parent"`
@@ -91,7 +91,7 @@ func MergeFrameSystems(toFS, fromFS ref.FrameSystem, cfg *Frame) error {
 	return nil
 }
 
-// makePose creates a new pose from a config
+// makePose creates a new pose from a config.
 func makePose(cfg *Frame) spatial.Pose {
 	// get the translation vector. If there is no translation/orientation attribute will default to 0
 	translation := r3.Vector{cfg.Translation.X, cfg.Translation.Y, cfg.Translation.Z}

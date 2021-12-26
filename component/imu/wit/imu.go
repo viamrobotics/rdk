@@ -1,3 +1,4 @@
+// Package wit implements a wit IMU.
 package wit
 
 import (
@@ -8,7 +9,9 @@ import (
 	"math"
 	"sync"
 
+	"github.com/edaniels/golog"
 	slib "github.com/jacobsa/go-serial/serial"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/config"
@@ -16,10 +19,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/spatialmath"
-
-	"go.viam.com/utils"
-
-	"github.com/edaniels/golog"
 )
 
 const model = "wit"
@@ -32,8 +31,10 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return NewWit(ctx, r, config, logger)
-		}})
+			//nolint:contextcheck
+			return NewWit(r, config, logger)
+		},
+	})
 }
 
 type wit struct {
@@ -69,8 +70,8 @@ func (i *wit) Desc() sensor.Description {
 	return sensor.Description{sensor.Type(imu.SubtypeName), model}
 }
 
-// NewWit creates a new Wit IMU
-func NewWit(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (imu.IMU, error) {
+// NewWit creates a new Wit IMU.
+func NewWit(r robot.Robot, config config.Component, logger golog.Logger) (imu.IMU, error) {
 	options := slib.OpenOptions{
 		BaudRate:        9600, // 115200, wanted to set higher but windows software was being weird about it
 		DataBits:        8,
@@ -92,6 +93,7 @@ func NewWit(ctx context.Context, r robot.Robot, config config.Component, logger 
 
 	var i wit
 
+	var ctx context.Context
 	ctx, i.cancelFunc = context.WithCancel(context.Background())
 	i.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -115,7 +117,6 @@ func NewWit(ctx context.Context, r robot.Robot, config config.Component, logger 
 					i.lastError = i.parseWIT(line)
 				}
 			}()
-
 		}
 	})
 
@@ -123,12 +124,11 @@ func NewWit(ctx context.Context, r robot.Robot, config config.Component, logger 
 }
 
 func scale(a, b byte, r float64) float64 {
-
 	x := float64(int(b)<<8|int(a)) / 32768.0 // 0 -> 2
-	x = x * r                                // 0 -> 2r
-	x = x + r
+	x *= r                                   // 0 -> 2r
+	x += r
 	x = math.Mod(x, r*2)
-	x = x - r
+	x -= r
 
 	return x
 }
@@ -156,8 +156,7 @@ func (i *wit) parseWIT(line string) error {
 	return nil
 }
 
-func (i *wit) Close() error {
+func (i *wit) Close() {
 	i.cancelFunc()
 	i.activeBackgroundWorkers.Wait()
-	return nil
 }

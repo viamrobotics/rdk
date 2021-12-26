@@ -28,11 +28,11 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (sensor.Sensor, error) {
-			return newPmtkI2CNMEAGPS(r, config, logger)
+			return newPmtkI2CNMEAGPS(ctx, r, config, logger)
 		}})
 }
 
-// This allows the use of any GPS chip that communicates over I2C using the PMTK protocol
+// This allows the use of any GPS chip that communicates over I2C using the PMTK protocol.
 type pmtkI2CNMEAGPS struct {
 	mu     sync.RWMutex
 	bus    board.I2C
@@ -46,8 +46,7 @@ type pmtkI2CNMEAGPS struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func newPmtkI2CNMEAGPS(r robot.Robot, config config.Component, logger golog.Logger) (gps.GPS, error) {
-
+func newPmtkI2CNMEAGPS(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gps.GPS, error) {
 	b, ok := r.BoardByName(config.Attributes.String("board"))
 	if !ok {
 		return nil, fmt.Errorf("gps init: failed to find board %s", config.Attributes.String("board"))
@@ -64,13 +63,12 @@ func newPmtkI2CNMEAGPS(r robot.Robot, config config.Component, logger golog.Logg
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	g := &pmtkI2CNMEAGPS{bus: i2cbus, addr: byte(addr), cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
-	g.Start()
+	g.Start(ctx)
 
 	return g, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Start() {
-
+func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
 		g.logger.Fatalf("can't open gps i2c %s", err)
@@ -80,12 +78,12 @@ func (g *pmtkI2CNMEAGPS) Start() {
 	cmd314 := addChk([]byte("PMTK314,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	cmd220 := addChk([]byte("PMTK220,1000"))
 
-	err = handle.Write(context.Background(), cmd314)
+	err = handle.Write(ctx, cmd314)
 	if err != nil {
 		g.logger.Fatalf("i2c handle write failed %s", err)
 		return
 	}
-	err = handle.Write(context.Background(), cmd220)
+	err = handle.Write(ctx, cmd220)
 	if err != nil {
 		g.logger.Fatalf("i2c handle write failed %s", err)
 		return
@@ -186,10 +184,9 @@ func (g *pmtkI2CNMEAGPS) Valid(ctx context.Context) (bool, error) {
 	return g.data.valid, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Close() error {
+func (g *pmtkI2CNMEAGPS) Close() {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
-	return nil
 }
 
 // Desc returns that this is a GPS.
@@ -197,7 +194,7 @@ func (g *pmtkI2CNMEAGPS) Desc() sensor.Description {
 	return sensor.Description{gps.Type, ""}
 }
 
-// PMTK checksums commands by XORing together each byte
+// PMTK checksums commands by XORing together each byte.
 func addChk(data []byte) []byte {
 	chk := checksum(data)
 	newCmd := []byte("$")

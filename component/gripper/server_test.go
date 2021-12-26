@@ -83,5 +83,4 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't grab")
 		test.That(t, resp, test.ShouldBeNil)
 	})
-
 }

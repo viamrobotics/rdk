@@ -1,3 +1,4 @@
+// Package fake implements a fake gantry.
 package fake
 
 import (
@@ -16,7 +17,8 @@ func init() {
 	registry.RegisterComponent(gantry.Subtype, "fake", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newGantry(config.Name), nil
-		}})
+		},
+	})
 }
 
 func newGantry(name string) gantry.Gantry {
@@ -29,23 +31,23 @@ type fakeGantry struct {
 	lengths   []float64
 }
 
-// CurrentPosition returns the position in meters
+// CurrentPosition returns the position in meters.
 func (g *fakeGantry) CurrentPosition(ctx context.Context) ([]float64, error) {
 	return g.positions, nil
 }
 
-// Lengths returns the position in meters
+// Lengths returns the position in meters.
 func (g *fakeGantry) Lengths(ctx context.Context) ([]float64, error) {
 	return g.lengths, nil
 }
 
-// MoveToPosition is in meters
+// MoveToPosition is in meters.
 func (g *fakeGantry) MoveToPosition(ctx context.Context, positions []float64) error {
 	g.positions = positions
 	return nil
 }
 
-func (g *fakeGantry) ModelFrame() *referenceframe.Model {
+func (g *fakeGantry) ModelFrame() referenceframe.Model {
 	axes := []bool{}
 	limits := []referenceframe.Limit{}
 
@@ -62,7 +64,7 @@ func (g *fakeGantry) ModelFrame() *referenceframe.Model {
 	if err != nil {
 		panic(err)
 	}
-	m := referenceframe.NewModel()
+	m := referenceframe.NewSimpleModel()
 	m.OrdTransforms = append(m.OrdTransforms, f)
 	return m
 }
@@ -74,6 +76,7 @@ func (g *fakeGantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input,
 	}
 	return referenceframe.FloatsToInputs(res), nil
 }
+
 func (g *fakeGantry) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
 }

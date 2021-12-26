@@ -1,3 +1,4 @@
+// Package fake implements a fake camera.
 package fake
 
 import (
@@ -41,13 +42,8 @@ func (c *Camera) Next(ctx context.Context) (image.Image, func(), error) {
 	return img, func() {}, nil
 }
 
-// NextPointCloud always returns a pointcloud with a single pixel
+// NextPointCloud always returns a pointcloud with a single pixel.
 func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	pc := pointcloud.New()
 	return pc, pc.Set(pointcloud.NewColoredPoint(16, 16, 16, color.NRGBA{255, 0, 0, 255}))
-}
-
-// Close does nothing.
-func (c *Camera) Close() error {
-	return nil
 }

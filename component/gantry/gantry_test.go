@@ -1,11 +1,12 @@
 package gantry
 
 import (
+	"context"
 	"testing"
 
-	"go.viam.com/rdk/resource"
-
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/resource"
 )
 
 func TestGantryName(t *testing.T) {
@@ -72,12 +73,12 @@ func TestReconfigurableGantry(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualGantry1.reconfCount, test.ShouldEqual, 0)
 
-	err = fakeGantry1.(*reconfigurableGantry).Reconfigure(fakeGantry2)
+	err = fakeGantry1.(*reconfigurableGantry).Reconfigure(context.Background(), fakeGantry2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeGantry1.(*reconfigurableGantry).actual, test.ShouldEqual, actualGantry2)
 	test.That(t, actualGantry1.reconfCount, test.ShouldEqual, 1)
 
-	err = fakeGantry1.(*reconfigurableGantry).Reconfigure(nil)
+	err = fakeGantry1.(*reconfigurableGantry).Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new gantry")
 }
@@ -88,4 +89,4 @@ type mock struct {
 	reconfCount int
 }
 
-func (m *mock) Close() error { m.reconfCount++; return nil }
+func (m *mock) Close() { m.reconfCount++ }

@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/resource"
@@ -23,7 +22,6 @@ const (
 	ComponentTypeGantry          = ComponentType("gantry")
 	ComponentTypeGripper         = ComponentType("gripper")
 	ComponentTypeCamera          = ComponentType("camera")
-	ComponentTypeLidar           = ComponentType("lidar")
 	ComponentTypeSensor          = ComponentType("sensor")
 	ComponentTypeBoard           = ComponentType("board")
 	ComponentTypeServo           = ComponentType("servo")

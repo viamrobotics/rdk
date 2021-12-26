@@ -4,10 +4,9 @@ import (
 	"context"
 	"image"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -32,18 +31,13 @@ func init() {
 		}})
 }
 
-// colorSegmentsSource applies a segmentation to the point cloud of an ImageWithDepth
+// colorSegmentsSource applies a segmentation to the point cloud of an ImageWithDepth.
 type colorSegmentsSource struct {
 	source gostream.ImageSource
 	config segmentation.ObjectConfig
 }
 
-// Close closes the source
-func (cs *colorSegmentsSource) Close() error {
-	return nil
-}
-
-// Next applies segmentation to the next image and gives each distinct object a unique color
+// Next applies segmentation to the next image and gives each distinct object a unique color.
 func (cs *colorSegmentsSource) Next(ctx context.Context) (image.Image, func(), error) {
 	i, closer, err := cs.source.Next(ctx)
 	if err != nil {
@@ -88,5 +82,4 @@ func newColorSegmentsSource(r robot.Robot, config config.Component) (camera.Came
 		MinPtsInPlane: planeSize, MinPtsInSegment: segmentSize, ClusteringRadius: clusterRadius,
 	}
 	return &camera.ImageSource{ImageSource: &colorSegmentsSource{source, cfg}}, nil
-
 }

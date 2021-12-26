@@ -3,12 +3,12 @@ package transform
 import (
 	"image"
 
-	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/rimage"
-
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/rimage"
 )
 
 // PinholeCameraHomography stores the color camera intrinsics and the homography that aligns a depth map
@@ -23,7 +23,7 @@ type PinholeCameraHomography struct {
 	RotateDepth  int                     `json:"rotate_depth"`
 }
 
-// NewPinholeCameraHomography takes in a struct that stores raw data from JSON and converts it into a PinholeCameraHomography struct
+// NewPinholeCameraHomography takes in a struct that stores raw data from JSON and converts it into a PinholeCameraHomography struct.
 func NewPinholeCameraHomography(inp *RawPinholeCameraHomography) (*PinholeCameraHomography, error) {
 	homography, err := NewHomography(inp.Homography)
 	if err != nil {
@@ -111,7 +111,7 @@ func (dch *PinholeCameraHomography) ImageWithDepthToPointCloud(ii *rimage.ImageW
 }
 
 // PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth
-// from the perspective of the color camera frame.
+// from the perspective of the color camera referenceframe.
 func (dch *PinholeCameraHomography) PointCloudToImageWithDepth(
 	cloud pointcloud.PointCloud,
 ) (*rimage.ImageWithDepth, error) {

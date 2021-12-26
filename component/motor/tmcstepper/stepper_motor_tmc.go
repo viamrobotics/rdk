@@ -1,3 +1,4 @@
+// Package tmcstepper implements a TMC stepper motor.
 package tmcstepper
 
 import (
@@ -5,9 +6,10 @@ import (
 	"math"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
@@ -15,13 +17,9 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-
-	"github.com/edaniels/golog"
-
-	"go.uber.org/multierr"
 )
 
-// TMC5072Config extends motor.Config, mainly for RegisterComponentAttributeMapConverter
+// TMC5072Config extends motor.Config, mainly for RegisterComponentAttributeMapConverter.
 type TMC5072Config struct {
 	motor.Config
 	SPIBus     string  `json:"spi_bus"`
@@ -63,7 +61,7 @@ func init() {
 		}, &TMC5072Config{})
 }
 
-// A Motor represents a brushless motor connected via a TMC controller chip (ex: TMC5072)
+// A Motor represents a brushless motor connected via a TMC controller chip (ex: TMC5072).
 type Motor struct {
 	board       board.Board
 	bus         board.SPI
@@ -77,21 +75,21 @@ type Motor struct {
 	logger      golog.Logger
 }
 
-// TMC5072 Values
+// TMC5072 Values.
 const (
 	baseClk = 13200000 // Nominal 13.2mhz internal clock speed
 	uSteps  = 256      // Microsteps per fullstep
 )
 
 // TMC5072 Register Addressses (for motor index 0)
-// TODO full register set
+// TODO full register set.
 const (
-	// add 0x10 for motor 2
+	// add 0x10 for motor 2.
 	chopConf  = 0x6C
 	coolConf  = 0x6D
 	drvStatus = 0x6F
 
-	// add 0x20 for motor 2
+	// add 0x20 for motor 2.
 	rampMode   = 0x20
 	xActual    = 0x21
 	vActual    = 0x22
@@ -110,7 +108,7 @@ const (
 	rampStat   = 0x35
 )
 
-// TMC5072 ramp modes
+// TMC5072 ramp modes.
 const (
 	modePosition = int32(0)
 	modeVelPos   = int32(1)
@@ -118,7 +116,7 @@ const (
 	modeHold     = int32(3)
 )
 
-// NewMotor returns a TMC5072 driven motor
+// NewMotor returns a TMC5072 driven motor.
 func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog.Logger) (*Motor, error) {
 	board, ok := r.BoardByName(c.BoardName)
 	if !ok {
@@ -181,7 +179,6 @@ func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog
 		m.writeReg(ctx, rampMode, modeVelPos), // Lastly, set velocity mode to force a stop in case chip was left in moving state
 		m.writeReg(ctx, xActual, 0),           // Zero the position
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -192,11 +189,12 @@ func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog
 func (m *Motor) shiftAddr(addr uint8) uint8 {
 	// Shift register address for motor 1 instead of motor zero
 	if m.index == 1 {
-		if addr >= 0x10 && addr <= 0x11 {
+		switch {
+		case addr >= 0x10 && addr <= 0x11:
 			addr += 0x08
-		} else if addr >= 0x20 && addr <= 0x3C {
+		case addr >= 0x20 && addr <= 0x3C:
 			addr += 0x20
-		} else if addr >= 0x6A && addr <= 0x6F {
+		case addr >= 0x6A && addr <= 0x6F:
 			addr += 0x10
 		}
 	}
@@ -204,7 +202,6 @@ func (m *Motor) shiftAddr(addr uint8) uint8 {
 }
 
 func (m *Motor) writeReg(ctx context.Context, addr uint8, value int32) error {
-
 	addr = m.shiftAddr(addr)
 
 	var buf [5]byte
@@ -224,7 +221,7 @@ func (m *Motor) writeReg(ctx context.Context, addr uint8, value int32) error {
 		}
 	}()
 
-	//m.logger.Debug("Write: ", buf)
+	// m.logger.Debug("Write: ", buf)
 
 	_, err = handle.Xfer(ctx, 1000000, m.csPin, 3, buf[:]) // SPI Mode 3, 1mhz
 	if err != nil {
@@ -235,7 +232,6 @@ func (m *Motor) writeReg(ctx context.Context, addr uint8, value int32) error {
 }
 
 func (m *Motor) readReg(ctx context.Context, addr uint8) (int32, error) {
-
 	addr = m.shiftAddr(addr)
 
 	var tbuf [5]byte
@@ -251,7 +247,7 @@ func (m *Motor) readReg(ctx context.Context, addr uint8) (int32, error) {
 		}
 	}()
 
-	//m.logger.Debug("ReadT: ", tbuf)
+	// m.logger.Debug("ReadT: ", tbuf)
 
 	// Read access returns data from the address sent in the PREVIOUS "packet," so we transmit, then read
 	_, err = handle.Xfer(ctx, 1000000, m.csPin, 3, tbuf[:]) // SPI Mode 3, 1mhz
@@ -273,11 +269,10 @@ func (m *Motor) readReg(ctx context.Context, addr uint8) (int32, error) {
 	value <<= 8
 	value |= int32(rbuf[4])
 
-	//m.logger.Debug("ReadR: ", rbuf)
-	//m.logger.Debug("Read: ", value)
+	// m.logger.Debug("ReadR: ", rbuf)
+	// m.logger.Debug("Read: ", value)
 
 	return value, nil
-
 }
 
 // GetSG returns the current StallGuard reading (effectively an indication of motor load.)
@@ -291,7 +286,7 @@ func (m *Motor) GetSG(ctx context.Context) (int32, error) {
 	return rawRead, nil
 }
 
-// Position gives the current motor position
+// Position gives the current motor position.
 func (m *Motor) Position(ctx context.Context) (float64, error) {
 	rawPos, err := m.readReg(ctx, xActual)
 	if err != nil {
@@ -311,7 +306,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	return errors.New("power not supported for stepper motors")
 }
 
-// Go sets a velocity as a percentage of maximum
+// Go sets a velocity as a percentage of maximum.
 func (m *Motor) Go(ctx context.Context, powerPct float64) error {
 	mode := modeVelPos
 	if powerPct < 0 {
@@ -347,7 +342,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, rotations float64) error
 	return m.GoTo(ctx, rpm, target)
 }
 
-// Convert rpm to TMC5072 steps/s
+// Convert rpm to TMC5072 steps/s.
 func (m *Motor) rpmToV(rpm float64) int32 {
 	if rpm > m.maxRPM {
 		rpm = m.maxRPM
@@ -358,7 +353,7 @@ func (m *Motor) rpmToV(rpm float64) int32 {
 	return int32(speed)
 }
 
-// Convert rpm/s to TMC5072 steps/taConst^2
+// Convert rpm/s to TMC5072 steps/taConst^2.
 func (m *Motor) rpmsToA(acc float64) int32 {
 	// Time constant for accelerations in TMC5072
 	taConst := math.Pow(2, 41) / math.Pow(m.fClk, 2)
@@ -368,9 +363,8 @@ func (m *Motor) rpmsToA(acc float64) int32 {
 
 // GoTo moves to the specified position in terms of (provided in revolutions from home/zero),
 // at a specific speed. Regardless of the directionality of the RPM this function will move the
-// motor towards the specified target
+// motor towards the specified target.
 func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
-
 	position *= float64(m.stepsPerRev)
 	return multierr.Combine(
 		m.writeReg(ctx, rampMode, modePosition),
@@ -386,7 +380,7 @@ func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 	return on, err
 }
 
-// Enable pulls down the hardware enable pin, activating the power stage of the chip
+// Enable pulls down the hardware enable pin, activating the power stage of the chip.
 func (m *Motor) Enable(ctx context.Context, turnOn bool) error {
 	return m.board.GPIOSet(ctx, m.enPin, !turnOn)
 }
@@ -473,7 +467,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 }
 
 // ResetZeroPosition sets the current position of the motor specified by the request
-// (adjusted by a given offset) to be its new zero position
+// (adjusted by a given offset) to be its new zero position.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	on, err := m.IsOn(ctx)
 	if err != nil {
@@ -488,7 +482,7 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	)
 }
 
-// PID Return the underlying PID
+// PID Return the underlying PID.
 func (m *Motor) PID() motor.PID {
 	return nil
 }

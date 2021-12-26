@@ -1,3 +1,4 @@
+// Package fake implements a fake input controller.
 package fake
 
 import (
@@ -5,14 +6,13 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-
-	"github.com/mitchellh/mapstructure"
 )
 
 const modelName = "fake"
@@ -38,19 +38,19 @@ func init() {
 	)
 }
 
-// NewInputController returns a fake input.Controller
+// NewInputController returns a fake input.Controller.
 func NewInputController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 	c := &InputController{}
 	c.controls = config.ConvertedAttributes.(*Config).controls
 	return c, nil
 }
 
-// Config can list input structs (with their states)
+// Config can list input structs (with their states).
 type Config struct {
 	controls []input.Control
 }
 
-// An InputController fakes an input.Controller
+// An InputController fakes an input.Controller.
 type InputController struct {
 	Name       string
 	mu         sync.Mutex
@@ -58,21 +58,21 @@ type InputController struct {
 	lastEvents map[input.Control]input.Event
 }
 
-// Controls lists the inputs of the gamepad
+// Controls lists the inputs of the gamepad.
 func (c *InputController) Controls(ctx context.Context) ([]input.Control, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.controls, nil
 }
 
-// LastEvents returns the last input.Event (the current state) of each control
+// LastEvents returns the last input.Event (the current state) of each control.
 func (c *InputController) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.lastEvents, nil
 }
 
-// RegisterControlCallback registers a callback function to be executed on the specified trigger Event
+// RegisterControlCallback registers a callback function to be executed on the specified trigger Event.
 func (c *InputController) RegisterControlCallback(
 	ctx context.Context,
 	control input.Control,
@@ -82,7 +82,7 @@ func (c *InputController) RegisterControlCallback(
 	return errors.New("unsupported")
 }
 
-// InjectEvent allows directly sending an Event (such as a button press) from external code
+// InjectEvent allows directly sending an Event (such as a button press) from external code.
 func (c *InputController) InjectEvent(ctx context.Context, event input.Event) error {
 	return errors.New("unsupported")
 }

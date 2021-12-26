@@ -13,17 +13,17 @@ import (
 	"go.viam.com/rdk/rlog"
 )
 
-// SubtypeName is a constant that identifies the component resource subtype string input
+// SubtypeName is a constant that identifies the component resource subtype string input.
 const SubtypeName = resource.SubtypeName("input_controller")
 
-// Subtype is a constant that identifies the component resource subtype
+// Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeComponent,
 	SubtypeName,
 )
 
-// Named is a helper for getting the named input's typed resource name
+// Named is a helper for getting the named input's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewFromSubtype(Subtype, name)
 }
@@ -41,38 +41,38 @@ type Controller interface {
 	RegisterControlCallback(ctx context.Context, control Control, triggers []EventType, ctrlFunc ControlFunction) error
 }
 
-// ControlFunction is a callback passed to RegisterControlCallback
+// ControlFunction is a callback passed to RegisterControlCallback.
 type ControlFunction func(ctx context.Context, ev Event)
 
 // EventType represents the type of input event, and is returned by LastEvent() or passed to ControlFunction callbacks.
 type EventType string
 
-// EventType list, to be expanded as new input devices are developed
+// EventType list, to be expanded as new input devices are developed.
 const (
-	// Callbacks registered for this event will be called in ADDITION to other registered event callbacks
+	// Callbacks registered for this event will be called in ADDITION to other registered event callbacks.
 	AllEvents EventType = "AllEvents"
-	// Sent at controller initialization, and on reconnects
+	// Sent at controller initialization, and on reconnects.
 	Connect EventType = "Connect"
-	// If unplugged, or wireless/network times out
+	// If unplugged, or wireless/network times out.
 	Disconnect EventType = "Disconnect"
-	// Typical key press
+	// Typical key press.
 	ButtonPress EventType = "ButtonPress"
-	// Key release
+	// Key release.
 	ButtonRelease EventType = "ButtonRelease"
-	// Both up and down for convenience during registration, not typically emitted
+	// Both up and down for convenience during registration, not typically emitted.
 	ButtonChange EventType = "ButtonChange"
-	// Absolute position is reported via Value, a la joysticks
+	// Absolute position is reported via Value, a la joysticks.
 	PositionChangeAbs EventType = "PositionChangeAbs"
-	// Relative position is reported via Value, a la mice, or simulating axes with up/down buttons
+	// Relative position is reported via Value, a la mice, or simulating axes with up/down buttons.
 	PositionChangeRel EventType = "PositionChangeRel"
 )
 
-// Control identifies the input (specific Axis or Button) of a controller
+// Control identifies the input (specific Axis or Button) of a controller.
 type Control string
 
-// Controls, to be expanded as new input devices are developed
+// Controls, to be expanded as new input devices are developed.
 const (
-	// Axes
+	// Axes.
 	AbsoluteX     Control = "AbsoluteX"
 	AbsoluteY     Control = "AbsoluteY"
 	AbsoluteZ     Control = "AbsoluteZ"
@@ -82,7 +82,7 @@ const (
 	AbsoluteHat0X Control = "AbsoluteHat0X"
 	AbsoluteHat0Y Control = "AbsoluteHat0Y"
 
-	// Buttons
+	// Buttons.
 	ButtonSouth  Control = "ButtonSouth"
 	ButtonEast   Control = "ButtonEast"
 	ButtonWest   Control = "ButtonWest"
@@ -98,7 +98,7 @@ const (
 	ButtonEStop  Control = "ButtonEStop"
 )
 
-// Event is passed to the registered ControlFunction or returned by State()
+// Event is passed to the registered ControlFunction or returned by State().
 type Event struct {
 	Time    time.Time
 	Event   EventType
@@ -106,13 +106,13 @@ type Event struct {
 	Value   float64 // 0 or 1 for buttons, -1.0 to +1.0 for axes
 }
 
-// Injectable is used by the WebGamepad interface to inject events
+// Injectable is used by the WebGamepad interface to inject events.
 type Injectable interface {
 	// InjectEvent allows directly sending an Event (such as a button press) from external code
 	InjectEvent(ctx context.Context, event Event) error
 }
 
-// WrapWithReconfigurable wraps a Controller with a reconfigurable and locking interface
+// WrapWithReconfigurable wraps a Controller with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	c, ok := r.(Controller)
 	if !ok {
@@ -152,7 +152,7 @@ func (c *reconfigurableInputController) LastEvents(ctx context.Context) (map[Con
 	return c.actual.LastEvents(ctx)
 }
 
-// InjectEvent allows directly sending an Event (such as a button press) from external code
+// InjectEvent allows directly sending an Event (such as a button press) from external code.
 func (c *reconfigurableInputController) InjectEvent(ctx context.Context, event Event) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -174,21 +174,21 @@ func (c *reconfigurableInputController) RegisterControlCallback(
 	return c.actual.RegisterControlCallback(ctx, control, triggers, ctrlFunc)
 }
 
-func (c *reconfigurableInputController) Close() error {
+func (c *reconfigurableInputController) Close(ctx context.Context) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return utils.TryClose(c.actual)
+	return utils.TryClose(ctx, c.actual)
 }
 
-// Reconfigure reconfigures the resource
-func (c *reconfigurableInputController) Reconfigure(newController resource.Reconfigurable) error {
+// Reconfigure reconfigures the resource.
+func (c *reconfigurableInputController) Reconfigure(ctx context.Context, newController resource.Reconfigurable) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	actual, ok := newController.(*reconfigurableInputController)
 	if !ok {
 		return errors.Errorf("expected new Controller to be %T but got %T", c, newController)
 	}
-	if err := utils.TryClose(c.actual); err != nil {
+	if err := utils.TryClose(ctx, c.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	c.actual = actual.actual

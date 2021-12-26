@@ -40,12 +40,12 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 	return sc
 }
 
-// Close cleanly closes the underlying connections
+// Close cleanly closes the underlying connections.
 func (sc *serviceClient) Close() error {
 	return sc.conn.Close()
 }
 
-// client is an gantry client
+// client is an gantry client.
 type client struct {
 	*serviceClient
 	name string
@@ -98,7 +98,7 @@ func (c *client) MoveToPosition(ctx context.Context, positions []float64) error 
 	return err
 }
 
-func (c *client) ModelFrame() *referenceframe.Model {
+func (c *client) ModelFrame() referenceframe.Model {
 	// TODO(erh): this feels wrong
 	return nil
 }
@@ -115,7 +115,7 @@ func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
 }
 
-// Close cleanly closes the underlying connections
+// Close cleanly closes the underlying connections.
 func (c *client) Close() error {
 	return c.serviceClient.Close()
 }

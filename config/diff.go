@@ -6,11 +6,10 @@ import (
 	"reflect"
 	"sort"
 
+	"github.com/sergi/go-diff/diffmatchpatch"
 	"go.viam.com/utils/pexec"
 
 	functionvm "go.viam.com/rdk/function/vm"
-
-	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
 // A Diff is the difference between two configs, left and right
@@ -63,10 +62,7 @@ func DiffConfigs(left, right *Config) (*Diff, error) {
 		return nil, err
 	}
 	different = componentsDifferent || different
-	functionsDifferent, err := diffFunctions(left.Functions, right.Functions, &diff)
-	if err != nil {
-		return nil, err
-	}
+	functionsDifferent := diffFunctions(left.Functions, right.Functions, &diff)
 	different = functionsDifferent || different
 	servicesDifferent, err := diffServices(left.Services, right.Services, &diff)
 	if err != nil {
@@ -147,6 +143,7 @@ func diffRemote(left, right Remote, diff *Diff) bool {
 	return true
 }
 
+//nolint:dupl
 func diffComponents(left, right []Component, diff *Diff) (bool, error) {
 	leftIndex := make(map[string]int)
 	leftM := make(map[string]Component)
@@ -236,7 +233,7 @@ func diffProcess(left, right pexec.ProcessConfig, diff *Diff) bool {
 	return true
 }
 
-func diffFunctions(left, right []functionvm.FunctionConfig, diff *Diff) (bool, error) {
+func diffFunctions(left, right []functionvm.FunctionConfig, diff *Diff) bool {
 	leftIndex := make(map[string]int)
 	leftM := make(map[string]functionvm.FunctionConfig)
 	for idx, l := range left {
@@ -251,10 +248,7 @@ func diffFunctions(left, right []functionvm.FunctionConfig, diff *Diff) (bool, e
 		l, ok := leftM[r.Name]
 		delete(leftM, r.Name)
 		if ok {
-			functionDifferent, err := diffFunction(l, r, diff)
-			if err != nil {
-				return false, err
-			}
+			functionDifferent := diffFunction(l, r, diff)
 			different = functionDifferent || different
 			continue
 		}
@@ -270,17 +264,18 @@ func diffFunctions(left, right []functionvm.FunctionConfig, diff *Diff) (bool, e
 	for _, idx := range removed {
 		diff.Removed.Functions = append(diff.Removed.Functions, left[idx])
 	}
-	return different, nil
+	return different
 }
 
-func diffFunction(left, right functionvm.FunctionConfig, diff *Diff) (bool, error) {
+func diffFunction(left, right functionvm.FunctionConfig, diff *Diff) bool {
 	if reflect.DeepEqual(left, right) {
-		return false, nil
+		return false
 	}
 	diff.Modified.Functions = append(diff.Modified.Functions, right)
-	return true, nil
+	return true
 }
 
+//nolint:dupl
 func diffServices(left, right []Service, diff *Diff) (bool, error) {
 	leftIndex := make(map[string]int)
 	leftM := make(map[string]Service)

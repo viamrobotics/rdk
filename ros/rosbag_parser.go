@@ -7,14 +7,14 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"github.com/starship-technologies/gobag/rosbag"
-
 	"go.viam.com/utils"
 )
 
-// ReadBag reads the contents of a rosbag into a gobag data structure
+// ReadBag reads the contents of a rosbag into a gobag data structure.
 func ReadBag(filename string, logger golog.Logger) (*rosbag.RosBag, error) {
 	logger.Debugw("working with bag file", "name", filename)
 
+	//nolint:gosec
 	f, err := os.Open(filename)
 	defer utils.UncheckedErrorFunc(f.Close)
 	if err != nil {
@@ -39,7 +39,6 @@ func WriteTopicsJSON(rb *rosbag.RosBag, startTime, endTime int64, topicsFilter [
 		timeFilterFunc = func(timestamp int64) bool {
 			return true
 		}
-
 	} else {
 		timeFilterFunc = func(timestamp int64) bool {
 			return timestamp >= startTime && timestamp <= endTime

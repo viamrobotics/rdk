@@ -25,6 +25,7 @@ func Search(filter SearchFilter, includeDevice func(vendorID, productID int) boo
 		return nil
 	}
 	searchPath := func(sysPath string) []Description {
+		//nolint:gosec
 		devicesDir, err := os.Open(sysPath)
 		if err != nil {
 			return nil
@@ -43,11 +44,13 @@ func Search(filter SearchFilter, includeDevice func(vendorID, productID int) boo
 			if !filepath.IsAbs(linkedFile) {
 				linkedFile = filepath.Join(sysPath, linkedFile)
 			}
+			//nolint:gosec
 			ueventFile, err := os.Open(filepath.Join(linkedFile, "../uevent"))
 			if err != nil {
 				continue
 			}
 			defer utils.UncheckedErrorFunc(ueventFile.Close)
+			//nolint:gosec
 			ttyFile, err := os.Open(filepath.Join(linkedFile, "./tty"))
 			if err != nil {
 				continue

@@ -1,20 +1,19 @@
+// Package fake implements a fake IMU.
 package fake
 
 import (
 	"context"
 	"sync"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
-	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/spatialmath"
 
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/spatialmath"
 )
 
 func init() {

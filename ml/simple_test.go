@@ -32,13 +32,13 @@ func _makeSimpleTest() ([][]float64, []int) {
 	return data, correct
 }
 
-func _checkCorrectness(t *testing.T, desc string, theClassifier Classifier, data [][]float64, correct []int) {
+func _checkCorrectness(t *testing.T, theClassifier Classifier, data [][]float64, correct []int) {
+	t.Helper()
 	for x, row := range data {
 		got, err := theClassifier.Classify(row)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, got, test.ShouldResemble, correct[x])
 	}
-
 }
 
 func TestGLSimple1(t *testing.T) {
@@ -53,7 +53,7 @@ func TestGLSimple1(t *testing.T) {
 	err := c.Train(data, correct)
 	test.That(t, err, test.ShouldBeNil)
 
-	_checkCorrectness(t, "TestGLSimple1", c, data, correct)
+	_checkCorrectness(t, c, data, correct)
 }
 
 func TestGLSimpleNN1(t *testing.T) {
@@ -63,11 +63,11 @@ func TestGLSimpleNN1(t *testing.T) {
 	err := c.Train(data, correct)
 	test.That(t, err, test.ShouldBeNil)
 
-	_checkCorrectness(t, "TestGLSimpleNN1 - a", c, data, correct)
+	_checkCorrectness(t, c, data, correct)
 
 	for _, r := range data {
-		r[2] = r[2] + 1
+		r[2]++
 	}
 
-	_checkCorrectness(t, "TestGLSimpleNN1 - b", c, data, correct)
+	_checkCorrectness(t, c, data, correct)
 }

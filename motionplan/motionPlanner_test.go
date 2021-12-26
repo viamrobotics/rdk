@@ -4,29 +4,28 @@ import (
 	"context"
 	"testing"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	frame "go.viam.com/rdk/referenceframe"
-	spatial "go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
-
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 var (
-	home7 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
-	home6 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	home7 = referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
+	home6 = referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 )
 
-// This should test a simple linear motion
+// This should test a simple linear motion.
 func TestSimpleMotion(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
+	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	mp, err := NewCBiRRTMotionPlanner(m, nCPU/4, logger)
 	test.That(t, err, test.ShouldBeNil)
-	//~ mp.AddConstraint("orientation", NewPoseConstraint())
 
 	// Test ability to arrive at another position
 	pos := &commonpb.Pose{
@@ -40,10 +39,10 @@ func TestSimpleMotion(t *testing.T) {
 	test.That(t, len(path), test.ShouldNotEqual, 0)
 }
 
-// This should test a simple linear motion on a longer path, with a no-spill constraint
+// This should test a simple linear motion on a longer path, with a no-spill constraint.
 func TestComplexMotion(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
+	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	mp, err := NewCBiRRTMotionPlanner(m, nCPU/4, logger)
@@ -78,10 +77,10 @@ func TestComplexMotion(t *testing.T) {
 	test.That(t, len(path), test.ShouldNotEqual, 0)
 }
 
-// This should test a simple linear motion
+// This should test a simple linear motion.
 func TestSimpleMotionUR5(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
+	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := NewCBiRRTMotionPlanner(m, nCPU/4, logger)
 	test.That(t, err, test.ShouldBeNil)

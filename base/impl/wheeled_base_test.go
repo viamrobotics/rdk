@@ -6,14 +6,13 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/testutils/inject"
-
-	"go.viam.com/test"
 )
 
 func TestFourWheelBase1(t *testing.T) {
@@ -72,9 +71,9 @@ func TestFourWheelBase1(t *testing.T) {
 		err := base.Stop(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = base.allMotors[0].Go(context.Background(), 1)
+		err = base.allMotors[0].Go(ctx, 1)
 		test.That(t, err, test.ShouldBeNil)
-		isOn, err := base.allMotors[0].IsOn(context.Background())
+		isOn, err := base.allMotors[0].IsOn(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isOn, test.ShouldBeTrue)
 
@@ -82,7 +81,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsOn(context.Background())
+			isOn, err := m.IsOn(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
@@ -91,26 +90,24 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsOn(context.Background())
+			isOn, err := m.IsOn(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
-
 	})
 
-	test.That(t, base.Close(), test.ShouldBeNil)
+	test.That(t, base.Close(context.Background()), test.ShouldBeNil)
 	t.Run("go no block", func(t *testing.T) {
 		err := base.MoveStraight(ctx, 10000, 1000, false)
 		test.That(t, err, test.ShouldBeNil)
 		for _, m := range base.allMotors {
-			isOn, err := m.IsOn(context.Background())
+			isOn, err := m.IsOn(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeTrue)
 		}
 
 		err = base.Stop(ctx)
 		test.That(t, err, test.ShouldBeNil)
-
 	})
 	t.Run("go block", func(t *testing.T) {
 		go func() {
@@ -125,11 +122,10 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsOn(context.Background())
+			isOn, err := m.IsOn(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
-
 	})
 	// Spin tests
 	t.Run("spin math", func(t *testing.T) {
@@ -148,21 +144,19 @@ func TestFourWheelBase1(t *testing.T) {
 		rpms, rotations = base.spinMath(-90, -10)
 		test.That(t, rpms, test.ShouldAlmostEqual, 7.5, 0.001)
 		test.That(t, rotations, test.ShouldAlmostEqual, 0.0785, 0.001)
-
 	})
 	t.Run("spin no block", func(t *testing.T) {
 		err := base.Spin(ctx, 5, 5, false)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsOn(context.Background())
+			isOn, err := m.IsOn(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeTrue)
 		}
 
 		err = base.Stop(ctx)
 		test.That(t, err, test.ShouldBeNil)
-
 	})
 	t.Run("spin block", func(t *testing.T) {
 		go func() {
@@ -177,15 +171,13 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsOn(context.Background())
+			isOn, err := m.IsOn(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
-
 	})
 	// Arc tests
 	t.Run("arc math", func(t *testing.T) {
-
 		rpms, rotations := base.arcMath(1000, 1000, 10)
 		test.That(t, rpms[0], test.ShouldAlmostEqual, 60.052, 0.01)
 		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.01, .01)
@@ -233,11 +225,9 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, rotations[0], test.ShouldAlmostEqual, 0.99, .01)
 		test.That(t, rpms[1], test.ShouldAlmostEqual, 60.052, 0.01)
 		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.01, .01)
-
 	})
 
 	t.Run("arc math zero distance", func(t *testing.T) {
-
 		rpms, rotations := base.arcMath(0, 10, 90)
 		test.That(t, rpms[0], test.ShouldAlmostEqual, 7.5, .001)
 		test.That(t, rotations[0], test.ShouldAlmostEqual, .0785, .001)
@@ -249,11 +239,9 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, rotations[0], test.ShouldAlmostEqual, .0785, .001)
 		test.That(t, rpms[1], test.ShouldAlmostEqual, 7.5, .001)
 		test.That(t, rotations[1], test.ShouldAlmostEqual, .0785, .001)
-
 	})
 
 	t.Run("arc math zero angle", func(t *testing.T) {
-
 		rpms, rotations := base.arcMath(1000, 1000, 0)
 		test.That(t, rpms[0], test.ShouldEqual, 60.0)
 		test.That(t, rotations[0], test.ShouldEqual, 1.0)
@@ -265,14 +253,12 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, rotations[0], test.ShouldEqual, 1.0)
 		test.That(t, rpms[1], test.ShouldEqual, -60.0)
 		test.That(t, rotations[1], test.ShouldEqual, 1.0)
-
 	})
 
 	t.Run("arc math zero speed", func(t *testing.T) {
 		err := base.MoveArc(ctx, 1, 0, 1, true)
 		test.That(t, err, test.ShouldBeError, errors.New("cannot block unless you have a speed"))
 	})
-
 }
 
 func TestWheeledBaseConstructor(t *testing.T) {
@@ -312,5 +298,4 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	test.That(t, len(base.left), test.ShouldEqual, 2)
 	test.That(t, len(base.right), test.ShouldEqual, 2)
 	test.That(t, len(base.allMotors), test.ShouldEqual, 4)
-
 }

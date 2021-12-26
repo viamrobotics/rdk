@@ -4,6 +4,7 @@ package inject
 import (
 	"context"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
@@ -21,8 +22,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
-
-	"github.com/edaniels/golog"
 )
 
 // Robot is an injected robot.
@@ -58,7 +57,7 @@ type Robot struct {
 	ConfigFunc                func(ctx context.Context) (*config.Config, error)
 	StatusFunc                func(ctx context.Context) (*pb.Status, error)
 	LoggerFunc                func() golog.Logger
-	CloseFunc                 func() error
+	CloseFunc                 func(ctx context.Context) error
 	RefreshFunc               func(ctx context.Context) error
 }
 
@@ -303,11 +302,11 @@ func (r *Robot) Logger() golog.Logger {
 }
 
 // Close calls the injected Close or the real version.
-func (r *Robot) Close() error {
+func (r *Robot) Close(ctx context.Context) error {
 	if r.CloseFunc == nil {
-		return utils.TryClose(r.Robot)
+		return utils.TryClose(ctx, r.Robot)
 	}
-	return r.CloseFunc()
+	return r.CloseFunc(ctx)
 }
 
 // Refresh calls the injected Refresh or the real version.

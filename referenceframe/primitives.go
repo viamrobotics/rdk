@@ -4,7 +4,6 @@ import (
 	"context"
 
 	pb "go.viam.com/rdk/proto/api/component/v1"
-
 	"go.viam.com/rdk/utils"
 )
 
@@ -15,7 +14,7 @@ type Input struct {
 	Value float64
 }
 
-// FloatsToInputs wraps a slice of floats in Inputs
+// FloatsToInputs wraps a slice of floats in Inputs.
 func FloatsToInputs(floats []float64) []Input {
 	inputs := make([]Input, len(floats))
 	for i, f := range floats {
@@ -24,7 +23,7 @@ func FloatsToInputs(floats []float64) []Input {
 	return inputs
 }
 
-// InputsToFloats unwraps Inputs to raw floats
+// InputsToFloats unwraps Inputs to raw floats.
 func InputsToFloats(inputs []Input) []float64 {
 	floats := make([]float64, len(inputs))
 	for i, f := range inputs {
@@ -38,7 +37,7 @@ func InputsToJointPos(inputs []Input) *pb.ArmJointPositions {
 	return JointPositionsFromRadians(InputsToFloats(inputs))
 }
 
-// JointPosToInputs will take a pb.JointPositions which has values in Degrees, convert to Radians and wrap in Inputs
+// JointPosToInputs will take a pb.JointPositions which has values in Degrees, convert to Radians and wrap in Inputs.
 func JointPosToInputs(jp *pb.ArmJointPositions) []Input {
 	floats := JointPositionsToRadians(jp)
 	return FloatsToInputs(floats)
@@ -66,7 +65,7 @@ func JointPositionsFromRadians(radians []float64) *pb.ArmJointPositions {
 
 // InputEnabled is a standard interface for all things that interact with the frame system
 // This allows us to figure out where they currently are, and then move them.
-// Input units are always in meters or radians
+// Input units are always in meters or radians.
 type InputEnabled interface {
 	CurrentInputs(ctx context.Context) ([]Input, error)
 	GoToInputs(ctx context.Context, goal []Input) error
@@ -74,7 +73,7 @@ type InputEnabled interface {
 
 // InterpolateInputs will return a set of inputs that are the specified percent between the two given sets of
 // inputs. For example, setting by to 0.5 will return the inputs halfway between the from/to values, and 0.25 would
-// return one quarter of the way from "from" to "to"
+// return one quarter of the way from "from" to "to".
 func InterpolateInputs(from, to []Input, by float64) []Input {
 	var newVals []Input
 	for i, j1 := range from {

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"go.viam.com/rdk/usb"
-
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/usb"
 )
 
 func TestSearch(t *testing.T) {
@@ -17,16 +17,22 @@ func TestSearch(t *testing.T) {
 	}{
 		{SearchFilter{}, "", nil},
 		{SearchFilter{}, "text", nil},
-		{SearchFilter{}, out1, []Description{
-			{Type: TypeArduino, Path: "/dev/tty.usbserial-0001"}},
+		{
+			SearchFilter{}, out1, []Description{
+				{Type: TypeArduino, Path: "/dev/tty.usbserial-0001"},
+			},
 		},
-		{SearchFilter{Type: TypeArduino}, out1, []Description{
-			{Type: TypeArduino, Path: "/dev/tty.usbserial-0001"}},
+		{
+			SearchFilter{Type: TypeArduino}, out1, []Description{
+				{Type: TypeArduino, Path: "/dev/tty.usbserial-0001"},
+			},
 		},
 		{SearchFilter{Type: TypeJetson}, out1, nil},
 		{SearchFilter{}, out2, nil},
-		{SearchFilter{}, out3, []Description{
-			{Type: TypeArduino, Path: "/dev/tty.usbserial-0001"}},
+		{
+			SearchFilter{}, out3, []Description{
+				{Type: TypeArduino, Path: "/dev/tty.usbserial-0001"},
+			},
 		},
 		{SearchFilter{}, out4, nil},
 	} {

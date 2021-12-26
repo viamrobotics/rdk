@@ -3,14 +3,13 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"strings"
 
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rlog"
 )
 
 func main() {
-
 	hardMin := flag.Int("min", 0, "min depth")
 	hardMax := flag.Int("max", int(rimage.MaxDepth), "max depth")
 
@@ -24,8 +23,7 @@ func main() {
 	var pc *rimage.ImageWithDepth
 	var err error
 
-	fn := flag.Arg(0)
-	if strings.HasSuffix(fn, ".both.gz") {
+	if fn := flag.Arg(0); strings.HasSuffix(fn, ".both.gz") {
 		pc, err = rimage.ReadBothFromFile(fn, false) // just extracting depth data
 		if pc != nil {
 			dm = pc.Depth
@@ -45,11 +43,10 @@ func main() {
 
 	if pc != nil {
 		fn2 := flag.Arg(1) + "-color.png"
-		fmt.Println(fn2)
+		rlog.Logger.Info(fn2)
 		err = pc.Color.WriteTo(fn2)
 		if err != nil {
 			panic(err)
 		}
-
 	}
 }

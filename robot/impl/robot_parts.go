@@ -7,7 +7,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
@@ -56,7 +55,7 @@ func newRobotParts(logger golog.Logger, opts ...client.RobotClientOption) *robot
 }
 
 // fixType ensures that the component has correct type information.
-func fixType(c config.Component, whichType config.ComponentType, pos int) config.Component {
+func fixType(c config.Component, whichType config.ComponentType) config.Component {
 	if c.Type == "" {
 		c.Type = whichType
 	} else if c.Type != whichType {
@@ -72,7 +71,7 @@ func (parts *robotParts) addRemote(r *remoteRobot, c config.Remote) {
 
 // AddBase adds a base to the parts.
 func (parts *robotParts) AddBase(b base.Base, c config.Component) {
-	c = fixType(c, config.ComponentTypeBase, len(parts.bases))
+	c = fixType(c, config.ComponentTypeBase)
 	if proxy, ok := b.(*proxyBase); ok {
 		b = proxy.actual
 	}
@@ -81,7 +80,7 @@ func (parts *robotParts) AddBase(b base.Base, c config.Component) {
 
 // AddSensor adds a sensor to the parts.
 func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
-	c = fixType(c, config.ComponentTypeSensor, len(parts.sensors))
+	c = fixType(c, config.ComponentTypeSensor)
 	switch pType := s.(type) {
 	case *proxySensor:
 		parts.sensors[c.Name] = &proxySensor{actual: pType.actual}
@@ -341,38 +340,38 @@ func (parts *robotParts) Clone() *robotParts {
 }
 
 // Close attempts to close/stop all parts.
-func (parts *robotParts) Close() error {
+func (parts *robotParts) Close(ctx context.Context) error {
 	var allErrs error
 	if err := parts.processManager.Stop(); err != nil {
 		allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error stopping process manager"))
 	}
 
 	for _, x := range parts.services {
-		if err := utils.TryClose(x); err != nil {
+		if err := utils.TryClose(ctx, x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing service"))
 		}
 	}
 
 	for _, x := range parts.remotes {
-		if err := utils.TryClose(x); err != nil {
+		if err := utils.TryClose(ctx, x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing remote"))
 		}
 	}
 
 	for _, x := range parts.bases {
-		if err := utils.TryClose(x); err != nil {
+		if err := utils.TryClose(ctx, x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing base"))
 		}
 	}
 
 	for _, x := range parts.sensors {
-		if err := utils.TryClose(x); err != nil {
+		if err := utils.TryClose(ctx, x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing sensor"))
 		}
 	}
 
 	for _, x := range parts.resources {
-		if err := utils.TryClose(x); err != nil {
+		if err := utils.TryClose(ctx, x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing resource"))
 		}
 	}
@@ -479,6 +478,10 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 				return err
 			}
 			parts.AddSensor(sensorDevice, c)
+		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
+			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
+			config.ComponentTypeMotor, config.ComponentTypeServo:
+			fallthrough
 		default:
 			r, err := r.newResource(ctx, c)
 			if err != nil {
@@ -729,9 +732,9 @@ type PartsMergeResult struct {
 }
 
 // Process integrates the results into the given parts.
-func (result *PartsMergeResult) Process(parts *robotParts) error {
+func (result *PartsMergeResult) Process(ctx context.Context, parts *robotParts) error {
 	for _, proc := range result.ReplacedProcesses {
-		if replaced, err := parts.processManager.AddProcess(context.Background(), proc, false); err != nil {
+		if replaced, err := parts.processManager.AddProcess(ctx, proc, false); err != nil {
 			return err
 		} else if replaced != nil {
 			return errors.Errorf("unexpected process replacement %v", replaced)
@@ -833,7 +836,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			old.replace(v)
+			old.replace(ctx, v)
 		}
 	}
 
@@ -844,7 +847,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			old.replace(v)
+			old.replace(ctx, v)
 		}
 	}
 
@@ -876,7 +879,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 			if !ok {
 				return nil, errors.Errorf("new type %T is not reconfigurable", v)
 			}
-			if err := oldPart.Reconfigure(newPart); err != nil {
+			if err := oldPart.Reconfigure(ctx, newPart); err != nil {
 				return nil, err
 			}
 		}
@@ -933,7 +936,7 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 
 // FilterFromConfig returns a shallow copy of the parts reflecting
 // a given config.
-func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logger) (*robotParts, error) {
+func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Config, logger golog.Logger) (*robotParts, error) {
 	filtered := newRobotParts(logger, parts.robotClientOpts...)
 
 	for _, conf := range conf.Processes {
@@ -941,7 +944,7 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 		if !ok {
 			continue
 		}
-		if _, err := filtered.processManager.AddProcess(context.Background(), proc, false); err != nil {
+		if _, err := filtered.processManager.AddProcess(ctx, proc, false); err != nil {
 			return nil, err
 		}
 	}
@@ -968,6 +971,10 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 				continue
 			}
 			filtered.AddSensor(part, compConf)
+		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
+			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
+			config.ComponentTypeMotor, config.ComponentTypeServo:
+			fallthrough
 		default:
 			rName := compConf.ResourceName()
 			resource, ok := parts.ResourceByName(rName)

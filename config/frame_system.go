@@ -1,13 +1,13 @@
 package config
 
 import (
+	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
+
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
-
-	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 )
 
 // FrameSystemPart is used to collect all the info need from a named robot part to build the frame node in a frame system.
@@ -16,13 +16,13 @@ import (
 type FrameSystemPart struct {
 	Name        string
 	FrameConfig *Frame
-	ModelFrame  *referenceframe.Model
+	ModelFrame  referenceframe.Model
 }
 
-// ToProtobuf turns all the interfaces into serializable types
+// ToProtobuf turns all the interfaces into serializable types.
 func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	if part.FrameConfig == nil {
-		return nil, nil
+		return nil, referenceframe.ErrNoModelInformation
 	}
 	pose := spatialmath.PoseToProtobuf(part.FrameConfig.Pose())
 	convertedPose := &pb.Pose{
@@ -50,11 +50,8 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	}, nil
 }
 
-// ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart
+// ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart.
 func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, error) {
-	if fsc == nil {
-		return nil, nil
-	}
 	convertedPose := &commonpb.Pose{
 		X:     fsc.FrameConfig.Pose.X,
 		Y:     fsc.FrameConfig.Pose.Y,
@@ -72,18 +69,22 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 		Translation: translation,
 		Orientation: pose.Orientation(),
 	}
-	modelFrame, err := referenceframe.ParseJSON(fsc.ModelJson, fsc.Name)
-	if err != nil {
-		return nil, err
-	}
-	return &FrameSystemPart{
+	part := &FrameSystemPart{
 		Name:        fsc.Name,
 		FrameConfig: frameConfig,
-		ModelFrame:  modelFrame,
-	}, nil
+	}
+	modelFrame, err := referenceframe.ParseJSON(fsc.ModelJson, fsc.Name)
+	if err != nil {
+		if errors.Is(err, referenceframe.ErrNoModelInformation) {
+			return part, nil
+		}
+		return nil, err
+	}
+	part.ModelFrame = modelFrame
+	return part, nil
 }
 
-// CreateFramesFromPart will gather the frame information and build the frames from the given robot part
+// CreateFramesFromPart will gather the frame information and build the frames from the given robot part.
 func CreateFramesFromPart(part *FrameSystemPart, logger golog.Logger) (referenceframe.Frame, referenceframe.Frame, error) {
 	if part == nil || part.FrameConfig == nil {
 		return nil, nil, errors.New("config for FrameSystemPart is nil")
