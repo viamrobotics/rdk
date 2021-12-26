@@ -8,8 +8,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-
-	rdkutils "go.viam.com/rdk/utils"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
@@ -19,6 +17,7 @@ import (
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/sensor/forcematrix"
 	"go.viam.com/rdk/slipdetection"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // ModelName is used to register the sensor to a model name.
@@ -68,8 +67,9 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(forceMatrixConfig, config.ConvertedAttributes)
 			}
-			return newForceMatrix(ctx, r, forceMatrixConfig, logger)
-		}})
+			return newForceMatrix(r, forceMatrixConfig, logger)
+		},
+	})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeSensor,
 		ModelName, func(attributes config.AttributeMap) (interface{}, error) {
@@ -105,7 +105,7 @@ type ForceMatrixWithMux struct {
 
 // newForceMatrix returns a new ForceMatrixWithMux given column gpio pins, mux gpio pins, io pins, and
 // an analog channel.
-func newForceMatrix(ctx context.Context, r robot.Robot, c *ForceMatrixConfig, logger golog.Logger) (*ForceMatrixWithMux, error) {
+func newForceMatrix(r robot.Robot, c *ForceMatrixConfig, logger golog.Logger) (*ForceMatrixWithMux, error) {
 	b, exists := r.BoardByName(c.BoardName)
 	if !exists {
 		return nil, errors.Errorf("need a board for force sensor, named (%v)", c.BoardName)

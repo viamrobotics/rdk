@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// convertedAttributes is a helper for testing if validation works
+// convertedAttributes is a helper for testing if validation works.
 type convertedAttributes struct {
 	thing string
 }
