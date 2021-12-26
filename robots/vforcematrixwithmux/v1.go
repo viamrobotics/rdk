@@ -9,7 +9,8 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
-	"go.viam.com/utils"
+	rdkutils "go.viam.com/rdk/utils"
+	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
@@ -65,7 +66,7 @@ func init() {
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 			forceMatrixConfig, ok := config.ConvertedAttributes.(*ForceMatrixConfig)
 			if !ok {
-				return nil, errors.Errorf("(%v) is not a valid ForceMatrixConfig", config.ConvertedAttributes)
+				return nil, rdkutils.NewUnexpectedTypeError(forceMatrixConfig, config.ConvertedAttributes)
 			}
 			return newForceMatrix(ctx, r, forceMatrixConfig, logger)
 		}})
