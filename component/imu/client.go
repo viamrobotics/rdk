@@ -7,11 +7,10 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/spatialmath"
-
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // serviceClient is a client satisfies the imu.proto contract.
@@ -42,12 +41,12 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 	return sc
 }
 
-// Close cleanly closes the underlying connections
+// Close cleanly closes the underlying connections.
 func (sc *serviceClient) Close() error {
 	return sc.conn.Close()
 }
 
-// client is an IMU client
+// client is an IMU client.
 type client struct {
 	*serviceClient
 	name string
@@ -117,7 +116,7 @@ func (c *client) Desc() sensor.Description {
 	return sensor.Description{sensor.Type(SubtypeName), ""}
 }
 
-// Close cleanly closes the underlying connections
+// Close cleanly closes the underlying connections.
 func (c *client) Close() error {
 	return c.serviceClient.Close()
 }

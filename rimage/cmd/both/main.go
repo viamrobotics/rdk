@@ -5,9 +5,8 @@ import (
 	"flag"
 	"os"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -16,8 +15,7 @@ import (
 var logger = golog.NewDevelopmentLogger("rimage_both")
 
 func main() {
-	err := realMain(os.Args[1:])
-	if err != nil {
+	if err := realMain(os.Args[1:]); err != nil {
 		logger.Fatal(err)
 	}
 }
@@ -73,8 +71,7 @@ func toLas(flags *flag.FlagSet, aligned bool) error {
 func realMain(args []string) error {
 	flags := flag.NewFlagSet("", flag.ContinueOnError)
 	aligned := flags.Bool("aligned", false, "color and depth image are already aligned")
-	err := flags.Parse(args)
-	if err != nil {
+	if err := flags.Parse(args); err != nil {
 		return err
 	}
 

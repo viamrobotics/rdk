@@ -4,11 +4,11 @@ import (
 	"testing"
 
 	"go.viam.com/test"
-
 	"go.viam.com/utils/artifact"
 )
 
 func doTest(t *testing.T, fn string, numClusters int) {
+	t.Helper()
 	img, err := NewImageFromFile(artifact.MustPath("rimage/" + fn))
 	test.That(t, err, test.ShouldBeNil)
 

@@ -10,44 +10,45 @@ import (
 	"go.viam.com/test"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
 func makeTestFS(t *testing.T) *SolvableFrameSystem {
+	t.Helper()
 	logger := golog.NewTestLogger(t)
-	fs := frame.NewEmptySimpleFrameSystem("test")
+	fs := referenceframe.NewEmptySimpleFrameSystem("test")
 
-	urOffset, err := frame.NewStaticFrame("urOffset", spatial.NewPoseFromPoint(r3.Vector{100, 100, 200}))
+	urOffset, err := referenceframe.NewStaticFrame("urOffset", spatial.NewPoseFromPoint(r3.Vector{100, 100, 200}))
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(urOffset, fs.World())
-	gantryOffset, err := frame.NewStaticFrame("gantryOffset", spatial.NewPoseFromPoint(r3.Vector{-50, -50, -200}))
+	gantryOffset, err := referenceframe.NewStaticFrame("gantryOffset", spatial.NewPoseFromPoint(r3.Vector{-50, -50, -200}))
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantryOffset, fs.World())
 
-	limits := []frame.Limit{{math.Inf(-1), math.Inf(1)}, {math.Inf(-1), math.Inf(1)}}
+	limits := []referenceframe.Limit{{math.Inf(-1), math.Inf(1)}, {math.Inf(-1), math.Inf(1)}}
 
-	gantry, err := frame.NewTranslationalFrame("gantry", []bool{true, true, false}, limits)
+	gantry, err := referenceframe.NewTranslationalFrame("gantry", []bool{true, true, false}, limits)
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantry, gantryOffset)
 
-	modelXarm, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
+	modelXarm, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelXarm, gantry)
 
-	modelUR5e, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
+	modelUR5e, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelUR5e, urOffset)
 
 	// Note that positive Z is always "forwards". If the position of the arm is such that it is pointing elsewhere,
 	// the resulting translation will be similarly oriented
-	urCamera, err := frame.NewStaticFrame("urCamera", spatial.NewPoseFromPoint(r3.Vector{0, 0, 30}))
+	urCamera, err := referenceframe.NewStaticFrame("urCamera", spatial.NewPoseFromPoint(r3.Vector{0, 0, 30}))
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(urCamera, modelUR5e)
 
 	// Add static frame for the gripper
-	xArmVgripper, err := frame.NewStaticFrame("xArmVgripper", spatial.NewPoseFromPoint(r3.Vector{0, 0, 200}))
+	xArmVgripper, err := referenceframe.NewStaticFrame("xArmVgripper", spatial.NewPoseFromPoint(r3.Vector{0, 0, 200}))
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(xArmVgripper, modelXarm)
 
@@ -56,11 +57,11 @@ func makeTestFS(t *testing.T) *SolvableFrameSystem {
 
 func TestFrameSystemSolver(t *testing.T) {
 	solver := makeTestFS(t)
-	positions := frame.StartPositions(solver)
+	positions := referenceframe.StartPositions(solver)
 
 	pointXarmGripper := r3.Vector{157., -50, -288}
 
-	transformPoint, err := solver.TransformFrame(positions, solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
+	transformPoint, err := solver.TransformFrame(positions, solver.GetFrame("xArmVgripper"), solver.GetFrame(referenceframe.World))
 
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint.Point().X, test.ShouldAlmostEqual, pointXarmGripper.X)
@@ -82,10 +83,10 @@ func TestFrameSystemSolver(t *testing.T) {
 		positions,
 		spatial.NewPoseFromProtobuf(goal1),
 		solver.GetFrame("xArmVgripper"),
-		solver.GetFrame(frame.World),
+		solver.GetFrame(referenceframe.World),
 	)
 	test.That(t, err, test.ShouldBeNil)
-	solvedPose, err := solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
+	solvedPose, err := solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("xArmVgripper"), solver.GetFrame(referenceframe.World))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solvedPose.Point().X, test.ShouldAlmostEqual, goal1.X, 0.01)
 	test.That(t, solvedPose.Point().Y, test.ShouldAlmostEqual, goal1.Y, 0.01)
@@ -126,7 +127,7 @@ func TestFrameSystemSolver(t *testing.T) {
 
 func TestSliceUniq(t *testing.T) {
 	solver := makeTestFS(t)
-	slice := []frame.Frame{}
+	slice := []referenceframe.Frame{}
 	slice = append(slice, solver.GetFrame("urCamera"))
 	slice = append(slice, solver.GetFrame("gantryOffset"))
 	slice = append(slice, solver.GetFrame("xArmVgripper"))
@@ -150,7 +151,7 @@ func TestSolverFrame(t *testing.T) {
 	sf := &solverFrame{solveFrame.Name() + "_" + goalFrame.Name(), solver, frames, solveFrame, goalFrame}
 
 	// get the VerboseTransform at the zero position
-	inputs := frame.StartPositions(solver)
+	inputs := referenceframe.StartPositions(solver)
 	poseMap, err := sf.VerboseTransform(sf.mapToSlice(inputs))
 	test.That(t, err, test.ShouldBeNil)
 

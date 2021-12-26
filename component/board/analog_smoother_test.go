@@ -9,7 +9,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-
 	"go.viam.com/utils"
 )
 
@@ -30,7 +29,6 @@ func (t *testReader) Read(ctx context.Context) (int, error) {
 }
 
 func TestAnalogSmoother1(t *testing.T) {
-
 	testReader := testReader{
 		r: rand.New(rand.NewSource(11)),
 	}
@@ -58,6 +56,6 @@ func TestAnalogSmoother1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, v, test.ShouldAlmostEqual, 50.0, 10.0)
 
-	err = utils.TryClose(as)
+	err = utils.TryClose(context.Background(), as)
 	test.That(t, err, test.ShouldBeNil)
 }

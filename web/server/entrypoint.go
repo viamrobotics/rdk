@@ -1,3 +1,4 @@
+// Package server implements the entry point for running a robot web server.
 package server
 
 import (
@@ -10,8 +11,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
+	"github.com/erh/egoutil"
+	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
-
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -22,22 +28,11 @@ import (
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/web"
-
-	"github.com/edaniels/golog"
-	"github.com/erh/egoutil"
-	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 type wrappedLogger struct {
 	base  zapcore.Core
 	extra []zapcore.Field
-}
-
-func (l *wrappedLogger) Close() error {
-	return nil
 }
 
 func (l *wrappedLogger) Enabled(level zapcore.Level) bool {
@@ -53,10 +48,10 @@ func (l *wrappedLogger) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcor
 }
 
 func (l *wrappedLogger) Write(e zapcore.Entry, f []zapcore.Field) error {
-	new := []zapcore.Field{}
-	new = append(new, l.extra...)
-	new = append(new, f...)
-	return l.base.Write(e, new)
+	field := []zapcore.Field{}
+	field = append(field, l.extra...)
+	field = append(field, f...)
+	return l.base.Write(e, field)
 }
 
 func (l *wrappedLogger) Sync() error {
@@ -100,7 +95,7 @@ func (nl *netLogger) queueSize() int {
 	return len(nl.toLog)
 }
 
-func (nl *netLogger) Close() error {
+func (nl *netLogger) Close() {
 	// try for up to 10 seconds for log queue to clear before cancelling it
 	for i := 0; i < 1000; i++ {
 		if nl.queueSize() == 0 {
@@ -112,7 +107,6 @@ func (nl *netLogger) Close() error {
 	nl.cancel()
 	nl.activeBackgroundWorkers.Wait()
 	nl.httpClient.CloseIdleConnections()
-	return nil
 }
 
 func (nl *netLogger) Enabled(zapcore.Level) bool {
@@ -174,7 +168,9 @@ func (nl *netLogger) writeToServer(x interface{}) error {
 	if err != nil {
 		return err
 	}
-	defer utils.UncheckedErrorFunc(resp.Body.Close)
+	defer func() {
+		utils.UncheckedError(resp.Body.Close())
+	}()
 	return nil
 }
 
@@ -227,16 +223,16 @@ func (nl *netLogger) Sync() error {
 	}
 }
 
-func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, func() error, error) {
+func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, error) {
 	nl, err := newNetLogger(cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	l := logger.Desugar()
 	l = l.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 		return zapcore.NewTee(c, nl)
 	}))
-	return l.Sugar(), nl.Close, nil
+	return l.Sugar(), nil
 }
 
 // Arguments for the command.
@@ -275,19 +271,18 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 	trace.RegisterExporter(exp)
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
-	cfg, err := config.Read(argsParsed.ConfigFile)
+	cfg, err := config.Read(ctx, argsParsed.ConfigFile)
 	if err != nil {
 		return err
 	}
 
 	if cfg.Cloud != nil && cfg.Cloud.LogPath != "" {
-		var cleanup func() error
-		logger, cleanup, err = addCloudLogger(logger, cfg.Cloud)
+		logger, err = addCloudLogger(logger, cfg.Cloud)
 		if err != nil {
 			return err
 		}
 		defer func() {
-			err = multierr.Combine(err, cleanup())
+			err = multierr.Combine(err, utils.TryClose(ctx, logger))
 		}()
 	}
 
@@ -322,16 +317,16 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		return err
 	}
 	defer func() {
-		err = multierr.Combine(err, myRobot.Close())
+		err = multierr.Combine(err, myRobot.Close(context.Background()))
 	}()
 
 	// watch for and deliver changes to the robot
-	watcher, err := config.NewWatcher(cfg, logger)
+	watcher, err := config.NewWatcher(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		err = multierr.Combine(err, watcher.Close())
+		err = multierr.Combine(err, utils.TryClose(ctx, watcher))
 	}()
 	onWatchDone := make(chan struct{})
 	utils.ManagedGo(func() {
@@ -372,7 +367,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	return RunWeb(ctx, myRobot, options, logger)
 }
 
-// RunWeb starts the web server on the web service and blocks until we close it
+// RunWeb starts the web server on the web service and blocks until we close it.
 func RunWeb(ctx context.Context, r robot.Robot, o web.Options, logger golog.Logger) (err error) {
 	defer func() {
 		if err != nil {
@@ -381,7 +376,7 @@ func RunWeb(ctx context.Context, r robot.Robot, o web.Options, logger golog.Logg
 				logger.Errorw("error running web", "error", err)
 			}
 		}
-		err = multierr.Combine(err, utils.TryClose(r))
+		err = multierr.Combine(err, utils.TryClose(ctx, r))
 	}()
 	svc, ok := r.ServiceByName(robotimpl.WebSvcName)
 	if !ok {

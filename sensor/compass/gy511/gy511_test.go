@@ -6,13 +6,12 @@ import (
 	"math"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/test"
 
 	"go.viam.com/rdk/serial"
 	"go.viam.com/rdk/testutils/inject"
-
-	"github.com/edaniels/golog"
-	"go.viam.com/test"
 )
 
 func TestDevice(t *testing.T) {
@@ -25,10 +24,11 @@ func TestDevice(t *testing.T) {
 		return nil, errors.Errorf("cannot open %s", devicePath)
 	}
 	prevOpenFunc := serial.Open
+	var injectedOpenDeviceFunc func(devicePath string) io.ReadWriteCloser
 	openDeviceFunc := defaultOpenFunc
 	serial.Open = func(devicePath string) (io.ReadWriteCloser, error) {
-		if openDeviceFunc == nil {
-			return prevOpenFunc(devicePath)
+		if injectedOpenDeviceFunc != nil {
+			return injectedOpenDeviceFunc(devicePath), nil
 		}
 		return openDeviceFunc(devicePath)
 	}
@@ -40,7 +40,7 @@ func TestDevice(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot")
 
-	openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
+	injectedOpenDeviceFunc = func(_ string) io.ReadWriteCloser {
 		return &inject.ReadWriteCloser{
 			ReadFunc: func(p []byte) (int, error) {
 				return 0, errors.New("whoops1")
@@ -51,7 +51,7 @@ func TestDevice(t *testing.T) {
 			CloseFunc: func() error {
 				return errors.New("whoops3")
 			},
-		}, nil
+		}
 	}
 
 	_, err = New(context.Background(), "/", logger)
@@ -60,9 +60,9 @@ func TestDevice(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops3")
 
 	rd := NewRawGY511()
-	openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
+	injectedOpenDeviceFunc = func(_ string) io.ReadWriteCloser {
 		rd.SetHeading(5)
-		return rd, nil
+		return rd
 	}
 
 	t.Run("normal device", func(t *testing.T) {

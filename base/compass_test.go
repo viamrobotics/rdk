@@ -5,9 +5,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/base"
@@ -25,7 +24,7 @@ func TestAugmentReduce(t *testing.T) {
 	comp := &inject.Compass{}
 	aug := base.AugmentWithCompass(dev, comp, logger)
 	test.That(t, aug, test.ShouldNotEqual, dev)
-	var baseDev *base.Base = nil
+	var baseDev *base.Base
 	test.That(t, aug, test.ShouldImplement, baseDev)
 
 	test.That(t, base.Reduce(aug), test.ShouldEqual, dev)

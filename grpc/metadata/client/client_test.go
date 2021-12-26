@@ -5,6 +5,11 @@ import (
 	"net"
 	"testing"
 
+	"github.com/edaniels/golog"
+	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
+
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/grpc/metadata/client"
 	"go.viam.com/rdk/grpc/metadata/server"
@@ -12,11 +17,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-
-	"github.com/edaniels/golog"
-	"go.viam.com/test"
-	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 )
 
 var newResource = resource.NewName(

@@ -1,11 +1,12 @@
+// Package fake implements a fake board.
 package fake
 
 import (
 	"context"
 	"sync"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
@@ -14,8 +15,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-
-	"github.com/edaniels/golog"
 )
 
 const modelName = "fake"
@@ -40,7 +39,10 @@ func init() {
 
 // NewBoard returns a new fake board.
 func NewBoard(ctx context.Context, config config.Component, logger golog.Logger) (*Board, error) {
-	boardConfig := config.ConvertedAttributes.(*board.Config)
+	boardConfig, ok := config.ConvertedAttributes.(*board.Config)
+	if !ok {
+		return nil, errors.Errorf("expected converted attributes to be a *board.Config but got %T", config.ConvertedAttributes)
+	}
 
 	b := &Board{
 		Name:     config.Name,
@@ -204,16 +206,16 @@ func (b *Board) ModelAttributes() board.ModelAttributes {
 }
 
 // Close attempts to cleanly close each part of the board.
-func (b *Board) Close() error {
+func (b *Board) Close(ctx context.Context) error {
 	b.CloseCount++
 	var err error
 
 	for _, analog := range b.Analogs {
-		err = multierr.Combine(err, utils.TryClose(analog))
+		err = multierr.Combine(err, utils.TryClose(ctx, analog))
 	}
 
 	for _, digital := range b.Digitals {
-		err = multierr.Combine(err, utils.TryClose(digital))
+		err = multierr.Combine(err, utils.TryClose(ctx, digital))
 	}
 	return err
 }
@@ -276,27 +278,27 @@ func (h *I2CHandle) Read(ctx context.Context, count int) ([]byte, error) {
 	return ret[:count], nil
 }
 
-// ReadByteData reads a byte from the i2c channelC
+// ReadByteData reads a byte from the i2c channelC.
 func (h *I2CHandle) ReadByteData(ctx context.Context, register byte) (byte, error) {
 	return 0, errors.New("finish me")
 }
 
-// WriteByteData writes a byte to the i2c channelC
+// WriteByteData writes a byte to the i2c channelC.
 func (h *I2CHandle) WriteByteData(ctx context.Context, register byte, data byte) error {
 	return errors.New("finish me")
 }
 
-// ReadWordData reads a word from the i2c channelC
+// ReadWordData reads a word from the i2c channelC.
 func (h *I2CHandle) ReadWordData(ctx context.Context, register byte) (uint16, error) {
 	return 0, errors.New("finish me")
 }
 
-// WriteWordData writes a word to the i2c channelC
+// WriteWordData writes a word to the i2c channelC.
 func (h *I2CHandle) WriteWordData(ctx context.Context, register byte, data uint16) error {
 	return errors.New("finish me")
 }
 
-// Close releases access to the bus
+// Close releases access to the bus.
 func (h *I2CHandle) Close() error {
 	h.bus.mu.Unlock()
 	return nil
@@ -313,7 +315,6 @@ func (a *Analog) Read(context.Context) (int, error) {
 }
 
 // Close does nothing.
-func (a *Analog) Close() error {
+func (a *Analog) Close() {
 	a.CloseCount++
-	return nil
 }

@@ -4,6 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
+	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
@@ -19,14 +22,9 @@ import (
 	functionvm "go.viam.com/rdk/function/vm"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robots/fake"
-	rdktestutils "go.viam.com/rdk/testutils"
-
 	"go.viam.com/rdk/services"
+	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-
-	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
-	"go.viam.com/test"
 )
 
 func TestPartsForRemoteRobot(t *testing.T) {
@@ -923,6 +921,7 @@ func TestPartsMergeAdd(t *testing.T) {
 	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
 	test.That(t, err, test.ShouldBeNil)
 
+	//nolint:dupl
 	checkEmpty := func(toCheck *robotParts) {
 		t.Helper()
 		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldBeEmpty)
@@ -1071,7 +1070,7 @@ func TestPartsMergeAdd(t *testing.T) {
 	checkSame(parts)
 
 	emptyParts := newRobotParts(logger)
-	test.That(t, result.Process(emptyParts), test.ShouldBeNil)
+	test.That(t, result.Process(context.Background(), emptyParts), test.ShouldBeNil)
 	checkEmpty(emptyParts)
 
 	otherRobot := setupInjectRobotWithSuffx(logger, "_other")
@@ -1249,7 +1248,7 @@ func TestPartsMergeAdd(t *testing.T) {
 	)
 
 	emptyParts = newRobotParts(logger)
-	test.That(t, result.Process(emptyParts), test.ShouldBeNil)
+	test.That(t, result.Process(context.Background(), emptyParts), test.ShouldBeNil)
 	checkEmpty(emptyParts)
 
 	sameParts := partsForRemoteRobot(injectRobot)
@@ -1406,7 +1405,7 @@ func TestPartsMergeAdd(t *testing.T) {
 	)
 
 	emptyParts = newRobotParts(logger)
-	test.That(t, result.Process(emptyParts), test.ShouldBeNil)
+	test.That(t, result.Process(context.Background(), emptyParts), test.ShouldBeNil)
 	test.That(t, utils.NewStringSet(emptyParts.RemoteNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.ArmNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.GripperNames()...), test.ShouldBeEmpty)
@@ -1426,7 +1425,7 @@ func TestPartsMergeAdd(t *testing.T) {
 		utils.NewStringSet("1", "2"),
 	)
 
-	err = result.Process(parts)
+	err = result.Process(context.Background(), parts)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected")
 }
@@ -1609,7 +1608,7 @@ func TestPartsMergeModify(t *testing.T) {
 	checkSame(parts)
 
 	emptyParts := newRobotParts(logger)
-	test.That(t, result.Process(emptyParts), test.ShouldBeNil)
+	test.That(t, result.Process(context.Background(), emptyParts), test.ShouldBeNil)
 	test.That(t, utils.NewStringSet(emptyParts.RemoteNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.ArmNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.GripperNames()...), test.ShouldBeEmpty)
@@ -1624,7 +1623,7 @@ func TestPartsMergeModify(t *testing.T) {
 	test.That(t, emptyParts.ResourceNames(), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 
-	test.That(t, result.Process(parts), test.ShouldBeNil)
+	test.That(t, result.Process(context.Background(), parts), test.ShouldBeNil)
 
 	replacementParts := newRobotParts(logger)
 	robotForRemote := &localRobot{parts: newRobotParts(logger), logger: logger}
@@ -1908,6 +1907,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
 	test.That(t, err, test.ShouldBeNil)
 
+	//nolint:dupl
 	checkEmpty := func(toCheck *robotParts) {
 		t.Helper()
 		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldBeEmpty)
@@ -1925,11 +1925,11 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 	}
 
-	filtered, err := parts.FilterFromConfig(&config.Config{}, logger)
+	filtered, err := parts.FilterFromConfig(context.Background(), &config.Config{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	checkEmpty(filtered)
 
-	filtered, err = parts.FilterFromConfig(&config.Config{
+	filtered, err = parts.FilterFromConfig(context.Background(), &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "what",
@@ -1985,7 +1985,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	checkEmpty(filtered)
 
-	filtered, err = parts.FilterFromConfig(&config.Config{
+	filtered, err = parts.FilterFromConfig(context.Background(), &config.Config{
 		Components: []config.Component{
 			{
 				Name: "what1",
@@ -1996,7 +1996,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	checkEmpty(filtered)
 
-	filtered, err = parts.FilterFromConfig(&config.Config{
+	filtered, err = parts.FilterFromConfig(context.Background(), &config.Config{
 		Components: []config.Component{
 			{
 				Name: "arm2",
@@ -2139,7 +2139,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		utils.NewStringSet("2"),
 	)
 
-	filtered, err = parts.FilterFromConfig(&config.Config{
+	filtered, err = parts.FilterFromConfig(context.Background(), &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote2",
@@ -2316,7 +2316,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		utils.NewStringSet("2"),
 	)
 
-	filtered, err = parts.FilterFromConfig(&config.Config{
+	filtered, err = parts.FilterFromConfig(context.Background(), &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote1",

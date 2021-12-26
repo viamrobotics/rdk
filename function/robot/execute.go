@@ -1,3 +1,4 @@
+// Package functionrobot exposes a robot to a function VM.
 package functionrobot
 
 import (
@@ -77,7 +78,6 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		}
 
 		return nil, motor.SetPower(context.TODO(), powerPct)
-
 	}); err != nil {
 		return nil, err
 	}

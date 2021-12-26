@@ -1,3 +1,4 @@
+// Package functionvm defines a means of abstracted code execution across compute engines.
 package functionvm
 
 // EngineName is the name of an engine, typically bound to a single

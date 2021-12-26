@@ -24,6 +24,7 @@ func (dd ChessImageProcessDebug) Process(
 	img image.Image,
 	logger golog.Logger,
 ) error {
+	t.Helper()
 	out, corners, err := dd.p(rimage.ConvertToImageWithDepth(img), logger)
 	if err != nil {
 		return err
@@ -67,7 +68,6 @@ func (dd ChessImageProcessDebug) Process(
 				}
 
 				out.Circle(p, 20, clr)
-
 			}
 
 			pCtx.GotDebugImage(out, "marked")

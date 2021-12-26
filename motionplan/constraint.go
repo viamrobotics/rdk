@@ -6,7 +6,7 @@ import (
 
 	"github.com/golang/geo/r3"
 
-	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -16,9 +16,9 @@ import (
 type ConstraintInput struct {
 	StartPos   spatial.Pose
 	EndPos     spatial.Pose
-	StartInput []frame.Input
-	EndInput   []frame.Input
-	Frame      frame.Frame
+	StartInput []referenceframe.Input
+	EndInput   []referenceframe.Input
+	Frame      referenceframe.Frame
 }
 
 // Constraint defines functions able to determine whether or not a given position is valid.
@@ -28,7 +28,7 @@ type ConstraintInput struct {
 type Constraint func(*ConstraintInput) (bool, float64)
 
 // constraintHandler is a convenient wrapper for constraint handling which is likely to be common among most motion
-// planners. Including a constraint handler as an anonymous struct member allows reuse
+// planners. Including a constraint handler as an anonymous struct member allows reuse.
 type constraintHandler struct {
 	constraints map[string]Constraint
 }
@@ -43,7 +43,7 @@ func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution 
 	}
 	steps := getSteps(ci.StartPos, ci.EndPos, resolution)
 
-	var lastGood []frame.Input
+	var lastGood []referenceframe.Input
 	interpC := ci
 
 	for i := 1; i <= steps; i++ {
@@ -89,12 +89,12 @@ func (c *constraintHandler) AddConstraint(name string, cons Constraint) {
 	c.constraints[name] = cons
 }
 
-// RemoveConstraint will remove the given constraint
+// RemoveConstraint will remove the given constraint.
 func (c *constraintHandler) RemoveConstraint(name string) {
 	delete(c.constraints, name)
 }
 
-// Constraints will list all constraints by name
+// Constraints will list all constraints by name.
 func (c *constraintHandler) Constraints() []string {
 	names := make([]string, 0, len(c.constraints))
 	for name := range c.constraints {
@@ -103,7 +103,7 @@ func (c *constraintHandler) Constraints() []string {
 	return names
 }
 
-// CheckConstraints will check a given input against all constraints
+// CheckConstraints will check a given input against all constraints.
 func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, float64) {
 	score := 0.
 
@@ -118,7 +118,7 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 }
 
 func interpolationCheck(cInput *ConstraintInput, by, epsilon float64) bool {
-	iPos, err := cInput.Frame.Transform(frame.InterpolateInputs(cInput.StartInput, cInput.EndInput, by))
+	iPos, err := cInput.Frame.Transform(referenceframe.InterpolateInputs(cInput.StartInput, cInput.EndInput, by))
 	if err != nil {
 		return false
 	}
@@ -155,7 +155,7 @@ func NewInterpolatingConstraint(epsilon float64) Constraint {
 }
 
 // NewJointConstraint returns a constraint which will sum the squared differences in each input from start to end
-// It will return false if that sum is over a specified threshold
+// It will return false if that sum is over a specified threshold.
 func NewJointConstraint(threshold float64) Constraint {
 	f := func(cInput *ConstraintInput) (bool, float64) {
 		jScore := 0.
@@ -213,7 +213,7 @@ func NewPoseFlexOVMetric(goal spatial.Pose, alpha float64) Metric {
 // function which will determine whether a point is on the plane and in a valid orientation, and 2) a distance function
 // which will bring a pose into the valid constraint space. The plane normal is assumed to point towards the valid area.
 // angle refers to the maximum unit sphere arc length deviation from the ov
-// epsilon refers to the closeness to the plane necessary to be a valid pose
+// epsilon refers to the closeness to the plane necessary to be a valid pose.
 func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Constraint, Metric) {
 	// get the constant value for the plane
 	pConst := -pt.Dot(pNorm)
@@ -230,7 +230,7 @@ func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector, writingAngle, epsilon fl
 	}
 
 	// TODO: do we need to care about trajectory here? Probably, but not yet implemented
-	gradFunc := func(from, to spatial.Pose) float64 {
+	gradFunc := func(from, _ spatial.Pose) float64 {
 		pDist := planeDist(from.Point())
 		oDist := dFunc(from.Orientation())
 		return pDist*pDist + oDist*oDist
@@ -255,7 +255,7 @@ func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector, writingAngle, epsilon fl
 // function which will determine whether a point is on the line and in a valid orientation, and 2) a distance function
 // which will bring a pose into the valid constraint space. The OV passed in defines the center of the valid orientation area.
 // angle refers to the maximum unit sphere arc length deviation from the ov
-// epsilon refers to the closeness to the line necessary to be a valid pose
+// epsilon refers to the closeness to the line necessary to be a valid pose.
 func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, orient spatial.Orientation, writingAngle, epsilon float64) (Constraint, Metric) {
 	// invert the normal to get the valid AOA OV
 	ov := orient.OrientationVectorRadians()
@@ -264,7 +264,6 @@ func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, orient spatial.Orientation
 
 	// distance from line to point
 	lineDist := func(point r3.Vector) float64 {
-
 		ab := pt1.Sub(pt2)
 		av := point.Sub(pt2)
 
@@ -280,10 +279,9 @@ func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, orient spatial.Orientation
 		dist := (ab.Cross(av)).Norm() / ab.Norm()
 
 		return dist
-
 	}
 
-	gradFunc := func(from, to spatial.Pose) float64 {
+	gradFunc := func(from, _ spatial.Pose) float64 {
 		pDist := lineDist(from.Point())
 		oDist := dFunc(from.Orientation())
 
@@ -355,13 +353,18 @@ func resolveInputsToPositions(ci *ConstraintInput) error {
 	return nil
 }
 
-// Prevents recalculation of startPos. If no startPos has been calculated, just pass nil
-func cachedInterpolateInput(ci *ConstraintInput, by float64, startInput []frame.Input, startPos spatial.Pose) (*ConstraintInput, error) {
-	new := &ConstraintInput{}
-	new.Frame = ci.Frame
-	new.StartInput = startInput
-	new.StartPos = startPos
-	new.EndInput = frame.InterpolateInputs(ci.StartInput, ci.EndInput, by)
+// Prevents recalculation of startPos. If no startPos has been calculated, just pass nil.
+func cachedInterpolateInput(
+	ci *ConstraintInput,
+	by float64,
+	startInput []referenceframe.Input,
+	startPos spatial.Pose,
+) (*ConstraintInput, error) {
+	input := &ConstraintInput{}
+	input.Frame = ci.Frame
+	input.StartInput = startInput
+	input.StartPos = startPos
+	input.EndInput = referenceframe.InterpolateInputs(ci.StartInput, ci.EndInput, by)
 
-	return new, resolveInputsToPositions(new)
+	return input, resolveInputsToPositions(input)
 }

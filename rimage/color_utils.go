@@ -15,8 +15,7 @@ func ConvertToNRGBA(c color.Color) color.NRGBA {
 
 // TheColorModel represents our Color type as a model to be
 // used for color conversions in color.Color.
-type TheColorModel struct {
-}
+type TheColorModel struct{}
 
 // Convert converts the given color into our Color type but
 // still returns it as a go color.
@@ -24,14 +23,14 @@ func (cm *TheColorModel) Convert(c color.Color) color.Color {
 	return NewColorFromColor(c)
 }
 
-// ColorDiff TODO
+// ColorDiff TODO.
 type ColorDiff struct {
 	Left  Color
 	Right Color
 	Diff  float64
 }
 
-// ColorDiffs TODO
+// ColorDiffs TODO.
 type ColorDiffs struct {
 	all        []ColorDiff
 	seenCombos map[uint64]bool // this a + b for now, which is wrong, but..
@@ -49,9 +48,7 @@ func (x *ColorDiffs) Less(i, j int) bool {
 
 // Swap swaps two diffs positionally.
 func (x *ColorDiffs) Swap(i, j int) {
-	t := x.all[i]
-	x.all[i] = x.all[j]
-	x.all[j] = t
+	x.all[i], x.all[j] = x.all[j], x.all[i]
 }
 
 // Sort sorts the diffs based on satisfying the Sort interface above.
@@ -59,7 +56,7 @@ func (x *ColorDiffs) Sort() {
 	sort.Sort(x)
 }
 
-// AddD TODO
+// AddD TODO.
 func (x *ColorDiffs) AddD(a, b Color, d float64) {
 	if x.seenCombos == nil {
 		x.seenCombos = map[uint64]bool{}
@@ -73,7 +70,7 @@ func (x *ColorDiffs) AddD(a, b Color, d float64) {
 	x.seenCombos[t] = true
 }
 
-// Add TODO
+// Add TODO.
 func (x *ColorDiffs) Add(a, b Color) {
 	d := a.Distance(b)
 	x.AddD(a, b, d)
@@ -105,7 +102,8 @@ func (x *ColorDiffs) output() string {
 
 // WriteTo writes the diff information out to a file.
 func (x *ColorDiffs) WriteTo(fn string) error {
-	return ioutil.WriteFile(fn, []byte(x.output()), 0640)
+	//nolint:gosec
+	return ioutil.WriteFile(fn, []byte(x.output()), 0o640)
 }
 
 // ComputeColorDiffs computes the different between the all of the colors given.

@@ -3,7 +3,9 @@ package universalrobots
 
 import (
 	"context"
-	_ "embed" // for embedding model file
+
+	// for embedding model file.
+	_ "embed"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -12,22 +14,20 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
 	"go.uber.org/multierr"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/v1"
-	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
-
-	"github.com/edaniels/golog"
-	goutils "go.viam.com/utils"
 )
 
 //go:embed ur5e.json
@@ -45,12 +45,13 @@ func init() {
 }
 
 // Ur5eModel() returns the kinematics model of the xArm, also has all Frame information.
-func ur5eModel() (*frame.Model, error) {
-	return frame.ParseJSON(ur5modeljson, "")
+func ur5eModel() (referenceframe.Model, error) {
+	return referenceframe.ParseJSON(ur5modeljson, "")
 }
 
-// URArm TODO
+// URArm TODO.
 type URArm struct {
+	io.Closer
 	mu                      *sync.Mutex
 	muMove                  sync.Mutex
 	conn                    net.Conn
@@ -63,13 +64,13 @@ type URArm struct {
 	cancel                  func()
 	activeBackgroundWorkers *sync.WaitGroup
 	mp                      motionplan.MotionPlanner
-	model                   *frame.Model
+	model                   referenceframe.Model
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
 
-// Close TODO
-func (ua *URArm) Close() error {
+// Close TODO.
+func (ua *URArm) Close(ctx context.Context) error {
 	ua.cancel()
 
 	closeConn := func() {
@@ -80,7 +81,7 @@ func (ua *URArm) Close() error {
 
 	// give the worker some time to close but otherwise we must close the connection
 	// since net.Conns do not utilize contexts.
-	waitCtx, cancel := context.WithTimeout(context.Background(), waitBackgroundWorkersDur)
+	waitCtx, cancel := context.WithTimeout(ctx, waitBackgroundWorkersDur)
 	defer cancel()
 	goutils.PanicCapturingGo(func() {
 		<-waitCtx.Done()
@@ -92,11 +93,10 @@ func (ua *URArm) Close() error {
 	ua.activeBackgroundWorkers.Wait()
 	cancel()
 	closeConn()
-
-	return nil
+	return waitCtx.Err()
 }
 
-// URArmConnect TODO
+// URArmConnect TODO.
 func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
 	speed := cfg.Attributes.Float64("speed", .1)
 	host := cfg.Host
@@ -151,16 +151,16 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 	defer timer.Stop()
 	select {
 	case <-ctx.Done():
-		return nil, multierr.Combine(ctx.Err(), newArm.Close())
+		return nil, multierr.Combine(ctx.Err(), newArm.Close(ctx))
 	case <-timer.C:
-		return nil, multierr.Combine(errors.Errorf("arm failed to respond in time (%s)", respondTimeout), newArm.Close())
+		return nil, multierr.Combine(errors.Errorf("arm failed to respond in time (%s)", respondTimeout), newArm.Close(ctx))
 	case <-onData:
 		return newArm, nil
 	}
 }
 
-// ModelFrame returns all the information necessary for including the arm in a FrameSystem
-func (ua *URArm) ModelFrame() *frame.Model {
+// ModelFrame returns all the information necessary for including the arm in a FrameSystem.
+func (ua *URArm) ModelFrame() referenceframe.Model {
 	return ua.model
 }
 
@@ -184,7 +184,7 @@ func (ua *URArm) setState(state RobotState) {
 	ua.mu.Unlock()
 }
 
-// State TODO
+// State TODO.
 func (ua *URArm) State() (RobotState, error) {
 	ua.mu.Lock()
 	defer ua.mu.Unlock()
@@ -195,7 +195,7 @@ func (ua *URArm) State() (RobotState, error) {
 	return ua.state, nil
 }
 
-// CurrentJointPositions TODO
+// CurrentJointPositions TODO.
 func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	radians := []float64{}
 	state, err := ua.State()
@@ -205,7 +205,7 @@ func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositio
 	for _, j := range state.Joints {
 		radians = append(radians, j.Qactual)
 	}
-	return frame.JointPositionsFromRadians(radians), nil
+	return referenceframe.JointPositionsFromRadians(radians), nil
 }
 
 // CurrentPosition computes and returns the current cartesian position.
@@ -224,7 +224,7 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 		return err
 	}
 	start := time.Now()
-	solution, err := ua.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := ua.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
@@ -236,7 +236,7 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	return arm.GoToWaypoints(ctx, ua, solution)
 }
 
-// JointMoveDelta TODO
+// JointMoveDelta TODO.
 func (ua *URArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	if joint < 0 || joint > 5 {
 		return errors.New("invalid joint")
@@ -256,12 +256,12 @@ func (ua *URArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 	return ua.MoveToJointPositionRadians(ctx, radians)
 }
 
-// MoveToJointPositions TODO
+// MoveToJointPositions TODO.
 func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.ArmJointPositions) error {
-	return ua.MoveToJointPositionRadians(ctx, frame.JointPositionsToRadians(joints))
+	return ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints))
 }
 
-// MoveToJointPositionRadians TODO
+// MoveToJointPositionRadians TODO.
 func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float64) error {
 	ua.muMove.Lock()
 	defer ua.muMove.Unlock()
@@ -335,24 +335,23 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		}
 		slept += 10
 	}
-
 }
 
-// CurrentInputs TODO
-func (ua *URArm) CurrentInputs(ctx context.Context) ([]frame.Input, error) {
+// CurrentInputs TODO.
+func (ua *URArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := ua.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return frame.JointPosToInputs(res), nil
+	return referenceframe.JointPosToInputs(res), nil
 }
 
-// GoToInputs TODO
-func (ua *URArm) GoToInputs(ctx context.Context, goal []frame.Input) error {
-	return ua.MoveToJointPositions(ctx, frame.InputsToJointPos(goal))
+// GoToInputs TODO.
+func (ua *URArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	return ua.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
 }
 
-// AddToLog TODO
+// AddToLog TODO.
 func (ua *URArm) AddToLog(msg string) error {
 	// TODO(erh): check for " in msg
 	cmd := fmt.Sprintf("textmsg(\"%s\")\r\n", msg)
@@ -408,10 +407,7 @@ func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) e
 					state.CartesianInfo.Rz)
 			}
 		case 20:
-			userErr, err := readURRobotMessage(buf, ua.logger)
-			if err != nil {
-				return err
-			}
+			userErr := readURRobotMessage(buf, ua.logger)
 			if userErr != nil {
 				ua.setRuntimeError(userErr)
 			}

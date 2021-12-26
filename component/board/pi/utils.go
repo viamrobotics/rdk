@@ -1,4 +1,7 @@
-package piutils
+//go:build pi
+// +build pi
+
+package pi
 
 import (
 	"fmt"
@@ -64,9 +67,9 @@ var piHWPinToBroadcom = map[string]uint{
 // It might be reasonable to force users to look up the associations
 // online - GV
 
-// BroadcomPinFromHardwareLabel returns a Raspberry Pi pin number given
-// a hardware label for the pin passed from a config
-func BroadcomPinFromHardwareLabel(hwPin string) (uint, bool) {
+// broadcomPinFromHardwareLabel returns a Raspberry Pi pin number given
+// a hardware label for the pin passed from a config.
+func broadcomPinFromHardwareLabel(hwPin string) (uint, bool) {
 	pin, ok := piHWPinToBroadcom[hwPin]
 	if ok {
 		return pin, true

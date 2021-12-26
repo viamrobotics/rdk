@@ -11,10 +11,10 @@ import (
 	"go.viam.com/rdk/rlog"
 )
 
-// SubtypeName is a constant that identifies the component resource subtype string "servo"
+// SubtypeName is a constant that identifies the component resource subtype string "servo".
 const SubtypeName = resource.SubtypeName("servo")
 
-// Subtype is a constant that identifies the component resource subtype
+// Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeComponent,
@@ -31,7 +31,7 @@ type Servo interface {
 	AngularOffset(ctx context.Context) (uint8, error)
 }
 
-// Named is a helper for getting the named Servo's typed resource name
+// Named is a helper for getting the named Servo's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewFromSubtype(Subtype, name)
 }
@@ -64,20 +64,20 @@ func (r *reconfigurableServo) AngularOffset(ctx context.Context) (uint8, error) 
 	return r.actual.AngularOffset(ctx)
 }
 
-func (r *reconfigurableServo) Close() error {
+func (r *reconfigurableServo) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return viamutils.TryClose(r.actual)
+	return viamutils.TryClose(ctx, r.actual)
 }
 
-func (r *reconfigurableServo) Reconfigure(newServo resource.Reconfigurable) error {
+func (r *reconfigurableServo) Reconfigure(ctx context.Context, newServo resource.Reconfigurable) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	actual, ok := newServo.(*reconfigurableServo)
 	if !ok {
 		return errors.Errorf("expected new arm to be %T but got %T", r, newServo)
 	}
-	if err := viamutils.TryClose(r.actual); err != nil {
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual

@@ -201,7 +201,7 @@ func TestServer(t *testing.T) {
 		test.That(t, segs.BoundingBoxes[1].Length, test.ShouldEqual, 0)
 		test.That(t, segs.BoundingBoxes[1].Depth, test.ShouldEqual, 2)
 
-		//empty pointcloud
+		// empty pointcloud
 		pcB := pointcloud.New()
 
 		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -225,5 +225,4 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next point cloud")
 	})
-
 }

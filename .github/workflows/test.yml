@@ -33,22 +33,18 @@ jobs:
       run: |
         sudo -u testbot bash -lc 'make setup'
 
-    - name: Verify no uncommitted changes from "make build goformat"
+    - name: Verify no uncommitted changes from "make build lint"
       run: |
         git init
         git add .
         chown -R testbot .
-        sudo -u testbot bash -lc 'make build goformat'
+        sudo -u testbot bash -lc 'make build lint'
         GEN_DIFF=$(git diff)
         if [ -n "$GEN_DIFF" ]; then
-            echo '"make build goformat" resulted in changes not in git' 1>&2
+            echo '"make build lint" resulted in changes not in git' 1>&2
             git status
             exit 1
         fi
-
-    - name: Lint
-      run: |
-        sudo -u testbot bash -lc 'make lint'
 
     - name: Test
       env:

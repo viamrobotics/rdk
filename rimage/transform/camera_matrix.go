@@ -31,7 +31,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) AlignImageWithDepth(ii *rimage.Image
 }
 
 // TransformDepthCoordToColorCoord changes the coordinate system of the depth map to be in same coordinate system
-// as the color image
+// as the color image.
 func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
 	if img.Color.Height() != dcie.ColorCamera.Height || img.Color.Width() != dcie.ColorCamera.Width {
 		return nil,
@@ -72,7 +72,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 	return rimage.MakeImageWithDepth(img.Color, outmap, true, dcie), nil
 }
 
-// ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix
+// ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix.
 func (dcie *DepthColorIntrinsicsExtrinsics) ImagePointTo3DPoint(point image.Point, ii *rimage.ImageWithDepth) (r3.Vector, error) {
 	return intrinsics2DPtTo3DPt(point, ii, &dcie.ColorCamera)
 }
@@ -101,7 +101,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(ii *rimag
 }
 
 // PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth
-// from the perspective of the color camera frame.
+// from the perspective of the color camera referenceframe.
 func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(
 	cloud pointcloud.PointCloud,
 ) (*rimage.ImageWithDepth, error) {
@@ -125,7 +125,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) DepthPixelToColorPixel(dx, dy, dz fl
 	return cx, cy, z
 }
 
-// DepthMapToPointCloud converts a Depth Map to a PointCloud using the depth camera parameters
+// DepthMapToPointCloud converts a Depth Map to a PointCloud using the depth camera parameters.
 func DepthMapToPointCloud(
 	depthImage *rimage.DepthMap,
 	pixel2meter float64,
@@ -145,9 +145,9 @@ func DepthMapToPointCloud(
 				// get x and y of 3D point
 				xPoint, yPoint, z := params.PixelToPoint(float64(x), float64(y), z)
 				// Get point in PointCloud format
-				xPoint = xPoint / pixel2meter
-				yPoint = yPoint / pixel2meter
-				z = z / pixel2meter
+				xPoint /= pixel2meter
+				yPoint /= pixel2meter
+				z /= pixel2meter
 				pt := pointcloud.NewBasicPoint(xPoint, yPoint, z)
 				err := pcOut.Set(pt)
 				if err != nil {
@@ -168,11 +168,12 @@ func ApplyRigidBodyTransform(pts pointcloud.PointCloud, params *Extrinsics) (poi
 	pts.Iterate(func(pt pointcloud.Point) bool {
 		x, y, z := params.TransformPointToPoint(pt.Position().X, pt.Position().Y, pt.Position().Z)
 		var ptTransformed pointcloud.Point
-		if pt.HasColor() {
+		switch {
+		case pt.HasColor():
 			ptTransformed = pointcloud.NewColoredPoint(x, y, z, pt.Color().(color.NRGBA))
-		} else if pt.HasValue() {
+		case pt.HasValue():
 			ptTransformed = pointcloud.NewValuePoint(x, y, z, pt.Value())
-		} else {
+		default:
 			ptTransformed = pointcloud.NewBasicPoint(x, y, z)
 		}
 		err = transformedPoints.Set(ptTransformed)
@@ -218,4 +219,4 @@ func ProjectPointCloudToRGBPlane(
 	return coordinates, nil
 }
 
-//TODO(louise): Add Depth Map dilation function as in the librealsense library
+// TODO(louise): Add Depth Map dilation function as in the librealsense library

@@ -2,12 +2,11 @@ package vision
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	"go.viam.com/test"
-
+	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 )
 
@@ -21,7 +20,7 @@ func TestTraining1(t *testing.T) {
 		return
 	}
 	defer func() {
-		test.That(t, store.Close(), test.ShouldBeNil)
+		test.That(t, utils.TryClose(context.Background(), store), test.ShouldBeNil)
 	}()
 	err = store.reset(ctx)
 	if err != nil {
@@ -41,7 +40,7 @@ func TestTraining1(t *testing.T) {
 	b2, err := store.StoreImageFromDisk(ctx, artifact.MustPath("vision/black2.png"), []string{"black"})
 	test.That(t, err, test.ShouldBeNil)
 
-	fmt.Printf("%s %s %s %s\n", w1, w2, b1, b2)
+	t.Logf("%s %s %s %s\n", w1, w2, b1, b2)
 
 	temp, err := store.GetImage(ctx, w1)
 	test.That(t, err, test.ShouldBeNil)

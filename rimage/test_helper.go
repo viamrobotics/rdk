@@ -1,7 +1,9 @@
 package rimage
 
 import (
-	_ "embed" // for test_helper.html
+
+	// for test_helper.html.
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -14,12 +16,10 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/multierr"
-
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/test"
-
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
@@ -70,7 +70,7 @@ func (to *testOutput) getFile(testFile string) *oneTestOutput {
 	return one
 }
 
-// MultipleImageTestDebugger TODO
+// MultipleImageTestDebugger TODO.
 type MultipleImageTestDebugger struct {
 	name          string
 	glob          string
@@ -84,7 +84,7 @@ type MultipleImageTestDebugger struct {
 	logger        golog.Logger
 }
 
-// ProcessorContext TODO
+// ProcessorContext TODO.
 type ProcessorContext struct {
 	d           *MultipleImageTestDebugger
 	currentFile string
@@ -96,10 +96,11 @@ func (pCtx *ProcessorContext) currentImgConfigFile() string {
 	return fmt.Sprintf("%s.json", pCtx.currentFile[0:idx])
 }
 
-// CurrentImgConfig TODO
+// CurrentImgConfig TODO.
 func (pCtx *ProcessorContext) CurrentImgConfig(out interface{}) error {
 	fn := pCtx.currentImgConfigFile()
 
+	//nolint:gosec
 	file, err := os.Open(fn)
 	if err != nil {
 		return errors.Wrapf(err, "error opening %s", fn)
@@ -110,11 +111,11 @@ func (pCtx *ProcessorContext) CurrentImgConfig(out interface{}) error {
 	return decoder.Decode(out)
 }
 
-// GotDebugImage TODO
+// GotDebugImage TODO.
 func (pCtx *ProcessorContext) GotDebugImage(img image.Image, name string) {
 	outFile := filepath.Join(pCtx.d.out, name+"-"+filepath.Base(pCtx.currentFile))
 	if !strings.HasSuffix(outFile, ".png") {
-		outFile = outFile + ".png"
+		outFile += ".png"
 	}
 	atomic.AddInt32(&pCtx.d.pendingImages, 1)
 	utils.PanicCapturingGo(func() {
@@ -129,15 +130,16 @@ func (pCtx *ProcessorContext) GotDebugImage(img image.Image, name string) {
 
 // GotDebugPointCloud TODO
 // in order to use this, you'll have to run a webserver from the output directory of the html
-// something like: python3 -m http.server will work
+// something like: python3 -m http.server will work.
 func (pCtx *ProcessorContext) GotDebugPointCloud(pc pointcloud.PointCloud, name string) {
 	outFile := filepath.Join(pCtx.d.out, name+"-"+filepath.Base(pCtx.currentFile))
 	if !strings.HasSuffix(outFile, ".pcd") {
-		outFile = outFile + ".pcd"
+		outFile += ".pcd"
 	}
 	atomic.AddInt32(&pCtx.d.pendingImages, 1)
 	go func() {
-		f, err := os.OpenFile(outFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		//nolint:gosec
+		f, err := os.OpenFile(outFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 		if err != nil {
 			panic(err)
 		}
@@ -151,7 +153,7 @@ func (pCtx *ProcessorContext) GotDebugPointCloud(pc pointcloud.PointCloud, name 
 	pCtx.output.getFile(pCtx.currentFile).addPCDCell(outFile, name)
 }
 
-// MultipleImageTestDebuggerProcessor TODO
+// MultipleImageTestDebuggerProcessor TODO.
 type MultipleImageTestDebuggerProcessor interface {
 	Process(
 		t *testing.T,
@@ -162,8 +164,9 @@ type MultipleImageTestDebuggerProcessor interface {
 	) error
 }
 
-// NewMultipleImageTestDebugger TODO
+// NewMultipleImageTestDebugger TODO.
 func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string, imagesAligned bool) *MultipleImageTestDebugger {
+	t.Helper()
 	d := MultipleImageTestDebugger{logger: golog.NewTestLogger(t)}
 	d.imagesAligned = imagesAligned
 	d.glob = glob
@@ -175,8 +178,9 @@ func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string, imagesAlign
 	return &d
 }
 
-// Process TODO
+// Process TODO.
 func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDebuggerProcessor) (err error) {
+	t.Helper()
 	files, err := filepath.Glob(filepath.Join(d.inroot, d.glob))
 	if err != nil {
 		return err
@@ -199,6 +203,7 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 
 	// group and block parallel runs by having a subtest parent
 	t.Run("files", func(t *testing.T) {
+		t.Helper()
 		for _, f := range files {
 			if !IsImageFile(f) {
 				continue
@@ -210,6 +215,7 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 			d.logger.Debug(currentFile)
 
 			t.Run(filepath.Base(f), func(t *testing.T) {
+				t.Helper()
 				t.Parallel()
 				img, err := readImageFromFile(currentFile, d.imagesAligned)
 				test.That(t, err, test.ShouldBeNil)
@@ -243,7 +249,8 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 	htmlOutFile := filepath.Join(d.out, d.name+".html")
 	d.logger.Debug(htmlOutFile)
 
-	outFile, err := os.OpenFile(htmlOutFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	//nolint:gosec
+	outFile, err := os.OpenFile(htmlOutFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 	if err != nil {
 		return err
 	}

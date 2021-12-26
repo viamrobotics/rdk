@@ -36,7 +36,6 @@ func TestNew(t *testing.T) {
 		component := config.Component{Attributes: config.AttributeMap{"type": "what"}}
 		_, err := New(context.Background(), fakeRobot, component, logger)
 		test.That(t, err, test.ShouldNotBeNil)
-
 	})
 
 	t.Run("return error when unable to find analog reader", func(t *testing.T) {
@@ -204,6 +203,5 @@ func TestNew(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 			})
 		})
-
 	})
 }

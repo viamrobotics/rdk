@@ -7,21 +7,27 @@ import (
 	"math/rand"
 	"sync"
 
-	"go.viam.com/rdk/spatialmath"
-
 	"go.uber.org/multierr"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
-// ModelFramer has a method that returns the kinematics information needed to build a dynamic frame.
+// ModelFramer has a method that returns the kinematics information needed to build a dynamic referenceframe.
 type ModelFramer interface {
-	ModelFrame() *Model
+	ModelFrame() Model
 }
 
-// Model TODO
+// A Model represents a frame that can change its name.
+type Model interface {
+	Frame
+	ChangeName(name string)
+}
+
+// SimpleModel TODO
 // Generally speaking, a Joint will attach a Body to a Frame
 // And a Fixed will attach a Frame to a Body
-// Exceptions are the head of the tree where we are just starting the robot from World
-type Model struct {
+// Exceptions are the head of the tree where we are just starting the robot from World.
+type SimpleModel struct {
 	name string // the name of the arm
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	OrdTransforms []Frame
@@ -30,15 +36,15 @@ type Model struct {
 	lock          sync.RWMutex
 }
 
-// NewModel constructs a new model.
-func NewModel() *Model {
-	m := Model{}
+// NewSimpleModel constructs a new model.
+func NewSimpleModel() *SimpleModel {
+	m := &SimpleModel{}
 	m.poseCache = &sync.Map{}
-	return &m
+	return m
 }
 
 // GenerateRandomJointPositions generates a list of radian joint positions that are random but valid for each joint.
-func (m *Model) GenerateRandomJointPositions(randSeed *rand.Rand) []float64 {
+func GenerateRandomJointPositions(m Model, randSeed *rand.Rand) []float64 {
 	limits := m.DoF()
 	jointPos := make([]float64, 0, len(limits))
 
@@ -52,18 +58,18 @@ func (m *Model) GenerateRandomJointPositions(randSeed *rand.Rand) []float64 {
 	return jointPos
 }
 
-// Name returns the name of this model
-func (m *Model) Name() string {
+// Name returns the name of this model.
+func (m *SimpleModel) Name() string {
 	return m.name
 }
 
-// ChangeName changes the name of this model - necessary for building frame systems
-func (m *Model) ChangeName(name string) {
+// ChangeName changes the name of this model - necessary for building frame systems.
+func (m *SimpleModel) ChangeName(name string) {
 	m.name = name
 }
 
 // floatsToString turns a float array into a serializable binary representation
-// This is very fast, about 100ns per call
+// This is very fast, about 100ns per call.
 func floatsToString(inputs []Input) string {
 	b := make([]byte, len(inputs)*8)
 	for i, input := range inputs {
@@ -74,7 +80,7 @@ func floatsToString(inputs []Input) string {
 
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
-func (m *Model) Transform(inputs []Input) (spatialmath.Pose, error) {
+func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 	poses, err := m.jointRadToQuats(inputs, false)
 	if err != nil && poses == nil {
 		return nil, err
@@ -85,7 +91,7 @@ func (m *Model) Transform(inputs []Input) (spatialmath.Pose, error) {
 // CachedTransform will check a sync.Map cache to see if the exact given set of inputs has been computed yet. If so
 // it returns without redoing the calculation. Thread safe, but so far has tended to be slightly slower than just doing
 // the calculation. This may change with higher DOF models and longer runtimes.
-func (m *Model) CachedTransform(inputs []Input) (spatialmath.Pose, error) {
+func (m *SimpleModel) CachedTransform(inputs []Input) (spatialmath.Pose, error) {
 	key := floatsToString(inputs)
 	if val, ok := m.poseCache.Load(key); ok {
 		if pose, ok := val.(spatialmath.Pose); ok {
@@ -103,8 +109,8 @@ func (m *Model) CachedTransform(inputs []Input) (spatialmath.Pose, error) {
 
 // VerboseTransform takes a model and a list of joint angles in radians and computes the dual quaterions representing
 // the pose of each of the intermediate frames (if any exist) up to and including the end effector, and returns a map
-// of frame names to poses. The key for each frame in the map will be the string "<model_name>:<frame_name>"
-func (m *Model) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, error) {
+// of frame names to poses. The key for each frame in the map will be the string "<model_name>:<frame_name>".
+func (m *SimpleModel) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, error) {
 	poses, err := m.jointRadToQuats(inputs, true)
 	if err != nil && poses == nil {
 		return nil, err
@@ -119,7 +125,7 @@ func (m *Model) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, e
 // jointRadToQuats takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of each of the links up to and including the end effector. This is useful for when conversions
 // between quaternions and OV are not needed.
-func (m *Model) jointRadToQuats(inputs []Input, collectAll bool) ([]*staticFrame, error) {
+func (m *SimpleModel) jointRadToQuats(inputs []Input, collectAll bool) ([]*staticFrame, error) {
 	var err error
 	poses := make([]*staticFrame, 0, len(m.OrdTransforms))
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
@@ -149,7 +155,7 @@ func (m *Model) jointRadToQuats(inputs []Input, collectAll bool) ([]*staticFrame
 }
 
 // AreJointPositionsValid checks whether the given array of joint positions violates any joint limits.
-func (m *Model) AreJointPositionsValid(pos []float64) bool {
+func (m *SimpleModel) AreJointPositionsValid(pos []float64) bool {
 	limits := m.DoF()
 	for i := 0; i < len(limits); i++ {
 		if pos[i] < limits[i].Min || pos[i] > limits[i].Max {
@@ -160,12 +166,12 @@ func (m *Model) AreJointPositionsValid(pos []float64) bool {
 }
 
 // OperationalDoF returns the number of end effectors. Currently we only support one end effector but will support more.
-func (m *Model) OperationalDoF() int {
+func (m *SimpleModel) OperationalDoF() int {
 	return 1
 }
 
 // DoF returns the number of degrees of freedom within an arm.
-func (m *Model) DoF() []Limit {
+func (m *SimpleModel) DoF() []Limit {
 	m.lock.RLock()
 	if len(m.limits) > 0 {
 		return m.limits
@@ -184,8 +190,8 @@ func (m *Model) DoF() []Limit {
 	return limits
 }
 
-// MarshalJSON serializes a Model
-func (m *Model) MarshalJSON() ([]byte, error) {
+// MarshalJSON serializes a Model.
+func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"name":                 m.name,
 		"kinematic_param_type": "frames",
@@ -193,9 +199,9 @@ func (m *Model) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// AlmostEquals returns true if the only difference between this model and another is floating point inprecision
-func (m *Model) AlmostEquals(otherFrame Frame) bool {
-	other, ok := otherFrame.(*Model)
+// AlmostEquals returns true if the only difference between this model and another is floating point inprecision.
+func (m *SimpleModel) AlmostEquals(otherFrame Frame) bool {
+	other, ok := otherFrame.(*SimpleModel)
 	if !ok {
 		return false
 	}

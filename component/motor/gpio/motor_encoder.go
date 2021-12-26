@@ -1,3 +1,4 @@
+// Package gpio implements a GPIO based motor.
 package gpio
 
 import (
@@ -8,14 +9,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
-
-	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 )
 
 var (
@@ -77,7 +77,6 @@ func WrapMotorWithEncoder(
 
 		// Adds encoded motor to encoder
 		encoder.AttachDirectionalAwareness(mm)
-
 	} else {
 		b, ok := b.DigitalInterruptByName(mc.EncoderB)
 		if !ok {
@@ -94,21 +93,21 @@ func WrapMotorWithEncoder(
 	return mm, nil
 }
 
-// NewEncodedMotor creates a new motor that supports an arbitrary source of encoder information
+// NewEncodedMotor creates a new motor that supports an arbitrary source of encoder information.
 func NewEncodedMotor(
 	config config.Component,
 	motorConfig motor.Config,
-	real motor.Motor,
+	realMotor motor.Motor,
 	encoder board.Encoder,
 	logger golog.Logger,
 ) (motor.Motor, error) {
-	return newEncodedMotor(config, motorConfig, real, encoder, logger)
+	return newEncodedMotor(config, motorConfig, realMotor, encoder, logger)
 }
 
 func newEncodedMotor(
 	config config.Component,
 	motorConfig motor.Config,
-	real motor.Motor,
+	realMotor motor.Motor,
 	encoder board.Encoder,
 	logger golog.Logger,
 ) (*EncodedMotor, error) {
@@ -116,7 +115,7 @@ func newEncodedMotor(
 	em := &EncodedMotor{
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		cfg:                     motorConfig,
-		real:                    real,
+		real:                    realMotor,
 		encoder:                 encoder,
 		cancelCtx:               cancelCtx,
 		cancel:                  cancel,
@@ -195,7 +194,7 @@ func (m *EncodedMotor) Position(ctx context.Context) (float64, error) {
 }
 
 // DirectionMoving returns the direction we are currently mpving in, with 1 representing
-// forward and  -1 representing backwards
+// forward and  -1 representing backwards.
 func (m *EncodedMotor) DirectionMoving() int64 {
 	m.stateMu.RLock()
 	defer m.stateMu.RUnlock()
@@ -210,7 +209,7 @@ func (m *EncodedMotor) directionMovingInLock() int64 {
 	return -1
 }
 
-// PID returns the motor's underlying PID
+// PID returns the motor's underlying PID.
 func (m *EncodedMotor) PID() motor.PID {
 	return m.real.PID()
 }
@@ -253,7 +252,7 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64) error {
 	return m.setPower(ctx, powerPct, false)
 }
 
-// setPower assumes the state lock is held
+// setPower assumes the state lock is held.
 func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal bool) error {
 	if !internal {
 		m.state.desiredRPM = 0 // if we're setting power externally, don't control RPM
@@ -269,7 +268,7 @@ func (m *EncodedMotor) Go(ctx context.Context, powerPct float64) error {
 	return m.doGo(ctx, powerPct, false)
 }
 
-// doGo assumes the state lock is held
+// doGo assumes the state lock is held.
 func (m *EncodedMotor) doGo(ctx context.Context, powerPct float64, internal bool) error {
 	if !internal {
 		m.state.desiredRPM = 0    // if we're setting power externally, don't control RPM
@@ -326,7 +325,6 @@ func (m *EncodedMotor) rpmMonitor(onStart func()) {
 
 	rpmSleep, rpmDebug := getRPMSleepDebug()
 	for {
-
 		select {
 		case <-m.cancelCtx.Done():
 			return
@@ -389,10 +387,10 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 
 			if timeLeftSeconds > 0 {
 				if timeLeftSeconds < .5 {
-					desiredRPM = desiredRPM / 2
+					desiredRPM /= 2
 				}
 				if timeLeftSeconds < .1 {
-					desiredRPM = desiredRPM / 2
+					desiredRPM /= 2
 				}
 			}
 			m.rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime, desiredRPM, rotationsLeft, rpmDebug)
@@ -450,7 +448,6 @@ func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime in
 }
 
 func (m *EncodedMotor) computeRamp(oldPower, newPower float64) float64 {
-
 	newPower = math.Min(newPower, 1.0)
 	newPower = math.Max(newPower, -1.0)
 
@@ -465,7 +462,6 @@ func (m *EncodedMotor) computeRamp(oldPower, newPower float64) float64 {
 // Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
 // Note: if both are negative the motor will spin in the forward direction.
 func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
-
 	m.RPMMonitorStart()
 
 	var d int64 = 1
@@ -525,7 +521,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 	return nil
 }
 
-// off assumes the state lock is held
+// off assumes the state lock is held.
 func (m *EncodedMotor) off(ctx context.Context) error {
 	m.state.desiredRPM = 0
 	m.state.regulated = false
@@ -545,15 +541,14 @@ func (m *EncodedMotor) IsOn(ctx context.Context) (bool, error) {
 }
 
 // Close cleanly shuts down the motor.
-func (m *EncodedMotor) Close() error {
+func (m *EncodedMotor) Close() {
 	m.cancel()
 	m.activeBackgroundWorkers.Wait()
-	return nil
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 // at a specific speed. Regardless of the directionality of the RPM this function will move the motor
-// towards the specified target
+// towards the specified target.
 func (m *EncodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition float64) error {
 	curPos, err := m.Position(ctx)
 	if err != nil {
@@ -634,7 +629,7 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 }
 
 // ResetZeroPosition sets the current position of the motor specified by the request
-// (adjusted by a given offset) to be its new zero position
+// (adjusted by a given offset) to be its new zero position.
 func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return m.encoder.ResetZeroPosition(ctx, int64(offset*float64(m.cfg.TicksPerRotation)))
 }

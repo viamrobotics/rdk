@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/arm"
@@ -14,9 +16,6 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/objectmanipulation"
 	"go.viam.com/rdk/testutils/inject"
-
-	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 )
 
 func TestDoGrabFailures(t *testing.T) {
@@ -95,31 +94,30 @@ func TestDoGrab(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	cfg, err := config.Read("data/moving_arm.json")
+	cfg, err := config.Read(ctx, "data/moving_arm.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer myRobot.Close()
+	defer myRobot.Close(context.Background())
 
 	svc, err := objectmanipulation.New(ctx, myRobot, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = svc.DoGrab(ctx, "pieceGripper", "pieceArm", "c", &r3.Vector{-20, -30, -40})
 	test.That(t, err, test.ShouldBeNil)
-
 }
 
 func TestMultiplePieces(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	cfg, err := config.Read("data/fake_tomato.json")
+	cfg, err := config.Read(ctx, "data/fake_tomato.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer myRobot.Close()
+	defer myRobot.Close(context.Background())
 
 	svc, err := objectmanipulation.New(ctx, myRobot, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)

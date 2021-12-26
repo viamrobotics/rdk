@@ -13,7 +13,7 @@ type Gripper struct {
 	gripper.Gripper
 	OpenFunc  func(ctx context.Context) error
 	GrabFunc  func(ctx context.Context) (bool, error)
-	CloseFunc func() error
+	CloseFunc func(ctx context.Context) error
 }
 
 // Open calls the injected Open or the real version.
@@ -33,9 +33,9 @@ func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 }
 
 // Close calls the injected Close or the real version.
-func (g *Gripper) Close() error {
+func (g *Gripper) Close(ctx context.Context) error {
 	if g.CloseFunc == nil {
-		return utils.TryClose(g.Gripper)
+		return utils.TryClose(ctx, g.Gripper)
 	}
-	return g.CloseFunc()
+	return g.CloseFunc(ctx)
 }

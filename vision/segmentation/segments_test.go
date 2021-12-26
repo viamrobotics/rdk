@@ -9,6 +9,7 @@ import (
 )
 
 func createPointClouds(t *testing.T) *Segments {
+	t.Helper()
 	clusters := make([]*PointCloudWithMeta, 0)
 	cloudMap := make(map[pc.Vec3]int)
 	clouds := make([]pc.PointCloud, 0)

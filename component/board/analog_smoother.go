@@ -6,10 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
-
+	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/utils"
@@ -55,10 +53,9 @@ type errValue struct {
 }
 
 // Close stops the smoothing routine.
-func (as *AnalogSmoother) Close() error {
+func (as *AnalogSmoother) Close() {
 	as.cancel()
 	as.activeBackgroundWorkers.Wait()
-	return nil
 }
 
 // Read returns the smoothed out reading.
@@ -68,6 +65,7 @@ func (as *AnalogSmoother) Read(ctx context.Context) (int, error) {
 	if lastErr == nil {
 		return avg, nil
 	}
+	//nolint:forcetypeassert
 	lastErrVal := lastErr.(errValue)
 	if lastErrVal.present {
 		return avg, lastErrVal.err
@@ -78,7 +76,6 @@ func (as *AnalogSmoother) Read(ctx context.Context) (int, error) {
 // Start begins the smoothing routine that reads from the underlying
 // analog reader.
 func (as *AnalogSmoother) Start(ctx context.Context) {
-
 	// examples 1
 	//    AverageOverMillis 10
 	//    SamplesPerSecond  1000

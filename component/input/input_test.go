@@ -1,11 +1,12 @@
 package input
 
 import (
+	"context"
 	"testing"
 
-	"go.viam.com/rdk/resource"
-
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/resource"
 )
 
 func TestInputControllerName(t *testing.T) {
@@ -72,12 +73,12 @@ func TestReconfigurableInputController(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualInput1.reconfCount, test.ShouldEqual, 0)
 
-	err = fakeInput1.(*reconfigurableInputController).Reconfigure(fakeInput2)
+	err = fakeInput1.(*reconfigurableInputController).Reconfigure(context.Background(), fakeInput2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeInput1.(*reconfigurableInputController).actual, test.ShouldEqual, actualInput2)
 	test.That(t, actualInput1.reconfCount, test.ShouldEqual, 1)
 
-	err = fakeInput1.(*reconfigurableInputController).Reconfigure(nil)
+	err = fakeInput1.(*reconfigurableInputController).Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new Controller")
 }
@@ -88,4 +89,4 @@ type mock struct {
 	reconfCount int
 }
 
-func (m *mock) Close() error { m.reconfCount++; return nil }
+func (m *mock) Close() { m.reconfCount++ }

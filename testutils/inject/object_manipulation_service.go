@@ -9,13 +9,13 @@ import (
 )
 
 // ObjectManipulationService represents a fake instance of an object manipulation
-// service
+// service.
 type ObjectManipulationService struct {
 	objectmanipulation.Service
 	DoGrabFunc func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error)
 }
 
-// DoGrab calls the injected DoGrab or the real variant
+// DoGrab calls the injected DoGrab or the real variant.
 func (mgs *ObjectManipulationService) DoGrab(
 	ctx context.Context,
 	gripperName, armName, cameraName string,

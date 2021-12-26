@@ -15,7 +15,7 @@ type Base struct {
 	SpinFunc         func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error
 	WidthMillisFunc  func(ctx context.Context) (int, error)
 	StopFunc         func(ctx context.Context) error
-	CloseFunc        func() error
+	CloseFunc        func(ctx context.Context) error
 }
 
 // MoveStraight calls the injected MoveStraight or the real version.
@@ -51,9 +51,9 @@ func (b *Base) Stop(ctx context.Context) error {
 }
 
 // Close calls the injected Close or the real version.
-func (b *Base) Close() error {
+func (b *Base) Close(ctx context.Context) error {
 	if b.CloseFunc == nil {
-		return utils.TryClose(b.Base)
+		return utils.TryClose(ctx, b.Base)
 	}
-	return b.CloseFunc()
+	return b.CloseFunc(ctx)
 }

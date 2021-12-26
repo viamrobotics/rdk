@@ -5,11 +5,10 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"go.viam.com/test"
 
 	"go.viam.com/rdk/sensor/compass"
 	"go.viam.com/rdk/testutils/inject"
-
-	"go.viam.com/test"
 )
 
 func TestMedianHeading(t *testing.T) {

@@ -80,7 +80,6 @@ func TestGetPIDConfig(t *testing.T) {
 	resp, err = motorServer.GetPIDConfig(context.Background(), &req)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetPidConfig(), test.ShouldResemble, expectedConf)
-
 }
 
 func TestSetPIDConfig(t *testing.T) {
@@ -130,9 +129,9 @@ func TestSetPIDConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg.Attributes.Float64("Kp", 0.0), test.ShouldEqual, 43.0)
 	test.That(t, cfg.Attributes.Float64("Kd", 0.0), test.ShouldEqual, 43.0)
-
 }
 
+//nolint:dupl
 func TestSetPower(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 
@@ -159,6 +158,7 @@ func TestSetPower(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+//nolint:dupl
 func TestGo(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 
@@ -185,6 +185,7 @@ func TestGo(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+//nolint:dupl
 func TestGoFor(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 
@@ -237,6 +238,7 @@ func TestPosition(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+//nolint:dupl
 func TestPositionSupported(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 
@@ -289,6 +291,7 @@ func TestStop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+//nolint:dupl
 func TestIsOn(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 
@@ -315,6 +318,7 @@ func TestIsOn(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+//nolint:dupl
 func TestGoTo(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 
@@ -341,6 +345,7 @@ func TestGoTo(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+//nolint:dupl
 func TestResetZeroPosition(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 

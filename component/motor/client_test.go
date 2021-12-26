@@ -7,10 +7,9 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-
-	"go.viam.com/test"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/motor"
@@ -281,6 +280,6 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	test.That(t, utils.TryClose(workingMotorClient), test.ShouldBeNil)
-	test.That(t, utils.TryClose(failingMotorClient), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), workingMotorClient), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), failingMotorClient), test.ShouldBeNil)
 }

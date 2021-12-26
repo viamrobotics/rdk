@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 
-	// trigger registrations
+	// trigger registrations.
 	_ "go.viam.com/rdk/robot/impl"
 )
 
@@ -49,7 +49,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			fmt.Fprintf(os.Stdout, "\nModel: %s", res.Name)
 		}
 
-		fmt.Print("\nAttributes:")
+		fmt.Fprint(os.Stdout, "\nAttributes:")
 		for _, conv := range compAttrConvs {
 			if !(conv.Model == res.Name && conv.CompType == config.ComponentType(res.ResourceSubtype)) {
 				continue
@@ -101,6 +101,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 				case reflect.Map:
 					fmt.Fprintf(os.Stdout, "map[%s]", t.Key().String())
 					printTypeInfo(t.Elem(), indent+1)
+				case reflect.Array, reflect.Bool, reflect.Chan, reflect.Complex128, reflect.Complex64,
+					reflect.Float32, reflect.Float64, reflect.Func, reflect.Int, reflect.Int16,
+					reflect.Int32, reflect.Int64, reflect.Int8, reflect.Interface, reflect.Invalid,
+					reflect.String, reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+					reflect.Uint8, reflect.Uintptr, reflect.UnsafePointer:
+					fallthrough
 				default:
 					fmt.Fprint(os.Stdout, t.String())
 				}
@@ -158,6 +164,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		dumpResourceInfo(resName, reg)
 	}
 
-	fmt.Println()
+	fmt.Fprintln(os.Stdout)
 	return nil
 }

@@ -7,11 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/usb"
-
-	"go.viam.com/test"
 )
 
 func TestSearch(t *testing.T) {
@@ -31,7 +30,7 @@ func TestSearch(t *testing.T) {
 	devPathDir := testutils.TempDirT(t, "", "")
 	defer os.RemoveAll(devPathDir)
 	jetsonPath := filepath.Join(devPathDir, "ttyTHS0")
-	test.That(t, os.WriteFile(jetsonPath, []byte("a"), 0666), test.ShouldBeNil)
+	test.That(t, os.WriteFile(jetsonPath, []byte("a"), 0o666), test.ShouldBeNil)
 
 	dev2Root := testutils.TempDirT(t, tempDir1, "")
 	dev3Root := testutils.TempDirT(t, tempDir1, "")
@@ -39,13 +38,13 @@ func TestSearch(t *testing.T) {
 	dev2 := testutils.TempDirT(t, dev2Root, "")
 	dev3 := testutils.TempDirT(t, dev3Root, "")
 
-	test.That(t, os.WriteFile(filepath.Join(tempDir2, "uevent"), []byte("PRODUCT=2341/0043"), 0666), test.ShouldBeNil)
-	test.That(t, os.WriteFile(filepath.Join(dev3Root, "uevent"), []byte("PRODUCT=10c5/ea61"), 0666), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(tempDir2, "uevent"), []byte("PRODUCT=2341/0043"), 0o666), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dev3Root, "uevent"), []byte("PRODUCT=10c5/ea61"), 0o666), test.ShouldBeNil)
 
-	test.That(t, os.Mkdir(filepath.Join(dev1, "tty"), 0700), test.ShouldBeNil)
-	test.That(t, os.Mkdir(filepath.Join(dev3, "tty"), 0700), test.ShouldBeNil)
-	test.That(t, os.WriteFile(filepath.Join(dev1, "tty", "one"), []byte("a"), 0666), test.ShouldBeNil)
-	test.That(t, os.WriteFile(filepath.Join(dev3, "tty", "two"), []byte("b"), 0666), test.ShouldBeNil)
+	test.That(t, os.Mkdir(filepath.Join(dev1, "tty"), 0o700), test.ShouldBeNil)
+	test.That(t, os.Mkdir(filepath.Join(dev3, "tty"), 0o700), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dev1, "tty", "one"), []byte("a"), 0o666), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dev3, "tty", "two"), []byte("b"), 0o666), test.ShouldBeNil)
 
 	test.That(t,
 		os.Symlink(
@@ -65,8 +64,10 @@ func TestSearch(t *testing.T) {
 		{SearchFilter{}, "", []string{tempDir2}, []Description{
 			{Type: TypeArduino, Path: "/dev/one"},
 		}},
-		{SearchFilter{Type: TypeArduino}, "", []string{tempDir2}, []Description{
-			{Type: TypeArduino, Path: "/dev/one"}},
+		{
+			SearchFilter{Type: TypeArduino}, "", []string{tempDir2}, []Description{
+				{Type: TypeArduino, Path: "/dev/one"},
+			},
 		},
 		{SearchFilter{Type: TypeJetson}, "", []string{tempDir2}, nil},
 

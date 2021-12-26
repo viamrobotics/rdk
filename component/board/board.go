@@ -17,17 +17,17 @@ import (
 	"go.viam.com/rdk/rlog"
 )
 
-// SubtypeName is a constant that identifies the component resource subtype string "board"
+// SubtypeName is a constant that identifies the component resource subtype string "board".
 const SubtypeName = resource.SubtypeName("board")
 
-// Subtype is a constant that identifies the component resource subtype
+// Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeComponent,
 	SubtypeName,
 )
 
-// Named is a helper for getting the named board's typed resource name
+// Named is a helper for getting the named board's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewFromSubtype(Subtype, name)
 }
@@ -78,9 +78,6 @@ type Board interface {
 
 	// ModelAttributes returns attributes related to the model of this board.
 	ModelAttributes() ModelAttributes
-
-	// Close shuts the board down, no methods should be called on the board after this
-	Close() error
 }
 
 // ModelAttributes provide info related to a board model.
@@ -270,7 +267,7 @@ func (r *reconfigurableBoard) Status(ctx context.Context) (*pb.BoardStatus, erro
 	return CreateStatus(ctx, r)
 }
 
-func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) error {
+func (r *reconfigurableBoard) Reconfigure(ctx context.Context, newBoard resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -278,7 +275,7 @@ func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) erro
 	if !ok {
 		return errors.Errorf("expected new board to be %T but got %T", r, newBoard)
 	}
-	if err := utils.TryClose(r.actual); err != nil {
+	if err := utils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 
@@ -316,7 +313,7 @@ func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) erro
 		oldPart, ok := r.spis[name]
 		delete(oldSPINames, name)
 		if ok {
-			oldPart.reconfigure(newPart)
+			oldPart.reconfigure(ctx, newPart)
 			continue
 		}
 		r.spis[name] = newPart
@@ -325,7 +322,7 @@ func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) erro
 		oldPart, ok := r.i2cs[name]
 		delete(oldI2CNames, name)
 		if ok {
-			oldPart.reconfigure(newPart)
+			oldPart.reconfigure(ctx, newPart)
 			continue
 		}
 		r.i2cs[name] = newPart
@@ -334,7 +331,7 @@ func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) erro
 		oldPart, ok := r.analogs[name]
 		delete(oldAnalogReaderNames, name)
 		if ok {
-			oldPart.reconfigure(newPart)
+			oldPart.reconfigure(ctx, newPart)
 			continue
 		}
 		r.analogs[name] = newPart
@@ -343,7 +340,7 @@ func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) erro
 		oldPart, ok := r.digitals[name]
 		delete(oldDigitalInterruptNames, name)
 		if ok {
-			oldPart.reconfigure(newPart)
+			oldPart.reconfigure(ctx, newPart)
 			continue
 		}
 		r.digitals[name] = newPart
@@ -373,10 +370,10 @@ func (r *reconfigurableBoard) ModelAttributes() ModelAttributes {
 }
 
 // Close attempts to cleanly close each part of the board.
-func (r *reconfigurableBoard) Close() error {
+func (r *reconfigurableBoard) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return utils.TryClose(r.actual)
+	return utils.TryClose(ctx, r.actual)
 }
 
 // WrapWithReconfigurable converts a regular Board implementation to a reconfigurableBoard.
@@ -434,14 +431,14 @@ type reconfigurableSPI struct {
 	actual SPI
 }
 
-func (r *reconfigurableSPI) reconfigure(newSPI SPI) {
+func (r *reconfigurableSPI) reconfigure(ctx context.Context, newSPI SPI) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	actual, ok := newSPI.(*reconfigurableSPI)
 	if !ok {
 		panic(fmt.Errorf("expected new SPI to be %T but got %T", actual, newSPI))
 	}
-	if err := utils.TryClose(r.actual); err != nil {
+	if err := utils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
@@ -462,14 +459,14 @@ func (r *reconfigurableI2C) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableI2C) reconfigure(newI2C I2C) {
+func (r *reconfigurableI2C) reconfigure(ctx context.Context, newI2C I2C) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	actual, ok := newI2C.(*reconfigurableI2C)
 	if !ok {
 		panic(fmt.Errorf("expected new I2C to be %T but got %T", actual, newI2C))
 	}
-	if err := utils.TryClose(r.actual); err != nil {
+	if err := utils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
@@ -484,14 +481,14 @@ type reconfigurableAnalogReader struct {
 	actual AnalogReader
 }
 
-func (r *reconfigurableAnalogReader) reconfigure(newAnalogReader AnalogReader) {
+func (r *reconfigurableAnalogReader) reconfigure(ctx context.Context, newAnalogReader AnalogReader) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	actual, ok := newAnalogReader.(*reconfigurableAnalogReader)
 	if !ok {
 		panic(fmt.Errorf("expected new analog reader to be %T but got %T", actual, newAnalogReader))
 	}
-	if err := utils.TryClose(r.actual); err != nil {
+	if err := utils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
@@ -509,8 +506,8 @@ func (r *reconfigurableAnalogReader) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableAnalogReader) Close() error {
-	return utils.TryClose(r.actual)
+func (r *reconfigurableAnalogReader) Close(ctx context.Context) error {
+	return utils.TryClose(ctx, r.actual)
 }
 
 type reconfigurableDigitalInterrupt struct {
@@ -524,7 +521,7 @@ func (r *reconfigurableDigitalInterrupt) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableDigitalInterrupt) reconfigure(newDigitalInterrupt DigitalInterrupt) {
+func (r *reconfigurableDigitalInterrupt) reconfigure(ctx context.Context, newDigitalInterrupt DigitalInterrupt) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	actual, ok := newDigitalInterrupt.(*reconfigurableDigitalInterrupt)
@@ -537,7 +534,7 @@ func (r *reconfigurableDigitalInterrupt) reconfigure(newDigitalInterrupt Digital
 			),
 		)
 	}
-	if err := utils.TryClose(r.actual); err != nil {
+	if err := utils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
@@ -575,8 +572,8 @@ func (r *reconfigurableDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
 	r.actual.AddPostProcessor(pp)
 }
 
-func (r *reconfigurableDigitalInterrupt) Close() error {
+func (r *reconfigurableDigitalInterrupt) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return utils.TryClose(r.actual)
+	return utils.TryClose(ctx, r.actual)
 }

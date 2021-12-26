@@ -6,7 +6,7 @@ import (
 
 // NewResourceNameSet returns a flattened set of name strings from
 // a collection of resource.Name objects for the purposes of comparison
-// in automated tests
+// in automated tests.
 func NewResourceNameSet(resourceNames ...resource.Name) map[resource.Name]struct{} {
 	set := make(map[resource.Name]struct{}, len(resourceNames))
 	for _, val := range resourceNames {
@@ -17,7 +17,7 @@ func NewResourceNameSet(resourceNames ...resource.Name) map[resource.Name]struct
 
 // ExtractNames takes a slice of resource.Name objects
 // and returns a slice of name strings for the purposes of comparison
-// in automated tests
+// in automated tests.
 func ExtractNames(values ...resource.Name) []string {
 	var names []string
 	for _, n := range values {
@@ -28,7 +28,7 @@ func ExtractNames(values ...resource.Name) []string {
 
 // ConcatResourceNames takes a slice of slices of resource.Name objects
 // and returns a concatenated slice of resource.Name for the purposes of comparison
-// in automated tests
+// in automated tests.
 func ConcatResourceNames(values ...[]resource.Name) []resource.Name {
 	var rNames []resource.Name
 	for _, v := range values {
@@ -38,7 +38,7 @@ func ConcatResourceNames(values ...[]resource.Name) []resource.Name {
 }
 
 // AddSuffixes takes a slice of resource.Name objects and for each suffix,
-// adds the suffix to every object, then returns the entire list
+// adds the suffix to every object, then returns the entire list.
 func AddSuffixes(values []resource.Name, suffixes ...string) []resource.Name {
 	var rNames []resource.Name
 

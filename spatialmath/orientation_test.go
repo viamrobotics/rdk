@@ -5,25 +5,24 @@ import (
 	"testing"
 
 	"go.viam.com/test"
+	"gonum.org/v1/gonum/num/quat"
 
 	"go.viam.com/rdk/utils"
-
-	"gonum.org/v1/gonum/num/quat"
 )
 
-// represent a 45 degree rotation around the x axis in all the representations
+// represent a 45 degree rotation around the x axis in all the representations.
 var (
 	th = math.Pi / 4.
-	// in quaternion representation
+	// in quaternion representation.
 	q45x = quat.Number{math.Cos(th / 2.), math.Sin(th / 2.), 0, 0}
-	// in axis-angle representation
+	// in axis-angle representation.
 	aa45x = &R4AA{th, 1., 0., 0.}
-	// in euler angle representation
+	// in euler angle representation.
 	ea45x = &EulerAngles{Roll: th, Pitch: 0, Yaw: 0}
-	// in orientation vector representation
+	// in orientation vector representation.
 	ov45x  = &OrientationVector{2. * th, 0., -math.Sqrt(2) / 2., math.Sqrt(2) / 2.}
 	ovd45x = &OrientationVectorDegrees{2 * utils.RadToDeg(th), 0., -math.Sqrt(2) / 2, math.Sqrt(2) / 2}
-	// in rotation matrix representation
+	// in rotation matrix representation.
 	rm45x = &RotationMatrix{[9]float64{1, 0, 0, 0, math.Cos(th), math.Sin(th), 0, -math.Sin(th), math.Cos(th)}}
 )
 
@@ -109,6 +108,7 @@ func TestOrientationBetween(t *testing.T) {
 }
 
 func testCompatibility(t *testing.T, o Orientation) {
+	t.Helper()
 	// Orientation Vectors
 	test.That(t, o.OrientationVectorRadians().Theta, test.ShouldAlmostEqual, ov45x.Theta)
 	test.That(t, o.OrientationVectorRadians().OX, test.ShouldAlmostEqual, ov45x.OX)

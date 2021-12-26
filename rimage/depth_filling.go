@@ -44,23 +44,35 @@ func FillDepthMap(iwd *ImageWithDepth) error {
 	return nil
 }
 
-// directions for ray-marching
+// directions for ray-marching.
 var (
 	sixteenPoints = []image.Point{
-		{0, 2}, {0, -2}, {-2, 0}, {2, 0},
-		{-2, 2}, {2, 2}, {-2, -2}, {2, -2},
-		{-2, 1}, {-1, 2}, {1, 2}, {2, 1},
-		{-2, -1}, {-1, -2}, {1, -2}, {2, -1},
+		{0, 2},
+		{0, -2},
+		{-2, 0},
+		{2, 0},
+		{-2, 2},
+		{2, 2},
+		{-2, -2},
+		{2, -2},
+		{-2, 1},
+		{-1, 2},
+		{1, 2},
+		{2, 1},
+		{-2, -1},
+		{-1, -2},
+		{1, -2},
+		{2, -1},
 	}
 )
 
-// function returns a map of the filled-in points on the border of a contiguous segment of holes in a depth map
+// function returns a map of the filled-in points on the border of a contiguous segment of holes in a depth map.
 func getPointsOnHoleBorder(segment map[image.Point]bool, dm *DepthMap) map[image.Point]bool {
 	directions := []image.Point{
-		{0, 1},  //up
-		{0, -1}, //down
-		{-1, 0}, //left
-		{1, 0},  //right
+		{0, 1},  // up
+		{0, -1}, // down
+		{-1, 0}, // left
+		{1, 0},  // right
 	}
 	borderPoints := make(map[image.Point]bool)
 	for hole := range segment {
@@ -87,7 +99,7 @@ func isMultiModal(segment map[image.Point]bool, dm *DepthMap, threshold int) boo
 		return false
 	}
 	min, max := minmax(depths)
-	nbins := utils.MaxInt(1, int((max-min)/100.)) //bin widths 100mm
+	nbins := utils.MaxInt(1, int((max-min)/100.)) // bin widths 100mm
 	hist := histogram.Hist(nbins, depths)
 	peaks := 0
 	zeros := threshold
@@ -104,7 +116,7 @@ func isMultiModal(segment map[image.Point]bool, dm *DepthMap, threshold int) boo
 	return peaks > 1
 }
 
-// get the minimum and the maximum from a slice of float64s
+// get the minimum and the maximum from a slice of float64s.
 func minmax(slice []float64) (float64, float64) {
 	max := slice[0]
 	min := slice[0]
@@ -158,15 +170,13 @@ func clusterEdgePoints(borderPoints map[image.Point]bool, iwd *ImageWithDepth) (
 		colorSlice := make([]Color, 0)
 		for _, point := range c.Observations {
 			colorSlice = append(colorSlice, point.(colorDepthPoint).c)
-
 		}
 		clusterColors = append(clusterColors, AverageColor(colorSlice))
 	}
 	return clusterDepths, clusterColors, nil
-
 }
 
-// match the point's color to the closest cluster, and return the depth associated with that cluster
+// match the point's color to the closest cluster, and return the depth associated with that cluster.
 func matchDepthToClosestColor(inColor, color1, color2 Color, depth1, depth2 float64) Depth {
 	if inColor.Distance(color1) <= inColor.Distance(color2) {
 		return Depth(depth1)
@@ -174,7 +184,7 @@ func matchDepthToClosestColor(inColor, color1, color2 Color, depth1, depth2 floa
 	return Depth(depth2)
 }
 
-// get a slice of float64 from a map of points, skipping zero points
+// get a slice of float64 from a map of points, skipping zero points.
 func pointsMap2Slice(points map[image.Point]bool, dm *DepthMap) []float64 {
 	slice := make([]float64, 0, len(points))
 	for point := range points {

@@ -4,10 +4,9 @@ import (
 	"context"
 	"image"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -35,12 +34,7 @@ type preprocessDepthSource struct {
 	source gostream.ImageSource
 }
 
-// Close closes the source
-func (os *preprocessDepthSource) Close() error {
-	return nil
-}
-
-// Next applies depth preprocessing to the next image
+// Next applies depth preprocessing to the next image.
 func (os *preprocessDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
 	i, closer, err := os.source.Next(ctx)
 	if err != nil {
@@ -64,5 +58,4 @@ func newPreprocessDepth(r robot.Robot, config config.Component) (camera.Camera, 
 		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
 	return &camera.ImageSource{ImageSource: &preprocessDepthSource{source}}, nil
-
 }

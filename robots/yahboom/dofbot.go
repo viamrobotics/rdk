@@ -1,14 +1,19 @@
+// Package yahboom implements a yahboom based robot.
 package yahboom
 
 import (
 	"context"
-	_ "embed" // for embedding model file
+
+	// for embedding model file.
+	_ "embed"
 	"fmt"
 	"math"
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	gutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/board"
@@ -16,20 +21,16 @@ import (
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	componentpb "go.viam.com/rdk/proto/api/component/v1"
-	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-
-	gutils "go.viam.com/utils"
-
-	"github.com/edaniels/golog"
 )
 
 //go:embed dofbot.json
 var modeljson []byte
 
-func dofbotModel() (*frame.Model, error) {
-	return frame.ParseJSON(modeljson, "yahboom-dofbot")
+func dofbotModel() (referenceframe.Model, error) {
+	return referenceframe.ParseJSON(modeljson, "yahboom-dofbot")
 }
 
 type jointConfig struct {
@@ -66,20 +67,20 @@ func (jc jointConfig) toHw(degrees float64) int {
 func init() {
 	registry.RegisterComponent(arm.Subtype, "yahboom-dofbot", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newDofBot(ctx, r, config, logger)
+			return newDofBot(r, config, logger)
 		},
 	})
 }
 
 type dofBot struct {
 	handle board.I2CHandle
-	model  *frame.Model
+	model  referenceframe.Model
 	mp     motionplan.MotionPlanner
 	mu     sync.Mutex
 	muMove sync.Mutex
 }
 
-func createDofBotSolver(logger golog.Logger) (*frame.Model, motionplan.MotionPlanner, error) {
+func createDofBotSolver(logger golog.Logger) (referenceframe.Model, motionplan.MotionPlanner, error) {
 	model, err := dofbotModel()
 	if err != nil {
 		return nil, nil, err
@@ -95,7 +96,7 @@ func createDofBotSolver(logger golog.Logger) (*frame.Model, motionplan.MotionPla
 	return model, mp, nil
 }
 
-func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+func newDofBot(r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 	var err error
 
 	a := dofBot{}
@@ -138,7 +139,7 @@ func (a *dofBot) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	solution, err := a.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
@@ -190,7 +191,6 @@ func (a *dofBot) MoveToJointPositions(ctx context.Context, pos *componentpb.ArmJ
 
 			return !movedAny, nil
 		}()
-
 		if err != nil {
 			return err
 		}
@@ -265,8 +265,8 @@ func (a *dofBot) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 	return errors.New("yahboom dofBot doesn't support JointMoveDelta")
 }
 
-// ModelFrame returns all the information necessary for including the arm in a FrameSystem
-func (a *dofBot) ModelFrame() *frame.Model {
+// ModelFrame returns all the information necessary for including the arm in a FrameSystem.
+func (a *dofBot) ModelFrame() referenceframe.Model {
 	return a.model
 }
 
@@ -281,7 +281,6 @@ const grabAngle = 240.0
 
 // Grab makes the gripper grab.
 func (a *dofBot) Grab(ctx context.Context) (bool, error) {
-
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	err := a.moveJointInLock(ctx, 6, 360)
@@ -298,7 +297,6 @@ func (a *dofBot) Grab(ctx context.Context) (bool, error) {
 	last := -1.0
 
 	for i := 0; i < 10; i++ {
-
 		if !gutils.SelectContextOrWait(ctx, 50*time.Millisecond) {
 			return false, errors.New("timeout while grabbing")
 		}
@@ -318,16 +316,16 @@ func (a *dofBot) Grab(ctx context.Context) (bool, error) {
 	return last < grabAngle, a.moveJointInLock(ctx, 6, last+20) // squeeze a tiny bit
 }
 
-func (a *dofBot) CurrentInputs(ctx context.Context) ([]frame.Input, error) {
+func (a *dofBot) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return frame.JointPosToInputs(res), nil
+	return referenceframe.JointPosToInputs(res), nil
 }
 
-func (a *dofBot) GoToInputs(ctx context.Context, goal []frame.Input) error {
-	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(goal))
+func (a *dofBot) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
 }
 
 func (a *dofBot) Close() error {

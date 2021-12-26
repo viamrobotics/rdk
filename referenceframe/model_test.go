@@ -6,32 +6,33 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+	"go.viam.com/test"
 
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
-
-	"go.viam.com/test"
 )
 
 func TestModelLoading(t *testing.T) {
 	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "wx250s")
+	simpleM, ok := m.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
 
-	test.That(t, m.OperationalDoF(), test.ShouldEqual, 1)
+	test.That(t, simpleM.OperationalDoF(), test.ShouldEqual, 1)
 	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
 
-	isValid := m.AreJointPositionsValid([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
+	isValid := simpleM.AreJointPositionsValid([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
 	test.That(t, isValid, test.ShouldBeTrue)
-	isValid = m.AreJointPositionsValid([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 99.1})
+	isValid = simpleM.AreJointPositionsValid([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 99.1})
 	test.That(t, isValid, test.ShouldBeFalse)
 
 	orig := []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
 	orig[5] += math.Pi * 2
 	orig[4] -= math.Pi * 4
 
-	randpos := m.GenerateRandomJointPositions(rand.New(rand.NewSource(1)))
-	test.That(t, m.AreJointPositionsValid(randpos), test.ShouldBeTrue)
+	randpos := GenerateRandomJointPositions(m, rand.New(rand.NewSource(1)))
+	test.That(t, simpleM.AreJointPositionsValid(randpos), test.ShouldBeTrue)
 
 	m, err = ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
@@ -41,9 +42,11 @@ func TestModelLoading(t *testing.T) {
 func TestTransform(t *testing.T) {
 	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
+	simpleM, ok := m.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
 
 	joints := []Frame{}
-	for _, tform := range m.OrdTransforms {
+	for _, tform := range simpleM.OrdTransforms {
 		if len(tform.DoF()) > 0 {
 			joints = append(joints, tform)
 		}
@@ -68,10 +71,12 @@ func TestTransform(t *testing.T) {
 func TestVerboseTransform(t *testing.T) {
 	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
+	simpleM, ok := m.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
 
 	poses, err := m.VerboseTransform([]Input{{0.0}, {0.0}, {0.0}, {0.0}, {0.0}, {0.0}})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(poses), test.ShouldEqual, len(m.OrdTransforms))
+	test.That(t, len(poses), test.ShouldEqual, len(simpleM.OrdTransforms))
 
 	shoulderExpect := spatialmath.NewPoseFromPoint(r3.Vector{0.0, 0.0, 110.25})
 	test.That(t, spatialmath.AlmostCoincident(poses["wx250s:shoulder"], shoulderExpect), test.ShouldBeTrue)

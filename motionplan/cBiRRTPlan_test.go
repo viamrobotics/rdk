@@ -4,18 +4,17 @@ import (
 	"context"
 	"math/rand"
 	"sort"
-
 	"testing"
-
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	frame "go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/utils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/utils"
 )
 
-var interp = frame.FloatsToInputs([]float64{
+var interp = referenceframe.FloatsToInputs([]float64{
 	0.22034293025523666,
 	0.023301860367034785,
 	0.0035938741832804775,
@@ -25,13 +24,13 @@ var interp = frame.FloatsToInputs([]float64{
 	0.22994099248696265,
 })
 
-// This should test a simple linear motion
+// This should test a simple linear motion.
 func TestSimpleLinearMotion(t *testing.T) {
 	nSolutions := 5
 	inputSteps := []*solution{}
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
+	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
@@ -84,11 +83,11 @@ func TestSimpleLinearMotion(t *testing.T) {
 	}
 
 	// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
-	seedReached := mp.constrainedExtend(mp.opt, seedMap, near1, target)
+	seedReached := mp.constrainedExtend(ctx, mp.opt, seedMap, near1, target)
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
 	near2 := mp.nn.nearestNeighbor(ctx, seedReached, goalMap)
 	// extend goalMap towards the point in seedMap
-	goalReached := mp.constrainedExtend(mp.opt, goalMap, near2, seedReached)
+	goalReached := mp.constrainedExtend(ctx, mp.opt, goalMap, near2, seedReached)
 
 	test.That(t, inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist, test.ShouldBeTrue)
 
@@ -120,25 +119,25 @@ func TestNearestNeighbor(t *testing.T) {
 	nm := &neighborManager{nCPU: 2}
 	rrtMap := map[*solution]*solution{}
 
-	j := &solution{[]frame.Input{{0.0}}}
+	j := &solution{[]referenceframe.Input{{0.0}}}
 	for i := 1.0; i < 110.0; i++ {
-		iSol := &solution{[]frame.Input{{i}}}
+		iSol := &solution{[]referenceframe.Input{{i}}}
 		rrtMap[iSol] = j
 		j = iSol
 	}
 	ctx := context.Background()
 
-	seed := &solution{[]frame.Input{{23.1}}}
+	seed := &solution{[]referenceframe.Input{{23.1}}}
 	// test serial NN
 	nn := nm.nearestNeighbor(ctx, seed, rrtMap)
 	test.That(t, nn.inputs[0].Value, test.ShouldAlmostEqual, 23.0)
 
 	for i := 120.0; i < 1100.0; i++ {
-		iSol := &solution{[]frame.Input{{i}}}
+		iSol := &solution{[]referenceframe.Input{{i}}}
 		rrtMap[iSol] = j
 		j = iSol
 	}
-	seed = &solution{[]frame.Input{{723.6}}}
+	seed = &solution{[]referenceframe.Input{{723.6}}}
 	// test parallel NN
 	nn = nm.nearestNeighbor(ctx, seed, rrtMap)
 	test.That(t, nn.inputs[0].Value, test.ShouldAlmostEqual, 724.0)

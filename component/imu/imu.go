@@ -9,24 +9,23 @@ import (
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
-	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/spatialmath"
-
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/spatialmath"
 )
 
-// SubtypeName is a constant that identifies the component resource subtype string "imu"
+// SubtypeName is a constant that identifies the component resource subtype string "imu".
 const SubtypeName = resource.SubtypeName("imu")
 
-// Subtype is a constant that identifies the component resource subtype
+// Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeComponent,
 	SubtypeName,
 )
 
-// Named is a helper for getting the named IMU's typed resource name
+// Named is a helper for getting the named IMU's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewFromSubtype(Subtype, name)
 }
@@ -48,10 +47,10 @@ type reconfigurableIMU struct {
 	actual IMU
 }
 
-func (r *reconfigurableIMU) Close() error {
+func (r *reconfigurableIMU) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return viamutils.TryClose(r.actual)
+	return viamutils.TryClose(ctx, r.actual)
 }
 
 func (r *reconfigurableIMU) ProxyFor() interface{} {
@@ -84,14 +83,14 @@ func (r *reconfigurableIMU) Desc() sensor.Description {
 	return r.actual.Desc()
 }
 
-func (r *reconfigurableIMU) Reconfigure(newIMU resource.Reconfigurable) error {
+func (r *reconfigurableIMU) Reconfigure(ctx context.Context, newIMU resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	actual, ok := newIMU.(*reconfigurableIMU)
 	if !ok {
 		return errors.Errorf("expected new IMU to be %T but got %T", r, newIMU)
 	}
-	if err := viamutils.TryClose(r.actual); err != nil {
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual

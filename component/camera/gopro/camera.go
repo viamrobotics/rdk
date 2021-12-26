@@ -1,3 +1,4 @@
+// Package gopro implements a gopro based camra. Support is experimental.
 package gopro
 
 import (
@@ -12,15 +13,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
+	ffmpeg "github.com/u2takey/ffmpeg-go"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-
-	"github.com/edaniels/golog"
-	ffmpeg "github.com/u2takey/ffmpeg-go"
 )
 
 const usbHost = "172.27.116.51"
@@ -28,16 +28,14 @@ const usbHost = "172.27.116.51"
 func init() {
 	registry.RegisterComponent(camera.Subtype, "gopro", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			gCam, err := newCamera(logger)
-			if err != nil {
-				return nil, err
-			}
+			gCam := newCamera(logger)
 			gCam.start()
 			return &camera.ImageSource{ImageSource: gCam}, nil
-		}})
+		},
+	})
 }
 
-func newCamera(logger golog.Logger) (*gpCamera, error) {
+func newCamera(logger golog.Logger) *gpCamera {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &gpCamera{
 		cancelCtx:  ctx,
@@ -46,7 +44,7 @@ func newCamera(logger golog.Logger) (*gpCamera, error) {
 		buf: &dumbWriter{
 			frameCh: make(chan []byte, 1),
 		},
-	}, nil
+	}
 }
 
 type gpCamera struct {
@@ -63,7 +61,17 @@ func (c *gpCamera) start() {
 		defer c.activeBackgroundworkers.Done()
 		defer http.DefaultClient.CloseIdleConnections()
 		for {
-			resp, err := http.DefaultClient.Get(fmt.Sprintf("http://%s/gp/gpControl/execute?p1=gpStream&c1=start", usbHost))
+			req, err := http.NewRequestWithContext(
+				c.cancelCtx,
+				http.MethodGet,
+				fmt.Sprintf("http://%s/gp/gpControl/execute?p1=gpStream&c1=start", usbHost),
+				nil,
+			)
+			if err != nil {
+				c.logger.Errorw("error making GET", "error", err)
+				continue
+			}
+			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
 				c.logger.Errorw("error doing GET", "error", err)
 				continue
@@ -104,11 +112,11 @@ func (dw *dumbWriter) Write(data []byte) (int, error) {
 	}
 	dw.lastFrame = now
 	dw.mu.Lock()
-	shouldErr := dw.shouldErr
-	dw.mu.Unlock()
-	if shouldErr {
+	if dw.shouldErr {
+		dw.mu.Unlock()
 		return 0, errors.New("expected err")
 	}
+	dw.mu.Unlock()
 	select {
 	case dw.frameCh <- data:
 	default:
@@ -133,11 +141,10 @@ func (c *gpCamera) Next(ctx context.Context) (image.Image, func(), error) {
 	}
 }
 
-func (c *gpCamera) Close() error {
+func (c *gpCamera) Close() {
 	c.buf.mu.Lock()
 	c.buf.shouldErr = true
 	c.buf.mu.Unlock()
 	c.cancelFunc()
 	c.activeBackgroundworkers.Wait()
-	return nil
 }

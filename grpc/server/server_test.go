@@ -6,9 +6,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-
+	"go.viam.com/test"
 	"go.viam.com/utils"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/base"
@@ -24,12 +28,6 @@ import (
 	servicepkg "go.viam.com/rdk/services"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
-
-	"github.com/golang/geo/r3"
-	"go.viam.com/test"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func newServer() (pb.RobotServiceServer, *inject.Robot) {
@@ -228,9 +226,8 @@ func TestServer(t *testing.T) {
 			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().Theta,
 		)
 		t.Logf("the json frame should be empty:\n %v", fssResp.FrameSystemConfigs[0].ModelJson)
-		modelFrame, err := referenceframe.ParseJSON(fssResp.FrameSystemConfigs[0].ModelJson, fssResp.FrameSystemConfigs[0].Name)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, modelFrame, test.ShouldEqual, fsConfigs[0].ModelFrame)
+		_, err = referenceframe.ParseJSON(fssResp.FrameSystemConfigs[0].ModelJson, fssResp.FrameSystemConfigs[0].Name)
+		test.That(t, err, test.ShouldBeError, referenceframe.ErrNoModelInformation)
 	})
 
 	t.Run("ObjectManipulation", func(t *testing.T) {
@@ -280,7 +277,6 @@ func TestServer(t *testing.T) {
 		resp, err := server.ObjectManipulationServiceDoGrab(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.GetHasGrabbed(), test.ShouldBeTrue)
-
 	})
 
 	t.Run("StatusStream", func(t *testing.T) {
@@ -368,7 +364,7 @@ func TestServer(t *testing.T) {
 		actionName = utils.RandomAlphaString(5)
 		called = make(chan robot.Robot)
 		action.RegisterAction(actionName, func(ctx context.Context, r robot.Robot) {
-			go utils.TryClose(server)
+			go utils.TryClose(context.Background(), server)
 			<-ctx.Done()
 			called <- r
 		})
@@ -648,6 +644,7 @@ func TestServer(t *testing.T) {
 		test.That(t, getResp.High, test.ShouldBeTrue)
 	})
 
+	//nolint:dupl
 	t.Run("BoardPWMSet", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
@@ -697,6 +694,7 @@ func TestServer(t *testing.T) {
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", byte(7)})
 	})
 
+	//nolint:dupl
 	t.Run("BoardPWMSetFrequency", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
@@ -746,6 +744,7 @@ func TestServer(t *testing.T) {
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", uint(123123)})
 	})
 
+	//nolint:dupl
 	t.Run("BoardAnalogReaderRead", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
@@ -880,6 +879,7 @@ func TestServer(t *testing.T) {
 		test.That(t, client.DigitalInterruptConfigFromProto(configResp.Config), test.ShouldResemble, theConfig)
 	})
 
+	//nolint:dupl
 	t.Run("BoardDigitalInterruptValue", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
@@ -1257,6 +1257,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Controls, test.ShouldResemble, []string{"AbsoluteX", "ButtonStart"})
 
 		startTime := time.Now()
+		time.Sleep(time.Second)
 		resp2, err := server.InputControllerLastEvents(context.Background(), &pb.InputControllerLastEventsRequest{
 			Controller: "inputController1",
 		})
@@ -1348,7 +1349,6 @@ func TestServer(t *testing.T) {
 		cancel()
 		<-done
 		test.That(t, streamErr, test.ShouldEqual, context.Canceled)
-
 	})
 
 	t.Run("ForceMatrixMatrix", func(t *testing.T) {
@@ -1411,9 +1411,7 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, resp.IsSlipping, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
-
 	})
-
 }
 
 type robotServiceInputControllerEventStreamServer struct {

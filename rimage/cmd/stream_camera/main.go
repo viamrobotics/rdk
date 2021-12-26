@@ -4,15 +4,14 @@ package main
 import (
 	"context"
 
-	"go.viam.com/utils"
-
-	"go.viam.com/rdk/component/camera/imagesource"
-	"go.viam.com/rdk/config"
-
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
 	"github.com/edaniels/gostream/media"
+	"go.viam.com/utils"
+
+	"go.viam.com/rdk/component/camera/imagesource"
+	"go.viam.com/rdk/config"
 )
 
 func main() {
@@ -51,7 +50,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			for _, p := range info.Properties {
 				logger.Debugf("\t %v %d x %d", p.FrameFormat, p.Width, p.Height)
 			}
-
 		}
 		return nil
 	}
@@ -117,5 +115,5 @@ func viewCamera(ctx context.Context, attrs config.AttributeMap, port int, debug 
 	utils.ContextMainReadyFunc(ctx)()
 	gostream.StreamSource(ctx, webcam, remoteStream)
 
-	return server.Stop(context.Background())
+	return server.Stop(ctx)
 }

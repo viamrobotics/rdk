@@ -3,11 +3,11 @@ package chess
 import (
 	"image"
 
-	"go.viam.com/rdk/rimage"
-
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"
 	"github.com/lucasb-eyer/go-colorful"
+
+	"go.viam.com/rdk/rimage"
 )
 
 func isPink(c rimage.Color) bool {
@@ -23,7 +23,6 @@ func isPink(c rimage.Color) bool {
 		return false
 	}
 	return true
-
 }
 
 func inList(l []image.Point, p image.Point) bool {
@@ -35,7 +34,7 @@ func inList(l []image.Point, p image.Point) bool {
 	return false
 }
 
-// FindChessCornersPinkCheatInQuadrant TODO
+// FindChessCornersPinkCheatInQuadrant TODO.
 func FindChessCornersPinkCheatInQuadrant(
 	img *rimage.Image,
 	dc *gg.Context,
@@ -90,7 +89,7 @@ func FindChessCornersPinkCheatInQuadrant(
 	return myCenter
 }
 
-// FindChessCornersPinkCheat TODO
+// FindChessCornersPinkCheat TODO.
 func FindChessCornersPinkCheat(ii *rimage.ImageWithDepth, logger golog.Logger) (image.Image, []image.Point, error) {
 	img := ii.Color
 	dc := gg.NewContext(img.Width(), img.Height())
@@ -121,7 +120,6 @@ func FindChessCornersPinkCheat(ii *rimage.ImageWithDepth, logger golog.Logger) (
 					redLittleCircles = append(redLittleCircles, p)
 				}
 			}
-
 		}
 	}
 
