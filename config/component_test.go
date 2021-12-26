@@ -24,14 +24,14 @@ func (convAttr *convertedAttributes) Validate(path string) error {
 }
 
 func TestComponentValidate(t *testing.T) {
-	t.Run("return error when config is not valid", func(t *testing.T) {
+	t.Run("config invalid", func(t *testing.T) {
 		var emptyConfig config.Component
 		err := emptyConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 	})
 
-	t.Run("return nil error when the config is valid", func(t *testing.T) {
+	t.Run("config valid", func(t *testing.T) {
 		validConfig := config.Component{
 			Name: "foo",
 			Type: "arm",
@@ -39,8 +39,8 @@ func TestComponentValidate(t *testing.T) {
 		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
 	})
 
-	t.Run("test validation of ConvertedAttributes", func(t *testing.T) {
-		t.Run("return error when the validation of the ConvertedAttributes fails", func(t *testing.T) {
+	t.Run("ConvertedAttributes", func(t *testing.T) {
+		t.Run("config invalid", func(t *testing.T) {
 			invalidConfig := config.Component{
 				Name: "foo",
 				ConvertedAttributes: &convertedAttributes{
@@ -52,7 +52,7 @@ func TestComponentValidate(t *testing.T) {
 			test.That(t, err.Error(), test.ShouldContainSubstring, `"thing" is required`)
 		})
 
-		t.Run("return nil error when the validation of the ConvertedAttributes succeeds", func(t *testing.T) {
+		t.Run("config valid", func(t *testing.T) {
 			invalidConfig := config.Component{
 				Name: "foo",
 				ConvertedAttributes: &convertedAttributes{
