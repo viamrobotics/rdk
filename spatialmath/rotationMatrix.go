@@ -14,7 +14,7 @@ type RotationMatrix struct {
 	mat [9]float64
 }
 
-// NewRotationMatrix creates the rotation matrix from a slice of floats
+// NewRotationMatrix creates the rotation matrix from a slice of floats.
 func NewRotationMatrix(m []float64) (*RotationMatrix, error) {
 	if len(m) != 9 {
 		return nil, fmt.Errorf("input slice has %d elements, need exactly 9", len(m))
