@@ -37,88 +37,103 @@ import (
 var intel515json []byte
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, "single_stream", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		if config.ConvertedAttributes.(*rimage.AttrConfig).Stream == "" {
-			return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth, or both)")
-		}
-		source, err := NewServerSource(config.ConvertedAttributes.(*rimage.AttrConfig), logger)
-		if err != nil {
-			return nil, err
-		}
-		return &camera.ImageSource{ImageSource: source}, nil
-	}})
+	registry.RegisterComponent(camera.Subtype, "single_stream",
+		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
+			config config.Component, logger golog.Logger) (interface{}, error) {
+			if config.ConvertedAttributes.(*rimage.AttrConfig).Stream == "" {
+				return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth, or both)")
+			}
+			source, err := NewServerSource(config.ConvertedAttributes.(*rimage.AttrConfig), logger)
+			if err != nil {
+				return nil, err
+			}
+			return &camera.ImageSource{ImageSource: source}, nil
+		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "single_stream", func(attributes config.AttributeMap) (interface{}, error) {
-		var conf rimage.AttrConfig
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &rimage.AttrConfig{})
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "single_stream",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &rimage.AttrConfig{})
 
-	registry.RegisterComponent(camera.Subtype, "dual_stream", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		if (config.ConvertedAttributes.(*rimage.AttrConfig).Color == "") || (config.ConvertedAttributes.(*rimage.AttrConfig).Depth == "") {
-			return nil, errors.New("camera 'dual_stream' needs color and depth attributes")
-		}
-		return &camera.ImageSource{ImageSource: &dualServerSource{
-			ColorURL:  config.ConvertedAttributes.(*rimage.AttrConfig).Color,
-			DepthURL:  config.ConvertedAttributes.(*rimage.AttrConfig).Depth,
-			isAligned: config.ConvertedAttributes.(*rimage.AttrConfig).Aligned,
-		}}, nil
-	}})
+	registry.RegisterComponent(camera.Subtype, "dual_stream",
+		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
+			config config.Component, logger golog.Logger) (interface{}, error) {
+			if (config.ConvertedAttributes.(*rimage.AttrConfig).Color == "") || (config.ConvertedAttributes.(*rimage.AttrConfig).Depth == "") {
+				return nil, errors.New("camera 'dual_stream' needs color and depth attributes")
+			}
+			return &camera.ImageSource{ImageSource: &dualServerSource{
+				ColorURL:  config.ConvertedAttributes.(*rimage.AttrConfig).Color,
+				DepthURL:  config.ConvertedAttributes.(*rimage.AttrConfig).Depth,
+				isAligned: config.ConvertedAttributes.(*rimage.AttrConfig).Aligned,
+			}}, nil
+		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "dual_stream", func(attributes config.AttributeMap) (interface{}, error) {
-		var conf rimage.AttrConfig
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &rimage.AttrConfig{})
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "dual_stream",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &rimage.AttrConfig{})
 
-	registry.RegisterComponent(camera.Subtype, "intel", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		source, err := NewIntelServerSource(config.ConvertedAttributes.(*rimage.AttrConfig), logger)
-		if err != nil {
-			return nil, err
-		}
-		return &camera.ImageSource{ImageSource: source}, nil
-	}})
+	registry.RegisterComponent(camera.Subtype, "intel",
+		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
+			config config.Component, logger golog.Logger) (interface{}, error) {
+			source, err := NewIntelServerSource(config.ConvertedAttributes.(*rimage.AttrConfig), logger)
+			if err != nil {
+				return nil, err
+			}
+			return &camera.ImageSource{ImageSource: source}, nil
+		}})
 	registry.RegisterComponent(camera.Subtype, "eliot", *registry.ComponentLookup(camera.Subtype, "intel"))
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "intel", func(attributes config.AttributeMap) (interface{}, error) {
-		var conf rimage.AttrConfig
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &rimage.AttrConfig{})
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "intel",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &rimage.AttrConfig{})
 
-	registry.RegisterComponent(camera.Subtype, "file", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		return &camera.ImageSource{ImageSource: &fileSource{config.ConvertedAttributes.(*rimage.AttrConfig).Color, config.ConvertedAttributes.(*rimage.AttrConfig).Depth, config.ConvertedAttributes.(*rimage.AttrConfig).Aligned}}, nil
-	}})
+	registry.RegisterComponent(camera.Subtype, "file",
+		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
+			config config.Component, logger golog.Logger) (interface{}, error) {
+			return &camera.ImageSource{ImageSource: &fileSource{
+				config.ConvertedAttributes.(*rimage.AttrConfig).Color,
+				config.ConvertedAttributes.(*rimage.AttrConfig).Depth, config.ConvertedAttributes.(*rimage.AttrConfig).Aligned,
+			}}, nil
+		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "file", func(attributes config.AttributeMap) (interface{}, error) {
-		var conf rimage.AttrConfig
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &rimage.AttrConfig{})
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "file",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &rimage.AttrConfig{})
 }
 
 // staticSource is a fixed, stored image.
@@ -313,7 +328,7 @@ func NewServerSource(cfg *rimage.AttrConfig, logger golog.Logger) (gostream.Imag
 
 // NewIntelServerSource is the ImageSource for an Intel515 RGBD camera that streams both
 // color and depth information.
-// DEPRECATED: use NewServerSource directly instead with 'single_stream' model.
+// Deprecated: use NewServerSource directly instead with 'single_stream' model.
 func NewIntelServerSource(cfg *rimage.AttrConfig, logger golog.Logger) (gostream.ImageSource, error) {
 	if cfg.Num == "" {
 		cfg.Num = "0"
