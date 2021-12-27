@@ -25,6 +25,7 @@ func TestValue(t *testing.T) {
 	})
 
 	allMustExcept := func(t *testing.T, val Value, valType ValueType) {
+		t.Helper()
 		for _, vt := range []ValueType{
 			ValueTypeString,
 			ValueTypeBool,

@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/config"
+	"go.viam.com/rdk/config"
 )
 
 func TestPIDConfig(t *testing.T) {

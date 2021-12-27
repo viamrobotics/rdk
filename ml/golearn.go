@@ -5,19 +5,18 @@ import (
 	"math"
 
 	"github.com/pkg/errors"
-
 	"github.com/sjwhitworth/golearn/base"
 	"github.com/sjwhitworth/golearn/knn"
 	"github.com/sjwhitworth/golearn/neural"
 )
 
-// GoLearnClassifier TODO
+// GoLearnClassifier TODO.
 type GoLearnClassifier struct {
 	theClassifier base.Classifier
 	format        *base.DenseInstances
 }
 
-// Classify TODO
+// Classify TODO.
 func (c *GoLearnClassifier) Classify(data []float64) (int, error) {
 	di := _glMakeClassifyDataSet(c.format, data)
 
@@ -29,7 +28,7 @@ func (c *GoLearnClassifier) Classify(data []float64) (int, error) {
 	return _glReturnSingleResult(res), nil
 }
 
-// Train TODO
+// Train TODO.
 func (c *GoLearnClassifier) Train(data [][]float64, correct []int) error {
 	rawData, err := _glMakeDataSet(data, correct)
 	if err != nil {
@@ -43,20 +42,20 @@ func (c *GoLearnClassifier) Train(data [][]float64, correct []int) error {
 	return c.theClassifier.Fit(rawData)
 }
 
-// GoLearnNNClassifier TODO
+// GoLearnNNClassifier TODO.
 type GoLearnNNClassifier struct {
 	theClassifier *neural.MultiLayerNet
 	format        *base.DenseInstances
 }
 
-// Classify TODO
+// Classify TODO.
 func (c *GoLearnNNClassifier) Classify(data []float64) (int, error) {
 	di := _glMakeClassifyDataSet(c.format, data)
 	res := c.theClassifier.Predict(di)
 	return _glReturnSingleResult(res), nil
 }
 
-// Train TODO
+// Train TODO.
 func (c *GoLearnNNClassifier) Train(data [][]float64, correct []int) error {
 	rawData, err := _glMakeDataSet(data, correct)
 	if err != nil {

@@ -5,13 +5,12 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-
 	"go.viam.com/test"
 
-	"go.viam.com/core/motionplan"
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	componentpb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/referenceframe"
+	"go.viam.com/rdk/motionplan"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/referenceframe"
 )
 
 func TestJointConfig(t *testing.T) {

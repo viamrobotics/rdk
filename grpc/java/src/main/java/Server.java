@@ -1,7 +1,7 @@
-import com.viam.core.proto.api.v1.Robot;
-import com.viam.core.proto.api.v1.Robot.StatusRequest;
-import com.viam.core.proto.api.v1.Robot.StatusResponse;
-import com.viam.core.proto.api.v1.RobotServiceGrpc;
+import com.viam.rdk.proto.api.v1.Robot;
+import com.viam.rdk.proto.api.v1.Robot.StatusRequest;
+import com.viam.rdk.proto.api.v1.Robot.StatusResponse;
+import com.viam.rdk.proto.api.v1.RobotServiceGrpc;
 import io.grpc.ServerBuilder;
 
 import java.io.IOException;

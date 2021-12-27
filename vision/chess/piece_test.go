@@ -5,11 +5,11 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-
 	"go.viam.com/utils/artifact"
 )
 
 func _testPieceStatusHelper(t *testing.T, game *Game, board *Board, square, correct string) {
+	t.Helper()
 	res, err := game.SquareColorStatus(board, square)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldResemble, correct)
@@ -46,5 +46,4 @@ func TestPiece1(t *testing.T) {
 
 	err = nextBoard.WriteDebugImages(outDir + "/board3")
 	test.That(t, err, test.ShouldBeNil)
-
 }

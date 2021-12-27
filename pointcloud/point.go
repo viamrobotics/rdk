@@ -151,7 +151,7 @@ func (bp *basicPoint) Intensity() uint16 {
 	return bp.intensity
 }
 
-// GetPositions gets the positions of the slice of points
+// GetPositions gets the positions of the slice of points.
 func GetPositions(pts []Point) []r3.Vector {
 	positions := make([]r3.Vector, len(pts))
 	for i, pt := range pts {

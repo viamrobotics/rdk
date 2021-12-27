@@ -7,15 +7,14 @@
 package v1
 
 import (
-	reflect "reflect"
-	sync "sync"
-
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -2013,9 +2012,12 @@ type BoardGPIOSetRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Name of a board
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Pin  string `protobuf:"bytes,2,opt,name=pin,proto3" json:"pin,omitempty"`
-	High bool   `protobuf:"varint,3,opt,name=high,proto3" json:"high,omitempty"`
+	// Name of a pin
+	Pin string `protobuf:"bytes,2,opt,name=pin,proto3" json:"pin,omitempty"`
+	// Defines whether the pin will be set high or low
+	High bool `protobuf:"varint,3,opt,name=high,proto3" json:"high,omitempty"`
 }
 
 func (x *BoardGPIOSetRequest) Reset() {
@@ -2114,8 +2116,10 @@ type BoardGPIOGetRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Name of a board
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Pin  string `protobuf:"bytes,2,opt,name=pin,proto3" json:"pin,omitempty"`
+	// Name of a pin
+	Pin string `protobuf:"bytes,2,opt,name=pin,proto3" json:"pin,omitempty"`
 }
 
 func (x *BoardGPIOGetRequest) Reset() {
@@ -2169,6 +2173,7 @@ type BoardGPIOGetResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Returns true if the given GPIO pin is high at the time that the request was recieved
 	High bool `protobuf:"varint,1,opt,name=high,proto3" json:"high,omitempty"`
 }
 
@@ -2216,9 +2221,12 @@ type BoardPWMSetRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name      string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Pin       string `protobuf:"bytes,2,opt,name=pin,proto3" json:"pin,omitempty"`
-	DutyCycle uint32 `protobuf:"varint,3,opt,name=duty_cycle,json=dutyCycle,proto3" json:"duty_cycle,omitempty"` // (0-255)
+	// Name of a board
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Name of a pin
+	Pin string `protobuf:"bytes,2,opt,name=pin,proto3" json:"pin,omitempty"`
+	// A value between 0-255, where 255 is equivalent to being high 100% of the time
+	DutyCycle uint32 `protobuf:"varint,3,opt,name=duty_cycle,json=dutyCycle,proto3" json:"duty_cycle,omitempty"`
 }
 
 func (x *BoardPWMSetRequest) Reset() {
@@ -2355,8 +2363,11 @@ type BoardPWMSetFrequencyRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name      string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Pin       string `protobuf:"bytes,2,opt,name=pin,proto3" json:"pin,omitempty"`
+	// Name of a board
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Name of a pin
+	Pin string `protobuf:"bytes,2,opt,name=pin,proto3" json:"pin,omitempty"`
+	// Frequency in hertz (cycles/second)
 	Frequency uint64 `protobuf:"varint,3,opt,name=frequency,proto3" json:"frequency,omitempty"`
 }
 
@@ -2418,7 +2429,9 @@ type BoardAnalogReaderReadRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	BoardName        string `protobuf:"bytes,1,opt,name=board_name,json=boardName,proto3" json:"board_name,omitempty"`
+	// Name of a board
+	BoardName string `protobuf:"bytes,1,opt,name=board_name,json=boardName,proto3" json:"board_name,omitempty"`
+	// Name of an analog reader on the robot's board
 	AnalogReaderName string `protobuf:"bytes,2,opt,name=analog_reader_name,json=analogReaderName,proto3" json:"analog_reader_name,omitempty"`
 }
 
@@ -2473,6 +2486,7 @@ type BoardAnalogReaderReadResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Returns the value of the analog reader based on when the request was recieved
 	Value int32 `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
 }
 
@@ -2591,7 +2605,9 @@ type BoardDigitalInterruptConfigRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	BoardName            string `protobuf:"bytes,1,opt,name=board_name,json=boardName,proto3" json:"board_name,omitempty"`
+	// Name of a board
+	BoardName string `protobuf:"bytes,1,opt,name=board_name,json=boardName,proto3" json:"board_name,omitempty"`
+	// Name of a digital interrupt on the robot's board
 	DigitalInterruptName string `protobuf:"bytes,2,opt,name=digital_interrupt_name,json=digitalInterruptName,proto3" json:"digital_interrupt_name,omitempty"`
 }
 
@@ -2646,6 +2662,7 @@ type BoardDigitalInterruptConfigResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Returns the specified configuration of a digital interrupt on the robot's board
 	Config *DigitalInterruptConfig `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
 }
 
@@ -2693,7 +2710,9 @@ type BoardDigitalInterruptValueRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	BoardName            string `protobuf:"bytes,1,opt,name=board_name,json=boardName,proto3" json:"board_name,omitempty"`
+	// Name of a board
+	BoardName string `protobuf:"bytes,1,opt,name=board_name,json=boardName,proto3" json:"board_name,omitempty"`
+	// Name of a digital interrupt on the robot's board
 	DigitalInterruptName string `protobuf:"bytes,2,opt,name=digital_interrupt_name,json=digitalInterruptName,proto3" json:"digital_interrupt_name,omitempty"`
 }
 
@@ -2748,6 +2767,7 @@ type BoardDigitalInterruptValueResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Returns the returns the value of the interrupt based on the driver
 	Value int64 `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
 }
 
@@ -2795,10 +2815,14 @@ type BoardDigitalInterruptTickRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	BoardName            string `protobuf:"bytes,1,opt,name=board_name,json=boardName,proto3" json:"board_name,omitempty"`
+	// Name of a board
+	BoardName string `protobuf:"bytes,1,opt,name=board_name,json=boardName,proto3" json:"board_name,omitempty"`
+	// Name of a digital interrupt on the robot's board
 	DigitalInterruptName string `protobuf:"bytes,2,opt,name=digital_interrupt_name,json=digitalInterruptName,proto3" json:"digital_interrupt_name,omitempty"`
-	High                 bool   `protobuf:"varint,3,opt,name=high,proto3" json:"high,omitempty"`
-	Nanos                uint64 `protobuf:"varint,4,opt,name=nanos,proto3" json:"nanos,omitempty"`
+	// Sets whether the digital interrupt is high or low
+	High bool `protobuf:"varint,3,opt,name=high,proto3" json:"high,omitempty"`
+	// A number that counts up from an arbitrary point in time
+	Nanos uint64 `protobuf:"varint,4,opt,name=nanos,proto3" json:"nanos,omitempty"`
 }
 
 func (x *BoardDigitalInterruptTickRequest) Reset() {
@@ -4546,6 +4570,7 @@ type InputControllerControlsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Name of an input controller
 	Controller string `protobuf:"bytes,1,opt,name=controller,proto3" json:"controller,omitempty"`
 }
 
@@ -4593,6 +4618,8 @@ type InputControllerControlsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Returns a list of all the controls (buttons and axes) that are
+	// available to a given Input Controller
 	Controls []string `protobuf:"bytes,1,rep,name=controls,proto3" json:"controls,omitempty"`
 }
 
@@ -4640,6 +4667,7 @@ type InputControllerLastEventsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Name of an input controller
 	Controller string `protobuf:"bytes,1,opt,name=controller,proto3" json:"controller,omitempty"`
 }
 
@@ -4687,6 +4715,8 @@ type InputControllerLastEventsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Returns a list of the most recent event for each control on a given InputController. Effectively provides the current "state" of all
+	// buttons/axes on a given input controller
 	Events []*InputControllerEvent `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
 }
 
@@ -4781,8 +4811,10 @@ type InputControllerInjectEventRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Controller string                `protobuf:"bytes,1,opt,name=controller,proto3" json:"controller,omitempty"`
-	Event      *InputControllerEvent `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
+	// Name of an input controller
+	Controller string `protobuf:"bytes,1,opt,name=controller,proto3" json:"controller,omitempty"`
+	// Digitally assert a given event
+	Event *InputControllerEvent `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
 }
 
 func (x *InputControllerInjectEventRequest) Reset() {
@@ -4874,10 +4906,13 @@ type InputControllerEvent struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Time    *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty"`
-	Event   string                 `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
-	Control string                 `protobuf:"bytes,3,opt,name=control,proto3" json:"control,omitempty"`
-	Value   float64                `protobuf:"fixed64,4,opt,name=value,proto3" json:"value,omitempty"`
+	Time *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty"`
+	// An event type (eg: ButtonPress, ButtonRelease)
+	Event string `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
+	// A control, can be a button (eg: ButtonSouth) or an axis (eg: AbsoluteX)
+	Control string `protobuf:"bytes,3,opt,name=control,proto3" json:"control,omitempty"`
+	// 0 or 1 for buttons, -1.0 to +1.0 for axes
+	Value float64 `protobuf:"fixed64,4,opt,name=value,proto3" json:"value,omitempty"`
 }
 
 func (x *InputControllerEvent) Reset() {
@@ -4945,8 +4980,10 @@ type InputControllerEventStreamRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Controller string                                      `protobuf:"bytes,1,opt,name=controller,proto3" json:"controller,omitempty"`
-	Events     []*InputControllerEventStreamRequest_Events `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
+	// Name of an input controller
+	Controller string `protobuf:"bytes,1,opt,name=controller,proto3" json:"controller,omitempty"`
+	// A list of Events
+	Events []*InputControllerEventStreamRequest_Events `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
 }
 
 func (x *InputControllerEventStreamRequest) Reset() {
@@ -5637,8 +5674,13 @@ type InputControllerEventStreamRequest_Events struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Control         string   `protobuf:"bytes,1,opt,name=control,proto3" json:"control,omitempty"`
-	Events          []string `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
+	// Name of a control (button or axis)
+	Control string `protobuf:"bytes,1,opt,name=control,proto3" json:"control,omitempty"`
+	// Specify which event types to recieve events for
+	// To Do (FA): Right now this can be an empty list, but we should error in this case as opening a stream with no messages is expensive
+	Events []string `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
+	// Specify which event types to stop recieving events for
+	// This can be an empty list
 	CancelledEvents []string `protobuf:"bytes,3,rep,name=cancelled_events,json=cancelledEvents,proto3" json:"cancelled_events,omitempty"`
 }
 
@@ -6751,11 +6793,11 @@ var file_proto_api_v1_robot_proto_rawDesc = []byte{
 	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2b, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x25, 0x12,
 	0x23, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73,
 	0x2f, 0x67, 0x70, 0x73, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x61, 0x63, 0x63, 0x75,
-	0x72, 0x61, 0x63, 0x79, 0x42, 0x3b, 0x0a, 0x1a, 0x63, 0x6f, 0x6d, 0x2e, 0x76, 0x69, 0x61, 0x6d,
-	0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e,
-	0x76, 0x31, 0x5a, 0x1d, 0x67, 0x6f, 0x2e, 0x76, 0x69, 0x61, 0x6d, 0x2e, 0x63, 0x6f, 0x6d, 0x2f,
-	0x63, 0x6f, 0x72, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76,
-	0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x72, 0x61, 0x63, 0x79, 0x42, 0x39, 0x0a, 0x19, 0x63, 0x6f, 0x6d, 0x2e, 0x76, 0x69, 0x61, 0x6d,
+	0x2e, 0x72, 0x64, 0x6b, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76,
+	0x31, 0x5a, 0x1c, 0x67, 0x6f, 0x2e, 0x76, 0x69, 0x61, 0x6d, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72,
+	0x64, 0x6b, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x62,
+	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
