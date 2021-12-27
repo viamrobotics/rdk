@@ -113,7 +113,7 @@ func TestValidate(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, `"board" is required`)
 	})
 
-	t.Run("no ColumnGPIOPins", func(t *testing.T) {
+	t.Run("no column gpio pins", func(t *testing.T) {
 		invalidConfig := &ForceMatrixConfig{
 			BoardName:           "board",
 			ColumnGPIOPins:      []string{},
@@ -126,9 +126,10 @@ func TestValidate(t *testing.T) {
 		err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `column_gpio_pins_left_to_right has to be an array of length > 0`)
 	})
 
-	t.Run("invalid MuxGPIOPins", func(t *testing.T) {
+	t.Run("invalid mux gpio pins", func(t *testing.T) {
 		invalidConfig := &ForceMatrixConfig{
 			BoardName:           "board",
 			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
@@ -141,9 +142,10 @@ func TestValidate(t *testing.T) {
 		err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `mux_gpio_pins_s2_to_s0 has to be an array of length 3`)
 	})
 
-	t.Run("no IOPins", func(t *testing.T) {
+	t.Run("no io pins", func(t *testing.T) {
 		invalidConfig := &ForceMatrixConfig{
 			BoardName:           "board",
 			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
@@ -156,9 +158,10 @@ func TestValidate(t *testing.T) {
 		err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `io_pins_top_to_bottom has to be an array of length > 0`)
 	})
 
-	t.Run("no AnalogChannel", func(t *testing.T) {
+	t.Run("no analog channel", func(t *testing.T) {
 		invalidConfig := &ForceMatrixConfig{
 			BoardName:           "board",
 			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
@@ -173,7 +176,7 @@ func TestValidate(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, `"analog_channel" is required`)
 	})
 
-	t.Run("invalid SlipDetectionWindow", func(t *testing.T) {
+	t.Run("invalid slip detection window", func(t *testing.T) {
 		t.Run("too small", func(t *testing.T) {
 			invalidConfig := &ForceMatrixConfig{
 				BoardName:           "board",
@@ -187,6 +190,7 @@ func TestValidate(t *testing.T) {
 			err := invalidConfig.Validate("path")
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+			test.That(t, err.Error(), test.ShouldContainSubstring, `slip_detection_window has to be: 0 < slip_detection_window <=`)
 		})
 		t.Run("too big", func(t *testing.T) {
 			invalidConfig := &ForceMatrixConfig{
@@ -201,6 +205,7 @@ func TestValidate(t *testing.T) {
 			err := invalidConfig.Validate("path")
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+			test.That(t, err.Error(), test.ShouldContainSubstring, `slip_detection_window has to be: 0 < slip_detection_window <=`)
 		})
 	})
 }
@@ -217,7 +222,7 @@ func TestSetMuxGpioPins(t *testing.T) {
 		SlipDetectionWindow: 10,
 		NoiseThreshold:      5,
 	}
-	t.Run("bad ioPin", func(t *testing.T) {
+	t.Run("bad io pin", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeBoard := &inject.Board{}
 		fakeAR := &inject.AnalogReader{}

@@ -108,7 +108,7 @@ func TestValidate(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, `"board" is required`)
 	})
 
-	t.Run("no ColumnGPIOPins", func(t *testing.T) {
+	t.Run("no column gpio pins", func(t *testing.T) {
 		invalidConfig := &ForceMatrixConfig{
 			BoardName:           "board",
 			ColumnGPIOPins:      []string{},
@@ -119,9 +119,10 @@ func TestValidate(t *testing.T) {
 		err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `column_gpio_pins_left_to_right has to be an array of length > 0`)
 	})
 
-	t.Run("no RowAnalogChannels", func(t *testing.T) {
+	t.Run("no row analog channels", func(t *testing.T) {
 		invalidConfig := &ForceMatrixConfig{
 			BoardName:           "board",
 			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
@@ -132,9 +133,10 @@ func TestValidate(t *testing.T) {
 		err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `row_analog_channels_top_to_bottom has to be an array of length > 0`)
 	})
 
-	t.Run("invalid SlipDetectionWindow", func(t *testing.T) {
+	t.Run("invalid slip detection window", func(t *testing.T) {
 		t.Run("too small", func(t *testing.T) {
 			invalidConfig := &ForceMatrixConfig{
 				BoardName:           "board",
@@ -146,6 +148,7 @@ func TestValidate(t *testing.T) {
 			err := invalidConfig.Validate("path")
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+			test.That(t, err.Error(), test.ShouldContainSubstring, `slip_detection_window has to be: 0 < slip_detection_window <=`)
 		})
 		t.Run("too big", func(t *testing.T) {
 			invalidConfig := &ForceMatrixConfig{
@@ -158,6 +161,7 @@ func TestValidate(t *testing.T) {
 			err := invalidConfig.Validate("path")
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+			test.That(t, err.Error(), test.ShouldContainSubstring, `slip_detection_window has to be: 0 < slip_detection_window <=`)
 		})
 	})
 }
