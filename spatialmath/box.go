@@ -46,7 +46,7 @@ func (b *box) Transform(toPremultiply Pose) {
 	b.pose = Compose(toPremultiply, b.pose)
 }
 
-// CollidesWith checks if the given box collides with the given volume and returns true if it does
+// CollidesWith checks if the given box collides with the given volume and returns true if it does.
 func (b *box) CollidesWith(v Volume) (bool, error) {
 	if other, ok := v.(*box); ok {
 		return boxVsBoxCollision(b, other), nil

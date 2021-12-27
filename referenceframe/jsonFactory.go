@@ -149,10 +149,10 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 			if err != nil {
 				return nil, err
 			}
-			orderedTransforms = append(orderedTransforms, f)
+			model.OrdTransforms = append(model.OrdTransforms, f)
 		}
-		model.OrdTransforms = orderedTransforms
 		return model, nil
+
 	default:
 		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", m.KinParamType)
 	}

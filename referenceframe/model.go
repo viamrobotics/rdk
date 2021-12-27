@@ -88,8 +88,8 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 	return poses[0].transform, err
 }
 
-// Volume returns an object representing the 3D space associeted with the staticFrame
-func (m *Model) Volume(inputs []Input) (map[string]spatialmath.Volume, error) {
+// Volume returns an object representing the 3D space associeted with the staticFrame.
+func (m *SimpleModel) Volume(inputs []Input) (map[string]spatialmath.Volume, error) {
 	joints, err := m.jointRadToQuats(inputs, true)
 	if err != nil && joints == nil {
 		return nil, err

@@ -359,7 +359,7 @@ func (sfs *simpleFrameSystem) getTargetParentTransform(inputMap map[string][]Inp
 	return spatial.Invert(toTargetTransform), err
 }
 
-// Returns the relative pose between two frames
+// Returns the relative pose between two frames.
 func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, src, srcParent, dst Frame) (spatial.Pose, error) {
 	// catch all errors together to for allow hypothetical calculations that result in errors
 	var errAll error
@@ -377,7 +377,7 @@ func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, s
 	return spatial.Compose(spatial.Compose(toTarget, fromParent), pose), errAll
 }
 
-// Returns the relative pose between two frames
+// Returns the relative pose between two frames.
 func (sfs *simpleFrameSystem) volumeFromParent(inputMap map[string][]Input, src, srcParent, dst Frame) (map[string]spatial.Volume, error) {
 	toTarget, err := sfs.getTargetParentTransform(inputMap, dst)
 	if toTarget == nil && err != nil {

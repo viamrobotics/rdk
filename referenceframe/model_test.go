@@ -5,19 +5,15 @@ import (
 	"math/rand"
 	"testing"
 
-	spatial "go.viam.com/core/spatialmath"
-	"go.viam.com/core/utils"
-
-	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/spatialmath"
+	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
 var (
-	wx250s string = "robots/wx250s/wx250s_kinematics.json"
-	ur5e   string = "robots/universalrobots/ur5e.json"
+	wx250s = "robots/wx250s/wx250s_kinematics.json"
+	ur5e   = "robots/universalrobots/ur5e.json"
 )
 
 func TestModelLoading(t *testing.T) {
@@ -79,13 +75,13 @@ func TestTransform(t *testing.T) {
 func TestVolume(t *testing.T) {
 	m, err := ParseJSONFile(utils.ResolveFile(ur5e), "")
 	test.That(t, err, test.ShouldBeNil)
-	simpleM, ok := m.(*SimpleModel)
+	sm, ok := m.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	inputs := make([]Input, len(m.DoF()))
-	vols, err := m.Volume(inputs)
+	inputs := make([]Input, len(sm.DoF()))
+	vols, err := sm.Volume(inputs)
 	test.That(t, err, test.ShouldBeNil)
-	expected, err := m.jointRadToQuats(inputs, true)
+	expected, err := sm.jointRadToQuats(inputs, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// calculate the midpoint of each link and compare to volume position
@@ -93,7 +89,7 @@ func TestVolume(t *testing.T) {
 	for _, joint := range expected {
 		if joint.volume != nil {
 			linkMidpoint := spatial.Interpolate(prev, joint.transform, 0.5)
-			volCenter := vols[m.Name()+":"+joint.Name()].Pose()
+			volCenter := vols[sm.Name()+":"+joint.Name()].Pose()
 			coincident := spatial.AlmostCoincident(volCenter, linkMidpoint)
 			test.That(t, coincident, test.ShouldBeTrue)
 			prev = joint.transform
