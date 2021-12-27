@@ -8,9 +8,8 @@ import (
 	"os"
 	"testing"
 
-	"go.viam.com/utils/artifact"
-
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func TestDepthMap1(t *testing.T) {
@@ -31,7 +30,6 @@ func TestDepthMap1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.width, test.ShouldEqual, 1280)
 	test.That(t, m.height, test.ShouldEqual, 720)
-
 }
 
 func TestDepthMap2(t *testing.T) {
@@ -53,7 +51,6 @@ func TestDepthMap2(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.width, test.ShouldEqual, 1280)
 	test.That(t, m.height, test.ShouldEqual, 720)
-
 }
 
 func TestDepthMapNewFormat(t *testing.T) {
@@ -68,7 +65,7 @@ func TestDepthMapNewFormat(t *testing.T) {
 	for x := 0; x < m.width; x++ {
 		d := m.GetDepth(x, m.height-1)
 		if d == 0 {
-			numZero = numZero + 1
+			numZero++
 		} else {
 			test.That(t, d, test.ShouldBeBetween, 100, 5000)
 		}
@@ -115,6 +112,7 @@ func TestToGray16Picture(t *testing.T) {
 	png.Encode(file, gimg)
 }
 
+//nolint:dupl
 func makeImagesForSubImageTest(ori, crop image.Rectangle) (Image, Image) {
 	oriWidth, oriHeight := ori.Max.X-ori.Min.X, ori.Max.Y-ori.Min.Y
 	overlap := ori.Intersect(crop)
@@ -128,13 +126,13 @@ func makeImagesForSubImageTest(ori, crop image.Rectangle) (Image, Image) {
 			if x >= overlap.Min.X && x < overlap.Max.X && y >= overlap.Min.Y && y < overlap.Max.Y {
 				cropData = append(cropData, i)
 			}
-			i = i + 1
+			i++
 		}
 	}
 	return Image{data: oriData, width: oriWidth, height: oriHeight}, Image{data: cropData, width: cropWidth, height: cropHeight}
-
 }
 
+//nolint:dupl
 func makeDepthMapsForSubImageTest(ori, crop image.Rectangle) (DepthMap, DepthMap) {
 	oriWidth, oriHeight := ori.Max.X-ori.Min.X, ori.Max.Y-ori.Min.Y
 	overlap := ori.Intersect(crop)
@@ -148,11 +146,10 @@ func makeDepthMapsForSubImageTest(ori, crop image.Rectangle) (DepthMap, DepthMap
 			if x >= overlap.Min.X && x < overlap.Max.X && y >= overlap.Min.Y && y < overlap.Max.Y {
 				cropData = append(cropData, i)
 			}
-			i = i + 1
+			i++
 		}
 	}
 	return DepthMap{width: oriWidth, height: oriHeight, data: oriData}, DepthMap{width: cropWidth, height: cropHeight, data: cropData}
-
 }
 
 func TestSubImage(t *testing.T) {
@@ -190,7 +187,6 @@ func BenchmarkDepthMapRotate90(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		dm.Rotate90(true)
 	}
-
 }
 
 func BenchmarkDepthMapRotate180(b *testing.B) {
@@ -202,7 +198,6 @@ func BenchmarkDepthMapRotate180(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		dm.Rotate180()
 	}
-
 }
 
 func TestDepthMapStats(t *testing.T) {
@@ -230,5 +225,4 @@ func TestDepthMapStats(t *testing.T) {
 
 	img = dm.InterestingPixels(10)
 	test.That(t, img.GrayAt(1, 1).Y, test.ShouldEqual, uint8(0))
-
 }

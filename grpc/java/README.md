@@ -3,7 +3,7 @@
 ## Dependencies
 
 * JDK 8+
-* Core [Dependencies](../../README.md#dependencies)
+* RDK [Dependencies](../../README.md#dependencies)
 * Run `make setup`
 
 ## Run

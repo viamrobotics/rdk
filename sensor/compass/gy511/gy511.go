@@ -1,3 +1,4 @@
+// Package gy511 implements a GY511 based compass.
 package gy511
 
 import (
@@ -10,20 +11,18 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/go-errors/errors"
-
-	"go.viam.com/utils"
-
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/serial"
-
 	movingaverage "github.com/RobinUS2/golang-moving-average"
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
+
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/sensor/compass"
+	"go.viam.com/rdk/serial"
 )
 
 // ModelName is used to register the sensor to a model name.
@@ -31,9 +30,17 @@ const ModelName = "gy511"
 
 // init registers the gy511 compass type.
 func init() {
-	registry.RegisterSensor(compass.Type, ModelName, registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-		return New(ctx, config.Host, logger)
-	}})
+	registry.RegisterSensor(
+		compass.Type,
+		ModelName,
+		registry.Sensor{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (sensor.Sensor, error) {
+			return New(ctx, config.Host, logger)
+		}})
 }
 
 // GY511 represents a gy511 compass.

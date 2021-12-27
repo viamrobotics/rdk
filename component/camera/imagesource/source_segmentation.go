@@ -4,38 +4,40 @@ import (
 	"context"
 	"image"
 
-	"github.com/go-errors/errors"
-
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/pkg/errors"
 
-	"go.viam.com/core/component/camera"
-	"go.viam.com/core/config"
-	"go.viam.com/core/pointcloud"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/vision/segmentation"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, "color_segments", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		return newColorSegmentsSource(r, config)
-	}})
+	registry.RegisterComponent(
+		camera.Subtype,
+		"color_segments",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return newColorSegmentsSource(r, config)
+		}})
 }
 
-// colorSegmentsSource applies a segmentation to the point cloud of an ImageWithDepth
+// colorSegmentsSource applies a segmentation to the point cloud of an ImageWithDepth.
 type colorSegmentsSource struct {
 	source gostream.ImageSource
 	config segmentation.ObjectConfig
 }
 
-// Close closes the source
-func (cs *colorSegmentsSource) Close() error {
-	return nil
-}
-
-// Next applies segmentation to the next image and gives each distinct object a unique color
+// Next applies segmentation to the next image and gives each distinct object a unique color.
 func (cs *colorSegmentsSource) Next(ctx context.Context) (image.Image, func(), error) {
 	i, closer, err := cs.source.Next(ctx)
 	if err != nil {
@@ -80,5 +82,4 @@ func newColorSegmentsSource(r robot.Robot, config config.Component) (camera.Came
 		MinPtsInPlane: planeSize, MinPtsInSegment: segmentSize, ClusteringRadius: clusterRadius,
 	}
 	return &camera.ImageSource{ImageSource: &colorSegmentsSource{source, cfg}}, nil
-
 }

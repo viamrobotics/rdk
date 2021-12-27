@@ -20,12 +20,12 @@ type pointcloudPlane struct {
 	center     Vec3
 }
 
-// NewEmptyPlane initializes an empty plane object
+// NewEmptyPlane initializes an empty plane object.
 func NewEmptyPlane() Plane {
 	return &pointcloudPlane{New(), [4]float64{}, Vec3{}}
 }
 
-// NewPlane creates a new plane object from a point cloud
+// NewPlane creates a new plane object from a point cloud.
 func NewPlane(cloud PointCloud, equation [4]float64) Plane {
 	center := r3.Vector{}
 	cloud.Iterate(func(pt Point) bool {
@@ -38,27 +38,27 @@ func NewPlane(cloud PointCloud, equation [4]float64) Plane {
 	return NewPlaneWithCenter(cloud, equation, Vec3(center))
 }
 
-// NewPlaneWithCenter creates a new plane object from a point cloud
+// NewPlaneWithCenter creates a new plane object from a point cloud.
 func NewPlaneWithCenter(cloud PointCloud, equation [4]float64, center Vec3) Plane {
 	return &pointcloudPlane{cloud, equation, center}
 }
 
-// PointCloud returns the underlying point cloud of the plane
+// PointCloud returns the underlying point cloud of the plane.
 func (p *pointcloudPlane) PointCloud() (PointCloud, error) {
 	return p.pointcloud, nil
 }
 
-// Normal return the normal vector perpendicular to the plane
+// Normal return the normal vector perpendicular to the plane.
 func (p *pointcloudPlane) Normal() Vec3 {
 	return Vec3{p.equation[0], p.equation[1], p.equation[2]}
 }
 
-// Center returns the vector pointing to the center of the points that make up the plane
+// Center returns the vector pointing to the center of the points that make up the plane.
 func (p *pointcloudPlane) Center() Vec3 {
 	return p.center
 }
 
-// Offset returns the vector offset of the plane from the origin
+// Offset returns the vector offset of the plane from the origin.
 func (p *pointcloudPlane) Offset() float64 {
 	return p.equation[3]
 }
@@ -68,7 +68,7 @@ func (p *pointcloudPlane) Equation() [4]float64 {
 	return p.equation
 }
 
-// Distance calculates the distance from the plane to the input point
+// Distance calculates the distance from the plane to the input point.
 func (p *pointcloudPlane) Distance(pt Vec3) float64 {
 	return (p.equation[0]*pt.X + p.equation[1]*pt.Y + p.equation[2]*pt.Z + p.equation[3]) / r3.Vector(pt).Norm()
 }

@@ -1,6 +1,7 @@
 //go:build linux
 // +build linux
 
+// Package gamepad implements a linux gamepad as an input controller.
 package gamepad
 
 import (
@@ -12,17 +13,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/edaniels/golog"
+	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
+	"github.com/viamrobotics/evdev"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/input"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-
-	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
-	"github.com/mitchellh/mapstructure"
-	"github.com/viamrobotics/evdev"
+	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
 const (
@@ -30,7 +30,7 @@ const (
 	defaultMapping = "Microsoft X-Box 360 pad"
 )
 
-// Config is used for converting config attributes
+// Config is used for converting config attributes.
 type Config struct {
 	DevFile       string `json:"dev_file"`
 	AutoReconnect bool   `json:"auto_reconnect"`
@@ -39,20 +39,23 @@ type Config struct {
 func init() {
 	registry.RegisterComponent(input.Subtype, modelname, registry.Component{Constructor: NewController})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelname, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf Config
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &Config{})
+	config.RegisterComponentAttributeMapConverter(
+		config.ComponentTypeInputController,
+		modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &Config{})
 }
 
-func createController(ctx context.Context, logger golog.Logger, devFile string, reconnect bool) (input.Controller, error) {
+func createController(ctx context.Context, logger golog.Logger, devFile string, reconnect bool) input.Controller {
 	var g gamepad
 	g.logger = logger
 	g.reconnect = reconnect
@@ -84,15 +87,15 @@ func createController(ctx context.Context, logger golog.Logger, devFile string, 
 			g.eventDispatcher(ctxWithCancel)
 		}
 	})
-	return &g, nil
+	return &g
 }
 
-// NewController creates a new gamepad
+// NewController creates a new gamepad.
 func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-	return createController(ctx, logger, config.ConvertedAttributes.(*Config).DevFile, config.ConvertedAttributes.(*Config).AutoReconnect)
+	return createController(ctx, logger, config.ConvertedAttributes.(*Config).DevFile, config.ConvertedAttributes.(*Config).AutoReconnect), nil
 }
 
-// gamepad is an input.Controller
+// gamepad is an input.Controller.
 type gamepad struct {
 	dev                     *evdev.Evdev
 	Model                   string
@@ -108,7 +111,7 @@ type gamepad struct {
 	reconnect               bool
 }
 
-// Mapping represents the evdev code to input.Control mapping for a given gamepad model
+// Mapping represents the evdev code to input.Control mapping for a given gamepad model.
 type Mapping struct {
 	Buttons map[evdev.KeyType]input.Control
 	Axes    map[evdev.AbsoluteType]input.Control
@@ -137,7 +140,9 @@ func (g *gamepad) eventDispatcher(ctx context.Context) {
 				continue
 			}
 			// Use debug line below when developing new controller mappings
-			// g.logger.Debugf("%s: Type: %d, Code: %d, Value: %d\n", timevaltoTime(eventIn.Event.Time), eventIn.Event.Type, eventIn.Event.Control, eventIn.Event.Value)
+			// g.logger.Debugf(
+			// 	"%s: Type: %d, Code: %d, Value: %d\n",
+			// 	 timevaltoTime(eventIn.Event.Time), eventIn.Event.Type, eventIn.Event.Control, eventIn.Event.Value)
 
 			var eventOut input.Event
 			switch eventIn.Event.Type {
@@ -202,7 +207,10 @@ func (g *gamepad) eventDispatcher(ctx context.Context) {
 				} else if eventIn.Event.Value == 0 {
 					eventOut.Event = input.ButtonRelease
 				}
-
+			case evdev.EventEffect, evdev.EventEffectStatus, evdev.EventLED, evdev.EventMisc,
+				evdev.EventPower, evdev.EventRelative, evdev.EventRepeat, evdev.EventSound,
+				evdev.EventSwitch:
+				fallthrough
 			default:
 				g.logger.Debugf("unhandled event: %+v", eventIn)
 			}
@@ -334,14 +342,13 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 	return nil
 }
 
-// Close terminates background worker threads
-func (g *gamepad) Close() error {
+// Close terminates background worker threads.
+func (g *gamepad) Close() {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
-	return nil
 }
 
-// Controls lists the inputs of the gamepad
+// Controls lists the inputs of the gamepad.
 func (g *gamepad) Controls(ctx context.Context) ([]input.Control, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -352,7 +359,7 @@ func (g *gamepad) Controls(ctx context.Context) ([]input.Control, error) {
 	return out, nil
 }
 
-// LastEvents returns the last input.Event (the current state)
+// LastEvents returns the last input.Event (the current state).
 func (g *gamepad) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -363,8 +370,13 @@ func (g *gamepad) LastEvents(ctx context.Context) (map[input.Control]input.Event
 	return out, nil
 }
 
-// RegisterControlCallback registers a callback function to be executed on the specified control's trigger Events
-func (g *gamepad) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+// RegisterControlCallback registers a callback function to be executed on the specified control's trigger Events.
+func (g *gamepad) RegisterControlCallback(
+	ctx context.Context,
+	control input.Control,
+	triggers []input.EventType,
+	ctrlFunc input.ControlFunction,
+) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if g.callbacks[control] == nil {

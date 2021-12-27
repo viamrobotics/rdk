@@ -31,11 +31,9 @@ func (ra *RollingAverage) Add(x int) {
 
 // Average recomputes and returns the current rolling average.
 func (ra *RollingAverage) Average() int {
-	var sum int64 = 0
-
+	var sum int64
 	for i := range ra.data {
 		sum += atomic.LoadInt64(&ra.data[i])
 	}
-
 	return int(sum / int64(len(ra.data)))
 }

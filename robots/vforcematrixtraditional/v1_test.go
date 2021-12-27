@@ -8,9 +8,9 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/core/board"
-	"go.viam.com/core/config"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func createExpectedMatrix(component config.Component) ([][]int, error) {

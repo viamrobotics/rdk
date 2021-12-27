@@ -5,11 +5,11 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 
-	"go.viam.com/core/pointcloud"
-	"go.viam.com/core/rimage"
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/rimage"
 )
 
 // AlignImageWithDepth takes an unaligned ImageWithDepth and align it, returning a new ImageWithDepth.
@@ -31,13 +31,17 @@ func (dcie *DepthColorIntrinsicsExtrinsics) AlignImageWithDepth(ii *rimage.Image
 }
 
 // TransformDepthCoordToColorCoord changes the coordinate system of the depth map to be in same coordinate system
-// as the color image
+// as the color image.
 func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
 	if img.Color.Height() != dcie.ColorCamera.Height || img.Color.Width() != dcie.ColorCamera.Width {
-		return nil, errors.Errorf("camera matrices expected color image of (%#v,%#v), got (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height, img.Color.Width(), img.Color.Height())
+		return nil,
+			errors.Errorf("camera matrices expected color image of (%#v,%#v), got (%#v, %#v)",
+				dcie.ColorCamera.Width, dcie.ColorCamera.Height, img.Color.Width(), img.Color.Height())
 	}
 	if img.Depth.Height() != dcie.DepthCamera.Height || img.Depth.Width() != dcie.DepthCamera.Width {
-		return nil, errors.Errorf("camera matrices expected depth image of (%#v,%#v), got (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height, img.Depth.Width(), img.Depth.Height())
+		return nil,
+			errors.Errorf("camera matrices expected depth image of (%#v,%#v), got (%#v, %#v)",
+				dcie.DepthCamera.Width, dcie.DepthCamera.Height, img.Depth.Width(), img.Depth.Height())
 	}
 	inmap := img.Depth
 	outmap := rimage.NewEmptyDepthMap(dcie.ColorCamera.Width, dcie.ColorCamera.Height)
@@ -68,7 +72,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 	return rimage.MakeImageWithDepth(img.Color, outmap, true, dcie), nil
 }
 
-// ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix
+// ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix.
 func (dcie *DepthColorIntrinsicsExtrinsics) ImagePointTo3DPoint(point image.Point, ii *rimage.ImageWithDepth) (r3.Vector, error) {
 	return intrinsics2DPtTo3DPt(point, ii, &dcie.ColorCamera)
 }
@@ -96,8 +100,11 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(ii *rimag
 	return intrinsics2DTo3D(iwd, &dcie.ColorCamera)
 }
 
-// PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth from the perspective of the color camera frame.
-func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(cloud pointcloud.PointCloud) (*rimage.ImageWithDepth, error) {
+// PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth
+// from the perspective of the color camera referenceframe.
+func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(
+	cloud pointcloud.PointCloud,
+) (*rimage.ImageWithDepth, error) {
 	iwd, err := intrinsics3DTo2D(cloud, &dcie.ColorCamera)
 	if err != nil {
 		return nil, err
@@ -118,8 +125,13 @@ func (dcie *DepthColorIntrinsicsExtrinsics) DepthPixelToColorPixel(dx, dy, dz fl
 	return cx, cy, z
 }
 
-// DepthMapToPointCloud converts a Depth Map to a PointCloud using the depth camera parameters
-func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params *PinholeCameraIntrinsics, depthMin, depthMax rimage.Depth) (pointcloud.PointCloud, error) {
+// DepthMapToPointCloud converts a Depth Map to a PointCloud using the depth camera parameters.
+func DepthMapToPointCloud(
+	depthImage *rimage.DepthMap,
+	pixel2meter float64,
+	params *PinholeCameraIntrinsics,
+	depthMin, depthMax rimage.Depth,
+) (pointcloud.PointCloud, error) {
 	// create new point cloud
 	pcOut := pointcloud.New()
 	// go through depth map pixels and get 3D Points
@@ -133,13 +145,13 @@ func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, para
 				// get x and y of 3D point
 				xPoint, yPoint, z := params.PixelToPoint(float64(x), float64(y), z)
 				// Get point in PointCloud format
-				xPoint = xPoint / pixel2meter
-				yPoint = yPoint / pixel2meter
-				z = z / pixel2meter
+				xPoint /= pixel2meter
+				yPoint /= pixel2meter
+				z /= pixel2meter
 				pt := pointcloud.NewBasicPoint(xPoint, yPoint, z)
 				err := pcOut.Set(pt)
 				if err != nil {
-					err = errors.Errorf("error setting point (%v, %v, %v) in point cloud - %w", xPoint, yPoint, z, err)
+					err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", xPoint, yPoint, z)
 					return nil, err
 				}
 			}
@@ -156,16 +168,17 @@ func ApplyRigidBodyTransform(pts pointcloud.PointCloud, params *Extrinsics) (poi
 	pts.Iterate(func(pt pointcloud.Point) bool {
 		x, y, z := params.TransformPointToPoint(pt.Position().X, pt.Position().Y, pt.Position().Z)
 		var ptTransformed pointcloud.Point
-		if pt.HasColor() {
+		switch {
+		case pt.HasColor():
 			ptTransformed = pointcloud.NewColoredPoint(x, y, z, pt.Color().(color.NRGBA))
-		} else if pt.HasValue() {
+		case pt.HasValue():
 			ptTransformed = pointcloud.NewValuePoint(x, y, z, pt.Value())
-		} else {
+		default:
 			ptTransformed = pointcloud.NewBasicPoint(x, y, z)
 		}
 		err = transformedPoints.Set(ptTransformed)
 		if err != nil {
-			err = errors.Errorf("error setting point (%v, %v, %v) in point cloud - %w", x, y, z, err)
+			err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", x, y, z)
 			return false
 		}
 		return true
@@ -177,7 +190,12 @@ func ApplyRigidBodyTransform(pts pointcloud.PointCloud, params *Extrinsics) (poi
 }
 
 // ProjectPointCloudToRGBPlane projects points in a pointcloud to a given camera image plane.
-func ProjectPointCloudToRGBPlane(pts pointcloud.PointCloud, h, w int, params PinholeCameraIntrinsics, pixel2meter float64) (pointcloud.PointCloud, error) {
+func ProjectPointCloudToRGBPlane(
+	pts pointcloud.PointCloud,
+	h, w int,
+	params PinholeCameraIntrinsics,
+	pixel2meter float64,
+) (pointcloud.PointCloud, error) {
 	coordinates := pointcloud.New()
 	var err error
 	pts.Iterate(func(pt pointcloud.Point) bool {
@@ -189,7 +207,7 @@ func ProjectPointCloudToRGBPlane(pts pointcloud.PointCloud, h, w int, params Pin
 			pt2d := pointcloud.NewColoredPoint(j, i, pt.Position().Z, pt.Color().(color.NRGBA))
 			err = coordinates.Set(pt2d)
 			if err != nil {
-				err = errors.Errorf("error setting point (%v, %v, %v) in point cloud - %w", j, i, pt.Position().Z, err)
+				err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", j, i, pt.Position().Z)
 				return false
 			}
 		}
@@ -201,4 +219,4 @@ func ProjectPointCloudToRGBPlane(pts pointcloud.PointCloud, h, w int, params Pin
 	return coordinates, nil
 }
 
-//TODO(louise): Add Depth Map dilation function as in the librealsense library
+// TODO(louise): Add Depth Map dilation function as in the librealsense library

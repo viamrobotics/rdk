@@ -1,6 +1,6 @@
 syntax = "proto3";
-option go_package = "go.viam.com/core/proto/api/v1";
-option java_package = "com.viam.core.proto.api.v1";
+option go_package = "go.viam.com/rdk/proto/api/v1";
+option java_package = "com.viam.rdk.proto.api.v1";
 
 package proto.api.v1;
 
@@ -91,28 +91,30 @@ service RobotService {
     };  
   }
 
-  // BoardGPIOSet sets the given pin of a board of the underlying robot to either low or high.
+  // BoardGPIOSet sets a given pin on a robot's board to either high or low
   rpc BoardGPIOSet(BoardGPIOSetRequest) returns (BoardGPIOSetResponse) {
     option (google.api.http) = {
       put: "/api/v1/board/{name}/gpio_set"
     };  
   }
 
-  // BoardGPIOGet gets the high/low state of the given pin of a board of the underlying robot.
+  // BoardGPIOGet gets the high/low state of a given pin on a robot's board
   rpc BoardGPIOGet(BoardGPIOGetRequest) returns (BoardGPIOGetResponse) {
     option (google.api.http) = {
       get: "/api/v1/board/{name}/gpio_get"
     };  
   }
 
-  // BoardPWMSet sets the given pin of a board of the underlying robot to the given duty cycle.
+  // BoardPWMSet sets a given pin on a robot's board to a given duty cycle expressed as a value between 0-255 where 255 means that the pin 
+  // is high 100% of the time
   rpc BoardPWMSet(BoardPWMSetRequest) returns (BoardPWMSetResponse) {
     option (google.api.http) = {
       put: "/api/v1/board/{name}/pwm_set"
     };  
   }
 
-  // BoardPWMSetFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
+  // BoardPWMSetFrequency sets a given pin of a robot's board to a specified PWM frequency expressed in hertz 
+  // (cycles per second). 0 will use the board's default PWM frequency
   rpc BoardPWMSetFrequency(BoardPWMSetFrequencyRequest) returns (BoardPWMSetFrequencyResponse) {
     option (google.api.http) = {
       put: "/api/v1/board/{name}/pwm_set_freq"
@@ -121,7 +123,8 @@ service RobotService {
 
   // Analog Reader
 
-  // BoardAnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
+  // BoardAnalogReaderRead returns the value at the time that the request was recieved
+  // of a specified analog reader on the robot's board
   rpc BoardAnalogReaderRead(BoardAnalogReaderReadRequest) returns (BoardAnalogReaderReadResponse) {
     option (google.api.http) = {
       get: "/api/v1/board/{board_name}/analog_reader/{analog_reader_name}/read"
@@ -137,14 +140,17 @@ service RobotService {
     };
   }
 
-  // BoardDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
+  // BoardDigitalInterruptValue returns the value of the interrupt based on the driver. Very often, this is the number of ticks that have 
+  // occurred since startup. To Do (FA): This will be removed from proto
+
   rpc BoardDigitalInterruptValue(BoardDigitalInterruptValueRequest) returns (BoardDigitalInterruptValueResponse) {
     option (google.api.http) = {
       get: "/api/v1/board/{board_name}/digital_interrupt/{digital_interrupt_name}/value"
     };
   }
 
-  // BoardDigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
+  // BoardDigitalInterruptTick manually signals the given interrupt is high or low at a given time to be called either manually if the 
+  // interrupt is a proxy to some real hardware interrupt or for tests . To Do: This will be removed from proto
   rpc BoardDigitalInterruptTick(BoardDigitalInterruptTickRequest) returns (BoardDigitalInterruptTickResponse) {
     option (google.api.http) = {
       put: "/api/v1/board/{board_name}/digital_interrupt/{digital_interrupt_name}/tick"
@@ -220,133 +226,28 @@ service RobotService {
     }; 
   }
 
-  //Motor
-  // TODO(FA): This will be removed in lieu of controls package 
-  // Return the PID configuration for a Motor
-  rpc MotorGetPIDConfig(MotorGetPIDConfigRequest) returns (MotorGetPIDConfigResponse){
-    option (google.api.http) = {
-      get: "/api/v1/board/motor/{name}/get_pid_config"
-    };
-  }
-
-  // TODO(FA): This will be removed in lieu of controls package 
-  // Set the PID configuration for a Motor
-  rpc MotorSetPIDConfig(MotorSetPIDConfigRequest) returns (MotorSetPIDConfigResponse){
-    option (google.api.http) = {
-      put: "/api/v1/board/motor/{name}/set_pid_config"
-    };
-  }
-  
-  // TODO(): This will be removed in lieu of controls package 
-  // Perform a step response on a motor
-  rpc MotorPIDStep(MotorPIDStepRequest) returns (stream MotorPIDStepResponse){
-    option (google.api.http) = {
-      get: "/api/v1/board/motor/{name}/pid_step"
-    };
-  }
- 
-  // MotorPower sets the percentage of the motor's total power that should be employed
-  // expressed a value between -1 and 1 where negative values indiciate a backwards 
-  // direction and positive values a forward direction
-  rpc MotorPower(MotorPowerRequest) returns (MotorPowerResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/motor/{name}/power"
-    };
-  }
-
-  // MotorGo instructs the motor to turn using a specified percentage of its total power, 
-  // expressed as a value between -1 and 1 where negative values indiciate a backwards 
-  // direction and positive values a forward direction
-  rpc MotorGo(MotorGoRequest) returns (MotorGoResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/motor/{name}/go"
-    };
-  }
-
-  // MotorGoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
-  // for a specified number of rotations relative to its starting position
-  // This method will return an error if MotorPositionSupported is false 
-  rpc MotorGoFor(MotorGoForRequest) returns (MotorGoForResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/motor/{name}/go_for"
-    };
-  }
-
-  // MotorGoTo requests the robot's motor to move to a specific position that 
-  // is relative to its home position at a specified speed which is expressed in RPM
-  // This method will return an error if MotorPositionSupported is false 
-  rpc MotorGoTo(MotorGoToRequest) returns (MotorGoToResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/motor/{name}/go_to"
-    };
-  }
-
-  // To Do (FA): This will be deprecated in favor of a  MotorStop method
-  // MotorGoTillStop moves a motor until it is stopped 
-  // The logic to trigger the "stop" mechanism is up to the underlying motor implementation
-  rpc MotorGoTillStop(MotorGoTillStopRequest) returns (MotorGoTillStopResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/motor/{name}/go_till_stop"
-    };
-  }
-
-  // MotorZero sets the current position of the motor as the new zero position
-  // This method will return an error if MotorPositionSupported is false
-  rpc MotorZero(MotorZeroRequest) returns (MotorZeroResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/motor/{name}/zero"
-    };
-  }
-
-  // MotorPosition reports the position of the robot's motor relative to its zero position
-  // This method will return an error if MotorPositionSupported is false
-  rpc MotorPosition(MotorPositionRequest) returns (MotorPositionResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/motor/{name}/position"
-    };
-  }
-
-  // MotorPositionSupported returns whether or not the robot's motor supports reporting of its position
-  rpc MotorPositionSupported(MotorPositionSupportedRequest) returns (MotorPositionSupportedResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/motor/{name}/position_supported"
-    };
-  }
-
-  // MotorOff turns the robot's motor off
-  // To Do (FA): This will be deprecated 
-  rpc MotorOff(MotorOffRequest) returns (MotorOffResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/motor/{name}/off"
-    };
-  }
-  
-  // MotorisOn returns true if the robot's motor off
-  // To Do (FA): This will be deprecated 
-  rpc MotorIsOn(MotorIsOnRequest) returns (MotorIsOnResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/motor/{name}/is_on"
-    };
-  }
-
   rpc InputControllerControls(InputControllerControlsRequest) returns (InputControllerControlsResponse) {
     option (google.api.http) = {
       get: "/api/v1/input/{controller}/controls"
     };
   }
 
+  // InputControllerLastEvents returns a list of events representing the last event on each control of a give Input Controller
   rpc InputControllerLastEvents(InputControllerLastEventsRequest) returns (InputControllerLastEventsResponse) {
     option (google.api.http) = {
       get: "/api/v1/input/{controller}/last_events"
     };
   }
 
+  // InputControllerEventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller 
   rpc InputControllerEventStream(InputControllerEventStreamRequest) returns (stream InputControllerEvent) {
     option (google.api.http) = {
       get: "/api/v1/input/{controller}/event_stream"
     };
   }
 
+  // InputControllerInjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events 
+  // like button presses or axis movements  
   rpc InputControllerInjectEvent(InputControllerInjectEventRequest) returns (InputControllerInjectEventResponse) {
     option (google.api.http) = {
       post: "/api/v1/input/{controller}/inject_event"
@@ -649,26 +550,35 @@ message BoardStatusResponse {
 }
 
 message BoardGPIOSetRequest {
+// Name of a board
   string name = 1;
+// Name of a pin
   string pin = 2;
+// Defines whether the pin will be set high or low
   bool high = 3;
 }
 
 message BoardGPIOSetResponse {}
 
 message BoardGPIOGetRequest {
+// Name of a board
   string name = 1;
+// Name of a pin
   string pin = 2;
 }
 
 message BoardGPIOGetResponse {
+// Returns true if the given GPIO pin is high at the time that the request was recieved
   bool high = 1;
 }
 
 message BoardPWMSetRequest {
+// Name of a board
   string name = 1;
+// Name of a pin
   string pin = 2;
-  uint32 duty_cycle = 3; // (0-255)
+// A value between 0-255, where 255 is equivalent to being high 100% of the time 
+  uint32 duty_cycle = 3; 
 }
 
 message BoardPWMSetResponse {}
@@ -676,19 +586,25 @@ message BoardPWMSetResponse {}
 message BoardPWMSetFrequencyResponse {}
 
 message BoardPWMSetFrequencyRequest {
+  // Name of a board
   string name = 1;
+  // Name of a pin
   string pin = 2;
+  // Frequency in hertz (cycles/second)
   uint64 frequency = 3;
 }
 
 // Analog Reader
 
 message BoardAnalogReaderReadRequest {
+  // Name of a board
   string board_name = 1;
+  // Name of an analog reader on the robot's board 
   string analog_reader_name = 2;
 }
 
 message BoardAnalogReaderReadResponse {
+  // Returns the value of the analog reader based on when the request was recieved 
   int32 value = 1;
 }
 
@@ -702,27 +618,37 @@ message DigitalInterruptConfig {
 }
 
 message BoardDigitalInterruptConfigRequest {
+  // Name of a board
   string board_name = 1;
+  // Name of a digital interrupt on the robot's board 
   string digital_interrupt_name = 2;
 }
 
 message BoardDigitalInterruptConfigResponse {
+  // Returns the specified configuration of a digital interrupt on the robot's board
   DigitalInterruptConfig config = 1;
 }
 
 message BoardDigitalInterruptValueRequest {
+  // Name of a board
   string board_name = 1;
+  // Name of a digital interrupt on the robot's board 
   string digital_interrupt_name = 2;
 }
 
 message BoardDigitalInterruptValueResponse {
+  // Returns the returns the value of the interrupt based on the driver
   int64 value = 1;
 }
 
 message BoardDigitalInterruptTickRequest {
+  // Name of a board
   string board_name = 1;
+  // Name of a digital interrupt on the robot's board 
   string digital_interrupt_name = 2;
+  // Sets whether the digital interrupt is high or low
   bool high = 3;
+  // A number that counts up from an arbitrary point in time 
   uint64 nanos = 4;
 }
 
@@ -804,125 +730,6 @@ message MotorStatus {
 
 message ServoStatus {
   uint32 angle = 1;
-}
-
-// Motor
-message MotorGetPIDConfigRequest{
-  // Name of a motor
-  string name = 1;
-}
-message MotorGetPIDConfigResponse{
-  google.protobuf.Struct pid_config = 1;
-}
-message MotorSetPIDConfigRequest{
-  // Name of a motor
-  string name = 1;
-  google.protobuf.Struct pid_config = 2;
-}
-message MotorSetPIDConfigResponse{}
-message MotorPIDStepRequest{
-  string name = 1;
-  double set_point = 2;
-}
-message MotorPIDStepResponse{
-  double time = 1;
-  double set_point = 2;
-  double ref_value = 3;
-}
-message MotorPowerRequest {
-  // Name of a motor
-  string name = 1;
-  // Percentage of motor's power, between -1 and 1
-  double power_pct = 2;
-}
-
-message MotorPowerResponse {}
-
-message MotorGoRequest {
-  // Name of a motor
-  string name = 1;
-  // Percentage of motor's power, between -1 and 1
-  double power_pct = 2;
-}
-
-message MotorGoResponse {}
-
-message MotorGoForRequest {
-  // Name of a motor
-  string name = 1;
-  // Speed of motor travel in rotations per minute
-  double rpm = 2;
-  // Number of revolutions relative to motor's start position 
-  double revolutions = 3;
-}
-
-message MotorGoForResponse {}
-
-message MotorGoToRequest {
-  // Name of a motor
-  string name = 1;
-  // Speed of motor travel in rotations per minute
-  double rpm = 2;
-  // Number of revolutions relative to motor's home home/zero
-  double position = 3;
-}
-
-message MotorGoToResponse {}
-
-message MotorGoTillStopRequest {
-  // Name of a motor
-  string name = 1;
-  // Speed of motor travel in rotations per minute
-  double rpm = 2;
-}
-
-message MotorGoTillStopResponse {}
-
-message MotorZeroRequest {
-  // Name of a motor
-  string name = 1;
-  // Motor position
-  double offset = 2;
-}
-
-message MotorZeroResponse {}
-
-message MotorPositionRequest {
-  // Name of a motor
-  string name = 1;
-}
-
-message MotorPositionResponse {
-  // Current position of the motor relative to its home
-  double position = 1;
-}
-
-message MotorPositionSupportedRequest {
-  // Name of a motor
-  string name = 1;
-}
-
-message MotorPositionSupportedResponse {
-  // Returns true if the motor supports reporting its position
-  bool supported = 1;
-}
-
-message MotorOffRequest {
-  // Name of a motor
-  string name = 1;
-}
-
-message MotorOffResponse {}
-
-message MotorIsOnRequest {
-  // Name of a motor
-  string name = 1;
-}
-
-message MotorIsOnResponse {
-  // Returns true if the motor is on
-
-  bool is_on = 1;
 }
 
 message ResourceRunCommandRequest {
@@ -1013,18 +820,24 @@ message ObjectManipulationServiceDoGrabResponse {
 // End Object Manipulation Service
 
 message InputControllerControlsRequest {
+  // Name of an input controller 
   string controller = 1;
 }
 
 message InputControllerControlsResponse {
+  // Returns a list of all the controls (buttons and axes) that are
+  // available to a given Input Controller 
   repeated string controls = 1;
 }
 
 message InputControllerLastEventsRequest {
+  // Name of an input controller 
   string controller = 1;
 }
 
 message InputControllerLastEventsResponse {
+  // Returns a list of the most recent event for each control on a given InputController. Effectively provides the current "state" of all 
+  // buttons/axes on a given input controller 
   repeated InputControllerEvent events = 1;
 }
 
@@ -1033,7 +846,9 @@ message InputControllerStatus {
 }
 
 message InputControllerInjectEventRequest {
+  // Name of an input controller 
   string controller = 1;
+  // Digitally assert a given event 
   InputControllerEvent event = 2;
 }
 
@@ -1042,18 +857,28 @@ message InputControllerInjectEventResponse {
 
 message InputControllerEvent {
   google.protobuf.Timestamp time = 1;
+  // An event type (eg: ButtonPress, ButtonRelease)
   string event = 2;
+  // A control, can be a button (eg: ButtonSouth) or an axis (eg: AbsoluteX)
   string control = 3;
+  // 0 or 1 for buttons, -1.0 to +1.0 for axes
   double value = 4;
 }
 
 message InputControllerEventStreamRequest {
   message Events {
+    // Name of a control (button or axis)
     string control = 1;
+    // Specify which event types to recieve events for
+    // To Do (FA): Right now this can be an empty list, but we should error in this case as opening a stream with no messages is expensive
     repeated string events = 2;
+    // Specify which event types to stop recieving events for
+    // This can be an empty list 
     repeated string cancelled_events = 3;
   }
+  // Name of an input controller 
   string controller = 1;
+  // A list of Events
   repeated Events events = 2;
 }
 

@@ -2,12 +2,10 @@ package spatialmath
 
 import (
 	"math"
-
 	"testing"
 
-	"go.viam.com/test"
-
 	"github.com/golang/geo/r3"
+	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
 )
@@ -49,6 +47,7 @@ func TestBasicPoseConstruction(t *testing.T) {
 }
 
 func ptCompare(t *testing.T, p1, p2 r3.Vector) {
+	t.Helper()
 	test.That(t, p1.X, test.ShouldAlmostEqual, p2.X)
 	test.That(t, p1.Y, test.ShouldAlmostEqual, p2.Y)
 	test.That(t, p1.Z, test.ShouldAlmostEqual, p2.Z)
@@ -128,15 +127,18 @@ func TestAlmostCoincident(t *testing.T) {
 	test.That(t, AlmostCoincident(p1, p3), test.ShouldBeFalse)
 }
 
-var ov = &OrientationVector{math.Pi / 2, 0, 0, -1}
-var p1b = NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, ov)
-var p2b = NewPoseFromOrientationVector(r3.Vector{2, 3, 4}, ov)
+var (
+	ov  = &OrientationVector{math.Pi / 2, 0, 0, -1}
+	p1b = NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, ov)
+	p2b = NewPoseFromOrientationVector(r3.Vector{2, 3, 4}, ov)
+)
 
 func BenchmarkDeltaPose(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		PoseDelta(p1b, p2b)
 	}
 }
+
 func BenchmarkPoseBetween(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		PoseBetween(p1b, p2b)

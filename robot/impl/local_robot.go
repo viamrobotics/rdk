@@ -9,73 +9,120 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/board"
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/camera"
-	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/component/input"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/component/servo"
-	"go.viam.com/core/config"
-	"go.viam.com/core/grpc/client"
-	"go.viam.com/core/metadata/service"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/services"
-	"go.viam.com/core/services/framesystem"
-	"go.viam.com/core/services/web"
-	"go.viam.com/core/status"
+	"go.viam.com/rdk/base"
 
-	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	// register base.
+	_ "go.viam.com/rdk/base/impl"
+	"go.viam.com/rdk/component/arm"
 
-	// Engines
-	_ "go.viam.com/core/function/vm/engines/javascript"
+	// register arm.
+	_ "go.viam.com/rdk/component/arm/register"
+	"go.viam.com/rdk/component/board"
 
-	// These are the robot pieces we want by default
-	_ "go.viam.com/core/base/impl"
-	_ "go.viam.com/core/board/arduino"
-	_ "go.viam.com/core/board/jetson"
-	_ "go.viam.com/core/board/numato"
-	_ "go.viam.com/core/component/arm/register"     // for all arms TODO: #298
-	_ "go.viam.com/core/component/camera/register"  // for all cameras
-	_ "go.viam.com/core/component/gantry/register"  // for all gantries
-	_ "go.viam.com/core/component/gripper/register" // for all grippers
-	_ "go.viam.com/core/component/imu/register"     // for all IMU
-	_ "go.viam.com/core/component/input/register"   // for all input
-	_ "go.viam.com/core/component/motor/register"   // for all motors
-	_ "go.viam.com/core/component/servo/register"   // for a servo
-	_ "go.viam.com/core/platformdetector/pi"
-	_ "go.viam.com/core/robots/eva" // for eva
-	_ "go.viam.com/core/robots/fake"
-	_ "go.viam.com/core/robots/universalrobots"         // for an arm
-	_ "go.viam.com/core/robots/varm"                    // for an arm
-	_ "go.viam.com/core/robots/vforcematrixtraditional" // for a traditional force matrix
-	_ "go.viam.com/core/robots/vforcematrixwithmux"     // for a force matrix built using a mux
-	_ "go.viam.com/core/robots/vx300s"                  // for arm and gripper
-	_ "go.viam.com/core/robots/wx250s"                  // for arm and gripper
-	_ "go.viam.com/core/robots/xarm"                    // for an arm
-	_ "go.viam.com/core/robots/yahboom"                 // for an arm
-	_ "go.viam.com/core/sensor/compass/gy511"
-	_ "go.viam.com/core/sensor/forcematrix"
-	_ "go.viam.com/core/sensor/gps/merge"
-	_ "go.viam.com/core/sensor/gps/nmea"
+	// register board.
+	_ "go.viam.com/rdk/component/board/register"
+	"go.viam.com/rdk/component/camera"
 
-	// These are the services we want by default
-	_ "go.viam.com/core/services/baseremotecontrol"
-	_ "go.viam.com/core/services/navigation"
+	// register camera.
+	_ "go.viam.com/rdk/component/camera/register"
+
+	// register gantry.
+	_ "go.viam.com/rdk/component/gantry/register"
+	"go.viam.com/rdk/component/gripper"
+
+	// register gripper.
+	_ "go.viam.com/rdk/component/gripper/register"
+
+	// register imu.
+	_ "go.viam.com/rdk/component/imu/register"
+	"go.viam.com/rdk/component/input"
+
+	// register input.
+	_ "go.viam.com/rdk/component/input/register"
+	"go.viam.com/rdk/component/motor"
+
+	// register motor.
+	_ "go.viam.com/rdk/component/motor/register"
+	"go.viam.com/rdk/component/servo"
+
+	// register servo.
+	_ "go.viam.com/rdk/component/servo/register"
+	"go.viam.com/rdk/config"
+
+	// register vm engines.
+	_ "go.viam.com/rdk/function/vm/engines/javascript"
+	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/metadata/service"
+
+	// detect pi.
+	_ "go.viam.com/rdk/platformdetector/pi"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+
+	// register eva.
+	_ "go.viam.com/rdk/robots/eva"
+
+	// register fake.
+	_ "go.viam.com/rdk/robots/fake"
+
+	// register UR.
+	_ "go.viam.com/rdk/robots/universalrobots"
+
+	// register varm.
+	_ "go.viam.com/rdk/robots/varm"
+
+	// register force matrix.
+	_ "go.viam.com/rdk/robots/vforcematrixtraditional"
+
+	// register force matrix.
+	_ "go.viam.com/rdk/robots/vforcematrixwithmux"
+
+	// register force vx300s.
+	_ "go.viam.com/rdk/robots/vx300s"
+
+	// register force wx250s.
+	_ "go.viam.com/rdk/robots/wx250s"
+
+	// register force xArm.
+	_ "go.viam.com/rdk/robots/xarm"
+
+	// register force yahboom.
+	_ "go.viam.com/rdk/robots/yahboom"
+	"go.viam.com/rdk/sensor"
+
+	// register gy511.
+	_ "go.viam.com/rdk/sensor/compass/gy511"
+
+	// register force matrix.
+	_ "go.viam.com/rdk/sensor/forcematrix"
+
+	// register merge gps.
+	_ "go.viam.com/rdk/sensor/gps/merge"
+
+	// register NMEA gps.
+	_ "go.viam.com/rdk/sensor/gps/nmea"
+	"go.viam.com/rdk/services"
+
+	// register base remote control.
+	_ "go.viam.com/rdk/services/baseremotecontrol"
+	"go.viam.com/rdk/services/framesystem"
+
+	// register navigation.
+	_ "go.viam.com/rdk/services/navigation"
+	"go.viam.com/rdk/services/web"
+	"go.viam.com/rdk/status"
 )
 
 var _ = robot.LocalRobot(&localRobot{})
 
-// WebSvcName defines the name of the web service
+// WebSvcName defines the name of the web service.
 const WebSvcName = "web1"
 
 // localRobot satisfies robot.LocalRobot and defers most
@@ -228,8 +275,8 @@ func (r *localRobot) ProcessManager() pexec.ProcessManager {
 }
 
 // Close attempts to cleanly close down all constituent parts of the robot.
-func (r *localRobot) Close() error {
-	return r.parts.Close()
+func (r *localRobot) Close(ctx context.Context) error {
+	return r.parts.Close(ctx)
 }
 
 // Config returns the config used to construct the robot.
@@ -250,13 +297,12 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 			}
 			cfgCpy.Components = append(cfgCpy.Components, c)
 		}
-
 	}
 	return &cfgCpy, nil
 }
 
-// getRemoteConfig gets the parameters for the Remote
-func (r *localRobot) getRemoteConfig(ctx context.Context, remoteName string) (*config.Remote, error) {
+// getRemoteConfig gets the parameters for the Remote.
+func (r *localRobot) getRemoteConfig(remoteName string) (*config.Remote, error) {
 	for _, rConf := range r.config.Remotes {
 		if rConf.Name == remoteName {
 			return &rConf, nil
@@ -272,7 +318,7 @@ func (r *localRobot) Status(ctx context.Context) (*pb.Status, error) {
 	return status.Create(ctx, r)
 }
 
-// FrameSystem returns the FrameSystem of the robot
+// FrameSystem returns the FrameSystem of the robot.
 func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
 	logger := r.Logger()
 	// create the base reference frame system
@@ -295,7 +341,7 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 		if err != nil {
 			return nil, err
 		}
-		rConf, err := r.getRemoteConfig(ctx, remoteName)
+		rConf, err := r.getRemoteConfig(remoteName)
 		if err != nil {
 			return nil, err
 		}
@@ -324,7 +370,7 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...c
 	var successful bool
 	defer func() {
 		if !successful {
-			if err := r.Close(); err != nil {
+			if err := r.Close(context.Background()); err != nil {
 				logger.Errorw("failed to close robot down after startup failure", "error", err)
 			}
 		}
@@ -372,14 +418,6 @@ func (r *localRobot) newSensor(ctx context.Context, config config.Component, sen
 	return f.Constructor(ctx, r, config, r.logger)
 }
 
-func (r *localRobot) newBoard(ctx context.Context, config config.Component) (board.Board, error) {
-	f := registry.BoardLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown board model: %s", config.Model)
-	}
-	return f.Constructor(ctx, r, config, r.logger)
-}
-
 func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
 	f := registry.ServiceLookup(config.Type)
 	if f == nil {
@@ -405,12 +443,12 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	return c.Reconfigurable(newResource)
 }
 
-// Refresh does nothing for now
+// Refresh does nothing for now.
 func (r *localRobot) Refresh(ctx context.Context) error {
 	return nil
 }
 
-// UpdateMetadata updates metadata service using the currently registered parts of the robot
+// UpdateMetadata updates metadata service using the currently registered parts of the robot.
 func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 	// TODO: Currently just a placeholder implementation, this should be rewritten once robot/parts have more metadata about themselves
 	var resources []resource.Name
@@ -420,25 +458,16 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 
 	for _, name := range r.BaseNames() {
 		res := resource.NewName(
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeBase,
 			name,
 		)
 		resources = append(resources, res)
 	}
-	for _, name := range r.BoardNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceCore,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeBoard,
-			name,
-		)
-		resources = append(resources, res)
-	}
 	for _, name := range r.FunctionNames() {
 		res := resource.NewName(
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			resource.ResourceTypeService,
 			resource.ResourceSubtypeFunction,
 			name,
@@ -447,7 +476,7 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 	}
 	for _, name := range r.RemoteNames() {
 		res := resource.NewName(
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeRemote,
 			name,
@@ -456,7 +485,7 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 	}
 	for _, name := range r.SensorNames() {
 		res := resource.NewName(
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			resource.ResourceTypeComponent,
 			resource.ResourceSubtypeSensor,
 			name,

@@ -13,31 +13,28 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
-	"github.com/go-errors/errors"
-
+	streampb "github.com/edaniels/gostream/proto/stream/v1"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
-	goutils "go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
-
-	"go.viam.com/core/action"
-	"go.viam.com/core/config"
-	"go.viam.com/core/grpc"
-	grpcmetadata "go.viam.com/core/grpc/metadata/server"
-	grpcserver "go.viam.com/core/grpc/server"
-	"go.viam.com/core/metadata/service"
-	metadatapb "go.viam.com/core/proto/api/service/v1"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/subtype"
-
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/web"
-
 	"goji.io"
 	"goji.io/pat"
+
+	"go.viam.com/rdk/action"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
+	grpcmetadata "go.viam.com/rdk/grpc/metadata/server"
+	grpcserver "go.viam.com/rdk/grpc/server"
+	"go.viam.com/rdk/metadata/service"
+	metadatapb "go.viam.com/rdk/proto/api/service/v1"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/web"
 )
 
 // Type is the type of service.
@@ -56,7 +53,6 @@ func init() {
 // a gRPC/REST server.
 type robotWebApp struct {
 	template *template.Template
-	views    []gostream.View
 	theRobot robot.Robot
 	logger   golog.Logger
 	options  Options
@@ -67,9 +63,11 @@ func (app *robotWebApp) Init() error {
 	var err error
 
 	t := template.New("foo").Funcs(template.FuncMap{
+		//nolint:gosec
 		"jsSafe": func(js string) template.JS {
 			return template.JS(js)
 		},
+		//nolint:gosec
 		"htmlSafe": func(html string) template.HTML {
 			return template.HTML(html)
 		},
@@ -102,11 +100,6 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	type View struct {
-		JavaScript string
-		Body       string
-	}
-
 	type Temp struct {
 		External                   bool
 		WebRTCEnabled              bool
@@ -114,7 +107,6 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		WebRTCSignalingAddress     string
 		WebRTCAdditionalICEServers []map[string]interface{}
 		Actions                    []string
-		Views                      []View
 	}
 
 	temp := Temp{
@@ -123,20 +115,10 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if app.options.WebRTC {
 		temp.WebRTCEnabled = true
-		if app.options.internalSignaling && !app.options.secure {
-			temp.WebRTCSignalingAddress = fmt.Sprintf("http://%s", app.options.SignalingAddress)
-		} else {
+		if !app.options.internalSignaling || app.options.secure {
 			temp.WebRTCSignalingAddress = fmt.Sprintf("https://%s", app.options.SignalingAddress)
 		}
 		temp.WebRTCHost = app.options.Name
-	}
-
-	for _, view := range app.views {
-		htmlData := view.HTML()
-		temp.Views = append(temp.Views, View{
-			htmlData.JavaScript,
-			htmlData.Body,
-		})
 	}
 
 	err := app.template.Execute(w, temp)
@@ -173,19 +155,12 @@ func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.
 	return sources, names, nil
 }
 
-var defaultViewConfig = x264.DefaultViewConfig
-
-func init() {
-	defaultViewConfig.WebRTCConfig = grpc.DefaultWebRTCConfiguration
-}
+var defaultStreamConfig = x264.DefaultStreamConfig
 
 // A Service controls the web server for a robot.
 type Service interface {
 	// Start starts the web server
 	Start(context.Context, Options) error
-
-	// Close attempts to close the web service gracefully
-	Close() error
 }
 
 // New returns a new web service for the given robot.
@@ -210,7 +185,7 @@ type webService struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// Start starts the web server, will return an error if server is already up
+// Start starts the web server, will return an error if server is already up.
 func (svc *webService) Start(ctx context.Context, o Options) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
@@ -228,10 +203,10 @@ func (svc *webService) Start(ctx context.Context, o Options) error {
 func (svc *webService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	return svc.update(ctx, resources)
+	return svc.update(resources)
 }
 
-func (svc *webService) update(ctx context.Context, resources map[resource.Name]interface{}) error {
+func (svc *webService) update(resources map[resource.Name]interface{}) error {
 	// so group resources by subtype
 	groupedResources := make(map[resource.Subtype]map[resource.Name]interface{})
 	for n, v := range resources {
@@ -261,7 +236,7 @@ func (svc *webService) update(ctx context.Context, resources map[resource.Name]i
 	return nil
 }
 
-func (svc *webService) Close() error {
+func (svc *webService) Close() {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	if svc.cancelFunc != nil {
@@ -269,68 +244,48 @@ func (svc *webService) Close() error {
 		svc.cancelFunc = nil
 	}
 	svc.activeBackgroundWorkers.Wait()
-	return nil
 }
 
-// installWeb prepares the given mux to be able to serve the UI for the robot. It also starts some goroutines
-// for image processing that can be cleaned up with the returned cleanup function.
-func (svc *webService) installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, options Options) (func(), error) {
+func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot, options Options) (gostream.StreamServer, bool, error) {
 	displaySources, displayNames, err := allSourcesToDisplay(ctx, theRobot)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	views := []gostream.View{}
+	var streams []gostream.Stream
 	var autoCameraTiler *gostream.AutoTiler
 
-	if len(displaySources) != 0 {
-		if options.AutoTile {
-			config := defaultViewConfig
-			view, err := gostream.NewView(config)
-			if err != nil {
-				return nil, err
-			}
-			views = append(views, view)
-
-			tilerHeight := 480 * len(displaySources)
-			autoCameraTiler = gostream.NewAutoTiler(640, tilerHeight)
-			autoCameraTiler.SetLogger(svc.logger)
-
-		} else {
-			for idx := range displaySources {
-				config := x264.DefaultViewConfig
-				config.StreamNumber = idx
-				config.StreamName = displayNames[idx]
-				view, err := gostream.NewView(config)
-				if err != nil {
-					return nil, err
-				}
-				views = append(views, view)
-			}
-		}
+	if len(displaySources) == 0 {
+		noopServer, err := gostream.NewStreamServer(streams...)
+		return noopServer, false, err
 	}
 
-	app := &robotWebApp{views: views, theRobot: theRobot, logger: svc.logger, options: options}
-	if err := app.Init(); err != nil {
-		return nil, err
-	}
-
-	var staticDir http.FileSystem
-	if app.options.SharedDir != "" {
-		staticDir = http.Dir(app.options.SharedDir + "/static")
-	} else {
-		embedFS, err := fs.Sub(web.AppFS, "runtime-shared/static")
+	if options.AutoTile {
+		config := defaultStreamConfig
+		config.Name = "Cameras"
+		stream, err := gostream.NewStream(config)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		staticDir = http.FS(embedFS)
+		streams = append(streams, stream)
+
+		tilerHeight := 480 * len(displaySources)
+		autoCameraTiler = gostream.NewAutoTiler(640, tilerHeight)
+		autoCameraTiler.SetLogger(svc.logger)
+	} else {
+		for idx := range displaySources {
+			config := x264.DefaultStreamConfig
+			config.Name = displayNames[idx]
+			view, err := gostream.NewStream(config)
+			if err != nil {
+				return nil, false, err
+			}
+			streams = append(streams, view)
+		}
 	}
 
-	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(staticDir)))
-	mux.Handle(pat.New("/"), app)
-
-	for _, view := range views {
-		handler := view.Handler()
-		mux.Handle(pat.New("/"+handler.Name), handler.Func)
+	streamServer, err := gostream.NewStreamServer(streams...)
+	if err != nil {
+		return nil, false, err
 	}
 
 	// start background workers
@@ -340,42 +295,65 @@ func (svc *webService) installWeb(ctx context.Context, mux *goji.Mux, theRobot r
 		}
 		waitCh := make(chan struct{})
 		svc.activeBackgroundWorkers.Add(1)
-		goutils.PanicCapturingGo(func() {
+		utils.PanicCapturingGo(func() {
 			defer svc.activeBackgroundWorkers.Done()
 			close(waitCh)
-			gostream.StreamNamedSource(ctx, autoCameraTiler, "Cameras", views[0])
+			gostream.StreamSource(ctx, autoCameraTiler, streams[0])
 		})
 		<-waitCh
 	} else {
-		for idx, view := range views {
+		for idx, stream := range streams {
 			waitCh := make(chan struct{})
 			svc.activeBackgroundWorkers.Add(1)
-			goutils.PanicCapturingGo(func() {
+			utils.PanicCapturingGo(func() {
 				defer svc.activeBackgroundWorkers.Done()
 				close(waitCh)
-				gostream.StreamNamedSource(ctx, displaySources[idx], displayNames[idx], view)
+				gostream.StreamSource(ctx, displaySources[idx], stream)
 			})
 			<-waitCh
 		}
 	}
 
-	return func() {
-		for _, view := range views {
-			view.Stop()
+	return streamServer, true, nil
+}
+
+// installWeb prepares the given mux to be able to serve the UI for the robot.
+func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options Options) error {
+	app := &robotWebApp{theRobot: theRobot, logger: svc.logger, options: options}
+	if err := app.Init(); err != nil {
+		return err
+	}
+
+	var staticDir http.FileSystem
+	if app.options.SharedDir != "" {
+		staticDir = http.Dir(app.options.SharedDir + "/static")
+	} else {
+		embedFS, err := fs.Sub(web.AppFS, "runtime-shared/static")
+		if err != nil {
+			return err
 		}
-	}, nil
+		staticDir = http.FS(embedFS)
+	}
+
+	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(staticDir)))
+	mux.Handle(pat.New("/"), app)
+
+	return nil
 }
 
 // RunWeb takes the given robot and options and runs the web server. This function will block
 // until the context is done.
 func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
 	listener, secure, err := utils.NewPossiblySecureTCPListenerFromFile(
-		options.Port, options.TLSCertFile, options.TLSKeyFile)
+		options.Network.BindAddress,
+		options.Network.TLSCertFile,
+		options.Network.TLSKeyFile,
+	)
 	if err != nil {
 		return err
 	}
+	listenerAddr := listener.Addr().String()
 	options.secure = secure
-	humanAddress := fmt.Sprintf("localhost:%d", options.Port)
 
 	var signalingOpts []rpc.DialOption
 	if options.SignalingAddress == "" && !secure {
@@ -405,7 +383,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	svc.server = rpcServer
 	if options.SignalingAddress == "" {
 		options.internalSignaling = true
-		options.SignalingAddress = fmt.Sprintf("localhost:%d", options.Port)
+		options.SignalingAddress = listenerAddr
 	}
 	if options.Name == "" {
 		options.Name = rpcServer.SignalingHost()
@@ -440,7 +418,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 		resources[name] = resource
 	}
-	if err := svc.update(ctx, resources); err != nil {
+	if err := svc.update(resources); err != nil {
 		return err
 	}
 
@@ -465,9 +443,26 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 	}
 
+	streamServer, hasStreams, err := svc.makeStreamServer(ctx, svc.r, options)
+	if err != nil {
+		return err
+	}
+	if err := rpcServer.RegisterServiceServer(
+		ctx,
+		&streampb.StreamService_ServiceDesc,
+		streamServer.ServiceServer(),
+		streampb.RegisterStreamServiceHandlerFromEndpoint,
+	); err != nil {
+		return err
+	}
+	if hasStreams {
+		// force WebRTC template rendering
+		options.WebRTC = true
+	}
+
 	if options.Debug {
 		if err := rpcServer.RegisterServiceServer(
-			context.Background(),
+			ctx,
 			&echopb.EchoService_ServiceDesc,
 			&echoserver.Server{},
 			echopb.RegisterEchoServiceHandlerFromEndpoint,
@@ -477,8 +472,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	}
 
 	mux := goji.NewMux()
-	webCloser, err := svc.installWeb(ctx, mux, svc.r, options)
-	if err != nil {
+	if err := svc.installWeb(mux, svc.r, options); err != nil {
 		return err
 	}
 
@@ -493,28 +487,34 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	mux.Handle(pat.New("/api/*"), http.StripPrefix("/api", rpcServer.GatewayHandler()))
 	mux.Handle(pat.New("/*"), rpcServer.GRPCHandler())
 
-	httpServer, err := goutils.NewPlainTextHTTP2Server(mux)
+	httpServer, err := utils.NewPlainTextHTTP2Server(mux)
 	if err != nil {
 		return err
 	}
-	httpServer.Addr = listener.Addr().String()
+	httpServer.Addr = listenerAddr
 
 	svc.activeBackgroundWorkers.Add(1)
-	goutils.PanicCapturingGo(func() {
+	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		<-ctx.Done()
-		webCloser()
 		defer func() {
 			if err := httpServer.Shutdown(context.Background()); err != nil {
 				svc.logger.Errorw("error shutting down", "error", err)
 			}
 		}()
-		if err := rpcServer.Stop(); err != nil {
-			svc.logger.Errorw("error stopping rpc server", "error", err)
+		defer func() {
+			if err := rpcServer.Stop(); err != nil {
+				svc.logger.Errorw("error stopping rpc server", "error", err)
+			}
+		}()
+		if streamServer != nil {
+			if err := streamServer.Close(); err != nil {
+				svc.logger.Errorw("error closing stream server", "error", err)
+			}
 		}
 	})
 	svc.activeBackgroundWorkers.Add(1)
-	goutils.PanicCapturingGo(func() {
+	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		if err := rpcServer.Start(); err != nil {
 			svc.logger.Errorw("error starting rpc server", "error", err)
@@ -527,9 +527,9 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	} else {
 		scheme = "http"
 	}
-	svc.logger.Infow("serving", "url", fmt.Sprintf("%s://%s", scheme, humanAddress))
+	svc.logger.Infow("serving", "url", fmt.Sprintf("%s://%s", scheme, listenerAddr))
 	svc.activeBackgroundWorkers.Add(1)
-	goutils.PanicCapturingGo(func() {
+	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		if err := httpServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			svc.logger.Errorw("error serving rpc server", "error", err)

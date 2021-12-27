@@ -7,8 +7,8 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
-	functionvm "go.viam.com/core/function/vm"
-	"go.viam.com/core/testutils/inject"
+	functionvm "go.viam.com/rdk/function/vm"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestRegistryRegisterEngine(t *testing.T) {

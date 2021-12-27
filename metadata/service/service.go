@@ -5,22 +5,22 @@ import (
 	"context"
 	"sync"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
-	"go.viam.com/core/resource"
+	"go.viam.com/rdk/resource"
 )
 
-// SubtypeName is a constant that identifies the component resource subtype
+// SubtypeName is a constant that identifies the component resource subtype.
 const SubtypeName = resource.SubtypeName("metadata")
 
-// Subtype is a constant that identifies the component resource subtype
+// Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceCore,
+	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeService,
 	SubtypeName,
 )
 
-// Metadata defines what a metdata service should be able to do
+// Metadata defines what a metdata service should be able to do.
 type Metadata interface {
 	// All returns the list of resources.
 	All() []resource.Name

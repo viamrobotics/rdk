@@ -8,15 +8,15 @@ import (
 	"strings"
 	"testing"
 
-	"go.viam.com/utils/artifact"
-	"go.viam.com/utils/testutils"
-
 	"github.com/edaniels/golog"
 	"github.com/lucasb-eyer/go-colorful"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/testutils"
 )
 
 func _checkAllDifferent(t *testing.T, colors []Color) {
+	t.Helper()
 	for i, c1 := range colors {
 		for j, c2 := range colors {
 			d := c1.Distance(c2)
@@ -30,10 +30,12 @@ func _checkAllDifferent(t *testing.T, colors []Color) {
 }
 
 func _checkAllSame(t *testing.T, colors []Color) {
+	t.Helper()
 	_checkAllClose(t, colors, 1.0)
 }
 
 func _checkAllClose(t *testing.T, colors []Color, maxDistance float64) {
+	t.Helper()
 	numErrors := 0
 	for _, c1 := range colors {
 		for _, c2 := range colors {
@@ -46,12 +48,14 @@ func _checkAllClose(t *testing.T, colors []Color, maxDistance float64) {
 }
 
 func _testColorFailure(t *testing.T, a, b Color, threshold float64, comparison string) {
+	t.Helper()
 	d := a.distanceDebug(b, true)
 	t.Fatalf("%v(%s) %v(%s) difference should be %s %f, but is %f https://www.viam.com/color.html?#1=%s&2=%s",
 		a, a.Hex(), b, b.Hex(), comparison, threshold, d, a.Hex(), b.Hex())
 }
 
 func _assertCloseHex(t *testing.T, a, b string, threshold float64) bool {
+	t.Helper()
 	aa := NewColorFromHexOrPanic(a)
 	bb := NewColorFromHexOrPanic(b)
 
@@ -59,8 +63,8 @@ func _assertCloseHex(t *testing.T, a, b string, threshold float64) bool {
 }
 
 func _assertClose(t *testing.T, a, b Color, threshold float64) bool {
-	d := a.Distance(b)
-	if d < threshold {
+	t.Helper()
+	if d := a.Distance(b); d < threshold {
 		return true
 	}
 
@@ -69,11 +73,11 @@ func _assertClose(t *testing.T, a, b Color, threshold float64) bool {
 }
 
 func _assertNotCloseHex(t *testing.T, a, b string, threshold float64) bool {
+	t.Helper()
 	aa := NewColorFromHexOrPanic(a)
 	bb := NewColorFromHexOrPanic(b)
 
-	d := aa.Distance(bb)
-	if d > threshold {
+	if d := aa.Distance(bb); d > threshold {
 		return true
 	}
 
@@ -82,16 +86,16 @@ func _assertNotCloseHex(t *testing.T, a, b string, threshold float64) bool {
 }
 
 func _assertSame(t *testing.T, a, b Color) {
-	d := a.Distance(b)
-	if d < 1 {
+	t.Helper()
+	if d := a.Distance(b); d < 1 {
 		return
 	}
 	_testColorFailure(t, a, b, 1, "<")
 }
 
 func _assertNotSame(t *testing.T, a, b Color) {
-	d := a.Distance(b)
-	if d > 1 {
+	t.Helper()
+	if d := a.Distance(b); d > 1 {
 		return
 	}
 	_testColorFailure(t, a, b, 1, ">")
@@ -133,7 +137,6 @@ func TestColorBits(t *testing.T) {
 	test.That(t, int(h), test.ShouldEqual, 10001)
 	test.That(t, int(s), test.ShouldEqual, 5)
 	test.That(t, int(v), test.ShouldEqual, 6)
-
 }
 
 func TestColorRoundTrip(t *testing.T) {
@@ -162,7 +165,6 @@ func TestColorHSVDistanceSanityCheckDiff(t *testing.T) {
 		d := _loopedDiff(x[0], x[1])
 		test.That(t, math.Abs(d-x[2]), test.ShouldBeLessThanOrEqualTo, .0001)
 	}
-
 }
 
 func TestColorHSVDistanceSanityCheck(t *testing.T) {
@@ -176,7 +178,6 @@ func TestColorHSVDistanceSanityCheck(t *testing.T) {
 	test.That(t, d, test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	_checkAllDifferent(t, Colors)
-
 }
 
 func TestColorHSVDistanceSanityCheck2(t *testing.T) {
@@ -257,7 +258,6 @@ func TestColorHSVDistanceDarks(t *testing.T) {
 
 	d = mostlyDarkBlue2.Distance(veryDarkBlue)
 	test.That(t, d, test.ShouldBeLessThanOrEqualTo, 1)
-
 }
 
 func TestColorRatioOffFrom135Finish(t *testing.T) {
@@ -277,7 +277,6 @@ func TestColorRatioOffFrom135Finish(t *testing.T) {
 		res := _ratioOffFrom135Finish(d[0])
 		test.That(t, res, test.ShouldEqual, d[1])
 	}
-
 }
 
 func TestColorRatioOffFrom135(t *testing.T) {
@@ -300,7 +299,6 @@ func TestColorRatioOffFrom135(t *testing.T) {
 }
 
 func TestColorHSVDistanceChess1(t *testing.T) {
-
 	x1 := NewColor(158, 141, 112)
 	x2 := NewColor(176, 154, 101)
 
@@ -324,7 +322,6 @@ func TestColorHSVDistanceChess2(t *testing.T) {
 		NewColor(19, 17, 9),
 	}
 	_checkAllDifferent(t, data)
-
 }
 
 func TestColorHSVDistanceChess3(t *testing.T) {
@@ -348,7 +345,6 @@ func TestColorHSVDistanceChess3(t *testing.T) {
 	}
 
 	_checkAllClose(t, allColors, 2)
-
 }
 
 func TestColorHSVDistanceChess4(t *testing.T) {
@@ -364,7 +360,6 @@ func TestColorHSVDistanceChess4(t *testing.T) {
 	}
 
 	_checkAllClose(t, allColors, 2)
-
 }
 
 func TestColorHSVDistanceChess5(t *testing.T) {
@@ -401,7 +396,6 @@ func TestColorHSVDistanceChessA(t *testing.T) {
 	_assertNotCloseHex(t, "#909571", "#83876f", .99) // I "broke" this when changing H,S,V to smaller types, thing it's ok
 	_assertNotCloseHex(t, "#0d1e2a", "#0e273f", 1.0)
 	_assertNotCloseHex(t, "#041726", "#031e39", 1.0)
-
 }
 
 func TestColorHSVDistanceChessB(t *testing.T) {
@@ -411,45 +405,45 @@ func TestColorHSVDistanceChessB(t *testing.T) {
 }
 
 func TestColorHSVDistanceRandom1(t *testing.T) {
-	_assertCloseHex(t, "#182b2b", "#0f2725", 1.2)
-	_assertCloseHex(t, "#2f433c", "#283e3d", 1.1)
-	_assertCloseHex(t, "#001b3d", "#002856", 1.1)
-	_assertCloseHex(t, "#393330", "#291f1f", 1.0)
+	test.That(t, _assertCloseHex(t, "#182b2b", "#0f2725", 1.2), test.ShouldBeTrue)
+	test.That(t, _assertCloseHex(t, "#2f433c", "#283e3d", 1.1), test.ShouldBeTrue)
+	test.That(t, _assertCloseHex(t, "#001b3d", "#002856", 1.1), test.ShouldBeTrue)
+	test.That(t, _assertCloseHex(t, "#393330", "#291f1f", 1.0), test.ShouldBeTrue)
 
-	_assertCloseHex(t, "#282737", "#261f2d", 1.2)
-	_assertNotCloseHex(t, "#282737", "#261f2d", 0.9)
+	test.That(t, _assertCloseHex(t, "#282737", "#261f2d", 1.2), test.ShouldBeTrue)
+	test.That(t, _assertNotCloseHex(t, "#282737", "#261f2d", 0.9), test.ShouldBeTrue)
 
-	_assertCloseHex(t, "#1b3351", "#1d233c", 1.2)
+	test.That(t, _assertCloseHex(t, "#1b3351", "#1d233c", 1.2), test.ShouldBeTrue)
 
-	_assertCloseHex(t, "#303330", "#202825", 1.1)
-	_assertCloseHex(t, "#000204", "#162320", 1.1)
-	_assertCloseHex(t, "#1d252f", "#192326", 1.1)
+	test.That(t, _assertCloseHex(t, "#303330", "#202825", 1.1), test.ShouldBeTrue)
+	test.That(t, _assertCloseHex(t, "#000204", "#162320", 1.1), test.ShouldBeTrue)
+	test.That(t, _assertCloseHex(t, "#1d252f", "#192326", 1.1), test.ShouldBeTrue)
 
-	_assertCloseHex(t, "#013b74", "#0e2f53", 1.0)
-	_assertCloseHex(t, "#022956", "#0f284a", 1.0)
-	_assertCloseHex(t, "#001d35", "#071723", 1.1)
-	_assertCloseHex(t, "#747373", "#595863", 1.07)
+	test.That(t, _assertCloseHex(t, "#013b74", "#0e2f53", 1.0), test.ShouldBeTrue)
+	test.That(t, _assertCloseHex(t, "#022956", "#0f284a", 1.0), test.ShouldBeTrue)
+	test.That(t, _assertCloseHex(t, "#001d35", "#071723", 1.1), test.ShouldBeTrue)
+	test.That(t, _assertCloseHex(t, "#747373", "#595863", 1.07), test.ShouldBeTrue)
 
-	_assertNotCloseHex(t, "#515445", "#524e4d", 1.1)
-	_assertNotCloseHex(t, "#9fa59c", "#adc3c5", 1.1)
-	_assertNotCloseHex(t, "#adc3c5", "#9ab0a7", 1.02)
+	test.That(t, _assertNotCloseHex(t, "#515445", "#524e4d", 1.1), test.ShouldBeTrue)
+	test.That(t, _assertNotCloseHex(t, "#9fa59c", "#adc3c5", 1.1), test.ShouldBeTrue)
+	test.That(t, _assertNotCloseHex(t, "#adc3c5", "#9ab0a7", 1.02), test.ShouldBeTrue)
 
-	_assertNotCloseHex(t, "#adc3c5", "#aaaca0", 1.2)
-	_assertNotCloseHex(t, "#adc3c5", "#abafa2", 1.2)
-	_assertNotCloseHex(t, "#031c31", "#002b64", 1.2)
+	test.That(t, _assertNotCloseHex(t, "#adc3c5", "#aaaca0", 1.2), test.ShouldBeTrue)
+	test.That(t, _assertNotCloseHex(t, "#adc3c5", "#abafa2", 1.2), test.ShouldBeTrue)
+	test.That(t, _assertNotCloseHex(t, "#031c31", "#002b64", 1.2), test.ShouldBeTrue)
 
-	_assertCloseHex(t, "#9cb7ab", "#adc3c5", 1.11)  // shiny
-	_assertCloseHex(t, "#899d96", "#adc3c5", 1.125) // shiny
+	test.That(t, _assertCloseHex(t, "#9cb7ab", "#adc3c5", 1.11), test.ShouldBeTrue)  // shiny
+	test.That(t, _assertCloseHex(t, "#899d96", "#adc3c5", 1.125), test.ShouldBeTrue) // shiny
 
-	_assertNotCloseHex(t, "#958f8f", "#2b2928", 3)   // gray vs black
-	_assertNotCloseHex(t, "#5e5b5b", "#2b2928", 3)   // gray vs black
-	_assertNotCloseHex(t, "#3d3c3c", "#2b2928", 1.0) // pretty dark gray vs black
+	test.That(t, _assertNotCloseHex(t, "#958f8f", "#2b2928", 3), test.ShouldBeTrue)   // gray vs black
+	test.That(t, _assertNotCloseHex(t, "#5e5b5b", "#2b2928", 3), test.ShouldBeTrue)   // gray vs black
+	test.That(t, _assertNotCloseHex(t, "#3d3c3c", "#2b2928", 1.0), test.ShouldBeTrue) // pretty dark gray vs black
 
-	_assertNotCloseHex(t, "#807c79", "#5f5b5a", 1.05)
+	test.That(t, _assertNotCloseHex(t, "#807c79", "#5f5b5a", 1.05), test.ShouldBeTrue)
 
-	_assertCloseHex(t, "#4b494c", "#423c3a", 1.25)
+	test.That(t, _assertCloseHex(t, "#4b494c", "#423c3a", 1.25), test.ShouldBeTrue)
 
-	_assertCloseHex(t, "#202320", "#262626", .8)
+	test.That(t, _assertCloseHex(t, "#202320", "#262626", .8), test.ShouldBeTrue)
 }
 
 func TestColorConvert(t *testing.T) {

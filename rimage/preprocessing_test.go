@@ -8,10 +8,11 @@ import (
 	"go.viam.com/test"
 )
 
-// Smoothing with Morphological filters
+// Smoothing with Morphological filters.
 type smoothTestHelper struct{}
 
 func (h *smoothTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
+	t.Helper()
 	var err error
 	ii := ConvertToImageWithDepth(img)
 
@@ -41,15 +42,16 @@ func (h *smoothTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn stri
 }
 
 func TestSmoothGripper(t *testing.T) {
-	d := NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
+	d := NewMultipleImageTestDebugger(t, "preprocessing", "*.both.gz", false)
 	err := d.Process(t, &smoothTestHelper{})
 	test.That(t, err, test.ShouldBeNil)
 }
 
-// Canny Edge Detection for depth maps
+// Canny Edge Detection for depth maps.
 type cannyTestHelper struct{}
 
 func (h *cannyTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
+	t.Helper()
 	var err error
 	cannyColor := NewCannyDericheEdgeDetector()
 	cannyDepth := NewCannyDericheEdgeDetectorWithParameters(0.85, 0.33, false)
@@ -72,7 +74,7 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn strin
 	CleanDepthMap(depthImg)
 	dmCleanedEdges, err := cannyDepth.DetectDepthEdges(depthImg, 0.0)
 	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugImage(depthImg.ToPrettyPicture(0, 500), "depth-cleaned-near")        //near
+	pCtx.GotDebugImage(depthImg.ToPrettyPicture(0, 500), "depth-cleaned-near")        // near
 	pCtx.GotDebugImage(depthImg.ToPrettyPicture(500, 4000), "depth-cleaned-middle")   // middle
 	pCtx.GotDebugImage(depthImg.ToPrettyPicture(4000, MaxDepth), "depth-cleaned-far") // far
 	pCtx.GotDebugImage(dmCleanedEdges, "depth-edges-cleaned")
@@ -97,7 +99,7 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn strin
 	pCtx.GotDebugImage(closedDM.ToPrettyPicture(0, MaxDepth), "depth-holes-filled")
 	pCtx.GotDebugImage(filledEdges, "depth-edges-filled")
 
-	//smoothed
+	// smoothed
 	smoothDM, err := GaussianSmoothing(closedDM, 1)
 	test.That(t, err, test.ShouldBeNil)
 	dmSmoothedEdges, err := cannyDepth.DetectDepthEdges(smoothDM, 0.0)
@@ -105,7 +107,7 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn strin
 	pCtx.GotDebugImage(smoothDM.ToPrettyPicture(0, MaxDepth), "depth-smoothed")
 	pCtx.GotDebugImage(dmSmoothedEdges, "depth-edges-smoothed")
 
-	//bilateral smoothed
+	// bilateral smoothed
 	bilateralDM, err := JointBilateralSmoothing(closedDM, 1, 500)
 	test.That(t, err, test.ShouldBeNil)
 	dmBilateralEdges, err := cannyDepth.DetectDepthEdges(bilateralDM, 0.0)
@@ -113,7 +115,7 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn strin
 	pCtx.GotDebugImage(bilateralDM.ToPrettyPicture(0, MaxDepth), "depth-bilateral")
 	pCtx.GotDebugImage(dmBilateralEdges, "depth-edges-bilateral")
 
-	//savitsky-golay smoothed
+	// savitsky-golay smoothed
 	validPoints := MissingDepthData(closedDM)
 	sgDM, err := SavitskyGolaySmoothing(closedDM, validPoints, 3, 3)
 	test.That(t, err, test.ShouldBeNil)
@@ -131,10 +133,11 @@ func TestDepthPreprocessCanny(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-// Depth pre-processing pipeline
+// Depth pre-processing pipeline.
 type preprocessTestHelper struct{}
 
 func (h *preprocessTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
+	t.Helper()
 	var err error
 	ii := ConvertToImageWithDepth(img)
 	depthImg := ii.Depth
@@ -171,7 +174,7 @@ func TestDepthPreprocess(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-// drawAverageHoleDepth is a debugging function to see the depth calculated by averageDepthAroundHole
+// drawAverageHoleDepth is a debugging function to see the depth calculated by averageDepthAroundHole.
 func drawAverageHoleDepth(dm *DepthMap) *Image {
 	red, green, blue := NewColor(255, 0, 0), NewColor(0, 255, 0), NewColor(0, 0, 255)
 	img := NewImage(dm.Width(), dm.Height())
