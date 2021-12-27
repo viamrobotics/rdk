@@ -3,7 +3,7 @@ package rimage
 import (
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/core/rlog"
+	"go.viam.com/rdk/rlog"
 )
 
 var outDir string

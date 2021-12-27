@@ -7,27 +7,25 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/component/camera"
-	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/component/input"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/component/servo"
-	"go.viam.com/core/config"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/servo"
+	"go.viam.com/rdk/config"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor"
 )
 
 var errUnimplemented = errors.New("unimplemented")
@@ -76,7 +74,7 @@ func (rr *remoteRobot) Refresh(ctx context.Context) error {
 // replace replaces this robot with the given robot. We can do a full
 // replacement here since we will always get a full view of the parts,
 // not one partially created from a diff.
-func (rr *remoteRobot) replace(newRobot robot.Robot) {
+func (rr *remoteRobot) replace(ctx context.Context, newRobot robot.Robot) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 
@@ -85,7 +83,7 @@ func (rr *remoteRobot) replace(newRobot robot.Robot) {
 		panic(fmt.Errorf("expected new remote to be %T but got %T", actual, newRobot))
 	}
 
-	rr.parts.replaceForRemote(actual.parts)
+	rr.parts.replaceForRemote(ctx, actual.parts)
 }
 
 func (rr *remoteRobot) prefixName(name string) string {
@@ -405,8 +403,8 @@ func (rr *remoteRobot) Logger() golog.Logger {
 	return rr.robot.Logger()
 }
 
-func (rr *remoteRobot) Close() error {
-	return utils.TryClose(rr.robot)
+func (rr *remoteRobot) Close(ctx context.Context) error {
+	return utils.TryClose(ctx, rr.robot)
 }
 
 // partsForRemoteRobot integrates all parts from a given robot
@@ -451,7 +449,7 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 }
 
 // replaceForRemote replaces these parts with the given parts coming from a remote.
-func (parts *robotParts) replaceForRemote(newParts *robotParts) {
+func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotParts) {
 	var oldBaseNames map[string]struct{}
 	var oldSensorNames map[string]struct{}
 	var oldFunctionNames map[string]struct{}
@@ -494,7 +492,7 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		oldPart, ok := parts.bases[name]
 		delete(oldBaseNames, name)
 		if ok {
-			oldPart.replace(newPart)
+			oldPart.replace(ctx, newPart)
 			continue
 		}
 		parts.bases[name] = newPart
@@ -503,7 +501,9 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 		oldPart, ok := parts.sensors[name]
 		delete(oldSensorNames, name)
 		if ok {
-			oldPart.(interface{ replace(newSensor sensor.Sensor) }).replace(newPart)
+			oldPart.(interface {
+				replace(ctx context.Context, newSensor sensor.Sensor)
+			}).replace(ctx, newPart)
 			continue
 		}
 		parts.sensors[name] = newPart
@@ -539,7 +539,7 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 			if !ok {
 				panic(fmt.Errorf("expected type %T to be reconfigurable but it was not", newPart))
 			}
-			if err := oldPart.Reconfigure(newPart); err != nil {
+			if err := oldPart.Reconfigure(ctx, newPart); err != nil {
 				panic(err)
 			}
 			continue

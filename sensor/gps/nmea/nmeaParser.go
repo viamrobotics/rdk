@@ -42,14 +42,15 @@ func parseAndUpdate(line string, g *gpsData) error {
 		}
 	} else if gsa, ok := s.(nmea.GSA); ok {
 		// GSA gives horizontal and vertical accuracy, and also describes the type of lock- invalid, 2d, or 3d.
-		if gsa.FixType == "1" {
+		switch gsa.FixType {
+		case "1":
 			// No fix
 			g.valid = false
-		} else if gsa.FixType == "2" {
+		case "2":
 			// 2d fix, valid lat/lon but invalid alt
 			g.valid = true
 			g.vDOP = -1
-		} else if gsa.FixType == "3" {
+		case "3":
 			// 3d fix
 			g.valid = true
 		}

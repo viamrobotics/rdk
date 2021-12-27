@@ -1,3 +1,4 @@
+// Package web contains the root of a web server.
 package web
 
 import "embed"

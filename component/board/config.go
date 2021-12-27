@@ -6,8 +6,8 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/config"
-	functionvm "go.viam.com/core/function/vm"
+	"go.viam.com/rdk/config"
+	functionvm "go.viam.com/rdk/function/vm"
 )
 
 // RegisterConfigAttributeConverter registers a board.Config converter.
@@ -30,7 +30,7 @@ func RegisterConfigAttributeConverter(model string) {
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	I2Cs              []I2CConfig              `json:"i2cs" mapstructure:"i2cs"`
+	I2Cs              []I2CConfig              `json:"i2cs"              mapstructure:"i2cs"`
 	SPIs              []SPIConfig              `json:"spis"`
 	Analogs           []AnalogConfig           `json:"analogs"`
 	DigitalInterrupts []DigitalInterruptConfig `json:"digitalInterrupts"`
@@ -76,7 +76,7 @@ func (config *SPIConfig) Validate(path string) error {
 	return nil
 }
 
-// I2CConfig enumerates a specific, shareable I2C bus
+// I2CConfig enumerates a specific, shareable I2C bus.
 type I2CConfig struct {
 	Name string `json:"name"`
 	Bus  string `json:"bus"`

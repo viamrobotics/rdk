@@ -8,7 +8,6 @@ import (
 )
 
 func TestWalk1(t *testing.T) {
-
 	m := map[string]int{}
 
 	Walk(1, 1, 1, func(x, y int) error {

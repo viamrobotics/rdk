@@ -4,18 +4,17 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/utils/rpc"
-
-	"go.viam.com/core/base"
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/config"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/subtype"
-
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/subtype"
 )
 
 func TestRegistry(t *testing.T) {
@@ -48,7 +47,7 @@ func TestRegistry(t *testing.T) {
 func TestComponentRegistry(t *testing.T) {
 	// TODO(maximpertsov): add a similar test for a Board component
 	af := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		return nil, nil
+		return 1, nil
 	}
 	armResourceName := "x"
 	test.That(t, func() { RegisterComponent(arm.Subtype, armResourceName, Component{}) }, test.ShouldPanic)
@@ -58,7 +57,6 @@ func TestComponentRegistry(t *testing.T) {
 	test.That(t, creator, test.ShouldNotBeNil)
 	test.That(t, ComponentLookup(arm.Subtype, "z"), test.ShouldBeNil)
 	test.That(t, creator.Constructor, test.ShouldEqual, af)
-
 }
 
 func TestResourceSubtypeRegistry(t *testing.T) {

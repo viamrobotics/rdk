@@ -9,25 +9,25 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/rlog"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 )
 
-// SubtypeName is a constant that identifies the component resource subtype string "board"
+// SubtypeName is a constant that identifies the component resource subtype string "board".
 const SubtypeName = resource.SubtypeName("board")
 
-// Subtype is a constant that identifies the component resource subtype
+// Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceCore,
+	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeComponent,
 	SubtypeName,
 )
 
-// Named is a helper for getting the named board's typed resource name
+// Named is a helper for getting the named board's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewFromSubtype(Subtype, name)
 }
@@ -74,13 +74,10 @@ type Board interface {
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
 	// this.
-	Status(ctx context.Context) (*pb.Status, error)
+	Status(ctx context.Context) (*pb.BoardStatus, error)
 
 	// ModelAttributes returns attributes related to the model of this board.
 	ModelAttributes() ModelAttributes
-
-	// Close shuts the board down, no methods should be called on the board after this
-	Close() error
 }
 
 // ModelAttributes provide info related to a board model.
@@ -101,10 +98,18 @@ type SPIHandle interface {
 	// Xfer performs a single SPI transfer, that is, the complete transaction from chipselect enable to chipselect disable.
 	// SPI transfers are synchronous, number of bytes received will be equal to the number of bytes sent.
 	// Write-only transfers can usually just discard the returned bytes.
-	// Read-only transfers usually transmit a request/address and continue with some number of null bytes to equal the expected size of the returning data.
+	// Read-only transfers usually transmit a request/address and continue with some number of null bytes to equal the expected size of the
+	// returning data.
 	// Large transmissions are usually broken up into multiple transfers.
 	// There are many different paradigms for most of the above, and implementation details are chip/device specific.
-	Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) // Close closes the handle and releases the lock on the bus.
+	Xfer(
+		ctx context.Context,
+		baud uint,
+		chipSelect string,
+		mode uint,
+		tx []byte,
+	) ([]byte, error)
+	// Close closes the handle and releases the lock on the bus.
 	Close() error
 }
 
@@ -149,10 +154,10 @@ var (
 type reconfigurableBoard struct {
 	mu       sync.RWMutex
 	actual   Board
-	spis     map[string]*reconfigurableBoardSPI
-	i2cs     map[string]*reconfigurableBoardI2C
-	analogs  map[string]*reconfigurableBoardAnalogReader
-	digitals map[string]*reconfigurableBoardDigitalInterrupt
+	spis     map[string]*reconfigurableSPI
+	i2cs     map[string]*reconfigurableI2C
+	analogs  map[string]*reconfigurableAnalogReader
+	digitals map[string]*reconfigurableDigitalInterrupt
 }
 
 func (r *reconfigurableBoard) ProxyFor() interface{} {
@@ -253,7 +258,7 @@ func (r *reconfigurableBoard) DigitalInterruptNames() []string {
 	return names
 }
 
-func (r *reconfigurableBoard) Status(ctx context.Context) (*pb.Status, error) {
+func (r *reconfigurableBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	if r.actual.ModelAttributes().Remote {
@@ -262,7 +267,7 @@ func (r *reconfigurableBoard) Status(ctx context.Context) (*pb.Status, error) {
 	return CreateStatus(ctx, r)
 }
 
-func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) error {
+func (r *reconfigurableBoard) Reconfigure(ctx context.Context, newBoard resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -270,7 +275,7 @@ func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) erro
 	if !ok {
 		return errors.Errorf("expected new board to be %T but got %T", r, newBoard)
 	}
-	if err := utils.TryClose(r.actual); err != nil {
+	if err := utils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 
@@ -308,7 +313,7 @@ func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) erro
 		oldPart, ok := r.spis[name]
 		delete(oldSPINames, name)
 		if ok {
-			oldPart.replace(newPart)
+			oldPart.reconfigure(ctx, newPart)
 			continue
 		}
 		r.spis[name] = newPart
@@ -317,7 +322,7 @@ func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) erro
 		oldPart, ok := r.i2cs[name]
 		delete(oldI2CNames, name)
 		if ok {
-			oldPart.replace(newPart)
+			oldPart.reconfigure(ctx, newPart)
 			continue
 		}
 		r.i2cs[name] = newPart
@@ -326,7 +331,7 @@ func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) erro
 		oldPart, ok := r.analogs[name]
 		delete(oldAnalogReaderNames, name)
 		if ok {
-			oldPart.replace(newPart)
+			oldPart.reconfigure(ctx, newPart)
 			continue
 		}
 		r.analogs[name] = newPart
@@ -335,7 +340,7 @@ func (r *reconfigurableBoard) Reconfigure(newBoard resource.Reconfigurable) erro
 		oldPart, ok := r.digitals[name]
 		delete(oldDigitalInterruptNames, name)
 		if ok {
-			oldPart.replace(newPart)
+			oldPart.reconfigure(ctx, newPart)
 			continue
 		}
 		r.digitals[name] = newPart
@@ -365,10 +370,10 @@ func (r *reconfigurableBoard) ModelAttributes() ModelAttributes {
 }
 
 // Close attempts to cleanly close each part of the board.
-func (r *reconfigurableBoard) Close() error {
+func (r *reconfigurableBoard) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return utils.TryClose(r.actual)
+	return utils.TryClose(ctx, r.actual)
 }
 
 // WrapWithReconfigurable converts a regular Board implementation to a reconfigurableBoard.
@@ -383,10 +388,10 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	}
 	rb := reconfigurableBoard{
 		actual:   board,
-		spis:     map[string]*reconfigurableBoardSPI{},
-		i2cs:     map[string]*reconfigurableBoardI2C{},
-		analogs:  map[string]*reconfigurableBoardAnalogReader{},
-		digitals: map[string]*reconfigurableBoardDigitalInterrupt{},
+		spis:     map[string]*reconfigurableSPI{},
+		i2cs:     map[string]*reconfigurableI2C{},
+		analogs:  map[string]*reconfigurableAnalogReader{},
+		digitals: map[string]*reconfigurableDigitalInterrupt{},
 	}
 
 	for _, name := range rb.actual.SPINames() {
@@ -394,177 +399,181 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 		if !ok {
 			continue
 		}
-		rb.spis[name] = &reconfigurableBoardSPI{actual: actualPart}
+		rb.spis[name] = &reconfigurableSPI{actual: actualPart}
 	}
 	for _, name := range rb.actual.I2CNames() {
 		actualPart, ok := rb.actual.I2CByName(name)
 		if !ok {
 			continue
 		}
-		rb.i2cs[name] = &reconfigurableBoardI2C{actual: actualPart}
+		rb.i2cs[name] = &reconfigurableI2C{actual: actualPart}
 	}
 	for _, name := range rb.actual.AnalogReaderNames() {
 		actualPart, ok := rb.actual.AnalogReaderByName(name)
 		if !ok {
 			continue
 		}
-		rb.analogs[name] = &reconfigurableBoardAnalogReader{actual: actualPart}
+		rb.analogs[name] = &reconfigurableAnalogReader{actual: actualPart}
 	}
 	for _, name := range rb.actual.DigitalInterruptNames() {
 		actualPart, ok := rb.actual.DigitalInterruptByName(name)
 		if !ok {
 			continue
 		}
-		rb.digitals[name] = &reconfigurableBoardDigitalInterrupt{actual: actualPart}
+		rb.digitals[name] = &reconfigurableDigitalInterrupt{actual: actualPart}
 	}
 
 	return &rb, nil
 }
 
-type reconfigurableBoardSPI struct {
+type reconfigurableSPI struct {
 	mu     sync.RWMutex
 	actual SPI
 }
 
-// TODO(maximpertsov): replace "replace" with Reconfigure?
-func (r *reconfigurableBoardSPI) replace(newSPI SPI) {
+func (r *reconfigurableSPI) reconfigure(ctx context.Context, newSPI SPI) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	actual, ok := newSPI.(*reconfigurableBoardSPI)
+	actual, ok := newSPI.(*reconfigurableSPI)
 	if !ok {
 		panic(fmt.Errorf("expected new SPI to be %T but got %T", actual, newSPI))
 	}
-	if err := utils.TryClose(r.actual); err != nil {
+	if err := utils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
 }
 
-func (r *reconfigurableBoardSPI) OpenHandle() (SPIHandle, error) {
+func (r *reconfigurableSPI) OpenHandle() (SPIHandle, error) {
 	return r.actual.OpenHandle()
 }
 
-type reconfigurableBoardI2C struct {
+type reconfigurableI2C struct {
 	mu     sync.RWMutex
 	actual I2C
 }
 
-func (r *reconfigurableBoardI2C) ProxyFor() interface{} {
+func (r *reconfigurableI2C) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
 }
 
-// TODO(maximpertsov): replace "replace" with Reconfigure?
-func (r *reconfigurableBoardI2C) replace(newI2C I2C) {
+func (r *reconfigurableI2C) reconfigure(ctx context.Context, newI2C I2C) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	actual, ok := newI2C.(*reconfigurableBoardI2C)
+	actual, ok := newI2C.(*reconfigurableI2C)
 	if !ok {
 		panic(fmt.Errorf("expected new I2C to be %T but got %T", actual, newI2C))
 	}
-	if err := utils.TryClose(r.actual); err != nil {
+	if err := utils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
 }
 
-func (r *reconfigurableBoardI2C) OpenHandle(addr byte) (I2CHandle, error) {
+func (r *reconfigurableI2C) OpenHandle(addr byte) (I2CHandle, error) {
 	return r.actual.OpenHandle(addr)
 }
 
-type reconfigurableBoardAnalogReader struct {
+type reconfigurableAnalogReader struct {
 	mu     sync.RWMutex
 	actual AnalogReader
 }
 
-// TODO(maximpertsov): replace "replace" with Reconfigure?
-func (r *reconfigurableBoardAnalogReader) replace(newAnalogReader AnalogReader) {
+func (r *reconfigurableAnalogReader) reconfigure(ctx context.Context, newAnalogReader AnalogReader) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	actual, ok := newAnalogReader.(*reconfigurableBoardAnalogReader)
+	actual, ok := newAnalogReader.(*reconfigurableAnalogReader)
 	if !ok {
 		panic(fmt.Errorf("expected new analog reader to be %T but got %T", actual, newAnalogReader))
 	}
-	if err := utils.TryClose(r.actual); err != nil {
+	if err := utils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
 }
 
-func (r *reconfigurableBoardAnalogReader) Read(ctx context.Context) (int, error) {
+func (r *reconfigurableAnalogReader) Read(ctx context.Context) (int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Read(ctx)
 }
 
-func (r *reconfigurableBoardAnalogReader) ProxyFor() interface{} {
+func (r *reconfigurableAnalogReader) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
 }
 
-func (r *reconfigurableBoardAnalogReader) Close() error {
-	return utils.TryClose(r.actual)
+func (r *reconfigurableAnalogReader) Close(ctx context.Context) error {
+	return utils.TryClose(ctx, r.actual)
 }
 
-type reconfigurableBoardDigitalInterrupt struct {
+type reconfigurableDigitalInterrupt struct {
 	mu     sync.RWMutex
 	actual DigitalInterrupt
 }
 
-func (r *reconfigurableBoardDigitalInterrupt) ProxyFor() interface{} {
+func (r *reconfigurableDigitalInterrupt) ProxyFor() interface{} {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual
 }
 
-// TODO(maximpertsov): replace "replace" with Reconfigure?
-func (r *reconfigurableBoardDigitalInterrupt) replace(newDigitalInterrupt DigitalInterrupt) {
+func (r *reconfigurableDigitalInterrupt) reconfigure(ctx context.Context, newDigitalInterrupt DigitalInterrupt) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	actual, ok := newDigitalInterrupt.(*reconfigurableBoardDigitalInterrupt)
+	actual, ok := newDigitalInterrupt.(*reconfigurableDigitalInterrupt)
 	if !ok {
-		panic(fmt.Errorf("expected new digital interrupt to be %T but got %T", actual, newDigitalInterrupt))
+		panic(
+			fmt.Errorf(
+				"expected new digital interrupt to be %T but got %T",
+				actual,
+				newDigitalInterrupt,
+			),
+		)
 	}
-	if err := utils.TryClose(r.actual); err != nil {
+	if err := utils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
 }
 
-func (r *reconfigurableBoardDigitalInterrupt) Config(ctx context.Context) (DigitalInterruptConfig, error) {
+func (r *reconfigurableDigitalInterrupt) Config(
+	ctx context.Context,
+) (DigitalInterruptConfig, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Config(ctx)
 }
 
-func (r *reconfigurableBoardDigitalInterrupt) Value(ctx context.Context) (int64, error) {
+func (r *reconfigurableDigitalInterrupt) Value(ctx context.Context) (int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Value(ctx)
 }
 
-func (r *reconfigurableBoardDigitalInterrupt) Tick(ctx context.Context, high bool, nanos uint64) error {
+func (r *reconfigurableDigitalInterrupt) Tick(ctx context.Context, high bool, nanos uint64) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Tick(ctx, high, nanos)
 }
 
-func (r *reconfigurableBoardDigitalInterrupt) AddCallback(c chan bool) {
+func (r *reconfigurableDigitalInterrupt) AddCallback(c chan bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	r.actual.AddCallback(c)
 }
 
-func (r *reconfigurableBoardDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
+func (r *reconfigurableDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	r.actual.AddPostProcessor(pp)
 }
 
-func (r *reconfigurableBoardDigitalInterrupt) Close() error {
+func (r *reconfigurableDigitalInterrupt) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return utils.TryClose(r.actual)
+	return utils.TryClose(ctx, r.actual)
 }

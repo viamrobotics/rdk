@@ -1,7 +1,7 @@
 package serial
 
 import (
-	"go.viam.com/core/usb"
+	"go.viam.com/rdk/usb"
 )
 
 // Search uses macOS io device APIs to find all applicable serial devices.

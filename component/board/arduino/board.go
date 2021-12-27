@@ -10,17 +10,17 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-
 	slib "github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/config"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/serial"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/config"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/serial"
+	"go.viam.com/rdk/utils"
 )
 
 const modelName = "arduino"
@@ -36,14 +36,16 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			boardConfig := config.ConvertedAttributes.(*board.Config)
-			return newArduino(ctx, boardConfig, logger)
+			boardConfig, ok := config.ConvertedAttributes.(*board.Config)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(boardConfig, config.ConvertedAttributes)
+			}
+			return newArduino(boardConfig, logger)
 		}})
 	board.RegisterConfigAttributeConverter(modelName)
 }
 
 func getSerialConfig(cfg *board.Config) (slib.OpenOptions, error) {
-
 	options := slib.OpenOptions{
 		PortName:        cfg.Attributes["port"],
 		BaudRate:        230400,
@@ -63,7 +65,7 @@ func getSerialConfig(cfg *board.Config) (slib.OpenOptions, error) {
 	return options, nil
 }
 
-func newArduino(ctx context.Context, cfg *board.Config, logger golog.Logger) (*arduinoBoard, error) {
+func newArduino(cfg *board.Config, logger golog.Logger) (*arduinoBoard, error) {
 	options, err := getSerialConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -230,10 +232,10 @@ func (b *arduinoBoard) GPIOGet(ctx context.Context, pin string) (bool, error) {
 func (b *arduinoBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
 	return b.pwmSetArduino(pin, dutyCycle)
 }
+
 func (b *arduinoBoard) pwmSetArduino(pin string, dutyCycle byte) error {
 	cmd := fmt.Sprintf("set-pwm-duty %s %d", pin, dutyCycle)
-	_, err := b.runCommand(cmd)
-	if err != nil {
+	if _, err := b.runCommand(cmd); err != nil {
 		return fmt.Errorf("unexpected return from PWMSet got %w", err)
 	}
 	return nil
@@ -243,10 +245,10 @@ func (b *arduinoBoard) pwmSetArduino(pin string, dutyCycle byte) error {
 func (b *arduinoBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
 	return b.pwmSetFreqArduino(pin, freq)
 }
+
 func (b *arduinoBoard) pwmSetFreqArduino(pin string, freq uint) error {
 	cmd := fmt.Sprintf("set-pwm-freq %s %d", pin, freq)
-	_, err := b.runCommand(cmd)
-	if err != nil {
+	if _, err := b.runCommand(cmd); err != nil {
 		return fmt.Errorf("unexpected return from PWMSetFreq got %w", err)
 	}
 	return nil
@@ -288,10 +290,9 @@ func (b *arduinoBoard) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
 }
 
-// Close shuts the board down, no methods should be called on the board after this
+// Close shuts the board down, no methods should be called on the board after this.
 func (b *arduinoBoard) Close() error {
-	err := b.resetBoard()
-	if err != nil {
+	if err := b.resetBoard(); err != nil {
 		return err
 	}
 

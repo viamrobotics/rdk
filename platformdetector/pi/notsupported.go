@@ -1,6 +1,8 @@
 //go:build !pi
 // +build !pi
 
+// Package pi ensures code for Raspberry Pi platforms can not be used
+// on other platforms.
 package pi
 
 // TODO(maximpertsov): add to board component?
@@ -8,15 +10,14 @@ package pi
 import (
 	"context"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
-	"github.com/edaniels/golog"
-
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/component/servo"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/servo"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
 const modelName = "pi"
@@ -34,7 +35,13 @@ func init() {
 		) (interface{}, error) {
 			return nil, errors.New("not running on a pi")
 		}})
-	registry.RegisterComponent(servo.Subtype, modelName, registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		return nil, errors.New("not running on a pi")
-	}})
+	registry.RegisterComponent(
+		servo.Subtype,
+		modelName,
+		registry.Component{
+			Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+				return nil, errors.New("not running on a pi")
+			},
+		},
+	)
 }

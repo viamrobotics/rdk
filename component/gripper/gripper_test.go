@@ -1,11 +1,12 @@
 package gripper
 
 import (
+	"context"
 	"testing"
 
-	"go.viam.com/core/resource"
-
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/resource"
 )
 
 func TestGripperName(t *testing.T) {
@@ -18,9 +19,9 @@ func TestGripperName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "c0ee7310-504c-5e57-8386-dfd75372c242",
+				UUID: "e2b52bce-800b-56b7-904c-2f8372ce4623",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "",
@@ -30,9 +31,9 @@ func TestGripperName(t *testing.T) {
 			"all fields included",
 			"gripper1",
 			resource.Name{
-				UUID: "169be933-0c65-58bc-be9c-2a9fbe6c70c9",
+				UUID: "f3e34221-62ec-5951-b112-d4cccb47bf61",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "gripper1",
@@ -72,12 +73,12 @@ func TestReconfigurableGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualGripper1.reconfCount, test.ShouldEqual, 0)
 
-	err = fakeGripper1.(*reconfigurableGripper).Reconfigure(fakeGripper2)
+	err = fakeGripper1.(*reconfigurableGripper).Reconfigure(context.Background(), fakeGripper2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeGripper1.(*reconfigurableGripper).actual, test.ShouldEqual, actualGripper2)
 	test.That(t, actualGripper1.reconfCount, test.ShouldEqual, 1)
 
-	err = fakeGripper1.(*reconfigurableGripper).Reconfigure(nil)
+	err = fakeGripper1.(*reconfigurableGripper).Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new gripper")
 }
@@ -88,4 +89,4 @@ type mock struct {
 	reconfCount int
 }
 
-func (m *mock) Close() error { m.reconfCount++; return nil }
+func (m *mock) Close() { m.reconfCount++ }

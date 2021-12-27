@@ -7,13 +7,12 @@ import (
 	"os"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
-	"github.com/golang/geo/r3"
-
-	"go.viam.com/core/referenceframe"
-	spatial "go.viam.com/core/spatialmath"
+	"go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
 func TestFrame(t *testing.T) {

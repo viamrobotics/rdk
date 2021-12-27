@@ -5,11 +5,10 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-
-	"go.viam.com/core/base"
-	"go.viam.com/core/testutils/inject"
-
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestDoMove(t *testing.T) {
