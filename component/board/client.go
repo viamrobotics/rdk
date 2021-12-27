@@ -9,8 +9,9 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/grpc"
-	pb "go.viam.com/core/proto/api/component/v1"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/grpc"
+	pb "go.viam.com/rdk/proto/api/component/v1"
 )
 
 // serviceClient is a client satisfies the board.proto contract.
