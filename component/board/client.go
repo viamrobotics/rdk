@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 )
@@ -180,7 +179,7 @@ func (bc *client) Status(ctx context.Context) (*pb.Status, error) {
 }
 
 func (bc *client) ModelAttributes() ModelAttributes {
-	return board.ModelAttributes{Remote: true}
+	return ModelAttributes{Remote: true}
 }
 
 // analogReaderClient satisfies a gRPC based board.AnalogReader. Refer to the interface
@@ -216,7 +215,7 @@ func (dic *digitalInterruptClient) Config(ctx context.Context) (DigitalInterrupt
 		DigitalInterruptName: dic.digitalInterruptName,
 	})
 	if err != nil {
-		return board.DigitalInterruptConfig{}, err
+		return DigitalInterruptConfig{}, err
 	}
 	return DigitalInterruptConfigFromProto(resp.Config), nil
 }
@@ -224,7 +223,7 @@ func (dic *digitalInterruptClient) Config(ctx context.Context) (DigitalInterrupt
 // DigitalInterruptConfigFromProto converts a proto based digital interrupt config to the
 // codebase specific version.
 func DigitalInterruptConfigFromProto(config *pb.DigitalInterruptConfig) DigitalInterruptConfig {
-	return board.DigitalInterruptConfig{
+	return DigitalInterruptConfig{
 		Name:    config.Name,
 		Pin:     config.Pin,
 		Type:    config.Type,
