@@ -33,15 +33,14 @@ func TestIKTolerances(t *testing.T) {
 		OY: -3.3,
 		OZ: -1.11,
 	}
-	_, err = mp.Plan(context.Background(), pos, referenceframe.FloatsToInputs([]float64{0, 0}))
+	opt := NewDefaultPlannerOptions()
+	_, err = mp.Plan(context.Background(), pos, referenceframe.FloatsToInputs([]float64{0, 0}), opt)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
-	opt := NewDefaultPlannerOptions()
 	opt.SetMetric(NewPositionOnlyMetric())
 	opt.SetMaxSolutions(50)
-	mp.SetOptions(opt)
-	_, err = mp.Plan(context.Background(), pos, referenceframe.FloatsToInputs([]float64{0, 0}))
+	_, err = mp.Plan(context.Background(), pos, referenceframe.FloatsToInputs([]float64{0, 0}), opt)
 	test.That(t, err, test.ShouldBeNil)
 }
 

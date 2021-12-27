@@ -29,7 +29,7 @@ func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCP
 		nCPU = 1
 	}
 	for i := 1; i <= nCPU; i++ {
-		nlopt, err := CreateNloptIKSolver(model, logger)
+		nlopt, err := CreateNloptIKSolver(model, logger, -1)
 		nlopt.id = i
 		if err != nil {
 			return nil, err
@@ -41,23 +41,23 @@ func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCP
 	return ik, nil
 }
 
-func runSolver(
-	ctx context.Context,
+func runSolver(ctx context.Context,
 	solver InverseKinematics,
 	c chan<- []referenceframe.Input,
 	pos spatialmath.Pose,
 	seed []referenceframe.Input,
+	m Metric,
 ) error {
-	return solver.Solve(ctx, c, pos, seed)
+	return solver.Solve(ctx, c, pos, seed, m)
 }
 
-// Solve will initiate solving for the given position in all child solvers, seeding with the specified
-// initial joint positions. If unable to solve, the returned error will be non-nil.
-func (ik *CombinedIK) Solve(
-	ctx context.Context,
+// Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
+// positions. If unable to solve, the returned error will be non-nil.
+func (ik *CombinedIK) Solve(ctx context.Context,
 	c chan<- []referenceframe.Input,
 	newGoal spatialmath.Pose,
 	seed []referenceframe.Input,
+	m Metric,
 ) error {
 	ik.logger.Debugf("starting joint positions: %v", seed)
 	startPos, err := ik.model.Transform(seed)
@@ -81,7 +81,7 @@ func (ik *CombinedIK) Solve(
 
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
-			errChan <- runSolver(ctxWithCancel, thisSolver, c, newGoal, seed)
+			errChan <- runSolver(ctxWithCancel, thisSolver, c, newGoal, seed, m)
 		})
 	}
 
@@ -132,20 +132,4 @@ func (ik *CombinedIK) Solve(
 // Frame returns the associated referenceframe.
 func (ik *CombinedIK) Frame() referenceframe.Frame {
 	return ik.model
-}
-
-// Close closes all member IK solvers.
-func (ik *CombinedIK) Close() error {
-	var err error
-	for _, solver := range ik.solvers {
-		err = multierr.Combine(err, solver.Close())
-	}
-	return err
-}
-
-// SetMetric sets the function for distance between two poses.
-func (ik *CombinedIK) SetMetric(m Metric) {
-	for _, solver := range ik.solvers {
-		solver.SetMetric(m)
-	}
 }

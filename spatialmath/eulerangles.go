@@ -9,9 +9,9 @@ import (
 // EulerAngles are three angles (in radians) used to represent the rotation of an object in 3D Euclidean space
 // The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.
 type EulerAngles struct {
-	Roll  float64 `json:"roll"`  // phi
-	Pitch float64 `json:"pitch"` // theta
-	Yaw   float64 `json:"yaw"`   // psi
+	Roll  float64 `json:"roll"`  // phi, X
+	Pitch float64 `json:"pitch"` // theta, Y
+	Yaw   float64 `json:"yaw"`   // psi, Z
 }
 
 // NewEulerAngles creates an empty EulerAngles struct.

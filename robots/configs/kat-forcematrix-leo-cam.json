@@ -1,4 +1,7 @@
 {
+  "network": {
+		"bind_address": ":8080"
+	},
   "components": [
     {
       "model": "pi",

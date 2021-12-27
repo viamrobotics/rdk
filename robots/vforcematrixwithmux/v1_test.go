@@ -8,13 +8,13 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/sensor/forcematrix"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func createExpectedMatrix(component config.Component) [][]int {
-	numCols := len(component.Attributes.StringSlice("column_gpio_pins_left_to_right"))
-	numRows := len(component.Attributes.IntSlice("io_pins_top_to_bottom"))
+func createExpectedMatrix(c *ForceMatrixConfig) [][]int {
+	numCols := len(c.ColumnGPIOPins)
+	numRows := len(c.IOPins)
 	expectedMatrix := make([][]int, numRows)
 	for row := 0; row < numRows; row++ {
 		expectedMatrix[row] = make([]int, numCols)
@@ -25,20 +25,51 @@ func createExpectedMatrix(component config.Component) [][]int {
 	return expectedMatrix
 }
 
-func TestNew(t *testing.T) {
+func TestNewForceMatrix(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	t.Run("return error when not able to find board", func(t *testing.T) {
+	validConfig := &ForceMatrixConfig{
+		BoardName:           "board",
+		ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+		MuxGPIOPins:         []string{"s2", "s1", "s0"},
+		IOPins:              []int{1, 2},
+		AnalogChannel:       "a1",
+		SlipDetectionWindow: 10,
+		NoiseThreshold:      5,
+	}
+
+	t.Run("valid", func(t *testing.T) {
+		fakeRobot := &inject.Robot{}
+		fakeBoard := &inject.Board{}
+		fakeAnalogReader := &inject.AnalogReader{}
+		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
+			return fakeAnalogReader, true
+		}
+		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return fakeBoard, true
+		}
+		fsm, err := newForceMatrix(fakeRobot, validConfig, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fsm, test.ShouldNotBeNil)
+		test.That(t, fsm.columnGpioPins, test.ShouldResemble, validConfig.ColumnGPIOPins)
+		test.That(t, fsm.muxGpioPins, test.ShouldResemble, validConfig.MuxGPIOPins)
+		test.That(t, fsm.ioPins, test.ShouldResemble, validConfig.IOPins)
+		test.That(t, fsm.analogChannel, test.ShouldEqual, validConfig.AnalogChannel)
+		test.That(t, len(fsm.previousMatrices), test.ShouldBeZeroValue)
+		test.That(t, fsm.slipDetectionWindow, test.ShouldEqual, validConfig.SlipDetectionWindow)
+		test.That(t, fsm.noiseThreshold, test.ShouldEqual, validConfig.NoiseThreshold)
+	})
+
+	t.Run("board not found", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return nil, false
 		}
-		component := config.Component{Attributes: config.AttributeMap{"type": "what"}}
-		_, err := New(context.Background(), fakeRobot, component, logger)
+		_, err := newForceMatrix(fakeRobot, validConfig, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	t.Run("return error when unable to find analog reader", func(t *testing.T) {
+	t.Run("analog reader not found", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeBoard := &inject.Board{}
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
@@ -47,12 +78,151 @@ func TestNew(t *testing.T) {
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return fakeBoard, true
 		}
-		component := config.Component{Attributes: config.AttributeMap{"analog_channel": "fake"}}
-		_, err := New(context.Background(), fakeRobot, component, logger)
+		_, err := newForceMatrix(fakeRobot, validConfig, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
+}
 
-	t.Run("expect setMuxGpioPin to return error for bad ioPin", func(t *testing.T) {
+func TestValidate(t *testing.T) {
+	t.Run("valid config", func(t *testing.T) {
+		validConfig := &ForceMatrixConfig{
+			BoardName:           "board",
+			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+			MuxGPIOPins:         []string{"s2", "s1", "s0"},
+			IOPins:              []int{1, 2},
+			AnalogChannel:       "a1",
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
+		}
+		err := validConfig.Validate("path")
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("no board", func(t *testing.T) {
+		invalidConfig := &ForceMatrixConfig{
+			BoardName:           "",
+			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+			MuxGPIOPins:         []string{"s2", "s1", "s0"},
+			IOPins:              []int{1, 2},
+			AnalogChannel:       "a1",
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
+		}
+		err := invalidConfig.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `"board" is required`)
+	})
+
+	t.Run("no column gpio pins", func(t *testing.T) {
+		invalidConfig := &ForceMatrixConfig{
+			BoardName:           "board",
+			ColumnGPIOPins:      []string{},
+			MuxGPIOPins:         []string{"s2", "s1", "s0"},
+			IOPins:              []int{1, 2},
+			AnalogChannel:       "a1",
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
+		}
+		err := invalidConfig.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `column_gpio_pins_left_to_right has to be an array of length > 0`)
+	})
+
+	t.Run("invalid mux gpio pins", func(t *testing.T) {
+		invalidConfig := &ForceMatrixConfig{
+			BoardName:           "board",
+			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+			MuxGPIOPins:         []string{"s1", "s0"},
+			IOPins:              []int{1, 2},
+			AnalogChannel:       "a1",
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
+		}
+		err := invalidConfig.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `mux_gpio_pins_s2_to_s0 has to be an array of length 3`)
+	})
+
+	t.Run("no io pins", func(t *testing.T) {
+		invalidConfig := &ForceMatrixConfig{
+			BoardName:           "board",
+			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+			MuxGPIOPins:         []string{"s2", "s1", "s0"},
+			IOPins:              []int{},
+			AnalogChannel:       "a1",
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
+		}
+		err := invalidConfig.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `io_pins_top_to_bottom has to be an array of length > 0`)
+	})
+
+	t.Run("no analog channel", func(t *testing.T) {
+		invalidConfig := &ForceMatrixConfig{
+			BoardName:           "board",
+			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+			MuxGPIOPins:         []string{"s2", "s1", "s0"},
+			IOPins:              []int{1, 2},
+			AnalogChannel:       "",
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
+		}
+		err := invalidConfig.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `"analog_channel" is required`)
+	})
+
+	t.Run("invalid slip detection window", func(t *testing.T) {
+		t.Run("too small", func(t *testing.T) {
+			invalidConfig := &ForceMatrixConfig{
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+				MuxGPIOPins:         []string{"s2", "s1", "s0"},
+				IOPins:              []int{1, 2},
+				AnalogChannel:       "a1",
+				SlipDetectionWindow: 0,
+				NoiseThreshold:      5,
+			}
+			err := invalidConfig.Validate("path")
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+			test.That(t, err.Error(), test.ShouldContainSubstring, `slip_detection_window has to be: 0 < slip_detection_window <=`)
+		})
+		t.Run("too big", func(t *testing.T) {
+			invalidConfig := &ForceMatrixConfig{
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+				MuxGPIOPins:         []string{"s2", "s1", "s0"},
+				IOPins:              []int{1, 2},
+				AnalogChannel:       "a1",
+				SlipDetectionWindow: forcematrix.MatrixStorageSize + 1,
+				NoiseThreshold:      5,
+			}
+			err := invalidConfig.Validate("path")
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, `error validating "path"`)
+			test.That(t, err.Error(), test.ShouldContainSubstring, `slip_detection_window has to be: 0 < slip_detection_window <=`)
+		})
+	})
+}
+
+func TestSetMuxGpioPins(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	validConfig := &ForceMatrixConfig{
+		BoardName:           "board",
+		ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+		MuxGPIOPins:         []string{"s2", "s1", "s0"},
+		IOPins:              []int{1, 2},
+		AnalogChannel:       "a1",
+		SlipDetectionWindow: 10,
+		NoiseThreshold:      5,
+	}
+	t.Run("bad io pin", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeBoard := &inject.Board{}
 		fakeAR := &inject.AnalogReader{}
@@ -62,14 +232,16 @@ func TestNew(t *testing.T) {
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return fakeBoard, true
 		}
-		component := config.Component{Attributes: config.AttributeMap{"analog_channel": "fake"}}
-		mux, _ := New(context.Background(), fakeRobot, component, logger)
+		mux, _ := newForceMatrix(fakeRobot, validConfig, logger)
 		err := mux.setMuxGpioPins(context.Background(), -1)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
+}
 
-	t.Run("expect the matrix function to return a properly shaped object", func(t *testing.T) {
-		t.Run("given a square matrix with size (4x4)", func(t *testing.T) {
+func TestMatrixAndSlip(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	t.Run("correct shape", func(t *testing.T) {
+		t.Run("4x4", func(t *testing.T) {
 			fakeRobot := &inject.Robot{}
 			fakeBoard := &inject.Board{}
 
@@ -88,23 +260,23 @@ func TestNew(t *testing.T) {
 			fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 				return fakeBoard, true
 			}
-			fakeAttrMap := config.AttributeMap{
-				"column_gpio_pins_left_to_right":        []interface{}{"1", "2", "3", "4"},
-				"mux_gpio_pins_s2_to_s0":                []interface{}{"s2", "s1", "s0"},
-				"io_pins_top_to_bottom":                 []interface{}{0, 2, 6, 7},
-				"analog_reader":                         "fake",
-				"slip_detection_window":                 2,
-				"slip_detection_signal_to_noise_cutoff": 150.,
+			config := &ForceMatrixConfig{
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"1", "2", "3", "4"},
+				MuxGPIOPins:         []string{"s2", "s1", "s0"},
+				IOPins:              []int{0, 2, 6, 7},
+				AnalogChannel:       "fake",
+				SlipDetectionWindow: 2,
+				NoiseThreshold:      150,
 			}
-			component := config.Component{Attributes: fakeAttrMap}
-			expectedMatrix := createExpectedMatrix(component)
+			expectedMatrix := createExpectedMatrix(config)
 
-			mux, _ := New(context.Background(), fakeRobot, component, logger)
+			mux, _ := newForceMatrix(fakeRobot, config, logger)
 			actualMatrix, err := mux.Matrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
 
-			t.Run("expect slip detection to work and to return false at first", func(t *testing.T) {
+			t.Run("slip detection", func(t *testing.T) {
 				mux.Matrix(context.Background())
 				mux.Matrix(context.Background())
 				mux.Matrix(context.Background())
@@ -114,7 +286,7 @@ func TestNew(t *testing.T) {
 			})
 		})
 
-		t.Run("given a rectangular matrix with size (2x6)", func(t *testing.T) {
+		t.Run("2x6", func(t *testing.T) {
 			fakeRobot := &inject.Robot{}
 			fakeBoard := &inject.Board{}
 
@@ -133,23 +305,23 @@ func TestNew(t *testing.T) {
 			fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 				return fakeBoard, true
 			}
-			fakeAttrMap := config.AttributeMap{
-				"column_gpio_pins_left_to_right":        []interface{}{"1", "2", "3", "4", "5", "6"},
-				"mux_gpio_pins_s2_to_s0":                []interface{}{"s2", "s1", "s0"},
-				"io_pins_top_to_bottom":                 []interface{}{0, 2},
-				"analog_reader":                         "fake",
-				"slip_detection_window":                 2,
-				"slip_detection_signal_to_noise_cutoff": 150.,
+			config := &ForceMatrixConfig{
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"1", "2", "3", "4", "5", "6"},
+				MuxGPIOPins:         []string{"s2", "s1", "s0"},
+				IOPins:              []int{0, 2},
+				AnalogChannel:       "fake",
+				SlipDetectionWindow: 2,
+				NoiseThreshold:      150,
 			}
-			component := config.Component{Attributes: fakeAttrMap}
-			expectedMatrix := createExpectedMatrix(component)
+			expectedMatrix := createExpectedMatrix(config)
 
-			mux, _ := New(context.Background(), fakeRobot, component, logger)
+			mux, _ := newForceMatrix(fakeRobot, config, logger)
 			actualMatrix, err := mux.Matrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
 
-			t.Run("expect slip detection to work and to return false at first", func(t *testing.T) {
+			t.Run("slip detection", func(t *testing.T) {
 				mux.Matrix(context.Background())
 				mux.Matrix(context.Background())
 				mux.Matrix(context.Background())
@@ -159,7 +331,7 @@ func TestNew(t *testing.T) {
 			})
 		})
 
-		t.Run("given a rectangular matrix with size (5x3)", func(t *testing.T) {
+		t.Run("5x3", func(t *testing.T) {
 			fakeRobot := &inject.Robot{}
 			fakeBoard := &inject.Board{}
 
@@ -178,23 +350,23 @@ func TestNew(t *testing.T) {
 			fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 				return fakeBoard, true
 			}
-			fakeAttrMap := config.AttributeMap{
-				"column_gpio_pins_left_to_right":        []interface{}{"1", "2", "3"},
-				"mux_gpio_pins_s2_to_s0":                []interface{}{"s2", "s1", "s0"},
-				"io_pins_top_to_bottom":                 []interface{}{0, 2, 6, 7, 3},
-				"analog_reader":                         "fake",
-				"slip_detection_window":                 2,
-				"slip_detection_signal_to_noise_cutoff": 150.,
+			config := &ForceMatrixConfig{
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"1", "2", "3"},
+				MuxGPIOPins:         []string{"s2", "s1", "s0"},
+				IOPins:              []int{0, 2, 6, 7, 3},
+				AnalogChannel:       "fake",
+				SlipDetectionWindow: 2,
+				NoiseThreshold:      150,
 			}
-			component := config.Component{Attributes: fakeAttrMap}
-			expectedMatrix := createExpectedMatrix(component)
+			expectedMatrix := createExpectedMatrix(config)
 
-			mux, _ := New(context.Background(), fakeRobot, component, logger)
+			mux, _ := newForceMatrix(fakeRobot, config, logger)
 			matrix, err := mux.Matrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, matrix, test.ShouldResemble, expectedMatrix)
 
-			t.Run("expect slip detection to work and to return false at first", func(t *testing.T) {
+			t.Run("slip detection", func(t *testing.T) {
 				mux.Matrix(context.Background())
 				mux.Matrix(context.Background())
 				mux.Matrix(context.Background())
