@@ -11,17 +11,58 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-func TestComponentValidate(t *testing.T) {
-	var emptyConfig config.Component
-	err := emptyConfig.Validate("path")
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+// convertedAttributes is a helper for testing if validation works.
+type convertedAttributes struct {
+	thing string
+}
 
-	validConfig := config.Component{
-		Name: "foo",
-		Type: "arm",
+func (convAttr *convertedAttributes) Validate(path string) error {
+	if convAttr.thing == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "thing")
 	}
-	test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+	return nil
+}
+
+func TestComponentValidate(t *testing.T) {
+	t.Run("config invalid", func(t *testing.T) {
+		var emptyConfig config.Component
+		err := emptyConfig.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	})
+
+	t.Run("config valid", func(t *testing.T) {
+		validConfig := config.Component{
+			Name: "foo",
+			Type: "arm",
+		}
+		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+	})
+
+	t.Run("ConvertedAttributes", func(t *testing.T) {
+		t.Run("config invalid", func(t *testing.T) {
+			invalidConfig := config.Component{
+				Name: "foo",
+				ConvertedAttributes: &convertedAttributes{
+					thing: "",
+				},
+			}
+			err := invalidConfig.Validate("path")
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, `"thing" is required`)
+		})
+
+		t.Run("config valid", func(t *testing.T) {
+			invalidConfig := config.Component{
+				Name: "foo",
+				ConvertedAttributes: &convertedAttributes{
+					thing: "i am a thing!",
+				},
+			}
+			err := invalidConfig.Validate("path")
+			test.That(t, err, test.ShouldBeNil)
+		})
+	})
 }
 
 func TestComponentResourceName(t *testing.T) {

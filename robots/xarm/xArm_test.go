@@ -84,24 +84,12 @@ func TestWriteViam(t *testing.T) {
 		validFunc, gradFunc := motionplan.NewLineConstraintAndGradient(curPos.Point(), goal.Point(), validOV, 0.3, 0.05)
 		destGrad := motionplan.NewPoseFlexOVMetric(goal, 0.2)
 
-		// update constraints
-		mpFunc := func(frame referenceframe.Frame, ncpu int, logger golog.Logger) (motionplan.MotionPlanner, error) {
-			// just in case frame changed
-			mp, err := motionplan.NewCBiRRTMotionPlanner(frame, ncpu, logger)
-			test.That(t, err, test.ShouldBeNil)
-			opt := motionplan.NewDefaultPlannerOptions()
+		opt := motionplan.NewDefaultPlannerOptions()
+		opt.SetPathDist(gradFunc)
+		opt.SetMetric(destGrad)
+		opt.AddConstraint("whiteboard", validFunc)
 
-			opt.SetPathDist(gradFunc)
-			opt.SetMetric(destGrad)
-			opt.AddConstraint("whiteboard", validFunc)
-
-			mp.SetOptions(opt)
-
-			return mp, err
-		}
-		fss.SetPlannerGen(mpFunc)
-
-		waysteps, err := fss.SolvePose(ctx, seedMap, goal, moveFrame, fs.World())
+		waysteps, err := fss.SolvePoseWithOptions(ctx, seedMap, goal, moveFrame, fs.World(), opt)
 		test.That(t, err, test.ShouldBeNil)
 		return waysteps[len(waysteps)-1]
 	}
@@ -113,6 +101,6 @@ func TestWriteViam(t *testing.T) {
 }
 
 var viamPoints = []spatial.Pose{
-	spatial.NewPoseFromProtobuf(&pb.Pose{X: 480, Y: wbY + 1.5, Z: 595, OY: -1}),
+	spatial.NewPoseFromProtobuf(&pb.Pose{X: 200, Y: wbY + 1.5, Z: 595, OY: -1}),
 	spatial.NewPoseFromProtobuf(&pb.Pose{X: 120, Y: wbY + 1.5, Z: 595, OY: -1}),
 }
