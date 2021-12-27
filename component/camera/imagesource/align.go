@@ -143,7 +143,7 @@ type depthComposed struct {
 	logger           golog.Logger
 }
 
-// NewDepthComposed TODO
+// NewDepthComposed TODO.
 func NewDepthComposed(color, depth gostream.ImageSource, attrs *rimage.AttrConfig, logger golog.Logger) (gostream.ImageSource, error) {
 	alignCamera, projectCamera, err := getCameraSystems(attrs, logger)
 	if err != nil {

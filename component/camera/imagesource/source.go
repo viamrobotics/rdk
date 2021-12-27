@@ -21,8 +21,8 @@ import (
 
 	// register ppm.
 	_ "github.com/lmittmann/ppm"
-	"github.com/pkg/errors"
 	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
@@ -61,7 +61,7 @@ func init() {
 	}, &rimage.AttrConfig{})
 
 	registry.RegisterComponent(camera.Subtype, "dual_stream", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		if (config.ConvertedAttributes.(*rimage.AttrConfig).Color == "") ||  (config.ConvertedAttributes.(*rimage.AttrConfig).Depth == "") {
+		if (config.ConvertedAttributes.(*rimage.AttrConfig).Color == "") || (config.ConvertedAttributes.(*rimage.AttrConfig).Depth == "") {
 			return nil, errors.New("camera 'dual_stream' needs color and depth attributes")
 		}
 		return &camera.ImageSource{ImageSource: &dualServerSource{
@@ -119,7 +119,6 @@ func init() {
 		}
 		return &conf, nil
 	}, &rimage.AttrConfig{})
-
 }
 
 // staticSource is a fixed, stored image.

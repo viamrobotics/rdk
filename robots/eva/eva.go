@@ -17,10 +17,10 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
-	"github.com/mitchellh/mapstructure"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
@@ -36,10 +36,10 @@ const (
 	modelname = "eva"
 )
 
-// Used for converting config attributes
+// Used for converting config attributes.
 type AttrConfig struct {
 	Token string `json:"token"`
-	Host string `json:"host"`
+	Host  string `json:"host"`
 }
 
 //go:embed eva_kinematics.json

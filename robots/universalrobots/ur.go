@@ -15,10 +15,10 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
-	"github.com/mitchellh/mapstructure"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
@@ -35,10 +35,10 @@ const (
 	modelname = "ur"
 )
 
-// Used for converting config attributes
+// Used for converting config attributes.
 type AttrConfig struct {
 	Speed float64 `json:"speed"`
-	Host string `json:"host"`
+	Host  string  `json:"host"`
 }
 
 //go:embed ur5e.json
@@ -46,7 +46,6 @@ var ur5modeljson []byte
 
 //go:embed ur5e_DH.json
 var ur5DHmodeljson []byte
-
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
