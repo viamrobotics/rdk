@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
+	robotpb "go.viam.com/rdk/proto/api/v1"
 )
 
 // serviceClient is a client satisfies the board.proto contract.
@@ -54,7 +55,7 @@ type client struct {
 
 	// TODO(maximpertsov): Copied from common client
 	cachingStatus  bool
-	cachedStatus   *pb.Status
+	cachedStatus   *robotpb.BoardStatus
 	cachedStatusMu *sync.Mutex
 }
 
@@ -165,23 +166,9 @@ func (c *client) DigitalInterruptNames() []string {
 	return copyStringSlice(c.info.digitalInterruptNames)
 }
 
-// Status uses the parent robot client's cached status or a newly fetched
-// board status to return the state of the board.
-func (c *client) Status(ctx context.Context) (*pb.Status, error) {
-	if status := c.getCachedStatus(); status != nil {
-		boardStatus, ok := status.Boards[c.info.name]
-		if !ok {
-			return nil, errors.Errorf("no board with name (%s)", c.info.name)
-		}
-		return boardStatus, nil
-	}
-	resp, err := c.client.Status(ctx, &pb.BoardServiceStatusRequest{
-		Name: c.info.name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Status, nil
+// TODO(maximpertsov): remove
+func (c *client) Status(ctx context.Context) (*robotpb.BoardStatus, error) {
+	return nil, nil
 }
 
 func (c *client) ModelAttributes() ModelAttributes {
@@ -294,7 +281,7 @@ var errUnimplemented = errors.New("unimplemented")
 // common client)?
 // storeStatus atomically gets the status response from a robot server if and only
 // if we are automatically refreshing.
-func (c *client) getCachedStatus() *pb.Status {
+func (c *client) getCachedStatus() *robotpb.BoardStatus {
 	if !c.cachingStatus {
 		return nil
 	}
