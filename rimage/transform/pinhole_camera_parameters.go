@@ -15,6 +15,7 @@ import (
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // DistortionModel TODO.
@@ -86,8 +87,10 @@ func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 
 // NewDepthColorIntrinsicsExtrinsics TODO.
 func NewDepthColorIntrinsicsExtrinsics(attrs rimage.AttrConfig) (*DepthColorIntrinsicsExtrinsics, error) {
-	var matrices *DepthColorIntrinsicsExtrinsics
-	matrices = attrs.IntrinsicExtrinsic.(*DepthColorIntrinsicsExtrinsics)
+	matrices, ok := attrs.IntrinsicExtrinsic.(*DepthColorIntrinsicsExtrinsics)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(matrices, attrs.IntrinsicExtrinsic)
+	}
 	return matrices, nil
 }
 

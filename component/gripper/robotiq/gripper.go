@@ -23,7 +23,7 @@ const (
 	modelname = "robotiq"
 )
 
-// Used for converting config attributes.
+// AttrConfig is used for converting config attributes.
 type AttrConfig struct {
 	Host string `json:"host"`
 }
@@ -35,17 +35,18 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelname, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf AttrConfig
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &AttrConfig{})
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &AttrConfig{})
 }
 
 // robotiqGripper TODO.

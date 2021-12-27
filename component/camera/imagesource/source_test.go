@@ -9,9 +9,9 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/rimage"
 )
 
 func doServerSourceTest(t *testing.T, s gostream.ImageSource) {
