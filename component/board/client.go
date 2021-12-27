@@ -4,6 +4,7 @@ package board
 import (
 	"context"
 	"runtime/debug"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -50,6 +51,11 @@ func (sc *serviceClient) Close() error {
 type client struct {
 	*serviceClient
 	info boardInfo
+
+	// TODO(maximpertsov): Copied from common client
+	cachingStatus  bool
+	cachedStatus   *pb.Status
+	cachedStatusMu *sync.Mutex
 }
 
 type boardInfo struct {
@@ -76,47 +82,47 @@ func NewClientFromConn(conn rpc.ClientConn, info boardInfo, logger golog.Logger)
 }
 
 func clientFromSvcClient(sc *serviceClient, info boardInfo) Board {
-	return &client{sc, info}
+	return &client{serviceClient: sc, info: info}
 }
 
 // SPIByName may need to be implemented
-func (bc *client) SPIByName(name string) (SPI, bool) {
+func (c *client) SPIByName(name string) (SPI, bool) {
 	return nil, false
 }
 
 // I2CByName may need to be implemented
-func (bc *client) I2CByName(name string) (I2C, bool) {
+func (c *client) I2CByName(name string) (I2C, bool) {
 	return nil, false
 }
 
-func (bc *client) AnalogReaderByName(name string) (AnalogReader, bool) {
+func (c *client) AnalogReaderByName(name string) (AnalogReader, bool) {
 	return &analogReaderClient{
-		rc:               bc.rc,
-		boardName:        bc.info.name,
+		serviceClient:    c.serviceClient,
+		boardName:        c.info.name,
 		analogReaderName: name,
 	}, true
 }
 
-func (bc *client) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
+func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
 	return &digitalInterruptClient{
-		rc:                   bc.rc,
-		boardName:            bc.info.name,
+		serviceClient:        c.serviceClient,
+		boardName:            c.info.name,
 		digitalInterruptName: name,
 	}, true
 }
 
-func (bc *client) GPIOSet(ctx context.Context, pin string, high bool) error {
-	_, err := bc.rc.client.BoardGPIOSet(ctx, &pb.BoardGPIOSetRequest{
-		Name: bc.info.name,
+func (c *client) GPIOSet(ctx context.Context, pin string, high bool) error {
+	_, err := c.client.GPIOSet(ctx, &pb.BoardServiceGPIOSetRequest{
+		Name: c.info.name,
 		Pin:  pin,
 		High: high,
 	})
 	return err
 }
 
-func (bc *client) GPIOGet(ctx context.Context, pin string) (bool, error) {
-	resp, err := bc.rc.client.BoardGPIOGet(ctx, &pb.BoardGPIOGetRequest{
-		Name: bc.info.name,
+func (c *client) GPIOGet(ctx context.Context, pin string) (bool, error) {
+	resp, err := c.client.GPIOGet(ctx, &pb.BoardServiceGPIOGetRequest{
+		Name: c.info.name,
 		Pin:  pin,
 	})
 	if err != nil {
@@ -125,52 +131,52 @@ func (bc *client) GPIOGet(ctx context.Context, pin string) (bool, error) {
 	return resp.High, nil
 }
 
-func (bc *client) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	_, err := bc.rc.client.BoardPWMSet(ctx, &pb.BoardPWMSetRequest{
-		Name:      bc.info.name,
+func (c *client) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
+	_, err := c.client.PWMSet(ctx, &pb.BoardServicePWMSetRequest{
+		Name:      c.info.name,
 		Pin:       pin,
 		DutyCycle: uint32(dutyCycle),
 	})
 	return err
 }
 
-func (bc *client) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	_, err := bc.rc.client.BoardPWMSetFrequency(ctx, &pb.BoardPWMSetFrequencyRequest{
-		Name:      bc.info.name,
+func (c *client) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
+	_, err := c.client.PWMSetFrequency(ctx, &pb.BoardServicePWMSetFrequencyRequest{
+		Name:      c.info.name,
 		Pin:       pin,
 		Frequency: uint64(freq),
 	})
 	return err
 }
 
-func (bc *client) SPINames() []string {
-	return copyStringSlice(bc.info.spiNames)
+func (c *client) SPINames() []string {
+	return copyStringSlice(c.info.spiNames)
 }
 
-func (bc *client) I2CNames() []string {
-	return copyStringSlice(bc.info.i2cNames)
+func (c *client) I2CNames() []string {
+	return copyStringSlice(c.info.i2cNames)
 }
 
-func (bc *client) AnalogReaderNames() []string {
-	return copyStringSlice(bc.info.analogReaderNames)
+func (c *client) AnalogReaderNames() []string {
+	return copyStringSlice(c.info.analogReaderNames)
 }
 
-func (bc *client) DigitalInterruptNames() []string {
-	return copyStringSlice(bc.info.digitalInterruptNames)
+func (c *client) DigitalInterruptNames() []string {
+	return copyStringSlice(c.info.digitalInterruptNames)
 }
 
 // Status uses the parent robot client's cached status or a newly fetched
 // board status to return the state of the board.
-func (bc *client) Status(ctx context.Context) (*pb.Status, error) {
-	if status := bc.rc.getCachedStatus(); status != nil {
-		boardStatus, ok := status.Boards[bc.info.name]
+func (c *client) Status(ctx context.Context) (*pb.Status, error) {
+	if status := c.getCachedStatus(); status != nil {
+		boardStatus, ok := status.Boards[c.info.name]
 		if !ok {
-			return nil, errors.Errorf("no board with name (%s)", bc.info.name)
+			return nil, errors.Errorf("no board with name (%s)", c.info.name)
 		}
 		return boardStatus, nil
 	}
-	resp, err := bc.rc.client.BoardStatus(ctx, &pb.BoardStatusRequest{
-		Name: bc.info.name,
+	resp, err := c.client.Status(ctx, &pb.BoardServiceStatusRequest{
+		Name: c.info.name,
 	})
 	if err != nil {
 		return nil, err
@@ -178,7 +184,7 @@ func (bc *client) Status(ctx context.Context) (*pb.Status, error) {
 	return resp.Status, nil
 }
 
-func (bc *client) ModelAttributes() ModelAttributes {
+func (c *client) ModelAttributes() ModelAttributes {
 	return ModelAttributes{Remote: true}
 }
 
@@ -191,7 +197,7 @@ type analogReaderClient struct {
 }
 
 func (arc *analogReaderClient) Read(ctx context.Context) (int, error) {
-	resp, err := arc.rc.client.BoardAnalogReaderRead(ctx, &pb.BoardAnalogReaderReadRequest{
+	resp, err := arc.client.AnalogReaderRead(ctx, &pb.BoardServiceAnalogReaderReadRequest{
 		BoardName:        arc.boardName,
 		AnalogReaderName: arc.analogReaderName,
 	})
@@ -210,7 +216,7 @@ type digitalInterruptClient struct {
 }
 
 func (dic *digitalInterruptClient) Config(ctx context.Context) (DigitalInterruptConfig, error) {
-	resp, err := dic.rc.client.BoardDigitalInterruptConfig(ctx, &pb.BoardDigitalInterruptConfigRequest{
+	resp, err := dic.client.DigitalInterruptConfig(ctx, &pb.BoardServiceDigitalInterruptConfigRequest{
 		BoardName:            dic.boardName,
 		DigitalInterruptName: dic.digitalInterruptName,
 	})
@@ -232,7 +238,7 @@ func DigitalInterruptConfigFromProto(config *pb.DigitalInterruptConfig) DigitalI
 }
 
 func (dic *digitalInterruptClient) Value(ctx context.Context) (int64, error) {
-	resp, err := dic.rc.client.BoardDigitalInterruptValue(ctx, &pb.BoardDigitalInterruptValueRequest{
+	resp, err := dic.client.DigitalInterruptValue(ctx, &pb.BoardServiceDigitalInterruptValueRequest{
 		BoardName:            dic.boardName,
 		DigitalInterruptName: dic.digitalInterruptName,
 	})
@@ -243,7 +249,7 @@ func (dic *digitalInterruptClient) Value(ctx context.Context) (int64, error) {
 }
 
 func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanos uint64) error {
-	_, err := dic.rc.client.BoardDigitalInterruptTick(ctx, &pb.BoardDigitalInterruptTickRequest{
+	_, err := dic.client.DigitalInterruptTick(ctx, &pb.BoardServiceDigitalInterruptTickRequest{
 		BoardName:            dic.boardName,
 		DigitalInterruptName: dic.digitalInterruptName,
 		High:                 high,
@@ -266,4 +272,33 @@ func (dic *digitalInterruptClient) AddPostProcessor(pp PostProcessor) {
 // board after this
 func (c *client) Close() error {
 	return c.serviceClient.Close()
+}
+
+// TODO(maximpertsov): copied from common client - export into utils (or export from
+// common client)?
+// copyStringSlice is a helper to simply copy a string slice
+// so that no one mutates it.
+func copyStringSlice(src []string) []string {
+	out := make([]string, len(src))
+	copy(out, src)
+	return out
+}
+
+// TODO(maximpertsov): copied from common client - export into utils (or export from
+// common client)?
+// errUnimplemented is used for any unimplemented methods that should
+// eventually be implemented server side or faked client side.
+var errUnimplemented = errors.New("unimplemented")
+
+// TODO(maximpertsov): copied from common client - export into utils (or export from
+// common client)?
+// storeStatus atomically gets the status response from a robot server if and only
+// if we are automatically refreshing.
+func (c *client) getCachedStatus() *pb.Status {
+	if !c.cachingStatus {
+		return nil
+	}
+	c.cachedStatusMu.Lock()
+	defer c.cachedStatusMu.Unlock()
+	return c.cachedStatus
 }
