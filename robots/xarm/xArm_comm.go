@@ -413,7 +413,7 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	solution, err := x.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints))
+	solution, err := x.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
 	if err != nil {
 		return err
 	}
