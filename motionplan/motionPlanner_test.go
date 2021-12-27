@@ -34,7 +34,7 @@ func TestSimpleMotion(t *testing.T) {
 		Z:  120,
 		OZ: -1,
 	}
-	path, err := mp.Plan(context.Background(), pos, home7)
+	path, err := mp.Plan(context.Background(), pos, home7, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(path), test.ShouldNotEqual, 0)
 }
@@ -70,9 +70,8 @@ func TestComplexMotion(t *testing.T) {
 	opt.SetMetric(orientMetric)
 	opt.SetPathDist(oFuncMet)
 	opt.AddConstraint("orientation", NewOrientationConstraint(orientConstraint))
-	mp.SetOptions(opt)
 
-	path, err := mp.Plan(context.Background(), pos, home7)
+	path, err := mp.Plan(context.Background(), pos, home7, opt)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(path), test.ShouldNotEqual, 0)
 }
@@ -92,7 +91,7 @@ func TestSimpleMotionUR5(t *testing.T) {
 		Z:  200,
 		OZ: -1,
 	}
-	path, err := mp.Plan(context.Background(), pos, home6)
+	path, err := mp.Plan(context.Background(), pos, home6, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(path), test.ShouldNotEqual, 0)
 }

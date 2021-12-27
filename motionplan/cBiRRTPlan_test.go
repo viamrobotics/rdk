@@ -35,10 +35,9 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
-	nlopt, err := CreateNloptIKSolver(m, logger)
+	nlopt, err := CreateNloptIKSolver(m, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 	// nlopt should try only once
-	nlopt.SetMaxIter(1)
 	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: m, logger: logger, solDist: 0.0001}
 
 	// Max individual step of 0.5% of full range of motion
@@ -48,7 +47,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	mp.randseed = rand.New(rand.NewSource(42))
 
-	mp.opt = NewDefaultPlannerOptions()
+	opt := NewDefaultPlannerOptions()
 
 	pos := &commonpb.Pose{
 		X:  206,
@@ -58,7 +57,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	}
 	corners := map[*solution]bool{}
 
-	solutions, err := getSolutions(ctx, mp.opt, mp.solver, pos, home7, mp)
+	solutions, err := getSolutions(ctx, opt, mp.solver, pos, home7, mp.Frame())
 	test.That(t, err, test.ShouldBeNil)
 
 	near1 := &solution{home7}
@@ -81,13 +80,14 @@ func TestSimpleLinearMotion(t *testing.T) {
 	for _, k := range keys[:nSolutions] {
 		goalMap[&solution{solutions[k]}] = nil
 	}
+	nn := &neighborManager{nCPU: nCPU}
 
 	// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
-	seedReached := mp.constrainedExtend(ctx, mp.opt, seedMap, near1, target)
+	seedReached := mp.constrainedExtend(ctx, opt, seedMap, near1, target)
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
-	near2 := mp.nn.nearestNeighbor(ctx, seedReached, goalMap)
+	near2 := nn.nearestNeighbor(ctx, seedReached, goalMap)
 	// extend goalMap towards the point in seedMap
-	goalReached := mp.constrainedExtend(ctx, mp.opt, goalMap, near2, seedReached)
+	goalReached := mp.constrainedExtend(ctx, opt, goalMap, near2, seedReached)
 
 	test.That(t, inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist, test.ShouldBeTrue)
 
@@ -111,7 +111,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	// Test that smoothing succeeds and does not lengthen the path (it may be the same length)
 	unsmoothLen := len(inputSteps)
-	finalSteps := mp.SmoothPath(ctx, mp.opt, inputSteps, corners)
+	finalSteps := mp.SmoothPath(ctx, opt, inputSteps, corners)
 	test.That(t, len(finalSteps), test.ShouldBeLessThanOrEqualTo, unsmoothLen)
 }
 

@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	componentpb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -29,6 +30,8 @@ func TestDofBotIK(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	goal := commonpb.Pose{X: 206.59, Y: -1.57, Z: 253.05, Theta: -180, OX: -.53, OY: 0, OZ: .85}
-	_, err = mp.Plan(ctx, &goal, referenceframe.JointPosToInputs(&componentpb.ArmJointPositions{Degrees: make([]float64, 5)}))
+	opt := motionplan.NewDefaultPlannerOptions()
+	opt.SetMetric(motionplan.NewPositionOnlyMetric())
+	_, err = mp.Plan(ctx, &goal, referenceframe.JointPosToInputs(&componentpb.ArmJointPositions{Degrees: make([]float64, 5)}), opt)
 	test.That(t, err, test.ShouldBeNil)
 }
