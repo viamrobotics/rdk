@@ -7,7 +7,7 @@ import (
 
 	geo "github.com/kellydunn/golang-geo"
 
-	"go.viam.com/core/sensor"
+	"go.viam.com/rdk/sensor"
 )
 
 // The known GPS types.

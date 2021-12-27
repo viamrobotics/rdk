@@ -175,26 +175,3 @@ func TestScaleByPct(t *testing.T) {
 	test.That(t, ScaleByPct(255, .5), test.ShouldEqual, 127)
 	test.That(t, ScaleByPct(255, -2), test.ShouldEqual, 0)
 }
-
-func TestRayToUpwardCWCartesian(t *testing.T) {
-	tt := func(angle, distance, X, Y float64) {
-		x, y := RayToUpwardCWCartesian(angle, 1)
-		test.That(t, x, test.ShouldAlmostEqual, X, .00001)
-		test.That(t, y, test.ShouldAlmostEqual, Y, .00001)
-	}
-
-	tt(0, 1, 0, 1)
-	tt(90, 1, 1, 0)
-	tt(180, 1, 0, -1)
-	tt(270, 1, -1, 0)
-
-	tt(360, 1, 0, 1)
-	tt(90+90, 1, 0, -1)
-	tt(360+180, 1, 0, -1)
-	tt(360+270, 1, -1, 0)
-
-	tt(45, 1, math.Sqrt(2)/2, math.Sqrt(2)/2)
-	tt(135, 1, math.Sqrt(2)/2, -math.Sqrt(2)/2)
-	tt(225, 1, -math.Sqrt(2)/2, -math.Sqrt(2)/2)
-	tt(315, 1, -math.Sqrt(2)/2, math.Sqrt(2)/2)
-}

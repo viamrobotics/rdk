@@ -23,18 +23,18 @@ More information and comparisons with pixels here:
 - https://medium.com/retronator-magazine/pixels-and-voxels-the-long-answer-5889ecc18190
 */
 
-// VoxelCoords stores Voxel coordinates in VoxelGrid axes
+// VoxelCoords stores Voxel coordinates in VoxelGrid axes.
 type VoxelCoords struct {
 	I, J, K int64
 }
 
-// IsEqual tests if two VoxelCoords are the same
+// IsEqual tests if two VoxelCoords are the same.
 func (c VoxelCoords) IsEqual(c2 VoxelCoords) bool {
 	return c.I == c2.I && c.J == c2.J && c.K == c2.K
 }
 
 // voxelPlane structure to store normal vector and offset of plane equation
-// Additionally, it can store points composing the plane and the keys of the voxels entirely included in the plane
+// Additionally, it can store points composing the plane and the keys of the voxels entirely included in the plane.
 type voxelPlane struct {
 	normal    r3.Vector
 	center    r3.Vector
@@ -43,27 +43,27 @@ type voxelPlane struct {
 	voxelKeys []VoxelCoords
 }
 
-// NewPlaneFromVoxel creats a Plane object from a set of voxel properties
+// NewPlaneFromVoxel creats a Plane object from a set of voxel properties.
 func NewPlaneFromVoxel(normal, center r3.Vector, offset float64, points []Point, voxelKeys []VoxelCoords) Plane {
 	return &voxelPlane{normal, center, offset, points, voxelKeys}
 }
 
-// Normal is the normal vector of the plane
+// Normal is the normal vector of the plane.
 func (p *voxelPlane) Normal() Vec3 {
 	return Vec3(p.normal)
 }
 
-// Center is the vector that points to the center of the plane
+// Center is the vector that points to the center of the plane.
 func (p *voxelPlane) Center() Vec3 {
 	return Vec3(p.center)
 }
 
-// Offset is the vector offset of the plane from the origin
+// Offset is the vector offset of the plane from the origin.
 func (p *voxelPlane) Offset() float64 {
 	return p.offset
 }
 
-// PointCloud returns the PointCloud of the underlying points of the plane
+// PointCloud returns the PointCloud of the underlying points of the plane.
 func (p *voxelPlane) PointCloud() (PointCloud, error) {
 	pc := New()
 	if p.points == nil {
@@ -78,7 +78,7 @@ func (p *voxelPlane) PointCloud() (PointCloud, error) {
 	return pc, nil
 }
 
-// Equation return the coefficients of the plane equation as a 4-slice of floats
+// Equation return the coefficients of the plane equation as a 4-slice of floats.
 func (p *voxelPlane) Equation() [4]float64 {
 	equation := [4]float64{}
 	equation[0] = p.normal.X
@@ -88,18 +88,17 @@ func (p *voxelPlane) Equation() [4]float64 {
 	return equation
 }
 
-// DistToPlane computes the distance between a point a plane with given normal vector and offset
+// DistToPlane computes the distance between a point a plane with given normal vector and offset.
 func (p *voxelPlane) Distance(pt Vec3) float64 {
 	num := math.Abs(r3.Vector(pt).Dot(p.normal) + p.offset)
-	denom := p.normal.Norm()
 	d := 0.
-	if denom > 0.0001 {
+	if denom := p.normal.Norm(); denom > 0.0001 {
 		d = num / denom
 	}
 	return d
 }
 
-// Voxel is the structure to store data relevant to Voxel operations in point clouds
+// Voxel is the structure to store data relevant to Voxel operations in point clouds.
 type Voxel struct {
 	Key             VoxelCoords
 	Label           int
@@ -113,7 +112,7 @@ type Voxel struct {
 	PointLabels     []int
 }
 
-// NewVoxel creates a pointer to a Voxel struct
+// NewVoxel creates a pointer to a Voxel struct.
 func NewVoxel(coords VoxelCoords) *Voxel {
 	return &Voxel{
 		Key:             coords,
@@ -129,7 +128,7 @@ func NewVoxel(coords VoxelCoords) *Voxel {
 	}
 }
 
-// NewVoxelFromPoint creates a new voxel from a point
+// NewVoxelFromPoint creates a new voxel from a point.
 func NewVoxelFromPoint(pt, ptMin r3.Vector, voxelSize float64) *Voxel {
 	coords := GetVoxelCoordinates(pt, ptMin, voxelSize)
 	p := NewBasicPoint(pt.X, pt.Y, pt.Z)
@@ -147,7 +146,7 @@ func NewVoxelFromPoint(pt, ptMin r3.Vector, voxelSize float64) *Voxel {
 	}
 }
 
-// Positions gets the positions of the points inside the voxel
+// Positions gets the positions of the points inside the voxel.
 func (v1 *Voxel) Positions() []r3.Vector {
 	positions := make([]r3.Vector, len(v1.Points))
 	for i, pt := range v1.Points {
@@ -156,13 +155,13 @@ func (v1 *Voxel) Positions() []r3.Vector {
 	return positions
 }
 
-// SetLabel sets a voxel
+// SetLabel sets a voxel.
 func (v1 *Voxel) SetLabel(label int) {
 	v1.Label = label
 }
 
 // IsSmooth returns true if two voxels respect the smoothness constraint, false otherwise
-// angleTh is expressed in degrees
+// angleTh is expressed in degrees.
 func (v1 *Voxel) IsSmooth(v2 *Voxel, angleTh float64) bool {
 	angle := math.Abs(v1.Normal.Dot(v2.Normal))
 	angle = math.Abs(math.Acos(angle))
@@ -172,19 +171,19 @@ func (v1 *Voxel) IsSmooth(v2 *Voxel, angleTh float64) bool {
 }
 
 // IsContinuous returns true if two voxels respect the continuity constraint, false otherwise
-// cosTh is in [0,1]
+// cosTh is in [0,1].
 func (v1 *Voxel) IsContinuous(v2 *Voxel, cosTh float64) bool {
 	v := v2.Center.Sub(v1.Center).Normalize()
 	phi := math.Abs(v.Dot(v1.Normal))
 	return phi < cosTh
 }
 
-// CanMerge returns true if two voxels can be added to the same connected component
+// CanMerge returns true if two voxels can be added to the same connected component.
 func (v1 *Voxel) CanMerge(v2 *Voxel, angleTh, cosTh float64) bool {
 	return v1.IsSmooth(v2, angleTh) && v1.IsContinuous(v2, cosTh)
 }
 
-// ComputeCenter computer barycenter of points in voxel
+// ComputeCenter computer barycenter of points in voxel.
 func (v1 *Voxel) ComputeCenter() {
 	center := r3.Vector{}
 	for _, pt := range v1.Positions() {
@@ -196,7 +195,7 @@ func (v1 *Voxel) ComputeCenter() {
 	v1.Center.Z = center.Z
 }
 
-// GetPlane returns the plane struct with the voxel data
+// GetPlane returns the plane struct with the voxel data.
 func (v1 *Voxel) GetPlane() Plane {
 	// create key slice for plane struct
 	keys := make([]VoxelCoords, len(v1.Points))
@@ -206,10 +205,10 @@ func (v1 *Voxel) GetPlane() Plane {
 	return NewPlaneFromVoxel(v1.Normal, v1.Center, v1.Offset, v1.Points, keys)
 }
 
-// VoxelSlice is a slice that contains Voxels
+// VoxelSlice is a slice that contains Voxels.
 type VoxelSlice []*Voxel
 
-// ToPointCloud uses the points in the slice of voxels to create a point cloud
+// ToPointCloud uses the points in the slice of voxels to create a point cloud.
 func (d VoxelSlice) ToPointCloud() (PointCloud, error) {
 	cloud := New()
 	for _, vox := range d {
@@ -225,29 +224,29 @@ func (d VoxelSlice) ToPointCloud() (PointCloud, error) {
 
 // Sort interface for voxels
 
-// Swap for VoxelSlice sorting interface
+// Swap for VoxelSlice sorting interface.
 func (d VoxelSlice) Swap(i, j int) {
 	d[i], d[j] = d[j], d[i]
 }
 
-// Len for VoxelSlice sorting interface
+// Len for VoxelSlice sorting interface.
 func (d VoxelSlice) Len() int {
 	return len(d)
 }
 
-// Less for VoxelSlice sorting interface
+// Less for VoxelSlice sorting interface.
 func (d VoxelSlice) Less(i, j int) bool {
 	return d[i].Weight < d[j].Weight
 }
 
-// ReverseVoxelSlice reverses a slice of voxels
+// ReverseVoxelSlice reverses a slice of voxels.
 func ReverseVoxelSlice(s VoxelSlice) {
 	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
 		s[i], s[j] = s[j], s[i]
 	}
 }
 
-// VoxelGrid contains the sparse grid of Voxels of a point cloud
+// VoxelGrid contains the sparse grid of Voxels of a point cloud.
 type VoxelGrid struct {
 	Voxels    map[VoxelCoords]*Voxel
 	maxLabel  int
@@ -255,7 +254,7 @@ type VoxelGrid struct {
 	lam       float64
 }
 
-// NewVoxelGrid returns a pointer to a VoxelGrid with a (0,0,0) Voxel
+// NewVoxelGrid returns a pointer to a VoxelGrid with a (0,0,0) Voxel.
 func NewVoxelGrid(voxelSize, lam float64) *VoxelGrid {
 	voxelMap := map[VoxelCoords]*Voxel{}
 	coords := VoxelCoords{
@@ -273,12 +272,12 @@ func NewVoxelGrid(voxelSize, lam float64) *VoxelGrid {
 	}
 }
 
-// VoxelSize is the side length of the voxels in the VoxelGrid
+// VoxelSize is the side length of the voxels in the VoxelGrid.
 func (vg *VoxelGrid) VoxelSize() float64 {
 	return vg.voxelSize
 }
 
-// Lambda is the clustering parameter for making voxel planes
+// Lambda is the clustering parameter for making voxel planes.
 func (vg *VoxelGrid) Lambda() float64 {
 	return vg.lam
 }
@@ -288,7 +287,8 @@ func (vg *VoxelGrid) Lambda() float64 {
 func (vg *VoxelGrid) VoxelHistogram(w, h int, name string) (image.Image, error) {
 	var hist *hbook.H1D
 	p := hplot.New()
-	if name == "points" {
+	switch name {
+	case "points":
 		p.Title.Text = "Points in Voxel"
 		p.X.Label.Text = "Pts in Voxel"
 		p.Y.Label.Text = "NVoxels"
@@ -297,7 +297,7 @@ func (vg *VoxelGrid) VoxelHistogram(w, h int, name string) (image.Image, error) 
 			variable := float64(len(vox.Points))
 			hist.Fill(variable, 1)
 		}
-	} else if name == "weights" {
+	case "weights":
 		hist = hbook.NewH1D(40, 0, +1)
 		p.Title.Text = "Weights of Voxel"
 		p.X.Label.Text = "Voxel Weight"
@@ -313,7 +313,7 @@ func (vg *VoxelGrid) VoxelHistogram(w, h int, name string) (image.Image, error) 
 			}
 			hist.Fill(variable, 1)
 		}
-	} else if name == "residuals" {
+	case "residuals":
 		hist = hbook.NewH1D(65, 0, +6.5)
 		p.Title.Text = "Residual of Voxel"
 		p.X.Label.Text = "Voxel Residuals"
@@ -329,7 +329,7 @@ func (vg *VoxelGrid) VoxelHistogram(w, h int, name string) (image.Image, error) 
 			}
 			hist.Fill(variable, 1)
 		}
-	} else {
+	default:
 		return nil, fmt.Errorf("%s not a plottable variable", name)
 	}
 
@@ -357,12 +357,12 @@ func (vg *VoxelGrid) VoxelHistogram(w, h int, name string) (image.Image, error) 
 	return img, nil
 }
 
-// GetVoxelFromKey returns a pointer to a voxel from a VoxelCoords key
+// GetVoxelFromKey returns a pointer to a voxel from a VoxelCoords key.
 func (vg *VoxelGrid) GetVoxelFromKey(coords VoxelCoords) *Voxel {
 	return vg.Voxels[coords]
 }
 
-// GetAdjacentVoxels gets adjacent voxels in point cloud in 26-connectivity
+// GetAdjacentVoxels gets adjacent voxels in point cloud in 26-connectivity.
 func (vg VoxelGrid) GetAdjacentVoxels(v *Voxel) []VoxelCoords {
 	neighborKeys := []VoxelCoords{}
 	if v == nil {
@@ -411,13 +411,13 @@ func (vg VoxelGrid) GetNNearestVoxels(v *Voxel, n uint) []VoxelCoords {
 }
 
 // ConvertToPointCloudWithValue converts the voxel grid to a point cloud with values
-// values are containing the labels
+// values are containing the labels.
 func (vg *VoxelGrid) ConvertToPointCloudWithValue() (PointCloud, error) {
 	// fill output point cloud with labels
 	pc := New()
 	for _, vox := range vg.Voxels {
 		for i, pt := range vox.Points {
-			label := 0
+			var label int
 			if vox.PointLabels == nil {
 				// create point with value
 				label = vox.Label
@@ -435,7 +435,7 @@ func (vg *VoxelGrid) ConvertToPointCloudWithValue() (PointCloud, error) {
 	return pc, nil
 }
 
-// NewVoxelGridFromPointCloud creates and fills a VoxelGrid from a point cloud
+// NewVoxelGridFromPointCloud creates and fills a VoxelGrid from a point cloud.
 func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGrid {
 	voxelMap := NewVoxelGrid(voxelSize, lam)
 	ptMin := r3.Vector{
@@ -489,7 +489,6 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 			vox.Residual = GetResidual(vox.Positions(), vox.GetPlane())
 			vox.Weight = GetWeight(vox.Positions(), lam, vox.Residual)
 		}
-
 	}
 	return voxelMap
 }

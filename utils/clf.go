@@ -52,7 +52,7 @@ const clfHeader = `# CARMEN Logfile
 # (old) # REMISSIONLASER3 num_readings [range_readings remission_value]
 # (old) # REMISSIONLASER4 num_readings [range_readings remission_value]`
 
-// A CLFReader can read in CARMEN Logfiles
+// A CLFReader can read in CARMEN Logfiles.
 type CLFReader struct {
 	reader *bufio.Reader
 }
@@ -105,7 +105,7 @@ func (r *CLFReader) Process(f func(message CLFMessage) error) error {
 // CLFMessageType describes a specific type of message.
 type CLFMessageType string
 
-// known message  types
+// known message  types.
 const (
 	CLFMessageTypeParam            = CLFMessageType("PARAM")
 	CLFMessageTypeComment          = CLFMessageType("COMMENT")

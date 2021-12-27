@@ -37,7 +37,7 @@ type Value interface {
 // A ValueType denotes the type of value this is.
 type ValueType int
 
-// The set of ValueTypes
+// The set of ValueTypes.
 const (
 	ValueTypeString = ValueType(iota)
 	ValueTypeBool
@@ -148,6 +148,8 @@ func (pv *primitiveValue) Number() (float64, error) {
 		return float64(pv.val.(int64)), nil
 	case ValueTypeFloat:
 		return pv.val.(float64), nil
+	case ValueTypeBool, ValueTypeString, ValueTypeUndefined, ValueTypeUnknown:
+		fallthrough
 	default:
 		return 0, errors.Errorf("expected type [%q, %q] but got %q", ValueTypeInt, ValueTypeFloat, pv.valType)
 	}

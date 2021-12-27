@@ -8,7 +8,7 @@ import (
 	"go.viam.com/test"
 )
 
-var deg45 float64 = math.Pi / 4.
+var deg45 = math.Pi / 4.
 
 func TestNewBoxFromOffset(t *testing.T) {
 	pt := r3.Vector{X: 1, Y: 0, Z: 0}

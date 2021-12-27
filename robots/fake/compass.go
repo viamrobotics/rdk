@@ -5,11 +5,11 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/compass"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/sensor/compass"
 )
 
 func init() {
@@ -37,11 +37,6 @@ type Compass struct {
 // Readings always returns the same values.
 func (c *Compass) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{1.2}, nil
-}
-
-// Close does nothing.
-func (c *Compass) Close() error {
-	return nil
 }
 
 // Heading always returns the same value.

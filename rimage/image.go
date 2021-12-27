@@ -10,7 +10,7 @@ import (
 	"image"
 	"image/color"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 )
 
 // Image is like image.Image but it uses our Color type with a few more
@@ -111,11 +111,9 @@ func (i *Image) Circle(center image.Point, radius int, c Color) {
 		i.Set(p, c)
 		return nil
 	})
-
 	if err != nil {
 		panic(err) // impossible
 	}
-
 }
 
 // SubImage returns a subset of the image defined by the given rectangle.

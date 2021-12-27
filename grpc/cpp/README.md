@@ -4,7 +4,7 @@
 
 * C++20
 	* Note: Apple clang version 12.0.5 appears to have issues in `make setup`
-* Core [Dependencies](../../README.md#dependencies)
+* RDK [Dependencies](../../README.md#dependencies)
 * bazel
 * macOS
 	* `brew install openssl`
