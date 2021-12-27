@@ -1,10 +1,10 @@
 package motionplan
 
 import (
-	spatial "go.viam.com/core/spatialmath"
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
-// Collision is a pair of strings corresponding to names of Volume objects in collision
+// Collision is a pair of strings corresponding to names of Volume objects in collision.
 type Collision struct{ name1, name2 string }
 
 // CollisionGraph stores the relationship between Volumes, describing which are in collision.  The information for each
@@ -25,14 +25,14 @@ type CollisionGraph struct {
 	size int
 }
 
-// volumeNode defines a node for the CollisionGraph and only exists within this scope
+// volumeNode defines a node for the CollisionGraph and only exists within this scope.
 type volumeNode struct {
 	name   string
 	volume spatial.Volume
 }
 
 // newCollisionGraph is a helper function to instantiate a new CollisionGraph.  Note that since it does not set the
-// adjacencies matrix, returned CollisionGraphs are not correct on their own and need further processing
+// adjacencies matrix, returned CollisionGraphs are not correct on their own and need further processing.
 func newCollisionGraph(vols map[string]spatial.Volume) *CollisionGraph {
 	cg := &CollisionGraph{}
 	cg.indices = make(map[string]int)
@@ -50,11 +50,11 @@ func newCollisionGraph(vols map[string]spatial.Volume) *CollisionGraph {
 }
 
 // Collisions returns a list of Collision objects, with each element corresponding to a pair of names of nodes that
-// are in collision within the specified CollisionGraph
+// are in collision within the specified CollisionGraph.
 func (cg *CollisionGraph) Collisions() []Collision {
 	collisions := make([]Collision, 0)
-	for i := 0; i < cg.size; i++ {
-		for j := i + 1; j < cg.size; j++ {
+	for i := 0; i < cg.size-1; i++ {
+		for j := i + 1; j < cg.size-1; j++ {
 			if cg.adjacencies[i][j] {
 				collisions = append(collisions, Collision{cg.nodes[i].name, cg.nodes[j].name})
 			}
@@ -63,15 +63,26 @@ func (cg *CollisionGraph) Collisions() []Collision {
 	return collisions
 }
 
+// checkAddEdge is a helper function to check for a collision at indices (i, j) and if one exists, add an edge between
+// the nodes.
+func (cg *CollisionGraph) checkAddEdge(i, j int) error {
+	collides, err := cg.nodes[i].volume.CollidesWith(cg.nodes[j].volume)
+	if err != nil {
+		return err
+	}
+	cg.adjacencies[i][j] = collides
+	cg.adjacencies[j][i] = collides
+	return nil
+}
+
 // CheckCollisions checks each possible Volume pair for a collision, and if there is it will be stored as an edge in a
-// newly instantiated CollisionGraph that is returned
+// newly instantiated CollisionGraph that is returned.
 func CheckCollisions(vols map[string]spatial.Volume) (*CollisionGraph, error) {
 	cg := newCollisionGraph(vols)
 
 	// iterate through all Volume pairs and store collisions as edges in graph
-	for i := 0; i < cg.size; i++ {
-		//
-		for j := i + 1; j < cg.size; j++ {
+	for i := 0; i < cg.size-1; i++ {
+		for j := i + 1; j < cg.size-1; j++ {
 			err := cg.checkAddEdge(i, j)
 			if err != nil {
 				return nil, err
@@ -83,13 +94,13 @@ func CheckCollisions(vols map[string]spatial.Volume) (*CollisionGraph, error) {
 
 // CheckUniqueCollisions checks each possible Volume pair for a collision, and if there is it will be stored as an edge
 // in a newly instantiated CollisionGraph that is returned. Edges between volumes that already exist in the passed in
-// "seen" CollisionGraph will not be present in the returned CollisionGraph
+// "seen" CollisionGraph will not be present in the returned CollisionGraph.
 func CheckUniqueCollisions(vols map[string]spatial.Volume, seen *CollisionGraph) (*CollisionGraph, error) {
 	cg := newCollisionGraph(vols)
 
 	// iterate through all Volume pairs and store new collisions as edges in graph
-	for i := 0; i < cg.size; i++ {
-		for j := i + 1; j < cg.size; j++ {
+	for i := 0; i < cg.size-1; i++ {
+		for j := i + 1; j < cg.size-1; j++ {
 			// ignore any previously seen collisions
 			x, xk := seen.indices[cg.nodes[i].name]
 			y, yk := seen.indices[cg.nodes[j].name]
@@ -103,16 +114,4 @@ func CheckUniqueCollisions(vols map[string]spatial.Volume, seen *CollisionGraph)
 		}
 	}
 	return cg, nil
-}
-
-// checkAddEdge is a helper function to check for a collision at indices (i, j) and if one exists, add an edge between
-// the nodes
-func (cg *CollisionGraph) checkAddEdge(i, j int) error {
-	collides, err := cg.nodes[i].volume.CollidesWith(cg.nodes[j].volume)
-	if err != nil {
-		return err
-	}
-	cg.adjacencies[i][j] = collides
-	cg.adjacencies[j][i] = collides
-	return nil
 }

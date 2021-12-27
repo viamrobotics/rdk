@@ -131,7 +131,7 @@ func NewStaticFrame(name string, pose spatial.Pose) (Frame, error) {
 	return &staticFrame{name, pose, nil}, nil
 }
 
-// NewZeroStaticFrame creates a frame with no translation or orientation changes
+// NewZeroStaticFrame creates a frame with no translation or orientation changes.
 func NewZeroStaticFrame(name string) Frame {
 	return &staticFrame{name, spatial.NewZeroPose(), nil}
 }
@@ -160,11 +160,6 @@ func NewStaticFrameFromFrame(frame Frame, pose spatial.Pose) (Frame, error) {
 	return &staticFrame{frame.Name(), pose, nil}, nil
 }
 
-// NewZeroStaticFrame creates a frame with no translation or orientation changes.
-func NewZeroStaticFrame(name string) Frame {
-	return newZeroStaticFrame(name)
-}
-
 // FrameFromPoint creates a new Frame from a 3D point.
 func FrameFromPoint(name string, point r3.Vector) (Frame, error) {
 	pose := spatial.NewPoseFromPoint(point)
@@ -184,10 +179,10 @@ func (sf *staticFrame) Transform(inp []Input) (spatial.Pose, error) {
 	return sf.transform, nil
 }
 
-// Volume returns an object representing the 3D space associeted with the staticFrame
+// Volume returns an object representing the 3D space associeted with the staticFrame.
 func (sf *staticFrame) Volume(input []Input) (map[string]spatial.Volume, error) {
 	if sf.volume == nil {
-		return nil, nil
+		return nil, fmt.Errorf("volume not implemented for type %T", sf)
 	}
 	pose, err := sf.Transform(input)
 	m := make(map[string]spatial.Volume)
@@ -289,10 +284,10 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	return q, err
 }
 
-// Volume returns an object representing the 3D space associeted with the translationalFrame
+// Volume returns an object representing the 3D space associeted with the translationalFrame.
 func (pf *translationalFrame) Volume(input []Input) (map[string]spatial.Volume, error) {
 	if pf.volume == nil {
-		return nil, nil
+		return nil, fmt.Errorf("volume not implemented for type %T", pf)
 	}
 	pose, err := pf.Transform(input)
 	m := make(map[string]spatial.Volume)
@@ -388,9 +383,9 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 }
 
 // Volume will always return (nil, nil) for rotationalFrames, as not allowing rotationalFrames to occupy volumes is a
-// design choice made for simplicity. staticFrame and translationalFrame should be used instead
+// design choice made for simplicity. staticFrame and translationalFrame should be used instead.
 func (rf *rotationalFrame) Volume(input []Input) (map[string]spatial.Volume, error) {
-	return nil, nil
+	return nil, fmt.Errorf("volume not implemented for type %T", rf)
 }
 
 // DoF returns the number of degrees of freedom that a joint has. This would be 1 for a standard revolute joint.

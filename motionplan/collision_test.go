@@ -6,9 +6,9 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
-	frame "go.viam.com/core/referenceframe"
-	spatial "go.viam.com/core/spatialmath"
-	"go.viam.com/core/utils"
+	frame "go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 func TestCheckCollisions(t *testing.T) {
@@ -65,12 +65,12 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, equal, test.ShouldBeTrue)
 }
 
-// collisionsEqual is a helper function to compare two Collision lists because they can be out of order due to random nature of maps
+// collisionsEqual is a helper function to compare two Collision lists because they can be out of order due to random nature of maps.
 func collisionsEqual(c1 []Collision, c2 [2]Collision) bool {
 	return (collisionEqual(c1[0], c2[0]) && collisionEqual(c1[1], c2[1])) || (collisionEqual(c1[0], c2[1]) && collisionEqual(c1[1], c2[0]))
 }
 
-// collisionEqual is a helper function to compare two Collisions because their strings can be out of order due to random nature of maps
+// collisionEqual is a helper function to compare two Collisions because their strings can be out of order due to random nature of maps.
 func collisionEqual(c1, c2 Collision) bool {
 	return (c1.name1 == c2.name1 && c1.name2 == c2.name2) || (c1.name1 == c2.name2 && c1.name2 == c2.name1)
 }
