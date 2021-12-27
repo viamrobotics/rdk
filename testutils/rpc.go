@@ -1,3 +1,4 @@
+// Package testutils implements test utilities.
 package testutils
 
 import (

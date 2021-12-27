@@ -3,9 +3,8 @@ package rimage
 import (
 	"testing"
 
-	"go.viam.com/test"
-
 	"github.com/golang/geo/r2"
+	"go.viam.com/test"
 )
 
 type rangeArrayHelper struct {
@@ -33,7 +32,6 @@ func TestStructuringElement(t *testing.T) {
 	expected := &DepthMap{3, 3, []Depth{0, 1, 0, 1, 1, 1, 0, 1, 0}}
 	got := makeStructuringElement(3)
 	test.That(t, expected, test.ShouldResemble, got)
-
 }
 
 func TestInterpolations(t *testing.T) {

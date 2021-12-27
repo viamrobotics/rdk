@@ -7,12 +7,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
-
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
-
-	"github.com/edaniels/golog"
 )
 
 func writePicture(img image.Image, p string) error {
@@ -48,7 +46,6 @@ func TestVectorFieldToDenseAndBack(t *testing.T) {
 	vf2, err := VectorField2DFromDense(magMat, dirMat)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, vf2, test.ShouldResemble, &vf)
-
 }
 
 func TestSobelFilter(t *testing.T) {
@@ -73,7 +70,6 @@ func TestSobelFilter(t *testing.T) {
 	test.That(t, radZeroTo2Pi(gradients.GetVec2D(76, 100).Direction()), test.ShouldEqual, 0)
 	// (150,27) is top edge of circle
 	test.That(t, radZeroTo2Pi(gradients.GetVec2D(150, 27).Direction()), test.ShouldEqual, math.Pi/2.)
-
 }
 
 func BenchmarkSobelFilter(b *testing.B) {

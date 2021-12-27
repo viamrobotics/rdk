@@ -7,10 +7,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-// OrientationType defines what orientation representations are known
+// OrientationType defines what orientation representations are known.
 type OrientationType string
 
-// The set of allowed representations for orientation
+// The set of allowed representations for orientation.
 const (
 	NoOrientationType            = OrientationType("")
 	OrientationVectorDegreesType = OrientationType("ov_degrees")
@@ -19,7 +19,7 @@ const (
 	AxisAnglesType               = OrientationType("axis_angles")
 )
 
-// OrientationMap encodes the orientation interface to something serializable and human readable
+// OrientationMap encodes the orientation interface to something serializable and human readable.
 func OrientationMap(o Orientation) (map[string]interface{}, error) {
 	switch v := o.(type) {
 	case *R4AA:

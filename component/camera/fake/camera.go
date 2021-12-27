@@ -1,3 +1,4 @@
+// Package fake implements a fake camera.
 package fake
 
 import (
@@ -7,12 +8,12 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/core/component/camera"
-	"go.viam.com/core/config"
-	"go.viam.com/core/pointcloud"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/robot"
 )
 
 func init() {
@@ -41,13 +42,8 @@ func (c *Camera) Next(ctx context.Context) (image.Image, func(), error) {
 	return img, func() {}, nil
 }
 
-// NextPointCloud always returns a pointcloud with a single pixel
+// NextPointCloud always returns a pointcloud with a single pixel.
 func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	pc := pointcloud.New()
 	return pc, pc.Set(pointcloud.NewColoredPoint(16, 16, 16, color.NRGBA{255, 0, 0, 255}))
-}
-
-// Close does nothing.
-func (c *Camera) Close() error {
-	return nil
 }

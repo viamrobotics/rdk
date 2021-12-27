@@ -8,16 +8,15 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
 	utils.ParallelFactor = 1
 }
 
-type chunkImageDebug struct {
-}
+type chunkImageDebug struct{}
 
 func (cid *chunkImageDebug) Process(
 	t *testing.T,
@@ -26,7 +25,7 @@ func (cid *chunkImageDebug) Process(
 	imgraw image.Image,
 	logger golog.Logger,
 ) error {
-
+	t.Helper()
 	iwd := rimage.ConvertToImageWithDepth(imgraw)
 	img := iwd.Color
 
@@ -98,9 +97,7 @@ func (cid *chunkImageDebug) Process(
 					return err
 				}
 			}
-
 		}
-
 	}
 
 	if true {

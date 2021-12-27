@@ -10,18 +10,17 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/config"
-	"go.viam.com/core/grpc"
-	"go.viam.com/core/grpc/client"
-	"go.viam.com/core/metadata/service"
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/testutils/inject"
-
-	_ "go.viam.com/core/component/arm/register"
+	"go.viam.com/rdk/component/arm"
+	_ "go.viam.com/rdk/component/arm/register"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/metadata/service"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 var resources = []resource.Name{resource.NewName(resource.Namespace("acme"), resource.ResourceTypeComponent, arm.SubtypeName, "arm1")}
@@ -50,7 +49,7 @@ func TestWebStart(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "already started")
 
 	// try to close server
-	err = svc.Close()
+	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc.(*webService).cancelFunc, test.ShouldBeNil)
 }
@@ -66,9 +65,8 @@ func TestWebStartOptions(t *testing.T) {
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	options := NewOptions()
-	options.Port = port
-
 	addr := fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = addr
 
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -81,7 +79,7 @@ func TestWebStartOptions(t *testing.T) {
 	test.That(t, client.ResourceNames(), test.ShouldResemble, resources)
 
 	// try to close server
-	err = svc.Close()
+	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc.(*webService).cancelFunc, test.ShouldBeNil)
 }
@@ -94,12 +92,16 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc.(*webService).cancelFunc, test.ShouldBeNil)
 
-	err = svc.Start(ctx, NewOptions())
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	options := NewOptions()
+	addr := fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = addr
+	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc.(*webService).cancelFunc, test.ShouldNotBeNil)
 
 	// make sure we get something back
-	addr := "localhost:8080"
 	arm1 := "arm1"
 	c, err := client.New(context.Background(), addr, logger, client.WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
@@ -112,7 +114,8 @@ func TestWebUpdate(t *testing.T) {
 		return pos, nil
 	}
 	rs := map[resource.Name]interface{}{arm.Named(arm1): injectArm}
-	updateable := svc.(resource.Updateable)
+	updateable, ok := svc.(resource.Updateable)
+	test.That(t, ok, test.ShouldBeTrue)
 	err = updateable.Update(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -124,7 +127,7 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, position, test.ShouldResemble, pos)
 
 	// try to close server
-	test.That(t, svc.Close(), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 	test.That(t, svc.(*webService).cancelFunc, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
@@ -137,7 +140,7 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc2.(*webService).cancelFunc, test.ShouldBeNil)
 
-	err = svc2.Start(ctx, NewOptions())
+	err = svc2.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc2.(*webService).cancelFunc, test.ShouldNotBeNil)
 
@@ -160,7 +163,8 @@ func TestWebUpdate(t *testing.T) {
 		return pos2, nil
 	}
 	rs[arm.Named(arm2)] = injectArm2
-	updateable = svc2.(resource.Updateable)
+	updateable, ok = svc2.(resource.Updateable)
+	test.That(t, ok, test.ShouldBeTrue)
 	err = updateable.Update(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -175,14 +179,14 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, position, test.ShouldResemble, pos2)
 
 	// try to close server
-	test.That(t, svc2.Close(), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), svc2), test.ShouldBeNil)
 	test.That(t, svc2.(*webService).cancelFunc, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
 func setupRobotCtx() (context.Context, robot.Robot) {
 	injectRobot := &inject.Robot{}
-	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return nil, nil }
+	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
 	injectRobot.CameraNamesFunc = func() []string { return []string{} }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) { return name, false }

@@ -24,11 +24,6 @@ SERVER_DEB_VER = 0.5
 binsetup:
 	mkdir -p ${BIN_OUTPUT_PATH}
 
-goformat:
-	go install golang.org/x/tools/cmd/goimports
-	gofmt -s -w .
-	`go env GOPATH`/bin/goimports -w -local=go.viam.com/core `go list -f '{{.Dir}}' ./... | grep -Ev "proto"`
-
 setup:
 	bash etc/setup.sh
 
@@ -46,17 +41,13 @@ buf:
 	buf generate
 	buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
 	buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
-	go install golang.org/x/tools/cmd/goimports
-	`go env GOPATH`/bin/goimports -w -local=go.viam.com/core proto
 
-lint: goformat
+lint:
 	buf lint
 	go install github.com/edaniels/golinters/cmd/combined
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint
-	go install github.com/polyfloyd/go-errorlint
 	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go vet -vettool=`go env GOPATH`/bin/combined
-	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs `go env GOPATH`/bin/go-errorlint -errorf
-	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v --config=./etc/.golangci.yaml
+	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
 cover:
 	unset CGO_LDFLAGS && ./etc/test.sh cover
@@ -65,7 +56,7 @@ test:
 	unset CGO_LDFLAGS && ./etc/test.sh
 
 testpi:
-	sudo go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/core/board/pi
+	sudo go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/rdk/board/pi
 
 dockerlocal:
 	docker build -f etc/Dockerfile.fortest --no-cache -t 'ghcr.io/viamrobotics/test:latest' .

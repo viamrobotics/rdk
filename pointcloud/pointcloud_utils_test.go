@@ -7,6 +7,7 @@ import (
 )
 
 func makeClouds(t *testing.T) []PointCloud {
+	t.Helper()
 	// create cloud 0
 	cloud0 := New()
 	p00 := NewBasicPoint(0, 0, 0)

@@ -7,9 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.viam.com/utils/testutils"
-
 	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 )
 
 func TestSearch(t *testing.T) {
@@ -37,19 +36,19 @@ func TestSearch(t *testing.T) {
 	dev6 := testutils.TempDirT(t, dev6Root, "")
 	dev7 := testutils.TempDirT(t, dev7Root, "")
 
-	test.That(t, os.WriteFile(filepath.Join(tempDir2, "uevent"), []byte("PRODUCT=10c4/ea60"), 0666), test.ShouldBeNil)
-	test.That(t, os.WriteFile(filepath.Join(dev3Root, "uevent"), []byte("PRODUCT=10c5/ea61"), 0666), test.ShouldBeNil)
-	test.That(t, os.WriteFile(filepath.Join(dev4Root, "uevent"), []byte("PRODUCT=10c5X/ea61"), 0666), test.ShouldBeNil)
-	test.That(t, os.WriteFile(filepath.Join(dev5Root, "uevent"), []byte("PRODUCT=10c5/ea6X"), 0666), test.ShouldBeNil)
-	test.That(t, os.WriteFile(filepath.Join(dev6Root, "uevent"), []byte("PRODUCT=10c4/ea60"), 0666), test.ShouldBeNil)
-	test.That(t, os.WriteFile(filepath.Join(dev7Root, "uevent"), []byte("PRODUCT=10c4/ea60"), 0666), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(tempDir2, "uevent"), []byte("PRODUCT=10c4/ea60"), 0o666), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dev3Root, "uevent"), []byte("PRODUCT=10c5/ea61"), 0o666), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dev4Root, "uevent"), []byte("PRODUCT=10c5X/ea61"), 0o666), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dev5Root, "uevent"), []byte("PRODUCT=10c5/ea6X"), 0o666), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dev6Root, "uevent"), []byte("PRODUCT=10c4/ea60"), 0o666), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dev7Root, "uevent"), []byte("PRODUCT=10c4/ea60"), 0o666), test.ShouldBeNil)
 
-	test.That(t, os.Mkdir(filepath.Join(dev1, "tty"), 0700), test.ShouldBeNil)
-	test.That(t, os.Mkdir(filepath.Join(dev3, "tty"), 0700), test.ShouldBeNil)
-	test.That(t, os.Mkdir(filepath.Join(dev6, "tty"), 0666), test.ShouldBeNil)
-	test.That(t, os.Mkdir(filepath.Join(dev7, "tty"), 0700), test.ShouldBeNil)
-	test.That(t, os.WriteFile(filepath.Join(dev1, "tty", "one"), []byte("a"), 0666), test.ShouldBeNil)
-	test.That(t, os.WriteFile(filepath.Join(dev3, "tty", "two"), []byte("b"), 0666), test.ShouldBeNil)
+	test.That(t, os.Mkdir(filepath.Join(dev1, "tty"), 0o700), test.ShouldBeNil)
+	test.That(t, os.Mkdir(filepath.Join(dev3, "tty"), 0o700), test.ShouldBeNil)
+	test.That(t, os.Mkdir(filepath.Join(dev6, "tty"), 0o666), test.ShouldBeNil)
+	test.That(t, os.Mkdir(filepath.Join(dev7, "tty"), 0o700), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dev1, "tty", "one"), []byte("a"), 0o666), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dev3, "tty", "two"), []byte("b"), 0o666), test.ShouldBeNil)
 
 	test.That(t,
 		os.Symlink(

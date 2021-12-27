@@ -10,7 +10,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/usb"
+	"go.viam.com/rdk/usb"
 )
 
 func searchUSB(filter SearchFilter) []Description {

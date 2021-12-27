@@ -5,10 +5,9 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/utils/artifact"
-
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func Test1(t *testing.T) {

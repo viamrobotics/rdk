@@ -5,16 +5,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/gostream"
-
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/robot"
 )
 
 // init registers the RandomWalk action.
@@ -31,7 +29,6 @@ func RandomWalk(ctx context.Context, theRobot robot.Robot) {
 	defer cancelFunc()
 	for {
 		err := randomWalkIncrement(ctx, theRobot)
-
 		if err != nil {
 			theRobot.Logger().Debugf("error doing random walk, trying again: %s", err)
 			if !utils.SelectContextOrWait(ctx, 2*time.Second) {
@@ -43,7 +40,6 @@ func RandomWalk(ctx context.Context, theRobot robot.Robot) {
 }
 
 func randomWalkIncrement(ctx context.Context, theRobot robot.Robot) error {
-
 	base, camera, err := setup(theRobot)
 	if err != nil {
 		return err
