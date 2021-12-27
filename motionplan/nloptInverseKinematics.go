@@ -20,8 +20,10 @@ var (
 	errTooManyVals = errors.New("passed in too many joint positions")
 )
 
-const constrainedTries = 30
-const nloptStepsPerIter = 4001
+const (
+	constrainedTries  = 30
+	nloptStepsPerIter = 4001
+)
 
 // NloptIK TODO.
 type NloptIK struct {
@@ -62,8 +64,13 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int
 	return ik, nil
 }
 
-// Solve runs the actual solver and sends any solutions found to the given channel
-func (ik *NloptIK) Solve(ctx context.Context, c chan<- []referenceframe.Input, newGoal spatial.Pose, seed []referenceframe.Input, m Metric) error {
+// Solve runs the actual solver and sends any solutions found to the given channel.
+func (ik *NloptIK) Solve(ctx context.Context,
+	c chan<- []referenceframe.Input,
+	newGoal spatial.Pose,
+	seed []referenceframe.Input,
+	m Metric,
+) error {
 	var err error
 
 	tries := 1
@@ -84,7 +91,6 @@ func (ik *NloptIK) Solve(ctx context.Context, c chan<- []referenceframe.Input, n
 	// x is our joint positions
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
 	nloptMinFunc := func(x, gradient []float64) float64 {
-
 		iterations++
 
 		// TODO(pl): Might need to check if any of x is +/- Inf

@@ -152,18 +152,6 @@ func play(ctx context.Context, r robot.Robot) error {
 	return nil
 }
 
-<<<<<<< HEAD
-=======
-func mpFuncBasic(f referenceframe.Frame, ncpu int, logger golog.Logger) (motionplan.MotionPlanner, error) {
-	mp, err := motionplan.NewCBiRRTMotionPlanner(f, 4, logger)
-	opt := motionplan.NewDefaultPlannerOptions()
-	opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY+15))
-	mp.SetOptions(opt)
-
-	return mp, err
-}
-
->>>>>>> main
 func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, moveFrameName string) error {
 	resources, err := getInputEnabled(ctx, r)
 	if err != nil {
