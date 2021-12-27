@@ -45,7 +45,7 @@ func RunPinholeExtrinsicCalibration(prob *optimize.Problem, logger golog.Logger)
 	// initial value for rotation euler angles(3) and translation(3)
 	params := make([]float64, 6)
 	for i := range params {
-		params[i] = (rand.Float64() - 0.5) / 10. //nolint // initial values for parameters
+		params[i] = (rand.Float64() - 0.5) / 10. //nolint:gosec // initial values for parameters
 	}
 	// do the minimization
 	res, err := optimize.Minimize(*prob, params, settings, method)
