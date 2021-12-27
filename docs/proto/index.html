@@ -749,6 +749,70 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.BoardAnalogReaderReadRequest"><span class="badge">M</span>BoardAnalogReaderReadRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardAnalogReaderReadResponse"><span class="badge">M</span>BoardAnalogReaderReadResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardDigitalInterruptConfigRequest"><span class="badge">M</span>BoardDigitalInterruptConfigRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardDigitalInterruptConfigResponse"><span class="badge">M</span>BoardDigitalInterruptConfigResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardDigitalInterruptTickRequest"><span class="badge">M</span>BoardDigitalInterruptTickRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardDigitalInterruptTickResponse"><span class="badge">M</span>BoardDigitalInterruptTickResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardDigitalInterruptValueRequest"><span class="badge">M</span>BoardDigitalInterruptValueRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardDigitalInterruptValueResponse"><span class="badge">M</span>BoardDigitalInterruptValueResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardGPIOGetRequest"><span class="badge">M</span>BoardGPIOGetRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardGPIOGetResponse"><span class="badge">M</span>BoardGPIOGetResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardGPIOSetRequest"><span class="badge">M</span>BoardGPIOSetRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardGPIOSetResponse"><span class="badge">M</span>BoardGPIOSetResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardPWMSetFrequencyRequest"><span class="badge">M</span>BoardPWMSetFrequencyRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardPWMSetFrequencyResponse"><span class="badge">M</span>BoardPWMSetFrequencyResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardPWMSetRequest"><span class="badge">M</span>BoardPWMSetRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardPWMSetResponse"><span class="badge">M</span>BoardPWMSetResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.BoardStatus"><span class="badge">M</span>BoardStatus</a>
                 </li>
               
@@ -758,6 +822,14 @@
               
                 <li>
                   <a href="#proto.api.v1.BoardStatus.DigitalInterruptsEntry"><span class="badge">M</span>BoardStatus.DigitalInterruptsEntry</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardStatusRequest"><span class="badge">M</span>BoardStatusRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardStatusResponse"><span class="badge">M</span>BoardStatusResponse</a>
                 </li>
               
                 <li>
@@ -802,6 +874,10 @@
               
                 <li>
                   <a href="#proto.api.v1.ConfigResponse"><span class="badge">M</span>ConfigResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.DigitalInterruptConfig"><span class="badge">M</span>DigitalInterruptConfig</a>
                 </li>
               
                 <li>
@@ -5549,6 +5625,54 @@ To Do (FA): This will be deprecated</p></td>
 
         
       
+        <h3 id="proto.api.v1.BoardStatusRequest">BoardStatusRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardStatusResponse">BoardStatusResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>status</td>
+                  <td><a href="#proto.api.v1.BoardStatus">BoardStatus</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.CompassHeadingRequest">CompassHeadingRequest</h3>
         <p></p>
 
@@ -5756,6 +5880,51 @@ To Do (FA): This will be deprecated</p></td>
                   <td>components</td>
                   <td><a href="#proto.api.v1.ComponentConfig">ComponentConfig</a></td>
                   <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.DigitalInterruptConfig">DigitalInterruptConfig</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>pin</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>formula</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
                   <td><p> </p></td>
                 </tr>
               
@@ -8366,6 +8535,96 @@ like button presses or axis movements</p></td>
                 <td>BaseWidthMillis</td>
                 <td>GET</td>
                 <td>/api/v1/base/{name}/width_millis</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>BoardStatus</td>
+                <td>GET</td>
+                <td>/api/v1/board/{name}/status</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>BoardGPIOSet</td>
+                <td>PUT</td>
+                <td>/api/v1/board/{name}/gpio_set</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>BoardGPIOGet</td>
+                <td>GET</td>
+                <td>/api/v1/board/{name}/gpio_get</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>BoardPWMSet</td>
+                <td>PUT</td>
+                <td>/api/v1/board/{name}/pwm_set</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>BoardPWMSetFrequency</td>
+                <td>PUT</td>
+                <td>/api/v1/board/{name}/pwm_set_freq</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>BoardAnalogReaderRead</td>
+                <td>GET</td>
+                <td>/api/v1/board/{board_name}/analog_reader/{analog_reader_name}/read</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>BoardDigitalInterruptConfig</td>
+                <td>GET</td>
+                <td>/api/v1/board/{board_name}/digital_interrupt/{digital_interrupt_name}/config</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>BoardDigitalInterruptValue</td>
+                <td>GET</td>
+                <td>/api/v1/board/{board_name}/digital_interrupt/{digital_interrupt_name}/value</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>BoardDigitalInterruptTick</td>
+                <td>PUT</td>
+                <td>/api/v1/board/{board_name}/digital_interrupt/{digital_interrupt_name}/tick</td>
                 <td></td>
               </tr>
               
