@@ -4,15 +4,6 @@
 import * as proto_api_component_v1_board_pb from "../../../../proto/api/component/v1/board_pb";
 import {grpc} from "@improbable-eng/grpc-web";
 
-type BoardServiceStatus = {
-  readonly methodName: string;
-  readonly service: typeof BoardService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceStatusRequest;
-  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceStatusResponse;
-};
-
 type BoardServiceGPIOSet = {
   readonly methodName: string;
   readonly service: typeof BoardService;
@@ -87,7 +78,6 @@ type BoardServiceDigitalInterruptTick = {
 
 export class BoardService {
   static readonly serviceName: string;
-  static readonly Status: BoardServiceStatus;
   static readonly GPIOSet: BoardServiceGPIOSet;
   static readonly GPIOGet: BoardServiceGPIOGet;
   static readonly PWMSet: BoardServicePWMSet;
@@ -130,15 +120,6 @@ export class BoardServiceClient {
   readonly serviceHost: string;
 
   constructor(serviceHost: string, options?: grpc.RpcOptions);
-  status(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceStatusRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceStatusResponse|null) => void
-  ): UnaryResponse;
-  status(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceStatusRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceStatusResponse|null) => void
-  ): UnaryResponse;
   gPIOSet(
     requestMessage: proto_api_component_v1_board_pb.BoardServiceGPIOSetRequest,
     metadata: grpc.Metadata,

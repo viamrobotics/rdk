@@ -8,13 +8,6 @@ import "google/api/annotations.proto";
 
 // BoardService services maintains all Boards associated with a robot
 service BoardService {
-  // Status returns the status of a board of the underlying robot.
-  rpc Status(BoardServiceStatusRequest) returns (BoardServiceStatusResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/component/board/{name}/status"
-    };  
-  }
-
   // GPIOSet sets the given pin of a board of the underlying robot to either low or high.
   rpc GPIOSet(BoardServiceGPIOSetRequest) returns (BoardServiceGPIOSetResponse) {
     option (google.api.http) = {
@@ -75,27 +68,6 @@ service BoardService {
     };
   }
 
-}
-
-message Status {
-  map<string, AnalogStatus> analogs = 1;
-  map<string, DigitalInterruptStatus> digital_interrupts = 2;
-}
-
-message AnalogStatus {
-  int32 value = 1;
-}
-
-message DigitalInterruptStatus {
-  int64 value = 1;
-}
-
-message BoardServiceStatusRequest {
-  string name = 1;
-}
-
-message BoardServiceStatusResponse {
-  Status status = 1;
 }
 
 message BoardServiceGPIOSetRequest {
